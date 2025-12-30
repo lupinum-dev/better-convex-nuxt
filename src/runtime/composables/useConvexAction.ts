@@ -165,7 +165,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
     if (!client) {
       const err = new Error(
-        '[convexi] ConvexClient not available - actions only work on client side',
+        '[bcn] ConvexClient not available - actions only work on client side',
       )
       log('Error: Client not available')
       _status.value = 'error'

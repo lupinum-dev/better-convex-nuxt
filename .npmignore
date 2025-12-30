@@ -1,0 +1,24 @@
+# Source & dev files
+src/
+test/
+playground/
+docs/
+.github/
+.husky/
+.vscode/
+
+# Config files
+*.config.ts
+*.config.mjs
+tsconfig.json
+.editorconfig
+.eslintrc*
+.prettierrc*
+.npmrc
+.oxfmtrc.json
+renovate.json
+
+# Misc
+_*.md
+.env*
+*.log

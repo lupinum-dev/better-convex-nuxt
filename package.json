@@ -1,5 +1,5 @@
 {
-  "name": "convexi",
+  "name": "better-convex-nuxt",
   "version": "0.1.0",
   "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
   "keywords": [
@@ -16,15 +16,15 @@
     "vue3",
     "websocket"
   ],
-  "homepage": "https://convexi.vercel.app",
+  "homepage": "https://better-convex-nuxt.vercel.app",
   "bugs": {
-    "url": "https://github.com/lupinum-dev/convexi/issues"
+    "url": "https://github.com/lupinum-dev/better-convex-nuxt/issues"
   },
   "license": "MIT",
   "author": "Matthias Amon <ma4m0>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lupinum-dev/convexi.git"
+    "url": "git+https://github.com/lupinum-dev/better-convex-nuxt.git"
   },
   "files": [
     "dist"

@@ -19,7 +19,7 @@ Full-stack Nuxt that [feels like cheating]{.text-primary}
 :::u-button{size="lg" to="/getting-started/installation" color="warning" trailing-icon="i-lucide-arrow-right" label="Get Started"}
 :::
 
-:u-input-copy{value="pnpm add convexi"}
+:u-input-copy{value="pnpm add better-convex-nuxt"}
 
 #default
 ::tabs{class="xl:-mt-10 bg-white dark:bg-neutral-900"}
@@ -225,7 +225,7 @@ to: /data-fetching/queries#typescript
 links: - label: Get Started
 to: '/getting-started/installation'
 trailingIcon: i-lucide-arrow-right - label: View on GitHub
-to: 'https://github.com/lupinum-dev/convexi'
+to: 'https://github.com/lupinum-dev/better-convex-nuxt'
 variant: subtle
 icon: i-simple-icons-github
 title: Ready to build with Convex?

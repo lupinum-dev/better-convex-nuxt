@@ -511,7 +511,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
     if (!client) {
       const err = new Error(
-        '[convexi] ConvexClient not available - mutations only work on client side',
+        '[bcn] ConvexClient not available - mutations only work on client side',
       )
       log('Error: Client not available')
       _status.value = 'error'

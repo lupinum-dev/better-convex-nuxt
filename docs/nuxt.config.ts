@@ -56,14 +56,14 @@ export default defineNuxtConfig({
   },
 
   llms: {
-    domain: 'https://convexi.vercel.app/',
-    title: 'Convexi',
+    domain: 'https://better-convex-nuxt.vercel.app/',
+    title: 'Better Convex Nuxt',
     description:
       'Nuxt module for Convex with Better Auth - real-time queries, SSR, authentication, and fine-grained permissions.',
     full: {
-      title: 'Convexi - Full Documentation',
+      title: 'Better Convex Nuxt - Full Documentation',
       description:
-        'Complete documentation for Convexi module including API reference, authentication, and permissions.',
+        'Complete documentation for Better Convex Nuxt module including API reference, authentication, and permissions.',
     },
     sections: [
       {
@@ -85,6 +85,6 @@ export default defineNuxtConfig({
   },
 
   mcp: {
-    name: 'convexi',
+    name: 'better-convex-nuxt',
   },
 })

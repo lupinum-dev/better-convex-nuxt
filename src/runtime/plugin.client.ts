@@ -38,7 +38,7 @@ declare module '#app' {
 // Verbose logging helper for client debugging
 const log = (message: string, data?: unknown) => {
   if (import.meta.dev) {
-    const prefix = '[convexi:client] '
+    const prefix = '[bcn:client] '
     if (data !== undefined) {
       console.log(prefix + message, data)
     } else {
@@ -69,7 +69,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   if (!convexUrl) {
     log('No Convex URL configured, aborting')
-    console.warn('[convexi] No Convex URL configured')
+    console.warn('[bcn] No Convex URL configured')
     return
   }
 

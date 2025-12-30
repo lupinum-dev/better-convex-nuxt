@@ -14,7 +14,7 @@ interface ConvexUser {
 const log = (message: string, data?: unknown) => {
   if (import.meta.dev) {
     const env = import.meta.server ? '[SSR]' : '[Client]'
-    const prefix = `[convexi:auth] ${env} `
+    const prefix = `[bcn:auth] ${env} `
     if (data !== undefined) {
       console.log(prefix + message, data)
     } else {

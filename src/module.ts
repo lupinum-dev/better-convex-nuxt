@@ -32,7 +32,7 @@ export interface ModuleOptions {
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: 'convexi',
+    name: 'better-convex-nuxt',
     configKey: 'convex',
     compatibility: {
       nuxt: '>=3.0.0',
@@ -83,7 +83,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     // 5. Register Type Augmentation for IDE support
     addTemplate({
-      filename: 'types/convexi.d.ts',
+      filename: 'types/better-convex-nuxt.d.ts',
       getContents: () => `
 import type { ConvexClient } from 'convex/browser'
 import type { createAuthClient } from 'better-auth/vue'
@@ -193,7 +193,7 @@ export {}
     // 9. Add types to tsconfig references
     nuxt.hook('prepare:types', (opts) => {
       opts.references.push({
-        path: resolver.resolve(nuxt.options.buildDir, 'types/convexi.d.ts'),
+        path: resolver.resolve(nuxt.options.buildDir, 'types/better-convex-nuxt.d.ts'),
       })
     })
   },

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly",
+    ":automergeMinor",
+    ":automergePatch"
+  ],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "matchPackagePatterns": ["^@nuxt/", "^nuxt$"],
+      "groupName": "nuxt"
+    },
+    {
+      "matchPackagePatterns": ["^convex", "^@convex-dev/"],
+      "groupName": "convex"
+    }
+  ]
+}

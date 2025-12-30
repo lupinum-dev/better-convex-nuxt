@@ -1,4 +1,4 @@
-# Convexi
+# Better Convex Nuxt
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
@@ -7,8 +7,8 @@
 
 Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, and permissions.
 
-- [Documentation](https://convexi.vercel.app)
-- [Online Playground](https://stackblitz.com/github/lupinum-dev/convexi?file=playground%2Fapp.vue)
+- [Documentation](https://better-convex-nuxt.vercel.app)
+- [Online Playground](https://stackblitz.com/github/lupinum-dev/better-convex-nuxt?file=playground%2Fapp.vue)
 
 ## Features
 
@@ -24,7 +24,7 @@ Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.c
 Install the module:
 
 ```bash
-npx nuxi module add convexi
+npx nuxi module add better-convex-nuxt
 ```
 
 Add your Convex URL to `.env`:
@@ -128,13 +128,13 @@ async function handleLogin() {
 
 ## Documentation
 
-Visit [convexi.vercel.app](https://convexi.vercel.app) for full documentation including:
+Visit [better-convex-nuxt.vercel.app](https://better-convex-nuxt.vercel.app) for full documentation including:
 
-- [Installation & Setup](https://convexi.vercel.app/getting-started/installation)
-- [SSR Patterns](https://convexi.vercel.app/patterns/ssr-patterns)
-- [Optimistic Updates](https://convexi.vercel.app/patterns/optimistic-updates)
-- [Permissions](https://convexi.vercel.app/patterns/permissions)
-- [Server Utilities](https://convexi.vercel.app/server/server-utilities)
+- [Installation & Setup](https://better-convex-nuxt.vercel.app/getting-started/installation)
+- [SSR Patterns](https://better-convex-nuxt.vercel.app/patterns/ssr-patterns)
+- [Optimistic Updates](https://better-convex-nuxt.vercel.app/patterns/optimistic-updates)
+- [Permissions](https://better-convex-nuxt.vercel.app/patterns/permissions)
+- [Server Utilities](https://better-convex-nuxt.vercel.app/server/server-utilities)
 
 ## Contributing
 
@@ -161,11 +161,11 @@ pnpm lint
 
 <!-- Badges -->
 
-[npm-version-src]: https://img.shields.io/npm/v/convexi/latest.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-version-href]: https://npmjs.com/package/convexi
-[npm-downloads-src]: https://img.shields.io/npm/dm/convexi.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-downloads-href]: https://npm.chart.dev/convexi
-[license-src]: https://img.shields.io/npm/l/convexi.svg?style=flat&colorA=020420&colorB=00DC82
-[license-href]: https://npmjs.com/package/convexi
+[npm-version-src]: https://img.shields.io/npm/v/better-convex-nuxt/latest.svg?style=flat&colorA=020420&colorB=00DC82
+[npm-version-href]: https://npmjs.com/package/better-convex-nuxt
+[npm-downloads-src]: https://img.shields.io/npm/dm/better-convex-nuxt.svg?style=flat&colorA=020420&colorB=00DC82
+[npm-downloads-href]: https://npm.chart.dev/better-convex-nuxt
+[license-src]: https://img.shields.io/npm/l/better-convex-nuxt.svg?style=flat&colorA=020420&colorB=00DC82
+[license-href]: https://npmjs.com/package/better-convex-nuxt
 [nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt
 [nuxt-href]: https://nuxt.com

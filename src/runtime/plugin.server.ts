@@ -24,7 +24,7 @@ interface ConvexUser {
 // Verbose logging helper for SSR debugging
 const log = (message: string, data?: unknown) => {
   if (import.meta.dev) {
-    const prefix = '[convexi:ssr] '
+    const prefix = '[bcn:ssr] '
     if (data !== undefined) {
       console.log(prefix + message, data)
     } else {

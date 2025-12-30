@@ -38,13 +38,13 @@ export default defineAppConfig({
     },
   },
   seo: {
-    siteName: 'Convexi',
+    siteName: 'Better Convex Nuxt',
   },
   header: {
-    title: 'Convexi',
+    title: 'Better Convex Nuxt',
     to: '/',
     logo: {
-      alt: 'Convexi',
+      alt: 'Better Convex Nuxt',
       light: '',
       dark: '',
     },
@@ -53,7 +53,7 @@ export default defineAppConfig({
     links: [
       {
         icon: 'i-simple-icons-github',
-        to: 'https://github.com/lupinum-dev/convexi',
+        to: 'https://github.com/lupinum-dev/better-convex-nuxt',
         target: '_blank',
         'aria-label': 'GitHub',
       },
@@ -65,15 +65,15 @@ export default defineAppConfig({
     links: [
       {
         icon: 'i-simple-icons-github',
-        to: 'https://github.com/lupinum-dev/convexi',
+        to: 'https://github.com/lupinum-dev/better-convex-nuxt',
         target: '_blank',
-        'aria-label': 'Convexi on GitHub',
+        'aria-label': 'Better Convex Nuxt on GitHub',
       },
       {
         icon: 'i-simple-icons-npm',
-        to: 'https://www.npmjs.com/package/convexi',
+        to: 'https://www.npmjs.com/package/better-convex-nuxt',
         target: '_blank',
-        'aria-label': 'Convexi on npm',
+        'aria-label': 'Better Convex Nuxt on npm',
       },
     ],
   },
@@ -81,12 +81,12 @@ export default defineAppConfig({
     title: 'Table of Contents',
     bottom: {
       title: 'Resources',
-      edit: 'https://github.com/lupinum-dev/convexi/edit/main/docs/content',
+      edit: 'https://github.com/lupinum-dev/better-convex-nuxt/edit/main/docs/content',
       links: [
         {
           icon: 'i-lucide-star',
           label: 'Star on GitHub',
-          to: 'https://github.com/lupinum-dev/convexi',
+          to: 'https://github.com/lupinum-dev/better-convex-nuxt',
           target: '_blank',
         },
         {
