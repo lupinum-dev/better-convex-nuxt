@@ -1,15 +1,15 @@
+import type { H3Event } from 'h3'
 import {
   defineEventHandler,
   readBody,
   getQuery,
-  getMethod,
   setHeaders,
   setResponseStatus,
   createError,
-  useRuntimeConfig,
-} from '#imports'
+} from 'h3'
+import { useRuntimeConfig } from '#imports'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event: H3Event) => {
   const config = useRuntimeConfig()
   const siteUrl = config.public.convex?.siteUrl || config.public.convex?.auth?.url
 
@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const targetUrl = `${siteUrl}/api/auth${path}`
 
   // Get method and query params
-  const method = getMethod(event)
+  const method = event.method
   const query = getQuery(event)
   const queryString = new URLSearchParams(query as Record<string, string>).toString()
   const finalUrl = queryString ? `${targetUrl}?${queryString}` : targetUrl
