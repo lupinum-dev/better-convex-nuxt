@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+@import '@nuxt/ui';
+
+@source "../../../content/**/*";
+
+@theme static {
+  --container-8xl: 90rem;
+  --font-sans: 'Reddit Sans', sans-serif;
+  --font-serif: 'Charter', sans-serif;
+
+  --color-eggshell: #f9f7ee;
+
+  --color-green-50: #effdf5;
+  --color-green-100: #d9fbe8;
+  --color-green-200: #b3f5d1;
+  --color-green-300: #75edae;
+  --color-green-400: #00dc82;
+  --color-green-500: #00c16a;
+  --color-green-600: #00a155;
+  --color-green-700: #007f45;
+  --color-green-800: #016538;
+  --color-green-900: #0a5331;
+  --color-green-950: #052e16;
+
+  --color-convex-red-50: #fdebea;
+  --color-convex-red-100: #fcd6d5;
+  --color-convex-red-200: #f8aeac;
+  --color-convex-red-300: #f58582;
+  --color-convex-red-400: #f15d59;
+  --color-convex-red-500: #ee342f;
+  --color-convex-red-600: #be2a26;
+  --color-convex-red-700: #8f1f1c;
+  --color-convex-red-800: #5f1513;
+  --color-convex-red-900: #300a09;
+
+  --color-convex-yellow-50: #fef7e8;
+  --color-convex-yellow-100: #fdefd2;
+  --color-convex-yellow-200: #fadfa4;
+  --color-convex-yellow-300: #f8d077;
+  --color-convex-yellow-400: #f5c049;
+  --color-convex-yellow-500: #f3b01c;
+  --color-convex-yellow-600: #c28d16;
+  --color-convex-yellow-700: #926a11;
+  --color-convex-yellow-800: #61460b;
+  --color-convex-yellow-900: #312306;
+
+  --color-convex-purple-50: #f4e9f1;
+  --color-convex-purple-100: #e8d4e4;
+  --color-convex-purple-200: #d1a8c8;
+  --color-convex-purple-300: #bb7dad;
+  --color-convex-purple-400: #a45191;
+  --color-convex-purple-500: #8d2676;
+  --color-convex-purple-600: #711e5e;
+  --color-convex-purple-700: #551747;
+  --color-convex-purple-800: #380f2f;
+  --color-convex-purple-900: #1c0818;
+}
+
+:root {
+  --ui-container: var(--container-8xl);
+  --color-bg-test: var(--color-test);
+}
+
+/* Fix MDC prose wrapping in page hero slots */
+[data-slot='title'] > p,
+[data-slot='description'] > p,
+[data-slot='headline'] > p {
+  margin: 0;
+  line-height: inherit;
+}
+
+/* Fix buttons inside MDC slots */
+[data-slot='base'] > p {
+  margin: 0;
+}

@@ -1,0 +1,97 @@
+{
+  "name": "convexi",
+  "version": "0.1.0",
+  "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
+  "keywords": [
+    "authentication",
+    "backend",
+    "better-auth",
+    "convex",
+    "nuxt",
+    "nuxt-module",
+    "permissions",
+    "real-time",
+    "ssr",
+    "vue",
+    "vue3",
+    "websocket"
+  ],
+  "homepage": "https://convexi.vercel.app",
+  "bugs": {
+    "url": "https://github.com/lupinum-dev/convexi/issues"
+  },
+  "license": "MIT",
+  "author": "Matthias Amon <ma4m0>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lupinum-dev/convexi.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "dev": "npm run dev:prepare && nuxi dev playground",
+    "dev:build": "nuxi build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
+    "release": "npm run lint && npm run test:full && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
+    "lint": "eslint .",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test": "vitest run --project=convex",
+    "test:e2e": "vitest run --project=e2e",
+    "test:full": "vitest run",
+    "test:watch": "vitest watch --project=convex",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.10.9",
+    "@nuxt/kit": "^4.2.2",
+    "better-auth": "^1.4.9",
+    "convex": "^1.31.2",
+    "defu": "^6.1.4"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "@nuxt/devtools": "^3.1.1",
+    "@nuxt/eslint-config": "^1.12.1",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.2.2",
+    "@nuxt/test-utils": "^3.21.0",
+    "@playwright/test": "^1.57.0",
+    "@types/node": "latest",
+    "@vitest/browser-playwright": "^4.0.16",
+    "changelogen": "^0.6.2",
+    "convex-test": "^0.0.41",
+    "eslint": "^9.39.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "nuxt": "^4.2.2",
+    "oxfmt": "^0.21.0",
+    "playwright-core": "^1.57.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.16",
+    "vitest-browser-vue": "^2.0.1",
+    "vue-tsc": "^3.2.1"
+  },
+  "lint-staged": {
+    "!(**/_generated/**/*)": "oxfmt --no-error-on-unmatched-pattern"
+  },
+  "packageManager": "pnpm@10.24.0+sha512.01ff8ae71b4419903b65c60fb2dc9d34cf8bb6e06d03bde112ef38f7a34d6904c424ba66bea5cdcf12890230bf39f9580473140ed9c946fef328b6e5238a345a"
+}

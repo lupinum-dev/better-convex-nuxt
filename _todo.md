@@ -1,0 +1,3 @@
+- Add Docs for Auth Providers
+- Change Paginated Query to useState instead of useAsyncData
+- Check for Docs so the new Return type of useConvexQuery is udpated?
