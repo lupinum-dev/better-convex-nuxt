@@ -1,3 +1,5 @@
 - Add Docs for Auth Providers
 - Change Paginated Query to useState instead of useAsyncData
 - Check for Docs so the new Return type of useConvexQuery is udpated?
+- Polish / Refine all APIs
+- Redo the playground // enable type check again: "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",

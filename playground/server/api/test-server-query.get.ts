@@ -1,5 +1,7 @@
-import { defineEventHandler, createError, getQuery } from '#imports'
-
+import type { H3Event } from 'h3'
+import { defineEventHandler, createError, getQuery } from 'h3'
+import { useRuntimeConfig } from '#imports'
+import { fetchQuery } from '../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
 /**
@@ -8,8 +10,8 @@ import { api } from '../../convex/_generated/api'
  * This endpoint fetches notes using the Convex query from the server.
  * It shows how you can use fetchQuery in API routes or server middleware.
  */
-export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
+export default defineEventHandler(async (event: H3Event) => {
+  const config = useRuntimeConfig(event)
   const convexUrl = config.public.convex?.url
 
   if (!convexUrl) {

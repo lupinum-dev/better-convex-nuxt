@@ -1,5 +1,7 @@
-import { defineEventHandler, readBody, createError } from '#imports'
-
+import type { H3Event } from 'h3'
+import { defineEventHandler, readBody, createError } from 'h3'
+import { useRuntimeConfig } from '#imports'
+import { fetchMutation } from '../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
 /**
@@ -8,8 +10,8 @@ import { api } from '../../convex/_generated/api'
  * This endpoint creates a new note using the Convex mutation from the server.
  * It shows how you can use fetchMutation in API routes, webhooks, or background jobs.
  */
-export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
+export default defineEventHandler(async (event: H3Event) => {
+  const config = useRuntimeConfig(event)
   const convexUrl = config.public.convex?.url
 
   if (!convexUrl) {

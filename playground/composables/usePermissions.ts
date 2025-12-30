@@ -60,7 +60,7 @@ export function usePermissions() {
       debugInfo?.reason === 'user not found in DB, needs to be created'
     ) {
       try {
-        await createUser({})
+        await createUser.mutate({})
         // Query will automatically re-run and pick up the new user
       } catch (e) {
         console.error('Failed to create user:', e)

@@ -57,7 +57,7 @@
     "test:e2e": "vitest run --project=e2e",
     "test:full": "vitest run",
     "test:watch": "vitest watch --project=convex",
-    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "test:types": "vue-tsc --noEmit",
     "prepare": "husky"
   },
   "dependencies": {

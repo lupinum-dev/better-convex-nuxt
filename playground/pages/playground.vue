@@ -209,7 +209,7 @@ async function addNote() {
 
   isAdding.value = true
   try {
-    await addNoteMutation({
+    await addNoteMutation.mutate({
       title: newNoteTitle.value.trim(),
       content: newNoteContent.value.trim() || 'No content',
     })
@@ -227,7 +227,7 @@ async function addNote() {
 
 async function deleteNote(id: Id<'notes'>) {
   try {
-    await deleteNoteMutation({ id })
+    await deleteNoteMutation.mutate({ id })
     // Real-time subscription will update automatically!
   }
   catch (e) {
@@ -284,10 +284,10 @@ const {
   pending: lazyPending,
 } = useConvexQuery(api.notes.list, {}, { lazy: true })
 
-// Initial data
+// Default data (factory function that provides initial value)
 const {
   data: initialDataDemo,
-} = useConvexQuery(api.notes.list, {}, { initialData: [] })
+} = useConvexQuery(api.notes.list, {}, { default: () => [] })
 
 // Client-only
 const {

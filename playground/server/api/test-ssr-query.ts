@@ -1,10 +1,11 @@
-import { defineEventHandler, createError } from '#imports'
+import type { H3Event } from 'h3'
+import { defineEventHandler, createError } from 'h3'
+import { useRuntimeConfig } from '#imports'
 import { ConvexHttpClient } from 'convex/browser'
-
 import { api } from '../../convex/_generated/api'
 
-export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
+export default defineEventHandler(async (event: H3Event) => {
+  const config = useRuntimeConfig(event)
   const convexUrl = config.public.convex?.url
   const siteUrl = config.public.convex?.siteUrl || config.public.convex?.auth?.url
 

@@ -498,10 +498,11 @@ const { data: pendingInvites } = useConvexQuery(
 )
 
 // Get my pending invites (when no orgId)
-const { data: myInvites, ready: myInvitesReady } = useConvexQuery(
+const myInvitesQuery = useConvexQuery(
   api.invites.getMyInvites,
   computed(() => (!orgId.value ? {} : 'skip')),
 )
+const { data: myInvites } = myInvitesQuery
 
 // Get organizations for invite display
 const orgIdsForInvites = computed(() => {
@@ -515,21 +516,21 @@ const { data: allOrgs } = useConvexQuery(
 )
 
 // Get all organizations (for browsing)
+const allOrganizationsQuery = useConvexQuery(
+  api.organizations.list,
+  computed(() => (!orgId.value ? {} : 'skip')),
+)
 const {
   data: allOrganizations,
   status: allOrganizationsStatus,
   error: allOrganizationsError,
-  ready: allOrganizationsReady,
-} = useConvexQuery(
-  api.organizations.list,
-  computed(() => (!orgId.value ? {} : 'skip')),
-)
+} = allOrganizationsQuery
 
 // Wait for initial queries to load before completing navigation
 // This blocks client-side navigation until data is ready
 await Promise.all([
-  myInvitesReady,
-  allOrganizationsReady,
+  myInvitesQuery,
+  allOrganizationsQuery,
 ])
 
 // Mutations - use pending/error shorthands from new API

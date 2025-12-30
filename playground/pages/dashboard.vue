@@ -24,7 +24,7 @@
           <div class="info-grid">
             <div class="info-item">
               <span class="label">Name</span>
-              <span class="value">{{ user?.name || 'Not set' }}</span>
+              <span class="value">{{ user?.displayName || 'Not set' }}</span>
             </div>
             <div class="info-item">
               <span class="label">Email</span>
@@ -32,11 +32,11 @@
             </div>
             <div class="info-item">
               <span class="label">User ID</span>
-              <span class="value id">{{ user?.id }}</span>
+              <span class="value id">{{ user?._id }}</span>
             </div>
             <div class="info-item">
-              <span class="label">Email Verified</span>
-              <span class="value">{{ user?.emailVerified ? 'Yes' : 'No' }}</span>
+              <span class="label">Auth ID</span>
+              <span class="value id">{{ user?.authId }}</span>
             </div>
             <div class="info-item">
               <span class="label">Role</span>
@@ -89,7 +89,7 @@ const convexResult = ref<string | null>(null)
 const convexError = ref(false)
 
 // Get user profile with role from our users table
-const { data: user, isLoading: isLoadingUser } = useConvexQuery(api.users.getCurrentUser, {})
+const { data: user, pending: isLoadingUser } = useConvexQuery(api.users.getCurrentUser, {})
 
 const tokenPreview = computed(() => {
   if (!token.value) return 'None'

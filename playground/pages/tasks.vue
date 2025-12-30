@@ -76,7 +76,6 @@ const {
   error,
 } = useConvexQuery(api.tasks.list, queryArgs, {
   verbose: true, // Check console for detailed logs
-  initialData: [], // Show empty list while loading
 })
 
 // Client-only state
