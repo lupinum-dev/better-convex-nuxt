@@ -13,7 +13,7 @@
             type="email"
             placeholder="you@example.com"
             required
-          >
+          />
         </div>
 
         <div class="field">
@@ -24,7 +24,7 @@
             type="password"
             placeholder="Your password"
             required
-          >
+          />
         </div>
 
         <div v-if="error" class="error">

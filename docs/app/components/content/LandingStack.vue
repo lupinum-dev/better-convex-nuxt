@@ -39,11 +39,11 @@ const stack = [
             class="bg-white dark:bg-neutral-900 p-8 rounded-xl flex items-center justify-center border border-neutral-200 dark:border-neutral-800"
           >
             <!-- Single icon -->
-            <img v-if="item.icon" :src="item.icon" :alt="item.name" class="size-16" >
+            <img v-if="item.icon" :src="item.icon" :alt="item.name" class="size-16" />
             <!-- Dark/Light mode icons for Better Auth -->
             <template v-else>
-              <img :src="item.iconLight" :alt="item.name" class="size-16 dark:hidden" >
-              <img :src="item.iconDark" :alt="item.name" class="size-16 hidden dark:block" >
+              <img :src="item.iconLight" :alt="item.name" class="size-16 dark:hidden" />
+              <img :src="item.iconDark" :alt="item.name" class="size-16 hidden dark:block" />
             </template>
           </div>
         </div>

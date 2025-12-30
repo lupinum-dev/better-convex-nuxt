@@ -39,8 +39,8 @@
 
       <!-- Add Note Form -->
       <form class="add-form" @submit.prevent="addNote">
-        <input v-model="newNoteTitle" placeholder="Title" :disabled="isAdding" >
-        <input v-model="newNoteContent" placeholder="Content" :disabled="isAdding" >
+        <input v-model="newNoteTitle" placeholder="Title" :disabled="isAdding" />
+        <input v-model="newNoteContent" placeholder="Content" :disabled="isAdding" />
         <button type="submit" :disabled="!newNoteTitle.trim() || isAdding">
           {{ isAdding ? 'Adding...' : 'Add Note' }}
         </button>
@@ -53,7 +53,7 @@
       <p class="description">Query re-fetches when args change</p>
 
       <div class="search-box">
-        <input v-model="searchQuery" placeholder="Search notes..." class="search-input" >
+        <input v-model="searchQuery" placeholder="Search notes..." class="search-input" />
       </div>
 
       <div class="status-row">
@@ -82,7 +82,7 @@
 
       <div class="controls">
         <label>
-          <input v-model="enableSkipDemo" type="checkbox" >
+          <input v-model="enableSkipDemo" type="checkbox" />
           Enable query (uncheck to skip)
         </label>
       </div>

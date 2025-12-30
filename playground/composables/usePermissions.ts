@@ -49,7 +49,9 @@ export function usePermissions() {
 
   watchEffect(async () => {
     if (base.isLoading.value) return
-    const context = base.user.value as { _debug?: { hasIdentity?: boolean; hasUser?: boolean; reason?: string } } | null
+    const context = base.user.value as {
+      _debug?: { hasIdentity?: boolean; hasUser?: boolean; reason?: string }
+    } | null
     const debugInfo = context?._debug
     // If user has identity but not in DB, create them
     if (

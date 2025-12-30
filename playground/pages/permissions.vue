@@ -113,11 +113,11 @@
           <form class="form" @submit.prevent="handleCreateOrg">
             <div class="form-group">
               <label>Organization Name</label>
-              <input v-model="newOrgName" type="text" placeholder="My Company" required >
+              <input v-model="newOrgName" type="text" placeholder="My Company" required />
             </div>
             <div class="form-group">
               <label>Slug</label>
-              <input v-model="newOrgSlug" type="text" placeholder="my-company" required >
+              <input v-model="newOrgSlug" type="text" placeholder="my-company" required />
             </div>
             <button type="submit" class="btn btn-primary" :disabled="isCreatingOrg">
               {{ isCreatingOrg ? 'Creating...' : 'Create Organization' }}
@@ -200,7 +200,7 @@
             <form class="form" @submit.prevent="handleSaveSettings">
               <div class="form-group">
                 <label>Organization Name</label>
-                <input v-model="editOrgName" type="text" required >
+                <input v-model="editOrgName" type="text" required />
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn btn-primary" :disabled="isSavingSettings">
@@ -249,7 +249,7 @@
           <!-- Create Post Form -->
           <div v-if="can('post.create')" class="create-form">
             <form class="form inline" @submit.prevent="handleCreatePost">
-              <input v-model="newPostTitle" type="text" placeholder="New post title..." required >
+              <input v-model="newPostTitle" type="text" placeholder="New post title..." required />
               <button type="submit" class="btn btn-primary" :disabled="isCreatingPost">
                 {{ isCreatingPost ? '...' : 'Create' }}
               </button>
@@ -424,7 +424,7 @@
         <section v-if="can('org.invite')" class="section">
           <h2>Invite Members</h2>
           <form class="form inline" @submit.prevent="handleInvite">
-            <input v-model="inviteEmail" type="email" placeholder="email@example.com" required >
+            <input v-model="inviteEmail" type="email" placeholder="email@example.com" required />
             <select v-model="inviteRole" class="role-select">
               <option value="member">Member</option>
               <option value="viewer">Viewer</option>

@@ -14,7 +14,7 @@
       <div class="controls">
         <label>
           Limit:
-          <input v-model.number="queryLimit" type="number" min="1" max="50" >
+          <input v-model.number="queryLimit" type="number" min="1" max="50" />
         </label>
         <button :disabled="queryLoading" @click="testServerQuery">
           {{ queryLoading ? 'Fetching...' : 'Fetch Notes from Server' }}
@@ -50,8 +50,8 @@
       </p>
 
       <div class="controls">
-        <input v-model="noteTitle" type="text" placeholder="Note title" class="text-input" >
-        <input v-model="noteContent" type="text" placeholder="Note content" class="text-input" >
+        <input v-model="noteTitle" type="text" placeholder="Note title" class="text-input" />
+        <input v-model="noteContent" type="text" placeholder="Note content" class="text-input" />
         <button :disabled="mutationLoading" @click="testServerMutation">
           {{ mutationLoading ? 'Creating...' : 'Create Note from Server' }}
         </button>

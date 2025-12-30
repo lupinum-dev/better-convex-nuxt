@@ -7,7 +7,7 @@
       <form class="form" @submit.prevent="handleSignUp">
         <div class="field">
           <label for="name">Name</label>
-          <input id="name" v-model="form.name" type="text" placeholder="Your name" required >
+          <input id="name" v-model="form.name" type="text" placeholder="Your name" required />
         </div>
 
         <div class="field">
@@ -18,7 +18,7 @@
             type="email"
             placeholder="you@example.com"
             required
-          >
+          />
         </div>
 
         <div class="field">
@@ -30,7 +30,7 @@
             placeholder="Min 8 characters"
             minlength="8"
             required
-          >
+          />
         </div>
 
         <div v-if="error" class="error">

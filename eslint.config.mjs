@@ -13,6 +13,21 @@ export default createConfigForNuxt({
     src: ['./playground'],
   },
 }).append(
+  // Allow self-closing void elements (matches oxcformat behavior)
+  {
+    files: ['**/*.vue'],
+    rules: {
+      'vue/html-self-closing': ['warn', {
+        html: {
+          void: 'any', // Allow both <input> and <input />
+          normal: 'always',
+          component: 'always',
+        },
+        svg: 'always',
+        math: 'always',
+      }],
+    },
+  },
   // Disable multi-word-component-names for Nuxt special files
   {
     files: [

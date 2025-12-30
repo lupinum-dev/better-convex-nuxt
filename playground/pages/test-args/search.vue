@@ -42,7 +42,7 @@ watch(data, () => {
         data-testid="search-input"
         placeholder="Type to search..."
         class="search-input"
-      >
+      />
     </section>
 
     <section class="state-section">

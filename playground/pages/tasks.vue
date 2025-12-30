@@ -28,7 +28,7 @@
           type="text"
           placeholder="What needs to be done?"
           :disabled="isAdding"
-        >
+        />
         <button type="submit" :disabled="!newTaskTitle.trim() || isAdding">
           {{ isAdding ? 'Adding...' : 'Add' }}
         </button>
@@ -47,7 +47,7 @@
       <ul v-else class="task-list">
         <li v-for="task in tasks" :key="task._id" :class="{ completed: task.completed }">
           <label>
-            <input type="checkbox" :checked="task.completed" @change="toggleTask(task._id)" >
+            <input type="checkbox" :checked="task.completed" @change="toggleTask(task._id)" />
             <span>{{ task.title }}</span>
           </label>
           <button class="delete" @click="deleteTask(task._id)">×</button>
