@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.1.6
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.1.5...v0.1.6)
+
+### 🩹 Fixes
+
+- Replace $fetch with fetch in API calls and update package.json for server types ([2dae71c](https://github.com/lupinum-dev/better-convex-nuxt/commit/2dae71c))
+
+### 💅 Refactors
+
+- Update index.md for improved structure and formatting ([b039ad2](https://github.com/lupinum-dev/better-convex-nuxt/commit/b039ad2))
+
+### 🏡 Chore
+
+- Remove vite override from package.json ([c144828](https://github.com/lupinum-dev/better-convex-nuxt/commit/c144828))
+- Add TypeScript configuration extending Nuxt settings ([81031bf](https://github.com/lupinum-dev/better-convex-nuxt/commit/81031bf))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.1.5
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.1.3...v0.1.5)
