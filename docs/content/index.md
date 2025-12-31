@@ -4,22 +4,27 @@ navigation: false
 description: "Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions."
 ---
 
-## ::u-page-hero
-
-orientation: horizontal
+::u-page-hero
+---
+orientation: 'horizontal'
 description: Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and backend-driven permissions.
 ui:
-container: 'lg:items-start flex flex-col lg:grid pt-24 sm:pt-32 lg:pt-40 pb-0 sm:pb-0 lg:pb-0 gap-16 sm:gap-y-0 '
-
+  container: 'lg:items-start flex flex-col lg:grid pt-24 sm:pt-32 lg:pt-40 pb-0 sm:pb-0 lg:pb-0 gap-16 sm:gap-y-0'
 ---
-
 #title
 Full-stack Nuxt that [feels like cheating]{.text-primary}
 #links
-:::u-button{size="lg" to="/getting-started/installation" color="warning" trailing-icon="i-lucide-arrow-right" label="Get Started"}
-:::
+  :::u-button
+  ---
+  size: lg
+  to: /getting-started/installation
+  color: warning
+  trailing-icon: i-lucide-arrow-right
+  ---
+  Get Started
+  :::
 
-:u-input-copy{value="pnpm add better-convex-nuxt"}
+  :u-input-copy{value="pnpm add better-convex-nuxt"}
 
 #default
 ::tabs{class="xl:-mt-10 bg-white dark:bg-neutral-900"}
@@ -27,13 +32,12 @@ Full-stack Nuxt that [feels like cheating]{.text-primary}
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from "~/convex/_generated/api";
 
 // Real-time subscription with SSR support
-const { data: tasks, status } = useConvexQuery(
-  api.tasks.list,
-  { status: 'active' }
-)
+const { data: tasks, status } = useConvexQuery(api.tasks.list, {
+  status: "active",
+});
 
 // Data updates automatically when any client makes changes
 </script>
@@ -53,7 +57,7 @@ const { data: tasks, status } = useConvexQuery(
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from "~/convex/_generated/api";
 
 const { mutate, pending } = useConvexMutation(api.tasks.create, {
   // Instant UI feedback with optimistic updates
@@ -62,14 +66,15 @@ const { mutate, pending } = useConvexMutation(api.tasks.create, {
       query: api.tasks.list,
       args: {},
       localQueryStore: localStore,
-      updater: (current) => current
-        ? [{ _id: 'temp', text: args.text, completed: false }, ...current]
-        : []
-    })
-  }
-})
+      updater: (current) =>
+        current
+          ? [{ _id: "temp", text: args.text, completed: false }, ...current]
+          : [],
+    });
+  },
+});
 
-await mutate({ text: 'Ship my app' })
+await mutate({ text: "Ship my app" });
 </script>
 ```
 
@@ -78,16 +83,16 @@ await mutate({ text: 'Ship my app' })
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user } = useConvexAuth()
-const authClient = useAuthClient()
+const { isAuthenticated, user } = useConvexAuth();
+const authClient = useAuthClient();
 
 async function handleLogin(email: string, password: string) {
-  const { error } = await authClient.signIn.email({ email, password })
-  if (!error) navigateTo('/dashboard')
+  const { error } = await authClient.signIn.email({ email, password });
+  if (!error) navigateTo("/dashboard");
 }
 
 async function handleOAuth() {
-  await authClient.signIn.social({ provider: 'github' })
+  await authClient.signIn.social({ provider: "github" });
 }
 </script>
 
@@ -107,8 +112,8 @@ async function handleOAuth() {
 
 ```vue
 <script setup lang="ts">
-const { can, role } = usePermissions()
-const { data: post } = useConvexQuery(api.posts.get, { id: props.id })
+const { can, role } = usePermissions();
+const { data: post } = useConvexQuery(api.posts.get, { id: props.id });
 </script>
 
 <template>
@@ -128,9 +133,6 @@ const { data: post } = useConvexQuery(api.posts.get, { id: props.id })
 ::
 ::
 
-::landing-stack
-::
-
 ::u-container
 :::div{class="text-center mb-12 xl:mb-16"}
 ::::u-text{class="text-3xl xl:text-4xl font-bold text-highlighted mb-3"}
@@ -142,98 +144,72 @@ Built-in features for building production-ready apps
 :::
 
 :::u-page-grid{class="pb-12 xl:pb-24"}
-::::landing-feature
-
----
-
-title: Real-time Queries
-description: Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients.
-icon: i-lucide-database
-to: /data-fetching/queries
-
----
-
-::::
-::::landing-feature
-
----
-
-title: Optimistic Updates
-description: Instant UI feedback with automatic rollback on failure. Make your app feel fast.
-icon: i-lucide-zap
-to: /mutations/optimistic-updates
-
----
-
-::::
-::::landing-feature
-
----
-
-title: Authentication
-description: Better Auth integration with email/password, OAuth, and magic links. SSR-compatible.
-icon: i-lucide-lock
-to: /auth-security/authentication
-
----
-
-::::
-::::landing-feature
-
----
-
-title: Permissions
-description: Role-based access control with ownership rules. Backend enforces, frontend displays.
-icon: i-lucide-shield
-to: /auth-security/permissions
-
----
-
-::::
-::::landing-feature
-
----
-
-title: SSR Support
-description: Server-side rendering with hydration. Fast initial loads, then real-time updates.
-icon: i-lucide-server
-to: /server-side/ssr-hydration
-
----
-
-::::
-::::landing-feature
-
----
-
-title: Type Safety
-description: Full TypeScript inference from your Convex schema. Catch errors at compile time.
-icon: i-lucide-type
-to: /data-fetching/queries#typescript
-
----
-
-::::
+  :::landing-feature
+  ---
+  title: Real-time Queries
+  description: Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients.
+  icon: i-lucide-database
+  to: /data-fetching/queries
+  ---
+  :::
+  :::landing-feature
+  ---
+  title: Optimistic Updates
+  description: Instant UI feedback with automatic rollback on failure. Make your app feel fast.
+  icon: i-lucide-zap
+  to: /mutations/optimistic-updates
+  ---
+  :::
+  :::landing-feature
+  ---
+  title: Authentication
+  description: Better Auth integration with email/password, OAuth, and magic links. SSR-compatible.
+  icon: i-lucide-lock
+  to: /auth-security/authentication
+  ---
+  :::
+  :::landing-feature
+  ---
+  title: Permissions
+  description: Role-based access control with ownership rules. Backend enforces, frontend displays.
+  icon: i-lucide-shield
+  to: /auth-security/permissions
+  ---
+  :::
+  :::landing-feature
+  ---
+  title: SSR Support
+  description: Server-side rendering with hydration. Fast initial loads, then real-time updates.
+  icon: i-lucide-server
+  to: /server-side/ssr-hydration
+  ---
+  :::
+  :::landing-feature
+  ---
+  title: Type Safety
+  description: Full TypeScript inference from your Convex schema. Catch errors at compile time.
+  icon: i-lucide-type
+  to: /data-fetching/queries#typescript
+  ---
+  :::
 :::
 ::
 
 ::u-page-section{class="dark:bg-gradient-to-b from-neutral-950 to-neutral-900"}
-:::u-page-c-t-a
-
----
-
-links: - label: Get Started
-to: '/getting-started/installation'
-trailingIcon: i-lucide-arrow-right - label: View on GitHub
-to: 'https://github.com/lupinum-dev/better-convex-nuxt'
-variant: subtle
-icon: i-simple-icons-github
-title: Ready to build with Convex?
-description: Get started in minutes with real-time data, authentication, and permissions out of the box.
-class: dark:bg-neutral-950
-
----
-
-:stars-bg
-:::
+  :::u-page-c-t-a
+  ---
+  title: Ready to build with Convex?
+  description: Get started in minutes with real-time data, authentication, and permissions out of the box.
+  links:
+    - label: Get Started
+      to: /getting-started/installation
+      trailingIcon: i-lucide-arrow-right
+    - label: View on GitHub
+      to: https://github.com/lupinum-dev/better-convex-nuxt
+      variant: subtle
+      icon: i-simple-icons-github
+  class: dark:bg-neutral-950
+  ---
+  :stars-bg
+  :::
 ::
