@@ -1,6 +1,6 @@
 import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
 
-import { useRuntimeConfig } from '#imports'
+import { useRuntimeConfig } from 'nitropack/runtime'
 
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-cache'
 import { createLogger, getVerboseFlag } from '../../utils/logger'
