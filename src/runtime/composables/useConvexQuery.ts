@@ -19,9 +19,6 @@ import {
   getQueryKey,
   parseConvexResponse,
   computeQueryStatus,
-  type QueryStatus,
-} from '../utils/convex-cache'
-import {
   createQueryLogger,
   fetchAuthToken,
   getCachedAuthToken,
@@ -29,7 +26,8 @@ import {
   hasSubscription,
   removeFromSubscriptionCache,
   buildThenableResult,
-} from '../utils/query-helpers'
+  type QueryStatus,
+} from '../utils/convex-cache'
 
 // Re-export for consumers
 export type { QueryStatus }

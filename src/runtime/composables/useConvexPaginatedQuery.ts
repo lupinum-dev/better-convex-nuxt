@@ -22,15 +22,17 @@ import {
   triggerRef,
 } from 'vue'
 
-import { getFunctionName, stableStringify, getQueryKey } from '../utils/convex-cache'
 import {
+  getFunctionName,
+  stableStringify,
+  getQueryKey,
   createQueryLogger,
   fetchAuthToken,
   registerSubscription,
   hasSubscription,
   removeFromSubscriptionCache,
   buildThenableResult,
-} from '../utils/query-helpers'
+} from '../utils/convex-cache'
 import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
 
 /**
