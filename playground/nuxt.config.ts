@@ -12,5 +12,9 @@ export default defineNuxtConfig({
   convex: {
     url: process.env.CONVEX_URL,
     permissions: true, // Enable createPermissions
+    logging: {
+      enabled: true,
+      format: 'pretty',
+    },
   },
 })

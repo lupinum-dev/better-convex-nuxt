@@ -6,12 +6,16 @@ export {
   parseConvexResponse,
   computeQueryStatus,
   getFunctionName,
-  stableStringify,
+  hashArgs,
   getQueryKey,
 } from './convex-shared'
 
 // Get the NuxtApp type from useNuxtApp return type
 type NuxtApp = ReturnType<typeof useNuxtApp>
+
+// Module-level WeakMap for automatic GC when NuxtApp is destroyed
+// This replaces the previous pattern of patching nuxtApp._convexSubscriptions
+const subscriptionRegistry = new WeakMap<object, SubscriptionCache>()
 
 // ============================================================================
 // Types
@@ -106,8 +110,11 @@ export function getCachedAuthToken(): string | undefined {
 // ============================================================================
 
 /**
- * Get or create the subscription cache on the NuxtApp instance.
+ * Get or create the subscription cache for a NuxtApp instance.
  * The cache is used to deduplicate subscriptions across components.
+ *
+ * Uses a WeakMap keyed by NuxtApp instance for automatic garbage collection
+ * when the NuxtApp is destroyed (e.g., during HMR or testing).
  *
  * @param nuxtApp - The NuxtApp instance
  * @returns The subscription cache object
@@ -122,8 +129,10 @@ export function getCachedAuthToken(): string | undefined {
  * ```
  */
 export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
-  nuxtApp._convexSubscriptions = nuxtApp._convexSubscriptions || {}
-  return nuxtApp._convexSubscriptions as SubscriptionCache
+  if (!subscriptionRegistry.has(nuxtApp)) {
+    subscriptionRegistry.set(nuxtApp, {})
+  }
+  return subscriptionRegistry.get(nuxtApp)!
 }
 
 /**

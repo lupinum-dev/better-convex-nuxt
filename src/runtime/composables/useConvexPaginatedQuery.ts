@@ -24,7 +24,7 @@ import {
 
 import {
   getFunctionName,
-  stableStringify,
+  hashArgs,
   getQueryKey,
   fetchAuthToken,
   registerSubscription,
@@ -460,6 +460,19 @@ export function useConvexPaginatedQuery<
           pages.value = newPages
           triggerRef(pages)
         },
+        (err: Error) => {
+          log('Subscription error for page', { pageIndex, error: err.message })
+          const currentPage = pages.value[pageIndex]
+          if (!currentPage) return
+          const newPages = [...pages.value]
+          newPages[pageIndex] = {
+            ...currentPage,
+            pending: false,
+            error: err,
+          }
+          pages.value = newPages
+          triggerRef(pages)
+        },
       )
       // Register subscription in cache (using shared helper)
       registerSubscription(nuxtApp, subscriptionKey, page.unsubscribe)
@@ -721,6 +734,11 @@ export function useConvexPaginatedQuery<
           log('First page real-time update', { itemCount: result.page.length })
           firstPageRealtimeData.value = result
         },
+        (err: Error) => {
+          log('First page subscription error', { error: err.message })
+          // Update asyncData error state
+          ;(asyncData.error as Ref<Error | null>).value = err
+        },
       )
       // Register subscription in cache (using shared helper)
       registerSubscription(nuxtApp, subscriptionKey, firstPageUnsubscribe)
@@ -777,7 +795,7 @@ export function useConvexPaginatedQuery<
       watch(
         () => toValue(args),
         async (newArgs, oldArgs) => {
-          if (stableStringify(newArgs) !== stableStringify(oldArgs)) {
+          if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
             log('Reactive args changed', { from: oldArgs, to: newArgs })
 
             // Clean up all subscriptions

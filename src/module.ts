@@ -28,6 +28,23 @@ export interface LoggingOptions {
   format?: 'pretty' | 'json'
 }
 
+export interface AuthCacheOptions {
+  /**
+   * Enable SSR auth token caching.
+   * When enabled, Convex JWT tokens are cached to reduce TTFB on subsequent SSR requests.
+   * Uses Nitro Storage (memory by default, configurable to Redis for multi-instance deployments).
+   * @default false
+   */
+  enabled: boolean
+  /**
+   * Cache TTL in seconds.
+   * Determines how long tokens are cached before requiring a fresh fetch.
+   * Shorter TTL = more security, longer TTL = better performance.
+   * @default 900 (15 minutes)
+   */
+  ttl?: number
+}
+
 export interface ModuleOptions {
   /** Convex deployment URL (WebSocket) - e.g., https://your-app.convex.cloud */
   url?: string
@@ -44,6 +61,33 @@ export interface ModuleOptions {
    * Emits canonical log events for debugging SSR, auth, queries, and mutations.
    */
   logging?: LoggingOptions
+  /**
+   * SSR auth token caching configuration (opt-in).
+   * Caches Convex JWT tokens server-side to reduce TTFB on subsequent requests.
+   *
+   * @example
+   * ```ts
+   * // nuxt.config.ts
+   * export default defineNuxtConfig({
+   *   convex: {
+   *     authCache: {
+   *       enabled: true,
+   *       ttl: 900 // 15 minutes
+   *     }
+   *   },
+   *   // For multi-instance deployments, configure Redis:
+   *   nitro: {
+   *     storage: {
+   *       'cache:convex:auth': {
+   *         driver: 'redis',
+   *         url: process.env.REDIS_URL
+   *       }
+   *     }
+   *   }
+   * })
+   * ```
+   */
+  authCache?: AuthCacheOptions
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -62,6 +106,10 @@ export default defineNuxtModule<ModuleOptions>({
       enabled: false,
       format: 'pretty',
     },
+    authCache: {
+      enabled: false,
+      ttl: 900, // 15 minutes
+    },
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
@@ -79,6 +127,10 @@ export default defineNuxtModule<ModuleOptions>({
         logging: {
           enabled: options.logging?.enabled ?? false,
           format: options.logging?.format ?? 'pretty',
+        },
+        authCache: {
+          enabled: options.authCache?.enabled ?? false,
+          ttl: options.authCache?.ttl ?? 900,
         },
       },
     )
@@ -195,6 +247,7 @@ export {}
       { name: 'fetchQuery', from: resolver.resolve('./runtime/server/utils/convex') },
       { name: 'fetchMutation', from: resolver.resolve('./runtime/server/utils/convex') },
       { name: 'fetchAction', from: resolver.resolve('./runtime/server/utils/convex') },
+      { name: 'clearAuthCache', from: resolver.resolve('./runtime/server/utils/auth-cache') },
     ])
 
     // 8. Register auth components

@@ -7,7 +7,7 @@ import { computed, watch, triggerRef, onUnmounted, toValue, isRef, type Ref } fr
 
 import {
   getFunctionName,
-  stableStringify,
+  hashArgs,
   getQueryKey,
   parseConvexResponse,
   computeQueryStatus,
@@ -242,13 +242,29 @@ export function useConvexQuery<
 
       try {
         updateCount = 0
-        unsubscribeFn = convex.onUpdate(query, currentArgs as FunctionArgs<Query>, (result: RawT) => {
-          updateCount++
-          // Cast needed because useAsyncData has complex PickFrom type
-          ;(asyncData.data as Ref<DataT | undefined>).value = applyTransform(result)
-          // Force Vue reactivity for all watchers
-          triggerRef(asyncData.data)
-        })
+        unsubscribeFn = convex.onUpdate(
+          query,
+          currentArgs as FunctionArgs<Query>,
+          (result: RawT) => {
+            updateCount++
+            // Cast needed because useAsyncData has complex PickFrom type
+            ;(asyncData.data as Ref<DataT | undefined>).value = applyTransform(result)
+            // Force Vue reactivity for all watchers
+            triggerRef(asyncData.data)
+          },
+          (err: Error) => {
+            // Log subscription errors
+            logger.event({
+              event: 'subscription:change',
+              env: 'client',
+              name: fnName,
+              state: 'error',
+              error: { type: err.name, message: err.message },
+            } satisfies SubscriptionChangeEvent)
+            // Update asyncData error state
+            ;(asyncData.error as Ref<Error | null>).value = err
+          },
+        )
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
 
         logger.event({
@@ -278,7 +294,7 @@ export function useConvexQuery<
       watch(
         () => toValue(args),
         (newArgs, oldArgs) => {
-          if (stableStringify(newArgs) !== stableStringify(oldArgs)) {
+          if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
             // Cleanup old subscription
             const oldCacheKey = getQueryKey(query, oldArgs)
             cleanupSubscription(nuxtApp, oldCacheKey)

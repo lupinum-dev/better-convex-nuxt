@@ -182,6 +182,16 @@ function formatPrettyEvent(data: LogEvent): { message: string; details?: string 
   }
 }
 
+/** Write output without triggering Nuxt's SSR log capturing */
+function writeOutput(message: string): void {
+  // Use process.stdout on server to avoid Nuxt's SSR log wrapper that adds stack traces
+  if (typeof process !== 'undefined' && process.stdout?.write) {
+    process.stdout.write(message + '\n')
+  } else {
+    console.log(message)
+  }
+}
+
 function createJSONReporter(): { log: (logObj: LogObject) => void } {
   return {
     log: (logObj: LogObject) => {
@@ -189,10 +199,10 @@ function createJSONReporter(): { log: (logObj: LogObject) => void } {
       const eventData = logObj.args?.[0]
       if (eventData && typeof eventData === 'object' && 'event' in eventData) {
         // For canonical events, output clean JSON
-        console.log(JSON.stringify({ timestamp: new Date().toISOString(), ...eventData }))
+        writeOutput(JSON.stringify({ timestamp: new Date().toISOString(), ...eventData }))
       } else {
         // For other logs, include level info
-        console.log(
+        writeOutput(
           JSON.stringify({
             timestamp: new Date().toISOString(),
             level: logObj.type,
@@ -211,14 +221,14 @@ function createPrettyReporter(): { log: (logObj: LogObject) => void } {
       const eventData = logObj.args?.[0]
       if (eventData && typeof eventData === 'object' && 'event' in eventData) {
         const { message, details } = formatPrettyEvent(eventData as LogEvent)
-        console.log(`[better-convex-nuxt] ${message}`)
+        writeOutput(`[better-convex-nuxt] ${message}`)
         if (details) {
-          console.log(`  \u2514\u2500 ${details}`)
+          writeOutput(`  \u2514\u2500 ${details}`)
         }
       } else {
         // Regular log
         const prefix = logObj.type === 'warn' ? '\u26A0' : logObj.type === 'error' ? '\u2717' : '\u25AA'
-        console.log(`[better-convex-nuxt] ${prefix} ${logObj.args?.join(' ')}`)
+        writeOutput(`[better-convex-nuxt] ${prefix} ${logObj.args?.join(' ')}`)
       }
     },
   }
@@ -237,7 +247,62 @@ export function createModuleLogger(options: LoggingOptions): ModuleLogger {
   }
 
   const isDebug = options.enabled === 'debug'
-  const reporter = options.format === 'json' ? createJSONReporter() : createPrettyReporter()
+  const isJSON = options.format === 'json'
+
+  // For SSR, bypass consola entirely to avoid Nuxt's log forwarding adding stack traces
+  const isSSR = typeof window === 'undefined'
+
+  if (isSSR) {
+    // Direct stdout writing for cleaner SSR logs
+    const write = (msg: string) => {
+      if (typeof process !== 'undefined' && process.stdout?.write) {
+        process.stdout.write(msg + '\n')
+      }
+    }
+
+    return {
+      event(data: LogEvent): void {
+        if (isJSON) {
+          write(JSON.stringify({ timestamp: new Date().toISOString(), ...data }))
+        } else {
+          const { message, details } = formatPrettyEvent(data)
+          write(`[better-convex-nuxt] ${message}`)
+          if (details) {
+            write(`  \u2514\u2500 ${details}`)
+          }
+        }
+      },
+
+      debug(message: string, data?: Record<string, unknown>): void {
+        if (isDebug) {
+          if (isJSON) {
+            write(JSON.stringify({ timestamp: new Date().toISOString(), level: 'debug', message, ...data }))
+          } else {
+            write(`[better-convex-nuxt] \u25AA ${message}${data ? ' ' + JSON.stringify(data) : ''}`)
+          }
+        }
+      },
+
+      warn(message: string, data?: Record<string, unknown>): void {
+        if (isJSON) {
+          write(JSON.stringify({ timestamp: new Date().toISOString(), level: 'warn', message, ...data }))
+        } else {
+          write(`[better-convex-nuxt] \u26A0 ${message}${data ? ' ' + JSON.stringify(data) : ''}`)
+        }
+      },
+
+      error(message: string, data?: Record<string, unknown>): void {
+        if (isJSON) {
+          write(JSON.stringify({ timestamp: new Date().toISOString(), level: 'error', message, ...data }))
+        } else {
+          write(`[better-convex-nuxt] \u2717 ${message}${data ? ' ' + JSON.stringify(data) : ''}`)
+        }
+      },
+    }
+  }
+
+  // Client-side: use consola with custom reporters
+  const reporter = isJSON ? createJSONReporter() : createPrettyReporter()
 
   const consola: ConsolaInstance = createConsola({
     level: isDebug ? 4 : 3, // 4 = debug, 3 = info

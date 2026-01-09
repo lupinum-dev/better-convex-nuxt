@@ -4,6 +4,7 @@
  * This plugin runs during SSR to:
  * 1. Read the session cookie from the request
  * 2. Exchange the session cookie for a JWT token via Better Auth API
+ *    (with optional caching to reduce TTFB)
  * 3. Store the token and user data in useState for client hydration
  *
  * This ensures authenticated state is available on first render with zero flash.
@@ -12,6 +13,7 @@
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logger'
 import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
+import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cache'
 
 interface ConvexUser {
   id: string
@@ -21,6 +23,38 @@ interface ConvexUser {
   image?: string
   createdAt?: string
   updatedAt?: string
+}
+
+/**
+ * Extract session token from cookie header
+ */
+function extractSessionToken(cookieHeader: string): string | null {
+  const match = cookieHeader.match(/better-auth\.session_token=([^;]+)/)
+  return match ? match[1] : null
+}
+
+/**
+ * Decode user info from JWT payload
+ */
+function decodeUserFromJwt(token: string): ConvexUser | null {
+  try {
+    const payloadBase64 = token.split('.')[1]
+    if (payloadBase64) {
+      const payload = JSON.parse(atob(payloadBase64))
+      if (payload.sub || payload.userId || payload.email) {
+        return {
+          id: payload.sub || payload.userId || '',
+          name: payload.name || '',
+          email: payload.email || '',
+          emailVerified: payload.emailVerified,
+          image: payload.image,
+        }
+      }
+    }
+  } catch {
+    // Ignore decode errors
+  }
+  return null
 }
 
 export default defineNuxtPlugin(async () => {
@@ -78,33 +112,57 @@ export default defineNuxtPlugin(async () => {
     return
   }
 
+  // Get auth cache config
+  const authCacheConfig = (config.public.convex as { authCache?: { enabled: boolean; ttl: number } })
+    ?.authCache
+  const sessionToken = extractSessionToken(cookieHeader)
+
   try {
-    // Fetch token from auth server
+    let token: string | null = null
+
+    // Try cache first if enabled and we have a session token
+    if (authCacheConfig?.enabled && sessionToken) {
+      token = await getCachedAuthToken(sessionToken)
+      if (token) {
+        // Cache hit - use cached token
+        convexToken.value = token
+        convexUser.value = decodeUserFromJwt(token)
+
+        logger.event({
+          event: 'auth:change',
+          env: 'server',
+          from: 'unauthenticated',
+          to: 'authenticated',
+          trigger: 'init',
+          user_id: convexUser.value?.id?.slice(0, 8),
+        } satisfies AuthChangeEvent)
+
+        logger.event({
+          event: 'plugin:init',
+          env: 'server',
+          config: { url: convexUrl || '', siteUrl, authEnabled: true },
+          duration_ms: initTimer(),
+          outcome: 'success',
+        } satisfies PluginInitEvent)
+        return
+      }
+    }
+
+    // Cache miss or caching disabled - fetch from auth server
     const tokenResponse = await $fetch<{ token?: string }>(`${siteUrl}/api/auth/convex/token`, {
       headers: { Cookie: cookieHeader },
     }).catch(() => null)
 
     // Set token if available
     if (tokenResponse?.token) {
-      convexToken.value = tokenResponse.token
+      token = tokenResponse.token
+      convexToken.value = token
 
-      // Decode JWT to extract user info (avoid second request)
-      try {
-        const payloadBase64 = tokenResponse.token.split('.')[1]
-        if (payloadBase64) {
-          const payload = JSON.parse(atob(payloadBase64))
-          if (payload.sub || payload.userId || payload.email) {
-            convexUser.value = {
-              id: payload.sub || payload.userId || '',
-              name: payload.name || '',
-              email: payload.email || '',
-              emailVerified: payload.emailVerified,
-              image: payload.image,
-            }
-          }
-        }
-      } catch {
-        // Fallback: fetch session if JWT decode fails
+      // Decode user from JWT
+      convexUser.value = decodeUserFromJwt(token)
+
+      // If decode failed, fallback to session endpoint
+      if (!convexUser.value) {
         const sessionResponse = await $fetch<{ user?: ConvexUser }>(
           `${siteUrl}/api/auth/get-session`,
           { headers: { Cookie: cookieHeader } },
@@ -112,6 +170,12 @@ export default defineNuxtPlugin(async () => {
         if (sessionResponse?.user) {
           convexUser.value = sessionResponse.user
         }
+      }
+
+      // Cache the token if caching is enabled
+      if (authCacheConfig?.enabled && sessionToken && token) {
+        const ttl = authCacheConfig.ttl ?? 900
+        await setCachedAuthToken(sessionToken, token, ttl)
       }
 
       // Log successful auth

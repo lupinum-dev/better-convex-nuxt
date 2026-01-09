@@ -1,4 +1,5 @@
 import type { FunctionReference } from 'convex/server'
+import { hash } from 'ohash'
 
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')
@@ -111,23 +112,17 @@ export function getFunctionName(
 // ============================================================================
 
 /**
- * Stable stringify for cache key generation.
- * Handles arrays, nested objects, null, undefined correctly.
+ * Generate a stable hash for any value using ohash.
+ * Used for cache key generation and argument comparison.
+ *
+ * Benefits over custom stableStringify:
+ * - Handles circular references gracefully
+ * - Faster execution (optimized C++ implementation)
+ * - Shorter, URL-safe output
+ * - Handles Symbols, Functions, and edge cases
  */
-export function stableStringify(obj: unknown): string {
-  if (obj === null || obj === undefined) return 'null'
-  if (typeof obj !== 'object') return JSON.stringify(obj)
-
-  if (Array.isArray(obj)) {
-    // Don't double-stringify: recursively stringify items then join
-    return '[' + obj.map((item) => stableStringify(item)).join(',') + ']'
-  }
-
-  // Sort object keys for stable ordering
-  const record = obj as Record<string, unknown>
-  const sortedKeys = Object.keys(record).sort()
-  const pairs = sortedKeys.map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
-  return '{' + pairs.join(',') + '}'
+export function hashArgs(args: unknown): string {
+  return hash(args ?? {})
 }
 
 /**
@@ -135,7 +130,6 @@ export function stableStringify(obj: unknown): string {
  */
 export function getQueryKey(query: FunctionReference<'query'>, args?: unknown): string {
   const fnName = getFunctionName(query)
-  const argsKey = stableStringify(args ?? {})
-  return `convex:${fnName}:${argsKey}`
+  return `convex:${fnName}:${hashArgs(args)}`
 }
 
