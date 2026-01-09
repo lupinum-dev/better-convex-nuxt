@@ -217,32 +217,39 @@ export function useConvexQuery<
     },
   )
 
-  // Compute corrected pending value for server: false case
-  // When server: false, Nuxt's useAsyncData reports pending=false on SSR (no active fetch)
-  // but data WILL be fetched on client, so we should report pending=true
-  const effectivePending = computed((): boolean => {
+  // === Create our own pending/status with correct semantics ===
+  // Nuxt's useAsyncData has different semantics than what we want:
+  // - server: false → pending=false on SSR (but we want pending=true, data will load on client)
+  // - lazy: true on client nav → may show pending=false (but we want pending=true until data arrives)
+
+  const pending = computed((): boolean => {
     if (isSkipped.value) return false
+
+    const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
 
     // When server: false, report pending until data arrives
     if (!server) {
-      // On server: always pending (no SSR fetch)
+      // On server: always pending (no SSR fetch, data will load on client)
       if (import.meta.server) return true
-
       // On client: pending until we have data
-      const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
       if (!hasData) return true
+    }
+
+    // For lazy: true on client, show pending until data arrives
+    // This handles the case where navigation is instant but data is still loading
+    if (lazy && import.meta.client && !hasData) {
+      return true
     }
 
     // Default to asyncData's pending state
     return asyncData.pending.value
   })
 
-  // Compute corrected status using the effective pending value
-  const effectiveStatus = computed((): QueryStatus => {
+  const status = computed((): QueryStatus => {
     return computeQueryStatus(
       isSkipped.value,
       asyncData.error.value !== null,
-      effectivePending.value,
+      pending.value,
       asyncData.data.value !== null && asyncData.data.value !== undefined
     )
   })
@@ -358,20 +365,54 @@ export function useConvexQuery<
     })
   }
 
-  // Create wrapper that preserves AsyncData interface but overrides pending/status
-  // Spread asyncData properties, override pending/status, and preserve thenable behavior
-  const wrappedResult = {
-    ...asyncData,
-    pending: effectivePending,
-    status: effectiveStatus,
+  // === Build thenable return (Object.assign pattern from useConvexPaginatedQuery) ===
+
+  // Determine when the promise should resolve based on options
+  let resolvePromise: Promise<void>
+
+  if (isSkipped.value) {
+    // Skipped - resolve immediately
+    resolvePromise = Promise.resolve()
+  } else if (import.meta.server) {
+    // SSR
+    if (!server) {
+      // server: false - skip SSR fetch, resolve immediately (client will fetch)
+      resolvePromise = Promise.resolve()
+    } else {
+      // server: true - wait for asyncData
+      resolvePromise = asyncData.then(() => {})
+    }
+  } else {
+    // Client
+    const hasExistingData = asyncData.data.value !== null && asyncData.data.value !== undefined
+
+    if (hasExistingData) {
+      // Already have data (from SSR hydration or cache)
+      resolvePromise = Promise.resolve()
+    } else if (lazy) {
+      // lazy: true - resolve immediately, data loads in background
+      resolvePromise = Promise.resolve()
+    } else {
+      // Wait for asyncData to complete
+      resolvePromise = asyncData.then(() => {})
+    }
   }
 
-  // Preserve thenable behavior by binding then/catch to the original asyncData
-  // This is needed because spreading loses the proper `this` context for these methods
-  Object.defineProperty(wrappedResult, 'then', {
-    value: asyncData.then.bind(asyncData),
-    enumerable: false,
-  })
+  // Build result data object with our own pending/status
+  const resultData = {
+    data: asyncData.data,
+    pending,
+    status,
+    error: asyncData.error,
+    refresh: asyncData.refresh,
+    execute: asyncData.execute,
+    clear: asyncData.clear,
+  }
 
-  return wrappedResult as AsyncData<DataT | undefined, Error | null>
+  // Create thenable result by extending the promise with result data
+  // This is the clean pattern: promise.then() returns a new promise, Object.assign copies properties
+  const resultPromise = resolvePromise.then(() => resultData)
+  Object.assign(resultPromise, resultData)
+
+  return resultPromise as unknown as AsyncData<DataT | undefined, Error | null>
 }
