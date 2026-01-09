@@ -56,7 +56,7 @@
     "dev": "npm run dev:prepare && nuxi dev playground",
     "dev:build": "nuxi build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
-    "release": "npm run lint && npm run test && npm run prepack && git fetch --tags --force origin && changelogen --release && npm publish && git push --follow-tags",
+    "release": "npm run lint && npm run test && npm run prepack && git fetch --prune --prune-tags --tags --force origin && changelogen --release && npm publish && git push --follow-tags",
     "lint": "eslint .",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
