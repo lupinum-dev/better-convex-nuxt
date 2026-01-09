@@ -10,6 +10,8 @@
  */
 
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
+import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logger'
+import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
 
 interface ConvexUser {
   id: string
@@ -21,87 +23,76 @@ interface ConvexUser {
   updatedAt?: string
 }
 
-// Verbose logging helper for SSR debugging
-const getLog = (config: ReturnType<typeof useRuntimeConfig>) => {
-  const verbose = config.public.convex?.verbose ?? false
-  if (!verbose) {
-    return () => {}
-  }
-  return (message: string, data?: unknown) => {
-    const prefix = '[bcn:ssr] '
-    if (data !== undefined) {
-      console.log(prefix + message, data)
-    } else {
-      console.log(prefix + message)
-    }
-  }
-}
-
 export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
-  const log = getLog(config)
-  log('Plugin starting')
+  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
+  const logger = createModuleLogger(loggingOptions)
+  const initTimer = createTimer()
 
   // Get the H3 event for accessing cookies
   const event = useRequestEvent()
   if (!event) {
-    log('No request event available, skipping')
+    logger.event({
+      event: 'plugin:init',
+      env: 'server',
+      config: { url: '', siteUrl: '', authEnabled: false },
+      duration_ms: initTimer(),
+      outcome: 'error',
+      error: { type: 'SSRError', message: 'No request event available' },
+    } satisfies PluginInitEvent)
     return
   }
 
-  // Use siteUrl (preferred) or fall back to auth.url for backwards compatibility
-  const siteUrl = config.public.convex?.siteUrl || config.public.convex?.auth?.url
+  const convexUrl = config.public.convex?.url as string | undefined
+  const siteUrl = config.public.convex?.siteUrl as string | undefined
 
   if (!siteUrl) {
-    log('No siteUrl configured, skipping auth')
+    // No auth configured - not an error, just no auth
+    logger.event({
+      event: 'plugin:init',
+      env: 'server',
+      config: { url: convexUrl || '', siteUrl: '', authEnabled: false },
+      duration_ms: initTimer(),
+      outcome: 'success',
+    } satisfies PluginInitEvent)
     return
   }
-
-  log('Auth configured', { siteUrl })
 
   // Initialize useState for hydration (must be done even if unauthenticated)
   const convexToken = useState<string | null>('convex:token', () => null)
   const convexUser = useState<ConvexUser | null>('convex:user', () => null)
 
-  // Get all cookies to forward (like Next.js pattern)
+  // Get all cookies to forward
   const cookieHeader = event.headers.get('cookie')
   const hasSessionCookie = cookieHeader?.includes('better-auth.session_token')
 
-  log('Cookie check', { hasCookieHeader: !!cookieHeader, hasSessionCookie })
-
   // Check if we have a session cookie
   if (!cookieHeader || !hasSessionCookie) {
-    log('No session cookie, remaining unauthenticated')
+    logger.event({
+      event: 'plugin:init',
+      env: 'server',
+      config: { url: convexUrl || '', siteUrl, authEnabled: true },
+      duration_ms: initTimer(),
+      outcome: 'success',
+    } satisfies PluginInitEvent)
     return
   }
 
   try {
-    log('Fetching token from auth server')
-
-    // OPTIMIZATION: Only fetch the token endpoint, not the session separately.
-    // The /convex/token endpoint already validates the session internally,
-    // and the JWT contains user data in its payload. We decode it to get user info.
-    // This reduces Better Auth adapter calls from 2 parallel requests to 1.
+    // Fetch token from auth server
     const tokenResponse = await $fetch<{ token?: string }>(`${siteUrl}/api/auth/convex/token`, {
       headers: { Cookie: cookieHeader },
-    }).catch((err) => {
-      log('Token fetch failed', { error: err?.message || err })
-      return null
-    })
+    }).catch(() => null)
 
     // Set token if available
     if (tokenResponse?.token) {
       convexToken.value = tokenResponse.token
-      log('Token set successfully')
 
       // Decode JWT to extract user info (avoid second request)
-      // JWT format: header.payload.signature
       try {
         const payloadBase64 = tokenResponse.token.split('.')[1]
         if (payloadBase64) {
           const payload = JSON.parse(atob(payloadBase64))
-          // The Convex Better Auth plugin includes user fields in the JWT payload
-          // See: jwt.definePayload in the convex plugin
           if (payload.sub || payload.userId || payload.email) {
             convexUser.value = {
               id: payload.sub || payload.userId || '',
@@ -110,38 +101,53 @@ export default defineNuxtPlugin(async () => {
               emailVerified: payload.emailVerified,
               image: payload.image,
             }
-            log('User extracted from JWT', {
-              userId: convexUser.value.id,
-              email: convexUser.value.email,
-            })
           }
         }
-      } catch (decodeError) {
-        log('JWT decode failed, fetching session separately', { error: decodeError })
+      } catch {
         // Fallback: fetch session if JWT decode fails
         const sessionResponse = await $fetch<{ user?: ConvexUser }>(
           `${siteUrl}/api/auth/get-session`,
-          {
-            headers: { Cookie: cookieHeader },
-          },
+          { headers: { Cookie: cookieHeader } },
         ).catch(() => null)
         if (sessionResponse?.user) {
           convexUser.value = sessionResponse.user
-          log('User set from session fallback', { userId: sessionResponse.user.id })
         }
       }
-    } else {
-      log('No token in response')
+
+      // Log successful auth
+      logger.event({
+        event: 'auth:change',
+        env: 'server',
+        from: 'unauthenticated',
+        to: 'authenticated',
+        trigger: 'init',
+        user_id: convexUser.value?.id?.slice(0, 8),
+      } satisfies AuthChangeEvent)
     }
 
-    log('SSR auth complete', {
-      isAuthenticated: !!(convexToken.value && convexUser.value),
-    })
+    logger.event({
+      event: 'plugin:init',
+      env: 'server',
+      config: { url: convexUrl || '', siteUrl, authEnabled: true },
+      duration_ms: initTimer(),
+      outcome: 'success',
+    } satisfies PluginInitEvent)
   } catch (error) {
     // Token exchange failed - session may be invalid/expired
-    // Gracefully remain unauthenticated without breaking SSR
-    log('Token exchange failed', { error: error instanceof Error ? error.message : error })
     convexToken.value = null
     convexUser.value = null
+
+    logger.event({
+      event: 'plugin:init',
+      env: 'server',
+      config: { url: convexUrl || '', siteUrl, authEnabled: true },
+      duration_ms: initTimer(),
+      outcome: 'error',
+      error: {
+        type: 'AuthError',
+        message: error instanceof Error ? error.message : 'Token exchange failed',
+        hint: 'Session may be expired or invalid',
+      },
+    } satisfies PluginInitEvent)
   }
 })

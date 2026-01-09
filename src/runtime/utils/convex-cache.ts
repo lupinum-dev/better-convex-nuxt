@@ -1,17 +1,13 @@
 import { useState, type useNuxtApp } from '#app'
 
-import type { QueryLogger } from './convex-shared'
-
-// Re-export shared utilities for backwards compatibility
+// Re-export shared utilities
 export {
   type QueryStatus,
-  type QueryLogger,
   parseConvexResponse,
   computeQueryStatus,
   getFunctionName,
   stableStringify,
   getQueryKey,
-  createQueryLogger,
 } from './convex-shared'
 
 // Get the NuxtApp type from useNuxtApp return type
@@ -37,8 +33,6 @@ export interface FetchAuthTokenOptions {
   cookieHeader: string
   /** Site URL for auth endpoint */
   siteUrl: string | undefined
-  /** Logger for debug output */
-  log: QueryLogger
 }
 
 /**
@@ -54,12 +48,11 @@ export interface FetchAuthTokenOptions {
  *   isPublic: false,
  *   cookieHeader: event?.headers.get('cookie') || '',
  *   siteUrl: config.public.convex?.siteUrl,
- *   log,
  * })
  * ```
  */
 export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { isPublic, cookieHeader, siteUrl, log } = options
+  const { isPublic, cookieHeader, siteUrl } = options
 
   // Skip for public queries
   if (isPublic) {
@@ -74,7 +67,6 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   // Try cached token first
   const cachedToken = useState<string | null>('convex:token')
   if (cachedToken.value) {
-    log('Using cached auth token')
     return cachedToken.value
   }
 
@@ -84,17 +76,15 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   }
 
   try {
-    log('Fetching auth token')
     const response = await $fetch<{ token?: string }>(`${siteUrl}/api/auth/convex/token`, {
       headers: { Cookie: cookieHeader },
     })
     if (response?.token) {
       cachedToken.value = response.token
-      log('Auth token fetched and cached')
       return response.token
     }
   } catch {
-    log('Auth token fetch failed')
+    // Auth token fetch failed - continue without auth
   }
 
   return undefined

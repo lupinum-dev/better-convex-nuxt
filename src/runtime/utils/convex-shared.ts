@@ -12,11 +12,6 @@ const functionNameSymbol = Symbol.for('functionName')
  */
 export type QueryStatus = 'idle' | 'pending' | 'success' | 'error'
 
-/**
- * Logger function type for debug logging
- */
-export type QueryLogger = (message: string, data?: unknown) => void
-
 // ============================================================================
 // Response Parsing
 // ============================================================================
@@ -144,47 +139,3 @@ export function getQueryKey(query: FunctionReference<'query'>, args?: unknown): 
   return `convex:${fnName}:${argsKey}`
 }
 
-// ============================================================================
-// Logger Factory
-// ============================================================================
-
-/**
- * Create a debug logger for query composables.
- *
- * @param verbose - Whether logging is enabled
- * @param composableName - Name of the composable (e.g., 'useConvexQuery')
- * @param query - The Convex query function reference
- * @returns Logger function that logs with environment prefix
- *
- * @example
- * ```ts
- * const log = createQueryLogger(options?.verbose ?? false, 'useConvexQuery', query)
- * log('Initializing', { lazy, server })
- * ```
- */
-export function createQueryLogger(
-  verbose: boolean,
-  composableName: string,
-  query: FunctionReference<'query'>,
-): QueryLogger {
-  if (!verbose) {
-    return () => {}
-  }
-
-  let fnName: string
-  try {
-    fnName = getFunctionName(query)
-  } catch {
-    fnName = 'unknown'
-  }
-
-  return (message: string, data?: unknown) => {
-    const env = import.meta.server ? '[SSR]' : '[Client]'
-    const prefix = `[${composableName}] ${env} ${fnName}: `
-    if (data !== undefined) {
-      console.log(prefix + message, data)
-    } else {
-      console.log(prefix + message)
-    }
-  }
-}

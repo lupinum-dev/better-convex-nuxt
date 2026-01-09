@@ -1,6 +1,8 @@
 import { ref, readonly, computed, onMounted, onUnmounted } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
+import { createModuleLogger, getLoggingOptions } from '../utils/logger'
+import type { ConnectionChangeEvent } from '../utils/logger'
 import { useConvex } from './useConvex'
 
 /**
@@ -37,18 +39,6 @@ const DEFAULT_STATE: ConnectionState = {
 }
 
 /**
- * Options for useConvexConnectionState
- */
-export interface UseConvexConnectionStateOptions {
-  /**
-   * Enable verbose logging for debugging.
-   * Logs connection state changes.
-   * @default false
-   */
-  verbose?: boolean
-}
-
-/**
  * Monitor the Convex WebSocket connection state.
  * Useful for showing offline/reconnecting UI.
  *
@@ -65,24 +55,14 @@ export interface UseConvexConnectionStateOptions {
  * </template>
  * ```
  */
-export function useConvexConnectionState(options?: UseConvexConnectionStateOptions) {
+export function useConvexConnectionState() {
   const client = useConvex()
   const config = useRuntimeConfig()
-  const verbose = options?.verbose ?? (config.public.convex?.verbose ?? false)
+  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
+  const logger = createModuleLogger(loggingOptions)
 
-  // Debug logger
-  const log = verbose
-    ? (message: string, data?: unknown) => {
-        const prefix = '[useConvexConnectionState]: '
-        if (data !== undefined) {
-          console.log(prefix + message, data)
-        } else {
-          console.log(prefix + message)
-        }
-      }
-    : () => {}
-
-  log('Initialized', { hasClient: !!client, isClient: import.meta.client })
+  // Track for logging
+  let disconnectedAt: number | null = null
 
   // Initialize with disconnected state for SSR
   const state = ref<ConnectionState>({ ...DEFAULT_STATE })
@@ -102,28 +82,44 @@ export function useConvexConnectionState(options?: UseConvexConnectionStateOptio
   if (import.meta.client && client) {
     // Get initial state
     state.value = client.connectionState() as ConnectionState
-    log('Initial state', state.value)
 
     let unsubscribe: (() => void) | null = null
 
     onMounted(() => {
-      log('Subscribing to connection state changes')
       // Subscribe to connection state changes
       unsubscribe = client.subscribeToConnectionState((newState: ConnectionState) => {
         const wasConnected = state.value.isWebSocketConnected
         const nowConnected = newState.isWebSocketConnected
+
         if (wasConnected !== nowConnected) {
-          log(nowConnected ? 'Connected' : 'Disconnected', {
-            retries: newState.connectionRetries,
-            connectionCount: newState.connectionCount,
-          })
+          if (nowConnected) {
+            // Reconnected
+            const offlineDuration = disconnectedAt ? Date.now() - disconnectedAt : undefined
+            logger.event({
+              event: 'connection:change',
+              from: 'disconnected',
+              to: 'connected',
+              retry_count: newState.connectionRetries,
+              offline_duration_ms: offlineDuration,
+            } satisfies ConnectionChangeEvent)
+            disconnectedAt = null
+          } else {
+            // Disconnected
+            disconnectedAt = Date.now()
+            logger.event({
+              event: 'connection:change',
+              from: 'connected',
+              to: 'disconnected',
+              retry_count: newState.connectionRetries,
+            } satisfies ConnectionChangeEvent)
+          }
         }
+
         state.value = newState
       })
     })
 
     onUnmounted(() => {
-      log('Unsubscribing')
       unsubscribe?.()
     })
   }

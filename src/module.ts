@@ -10,9 +10,22 @@ import {
 } from '@nuxt/kit'
 import { defu } from 'defu'
 
-export interface BetterAuthOptions {
-  /** @deprecated Use siteUrl instead */
-  url?: string
+export interface LoggingOptions {
+  /**
+   * Enable module logging.
+   * - false: No logs (production default)
+   * - true: Info-level logs (canonical events only)
+   * - 'debug': Include debug-level details
+   * @default false
+   */
+  enabled?: boolean | 'debug'
+  /**
+   * Output format for logs.
+   * - 'pretty': Human-readable with icons (default)
+   * - 'json': Structured JSON for log aggregation
+   * @default 'pretty'
+   */
+  format?: 'pretty' | 'json'
 }
 
 export interface ModuleOptions {
@@ -20,8 +33,6 @@ export interface ModuleOptions {
   url?: string
   /** Convex site URL (HTTP/Auth) - e.g., https://your-app.convex.site. Auto-derived from url if not set. */
   siteUrl?: string
-  /** @deprecated Use siteUrl instead */
-  auth?: BetterAuthOptions
   /**
    * Enable permission composables (createPermissions factory).
    * When true, auto-imports createPermissions for building usePermissions.
@@ -29,11 +40,10 @@ export interface ModuleOptions {
    */
   permissions?: boolean
   /**
-   * Enable verbose logging for debugging.
-   * When true, logs detailed information about queries, mutations, auth, and SSR operations.
-   * @default false
+   * Configure module logging behavior.
+   * Emits canonical log events for debugging SSR, auth, queries, and mutations.
    */
-  verbose?: boolean
+  logging?: LoggingOptions
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -48,16 +58,17 @@ export default defineNuxtModule<ModuleOptions>({
     url: process.env.CONVEX_URL,
     siteUrl: process.env.CONVEX_SITE_URL,
     permissions: false,
-    verbose: false,
+    logging: {
+      enabled: false,
+      format: 'pretty',
+    },
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
 
     // Derive siteUrl from url if not explicitly set (cloud -> site)
     const derivedSiteUrl =
-      options.siteUrl ||
-      options.auth?.url ||
-      (options.url?.replace('.convex.cloud', '.convex.site') ?? '')
+      options.siteUrl || (options.url?.replace('.convex.cloud', '.convex.site') ?? '')
 
     // 1. Safe Configuration Merging (preserves user-defined runtimeConfig)
     const convexConfig = defu(
@@ -65,10 +76,9 @@ export default defineNuxtModule<ModuleOptions>({
       {
         url: options.url || '',
         siteUrl: derivedSiteUrl,
-        verbose: options.verbose ?? false,
-        // Keep auth.url for backwards compatibility
-        auth: {
-          url: options.auth?.url || derivedSiteUrl,
+        logging: {
+          enabled: options.logging?.enabled ?? false,
+          format: options.logging?.format ?? 'pretty',
         },
       },
     )

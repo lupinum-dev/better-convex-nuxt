@@ -26,7 +26,6 @@ import {
   getFunctionName,
   stableStringify,
   getQueryKey,
-  createQueryLogger,
   fetchAuthToken,
   registerSubscription,
   hasSubscription,
@@ -122,12 +121,6 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
    * ```
    */
   transform?: (results: Item[]) => TransformedItem[]
-
-  /**
-   * Enable verbose logging for debugging.
-   * @default false
-   */
-  verbose?: boolean
 }
 
 /**
@@ -299,15 +292,12 @@ export function useConvexPaginatedQuery<
   const lazy = options?.lazy ?? false
   const subscribe = options?.subscribe ?? true
   const isPublic = options?.public ?? false
-  const verbose = options?.verbose ?? (config.public.convex?.verbose ?? false)
 
   // Get function name (needed for cache key)
   const fnName = getFunctionName(query)
 
-  // Debug logger (using shared helper)
-  const log = createQueryLogger(verbose, 'useConvexPaginatedQuery', query)
-
-  log('Initializing', { initialNumItems, server, lazy, subscribe, public: isPublic })
+  // No-op log for compatibility (verbose debug logging removed in v0.2)
+  const log = (_message: string, _data?: unknown) => {}
 
   // Get reactive args value
   const getArgs = (): Args => toValue(args) ?? ({} as Args)
@@ -317,7 +307,6 @@ export function useConvexPaginatedQuery<
 
   // Early return for static skip
   if (isStaticSkip) {
-    log('Static skip - returning early with empty results')
     const results = computed(() => (options?.default?.() ?? []) as TransformedItem[])
     const status = computed(() => 'Exhausted' as PaginationStatus)
     const isLoading = computed(() => false)
@@ -408,7 +397,6 @@ export function useConvexPaginatedQuery<
         isPublic,
         cookieHeader,
         siteUrl,
-        log,
       })
     }
 

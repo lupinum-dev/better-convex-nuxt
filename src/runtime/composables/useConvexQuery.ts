@@ -11,7 +11,6 @@ import {
   getQueryKey,
   parseConvexResponse,
   computeQueryStatus,
-  createQueryLogger,
   fetchAuthToken,
   registerSubscription,
   hasSubscription,
@@ -19,6 +18,8 @@ import {
   cleanupSubscription,
   type QueryStatus,
 } from '../utils/convex-cache'
+import { createModuleLogger, getLoggingOptions } from '../utils/logger'
+import type { SubscriptionChangeEvent } from '../utils/logger'
 
 // Re-export for consumers
 export type { QueryStatus }
@@ -38,8 +39,6 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   default?: () => DataT | undefined
   /** Transform data after fetching. */
   transform?: (input: RawT) => DataT
-  /** Enable verbose logging for debugging. @default false */
-  verbose?: boolean
   /** Mark this query as public (no authentication needed). @default false */
   public?: boolean
 }
@@ -137,14 +136,17 @@ export function useConvexQuery<
   const lazy = options?.lazy ?? false
   const server = options?.server ?? true
   const subscribe = options?.subscribe ?? true
-  const verbose = options?.verbose ?? (config.public.convex?.verbose ?? false)
   const isPublic = options?.public ?? false
 
   // Get function name for cache key and logging
   const fnName = getFunctionName(query)
-  const log = createQueryLogger(verbose, 'useConvexQuery', query)
 
-  log('Initializing', { lazy, server, public: isPublic })
+  // Setup logger
+  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
+  const logger = createModuleLogger(loggingOptions)
+
+  // Track subscription state for logging
+  let updateCount = 0
 
   // Get reactive args value
   const getArgs = (): Args => toValue(args) ?? ({} as Args)
@@ -158,7 +160,6 @@ export function useConvexQuery<
   }
 
   const cacheKey = getCacheKey()
-  log('Cache key', { key: cacheKey })
 
   // Transform helper
   const applyTransform = (raw: RawT): DataT => {
@@ -174,7 +175,6 @@ export function useConvexQuery<
     cacheKey,
     async () => {
       if (isSkipped.value) {
-        log('Skipped')
         return undefined
       }
 
@@ -187,18 +187,15 @@ export function useConvexQuery<
 
       // SSR: fetch via HTTP
       if (import.meta.server) {
-        const siteUrl = config.public.convex?.siteUrl || config.public.convex?.auth?.url
-        log('Fetching via HTTP (SSR)', { args: currentArgs })
+        const siteUrl = config.public.convex?.siteUrl
 
         const authToken = await fetchAuthToken({
           isPublic,
           cookieHeader,
           siteUrl,
-          log,
         })
 
         const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
-        log('SSR fetch succeeded', { hasData: result !== undefined })
         return applyTransform(result)
       }
 
@@ -208,9 +205,7 @@ export function useConvexQuery<
         throw new Error('[useConvexQuery] Convex client not available')
       }
 
-      log('Fetching via WebSocket (Client)', { args: currentArgs })
       const result = await executeQueryViaSubscription(convex, query, currentArgs)
-      log('Client fetch succeeded', { hasData: result !== undefined })
       return applyTransform(result)
     },
     {
@@ -230,13 +225,11 @@ export function useConvexQuery<
     const setupSubscription = () => {
       const currentArgs = getArgs()
       if (currentArgs === 'skip') {
-        log('Skipping subscription (args=skip)')
         return
       }
 
       const convex = nuxtApp.$convex as ConvexClient | undefined
       if (!convex) {
-        log('No Convex client available')
         return
       }
 
@@ -244,24 +237,36 @@ export function useConvexQuery<
 
       // Check subscription cache to prevent duplicates
       if (hasSubscription(nuxtApp, currentCacheKey)) {
-        log('Subscription already exists, reusing')
         return
       }
 
-      log('Starting subscription', { args: currentArgs })
-
       try {
+        updateCount = 0
         unsubscribeFn = convex.onUpdate(query, currentArgs as FunctionArgs<Query>, (result: RawT) => {
-          log('Subscription update', { hasData: result !== undefined })
+          updateCount++
           // Cast needed because useAsyncData has complex PickFrom type
           ;(asyncData.data as Ref<DataT | undefined>).value = applyTransform(result)
           // Force Vue reactivity for all watchers
           triggerRef(asyncData.data)
         })
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
-        log('Subscription started')
+
+        logger.event({
+          event: 'subscription:change',
+          env: 'client',
+          name: fnName,
+          state: 'subscribed',
+          cache_hit: false,
+        } satisfies SubscriptionChangeEvent)
       } catch (e) {
-        log('Subscription failed', { error: e })
+        const err = e instanceof Error ? e : new Error(String(e))
+        logger.event({
+          event: 'subscription:change',
+          env: 'client',
+          name: fnName,
+          state: 'error',
+          error: { type: err.name, message: err.message },
+        } satisfies SubscriptionChangeEvent)
       }
     }
 
@@ -274,8 +279,6 @@ export function useConvexQuery<
         () => toValue(args),
         (newArgs, oldArgs) => {
           if (stableStringify(newArgs) !== stableStringify(oldArgs)) {
-            log('Args changed, updating subscription', { from: oldArgs, to: newArgs })
-
             // Cleanup old subscription
             const oldCacheKey = getQueryKey(query, oldArgs)
             cleanupSubscription(nuxtApp, oldCacheKey)
@@ -294,7 +297,14 @@ export function useConvexQuery<
     // Cleanup on unmount
     onUnmounted(() => {
       if (unsubscribeFn) {
-        log('Unmounting, cleaning up subscription')
+        logger.event({
+          event: 'subscription:change',
+          env: 'client',
+          name: fnName,
+          state: 'unsubscribed',
+          updates_received: updateCount,
+        } satisfies SubscriptionChangeEvent)
+
         removeFromSubscriptionCache(nuxtApp, getCacheKey())
         unsubscribeFn()
         unsubscribeFn = null

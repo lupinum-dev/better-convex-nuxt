@@ -4,19 +4,9 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
+import { createModuleLogger, getLoggingOptions, createTimer, formatArgsPreview } from '../utils/logger'
+import type { OperationCompleteEvent } from '../utils/logger'
 import { useConvex } from './useConvex'
-
-/**
- * Options for useConvexAction
- */
-export interface UseConvexActionOptions {
-  /**
-   * Enable verbose logging for debugging.
-   * Logs action lifecycle events: start, success, error.
-   * @default false
-   */
-  verbose?: boolean
-}
 
 /**
  * Action status representing the current state of the action
@@ -118,28 +108,14 @@ export interface UseConvexActionReturn<Args, Result> {
  */
 export function useConvexAction<Action extends FunctionReference<'action'>>(
   action: Action,
-  options?: UseConvexActionOptions,
 ): UseConvexActionReturn<FunctionArgs<Action>, FunctionReturnType<Action>> {
   type Args = FunctionArgs<Action>
   type Result = FunctionReturnType<Action>
 
   const config = useRuntimeConfig()
-  const verbose = options?.verbose ?? (config.public.convex?.verbose ?? false)
-
-  // Debug logger
+  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
+  const logger = createModuleLogger(loggingOptions)
   const fnName = getFunctionName(action)
-  const log = verbose
-    ? (message: string, data?: unknown) => {
-        const prefix = `[useConvexAction] ${fnName}: `
-        if (data !== undefined) {
-          console.log(prefix + message, data)
-        } else {
-          console.log(prefix + message)
-        }
-      }
-    : () => {}
-
-  log('Initialized')
 
   // Internal state
   const _status = ref<ActionStatus>('idle')
@@ -152,45 +128,73 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
   // Reset function
   const reset = () => {
-    log('Reset')
     _status.value = 'idle'
     error.value = null
     data.value = undefined
   }
 
   // The execute function
-  // Client is lazily retrieved here (not at setup time) to support SSR
-  // The composable can be called during SSR setup, but execute() only works on client
   const execute = async (args: Args): Promise<Result> => {
-    // Lazily get client - this makes the composable SSR-safe
     const client = useConvex()
+    const timer = createTimer()
 
     if (!client) {
-      const err = new Error(
-        '[bcn] ConvexClient not available - actions only work on client side',
-      )
-      log('Error: Client not available')
+      const err = new Error('ConvexClient not available - actions only work on client side')
       _status.value = 'error'
       error.value = err
+
+      logger.event({
+        event: 'operation:complete',
+        env: 'client',
+        type: 'action',
+        name: fnName,
+        duration_ms: timer(),
+        outcome: 'error',
+        error: { type: 'ClientError', message: err.message },
+      } satisfies OperationCompleteEvent)
+
       throw err
     }
 
-    // Start action
-    log('Starting action', args)
     _status.value = 'pending'
     error.value = null
 
     try {
       const result = await client.action(action, args)
-      log('Success', result)
       _status.value = 'success'
       data.value = result
+
+      logger.event({
+        event: 'operation:complete',
+        env: 'client',
+        type: 'action',
+        name: fnName,
+        duration_ms: timer(),
+        outcome: 'success',
+        args_preview: formatArgsPreview(args),
+      } satisfies OperationCompleteEvent)
+
       return result
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
-      log('Error', err.message)
       _status.value = 'error'
       error.value = err
+
+      logger.event({
+        event: 'operation:complete',
+        env: 'client',
+        type: 'action',
+        name: fnName,
+        duration_ms: timer(),
+        outcome: 'error',
+        args_preview: formatArgsPreview(args),
+        error: {
+          type: err.name,
+          message: err.message,
+          retriable: false,
+        },
+      } satisfies OperationCompleteEvent)
+
       throw err
     }
   }

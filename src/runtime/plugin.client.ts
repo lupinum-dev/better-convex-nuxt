@@ -6,6 +6,8 @@ import { defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import { ConvexClient } from 'convex/browser'
+import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logger'
+import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
 
 interface TokenResponse {
   data?: { token: string } | null
@@ -22,26 +24,30 @@ declare module '#app' {
   }
 }
 
-const createLogger = (verbose: boolean) => {
-  if (!verbose) return () => {}
-  return (msg: string, data?: unknown) => console.log('[bcn:client] ' + msg, data ?? '')
-}
-
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
-  const log = createLogger(config.public.convex?.verbose ?? false)
+  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
+  const logger = createModuleLogger(loggingOptions)
+  const initTimer = createTimer()
 
   // HMR-safe initialization
   if (nuxtApp._convexInitialized) return
   nuxtApp._convexInitialized = true
 
-  const convexUrl = config.public.convex?.url
-  const siteUrl = config.public.convex?.siteUrl
-    || config.public.convex?.auth?.url
-    || convexUrl?.replace('.convex.cloud', '.convex.site')
+  const convexUrl = config.public.convex?.url as string | undefined
+  const siteUrl =
+    (config.public.convex?.siteUrl as string | undefined) ||
+    convexUrl?.replace('.convex.cloud', '.convex.site')
 
   if (!convexUrl) {
-    console.warn('[bcn] No Convex URL configured')
+    logger.event({
+      event: 'plugin:init',
+      env: 'client',
+      config: { url: '', siteUrl: '', authEnabled: false },
+      duration_ms: initTimer(),
+      outcome: 'error',
+      error: { type: 'ConfigError', message: 'No Convex URL configured', hint: 'Set CONVEX_URL or convex.url in nuxt.config' },
+    } satisfies PluginInitEvent)
     return
   }
 
@@ -49,16 +55,19 @@ export default defineNuxtPlugin((nuxtApp) => {
   const convexToken = useState<string | null>('convex:token')
   const convexUser = useState<unknown>('convex:user')
 
-  log('Initializing', { hasToken: !!convexToken.value, hasUser: !!convexUser.value })
+  // Track auth state for logging
+  let currentAuthState: 'loading' | 'authenticated' | 'unauthenticated' = convexToken.value
+    ? 'authenticated'
+    : 'unauthenticated'
 
   // Create Convex WebSocket client
   const client = new ConvexClient(convexUrl)
   let authClient: AuthClientWithConvex | null = null
+  const authEnabled = !!siteUrl
 
   if (siteUrl) {
-    const authBaseURL = typeof window !== 'undefined'
-      ? `${window.location.origin}/api/auth`
-      : '/api/auth'
+    const authBaseURL =
+      typeof window !== 'undefined' ? `${window.location.origin}/api/auth` : '/api/auth'
 
     authClient = createAuthClient({
       baseURL: authBaseURL,
@@ -71,8 +80,6 @@ export default defineNuxtPlugin((nuxtApp) => {
     const TOKEN_CACHE_MS = 10000
 
     const fetchToken = async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
-      log('fetchToken', { forceRefreshToken, hasToken: !!convexToken.value })
-
       // Use SSR-hydrated token if available
       if (convexToken.value && !forceRefreshToken) {
         lastTokenValidation = Date.now()
@@ -107,7 +114,22 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
 
     client.setAuth(fetchToken, (isAuthenticated) => {
-      log('Auth state changed', { isAuthenticated })
+      const previousState = currentAuthState
+      const newState = isAuthenticated ? 'authenticated' : 'unauthenticated'
+
+      if (previousState !== newState) {
+        currentAuthState = newState
+        logger.event({
+          event: 'auth:change',
+          env: 'client',
+          from: previousState,
+          to: newState,
+          trigger: 'token-refresh',
+          user_id: convexUser.value
+            ? String((convexUser.value as { id?: string }).id || '').slice(0, 8)
+            : undefined,
+        } satisfies AuthChangeEvent)
+      }
     })
   }
 
@@ -125,5 +147,30 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (authClient) (window as any).__auth_client__ = authClient
   }
 
-  log('Initialized')
+  // Log successful initialization
+  logger.event({
+    event: 'plugin:init',
+    env: 'client',
+    config: {
+      url: convexUrl,
+      siteUrl: siteUrl || '',
+      authEnabled,
+    },
+    duration_ms: initTimer(),
+    outcome: 'success',
+  } satisfies PluginInitEvent)
+
+  // Log initial auth state if hydrated from SSR
+  if (convexToken.value) {
+    logger.event({
+      event: 'auth:change',
+      env: 'client',
+      from: 'loading',
+      to: 'authenticated',
+      trigger: 'ssr-hydration',
+      user_id: convexUser.value
+        ? String((convexUser.value as { id?: string }).id || '').slice(0, 8)
+        : undefined,
+    } satisfies AuthChangeEvent)
+  }
 })

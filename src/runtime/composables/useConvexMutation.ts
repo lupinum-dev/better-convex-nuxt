@@ -5,6 +5,8 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
+import { createModuleLogger, getLoggingOptions, createTimer, formatArgsPreview } from '../utils/logger'
+import type { OperationCompleteEvent } from '../utils/logger'
 import { useConvex } from './useConvex'
 
 /**
@@ -91,13 +93,6 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>> 
    * ```
    */
   optimisticUpdate?: (localStore: OptimisticLocalStore, args: Args) => void
-
-  /**
-   * Enable verbose logging for debugging.
-   * Logs mutation lifecycle events: start, success, error, and optimistic updates.
-   * @default false
-   */
-  verbose?: boolean
 }
 
 // ============================================================================
@@ -469,22 +464,10 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   type Result = FunctionReturnType<Mutation>
 
   const config = useRuntimeConfig()
-  const verbose = options?.verbose ?? (config.public.convex?.verbose ?? false)
-
-  // Debug logger
+  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
+  const logger = createModuleLogger(loggingOptions)
   const fnName = getFunctionName(mutation)
-  const log = verbose
-    ? (message: string, data?: unknown) => {
-        const prefix = `[useConvexMutation] ${fnName}: `
-        if (data !== undefined) {
-          console.log(prefix + message, data)
-        } else {
-          console.log(prefix + message)
-        }
-      }
-    : () => {}
-
-  log('Initialized', { hasOptimisticUpdate: !!options?.optimisticUpdate })
+  const hasOptimisticUpdate = !!options?.optimisticUpdate
 
   // Internal state
   const _status = ref<MutationStatus>('idle')
@@ -497,52 +480,78 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
   // Reset function
   const reset = () => {
-    log('Reset')
     _status.value = 'idle'
     error.value = null
     data.value = undefined
   }
 
   // The mutation function
-  // Client is lazily retrieved here (not at setup time) to support SSR
-  // The composable can be called during SSR setup, but mutate() only works on client
   const mutate = async (args: Args): Promise<Result> => {
-    // Lazily get client - this makes the composable SSR-safe
-    // The composable returns valid refs during SSR, mutation just won't work until client
     const client = useConvex()
+    const timer = createTimer()
 
     if (!client) {
-      const err = new Error(
-        '[bcn] ConvexClient not available - mutations only work on client side',
-      )
-      log('Error: Client not available')
+      const err = new Error('ConvexClient not available - mutations only work on client side')
       _status.value = 'error'
       error.value = err
+
+      logger.event({
+        event: 'operation:complete',
+        env: 'client',
+        type: 'mutation',
+        name: fnName,
+        duration_ms: timer(),
+        outcome: 'error',
+        optimistic: hasOptimisticUpdate,
+        error: { type: 'ClientError', message: err.message },
+      } satisfies OperationCompleteEvent)
+
       throw err
     }
 
-    // Start mutation
-    log('Starting mutation', args)
     _status.value = 'pending'
     error.value = null
-
-    if (options?.optimisticUpdate) {
-      log('Applying optimistic update')
-    }
 
     try {
       const result = await client.mutation(mutation, args, {
         optimisticUpdate: options?.optimisticUpdate,
       })
-      log('Success', result)
       _status.value = 'success'
       data.value = result
+
+      logger.event({
+        event: 'operation:complete',
+        env: 'client',
+        type: 'mutation',
+        name: fnName,
+        duration_ms: timer(),
+        outcome: 'success',
+        optimistic: hasOptimisticUpdate,
+        args_preview: formatArgsPreview(args),
+      } satisfies OperationCompleteEvent)
+
       return result
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e))
-      log('Error', err.message)
       _status.value = 'error'
       error.value = err
+
+      logger.event({
+        event: 'operation:complete',
+        env: 'client',
+        type: 'mutation',
+        name: fnName,
+        duration_ms: timer(),
+        outcome: 'error',
+        optimistic: hasOptimisticUpdate,
+        args_preview: formatArgsPreview(args),
+        error: {
+          type: err.name,
+          message: err.message,
+          retriable: false,
+        },
+      } satisfies OperationCompleteEvent)
+
       throw err
     }
   }
