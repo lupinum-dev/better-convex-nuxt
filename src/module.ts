@@ -127,12 +127,7 @@ export {}
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useAuthClient', from: resolver.resolve('./runtime/composables/useAuthClient') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
-      { name: 'useConvexCached', from: resolver.resolve('./runtime/composables/useConvexCached') },
-      { name: 'useConvexData', from: resolver.resolve('./runtime/composables/useConvexData') },
-      {
-        name: 'useLazyConvexQuery',
-        from: resolver.resolve('./runtime/composables/useLazyConvexQuery'),
-      },
+      { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
         name: 'useConvexPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),

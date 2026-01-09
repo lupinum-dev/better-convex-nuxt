@@ -2,7 +2,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 
 import { useRuntimeConfig } from '#imports'
 
-import { parseConvexResponse, getFunctionName } from '../../utils/convex-cache'
+import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 
 /**
  * Options for server-side Convex operations

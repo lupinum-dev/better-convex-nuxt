@@ -104,15 +104,15 @@
       </div>
     </section>
 
-    <!-- Section 4: useConvexData (Cache Access) -->
+    <!-- Section 4: useNuxtData (Cache Access) -->
     <section class="section">
-      <h2>4. useConvexData (Cache Access)</h2>
+      <h2>4. useNuxtData (Cache Access)</h2>
       <p class="description">Read cached data without triggering a new fetch</p>
 
       <div class="code-block">
         <pre>
-// Access cached notes list
-const cachedNotes = useConvexData(api.notes.list)
+// Access cached notes list using native Nuxt pattern
+const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 // Count: {{ cachedNotes?.length ?? 'undefined' }}</pre
         >
       </div>
@@ -273,8 +273,8 @@ const {
   pending: skipDemoPending,
 } = useConvexQuery(api.notes.list, skipArgs)
 
-// ========== Section 4: useConvexData ==========
-const cachedNotes = useConvexData(api.notes.list)
+// ========== Section 4: useNuxtData (Cache Access) ==========
+const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 
 // ========== Section 5: Options Demo ==========
 
