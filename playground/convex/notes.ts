@@ -112,3 +112,17 @@ export const remove = mutation({
     await ctx.db.delete(args.id)
   },
 })
+
+// Get all notes with artificial delay (for testing loading states)
+export const listDelayed = query({
+  args: {},
+  handler: async (ctx) => {
+
+
+    const notes = await ctx.db.query('notes').order('desc').take(50)
+    return notes.map((note) => ({
+      ...note,
+      title: note.title ?? 'Untitled',
+    }))
+  },
+})
