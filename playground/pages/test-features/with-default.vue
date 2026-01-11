@@ -89,7 +89,7 @@ const capturedAtRender = {
         </div>
         <div class="state-item">
           <span class="label">has data:</span>
-          <span data-testid="current-has-data" class="value">{{ data !== undefined }}</span>
+          <span data-testid="current-has-data" class="value">{{ data !== null }}</span>
         </div>
         <div class="state-item">
           <span class="label">is default:</span>

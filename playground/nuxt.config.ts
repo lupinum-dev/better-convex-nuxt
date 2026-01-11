@@ -13,8 +13,8 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
     permissions: true, // Enable createPermissions
     logging: {
-      enabled: true,
-      format: 'pretty',
+      enabled: 'debug', // 'debug' shows all logs including debug-level details
+      format: 'pretty', // 'pretty' for dev, 'json' for production/log aggregation
     },
   },
 })

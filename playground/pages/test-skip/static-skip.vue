@@ -7,7 +7,7 @@ import { api } from '~~/convex/_generated/api'
  * Uses args: 'skip' to permanently skip the query.
  * Expected behavior:
  * - status = 'idle'
- * - data = undefined
+ * - data = null
  * - pending = false
  * - No network requests made
  */
@@ -15,7 +15,6 @@ import { api } from '~~/convex/_generated/api'
 const { data, pending, status, error } = useConvexQuery(
   api.notes.list,
   'skip',
-  { verbose: true },
 )
 </script>
 
@@ -42,12 +41,12 @@ const { data, pending, status, error } = useConvexQuery(
           <span
             data-testid="data"
             class="value"
-            >{{ data === undefined ? 'undefined' : JSON.stringify(data) }}</span
+            >{{ data === null ? 'null' : JSON.stringify(data) }}</span
           >
         </div>
         <div class="state-item">
           <span class="label">has data:</span>
-          <span data-testid="has-data" class="value">{{ data !== undefined }}</span>
+          <span data-testid="has-data" class="value">{{ data !== null }}</span>
         </div>
         <div v-if="error" class="state-item">
           <span class="label">error:</span>
@@ -61,7 +60,7 @@ const { data, pending, status, error } = useConvexQuery(
       <ul>
         <li>status: <code>idle</code></li>
         <li>pending: <code>false</code></li>
-        <li>data: <code>undefined</code></li>
+        <li>data: <code>null</code></li>
         <li>has data: <code>false</code></li>
       </ul>
     </section>

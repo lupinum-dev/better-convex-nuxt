@@ -53,7 +53,7 @@ async function handleRetry() {
         </div>
         <div class="state-item">
           <span class="label">has data:</span>
-          <span data-testid="has-data" class="value">{{ data !== undefined }}</span>
+          <span data-testid="has-data" class="value">{{ data !== null }}</span>
         </div>
         <div class="state-item">
           <span class="label">retry count:</span>

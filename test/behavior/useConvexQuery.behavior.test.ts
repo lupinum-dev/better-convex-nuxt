@@ -55,7 +55,7 @@ describe('useConvexQuery behavior', async () => {
   })
 
   describe('Skip Behavior', () => {
-    it('returns undefined data when skip="skip"', async () => {
+    it('returns null data when skip="skip"', async () => {
       // GIVEN a page with a skipped query
       const page = await createPage('/test-skip/static-skip')
       await page.waitForLoadState('networkidle')
@@ -63,8 +63,8 @@ describe('useConvexQuery behavior', async () => {
       // WHEN we check the data state
       const content = await page.textContent('body')
 
-      // THEN data should be undefined/null and pending should be false
-      expect(content).toContain('data: undefined')
+      // THEN data should be null and pending should be false
+      expect(content).toContain('data: null')
       expect(content).toContain('pending: false')
     }, 30000)
 

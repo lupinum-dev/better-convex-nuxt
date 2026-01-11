@@ -6,7 +6,7 @@ import { api } from '~~/convex/_generated/api'
  *
  * Uses a computed that returns 'skip' or {} based on toggle.
  * Expected behavior:
- * - When skipped: status = 'idle', data = undefined
+ * - When skipped: status = 'idle', data = null
  * - When enabled: status = 'success', data = array
  * - Toggling should clear/load data appropriately
  */
@@ -17,7 +17,6 @@ const args = computed(() => enabled.value ? {} : 'skip')
 const { data, pending, status, error } = useConvexQuery(
   api.notes.list,
   args,
-  { verbose: true },
 )
 
 // Track toggle count for testing
@@ -65,7 +64,7 @@ function toggle() {
         </div>
         <div class="state-item">
           <span class="label">has data:</span>
-          <span data-testid="has-data" class="value">{{ data !== undefined }}</span>
+          <span data-testid="has-data" class="value">{{ data !== null }}</span>
         </div>
         <div class="state-item">
           <span class="label">data count:</span>

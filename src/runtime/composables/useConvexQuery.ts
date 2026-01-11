@@ -126,7 +126,7 @@ export function useConvexQuery<
   query: Query,
   args?: MaybeRef<Args> | Args,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
-): AsyncData<DataT | undefined, Error | null> {
+): AsyncData<DataT | null, Error | null> {
   type RawT = FunctionReturnType<Query>
 
   const nuxtApp = useNuxtApp()
@@ -171,11 +171,13 @@ export function useConvexQuery<
   const cookieHeader = event?.headers.get('cookie') || ''
 
   // Use Nuxt's useAsyncData for SSR + hydration
-  const asyncData = useAsyncData<DataT | undefined, Error>(
+  // Note: Return null (not undefined) when skipped to avoid Nuxt warning about
+  // undefined returns potentially causing duplicate requests on client
+  const asyncData = useAsyncData<DataT | null, Error>(
     cacheKey,
     async () => {
       if (isSkipped.value) {
-        return undefined
+        return null
       }
 
       const convexUrl = config.public.convex?.url
@@ -211,7 +213,8 @@ export function useConvexQuery<
     {
       server,
       lazy,
-      default: options?.default,
+      // Wrap default to handle undefined → null conversion for type compatibility
+      default: options?.default ? () => options.default!() ?? null : undefined,
       // Watch reactive args to trigger re-fetch
       watch: isRef(args) ? [args as Ref<unknown>] : undefined,
     },
@@ -285,7 +288,7 @@ export function useConvexQuery<
           (result: RawT) => {
             updateCount++
             // Cast needed because useAsyncData has complex PickFrom type
-            ;(asyncData.data as Ref<DataT | undefined>).value = applyTransform(result)
+            ;(asyncData.data as Ref<DataT | null>).value = applyTransform(result)
             // Force Vue reactivity for all watchers
             triggerRef(asyncData.data)
           },
@@ -425,5 +428,5 @@ export function useConvexQuery<
   const resultPromise = resolvePromise.then(() => resultData)
   Object.assign(resultPromise, resultData)
 
-  return resultPromise as unknown as AsyncData<DataT | undefined, Error | null>
+  return resultPromise as unknown as AsyncData<DataT | null, Error | null>
 }
