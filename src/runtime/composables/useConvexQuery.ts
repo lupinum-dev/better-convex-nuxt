@@ -332,10 +332,21 @@ export function useConvexQuery<
         () => toValue(args),
         (newArgs, oldArgs) => {
           if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
-            // Cleanup old subscription
-            const oldCacheKey = getQueryKey(query, oldArgs)
-            cleanupSubscription(nuxtApp, oldCacheKey)
-            unsubscribeFn = null
+            // Cleanup old subscription if it exists
+            if (oldArgs !== 'skip' && unsubscribeFn) {
+              const oldCacheKey = getQueryKey(query, oldArgs)
+
+              logger.event({
+                event: 'subscription:change',
+                env: 'client',
+                name: fnName,
+                state: 'unsubscribed',
+                updates_received: updateCount,
+              } satisfies SubscriptionChangeEvent)
+
+              cleanupSubscription(nuxtApp, oldCacheKey)
+              unsubscribeFn = null
+            }
 
             // Setup new subscription (data will be updated by useAsyncData's watch)
             if (newArgs !== 'skip') {
