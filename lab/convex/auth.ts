@@ -27,7 +27,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           role: 'member', // Default role for new users
           displayName: doc.name,
           email: doc.email,
-          avatarUrl: doc.image,
+          avatarUrl: doc.image ?? undefined, // Convert null to undefined
           createdAt: now,
           updatedAt: now
         })
@@ -46,7 +46,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
             await ctx.db.patch(user._id, {
               ...(nameChanged && { displayName: newDoc.name }),
               ...(emailChanged && { email: newDoc.email }),
-              ...(imageChanged && { avatarUrl: newDoc.image }),
+              ...(imageChanged && { avatarUrl: newDoc.image ?? undefined }),
               updatedAt: Date.now()
             })
           }
