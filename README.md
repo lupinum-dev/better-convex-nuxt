@@ -24,7 +24,7 @@ Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.c
 Install the module:
 
 ```bash
-npx nuxi module add better-convex-nuxt
+pnpm add better-convex-nuxt
 ```
 
 Add your Convex URL to `.env`:
