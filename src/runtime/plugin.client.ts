@@ -2,12 +2,13 @@
  * Client-side Convex plugin with SSR token hydration.
  * Manually wires up setAuth() for zero-flash auth on first render.
  */
-import { defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
+import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 import { toRaw } from 'vue'
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import { ConvexClient } from 'convex/browser'
 import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logger'
+import { matchesSkipRoute } from './utils/route-matcher'
 import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
 import type { Ref } from 'vue'
 import type { ConvexDevToolsBridge, ConvexUser, JWTClaims, EnhancedAuthState, AuthState } from './devtools/types'
@@ -15,6 +16,41 @@ import type { ConvexDevToolsBridge, ConvexUser, JWTClaims, EnhancedAuthState, Au
 interface TokenResponse {
   data?: { token: string } | null
   error?: unknown
+}
+
+interface ConvexUserData {
+  id: string
+  name?: string
+  email?: string
+  emailVerified?: boolean
+  image?: string
+}
+
+/**
+ * Decode user info from JWT payload (for CSR mode where server doesn't hydrate user)
+ */
+function decodeUserFromJwt(token: string): ConvexUserData | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = parts[1]
+    if (!payload) return null
+    // Handle URL-safe base64 encoding
+    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const claims = JSON.parse(decoded)
+    if (claims.sub || claims.userId || claims.email) {
+      return {
+        id: claims.sub || claims.userId || '',
+        name: claims.name || '',
+        email: claims.email || '',
+        emailVerified: claims.emailVerified,
+        image: claims.image,
+      }
+    }
+  } catch {
+    // Ignore decode errors
+  }
+  return null
 }
 
 type AuthClientWithConvex = ReturnType<typeof createAuthClient> & {
@@ -81,8 +117,23 @@ export default defineNuxtPlugin((nuxtApp) => {
     // Token cache to avoid redundant fetches
     let lastTokenValidation = Date.now()
     const TOKEN_CACHE_MS = 10000
+    const skipRoutes = (config.public.convex?.skipAuthRoutes as string[]) || []
+    const router = useRouter()
 
     const fetchToken = async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
+      // Get current route from router (works in async callbacks)
+      const route = router.currentRoute.value
+
+      // Layer 3: Page-level skip via definePageMeta({ skipConvexAuth: true })
+      if (route.meta?.skipConvexAuth === true) {
+        return null
+      }
+
+      // Layer 2: Config-based route skip (skipAuthRoutes in nuxt.config)
+      if (matchesSkipRoute(route.path, skipRoutes)) {
+        return null
+      }
+
       // Use SSR-hydrated token if available
       if (convexToken.value && !forceRefreshToken) {
         lastTokenValidation = Date.now()
@@ -95,23 +146,34 @@ export default defineNuxtPlugin((nuxtApp) => {
         return convexToken.value
       }
 
-      // Not authenticated if no SSR state
-      if (!convexToken.value && !convexUser.value) {
+      // Layer 1: SSR detection - trust hydration in SSR mode
+      // If server rendered and no token/user, server would have hydrated if user was logged in
+      const wasServerRendered = !!nuxtApp.payload?.serverRendered
+      if (wasServerRendered && !convexToken.value && !convexUser.value) {
         return null
       }
 
-      // Fetch fresh token from Better Auth
+      // CSR mode: must fetch token (unavoidable for HttpOnly cookie auth)
       try {
         const response = await authClient!.convex.token()
         if (response.error || !response.data?.token) {
           convexToken.value = null
+          convexUser.value = null
           return null
         }
-        convexToken.value = response.data.token
+        const token = response.data.token
+        convexToken.value = token
         lastTokenValidation = Date.now()
-        return response.data.token
+
+        // In CSR mode, extract user from JWT since server didn't hydrate it
+        if (!convexUser.value) {
+          convexUser.value = decodeUserFromJwt(token)
+        }
+
+        return token
       } catch {
         convexToken.value = null
+        convexUser.value = null
         return null
       }
     }

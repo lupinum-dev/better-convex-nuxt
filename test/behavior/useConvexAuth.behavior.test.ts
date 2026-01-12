@@ -141,7 +141,10 @@ describe('useConvexAuth behavior', async () => {
       // WHEN we check the response
       // THEN it should contain valid HTML (no server errors)
       expect(html).toContain('Auth Lab')
-      expect(html).not.toContain('500')
+      // Check for actual error indicators, not just "500" (which appears in CSS font-weight: 500)
+      expect(html).not.toContain('500 Internal Server Error')
+      expect(html).not.toContain('Server Error')
+      expect(html).not.toContain('statusCode":500')
     })
   })
 

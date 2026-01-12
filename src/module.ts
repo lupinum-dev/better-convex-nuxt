@@ -74,6 +74,14 @@ export interface ModuleOptions {
    */
   trustedOrigins?: string[]
   /**
+   * Routes that should skip auth checks entirely.
+   * Useful for marketing pages that never need authentication.
+   * Supports glob patterns (e.g., '/docs/**', '/blog/**').
+   * Can also use definePageMeta({ skipConvexAuth: true }) for per-page control.
+   * @default []
+   */
+  skipAuthRoutes?: string[]
+  /**
    * Enable permission composables (createPermissions factory).
    * When true, auto-imports createPermissions for building usePermissions.
    * @default false
@@ -125,6 +133,7 @@ export default defineNuxtModule<ModuleOptions>({
     url: process.env.CONVEX_URL,
     siteUrl: process.env.CONVEX_SITE_URL,
     trustedOrigins: [],
+    skipAuthRoutes: [],
     permissions: false,
     logging: {
       enabled: false,
@@ -159,6 +168,7 @@ export default defineNuxtModule<ModuleOptions>({
         url: options.url || '',
         siteUrl: derivedSiteUrl,
         trustedOrigins: options.trustedOrigins ?? [],
+        skipAuthRoutes: options.skipAuthRoutes ?? [],
         logging: {
           enabled: options.logging?.enabled ?? false,
           format: options.logging?.format ?? 'pretty',
@@ -199,6 +209,14 @@ declare module '#app' {
   interface NuxtApp {
     $convex: ConvexClient
     $auth?: AuthClient
+  }
+
+  interface PageMeta {
+    /**
+     * Skip Convex auth check for this page.
+     * Useful for marketing pages that don't need authentication.
+     */
+    skipConvexAuth?: boolean
   }
 }
 
