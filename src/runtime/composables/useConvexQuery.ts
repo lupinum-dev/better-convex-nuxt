@@ -45,7 +45,7 @@ export { parseConvexResponse, computeQueryStatus, getQueryKey }
 export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   /** Don't block when awaited. Query runs in background. @default false */
   lazy?: boolean
-  /** Run query on server during SSR. @default true */
+  /** Run query on server during SSR. @default false */
   server?: boolean
   /** Subscribe to real-time updates via WebSocket. @default true */
   subscribe?: boolean
@@ -148,7 +148,7 @@ export function useConvexQuery<
 
   // Resolve options
   const lazy = options?.lazy ?? false
-  const server = options?.server ?? true
+  const server = options?.server ?? false
   const subscribe = options?.subscribe ?? true
   const isPublic = options?.public ?? false
 

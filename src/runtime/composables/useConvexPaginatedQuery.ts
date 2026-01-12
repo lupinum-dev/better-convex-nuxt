@@ -74,8 +74,8 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
 
   /**
    * Run query on server during SSR.
-   * Set to false for client-only data.
-   * @default true
+   * Set to true for SSR data fetching.
+   * @default false
    */
   server?: boolean
 
@@ -295,7 +295,7 @@ export function useConvexPaginatedQuery<
 
   // Resolve options with defaults
   const initialNumItems = options?.initialNumItems ?? 10
-  const server = options?.server ?? true
+  const server = options?.server ?? false
   const lazy = options?.lazy ?? false
   const subscribe = options?.subscribe ?? true
   const isPublic = options?.public ?? false
