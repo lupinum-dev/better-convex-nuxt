@@ -26,7 +26,8 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
 })
 
-provide('navigation', navigation)
+const navigationChildren = computed(() => navigation.value?.[0]?.children || [])
+provide('navigation', navigationChildren)
 </script>
 
 <template>
@@ -36,7 +37,6 @@ provide('navigation', navigation)
       class="bg-convex-purple-500 hover:bg-convex-purple-600"
       title="Early Version - Not Production Ready"
       icon="i-lucide-flask-conical"
-      to="docs/getting-started/installation"
       close
       :ui="{
         title: 'text-white!',

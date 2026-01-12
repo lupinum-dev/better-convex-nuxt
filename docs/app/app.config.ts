@@ -60,7 +60,7 @@ export default defineAppConfig({
     ],
   },
   footer: {
-    credits: `© ${new Date().getFullYear()} Lupinum Dev • MIT License`,
+    credits: `© ${new Date().getFullYear()} lupinum.com • MIT License`,
     colorMode: false,
     links: [
       {
