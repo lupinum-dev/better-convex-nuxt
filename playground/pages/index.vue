@@ -23,162 +23,113 @@
     </header>
 
     <div class="grid">
-      <!-- Main Pages -->
+      <!-- Demo Apps -->
       <section class="section">
-        <h2>Main Pages</h2>
+        <h2>Demo Apps</h2>
         <div class="links">
-          <NuxtLink to="/dashboard" class="link-card">
-            <span class="icon">📊</span>
+          <NuxtLink to="/demo/dashboard" class="link-card">
+            <span class="icon">1</span>
             <div>
               <strong>Dashboard</strong>
               <p>User dashboard (auth required)</p>
             </div>
           </NuxtLink>
-          <NuxtLink to="/tasks" class="link-card">
-            <span class="icon">✅</span>
+          <NuxtLink to="/demo/tasks" class="link-card">
+            <span class="icon">2</span>
             <div>
               <strong>Tasks</strong>
               <p>Task management (auth required)</p>
             </div>
           </NuxtLink>
-          <NuxtLink to="/permissions" class="link-card featured">
-            <span class="icon">🔐</span>
+          <NuxtLink to="/demo/posts" class="link-card featured">
+            <span class="icon">3</span>
             <div>
-              <strong>Permissions Demo</strong>
+              <strong>Posts & Permissions</strong>
               <p>Role-based access control system</p>
             </div>
           </NuxtLink>
-          <NuxtLink to="/playground" class="link-card">
-            <span class="icon">🎮</span>
-            <div>
-              <strong>Query Playground</strong>
-              <p>Interactive useConvexQuery testing</p>
-            </div>
-          </NuxtLink>
         </div>
       </section>
 
-      <!-- New Features -->
+      <!-- Interactive Labs -->
       <section class="section">
-        <h2>New Features</h2>
+        <h2>Interactive Labs</h2>
         <div class="links">
-          <NuxtLink to="/test-connection-state" class="link-card new">
-            <span class="icon">📡</span>
+          <NuxtLink to="/labs/query" class="link-card new">
+            <span class="icon">Q</span>
             <div>
-              <strong>Connection State</strong>
-              <p>useConvexConnectionState composable</p>
+              <strong>Query Lab</strong>
+              <p>Test useConvexQuery options</p>
             </div>
           </NuxtLink>
-          <NuxtLink to="/test-auth-components" class="link-card new">
-            <span class="icon">🔒</span>
+          <NuxtLink to="/labs/pagination" class="link-card new">
+            <span class="icon">P</span>
             <div>
-              <strong>Auth Components</strong>
-              <p>ConvexAuthenticated, Unauthenticated, AuthLoading</p>
+              <strong>Pagination Lab</strong>
+              <p>Test useConvexPaginatedQuery</p>
             </div>
           </NuxtLink>
-          <NuxtLink to="/test-server-mutation" class="link-card new">
-            <span class="icon">🖥️</span>
+          <NuxtLink to="/labs/mutations" class="link-card new">
+            <span class="icon">M</span>
             <div>
-              <strong>Server-Side Mutations</strong>
-              <p>fetchQuery, fetchMutation, fetchAction</p>
+              <strong>Mutations Lab</strong>
+              <p>Test useConvexMutation</p>
             </div>
           </NuxtLink>
-        </div>
-      </section>
-
-      <!-- Query Tests -->
-      <section class="section">
-        <h2>Query Tests</h2>
-        <div class="links">
-          <NuxtLink to="/test-lazy/hub" class="link-card">
-            <span class="icon">⏳</span>
+          <NuxtLink to="/labs/realtime" class="link-card new">
+            <span class="icon">R</span>
             <div>
-              <strong>Lazy Loading</strong>
-              <p>lazy: true/false behavior</p>
-            </div>
-          </NuxtLink>
-          <NuxtLink to="/test-args/hub" class="link-card">
-            <span class="icon">🔧</span>
-            <div>
-              <strong>Reactive Args</strong>
-              <p>Dynamic query arguments</p>
-            </div>
-          </NuxtLink>
-          <NuxtLink to="/test-skip/hub" class="link-card">
-            <span class="icon">⏭️</span>
-            <div>
-              <strong>Skip Queries</strong>
-              <p>Conditional query execution</p>
-            </div>
-          </NuxtLink>
-          <NuxtLink to="/test-error/hub" class="link-card">
-            <span class="icon">❌</span>
-            <div>
-              <strong>Error Handling</strong>
-              <p>Query error states</p>
-            </div>
-          </NuxtLink>
-          <NuxtLink to="/test-features/hub" class="link-card">
-            <span class="icon">🧪</span>
-            <div>
-              <strong>Query Features</strong>
-              <p>refresh, default, client-only</p>
-            </div>
-          </NuxtLink>
-          <NuxtLink to="/test-ssr" class="link-card">
-            <span class="icon">🌐</span>
-            <div>
-              <strong>SSR Test</strong>
-              <p>Server-side rendering</p>
-            </div>
-          </NuxtLink>
-        </div>
-      </section>
-
-      <!-- Realtime & Optimistic -->
-      <section class="section">
-        <h2>Realtime & Optimistic</h2>
-        <div class="links">
-          <NuxtLink to="/test-realtime/hub" class="link-card">
-            <span class="icon">⚡</span>
-            <div>
-              <strong>Realtime Updates</strong>
+              <strong>Realtime Lab</strong>
               <p>Live subscription testing</p>
             </div>
           </NuxtLink>
-          <NuxtLink to="/test-optimistic/hub" class="link-card">
-            <span class="icon">🚀</span>
+          <NuxtLink to="/labs/auth" class="link-card new">
+            <span class="icon">A</span>
             <div>
-              <strong>Optimistic Updates</strong>
-              <p>Instant UI updates</p>
+              <strong>Auth Components</strong>
+              <p>Auth UI components demo</p>
+            </div>
+          </NuxtLink>
+          <NuxtLink to="/labs/connection" class="link-card new">
+            <span class="icon">C</span>
+            <div>
+              <strong>Connection State</strong>
+              <p>useConvexConnectionState</p>
             </div>
           </NuxtLink>
         </div>
       </section>
 
-      <!-- Pagination -->
+      <!-- Legacy Test Pages (for E2E tests) -->
       <section class="section">
-        <h2>Pagination</h2>
+        <h2>Legacy Tests</h2>
+        <details>
+          <summary class="legacy-toggle">Show legacy test pages</summary>
+          <div class="links legacy-links">
+            <NuxtLink to="/test-lazy/hub" class="link-card-mini">Lazy Loading</NuxtLink>
+            <NuxtLink to="/test-args/hub" class="link-card-mini">Reactive Args</NuxtLink>
+            <NuxtLink to="/test-skip/hub" class="link-card-mini">Skip Queries</NuxtLink>
+            <NuxtLink to="/test-error/hub" class="link-card-mini">Error Handling</NuxtLink>
+            <NuxtLink to="/test-features/hub" class="link-card-mini">Query Features</NuxtLink>
+            <NuxtLink to="/test-realtime/hub" class="link-card-mini">Realtime</NuxtLink>
+            <NuxtLink to="/test-optimistic/hub" class="link-card-mini">Optimistic</NuxtLink>
+            <NuxtLink to="/test-paginated-query" class="link-card-mini">Pagination</NuxtLink>
+            <NuxtLink to="/test-connection-state" class="link-card-mini">Connection</NuxtLink>
+            <NuxtLink to="/test-auth-components" class="link-card-mini">Auth Components</NuxtLink>
+            <NuxtLink to="/test-server-mutation" class="link-card-mini">Server Mutations</NuxtLink>
+          </div>
+        </details>
+      </section>
+
+      <!-- Resources -->
+      <section class="section">
+        <h2>Resources</h2>
         <div class="links">
-          <NuxtLink to="/test-paginated-query" class="link-card">
-            <span class="icon">📄</span>
+          <NuxtLink to="/playground" class="link-card">
+            <span class="icon">?</span>
             <div>
-              <strong>Paginated Query</strong>
-              <p>useConvexPaginatedQuery</p>
-            </div>
-          </NuxtLink>
-          <NuxtLink to="/test-paginated-auth" class="link-card">
-            <span class="icon">🔑</span>
-            <div>
-              <strong>Paginated + Auth</strong>
-              <p>Authenticated pagination</p>
-            </div>
-          </NuxtLink>
-          <NuxtLink to="/test-paginated-optimistic" class="link-card">
-            <span class="icon">✨</span>
-            <div>
-              <strong>Paginated Optimistic</strong>
-              <p>Optimistic updates with pagination</p>
+              <strong>Interactive Docs</strong>
+              <p>Explore API with live examples</p>
             </div>
           </NuxtLink>
         </div>
@@ -407,5 +358,57 @@ h1 {
   border-radius: 6px;
   overflow-x: auto;
   margin-top: 8px;
+}
+
+.legacy-toggle {
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 0.9rem;
+  padding: 8px 0;
+}
+
+.legacy-links {
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  gap: 8px !important;
+  margin-top: 12px;
+}
+
+.link-card-mini {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #374151;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.link-card-mini:hover {
+  background: #e5e7eb;
+}
+
+.link-card .icon {
+  width: 32px;
+  height: 32px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.link-card.new .icon {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.link-card.featured .icon {
+  background: #d1fae5;
+  color: #065f46;
 }
 </style>
