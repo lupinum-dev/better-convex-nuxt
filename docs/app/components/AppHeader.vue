@@ -10,12 +10,12 @@ const { header } = useAppConfig();
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
     label: "Docs",
-    to: "/getting-started/installation",
+    to: "docs/getting-started/installation",
     active:
-      route.path.startsWith("/getting-started") ||
-      route.path.startsWith("/api") ||
-      route.path.startsWith("/auth") ||
-      route.path.startsWith("/patterns"),
+      route.path.startsWith("docs/getting-started") ||
+      route.path.startsWith("docs/api") ||
+      route.path.startsWith("docs/auth") ||
+      route.path.startsWith("docs/patterns"),
   },
 ]);
 </script>

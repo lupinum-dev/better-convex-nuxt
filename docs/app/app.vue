@@ -36,7 +36,7 @@ provide('navigation', navigation)
       class="bg-convex-purple-500 hover:bg-convex-purple-600"
       title="Early Version - Not Production Ready"
       icon="i-lucide-flask-conical"
-      to="/getting-started/installation"
+      to="docs/getting-started/installation"
       close
       :ui="{
         title: 'text-white!',

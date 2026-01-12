@@ -17,7 +17,7 @@ Full-stack Nuxt that [feels like cheating]{.text-primary}
   :::u-button
   ---
   size: lg
-  to: /getting-started/installation
+  to: /docs/getting-started/installation
   color: warning
   trailing-icon: i-lucide-arrow-right
   ---
@@ -149,7 +149,7 @@ Built-in features for building production-ready apps
   title: Real-time Queries
   description: Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients.
   icon: i-lucide-database
-  to: /data-fetching/queries
+  to: /docs/data-fetching/queries
   ---
   :::
   :::landing-feature
@@ -157,7 +157,7 @@ Built-in features for building production-ready apps
   title: Optimistic Updates
   description: Instant UI feedback with automatic rollback on failure. Make your app feel fast.
   icon: i-lucide-zap
-  to: /mutations/optimistic-updates
+  to: /docs/mutations/optimistic-updates
   ---
   :::
   :::landing-feature
@@ -165,7 +165,7 @@ Built-in features for building production-ready apps
   title: Authentication
   description: Better Auth integration with email/password, OAuth, and magic links. SSR-compatible.
   icon: i-lucide-lock
-  to: /auth-security/authentication
+  to: /docs/auth-security/authentication
   ---
   :::
   :::landing-feature
@@ -173,7 +173,7 @@ Built-in features for building production-ready apps
   title: Permissions
   description: Role-based access control with ownership rules. Backend enforces, frontend displays.
   icon: i-lucide-shield
-  to: /auth-security/permissions
+  to: /docs/auth-security/permissions
   ---
   :::
   :::landing-feature
@@ -181,7 +181,7 @@ Built-in features for building production-ready apps
   title: SSR Support
   description: Server-side rendering with hydration. Fast initial loads, then real-time updates.
   icon: i-lucide-server
-  to: /server-side/ssr-hydration
+  to: /docs/server-side/ssr-hydration
   ---
   :::
   :::landing-feature
@@ -189,7 +189,7 @@ Built-in features for building production-ready apps
   title: Type Safety
   description: Full TypeScript inference from your Convex schema. Catch errors at compile time.
   icon: i-lucide-type
-  to: /data-fetching/queries#typescript
+  to: /docs/data-fetching/queries#typescript
   ---
   :::
 :::
@@ -202,7 +202,7 @@ Built-in features for building production-ready apps
   description: Get started in minutes with real-time data, authentication, and permissions out of the box.
   links:
     - label: Get Started
-      to: /getting-started/installation
+      to: /docs/getting-started/installation
       trailingIcon: i-lucide-arrow-right
     - label: View on GitHub
       to: https://github.com/lupinum-dev/better-convex-nuxt
