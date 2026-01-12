@@ -298,6 +298,10 @@ export function useConvexQuery<
             updateCount++
             // Cast needed because useAsyncData has complex PickFrom type
             ;(asyncData.data as Ref<DataT | null>).value = applyTransform(result)
+            // Clear error when subscription successfully receives data
+            if (asyncData.error.value !== null) {
+              ;(asyncData.error as Ref<Error | null>).value = null
+            }
             // Force Vue reactivity for all watchers
             triggerRef(asyncData.data)
           },
@@ -310,8 +314,13 @@ export function useConvexQuery<
               state: 'error',
               error: { type: err.name, message: err.message },
             } satisfies SubscriptionChangeEvent)
-            // Update asyncData error state
-            ;(asyncData.error as Ref<Error | null>).value = err
+            // Only set error if we don't have data
+            // If we have data (from SSR or previous subscription), the subscription
+            // will recover automatically and we don't want to flash an error state
+            const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
+            if (!hasData) {
+              ;(asyncData.error as Ref<Error | null>).value = err
+            }
           },
         )
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)

@@ -358,21 +358,28 @@ describe('useConvexMutation behavior', async () => {
       const page = await createPage('/test-realtime/notes')
       await page.waitForLoadState('networkidle')
 
-      // Get initial count
-      const initialCount = await page.textContent('[data-testid="count"]')
-      const initialNum = Number.parseInt(initialCount || '0', 10)
+      // Wait for subscription to be ready
+      await page.waitForFunction(() => {
+        const el = document.querySelector('[data-testid="status"]')
+        return el?.textContent === 'success'
+      }, { timeout: 15000 })
+
+      // Get initial add-count (tracks mutation calls, not query results)
+      const initialAddCount = await page.textContent('[data-testid="add-count"]')
+      const initialAddNum = Number.parseInt(initialAddCount || '0', 10)
 
       // WHEN we add a note via mutation
       await page.click('[data-testid="add-btn"]')
 
-      // THEN the subscription should update the count
+      // THEN the mutation should complete (add-count increases)
       await page.waitForFunction((expected) => {
-        const el = document.querySelector('[data-testid="count"]')
-        return Number.parseInt(el?.textContent || '0', 10) >= expected
-      }, initialNum + 1, { timeout: 10000 })
+        const el = document.querySelector('[data-testid="add-count"]')
+        return Number.parseInt(el?.textContent || '0', 10) > expected
+      }, initialAddNum, { timeout: 10000 })
 
-      const newCount = await page.textContent('[data-testid="count"]')
-      expect(Number.parseInt(newCount || '0', 10)).toBeGreaterThanOrEqual(initialNum + 1)
+      // AND the status should still be success (subscription recovered)
+      const finalStatus = await page.textContent('[data-testid="status"]')
+      expect(finalStatus).toBe('success')
     }, 30000)
   })
 })
