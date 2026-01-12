@@ -27,7 +27,8 @@ function decodeUserFromJwt(token: string): ConvexUser | null {
   try {
     const payloadBase64 = token.split('.')[1]
     if (payloadBase64) {
-      const payload = JSON.parse(atob(payloadBase64))
+      // Use Buffer instead of atob for cross-environment compatibility (Node, Edge, etc.)
+      const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf-8'))
       if (payload.sub || payload.userId || payload.email) {
         return {
           id: payload.sub || payload.userId || '',
