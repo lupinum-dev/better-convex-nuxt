@@ -170,6 +170,10 @@ export function useConvexQuery<
 
   const cacheKey = getCacheKey()
 
+  // Computed hash of args for deep reactivity detection
+  // This ensures useAsyncData re-fetches when args change deeply (not just ref identity)
+  const argsHash = computed(() => hashArgs(getArgs()))
+
   // Transform helper
   const applyTransform = (raw: RawT): DataT => {
     return options?.transform ? options.transform(raw) : (raw as unknown as DataT)
@@ -224,8 +228,9 @@ export function useConvexQuery<
       lazy,
       // Wrap default to handle undefined → null conversion for type compatibility
       default: options?.default ? () => options.default!() ?? null : undefined,
-      // Watch reactive args to trigger re-fetch
-      watch: isRef(args) ? [args as Ref<unknown>] : undefined,
+      // Watch args hash to trigger re-fetch on deep changes (not just ref identity)
+      // This ensures server: false mode also re-fetches when args properties change
+      watch: isRef(args) ? [argsHash] : undefined,
     },
   )
 

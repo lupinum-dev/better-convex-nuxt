@@ -15,6 +15,9 @@
       <NuxtLink to="/test-args/search" data-testid="link-search" class="nav-link">
         Search (reactive query arg)
       </NuxtLink>
+      <NuxtLink to="/test-args/deep-reactive" data-testid="link-deep-reactive" class="nav-link">
+        Deep Reactive (nested property mutation)
+      </NuxtLink>
     </nav>
 
     <NuxtLink to="/" class="back-link">Back to Home</NuxtLink>

@@ -144,6 +144,58 @@ describe('useConvexQuery behavior', async () => {
    * | true   | true  | hasData=true    | pending=true             |
    * | true   | false | hasData=true    | hasData=true (blocked)   |
    */
+  describe('Deep Reactive Args', () => {
+    it('re-fetches when nested property of ref args is mutated', async () => {
+      // GIVEN a page with a ref object as args
+      const page = await createPage('/test-args/deep-reactive')
+      await page.waitForLoadState('networkidle')
+
+      // Get initial update count
+      const initialUpdateCount = await page.textContent('[data-testid="update-count"]')
+      const initialCount = parseInt(initialUpdateCount?.trim() || '0', 10)
+
+      // WHEN we click the deep mutation button (changes args.value.query without replacing args.value)
+      await page.click('[data-testid="deep-mutation-btn"]')
+      await page.waitForTimeout(1000) // Wait for refetch
+
+      // THEN update count should have incremented (query re-fetched)
+      const newUpdateCount = await page.textContent('[data-testid="update-count"]')
+      const newCount = parseInt(newUpdateCount?.trim() || '0', 10)
+
+      // The query arg should have changed (cycles from '' -> 'hello' -> 'test' -> 'note' -> '')
+      const currentQuery = await page.textContent('[data-testid="current-query"]')
+      expect(currentQuery).not.toBe('""') // Should have changed from empty
+
+      // Update count should have increased (data was refetched)
+      expect(newCount).toBeGreaterThan(initialCount)
+    }, 30000)
+
+    it('re-fetches multiple times with consecutive deep mutations', async () => {
+      // GIVEN a page with a ref object as args
+      const page = await createPage('/test-args/deep-reactive')
+      await page.waitForLoadState('networkidle')
+
+      // Get initial update count
+      const initialUpdateCount = await page.textContent('[data-testid="update-count"]')
+      const initialCount = parseInt(initialUpdateCount?.trim() || '0', 10)
+
+      // WHEN we click the deep mutation button multiple times
+      await page.click('[data-testid="deep-mutation-btn"]')
+      await page.waitForTimeout(500)
+      await page.click('[data-testid="deep-mutation-btn"]')
+      await page.waitForTimeout(500)
+      await page.click('[data-testid="deep-mutation-btn"]')
+      await page.waitForTimeout(1000)
+
+      // THEN update count should have incremented multiple times
+      const finalUpdateCount = await page.textContent('[data-testid="update-count"]')
+      const finalCount = parseInt(finalUpdateCount?.trim() || '0', 10)
+
+      // Should have refetched at least 3 more times
+      expect(finalCount).toBeGreaterThan(initialCount + 2)
+    }, 30000)
+  })
+
   describe('Server and Lazy Options', () => {
     describe('SSR Behavior', () => {
       it('server: false, lazy: true renders with pending=true in HTML', async () => {
