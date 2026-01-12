@@ -8,7 +8,12 @@
 Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, and permissions.
 
 - [Documentation](https://better-convex-nuxt.vercel.app)
-- [Online Playground](https://stackblitz.com/github/lupinum-dev/better-convex-nuxt?file=playground%2Fapp.vue)
+
+> [!NOTE]
+> **Work In Progress**
+> This module is rapidly evolving. While we are using it in our own apps, features and APIs are subject to change as we refine the best patterns for Nuxt + Convex.
+
+Contributions and PRs to help improve the library, playground or docs are highly appreciated! 🙏
 
 ## Features
 
