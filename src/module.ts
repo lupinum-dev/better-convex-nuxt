@@ -9,6 +9,7 @@ import {
   addComponentsDir,
   useLogger,
 } from '@nuxt/kit'
+import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 
 const logger = useLogger('better-convex-nuxt')
@@ -305,5 +306,45 @@ export {}
         path: resolver.resolve(nuxt.options.buildDir, 'types/better-convex-nuxt.d.ts'),
       })
     })
+
+    // 10. Setup Nuxt DevTools integration (dev mode only)
+    if (nuxt.options.dev) {
+      setupDevTools(nuxt, resolver)
+    }
   },
 })
+
+/**
+ * Setup Nuxt DevTools integration.
+ * Only called in dev mode.
+ */
+async function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResolver>): Promise<void> {
+  try {
+    // Dynamically import devtools-kit to avoid requiring it in production
+    const { addCustomTab } = await import('@nuxt/devtools-kit')
+
+    // Register custom tab in Nuxt DevTools
+    addCustomTab({
+      name: 'convex',
+      title: 'Convex',
+      icon: 'carbon:data-base',
+      category: 'app',
+      view: {
+        type: 'iframe',
+        src: '/__convex_devtools__',
+        persistent: true,
+      },
+    }, nuxt)
+
+    // Add server route to serve DevTools UI
+    addServerHandler({
+      route: '/__convex_devtools__',
+      handler: resolver.resolve('./runtime/devtools/server'),
+    })
+
+    logger.info('Nuxt DevTools integration enabled')
+  } catch {
+    // @nuxt/devtools-kit not available, skip DevTools integration
+    logger.debug('Nuxt DevTools integration skipped (devtools-kit not available)')
+  }
+}

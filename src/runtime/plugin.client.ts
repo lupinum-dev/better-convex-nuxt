@@ -3,11 +3,14 @@
  * Manually wires up setAuth() for zero-flash auth on first render.
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
+import { toRaw } from 'vue'
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import { ConvexClient } from 'convex/browser'
 import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logger'
 import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
+import type { Ref } from 'vue'
+import type { ConvexDevToolsBridge, ConvexUser } from './devtools/types'
 
 interface TokenResponse {
   data?: { token: string } | null
@@ -145,6 +148,11 @@ export default defineNuxtPlugin((nuxtApp) => {
     (window as any).__convex_client__ = client
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (authClient) (window as any).__auth_client__ = authClient
+
+    // Setup DevTools bridge in dev mode
+    if (import.meta.dev) {
+      setupDevToolsBridge(client, convexUrl, convexToken, convexUser)
+    }
   }
 
   // Log successful initialization
@@ -174,3 +182,121 @@ export default defineNuxtPlugin((nuxtApp) => {
     } satisfies AuthChangeEvent)
   }
 })
+
+/**
+ * Setup the DevTools bridge on the window object.
+ * Only called in dev mode.
+ */
+async function setupDevToolsBridge(
+  client: ConvexClient,
+  convexUrl: string,
+  convexToken: Ref<string | null>,
+  convexUser: Ref<unknown>,
+): Promise<void> {
+  // Dynamically import DevTools modules to avoid bundling in production
+  const [queryRegistry, eventBuffer] = await Promise.all([
+    import('./devtools/query-registry'),
+    import('./devtools/event-buffer'),
+  ])
+
+  // Get the Convex Dashboard URL
+  const getDashboardUrl = (): string | null => {
+    // Extract deployment name from URL (e.g., "happy-animal-123" from "https://happy-animal-123.convex.cloud")
+    try {
+      const url = new URL(convexUrl)
+      const hostname = url.hostname
+      if (hostname.endsWith('.convex.cloud')) {
+        const deploymentName = hostname.replace('.convex.cloud', '')
+        return `https://dashboard.convex.dev/d/${deploymentName}`
+      }
+    } catch {
+      // Invalid URL
+    }
+    return null
+  }
+
+  const bridge: ConvexDevToolsBridge = {
+    version: '1.0.0',
+
+    getQueries: () => queryRegistry.getActiveQueries(),
+
+    subscribeToQueries: (callback) => queryRegistry.subscribeToQueries(callback),
+
+    getAuthState: () => {
+      // Use toRaw to unwrap Vue proxy (BroadcastChannel can't clone proxies)
+      const rawUser = toRaw(convexUser.value) as ConvexUser | null
+      const hasToken = !!convexToken.value
+      // Check if user has actual data (not just empty object)
+      const hasUser = rawUser && typeof rawUser === 'object' && Object.keys(rawUser).length > 0
+      // Create a plain object copy to avoid proxy cloning issues
+      const plainUser = hasUser ? JSON.parse(JSON.stringify(rawUser)) : null
+
+      return {
+        isAuthenticated: hasToken && hasUser,
+        isPending: false, // Could be enhanced to track pending state
+        user: plainUser,
+        tokenStatus: hasToken ? 'valid' : 'none',
+      }
+    },
+
+    getConnectionState: () => {
+      // Get connection state from the Convex client
+      const state = client.connectionState()
+      return {
+        isConnected: state.isWebSocketConnected,
+        hasEverConnected: state.hasInflightRequests || state.isWebSocketConnected,
+        connectionRetries: 0, // Not exposed by Convex client
+        inflightRequests: state.hasInflightRequests ? 1 : 0, // Simplified
+      }
+    },
+
+    getEvents: () => eventBuffer.getEventBuffer(),
+
+    subscribeToEvents: (callback) => eventBuffer.subscribeToEvents(callback),
+
+    getDashboardUrl,
+  }
+
+  // Expose on window for direct access (same-origin)
+  window.__CONVEX_DEVTOOLS__ = bridge
+
+  // Use BroadcastChannel for reliable same-origin communication with DevTools iframe
+  const channel = new BroadcastChannel('convex-devtools')
+
+  // Handle messages from DevTools iframe via BroadcastChannel
+  channel.onmessage = (event) => {
+    const data = event.data
+    if (!data || typeof data !== 'object') return
+
+    if (data.type === 'CONVEX_DEVTOOLS_INIT') {
+      // DevTools iframe is requesting connection
+      channel.postMessage({ type: 'CONVEX_DEVTOOLS_READY' })
+    } else if (data.type === 'CONVEX_DEVTOOLS_REQUEST') {
+      // DevTools iframe is calling a bridge method
+      const { id, method, args } = data
+      try {
+        const bridgeMethod = bridge[method as keyof ConvexDevToolsBridge]
+        if (typeof bridgeMethod === 'function') {
+          const result = (bridgeMethod as (...args: unknown[]) => unknown)(...(args || []))
+          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, result })
+        } else if (bridgeMethod !== undefined) {
+          // Property access
+          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, result: bridgeMethod })
+        } else {
+          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, error: `Unknown method: ${method}` })
+        }
+      } catch (err) {
+        channel.postMessage({
+          type: 'CONVEX_DEVTOOLS_RESPONSE',
+          id,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+  }
+
+  // Subscribe to events and forward to DevTools via BroadcastChannel
+  eventBuffer.subscribeToEvents((event) => {
+    channel.postMessage({ type: 'CONVEX_DEVTOOLS_EVENT', event })
+  })
+}

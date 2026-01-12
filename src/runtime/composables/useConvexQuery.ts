@@ -21,6 +21,20 @@ import {
 import { createModuleLogger, getLoggingOptions } from '../utils/logger'
 import type { SubscriptionChangeEvent } from '../utils/logger'
 
+// DevTools query registry (client-side only in dev mode)
+// Using a promise-based approach to ensure registry is loaded before use
+let devToolsRegistryPromise: Promise<typeof import('../devtools/query-registry')> | null = null
+let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
+
+if (import.meta.client && import.meta.dev) {
+  devToolsRegistryPromise = import('../devtools/query-registry')
+  devToolsRegistryPromise.then((module) => {
+    devToolsRegistry = module
+  }).catch(() => {
+    // DevTools not available, ignore
+  })
+}
+
 // Re-export for consumers
 export type { QueryStatus }
 export { parseConvexResponse, computeQueryStatus, getQueryKey }
@@ -301,14 +315,24 @@ export function useConvexQuery<
           currentArgs as FunctionArgs<Query>,
           (result: RawT) => {
             updateCount++
+            const transformedResult = applyTransform(result)
             // Cast needed because useAsyncData has complex PickFrom type
-            ;(asyncData.data as Ref<DataT | null>).value = applyTransform(result)
+            ;(asyncData.data as Ref<DataT | null>).value = transformedResult
             // Clear error when subscription successfully receives data
             if (asyncData.error.value !== null) {
               ;(asyncData.error as Ref<Error | null>).value = null
             }
             // Force Vue reactivity for all watchers
             triggerRef(asyncData.data)
+
+            // Update DevTools registry with new data
+            if (devToolsRegistry) {
+              devToolsRegistry.updateQueryStatus(currentCacheKey, {
+                status: 'success',
+                data: transformedResult,
+                dataSource: 'websocket',
+              })
+            }
           },
           (err: Error) => {
             // Log subscription errors
@@ -326,6 +350,14 @@ export function useConvexQuery<
             if (!hasData) {
               ;(asyncData.error as Ref<Error | null>).value = err
             }
+
+            // Update DevTools registry with error
+            if (devToolsRegistry) {
+              devToolsRegistry.updateQueryStatus(currentCacheKey, {
+                status: 'error',
+                error: err.message,
+              })
+            }
           },
         )
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
@@ -337,6 +369,21 @@ export function useConvexQuery<
           state: 'subscribed',
           cache_hit: false,
         } satisfies SubscriptionChangeEvent)
+
+        // Register with DevTools in dev mode (ensure module is loaded)
+        if (devToolsRegistryPromise) {
+          devToolsRegistryPromise.then((registry) => {
+            registry.registerQuery({
+              id: currentCacheKey,
+              name: fnName,
+              args: currentArgs,
+              status: 'pending',
+              dataSource: 'websocket',
+              data: asyncData.data.value,
+              hasSubscription: true,
+            })
+          }).catch(() => {})
+        }
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e))
         logger.event({
@@ -387,6 +434,8 @@ export function useConvexQuery<
     // Cleanup on unmount
     onUnmounted(() => {
       if (unsubscribeFn) {
+        const currentCacheKey = getCacheKey()
+
         logger.event({
           event: 'subscription:change',
           env: 'client',
@@ -395,9 +444,12 @@ export function useConvexQuery<
           updates_received: updateCount,
         } satisfies SubscriptionChangeEvent)
 
-        removeFromSubscriptionCache(nuxtApp, getCacheKey())
+        removeFromSubscriptionCache(nuxtApp, currentCacheKey)
         unsubscribeFn()
         unsubscribeFn = null
+
+        // Unregister from DevTools
+        devToolsRegistry?.unregisterQuery(currentCacheKey)
       }
     })
   }

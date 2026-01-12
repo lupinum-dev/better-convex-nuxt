@@ -69,6 +69,7 @@
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.10.9",
+    "@nuxt/devtools-kit": "^2.3.0",
     "@nuxt/kit": "^4.2.2",
     "better-auth": "^1.4.9",
     "convex": "^1.31.2",

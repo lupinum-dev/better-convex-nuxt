@@ -1,5 +1,17 @@
 import { createConsola, type ConsolaInstance, type LogObject } from 'consola'
 
+// DevTools event buffer import (client-side only in dev mode)
+let pushEventToDevTools: ((event: LogEvent) => void) | null = null
+
+// Initialize DevTools event buffer on client in dev mode
+if (import.meta.client && import.meta.dev) {
+  import('../devtools/event-buffer').then((module) => {
+    pushEventToDevTools = module.pushEvent
+  }).catch(() => {
+    // DevTools not available, ignore
+  })
+}
+
 // Event type definitions for canonical log lines
 export interface PluginInitEvent {
   event: 'plugin:init'
@@ -237,7 +249,17 @@ function createPrettyReporter(): { log: (logObj: LogObject) => void } {
 /** Create a no-op logger when logging is disabled */
 function createNoopLogger(): ModuleLogger {
   const noop = () => {}
-  return { event: noop, debug: noop, warn: noop, error: noop }
+  return {
+    // Still push events to DevTools even when console logging is disabled
+    event: (data: LogEvent) => {
+      if (pushEventToDevTools) {
+        pushEventToDevTools(data)
+      }
+    },
+    debug: noop,
+    warn: noop,
+    error: noop,
+  }
 }
 
 /** Create the module logger with the specified options */
@@ -312,6 +334,10 @@ export function createModuleLogger(options: LoggingOptions): ModuleLogger {
   return {
     event(data: LogEvent): void {
       consola.info(data)
+      // Push to DevTools buffer in dev mode
+      if (pushEventToDevTools) {
+        pushEventToDevTools(data)
+      }
     },
 
     debug(message: string, data?: Record<string, unknown>): void {
