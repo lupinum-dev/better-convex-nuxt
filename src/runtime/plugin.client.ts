@@ -10,7 +10,7 @@ import { ConvexClient } from 'convex/browser'
 import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logger'
 import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
 import type { Ref } from 'vue'
-import type { ConvexDevToolsBridge, ConvexUser, JWTClaims, EnhancedAuthState } from './devtools/types'
+import type { ConvexDevToolsBridge, ConvexUser, JWTClaims, EnhancedAuthState, AuthState } from './devtools/types'
 
 interface TokenResponse {
   data?: { token: string } | null
@@ -209,8 +209,9 @@ async function setupDevToolsBridge(
       const parts = token.split('.')
       if (parts.length !== 3) return null
       // Handle URL-safe base64 encoding
-      const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-      const decoded = atob(payload)
+      const payload = parts[1]
+      if (!payload) return null
+      const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
       return JSON.parse(decoded)
     } catch {
       return null
@@ -246,7 +247,7 @@ async function setupDevToolsBridge(
 
     subscribeToMutations: (callback) => mutationRegistry.subscribeToMutations(callback),
 
-    getAuthState: () => {
+    getAuthState: (): AuthState => {
       // Use toRaw to unwrap Vue proxy (BroadcastChannel can't clone proxies)
       const rawUser = toRaw(convexUser.value) as ConvexUser | null
       const hasToken = !!convexToken.value
@@ -256,7 +257,7 @@ async function setupDevToolsBridge(
       const plainUser = hasUser ? JSON.parse(JSON.stringify(rawUser)) : null
 
       return {
-        isAuthenticated: hasToken && hasUser,
+        isAuthenticated: !!(hasToken && hasUser),
         isPending: false, // Could be enhanced to track pending state
         user: plainUser,
         tokenStatus: hasToken ? 'valid' : 'none',
