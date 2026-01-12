@@ -195,21 +195,4 @@ Built-in features for building production-ready apps
 :::
 ::
 
-::u-page-section{class="dark:bg-gradient-to-b from-neutral-950 to-neutral-900"}
-  :::u-page-c-t-a
-  ---
-  title: Ready to build with Convex?
-  description: Get started in minutes with real-time data, authentication, and permissions out of the box.
-  links:
-    - label: Get Started
-      to: /docs/getting-started/installation
-      trailingIcon: i-lucide-arrow-right
-    - label: View on GitHub
-      to: https://github.com/lupinum-dev/better-convex-nuxt
-      variant: subtle
-      icon: i-simple-icons-github
-  class: dark:bg-neutral-950
-  ---
-  :stars-bg
-  :::
-::
+
