@@ -152,7 +152,7 @@ describe('useConvexQuery behavior', async () => {
 
       // Get initial update count
       const initialUpdateCount = await page.textContent('[data-testid="update-count"]')
-      const initialCount = parseInt(initialUpdateCount?.trim() || '0', 10)
+      const initialCount = Number.parseInt(initialUpdateCount?.trim() || '0', 10)
 
       // WHEN we click the deep mutation button (changes args.value.query without replacing args.value)
       await page.click('[data-testid="deep-mutation-btn"]')
@@ -160,7 +160,7 @@ describe('useConvexQuery behavior', async () => {
 
       // THEN update count should have incremented (query re-fetched)
       const newUpdateCount = await page.textContent('[data-testid="update-count"]')
-      const newCount = parseInt(newUpdateCount?.trim() || '0', 10)
+      const newCount = Number.parseInt(newUpdateCount?.trim() || '0', 10)
 
       // The query arg should have changed (cycles from '' -> 'hello' -> 'test' -> 'note' -> '')
       const currentQuery = await page.textContent('[data-testid="current-query"]')
@@ -177,7 +177,7 @@ describe('useConvexQuery behavior', async () => {
 
       // Get initial update count
       const initialUpdateCount = await page.textContent('[data-testid="update-count"]')
-      const initialCount = parseInt(initialUpdateCount?.trim() || '0', 10)
+      const initialCount = Number.parseInt(initialUpdateCount?.trim() || '0', 10)
 
       // WHEN we click the deep mutation button multiple times
       await page.click('[data-testid="deep-mutation-btn"]')
@@ -189,7 +189,7 @@ describe('useConvexQuery behavior', async () => {
 
       // THEN update count should have incremented multiple times
       const finalUpdateCount = await page.textContent('[data-testid="update-count"]')
-      const finalCount = parseInt(finalUpdateCount?.trim() || '0', 10)
+      const finalCount = Number.parseInt(finalUpdateCount?.trim() || '0', 10)
 
       // Should have refetched at least 3 more times
       expect(finalCount).toBeGreaterThan(initialCount + 2)

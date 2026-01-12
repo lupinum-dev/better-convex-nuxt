@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { user, isAuthenticated, token } = useConvexAuth()
+const { user, isAuthenticated } = useConvexAuth()
 const authClient = useAuthClient()
 const route = useRoute()
 

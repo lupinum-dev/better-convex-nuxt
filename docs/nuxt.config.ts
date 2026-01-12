@@ -10,32 +10,39 @@ export default defineNuxtConfig({
     'nuxt-og-image',
     'nuxt-llms',
     '@nuxtjs/mcp-toolkit',
-    '@vueuse/nuxt',
+    '@vueuse/nuxt'
   ],
 
   devtools: {
-    enabled: true,
+    enabled: true
   },
-
-  site: {  url: 'https://better-convex-nuxt.vercel.app/',  name: 'Better Convex Nuxt'  }, 
 
   css: ['~/assets/css/main.css'],
 
+  site: { url: 'https://better-convex-nuxt.vercel.app/', name: 'Better Convex Nuxt' },
   content: {
     build: {
       markdown: {
         toc: {
-          searchDepth: 1,
-        },
-      },
-    },
+          searchDepth: 1
+        }
+      }
+    }
   },
 
   experimental: {
-    asyncContext: true,
+    asyncContext: true
   },
 
   compatibilityDate: '2024-07-11',
+
+  nitro: {
+    prerender: {
+      routes: ['/'],
+      crawlLinks: true,
+      autoSubfolderIndex: false
+    }
+  },
 
   hooks: {
     'nitro:config': async (nitroConfig) => {
@@ -59,25 +66,17 @@ export default defineNuxtConfig({
     }
   },
 
-  nitro: {
-    prerender: {
-      routes: ['/'],
-      crawlLinks: true,
-      autoSubfolderIndex: false,
-    },
-  },
-
   eslint: {
     config: {
       stylistic: {
         commaDangle: 'never',
-        braceStyle: '1tbs',
-      },
-    },
+        braceStyle: '1tbs'
+      }
+    }
   },
 
   icon: {
-    provider: 'iconify',
+    provider: 'iconify'
   },
 
   llms: {
@@ -88,7 +87,7 @@ export default defineNuxtConfig({
     full: {
       title: 'Better Convex Nuxt - Full Documentation',
       description:
-        'Complete documentation for Better Convex Nuxt module including API reference, authentication, and permissions.',
+        'Complete documentation for Better Convex Nuxt module including API reference, authentication, and permissions.'
     },
     sections: [
       {
@@ -98,7 +97,7 @@ export default defineNuxtConfig({
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/1.getting-started%' },
           { field: 'extension', operator: '=', value: 'md' }
-        ],
+        ]
       },
       {
         title: 'Data Fetching',
@@ -107,7 +106,7 @@ export default defineNuxtConfig({
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/2.data-fetching%' },
           { field: 'extension', operator: '=', value: 'md' }
-        ],
+        ]
       },
       {
         title: 'Mutations',
@@ -116,7 +115,7 @@ export default defineNuxtConfig({
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/3.mutations%' },
           { field: 'extension', operator: '=', value: 'md' }
-        ],
+        ]
       },
       {
         title: 'Authentication & Security',
@@ -125,7 +124,7 @@ export default defineNuxtConfig({
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/4.auth-security%' },
           { field: 'extension', operator: '=', value: 'md' }
-        ],
+        ]
       },
       {
         title: 'Server-Side Rendering',
@@ -134,7 +133,7 @@ export default defineNuxtConfig({
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/5.server-side%' },
           { field: 'extension', operator: '=', value: 'md' }
-        ],
+        ]
       },
       {
         title: 'Advanced',
@@ -143,7 +142,7 @@ export default defineNuxtConfig({
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/6.advanced%' },
           { field: 'extension', operator: '=', value: 'md' }
-        ],
+        ]
       },
       {
         title: 'Deployment',
@@ -152,12 +151,15 @@ export default defineNuxtConfig({
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/7.deployment%' },
           { field: 'extension', operator: '=', value: 'md' }
-        ],
-      },
-    ],
+        ]
+      }
+    ]
   },
 
   mcp: {
-    name: 'better-convex-nuxt',
+    name: 'better-convex-nuxt'
   },
+  sitemap: {
+    sources: ['/api/__sitemap__/urls']
+  }
 })

@@ -13,7 +13,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-function getTestId(item: StateItem, index: number): string | undefined {
+function getTestId(item: StateItem, _index: number): string | undefined {
   if (item.testId) return item.testId
   if (props.testIdPrefix) {
     return `${props.testIdPrefix}-${item.label.toLowerCase().replace(/[^a-z0-9]/g, '-')}`

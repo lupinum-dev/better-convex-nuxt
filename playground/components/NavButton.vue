@@ -8,9 +8,11 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  to: undefined,
   variant: 'default',
   size: 'md',
   disabled: false,
+  testId: undefined,
 })
 
 const emit = defineEmits<{

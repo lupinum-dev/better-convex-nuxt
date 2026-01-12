@@ -5,15 +5,15 @@
     :items="[{
       label: 'Convex',
       to: 'https://convex.dev',
-      icon: 'i-lucide-database',
+      icon: 'i-lucide-database'
     }, {
       label: 'Better Auth',
       to: 'https://www.better-auth.com',
-      icon: 'i-lucide-shield',
+      icon: 'i-lucide-shield'
     }, {
       label: 'Convex Better Auth',
       to: 'https://labs.convex.dev/better-auth',
-      icon: 'i-lucide-plug',
+      icon: 'i-lucide-plug'
     }]"
     :content="{ align: 'start' }"
     :ui="{ content: 'min-w-fit' }"
@@ -27,7 +27,7 @@
       class="-mb-[6px] font-semibold rounded-full truncate"
       :class="[open && 'bg-primary/15']"
       :ui="{
-        trailingIcon: ['transition-transform duration-200', open ? 'rotate-180' : undefined].filter(Boolean).join(' '),
+        trailingIcon: ['transition-transform duration-200', open ? 'rotate-180' : undefined].filter(Boolean).join(' ')
       }"
     />
   </UDropdownMenu>

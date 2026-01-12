@@ -2,28 +2,28 @@
 const { seo } = useAppConfig()
 
 const { data: navigation } = await useAsyncData('navigation', () =>
-  queryCollectionNavigation('docs'),
+  queryCollectionNavigation('docs')
 )
 const { data: files } = useLazyAsyncData(
   'search',
   () => queryCollectionSearchSections('docs'),
   {
-    server: false,
-  },
+    server: false
+  }
 )
 
 useHead({
   meta: [{ name: 'viewport', content: 'width=device-width, initial-scale=1' }],
   link: [{ rel: 'icon', href: '/favicon.ico' }],
   htmlAttrs: {
-    lang: 'en',
-  },
+    lang: 'en'
+  }
 })
 
 useSeoMeta({
   titleTemplate: `%s - ${seo?.siteName}`,
   ogSiteName: seo?.siteName,
-  twitterCard: 'summary_large_image',
+  twitterCard: 'summary_large_image'
 })
 
 const navigationChildren = computed(() => navigation.value?.[0]?.children || [])
@@ -40,7 +40,7 @@ provide('navigation', navigationChildren)
       close
       :ui="{
         title: 'text-white!',
-        icon: 'text-white!',
+        icon: 'text-white!'
       }"
     />
 
@@ -57,7 +57,10 @@ provide('navigation', navigationChildren)
     <AppFooter />
 
     <ClientOnly>
-      <LazyUContentSearch :files="files" :navigation="navigation" />
+      <LazyUContentSearch
+        :files="files"
+        :navigation="navigation"
+      />
     </ClientOnly>
   </UApp>
 </template>

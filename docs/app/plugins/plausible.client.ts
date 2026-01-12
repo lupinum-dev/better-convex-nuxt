@@ -19,31 +19,31 @@ export default defineNuxtPlugin({
         key: 'plausible',
         src: 'https://plausible.io/js/pa-E4ZyKi5Jl3nhDWhII2Fys.js',
         async: true,
-        crossorigin: 'anonymous',
+        crossorigin: 'anonymous'
       },
       {
         use() {
           // Initialize Plausible function
-          window.plausible =
-            window.plausible ||
-            function (...args: unknown[]) {
-              const plausible = window.plausible as { q?: unknown[] }
+          window.plausible
+            = window.plausible
+              || function (...args: unknown[]) {
+                const plausible = window.plausible as { q?: unknown[] }
               ;(plausible.q = plausible.q || []).push(args)
-            }
+              }
 
-          window.plausible.init =
-            window.plausible.init ||
-            function (i?: Record<string, unknown>) {
-              const plausible = window.plausible as { o?: Record<string, unknown> }
-              plausible.o = i || {}
-            }
+          window.plausible.init
+            = window.plausible.init
+              || function (i?: Record<string, unknown>) {
+                const plausible = window.plausible as { o?: Record<string, unknown> }
+                plausible.o = i || {}
+              }
 
           // Initialize Plausible
           window.plausible.init({})
 
           return { plausible: window.plausible }
-        },
-      },
+        }
+      }
     )
-  },
+  }
 })

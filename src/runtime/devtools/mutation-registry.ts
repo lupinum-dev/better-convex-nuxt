@@ -4,7 +4,7 @@
  * In-memory only, max 50 entries with LRU eviction.
  */
 
-import type { MutationEntry, MutationState } from './types'
+import type { MutationEntry } from './types'
 
 const MAX_ENTRIES = 50
 

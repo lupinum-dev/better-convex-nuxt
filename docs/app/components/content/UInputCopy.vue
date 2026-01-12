@@ -2,19 +2,24 @@
 defineProps({
   value: {
     type: String,
-    required: true,
+    required: true
   },
   size: {
     type: String,
-    default: 'lg',
-  },
+    default: 'lg'
+  }
 })
 const { copy, copied } = useClipboard()
 </script>
 
 <template>
   <label>
-    <UInput :model-value="value" :size="size" disabled :ui="{ trailing: 'pe-1' }">
+    <UInput
+      :model-value="value"
+      :size="size"
+      disabled
+      :ui="{ trailing: 'pe-1' }"
+    >
       <div
         class="absolute inset-0"
         :class="[copied ? 'cursor-default' : 'cursor-copy']"
@@ -29,7 +34,7 @@ const { copy, copied } = useClipboard()
           :ui="{ leadingIcon: 'size-4' }"
           :class="{
             'text-green-500 hover:text-green-500 dark:text-green-400 hover:dark:text-green-400':
-              copied,
+              copied
           }"
           aria-label="copy button"
           @click="copy(value)"

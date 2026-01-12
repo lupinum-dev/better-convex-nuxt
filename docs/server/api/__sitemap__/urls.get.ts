@@ -20,7 +20,7 @@ export default defineSitemapEventHandler(async (e) => {
     })
     .map((c) => {
       const sitemapData = typeof c.sitemap === 'object' ? c.sitemap : {}
-      
+
       return asSitemapUrl({
         loc: sitemapData.loc || c._path,
         lastmod: sitemapData.lastmod || c.updatedAt || c.createdAt,

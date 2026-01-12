@@ -95,9 +95,9 @@ const capturedAtRender = {
     <section v-if="isLoading" class="loading-section">
       <h2>Loading...</h2>
       <div class="skeleton">
-        <div class="skeleton-item"></div>
-        <div class="skeleton-item"></div>
-        <div class="skeleton-item"></div>
+        <div class="skeleton-item"/>
+        <div class="skeleton-item"/>
+        <div class="skeleton-item"/>
       </div>
     </section>
 
