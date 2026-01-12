@@ -10,7 +10,7 @@ import { ConvexClient } from 'convex/browser'
 import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logger'
 import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
 import type { Ref } from 'vue'
-import type { ConvexDevToolsBridge, ConvexUser } from './devtools/types'
+import type { ConvexDevToolsBridge, ConvexUser, JWTClaims, EnhancedAuthState } from './devtools/types'
 
 interface TokenResponse {
   data?: { token: string } | null
@@ -194,10 +194,28 @@ async function setupDevToolsBridge(
   convexUser: Ref<unknown>,
 ): Promise<void> {
   // Dynamically import DevTools modules to avoid bundling in production
-  const [queryRegistry, eventBuffer] = await Promise.all([
+  const [queryRegistry, eventBuffer, mutationRegistry] = await Promise.all([
     import('./devtools/query-registry'),
     import('./devtools/event-buffer'),
+    import('./devtools/mutation-registry'),
   ])
+
+  /**
+   * Decode a JWT token to extract claims.
+   * Pure client-side decoding, no external dependencies.
+   */
+  function decodeJWT(token: string): JWTClaims | null {
+    try {
+      const parts = token.split('.')
+      if (parts.length !== 3) return null
+      // Handle URL-safe base64 encoding
+      const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+      const decoded = atob(payload)
+      return JSON.parse(decoded)
+    } catch {
+      return null
+    }
+  }
 
   // Get the Convex Dashboard URL
   const getDashboardUrl = (): string | null => {
@@ -216,11 +234,17 @@ async function setupDevToolsBridge(
   }
 
   const bridge: ConvexDevToolsBridge = {
-    version: '1.0.0',
+    version: '1.1.0',
 
     getQueries: () => queryRegistry.getActiveQueries(),
 
+    getQueryDetail: (id: string) => queryRegistry.getQuery(id),
+
     subscribeToQueries: (callback) => queryRegistry.subscribeToQueries(callback),
+
+    getMutations: () => mutationRegistry.getMutations(),
+
+    subscribeToMutations: (callback) => mutationRegistry.subscribeToMutations(callback),
 
     getAuthState: () => {
       // Use toRaw to unwrap Vue proxy (BroadcastChannel can't clone proxies)
@@ -236,6 +260,34 @@ async function setupDevToolsBridge(
         isPending: false, // Could be enhanced to track pending state
         user: plainUser,
         tokenStatus: hasToken ? 'valid' : 'none',
+      }
+    },
+
+    getEnhancedAuthState: (): EnhancedAuthState => {
+      const baseState = bridge.getAuthState()
+      const token = convexToken.value
+
+      if (!token) {
+        return {
+          ...baseState,
+          claims: undefined,
+          issuedAt: undefined,
+          expiresAt: undefined,
+          expiresInSeconds: undefined,
+        }
+      }
+
+      const claims = decodeJWT(token)
+      const now = Math.floor(Date.now() / 1000)
+      const expiresAt = claims?.exp
+      const expiresInSeconds = expiresAt ? Math.max(0, expiresAt - now) : undefined
+
+      return {
+        ...baseState,
+        claims: claims ?? undefined,
+        issuedAt: claims?.iat ? claims.iat * 1000 : undefined,
+        expiresAt: expiresAt ? expiresAt * 1000 : undefined,
+        expiresInSeconds,
       }
     },
 
@@ -298,5 +350,15 @@ async function setupDevToolsBridge(
   // Subscribe to events and forward to DevTools via BroadcastChannel
   eventBuffer.subscribeToEvents((event) => {
     channel.postMessage({ type: 'CONVEX_DEVTOOLS_EVENT', event })
+  })
+
+  // Subscribe to mutations and forward to DevTools via BroadcastChannel
+  mutationRegistry.subscribeToMutations((mutations) => {
+    channel.postMessage({ type: 'CONVEX_DEVTOOLS_MUTATIONS', mutations })
+  })
+
+  // Subscribe to queries and forward to DevTools via BroadcastChannel
+  queryRegistry.subscribeToQueries((queries) => {
+    channel.postMessage({ type: 'CONVEX_DEVTOOLS_QUERIES', queries })
   })
 }

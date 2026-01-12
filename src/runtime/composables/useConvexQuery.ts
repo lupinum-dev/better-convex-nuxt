@@ -381,6 +381,12 @@ export function useConvexQuery<
               dataSource: 'websocket',
               data: asyncData.data.value,
               hasSubscription: true,
+              options: {
+                lazy,
+                server,
+                subscribe,
+                public: isPublic,
+              },
             })
           }).catch(() => {})
         }

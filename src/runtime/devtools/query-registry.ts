@@ -6,6 +6,17 @@
 export type QueryStatus = 'pending' | 'success' | 'error' | 'idle'
 export type DataSource = 'ssr' | 'websocket' | 'cache'
 
+export interface QueryOptions {
+  /** Whether the query was configured with lazy: true */
+  lazy: boolean
+  /** Whether the query fetches on server (SSR) */
+  server: boolean
+  /** Whether the query has an active subscription */
+  subscribe: boolean
+  /** Whether the query is public (no auth required) */
+  public: boolean
+}
+
 export interface QueryRegistryEntry {
   /** Unique identifier (cache key) */
   id: string
@@ -27,6 +38,8 @@ export interface QueryRegistryEntry {
   hasSubscription: boolean
   /** Number of updates received via subscription */
   updateCount: number
+  /** Query configuration options */
+  options?: QueryOptions
 }
 
 // Registry storage

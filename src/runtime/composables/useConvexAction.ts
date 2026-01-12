@@ -8,6 +8,24 @@ import { createModuleLogger, getLoggingOptions, createTimer, formatArgsPreview }
 import type { OperationCompleteEvent } from '../utils/logger'
 import { useConvex } from './useConvex'
 
+// ============================================================================
+// DevTools Integration
+// ============================================================================
+
+let devToolsMutationRegistryPromise: Promise<typeof import('../devtools/mutation-registry')> | null = null
+let devToolsMutationRegistry: typeof import('../devtools/mutation-registry') | null = null
+
+if (import.meta.client && import.meta.dev) {
+  devToolsMutationRegistryPromise = import('../devtools/mutation-registry')
+  devToolsMutationRegistryPromise
+    .then((module) => {
+      devToolsMutationRegistry = module
+    })
+    .catch(() => {
+      // DevTools not available, ignore
+    })
+}
+
 /**
  * Action status representing the current state of the action
  * - 'idle': not yet called or reset
@@ -159,10 +177,35 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     _status.value = 'pending'
     error.value = null
 
+    // Register with DevTools
+    const startTime = Date.now()
+    let actionId: string | null = null
+    if (devToolsMutationRegistry) {
+      actionId = devToolsMutationRegistry.registerMutation({
+        name: fnName,
+        type: 'action',
+        args,
+        state: 'pending',
+        hasOptimisticUpdate: false,
+        startedAt: startTime,
+      })
+    }
+
     try {
       const result = await client.action(action, args)
       _status.value = 'success'
       data.value = result
+
+      // Update DevTools
+      const settledAt = Date.now()
+      if (devToolsMutationRegistry && actionId) {
+        devToolsMutationRegistry.updateMutationState(actionId, {
+          state: 'success',
+          result,
+          settledAt,
+          duration: settledAt - startTime,
+        })
+      }
 
       logger.event({
         event: 'operation:complete',
@@ -179,6 +222,17 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
       const err = e instanceof Error ? e : new Error(String(e))
       _status.value = 'error'
       error.value = err
+
+      // Update DevTools
+      const settledAt = Date.now()
+      if (devToolsMutationRegistry && actionId) {
+        devToolsMutationRegistry.updateMutationState(actionId, {
+          state: 'error',
+          error: err.message,
+          settledAt,
+          duration: settledAt - startTime,
+        })
+      }
 
       logger.event({
         event: 'operation:complete',

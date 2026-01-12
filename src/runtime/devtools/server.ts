@@ -1,6 +1,10 @@
 /**
  * Server handler for DevTools UI.
- * Serves a simple HTML page that communicates with the main app via postMessage.
+ * Serves a full-featured debugging interface with:
+ * - Query Data Explorer (master-detail view)
+ * - Mutation Timeline
+ * - Auth Inspector with JWT claims
+ * - Event Log
  */
 import { defineEventHandler, setHeader } from 'h3'
 
@@ -16,6 +20,7 @@ const DEVTOOLS_HTML = `
     :root {
       --bg: #1e1e1e;
       --bg-secondary: #252526;
+      --bg-tertiary: #1a1a1a;
       --bg-hover: #2a2d2e;
       --border: #3c3c3c;
       --text: #cccccc;
@@ -28,8 +33,15 @@ const DEVTOOLS_HTML = `
       --error-bg: rgba(248, 113, 113, 0.15);
       --warning: #fbbf24;
       --warning-bg: rgba(251, 191, 36, 0.15);
+      --info: #60a5fa;
+      --info-bg: rgba(96, 165, 250, 0.15);
       --scrollbar-bg: #1e1e1e;
       --scrollbar-thumb: #424242;
+      --json-key: #9cdcfe;
+      --json-string: #ce9178;
+      --json-number: #b5cea8;
+      --json-boolean: #569cd6;
+      --json-null: #569cd6;
     }
 
     /* Light mode */
@@ -37,6 +49,7 @@ const DEVTOOLS_HTML = `
       :root {
         --bg: #ffffff;
         --bg-secondary: #f5f5f5;
+        --bg-tertiary: #fafafa;
         --bg-hover: #ebebeb;
         --border: #e0e0e0;
         --text: #1f1f1f;
@@ -49,8 +62,15 @@ const DEVTOOLS_HTML = `
         --error-bg: rgba(220, 38, 38, 0.1);
         --warning: #ca8a04;
         --warning-bg: rgba(202, 138, 4, 0.1);
+        --info: #2563eb;
+        --info-bg: rgba(37, 99, 235, 0.1);
         --scrollbar-bg: #f5f5f5;
         --scrollbar-thumb: #c4c4c4;
+        --json-key: #0451a5;
+        --json-string: #a31515;
+        --json-number: #098658;
+        --json-boolean: #0000ff;
+        --json-null: #0000ff;
       }
     }
 
@@ -65,67 +85,62 @@ const DEVTOOLS_HTML = `
       font-size: 13px;
       background: var(--bg);
       color: var(--text);
-      padding: 16px;
       line-height: 1.5;
+      height: 100vh;
+      overflow: hidden;
     }
 
     /* Custom scrollbar */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: var(--scrollbar-bg);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--scrollbar-thumb);
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-secondary);
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--scrollbar-bg); }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+    /* App Shell */
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
 
-    h1, h2, h3 {
-      font-weight: 600;
-      margin-bottom: 12px;
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      flex-shrink: 0;
     }
 
-    h1 {
-      font-size: 15px;
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 16px;
-      color: var(--text);
+      font-weight: 600;
+      font-size: 14px;
     }
 
-    h2 {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-secondary);
-      margin-bottom: 10px;
-    }
+    .logo-icon { color: var(--accent); }
 
-    .section {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px;
-      margin-bottom: 16px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-    }
-
-    .status-indicator {
-      display: inline-flex;
+    .status-bar {
+      display: flex;
       align-items: center;
-      gap: 8px;
-      font-weight: 500;
+      gap: 16px;
+      font-size: 12px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .status-dot {
@@ -144,99 +159,386 @@ const DEVTOOLS_HTML = `
       50% { opacity: 0.4; }
     }
 
-    .stat {
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .tab:hover {
+      color: var(--text);
+      background: var(--bg-hover);
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-badge {
+      margin-left: 6px;
+      padding: 1px 6px;
+      background: var(--bg-hover);
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .tab.active .tab-badge {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* Tab Content */
+    .tab-content {
+      flex: 1;
+      overflow: hidden;
+      display: none;
+    }
+
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Master-Detail Layout */
+    .master-detail {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .master-list {
+      width: 280px;
+      min-width: 200px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .detail-panel {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--bg-tertiary);
+    }
+
+    /* List Items */
+    .list-item {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .list-item:hover {
+      background: var(--bg-hover);
+    }
+
+    .list-item.selected {
+      background: var(--bg-hover);
+      border-left: 3px solid var(--accent);
+      padding-left: 11px;
+    }
+
+    .list-item-header {
       display: flex;
       justify-content: space-between;
-      padding: 6px 0;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .list-item-name {
+      font-weight: 500;
+      color: var(--accent);
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .list-item-meta {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Status Badges */
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .badge.success { background: var(--success-bg); color: var(--success); }
+    .badge.error { background: var(--error-bg); color: var(--error); }
+    .badge.pending { background: var(--warning-bg); color: var(--warning); }
+    .badge.optimistic { background: var(--info-bg); color: var(--info); }
+
+    /* Detail Sections */
+    .detail-section {
+      padding: 16px;
       border-bottom: 1px solid var(--border);
     }
 
-    .stat:last-child {
+    .detail-section:last-child {
       border-bottom: none;
     }
 
-    .stat-label {
+    .detail-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+    }
+
+    .detail-label {
       color: var(--text-secondary);
       font-size: 12px;
     }
 
-    .stat-value {
+    .detail-value {
       font-weight: 500;
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
       font-size: 12px;
     }
 
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-top: 10px;
+    /* JSON Viewer */
+    .json-viewer {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      font-size: 11px;
+      background: var(--bg);
+      padding: 12px;
+      border-radius: 6px;
+      max-height: 200px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      border: 1px solid var(--border);
     }
 
-    .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: white;
+    .json-key { color: var(--json-key); }
+    .json-string { color: var(--json-string); }
+    .json-number { color: var(--json-number); }
+    .json-boolean { color: var(--json-boolean); }
+    .json-null { color: var(--json-null); }
+
+    /* Options Grid */
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .option-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .option-icon {
+      width: 14px;
+      height: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
-      font-weight: 600;
     }
 
-    .query-list {
-      max-height: 280px;
+    .option-icon.enabled { color: var(--success); }
+    .option-icon.disabled { color: var(--text-secondary); }
+
+    /* Timeline */
+    .timeline {
+      padding: 0;
       overflow-y: auto;
+      flex: 1;
     }
 
-    .query-item {
-      padding: 10px 12px;
+    .timeline-item {
+      padding: 14px 16px;
       border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      cursor: pointer;
       transition: background 0.15s;
     }
 
-    .query-item:hover {
+    .timeline-item:hover {
       background: var(--bg-hover);
     }
 
-    .query-item:last-child {
-      border-bottom: none;
+    .timeline-item.expanded {
+      background: var(--bg-secondary);
     }
 
-    .query-name {
+    .timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+
+    .timeline-name {
       font-weight: 500;
       color: var(--accent);
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
       font-size: 12px;
     }
 
-    .query-status {
-      font-size: 10px;
-      padding: 3px 8px;
-      border-radius: 10px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
+    .timeline-time {
+      font-size: 11px;
+      color: var(--text-secondary);
     }
 
-    .query-status.success { background: var(--success-bg); color: var(--success); }
-    .query-status.error { background: var(--error-bg); color: var(--error); }
-    .query-status.pending { background: var(--warning-bg); color: var(--warning); }
+    .timeline-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
 
+    .timeline-state {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .timeline-details {
+      margin-top: 12px;
+      display: none;
+    }
+
+    .timeline-item.expanded .timeline-details {
+      display: block;
+    }
+
+    /* Auth Section */
+    .auth-card {
+      padding: 20px;
+      margin: 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .auth-user {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .user-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .user-email {
+      color: var(--text-secondary);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .token-info {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 6px;
+    }
+
+    .token-stat {
+      text-align: center;
+    }
+
+    .token-stat-value {
+      font-size: 18px;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    }
+
+    .token-stat-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .claims-section {
+      margin-top: 16px;
+    }
+
+    /* Event Log */
     .event-log {
-      max-height: 220px;
       overflow-y: auto;
+      flex: 1;
       font-size: 11px;
       font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
     }
 
     .event-item {
-      padding: 6px 10px;
+      padding: 8px 14px;
       border-bottom: 1px solid var(--border);
       display: flex;
       gap: 12px;
@@ -256,7 +558,7 @@ const DEVTOOLS_HTML = `
     .event-type {
       color: var(--accent);
       flex-shrink: 0;
-      min-width: 120px;
+      min-width: 130px;
       font-weight: 500;
     }
 
@@ -267,6 +569,7 @@ const DEVTOOLS_HTML = `
       white-space: nowrap;
     }
 
+    /* Buttons */
     .btn {
       padding: 8px 14px;
       background: var(--accent);
@@ -281,12 +584,10 @@ const DEVTOOLS_HTML = `
       align-items: center;
       gap: 6px;
       text-decoration: none;
-      transition: background 0.15s, opacity 0.15s;
+      transition: background 0.15s;
     }
 
-    .btn:hover {
-      background: var(--accent-hover);
-    }
+    .btn:hover { background: var(--accent-hover); }
 
     .btn-secondary {
       background: var(--bg-secondary);
@@ -294,17 +595,31 @@ const DEVTOOLS_HTML = `
       color: var(--text);
     }
 
-    .btn-secondary:hover {
-      background: var(--bg-hover);
+    .btn-secondary:hover { background: var(--bg-hover); }
+
+    .btn-small {
+      padding: 4px 8px;
+      font-size: 11px;
     }
 
+    /* Empty States */
     .empty-state {
-      text-align: center;
-      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
       color: var(--text-secondary);
-      font-size: 12px;
+      text-align: center;
     }
 
+    .empty-state-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    /* Loading */
     .loading {
       display: flex;
       align-items: center;
@@ -323,113 +638,150 @@ const DEVTOOLS_HTML = `
       animation: spin 0.8s linear infinite;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Actions Bar */
+    .actions-bar {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
     }
 
-    /* Logo icon color */
-    .logo-icon {
-      color: var(--accent);
+    /* Responsive */
+    @media (max-width: 600px) {
+      .master-detail {
+        flex-direction: column;
+      }
+
+      .master-list {
+        width: 100%;
+        max-height: 200px;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .status-bar {
+        display: none;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <h1>
-      <svg class="logo-icon" width="20" height="20" viewBox="0 0 32 32" fill="currentColor">
-        <path d="M16 2L4 9v14l12 7 12-7V9L16 2zm0 2.5l9.5 5.5v11L16 26.5 6.5 21V10L16 4.5z"/>
-      </svg>
-      Convex DevTools
-    </h1>
+  <div class="app-shell">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <svg class="logo-icon" width="18" height="18" viewBox="0 0 32 32" fill="currentColor">
+            <path d="M16 2L4 9v14l12 7 12-7V9L16 2zm0 2.5l9.5 5.5v11L16 26.5 6.5 21V10L16 4.5z"/>
+          </svg>
+          Convex DevTools
+        </div>
+      </div>
+      <div class="status-bar">
+        <div class="status-item">
+          <span id="conn-dot" class="status-dot disconnected"></span>
+          <span id="conn-text">Disconnected</span>
+        </div>
+        <div class="status-item">
+          <span id="auth-dot" class="status-dot disconnected"></span>
+          <span id="auth-text">Not authenticated</span>
+        </div>
+      </div>
+    </header>
 
+    <!-- Loading -->
     <div id="loading" class="loading">
       <div class="spinner"></div>
       <span>Connecting to application...</span>
     </div>
 
-    <div id="content" style="display: none;">
-      <div class="grid">
-        <!-- Connection Status -->
-        <div class="section">
-          <h2>Connection</h2>
-          <div class="status-indicator">
-            <span id="connection-dot" class="status-dot disconnected"></span>
-            <span id="connection-status">Disconnected</span>
-          </div>
-          <div style="margin-top: 8px;">
-            <div class="stat">
-              <span class="stat-label">Retries</span>
-              <span id="connection-retries" class="stat-value">0</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Inflight</span>
-              <span id="connection-inflight" class="stat-value">0</span>
-            </div>
-          </div>
-        </div>
+    <!-- Main Content -->
+    <div id="main-content" style="display: none; flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+      <!-- Tabs -->
+      <nav class="tabs">
+        <button class="tab active" data-tab="queries">
+          Queries <span id="query-badge" class="tab-badge">0</span>
+        </button>
+        <button class="tab" data-tab="mutations">
+          Mutations <span id="mutation-badge" class="tab-badge">0</span>
+        </button>
+        <button class="tab" data-tab="auth">Auth</button>
+        <button class="tab" data-tab="events">
+          Events <span id="event-badge" class="tab-badge">0</span>
+        </button>
+      </nav>
 
-        <!-- Auth Status -->
-        <div class="section">
-          <h2>Authentication</h2>
-          <div id="auth-state">
-            <div class="status-indicator">
-              <span id="auth-dot" class="status-dot disconnected"></span>
-              <span id="auth-status">Not authenticated</span>
+      <!-- Queries Tab -->
+      <div id="tab-queries" class="tab-content active">
+        <div class="master-detail">
+          <div id="query-list" class="master-list">
+            <div class="empty-state">
+              <div class="empty-state-icon">Q</div>
+              <div>No active queries</div>
             </div>
           </div>
-          <div id="user-section" style="margin-top: 8px; display: none;">
-            <div class="user-info">
-              <div class="avatar" id="user-avatar">?</div>
-              <div>
-                <div id="user-name" style="font-weight: 500;">-</div>
-                <div id="user-email" style="color: var(--text-secondary); font-size: 12px;">-</div>
-              </div>
+          <div id="query-detail" class="detail-panel">
+            <div class="empty-state">
+              <div>Select a query to view details</div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Active Queries -->
-      <div class="section">
-        <h2>Active Queries (<span id="query-count">0</span>)</h2>
-        <div id="query-list" class="query-list">
-          <div class="empty-state">No active queries</div>
+      <!-- Mutations Tab -->
+      <div id="tab-mutations" class="tab-content">
+        <div id="mutation-list" class="timeline">
+          <div class="empty-state">
+            <div class="empty-state-icon">M</div>
+            <div>No mutations yet</div>
+            <div style="font-size: 11px; margin-top: 4px;">Mutations will appear here when triggered</div>
+          </div>
         </div>
       </div>
 
-      <!-- Event Log -->
-      <div class="section">
-        <h2>Event Log</h2>
+      <!-- Auth Tab -->
+      <div id="tab-auth" class="tab-content" style="overflow-y: auto;">
+        <div id="auth-content">
+          <div class="empty-state">
+            <div class="empty-state-icon">A</div>
+            <div>Loading authentication state...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Events Tab -->
+      <div id="tab-events" class="tab-content">
         <div id="event-log" class="event-log">
-          <div class="empty-state">No events yet</div>
+          <div class="empty-state">
+            <div class="empty-state-icon">E</div>
+            <div>No events yet</div>
+          </div>
         </div>
-      </div>
-
-      <!-- Actions -->
-      <div style="display: flex; gap: 8px;">
-        <a id="dashboard-link" class="btn" target="_blank" rel="noopener">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <line x1="10" y1="14" x2="21" y2="3"></line>
-          </svg>
-          Open Convex Dashboard
-        </a>
-        <button id="clear-events" class="btn btn-secondary">Clear Events</button>
+        <div class="actions-bar">
+          <button id="clear-events" class="btn btn-secondary btn-small">Clear Events</button>
+          <a id="dashboard-link" class="btn btn-small" target="_blank" rel="noopener" style="margin-left: auto;">
+            Open Dashboard
+          </a>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    // DevTools client script using BroadcastChannel for reliable same-origin communication
     (function() {
-      const MAX_EVENTS = 50;
+      const MAX_EVENTS = 100;
       let events = [];
+      let queries = [];
+      let mutations = [];
+      let selectedQueryId = null;
       let connected = false;
       let messageId = 0;
       const pendingRequests = new Map();
 
-      // BroadcastChannel for communication with main app
+      // BroadcastChannel for communication
       const channel = new BroadcastChannel('convex-devtools');
 
       // Handle messages from main app
@@ -441,44 +793,34 @@ const DEVTOOLS_HTML = `
           const pending = pendingRequests.get(data.id);
           if (pending) {
             pendingRequests.delete(data.id);
-            if (data.error) {
-              pending.reject(new Error(data.error));
-            } else {
-              pending.resolve(data.result);
-            }
+            if (data.error) pending.reject(new Error(data.error));
+            else pending.resolve(data.result);
           }
         } else if (data.type === 'CONVEX_DEVTOOLS_EVENT') {
-          // Real-time event from main app
           events.push(data.event);
           if (events.length > MAX_EVENTS) events.shift();
           renderEvents();
         } else if (data.type === 'CONVEX_DEVTOOLS_QUERIES') {
-          // Query list update from main app
-          renderQueries(data.queries);
+          queries = data.queries || [];
+          renderQueryList();
+          if (selectedQueryId) renderQueryDetail(selectedQueryId);
+        } else if (data.type === 'CONVEX_DEVTOOLS_MUTATIONS') {
+          mutations = data.mutations || [];
+          renderMutations();
         } else if (data.type === 'CONVEX_DEVTOOLS_READY') {
-          // Main app responded to our init
           if (!connected) {
             connected = true;
-            console.log('[Convex DevTools] Connected via BroadcastChannel');
             initializeDevTools();
           }
         }
       };
 
-      // Bridge for calling methods on main app
+      // Bridge call helper
       function callBridge(method, ...args) {
         return new Promise((resolve, reject) => {
           const id = ++messageId;
           pendingRequests.set(id, { resolve, reject });
-
-          channel.postMessage({
-            type: 'CONVEX_DEVTOOLS_REQUEST',
-            id,
-            method,
-            args
-          });
-
-          // Timeout after 5 seconds
+          channel.postMessage({ type: 'CONVEX_DEVTOOLS_REQUEST', id, method, args });
           setTimeout(() => {
             if (pendingRequests.has(id)) {
               pendingRequests.delete(id);
@@ -488,205 +830,378 @@ const DEVTOOLS_HTML = `
         });
       }
 
-      // Start connection
+      // Connect to bridge
       function connectToBridge() {
-        // Send init message via BroadcastChannel
         channel.postMessage({ type: 'CONVEX_DEVTOOLS_INIT' });
-
-        // Wait for ready signal or timeout
         setTimeout(() => {
-          if (!connected) {
-            console.log('[Convex DevTools] Initializing without confirmation (main app may not be ready yet)');
-            initializeDevTools();
-          }
+          if (!connected) initializeDevTools();
         }, 2000);
       }
 
+      // Initialize
       async function initializeDevTools() {
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
+        document.getElementById('main-content').style.display = 'flex';
+
+        // Setup tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+          tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+        });
 
         // Setup dashboard link
         try {
-          const dashboardUrl = await callBridge('getDashboardUrl');
-          const dashboardLink = document.getElementById('dashboard-link');
-          if (dashboardUrl) {
-            dashboardLink.href = dashboardUrl;
-          } else {
-            dashboardLink.style.display = 'none';
-          }
-        } catch (e) {
-          document.getElementById('dashboard-link').style.display = 'none';
-        }
+          const url = await callBridge('getDashboardUrl');
+          const link = document.getElementById('dashboard-link');
+          if (url) link.href = url;
+          else link.style.display = 'none';
+        } catch { document.getElementById('dashboard-link').style.display = 'none'; }
 
-        // Get initial events
+        // Initial data
         try {
-          const initialEvents = await callBridge('getEvents');
-          events = (initialEvents || []).slice(-MAX_EVENTS);
+          events = ((await callBridge('getEvents')) || []).slice(-MAX_EVENTS);
           renderEvents();
-        } catch (e) {
-          console.debug('Could not get initial events:', e);
-        }
+        } catch {}
 
-        // Get initial queries
         try {
-          const initialQueries = await callBridge('getQueries');
-          renderQueries(initialQueries || []);
-        } catch (e) {
-          console.debug('Could not get initial queries:', e);
-        }
+          queries = (await callBridge('getQueries')) || [];
+          renderQueryList();
+        } catch {}
 
-        // Initial render
+        try {
+          mutations = (await callBridge('getMutations')) || [];
+          renderMutations();
+        } catch {}
+
+        // Start polling
         updateConnectionState();
         updateAuthState();
-
-        // Poll for connection/auth/queries state updates
         setInterval(() => {
           updateConnectionState();
           updateAuthState();
-          refreshQueries();
         }, 1000);
 
-        // Clear events button
+        // Clear events
         document.getElementById('clear-events').addEventListener('click', () => {
           events = [];
           renderEvents();
         });
       }
 
-      async function refreshQueries() {
-        try {
-          const queries = await callBridge('getQueries');
-          renderQueries(queries || []);
-        } catch (e) {
-          // Ignore polling errors
-        }
+      function switchTab(tabId) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(\`[data-tab="\${tabId}"]\`).classList.add('active');
+        document.getElementById(\`tab-\${tabId}\`).classList.add('active');
       }
 
       async function updateConnectionState() {
         try {
           const state = await callBridge('getConnectionState');
           if (!state) return;
-
-          const dot = document.getElementById('connection-dot');
-          const status = document.getElementById('connection-status');
-
+          const dot = document.getElementById('conn-dot');
+          const text = document.getElementById('conn-text');
           if (state.isConnected) {
             dot.className = 'status-dot connected';
-            status.textContent = 'Connected';
+            text.textContent = 'Connected';
           } else {
             dot.className = 'status-dot disconnected';
-            status.textContent = state.hasEverConnected ? 'Reconnecting...' : 'Disconnected';
+            text.textContent = 'Disconnected';
           }
-
-          document.getElementById('connection-retries').textContent = state.connectionRetries || 0;
-          document.getElementById('connection-inflight').textContent = state.inflightRequests || 0;
-        } catch (e) {
-          // Ignore polling errors
-        }
+        } catch {}
       }
 
       async function updateAuthState() {
         try {
-          const state = await callBridge('getAuthState');
+          const state = await callBridge('getEnhancedAuthState');
           if (!state) return;
-
           const dot = document.getElementById('auth-dot');
-          const status = document.getElementById('auth-status');
-          const userSection = document.getElementById('user-section');
+          const text = document.getElementById('auth-text');
 
           if (state.isPending) {
             dot.className = 'status-dot pending';
-            status.textContent = 'Loading...';
-            userSection.style.display = 'none';
+            text.textContent = 'Loading...';
           } else if (state.isAuthenticated) {
             dot.className = 'status-dot connected';
-            status.textContent = 'Authenticated';
-            userSection.style.display = 'block';
-
-            if (state.user) {
-              document.getElementById('user-name').textContent = state.user.name || 'Unknown';
-              document.getElementById('user-email').textContent = state.user.email || '-';
-              document.getElementById('user-avatar').textContent =
-                (state.user.name || state.user.email || '?').charAt(0).toUpperCase();
-            }
+            text.textContent = state.user?.name || 'Authenticated';
           } else {
             dot.className = 'status-dot disconnected';
-            status.textContent = 'Not authenticated';
-            userSection.style.display = 'none';
+            text.textContent = 'Not authenticated';
           }
-        } catch (e) {
-          // Ignore polling errors
-        }
+
+          renderAuthPanel(state);
+        } catch {}
       }
 
-      function renderQueries(queries) {
+      function renderQueryList() {
         const container = document.getElementById('query-list');
-        const countEl = document.getElementById('query-count');
-
-        countEl.textContent = queries.length;
+        document.getElementById('query-badge').textContent = queries.length;
 
         if (queries.length === 0) {
-          container.innerHTML = '<div class="empty-state">No active queries</div>';
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">Q</div><div>No active queries</div></div>';
           return;
         }
 
         container.innerHTML = queries.map(q => {
-          const statusClass = q.status === 'success' ? 'success' :
-                              q.status === 'error' ? 'error' :
-                              q.status === 'pending' ? 'pending' : '';
-          const source = q.dataSource === 'ssr' ? ' (SSR)' :
-                        q.dataSource === 'websocket' ? ' (WS)' : '';
+          const statusClass = q.status === 'success' ? 'success' : q.status === 'error' ? 'error' : 'pending';
+          const selected = selectedQueryId === q.id ? ' selected' : '';
+          const source = q.dataSource === 'ssr' ? 'SSR' : q.dataSource === 'websocket' ? 'WS' : 'Cache';
           return \`
-            <div class="query-item">
-              <div>
-                <div class="query-name">\${q.name}\${source}</div>
-                <div style="color: var(--text-secondary); font-size: 11px;">
-                  Updates: \${q.updateCount}
-                </div>
+            <div class="list-item\${selected}" data-id="\${q.id}">
+              <div class="list-item-header">
+                <span class="list-item-name">\${q.name}</span>
+                <span class="badge \${statusClass}">\${q.status}</span>
               </div>
-              <span class="query-status \${statusClass}">\${q.status}</span>
+              <div class="list-item-meta">
+                <span>\${source}</span>
+                <span>Updates: \${q.updateCount}</span>
+              </div>
             </div>
           \`;
         }).join('');
+
+        container.querySelectorAll('.list-item').forEach(item => {
+          item.addEventListener('click', () => {
+            selectedQueryId = item.dataset.id;
+            renderQueryList();
+            renderQueryDetail(selectedQueryId);
+          });
+        });
+      }
+
+      function renderQueryDetail(id) {
+        const container = document.getElementById('query-detail');
+        const query = queries.find(q => q.id === id);
+
+        if (!query) {
+          container.innerHTML = '<div class="empty-state"><div>Select a query to view details</div></div>';
+          return;
+        }
+
+        const statusClass = query.status === 'success' ? 'success' : query.status === 'error' ? 'error' : 'pending';
+        const opts = query.options || {};
+        const checkIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+        const crossIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+        container.innerHTML = \`
+          <div class="detail-section">
+            <div class="detail-title">Query Info</div>
+            <div class="detail-row">
+              <span class="detail-label">Name</span>
+              <span class="detail-value" style="color: var(--accent);">\${query.name}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Status</span>
+              <span class="badge \${statusClass}">\${query.status}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Data Source</span>
+              <span class="detail-value">\${query.dataSource}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Updates</span>
+              <span class="detail-value">\${query.updateCount}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Last Updated</span>
+              <span class="detail-value">\${new Date(query.lastUpdated).toLocaleTimeString()}</span>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-title">Options</div>
+            <div class="options-grid">
+              <div class="option-item">
+                <span class="option-icon \${opts.lazy ? 'enabled' : 'disabled'}">\${opts.lazy ? checkIcon : crossIcon}</span>
+                <span>lazy</span>
+              </div>
+              <div class="option-item">
+                <span class="option-icon \${opts.server ? 'enabled' : 'disabled'}">\${opts.server ? checkIcon : crossIcon}</span>
+                <span>server</span>
+              </div>
+              <div class="option-item">
+                <span class="option-icon \${opts.subscribe ? 'enabled' : 'disabled'}">\${opts.subscribe ? checkIcon : crossIcon}</span>
+                <span>subscribe</span>
+              </div>
+              <div class="option-item">
+                <span class="option-icon \${opts.public ? 'enabled' : 'disabled'}">\${opts.public ? checkIcon : crossIcon}</span>
+                <span>public</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-title">Cache Key</div>
+            <div class="json-viewer" style="max-height: 60px;">\${query.id}</div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-title">Arguments</div>
+            <div class="json-viewer">\${formatJSON(query.args)}</div>
+          </div>
+          <div class="detail-section">
+            <div class="detail-title">Result</div>
+            <div class="json-viewer">\${query.error ? '<span class="json-string">' + escapeHtml(query.error) + '</span>' : formatJSON(query.data)}</div>
+          </div>
+        \`;
+      }
+
+      function renderMutations() {
+        const container = document.getElementById('mutation-list');
+        document.getElementById('mutation-badge').textContent = mutations.length;
+
+        if (mutations.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">M</div><div>No mutations yet</div><div style="font-size: 11px; margin-top: 4px;">Mutations will appear here when triggered</div></div>';
+          return;
+        }
+
+        container.innerHTML = mutations.map(m => {
+          const stateClass = m.state === 'success' ? 'success' : m.state === 'error' ? 'error' : m.state === 'optimistic' ? 'optimistic' : 'pending';
+          const duration = m.duration ? \`\${m.duration}ms\` : 'pending...';
+          const time = new Date(m.startedAt).toLocaleTimeString();
+          const typeLabel = m.type === 'action' ? '[Action]' : '';
+
+          return \`
+            <div class="timeline-item" data-id="\${m.id}">
+              <div class="timeline-header">
+                <span class="timeline-name">\${typeLabel} \${m.name}</span>
+                <span class="timeline-time">\${time}</span>
+              </div>
+              <div class="timeline-meta">
+                <div class="timeline-state">
+                  \${m.hasOptimisticUpdate ? '<span class="badge optimistic">OPT</span>' : ''}
+                  <span class="badge \${stateClass}">\${m.state}</span>
+                </div>
+                <span>\${duration}</span>
+              </div>
+              <div class="timeline-details">
+                <div style="margin-bottom: 8px;">
+                  <div class="detail-title">Arguments</div>
+                  <div class="json-viewer">\${formatJSON(m.args)}</div>
+                </div>
+                \${m.state === 'success' ? \`<div><div class="detail-title">Result</div><div class="json-viewer">\${formatJSON(m.result)}</div></div>\` : ''}
+                \${m.state === 'error' ? \`<div><div class="detail-title">Error</div><div class="json-viewer"><span class="json-string">\${escapeHtml(m.error || 'Unknown error')}</span></div></div>\` : ''}
+              </div>
+            </div>
+          \`;
+        }).join('');
+
+        container.querySelectorAll('.timeline-item').forEach(item => {
+          item.addEventListener('click', () => {
+            item.classList.toggle('expanded');
+          });
+        });
+      }
+
+      function renderAuthPanel(state) {
+        const container = document.getElementById('auth-content');
+
+        if (!state.isAuthenticated) {
+          container.innerHTML = \`
+            <div class="auth-card">
+              <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 32px; margin-bottom: 12px; opacity: 0.5;">A</div>
+                <div style="font-weight: 500; margin-bottom: 4px;">Not Authenticated</div>
+                <div style="color: var(--text-secondary); font-size: 12px;">Log in to see authentication details</div>
+              </div>
+            </div>
+          \`;
+          return;
+        }
+
+        const user = state.user || {};
+        const avatarContent = user.image
+          ? \`<img src="\${escapeHtml(user.image)}" alt="">\`
+          : (user.name || user.email || '?').charAt(0).toUpperCase();
+
+        let expirationDisplay = '-';
+        if (state.expiresInSeconds !== undefined) {
+          const mins = Math.floor(state.expiresInSeconds / 60);
+          const secs = state.expiresInSeconds % 60;
+          expirationDisplay = \`\${mins}:\${secs.toString().padStart(2, '0')}\`;
+        }
+
+        container.innerHTML = \`
+          <div class="auth-card">
+            <div class="auth-user">
+              <div class="avatar">\${avatarContent}</div>
+              <div class="user-details">
+                <div class="user-name">\${escapeHtml(user.name || 'Unknown')}</div>
+                <div class="user-email">\${escapeHtml(user.email || '-')}</div>
+              </div>
+            </div>
+            <div class="token-info">
+              <div class="token-stat">
+                <div class="token-stat-value badge success">Valid</div>
+                <div class="token-stat-label">Token</div>
+              </div>
+              <div class="token-stat">
+                <div class="token-stat-value">\${expirationDisplay}</div>
+                <div class="token-stat-label">Expires</div>
+              </div>
+            </div>
+            <div class="claims-section">
+              <div class="detail-title">JWT Claims</div>
+              <div class="json-viewer" style="max-height: 300px;">\${formatJSON(state.claims)}</div>
+            </div>
+          </div>
+        \`;
       }
 
       function renderEvents() {
         const container = document.getElementById('event-log');
+        document.getElementById('event-badge').textContent = events.length;
 
         if (events.length === 0) {
-          container.innerHTML = '<div class="empty-state">No events yet</div>';
+          container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">E</div><div>No events yet</div></div>';
           return;
         }
 
         container.innerHTML = events.slice().reverse().map(e => {
           const time = new Date().toLocaleTimeString();
           let details = '';
-
           if (e.event === 'operation:complete') {
             details = \`\${e.name} \${e.outcome} \${e.duration_ms}ms\`;
           } else if (e.event === 'auth:change') {
-            details = \`\${e.from} → \${e.to}\`;
+            details = \`\${e.from} -> \${e.to}\`;
           } else if (e.event === 'subscription:change') {
             details = \`\${e.name} \${e.state}\`;
           } else if (e.event === 'connection:change') {
-            details = \`\${e.from} → \${e.to}\`;
+            details = \`\${e.from} -> \${e.to}\`;
+          } else if (e.event === 'plugin:init') {
+            details = \`\${e.outcome} \${e.duration_ms}ms\`;
           }
-
           return \`
             <div class="event-item">
               <span class="event-time">\${time}</span>
               <span class="event-type">\${e.event}</span>
-              <span class="event-details">\${details}</span>
+              <span class="event-details">\${escapeHtml(details)}</span>
             </div>
           \`;
         }).join('');
-
-        // Scroll to top (newest events)
-        container.scrollTop = 0;
       }
 
-      // Start connection
+      function formatJSON(obj) {
+        if (obj === undefined) return '<span class="json-null">undefined</span>';
+        if (obj === null) return '<span class="json-null">null</span>';
+        try {
+          const json = JSON.stringify(obj, (k, v) => typeof v === 'bigint' ? v.toString() + 'n' : v, 2);
+          return json.replace(/("(\\\\u[a-zA-Z0-9]{4}|\\\\[^u]|[^\\\\"])*"(\\s*:)?|\\b(true|false|null)\\b|-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?)/g, (match) => {
+            let cls = 'json-number';
+            if (/^"/.test(match)) {
+              if (/:$/.test(match)) cls = 'json-key';
+              else cls = 'json-string';
+            } else if (/true|false/.test(match)) cls = 'json-boolean';
+            else if (/null/.test(match)) cls = 'json-null';
+            return '<span class="' + cls + '">' + escapeHtml(match) + '</span>';
+          });
+        } catch {
+          return '<span class="json-null">[Circular]</span>';
+        }
+      }
+
+      function escapeHtml(str) {
+        if (typeof str !== 'string') return str;
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+      // Start
       connectToBridge();
     })();
   </script>
