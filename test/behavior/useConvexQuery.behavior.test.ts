@@ -24,7 +24,7 @@ describe('useConvexQuery behavior', async () => {
     it('fetches data on server and includes in HTML', async () => {
       // GIVEN a page that uses useConvexQuery
       // WHEN the page is server-rendered
-      const html = await $fetch('/test-realtime/notes')
+      const html = await $fetch('/labs/realtime')
 
       // THEN the data should be in the HTML (SSR worked)
       // Note: Even if empty, the page should render without errors
@@ -33,7 +33,7 @@ describe('useConvexQuery behavior', async () => {
 
     it('hydrates on client without loading flash', async () => {
       // GIVEN a server-rendered page with data
-      const page = await createPage('/test-realtime/notes')
+      const page = await createPage('/labs/realtime')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check for hydration errors
@@ -57,7 +57,7 @@ describe('useConvexQuery behavior', async () => {
   describe('Skip Behavior', () => {
     it('returns null data when skip="skip"', async () => {
       // GIVEN a page with a skipped query
-      const page = await createPage('/test-skip/static-skip')
+      const page = await createPage('/labs/query-features/skip')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check the data state
@@ -70,7 +70,7 @@ describe('useConvexQuery behavior', async () => {
 
     it('has pending=false when skip=true', async () => {
       // GIVEN a page with a skipped query
-      const page = await createPage('/test-skip/static-skip')
+      const page = await createPage('/labs/query-features/skip')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check the pending state
@@ -84,7 +84,7 @@ describe('useConvexQuery behavior', async () => {
   describe('Error Handling', () => {
     it('sets error ref when query fails', async () => {
       // GIVEN a page that calls a query that always fails
-      const page = await createPage('/test-error/error-query')
+      const page = await createPage('/labs/query-features/error')
       await page.waitForLoadState('networkidle')
 
       // Wait for the error to propagate
@@ -101,7 +101,7 @@ describe('useConvexQuery behavior', async () => {
   describe('Refresh Behavior', () => {
     it('refresh() re-fetches data', async () => {
       // GIVEN a page with data and a refresh button
-      const page = await createPage('/test-features/refresh')
+      const page = await createPage('/labs/query-features/refresh')
       await page.waitForLoadState('networkidle')
 
       // WHEN we click the refresh button
@@ -120,7 +120,7 @@ describe('useConvexQuery behavior', async () => {
   describe('Default Value Behavior', () => {
     it('uses default value while loading', async () => {
       // GIVEN a page that uses default option
-      const page = await createPage('/test-features/with-default')
+      const page = await createPage('/labs/query-features/with-default')
       await page.waitForLoadState('networkidle')
 
       // WHEN the page loads
@@ -147,7 +147,7 @@ describe('useConvexQuery behavior', async () => {
   describe('Deep Reactive Args', () => {
     it('re-fetches when nested property of ref args is mutated', async () => {
       // GIVEN a page with a ref object as args
-      const page = await createPage('/test-args/deep-reactive')
+      const page = await createPage('/labs/query-features/deep-reactive')
       await page.waitForLoadState('networkidle')
 
       // Get initial update count
@@ -172,7 +172,7 @@ describe('useConvexQuery behavior', async () => {
 
     it('re-fetches multiple times with consecutive deep mutations', async () => {
       // GIVEN a page with a ref object as args
-      const page = await createPage('/test-args/deep-reactive')
+      const page = await createPage('/labs/query-features/deep-reactive')
       await page.waitForLoadState('networkidle')
 
       // Get initial update count
@@ -201,7 +201,7 @@ describe('useConvexQuery behavior', async () => {
       it('server: false, lazy: true renders with pending=true in HTML', async () => {
         // GIVEN a page with server: false, lazy: true
         // WHEN the page is server-rendered
-        const html = await $fetch('/test-lazy/server-false-lazy-true')
+        const html = await $fetch('/labs/query/server-false-lazy-true')
 
         // THEN the HTML should show pending=true and no data
         // Note: Vue adds class and scoped style attrs between testid and value
@@ -214,7 +214,7 @@ describe('useConvexQuery behavior', async () => {
       it('server: false, lazy: false renders with pending=true in HTML', async () => {
         // GIVEN a page with server: false, lazy: false
         // WHEN the page is server-rendered
-        const html = await $fetch('/test-lazy/server-false-lazy-false')
+        const html = await $fetch('/labs/query/server-false-lazy-false')
 
         // THEN the HTML should show pending=true and no data (server: false skips SSR fetch)
         expect(html).toMatch(/data-testid="initial-pending"[^>]*>true</)
@@ -224,7 +224,7 @@ describe('useConvexQuery behavior', async () => {
       it('server: true, lazy: true renders with data in HTML', async () => {
         // GIVEN a page with server: true, lazy: true
         // WHEN the page is server-rendered
-        const html = await $fetch('/test-lazy/server-true-lazy-true')
+        const html = await $fetch('/labs/query/server-true-lazy-true')
 
         // THEN the HTML should show pending=false and have data
         expect(html).toMatch(/data-testid="initial-pending"[^>]*>false</)
@@ -236,7 +236,7 @@ describe('useConvexQuery behavior', async () => {
       it('server: true, lazy: false renders with data in HTML', async () => {
         // GIVEN a page with server: true, lazy: false (default behavior)
         // WHEN the page is server-rendered
-        const html = await $fetch('/test-lazy/server-true-lazy-false')
+        const html = await $fetch('/labs/query/server-true-lazy-false')
 
         // THEN the HTML should show pending=false and have data
         expect(html).toMatch(/data-testid="initial-pending"[^>]*>false</)
@@ -249,7 +249,7 @@ describe('useConvexQuery behavior', async () => {
     describe('Client Navigation Behavior', () => {
       it('lazy: true shows loading state initially on client nav', async () => {
         // GIVEN the hub page
-        const page = await createPage('/test-lazy/hub')
+        const page = await createPage('/labs/query')
         await page.waitForLoadState('networkidle')
 
         // WHEN we navigate to a lazy: true page
@@ -263,7 +263,7 @@ describe('useConvexQuery behavior', async () => {
 
       it('lazy: false shows data immediately on client nav (navigation blocked)', async () => {
         // GIVEN the hub page
-        const page = await createPage('/test-lazy/hub')
+        const page = await createPage('/labs/query')
         await page.waitForLoadState('networkidle')
 
         // WHEN we navigate to a lazy: false page
@@ -279,7 +279,7 @@ describe('useConvexQuery behavior', async () => {
 
       it('server: false, lazy: true shows loading state on client nav', async () => {
         // GIVEN the hub page
-        const page = await createPage('/test-lazy/hub')
+        const page = await createPage('/labs/query')
         await page.waitForLoadState('networkidle')
 
         // WHEN we navigate to a server: false, lazy: true page
@@ -293,7 +293,7 @@ describe('useConvexQuery behavior', async () => {
 
       it('server: false, lazy: false shows data after blocking on client nav', async () => {
         // GIVEN the hub page
-        const page = await createPage('/test-lazy/hub')
+        const page = await createPage('/labs/query')
         await page.waitForLoadState('networkidle')
 
         // WHEN we navigate to a server: false, lazy: false page
@@ -311,7 +311,7 @@ describe('useConvexQuery behavior', async () => {
     describe('Hydration', () => {
       it('server: false does not cause hydration mismatch', async () => {
         // GIVEN a page with server: false loaded
-        const page = await createPage('/test-lazy/server-false-lazy-true')
+        const page = await createPage('/labs/query/server-false-lazy-true')
         await page.waitForLoadState('networkidle')
 
         // Set up listener to capture errors on reload
@@ -332,7 +332,7 @@ describe('useConvexQuery behavior', async () => {
 
       it('server: true does not cause hydration mismatch', async () => {
         // GIVEN a page with server: true loaded
-        const page = await createPage('/test-lazy/server-true-lazy-true')
+        const page = await createPage('/labs/query/server-true-lazy-true')
         await page.waitForLoadState('networkidle')
 
         // Set up listener to capture errors on reload
@@ -355,7 +355,7 @@ describe('useConvexQuery behavior', async () => {
     describe('Data Eventually Loads', () => {
       it('lazy: true eventually shows data after loading', async () => {
         // GIVEN a page with lazy: true
-        const page = await createPage('/test-lazy/hub')
+        const page = await createPage('/labs/query')
         await page.waitForLoadState('networkidle')
 
         // WHEN we navigate to a lazy: true page

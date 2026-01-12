@@ -100,23 +100,24 @@
         </div>
       </section>
 
-      <!-- Legacy Test Pages (for E2E tests) -->
+      <!-- Labs (for E2E tests) -->
       <section class="section">
-        <h2>Legacy Tests</h2>
+        <h2>Labs</h2>
         <details>
-          <summary class="legacy-toggle">Show legacy test pages</summary>
+          <summary class="legacy-toggle">Show lab pages</summary>
           <div class="links legacy-links">
-            <NuxtLink to="/test-lazy/hub" class="link-card-mini">Lazy Loading</NuxtLink>
-            <NuxtLink to="/test-args/hub" class="link-card-mini">Reactive Args</NuxtLink>
-            <NuxtLink to="/test-skip/hub" class="link-card-mini">Skip Queries</NuxtLink>
-            <NuxtLink to="/test-error/hub" class="link-card-mini">Error Handling</NuxtLink>
-            <NuxtLink to="/test-features/hub" class="link-card-mini">Query Features</NuxtLink>
-            <NuxtLink to="/test-realtime/hub" class="link-card-mini">Realtime</NuxtLink>
-            <NuxtLink to="/test-optimistic/hub" class="link-card-mini">Optimistic</NuxtLink>
-            <NuxtLink to="/test-paginated-query" class="link-card-mini">Pagination</NuxtLink>
-            <NuxtLink to="/test-connection-state" class="link-card-mini">Connection</NuxtLink>
-            <NuxtLink to="/test-auth-components" class="link-card-mini">Auth Components</NuxtLink>
-            <NuxtLink to="/test-server-mutation" class="link-card-mini">Server Mutations</NuxtLink>
+            <NuxtLink to="/labs/query" class="link-card-mini">Query Options</NuxtLink>
+            <NuxtLink to="/labs/query-features/deep-reactive" class="link-card-mini">Reactive Args</NuxtLink>
+            <NuxtLink to="/labs/query-features/skip" class="link-card-mini">Skip Queries</NuxtLink>
+            <NuxtLink to="/labs/query-features/error" class="link-card-mini">Error Handling</NuxtLink>
+            <NuxtLink to="/labs/query-features/refresh" class="link-card-mini">Query Refresh</NuxtLink>
+            <NuxtLink to="/labs/realtime" class="link-card-mini">Realtime</NuxtLink>
+            <NuxtLink to="/labs/optimistic" class="link-card-mini">Optimistic</NuxtLink>
+            <NuxtLink to="/labs/pagination" class="link-card-mini">Pagination</NuxtLink>
+            <NuxtLink to="/labs/connection" class="link-card-mini">Connection</NuxtLink>
+            <NuxtLink to="/labs/auth" class="link-card-mini">Auth Components</NuxtLink>
+            <NuxtLink to="/labs/mutations" class="link-card-mini">Mutations</NuxtLink>
+            <NuxtLink to="/labs/upload" class="link-card-mini">File Upload</NuxtLink>
           </div>
         </details>
       </section>

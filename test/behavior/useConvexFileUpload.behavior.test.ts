@@ -42,7 +42,7 @@ describe('useConvexFileUpload behavior', async () => {
   describe('Initial State', () => {
     it('starts in idle status', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial state
@@ -54,7 +54,7 @@ describe('useConvexFileUpload behavior', async () => {
 
     it('pending is false initially', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial pending state
@@ -66,7 +66,7 @@ describe('useConvexFileUpload behavior', async () => {
 
     it('progress is 0 initially', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial progress
@@ -78,7 +78,7 @@ describe('useConvexFileUpload behavior', async () => {
 
     it('storageId is undefined initially', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial storageId
@@ -90,7 +90,7 @@ describe('useConvexFileUpload behavior', async () => {
 
     it('error is null initially', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial error
@@ -108,7 +108,7 @@ describe('useConvexFileUpload behavior', async () => {
   describe('Status Transitions', () => {
     it('transitions to pending during upload', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       const testImagePath = createTestImagePath()
@@ -128,7 +128,7 @@ describe('useConvexFileUpload behavior', async () => {
 
     it('transitions to success after successful upload', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       const testImagePath = createTestImagePath()
@@ -149,7 +149,7 @@ describe('useConvexFileUpload behavior', async () => {
 
     it('storageId is set after successful upload', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       const testImagePath = createTestImagePath()
@@ -178,7 +178,7 @@ describe('useConvexFileUpload behavior', async () => {
   describe('Progress Tracking', () => {
     it('progress updates during upload', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       const testImagePath = createTestImagePath()
@@ -206,7 +206,7 @@ describe('useConvexFileUpload behavior', async () => {
   describe('Cancel Function', () => {
     it('cancel button is disabled when not pending', async () => {
       // GIVEN a page with file upload in idle state
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check the cancel button
@@ -219,7 +219,7 @@ describe('useConvexFileUpload behavior', async () => {
 
     it('cancel clears storageId', async () => {
       // GIVEN a successful upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       const testImagePath = createTestImagePath()
@@ -265,7 +265,7 @@ describe('useConvexFileUpload behavior', async () => {
   describe('useConvexStorageUrl Integration', () => {
     it('imageUrl is set after successful upload', async () => {
       // GIVEN a page with file upload and storage URL
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       const testImagePath = createTestImagePath()
@@ -294,7 +294,7 @@ describe('useConvexFileUpload behavior', async () => {
 
     it('preview image is displayed after upload', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       const testImagePath = createTestImagePath()
@@ -326,7 +326,7 @@ describe('useConvexFileUpload behavior', async () => {
   describe('Multiple Uploads', () => {
     it('can upload multiple files sequentially', async () => {
       // GIVEN a page with file upload
-      const page = await createPage('/test-file-upload/status')
+      const page = await createPage('/labs/upload')
       await page.waitForLoadState('networkidle')
 
       const testImagePath = createTestImagePath()

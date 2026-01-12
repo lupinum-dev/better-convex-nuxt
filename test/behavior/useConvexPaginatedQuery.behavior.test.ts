@@ -21,7 +21,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
   describe('Initial Load', () => {
     it('fetches first page and displays results', async () => {
       // GIVEN a page that uses useConvexPaginatedQuery
-      const page = await createPage('/test-paginated-query')
+      const page = await createPage('/labs/pagination')
       await page.waitForLoadState('networkidle')
 
       // WHEN we wait for the page to load
@@ -34,7 +34,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
 
     it('shows pagination status', async () => {
       // GIVEN a page with paginated data
-      const page = await createPage('/test-paginated-query')
+      const page = await createPage('/labs/pagination')
       await page.waitForLoadState('networkidle')
       await page.waitForSelector('[data-testid="paginated-query-page"]', { timeout: 30000 })
 
@@ -58,7 +58,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
   describe('Load More', () => {
     it('loadMore() is available on the page', async () => {
       // GIVEN a page with paginated data
-      const page = await createPage('/test-paginated-query')
+      const page = await createPage('/labs/pagination')
       await page.waitForLoadState('networkidle')
       await page.waitForSelector('[data-testid="paginated-query-page"]', { timeout: 30000 })
 
@@ -74,7 +74,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
   describe('Results', () => {
     it('returns results as an array', async () => {
       // GIVEN a page with paginated data
-      const page = await createPage('/test-paginated-query')
+      const page = await createPage('/labs/pagination')
       await page.waitForLoadState('networkidle')
       await page.waitForSelector('[data-testid="paginated-query-page"]', { timeout: 30000 })
 
@@ -104,7 +104,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
       it('server: true, lazy: true renders with data in HTML', async () => {
         // GIVEN a page with server: true, lazy: true
         // WHEN the page is server-rendered
-        const html = await $fetch('/test-paginated-lazy/server-true-lazy-true')
+        const html = await $fetch('/labs/pagination/server-true-lazy-true')
 
         // THEN the HTML should have data
         // Note: Vue adds class and scoped style attrs between testid and value
@@ -114,7 +114,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
       it('server: true, lazy: false renders with data in HTML', async () => {
         // GIVEN a page with server: true, lazy: false (default behavior)
         // WHEN the page is server-rendered
-        const html = await $fetch('/test-paginated-lazy/server-true-lazy-false')
+        const html = await $fetch('/labs/pagination/server-true-lazy-false')
 
         // THEN the HTML should have data
         expect(html).toMatch(/data-testid="initial-has-data"[^>]*>true</)
@@ -123,7 +123,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
       it('server: false, lazy: true renders without data in HTML', async () => {
         // GIVEN a page with server: false, lazy: true
         // WHEN the page is server-rendered
-        const html = await $fetch('/test-paginated-lazy/server-false-lazy-true')
+        const html = await $fetch('/labs/pagination/server-false-lazy-true')
 
         // THEN the HTML should NOT have data (server: false skips SSR fetch)
         expect(html).toMatch(/data-testid="initial-has-data"[^>]*>false</)
@@ -132,7 +132,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
       it('server: false, lazy: false renders without data in HTML', async () => {
         // GIVEN a page with server: false, lazy: false
         // WHEN the page is server-rendered
-        const html = await $fetch('/test-paginated-lazy/server-false-lazy-false')
+        const html = await $fetch('/labs/pagination/server-false-lazy-false')
 
         // THEN the HTML should NOT have data (server: false skips SSR fetch)
         expect(html).toMatch(/data-testid="initial-has-data"[^>]*>false</)
@@ -141,8 +141,8 @@ describe('useConvexPaginatedQuery behavior', async () => {
 
     describe('Client Navigation Behavior', () => {
       it('lazy: true shows loading state initially on client nav', async () => {
-        // GIVEN the hub page
-        const page = await createPage('/test-paginated-lazy/hub')
+        // GIVEN the lazy hub page (no pre-cached pagination data)
+        const page = await createPage('/labs/pagination/lazy-hub')
         await page.waitForLoadState('networkidle')
 
         // WHEN we navigate to a lazy: true page
@@ -155,8 +155,8 @@ describe('useConvexPaginatedQuery behavior', async () => {
       }, 30000)
 
       it('lazy: false shows data immediately on client nav (navigation blocked)', async () => {
-        // GIVEN the hub page
-        const page = await createPage('/test-paginated-lazy/hub')
+        // GIVEN the lazy hub page (no pre-cached pagination data)
+        const page = await createPage('/labs/pagination/lazy-hub')
         await page.waitForLoadState('networkidle')
 
         // WHEN we navigate to a lazy: false page
@@ -169,8 +169,8 @@ describe('useConvexPaginatedQuery behavior', async () => {
       }, 30000)
 
       it('data eventually loads after lazy: true navigation', async () => {
-        // GIVEN the hub page
-        const page = await createPage('/test-paginated-lazy/hub')
+        // GIVEN the lazy hub page (no pre-cached pagination data)
+        const page = await createPage('/labs/pagination/lazy-hub')
         await page.waitForLoadState('networkidle')
 
         // WHEN we navigate to a lazy: true page
@@ -194,7 +194,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
     describe('Hydration', () => {
       it('server: true does not cause hydration mismatch', async () => {
         // GIVEN a page with server: true loaded
-        const page = await createPage('/test-paginated-lazy/server-true-lazy-true')
+        const page = await createPage('/labs/pagination/server-true-lazy-true')
         await page.waitForLoadState('networkidle')
 
         // Set up listener to capture errors on reload
@@ -218,7 +218,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
   describe('Transform Option', () => {
     it('transforms concatenated results', async () => {
       // GIVEN a page with transform option
-      const page = await createPage('/test-paginated-features/transform')
+      const page = await createPage('/labs/pagination/features/transform')
       await page.waitForLoadState('networkidle')
       await page.waitForSelector('[data-testid="paginated-transform-page"]', { timeout: 30000 })
 
@@ -244,7 +244,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
   describe('Methods', () => {
     it('refresh() re-fetches all loaded pages', async () => {
       // GIVEN a page with data and a refresh button
-      const page = await createPage('/test-paginated-features/refresh')
+      const page = await createPage('/labs/pagination/features/refresh')
       await page.waitForLoadState('networkidle')
       await page.waitForSelector('[data-testid="paginated-refresh-page"]', { timeout: 30000 })
 
@@ -271,7 +271,7 @@ describe('useConvexPaginatedQuery behavior', async () => {
 
     it('reset() clears and restarts from first page', async () => {
       // GIVEN a page with data
-      const page = await createPage('/test-paginated-features/reset')
+      const page = await createPage('/labs/pagination/features/reset')
       await page.waitForLoadState('networkidle')
       await page.waitForSelector('[data-testid="paginated-reset-page"]', { timeout: 30000 })
 

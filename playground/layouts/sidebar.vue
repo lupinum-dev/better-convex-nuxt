@@ -29,7 +29,7 @@ const navSections = [
     links: [
       { to: '/demo/dashboard', label: 'Dashboard', icon: '1' },
       { to: '/demo/tasks', label: 'Tasks', icon: '2' },
-      { to: '/demo/posts', label: 'Posts & Permissions', icon: '3' },
+      { to: '/demo/permissions', label: 'Posts & Permissions', icon: '3' },
     ],
   },
   {

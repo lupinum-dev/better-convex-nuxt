@@ -25,7 +25,7 @@ describe('useConvexAuth behavior', async () => {
   describe('Unauthenticated State', () => {
     it('returns isAuthenticated=false when not logged in', async () => {
       // GIVEN a page that displays auth state
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -43,7 +43,7 @@ describe('useConvexAuth behavior', async () => {
 
     it('returns isPending=false after auth check completes', async () => {
       // GIVEN a page that displays auth state
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -61,7 +61,7 @@ describe('useConvexAuth behavior', async () => {
 
     it('returns token=null when not authenticated', async () => {
       // GIVEN a page that displays auth state
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -79,7 +79,7 @@ describe('useConvexAuth behavior', async () => {
 
     it('returns user=null when not authenticated', async () => {
       // GIVEN a page that displays auth state
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -136,11 +136,11 @@ describe('useConvexAuth behavior', async () => {
 
     it('SSR page loads without throwing auth errors', async () => {
       // GIVEN a server-rendered page that uses auth
-      const html = await $fetch('/test-auth-components')
+      const html = await $fetch('/labs/auth')
 
       // WHEN we check the response
       // THEN it should contain valid HTML (no server errors)
-      expect(html).toContain('Auth Components Test')
+      expect(html).toContain('Auth Lab')
       expect(html).not.toContain('500')
     })
   })
@@ -152,7 +152,7 @@ describe('useConvexAuth behavior', async () => {
   describe('Auth Components', () => {
     it('ConvexUnauthenticated shows content when not logged in', async () => {
       // GIVEN a page with auth components
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -172,7 +172,7 @@ describe('useConvexAuth behavior', async () => {
 
     it('ConvexAuthenticated hides content when not logged in', async () => {
       // GIVEN a page with auth components
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -190,7 +190,7 @@ describe('useConvexAuth behavior', async () => {
 
     it('ConvexAuthLoading hides content after auth check completes', async () => {
       // GIVEN a page with auth components
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -208,7 +208,7 @@ describe('useConvexAuth behavior', async () => {
 
     it('combined auth pattern shows unauthenticated state', async () => {
       // GIVEN a page with combined auth components pattern
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -234,7 +234,7 @@ describe('useConvexAuth behavior', async () => {
   describe('Auth Actions', () => {
     it('shows login button when unauthenticated', async () => {
       // GIVEN a page with auth actions
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -254,7 +254,7 @@ describe('useConvexAuth behavior', async () => {
 
     it('login button links to auth page', async () => {
       // GIVEN a page with auth actions
-      const page = await createPage('/test-auth-components')
+      const page = await createPage('/labs/auth')
       await page.waitForLoadState('networkidle')
 
       // Wait for auth check to complete
@@ -291,7 +291,7 @@ describe('useConvexAuth behavior', async () => {
 
     it('dashboard page loads without errors', async () => {
       // GIVEN the dashboard page
-      const page = await createPage('/dashboard')
+      const page = await createPage('/demo/dashboard')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check if page loaded

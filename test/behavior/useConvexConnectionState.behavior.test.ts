@@ -25,19 +25,19 @@ describe('useConvexConnectionState behavior', async () => {
   describe('Initial State', () => {
     it('page loads without errors', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check if the page loaded
       const heading = await page.textContent('h1')
 
       // THEN the page should contain the expected heading
-      expect(heading).toContain('Connection State')
+      expect(heading).toContain('Connection Lab')
     }, 30000)
 
     it('returns state object with expected properties', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // Wait for the raw state to be available
@@ -61,7 +61,7 @@ describe('useConvexConnectionState behavior', async () => {
   describe('Connection Status', () => {
     it('isConnected reflects WebSocket connection', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // Wait for connection to establish
@@ -76,7 +76,7 @@ describe('useConvexConnectionState behavior', async () => {
 
     it('hasEverConnected becomes true after first connection', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // Wait for connection to establish
@@ -97,7 +97,7 @@ describe('useConvexConnectionState behavior', async () => {
   describe('Inflight Tracking', () => {
     it('hasInflightRequests is initially false', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // Wait for initial state to settle
@@ -112,7 +112,7 @@ describe('useConvexConnectionState behavior', async () => {
 
     it('inflightMutations starts at 0', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check inflightMutations
@@ -124,7 +124,7 @@ describe('useConvexConnectionState behavior', async () => {
 
     it('inflightActions starts at 0', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check inflightActions
@@ -142,7 +142,7 @@ describe('useConvexConnectionState behavior', async () => {
   describe('Mutation Inflight Tracking', () => {
     it('triggers mutation and completes successfully', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // WHEN we trigger a mutation
@@ -164,7 +164,7 @@ describe('useConvexConnectionState behavior', async () => {
   describe('Connection Retries', () => {
     it('connectionRetries is a number', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check connectionRetries
@@ -184,7 +184,7 @@ describe('useConvexConnectionState behavior', async () => {
   describe('Status Display', () => {
     it('shows connected status when connected', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // Wait for connection to establish
@@ -202,7 +202,7 @@ describe('useConvexConnectionState behavior', async () => {
 
     it('displays appropriate status label', async () => {
       // GIVEN a page with connection state tracking
-      const page = await createPage('/test-connection-state')
+      const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
       // Wait for status to be determined

@@ -25,7 +25,7 @@ describe('useConvexMutation behavior', async () => {
   describe('Status Transitions', () => {
     it('starts in idle status', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial state
@@ -37,7 +37,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('transitions to pending during mutation', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we start a mutation and immediately check status
@@ -55,7 +55,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('transitions to success after successful mutation', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we run a successful mutation and wait for completion
@@ -72,7 +72,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('transitions to error after failed mutation', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we run a failing mutation and wait
@@ -95,7 +95,7 @@ describe('useConvexMutation behavior', async () => {
   describe('Pending State', () => {
     it('pending is false initially', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial pending state
@@ -107,7 +107,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('pending is true during mutation', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we start a mutation
@@ -125,7 +125,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('pending is false after mutation completes', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we run a mutation to completion
@@ -148,7 +148,7 @@ describe('useConvexMutation behavior', async () => {
   describe('Error Handling', () => {
     it('error is null initially', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial error state
@@ -160,7 +160,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('error contains message after failed mutation', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we run a failing mutation
@@ -177,7 +177,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('error remains null after successful mutation', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we run a successful mutation
@@ -200,7 +200,7 @@ describe('useConvexMutation behavior', async () => {
   describe('Data Return Value', () => {
     it('data is undefined initially', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we check initial data state
@@ -212,7 +212,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('data contains return value after successful mutation', async () => {
       // GIVEN a page with mutation status tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we run a successful mutation (notes.add returns the note ID)
@@ -237,7 +237,7 @@ describe('useConvexMutation behavior', async () => {
   describe('Reset Function', () => {
     it('reset clears status back to idle', async () => {
       // GIVEN a mutation that has completed
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
       await page.click('[data-testid="success-btn"]')
       await page.waitForFunction(() => {
@@ -256,7 +256,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('reset clears error state', async () => {
       // GIVEN a mutation that has failed
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
       await page.click('[data-testid="error-btn"]')
       await page.waitForFunction(() => {
@@ -277,7 +277,7 @@ describe('useConvexMutation behavior', async () => {
 
     it('reset clears data', async () => {
       // GIVEN a mutation that has returned data
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
       await page.click('[data-testid="success-btn"]')
       await page.waitForFunction(() => {
@@ -302,7 +302,7 @@ describe('useConvexMutation behavior', async () => {
   describe('Multiple Mutations', () => {
     it('can run multiple mutations sequentially', async () => {
       // GIVEN a page with mutation tracking
-      const page = await createPage('/test-mutation/status')
+      const page = await createPage('/labs/mutations')
       await page.waitForLoadState('networkidle')
 
       // WHEN we run multiple mutations
@@ -327,7 +327,7 @@ describe('useConvexMutation behavior', async () => {
   describe('Optimistic Updates', () => {
     it('optimistic update appears immediately before server confirms', async () => {
       // GIVEN a page with optimistic updates
-      const page = await createPage('/test-optimistic/notes')
+      const page = await createPage('/labs/optimistic')
       await page.waitForLoadState('networkidle')
 
       // Get initial count
@@ -355,7 +355,7 @@ describe('useConvexMutation behavior', async () => {
   describe('Real-time Updates', () => {
     it('mutation triggers subscription update', async () => {
       // GIVEN a page with query subscription
-      const page = await createPage('/test-realtime/notes')
+      const page = await createPage('/labs/realtime')
       await page.waitForLoadState('networkidle')
 
       // Wait for subscription to be ready
