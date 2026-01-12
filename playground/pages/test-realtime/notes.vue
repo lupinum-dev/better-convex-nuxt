@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
-import type { Id } from '~~/convex/_generated/dataModel'
+import { api } from '~/convex/_generated/api'
+import type { Id } from '~/convex/_generated/dataModel'
 
 /**
  * Test page for real-time subscription updates
