@@ -17,7 +17,7 @@ export default defineNuxtPlugin({
     useScript(
       {
         key: 'plausible',
-        src: 'https://plausible.io/js/pa-E4ZyKi5Jl3nhDWhII2Fys.js',
+        src: 'https://plausible.io/js/pa-bJ1cXyrANyls7-RJ4PWVo.js',
         async: true,
         crossorigin: 'anonymous'
       },
@@ -39,7 +39,7 @@ export default defineNuxtPlugin({
               }
 
           // Initialize Plausible
-          window.plausible.init({})
+          window.plausible.init()
 
           return { plausible: window.plausible }
         }
