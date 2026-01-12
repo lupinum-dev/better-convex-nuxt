@@ -5,6 +5,7 @@ export default defineNuxtConfig({
     '@nuxt/image',
     '@nuxt/scripts',
     '@nuxt/ui',
+    '@nuxtjs/sitemap',
     '@nuxt/content',
     'nuxt-og-image',
     'nuxt-llms',
@@ -15,6 +16,8 @@ export default defineNuxtConfig({
   devtools: {
     enabled: true,
   },
+
+  site: {  url: 'https://better-convex-nuxt.vercel.app/',  name: 'Better Convex Nuxt'  }, 
 
   css: ['~/assets/css/main.css'],
 
