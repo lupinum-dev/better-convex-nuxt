@@ -14,7 +14,7 @@ const {
   status,
   error,
   data: storageId,
-  reset,
+  cancel,
 } = useConvexFileUpload(api.files.generateUploadUrl)
 
 // Get URL for uploaded file (automatically skips when storageId is undefined)
@@ -78,14 +78,15 @@ function formatBytes(bytes: number): string {
             <div class="progress-fill" :style="{ width: `${progress}%` }" />
           </div>
           <span class="progress-text">{{ progress }}%</span>
+          <button class="cancel-btn" @click="cancel">Cancel</button>
         </div>
       </div>
 
       <div class="status-row">
         <span class="status-label">Status:</span>
         <code :class="`status-${status}`">{{ status }}</code>
-        <button v-if="status !== 'idle'" class="reset-btn" @click="reset">
-          Reset
+        <button v-if="status !== 'idle'" class="reset-btn" @click="cancel">
+          Clear
         </button>
       </div>
 
@@ -94,7 +95,7 @@ function formatBytes(bytes: number): string {
       </div>
     </section>
 
-    <section v-if="storageId && imageUrl" class="preview-section">
+    <section v-if="imageUrl" class="preview-section">
       <h2>Last Uploaded</h2>
       <div class="preview-card">
         <img :src="imageUrl" alt="Uploaded file" class="preview-image" />
@@ -120,9 +121,13 @@ function formatBytes(bytes: number): string {
       <pre><code>&lt;script setup&gt;
 import { api } from '~/convex/_generated/api'
 
-const { upload, pending, progress, data: storageId } = useConvexFileUpload(
-  api.files.generateUploadUrl
-)
+const {
+  upload,
+  pending,
+  progress,
+  cancel,
+  data: storageId
+} = useConvexFileUpload(api.files.generateUploadUrl)
 
 const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId)
 
@@ -134,7 +139,10 @@ async function handleFile(e) {
 
 &lt;template&gt;
   &lt;input type="file" @change="handleFile" :disabled="pending" /&gt;
-  &lt;div v-if="pending"&gt;Uploading: {{ progress }}%&lt;/div&gt;
+  &lt;div v-if="pending"&gt;
+    Uploading: {{ progress }}%
+    &lt;button @click="cancel"&gt;Cancel&lt;/button&gt;
+  &lt;/div&gt;
   &lt;img v-if="imageUrl" :src="imageUrl" /&gt;
 &lt;/template&gt;</code></pre>
     </section>
@@ -234,6 +242,20 @@ section {
   font-weight: 500;
   color: #1976d2;
   min-width: 40px;
+}
+
+.cancel-btn {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  border: 1px solid #c62828;
+  border-radius: 4px;
+  background: #ffebee;
+  color: #c62828;
+  cursor: pointer;
+}
+
+.cancel-btn:hover {
+  background: #ffcdd2;
 }
 
 /* Status */

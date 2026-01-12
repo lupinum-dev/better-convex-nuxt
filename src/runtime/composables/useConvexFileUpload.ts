@@ -5,7 +5,7 @@
  */
 
 import type { FunctionArgs, FunctionReference } from 'convex/server'
-import { ref, computed, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, onScopeDispose, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
@@ -63,10 +63,10 @@ export interface UseConvexFileUploadReturn {
   error: Ref<Error | null>
 
   /**
-   * Reset upload state back to idle.
-   * Clears error, data, and progress.
+   * Cancel any in-progress upload and reset state.
+   * Aborts XHR, clears error, data, and progress.
    */
-  reset: () => void
+  cancel: () => void
 }
 
 /**
@@ -133,6 +133,24 @@ export interface UseConvexFileUploadOptions {
  * </template>
  * ```
  *
+ * @example With cancel support
+ * ```vue
+ * <script setup>
+ * import { api } from '~/convex/_generated/api'
+ *
+ * const { upload, pending, progress, cancel } = useConvexFileUpload(
+ *   api.files.generateUploadUrl
+ * )
+ * </script>
+ *
+ * <template>
+ *   <div v-if="pending">
+ *     Uploading: {{ progress }}%
+ *     <button @click="cancel">Cancel</button>
+ *   </div>
+ * </template>
+ * ```
+ *
  * @example With callbacks
  * ```vue
  * <script setup>
@@ -184,17 +202,32 @@ export function useConvexFileUpload<
   const data = ref<string | undefined>(undefined) as Ref<string | undefined>
   const progress = ref(0)
 
+  // Track XHR for cancellation
+  let currentXhr: XMLHttpRequest | null = null
+
   // Computed - matches useConvexMutation pattern
   const status = computed(() => _status.value)
   const pending = computed(() => _status.value === 'pending')
 
-  // Reset function
-  const reset = () => {
+  // Cancel function - aborts upload and resets state
+  const cancel = () => {
+    if (currentXhr) {
+      currentXhr.abort()
+      currentXhr = null
+    }
     _status.value = 'idle'
     error.value = null
     data.value = undefined
     progress.value = 0
   }
+
+  // Cleanup on scope dispose (component unmount)
+  onScopeDispose(() => {
+    if (currentXhr) {
+      currentXhr.abort()
+      currentXhr = null
+    }
+  })
 
   // The upload function
   const upload = async (file: File): Promise<string> => {
@@ -234,6 +267,8 @@ export function useConvexFileUpload<
       // Step 2: Upload file via XHR for progress tracking
       const storageId = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
+        currentXhr = xhr
+
         xhr.open('POST', postUrl)
         xhr.setRequestHeader('Content-Type', file.type)
 
@@ -244,6 +279,7 @@ export function useConvexFileUpload<
         }
 
         xhr.onload = () => {
+          currentXhr = null
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const response = JSON.parse(xhr.responseText)
@@ -256,7 +292,16 @@ export function useConvexFileUpload<
           }
         }
 
-        xhr.onerror = () => reject(new Error('Network error during upload'))
+        xhr.onerror = () => {
+          currentXhr = null
+          reject(new Error('Network error during upload'))
+        }
+
+        xhr.onabort = () => {
+          currentXhr = null
+          reject(new DOMException('Upload cancelled', 'AbortError'))
+        }
+
         xhr.send(file)
       })
 
@@ -276,6 +321,11 @@ export function useConvexFileUpload<
       options?.onSuccess?.(storageId, file)
       return storageId
     } catch (e) {
+      // Don't set error state for user-initiated cancellation
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        throw e
+      }
+
       const err = e instanceof Error ? e : new Error(String(e))
       _status.value = 'error'
       error.value = err
@@ -307,6 +357,6 @@ export function useConvexFileUpload<
     pending,
     progress,
     error,
-    reset,
+    cancel,
   }
 }
