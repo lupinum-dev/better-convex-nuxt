@@ -594,11 +594,33 @@ export function useConvexPaginatedQuery<
 
   // Computed status (defined before results since results may use it for default)
   // Uses asyncData/firstPageRealtimeData for first page state, pages ref for additional pages
+  // NOTE: Nuxt's useAsyncData has different semantics than what we want:
+  // - server: false → pending=false on SSR (but we want LoadingFirstPage, data will load on client)
+  // - lazy: true on client nav → may show pending=false (but we want LoadingFirstPage until data arrives)
   const status = computed((): PaginationStatus => {
     if (isSkipped.value) return 'Exhausted'
 
+    // When server: false, report LoadingFirstPage during SSR
+    // Nuxt's asyncData doesn't set pending=true when server:false, but we need
+    // consistent hydration (client will also be LoadingFirstPage until data arrives)
+    if (!server && import.meta.server) {
+      return 'LoadingFirstPage'
+    }
+
     // First page status from real-time data or asyncData
     const firstPageData = firstPageRealtimeData.value ?? asyncData.data.value
+
+    // When server: false on client, show loading until data arrives
+    if (!server && import.meta.client && !firstPageData) {
+      return 'LoadingFirstPage'
+    }
+
+    // For lazy: true on client, show LoadingFirstPage until data arrives
+    // This handles the case where navigation is instant but data is still loading
+    if (lazy && import.meta.client && !firstPageData) {
+      return 'LoadingFirstPage'
+    }
+
     const firstPagePending = asyncData.status.value === 'pending' && !firstPageRealtimeData.value
 
     if (firstPagePending && !firstPageData) return 'LoadingFirstPage'
@@ -702,7 +724,7 @@ export function useConvexPaginatedQuery<
     },
     {
       server,
-      lazy: false, // Always block for SSR to ensure data is ready
+      lazy,
     },
   )
 

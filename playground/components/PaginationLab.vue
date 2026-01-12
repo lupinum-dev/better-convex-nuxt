@@ -92,7 +92,16 @@ const capturedAtRender = {
       </button>
     </section>
 
-    <section v-if="results.length > 0" class="data-section">
+    <section v-if="isLoading" class="loading-section">
+      <h2>Loading...</h2>
+      <div class="skeleton">
+        <div class="skeleton-item"></div>
+        <div class="skeleton-item"></div>
+        <div class="skeleton-item"></div>
+      </div>
+    </section>
+
+    <section v-else-if="results.length > 0" class="data-section">
       <h2>Data Preview</h2>
       <pre data-testid="data-preview">{{ JSON.stringify(results, null, 2) }}</pre>
     </section>
@@ -196,5 +205,38 @@ const capturedAtRender = {
   overflow-x: auto;
   font-size: 12px;
   max-height: 200px;
+}
+
+.loading-section {
+  margin-top: 20px;
+}
+
+.loading-section h2 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+  color: #374151;
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-item {
+  height: 40px;
+  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 </style>
