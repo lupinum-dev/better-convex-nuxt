@@ -11,6 +11,7 @@ import { useRuntimeConfig } from '#imports'
 import { getFunctionName } from '../utils/convex-cache'
 import { createModuleLogger, getLoggingOptions, createTimer } from '../utils/logger'
 import type { OperationCompleteEvent } from '../utils/logger'
+import { isFileTypeAllowed } from '../utils/mime-type'
 import { useConvex } from './useConvex'
 
 /**
@@ -25,13 +26,18 @@ export type UploadStatus = 'idle' | 'pending' | 'success' | 'error'
 /**
  * Return value from useConvexFileUpload
  */
-export interface UseConvexFileUploadReturn {
+export interface UseConvexFileUploadReturn<
+  Mutation extends FunctionReference<'mutation'>,
+> {
   /**
    * Upload a file. Returns the storageId on success.
    * Automatically tracks status, error, progress, and data.
    * Throws on error (use try/catch or check error ref after).
+   *
+   * @param file - The file to upload
+   * @param mutationArgs - Optional args to pass to the generateUploadUrl mutation
    */
-  upload: (file: File) => Promise<string>
+  upload: (file: File, mutationArgs?: FunctionArgs<Mutation>) => Promise<string>
 
   /**
    * StorageId from the last successful upload.
@@ -81,6 +87,23 @@ export interface UseConvexFileUploadOptions {
    * Callback when an error occurs.
    */
   onError?: (error: Error, file: File) => void
+  /**
+   * Maximum file size in bytes.
+   * Files exceeding this size will be rejected before upload starts.
+   * @example 5 * 1024 * 1024 // 5MB
+   */
+  maxSize?: number
+  /**
+   * Allowed MIME types.
+   * Files not matching these types will be rejected before upload starts.
+   *
+   * Supports wildcards: `image/*` matches any image type, `video/*` matches any video, etc.
+   *
+   * @example ['image/jpeg', 'image/png'] // Exact types only
+   * @example ['image/*'] // Any image type
+   * @example ['image/*', 'application/pdf'] // Any image or PDF
+   */
+  allowedTypes?: string[]
 }
 
 /**
@@ -190,7 +213,7 @@ export function useConvexFileUpload<
 >(
   generateUploadUrlMutation: Mutation,
   options?: UseConvexFileUploadOptions,
-): UseConvexFileUploadReturn {
+): UseConvexFileUploadReturn<Mutation> {
   const config = useRuntimeConfig()
   const loggingOptions = getLoggingOptions(config.public.convex ?? {})
   const logger = createModuleLogger(loggingOptions)
@@ -230,7 +253,7 @@ export function useConvexFileUpload<
   })
 
   // The upload function
-  const upload = async (file: File): Promise<string> => {
+  const upload = async (file: File, mutationArgs?: FunctionArgs<Mutation>): Promise<string> => {
     const client = useConvex()
     const timer = createTimer()
 
@@ -252,13 +275,54 @@ export function useConvexFileUpload<
       throw err
     }
 
+    // Client-side validation before uploading
+    if (options?.maxSize && file.size > options.maxSize) {
+      const err = new Error(`File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`)
+      _status.value = 'error'
+      error.value = err
+
+      logger.event({
+        event: 'operation:complete',
+        env: 'client',
+        type: 'mutation',
+        name: `${fnName}+upload`,
+        duration_ms: timer(),
+        outcome: 'error',
+        args_preview: `file: ${file.name} (${file.size} bytes)`,
+        error: { type: 'ValidationError', message: err.message },
+      } satisfies OperationCompleteEvent)
+
+      options?.onError?.(err, file)
+      throw err
+    }
+
+    if (options?.allowedTypes && !isFileTypeAllowed(file.type, options.allowedTypes)) {
+      const err = new Error(`File type "${file.type}" not allowed. Allowed: ${options.allowedTypes.join(', ')}`)
+      _status.value = 'error'
+      error.value = err
+
+      logger.event({
+        event: 'operation:complete',
+        env: 'client',
+        type: 'mutation',
+        name: `${fnName}+upload`,
+        duration_ms: timer(),
+        outcome: 'error',
+        args_preview: `file: ${file.name} (${file.size} bytes)`,
+        error: { type: 'ValidationError', message: err.message },
+      } satisfies OperationCompleteEvent)
+
+      options?.onError?.(err, file)
+      throw err
+    }
+
     _status.value = 'pending'
     error.value = null
     progress.value = 0
 
     try {
       // Step 1: Get upload URL from Convex
-      const postUrl = await client.mutation(generateUploadUrlMutation, {} as FunctionArgs<Mutation>)
+      const postUrl = await client.mutation(generateUploadUrlMutation, (mutationArgs ?? {}) as FunctionArgs<Mutation>)
 
       if (typeof postUrl !== 'string') {
         throw new TypeError('generateUploadUrl mutation must return a string URL')
