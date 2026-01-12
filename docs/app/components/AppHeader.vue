@@ -9,13 +9,33 @@ const { header } = useAppConfig();
 
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
-    label: "Docs",
-    to: "docs/getting-started/installation",
-    active:
-      route.path.startsWith("docs/getting-started") ||
-      route.path.startsWith("docs/api") ||
-      route.path.startsWith("docs/auth") ||
-      route.path.startsWith("docs/patterns"),
+    label: "Getting Started",
+    to: "/docs/getting-started/installation",
+    active: route.path.startsWith("/docs/getting-started"),
+  },
+  {
+    label: "Data Fetching",
+    to: "/docs/data-fetching/queries",
+    active: route.path.startsWith("/docs/data-fetching"),
+  },
+  {
+    label: "Mutations",
+    to: "/docs/mutations/mutations",
+    active: route.path.startsWith("/docs/mutations"),
+  },
+  {
+    label: "Auth",
+    to: "/docs/auth-security/authentication",
+    active: route.path.startsWith("/docs/auth-security"),
+  },
+  {
+    label: "Server-Side",
+    to: "/docs/server-side/server-routes",
+    active: route.path.startsWith("/docs/server-side"),
+  },
+  {
+    label: "Advanced",
+    to: "/docs/advanced/performance",
   },
 ]);
 </script>
