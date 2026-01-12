@@ -29,7 +29,8 @@ describe('useConvexConnectionState behavior', async () => {
       await page.waitForLoadState('networkidle')
 
       // WHEN we check if the page loaded
-      const heading = await page.textContent('h1')
+      // Use .container h1 to target the page content h1, not the layout header h1
+      const heading = await page.textContent('.container h1')
 
       // THEN the page should contain the expected heading
       expect(heading).toContain('Connection Lab')

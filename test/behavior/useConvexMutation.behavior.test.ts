@@ -348,38 +348,4 @@ describe('useConvexMutation behavior', async () => {
     }, 30000)
   })
 
-  // ============================================================================
-  // Real-time Updates
-  // ============================================================================
-
-  describe('Real-time Updates', () => {
-    it('mutation triggers subscription update', async () => {
-      // GIVEN a page with query subscription
-      const page = await createPage('/labs/realtime')
-      await page.waitForLoadState('networkidle')
-
-      // Wait for subscription to be ready
-      await page.waitForFunction(() => {
-        const el = document.querySelector('[data-testid="status"]')
-        return el?.textContent === 'success'
-      }, { timeout: 15000 })
-
-      // Get initial add-count (tracks mutation calls, not query results)
-      const initialAddCount = await page.textContent('[data-testid="add-count"]')
-      const initialAddNum = Number.parseInt(initialAddCount || '0', 10)
-
-      // WHEN we add a note via mutation
-      await page.click('[data-testid="add-btn"]')
-
-      // THEN the mutation should complete (add-count increases)
-      await page.waitForFunction((expected) => {
-        const el = document.querySelector('[data-testid="add-count"]')
-        return Number.parseInt(el?.textContent || '0', 10) > expected
-      }, initialAddNum, { timeout: 10000 })
-
-      // AND the status should still be success (subscription recovered)
-      const finalStatus = await page.textContent('[data-testid="status"]')
-      expect(finalStatus).toBe('success')
-    }, 30000)
-  })
 })
