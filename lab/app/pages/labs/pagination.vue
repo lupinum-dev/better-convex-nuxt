@@ -1,0 +1,247 @@
+<script setup lang="ts">
+import { api } from '~/convex/_generated/api'
+
+definePageMeta({
+  middleware: 'auth'
+})
+
+// Tab state
+const activeTab = ref('infinite')
+
+// ============================================
+// INFINITE SCROLL
+// ============================================
+
+const {
+  results: infiniteResults,
+  status: infiniteStatus,
+  loadMore: infiniteLoadMore,
+  isLoading: infiniteLoading
+} = useConvexPaginatedQuery(
+  api.messages.listPaginated,
+  {},
+  { initialNumItems: 10 }
+)
+
+const loadMoreRef = ref<HTMLElement | null>(null)
+
+// Intersection Observer for infinite scroll
+onMounted(() => {
+  if (!loadMoreRef.value) return
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (
+        entries[0].isIntersecting &&
+        infiniteStatus.value === 'CanLoadMore' &&
+        !infiniteLoading.value
+      ) {
+        infiniteLoadMore(5)
+      }
+    },
+    { threshold: 0.1 }
+  )
+
+  observer.observe(loadMoreRef.value)
+  onUnmounted(() => observer.disconnect())
+})
+
+// ============================================
+// LOAD MORE BUTTON
+// ============================================
+
+const {
+  results: buttonResults,
+  status: buttonStatus,
+  loadMore: buttonLoadMore,
+  isLoading: buttonLoading
+} = useConvexPaginatedQuery(
+  api.messages.listPaginated,
+  {},
+  { initialNumItems: 5 }
+)
+
+// ============================================
+// ADD SAMPLE DATA
+// ============================================
+
+const { mutate: seedMessages, status: seedStatus } = useConvexMutation(api.messages.seed)
+
+async function addSampleData() {
+  await seedMessages({ count: 20 })
+}
+</script>
+
+<template>
+  <div class="p-6 lg:p-8 max-w-2xl mx-auto">
+    <!-- Header -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold mb-2">Pagination</h1>
+      <p class="text-muted">
+        Explore cursor-based pagination with useConvexPaginatedQuery.
+      </p>
+    </div>
+
+    <!-- Add sample data button -->
+    <UAlert
+      v-if="!infiniteResults?.length && !buttonResults?.length"
+      class="mb-6"
+      icon="i-lucide-database"
+      color="amber"
+      variant="subtle"
+    >
+      <template #title>Need sample data?</template>
+      <template #description>
+        <p class="mb-3">Add some messages to test pagination.</p>
+        <UButton
+          size="sm"
+          :loading="seedStatus === 'pending'"
+          @click="addSampleData"
+        >
+          Add 20 Messages
+        </UButton>
+      </template>
+    </UAlert>
+
+    <!-- Explanation -->
+    <UAlert
+      class="mb-6"
+      icon="i-lucide-info"
+      color="primary"
+      variant="subtle"
+      title="How it works"
+      description="useConvexPaginatedQuery uses cursor-based pagination. It efficiently loads data in chunks and supports both infinite scroll and manual load more patterns."
+    />
+
+    <!-- Tabs -->
+    <UTabs
+      v-model="activeTab"
+      :items="[
+        { label: 'Infinite Scroll', value: 'infinite', icon: 'i-lucide-arrow-down' },
+        { label: 'Load More Button', value: 'button', icon: 'i-lucide-plus' }
+      ]"
+      class="mb-6"
+    />
+
+    <!-- Infinite Scroll Panel -->
+    <div v-if="activeTab === 'infinite'">
+      <UCard>
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span class="font-semibold">Messages (Infinite Scroll)</span>
+            <UBadge variant="subtle" color="neutral">
+              {{ infiniteResults?.length || 0 }} loaded
+            </UBadge>
+          </div>
+        </template>
+
+        <div class="max-h-96 overflow-y-auto space-y-3">
+          <div
+            v-for="message in infiniteResults"
+            :key="message._id"
+            class="p-3 rounded-lg bg-elevated"
+          >
+            <p>{{ message.content }}</p>
+            <p class="text-xs text-muted mt-1">
+              {{ message.authorName }} &middot;
+              {{ new Date(message.createdAt).toLocaleString() }}
+            </p>
+          </div>
+
+          <!-- Intersection observer target -->
+          <div ref="loadMoreRef" class="py-4 text-center">
+            <USpinner v-if="infiniteStatus === 'LoadingMore' || infiniteLoading" />
+            <p v-else-if="infiniteStatus === 'Exhausted'" class="text-muted text-sm">
+              No more messages
+            </p>
+            <p v-else-if="infiniteStatus === 'CanLoadMore'" class="text-muted text-sm">
+              Scroll for more...
+            </p>
+          </div>
+        </div>
+
+        <p v-if="!infiniteResults?.length && !infiniteLoading" class="text-center text-muted py-8">
+          No messages yet
+        </p>
+      </UCard>
+    </div>
+
+    <!-- Load More Button Panel -->
+    <div v-if="activeTab === 'button'">
+      <UCard>
+        <template #header>
+          <div class="flex items-center justify-between">
+            <span class="font-semibold">Messages (Load More)</span>
+            <UBadge variant="subtle" color="neutral">
+              {{ buttonResults?.length || 0 }} loaded
+            </UBadge>
+          </div>
+        </template>
+
+        <div class="space-y-3">
+          <div
+            v-for="message in buttonResults"
+            :key="message._id"
+            class="p-3 rounded-lg bg-elevated"
+          >
+            <p>{{ message.content }}</p>
+            <p class="text-xs text-muted mt-1">
+              {{ message.authorName }} &middot;
+              {{ new Date(message.createdAt).toLocaleString() }}
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-4 text-center">
+          <UButton
+            v-if="buttonStatus === 'CanLoadMore'"
+            variant="outline"
+            :loading="buttonLoading"
+            @click="buttonLoadMore(5)"
+          >
+            Load More
+          </UButton>
+          <p v-else-if="buttonStatus === 'LoadingMore'" class="text-muted">
+            <USpinner class="mr-2" /> Loading...
+          </p>
+          <p v-else-if="buttonStatus === 'Exhausted'" class="text-muted text-sm">
+            All messages loaded
+          </p>
+        </div>
+
+        <p v-if="!buttonResults?.length && !buttonLoading" class="text-center text-muted py-8">
+          No messages yet
+        </p>
+      </UCard>
+    </div>
+
+    <!-- Status Info -->
+    <UCard class="mt-6">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-activity" class="w-5 h-5" />
+          <span class="font-semibold">Query Status</span>
+        </div>
+      </template>
+
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-muted">Infinite Scroll Status</p>
+          <UBadge
+            :color="infiniteStatus === 'CanLoadMore' ? 'green' : infiniteStatus === 'LoadingMore' ? 'blue' : 'gray'"
+          >
+            {{ infiniteStatus }}
+          </UBadge>
+        </div>
+        <div>
+          <p class="text-muted">Load More Status</p>
+          <UBadge
+            :color="buttonStatus === 'CanLoadMore' ? 'green' : buttonStatus === 'LoadingMore' ? 'blue' : 'gray'"
+          >
+            {{ buttonStatus }}
+          </UBadge>
+        </div>
+      </div>
+    </UCard>
+  </div>
+</template>
