@@ -20,6 +20,8 @@ import { getCookie } from './utils/shared-helpers'
 
 /** Session cookie name used by Better Auth */
 const SESSION_COOKIE_NAME = 'better-auth.session_token'
+/** Secure cookie name (used on HTTPS in production) */
+const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
 
 /**
  * Helper to build a waterfall phase entry
@@ -115,7 +117,9 @@ export default defineNuxtPlugin(async () => {
   // Phase 1: Session Check
   const sessionCheckStart = Date.now()
   const cookieHeader = event.headers.get('cookie')
-  const sessionToken = getCookie(cookieHeader, SESSION_COOKIE_NAME)
+  // Try both cookie names: __Secure- prefix is used on HTTPS (production)
+  const sessionToken = getCookie(cookieHeader, SECURE_SESSION_COOKIE_NAME)
+    || getCookie(cookieHeader, SESSION_COOKIE_NAME)
 
   // Check if we have a session cookie
   if (!cookieHeader || !sessionToken) {
