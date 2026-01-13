@@ -88,7 +88,7 @@ const labs = [
                   :key="feature"
                   variant="subtle"
                   color="neutral"
-                  size="xs"
+                  size="sm"
                 >
                   {{ feature }}
                 </UBadge>

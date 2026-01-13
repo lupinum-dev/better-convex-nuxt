@@ -2,9 +2,24 @@
 @import "@nuxt/ui";
 
 @theme static {
-  --font-sans: 'Public Sans', sans-serif;
+  --container-8xl: 90rem;
+  --font-sans: 'Reddit Sans', sans-serif;
+  --font-serif: 'Charter', sans-serif;
 
-  /* Convex Red */
+  --color-eggshell: #f9f7ee;
+
+  --color-green-50: #effdf5;
+  --color-green-100: #d9fbe8;
+  --color-green-200: #b3f5d1;
+  --color-green-300: #75edae;
+  --color-green-400: #00dc82;
+  --color-green-500: #00c16a;
+  --color-green-600: #00a155;
+  --color-green-700: #007f45;
+  --color-green-800: #016538;
+  --color-green-900: #0a5331;
+  --color-green-950: #052e16;
+
   --color-convex-red-50: #fdebea;
   --color-convex-red-100: #fcd6d5;
   --color-convex-red-200: #f8aeac;
@@ -15,9 +30,7 @@
   --color-convex-red-700: #8f1f1c;
   --color-convex-red-800: #5f1513;
   --color-convex-red-900: #300a09;
-  --color-convex-red-950: #1a0504;
 
-  /* Convex Yellow - warm amber accent */
   --color-convex-yellow-50: #fef7e8;
   --color-convex-yellow-100: #fdefd2;
   --color-convex-yellow-200: #fadfa4;
@@ -28,18 +41,15 @@
   --color-convex-yellow-700: #926a11;
   --color-convex-yellow-800: #61460b;
   --color-convex-yellow-900: #312306;
-  --color-convex-yellow-950: #191203;
 
-  /* Convex Purple - primary brand color */
-  --color-convex-purple-50: #f9f0f6;
-  --color-convex-purple-100: #f4e9f1;
-  --color-convex-purple-200: #e8d4e4;
-  --color-convex-purple-300: #d1a8c8;
-  --color-convex-purple-400: #bb7dad;
-  --color-convex-purple-500: #a45191;
-  --color-convex-purple-600: #8d2676;
-  --color-convex-purple-700: #711e5e;
-  --color-convex-purple-800: #551747;
-  --color-convex-purple-900: #380f2f;
-  --color-convex-purple-950: #1c0818;
+  --color-convex-purple-50: #f4e9f1;
+  --color-convex-purple-100: #e8d4e4;
+  --color-convex-purple-200: #d1a8c8;
+  --color-convex-purple-300: #bb7dad;
+  --color-convex-purple-400: #a45191;
+  --color-convex-purple-500: #8d2676;
+  --color-convex-purple-600: #711e5e;
+  --color-convex-purple-700: #551747;
+  --color-convex-purple-800: #380f2f;
+  --color-convex-purple-900: #1c0818;
 }

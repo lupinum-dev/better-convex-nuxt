@@ -23,7 +23,7 @@ const isLoginPage = computed(() => route.path === '/')
 <template>
   <div class="min-h-screen flex flex-col">
     <!-- Header (hidden on login page) -->
-    <UHeader v-if="!isLoginPage">
+    <UHeader v-if="!isLoginPage" class="bg-eggshell dark:bg-neutral-950">
       <template #left>
         <NuxtLink to="/" class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
@@ -52,7 +52,7 @@ const isLoginPage = computed(() => route.path === '/')
       <!-- Sidebar - only show in labs section -->
       <aside
         v-if="isLabsRoute && !isLoginPage"
-        class="w-64 border-r border-default bg-elevated hidden lg:block"
+        class="w-64 border-r border-default bg-eggshell dark:bg-neutral-950 hidden lg:block"
       >
         <div class="p-4 space-y-6">
           <!-- Navigation -->

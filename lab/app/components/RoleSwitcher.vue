@@ -33,14 +33,25 @@ async function selectRole(role: Role) {
         :key="role"
         :variant="currentRole === role ? 'solid' : 'outline'"
         :color="currentRole === role ? ROLE_INFO[role].color as any : 'neutral'"
-        :icon="ROLE_INFO[role].icon"
         :loading="isPending"
         :disabled="isPending"
         size="sm"
-        class="justify-start"
+        :class="[
+          'justify-start relative',
+          currentRole === role && 'font-medium'
+        ]"
         @click="selectRole(role)"
       >
+        <UIcon
+          :name="ROLE_INFO[role].icon"
+          class="shrink-0"
+        />
         {{ ROLE_INFO[role].label }}
+        <UIcon
+          v-if="currentRole === role"
+          name="i-lucide-check"
+          class="ml-auto shrink-0 size-3.5 opacity-70"
+        />
       </UButton>
     </div>
 

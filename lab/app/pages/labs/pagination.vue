@@ -87,7 +87,7 @@ async function addSampleData() {
       v-if="!infiniteResults?.length && !buttonResults?.length"
       class="mb-6"
       icon="i-lucide-database"
-      color="amber"
+      color="secondary"
       variant="subtle"
     >
       <template #title>Need sample data?</template>

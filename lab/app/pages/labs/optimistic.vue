@@ -102,7 +102,7 @@ function isOptimistic(taskId: string) {
     <UAlert
       class="mb-6"
       icon="i-lucide-info"
-      color="primary"
+      color="secondary"
       variant="subtle"
       title="How it works"
       description="Optimistic updates predict the result before the server responds, making the UI feel instant. If the server returns an error, the change is automatically rolled back."

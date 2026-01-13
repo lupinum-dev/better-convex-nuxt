@@ -101,24 +101,12 @@ function canDelete(item: { authorId: string }) {
       </p>
     </div>
 
-    <!-- Error Alert -->
-    <UAlert
-      v-if="error"
-      class="mb-6"
-      icon="i-lucide-alert-circle"
-      color="error"
-      variant="subtle"
-      :title="error.title"
-      :description="error.description"
-      close
-      @update:open="error = null"
-    />
 
     <!-- Tip Alert -->
     <UAlert
       class="mb-6"
       icon="i-lucide-info"
-      color="primary"
+      color="secondary"
       variant="subtle"
       title="How it works"
       description="useConvexQuery creates a WebSocket subscription. Any changes to the data are pushed instantly to all connected clients."
@@ -150,6 +138,20 @@ function canDelete(item: { authorId: string }) {
         </div>
       </form>
     </UCard>
+
+        <!-- Error Alert -->
+        <UAlert
+      v-if="error"
+      class="mb-6"
+      icon="i-lucide-alert-circle"
+      color="error"
+      variant="subtle"
+      :title="error.title"
+      :description="error.description"
+      close
+      @update:open="error = null"
+    />
+
 
     <UAlert
       v-else
@@ -197,8 +199,8 @@ function canDelete(item: { authorId: string }) {
               icon="i-lucide-trash-2"
               color="error"
               variant="ghost"
+              :class="['size-10 min-w-0 p-0 flex items-center justify-center']"
               size="sm"
-              class="opacity-0 group-hover:opacity-100 transition-opacity"
               @click="handleDelete(item._id)"
             />
           </div>

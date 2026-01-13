@@ -1,7 +1,11 @@
 <script setup lang="ts">
 const { user, isAuthenticated, isPending } = useConvexAuth()
+const { user: permissionUser } = useLabPermissions()
 const authClient = useAuthClient()
 const router = useRouter()
+
+// Get avatar URL from permission context (fetched from Convex, includes GitHub avatar)
+const avatarUrl = computed(() => (permissionUser.value as any)?.avatarUrl)
 
 // Access the auth state directly to clear it on signout
 const convexToken = useState<string | null>('convex:token')
@@ -33,7 +37,7 @@ const items = computed(() => [
   [{
     label: 'Sign out',
     icon: 'i-lucide-log-out',
-    click: signOut
+    onSelect: signOut
   }]
 ])
 </script>
@@ -55,7 +59,7 @@ const items = computed(() => [
       :loading="isSigningOut"
     >
       <UAvatar
-        :src="user.image"
+        :src="avatarUrl"
         :alt="user.name || user.email || 'User'"
         size="sm"
       />
@@ -64,7 +68,7 @@ const items = computed(() => [
     <template #account>
       <div class="flex items-center gap-2 px-1 py-1.5">
         <UAvatar
-          :src="user.image"
+          :src="avatarUrl"
           :alt="user.name || user.email || 'User'"
           size="xs"
         />

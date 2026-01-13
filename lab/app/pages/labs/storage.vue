@@ -8,18 +8,30 @@ definePageMeta({
 const { can } = useLabPermissions()
 
 // File upload
-const { upload, status: uploadStatus, progress, error: uploadError } = useConvexFileUpload(
-  api.files.generateUploadUrl
+const { upload, status: uploadStatus, progress, error: uploadError, cancel: cancelUpload } = useConvexFileUpload(
+  api.files.generateUploadUrl,
+  {
+    maxSize: 5 * 1024 * 1024, // 5MB
+    allowedTypes: ['image/*']
+  }
 )
 
 // Save file metadata after upload
-const { mutate: saveFile } = useConvexMutation(api.files.save)
+const { mutate: saveFile, error: saveError } = useConvexMutation(api.files.save)
 
 // List files
 const { data: files, status: filesStatus } = useConvexQuery(api.files.list, {})
 
 // Delete file
-const { mutate: deleteFile } = useConvexMutation(api.files.remove)
+const { mutate: deleteFile, error: deleteError } = useConvexMutation(api.files.remove)
+
+// Combined error from any operation
+const operationError = computed(() => deleteError.value || saveError.value)
+
+function clearErrors() {
+  deleteError.value = null
+  saveError.value = null
+}
 
 // File input ref
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -42,18 +54,6 @@ async function handleDrop(event: DragEvent) {
 }
 
 async function uploadFile(file: File) {
-  // Validate file type
-  if (!file.type.startsWith('image/')) {
-    alert('Only image files are allowed')
-    return
-  }
-
-  // Validate file size (5MB max)
-  if (file.size > 5 * 1024 * 1024) {
-    alert('File size must be less than 5MB')
-    return
-  }
-
   try {
     const storageId = await upload(file)
     if (storageId) {
@@ -65,6 +65,10 @@ async function uploadFile(file: File) {
       })
     }
   } catch (e) {
+    // AbortError is expected when user cancels - don't log as error
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      return
+    }
     console.error('Upload failed:', e)
   }
 }
@@ -90,10 +94,22 @@ function formatFileSize(bytes: number) {
     <UAlert
       class="mb-6"
       icon="i-lucide-info"
-      color="primary"
+      color="secondary"
       variant="subtle"
       title="How it works"
       description="useConvexFileUpload handles the entire upload flow: generating upload URLs, uploading to Convex storage, and tracking progress. useConvexStorageUrl converts storage IDs to accessible URLs."
+    />
+
+    <!-- Operation Error -->
+    <UAlert
+      v-if="operationError"
+      class="mb-6"
+      icon="i-lucide-alert-circle"
+      color="error"
+      variant="subtle"
+      :title="operationError.message"
+      :close-icon="'i-lucide-x'"
+      @close="clearErrors"
     />
 
     <!-- Upload Zone -->
@@ -118,9 +134,18 @@ function formatFileSize(bytes: number) {
         ]"
         @click="fileInputRef?.click()"
       >
-        <div v-if="uploadStatus === 'pending'">
+        <div v-if="uploadStatus === 'pending'" @click.stop>
           <UProgress :value="progress" color="primary" class="mb-4" />
-          <p class="text-sm text-muted">Uploading... {{ progress }}%</p>
+          <p class="text-sm text-muted mb-3">Uploading... {{ progress }}%</p>
+          <UButton
+            icon="i-lucide-x"
+            color="neutral"
+            variant="outline"
+            size="sm"
+            @click="cancelUpload"
+          >
+            Cancel
+          </UButton>
         </div>
 
         <div v-else>
