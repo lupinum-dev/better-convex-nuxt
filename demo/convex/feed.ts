@@ -24,6 +24,31 @@ export const list = query({
 })
 
 /**
+ * List feed items with optional type filter
+ * Used by the reactive args demo to show how query args can be reactive
+ */
+export const listFiltered = query({
+  args: {
+    type: v.optional(v.union(v.literal('message'), v.literal('task'), v.literal('event'))),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, args) => {
+    let query = ctx.db
+      .query('feedItems')
+      .withIndex('by_created')
+      .order('desc')
+
+    // Apply type filter if specified
+    if (args.type) {
+      query = query.filter(q => q.eq(q.field('type'), args.type))
+    }
+
+    const items = await query.take(args.limit ?? 50)
+    return items
+  }
+})
+
+/**
  * Add a new feed item
  */
 export const add = mutation({
@@ -40,7 +65,7 @@ export const add = mutation({
     // Get user for display name and role check
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
       .first()
 
     // Check permission: viewers cannot create feed items
@@ -81,7 +106,7 @@ export const remove = mutation({
     // Get user role
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
       .first()
 
     // Permission check:

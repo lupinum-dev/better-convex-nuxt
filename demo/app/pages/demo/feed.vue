@@ -5,7 +5,7 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { can, user } = useDemoPermissions()
+const { can } = useDemoPermissions()
 
 // Real-time feed subscription
 const { data: feedItems, status } = useConvexQuery(api.feed.list, {})
@@ -156,7 +156,7 @@ function canDelete(item: { authorId: string }) {
       v-else
       class="mb-6"
       icon="i-lucide-lock"
-      color="amber"
+      color="warning"
       variant="subtle"
       title="Viewer role"
       description="Switch to Member, Admin, or Owner role to create posts."

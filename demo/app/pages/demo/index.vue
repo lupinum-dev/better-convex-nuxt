@@ -15,6 +15,14 @@ const demos = [
     features: ['Live subscriptions', 'Multi-tab sync', 'Auto-reconnect']
   },
   {
+    title: 'Reactive Args',
+    description: 'See queries automatically re-run when their arguments change using reactive refs.',
+    icon: 'i-lucide-refresh-cw',
+    to: '/demo/reactive',
+    color: 'cyan',
+    features: ['Auto re-subscribe', 'Computed args', 'Filter controls']
+  },
+  {
     title: 'Optimistic Updates',
     description: 'Compare standard mutations vs instant UI updates with optimistic rendering.',
     icon: 'i-lucide-zap',
@@ -103,8 +111,18 @@ const demos = [
       </NuxtLink>
     </div>
 
+    <!-- Database Notice -->
+    <UAlert
+      class="mt-8"
+      icon="i-lucide-clock"
+      color="info"
+      variant="subtle"
+      title="Demo database cleanup"
+      description="This is a shared demo environment. All data (posts, files, messages, tasks) is automatically cleared every 12 hours to keep things fresh."
+    />
+
     <!-- Tips Section -->
-    <UCard class="mt-8">
+    <UCard class="mt-6">
       <template #header>
         <div class="flex items-center gap-2">
           <UIcon name="i-lucide-lightbulb" class="w-5 h-5 text-amber-500" />
