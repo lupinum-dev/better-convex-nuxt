@@ -52,6 +52,13 @@ export default defineAppConfig({
     colorMode: true,
     links: [
       {
+        'icon': 'i-lucide-play',
+        'label': 'Demo',
+        'to': 'https://better-convex-nuxt-demo.vercel.app/',
+        'target': '_blank',
+        'aria-label': 'Live Demo'
+      },
+      {
         'icon': 'i-simple-icons-github',
         'to': 'https://github.com/lupinum-dev/better-convex-nuxt',
         'target': '_blank',
