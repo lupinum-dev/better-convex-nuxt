@@ -126,7 +126,6 @@ function canDelete(item: { authorId: string }) {
             v-model="content"
             placeholder="What's happening?"
             class="flex-1"
-            @keyup.enter="submitItem"
           />
           <UButton
             type="submit"
