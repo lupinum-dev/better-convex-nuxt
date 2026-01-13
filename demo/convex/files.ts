@@ -102,7 +102,7 @@ export const getUrl = query({
 })
 
 /**
- * List all uploaded files
+ * List all uploaded files with uploader info
  */
 export const list = query({
   args: {},
@@ -113,7 +113,23 @@ export const list = query({
       .order('desc')
       .take(50)
 
-    return files
+    // Fetch uploader info for each file
+    const filesWithUploader = await Promise.all(
+      files.map(async (file) => {
+        const uploader = await ctx.db
+          .query('users')
+          .withIndex('by_auth_id', (q) => q.eq('authId', file.uploadedBy))
+          .first()
+
+        return {
+          ...file,
+          uploaderName: uploader?.displayName || uploader?.email || 'Unknown',
+          uploaderAvatarUrl: uploader?.avatarUrl
+        }
+      })
+    )
+
+    return filesWithUploader
   }
 })
 

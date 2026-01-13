@@ -225,6 +225,16 @@ function formatFileSize(bytes: number) {
             <p class="text-white/70 text-xs mb-2">
               {{ formatFileSize(file.size) }}
             </p>
+            <div class="flex items-center gap-1.5 mb-2">
+              <UAvatar
+                :src="file.uploaderAvatarUrl"
+                :alt="file.uploaderName"
+                size="2xs"
+              />
+              <span class="text-white/80 text-xs truncate max-w-20">
+                {{ file.uploaderName }}
+              </span>
+            </div>
             <UButton
               v-if="can('file.delete', { ownerId: file.uploadedBy })"
               icon="i-lucide-trash-2"
