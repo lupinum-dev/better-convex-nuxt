@@ -3,7 +3,7 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
     '@nuxt/ui',
-    '../src/module' // better-convex-nuxt (local module)
+    'better-convex-nuxt'
   ],
 
   devtools: {
