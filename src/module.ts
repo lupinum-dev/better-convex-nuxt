@@ -336,45 +336,39 @@ export {}
  * Setup Nuxt DevTools integration.
  * Only called in dev mode.
  */
-async function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResolver>): Promise<void> {
-  try {
-    // Dynamically import devtools-kit to avoid requiring it in production
-    const { addCustomTab } = await import('@nuxt/devtools-kit')
+function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResolver>): void {
+  // Compute the absolute path to devtools output at module setup time
+  const devtoolsOutputPath = resolver.resolve('./runtime/devtools/.output/public')
 
-    // Compute the absolute path to devtools output at module setup time
-    const devtoolsOutputPath = resolver.resolve('./runtime/devtools/.output/public')
+  // Store the path in runtime config for server handler access
+  nuxt.options.runtimeConfig.convexDevtoolsPath = devtoolsOutputPath
 
-    // Store the path in runtime config for server handler access
-    nuxt.options.runtimeConfig.convexDevtoolsPath = devtoolsOutputPath
-
-    // Register custom tab in Nuxt DevTools
-    addCustomTab({
+  // Register custom tab via Nuxt hook (more reliable than addCustomTab)
+  nuxt.hook('devtools:customTabs', (tabs) => {
+    tabs.push({
       name: 'convex',
       title: 'Convex',
-      icon: 'carbon:data-base',
+      icon: '/__convex_devtools__/convex-logo.svg',
       category: 'app',
       view: {
         type: 'iframe',
         src: '/__convex_devtools__',
         persistent: true,
       },
-    }, nuxt)
-
-    // Add server route to serve DevTools UI
-    addServerHandler({
-      route: '/__convex_devtools__',
-      handler: resolver.resolve('./runtime/devtools/server'),
     })
+  })
 
-    // Also handle subpaths for assets
-    addServerHandler({
-      route: '/__convex_devtools__/**',
-      handler: resolver.resolve('./runtime/devtools/server'),
-    })
+  // Add server route to serve DevTools UI
+  addServerHandler({
+    route: '/__convex_devtools__',
+    handler: resolver.resolve('./runtime/devtools/server'),
+  })
 
-    logger.info('Nuxt DevTools integration enabled')
-  } catch {
-    // @nuxt/devtools-kit not available, skip DevTools integration
-    logger.debug('Nuxt DevTools integration skipped (devtools-kit not available)')
-  }
+  // Also handle subpaths for assets
+  addServerHandler({
+    route: '/__convex_devtools__/**',
+    handler: resolver.resolve('./runtime/devtools/server'),
+  })
+
+  logger.info('Nuxt DevTools integration enabled')
 }
