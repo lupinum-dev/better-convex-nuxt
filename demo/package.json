@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "nuxt prepare && nuxt build",
+    "build": "nuxt build",
     "dev": "nuxt dev --dotenv .env.local",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
@@ -16,7 +16,7 @@
     "@iconify-json/simple-icons": "^1.2.63",
     "@nuxt/ui": "^4.3.0",
     "better-auth": "^1.4.9",
-    "better-convex-nuxt": "^0.2.2",
+    "better-convex-nuxt": "^0.2.1",
     "convex": "^1.31.2",
     "nuxt": "^4.2.2"
   },

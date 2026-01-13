@@ -23,6 +23,9 @@ importers:
       better-auth:
         specifier: ^1.4.9
         version: 1.4.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.26(typescript@5.9.3))
+      better-convex-nuxt:
+        specifier: ^0.2.1
+        version: 0.2.1(@better-auth/core@1.4.11(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@standard-schema/spec@1.1.0)(better-call@1.1.7(zod@4.3.5))(magicast@0.5.1)(nanostores@1.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(vite@7.3.0(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))(vue@3.5.26(typescript@5.9.3))
       convex:
         specifier: ^1.31.2
         version: 1.31.4(react@19.2.3)
@@ -935,6 +938,11 @@ packages:
 
   '@nuxt/devalue@2.0.2':
     resolution: {integrity: sha512-GBzP8zOc7CGWyFQS6dv1lQz8VVpz5C2yRszbXufwG/9zhStTIH50EtD87NmWbTMwXDvZLNg8GIpb1UFdH93JCA==}
+
+  '@nuxt/devtools-kit@2.7.0':
+    resolution: {integrity: sha512-MIJdah6CF6YOW2GhfKnb8Sivu6HpcQheqdjOlZqShBr+1DyjtKQbAKSCAyKPaoIzZP4QOo2SmTFV6aN8jBeEIQ==}
+    peerDependencies:
+      vite: '>=6.0'
 
   '@nuxt/devtools-kit@3.1.1':
     resolution: {integrity: sha512-sjiKFeDCOy1SyqezSgyV4rYNfQewC64k/GhOsuJgRF+wR2qr6KTVhO6u2B+csKs74KrMrnJprQBgud7ejvOXAQ==}
@@ -2574,6 +2582,9 @@ packages:
     peerDependenciesMeta:
       zod:
         optional: true
+
+  better-convex-nuxt@0.2.1:
+    resolution: {integrity: sha512-tqppTkTI9shiOgro4DlXil6BYHp85Uq5X2M2CoTHsbL7xGixmRmSaeIgdIzHxuV+11GBgj/jQ68hOh/lEYwrCg==}
 
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
@@ -6216,6 +6227,14 @@ snapshots:
 
   '@nuxt/devalue@2.0.2': {}
 
+  '@nuxt/devtools-kit@2.7.0(magicast@0.5.1)(vite@7.3.0(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))':
+    dependencies:
+      '@nuxt/kit': 3.20.2(magicast@0.5.1)
+      execa: 8.0.1
+      vite: 7.3.0(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2)
+    transitivePeerDependencies:
+      - magicast
+
   '@nuxt/devtools-kit@3.1.1(magicast@0.5.1)(vite@7.3.0(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))':
     dependencies:
       '@nuxt/kit': 4.2.2(magicast@0.5.1)
@@ -8103,6 +8122,46 @@ snapshots:
       set-cookie-parser: 2.7.2
     optionalDependencies:
       zod: 4.3.5
+
+  better-convex-nuxt@0.2.1(@better-auth/core@1.4.11(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@standard-schema/spec@1.1.0)(better-call@1.1.7(zod@4.3.5))(magicast@0.5.1)(nanostores@1.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(vite@7.3.0(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))(vue@3.5.26(typescript@5.9.3)):
+    dependencies:
+      '@convex-dev/better-auth': 0.10.10(@better-auth/core@1.4.11(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@standard-schema/spec@1.1.0)(better-auth@1.4.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.26(typescript@5.9.3)))(better-call@1.1.7(zod@4.3.5))(convex@1.31.4(react@19.2.3))(nanostores@1.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
+      '@nuxt/devtools-kit': 2.7.0(magicast@0.5.1)(vite@7.3.0(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))
+      '@nuxt/kit': 4.2.2(magicast@0.5.1)
+      better-auth: 1.4.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.26(typescript@5.9.3))
+      convex: 1.31.4(react@19.2.3)
+      defu: 6.1.4
+      ohash: 2.0.11
+    transitivePeerDependencies:
+      - '@auth0/auth0-react'
+      - '@better-auth/core'
+      - '@better-auth/utils'
+      - '@clerk/clerk-react'
+      - '@lynx-js/react'
+      - '@prisma/client'
+      - '@standard-schema/spec'
+      - '@sveltejs/kit'
+      - '@tanstack/react-start'
+      - better-call
+      - better-sqlite3
+      - drizzle-kit
+      - drizzle-orm
+      - hono
+      - magicast
+      - mongodb
+      - mysql2
+      - nanostores
+      - next
+      - pg
+      - prisma
+      - react
+      - react-dom
+      - solid-js
+      - svelte
+      - typescript
+      - vite
+      - vitest
+      - vue
 
   bindings@1.5.0:
     dependencies:
