@@ -341,6 +341,12 @@ async function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResol
     // Dynamically import devtools-kit to avoid requiring it in production
     const { addCustomTab } = await import('@nuxt/devtools-kit')
 
+    // Compute the absolute path to devtools output at module setup time
+    const devtoolsOutputPath = resolver.resolve('./runtime/devtools/.output/public')
+
+    // Store the path in runtime config for server handler access
+    nuxt.options.runtimeConfig.convexDevtoolsPath = devtoolsOutputPath
+
     // Register custom tab in Nuxt DevTools
     addCustomTab({
       name: 'convex',
@@ -357,6 +363,12 @@ async function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResol
     // Add server route to serve DevTools UI
     addServerHandler({
       route: '/__convex_devtools__',
+      handler: resolver.resolve('./runtime/devtools/server'),
+    })
+
+    // Also handle subpaths for assets
+    addServerHandler({
+      route: '/__convex_devtools__/**',
       handler: resolver.resolve('./runtime/devtools/server'),
     })
 

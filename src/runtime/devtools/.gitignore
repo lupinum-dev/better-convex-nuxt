@@ -1,0 +1,4 @@
+# Built devtools output
+.output/
+ui/.nuxt/
+ui/node_modules/

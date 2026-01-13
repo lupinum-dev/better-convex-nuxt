@@ -52,7 +52,8 @@
     }
   },
   "scripts": {
-    "prepack": "nuxt-module-build build",
+    "build:devtools": "nuxi build src/runtime/devtools/ui --preset static",
+    "prepack": "npm run build:devtools && nuxt-module-build build",
     "dev": "npm run dev:prepare && nuxi dev playground",
     "dev:build": "nuxi build playground",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
