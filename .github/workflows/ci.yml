@@ -71,3 +71,6 @@ jobs:
 
       - name: Type check
         run: npm run test:types
+
+      - name: Publish preview release
+        run: npx pkg-pr-new publish --compact --pnpm
