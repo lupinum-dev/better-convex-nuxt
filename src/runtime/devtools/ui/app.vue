@@ -45,9 +45,7 @@ function switchTab(tab: typeof activeTab.value) {
     <header class="header">
       <div class="header-left">
         <div class="logo">
-          <svg class="logo-icon" width="18" height="18" viewBox="0 0 32 32" fill="currentColor">
-            <path d="M16 2L4 9v14l12 7 12-7V9L16 2zm0 2.5l9.5 5.5v11L16 26.5 6.5 21V10L16 4.5z"/>
-          </svg>
+          <img src="/convex-logo.svg" alt="Convex" width="18" height="18" class="logo-icon" />
           Convex DevTools
         </div>
       </div>

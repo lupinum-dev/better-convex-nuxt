@@ -6,13 +6,22 @@ const props = defineProps<{
   waterfall: AuthWaterfall | null
 }>()
 
-// Color mapping for phase results
-const phaseColors: Record<AuthWaterfallPhase['result'], string> = {
-  hit: 'var(--success)',      // Green - cache hit
-  miss: 'var(--warning)',     // Yellow - cache miss
-  success: 'var(--accent)',   // Purple - network/processing success
-  error: 'var(--error)',      // Red - error
-  skipped: 'var(--text-secondary)', // Gray - skipped
+// Color mapping for phase results (fallback for unknown phases)
+const resultColors: Record<AuthWaterfallPhase['result'], string> = {
+  hit: 'var(--success)',
+  miss: 'var(--warning)',
+  success: 'var(--accent)',
+  error: 'var(--error)',
+  skipped: 'var(--text-secondary)',
+}
+
+// Distinct colors for each phase (waterfall style)
+const phaseColors: Record<string, string> = {
+  'session-check': '#3b82f6',   // Blue
+  'cache-lookup': '#06b6d4',    // Cyan
+  'token-exchange': '#f59e0b',  // Amber
+  'jwt-decode': '#10b981',      // Emerald
+  'cache-store': '#ec4899',     // Pink
 }
 
 // Phase display names
@@ -22,6 +31,15 @@ const phaseNames: Record<string, string> = {
   'token-exchange': 'Token Exchange',
   'jwt-decode': 'JWT Decode',
   'cache-store': 'Cache Store',
+}
+
+// Get color for a phase (use phase-specific color, or fall back to result-based)
+const getPhaseColor = (phase: AuthWaterfallPhase): string => {
+  // Skipped and error always use result colors
+  if (phase.result === 'skipped') return resultColors.skipped
+  if (phase.result === 'error') return resultColors.error
+  // Otherwise use phase-specific color
+  return phaseColors[phase.name] || resultColors[phase.result]
 }
 
 const totalDuration = computed(() => {
@@ -37,7 +55,7 @@ const phaseWidths = computed(() => {
     ...phase,
     displayName: phaseNames[phase.name] || phase.name,
     width: Math.max(2, (phase.duration / totalDuration.value) * 100), // Min 2% for visibility
-    color: phaseColors[phase.result],
+    color: getPhaseColor(phase),
   }))
 })
 
