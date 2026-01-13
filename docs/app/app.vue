@@ -26,7 +26,10 @@ useHead({
 useSeoMeta({
   titleTemplate: `%s - ${seo?.siteName}`,
   ogSiteName: seo?.siteName,
-  twitterCard: 'summary_large_image'
+  twitterCard: 'summary_large_image',
+  ogImage: 'https://better-convex-nuxt.vercel.app/og-image.png',
+  twitterImage: 'https://better-convex-nuxt.vercel.app/og-image.png',
+  ogUrl: 'https://better-convex-nuxt.vercel.app/'
 })
 
 const navigationChildren = computed(() => navigation.value?.[0]?.children || [])
