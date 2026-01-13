@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '@@/convex/_generated/api'
 
 definePageMeta({
   middleware: 'auth'
@@ -20,6 +20,9 @@ const { mutate: deleteItem } = useConvexMutation(api.feed.remove)
 const content = ref('')
 const itemType = ref<'message' | 'task' | 'event'>('message')
 
+// Error state
+const error = ref<{ title: string; description: string } | null>(null)
+
 const typeOptions = [
   { value: 'message', label: 'Message', icon: 'i-lucide-message-circle' },
   { value: 'task', label: 'Task', icon: 'i-lucide-check-square' },
@@ -28,13 +31,53 @@ const typeOptions = [
 
 async function submitItem() {
   if (!content.value.trim()) return
+  error.value = null
 
-  await addItem({
-    content: content.value,
-    type: itemType.value
-  })
+  try {
+    await addItem({
+      content: content.value,
+      type: itemType.value
+    })
+    content.value = ''
+  }
+  catch (e: any) {
+    const message = e.message || 'Failed to create post'
+    if (message.includes('Permission denied')) {
+      error.value = {
+        title: 'Permission Denied',
+        description: message.replace('Permission denied: ', '')
+      }
+    }
+    else {
+      error.value = {
+        title: 'Error',
+        description: message
+      }
+    }
+  }
+}
 
-  content.value = ''
+async function handleDelete(itemId: string) {
+  error.value = null
+
+  try {
+    await deleteItem({ id: itemId as any })
+  }
+  catch (e: any) {
+    const message = e.message || 'Failed to delete post'
+    if (message.includes('Permission denied')) {
+      error.value = {
+        title: 'Permission Denied',
+        description: message.replace('Permission denied: ', '')
+      }
+    }
+    else {
+      error.value = {
+        title: 'Error',
+        description: message
+      }
+    }
+  }
 }
 
 const typeIcons: Record<string, string> = {
@@ -44,7 +87,7 @@ const typeIcons: Record<string, string> = {
 }
 
 function canDelete(item: { authorId: string }) {
-  return can('feed.delete', { ownerId: item.authorId })
+  return can('feed.delete', { ownerId: item.authorId }).value
 }
 </script>
 
@@ -57,6 +100,19 @@ function canDelete(item: { authorId: string }) {
         Watch updates appear instantly. Try opening this page in another browser tab!
       </p>
     </div>
+
+    <!-- Error Alert -->
+    <UAlert
+      v-if="error"
+      class="mb-6"
+      icon="i-lucide-alert-circle"
+      color="error"
+      variant="subtle"
+      :title="error.title"
+      :description="error.description"
+      close
+      @update:open="error = null"
+    />
 
     <!-- Tip Alert -->
     <UAlert
@@ -139,11 +195,11 @@ function canDelete(item: { authorId: string }) {
             <UButton
               v-if="canDelete(item)"
               icon="i-lucide-trash-2"
-              color="red"
+              color="error"
               variant="ghost"
               size="sm"
               class="opacity-0 group-hover:opacity-100 transition-opacity"
-              @click="deleteItem({ id: item._id })"
+              @click="handleDelete(item._id)"
             />
           </div>
         </UCard>

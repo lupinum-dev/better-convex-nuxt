@@ -17,12 +17,13 @@ const navigation = [
 
 // Check if current route is in labs section
 const isLabsRoute = computed(() => route.path.startsWith('/labs'))
+const isLoginPage = computed(() => route.path === '/')
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col">
-    <!-- Header -->
-    <UHeader>
+    <!-- Header (hidden on login page) -->
+    <UHeader v-if="!isLoginPage">
       <template #left>
         <NuxtLink to="/" class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
@@ -50,7 +51,7 @@ const isLabsRoute = computed(() => route.path.startsWith('/labs'))
     <div class="flex-1 flex">
       <!-- Sidebar - only show in labs section -->
       <aside
-        v-if="isLabsRoute"
+        v-if="isLabsRoute && !isLoginPage"
         class="w-64 border-r border-default bg-elevated hidden lg:block"
       >
         <div class="p-4 space-y-6">
@@ -91,8 +92,8 @@ const isLabsRoute = computed(() => route.path.startsWith('/labs'))
       </main>
     </div>
 
-    <!-- Footer - only on landing page -->
-    <UFooter v-if="!isLabsRoute">
+    <!-- Footer - hidden on login and labs pages -->
+    <UFooter v-if="!isLabsRoute && !isLoginPage">
       <template #left>
         <p class="text-sm text-muted">
           Built with better-convex-nuxt

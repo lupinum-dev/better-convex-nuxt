@@ -37,11 +37,16 @@ export const add = mutation({
       throw new Error('Not authenticated')
     }
 
-    // Get user for display name
+    // Get user for display name and role check
     const user = await ctx.db
       .query('users')
       .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
       .first()
+
+    // Check permission: viewers cannot create feed items
+    if (user?.role === 'viewer') {
+      throw new Error('Permission denied: Viewers can only read content. Switch to Member, Admin, or Owner role to create posts.')
+    }
 
     const itemId = await ctx.db.insert('feedItems', {
       content: args.content,
@@ -73,17 +78,25 @@ export const remove = mutation({
       throw new Error('Item not found')
     }
 
-    // Check ownership or admin role
+    // Get user role
     const user = await ctx.db
       .query('users')
       .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
       .first()
 
+    // Permission check:
+    // - admin can delete any item
+    // - member can delete own items only
+    // - viewer cannot delete anything
+    const isAdmin = user?.role === 'admin'
     const isOwner = item.authorId === identity.subject
-    const isAdmin = user?.role === 'owner' || user?.role === 'admin'
+    const isMember = user?.role === 'member'
 
-    if (!isOwner && !isAdmin) {
-      throw new Error('Not authorized to delete this item')
+    if (!isAdmin && !(isMember && isOwner)) {
+      if (user?.role === 'viewer') {
+        throw new Error('Permission denied: Viewers cannot delete posts. Switch to a higher role to delete content.')
+      }
+      throw new Error('Permission denied: You can only delete your own posts. Admins can delete any post.')
     }
 
     await ctx.db.delete(args.id)

@@ -35,9 +35,6 @@ export const add = mutation({
       throw new Error('Not authenticated')
     }
 
-    // Add a small delay to make the difference between standard and optimistic more visible
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
     const taskId = await ctx.db.insert('demoTasks', {
       title: args.title,
       completed: false,
@@ -67,9 +64,6 @@ export const toggle = mutation({
       throw new Error('Task not found')
     }
 
-    // Add a small delay
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
     await ctx.db.patch(args.id, {
       completed: !task.completed
     })
@@ -93,9 +87,6 @@ export const remove = mutation({
     if (!task) {
       throw new Error('Task not found')
     }
-
-    // Add a small delay
-    await new Promise((resolve) => setTimeout(resolve, 300))
 
     await ctx.db.delete(args.id)
   }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
-import { ROLE_INFO, ROLES, type Role } from '~/convex/permissions.config'
+import { api } from '@@/convex/_generated/api'
+import { ROLE_INFO, ROLES, type Role } from '@@/convex/permissions.config'
 
 const { user, isLoading, isAuthenticated } = useLabPermissions()
 const { mutate: setRole, status: mutationStatus } = useConvexMutation(api.auth.setOwnRole)

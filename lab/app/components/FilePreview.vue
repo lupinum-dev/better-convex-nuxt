@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
-import type { Id } from '~/convex/_generated/dataModel'
+import { api } from '@@/convex/_generated/api'
+import type { Id } from '@@/convex/_generated/dataModel'
 
 const props = defineProps<{
   storageId: Id<'_storage'>
@@ -23,7 +23,7 @@ const imageUrl = useConvexStorageUrl(api.files.getUrl, storageIdRef)
       v-else
       class="w-full h-full flex items-center justify-center"
     >
-      <USpinner />
+      <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
     </div>
   </div>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '@@/convex/_generated/api'
 import { updateQuery, deleteFromQuery } from '#imports'
 
 definePageMeta({

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '@@/convex/_generated/api'
 
 definePageMeta({
   middleware: 'auth'
@@ -150,7 +150,7 @@ async function addSampleData() {
 
           <!-- Intersection observer target -->
           <div ref="loadMoreRef" class="py-4 text-center">
-            <USpinner v-if="infiniteStatus === 'LoadingMore' || infiniteLoading" />
+            <UIcon v-if="infiniteStatus === 'LoadingMore' || infiniteLoading" name="i-lucide-loader-circle" class="size-5 animate-spin" />
             <p v-else-if="infiniteStatus === 'Exhausted'" class="text-muted text-sm">
               No more messages
             </p>
@@ -202,7 +202,7 @@ async function addSampleData() {
             Load More
           </UButton>
           <p v-else-if="buttonStatus === 'LoadingMore'" class="text-muted">
-            <USpinner class="mr-2" /> Loading...
+            <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin mr-2 inline" /> Loading...
           </p>
           <p v-else-if="buttonStatus === 'Exhausted'" class="text-muted text-sm">
             All messages loaded

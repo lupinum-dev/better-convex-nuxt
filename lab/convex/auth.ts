@@ -137,7 +137,6 @@ export const getPermissionContext = query({
 export const setOwnRole = mutation({
   args: {
     role: v.union(
-      v.literal('owner'),
       v.literal('admin'),
       v.literal('member'),
       v.literal('viewer')

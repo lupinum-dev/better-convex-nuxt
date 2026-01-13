@@ -2,13 +2,12 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 const roleValidator = v.union(
-  v.literal('owner'),
   v.literal('admin'),
   v.literal('member'),
   v.literal('viewer')
 )
 
-export const roleValues = ['owner', 'admin', 'member', 'viewer'] as const
+export const roleValues = ['admin', 'member', 'viewer'] as const
 export type Role = (typeof roleValues)[number]
 
 export default defineSchema({

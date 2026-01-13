@@ -5,21 +5,15 @@
  * Users can change their own role to see how permissions affect the UI.
  */
 
-export const ROLES = ['owner', 'admin', 'member', 'viewer'] as const
+export const ROLES = ['admin', 'member', 'viewer'] as const
 export type Role = (typeof ROLES)[number]
 
 export const ROLE_INFO: Record<Role, { label: string; icon: string; color: string; description: string }> = {
-  owner: {
-    label: 'Owner',
-    icon: 'i-lucide-crown',
-    color: 'amber',
-    description: 'Full access to everything'
-  },
   admin: {
     label: 'Admin',
     icon: 'i-lucide-shield',
     color: 'blue',
-    description: 'Manage content and users'
+    description: 'Full access to everything'
   },
   member: {
     label: 'Member',
@@ -45,25 +39,25 @@ export const ROLE_INFO: Record<Role, { label: string; icon: string; color: strin
 export const permissions = {
   // Global permissions
   global: {
-    'admin.settings': { roles: ['owner', 'admin'] as const },
-    'view.all': { roles: ['owner', 'admin', 'member', 'viewer'] as const }
+    'admin.settings': { roles: ['admin'] as const },
+    'view.all': { roles: ['admin', 'member', 'viewer'] as const }
   },
   // Feed permissions
   feed: {
-    create: { roles: ['owner', 'admin', 'member'] as const },
-    read: { roles: ['owner', 'admin', 'member', 'viewer'] as const },
-    delete: { own: ['member'] as const, any: ['owner', 'admin'] as const }
+    create: { roles: ['admin', 'member'] as const },
+    read: { roles: ['admin', 'member', 'viewer'] as const },
+    delete: { own: ['member'] as const, any: ['admin'] as const }
   },
   // Task permissions
   task: {
-    create: { roles: ['owner', 'admin', 'member'] as const },
-    update: { own: ['member', 'viewer'] as const, any: ['owner', 'admin'] as const },
-    delete: { own: ['member'] as const, any: ['owner', 'admin'] as const }
+    create: { roles: ['admin', 'member'] as const },
+    update: { own: ['member', 'viewer'] as const, any: ['admin'] as const },
+    delete: { own: ['member'] as const, any: ['admin'] as const }
   },
   // File permissions
   file: {
-    upload: { roles: ['owner', 'admin', 'member'] as const },
-    delete: { own: ['member'] as const, any: ['owner', 'admin'] as const }
+    upload: { roles: ['admin', 'member'] as const },
+    delete: { own: ['member'] as const, any: ['admin'] as const }
   }
 } as const
 

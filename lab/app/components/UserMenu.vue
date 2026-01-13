@@ -3,6 +3,10 @@ const { user, isAuthenticated, isPending } = useConvexAuth()
 const authClient = useAuthClient()
 const router = useRouter()
 
+// Access the auth state directly to clear it on signout
+const convexToken = useState<string | null>('convex:token')
+const convexUser = useState<unknown>('convex:user')
+
 const isSigningOut = ref(false)
 
 async function signOut() {
@@ -11,6 +15,9 @@ async function signOut() {
   isSigningOut.value = true
   try {
     await authClient.signOut()
+    // Clear local auth state immediately (cookies are already cleared)
+    convexToken.value = null
+    convexUser.value = null
     router.push('/')
   } finally {
     isSigningOut.value = false

@@ -3,7 +3,7 @@
  *
  * Redirects unauthenticated users to sign-in page.
  */
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(() => {
   const { isAuthenticated, isPending } = useConvexAuth()
 
   // Wait for auth to load
@@ -11,11 +11,8 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  // Redirect to sign-in if not authenticated
+  // Redirect to login if not authenticated
   if (!isAuthenticated.value) {
-    return navigateTo({
-      path: '/auth/signin',
-      query: { redirect: to.fullPath }
-    })
+    return navigateTo('/')
   }
 })

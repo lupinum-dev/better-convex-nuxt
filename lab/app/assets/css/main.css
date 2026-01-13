@@ -4,15 +4,42 @@
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
 
-  --color-green-50: #EFFDF5;
-  --color-green-100: #D9FBE8;
-  --color-green-200: #B3F5D1;
-  --color-green-300: #75EDAE;
-  --color-green-400: #00DC82;
-  --color-green-500: #00C16A;
-  --color-green-600: #00A155;
-  --color-green-700: #007F45;
-  --color-green-800: #016538;
-  --color-green-900: #0A5331;
-  --color-green-950: #052E16;
+  /* Convex Red */
+  --color-convex-red-50: #fdebea;
+  --color-convex-red-100: #fcd6d5;
+  --color-convex-red-200: #f8aeac;
+  --color-convex-red-300: #f58582;
+  --color-convex-red-400: #f15d59;
+  --color-convex-red-500: #ee342f;
+  --color-convex-red-600: #be2a26;
+  --color-convex-red-700: #8f1f1c;
+  --color-convex-red-800: #5f1513;
+  --color-convex-red-900: #300a09;
+  --color-convex-red-950: #1a0504;
+
+  /* Convex Yellow - warm amber accent */
+  --color-convex-yellow-50: #fef7e8;
+  --color-convex-yellow-100: #fdefd2;
+  --color-convex-yellow-200: #fadfa4;
+  --color-convex-yellow-300: #f8d077;
+  --color-convex-yellow-400: #f5c049;
+  --color-convex-yellow-500: #f3b01c;
+  --color-convex-yellow-600: #c28d16;
+  --color-convex-yellow-700: #926a11;
+  --color-convex-yellow-800: #61460b;
+  --color-convex-yellow-900: #312306;
+  --color-convex-yellow-950: #191203;
+
+  /* Convex Purple - primary brand color */
+  --color-convex-purple-50: #f9f0f6;
+  --color-convex-purple-100: #f4e9f1;
+  --color-convex-purple-200: #e8d4e4;
+  --color-convex-purple-300: #d1a8c8;
+  --color-convex-purple-400: #bb7dad;
+  --color-convex-purple-500: #a45191;
+  --color-convex-purple-600: #8d2676;
+  --color-convex-purple-700: #711e5e;
+  --color-convex-purple-800: #551747;
+  --color-convex-purple-900: #380f2f;
+  --color-convex-purple-950: #1c0818;
 }

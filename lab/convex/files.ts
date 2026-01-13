@@ -104,7 +104,7 @@ export const remove = mutation({
       .first()
 
     const isOwner = file.uploadedBy === identity.subject
-    const isAdmin = user?.role === 'owner' || user?.role === 'admin'
+    const isAdmin = user?.role === 'admin'
 
     if (!isOwner && !isAdmin) {
       throw new Error('Not authorized to delete this file')

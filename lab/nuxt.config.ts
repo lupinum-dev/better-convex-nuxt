@@ -15,19 +15,16 @@ export default defineNuxtConfig({
   // Convex module configuration
   convex: {
     url: process.env.CONVEX_URL,
-    siteUrl: process.env.SITE_URL,
+    // siteUrl auto-derives from CONVEX_URL (.convex.cloud -> .convex.site)
+    // Do NOT set it to localhost - that causes self-request deadlock!
     permissions: true,
-    skipAuthRoutes: ['/', '/auth/**'],
     logging: {
-      enabled: 'debug',
+      enabled: true,
       format: 'pretty'
     }
   },
 
-  routeRules: {
-    '/': { prerender: true },
-    '/labs/**': { ssr: false } // CSR-only for auth-protected labs
-  },
+
 
   compatibilityDate: '2025-01-15',
 
