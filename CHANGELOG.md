@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.3
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.2...v0.2.3)
+
+### 🚀 Enhancements
+
+- Add favicons for demo and docs ([3d981dd](https://github.com/lupinum-dev/better-convex-nuxt/commit/3d981dd))
+- Add demo link to app configuration ([83182aa](https://github.com/lupinum-dev/better-convex-nuxt/commit/83182aa))
+- Add og images ([eb1a604](https://github.com/lupinum-dev/better-convex-nuxt/commit/eb1a604))
+- Refactor site URL configuration for better flexibility ([d6fd6de](https://github.com/lupinum-dev/better-convex-nuxt/commit/d6fd6de))
+- Enhance SEO metadata for better social sharing ([5893d0f](https://github.com/lupinum-dev/better-convex-nuxt/commit/5893d0f))
+- Add external links to GitHub and documentation in the layout ([b4d6318](https://github.com/lupinum-dev/better-convex-nuxt/commit/b4d6318))
+- Update favicons and web app manifest for demo and docs ([1074129](https://github.com/lupinum-dev/better-convex-nuxt/commit/1074129))
+
+### 🩹 Fixes
+
+- Update demo site URL in configuration files ([3e0e53a](https://github.com/lupinum-dev/better-convex-nuxt/commit/3e0e53a))
+- Update devtools output path in module configuration ([60d3778](https://github.com/lupinum-dev/better-convex-nuxt/commit/60d3778))
+
+### 💅 Refactors
+
+- Standardize site URL handling and update SEO metadata for social sharing ([db38392](https://github.com/lupinum-dev/better-convex-nuxt/commit/db38392))
+
+### 🏡 Chore
+
+- **release:** V0.2.2 ([49fe1ae](https://github.com/lupinum-dev/better-convex-nuxt/commit/49fe1ae))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.2
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.1...v0.2.2)
