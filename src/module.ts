@@ -338,7 +338,7 @@ export {}
  */
 function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResolver>): void {
   // Compute the absolute path to devtools output at module setup time
-  const devtoolsOutputPath = resolver.resolve('./runtime/devtools/.output/public')
+  const devtoolsOutputPath = resolver.resolve('./runtime/devtools/ui/dist')
 
   // Store the path in runtime config for server handler access
   nuxt.options.runtimeConfig.convexDevtoolsPath = devtoolsOutputPath
