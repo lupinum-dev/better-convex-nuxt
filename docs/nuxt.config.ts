@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+const siteUrl = process.env.SITE_URL || 'https://better-convex-nuxt.vercel.app/'
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
@@ -19,7 +21,7 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  site: { url: 'https://better-convex-nuxt.vercel.app/', name: 'Better Convex Nuxt' },
+  site: { url: siteUrl, name: 'Better Convex Nuxt' },
   content: {
     build: {
       markdown: {
@@ -50,12 +52,12 @@ export default defineNuxtConfig({
         { property: 'og:site_name', content: 'Better Convex Nuxt' },
         { property: 'og:title', content: 'Real-time Nuxt apps with Convex.' },
         { property: 'og:description', content: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.' },
-        { property: 'og:image', content: 'https://better-convex-nuxt.vercel.app/og-image.png' },
-        { property: 'og:url', content: 'https://better-convex-nuxt.vercel.app/' },
+        { property: 'og:image', content: `${siteUrl}og-image.png` },
+        { property: 'og:url', content: siteUrl },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:title', content: 'Real-time Nuxt apps with Convex.' },
         { name: 'twitter:description', content: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.' },
-        { name: 'twitter:image', content: 'https://better-convex-nuxt.vercel.app/og-image.png' }
+        { name: 'twitter:image', content: `${siteUrl}og-image.png` }
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/favicon-96x96.png', sizes: '96x96' },
@@ -111,7 +113,7 @@ export default defineNuxtConfig({
   },
 
   llms: {
-    domain: 'https://better-convex-nuxt.vercel.app/',
+    domain: siteUrl,
     title: 'Better Convex Nuxt',
     description:
       'Nuxt module for Convex with Better Auth - real-time queries, SSR, authentication, and fine-grained permissions.',
