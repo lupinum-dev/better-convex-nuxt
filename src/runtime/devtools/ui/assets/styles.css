@@ -1,58 +1,78 @@
-/* Dark mode (default) */
+/* Convex Purple Color Palette */
 :root {
-  --bg: #1e1e1e;
-  --bg-secondary: #252526;
-  --bg-tertiary: #1a1a1a;
-  --bg-hover: #2a2d2e;
-  --border: #3c3c3c;
-  --text: #cccccc;
-  --text-secondary: #8b8b8b;
-  --accent: #ee8944;
-  --accent-hover: #f59e0b;
-  --success: #4ade80;
-  --success-bg: rgba(74, 222, 128, 0.15);
-  --error: #f87171;
-  --error-bg: rgba(248, 113, 113, 0.15);
-  --warning: #fbbf24;
-  --warning-bg: rgba(251, 191, 36, 0.15);
-  --info: #60a5fa;
-  --info-bg: rgba(96, 165, 250, 0.15);
-  --scrollbar-bg: #1e1e1e;
-  --scrollbar-thumb: #424242;
-  --json-key: #9cdcfe;
-  --json-string: #ce9178;
-  --json-number: #b5cea8;
-  --json-boolean: #569cd6;
-  --json-null: #569cd6;
+  --color-convex-purple-50: #f4e9f1;
+  --color-convex-purple-100: #e8d4e4;
+  --color-convex-purple-200: #d1a8c8;
+  --color-convex-purple-300: #bb7dad;
+  --color-convex-purple-400: #a45191;
+  --color-convex-purple-500: #8d2676;
+  --color-convex-purple-600: #711e5e;
+  --color-convex-purple-700: #551747;
+  --color-convex-purple-800: #380f2f;
+  --color-convex-purple-900: #1c0818;
 }
 
-/* Light mode */
-@media (prefers-color-scheme: light) {
+/* Light mode (default) */
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --bg-hover: #f3f4f6;
+  --border: rgba(156, 163, 175, 0.2);
+  --border-solid: #e5e7eb;
+  --text: #1f2937;
+  --text-secondary: #6b7280;
+  --accent: var(--color-convex-purple-500);
+  --accent-hover: var(--color-convex-purple-600);
+  --accent-light: var(--color-convex-purple-50);
+  --success: #16a34a;
+  --success-bg: rgba(22, 163, 74, 0.1);
+  --error: #dc2626;
+  --error-bg: rgba(220, 38, 38, 0.1);
+  --warning: #ca8a04;
+  --warning-bg: rgba(202, 138, 4, 0.1);
+  --info: #2563eb;
+  --info-bg: rgba(37, 99, 235, 0.1);
+  --scrollbar-bg: #f5f5f5;
+  --scrollbar-thumb: #d1d5db;
+  --json-key: #0451a5;
+  --json-string: #a31515;
+  --json-number: #098658;
+  --json-boolean: #0000ff;
+  --json-null: #6b7280;
+  --card-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
   :root {
-    --bg: #ffffff;
-    --bg-secondary: #f5f5f5;
-    --bg-tertiary: #fafafa;
-    --bg-hover: #ebebeb;
-    --border: #e0e0e0;
-    --text: #1f1f1f;
-    --text-secondary: #6b6b6b;
-    --accent: #d97706;
-    --accent-hover: #b45309;
-    --success: #16a34a;
-    --success-bg: rgba(22, 163, 74, 0.1);
-    --error: #dc2626;
-    --error-bg: rgba(220, 38, 38, 0.1);
-    --warning: #ca8a04;
-    --warning-bg: rgba(202, 138, 4, 0.1);
-    --info: #2563eb;
-    --info-bg: rgba(37, 99, 235, 0.1);
-    --scrollbar-bg: #f5f5f5;
-    --scrollbar-thumb: #c4c4c4;
-    --json-key: #0451a5;
-    --json-string: #a31515;
-    --json-number: #098658;
-    --json-boolean: #0000ff;
-    --json-null: #0000ff;
+    --bg: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #1a1a1a;
+    --bg-hover: #2a2d2e;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-solid: #3c3c3c;
+    --text: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --accent: var(--color-convex-purple-400);
+    --accent-hover: var(--color-convex-purple-300);
+    --accent-light: var(--color-convex-purple-900);
+    --success: #4ade80;
+    --success-bg: rgba(74, 222, 128, 0.15);
+    --error: #f87171;
+    --error-bg: rgba(248, 113, 113, 0.15);
+    --warning: #fbbf24;
+    --warning-bg: rgba(251, 191, 36, 0.15);
+    --info: #60a5fa;
+    --info-bg: rgba(96, 165, 250, 0.15);
+    --scrollbar-bg: #1e1e1e;
+    --scrollbar-thumb: #424242;
+    --json-key: #9cdcfe;
+    --json-string: #ce9178;
+    --json-number: #b5cea8;
+    --json-boolean: #569cd6;
+    --json-null: #6b7280;
+    --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -92,7 +112,7 @@ body {
   justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
+  background: var(--bg);
   flex-shrink: 0;
 }
 
@@ -146,7 +166,7 @@ body {
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
+  background: var(--bg);
   flex-shrink: 0;
   overflow-x: auto;
 }
@@ -178,7 +198,7 @@ body {
 .tab-badge {
   margin-left: 6px;
   padding: 1px 6px;
-  background: var(--bg-hover);
+  background: var(--bg-tertiary);
   border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
@@ -214,12 +234,13 @@ body {
   border-right: 1px solid var(--border);
   overflow-y: auto;
   flex-shrink: 0;
+  background: var(--bg);
 }
 
 .detail-panel {
   flex: 1;
   overflow-y: auto;
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
 }
 
 /* List Items */
@@ -235,7 +256,7 @@ body {
 }
 
 .list-item.selected {
-  background: var(--bg-hover);
+  background: var(--accent-light);
   border-left: 3px solid var(--accent);
   padding-left: 11px;
 }
@@ -278,6 +299,14 @@ body {
 .badge.error { background: var(--error-bg); color: var(--error); }
 .badge.pending { background: var(--warning-bg); color: var(--warning); }
 .badge.optimistic { background: var(--info-bg); color: var(--info); }
+
+/* Card Base Style */
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--card-shadow);
+}
 
 /* Detail Sections */
 .detail-section {
@@ -327,6 +356,7 @@ body {
   white-space: pre-wrap;
   word-break: break-all;
   border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
 }
 
 .json-key { color: var(--json-key); }
@@ -428,9 +458,10 @@ body {
 .auth-card {
   padding: 20px;
   margin: 16px;
-  background: var(--bg-secondary);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
+  box-shadow: var(--card-shadow);
 }
 
 .auth-user {
@@ -487,8 +518,9 @@ body {
   gap: 16px;
   margin-bottom: 16px;
   padding: 12px;
-  background: var(--bg);
+  background: var(--bg-secondary);
   border-radius: 6px;
+  border: 1px solid var(--border);
 }
 
 .token-stat {
@@ -572,8 +604,8 @@ body {
 .btn:hover { background: var(--accent-hover); }
 
 .btn-secondary {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  background: var(--bg);
+  border: 1px solid var(--border-solid);
   color: var(--text);
 }
 
@@ -614,7 +646,7 @@ body {
 .spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--border);
+  border: 2px solid var(--border-solid);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -629,6 +661,7 @@ body {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+  background: var(--bg);
 }
 
 /* Responsive */
