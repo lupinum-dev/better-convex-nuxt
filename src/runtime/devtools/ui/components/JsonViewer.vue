@@ -55,9 +55,11 @@ const formattedJson = computed(() => {
 </script>
 
 <template>
+  <!-- eslint-disable vue/no-v-html -- Safe: all dynamic content is escaped via escapeHtml() -->
   <div
     class="json-viewer"
     :style="{ maxHeight: maxHeight || '200px' }"
     v-html="formattedJson"
   />
+  <!-- eslint-enable vue/no-v-html -->
 </template>
