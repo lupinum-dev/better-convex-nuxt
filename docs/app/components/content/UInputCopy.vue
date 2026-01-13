@@ -1,14 +1,11 @@
 <script setup lang="ts">
-defineProps({
-  value: {
-    type: String,
-    required: true
-  },
-  size: {
-    type: String,
-    default: 'lg'
-  }
+const props = withDefaults(defineProps<{
+  value: string
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+}>(), {
+  size: 'lg'
 })
+
 const { copy, copied } = useClipboard()
 </script>
 
@@ -18,13 +15,11 @@ const { copy, copied } = useClipboard()
       :model-value="value"
       :size="size"
       disabled
-      :ui="{ trailing: 'pe-1' }"
+      :ui="{ 
+        base: 'disabled:cursor-default',
+        trailing: 'pe-1' 
+      }"
     >
-      <div
-        class="absolute inset-0"
-        :class="[copied ? 'cursor-default' : 'cursor-copy']"
-        @click="copy(value)"
-      />
       <template #trailing>
         <UButton
           :icon="copied ? 'i-lucide-check' : 'i-lucide-copy'"

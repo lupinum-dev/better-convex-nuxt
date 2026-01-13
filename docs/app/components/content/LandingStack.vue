@@ -1,16 +1,17 @@
 <script lang="ts" setup>
 const stack = [
-  {
-    name: 'Convex',
-    icon: '/icons/convex.svg',
-    role: 'Reactive Backend'
-  },
-  {
+{
     name: 'Better Auth',
     iconLight: '/icons/better-auth-logo-light.svg',
     iconDark: '/icons/better-auth-logo-dark.svg',
     role: 'Authentication'
   },
+  {
+    name: 'Convex',
+    icon: '/icons/convex.svg',
+    role: 'Reactive Backend'
+  },
+
   {
     name: 'Nuxt',
     icon: '/icons/nuxt.svg',

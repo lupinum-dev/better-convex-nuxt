@@ -72,4 +72,5 @@
 /* Fix buttons inside MDC slots */
 [data-slot='base'] > p {
   margin: 0;
+  line-height: inherit;
 }

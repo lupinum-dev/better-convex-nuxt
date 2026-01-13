@@ -133,12 +133,15 @@ const { data: post } = useConvexQuery(api.posts.get, { id: props.id });
 ::
 ::
 
+::landing-stack 
+::
+
 ::u-container
 :::div{class="text-center mb-12 xl:mb-16"}
-::::u-text{class="text-3xl xl:text-4xl font-bold text-highlighted mb-3"}
+::::h2{class="text-3xl xl:text-4xl font-bold text-highlighted mb-3"}
 Everything You Need
 ::::
-::::u-text{class="text-lg text-muted max-w-xl mx-auto"}
+::::p{class="text-lg text-muted max-w-xl mx-auto"}
 Built-in features for building production-ready apps
 ::::
 :::
