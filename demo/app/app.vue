@@ -19,12 +19,18 @@ const siteUrl = useAppConfig().site?.url || process.env.SITE_URL || 'https://bet
 useSeoMeta({
   title,
   description,
+  ogType: 'website',
+  ogSiteName: 'Better Convex Nuxt',
   ogTitle: title,
   ogDescription: description,
-  twitterCard: 'summary_large_image',
   ogImage: `${siteUrl}og-image.png`,
-  twitterImage: `${siteUrl}og-image.png`,
-  ogUrl: siteUrl
+  ogImageWidth: '1200',
+  ogImageHeight: '630',
+  ogUrl: siteUrl,
+  twitterCard: 'summary_large_image',
+  twitterTitle: title,
+  twitterDescription: description,
+  twitterImage: `${siteUrl}og-image.png`
 })
 </script>
 
