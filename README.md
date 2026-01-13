@@ -32,14 +32,6 @@ Install the module:
 pnpm add better-convex-nuxt
 ```
 
-Add your Convex URL to `.env`:
-
-```bash
-CONVEX_URL=https://your-project.convex.cloud
-```
-
-That's it! Start using Convex in your Nuxt app.
-
 ## Usage
 
 ### Queries
