@@ -1,5 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-const siteUrl = process.env.SITE_URL || 'https://demo.better-convex-nuxt.vercel.app/'
+const siteUrl = process.env.SITE_URL || 'https://better-convex-nuxt-demo.vercel.app/'
 
 export default defineNuxtConfig({
   modules: [
