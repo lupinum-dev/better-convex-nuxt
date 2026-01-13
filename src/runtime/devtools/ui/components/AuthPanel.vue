@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { EnhancedAuthState } from '../../types'
+import type { EnhancedAuthState, AuthWaterfall } from '../../types'
 import JsonViewer from './JsonViewer.vue'
+import AuthWaterfallComponent from './AuthWaterfall.vue'
 
 const props = defineProps<{
   authState: EnhancedAuthState | null
+  waterfall?: AuthWaterfall | null
 }>()
 
 const user = computed(() => props.authState?.user || {})
@@ -61,6 +63,12 @@ const expirationDisplay = computed(() => {
         <div class="detail-title">JWT Claims</div>
         <JsonViewer :data="authState.claims" max-height="300px" />
       </div>
+    </div>
+
+    <!-- SSR Auth Waterfall (shown for all states when data available) -->
+    <div v-if="waterfall" class="auth-card">
+      <div class="detail-title">SSR Auth Waterfall</div>
+      <AuthWaterfallComponent :waterfall="waterfall" />
     </div>
   </div>
 </template>

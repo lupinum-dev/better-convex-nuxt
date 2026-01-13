@@ -15,10 +15,32 @@ import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logg
 import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
 import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cache'
 import type { ConvexUser } from './utils/types'
+import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
 import { getCookie } from './utils/shared-helpers'
 
 /** Session cookie name used by Better Auth */
 const SESSION_COOKIE_NAME = 'better-auth.session_token'
+
+/**
+ * Helper to build a waterfall phase entry
+ */
+function buildPhase(
+  name: string,
+  startTime: number,
+  waterfallStart: number,
+  result: AuthWaterfallPhase['result'],
+  details?: string,
+): AuthWaterfallPhase {
+  const end = Date.now()
+  return {
+    name,
+    start: startTime - waterfallStart,
+    end: end - waterfallStart,
+    duration: end - startTime,
+    result,
+    details,
+  }
+}
 
 /**
  * Decode user info from JWT payload
@@ -83,13 +105,32 @@ export default defineNuxtPlugin(async () => {
   // Initialize useState for hydration (must be done even if unauthenticated)
   const convexToken = useState<string | null>('convex:token', () => null)
   const convexUser = useState<ConvexUser | null>('convex:user', () => null)
+  const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
 
-  // Get all cookies to forward
+  // Waterfall tracking
+  const waterfallStart = Date.now()
+  const phases: AuthWaterfallPhase[] = []
+  let cacheHit = false
+
+  // Phase 1: Session Check
+  const sessionCheckStart = Date.now()
   const cookieHeader = event.headers.get('cookie')
   const sessionToken = getCookie(cookieHeader, SESSION_COOKIE_NAME)
 
   // Check if we have a session cookie
   if (!cookieHeader || !sessionToken) {
+    phases.push(buildPhase('session-check', sessionCheckStart, waterfallStart, 'miss', 'No session cookie'))
+
+    // Store waterfall even for unauthenticated requests
+    convexAuthWaterfall.value = {
+      requestId: crypto.randomUUID(),
+      timestamp: waterfallStart,
+      phases,
+      totalDuration: Date.now() - waterfallStart,
+      outcome: 'unauthenticated',
+      cacheHit: false,
+    }
+
     logger.event({
       event: 'plugin:init',
       env: 'server',
@@ -100,6 +141,8 @@ export default defineNuxtPlugin(async () => {
     return
   }
 
+  phases.push(buildPhase('session-check', sessionCheckStart, waterfallStart, 'success', 'Cookie found'))
+
   // Get auth cache config
   const authCacheConfig = (config.public.convex as { authCache?: { enabled: boolean; ttl: number } })
     ?.authCache
@@ -107,13 +150,30 @@ export default defineNuxtPlugin(async () => {
   try {
     let token: string | null = null
 
-    // Try cache first if enabled and we have a session token
+    // Phase 2: Cache Lookup (if enabled)
     if (authCacheConfig?.enabled && sessionToken) {
+      const cacheStart = Date.now()
       token = await getCachedAuthToken(sessionToken)
       if (token) {
         // Cache hit - use cached token
+        cacheHit = true
+        phases.push(buildPhase('cache-lookup', cacheStart, waterfallStart, 'hit', 'Token from cache'))
+
+        // Phase 3: JWT Decode (from cache)
+        const decodeStart = Date.now()
         convexToken.value = token
         convexUser.value = decodeUserFromJwt(token)
+        phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, convexUser.value ? 'success' : 'error'))
+
+        // Store waterfall
+        convexAuthWaterfall.value = {
+          requestId: crypto.randomUUID(),
+          timestamp: waterfallStart,
+          phases,
+          totalDuration: Date.now() - waterfallStart,
+          outcome: 'authenticated',
+          cacheHit: true,
+        }
 
         logger.event({
           event: 'auth:change',
@@ -132,20 +192,34 @@ export default defineNuxtPlugin(async () => {
           outcome: 'success',
         } satisfies PluginInitEvent)
         return
+      } else {
+        phases.push(buildPhase('cache-lookup', cacheStart, waterfallStart, 'miss', 'Cache miss'))
       }
+    } else if (authCacheConfig?.enabled === false) {
+      // Cache explicitly disabled
+      phases.push({
+        name: 'cache-lookup',
+        start: 0,
+        end: 0,
+        duration: 0,
+        result: 'skipped',
+        details: 'Cache disabled',
+      })
     }
 
-    // Cache miss or caching disabled - fetch from auth server
+    // Phase 3: Token Exchange (cache miss or caching disabled)
+    const exchangeStart = Date.now()
     const tokenResponse = await $fetch<{ token?: string }>(`${siteUrl}/api/auth/convex/token`, {
       headers: { Cookie: cookieHeader },
     }).catch(() => null)
 
-    // Set token if available
     if (tokenResponse?.token) {
+      phases.push(buildPhase('token-exchange', exchangeStart, waterfallStart, 'success', `${siteUrl}/api/auth/convex/token`))
       token = tokenResponse.token
       convexToken.value = token
 
-      // Decode user from JWT
+      // Phase 4: JWT Decode
+      const decodeStart = Date.now()
       convexUser.value = decodeUserFromJwt(token)
 
       // If decode failed, fallback to session endpoint
@@ -157,12 +231,17 @@ export default defineNuxtPlugin(async () => {
         if (sessionResponse?.user) {
           convexUser.value = sessionResponse.user
         }
+        phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, 'success', 'Fallback to session endpoint'))
+      } else {
+        phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, 'success'))
       }
 
-      // Cache the token if caching is enabled
+      // Phase 5: Cache Store (if caching is enabled)
       if (authCacheConfig?.enabled && sessionToken && token) {
+        const storeStart = Date.now()
         const ttl = authCacheConfig.ttl ?? 900
         await setCachedAuthToken(sessionToken, token, ttl)
+        phases.push(buildPhase('cache-store', storeStart, waterfallStart, 'success', `TTL: ${ttl}s`))
       }
 
       // Log successful auth
@@ -174,6 +253,18 @@ export default defineNuxtPlugin(async () => {
         trigger: 'init',
         user_id: convexUser.value?.id?.slice(0, 8),
       } satisfies AuthChangeEvent)
+    } else {
+      phases.push(buildPhase('token-exchange', exchangeStart, waterfallStart, 'error', 'No token returned'))
+    }
+
+    // Store waterfall
+    convexAuthWaterfall.value = {
+      requestId: crypto.randomUUID(),
+      timestamp: waterfallStart,
+      phases,
+      totalDuration: Date.now() - waterfallStart,
+      outcome: convexToken.value ? 'authenticated' : 'unauthenticated',
+      cacheHit,
     }
 
     logger.event({
@@ -187,6 +278,17 @@ export default defineNuxtPlugin(async () => {
     // Token exchange failed - session may be invalid/expired
     convexToken.value = null
     convexUser.value = null
+
+    // Store waterfall with error
+    convexAuthWaterfall.value = {
+      requestId: crypto.randomUUID(),
+      timestamp: waterfallStart,
+      phases,
+      totalDuration: Date.now() - waterfallStart,
+      outcome: 'error',
+      cacheHit: false,
+      error: error instanceof Error ? error.message : 'Token exchange failed',
+    }
 
     logger.event({
       event: 'plugin:init',

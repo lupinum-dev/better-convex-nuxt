@@ -11,7 +11,7 @@ import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logg
 import { matchesSkipRoute } from './utils/route-matcher'
 import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
 import type { Ref } from 'vue'
-import type { ConvexDevToolsBridge, ConvexUser, JWTClaims, EnhancedAuthState, AuthState } from './devtools/types'
+import type { ConvexDevToolsBridge, ConvexUser, JWTClaims, EnhancedAuthState, AuthState, AuthWaterfall } from './devtools/types'
 
 interface TokenResponse {
   data?: { token: string } | null
@@ -93,6 +93,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   // SSR-hydrated auth state
   const convexToken = useState<string | null>('convex:token')
   const convexUser = useState<unknown>('convex:user')
+  const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall')
 
   // Track auth state for logging
   let currentAuthState: 'loading' | 'authenticated' | 'unauthenticated' = convexToken.value
@@ -213,7 +214,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
     // Setup DevTools bridge in dev mode
     if (import.meta.dev) {
-      setupDevToolsBridge(client, convexUrl, convexToken, convexUser)
+      setupDevToolsBridge(client, convexUrl, convexToken, convexUser, convexAuthWaterfall)
     }
   }
 
@@ -254,6 +255,7 @@ async function setupDevToolsBridge(
   convexUrl: string,
   convexToken: Ref<string | null>,
   convexUser: Ref<unknown>,
+  convexAuthWaterfall: Ref<AuthWaterfall | null>,
 ): Promise<void> {
   // Dynamically import DevTools modules to avoid bundling in production
   const [queryRegistry, eventBuffer, mutationRegistry] = await Promise.all([
@@ -363,6 +365,14 @@ async function setupDevToolsBridge(
         connectionRetries: 0, // Not exposed by Convex client
         inflightRequests: state.hasInflightRequests ? 1 : 0, // Simplified
       }
+    },
+
+    getAuthWaterfall: (): AuthWaterfall | null => {
+      // Return the SSR auth waterfall timing data (hydrated from server)
+      const waterfall = convexAuthWaterfall.value
+      if (!waterfall) return null
+      // Create a plain object copy to avoid proxy cloning issues
+      return JSON.parse(JSON.stringify(toRaw(waterfall)))
     },
 
     getEvents: () => eventBuffer.getEventBuffer(),

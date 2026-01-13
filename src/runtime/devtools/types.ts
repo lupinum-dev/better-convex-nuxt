@@ -98,6 +98,44 @@ export interface ConnectionState {
 }
 
 // ============================================================================
+// Auth Waterfall Types (SSR Performance Debugging)
+// ============================================================================
+
+export type WaterfallPhaseResult = 'hit' | 'miss' | 'success' | 'error' | 'skipped'
+
+export interface AuthWaterfallPhase {
+  /** Phase name (e.g., "session-check", "cache-lookup", "token-exchange") */
+  name: string
+  /** Start time relative to waterfall start (ms) */
+  start: number
+  /** End time relative to waterfall start (ms) */
+  end: number
+  /** Duration in ms */
+  duration: number
+  /** Result of this phase */
+  result: WaterfallPhaseResult
+  /** Optional details (e.g., cache key, status code) */
+  details?: string
+}
+
+export interface AuthWaterfall {
+  /** Unique request identifier */
+  requestId: string
+  /** Timestamp when this waterfall was captured */
+  timestamp: number
+  /** Ordered list of phases in the auth flow */
+  phases: AuthWaterfallPhase[]
+  /** Total duration of all phases (ms) */
+  totalDuration: number
+  /** Final outcome of the auth check */
+  outcome: 'authenticated' | 'unauthenticated' | 'error'
+  /** Whether the auth token was served from cache */
+  cacheHit: boolean
+  /** Error message if outcome is 'error' */
+  error?: string
+}
+
+// ============================================================================
 // DevTools Bridge Interface
 // ============================================================================
 
@@ -118,6 +156,8 @@ export interface ConvexDevToolsBridge {
   getEnhancedAuthState: () => EnhancedAuthState
   /** Get connection state */
   getConnectionState: () => ConnectionState
+  /** Get the most recent auth waterfall (SSR timing data) */
+  getAuthWaterfall: () => AuthWaterfall | null
   /** Get recent events from buffer */
   getEvents: () => LogEvent[]
   /** Subscribe to real-time events */
