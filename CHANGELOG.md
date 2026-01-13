@@ -2,6 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.1
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.0...v0.2.1)
+
+### 🚀 Enhancements
+
+- Implement CSR-only mode and auth skipping for marketing pages ([1262e09](https://github.com/lupinum-dev/better-convex-nuxt/commit/1262e09))
+- Enhance proxy request handling with custom header forwarding and body support ([2383b70](https://github.com/lupinum-dev/better-convex-nuxt/commit/2383b70))
+- Demo phase 1 ([e1a1216](https://github.com/lupinum-dev/better-convex-nuxt/commit/e1a1216))
+- Add cron cleanup ([a32d9f0](https://github.com/lupinum-dev/better-convex-nuxt/commit/a32d9f0))
+- Adjustments ([ba8e355](https://github.com/lupinum-dev/better-convex-nuxt/commit/ba8e355))
+- Rename project to 'convex-demo' and update related components for demo functionality ([2029042](https://github.com/lupinum-dev/better-convex-nuxt/commit/2029042))
+- Dev tools components ([461c995](https://github.com/lupinum-dev/better-convex-nuxt/commit/461c995))
+- Update styles for Convex Purple color palette and improve light/dark mode support ([4bd641b](https://github.com/lupinum-dev/better-convex-nuxt/commit/4bd641b))
+- Implement SSR auth waterfall tracking for improved performance debugging ([c4ceca0](https://github.com/lupinum-dev/better-convex-nuxt/commit/c4ceca0))
+- Refactor Nuxt DevTools integration for improved reliability and performance ([cb6ae24](https://github.com/lupinum-dev/better-convex-nuxt/commit/cb6ae24))
+- Enhance DevTools bridge with instance ID management and user validation improvements ([bfb06b7](https://github.com/lupinum-dev/better-convex-nuxt/commit/bfb06b7))
+- Replace logo SVG with image and enhance status dot styles for better visibility ([748d716](https://github.com/lupinum-dev/better-convex-nuxt/commit/748d716))
+- Add Google site verification meta tag to improve SEO ([3df1f7d](https://github.com/lupinum-dev/better-convex-nuxt/commit/3df1f7d))
+- Update build script in package.json to include nuxt prepare for improved build process ([c7cbb9c](https://github.com/lupinum-dev/better-convex-nuxt/commit/c7cbb9c))
+
+### 💅 Refactors
+
+- Change folder name lab to demo ([f19e203](https://github.com/lupinum-dev/better-convex-nuxt/commit/f19e203))
+
+### 📖 Documentation
+
+- Update installation instructions for shared environment variables between Convex CLI and Nuxt ([6991031](https://github.com/lupinum-dev/better-convex-nuxt/commit/6991031))
+
+### 🏡 Chore
+
+- Update .env.example and package.json for local environment configuration ([4f283ed](https://github.com/lupinum-dev/better-convex-nuxt/commit/4f283ed))
+
+### ✅ Tests
+
+- Enhance error handling checks and improve heading selector in behavior tests ([823508e](https://github.com/lupinum-dev/better-convex-nuxt/commit/823508e))
+
+### 🎨 Styles
+
+- Update docs ([0ccbca0](https://github.com/lupinum-dev/better-convex-nuxt/commit/0ccbca0))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.0
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.1.6...v0.2.0)
