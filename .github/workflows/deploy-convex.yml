@@ -1,4 +1,4 @@
-name: Deploy Convex
+name: Deploy Convex Demo
 
 on:
   push:
@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: demo/pnpm-lock.yaml
 
       - run: pnpm install
 
