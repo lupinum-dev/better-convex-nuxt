@@ -1,11 +1,12 @@
 import type { H3Event } from 'h3'
 import {
   defineEventHandler,
-  proxyRequest,
   setHeaders,
   setResponseStatus,
   createError,
   getRequestURL,
+  readRawBody,
+  send,
 } from 'h3'
 import { useRuntimeConfig } from '#imports'
 
@@ -91,17 +92,67 @@ export default defineEventHandler(async (event: H3Event) => {
   }
 
   try {
-    // Use H3's proxyRequest for the actual proxying
-    // proxyRequest handles: method, headers, body, and response forwarding
-    return await proxyRequest(event, target, {
-      // Don't send host header (would cause issues with the target server)
-      headers: {
-        host: undefined,
-      },
-      fetchOptions: {
-        credentials: 'include',
-      },
+    // Get the original request URL for forwarding headers
+    const originalHost = event.headers.get('host') || requestUrl.host
+    const originalProto = requestUrl.protocol.replace(':', '') // 'http' or 'https'
+
+    // Build headers to forward
+    const forwardHeaders: Record<string, string> = {
+      'x-forwarded-host': originalHost,
+      'x-forwarded-proto': originalProto,
+    }
+
+    // Forward specific headers from original request
+    const headersToForward = ['cookie', 'content-type', 'accept', 'user-agent', 'origin', 'referer']
+    for (const header of headersToForward) {
+      const value = event.headers.get(header)
+      if (value) {
+        forwardHeaders[header] = value
+      }
+    }
+
+    // Get request body for POST/PUT/PATCH
+    let body: string | undefined
+    if (['POST', 'PUT', 'PATCH'].includes(event.method)) {
+      body = await readRawBody(event, 'utf8') || undefined
+    }
+
+    // Make the request to Convex
+    const response = await fetch(target, {
+      method: event.method,
+      headers: forwardHeaders,
+      body,
+      redirect: 'manual', // Don't follow redirects - let browser handle them
     })
+
+    // Forward response status
+    setResponseStatus(event, response.status, response.statusText)
+
+    // Forward response headers (except some that shouldn't be forwarded)
+    const skipHeaders = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+
+    // Handle Set-Cookie specially (can have multiple values)
+    const cookies = response.headers.getSetCookie?.() || []
+    for (const cookie of cookies) {
+      event.node.res.appendHeader('set-cookie', cookie)
+    }
+
+    // Forward other headers
+    for (const [key, value] of response.headers.entries()) {
+      const lowerKey = key.toLowerCase()
+      if (lowerKey !== 'set-cookie' && !skipHeaders.includes(lowerKey)) {
+        setHeaders(event, { [key]: value })
+      }
+    }
+
+    // For redirect responses, don't send body - just let the headers do the work
+    if (response.status >= 300 && response.status < 400) {
+      return ''
+    }
+
+    // Forward response body
+    const responseBody = await response.text()
+    return send(event, responseBody)
   } catch (error) {
     // Security: Don't leak internal error details in production
     const errorMessage = import.meta.dev
