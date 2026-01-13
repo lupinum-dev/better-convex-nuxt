@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.2
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.1...v0.2.2)
+
+### 🚀 Enhancements
+
+- Add GitHub Actions workflow for deploying Convex functions on main branch push ([482ebd8](https://github.com/lupinum-dev/better-convex-nuxt/commit/482ebd8))
+- Add support for secure session cookie in plugin.server.ts ([2eed2f9](https://github.com/lupinum-dev/better-convex-nuxt/commit/2eed2f9))
+- Add 'Reactive Args' to navigation in default layout ([5973c08](https://github.com/lupinum-dev/better-convex-nuxt/commit/5973c08))
+
+### 🩹 Fixes
+
+- Demo package version and build script ([608260e](https://github.com/lupinum-dev/better-convex-nuxt/commit/608260e))
+- Move github action to right folder ([cc0a508](https://github.com/lupinum-dev/better-convex-nuxt/commit/cc0a508))
+- Remove --compact flag from pkg-pr-new ([6554804](https://github.com/lupinum-dev/better-convex-nuxt/commit/6554804))
+- Remove unused keyup event listener from feed component ([ed512f1](https://github.com/lupinum-dev/better-convex-nuxt/commit/ed512f1))
+- Add negative caching to prevent duplicate token fetches in CSR mode ([#5](https://github.com/lupinum-dev/better-convex-nuxt/pull/5))
+- Add eslint comments to JsonViewer.vue for v-html safety ([b76cfaa](https://github.com/lupinum-dev/better-convex-nuxt/commit/b76cfaa))
+
+### 🏡 Chore
+
+- Update local module reference in nuxt.config.ts and add better-convex-nuxt dependency in package.json ([3ecfa4a](https://github.com/lupinum-dev/better-convex-nuxt/commit/3ecfa4a))
+- Add @types/node dependency and update pnpm-lock.yaml for consistency ([810d74d](https://github.com/lupinum-dev/better-convex-nuxt/commit/810d74d))
+- Add step to publish preview release in CI workflow ([8e100af](https://github.com/lupinum-dev/better-convex-nuxt/commit/8e100af))
+- Update better-convex-nuxt demo dependency to fix securec cookies ([4e452e2](https://github.com/lupinum-dev/better-convex-nuxt/commit/4e452e2))
+- Update better-convex-nuxt dependency to version 5 and enhance file listing with uploader information ([2d44af7](https://github.com/lupinum-dev/better-convex-nuxt/commit/2d44af7))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+- Matthias Amon ([@Mat4m0](https://github.com/Mat4m0))
+
 ## v0.2.1
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.0...v0.2.1)
