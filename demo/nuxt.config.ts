@@ -1,5 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-const siteUrl = process.env.SITE_URL || 'https://better-convex-nuxt-demo.vercel.app/'
+const siteUrl = (process.env.SITE_URL || 'https://better-convex-nuxt-demo.vercel.app/').replace(/\/$/, '') + '/'
+const ogImageUrl = `${siteUrl}og-image.png`
 
 export default defineNuxtConfig({
   modules: [
@@ -46,14 +47,14 @@ export default defineNuxtConfig({
         { property: 'og:site_name', content: 'Better Convex Nuxt' },
         { property: 'og:title', content: 'Real-time Nuxt apps with Convex.' },
         { property: 'og:description', content: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.' },
-        { property: 'og:image', content: `${siteUrl}og-image.png` },
+        { property: 'og:image', content: ogImageUrl },
         { property: 'og:image:width', content: '1200' },
         { property: 'og:image:height', content: '630' },
         { property: 'og:url', content: siteUrl },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:title', content: 'Real-time Nuxt apps with Convex.' },
         { name: 'twitter:description', content: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.' },
-        { name: 'twitter:image', content: `${siteUrl}og-image.png` }
+        { name: 'twitter:image', content: ogImageUrl }
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/favicon-96x96.png', sizes: '96x96' },
