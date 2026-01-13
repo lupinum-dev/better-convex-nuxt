@@ -117,7 +117,9 @@ export default defineNuxtPlugin((nuxtApp) => {
 
     // Token cache to avoid redundant fetches
     let lastTokenValidation = Date.now()
+    let lastNullTokenCheck = 0
     const TOKEN_CACHE_MS = 10000
+    const NULL_TOKEN_CACHE_MS = 5000 // Cache "not logged in" state to avoid duplicate 401s
     const skipRoutes = (config.public.convex?.skipAuthRoutes as string[]) || []
     const router = useRouter()
 
@@ -154,12 +156,19 @@ export default defineNuxtPlugin((nuxtApp) => {
         return null
       }
 
+      // Negative cache: if we recently confirmed no session, don't re-check
+      // This prevents duplicate 401 requests during Convex client initialization
+      if (!convexToken.value && Date.now() - lastNullTokenCheck < NULL_TOKEN_CACHE_MS) {
+        return null
+      }
+
       // CSR mode: must fetch token (unavoidable for HttpOnly cookie auth)
       try {
         const response = await authClient!.convex.token()
         if (response.error || !response.data?.token) {
           convexToken.value = null
           convexUser.value = null
+          lastNullTokenCheck = Date.now() // Cache the "no session" result
           return null
         }
         const token = response.data.token
@@ -175,6 +184,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       } catch {
         convexToken.value = null
         convexUser.value = null
+        lastNullTokenCheck = Date.now() // Cache the failed result
         return null
       }
     }
