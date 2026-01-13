@@ -7,15 +7,27 @@ const connectionState = ref<ConnectionState | null>(null)
 const authWaterfall = ref<AuthWaterfall | null>(null)
 
 /**
+ * Keys to ignore when comparing auth state (these change frequently but don't affect UI)
+ */
+const VOLATILE_AUTH_KEYS = new Set(['expiresInSeconds', 'expiresAt', 'issuedAt', 'claims'])
+
+/**
  * Check if two objects have the same values (shallow comparison for our use case)
  */
-function hasChanged<T extends Record<string, unknown>>(prev: T | null, next: T | null): boolean {
+function hasChanged<T extends Record<string, unknown>>(
+  prev: T | null,
+  next: T | null,
+  ignoreKeys: Set<string> = new Set(),
+): boolean {
   if (prev === null && next === null) return false
   if (prev === null || next === null) return true
 
   // Compare key properties that matter for UI updates
   const keys = Object.keys(next) as (keyof T)[]
   for (const key of keys) {
+    // Skip volatile keys that change frequently but don't affect display
+    if (ignoreKeys.has(key as string)) continue
+
     const prevVal = prev[key]
     const nextVal = next[key]
 
@@ -51,7 +63,8 @@ export function useAuth() {
     try {
       const newState = await callBridge<EnhancedAuthState>('getEnhancedAuthState')
       // Only update if changed to prevent flickering
-      if (hasChanged(authState.value, newState)) {
+      // Ignore volatile keys like expiresInSeconds that change every second
+      if (hasChanged(authState.value, newState, VOLATILE_AUTH_KEYS)) {
         authState.value = newState
       }
     } catch {

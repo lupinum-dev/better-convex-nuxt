@@ -315,8 +315,9 @@ async function setupDevToolsBridge(
       // Use toRaw to unwrap Vue proxy (BroadcastChannel can't clone proxies)
       const rawUser = toRaw(convexUser.value) as ConvexUser | null
       const hasToken = !!convexToken.value
-      // Check if user has actual data (not just empty object)
-      const hasUser = rawUser && typeof rawUser === 'object' && Object.keys(rawUser).length > 0
+      // Check for valid user by looking for required fields (more stable than Object.keys().length)
+      // Object.keys() on Vue proxies can be unreliable and cause flickering
+      const hasUser = !!(rawUser && typeof rawUser === 'object' && (rawUser.id || rawUser.email))
       // Create a plain object copy to avoid proxy cloning issues
       const plainUser = hasUser ? JSON.parse(JSON.stringify(rawUser)) : null
 
@@ -385,6 +386,9 @@ async function setupDevToolsBridge(
   // Expose on window for direct access (same-origin)
   window.__CONVEX_DEVTOOLS__ = bridge
 
+  // Generate a unique instance ID for this tab/window to prevent cross-tab interference
+  const instanceId = Math.random().toString(36).slice(2, 10)
+
   // Use BroadcastChannel for reliable same-origin communication with DevTools iframe
   const channel = new BroadcastChannel('convex-devtools')
 
@@ -395,7 +399,7 @@ async function setupDevToolsBridge(
 
     if (data.type === 'CONVEX_DEVTOOLS_INIT') {
       // DevTools iframe is requesting connection
-      channel.postMessage({ type: 'CONVEX_DEVTOOLS_READY' })
+      channel.postMessage({ type: 'CONVEX_DEVTOOLS_READY', instanceId })
     } else if (data.type === 'CONVEX_DEVTOOLS_REQUEST') {
       // DevTools iframe is calling a bridge method
       const { id, method, args } = data
@@ -403,18 +407,19 @@ async function setupDevToolsBridge(
         const bridgeMethod = bridge[method as keyof ConvexDevToolsBridge]
         if (typeof bridgeMethod === 'function') {
           const result = (bridgeMethod as (...args: unknown[]) => unknown)(...(args || []))
-          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, result })
+          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, result, instanceId })
         } else if (bridgeMethod !== undefined) {
           // Property access
-          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, result: bridgeMethod })
+          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, result: bridgeMethod, instanceId })
         } else {
-          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, error: `Unknown method: ${method}` })
+          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, error: `Unknown method: ${method}`, instanceId })
         }
       } catch (err) {
         channel.postMessage({
           type: 'CONVEX_DEVTOOLS_RESPONSE',
           id,
           error: err instanceof Error ? err.message : String(err),
+          instanceId,
         })
       }
     }
@@ -434,4 +439,12 @@ async function setupDevToolsBridge(
   queryRegistry.subscribeToQueries((queries) => {
     channel.postMessage({ type: 'CONVEX_DEVTOOLS_QUERIES', queries })
   })
+
+  // HMR cleanup: close the BroadcastChannel when module is hot-replaced
+  // This prevents ghost instances from responding to messages
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      channel.close()
+    })
+  }
 }

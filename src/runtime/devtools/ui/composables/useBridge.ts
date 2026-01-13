@@ -12,6 +12,8 @@ const channel = ref<BroadcastChannel | null>(null)
 const connected = ref(false)
 const pendingRequests = new Map<number, PendingRequest>()
 let messageId = 0
+// The instance ID we're bound to (first instance that responds with READY)
+let boundInstanceId: string | null = null
 
 /**
  * Call a method on the DevTools bridge via BroadcastChannel.
@@ -55,6 +57,11 @@ export function useBridge() {
       if (!data || typeof data !== 'object') return
 
       if (data.type === 'CONVEX_DEVTOOLS_RESPONSE') {
+        // Only accept responses from the bound instance to prevent cross-tab interference
+        if (boundInstanceId && data.instanceId !== boundInstanceId) {
+          return
+        }
+
         const pending = pendingRequests.get(data.id)
         if (pending) {
           pendingRequests.delete(data.id)
@@ -65,6 +72,10 @@ export function useBridge() {
           }
         }
       } else if (data.type === 'CONVEX_DEVTOOLS_READY') {
+        // Bind to the first instance that responds with a valid instanceId
+        if (!boundInstanceId && data.instanceId) {
+          boundInstanceId = data.instanceId
+        }
         connected.value = true
       }
     }
@@ -84,6 +95,7 @@ export function useBridge() {
       channel.value = null
     }
     pendingRequests.clear()
+    boundInstanceId = null
   })
 
   return {
