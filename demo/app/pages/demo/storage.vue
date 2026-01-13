@@ -5,7 +5,7 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { can } = useLabPermissions()
+const { can } = useDemoPermissions()
 
 // File upload
 const { upload, status: uploadStatus, progress, error: uploadError, cancel: cancelUpload } = useConvexFileUpload(

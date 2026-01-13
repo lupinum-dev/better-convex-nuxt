@@ -3,14 +3,14 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { user, role } = useLabPermissions()
+const { user, role } = useDemoPermissions()
 
-const labs = [
+const demos = [
   {
     title: 'Real-time Feed',
     description: 'Watch live updates appear instantly across browser tabs using useConvexQuery.',
     icon: 'i-lucide-radio',
-    to: '/labs/feed',
+    to: '/demo/feed',
     color: 'green',
     features: ['Live subscriptions', 'Multi-tab sync', 'Auto-reconnect']
   },
@@ -18,7 +18,7 @@ const labs = [
     title: 'Optimistic Updates',
     description: 'Compare standard mutations vs instant UI updates with optimistic rendering.',
     icon: 'i-lucide-zap',
-    to: '/labs/optimistic',
+    to: '/demo/optimistic',
     color: 'amber',
     features: ['Instant feedback', 'Rollback on error', 'Local state prediction']
   },
@@ -26,7 +26,7 @@ const labs = [
     title: 'Pagination',
     description: 'Explore infinite scroll and load-more patterns with useConvexPaginatedQuery.',
     icon: 'i-lucide-list',
-    to: '/labs/pagination',
+    to: '/demo/pagination',
     color: 'blue',
     features: ['Cursor pagination', 'Infinite scroll', 'Load more button']
   },
@@ -34,7 +34,7 @@ const labs = [
     title: 'File Storage',
     description: 'Upload files with progress tracking using useConvexFileUpload.',
     icon: 'i-lucide-cloud-upload',
-    to: '/labs/storage',
+    to: '/demo/storage',
     color: 'purple',
     features: ['Progress tracking', 'Image preview', 'Storage URLs']
   }
@@ -54,12 +54,12 @@ const labs = [
       </p>
     </div>
 
-    <!-- Labs Grid -->
+    <!-- Demos Grid -->
     <div class="grid gap-6 md:grid-cols-2">
       <NuxtLink
-        v-for="lab in labs"
-        :key="lab.to"
-        :to="lab.to"
+        v-for="demo in demos"
+        :key="demo.to"
+        :to="demo.to"
         class="group"
       >
         <UCard class="h-full transition-all hover:border-primary/50 hover:shadow-lg">
@@ -67,24 +67,24 @@ const labs = [
             <div
               :class="[
                 'w-12 h-12 rounded-xl flex items-center justify-center shrink-0',
-                `bg-${lab.color}-500/10`
+                `bg-${demo.color}-500/10`
               ]"
             >
               <UIcon
-                :name="lab.icon"
-                :class="['w-6 h-6', `text-${lab.color}-500`]"
+                :name="demo.icon"
+                :class="['w-6 h-6', `text-${demo.color}-500`]"
               />
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-semibold group-hover:text-primary transition-colors">
-                {{ lab.title }}
+                {{ demo.title }}
               </h3>
               <p class="text-sm text-muted mt-1">
-                {{ lab.description }}
+                {{ demo.description }}
               </p>
               <div class="flex flex-wrap gap-2 mt-3">
                 <UBadge
-                  v-for="feature in lab.features"
+                  v-for="feature in demo.features"
                   :key="feature"
                   variant="subtle"
                   color="neutral"
@@ -115,7 +115,7 @@ const labs = [
       <ul class="space-y-2 text-sm">
         <li class="flex items-start gap-2">
           <UIcon name="i-lucide-check" class="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-          <span>Open labs in multiple browser tabs to see real-time sync in action</span>
+          <span>Open demos in multiple browser tabs to see real-time sync in action</span>
         </li>
         <li class="flex items-start gap-2">
           <UIcon name="i-lucide-check" class="w-4 h-4 text-green-500 mt-0.5 shrink-0" />

@@ -11,7 +11,7 @@ useHead({
   }
 })
 
-const title = 'Convex Labs'
+const title = 'Convex Demo'
 const description = 'Interactive playground to experience better-convex-nuxt features in action. Real-time updates, optimistic mutations, pagination, and more.'
 
 useSeoMeta({

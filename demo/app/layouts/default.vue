@@ -3,20 +3,20 @@ const route = useRoute()
 
 const navigation = [
   {
-    label: 'Labs',
+    label: 'Demo',
     icon: 'i-lucide-flask-conical',
     children: [
-      { label: 'Overview', to: '/labs', icon: 'i-lucide-layout-dashboard' },
-      { label: 'Real-time Feed', to: '/labs/feed', icon: 'i-lucide-radio' },
-      { label: 'Optimistic Updates', to: '/labs/optimistic', icon: 'i-lucide-zap' },
-      { label: 'Pagination', to: '/labs/pagination', icon: 'i-lucide-list' },
-      { label: 'File Storage', to: '/labs/storage', icon: 'i-lucide-cloud-upload' }
+      { label: 'Overview', to: '/demo', icon: 'i-lucide-layout-dashboard' },
+      { label: 'Real-time Feed', to: '/demo/feed', icon: 'i-lucide-radio' },
+      { label: 'Optimistic Updates', to: '/demo/optimistic', icon: 'i-lucide-zap' },
+      { label: 'Pagination', to: '/demo/pagination', icon: 'i-lucide-list' },
+      { label: 'File Storage', to: '/demo/storage', icon: 'i-lucide-cloud-upload' }
     ]
   }
 ]
 
-// Check if current route is in labs section
-const isLabsRoute = computed(() => route.path.startsWith('/labs'))
+// Check if current route is in demo section
+const isDemoRoute = computed(() => route.path.startsWith('/demo'))
 const isLoginPage = computed(() => route.path === '/')
 </script>
 
@@ -29,29 +29,29 @@ const isLoginPage = computed(() => route.path === '/')
           <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <UIcon name="i-lucide-flask-conical" class="w-5 h-5 text-white" />
           </div>
-          <span class="font-bold text-lg">Convex Labs</span>
+          <span class="font-bold text-lg">Convex Demo</span>
         </NuxtLink>
       </template>
 
       <template #right>
         <UColorModeButton />
-        <UserMenu v-if="isLabsRoute" />
+        <UserMenu v-if="isDemoRoute" />
         <UButton
           v-else
-          to="/labs"
+          to="/demo"
           color="primary"
           variant="soft"
         >
-          Enter Labs
+          Enter Demo
         </UButton>
       </template>
     </UHeader>
 
     <!-- Main content area -->
     <div class="flex-1 flex">
-      <!-- Sidebar - only show in labs section -->
+      <!-- Sidebar - only show in demo section -->
       <aside
-        v-if="isLabsRoute && !isLoginPage"
+        v-if="isDemoRoute && !isLoginPage"
         class="w-64 border-r border-default bg-eggshell dark:bg-neutral-950 hidden lg:block"
       >
         <div class="p-4 space-y-6">
@@ -92,8 +92,8 @@ const isLoginPage = computed(() => route.path === '/')
       </main>
     </div>
 
-    <!-- Footer - hidden on login and labs pages -->
-    <UFooter v-if="!isLabsRoute && !isLoginPage">
+    <!-- Footer - hidden on login and demo pages -->
+    <UFooter v-if="!isDemoRoute && !isLoginPage">
       <template #left>
         <p class="text-sm text-muted">
           Built with better-convex-nuxt

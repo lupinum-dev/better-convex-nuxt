@@ -5,7 +5,7 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { can, user } = useLabPermissions()
+const { can, user } = useDemoPermissions()
 
 // Real-time feed subscription
 const { data: feedItems, status } = useConvexQuery(api.feed.list, {})

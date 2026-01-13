@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { user, isAuthenticated, isPending } = useConvexAuth()
-const { user: permissionUser } = useLabPermissions()
+const { user: permissionUser } = useDemoPermissions()
 const authClient = useAuthClient()
 const router = useRouter()
 

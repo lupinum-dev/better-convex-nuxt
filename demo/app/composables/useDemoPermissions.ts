@@ -1,7 +1,7 @@
 /**
- * Lab Permissions Composable
+ * Demo Permissions Composable
  *
- * Wraps the module's createPermissions() with lab-specific configuration.
+ * Wraps the module's createPermissions() with demo-specific configuration.
  */
 
 import { createPermissions } from '#imports'
@@ -24,7 +24,7 @@ const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGu
  * @example
  * ```vue
  * <script setup>
- * const { can, user, role, isAuthenticated, isLoading } = useLabPermissions()
+ * const { can, user, role, isAuthenticated, isLoading } = useDemoPermissions()
  * </script>
  *
  * <template>
@@ -33,7 +33,7 @@ const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGu
  * </template>
  * ```
  */
-export function useLabPermissions() {
+export function useDemoPermissions() {
   return useBasePermissions()
 }
 
@@ -43,14 +43,14 @@ export function useLabPermissions() {
  * @example
  * ```vue
  * <script setup>
- * // Redirect to /labs if user doesn't have admin.settings permission
- * usePermissionGuard('admin.settings', '/labs')
+ * // Redirect to /demo if user doesn't have admin.settings permission
+ * usePermissionGuard('admin.settings', '/demo')
  * </script>
  * ```
  */
 export function usePermissionGuard(
   permission: Permission,
-  redirectTo: string = '/labs',
+  redirectTo: string = '/demo',
   resource?: any
 ) {
   return basePermissionGuard({

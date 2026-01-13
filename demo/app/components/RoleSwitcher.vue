@@ -2,7 +2,7 @@
 import { api } from '@@/convex/_generated/api'
 import { ROLE_INFO, ROLES, type Role } from '@@/convex/permissions.config'
 
-const { user, isLoading, isAuthenticated } = useLabPermissions()
+const { user, isLoading, isAuthenticated } = useDemoPermissions()
 const { mutate: setRole, status: mutationStatus } = useConvexMutation(api.auth.setOwnRole)
 
 const currentRole = computed(() => (user.value as { role?: Role } | null)?.role)
