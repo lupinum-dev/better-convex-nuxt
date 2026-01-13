@@ -209,9 +209,9 @@ export default defineNuxtPlugin(async () => {
 
     // Phase 3: Token Exchange (cache miss or caching disabled)
     const exchangeStart = Date.now()
-    const tokenResponse = await $fetch<{ token?: string }>(`${siteUrl}/api/auth/convex/token`, {
+    const tokenResponse = await $fetch(`${siteUrl}/api/auth/convex/token`, {
       headers: { Cookie: cookieHeader },
-    }).catch(() => null)
+    }).catch(() => null) as { token?: string } | null
 
     if (tokenResponse?.token) {
       phases.push(buildPhase('token-exchange', exchangeStart, waterfallStart, 'success', `${siteUrl}/api/auth/convex/token`))
@@ -224,10 +224,10 @@ export default defineNuxtPlugin(async () => {
 
       // If decode failed, fallback to session endpoint
       if (!convexUser.value) {
-        const sessionResponse = await $fetch<{ user?: ConvexUser }>(
+        const sessionResponse = await $fetch(
           `${siteUrl}/api/auth/get-session`,
           { headers: { Cookie: cookieHeader } },
-        ).catch(() => null)
+        ).catch(() => null) as { user?: ConvexUser } | null
         if (sessionResponse?.user) {
           convexUser.value = sessionResponse.user
         }

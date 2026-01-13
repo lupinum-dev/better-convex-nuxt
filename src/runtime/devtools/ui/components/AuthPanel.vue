@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { EnhancedAuthState, AuthWaterfall } from '../../types'
+import type { EnhancedAuthState, AuthWaterfall, ConvexUser } from '../../types'
 import JsonViewer from './JsonViewer.vue'
 import AuthWaterfallComponent from './AuthWaterfall.vue'
 
@@ -9,7 +9,7 @@ const props = defineProps<{
   waterfall?: AuthWaterfall | null
 }>()
 
-const user = computed(() => props.authState?.user || {})
+const user = computed<Partial<ConvexUser>>(() => props.authState?.user || {})
 
 const avatarInitial = computed(() => {
   const name = user.value.name || user.value.email || '?'

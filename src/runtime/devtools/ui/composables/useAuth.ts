@@ -14,7 +14,7 @@ const VOLATILE_AUTH_KEYS = new Set(['expiresInSeconds', 'expiresAt', 'issuedAt',
 /**
  * Check if two objects have the same values (shallow comparison for our use case)
  */
-function hasChanged<T extends Record<string, unknown>>(
+function hasChanged<T extends object>(
   prev: T | null,
   next: T | null,
   ignoreKeys: Set<string> = new Set(),

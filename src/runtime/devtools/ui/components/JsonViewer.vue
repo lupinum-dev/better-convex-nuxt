@@ -34,8 +34,8 @@ const formattedJson = computed(() => {
       /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
       (match) => {
         let cls = 'json-number'
-        if (/^"/.test(match)) {
-          if (/:$/.test(match)) {
+        if (match.startsWith('"')) {
+          if (match.endsWith(':')) {
             cls = 'json-key'
           } else {
             cls = 'json-string'

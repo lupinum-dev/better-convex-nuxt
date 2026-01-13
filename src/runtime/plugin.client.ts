@@ -442,8 +442,10 @@ async function setupDevToolsBridge(
 
   // HMR cleanup: close the BroadcastChannel when module is hot-replaced
   // This prevents ghost instances from responding to messages
-  if (import.meta.hot) {
-    import.meta.hot.dispose(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hot = (import.meta as any).hot
+  if (hot) {
+    hot.dispose(() => {
       channel.close()
     })
   }

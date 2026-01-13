@@ -12,7 +12,12 @@ export default createConfigForNuxt({
   dirs: {
     src: ['./playground'],
   },
-}).append(
+}).prepend(
+  // Ignore demo and docs folders - they have their own eslint configs
+  {
+    ignores: ['demo/**', 'docs/**'],
+  },
+).append(
   // Allow self-closing void elements (matches oxcformat behavior)
   {
     files: ['**/*.vue'],

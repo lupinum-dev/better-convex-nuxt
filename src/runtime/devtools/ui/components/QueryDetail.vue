@@ -19,7 +19,7 @@ const lastUpdatedTime = computed(() => {
   return new Date(props.query.lastUpdated).toLocaleTimeString()
 })
 
-const options = computed(() => props.query?.options || {})
+const options = computed<{ lazy?: boolean; server?: boolean; subscribe?: boolean; public?: boolean }>(() => props.query?.options || {})
 </script>
 
 <template>

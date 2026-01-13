@@ -80,9 +80,9 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   }
 
   try {
-    const response = await $fetch<{ token?: string }>(`${siteUrl}/api/auth/convex/token`, {
+    const response = await $fetch(`${siteUrl}/api/auth/convex/token`, {
       headers: { Cookie: cookieHeader },
-    })
+    }) as { token?: string }
     if (response?.token) {
       cachedToken.value = response.token
       return response.token
