@@ -64,7 +64,7 @@ export interface AuthCacheOptions {
 export interface ModuleOptions {
   /** Convex deployment URL (WebSocket) - e.g., https://your-app.convex.cloud */
   url?: string
-  /** Convex site URL (HTTP/Auth) - e.g., https://your-app.convex.site. Auto-derived from url if not set. */
+  /** Convex site URL (HTTP/Auth) - e.g., https://your-app.convex.site. Required for authentication. */
   siteUrl?: string
   /**
    * Additional trusted origins for CORS validation on the auth proxy.
@@ -157,9 +157,9 @@ export default defineNuxtModule<ModuleOptions>({
       logger.warn(`Invalid Convex site URL format: "${options.siteUrl}". Expected a valid URL like "https://your-app.convex.site"`)
     }
 
-    // Derive siteUrl from url if not explicitly set (cloud -> site)
-    const derivedSiteUrl =
-      options.siteUrl || (options.url?.replace('.convex.cloud', '.convex.site') ?? '')
+    // Only use siteUrl if explicitly configured - don't auto-derive
+    // Users must set siteUrl to enable authentication
+    const derivedSiteUrl = options.siteUrl || ''
 
     // 1. Safe Configuration Merging (preserves user-defined runtimeConfig)
     const convexConfig = defu(

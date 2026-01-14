@@ -74,9 +74,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp._convexInitialized = true
 
   const convexUrl = config.public.convex?.url as string | undefined
-  const siteUrl =
-    (config.public.convex?.siteUrl as string | undefined) ||
-    convexUrl?.replace('.convex.cloud', '.convex.site')
+  // Only use siteUrl if explicitly configured - don't auto-derive
+  // Users must explicitly set siteUrl to enable auth
+  const siteUrl = config.public.convex?.siteUrl as string | undefined
 
   if (!convexUrl) {
     logger.event({

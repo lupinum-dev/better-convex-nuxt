@@ -279,7 +279,7 @@ export function useConvexQuery<
   const status = computed((): QueryStatus => {
     return computeQueryStatus(
       isSkipped.value,
-      asyncData.error.value !== null,
+      asyncData.error.value != null, // Use loose equality to catch both null AND undefined
       pending.value,
       asyncData.data.value !== null && asyncData.data.value !== undefined
     )
