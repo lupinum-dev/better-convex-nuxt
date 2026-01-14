@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.4
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.3...v0.2.4)
+
+### 🩹 Fixes
+
+- Status mismatch and auth auto-enabled bugs ([1bd5f53](https://github.com/lupinum-dev/better-convex-nuxt/commit/1bd5f53))
+- Improve error handling in computeQueryStatus to correctly handle undefined values ([a3c1245](https://github.com/lupinum-dev/better-convex-nuxt/commit/a3c1245))
+
+### 🏡 Chore
+
+- **release:** V0.2.3 ([67df3cd](https://github.com/lupinum-dev/better-convex-nuxt/commit/67df3cd))
+- Update release script to delete local tags before fetching from origin ([06cbada](https://github.com/lupinum-dev/better-convex-nuxt/commit/06cbada))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.3
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.2...v0.2.3)
