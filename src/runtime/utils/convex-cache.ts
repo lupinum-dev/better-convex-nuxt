@@ -167,6 +167,19 @@ export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
 }
 
 /**
+ * Get the current subscription from the cache.
+ * Used to check if we should cleanup (only if our subscription is still the active one).
+ *
+ * @param nuxtApp - The NuxtApp instance
+ * @param cacheKey - Unique key for this subscription
+ * @returns The unsubscribe function if it exists, undefined otherwise
+ */
+export function getSubscription(nuxtApp: NuxtApp, cacheKey: string): (() => void) | undefined {
+  const cache = getSubscriptionCache(nuxtApp)
+  return cache[cacheKey]
+}
+
+/**
  * Clean up a subscription from the cache.
  * Calls the unsubscribe function and removes from cache.
  *

@@ -14,6 +14,7 @@ import {
   fetchAuthToken,
   registerSubscription,
   hasSubscription,
+  getSubscription,
   removeFromSubscriptionCache,
   cleanupSubscription,
   type QueryStatus,
@@ -450,7 +451,22 @@ export function useConvexQuery<
       console.log(`[DEBUG:useConvexQuery:${fnName}] onUnmounted: hasUnsubscribeFn=${!!unsubscribeFn}`)
       if (unsubscribeFn) {
         const currentCacheKey = getCacheKey()
-        console.log(`[DEBUG:useConvexQuery:${fnName}] Cleaning up subscription: cacheKey=${currentCacheKey}, updates_received=${updateCount}`)
+
+        // CRITICAL: Only cleanup if OUR subscription is still the active one in the cache.
+        // During navigation, the new component may have already registered a new subscription
+        // with the same cache key. If so, we should NOT cleanup - the new component owns it now.
+        const cachedSubscription = getSubscription(nuxtApp, currentCacheKey)
+        const isOurSubscription = cachedSubscription === unsubscribeFn
+
+        console.log(`[DEBUG:useConvexQuery:${fnName}] Cleanup check: cacheKey=${currentCacheKey}, isOurSubscription=${isOurSubscription}, updates_received=${updateCount}`)
+
+        if (!isOurSubscription) {
+          console.log(`[DEBUG:useConvexQuery:${fnName}] SKIPPING cleanup - newer subscription has taken over`)
+          // Still unsubscribe our local subscription, but don't remove from cache
+          unsubscribeFn()
+          unsubscribeFn = null
+          return
+        }
 
         logger.event({
           event: 'subscription:change',
