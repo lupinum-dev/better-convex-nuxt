@@ -164,13 +164,11 @@ export function registerSubscription(
   if (existing) {
     // Subscription exists - increment ref count, don't replace
     existing.refCount++
-    console.log(`[DEBUG:convex-cache] registerSubscription: cacheKey=${cacheKey}, joined existing (refCount=${existing.refCount})`)
     return false // This component is joining an existing subscription
   }
 
   // New subscription
   cache[cacheKey] = { unsubscribe, refCount: 1 }
-  console.log(`[DEBUG:convex-cache] registerSubscription: cacheKey=${cacheKey}, created new (refCount=1)`)
   return true // This component owns the subscription
 }
 
@@ -183,10 +181,7 @@ export function registerSubscription(
  */
 export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
   const cache = getSubscriptionCache(nuxtApp)
-  const entry = cache[cacheKey]
-  const exists = !!entry
-  console.log(`[DEBUG:convex-cache] hasSubscription: cacheKey=${cacheKey}, exists=${exists}, refCount=${entry?.refCount ?? 0}`)
-  return exists
+  return !!cache[cacheKey]
 }
 
 /**
@@ -214,16 +209,13 @@ export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean
   const entry = cache[cacheKey]
 
   if (!entry) {
-    console.log(`[DEBUG:convex-cache] releaseSubscription: cacheKey=${cacheKey}, no entry found`)
     return false
   }
 
   entry.refCount--
-  console.log(`[DEBUG:convex-cache] releaseSubscription: cacheKey=${cacheKey}, refCount=${entry.refCount}`)
 
   if (entry.refCount <= 0) {
     // Last reference - actually unsubscribe
-    console.log(`[DEBUG:convex-cache] releaseSubscription: cacheKey=${cacheKey}, unsubscribing (last reference)`)
     entry.unsubscribe()
     cache[cacheKey] = undefined
     return true
@@ -258,6 +250,5 @@ export function cleanupSubscription(nuxtApp: NuxtApp, cacheKey: string): void {
  */
 export function removeFromSubscriptionCache(nuxtApp: NuxtApp, cacheKey: string): void {
   const cache = getSubscriptionCache(nuxtApp)
-  console.log(`[DEBUG:convex-cache] removeFromSubscriptionCache: cacheKey=${cacheKey}`)
   cache[cacheKey] = undefined
 }

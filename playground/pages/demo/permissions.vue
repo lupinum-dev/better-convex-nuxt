@@ -177,26 +177,6 @@
           </div>
         </section>
 
-        <!-- DEV DEBUG: Quick Role Changer -->
-        <section class="section debug-section">
-          <h2>🔧 Dev Debug: Change My Role</h2>
-          <p class="hint">Quick role changer for testing subscription updates after navigation.</p>
-          <div class="debug-role-buttons">
-            <button
-              v-for="testRole in ['owner', 'admin', 'member', 'viewer']"
-              :key="testRole"
-              class="btn"
-              :class="[testRole === role ? 'btn-primary' : 'btn-secondary', testRole]"
-              :disabled="isChangingMyRole"
-              @click="handleChangeMyRole(testRole)"
-            >
-              {{ testRole }}
-            </button>
-          </div>
-          <p v-if="changeMyRoleError" class="error-inline">{{ changeMyRoleError.message }}</p>
-          <p class="hint">Current: <strong :class="role">{{ role }}</strong> | After changing, watch console for subscription updates.</p>
-        </section>
-
         <!-- Organization Settings (owner only) -->
         <section v-if="can('org.settings')" class="section">
           <h2>Organization Settings</h2>
@@ -570,8 +550,6 @@ const { mutate: acceptInvite } = useConvexMutation(api.invites.accept)
 const { mutate: removeMember } = useConvexMutation(api.organizations.removeMember)
 const { mutate: leaveOrg, pending: isLeavingOrg } = useConvexMutation(api.organizations.leave)
 const { mutate: updateOrgSettings, pending: isSavingSettings } = useConvexMutation(api.organizations.updateSettings)
-// Dev mutation for testing role changes
-const { mutate: devChangeMyRole, pending: isChangingMyRole, error: changeMyRoleError } = useConvexMutation(api.organizations.devChangeMyRole)
 
 // State
 const error = ref<string | null>(null)
@@ -791,20 +769,6 @@ async function handleSaveSettings() {
   }
 }
 
-// DEV: Change my own role for testing
-async function handleChangeMyRole(newRole: string) {
-  console.log(`[DEV UI] handleChangeMyRole called: ${role.value} -> ${newRole}`)
-  try {
-    const result = await devChangeMyRole({
-      newRole: newRole as 'owner' | 'admin' | 'member' | 'viewer',
-    })
-    console.log(`[DEV UI] Role change mutation returned:`, result)
-    console.log(`[DEV UI] Current role ref value:`, role.value)
-  }
-  catch (e) {
-    console.error(`[DEV UI] Role change failed:`, e)
-  }
-}
 </script>
 
 <style scoped>
@@ -1462,30 +1426,4 @@ select:focus {
   margin-top: 8px;
 }
 
-/* Debug section */
-.debug-section {
-  background: #fffbeb;
-  border: 2px dashed #f59e0b;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.debug-role-buttons {
-  display: flex;
-  gap: 8px;
-  margin: 12px 0;
-}
-
-.debug-role-buttons .btn.owner {
-  border-color: #92400e;
-}
-.debug-role-buttons .btn.admin {
-  border-color: #1e40af;
-}
-.debug-role-buttons .btn.member {
-  border-color: #065f46;
-}
-.debug-role-buttons .btn.viewer {
-  border-color: #374151;
-}
 </style>

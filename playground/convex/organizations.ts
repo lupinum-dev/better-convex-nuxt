@@ -227,38 +227,6 @@ export const removeMember = mutation({
 })
 
 // ============================================
-// DEV: CHANGE MY OWN ROLE (for testing only)
-// ============================================
-// WARNING: This is for development/testing only!
-// Allows changing your own role to test permission UI updates.
-
-export const devChangeMyRole = mutation({
-  args: {
-    newRole: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Unauthorized')
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (!user) throw new Error('User not found')
-
-    console.log(`[DEV] Changing user ${user._id} role from ${user.role} to ${args.newRole}`)
-
-    await ctx.db.patch(user._id, {
-      role: args.newRole,
-      updatedAt: Date.now(),
-    })
-
-    return { previousRole: user.role, newRole: args.newRole }
-  },
-})
-
-// ============================================
 // LEAVE ORGANIZATION
 // ============================================
 // Allows a user to leave their current organization.
