@@ -193,7 +193,7 @@
               {{ testRole }}
             </button>
           </div>
-          <p v-if="changeMyRoleError" class="error-inline">{{ changeMyRoleError }}</p>
+          <p v-if="changeMyRoleError" class="error-inline">{{ changeMyRoleError.message }}</p>
           <p class="hint">Current: <strong :class="role">{{ role }}</strong> | After changing, watch console for subscription updates.</p>
         </section>
 

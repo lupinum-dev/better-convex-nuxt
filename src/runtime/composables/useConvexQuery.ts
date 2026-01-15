@@ -13,7 +13,7 @@ import {
   computeQueryStatus,
   fetchAuthToken,
   registerSubscription,
-  hasSubscription,
+  getSubscription,
   releaseSubscription,
   type QueryStatus,
 } from '../utils/convex-cache'
@@ -306,17 +306,11 @@ export function useConvexQuery<
 
       const currentCacheKey = getCacheKey()
 
-      // Check if subscription already exists - if so, join it (increment ref count)
-      const alreadyExists = hasSubscription(nuxtApp, currentCacheKey)
-
-      if (alreadyExists) {
-        // Join existing subscription - just increment ref count
-        console.log(`[DEBUG:useConvexQuery:${fnName}] setupSubscription: joining existing subscription`)
-        // Create a dummy unsubscribe since we're sharing
-        const dummyUnsubscribe = () => {
-          console.log(`[DEBUG:useConvexQuery:${fnName}] dummy unsubscribe called (sharing subscription)`)
-        }
-        registerSubscription(nuxtApp, currentCacheKey, dummyUnsubscribe)
+      // Atomic check-and-join: if subscription exists, increment refCount directly
+      const existingEntry = getSubscription(nuxtApp, currentCacheKey)
+      if (existingEntry) {
+        existingEntry.refCount++
+        console.log(`[DEBUG:useConvexQuery:${fnName}] setupSubscription: joined existing (refCount=${existingEntry.refCount})`)
         registeredCacheKey = currentCacheKey
         return
       }
@@ -427,20 +421,21 @@ export function useConvexQuery<
         () => toValue(args),
         (newArgs, oldArgs) => {
           if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
-            // Cleanup old subscription if it exists
-            if (oldArgs !== 'skip' && unsubscribeFn) {
-              const oldCacheKey = getQueryKey(query, oldArgs)
+            // Release old subscription if we had one registered
+            if (oldArgs !== 'skip' && registeredCacheKey) {
+              const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
-              logger.event({
-                event: 'subscription:change',
-                env: 'client',
-                name: fnName,
-                state: 'unsubscribed',
-                updates_received: updateCount,
-              } satisfies SubscriptionChangeEvent)
+              if (wasUnsubscribed) {
+                logger.event({
+                  event: 'subscription:change',
+                  env: 'client',
+                  name: fnName,
+                  state: 'unsubscribed',
+                  updates_received: updateCount,
+                } satisfies SubscriptionChangeEvent)
+              }
 
-              cleanupSubscription(nuxtApp, oldCacheKey)
-              unsubscribeFn = null
+              registeredCacheKey = null
             }
 
             // Setup new subscription (data will be updated by useAsyncData's watch)
