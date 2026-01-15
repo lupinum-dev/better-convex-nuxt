@@ -11,6 +11,7 @@ export default defineNuxtConfig({
 
   convex: {
     url: process.env.CONVEX_URL,
+    siteUrl: process.env.CONVEX_SITE_URL,
     permissions: true, // Enable createPermissions
     logging: {
       enabled: 'debug', // 'debug' shows all logs including debug-level details
