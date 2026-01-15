@@ -200,9 +200,11 @@ export function useConvexQuery<
   // Use Nuxt's useAsyncData for SSR + hydration
   // Note: Return null (not undefined) when skipped to avoid Nuxt warning about
   // undefined returns potentially causing duplicate requests on client
+  console.log(`[DEBUG:useConvexQuery:${fnName}] Creating useAsyncData with cacheKey=${cacheKey}`)
   const asyncData = useAsyncData<DataT | null, Error>(
     cacheKey,
     async () => {
+      console.log(`[DEBUG:useConvexQuery:${fnName}] useAsyncData handler called, isSkipped=${isSkipped.value}`)
       if (isSkipped.value) {
         return null
       }
@@ -293,28 +295,34 @@ export function useConvexQuery<
     const setupSubscription = () => {
       const currentArgs = getArgs()
       if (currentArgs === 'skip') {
+        console.log(`[DEBUG:useConvexQuery:${fnName}] setupSubscription: skipped (args='skip')`)
         return
       }
 
       const convex = nuxtApp.$convex as ConvexClient | undefined
       if (!convex) {
+        console.log(`[DEBUG:useConvexQuery:${fnName}] setupSubscription: no convex client`)
         return
       }
 
       const currentCacheKey = getCacheKey()
 
       // Check subscription cache to prevent duplicates
-      if (hasSubscription(nuxtApp, currentCacheKey)) {
+      const alreadySubscribed = hasSubscription(nuxtApp, currentCacheKey)
+      console.log(`[DEBUG:useConvexQuery:${fnName}] setupSubscription: cacheKey=${currentCacheKey}, alreadySubscribed=${alreadySubscribed}`)
+      if (alreadySubscribed) {
         return
       }
 
       try {
         updateCount = 0
+        console.log(`[DEBUG:useConvexQuery:${fnName}] Creating new subscription...`)
         unsubscribeFn = convex.onUpdate(
           query,
           currentArgs as FunctionArgs<Query>,
           (result: RawT) => {
             updateCount++
+            console.log(`[DEBUG:useConvexQuery:${fnName}] Subscription update #${updateCount}:`, JSON.stringify(result).slice(0, 200))
             const transformedResult = applyTransform(result)
             // Cast needed because useAsyncData has complex PickFrom type
             ;(asyncData.data as Ref<DataT | null>).value = transformedResult
@@ -439,8 +447,10 @@ export function useConvexQuery<
 
     // Cleanup on unmount
     onUnmounted(() => {
+      console.log(`[DEBUG:useConvexQuery:${fnName}] onUnmounted: hasUnsubscribeFn=${!!unsubscribeFn}`)
       if (unsubscribeFn) {
         const currentCacheKey = getCacheKey()
+        console.log(`[DEBUG:useConvexQuery:${fnName}] Cleaning up subscription: cacheKey=${currentCacheKey}, updates_received=${updateCount}`)
 
         logger.event({
           event: 'subscription:change',
@@ -453,6 +463,7 @@ export function useConvexQuery<
         removeFromSubscriptionCache(nuxtApp, currentCacheKey)
         unsubscribeFn()
         unsubscribeFn = null
+        console.log(`[DEBUG:useConvexQuery:${fnName}] Subscription cleanup complete`)
 
         // Unregister from DevTools
         devToolsRegistry?.unregisterQuery(currentCacheKey)

@@ -148,6 +148,7 @@ export function registerSubscription(
   unsubscribe: () => void,
 ): void {
   const cache = getSubscriptionCache(nuxtApp)
+  console.log(`[DEBUG:convex-cache] registerSubscription: cacheKey=${cacheKey}, existingKeys=${Object.keys(cache).filter(k => cache[k]).join(', ')}`)
   cache[cacheKey] = unsubscribe
 }
 
@@ -160,7 +161,9 @@ export function registerSubscription(
  */
 export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
   const cache = getSubscriptionCache(nuxtApp)
-  return !!cache[cacheKey]
+  const exists = !!cache[cacheKey]
+  console.log(`[DEBUG:convex-cache] hasSubscription: cacheKey=${cacheKey}, exists=${exists}, allKeys=${Object.keys(cache).filter(k => cache[k]).join(', ')}`)
+  return exists
 }
 
 /**
@@ -194,5 +197,7 @@ export function cleanupSubscription(nuxtApp: NuxtApp, cacheKey: string): void {
  */
 export function removeFromSubscriptionCache(nuxtApp: NuxtApp, cacheKey: string): void {
   const cache = getSubscriptionCache(nuxtApp)
+  console.log(`[DEBUG:convex-cache] removeFromSubscriptionCache: cacheKey=${cacheKey}, before=${Object.keys(cache).filter(k => cache[k]).join(', ')}`)
   cache[cacheKey] = undefined
+  console.log(`[DEBUG:convex-cache] removeFromSubscriptionCache: after=${Object.keys(cache).filter(k => cache[k]).join(', ')}`)
 }
