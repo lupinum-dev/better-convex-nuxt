@@ -12,7 +12,9 @@ export default defineNuxtConfig({
   devtools: {
     enabled: true
   },
-
+  
+  debug: true,
+  
   ssr: false,
 
   css: ['~/assets/css/main.css'],
