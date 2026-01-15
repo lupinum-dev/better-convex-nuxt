@@ -14,9 +14,7 @@ import {
   fetchAuthToken,
   registerSubscription,
   hasSubscription,
-  getSubscription,
-  removeFromSubscriptionCache,
-  cleanupSubscription,
+  releaseSubscription,
   type QueryStatus,
 } from '../utils/convex-cache'
 import { createModuleLogger, getLoggingOptions } from '../utils/logger'
@@ -288,8 +286,8 @@ export function useConvexQuery<
     )
   })
 
-  // Track subscription for cleanup
-  let unsubscribeFn: (() => void) | null = null
+  // Track whether this component instance has registered with the subscription cache
+  let registeredCacheKey: string | null = null
 
   // Setup WebSocket subscription bridge on client
   if (import.meta.client && subscribe) {
@@ -308,17 +306,25 @@ export function useConvexQuery<
 
       const currentCacheKey = getCacheKey()
 
-      // Check subscription cache to prevent duplicates
-      const alreadySubscribed = hasSubscription(nuxtApp, currentCacheKey)
-      console.log(`[DEBUG:useConvexQuery:${fnName}] setupSubscription: cacheKey=${currentCacheKey}, alreadySubscribed=${alreadySubscribed}`)
-      if (alreadySubscribed) {
+      // Check if subscription already exists - if so, join it (increment ref count)
+      const alreadyExists = hasSubscription(nuxtApp, currentCacheKey)
+
+      if (alreadyExists) {
+        // Join existing subscription - just increment ref count
+        console.log(`[DEBUG:useConvexQuery:${fnName}] setupSubscription: joining existing subscription`)
+        // Create a dummy unsubscribe since we're sharing
+        const dummyUnsubscribe = () => {
+          console.log(`[DEBUG:useConvexQuery:${fnName}] dummy unsubscribe called (sharing subscription)`)
+        }
+        registerSubscription(nuxtApp, currentCacheKey, dummyUnsubscribe)
+        registeredCacheKey = currentCacheKey
         return
       }
 
       try {
         updateCount = 0
         console.log(`[DEBUG:useConvexQuery:${fnName}] Creating new subscription...`)
-        unsubscribeFn = convex.onUpdate(
+        const unsubscribeFn = convex.onUpdate(
           query,
           currentArgs as FunctionArgs<Query>,
           (result: RawT) => {
@@ -370,6 +376,7 @@ export function useConvexQuery<
           },
         )
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
+        registeredCacheKey = currentCacheKey
 
         logger.event({
           event: 'subscription:change',
@@ -446,43 +453,31 @@ export function useConvexQuery<
       )
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount - use ref-counted release
     onUnmounted(() => {
-      console.log(`[DEBUG:useConvexQuery:${fnName}] onUnmounted: hasUnsubscribeFn=${!!unsubscribeFn}`)
-      if (unsubscribeFn) {
-        const currentCacheKey = getCacheKey()
+      console.log(`[DEBUG:useConvexQuery:${fnName}] onUnmounted: registeredCacheKey=${registeredCacheKey}`)
 
-        // CRITICAL: Only cleanup if OUR subscription is still the active one in the cache.
-        // During navigation, the new component may have already registered a new subscription
-        // with the same cache key. If so, we should NOT cleanup - the new component owns it now.
-        const cachedSubscription = getSubscription(nuxtApp, currentCacheKey)
-        const isOurSubscription = cachedSubscription === unsubscribeFn
+      if (registeredCacheKey) {
+        // Release our reference to the subscription
+        // This decrements the ref count - only actually unsubscribes when count reaches 0
+        const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
-        console.log(`[DEBUG:useConvexQuery:${fnName}] Cleanup check: cacheKey=${currentCacheKey}, isOurSubscription=${isOurSubscription}, updates_received=${updateCount}`)
+        console.log(`[DEBUG:useConvexQuery:${fnName}] Released subscription: wasUnsubscribed=${wasUnsubscribed}`)
 
-        if (!isOurSubscription) {
-          console.log(`[DEBUG:useConvexQuery:${fnName}] SKIPPING cleanup - newer subscription has taken over`)
-          // Still unsubscribe our local subscription, but don't remove from cache
-          unsubscribeFn()
-          unsubscribeFn = null
-          return
+        if (wasUnsubscribed) {
+          logger.event({
+            event: 'subscription:change',
+            env: 'client',
+            name: fnName,
+            state: 'unsubscribed',
+            updates_received: updateCount,
+          } satisfies SubscriptionChangeEvent)
+
+          // Unregister from DevTools only if we were the last user
+          devToolsRegistry?.unregisterQuery(registeredCacheKey)
         }
 
-        logger.event({
-          event: 'subscription:change',
-          env: 'client',
-          name: fnName,
-          state: 'unsubscribed',
-          updates_received: updateCount,
-        } satisfies SubscriptionChangeEvent)
-
-        removeFromSubscriptionCache(nuxtApp, currentCacheKey)
-        unsubscribeFn()
-        unsubscribeFn = null
-        console.log(`[DEBUG:useConvexQuery:${fnName}] Subscription cleanup complete`)
-
-        // Unregister from DevTools
-        devToolsRegistry?.unregisterQuery(currentCacheKey)
+        registeredCacheKey = null
       }
     })
   }
