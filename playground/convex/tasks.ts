@@ -1,6 +1,9 @@
 import { v } from 'convex/values'
-
 import { query, mutation } from './_generated/server'
+import { addTaskInputSchema } from '../shared/schemas/task.schema'
+// In your project, import from 'better-convex-nuxt/zod'
+// Using relative import here for playground development
+import { validateZodInput } from '../../src/runtime/utils/zod'
 
 // Public stats - no auth required
 // Used to test the `public` option in useConvexQuery
@@ -41,20 +44,21 @@ export const list = query({
   },
 })
 
-// Add a new task
+// Add a new task with Zod validation
 export const add = mutation({
-  args: { title: v.string() },
+  args: { input: v.any() }, // Accept any input, validate with Zod
   handler: async (ctx, args) => {
+    // Single-line validation with full type inference!
+    const validated = validateZodInput(args.input, addTaskInputSchema)
+
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
       throw new Error('Not authenticated')
     }
 
-    const userId = identity.subject
-
     const taskId = await ctx.db.insert('tasks', {
-      userId,
-      title: args.title,
+      userId: identity.subject,
+      title: validated.title, // Fully typed!
       completed: false,
       createdAt: Date.now(),
     })

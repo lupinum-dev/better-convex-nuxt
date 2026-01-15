@@ -38,6 +38,9 @@
       ],
       "server": [
         "./dist/runtime/server/utils/convex.d.ts"
+      ],
+      "zod": [
+        "./dist/runtime/utils/zod.d.ts"
       ]
     }
   },
@@ -49,6 +52,10 @@
     "./server": {
       "types": "./dist/runtime/server/utils/convex.d.ts",
       "import": "./dist/runtime/server/utils/convex.js"
+    },
+    "./zod": {
+      "types": "./dist/runtime/utils/zod.d.ts",
+      "import": "./dist/runtime/utils/zod.js"
     }
   },
   "scripts": {
@@ -75,7 +82,8 @@
     "better-auth": "^1.4.9",
     "convex": "^1.31.2",
     "defu": "^6.1.4",
-    "ohash": "^2.0.11"
+    "ohash": "^2.0.11",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
