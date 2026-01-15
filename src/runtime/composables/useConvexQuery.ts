@@ -13,9 +13,8 @@ import {
   computeQueryStatus,
   fetchAuthToken,
   registerSubscription,
-  hasSubscription,
-  removeFromSubscriptionCache,
-  cleanupSubscription,
+  getSubscription,
+  releaseSubscription,
   type QueryStatus,
 } from '../utils/convex-cache'
 import { createModuleLogger, getLoggingOptions } from '../utils/logger'
@@ -285,8 +284,8 @@ export function useConvexQuery<
     )
   })
 
-  // Track subscription for cleanup
-  let unsubscribeFn: (() => void) | null = null
+  // Track whether this component instance has registered with the subscription cache
+  let registeredCacheKey: string | null = null
 
   // Setup WebSocket subscription bridge on client
   if (import.meta.client && subscribe) {
@@ -303,14 +302,17 @@ export function useConvexQuery<
 
       const currentCacheKey = getCacheKey()
 
-      // Check subscription cache to prevent duplicates
-      if (hasSubscription(nuxtApp, currentCacheKey)) {
+      // Atomic check-and-join: if subscription exists, increment refCount directly
+      const existingEntry = getSubscription(nuxtApp, currentCacheKey)
+      if (existingEntry) {
+        existingEntry.refCount++
+        registeredCacheKey = currentCacheKey
         return
       }
 
       try {
         updateCount = 0
-        unsubscribeFn = convex.onUpdate(
+        const unsubscribeFn = convex.onUpdate(
           query,
           currentArgs as FunctionArgs<Query>,
           (result: RawT) => {
@@ -361,6 +363,7 @@ export function useConvexQuery<
           },
         )
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
+        registeredCacheKey = currentCacheKey
 
         logger.event({
           event: 'subscription:change',
@@ -411,20 +414,21 @@ export function useConvexQuery<
         () => toValue(args),
         (newArgs, oldArgs) => {
           if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
-            // Cleanup old subscription if it exists
-            if (oldArgs !== 'skip' && unsubscribeFn) {
-              const oldCacheKey = getQueryKey(query, oldArgs)
+            // Release old subscription if we had one registered
+            if (oldArgs !== 'skip' && registeredCacheKey) {
+              const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
-              logger.event({
-                event: 'subscription:change',
-                env: 'client',
-                name: fnName,
-                state: 'unsubscribed',
-                updates_received: updateCount,
-              } satisfies SubscriptionChangeEvent)
+              if (wasUnsubscribed) {
+                logger.event({
+                  event: 'subscription:change',
+                  env: 'client',
+                  name: fnName,
+                  state: 'unsubscribed',
+                  updates_received: updateCount,
+                } satisfies SubscriptionChangeEvent)
+              }
 
-              cleanupSubscription(nuxtApp, oldCacheKey)
-              unsubscribeFn = null
+              registeredCacheKey = null
             }
 
             // Setup new subscription (data will be updated by useAsyncData's watch)
@@ -437,25 +441,27 @@ export function useConvexQuery<
       )
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount - use ref-counted release
     onUnmounted(() => {
-      if (unsubscribeFn) {
-        const currentCacheKey = getCacheKey()
+      if (registeredCacheKey) {
+        // Release our reference to the subscription
+        // This decrements the ref count - only actually unsubscribes when count reaches 0
+        const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
-        logger.event({
-          event: 'subscription:change',
-          env: 'client',
-          name: fnName,
-          state: 'unsubscribed',
-          updates_received: updateCount,
-        } satisfies SubscriptionChangeEvent)
+        if (wasUnsubscribed) {
+          logger.event({
+            event: 'subscription:change',
+            env: 'client',
+            name: fnName,
+            state: 'unsubscribed',
+            updates_received: updateCount,
+          } satisfies SubscriptionChangeEvent)
 
-        removeFromSubscriptionCache(nuxtApp, currentCacheKey)
-        unsubscribeFn()
-        unsubscribeFn = null
+          // Unregister from DevTools only if we were the last user
+          devToolsRegistry?.unregisterQuery(registeredCacheKey)
+        }
 
-        // Unregister from DevTools
-        devToolsRegistry?.unregisterQuery(currentCacheKey)
+        registeredCacheKey = null
       }
     })
   }

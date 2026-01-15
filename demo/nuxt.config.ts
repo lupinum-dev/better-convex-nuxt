@@ -13,7 +13,6 @@ export default defineNuxtConfig({
     enabled: true
   },
   
-  debug: true,
 
   ssr: false,
 
@@ -26,7 +25,6 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
     siteUrl: process.env.CONVEX_SITE_URL,
     permissions: true,
-
   },
 
 

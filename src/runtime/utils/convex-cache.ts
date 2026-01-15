@@ -22,9 +22,18 @@ const subscriptionRegistry = new WeakMap<object, SubscriptionCache>()
 // ============================================================================
 
 /**
+ * Subscription entry with reference counting.
+ * Multiple components can share the same subscription.
+ */
+export interface SubscriptionEntry {
+  unsubscribe: () => void
+  refCount: number
+}
+
+/**
  * Subscription cache stored on NuxtApp
  */
-export type SubscriptionCache = Record<string, (() => void) | undefined>
+export type SubscriptionCache = Record<string, SubscriptionEntry | undefined>
 
 // ============================================================================
 // Auth Token Fetching
@@ -136,19 +145,31 @@ export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
 }
 
 /**
- * Register a subscription in the cache.
+ * Register a subscription in the cache with reference counting.
+ * If a subscription already exists, increments the ref count instead of replacing.
  *
  * @param nuxtApp - The NuxtApp instance
  * @param cacheKey - Unique key for this subscription
  * @param unsubscribe - The unsubscribe function
+ * @returns true if this component should manage the subscription (first registrant), false if joining existing
  */
 export function registerSubscription(
   nuxtApp: NuxtApp,
   cacheKey: string,
   unsubscribe: () => void,
-): void {
+): boolean {
   const cache = getSubscriptionCache(nuxtApp)
-  cache[cacheKey] = unsubscribe
+  const existing = cache[cacheKey]
+
+  if (existing) {
+    // Subscription exists - increment ref count, don't replace
+    existing.refCount++
+    return false // This component is joining an existing subscription
+  }
+
+  // New subscription
+  cache[cacheKey] = { unsubscribe, refCount: 1 }
+  return true // This component owns the subscription
 }
 
 /**
@@ -164,30 +185,65 @@ export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
 }
 
 /**
- * Clean up a subscription from the cache.
- * Calls the unsubscribe function and removes from cache.
+ * Get the current subscription entry from the cache.
  *
  * @param nuxtApp - The NuxtApp instance
  * @param cacheKey - Unique key for this subscription
+ * @returns The subscription entry if it exists, undefined otherwise
+ */
+export function getSubscription(nuxtApp: NuxtApp, cacheKey: string): SubscriptionEntry | undefined {
+  const cache = getSubscriptionCache(nuxtApp)
+  return cache[cacheKey]
+}
+
+/**
+ * Decrement reference count and cleanup subscription if no more references.
+ * Returns true if the subscription was actually unsubscribed.
  *
- * @example
- * ```ts
- * // In cleanup/unmount
- * cleanupSubscription(nuxtApp, cacheKey)
- * ```
+ * @param nuxtApp - The NuxtApp instance
+ * @param cacheKey - Unique key for this subscription
+ * @returns true if subscription was unsubscribed, false if still has references
+ */
+export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
+  const cache = getSubscriptionCache(nuxtApp)
+  const entry = cache[cacheKey]
+
+  if (!entry) {
+    return false
+  }
+
+  entry.refCount--
+
+  if (entry.refCount <= 0) {
+    // Last reference - actually unsubscribe
+    entry.unsubscribe()
+    cache[cacheKey] = undefined
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Clean up a subscription from the cache.
+ * Calls the unsubscribe function and removes from cache.
+ * DEPRECATED: Use releaseSubscription for ref-counted cleanup.
+ *
+ * @param nuxtApp - The NuxtApp instance
+ * @param cacheKey - Unique key for this subscription
  */
 export function cleanupSubscription(nuxtApp: NuxtApp, cacheKey: string): void {
   const cache = getSubscriptionCache(nuxtApp)
-  const unsubscribe = cache[cacheKey]
-  if (unsubscribe) {
-    unsubscribe()
+  const entry = cache[cacheKey]
+  if (entry) {
+    entry.unsubscribe()
     cache[cacheKey] = undefined
   }
 }
 
 /**
  * Remove a subscription from the cache without calling unsubscribe.
- * Use this when you've already called unsubscribe manually.
+ * DEPRECATED: Use releaseSubscription for ref-counted cleanup.
  *
  * @param nuxtApp - The NuxtApp instance
  * @param cacheKey - Unique key for this subscription
