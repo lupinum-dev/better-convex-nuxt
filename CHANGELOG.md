@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.5
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.4...v0.2.5)
+
+### 🩹 Fixes
+
+- Add siteUrl ([36ae9cc](https://github.com/lupinum-dev/better-convex-nuxt/commit/36ae9cc))
+- Subscription lifecycle logging for role change issue ([#11](https://github.com/lupinum-dev/better-convex-nuxt/pull/11))
+
+### 🏡 Chore
+
+- **release:** V0.2.4 ([327624b](https://github.com/lupinum-dev/better-convex-nuxt/commit/327624b))
+- Trigger CI ([bbb69bf](https://github.com/lupinum-dev/better-convex-nuxt/commit/bbb69bf))
+- Update better-convex-nuxt dependency to version 70d4b5a in package.json and pnpm-lock.yaml ([7244c94](https://github.com/lupinum-dev/better-convex-nuxt/commit/7244c94))
+
+### ❤️ Contributors
+
+- Matthias Amon ([@Mat4m0](https://github.com/Mat4m0))
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.4
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.3...v0.2.4)
