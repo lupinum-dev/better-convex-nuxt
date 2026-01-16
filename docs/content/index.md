@@ -17,7 +17,7 @@ Full-stack Nuxt that [feels like cheating]{.text-primary}
   :::u-button
   ---
   size: lg
-  to: /docs/getting-started/installation
+  to: /docs/guide/get-started
   color: warning
   trailing-icon: i-lucide-arrow-right
   ---
