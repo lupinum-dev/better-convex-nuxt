@@ -1,4 +1,5 @@
 import { useState, type useNuxtApp } from '#app'
+import { shallowRef, ref, type ShallowRef, type Ref } from 'vue'
 
 // Re-export shared utilities
 export {
@@ -22,12 +23,22 @@ const subscriptionRegistry = new WeakMap<object, SubscriptionCache>()
 // ============================================================================
 
 /**
- * Subscription entry with reference counting.
- * Multiple components can share the same subscription.
+ * Subscription entry with reference counting and shared data.
+ * Multiple components can share the same subscription and receive updates.
  */
 export interface SubscriptionEntry {
   unsubscribe: () => void
   refCount: number
+  /** RAW data shared by all consumers (each applies own transform) */
+  sharedData: ShallowRef<unknown>
+  /** Shared error state */
+  sharedError: ShallowRef<Error | null>
+  /**
+   * Version counter - MUST be Ref<number> for Vue reactivity!
+   * Plain numbers on non-reactive objects are invisible to Vue's reactivity system.
+   * Watchers need to watch `.value` to detect changes.
+   */
+  dataVersion: Ref<number>
 }
 
 /**
@@ -145,18 +156,22 @@ export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
 }
 
 /**
- * Register a subscription in the cache with reference counting.
+ * Register a subscription in the cache with reference counting and shared data.
  * If a subscription already exists, increments the ref count instead of replacing.
  *
  * @param nuxtApp - The NuxtApp instance
  * @param cacheKey - Unique key for this subscription
  * @param unsubscribe - The unsubscribe function
+ * @param sharedData - ShallowRef for shared raw data (required for new subscriptions)
+ * @param sharedError - ShallowRef for shared error state (required for new subscriptions)
  * @returns true if this component should manage the subscription (first registrant), false if joining existing
  */
 export function registerSubscription(
   nuxtApp: NuxtApp,
   cacheKey: string,
   unsubscribe: () => void,
+  sharedData: ShallowRef<unknown>,
+  sharedError: ShallowRef<Error | null>,
 ): boolean {
   const cache = getSubscriptionCache(nuxtApp)
   const existing = cache[cacheKey]
@@ -167,9 +182,36 @@ export function registerSubscription(
     return false // This component is joining an existing subscription
   }
 
-  // New subscription
-  cache[cacheKey] = { unsubscribe, refCount: 1 }
+  // New subscription with shared data store
+  cache[cacheKey] = {
+    unsubscribe,
+    refCount: 1,
+    sharedData,
+    sharedError,
+    dataVersion: ref(0), // Must be ref() for Vue reactivity!
+  }
   return true // This component owns the subscription
+}
+
+/**
+ * Increment data version when shared data updates.
+ * This triggers watchers in all consumers to sync their local data.
+ *
+ * @param nuxtApp - The NuxtApp instance
+ * @param cacheKey - Unique key for this subscription
+ * @returns The new version number
+ */
+export function incrementDataVersion(
+  nuxtApp: NuxtApp,
+  cacheKey: string,
+): number {
+  const cache = getSubscriptionCache(nuxtApp)
+  const entry = cache[cacheKey]
+  if (entry) {
+    entry.dataVersion.value++
+    return entry.dataVersion.value
+  }
+  return 0
 }
 
 /**

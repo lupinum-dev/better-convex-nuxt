@@ -3,7 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData } from '#imports'
-import { computed, watch, triggerRef, onUnmounted, toValue, isRef, isReactive, type Ref } from 'vue'
+import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, shallowRef, type Ref } from 'vue'
 
 import {
   getFunctionName,
@@ -15,6 +15,7 @@ import {
   registerSubscription,
   getSubscription,
   releaseSubscription,
+  incrementDataVersion,
   type QueryStatus,
 } from '../utils/convex-cache'
 import { createModuleLogger, getLoggingOptions } from '../utils/logger'
@@ -286,6 +287,8 @@ export function useConvexQuery<
 
   // Track whether this component instance has registered with the subscription cache
   let registeredCacheKey: string | null = null
+  // Track watchers for cleanup when joining existing subscriptions
+  let cleanupWatchers: (() => void) | null = null
 
   // Setup WebSocket subscription bridge on client
   if (import.meta.client && subscribe) {
@@ -307,8 +310,46 @@ export function useConvexQuery<
       if (existingEntry) {
         existingEntry.refCount++
         registeredCacheKey = currentCacheKey
-        return
+
+        // Immediately sync current data if available
+        if (existingEntry.sharedData.value !== undefined) {
+          const transformed = applyTransform(existingEntry.sharedData.value as RawT)
+          ;(asyncData.data as Ref<DataT | null>).value = transformed
+          triggerRef(asyncData.data)
+        }
+
+        // Watch for future updates via version counter
+        // CRITICAL: Must watch .value for Vue reactivity to work!
+        const stopDataWatch = watch(
+          () => existingEntry.dataVersion.value,
+          () => {
+            if (existingEntry.sharedData.value !== undefined) {
+              const transformed = applyTransform(existingEntry.sharedData.value as RawT)
+              ;(asyncData.data as Ref<DataT | null>).value = transformed
+              triggerRef(asyncData.data)
+            }
+          },
+        )
+
+        const stopErrorWatch = watch(
+          () => existingEntry.sharedError.value,
+          (newError) => {
+            ;(asyncData.error as Ref<Error | null>).value = newError
+          },
+        )
+
+        // Track watchers for cleanup
+        cleanupWatchers = () => {
+          stopDataWatch()
+          stopErrorWatch()
+        }
+
+        return // Don't create new subscription
       }
+
+      // First subscriber - create subscription with shared data store
+      const sharedData = shallowRef<unknown>(undefined)
+      const sharedError = shallowRef<Error | null>(null)
 
       try {
         updateCount = 0
@@ -317,12 +358,21 @@ export function useConvexQuery<
           currentArgs as FunctionArgs<Query>,
           (result: RawT) => {
             updateCount++
+            // Update shared data store - increment version for watchers
+            sharedData.value = result
+            incrementDataVersion(nuxtApp, currentCacheKey)
+
+            // Also update our local asyncData with transform
             const transformedResult = applyTransform(result)
             // Cast needed because useAsyncData has complex PickFrom type
             ;(asyncData.data as Ref<DataT | null>).value = transformedResult
             // Clear error when subscription successfully receives data
             if (asyncData.error.value !== null) {
               ;(asyncData.error as Ref<Error | null>).value = null
+            }
+            // Clear shared error too
+            if (sharedError.value !== null) {
+              sharedError.value = null
             }
             // Force Vue reactivity for all watchers
             triggerRef(asyncData.data)
@@ -348,8 +398,9 @@ export function useConvexQuery<
             // Only set error if we don't have data
             // If we have data (from SSR or previous subscription), the subscription
             // will recover automatically and we don't want to flash an error state
-            const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
+            const hasData = sharedData.value !== undefined
             if (!hasData) {
+              sharedError.value = err
               ;(asyncData.error as Ref<Error | null>).value = err
             }
 
@@ -362,7 +413,8 @@ export function useConvexQuery<
             }
           },
         )
-        registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
+        // Register with shared data store
+        registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn, sharedData, sharedError)
         registeredCacheKey = currentCacheKey
 
         logger.event({
@@ -414,6 +466,10 @@ export function useConvexQuery<
         () => toValue(args),
         (newArgs, oldArgs) => {
           if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
+            // Clean up watchers from previous subscription
+            cleanupWatchers?.()
+            cleanupWatchers = null
+
             // Release old subscription if we had one registered
             if (oldArgs !== 'skip' && registeredCacheKey) {
               const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
@@ -441,29 +497,36 @@ export function useConvexQuery<
       )
     }
 
-    // Cleanup on unmount - use ref-counted release
-    onUnmounted(() => {
-      if (registeredCacheKey) {
-        // Release our reference to the subscription
-        // This decrements the ref count - only actually unsubscribes when count reaches 0
-        const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
+    // Cleanup on scope dispose - use ref-counted release
+    // onScopeDispose is more reliable than onUnmounted for cleanup
+    if (getCurrentScope()) {
+      onScopeDispose(() => {
+        // Clean up watchers if we joined an existing subscription
+        cleanupWatchers?.()
+        cleanupWatchers = null
 
-        if (wasUnsubscribed) {
-          logger.event({
-            event: 'subscription:change',
-            env: 'client',
-            name: fnName,
-            state: 'unsubscribed',
-            updates_received: updateCount,
-          } satisfies SubscriptionChangeEvent)
+        if (registeredCacheKey) {
+          // Release our reference to the subscription
+          // This decrements the ref count - only actually unsubscribes when count reaches 0
+          const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
-          // Unregister from DevTools only if we were the last user
-          devToolsRegistry?.unregisterQuery(registeredCacheKey)
+          if (wasUnsubscribed) {
+            logger.event({
+              event: 'subscription:change',
+              env: 'client',
+              name: fnName,
+              state: 'unsubscribed',
+              updates_received: updateCount,
+            } satisfies SubscriptionChangeEvent)
+
+            // Unregister from DevTools only if we were the last user
+            devToolsRegistry?.unregisterQuery(registeredCacheKey)
+          }
+
+          registeredCacheKey = null
         }
-
-        registeredCacheKey = null
-      }
-    })
+      })
+    }
   }
 
   // === Build thenable return (Object.assign pattern from useConvexPaginatedQuery) ===
