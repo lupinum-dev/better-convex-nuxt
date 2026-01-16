@@ -11,7 +11,8 @@ const navigation = [
       { label: 'Reactive Args', to: '/demo/reactive', icon: 'lucide:refresh-ccw' },
       { label: 'Optimistic Updates', to: '/demo/optimistic', icon: 'i-lucide-zap' },
       { label: 'Pagination', to: '/demo/pagination', icon: 'i-lucide-list' },
-      { label: 'File Storage', to: '/demo/storage', icon: 'i-lucide-cloud-upload' }
+      { label: 'File Storage', to: '/demo/storage', icon: 'i-lucide-cloud-upload' },
+      { label: 'Personal Tasks', to: '/demo/personal', icon: 'i-lucide-lock' }
     ]
   }
 ]

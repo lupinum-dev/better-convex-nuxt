@@ -23,6 +23,27 @@ export const list = query({
 })
 
 /**
+ * List only the current user's tasks (personal/private)
+ */
+export const listMine = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
+
+    const tasks = await ctx.db
+      .query('demoTasks')
+      .withIndex('by_user', (q) => q.eq('userId', identity.subject))
+      .order('desc')
+      .take(100)
+
+    return tasks
+  }
+})
+
+/**
  * Add a new task
  */
 export const add = mutation({
@@ -47,7 +68,7 @@ export const add = mutation({
 })
 
 /**
- * Toggle task completion
+ * Toggle task completion (only own tasks)
  */
 export const toggle = mutation({
   args: {
@@ -64,6 +85,10 @@ export const toggle = mutation({
       throw new Error('Task not found')
     }
 
+    if (task.userId !== identity.subject) {
+      throw new Error('Not authorized')
+    }
+
     await ctx.db.patch(args.id, {
       completed: !task.completed
     })
@@ -71,7 +96,7 @@ export const toggle = mutation({
 })
 
 /**
- * Remove a task
+ * Remove a task (only own tasks)
  */
 export const remove = mutation({
   args: {
@@ -88,12 +113,16 @@ export const remove = mutation({
       throw new Error('Task not found')
     }
 
+    if (task.userId !== identity.subject) {
+      throw new Error('Not authorized')
+    }
+
     await ctx.db.delete(args.id)
   }
 })
 
 /**
- * Clear all tasks (for demo reset)
+ * Clear all own tasks (for demo reset)
  */
 export const clearAll = mutation({
   args: {},
@@ -103,7 +132,10 @@ export const clearAll = mutation({
       throw new Error('Not authenticated')
     }
 
-    const tasks = await ctx.db.query('demoTasks').collect()
+    const tasks = await ctx.db
+      .query('demoTasks')
+      .withIndex('by_user', (q) => q.eq('userId', identity.subject))
+      .collect()
 
     for (const task of tasks) {
       await ctx.db.delete(task._id)
