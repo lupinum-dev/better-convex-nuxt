@@ -7,11 +7,17 @@ import { toRaw, watch } from 'vue'
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import { ConvexClient } from 'convex/browser'
-import { createModuleLogger, getLoggingOptions, createTimer } from './utils/logger'
+import { createLogger, getLogLevel } from './utils/logger'
 import { matchesSkipRoute } from './utils/route-matcher'
-import type { PluginInitEvent, AuthChangeEvent } from './utils/logger'
 import type { Ref } from 'vue'
-import type { ConvexDevToolsBridge, ConvexUser, JWTClaims, EnhancedAuthState, AuthState, AuthWaterfall } from './devtools/types'
+import type {
+  ConvexDevToolsBridge,
+  ConvexUser,
+  JWTClaims,
+  EnhancedAuthState,
+  AuthState,
+  AuthWaterfall,
+} from './devtools/types'
 
 interface TokenResponse {
   data?: { token: string } | null
@@ -65,9 +71,9 @@ declare module '#app' {
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
-  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
-  const logger = createModuleLogger(loggingOptions)
-  const initTimer = createTimer()
+  const logLevel = getLogLevel(config.public.convex ?? {})
+  const logger = createLogger(logLevel)
+  const endInit = logger.time('plugin:init (client)')
 
   // HMR-safe initialization
   if (nuxtApp._convexInitialized) return
@@ -79,14 +85,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const siteUrl = config.public.convex?.siteUrl as string | undefined
 
   if (!convexUrl) {
-    logger.event({
-      event: 'plugin:init',
-      env: 'client',
-      config: { url: '', siteUrl: '', authEnabled: false },
-      duration_ms: initTimer(),
-      outcome: 'error',
-      error: { type: 'ConfigError', message: 'No Convex URL configured', hint: 'Set CONVEX_URL or convex.url in nuxt.config' },
-    } satisfies PluginInitEvent)
+    logger.error('No Convex URL configured')
     return
   }
 
@@ -95,15 +94,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   const convexUser = useState<unknown>('convex:user')
   const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall')
 
-  // Track auth state for logging
-  let currentAuthState: 'loading' | 'authenticated' | 'unauthenticated' = convexToken.value
-    ? 'authenticated'
-    : 'unauthenticated'
-
   // Create Convex WebSocket client
   const client = new ConvexClient(convexUrl)
   let authClient: AuthClientWithConvex | null = null
-  const authEnabled = !!siteUrl
 
   // Pending state for auth operations (exposed via useConvexAuth)
   const convexPending = useState('convex:pending', () => false)
@@ -213,22 +206,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
 
     client.setAuth(fetchToken, (isAuthenticated) => {
-      const previousState = currentAuthState
-      const newState = isAuthenticated ? 'authenticated' : 'unauthenticated'
-
-      if (previousState !== newState) {
-        currentAuthState = newState
-        logger.event({
-          event: 'auth:change',
-          env: 'client',
-          from: previousState,
-          to: newState,
-          trigger: 'token-refresh',
-          user_id: convexUser.value
-            ? String((convexUser.value as { id?: string }).id || '').slice(0, 8)
-            : undefined,
-        } satisfies AuthChangeEvent)
-      }
+      logger.debug(`Auth state changed: ${isAuthenticated ? 'authenticated' : 'unauthenticated'}`)
     })
 
     // Watch Better Auth session changes and sync to Convex state
@@ -252,6 +230,7 @@ export default defineNuxtPlugin((nuxtApp) => {
             lastNullTokenCheck = 0
             lastTokenValidation = 0
             await fetchToken({ forceRefreshToken: true, signal })
+            logger.info('User logged in')
           } finally {
             // Only update pending if this operation wasn't cancelled
             if (!signal.aborted) {
@@ -263,6 +242,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           convexPending.value = false // Reset pending in case login was in progress
           convexToken.value = null
           convexUser.value = null
+          logger.info('User logged out')
         }
       },
     )
@@ -277,41 +257,23 @@ export default defineNuxtPlugin((nuxtApp) => {
   // Expose for debugging
   if (typeof window !== 'undefined') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__convex_client__ = client
+    ;(window as any).__convex_client__ = client
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (authClient) (window as any).__auth_client__ = authClient
 
     // Setup DevTools bridge in dev mode
     if (import.meta.dev) {
-      setupDevToolsBridge(client, convexUrl, convexToken, convexUser, convexAuthWaterfall)
+      setupDevToolsBridge(client, convexToken, convexUser, convexAuthWaterfall)
     }
   }
 
-  // Log successful initialization
-  logger.event({
-    event: 'plugin:init',
-    env: 'client',
-    config: {
-      url: convexUrl,
-      siteUrl: siteUrl || '',
-      authEnabled,
-    },
-    duration_ms: initTimer(),
-    outcome: 'success',
-  } satisfies PluginInitEvent)
+  endInit()
 
   // Log initial auth state if hydrated from SSR
   if (convexToken.value) {
-    logger.event({
-      event: 'auth:change',
-      env: 'client',
-      from: 'loading',
-      to: 'authenticated',
-      trigger: 'ssr-hydration',
-      user_id: convexUser.value
-        ? String((convexUser.value as { id?: string }).id || '').slice(0, 8)
-        : undefined,
-    } satisfies AuthChangeEvent)
+    logger.info('Client initialized with SSR auth')
+  } else {
+    logger.debug('Client initialized (no auth)')
   }
 })
 
@@ -321,15 +283,13 @@ export default defineNuxtPlugin((nuxtApp) => {
  */
 async function setupDevToolsBridge(
   client: ConvexClient,
-  convexUrl: string,
   convexToken: Ref<string | null>,
   convexUser: Ref<unknown>,
   convexAuthWaterfall: Ref<AuthWaterfall | null>,
 ): Promise<void> {
   // Dynamically import DevTools modules to avoid bundling in production
-  const [queryRegistry, eventBuffer, mutationRegistry] = await Promise.all([
+  const [queryRegistry, mutationRegistry] = await Promise.all([
     import('./devtools/query-registry'),
-    import('./devtools/event-buffer'),
     import('./devtools/mutation-registry'),
   ])
 
@@ -349,22 +309,6 @@ async function setupDevToolsBridge(
     } catch {
       return null
     }
-  }
-
-  // Get the Convex Dashboard URL
-  const getDashboardUrl = (): string | null => {
-    // Extract deployment name from URL (e.g., "happy-animal-123" from "https://happy-animal-123.convex.cloud")
-    try {
-      const url = new URL(convexUrl)
-      const hostname = url.hostname
-      if (hostname.endsWith('.convex.cloud')) {
-        const deploymentName = hostname.replace('.convex.cloud', '')
-        return `https://dashboard.convex.dev/d/${deploymentName}`
-      }
-    } catch {
-      // Invalid URL
-    }
-    return null
   }
 
   const bridge: ConvexDevToolsBridge = {
@@ -444,12 +388,6 @@ async function setupDevToolsBridge(
       // Create a plain object copy to avoid proxy cloning issues
       return JSON.parse(JSON.stringify(toRaw(waterfall)))
     },
-
-    getEvents: () => eventBuffer.getEventBuffer(),
-
-    subscribeToEvents: (callback) => eventBuffer.subscribeToEvents(callback),
-
-    getDashboardUrl,
   }
 
   // Expose on window for direct access (same-origin)
@@ -481,7 +419,12 @@ async function setupDevToolsBridge(
           // Property access
           channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, result: bridgeMethod, instanceId })
         } else {
-          channel.postMessage({ type: 'CONVEX_DEVTOOLS_RESPONSE', id, error: `Unknown method: ${method}`, instanceId })
+          channel.postMessage({
+            type: 'CONVEX_DEVTOOLS_RESPONSE',
+            id,
+            error: `Unknown method: ${method}`,
+            instanceId,
+          })
         }
       } catch (err) {
         channel.postMessage({
@@ -493,11 +436,6 @@ async function setupDevToolsBridge(
       }
     }
   }
-
-  // Subscribe to events and forward to DevTools via BroadcastChannel
-  eventBuffer.subscribeToEvents((event) => {
-    channel.postMessage({ type: 'CONVEX_DEVTOOLS_EVENT', event })
-  })
 
   // Subscribe to mutations and forward to DevTools via BroadcastChannel
   mutationRegistry.subscribeToMutations((mutations) => {

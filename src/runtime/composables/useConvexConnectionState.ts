@@ -1,8 +1,7 @@
 import { ref, readonly, computed, onMounted, onUnmounted } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
-import { createModuleLogger, getLoggingOptions } from '../utils/logger'
-import type { ConnectionChangeEvent } from '../utils/logger'
+import { createLogger, getLogLevel } from '../utils/logger'
 import { useConvex } from './useConvex'
 
 /**
@@ -58,8 +57,8 @@ const DEFAULT_STATE: ConnectionState = {
 export function useConvexConnectionState() {
   const client = useConvex()
   const config = useRuntimeConfig()
-  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
-  const logger = createModuleLogger(loggingOptions)
+  const logLevel = getLogLevel(config.public.convex ?? {})
+  const logger = createLogger(logLevel)
 
   // Track for logging
   let disconnectedAt: number | null = null
@@ -95,23 +94,12 @@ export function useConvexConnectionState() {
           if (nowConnected) {
             // Reconnected
             const offlineDuration = disconnectedAt ? Date.now() - disconnectedAt : undefined
-            logger.event({
-              event: 'connection:change',
-              from: 'disconnected',
-              to: 'connected',
-              retry_count: newState.connectionRetries,
-              offline_duration_ms: offlineDuration,
-            } satisfies ConnectionChangeEvent)
+            logger.info(`Connection restored${offlineDuration ? ` (offline ${offlineDuration}ms)` : ''}`)
             disconnectedAt = null
           } else {
             // Disconnected
             disconnectedAt = Date.now()
-            logger.event({
-              event: 'connection:change',
-              from: 'connected',
-              to: 'disconnected',
-              retry_count: newState.connectionRetries,
-            } satisfies ConnectionChangeEvent)
+            logger.warn('Connection lost, reconnecting...')
           }
         }
 

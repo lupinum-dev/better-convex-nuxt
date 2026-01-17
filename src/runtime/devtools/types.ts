@@ -1,7 +1,6 @@
 /**
  * DevTools types and interfaces.
  */
-import type { LogEvent } from '../utils/logger'
 import type { QueryRegistryEntry } from './query-registry'
 
 // ============================================================================
@@ -158,12 +157,6 @@ export interface ConvexDevToolsBridge {
   getConnectionState: () => ConnectionState
   /** Get the most recent auth waterfall (SSR timing data) */
   getAuthWaterfall: () => AuthWaterfall | null
-  /** Get recent events from buffer */
-  getEvents: () => LogEvent[]
-  /** Subscribe to real-time events */
-  subscribeToEvents: (callback: (event: LogEvent) => void) => () => void
-  /** Get the Convex Dashboard URL */
-  getDashboardUrl: () => string | null
   /** Version of the bridge API */
   version: string
 }
