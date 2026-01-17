@@ -542,7 +542,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       }
 
       endTime()
-      logger.info(`${fnName} succeeded${hasOptimisticUpdate ? ' (optimistic)' : ''}`)
+      logger.info(`${fnName} succeeded${hasOptimisticUpdate ? ' (optimistic)' : ''}`, args)
 
       return result
     } catch (e) {
@@ -562,7 +562,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       }
 
       endTime()
-      logger.error(`${fnName} failed`, err)
+      logger.error(`${fnName} failed: ${err.message}`)
 
       throw err
     }

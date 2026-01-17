@@ -304,7 +304,7 @@ export function useConvexQuery<
         registeredCacheKey = currentCacheKey
 
         // Log shared subscription
-        logger.debug(`${fnName} joined shared subscription`, { cacheKey: currentCacheKey })
+        logger.debug(`${fnName} sharing subscription (refCount: ${existingEntry.refCount})`, currentArgs)
         return
       }
 
@@ -322,6 +322,8 @@ export function useConvexQuery<
             }
             // Force Vue reactivity for all watchers
             triggerRef(asyncData.data)
+
+            logger.debug(`${fnName} received update`, { items: Array.isArray(result) ? result.length : 1 })
 
             // Update DevTools registry with new data
             if (import.meta.dev && devToolsRegistry) {
@@ -355,7 +357,7 @@ export function useConvexQuery<
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
         registeredCacheKey = currentCacheKey
 
-        logger.info(`${fnName} subscribed`)
+        logger.info(`${fnName} subscribed`, currentArgs)
 
         // Register with DevTools in dev mode
         if (import.meta.dev && devToolsRegistry) {

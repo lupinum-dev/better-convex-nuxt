@@ -72,12 +72,6 @@ export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = createLogger(logLevel)
-
-  // Debug: verify logging is configured
-  if (logLevel) {
-    console.log(`[convex] Server logging enabled: ${logLevel}`)
-  }
-
   const endInit = logger.time('plugin:init (server)')
 
   // Get the H3 event for accessing cookies

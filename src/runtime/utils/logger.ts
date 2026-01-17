@@ -11,7 +11,7 @@ export type LogLevel = false | 'info' | 'debug'
 
 export interface Logger {
   /** Info-level log - everyday use */
-  info(message: string): void
+  info(message: string, data?: unknown): void
   /** Warning log */
   warn(message: string): void
   /** Error log */
@@ -34,6 +34,20 @@ const noopLogger: Logger = {
 const PREFIX = '[convex]'
 
 /**
+ * Format data for logging - handles objects, arrays, etc.
+ */
+function formatData(data: unknown): string {
+  if (data === undefined || data === null) return ''
+  if (typeof data === 'string') return data
+  if (typeof data === 'number' || typeof data === 'boolean') return String(data)
+  try {
+    return JSON.stringify(data)
+  } catch {
+    return String(data)
+  }
+}
+
+/**
  * Create a logger with the specified level.
  */
 export function createLogger(level: LogLevel): Logger {
@@ -42,7 +56,13 @@ export function createLogger(level: LogLevel): Logger {
   const isDebug = level === 'debug'
 
   return {
-    info: (msg) => console.log(`${PREFIX} ${msg}`),
+    info: (msg, data?) => {
+      if (data !== undefined) {
+        console.log(`${PREFIX} ${msg}`, formatData(data))
+      } else {
+        console.log(`${PREFIX} ${msg}`)
+      }
+    },
     warn: (msg) => console.warn(`${PREFIX} ${msg}`),
     error: (msg, err) => {
       if (err) {
@@ -54,7 +74,7 @@ export function createLogger(level: LogLevel): Logger {
     debug: (msg, data) => {
       if (isDebug) {
         if (data !== undefined) {
-          console.log(`${PREFIX} [debug] ${msg}`, data)
+          console.log(`${PREFIX} [debug] ${msg}`, formatData(data))
         } else {
           console.log(`${PREFIX} [debug] ${msg}`)
         }
