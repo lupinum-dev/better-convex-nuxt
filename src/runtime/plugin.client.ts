@@ -20,8 +20,8 @@ interface TokenResponse {
 
 interface ConvexUserData {
   id: string
-  name?: string
-  email?: string
+  name: string
+  email: string
   emailVerified?: boolean
   image?: string
 }
@@ -105,6 +105,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   let authClient: AuthClientWithConvex | null = null
   const authEnabled = !!siteUrl
 
+  // Pending state for auth operations (exposed via useConvexAuth)
+  const convexPending = useState('convex:pending', () => false)
+
   if (siteUrl) {
     const authBaseURL =
       typeof window !== 'undefined' ? `${window.location.origin}/api/auth` : '/api/auth'
@@ -122,6 +125,9 @@ export default defineNuxtPlugin((nuxtApp) => {
     const NULL_TOKEN_CACHE_MS = 5000 // Cache "not logged in" state to avoid duplicate 401s
     const skipRoutes = (config.public.convex?.skipAuthRoutes as string[]) || []
     const router = useRouter()
+
+    // Cancellation controller for session sync operations
+    let currentAuthOperation: AbortController | null = null
 
     const fetchToken = async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
       // Get current route from router (works in async callbacks)
@@ -214,14 +220,30 @@ export default defineNuxtPlugin((nuxtApp) => {
     const session = authClient.useSession()
     watch(
       () => session.value.data,
-      async (sessionData) => {
-        if (sessionData) {
-          // User logged in - clear caches and fetch fresh token
-          lastNullTokenCheck = 0
-          lastTokenValidation = 0
-          await fetchToken({ forceRefreshToken: true })
-        } else if (convexToken.value) {
-          // User logged out - clear state
+      async (sessionData, oldSessionData) => {
+        // Cancel any in-flight operation to prevent race conditions
+        currentAuthOperation?.abort()
+        currentAuthOperation = new AbortController()
+        const { signal } = currentAuthOperation
+
+        const hadSession = !!oldSessionData
+        const hasSession = !!sessionData
+
+        if (hasSession && !hadSession) {
+          // LOGIN: User logged in - clear caches and fetch fresh token
+          convexPending.value = true
+          try {
+            lastNullTokenCheck = 0
+            lastTokenValidation = 0
+            await fetchToken({ forceRefreshToken: true })
+          } finally {
+            // Only update pending if this operation wasn't cancelled
+            if (!signal.aborted) {
+              convexPending.value = false
+            }
+          }
+        } else if (!hasSession && hadSession) {
+          // LOGOUT: User logged out - clear state immediately
           convexToken.value = null
           convexUser.value = null
         }
