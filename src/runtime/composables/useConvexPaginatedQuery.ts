@@ -1,14 +1,7 @@
-import type { ConvexClient, OptimisticLocalStore } from 'convex/browser'
-import type {
-  FunctionReference,
-  FunctionArgs,
-  FunctionReturnType,
-  PaginationResult,
-  PaginationOptions,
-} from 'convex/server'
+import type { ConvexClient } from 'convex/browser'
+import type { FunctionArgs, PaginationResult } from 'convex/server'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData } from '#imports'
-import { convexToJson, type Value } from 'convex/values'
 import {
   ref,
   computed,
@@ -32,28 +25,26 @@ import {
   releaseSubscription,
   getSubscription,
 } from '../utils/convex-cache'
-import {
-  argsMatch as sharedArgsMatch,
-  compareJsonValues as sharedCompareJsonValues,
-  generatePaginationId,
-} from '../utils/shared-helpers'
+import { generatePaginationId } from '../utils/shared-helpers'
 import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
+import type { PaginatedQueryReference, PaginatedQueryArgs, PaginatedQueryItem } from './optimistic-updates'
 
-/**
- * A FunctionReference that is usable with useConvexPaginatedQuery.
- *
- * This function reference must:
- * - Refer to a public query
- * - Have an argument named "paginationOpts" of type PaginationOptions
- * - Have a return type of PaginationResult.
- */
-export type PaginatedQueryReference = FunctionReference<
-  'query',
-  'public',
-  { paginationOpts: PaginationOptions },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  PaginationResult<any>
->
+// Re-export optimistic update helpers and types for backwards compatibility
+export {
+  insertAtTop,
+  insertAtPosition,
+  insertAtBottomIfLoaded,
+  optimisticallyUpdateValueInPaginatedQuery,
+  deleteFromPaginatedQuery,
+  type PaginatedQueryReference,
+  type PaginatedQueryArgs,
+  type PaginatedQueryItem,
+  type InsertAtTopOptions,
+  type InsertAtPositionOptions,
+  type InsertAtBottomIfLoadedOptions,
+  type UpdateInPaginatedQueryOptions,
+  type DeleteFromPaginatedQueryOptions,
+} from './optimistic-updates'
 
 /**
  * Pagination status representing the current state of the pagination.
@@ -190,21 +181,6 @@ export type UseConvexPaginatedQueryReturn<Item> = UseConvexPaginatedQueryData<It
   Promise<UseConvexPaginatedQueryData<Item>>
 
 type MaybeRef<T> = T | ReturnType<typeof ref<T>> | ReturnType<typeof computed<T>>
-
-/**
- * Given a PaginatedQueryReference, get the type of the arguments
- * object for the query, excluding the `paginationOpts` argument.
- */
-export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
-  FunctionArgs<Query>,
-  'paginationOpts'
->
-
-/**
- * Given a PaginatedQueryReference, get the type of the item being paginated over.
- */
-export type PaginatedQueryItem<Query extends PaginatedQueryReference> =
-  FunctionReturnType<Query>['page'][number]
 
 // Internal page state
 interface PageState<T> {
@@ -972,383 +948,4 @@ export function useConvexPaginatedQuery<
   const resultPromise = resolvePromise.then(() => resultData)
   Object.assign(resultPromise, resultData)
   return resultPromise as UseConvexPaginatedQueryReturn<TransformedItem>
-}
-
-// ============================================================================
-// Optimistic Update Helpers
-// ============================================================================
-
-/**
- * Options for insertAtTop helper
- */
-export interface InsertAtTopOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** The item to insert at the top of results */
-  item: PaginatedQueryItem<Query>
-}
-
-/**
- * Insert an item at the top of paginated results.
- *
- * Use this in optimistic updates when you want new items to appear
- * immediately at the top of a feed or list (e.g., chat messages, activity feeds).
- *
- * @example
- * ```ts
- * const sendMessage = useMutation(api.messages.send)
- *   .withOptimisticUpdate((localStore, args) => {
- *     insertAtTop({
- *       paginatedQuery: api.messages.list,
- *       localQueryStore: localStore,
- *       item: {
- *         _id: crypto.randomUUID() as Id<"messages">,
- *         _creationTime: Date.now(),
- *         body: args.body,
- *         author: currentUser._id,
- *       },
- *     })
- *   })
- * ```
- */
-export function insertAtTop<Query extends PaginatedQueryReference>(
-  options: InsertAtTopOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, item } = options
-
-  // Get all queries matching this function
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    // Skip if args don't match filter
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    // Skip if no value yet (query hasn't loaded)
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    // Insert item at the beginning of the page
-    const newPage = [item, ...paginatedValue.page]
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-/**
- * Options for insertAtPosition helper
- */
-export interface InsertAtPositionOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** Sort order of the paginated query ('asc' or 'desc') */
-  sortOrder: 'asc' | 'desc'
-  /** Function to extract the sort key from an item */
-  sortKeyFromItem: (item: PaginatedQueryItem<Query>) => Value | Value[]
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** The item to insert at the correct sorted position */
-  item: PaginatedQueryItem<Query>
-}
-
-/**
- * Insert an item at its sorted position in paginated results.
- *
- * Use this when your paginated query is sorted by a specific field
- * and you want the new item to appear in the correct position.
- *
- * @example
- * ```ts
- * const addTask = useMutation(api.tasks.add)
- *   .withOptimisticUpdate((localStore, args) => {
- *     insertAtPosition({
- *       paginatedQuery: api.tasks.listByPriority,
- *       sortOrder: 'desc',
- *       sortKeyFromItem: (task) => task.priority,
- *       localQueryStore: localStore,
- *       item: {
- *         _id: crypto.randomUUID() as Id<"tasks">,
- *         _creationTime: Date.now(),
- *         title: args.title,
- *         priority: args.priority,
- *       },
- *     })
- *   })
- * ```
- */
-export function insertAtPosition<Query extends PaginatedQueryReference>(
-  options: InsertAtPositionOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, sortOrder, sortKeyFromItem, localQueryStore, item } = options
-
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-    const newItemKey = sortKeyFromItem(item)
-    const newItemKeyJson = convexToJson(newItemKey)
-
-    // Find the correct position to insert
-    let insertIndex = paginatedValue.page.length
-
-    for (let i = 0; i < paginatedValue.page.length; i++) {
-      const existingItem = paginatedValue.page[i]
-      if (!existingItem) continue
-
-      const existingKey = sortKeyFromItem(existingItem)
-      const existingKeyJson = convexToJson(existingKey)
-
-      const comparison = compareJsonValues(newItemKeyJson, existingKeyJson)
-
-      if (sortOrder === 'desc') {
-        // For descending, insert when new item is greater than or equal
-        if (comparison >= 0) {
-          insertIndex = i
-          break
-        }
-      } else {
-        // For ascending, insert when new item is less than or equal
-        if (comparison <= 0) {
-          insertIndex = i
-          break
-        }
-      }
-    }
-
-    const newPage = [
-      ...paginatedValue.page.slice(0, insertIndex),
-      item,
-      ...paginatedValue.page.slice(insertIndex),
-    ]
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-/**
- * Options for insertAtBottomIfLoaded helper
- */
-export interface InsertAtBottomIfLoadedOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** The item to insert at the bottom of results */
-  item: PaginatedQueryItem<Query>
-}
-
-/**
- * Insert an item at the bottom of paginated results, but only if all pages are loaded.
- *
- * Use this when you have ascending-sorted data and want new items to appear
- * at the end. The item will only be inserted if `isDone` is true (all pages loaded),
- * otherwise the server will include it when more pages are fetched.
- *
- * @example
- * ```ts
- * const addOldMessage = useMutation(api.messages.add)
- *   .withOptimisticUpdate((localStore, args) => {
- *     insertAtBottomIfLoaded({
- *       paginatedQuery: api.messages.listOldestFirst,
- *       localQueryStore: localStore,
- *       item: {
- *         _id: crypto.randomUUID() as Id<"messages">,
- *         _creationTime: Date.now(),
- *         body: args.body,
- *       },
- *     })
- *   })
- * ```
- */
-export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(
-  options: InsertAtBottomIfLoadedOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, item } = options
-
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    // Only insert if all pages are loaded (isDone is true)
-    if (!paginatedValue.isDone) {
-      continue
-    }
-
-    const newPage = [...paginatedValue.page, item]
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-/**
- * Options for optimisticallyUpdateValueInPaginatedQuery helper
- */
-export interface UpdateInPaginatedQueryOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** Function to update matching items. Return the item unchanged if no update needed. */
-  updateValue: (currentValue: PaginatedQueryItem<Query>) => PaginatedQueryItem<Query>
-}
-
-/**
- * Update items in paginated results.
- *
- * Use this to optimistically update existing items in paginated queries,
- * such as editing, toggling status, or marking as read.
- *
- * @example
- * ```ts
- * const toggleComplete = useMutation(api.tasks.toggleComplete)
- *   .withOptimisticUpdate((localStore, args) => {
- *     optimisticallyUpdateValueInPaginatedQuery({
- *       paginatedQuery: api.tasks.list,
- *       localQueryStore: localStore,
- *       updateValue: (task) => {
- *         if (task._id === args.taskId) {
- *           return { ...task, completed: !task.completed }
- *         }
- *         return task
- *       },
- *     })
- *   })
- * ```
- */
-export function optimisticallyUpdateValueInPaginatedQuery<Query extends PaginatedQueryReference>(
-  options: UpdateInPaginatedQueryOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, updateValue } = options
-
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    const newPage = paginatedValue.page.map(updateValue)
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-/**
- * Options for deleteFromPaginatedQuery helper
- */
-export interface DeleteFromPaginatedQueryOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** Predicate to identify items to delete. Return true to delete the item. */
-  shouldDelete: (item: PaginatedQueryItem<Query>) => boolean
-}
-
-/**
- * Delete items from paginated results.
- *
- * Use this to optimistically remove items from paginated queries.
- *
- * @example
- * ```ts
- * const deleteTask = useMutation(api.tasks.delete)
- *   .withOptimisticUpdate((localStore, args) => {
- *     deleteFromPaginatedQuery({
- *       paginatedQuery: api.tasks.list,
- *       localQueryStore: localStore,
- *       shouldDelete: (task) => task._id === args.taskId,
- *     })
- *   })
- * ```
- */
-export function deleteFromPaginatedQuery<Query extends PaginatedQueryReference>(
-  options: DeleteFromPaginatedQueryOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, shouldDelete } = options
-
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    const newPage = paginatedValue.page.filter((item) => !shouldDelete(item))
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-// ============================================================================
-// Internal Helper Functions
-// ============================================================================
-
-/**
- * Check if query args match the filter args.
- * Uses shared deep equality from utilities, skips paginationOpts.
- */
-function argsMatch(
-  queryArgs: Record<string, unknown>,
-  filterArgs: Record<string, unknown>,
-): boolean {
-  return sharedArgsMatch(queryArgs, filterArgs, ['paginationOpts'])
-}
-
-/**
- * Compare two JSON values for sorting.
- * Uses shared comparison utility.
- */
-function compareJsonValues(a: unknown, b: unknown): number {
-  return sharedCompareJsonValues(a, b)
 }
