@@ -691,6 +691,7 @@ export function useConvexPaginatedQuery<
       server,
       lazy,
       dedupe: 'defer', // Use cached data if same key exists, avoids "different handler" warning
+      watch: [cacheKey], // Re-fetch when args change (cacheKey includes hashed args)
     },
   )
 
