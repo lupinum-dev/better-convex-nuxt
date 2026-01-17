@@ -152,7 +152,7 @@ Built-in features for building production-ready apps
   title: Real-time Queries
   description: Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients.
   icon: i-lucide-database
-  to: /docs/data-fetching/queries
+  to: /docs/reference/use-convex-query
   ---
   :::
   :::landing-feature
@@ -160,7 +160,7 @@ Built-in features for building production-ready apps
   title: Optimistic Updates
   description: Instant UI feedback with automatic rollback on failure. Make your app feel fast.
   icon: i-lucide-zap
-  to: /docs/mutations/optimistic-updates
+  to: /docs/patterns/optimistic-updates
   ---
   :::
   :::landing-feature
@@ -168,7 +168,7 @@ Built-in features for building production-ready apps
   title: Authentication
   description: Better Auth integration with email/password, OAuth, and magic links. SSR-compatible.
   icon: i-lucide-lock
-  to: /docs/auth-security/authentication
+  to: /docs/guide/auth
   ---
   :::
   :::landing-feature
@@ -176,7 +176,7 @@ Built-in features for building production-ready apps
   title: Permissions
   description: Role-based access control with ownership rules. Backend enforces, frontend displays.
   icon: i-lucide-shield
-  to: /docs/auth-security/permissions
+  to: /docs/guide/permissions
   ---
   :::
   :::landing-feature
@@ -184,7 +184,7 @@ Built-in features for building production-ready apps
   title: SSR Support
   description: Server-side rendering with hydration. Fast initial loads, then real-time updates.
   icon: i-lucide-server
-  to: /docs/server-side/ssr-hydration
+  to: /docs/concepts/ssr-hydration
   ---
   :::
   :::landing-feature
@@ -192,7 +192,7 @@ Built-in features for building production-ready apps
   title: Type Safety
   description: Full TypeScript inference from your Convex schema. Catch errors at compile time.
   icon: i-lucide-type
-  to: /docs/data-fetching/queries#typescript
+  to: /docs/reference/use-convex-query#typescript
   ---
   :::
 :::
