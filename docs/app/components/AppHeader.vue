@@ -9,33 +9,24 @@ const { header } = useAppConfig()
 
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
-    label: 'Getting Started',
+    label: 'Guide',
     to: '/docs/guide/get-started',
     active: route.path.startsWith('/docs/guide')
   },
   {
-    label: 'Data Fetching',
-    to: '/docs/data-fetching/queries',
-    active: route.path.startsWith('/docs/data-fetching')
+    label: 'Patterns',
+    to: '/docs/patterns/loading-states',
+    active: route.path.startsWith('/docs/patterns')
   },
   {
-    label: 'Mutations',
-    to: '/docs/mutations/mutations',
-    active: route.path.startsWith('/docs/mutations')
+    label: 'Concepts',
+    to: '/docs/concepts/ssr-hydration',
+    active: route.path.startsWith('/docs/concepts')
   },
   {
-    label: 'Auth',
-    to: '/docs/auth-security/authentication',
-    active: route.path.startsWith('/docs/auth-security')
-  },
-  {
-    label: 'Server-Side',
-    to: '/docs/server-side/server-routes',
-    active: route.path.startsWith('/docs/server-side')
-  },
-  {
-    label: 'Advanced',
-    to: '/docs/advanced/performance'
+    label: 'Reference',
+    to: '/docs/reference/cheatsheet',
+    active: route.path.startsWith('/docs/reference')
   }
 ])
 </script>

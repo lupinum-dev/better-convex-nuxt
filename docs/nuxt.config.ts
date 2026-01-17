@@ -124,65 +124,38 @@ export default defineNuxtConfig({
     },
     sections: [
       {
-        title: 'Getting Started',
-        description: 'Installation, quick start guide, and core concepts.',
+        title: 'Guide',
+        description: 'Step-by-step guide from installation to production deployment.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/1.getting-started%' },
+          { field: 'path', operator: 'LIKE', value: '%/1.guide%' },
           { field: 'extension', operator: '=', value: 'md' }
         ]
       },
       {
-        title: 'Data Fetching',
-        description: 'How to use useConvexQuery, pagination, and caching strategies.',
+        title: 'Patterns',
+        description: 'Copy-paste solutions for common problems like loading states, optimistic updates, and pagination.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/2.data-fetching%' },
+          { field: 'path', operator: 'LIKE', value: '%/2.patterns%' },
           { field: 'extension', operator: '=', value: 'md' }
         ]
       },
       {
-        title: 'Mutations',
-        description: 'Performing mutations, actions, and handling optimistic updates.',
+        title: 'Concepts',
+        description: 'Deep dives into SSR hydration, subscription model, auth flow, and query lifecycle.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/3.mutations%' },
+          { field: 'path', operator: 'LIKE', value: '%/3.concepts%' },
           { field: 'extension', operator: '=', value: 'md' }
         ]
       },
       {
-        title: 'Authentication & Security',
-        description: 'Setup guide for authentication, permissions, and role-based access.',
+        title: 'Reference',
+        description: 'Complete API documentation for all composables and configuration options.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/4.auth-security%' },
-          { field: 'extension', operator: '=', value: 'md' }
-        ]
-      },
-      {
-        title: 'Server-Side Rendering',
-        description: 'Using Convex with Nuxt server routes and SSR hydration.',
-        contentCollection: 'docs',
-        contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/5.server-side%' },
-          { field: 'extension', operator: '=', value: 'md' }
-        ]
-      },
-      {
-        title: 'Advanced',
-        description: 'Connection state management, error handling, file storage, and logging.',
-        contentCollection: 'docs',
-        contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/6.advanced%' },
-          { field: 'extension', operator: '=', value: 'md' }
-        ]
-      },
-      {
-        title: 'Deployment',
-        description: 'Guide for deploying your application to production.',
-        contentCollection: 'docs',
-        contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/7.deployment%' },
+          { field: 'path', operator: 'LIKE', value: '%/4.reference%' },
           { field: 'extension', operator: '=', value: 'md' }
         ]
       }
