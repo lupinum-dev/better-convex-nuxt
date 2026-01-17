@@ -3,8 +3,9 @@
  * Renders slot content when authentication has failed or encountered an error.
  * Use this to display error messages or retry UI when auth operations fail.
  *
- * Checks for auth error state: user has session cookie but no valid token.
- * This indicates a failed auth exchange (expired session, invalid token, etc.)
+ * Checks for auth error state:
+ * - Token decode error (user has token but no decoded user)
+ * - Explicit auth failure (401/403 from token endpoint)
  *
  * @example
  * ```vue
@@ -18,9 +19,9 @@
  *
  * @example With custom error handling
  * ```vue
- * <ConvexAuthError v-slot="{ retry }">
+ * <ConvexAuthError v-slot="{ retry, error }">
  *   <ErrorCard
- *     message="Session expired"
+ *     :message="error || 'Session expired'"
  *     :onRetry="retry"
  *   />
  * </ConvexAuthError>
@@ -29,13 +30,13 @@
 import { computed } from 'vue'
 import { useConvexAuth } from '../composables/useConvexAuth'
 
-const { isAuthenticated, isPending, token, user } = useConvexAuth()
+const { isAuthenticated, isPending, token, user, authError } = useConvexAuth()
 
 /**
  * Detect auth error state:
  * - Not pending (auth check complete)
  * - Not authenticated
- * - But we expected authentication (this component is rendered)
+ * - Has explicit auth error OR has token but no user (decode error)
  */
 const hasError = computed(() => {
   // Auth is still loading
@@ -44,11 +45,12 @@ const hasError = computed(() => {
   // Successfully authenticated
   if (isAuthenticated.value) return false
 
+  // Explicit auth error from token fetch (401/403)
+  if (authError.value) return true
+
   // Has token but no user = potential decode error
   if (token.value && !user.value) return true
 
-  // No token and no user after loading = auth failed or not logged in
-  // We show error only if there was an attempt (not initial unauthenticated state)
   return false
 })
 
@@ -61,5 +63,5 @@ function retry() {
 </script>
 
 <template>
-  <slot v-if="hasError" :retry="retry" />
+  <slot v-if="hasError" :retry="retry" :error="authError" />
 </template>

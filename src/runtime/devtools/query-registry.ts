@@ -126,18 +126,3 @@ export function subscribeToQueries(callback: RegistryCallback): () => void {
     subscribers.delete(callback)
   }
 }
-
-/**
- * Clear all queries from the registry.
- */
-export function clearRegistry(): void {
-  queryRegistry.clear()
-  notifySubscribers()
-}
-
-/**
- * Get the count of active queries.
- */
-export function getQueryCount(): number {
-  return queryRegistry.size
-}

@@ -1,14 +1,7 @@
-import type { ConvexClient, OptimisticLocalStore } from 'convex/browser'
-import type {
-  FunctionReference,
-  FunctionArgs,
-  FunctionReturnType,
-  PaginationResult,
-  PaginationOptions,
-} from 'convex/server'
+import type { ConvexClient } from 'convex/browser'
+import type { FunctionArgs, PaginationResult } from 'convex/server'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData } from '#imports'
-import { convexToJson, type Value } from 'convex/values'
 import {
   ref,
   computed,
@@ -20,7 +13,6 @@ import {
   type ComputedRef,
   type Ref,
   shallowRef,
-  triggerRef,
 } from 'vue'
 
 import {
@@ -30,30 +22,29 @@ import {
   fetchAuthToken,
   registerSubscription,
   hasSubscription,
-  removeFromSubscriptionCache,
+  releaseSubscription,
+  getSubscription,
 } from '../utils/convex-cache'
-import {
-  argsMatch as sharedArgsMatch,
-  compareJsonValues as sharedCompareJsonValues,
-  generatePaginationId,
-} from '../utils/shared-helpers'
+import { generatePaginationId } from '../utils/shared-helpers'
 import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
+import type { PaginatedQueryReference, PaginatedQueryArgs, PaginatedQueryItem } from './optimistic-updates'
 
-/**
- * A FunctionReference that is usable with useConvexPaginatedQuery.
- *
- * This function reference must:
- * - Refer to a public query
- * - Have an argument named "paginationOpts" of type PaginationOptions
- * - Have a return type of PaginationResult.
- */
-export type PaginatedQueryReference = FunctionReference<
-  'query',
-  'public',
-  { paginationOpts: PaginationOptions },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  PaginationResult<any>
->
+// Re-export optimistic update helpers and types for backwards compatibility
+export {
+  insertAtTop,
+  insertAtPosition,
+  insertAtBottomIfLoaded,
+  optimisticallyUpdateValueInPaginatedQuery,
+  deleteFromPaginatedQuery,
+  type PaginatedQueryReference,
+  type PaginatedQueryArgs,
+  type PaginatedQueryItem,
+  type InsertAtTopOptions,
+  type InsertAtPositionOptions,
+  type InsertAtBottomIfLoadedOptions,
+  type UpdateInPaginatedQueryOptions,
+  type DeleteFromPaginatedQueryOptions,
+} from './optimistic-updates'
 
 /**
  * Pagination status representing the current state of the pagination.
@@ -191,21 +182,6 @@ export type UseConvexPaginatedQueryReturn<Item> = UseConvexPaginatedQueryData<It
 
 type MaybeRef<T> = T | ReturnType<typeof ref<T>> | ReturnType<typeof computed<T>>
 
-/**
- * Given a PaginatedQueryReference, get the type of the arguments
- * object for the query, excluding the `paginationOpts` argument.
- */
-export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
-  FunctionArgs<Query>,
-  'paginationOpts'
->
-
-/**
- * Given a PaginatedQueryReference, get the type of the item being paginated over.
- */
-export type PaginatedQueryItem<Query extends PaginatedQueryReference> =
-  FunctionReturnType<Query>['page'][number]
-
 // Internal page state
 interface PageState<T> {
   paginationOpts: { numItems: number; cursor: string | null; id: number }
@@ -213,14 +189,6 @@ interface PageState<T> {
   error: Error | null
   pending: boolean
   unsubscribe: (() => void) | null
-}
-
-/**
- * Generate unique pagination ID for cache-busting.
- * Uses shared utility with proper WeakMap-based cleanup.
- */
-function nextPaginationId(): number {
-  return generatePaginationId()
 }
 
 /**
@@ -303,9 +271,6 @@ export function useConvexPaginatedQuery<
   // Get function name (needed for cache key)
   const fnName = getFunctionName(query)
 
-  // No-op log for compatibility (verbose debug logging removed in v0.2)
-  const log = (_message: string, _data?: unknown) => {}
-
   // Get reactive args value
   const getArgs = (): Args => toValue(args) ?? ({} as Args)
 
@@ -355,7 +320,7 @@ export function useConvexPaginatedQuery<
   const cookieHeader = event?.headers.get('cookie') || ''
 
   // State management
-  const currentPaginationId = ref(nextPaginationId())
+  const currentPaginationId = ref(generatePaginationId())
   // pages ref holds ADDITIONAL pages (loaded via loadMore), NOT the first page
   // First page comes from asyncData (for SSR) + firstPageRealtimeData (for real-time updates)
   const pages = shallowRef<PageState<Item>[]>([])
@@ -366,23 +331,24 @@ export function useConvexPaginatedQuery<
   let firstPageUnsubscribe: (() => void) | null = null
 
   // Initial pagination options for the first page
-  const initialPaginationOpts = {
+  // Computed to stay in sync with currentPaginationId (e.g., after reset())
+  const initialPaginationOpts = computed(() => ({
     numItems: initialNumItems,
     cursor: null as string | null,
     id: currentPaginationId.value,
-  }
+  }))
 
   // Generate cache key for SSR data
   // IMPORTANT: Do NOT include pagination ID in cache key - it changes between server/client
   // causing hydration mismatches. Only include args and initial numItems.
-  const getCacheKey = (): string => {
+  // Made computed to stay in sync with reactive args changes
+  const cacheKey = computed((): string => {
     const currentArgs = getArgs()
     if (currentArgs === 'skip') return `convex-paginated:skip:${fnName}`
     // Use stable pagination options (without the changing id)
     const stablePaginationOpts = { numItems: initialNumItems, cursor: null }
     return `convex-paginated:${getQueryKey(query, { ...currentArgs, paginationOpts: stablePaginationOpts })}`
-  }
-  const cacheKey = getCacheKey()
+  })
 
   // Fetch function for SSR
   async function fetchPage(paginationOpts: {
@@ -403,8 +369,6 @@ export function useConvexPaginatedQuery<
       ...currentArgs,
       paginationOpts,
     }
-
-    log('Fetching page', { cursor: paginationOpts.cursor, numItems: paginationOpts.numItems })
 
     // Get auth token using shared helper (only on server)
     let authToken: string | undefined
@@ -438,9 +402,15 @@ export function useConvexPaginatedQuery<
     }
 
     // Subscription deduplication (using shared helper)
-    const subscriptionKey = `paginated:${cacheKey}:page:${pageIndex}`
+    const subscriptionKey = `paginated:${cacheKey.value}:page:${pageIndex}`
+
     if (hasSubscription(nuxtApp, subscriptionKey)) {
-      log('Page subscription already exists, reusing', { pageIndex })
+      // Join existing subscription - increment ref count and set unsubscribe
+      const existingEntry = getSubscription(nuxtApp, subscriptionKey)
+      if (existingEntry) {
+        existingEntry.refCount++
+        page.unsubscribe = () => releaseSubscription(nuxtApp, subscriptionKey)
+      }
       return
     }
 
@@ -455,14 +425,11 @@ export function useConvexPaginatedQuery<
       paginationOpts: page.paginationOpts,
     }
 
-    log('Starting subscription for page', { pageIndex, cursor: page.paginationOpts.cursor })
-
     try {
       page.unsubscribe = convex.onUpdate(
         query,
         fullArgs as FunctionArgs<Query>,
         (result: PaginationResult<Item>) => {
-          log('Real-time update for page', { pageIndex, itemCount: result.page.length })
           const currentPage = pages.value[pageIndex]
           if (!currentPage) return
           const newPages = [...pages.value]
@@ -474,10 +441,8 @@ export function useConvexPaginatedQuery<
             error: null,
           }
           pages.value = newPages
-          triggerRef(pages)
         },
         (err: Error) => {
-          log('Subscription error for page', { pageIndex, error: err.message })
           const currentPage = pages.value[pageIndex]
           if (!currentPage) return
           const newPages = [...pages.value]
@@ -487,13 +452,16 @@ export function useConvexPaginatedQuery<
             error: err,
           }
           pages.value = newPages
-          triggerRef(pages)
         },
       )
       // Register subscription in cache (using shared helper)
       registerSubscription(nuxtApp, subscriptionKey, page.unsubscribe)
     } catch (e) {
-      log('Subscription failed', { pageIndex, error: e instanceof Error ? e.message : String(e) })
+      if (import.meta.dev) {
+        console.warn('[useConvexPaginatedQuery] Page subscription failed:', e)
+      }
+      // Track error in page state so it surfaces via the error computed
+      page.error = e instanceof Error ? e : new Error(String(e))
     }
   }
 
@@ -517,8 +485,6 @@ export function useConvexPaginatedQuery<
 
     if (!lastPageResult || lastPageResult.isDone) return
 
-    log('Loading more', { numItems, additionalPagesCount: pages.value.length })
-
     const newPage: PageState<Item> = {
       paginationOpts: {
         numItems,
@@ -532,7 +498,6 @@ export function useConvexPaginatedQuery<
     }
 
     pages.value = [...pages.value, newPage]
-    triggerRef(pages)
 
     // Start fetching the new page (index in pages ref, not including first page from asyncData)
     const newPageIndex = pages.value.length - 1
@@ -548,7 +513,6 @@ export function useConvexPaginatedQuery<
 
         executeQueryViaSubscription(convex, query, fullArgs as FunctionArgs<Query>)
           .then((result) => {
-            log('Page loaded', { pageIndex: newPageIndex, itemCount: result.page.length })
             const currentPage = pages.value[newPageIndex]
             if (!currentPage) return
             const newPages = [...pages.value]
@@ -560,16 +524,11 @@ export function useConvexPaginatedQuery<
               pending: false,
             }
             pages.value = newPages
-            triggerRef(pages)
 
             // Start subscription for real-time updates
             startPageSubscription(newPageIndex)
           })
           .catch((e) => {
-            log('Page load failed', {
-              pageIndex: newPageIndex,
-              error: e instanceof Error ? e.message : String(e),
-            })
             const currentPage = pages.value[newPageIndex]
             if (!currentPage) return
             const newPages = [...pages.value]
@@ -581,7 +540,6 @@ export function useConvexPaginatedQuery<
               pending: false,
             }
             pages.value = newPages
-            triggerRef(pages)
           })
       }
     }
@@ -687,10 +645,19 @@ export function useConvexPaginatedQuery<
     return s === 'LoadingFirstPage' || s === 'LoadingMore'
   })
 
-  // Computed error
+  // Computed error - checks all error sources
+  // Note: asyncData is referenced here but defined below - this works because computed is lazily evaluated
   const error = computed((): Error | null => {
     if (globalError.value) return globalError.value
 
+    // Check asyncData error (first page fetch/subscription errors)
+    const asyncError = asyncData.error.value
+    if (asyncError) {
+      // Convert NuxtError to Error if needed
+      return asyncError instanceof Error ? asyncError : new Error(String(asyncError))
+    }
+
+    // Check page-specific errors
     for (const page of pages.value) {
       if (page.error) return page.error
     }
@@ -700,7 +667,7 @@ export function useConvexPaginatedQuery<
   // Use useAsyncData for SSR-compatible first page fetch
   // This handles: SSR fetch, payload serialization, client hydration
   const asyncData = useAsyncData(
-    cacheKey,
+    cacheKey.value,
     async (): Promise<PaginationResult<Item> | null> => {
       if (isSkipped.value) return null
 
@@ -708,19 +675,17 @@ export function useConvexPaginatedQuery<
       if (import.meta.client) {
         const convex = nuxtApp.$convex as ConvexClient | undefined
         if (convex) {
-          log('Client navigation - waiting for query via subscription')
           const currentArgs = getArgs() as PaginatedQueryArgs<Query>
           const fullArgs = {
             ...currentArgs,
-            paginationOpts: initialPaginationOpts,
+            paginationOpts: initialPaginationOpts.value,
           }
           return await executeQueryViaSubscription(convex, query, fullArgs as FunctionArgs<Query>)
         }
       }
 
       // On server, use HTTP fetch
-      log('SSR - fetching via HTTP')
-      return await fetchPage(initialPaginationOpts)
+      return await fetchPage(initialPaginationOpts.value)
     },
     {
       server,
@@ -745,9 +710,15 @@ export function useConvexPaginatedQuery<
     }
 
     // Subscription deduplication (using shared helper)
-    const subscriptionKey = `paginated:${cacheKey}:firstPage`
+    const subscriptionKey = `paginated:${cacheKey.value}:firstPage`
+
     if (hasSubscription(nuxtApp, subscriptionKey)) {
-      log('First page subscription already exists, reusing')
+      // Join existing subscription - increment ref count and set unsubscribe
+      const existingEntry = getSubscription(nuxtApp, subscriptionKey)
+      if (existingEntry) {
+        existingEntry.refCount++
+        firstPageUnsubscribe = () => releaseSubscription(nuxtApp, subscriptionKey)
+      }
       return
     }
 
@@ -760,50 +731,46 @@ export function useConvexPaginatedQuery<
     const currentArgs = getArgs() as PaginatedQueryArgs<Query>
     const fullArgs = {
       ...currentArgs,
-      paginationOpts: initialPaginationOpts,
+      paginationOpts: initialPaginationOpts.value,
     }
-
-    log('Starting first page subscription')
 
     try {
       firstPageUnsubscribe = convex.onUpdate(
         query,
         fullArgs as FunctionArgs<Query>,
         (result: PaginationResult<Item>) => {
-          log('First page real-time update', { itemCount: result.page.length })
           firstPageRealtimeData.value = result
         },
         (err: Error) => {
-          log('First page subscription error', { error: err.message })
-          // Update asyncData error state
-          ;(asyncData.error as Ref<Error | null>).value = err
+          // Update asyncData error state - match Nuxt's expected type
+          asyncData.error.value = err as unknown as typeof asyncData.error.value
         },
       )
       // Register subscription in cache (using shared helper)
       registerSubscription(nuxtApp, subscriptionKey, firstPageUnsubscribe)
     } catch (e) {
-      log('First page subscription failed', { error: e instanceof Error ? e.message : String(e) })
+      if (import.meta.dev) {
+        console.warn('[useConvexPaginatedQuery] First page subscription failed:', e)
+      }
+      // Track error so it surfaces via the error computed
+      globalError.value = e instanceof Error ? e : new Error(String(e))
     }
   }
 
   // Helper to clean up all subscriptions
   function cleanupAllSubscriptions() {
-    // Clean up first page subscription
+    // Clean up first page subscription via ref-counted release
     if (firstPageUnsubscribe) {
       firstPageUnsubscribe()
       firstPageUnsubscribe = null
     }
-    const firstPageKey = `paginated:${cacheKey}:firstPage`
-    removeFromSubscriptionCache(nuxtApp, firstPageKey)
 
-    // Clean up additional page subscriptions
+    // Clean up additional page subscriptions via ref-counted release
     for (let i = 0; i < pages.value.length; i++) {
       const page = pages.value[i]
       if (page?.unsubscribe) {
         page.unsubscribe()
       }
-      const pageKey = `paginated:${cacheKey}:page:${i}`
-      removeFromSubscriptionCache(nuxtApp, pageKey)
     }
   }
 
@@ -811,7 +778,6 @@ export function useConvexPaginatedQuery<
   if (import.meta.client) {
     const startAllSubscriptions = () => {
       if (!subscribe) {
-        log('subscribe: false, skipping all subscriptions')
         return
       }
       // Start first page subscription
@@ -835,8 +801,6 @@ export function useConvexPaginatedQuery<
         () => toValue(args),
         async (newArgs, oldArgs) => {
           if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
-            log('Reactive args changed', { from: oldArgs, to: newArgs })
-
             // Clean up all subscriptions
             cleanupAllSubscriptions()
             firstPageRealtimeData.value = null
@@ -846,7 +810,7 @@ export function useConvexPaginatedQuery<
               globalError.value = null
             } else {
               // Reset pagination
-              currentPaginationId.value = nextPaginationId()
+              currentPaginationId.value = generatePaginationId()
               pages.value = []
               globalError.value = null
 
@@ -864,7 +828,6 @@ export function useConvexPaginatedQuery<
 
     // Cleanup on unmount
     onUnmounted(() => {
-      log('Component unmounted - cleaning up subscriptions')
       cleanupAllSubscriptions()
     })
   }
@@ -874,15 +837,12 @@ export function useConvexPaginatedQuery<
   // Refresh: Re-fetch all currently loaded pages via HTTP
   async function refresh(): Promise<void> {
     if (isSkipped.value) {
-      log('refresh: skipped (args=skip)')
       return
     }
 
-    log('refresh: re-fetching all pages')
-
     try {
       // Re-fetch first page
-      const firstPageResult = await fetchPage(initialPaginationOpts)
+      const firstPageResult = await fetchPage(initialPaginationOpts.value)
       firstPageRealtimeData.value = firstPageResult
 
       // Re-fetch additional pages
@@ -899,21 +859,16 @@ export function useConvexPaginatedQuery<
           error: null,
         }
         pages.value = newPages
-        triggerRef(pages)
       }
 
       globalError.value = null
-      log('refresh: completed successfully')
     } catch (e) {
       globalError.value = e instanceof Error ? e : new Error(String(e))
-      log('refresh: failed', { error: globalError.value.message })
     }
   }
 
   // Reset: Clear all pages and restart from the first page
   async function reset(): Promise<void> {
-    log('reset: clearing all pages and restarting')
-
     // Clean up subscriptions
     if (import.meta.client) {
       cleanupAllSubscriptions()
@@ -921,7 +876,7 @@ export function useConvexPaginatedQuery<
 
     // Reset state
     firstPageRealtimeData.value = null
-    currentPaginationId.value = nextPaginationId()
+    currentPaginationId.value = generatePaginationId()
     pages.value = []
     globalError.value = null
 
@@ -932,14 +887,10 @@ export function useConvexPaginatedQuery<
     if (import.meta.client && subscribe && !isSkipped.value) {
       startFirstPageSubscription()
     }
-
-    log('reset: completed')
   }
 
   // Clear: Remove all data and subscriptions without re-fetching
   function clear(): void {
-    log('clear: clearing all data')
-
     // Clean up subscriptions
     if (import.meta.client) {
       cleanupAllSubscriptions()
@@ -947,10 +898,11 @@ export function useConvexPaginatedQuery<
 
     // Clear state
     firstPageRealtimeData.value = null
+    // Also clear asyncData to prevent stale data on re-mount
+    asyncData.data.value = null
+    asyncData.error.value = undefined
     pages.value = []
     globalError.value = null
-
-    log('clear: completed')
   }
 
   // Return mutable ref for error to match interface
@@ -969,21 +921,16 @@ export function useConvexPaginatedQuery<
   if (isSkipped.value) {
     // Skipped - resolve immediately
     resolvePromise = Promise.resolve()
-    log('Skipped, resolving immediately')
   } else if (import.meta.server) {
     // SSR
-    log('SSR mode', { server, lazy })
-
     if (!server) {
       // server: false - skip SSR fetch, resolve immediately
       resolvePromise = Promise.resolve()
-      log('server: false, skipping SSR (client will fetch)')
     } else {
       // server: true - wait for asyncData (useAsyncData handles the blocking)
       // NOTE: On SSR, we ignore `lazy` and ALWAYS wait for the fetch.
       // The `lazy` option only affects CLIENT navigation behavior.
       resolvePromise = asyncData.then(() => {})
-      log('SSR fetch (lazy only affects client)')
     }
   } else {
     // Client
@@ -993,23 +940,18 @@ export function useConvexPaginatedQuery<
     if (hasExistingData) {
       // Already have data (from SSR hydration)
       resolvePromise = Promise.resolve()
-      log('Hydrated from SSR', { hasData: true })
     } else if (lazy) {
       // lazy: true - resolve immediately, data loads in background
       resolvePromise = Promise.resolve()
-      log('lazy: true, loading in background')
     } else if (!server && isInitialHydration) {
       // server: false during initial hydration - don't block
       resolvePromise = Promise.resolve()
-      log('server: false during hydration, deferring to subscription')
     } else if (!subscribe) {
       // subscribe: false - use HTTP refresh for data
       resolvePromise = refresh()
-      log('subscribe: false, fetching via HTTP')
     } else {
       // Wait for asyncData (which uses subscription on client)
       resolvePromise = asyncData.then(() => {})
-      log('Waiting for first page data')
     }
   }
 
@@ -1029,383 +971,4 @@ export function useConvexPaginatedQuery<
   const resultPromise = resolvePromise.then(() => resultData)
   Object.assign(resultPromise, resultData)
   return resultPromise as UseConvexPaginatedQueryReturn<TransformedItem>
-}
-
-// ============================================================================
-// Optimistic Update Helpers
-// ============================================================================
-
-/**
- * Options for insertAtTop helper
- */
-export interface InsertAtTopOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** The item to insert at the top of results */
-  item: PaginatedQueryItem<Query>
-}
-
-/**
- * Insert an item at the top of paginated results.
- *
- * Use this in optimistic updates when you want new items to appear
- * immediately at the top of a feed or list (e.g., chat messages, activity feeds).
- *
- * @example
- * ```ts
- * const sendMessage = useMutation(api.messages.send)
- *   .withOptimisticUpdate((localStore, args) => {
- *     insertAtTop({
- *       paginatedQuery: api.messages.list,
- *       localQueryStore: localStore,
- *       item: {
- *         _id: crypto.randomUUID() as Id<"messages">,
- *         _creationTime: Date.now(),
- *         body: args.body,
- *         author: currentUser._id,
- *       },
- *     })
- *   })
- * ```
- */
-export function insertAtTop<Query extends PaginatedQueryReference>(
-  options: InsertAtTopOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, item } = options
-
-  // Get all queries matching this function
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    // Skip if args don't match filter
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    // Skip if no value yet (query hasn't loaded)
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    // Insert item at the beginning of the page
-    const newPage = [item, ...paginatedValue.page]
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-/**
- * Options for insertAtPosition helper
- */
-export interface InsertAtPositionOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** Sort order of the paginated query ('asc' or 'desc') */
-  sortOrder: 'asc' | 'desc'
-  /** Function to extract the sort key from an item */
-  sortKeyFromItem: (item: PaginatedQueryItem<Query>) => Value | Value[]
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** The item to insert at the correct sorted position */
-  item: PaginatedQueryItem<Query>
-}
-
-/**
- * Insert an item at its sorted position in paginated results.
- *
- * Use this when your paginated query is sorted by a specific field
- * and you want the new item to appear in the correct position.
- *
- * @example
- * ```ts
- * const addTask = useMutation(api.tasks.add)
- *   .withOptimisticUpdate((localStore, args) => {
- *     insertAtPosition({
- *       paginatedQuery: api.tasks.listByPriority,
- *       sortOrder: 'desc',
- *       sortKeyFromItem: (task) => task.priority,
- *       localQueryStore: localStore,
- *       item: {
- *         _id: crypto.randomUUID() as Id<"tasks">,
- *         _creationTime: Date.now(),
- *         title: args.title,
- *         priority: args.priority,
- *       },
- *     })
- *   })
- * ```
- */
-export function insertAtPosition<Query extends PaginatedQueryReference>(
-  options: InsertAtPositionOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, sortOrder, sortKeyFromItem, localQueryStore, item } = options
-
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-    const newItemKey = sortKeyFromItem(item)
-    const newItemKeyJson = convexToJson(newItemKey)
-
-    // Find the correct position to insert
-    let insertIndex = paginatedValue.page.length
-
-    for (let i = 0; i < paginatedValue.page.length; i++) {
-      const existingItem = paginatedValue.page[i]
-      if (!existingItem) continue
-
-      const existingKey = sortKeyFromItem(existingItem)
-      const existingKeyJson = convexToJson(existingKey)
-
-      const comparison = compareJsonValues(newItemKeyJson, existingKeyJson)
-
-      if (sortOrder === 'desc') {
-        // For descending, insert when new item is greater than or equal
-        if (comparison >= 0) {
-          insertIndex = i
-          break
-        }
-      } else {
-        // For ascending, insert when new item is less than or equal
-        if (comparison <= 0) {
-          insertIndex = i
-          break
-        }
-      }
-    }
-
-    const newPage = [
-      ...paginatedValue.page.slice(0, insertIndex),
-      item,
-      ...paginatedValue.page.slice(insertIndex),
-    ]
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-/**
- * Options for insertAtBottomIfLoaded helper
- */
-export interface InsertAtBottomIfLoadedOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** The item to insert at the bottom of results */
-  item: PaginatedQueryItem<Query>
-}
-
-/**
- * Insert an item at the bottom of paginated results, but only if all pages are loaded.
- *
- * Use this when you have ascending-sorted data and want new items to appear
- * at the end. The item will only be inserted if `isDone` is true (all pages loaded),
- * otherwise the server will include it when more pages are fetched.
- *
- * @example
- * ```ts
- * const addOldMessage = useMutation(api.messages.add)
- *   .withOptimisticUpdate((localStore, args) => {
- *     insertAtBottomIfLoaded({
- *       paginatedQuery: api.messages.listOldestFirst,
- *       localQueryStore: localStore,
- *       item: {
- *         _id: crypto.randomUUID() as Id<"messages">,
- *         _creationTime: Date.now(),
- *         body: args.body,
- *       },
- *     })
- *   })
- * ```
- */
-export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(
-  options: InsertAtBottomIfLoadedOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, item } = options
-
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    // Only insert if all pages are loaded (isDone is true)
-    if (!paginatedValue.isDone) {
-      continue
-    }
-
-    const newPage = [...paginatedValue.page, item]
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-/**
- * Options for optimisticallyUpdateValueInPaginatedQuery helper
- */
-export interface UpdateInPaginatedQueryOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** Function to update matching items. Return the item unchanged if no update needed. */
-  updateValue: (currentValue: PaginatedQueryItem<Query>) => PaginatedQueryItem<Query>
-}
-
-/**
- * Update items in paginated results.
- *
- * Use this to optimistically update existing items in paginated queries,
- * such as editing, toggling status, or marking as read.
- *
- * @example
- * ```ts
- * const toggleComplete = useMutation(api.tasks.toggleComplete)
- *   .withOptimisticUpdate((localStore, args) => {
- *     optimisticallyUpdateValueInPaginatedQuery({
- *       paginatedQuery: api.tasks.list,
- *       localQueryStore: localStore,
- *       updateValue: (task) => {
- *         if (task._id === args.taskId) {
- *           return { ...task, completed: !task.completed }
- *         }
- *         return task
- *       },
- *     })
- *   })
- * ```
- */
-export function optimisticallyUpdateValueInPaginatedQuery<Query extends PaginatedQueryReference>(
-  options: UpdateInPaginatedQueryOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, updateValue } = options
-
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    const newPage = paginatedValue.page.map(updateValue)
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-/**
- * Options for deleteFromPaginatedQuery helper
- */
-export interface DeleteFromPaginatedQueryOptions<Query extends PaginatedQueryReference> {
-  /** The paginated query function reference */
-  paginatedQuery: Query
-  /** Optional args to match specific paginated queries. If not provided, updates all. */
-  argsToMatch?: Partial<PaginatedQueryArgs<Query>>
-  /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
-  /** Predicate to identify items to delete. Return true to delete the item. */
-  shouldDelete: (item: PaginatedQueryItem<Query>) => boolean
-}
-
-/**
- * Delete items from paginated results.
- *
- * Use this to optimistically remove items from paginated queries.
- *
- * @example
- * ```ts
- * const deleteTask = useMutation(api.tasks.delete)
- *   .withOptimisticUpdate((localStore, args) => {
- *     deleteFromPaginatedQuery({
- *       paginatedQuery: api.tasks.list,
- *       localQueryStore: localStore,
- *       shouldDelete: (task) => task._id === args.taskId,
- *     })
- *   })
- * ```
- */
-export function deleteFromPaginatedQuery<Query extends PaginatedQueryReference>(
-  options: DeleteFromPaginatedQueryOptions<Query>,
-): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, shouldDelete } = options
-
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatch(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    const newPage = paginatedValue.page.filter((item) => !shouldDelete(item))
-
-    localQueryStore.setQuery(paginatedQuery, args, {
-      ...paginatedValue,
-      page: newPage,
-    })
-  }
-}
-
-// ============================================================================
-// Internal Helper Functions
-// ============================================================================
-
-/**
- * Check if query args match the filter args.
- * Uses shared deep equality from utilities, skips paginationOpts.
- */
-function argsMatch(
-  queryArgs: Record<string, unknown>,
-  filterArgs: Record<string, unknown>,
-): boolean {
-  return sharedArgsMatch(queryArgs, filterArgs, ['paginationOpts'])
-}
-
-/**
- * Compare two JSON values for sorting.
- * Uses shared comparison utility.
- */
-function compareJsonValues(a: unknown, b: unknown): number {
-  return sharedCompareJsonValues(a, b)
 }
