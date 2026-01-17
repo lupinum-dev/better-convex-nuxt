@@ -4,20 +4,17 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
-import { createModuleLogger, getLoggingOptions, createTimer, formatArgsPreview } from '../utils/logger'
-import type { OperationCompleteEvent } from '../utils/logger'
+import { createLogger, getLogLevel } from '../utils/logger'
 import { useConvex } from './useConvex'
 
 // ============================================================================
 // DevTools Integration
 // ============================================================================
 
-let devToolsMutationRegistryPromise: Promise<typeof import('../devtools/mutation-registry')> | null = null
 let devToolsMutationRegistry: typeof import('../devtools/mutation-registry') | null = null
 
 if (import.meta.client && import.meta.dev) {
-  devToolsMutationRegistryPromise = import('../devtools/mutation-registry')
-  devToolsMutationRegistryPromise
+  import('../devtools/mutation-registry')
     .then((module) => {
       devToolsMutationRegistry = module
     })
@@ -131,8 +128,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   type Result = FunctionReturnType<Action>
 
   const config = useRuntimeConfig()
-  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
-  const logger = createModuleLogger(loggingOptions)
+  const logLevel = getLogLevel(config.public.convex ?? {})
+  const logger = createLogger(logLevel)
   const fnName = getFunctionName(action)
 
   // Internal state
@@ -154,23 +151,14 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   // The execute function
   const execute = async (args: Args): Promise<Result> => {
     const client = useConvex()
-    const timer = createTimer()
+    const endTime = logger.time(fnName)
 
     if (!client) {
       const err = new Error('ConvexClient not available - actions only work on client side')
       _status.value = 'error'
       error.value = err
-
-      logger.event({
-        event: 'operation:complete',
-        env: 'client',
-        type: 'action',
-        name: fnName,
-        duration_ms: timer(),
-        outcome: 'error',
-        error: { type: 'ClientError', message: err.message },
-      } satisfies OperationCompleteEvent)
-
+      endTime()
+      logger.error(`${fnName} failed: client not available`)
       throw err
     }
 
@@ -180,7 +168,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     // Register with DevTools
     const startTime = Date.now()
     let actionId: string | null = null
-    if (devToolsMutationRegistry) {
+    if (import.meta.dev && devToolsMutationRegistry) {
       actionId = devToolsMutationRegistry.registerMutation({
         name: fnName,
         type: 'action',
@@ -198,7 +186,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
       // Update DevTools
       const settledAt = Date.now()
-      if (devToolsMutationRegistry && actionId) {
+      if (import.meta.dev && devToolsMutationRegistry && actionId) {
         devToolsMutationRegistry.updateMutationState(actionId, {
           state: 'success',
           result,
@@ -207,15 +195,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
         })
       }
 
-      logger.event({
-        event: 'operation:complete',
-        env: 'client',
-        type: 'action',
-        name: fnName,
-        duration_ms: timer(),
-        outcome: 'success',
-        args_preview: formatArgsPreview(args),
-      } satisfies OperationCompleteEvent)
+      endTime()
+      logger.info(`${fnName} succeeded`)
 
       return result
     } catch (e) {
@@ -225,7 +206,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
       // Update DevTools
       const settledAt = Date.now()
-      if (devToolsMutationRegistry && actionId) {
+      if (import.meta.dev && devToolsMutationRegistry && actionId) {
         devToolsMutationRegistry.updateMutationState(actionId, {
           state: 'error',
           error: err.message,
@@ -234,20 +215,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
         })
       }
 
-      logger.event({
-        event: 'operation:complete',
-        env: 'client',
-        type: 'action',
-        name: fnName,
-        duration_ms: timer(),
-        outcome: 'error',
-        args_preview: formatArgsPreview(args),
-        error: {
-          type: err.name,
-          message: err.message,
-          retriable: false,
-        },
-      } satisfies OperationCompleteEvent)
+      endTime()
+      logger.error(`${fnName} failed`, err)
 
       throw err
     }

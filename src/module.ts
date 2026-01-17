@@ -11,6 +11,10 @@ import {
 } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
+import type { LogLevel } from './runtime/utils/logger'
+
+// Re-export LogLevel from logger for external use
+export type { LogLevel } from './runtime/utils/logger'
 
 const logger = useLogger('better-convex-nuxt')
 
@@ -24,24 +28,6 @@ function isValidUrl(url: string): boolean {
   } catch {
     return false
   }
-}
-
-export interface LoggingOptions {
-  /**
-   * Enable module logging.
-   * - false: No logs (production default)
-   * - true: Info-level logs (canonical events only)
-   * - 'debug': Include debug-level details
-   * @default false
-   */
-  enabled?: boolean | 'debug'
-  /**
-   * Output format for logs.
-   * - 'pretty': Human-readable with icons (default)
-   * - 'json': Structured JSON for log aggregation
-   * @default 'pretty'
-   */
-  format?: 'pretty' | 'json'
 }
 
 export interface AuthCacheOptions {
@@ -88,10 +74,13 @@ export interface ModuleOptions {
    */
   permissions?: boolean
   /**
-   * Configure module logging behavior.
-   * Emits canonical log events for debugging SSR, auth, queries, and mutations.
+   * Enable module logging.
+   * - false: No logs (production default)
+   * - 'info': Simple logs for everyday use
+   * - 'debug': Detailed logs with timing for deep debugging
+   * @default false
    */
-  logging?: LoggingOptions
+  logging?: LogLevel
   /**
    * SSR auth token caching configuration (opt-in).
    * Caches Convex JWT tokens server-side to reduce TTFB on subsequent requests.
@@ -135,10 +124,7 @@ export default defineNuxtModule<ModuleOptions>({
     trustedOrigins: [],
     skipAuthRoutes: [],
     permissions: false,
-    logging: {
-      enabled: false,
-      format: 'pretty',
-    },
+    logging: false,
     authCache: {
       enabled: false,
       ttl: 900, // 15 minutes
@@ -157,22 +143,15 @@ export default defineNuxtModule<ModuleOptions>({
       logger.warn(`Invalid Convex site URL format: "${options.siteUrl}". Expected a valid URL like "https://your-app.convex.site"`)
     }
 
-    // Only use siteUrl if explicitly configured - don't auto-derive
-    // Users must set siteUrl to enable authentication
-    const derivedSiteUrl = options.siteUrl || ''
-
     // 1. Safe Configuration Merging (preserves user-defined runtimeConfig)
     const convexConfig = defu(
       nuxt.options.runtimeConfig.public.convex as Record<string, unknown> | undefined,
       {
         url: options.url || '',
-        siteUrl: derivedSiteUrl,
+        siteUrl: options.siteUrl || '',
         trustedOrigins: options.trustedOrigins ?? [],
         skipAuthRoutes: options.skipAuthRoutes ?? [],
-        logging: {
-          enabled: options.logging?.enabled ?? false,
-          format: options.logging?.format ?? 'pretty',
-        },
+        logging: options.logging ?? false,
         authCache: {
           enabled: options.authCache?.enabled ?? false,
           ttl: options.authCache?.ttl ?? 900,

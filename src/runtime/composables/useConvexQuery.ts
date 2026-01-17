@@ -17,21 +17,19 @@ import {
   releaseSubscription,
   type QueryStatus,
 } from '../utils/convex-cache'
-import { createModuleLogger, getLoggingOptions } from '../utils/logger'
-import type { SubscriptionChangeEvent } from '../utils/logger'
+import { createLogger, getLogLevel } from '../utils/logger'
 
 // DevTools query registry (client-side only in dev mode)
-// Using a promise-based approach to ensure registry is loaded before use
-let devToolsRegistryPromise: Promise<typeof import('../devtools/query-registry')> | null = null
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
 
 if (import.meta.client && import.meta.dev) {
-  devToolsRegistryPromise = import('../devtools/query-registry')
-  devToolsRegistryPromise.then((module) => {
-    devToolsRegistry = module
-  }).catch(() => {
-    // DevTools not available, ignore
-  })
+  import('../devtools/query-registry')
+    .then((module) => {
+      devToolsRegistry = module
+    })
+    .catch(() => {
+      // DevTools not available, ignore
+    })
 }
 
 // Re-export for consumers
@@ -155,11 +153,8 @@ export function useConvexQuery<
   const fnName = getFunctionName(query)
 
   // Setup logger
-  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
-  const logger = createModuleLogger(loggingOptions)
-
-  // Track subscription state for logging
-  let updateCount = 0
+  const logLevel = getLogLevel(config.public.convex ?? {})
+  const logger = createLogger(logLevel)
 
   // Get reactive args value
   const getArgs = (): Args => toValue(args) ?? ({} as Args)
@@ -280,7 +275,7 @@ export function useConvexQuery<
       isSkipped.value,
       asyncData.error.value != null, // != catches both null AND undefined (strict !== would fail on undefined)
       pending.value,
-      asyncData.data.value != null // Simplified: != null covers both null and undefined
+      asyncData.data.value != null, // Simplified: != null covers both null and undefined
     )
   })
 
@@ -307,16 +302,17 @@ export function useConvexQuery<
       if (existingEntry) {
         existingEntry.refCount++
         registeredCacheKey = currentCacheKey
+
+        // Log shared subscription
+        logger.debug(`${fnName} sharing subscription (refCount: ${existingEntry.refCount})`, currentArgs)
         return
       }
 
       try {
-        updateCount = 0
         const unsubscribeFn = convex.onUpdate(
           query,
           currentArgs as FunctionArgs<Query>,
           (result: RawT) => {
-            updateCount++
             const transformedResult = applyTransform(result)
             // Cast needed because useAsyncData has complex PickFrom type
             ;(asyncData.data as Ref<DataT | null>).value = transformedResult
@@ -327,8 +323,10 @@ export function useConvexQuery<
             // Force Vue reactivity for all watchers
             triggerRef(asyncData.data)
 
+            logger.debug(`${fnName} received update`, { items: Array.isArray(result) ? result.length : 1 })
+
             // Update DevTools registry with new data
-            if (devToolsRegistry) {
+            if (import.meta.dev && devToolsRegistry) {
               devToolsRegistry.updateQueryStatus(currentCacheKey, {
                 status: 'success',
                 data: transformedResult,
@@ -337,14 +335,8 @@ export function useConvexQuery<
             }
           },
           (err: Error) => {
-            // Log subscription errors
-            logger.event({
-              event: 'subscription:change',
-              env: 'client',
-              name: fnName,
-              state: 'error',
-              error: { type: err.name, message: err.message },
-            } satisfies SubscriptionChangeEvent)
+            logger.error(`${fnName} subscription error`, err)
+
             // Only set error if we don't have data
             // If we have data (from SSR or previous subscription), the subscription
             // will recover automatically and we don't want to flash an error state
@@ -354,7 +346,7 @@ export function useConvexQuery<
             }
 
             // Update DevTools registry with error
-            if (devToolsRegistry) {
+            if (import.meta.dev && devToolsRegistry) {
               devToolsRegistry.updateQueryStatus(currentCacheKey, {
                 status: 'error',
                 error: err.message,
@@ -365,43 +357,29 @@ export function useConvexQuery<
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
         registeredCacheKey = currentCacheKey
 
-        logger.event({
-          event: 'subscription:change',
-          env: 'client',
-          name: fnName,
-          state: 'subscribed',
-          cache_hit: false,
-        } satisfies SubscriptionChangeEvent)
+        logger.info(`${fnName} subscribed`, currentArgs)
 
-        // Register with DevTools in dev mode (ensure module is loaded)
-        if (devToolsRegistryPromise) {
-          devToolsRegistryPromise.then((registry) => {
-            registry.registerQuery({
-              id: currentCacheKey,
-              name: fnName,
-              args: currentArgs,
-              status: 'pending',
-              dataSource: 'websocket',
-              data: asyncData.data.value,
-              hasSubscription: true,
-              options: {
-                lazy,
-                server,
-                subscribe,
-                public: isPublic,
-              },
-            })
-          }).catch(() => {})
+        // Register with DevTools in dev mode
+        if (import.meta.dev && devToolsRegistry) {
+          devToolsRegistry.registerQuery({
+            id: currentCacheKey,
+            name: fnName,
+            args: currentArgs,
+            status: 'pending',
+            dataSource: 'websocket',
+            data: asyncData.data.value,
+            hasSubscription: true,
+            options: {
+              lazy,
+              server,
+              subscribe,
+              public: isPublic,
+            },
+          })
         }
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e))
-        logger.event({
-          event: 'subscription:change',
-          env: 'client',
-          name: fnName,
-          state: 'error',
-          error: { type: err.name, message: err.message },
-        } satisfies SubscriptionChangeEvent)
+        logger.error(`${fnName} subscription failed`, err)
       }
     }
 
@@ -419,13 +397,12 @@ export function useConvexQuery<
               const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
               if (wasUnsubscribed) {
-                logger.event({
-                  event: 'subscription:change',
-                  env: 'client',
-                  name: fnName,
-                  state: 'unsubscribed',
-                  updates_received: updateCount,
-                } satisfies SubscriptionChangeEvent)
+                logger.info(`${fnName} unsubscribed`)
+
+                // Unregister from DevTools only if we were the last user
+                if (import.meta.dev && devToolsRegistry) {
+                  devToolsRegistry.unregisterQuery(registeredCacheKey)
+                }
               }
 
               registeredCacheKey = null
@@ -449,16 +426,12 @@ export function useConvexQuery<
         const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
         if (wasUnsubscribed) {
-          logger.event({
-            event: 'subscription:change',
-            env: 'client',
-            name: fnName,
-            state: 'unsubscribed',
-            updates_received: updateCount,
-          } satisfies SubscriptionChangeEvent)
+          logger.info(`${fnName} unsubscribed`)
 
           // Unregister from DevTools only if we were the last user
-          devToolsRegistry?.unregisterQuery(registeredCacheKey)
+          if (import.meta.dev && devToolsRegistry) {
+            devToolsRegistry.unregisterQuery(registeredCacheKey)
+          }
         }
 
         registeredCacheKey = null

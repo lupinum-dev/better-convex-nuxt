@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useBridge, callBridge } from './composables/useBridge'
+import { useBridge } from './composables/useBridge'
 import { useQueries } from './composables/useQueries'
 import { useMutations } from './composables/useMutations'
 import { useAuth } from './composables/useAuth'
-import { useEvents } from './composables/useEvents'
 
 // Initialize bridge
 useBridge()
@@ -13,25 +12,16 @@ useBridge()
 const { queries, selectedQueryId, selectQuery, getSelectedQuery } = useQueries()
 const { mutations, toggleExpanded, isExpanded } = useMutations()
 const { authState, connectionState, authWaterfall } = useAuth()
-const { events, clearEvents } = useEvents()
 
 // UI state
-const activeTab = ref<'queries' | 'mutations' | 'auth' | 'events'>('queries')
+const activeTab = ref<'queries' | 'mutations' | 'auth'>('queries')
 const loading = ref(true)
-const dashboardUrl = ref<string | null>(null)
 
-onMounted(async () => {
+onMounted(() => {
   // Short delay to allow connection
   setTimeout(() => {
     loading.value = false
   }, 500)
-
-  // Get dashboard URL
-  try {
-    dashboardUrl.value = await callBridge<string | null>('getDashboardUrl')
-  } catch {
-    // Ignore
-  }
 })
 
 function switchTab(tab: typeof activeTab.value) {
@@ -104,13 +94,6 @@ function switchTab(tab: typeof activeTab.value) {
         >
           Auth
         </button>
-        <button
-          class="tab"
-          :class="{ active: activeTab === 'events' }"
-          @click="switchTab('events')"
-        >
-          Events <span class="tab-badge">{{ events.length }}</span>
-        </button>
       </nav>
 
       <!-- Queries Tab -->
@@ -137,15 +120,6 @@ function switchTab(tab: typeof activeTab.value) {
       <!-- Auth Tab -->
       <div v-show="activeTab === 'auth'" class="tab-content active" style="overflow-y: auto;">
         <AuthPanel :auth-state="authState" :waterfall="authWaterfall" />
-      </div>
-
-      <!-- Events Tab -->
-      <div v-show="activeTab === 'events'" class="tab-content active">
-        <EventLog
-          :events="events"
-          :dashboard-url="dashboardUrl"
-          @clear="clearEvents"
-        />
       </div>
     </template>
   </div>

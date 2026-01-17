@@ -3,8 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import { useRuntimeConfig } from '#imports'
 
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
-import { createModuleLogger, getLoggingOptions, createTimer, formatArgsPreview } from '../../utils/logger'
-import type { OperationCompleteEvent } from '../../utils/logger'
+import { createLogger, getLogLevel } from '../../utils/logger'
 
 /**
  * Options for server-side Convex operations
@@ -36,9 +35,9 @@ async function executeConvexOperation<T>(
   options?: FetchOptions,
 ): Promise<T> {
   const config = useRuntimeConfig()
-  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
-  const logger = createModuleLogger(loggingOptions)
-  const timer = createTimer()
+  const logLevel = getLogLevel(config.public.convex ?? {})
+  const logger = createLogger(logLevel)
+  const endTime = logger.time(`${operationType}:${functionPath}`)
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -68,34 +67,14 @@ async function executeConvexOperation<T>(
     const json = await response.json()
     const result = parseConvexResponse<T>(json)
 
-    logger.event({
-      event: 'operation:complete',
-      env: 'server',
-      type: operationType,
-      name: functionPath,
-      duration_ms: timer(),
-      outcome: 'success',
-      args_preview: formatArgsPreview(args),
-    } satisfies OperationCompleteEvent)
+    endTime()
+    logger.info(`${operationType}:${functionPath} succeeded`)
 
     return result
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error))
-
-    logger.event({
-      event: 'operation:complete',
-      env: 'server',
-      type: operationType,
-      name: functionPath,
-      duration_ms: timer(),
-      outcome: 'error',
-      args_preview: formatArgsPreview(args),
-      error: {
-        type: err.name,
-        message: err.message,
-      },
-    } satisfies OperationCompleteEvent)
-
+    endTime()
+    logger.error(`${operationType}:${functionPath} failed`, err)
     throw error
   }
 }
