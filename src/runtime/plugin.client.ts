@@ -73,6 +73,12 @@ export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = createLogger(logLevel)
+
+  // Debug: verify logging is configured
+  if (logLevel) {
+    console.log(`[convex] Logging enabled: ${logLevel}`)
+  }
+
   const endInit = logger.time('plugin:init (client)')
 
   // HMR-safe initialization

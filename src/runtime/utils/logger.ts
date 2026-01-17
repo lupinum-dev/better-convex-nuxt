@@ -7,8 +7,6 @@
  * - 'debug': Detailed logs with timing for deep debugging sessions
  */
 
-import { createConsola, type ConsolaInstance } from 'consola'
-
 export type LogLevel = false | 'info' | 'debug'
 
 export interface Logger {
@@ -33,6 +31,8 @@ const noopLogger: Logger = {
   time: () => () => {},
 }
 
+const PREFIX = '[convex]'
+
 /**
  * Create a logger with the specified level.
  */
@@ -41,26 +41,22 @@ export function createLogger(level: LogLevel): Logger {
 
   const isDebug = level === 'debug'
 
-  const consola: ConsolaInstance = createConsola({
-    level: isDebug ? 4 : 3, // 4 = debug, 3 = info
-  }).withTag('convex')
-
   return {
-    info: (msg) => consola.info(msg),
-    warn: (msg) => consola.warn(msg),
+    info: (msg) => console.log(`${PREFIX} ${msg}`),
+    warn: (msg) => console.warn(`${PREFIX} ${msg}`),
     error: (msg, err) => {
       if (err) {
-        consola.error(msg, err)
+        console.error(`${PREFIX} ${msg}`, err)
       } else {
-        consola.error(msg)
+        console.error(`${PREFIX} ${msg}`)
       }
     },
     debug: (msg, data) => {
       if (isDebug) {
         if (data !== undefined) {
-          consola.debug(msg, data)
+          console.log(`${PREFIX} [debug] ${msg}`, data)
         } else {
-          consola.debug(msg)
+          console.log(`${PREFIX} [debug] ${msg}`)
         }
       }
     },
@@ -69,7 +65,7 @@ export function createLogger(level: LogLevel): Logger {
       const start = performance.now()
       return () => {
         const elapsed = Math.round(performance.now() - start)
-        consola.debug(`${label}: ${elapsed}ms`)
+        console.log(`${PREFIX} [time] ${label}: ${elapsed}ms`)
       }
     },
   }
