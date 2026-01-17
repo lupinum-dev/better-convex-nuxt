@@ -212,6 +212,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           convexPending.value = false // Reset pending in case login was in progress
           convexToken.value = null
           convexUser.value = null
+          convexAuthError.value = null // Clear any previous auth error
           logger.auth({ phase: 'logout', outcome: 'success' })
         }
       },

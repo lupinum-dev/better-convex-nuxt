@@ -209,5 +209,6 @@ export function getCookie(cookieHeader: string | null | undefined, name: string)
 export function generatePaginationId(): number {
   // Use random number to avoid SSR global state leak
   // Math.random() is sufficient since this is only used for cache-busting
-  return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER)
+  // Guarantees range [1, MAX_SAFE_INTEGER] - never returns 0
+  return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER - 1)) + 1
 }

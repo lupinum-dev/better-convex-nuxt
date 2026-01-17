@@ -171,21 +171,25 @@ export async function setupDevToolsBridge(
   }
 
   // Subscribe to mutations and forward to DevTools via BroadcastChannel
-  mutationRegistry.subscribeToMutations((mutations) => {
-    channel.postMessage({ type: 'CONVEX_DEVTOOLS_MUTATIONS', mutations })
+  // Capture unsubscribe handle for HMR cleanup
+  const unsubscribeMutations = mutationRegistry.subscribeToMutations((mutations) => {
+    channel.postMessage({ type: 'CONVEX_DEVTOOLS_MUTATIONS', mutations, instanceId })
   })
 
   // Subscribe to queries and forward to DevTools via BroadcastChannel
-  queryRegistry.subscribeToQueries((queries) => {
-    channel.postMessage({ type: 'CONVEX_DEVTOOLS_QUERIES', queries })
+  // Capture unsubscribe handle for HMR cleanup
+  const unsubscribeQueries = queryRegistry.subscribeToQueries((queries) => {
+    channel.postMessage({ type: 'CONVEX_DEVTOOLS_QUERIES', queries, instanceId })
   })
 
-  // HMR cleanup: close the BroadcastChannel when module is hot-replaced
-  // This prevents ghost instances from responding to messages
+  // HMR cleanup: close the BroadcastChannel and unsubscribe when module is hot-replaced
+  // This prevents ghost instances from responding to messages and subscription leaks
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const hot = (import.meta as any).hot
   if (hot) {
     hot.dispose(() => {
+      unsubscribeMutations()
+      unsubscribeQueries()
       channel.close()
     })
   }

@@ -12,17 +12,30 @@ const functionNameSymbol = Symbol.for('functionName')
 /**
  * Decode a base64url-encoded string.
  * Works in both browser (atob) and Node.js (Buffer) environments.
- * Handles URL-safe base64 encoding (RFC 4648).
+ * Handles URL-safe base64 encoding (RFC 4648) with proper UTF-8 support.
  */
 function base64UrlDecode(str: string): string {
   // Convert URL-safe base64 to standard base64
-  const base64 = str.replace(/-/g, '+').replace(/_/g, '/')
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/')
 
-  // Use Buffer in Node.js, atob in browser
+  // Add padding if needed
+  const padding = base64.length % 4
+  if (padding > 0) {
+    base64 += '='.repeat(4 - padding)
+  }
+
+  // Use Buffer in Node.js, atob + TextDecoder in browser
   if (typeof Buffer !== 'undefined') {
     return Buffer.from(base64, 'base64').toString('utf-8')
   }
-  return atob(base64)
+
+  // Browser: proper UTF-8 decode (atob alone corrupts multi-byte characters)
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  return new TextDecoder('utf-8').decode(bytes)
 }
 
 /**
