@@ -47,6 +47,33 @@ export interface AuthCacheOptions {
   ttl?: number
 }
 
+/**
+ * Default options for query composables (useConvexQuery, useConvexPaginatedQuery).
+ * These can be overridden on a per-query basis.
+ */
+export interface QueryDefaults {
+  /**
+   * Run query on server during SSR.
+   * @default true
+   */
+  server?: boolean
+  /**
+   * Don't block navigation, load in background.
+   * @default false
+   */
+  lazy?: boolean
+  /**
+   * Subscribe to real-time updates via WebSocket.
+   * @default true
+   */
+  subscribe?: boolean
+  /**
+   * Skip auth checks for public queries.
+   * @default false
+   */
+  public?: boolean
+}
+
 export interface ModuleOptions {
   /** Convex deployment URL (WebSocket) - e.g., https://your-app.convex.cloud */
   url?: string
@@ -108,6 +135,24 @@ export interface ModuleOptions {
    * ```
    */
   authCache?: AuthCacheOptions
+  /**
+   * Default options for query composables (useConvexQuery, useConvexPaginatedQuery).
+   * Per-query options override these defaults.
+   *
+   * @example
+   * ```ts
+   * // nuxt.config.ts
+   * export default defineNuxtConfig({
+   *   convex: {
+   *     defaults: {
+   *       server: false,  // Disable SSR globally
+   *       lazy: true      // Enable lazy loading globally
+   *     }
+   *   }
+   * })
+   * ```
+   */
+  defaults?: QueryDefaults
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -128,6 +173,12 @@ export default defineNuxtModule<ModuleOptions>({
     authCache: {
       enabled: false,
       ttl: 900, // 15 minutes
+    },
+    defaults: {
+      server: true, // SSR enabled by default (like Nuxt's useFetch)
+      lazy: false,
+      subscribe: true,
+      public: false,
     },
   },
   setup(options, nuxt) {
@@ -155,6 +206,12 @@ export default defineNuxtModule<ModuleOptions>({
         authCache: {
           enabled: options.authCache?.enabled ?? false,
           ttl: options.authCache?.ttl ?? 900,
+        },
+        defaults: {
+          server: options.defaults?.server ?? true, // SSR enabled by default
+          lazy: options.defaults?.lazy ?? false,
+          subscribe: options.defaults?.subscribe ?? true,
+          public: options.defaults?.public ?? false,
         },
       },
     )

@@ -40,17 +40,17 @@ export { parseConvexResponse, computeQueryStatus, getQueryKey }
  * Options for useConvexQuery
  */
 export interface UseConvexQueryOptions<RawT, DataT = RawT> {
-  /** Don't block when awaited. Query runs in background. @default false */
+  /** Don't block when awaited. Query runs in background. @default false (configurable via nuxt.config convex.defaults.lazy) */
   lazy?: boolean
-  /** Run query on server during SSR. @default false */
+  /** Run query on server during SSR. @default true (configurable via nuxt.config convex.defaults.server) */
   server?: boolean
-  /** Subscribe to real-time updates via WebSocket. @default true */
+  /** Subscribe to real-time updates via WebSocket. @default true (configurable via nuxt.config convex.defaults.subscribe) */
   subscribe?: boolean
   /** Factory function for default data value. */
   default?: () => DataT | undefined
   /** Transform data after fetching. */
   transform?: (input: RawT) => DataT
-  /** Mark this query as public (no authentication needed). @default false */
+  /** Mark this query as public (no authentication needed). @default false (configurable via nuxt.config convex.defaults.public) */
   public?: boolean
 }
 
@@ -143,11 +143,12 @@ export function useConvexQuery<
   const nuxtApp = useNuxtApp()
   const config = useRuntimeConfig()
 
-  // Resolve options
-  const lazy = options?.lazy ?? false
-  const server = options?.server ?? false
-  const subscribe = options?.subscribe ?? true
-  const isPublic = options?.public ?? false
+  // Resolve options from: per-call options → global defaults → built-in defaults
+  const defaults = config.public.convex?.defaults as { server?: boolean; lazy?: boolean; subscribe?: boolean; public?: boolean } | undefined
+  const lazy = options?.lazy ?? defaults?.lazy ?? false
+  const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
+  const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
+  const isPublic = options?.public ?? defaults?.public ?? false
 
   // Get function name for cache key and logging
   const fnName = getFunctionName(query)

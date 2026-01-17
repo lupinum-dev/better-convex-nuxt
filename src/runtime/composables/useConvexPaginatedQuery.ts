@@ -65,15 +65,14 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
 
   /**
    * Run query on server during SSR.
-   * Set to true for SSR data fetching.
-   * @default false
+   * @default true (configurable via nuxt.config convex.defaults.server)
    */
   server?: boolean
 
   /**
    * Don't block when awaited.
    * Query runs in background, shows LoadingFirstPage state.
-   * @default false
+   * @default false (configurable via nuxt.config convex.defaults.lazy)
    */
   lazy?: boolean
 
@@ -81,14 +80,14 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
    * Subscribe to real-time updates via WebSocket.
    * Set to false to skip WebSocket subscriptions and only use SSR data.
    * Use refresh() to manually re-fetch when needed.
-   * @default true
+   * @default true (configurable via nuxt.config convex.defaults.subscribe)
    */
   subscribe?: boolean
 
   /**
    * Mark this query as public (no authentication needed).
    * When true, skips all auth token checks during SSR.
-   * @default false
+   * @default false (configurable via nuxt.config convex.defaults.public)
    */
   public?: boolean
 
@@ -261,12 +260,13 @@ export function useConvexPaginatedQuery<
   const nuxtApp = useNuxtApp()
   const config = useRuntimeConfig()
 
-  // Resolve options with defaults
+  // Resolve options from: per-call options → global defaults → built-in defaults
+  const defaults = config.public.convex?.defaults as { server?: boolean; lazy?: boolean; subscribe?: boolean; public?: boolean } | undefined
   const initialNumItems = options?.initialNumItems ?? 10
-  const server = options?.server ?? false
-  const lazy = options?.lazy ?? false
-  const subscribe = options?.subscribe ?? true
-  const isPublic = options?.public ?? false
+  const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
+  const lazy = options?.lazy ?? defaults?.lazy ?? false
+  const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
+  const isPublic = options?.public ?? defaults?.public ?? false
 
   // Get function name (needed for cache key)
   const fnName = getFunctionName(query)
@@ -426,7 +426,7 @@ export function useConvexPaginatedQuery<
     }
 
     try {
-      page.unsubscribe = convex.onUpdate(
+      const rawUnsubscribe = convex.onUpdate(
         query,
         fullArgs as FunctionArgs<Query>,
         (result: PaginationResult<Item>) => {
@@ -454,8 +454,9 @@ export function useConvexPaginatedQuery<
           pages.value = newPages
         },
       )
-      // Register subscription in cache (using shared helper)
-      registerSubscription(nuxtApp, subscriptionKey, page.unsubscribe)
+      // Register subscription in cache and wrap unsubscribe to go through ref-counting
+      registerSubscription(nuxtApp, subscriptionKey, rawUnsubscribe)
+      page.unsubscribe = () => releaseSubscription(nuxtApp, subscriptionKey)
     } catch (e) {
       if (import.meta.dev) {
         console.warn('[useConvexPaginatedQuery] Page subscription failed:', e)
@@ -736,7 +737,7 @@ export function useConvexPaginatedQuery<
     }
 
     try {
-      firstPageUnsubscribe = convex.onUpdate(
+      const rawUnsubscribe = convex.onUpdate(
         query,
         fullArgs as FunctionArgs<Query>,
         (result: PaginationResult<Item>) => {
@@ -747,8 +748,9 @@ export function useConvexPaginatedQuery<
           asyncData.error.value = err as unknown as typeof asyncData.error.value
         },
       )
-      // Register subscription in cache (using shared helper)
-      registerSubscription(nuxtApp, subscriptionKey, firstPageUnsubscribe)
+      // Register subscription in cache and wrap unsubscribe to go through ref-counting
+      registerSubscription(nuxtApp, subscriptionKey, rawUnsubscribe)
+      firstPageUnsubscribe = () => releaseSubscription(nuxtApp, subscriptionKey)
     } catch (e) {
       if (import.meta.dev) {
         console.warn('[useConvexPaginatedQuery] First page subscription failed:', e)
