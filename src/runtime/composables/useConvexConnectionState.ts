@@ -39,6 +39,9 @@ const DEFAULT_STATE: ConnectionState = {
 
 // Module-level singleton for shared connection state
 // Uses ref-counting to manage the single ConvexClient subscription
+// SAFETY: These module-level variables are only modified inside `if (import.meta.client)` blocks,
+// so they won't leak between SSR requests. The singleton pattern prevents multiple
+// WebSocket subscriptions when multiple components use this composable.
 let sharedState: Ref<ConnectionState> | null = null
 let sharedUnsubscribe: (() => void) | null = null
 let subscriberCount = 0

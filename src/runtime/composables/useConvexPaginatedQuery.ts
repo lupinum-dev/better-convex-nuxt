@@ -460,6 +460,8 @@ export function useConvexPaginatedQuery<
       if (import.meta.dev) {
         console.warn('[useConvexPaginatedQuery] Page subscription failed:', e)
       }
+      // Track error in page state so it surfaces via the error computed
+      page.error = e instanceof Error ? e : new Error(String(e))
     }
   }
 
@@ -740,8 +742,8 @@ export function useConvexPaginatedQuery<
           firstPageRealtimeData.value = result
         },
         (err: Error) => {
-          // Update asyncData error state
-          ;(asyncData.error as Ref<Error | null>).value = err
+          // Update asyncData error state - match Nuxt's expected type
+          asyncData.error.value = err as unknown as typeof asyncData.error.value
         },
       )
       // Register subscription in cache (using shared helper)
@@ -750,6 +752,8 @@ export function useConvexPaginatedQuery<
       if (import.meta.dev) {
         console.warn('[useConvexPaginatedQuery] First page subscription failed:', e)
       }
+      // Track error so it surfaces via the error computed
+      globalError.value = e instanceof Error ? e : new Error(String(e))
     }
   }
 
