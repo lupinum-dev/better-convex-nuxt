@@ -3,7 +3,7 @@
  * Manually wires up setAuth() for zero-flash auth on first render.
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
-import { toRaw } from 'vue'
+import { toRaw, watch } from 'vue'
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import { ConvexClient } from 'convex/browser'
@@ -151,8 +151,9 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       // Layer 1: SSR detection - trust hydration in SSR mode
       // If server rendered and no token/user, server would have hydrated if user was logged in
+      // Skip this check if forceRefreshToken is true (session changed client-side)
       const wasServerRendered = !!nuxtApp.payload?.serverRendered
-      if (wasServerRendered && !convexToken.value && !convexUser.value) {
+      if (wasServerRendered && !convexToken.value && !convexUser.value && !forceRefreshToken) {
         return null
       }
 
@@ -207,6 +208,25 @@ export default defineNuxtPlugin((nuxtApp) => {
         } satisfies AuthChangeEvent)
       }
     })
+
+    // Watch Better Auth session changes and sync to Convex state
+    // This ensures useConvexAuth() updates reactively after login/logout
+    const session = authClient.useSession()
+    watch(
+      () => session.value.data,
+      async (sessionData) => {
+        if (sessionData) {
+          // User logged in - clear caches and fetch fresh token
+          lastNullTokenCheck = 0
+          lastTokenValidation = 0
+          await fetchToken({ forceRefreshToken: true })
+        } else if (convexToken.value) {
+          // User logged out - clear state
+          convexToken.value = null
+          convexUser.value = null
+        }
+      },
+    )
   }
 
   // Provide clients globally
