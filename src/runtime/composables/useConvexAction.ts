@@ -140,14 +140,13 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   // The execute function
   const execute = async (args: Args): Promise<Result> => {
     const client = useConvex()
-    const endTime = logger.time(fnName)
+    const startTime = Date.now()
 
     if (!client) {
       const err = new Error('ConvexClient not available - actions only work on client side')
       _status.value = 'error'
       error.value = err
-      endTime()
-      logger.error(`${fnName} failed: client not available`)
+      logger.action({ name: fnName, event: 'error', error: err })
       throw err
     }
 
@@ -155,7 +154,6 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     error.value = null
 
     // Register with DevTools
-    const startTime = Date.now()
     const actionId = registerDevToolsEntry(fnName, 'action', args, false)
 
     try {
@@ -166,8 +164,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
       // Update DevTools
       updateDevToolsSuccess(actionId, startTime, result)
 
-      endTime()
-      logger.info(`${fnName} succeeded`)
+      const duration = Date.now() - startTime
+      logger.action({ name: fnName, event: 'success', duration })
 
       return result
     } catch (e) {
@@ -178,8 +176,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
       // Update DevTools
       updateDevToolsError(actionId, startTime, err.message)
 
-      endTime()
-      logger.error(`${fnName} failed`, err)
+      const duration = Date.now() - startTime
+      logger.action({ name: fnName, event: 'error', duration, error: err })
 
       throw err
     }

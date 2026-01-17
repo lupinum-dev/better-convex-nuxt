@@ -53,7 +53,7 @@ export default defineNuxtPlugin(async () => {
   // Get the H3 event for accessing cookies
   const event = useRequestEvent()
   if (!event) {
-    logger.error('No request event available')
+    logger.auth({ phase: 'init', outcome: 'error', error: new Error('No request event available') })
     return
   }
 
@@ -64,6 +64,11 @@ export default defineNuxtPlugin(async () => {
     endInit()
     logger.debug('No siteUrl configured, auth disabled')
     return
+  }
+
+  // Helper to log auth events
+  const logAuth = (phase: string, outcome: 'success' | 'error' | 'skip' | 'miss', details?: Record<string, unknown>, error?: Error) => {
+    logger.auth({ phase, outcome, details, error })
   }
 
   // Initialize useState for hydration (must be done even if unauthenticated)
@@ -98,7 +103,7 @@ export default defineNuxtPlugin(async () => {
       }
     }
     endInit()
-    logger.debug('No session cookie found')
+    logAuth('session-check', 'miss')
     return
   }
 
@@ -142,7 +147,7 @@ export default defineNuxtPlugin(async () => {
         }
 
         endInit()
-        logger.info(`SSR auth: authenticated (cache hit)`)
+        logAuth('cache', 'success', { source: 'cache' })
         return
       } else if (trackWaterfall) {
         phases.push(buildPhase('cache-lookup', cacheStart, waterfallStart, 'miss', 'Cache miss'))
@@ -206,13 +211,13 @@ export default defineNuxtPlugin(async () => {
       }
 
       endInit()
-      logger.info(`SSR auth: authenticated`)
+      logAuth('exchange', 'success', { user: convexUser.value?.email })
     } else {
       if (trackWaterfall) {
         phases.push(buildPhase('token-exchange', exchangeStart, waterfallStart, 'error', 'No token returned'))
       }
       endInit()
-      logger.debug('SSR auth: no token returned')
+      logAuth('exchange', 'miss')
     }
 
     // Store waterfall (dev-only)
@@ -245,6 +250,6 @@ export default defineNuxtPlugin(async () => {
     }
 
     endInit()
-    logger.error('SSR auth failed', error instanceof Error ? error : undefined)
+    logAuth('exchange', 'error', undefined, error instanceof Error ? error : new Error('Token exchange failed'))
   }
 })

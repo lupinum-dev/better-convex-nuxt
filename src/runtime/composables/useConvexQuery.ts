@@ -304,7 +304,7 @@ export function useConvexQuery<
         registeredCacheKey = currentCacheKey
 
         // Log shared subscription
-        logger.debug(`${fnName} sharing subscription (refCount: ${existingEntry.refCount})`, currentArgs)
+        logger.query({ name: fnName, event: 'share', refCount: existingEntry.refCount, args: currentArgs })
         return
       }
 
@@ -323,7 +323,13 @@ export function useConvexQuery<
             // Force Vue reactivity for all watchers
             triggerRef(asyncData.data)
 
-            logger.debug(`${fnName} received update`, { items: Array.isArray(result) ? result.length : 1 })
+            logger.query({
+              name: fnName,
+              event: 'update',
+              count: Array.isArray(result) ? result.length : 1,
+              args: currentArgs,
+              data: result,
+            })
 
             // Update DevTools registry with new data
             if (import.meta.dev && devToolsRegistry) {
@@ -335,7 +341,7 @@ export function useConvexQuery<
             }
           },
           (err: Error) => {
-            logger.error(`${fnName} subscription error`, err)
+            logger.query({ name: fnName, event: 'error', error: err })
 
             // Only set error if we don't have data
             // If we have data (from SSR or previous subscription), the subscription
@@ -357,7 +363,7 @@ export function useConvexQuery<
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
         registeredCacheKey = currentCacheKey
 
-        logger.info(`${fnName} subscribed`, currentArgs)
+        logger.query({ name: fnName, event: 'subscribe', args: currentArgs })
 
         // Register with DevTools in dev mode
         if (import.meta.dev && devToolsRegistry) {
@@ -379,7 +385,7 @@ export function useConvexQuery<
         }
       } catch (e) {
         const err = e instanceof Error ? e : new Error(String(e))
-        logger.error(`${fnName} subscription failed`, err)
+        logger.query({ name: fnName, event: 'error', error: err })
       }
     }
 
@@ -397,7 +403,7 @@ export function useConvexQuery<
               const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
               if (wasUnsubscribed) {
-                logger.info(`${fnName} unsubscribed`)
+                logger.query({ name: fnName, event: 'unsubscribe' })
 
                 // Unregister from DevTools only if we were the last user
                 if (import.meta.dev && devToolsRegistry) {
@@ -426,7 +432,7 @@ export function useConvexQuery<
         const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
         if (wasUnsubscribed) {
-          logger.info(`${fnName} unsubscribed`)
+          logger.query({ name: fnName, event: 'unsubscribe' })
 
           // Unregister from DevTools only if we were the last user
           if (import.meta.dev && devToolsRegistry) {

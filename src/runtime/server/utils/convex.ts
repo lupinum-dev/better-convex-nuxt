@@ -37,7 +37,7 @@ async function executeConvexOperation<T>(
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = createLogger(logLevel)
-  const endTime = logger.time(`${operationType}:${functionPath}`)
+  const startTime = Date.now()
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -45,6 +45,27 @@ async function executeConvexOperation<T>(
 
   if (options?.authToken) {
     headers['Authorization'] = `Bearer ${options.authToken}`
+  }
+
+  // Helper to log based on operation type
+  const logSuccess = (duration: number) => {
+    if (operationType === 'query') {
+      logger.query({ name: functionPath, event: 'update', args })
+    } else if (operationType === 'mutation') {
+      logger.mutation({ name: functionPath, event: 'success', args, duration })
+    } else {
+      logger.action({ name: functionPath, event: 'success', duration })
+    }
+  }
+
+  const logError = (err: Error, duration: number) => {
+    if (operationType === 'query') {
+      logger.query({ name: functionPath, event: 'error', args, error: err })
+    } else if (operationType === 'mutation') {
+      logger.mutation({ name: functionPath, event: 'error', args, duration, error: err })
+    } else {
+      logger.action({ name: functionPath, event: 'error', duration, error: err })
+    }
   }
 
   try {
@@ -67,14 +88,14 @@ async function executeConvexOperation<T>(
     const json = await response.json()
     const result = parseConvexResponse<T>(json)
 
-    endTime()
-    logger.info(`${operationType}:${functionPath} succeeded`)
+    const duration = Date.now() - startTime
+    logSuccess(duration)
 
     return result
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error))
-    endTime()
-    logger.error(`${operationType}:${functionPath} failed`, err)
+    const duration = Date.now() - startTime
+    logError(err, duration)
     throw error
   }
 }

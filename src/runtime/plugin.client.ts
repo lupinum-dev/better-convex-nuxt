@@ -43,7 +43,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const siteUrl = config.public.convex?.siteUrl as string | undefined
 
   if (!convexUrl) {
-    logger.error('No Convex URL configured')
+    logger.auth({ phase: 'init', outcome: 'error', error: new Error('No Convex URL configured') })
     endInit()
     return
   }
@@ -176,7 +176,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
 
     client.setAuth(fetchToken, (isAuthenticated) => {
-      logger.debug(`Auth state changed: ${isAuthenticated ? 'authenticated' : 'unauthenticated'}`)
+      logger.debug(`Auth state: ${isAuthenticated ? 'authenticated' : 'unauthenticated'}`)
     })
 
     // Watch Better Auth session changes and sync to Convex state
@@ -200,7 +200,7 @@ export default defineNuxtPlugin((nuxtApp) => {
             lastNullTokenCheck = 0
             lastTokenValidation = 0
             await fetchToken({ forceRefreshToken: true, signal })
-            logger.info('User logged in')
+            logger.auth({ phase: 'login', outcome: 'success' })
           } finally {
             // Only update pending if this operation wasn't cancelled
             if (!signal.aborted) {
@@ -212,7 +212,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           convexPending.value = false // Reset pending in case login was in progress
           convexToken.value = null
           convexUser.value = null
-          logger.info('User logged out')
+          logger.auth({ phase: 'logout', outcome: 'success' })
         }
       },
     )
@@ -243,7 +243,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // Log initial auth state if hydrated from SSR
   if (convexToken.value) {
-    logger.info('Client initialized with SSR auth')
+    logger.auth({ phase: 'hydrate', outcome: 'success', details: { source: 'ssr' } })
   } else {
     logger.debug('Client initialized (no auth)')
   }

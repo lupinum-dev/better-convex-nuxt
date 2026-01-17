@@ -266,14 +266,13 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   // The mutation function
   const mutate = async (args: Args): Promise<Result> => {
     const client = useConvex()
-    const endTime = logger.time(`${fnName}`)
+    const startTime = Date.now()
 
     if (!client) {
       const err = new Error('ConvexClient not available - mutations only work on client side')
       _status.value = 'error'
       error.value = err
-      endTime()
-      logger.error(`${fnName} failed: client not available`)
+      logger.mutation({ name: fnName, event: 'error', error: err })
       throw err
     }
 
@@ -281,8 +280,12 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     error.value = null
 
     // Register with DevTools
-    const startTime = Date.now()
     const mutationId = registerDevToolsEntry(fnName, 'mutation', args, hasOptimisticUpdate)
+
+    // Log optimistic update if present
+    if (hasOptimisticUpdate) {
+      logger.mutation({ name: fnName, event: 'optimistic', args })
+    }
 
     try {
       const result = await client.mutation(mutation, args, {
@@ -294,8 +297,8 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       // Update DevTools
       updateDevToolsSuccess(mutationId, startTime, result)
 
-      endTime()
-      logger.info(`${fnName} succeeded${hasOptimisticUpdate ? ' (optimistic)' : ''}`, args)
+      const duration = Date.now() - startTime
+      logger.mutation({ name: fnName, event: 'success', args, duration })
 
       return result
     } catch (e) {
@@ -306,8 +309,8 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       // Update DevTools
       updateDevToolsError(mutationId, startTime, err.message)
 
-      endTime()
-      logger.error(`${fnName} failed: ${err.message}`)
+      const duration = Date.now() - startTime
+      logger.mutation({ name: fnName, event: 'error', args, duration, error: err })
 
       throw err
     }

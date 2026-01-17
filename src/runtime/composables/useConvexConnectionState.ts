@@ -93,12 +93,12 @@ export function useConvexConnectionState() {
           if (nowConnected) {
             // Reconnected
             const offlineDuration = disconnectedAt ? Date.now() - disconnectedAt : undefined
-            logger.info(`Connection restored${offlineDuration ? ` (offline ${offlineDuration}ms)` : ''}`)
+            logger.connection({ event: 'restored', offlineDuration })
             disconnectedAt = null
           } else {
             // Disconnected
             disconnectedAt = Date.now()
-            logger.warn('Connection lost, reconnecting...')
+            logger.connection({ event: 'lost' })
           }
         }
 
