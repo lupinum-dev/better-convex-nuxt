@@ -129,7 +129,16 @@ export default defineNuxtPlugin((nuxtApp) => {
     // Cancellation controller for session sync operations
     let currentAuthOperation: AbortController | null = null
 
-    const fetchToken = async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
+    const fetchToken = async ({
+      forceRefreshToken,
+      signal,
+    }: {
+      forceRefreshToken: boolean
+      signal?: AbortSignal
+    }) => {
+      // Check if operation was cancelled before starting
+      if (signal?.aborted) return null
+
       // Get current route from router (works in async callbacks)
       const route = router.currentRoute.value
 
@@ -172,6 +181,10 @@ export default defineNuxtPlugin((nuxtApp) => {
       // CSR mode: must fetch token (unavoidable for HttpOnly cookie auth)
       try {
         const response = await authClient!.convex.token()
+
+        // Check if operation was cancelled after async operation
+        if (signal?.aborted) return null
+
         if (response.error || !response.data?.token) {
           convexToken.value = null
           convexUser.value = null
@@ -189,6 +202,9 @@ export default defineNuxtPlugin((nuxtApp) => {
 
         return token
       } catch {
+        // Check if operation was cancelled
+        if (signal?.aborted) return null
+
         convexToken.value = null
         convexUser.value = null
         lastNullTokenCheck = Date.now() // Cache the failed result
@@ -235,7 +251,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           try {
             lastNullTokenCheck = 0
             lastTokenValidation = 0
-            await fetchToken({ forceRefreshToken: true })
+            await fetchToken({ forceRefreshToken: true, signal })
           } finally {
             // Only update pending if this operation wasn't cancelled
             if (!signal.aborted) {
@@ -244,6 +260,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           }
         } else if (!hasSession && hadSession) {
           // LOGOUT: User logged out - clear state immediately
+          convexPending.value = false // Reset pending in case login was in progress
           convexToken.value = null
           convexUser.value = null
         }
