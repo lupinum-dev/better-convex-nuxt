@@ -103,17 +103,6 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   return undefined
 }
 
-/**
- * Get cached auth token for client-side refresh operations.
- * Only returns the cached token, does not fetch.
- *
- * @returns The cached auth token if available, undefined otherwise
- */
-export function getCachedAuthToken(): string | undefined {
-  const cachedToken = useState<string | null>('convex:token')
-  return cachedToken.value ?? undefined
-}
-
 // ============================================================================
 // Subscription Cache Management
 // ============================================================================
@@ -224,31 +213,3 @@ export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean
   return false
 }
 
-/**
- * Clean up a subscription from the cache.
- * Calls the unsubscribe function and removes from cache.
- * DEPRECATED: Use releaseSubscription for ref-counted cleanup.
- *
- * @param nuxtApp - The NuxtApp instance
- * @param cacheKey - Unique key for this subscription
- */
-export function cleanupSubscription(nuxtApp: NuxtApp, cacheKey: string): void {
-  const cache = getSubscriptionCache(nuxtApp)
-  const entry = cache[cacheKey]
-  if (entry) {
-    entry.unsubscribe()
-    cache[cacheKey] = undefined
-  }
-}
-
-/**
- * Remove a subscription from the cache without calling unsubscribe.
- * DEPRECATED: Use releaseSubscription for ref-counted cleanup.
- *
- * @param nuxtApp - The NuxtApp instance
- * @param cacheKey - Unique key for this subscription
- */
-export function removeFromSubscriptionCache(nuxtApp: NuxtApp, cacheKey: string): void {
-  const cache = getSubscriptionCache(nuxtApp)
-  cache[cacheKey] = undefined
-}

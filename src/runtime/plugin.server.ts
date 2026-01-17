@@ -13,6 +13,7 @@
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cache'
+import { decodeUserFromJwt } from './utils/convex-shared'
 import type { ConvexUser } from './utils/types'
 import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
 import { getCookie } from './utils/shared-helpers'
@@ -41,31 +42,6 @@ function buildPhase(
     result,
     details,
   }
-}
-
-/**
- * Decode user info from JWT payload
- */
-function decodeUserFromJwt(token: string): ConvexUser | null {
-  try {
-    const payloadBase64 = token.split('.')[1]
-    if (payloadBase64) {
-      // Use Buffer instead of atob for cross-environment compatibility (Node, Edge, etc.)
-      const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf-8'))
-      if (payload.sub || payload.userId || payload.email) {
-        return {
-          id: payload.sub || payload.userId || '',
-          name: payload.name || '',
-          email: payload.email || '',
-          emailVerified: payload.emailVerified,
-          image: payload.image,
-        }
-      }
-    }
-  } catch {
-    // Ignore decode errors
-  }
-  return null
 }
 
 export default defineNuxtPlugin(async () => {

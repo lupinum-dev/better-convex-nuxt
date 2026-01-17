@@ -7,23 +7,12 @@ import { useRuntimeConfig } from '#imports'
 import { getFunctionName } from '../utils/convex-cache'
 import { createLogger, getLogLevel } from '../utils/logger'
 import { argsMatch as sharedArgsMatch } from '../utils/shared-helpers'
+import {
+  registerDevToolsEntry,
+  updateDevToolsSuccess,
+  updateDevToolsError,
+} from '../utils/devtools-helpers'
 import { useConvex } from './useConvex'
-
-// ============================================================================
-// DevTools Integration
-// ============================================================================
-
-let devToolsMutationRegistry: typeof import('../devtools/mutation-registry') | null = null
-
-if (import.meta.client && import.meta.dev) {
-  import('../devtools/mutation-registry')
-    .then((module) => {
-      devToolsMutationRegistry = module
-    })
-    .catch(() => {
-      // DevTools not available, ignore
-    })
-}
 
 /**
  * Mutation status representing the current state of the mutation
@@ -512,17 +501,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
     // Register with DevTools
     const startTime = Date.now()
-    let mutationId: string | null = null
-    if (import.meta.dev && devToolsMutationRegistry) {
-      mutationId = devToolsMutationRegistry.registerMutation({
-        name: fnName,
-        type: 'mutation',
-        args,
-        state: hasOptimisticUpdate ? 'optimistic' : 'pending',
-        hasOptimisticUpdate,
-        startedAt: startTime,
-      })
-    }
+    const mutationId = registerDevToolsEntry(fnName, 'mutation', args, hasOptimisticUpdate)
 
     try {
       const result = await client.mutation(mutation, args, {
@@ -532,15 +511,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       data.value = result
 
       // Update DevTools
-      const settledAt = Date.now()
-      if (import.meta.dev && devToolsMutationRegistry && mutationId) {
-        devToolsMutationRegistry.updateMutationState(mutationId, {
-          state: 'success',
-          result,
-          settledAt,
-          duration: settledAt - startTime,
-        })
-      }
+      updateDevToolsSuccess(mutationId, startTime, result)
 
       endTime()
       logger.info(`${fnName} succeeded${hasOptimisticUpdate ? ' (optimistic)' : ''}`, args)
@@ -552,15 +523,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       error.value = err
 
       // Update DevTools
-      const settledAt = Date.now()
-      if (import.meta.dev && devToolsMutationRegistry && mutationId) {
-        devToolsMutationRegistry.updateMutationState(mutationId, {
-          state: 'error',
-          error: err.message,
-          settledAt,
-          duration: settledAt - startTime,
-        })
-      }
+      updateDevToolsError(mutationId, startTime, err.message)
 
       endTime()
       logger.error(`${fnName} failed: ${err.message}`)

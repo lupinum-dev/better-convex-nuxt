@@ -9,6 +9,7 @@ import { createAuthClient } from 'better-auth/vue'
 import { ConvexClient } from 'convex/browser'
 import { createLogger, getLogLevel } from './utils/logger'
 import { matchesSkipRoute } from './utils/route-matcher'
+import { decodeUserFromJwt } from './utils/convex-shared'
 import type { Ref } from 'vue'
 import type {
   ConvexDevToolsBridge,
@@ -22,41 +23,6 @@ import type {
 interface TokenResponse {
   data?: { token: string } | null
   error?: unknown
-}
-
-interface ConvexUserData {
-  id: string
-  name: string
-  email: string
-  emailVerified?: boolean
-  image?: string
-}
-
-/**
- * Decode user info from JWT payload (for CSR mode where server doesn't hydrate user)
- */
-function decodeUserFromJwt(token: string): ConvexUserData | null {
-  try {
-    const parts = token.split('.')
-    if (parts.length !== 3) return null
-    const payload = parts[1]
-    if (!payload) return null
-    // Handle URL-safe base64 encoding
-    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-    const claims = JSON.parse(decoded)
-    if (claims.sub || claims.userId || claims.email) {
-      return {
-        id: claims.sub || claims.userId || '',
-        name: claims.name || '',
-        email: claims.email || '',
-        emailVerified: claims.emailVerified,
-        image: claims.image,
-      }
-    }
-  } catch {
-    // Ignore decode errors
-  }
-  return null
 }
 
 type AuthClientWithConvex = ReturnType<typeof createAuthClient> & {
@@ -94,6 +60,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const convexToken = useState<string | null>('convex:token')
   const convexUser = useState<unknown>('convex:user')
   const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall')
+  const convexAuthError = useState<string | null>('convex:authError')
 
   // Create Convex WebSocket client
   const client = new ConvexClient(convexUrl)
@@ -182,11 +149,19 @@ export default defineNuxtPlugin((nuxtApp) => {
         if (response.error || !response.data?.token) {
           convexToken.value = null
           convexUser.value = null
+          // Set auth error if there was an explicit error response
+          if (response.error) {
+            const errorMsg = typeof response.error === 'object' && response.error !== null && 'message' in response.error
+              ? String((response.error as { message: unknown }).message)
+              : 'Authentication failed'
+            convexAuthError.value = errorMsg
+          }
           lastNullTokenCheck = Date.now() // Cache the "no session" result
           return null
         }
         const token = response.data.token
         convexToken.value = token
+        convexAuthError.value = null // Clear any previous error on success
         lastTokenValidation = Date.now()
 
         // In CSR mode, extract user from JWT since server didn't hydrate it
@@ -195,12 +170,14 @@ export default defineNuxtPlugin((nuxtApp) => {
         }
 
         return token
-      } catch {
+      } catch (e) {
         // Check if operation was cancelled
         if (signal?.aborted) return null
 
         convexToken.value = null
         convexUser.value = null
+        // Set auth error for caught exceptions
+        convexAuthError.value = e instanceof Error ? e.message : 'Authentication request failed'
         lastNullTokenCheck = Date.now() // Cache the failed result
         return null
       }
@@ -289,27 +266,15 @@ async function setupDevToolsBridge(
   convexAuthWaterfall: Ref<AuthWaterfall | null>,
 ): Promise<void> {
   // Dynamically import DevTools modules to avoid bundling in production
-  const [queryRegistry, mutationRegistry] = await Promise.all([
+  const [queryRegistry, mutationRegistry, convexShared] = await Promise.all([
     import('./devtools/query-registry'),
     import('./devtools/mutation-registry'),
+    import('./utils/convex-shared'),
   ])
 
-  /**
-   * Decode a JWT token to extract claims.
-   * Pure client-side decoding, no external dependencies.
-   */
-  function decodeJWT(token: string): JWTClaims | null {
-    try {
-      const parts = token.split('.')
-      if (parts.length !== 3) return null
-      // Handle URL-safe base64 encoding
-      const payload = parts[1]
-      if (!payload) return null
-      const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-      return JSON.parse(decoded)
-    } catch {
-      return null
-    }
+  // Use shared JWT decoder
+  const decodeJWT = (token: string): JWTClaims | null => {
+    return convexShared.decodeJwtPayload(token) as JWTClaims | null
   }
 
   const bridge: ConvexDevToolsBridge = {

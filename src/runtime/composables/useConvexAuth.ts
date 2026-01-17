@@ -30,6 +30,7 @@ export function useConvexAuth() {
   const token = useState<string | null>('convex:token', () => null)
   const user = useState<ConvexUser | null>('convex:user', () => null)
   const pending = useState<boolean>('convex:pending', () => false)
+  const authError = useState<string | null>('convex:authError', () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
 
@@ -42,5 +43,7 @@ export function useConvexAuth() {
     isAuthenticated,
     /** Whether an auth operation is pending */
     isPending: readonly(pending),
+    /** Auth error message if authentication failed (e.g., 401/403) */
+    authError: readonly(authError),
   }
 }
