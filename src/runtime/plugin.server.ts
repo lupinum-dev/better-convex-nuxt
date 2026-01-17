@@ -98,7 +98,7 @@ export default defineNuxtPlugin(async () => {
   // Waterfall tracking (dev-only)
   const trackWaterfall = import.meta.dev
   const waterfallStart = trackWaterfall ? Date.now() : 0
-  const phases: AuthWaterfallPhase[] = trackWaterfall ? [] : []
+  const phases: AuthWaterfallPhase[] = []
   let cacheHit = false
 
   // Phase 1: Session Check

@@ -260,6 +260,7 @@ export function useConvexFileUpload<
       const err = new Error('ConvexClient not available - file uploads only work on client side')
       _status.value = 'error'
       error.value = err
+      endTime()
       logger.error(`${fnName}+upload failed: client not available`)
       throw err
     }
@@ -269,6 +270,7 @@ export function useConvexFileUpload<
       const err = new Error(`File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`)
       _status.value = 'error'
       error.value = err
+      endTime()
       logger.error(`${fnName}+upload failed: ${err.message}`)
       options?.onError?.(err, file)
       throw err
@@ -278,6 +280,7 @@ export function useConvexFileUpload<
       const err = new Error(`File type "${file.type}" not allowed. Allowed: ${options.allowedTypes.join(', ')}`)
       _status.value = 'error'
       error.value = err
+      endTime()
       logger.error(`${fnName}+upload failed: ${err.message}`)
       options?.onError?.(err, file)
       throw err

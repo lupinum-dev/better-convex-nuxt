@@ -502,6 +502,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       const err = new Error('ConvexClient not available - mutations only work on client side')
       _status.value = 'error'
       error.value = err
+      endTime()
       logger.error(`${fnName} failed: client not available`)
       throw err
     }

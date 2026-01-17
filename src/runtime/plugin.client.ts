@@ -86,6 +86,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   if (!convexUrl) {
     logger.error('No Convex URL configured')
+    endInit()
     return
   }
 

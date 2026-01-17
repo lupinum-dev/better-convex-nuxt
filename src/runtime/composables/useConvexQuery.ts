@@ -398,6 +398,11 @@ export function useConvexQuery<
 
               if (wasUnsubscribed) {
                 logger.info(`${fnName} unsubscribed`)
+
+                // Unregister from DevTools only if we were the last user
+                if (import.meta.dev && devToolsRegistry) {
+                  devToolsRegistry.unregisterQuery(registeredCacheKey)
+                }
               }
 
               registeredCacheKey = null
