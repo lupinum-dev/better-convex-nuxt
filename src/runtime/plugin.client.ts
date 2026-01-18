@@ -62,8 +62,10 @@ export default defineNuxtPlugin((nuxtApp) => {
   const convexPending = useState('convex:pending', () => false)
 
   if (isAuthEnabled && siteUrl) {
-    // Use configured auth route instead of hardcoded '/api/auth'
-    const authRoute = config.public.convex?.authRoute as string | undefined || '/api/auth'
+    // Normalize authRoute: ensure leading slash, remove trailing slash
+    const rawAuthRoute = (config.public.convex?.authRoute as string | undefined) || '/api/auth'
+    const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`)
+      .replace(/\/+$/, '')
     const authBaseURL =
       typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
 

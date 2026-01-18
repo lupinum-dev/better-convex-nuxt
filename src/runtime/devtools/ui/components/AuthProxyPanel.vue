@@ -20,7 +20,8 @@ function getStatusClass(req: AuthProxyRequest): string {
   if (!req.success) return 'error'
   if (req.status && req.status >= 200 && req.status < 300) return 'success'
   if (req.status && req.status >= 300 && req.status < 400) return 'pending'
-  return 'error'
+  // If success is true but status is missing/unknown, treat as success
+  return req.success ? 'success' : 'error'
 }
 
 const hasRequests = computed(() => props.stats && props.stats.totalRequests > 0)

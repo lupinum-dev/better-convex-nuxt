@@ -50,7 +50,10 @@ export default defineEventHandler(async (event: H3Event) => {
   const config = useRuntimeConfig()
   const siteUrl = config.public.convex?.siteUrl as string | undefined
   const trustedOrigins = (config.public.convex?.trustedOrigins as string[]) ?? []
-  const authRoute = (config.public.convex?.authRoute as string) || '/api/auth'
+  // Normalize authRoute: ensure leading slash, remove trailing slash
+  const rawAuthRoute = (config.public.convex?.authRoute as string) || '/api/auth'
+  const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`)
+    .replace(/\/+$/, '')
 
   // Dev mode: track request timing
   const startTime = import.meta.dev ? Date.now() : 0
@@ -68,7 +71,9 @@ export default defineEventHandler(async (event: H3Event) => {
   // Use configured authRoute for path stripping (escape special regex chars)
   const authRoutePattern = new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
   const path = requestUrl.pathname.replace(authRoutePattern, '') || '/'
-  const target = `${siteUrl}/api/auth${path}${requestUrl.search}`
+  // Ensure path starts with / to avoid malformed URLs like /api/authtoken
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
 
   // Handle CORS preflight
   // Security: Only allow CORS for validated origins
