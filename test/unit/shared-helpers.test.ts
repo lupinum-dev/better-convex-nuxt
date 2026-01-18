@@ -12,13 +12,7 @@ import {
   compareJsonValues,
   parseCookies,
   getCookie,
-  hasCookie,
-  isValidUrl,
-  isValidConvexUrl,
-  ClientOnlyError,
-  ensureClient,
   generatePaginationId,
-  getInstanceId,
 } from '../../src/runtime/utils/shared-helpers'
 
 // ============================================================================
@@ -351,149 +345,29 @@ describe('getCookie', () => {
   })
 })
 
-describe('hasCookie', () => {
-  it('returns true when cookie exists', () => {
-    expect(hasCookie('session=abc123', 'session')).toBe(true)
-  })
-
-  it('returns false when cookie missing', () => {
-    expect(hasCookie('session=abc123', 'other')).toBe(false)
-  })
-
-  it('returns false for null header', () => {
-    expect(hasCookie(null, 'name')).toBe(false)
-  })
-})
-
 // ============================================================================
-// URL Validation Tests
-// ============================================================================
-
-describe('isValidUrl', () => {
-  it('returns true for valid HTTPS URL', () => {
-    expect(isValidUrl('https://example.com')).toBe(true)
-  })
-
-  it('returns true for valid HTTP URL', () => {
-    expect(isValidUrl('http://example.com')).toBe(true)
-  })
-
-  it('returns true for URL with path', () => {
-    expect(isValidUrl('https://example.com/path/to/resource')).toBe(true)
-  })
-
-  it('returns true for URL with query string', () => {
-    expect(isValidUrl('https://example.com?key=value')).toBe(true)
-  })
-
-  it('returns false for invalid URL', () => {
-    expect(isValidUrl('not-a-url')).toBe(false)
-  })
-
-  it('returns false for empty string', () => {
-    expect(isValidUrl('')).toBe(false)
-  })
-
-  it('returns false for URL without protocol', () => {
-    expect(isValidUrl('example.com')).toBe(false)
-  })
-})
-
-describe('isValidConvexUrl', () => {
-  it('returns true for Convex cloud URL', () => {
-    expect(isValidConvexUrl('https://my-app.convex.cloud')).toBe(true)
-  })
-
-  it('returns true for Convex site URL', () => {
-    expect(isValidConvexUrl('https://my-app.convex.site')).toBe(true)
-  })
-
-  it('returns true for localhost', () => {
-    expect(isValidConvexUrl('https://localhost')).toBe(true)
-    expect(isValidConvexUrl('https://127.0.0.1')).toBe(true)
-  })
-
-  it('returns false for HTTP (non-HTTPS)', () => {
-    expect(isValidConvexUrl('http://my-app.convex.cloud')).toBe(false)
-  })
-
-  it('returns false for non-Convex domain', () => {
-    expect(isValidConvexUrl('https://example.com')).toBe(false)
-  })
-
-  it('returns false for invalid URL', () => {
-    expect(isValidConvexUrl('not-a-url')).toBe(false)
-  })
-})
-
-// ============================================================================
-// Client-Side Validation Tests
-// ============================================================================
-
-describe('ClientOnlyError', () => {
-  it('creates error with mutation message', () => {
-    const error = new ClientOnlyError('mutation')
-    expect(error.message).toContain('mutation')
-    expect(error.name).toBe('ClientOnlyError')
-  })
-
-  it('creates error with action message', () => {
-    const error = new ClientOnlyError('action')
-    expect(error.message).toContain('action')
-  })
-})
-
-describe('ensureClient', () => {
-  it('does not throw when client exists', () => {
-    const client = { foo: 'bar' }
-    expect(() => ensureClient(client, 'mutation')).not.toThrow()
-  })
-
-  it('throws ClientOnlyError when client is undefined', () => {
-    expect(() => ensureClient(undefined, 'mutation')).toThrow(ClientOnlyError)
-  })
-
-  it('throws with correct operation type in message', () => {
-    expect(() => ensureClient(undefined, 'action')).toThrow(/action/)
-  })
-})
-
-// ============================================================================
-// Instance ID Management Tests
+// Pagination ID Generation Tests
 // ============================================================================
 
 describe('generatePaginationId', () => {
-  it('returns incrementing unique IDs', () => {
+  it('returns unique IDs', () => {
     const id1 = generatePaginationId()
     const id2 = generatePaginationId()
     const id3 = generatePaginationId()
 
-    expect(id2).toBeGreaterThan(id1)
-    expect(id3).toBeGreaterThan(id2)
+    // All IDs should be different (with very high probability due to random)
+    expect(id1).not.toBe(id2)
+    expect(id2).not.toBe(id3)
+    expect(id1).not.toBe(id3)
   })
 
   it('returns number', () => {
     expect(typeof generatePaginationId()).toBe('number')
   })
-})
 
-describe('getInstanceId', () => {
-  it('returns same ID for same object', () => {
-    const obj = { test: true }
-    const id1 = getInstanceId(obj)
-    const id2 = getInstanceId(obj)
-
-    expect(id1).toBe(id2)
-  })
-
-  it('returns different IDs for different objects', () => {
-    const obj1 = { a: 1 }
-    const obj2 = { a: 1 }
-
-    expect(getInstanceId(obj1)).not.toBe(getInstanceId(obj2))
-  })
-
-  it('returns number', () => {
-    expect(typeof getInstanceId({})).toBe('number')
+  it('returns positive integer', () => {
+    const id = generatePaginationId()
+    expect(id).toBeGreaterThan(0)
+    expect(Number.isInteger(id)).toBe(true)
   })
 })

@@ -9,6 +9,7 @@ import {
   send,
 } from 'h3'
 import { useRuntimeConfig } from '#imports'
+import { recordAuthProxyRequest } from '../../../devtools/auth-proxy-registry'
 
 /**
  * Validates if the given origin is allowed based on siteUrl and trustedOrigins.
@@ -49,6 +50,14 @@ export default defineEventHandler(async (event: H3Event) => {
   const config = useRuntimeConfig()
   const siteUrl = config.public.convex?.siteUrl as string | undefined
   const trustedOrigins = (config.public.convex?.trustedOrigins as string[]) ?? []
+  // Normalize authRoute: ensure leading slash, remove trailing slash
+  const rawAuthRoute = (config.public.convex?.authRoute as string) || '/api/auth'
+  const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`)
+    .replace(/\/+$/, '')
+
+  // Dev mode: track request timing
+  const startTime = import.meta.dev ? Date.now() : 0
+  const requestId = import.meta.dev ? crypto.randomUUID() : ''
 
   if (!siteUrl) {
     throw createError({
@@ -59,8 +68,12 @@ export default defineEventHandler(async (event: H3Event) => {
 
   // Get the full URL with path and query
   const requestUrl = getRequestURL(event)
-  const path = requestUrl.pathname.replace(/^\/api\/auth/, '') || '/'
-  const target = `${siteUrl}/api/auth${path}${requestUrl.search}`
+  // Use configured authRoute for path stripping (escape special regex chars)
+  const authRoutePattern = new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
+  const path = requestUrl.pathname.replace(authRoutePattern, '') || '/'
+  // Ensure path starts with / to avoid malformed URLs like /api/authtoken
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
 
   // Handle CORS preflight
   // Security: Only allow CORS for validated origins
@@ -125,6 +138,19 @@ export default defineEventHandler(async (event: H3Event) => {
       redirect: 'manual', // Don't follow redirects - let browser handle them
     })
 
+    // Dev mode: log the request
+    if (import.meta.dev) {
+      recordAuthProxyRequest({
+        id: requestId,
+        path,
+        method: event.method,
+        timestamp: startTime,
+        status: response.status,
+        duration: Date.now() - startTime,
+        success: response.ok,
+      })
+    }
+
     // Forward response status
     setResponseStatus(event, response.status, response.statusText)
 
@@ -154,6 +180,19 @@ export default defineEventHandler(async (event: H3Event) => {
     const responseBody = await response.text()
     return send(event, responseBody)
   } catch (error) {
+    // Dev mode: log the failed request
+    if (import.meta.dev) {
+      recordAuthProxyRequest({
+        id: requestId,
+        path,
+        method: event.method,
+        timestamp: startTime,
+        duration: Date.now() - startTime,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+
     // Security: Don't leak internal error details in production
     const errorMessage = import.meta.dev
       ? `Failed to proxy request to Convex: ${error instanceof Error ? error.message : String(error)}`

@@ -1,8 +1,89 @@
 import type { FunctionReference } from 'convex/server'
 import { hash } from 'ohash'
+import type { ConvexUser } from './types'
 
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')
+
+// ============================================================================
+// JWT Decoding (Unified Implementation)
+// ============================================================================
+
+/**
+ * Decode a base64url-encoded string.
+ * Works in both browser (atob) and Node.js (Buffer) environments.
+ * Handles URL-safe base64 encoding (RFC 4648) with proper UTF-8 support.
+ */
+function base64UrlDecode(str: string): string {
+  // Convert URL-safe base64 to standard base64
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/')
+
+  // Add padding if needed
+  const padding = base64.length % 4
+  if (padding > 0) {
+    base64 += '='.repeat(4 - padding)
+  }
+
+  // Use Buffer in Node.js, atob + TextDecoder in browser
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(base64, 'base64').toString('utf-8')
+  }
+
+  // Browser: proper UTF-8 decode (atob alone corrupts multi-byte characters)
+  const binaryString = atob(base64)
+  const bytes = new Uint8Array(binaryString.length)
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  return new TextDecoder('utf-8').decode(bytes)
+}
+
+/**
+ * Decode JWT payload without verification.
+ * Returns the parsed payload object or null if decoding fails.
+ *
+ * @param token - The JWT token string
+ * @returns The decoded payload object or null
+ */
+export function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+
+    const payload = parts[1]
+    if (!payload) return null
+
+    const decoded = base64UrlDecode(payload)
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Decode user info from JWT payload.
+ * Extracts standard user fields from the JWT claims.
+ *
+ * @param token - The JWT token string
+ * @returns The decoded user or null if decoding fails
+ */
+export function decodeUserFromJwt(token: string): ConvexUser | null {
+  const payload = decodeJwtPayload(token)
+  if (!payload) return null
+
+  // Check for required identifiers
+  if (!payload.sub && !payload.userId && !payload.email) {
+    return null
+  }
+
+  return {
+    id: String(payload.sub || payload.userId || ''),
+    name: String(payload.name || ''),
+    email: String(payload.email || ''),
+    emailVerified: typeof payload.emailVerified === 'boolean' ? payload.emailVerified : undefined,
+    image: typeof payload.image === 'string' ? payload.image : undefined,
+  }
+}
 
 // ============================================================================
 // Types

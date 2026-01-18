@@ -1,7 +1,6 @@
 /**
  * DevTools types and interfaces.
  */
-import type { LogEvent } from '../utils/logger'
 import type { QueryRegistryEntry } from './query-registry'
 
 // ============================================================================
@@ -136,6 +135,42 @@ export interface AuthWaterfall {
 }
 
 // ============================================================================
+// Auth Proxy Types (Dev Mode Debugging)
+// ============================================================================
+
+export interface AuthProxyRequest {
+  /** Unique request ID */
+  id: string
+  /** Target path (e.g., "/convex/token", "/get-session") */
+  path: string
+  /** HTTP method */
+  method: string
+  /** Request timestamp */
+  timestamp: number
+  /** Response status code */
+  status?: number
+  /** Duration in ms */
+  duration?: number
+  /** Whether request succeeded */
+  success?: boolean
+  /** Error message if failed */
+  error?: string
+}
+
+export interface AuthProxyStats {
+  /** Total requests made */
+  totalRequests: number
+  /** Successful requests */
+  successCount: number
+  /** Failed requests */
+  errorCount: number
+  /** Average response time (ms) */
+  avgDuration: number
+  /** Recent requests (last 20) */
+  recentRequests: AuthProxyRequest[]
+}
+
+// ============================================================================
 // DevTools Bridge Interface
 // ============================================================================
 
@@ -158,12 +193,8 @@ export interface ConvexDevToolsBridge {
   getConnectionState: () => ConnectionState
   /** Get the most recent auth waterfall (SSR timing data) */
   getAuthWaterfall: () => AuthWaterfall | null
-  /** Get recent events from buffer */
-  getEvents: () => LogEvent[]
-  /** Subscribe to real-time events */
-  subscribeToEvents: (callback: (event: LogEvent) => void) => () => void
-  /** Get the Convex Dashboard URL */
-  getDashboardUrl: () => string | null
+  /** Get auth proxy stats (dev mode only) */
+  getAuthProxyStats: () => Promise<AuthProxyStats | null>
   /** Version of the bridge API */
   version: string
 }

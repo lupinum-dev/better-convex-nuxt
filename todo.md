@@ -1,0 +1,1 @@
+=> MAYBE: Make the useConvexQuery lazy: true as default => we already need loading spinner, on page reload, why not use it as default

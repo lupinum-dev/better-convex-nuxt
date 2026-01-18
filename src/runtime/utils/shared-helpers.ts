@@ -5,9 +5,6 @@
  * consistent behavior across the module.
  */
 
-import type { Value } from 'convex/values'
-import { convexToJson } from 'convex/values'
-
 // ============================================================================
 // Deep Equality & Comparison
 // ============================================================================
@@ -150,95 +147,6 @@ export function compareJsonValues(a: unknown, b: unknown): number {
   return String(a).localeCompare(String(b))
 }
 
-/**
- * Compare two Convex values using their JSON representation.
- * Convenience wrapper around compareJsonValues that handles serialization.
- *
- * @param a - First Convex value
- * @param b - Second Convex value
- * @returns Comparison result (-1, 0, or 1)
- */
-export function compareConvexValues(a: Value | Value[], b: Value | Value[]): number {
-  return compareJsonValues(convexToJson(a), convexToJson(b))
-}
-
-// ============================================================================
-// Client-Side Validation
-// ============================================================================
-
-/**
- * Error thrown when a client-only operation is attempted on the server.
- */
-export class ClientOnlyError extends Error {
-  constructor(operationType: 'mutation' | 'action') {
-    super(`ConvexClient not available - ${operationType}s only work on client side`)
-    this.name = 'ClientOnlyError'
-  }
-}
-
-/**
- * Ensure we're running on the client side.
- * Throws a descriptive error if called during SSR.
- *
- * @param client - The Convex client (may be undefined on server)
- * @param operationType - Type of operation for error message
- * @throws ClientOnlyError if client is not available
- */
-export function ensureClient<T>(
-  client: T | undefined,
-  operationType: 'mutation' | 'action',
-): asserts client is T {
-  if (!client) {
-    throw new ClientOnlyError(operationType)
-  }
-}
-
-// ============================================================================
-// URL Validation
-// ============================================================================
-
-/**
- * Validate that a string is a valid URL.
- *
- * @param url - The URL string to validate
- * @returns True if the URL is valid
- */
-export function isValidUrl(url: string): boolean {
-  try {
-    new URL(url)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/**
- * Validate Convex URL format.
- * Convex URLs should be HTTPS and end with .convex.cloud or similar.
- *
- * @param url - The Convex deployment URL
- * @returns True if the URL appears to be a valid Convex URL
- */
-export function isValidConvexUrl(url: string): boolean {
-  if (!isValidUrl(url)) return false
-
-  try {
-    const parsed = new URL(url)
-    // Must be HTTPS (Convex requires secure connections)
-    if (parsed.protocol !== 'https:') return false
-    // Should be a Convex domain or localhost for development
-    const host = parsed.hostname
-    return (
-      host.endsWith('.convex.cloud') ||
-      host.endsWith('.convex.site') ||
-      host === 'localhost' ||
-      host === '127.0.0.1'
-    )
-  } catch {
-    return false
-  }
-}
-
 // ============================================================================
 // Cookie Parsing
 // ============================================================================
@@ -287,47 +195,20 @@ export function getCookie(cookieHeader: string | null | undefined, name: string)
   return cookies[name] ?? null
 }
 
-/**
- * Check if a specific cookie exists in the cookie header.
- *
- * @param cookieHeader - The Cookie header string
- * @param name - The cookie name to check
- * @returns True if the cookie exists
- */
-export function hasCookie(cookieHeader: string | null | undefined, name: string): boolean {
-  return getCookie(cookieHeader, name) !== null
-}
-
 // ============================================================================
-// Instance ID Management (WeakMap-based)
+// Pagination ID Generation
 // ============================================================================
-
-// WeakMap for pagination instance tracking (auto-cleans when component unmounts)
-const instanceIdMap = new WeakMap<object, number>()
-let globalInstanceCounter = 0
-
-/**
- * Get or create a unique instance ID for an object.
- * Uses WeakMap for automatic garbage collection when the object is destroyed.
- *
- * @param instance - The object to get an ID for (typically a component instance or ref)
- * @returns A unique numeric ID for this instance
- */
-export function getInstanceId(instance: object): number {
-  let id = instanceIdMap.get(instance)
-  if (id === undefined) {
-    id = ++globalInstanceCounter
-    instanceIdMap.set(instance, id)
-  }
-  return id
-}
 
 /**
  * Generate a new unique pagination ID.
+ * Uses random numbers to avoid SSR global state issues.
  * Each call returns a new ID, suitable for cache-busting.
  *
  * @returns A unique numeric ID
  */
 export function generatePaginationId(): number {
-  return ++globalInstanceCounter
+  // Use random number to avoid SSR global state leak
+  // Math.random() is sufficient since this is only used for cache-busting
+  // Guarantees range [1, MAX_SAFE_INTEGER] - never returns 0
+  return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER - 1)) + 1
 }

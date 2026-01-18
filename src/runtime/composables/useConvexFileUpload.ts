@@ -9,8 +9,7 @@ import { ref, computed, onScopeDispose, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
-import { createModuleLogger, getLoggingOptions, createTimer } from '../utils/logger'
-import type { OperationCompleteEvent } from '../utils/logger'
+import { createLogger, getLogLevel } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
 import { useConvex } from './useConvex'
 
@@ -215,8 +214,8 @@ export function useConvexFileUpload<
   options?: UseConvexFileUploadOptions,
 ): UseConvexFileUploadReturn<Mutation> {
   const config = useRuntimeConfig()
-  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
-  const logger = createModuleLogger(loggingOptions)
+  const logLevel = getLogLevel(config.public.convex ?? {})
+  const logger = createLogger(logLevel)
   const fnName = getFunctionName(generateUploadUrlMutation)
 
   // Internal state
@@ -255,23 +254,13 @@ export function useConvexFileUpload<
   // The upload function
   const upload = async (file: File, mutationArgs?: FunctionArgs<Mutation>): Promise<string> => {
     const client = useConvex()
-    const timer = createTimer()
+    const startTime = Date.now()
 
     if (!client) {
       const err = new Error('ConvexClient not available - file uploads only work on client side')
       _status.value = 'error'
       error.value = err
-
-      logger.event({
-        event: 'operation:complete',
-        env: 'client',
-        type: 'mutation',
-        name: `${fnName}+upload`,
-        duration_ms: timer(),
-        outcome: 'error',
-        error: { type: 'ClientError', message: err.message },
-      } satisfies OperationCompleteEvent)
-
+      logger.upload({ name: fnName, event: 'error', error: err })
       throw err
     }
 
@@ -280,18 +269,7 @@ export function useConvexFileUpload<
       const err = new Error(`File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`)
       _status.value = 'error'
       error.value = err
-
-      logger.event({
-        event: 'operation:complete',
-        env: 'client',
-        type: 'mutation',
-        name: `${fnName}+upload`,
-        duration_ms: timer(),
-        outcome: 'error',
-        args_preview: `file: ${file.name} (${file.size} bytes)`,
-        error: { type: 'ValidationError', message: err.message },
-      } satisfies OperationCompleteEvent)
-
+      logger.upload({ name: fnName, event: 'error', filename: file.name, size: file.size, error: err })
       options?.onError?.(err, file)
       throw err
     }
@@ -300,18 +278,7 @@ export function useConvexFileUpload<
       const err = new Error(`File type "${file.type}" not allowed. Allowed: ${options.allowedTypes.join(', ')}`)
       _status.value = 'error'
       error.value = err
-
-      logger.event({
-        event: 'operation:complete',
-        env: 'client',
-        type: 'mutation',
-        name: `${fnName}+upload`,
-        duration_ms: timer(),
-        outcome: 'error',
-        args_preview: `file: ${file.name} (${file.size} bytes)`,
-        error: { type: 'ValidationError', message: err.message },
-      } satisfies OperationCompleteEvent)
-
+      logger.upload({ name: fnName, event: 'error', filename: file.name, error: err })
       options?.onError?.(err, file)
       throw err
     }
@@ -372,15 +339,8 @@ export function useConvexFileUpload<
       _status.value = 'success'
       data.value = storageId
 
-      logger.event({
-        event: 'operation:complete',
-        env: 'client',
-        type: 'mutation',
-        name: `${fnName}+upload`,
-        duration_ms: timer(),
-        outcome: 'success',
-        args_preview: `file: ${file.name} (${file.size} bytes)`,
-      } satisfies OperationCompleteEvent)
+      const duration = Date.now() - startTime
+      logger.upload({ name: fnName, event: 'success', filename: file.name, size: file.size, duration })
 
       options?.onSuccess?.(storageId, file)
       return storageId
@@ -394,20 +354,8 @@ export function useConvexFileUpload<
       _status.value = 'error'
       error.value = err
 
-      logger.event({
-        event: 'operation:complete',
-        env: 'client',
-        type: 'mutation',
-        name: `${fnName}+upload`,
-        duration_ms: timer(),
-        outcome: 'error',
-        args_preview: `file: ${file.name} (${file.size} bytes)`,
-        error: {
-          type: err.name,
-          message: err.message,
-          retriable: true,
-        },
-      } satisfies OperationCompleteEvent)
+      const duration = Date.now() - startTime
+      logger.upload({ name: fnName, event: 'error', filename: file.name, size: file.size, duration, error: err })
 
       options?.onError?.(err, file)
       throw err

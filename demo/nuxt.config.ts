@@ -12,6 +12,7 @@ export default defineNuxtConfig({
   devtools: {
     enabled: true
   },
+  
 
   ssr: false,
 
@@ -22,10 +23,8 @@ export default defineNuxtConfig({
   // Convex module configuration
   convex: {
     url: process.env.CONVEX_URL,
-    // siteUrl auto-derives from CONVEX_URL (.convex.cloud -> .convex.site)
-    // Do NOT set it to localhost - that causes self-request deadlock!
+    siteUrl: process.env.CONVEX_SITE_URL,
     permissions: true,
-
   },
 
 

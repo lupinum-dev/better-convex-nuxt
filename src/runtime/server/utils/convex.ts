@@ -3,8 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import { useRuntimeConfig } from '#imports'
 
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
-import { createModuleLogger, getLoggingOptions, createTimer, formatArgsPreview } from '../../utils/logger'
-import type { OperationCompleteEvent } from '../../utils/logger'
+import { createLogger, getLogLevel } from '../../utils/logger'
 
 /**
  * Options for server-side Convex operations
@@ -36,9 +35,9 @@ async function executeConvexOperation<T>(
   options?: FetchOptions,
 ): Promise<T> {
   const config = useRuntimeConfig()
-  const loggingOptions = getLoggingOptions(config.public.convex ?? {})
-  const logger = createModuleLogger(loggingOptions)
-  const timer = createTimer()
+  const logLevel = getLogLevel(config.public.convex ?? {})
+  const logger = createLogger(logLevel)
+  const startTime = Date.now()
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -46,6 +45,27 @@ async function executeConvexOperation<T>(
 
   if (options?.authToken) {
     headers['Authorization'] = `Bearer ${options.authToken}`
+  }
+
+  // Helper to log based on operation type
+  const logSuccess = (duration: number) => {
+    if (operationType === 'query') {
+      logger.query({ name: functionPath, event: 'update', args })
+    } else if (operationType === 'mutation') {
+      logger.mutation({ name: functionPath, event: 'success', args, duration })
+    } else {
+      logger.action({ name: functionPath, event: 'success', duration })
+    }
+  }
+
+  const logError = (err: Error, duration: number) => {
+    if (operationType === 'query') {
+      logger.query({ name: functionPath, event: 'error', args, error: err })
+    } else if (operationType === 'mutation') {
+      logger.mutation({ name: functionPath, event: 'error', args, duration, error: err })
+    } else {
+      logger.action({ name: functionPath, event: 'error', duration, error: err })
+    }
   }
 
   try {
@@ -68,34 +88,14 @@ async function executeConvexOperation<T>(
     const json = await response.json()
     const result = parseConvexResponse<T>(json)
 
-    logger.event({
-      event: 'operation:complete',
-      env: 'server',
-      type: operationType,
-      name: functionPath,
-      duration_ms: timer(),
-      outcome: 'success',
-      args_preview: formatArgsPreview(args),
-    } satisfies OperationCompleteEvent)
+    const duration = Date.now() - startTime
+    logSuccess(duration)
 
     return result
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error))
-
-    logger.event({
-      event: 'operation:complete',
-      env: 'server',
-      type: operationType,
-      name: functionPath,
-      duration_ms: timer(),
-      outcome: 'error',
-      args_preview: formatArgsPreview(args),
-      error: {
-        type: err.name,
-        message: err.message,
-      },
-    } satisfies OperationCompleteEvent)
-
+    const duration = Date.now() - startTime
+    logError(err, duration)
     throw error
   }
 }

@@ -768,6 +768,7 @@ async function handleSaveSettings() {
     error.value = e instanceof Error ? e.message : 'Failed to save settings'
   }
 }
+
 </script>
 
 <style scoped>
@@ -1424,4 +1425,5 @@ select:focus {
   gap: 12px;
   margin-top: 8px;
 }
+
 </style>

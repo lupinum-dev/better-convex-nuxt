@@ -90,13 +90,6 @@ export function getMutations(): MutationEntry[] {
 }
 
 /**
- * Get a specific mutation by ID.
- */
-export function getMutation(id: string): MutationEntry | undefined {
-  return mutationRegistry.get(id)
-}
-
-/**
  * Subscribe to mutation updates.
  * Returns an unsubscribe function.
  */
@@ -107,19 +100,4 @@ export function subscribeToMutations(callback: RegistryCallback): () => void {
   return () => {
     subscribers.delete(callback)
   }
-}
-
-/**
- * Clear all mutations (for testing/reset).
- */
-export function clearMutations(): void {
-  mutationRegistry.clear()
-  notifySubscribers()
-}
-
-/**
- * Get the count of mutations.
- */
-export function getMutationCount(): number {
-  return mutationRegistry.size
 }

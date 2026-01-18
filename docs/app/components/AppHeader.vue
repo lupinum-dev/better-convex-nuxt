@@ -10,8 +10,8 @@ const { header } = useAppConfig()
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
     label: 'Getting Started',
-    to: '/docs/getting-started/installation',
-    active: route.path.startsWith('/docs/getting-started')
+    to: '/docs/guide/get-started',
+    active: route.path.startsWith('/docs/guide')
   },
   {
     label: 'Data Fetching',

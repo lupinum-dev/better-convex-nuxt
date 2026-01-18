@@ -15,7 +15,7 @@ export default createConfigForNuxt({
 }).prepend(
   // Ignore demo and docs folders - they have their own eslint configs
   {
-    ignores: ['demo/**', 'docs/**'],
+    ignores: ['demo/**', 'docs/**', '**/convex/_generated/**'],
   },
 ).append(
   // Allow self-closing void elements (matches oxcformat behavior)

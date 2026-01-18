@@ -13,6 +13,8 @@ export type { ConvexUser } from '../utils/types'
  * - Hydrated to client without flash of unauthenticated content
  * - Updated automatically on sign-in/sign-out
  *
+ * Note: This composable is only available when `auth: true` is set in your config.
+ *
  * @example
  * ```vue
  * <script setup>
@@ -20,7 +22,8 @@ export type { ConvexUser } from '../utils/types'
  * </script>
  *
  * <template>
- *   <div v-if="isAuthenticated">Welcome, {{ user?.name }}</div>
+ *   <div v-if="isPending">Loading...</div>
+ *   <div v-else-if="isAuthenticated">Welcome, {{ user?.name }}</div>
  *   <div v-else>Please log in</div>
  * </template>
  * ```
@@ -28,7 +31,8 @@ export type { ConvexUser } from '../utils/types'
 export function useConvexAuth() {
   const token = useState<string | null>('convex:token', () => null)
   const user = useState<ConvexUser | null>('convex:user', () => null)
-  const isPending = useState('convex:pending', () => false)
+  const pending = useState<boolean>('convex:pending', () => false)
+  const authError = useState<string | null>('convex:authError', () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
 
@@ -40,6 +44,8 @@ export function useConvexAuth() {
     /** Whether the user is authenticated */
     isAuthenticated,
     /** Whether an auth operation is pending */
-    isPending: readonly(isPending),
+    isPending: readonly(pending),
+    /** Auth error message if authentication failed (e.g., 401/403) */
+    authError: readonly(authError),
   }
 }
