@@ -13,6 +13,8 @@ export type { ConvexUser } from '../utils/types'
  * - Hydrated to client without flash of unauthenticated content
  * - Updated automatically on sign-in/sign-out
  *
+ * Note: This composable is only available when `auth: true` is set in your config.
+ *
  * @example
  * ```vue
  * <script setup>

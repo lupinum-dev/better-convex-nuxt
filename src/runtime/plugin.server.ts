@@ -50,6 +50,15 @@ export default defineNuxtPlugin(async () => {
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (server)')
 
+  // Check if auth is enabled
+  const isAuthEnabled = config.public.convex?.auth as boolean | undefined
+  if (!isAuthEnabled) {
+    // Auth not enabled - not an error, just skip auth setup
+    endInit()
+    logger.debug('Auth not enabled, skipping server-side auth')
+    return
+  }
+
   // Get the H3 event for accessing cookies
   const event = useRequestEvent()
   if (!event) {
@@ -60,7 +69,7 @@ export default defineNuxtPlugin(async () => {
   const siteUrl = config.public.convex?.siteUrl as string | undefined
 
   if (!siteUrl) {
-    // No auth configured - not an error, just no auth
+    // This shouldn't happen if module validation is working, but handle gracefully
     endInit()
     logger.debug('No siteUrl configured, auth disabled')
     return

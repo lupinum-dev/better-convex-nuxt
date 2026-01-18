@@ -1,11 +1,12 @@
 /**
  * Server handler for DevTools UI.
- * Serves the built Vue devtools application.
+ * Serves the built Vue devtools application and API endpoints.
  */
 import { defineEventHandler, setHeader, getRequestURL, createError } from 'h3'
 import { join } from 'pathe'
 import { readFileSync, existsSync } from 'node:fs'
 import { useRuntimeConfig } from '#imports'
+import { getAuthProxyStats, clearAuthProxyStats } from './auth-proxy-registry'
 
 // MIME type mapping
 const mimeTypes: Record<string, string> = {
@@ -33,6 +34,20 @@ export default defineEventHandler((event) => {
 
   const url = getRequestURL(event)
   let pathname = url.pathname.replace('/__convex_devtools__', '') || '/'
+
+  // API endpoint: Auth proxy stats
+  if (pathname === '/proxy-stats') {
+    setHeader(event, 'Content-Type', 'application/json')
+    setHeader(event, 'Cache-Control', 'no-cache')
+    return JSON.stringify(getAuthProxyStats())
+  }
+
+  // API endpoint: Clear auth proxy stats
+  if (pathname === '/proxy-stats/clear' && event.method === 'POST') {
+    clearAuthProxyStats()
+    setHeader(event, 'Content-Type', 'application/json')
+    return JSON.stringify({ success: true })
+  }
 
   // Default to index.html
   if (pathname === '/' || pathname === '') {
