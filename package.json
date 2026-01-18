@@ -41,6 +41,9 @@
       ],
       "zod": [
         "./dist/runtime/utils/zod.d.ts"
+      ],
+      "validation": [
+        "./dist/runtime/composables/useFormValidation.d.ts"
       ]
     }
   },
@@ -56,6 +59,10 @@
     "./zod": {
       "types": "./dist/runtime/utils/zod.d.ts",
       "import": "./dist/runtime/utils/zod.js"
+    },
+    "./validation": {
+      "types": "./dist/runtime/composables/useFormValidation.d.ts",
+      "import": "./dist/runtime/composables/useFormValidation.js"
     }
   },
   "scripts": {
@@ -79,8 +86,10 @@
     "@convex-dev/better-auth": "^0.10.9",
     "@nuxt/devtools-kit": "^2.3.0",
     "@nuxt/kit": "^4.2.2",
+    "@standard-schema/spec": "^1.0.0",
     "better-auth": "^1.4.9",
     "convex": "^1.31.2",
+    "convex-helpers": "^0.1.108",
     "defu": "^6.1.4",
     "ohash": "^2.0.11",
     "zod": "^4.3.5"

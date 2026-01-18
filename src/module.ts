@@ -382,6 +382,11 @@ export {}
         name: 'useConvexStorageUrl',
         from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
       },
+      // Form validation composable (works with any Standard Schema library)
+      {
+        name: 'useFormValidation',
+        from: resolver.resolve('./runtime/composables/useFormValidation'),
+      },
     ])
 
     // 6b. Auth composables and components (only when auth enabled)

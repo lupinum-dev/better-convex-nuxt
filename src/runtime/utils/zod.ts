@@ -1,124 +1,100 @@
-import type { z } from 'zod'
-
 /**
- * Validation error structure returned by validateZodInput
- */
-export interface ZodValidationError {
-  /** Error code for programmatic handling */
-  code: 'VALIDATION_ERROR'
-  /** Human-readable error message */
-  message: string
-  /** Individual validation issues from Zod */
-  issues: Array<{
-    path: PropertyKey[]
-    message: string
-    code: string
-  }>
-}
-
-/**
- * Options for validateZodInput
- */
-export interface ValidateZodOptions {
-  /**
-   * Custom error message prefix.
-   * @default 'Validation failed'
-   */
-  errorPrefix?: string
-}
-
-/**
- * Validate input against a Zod schema in Convex functions.
+ * Zod validation utilities for Convex functions.
  *
- * Use this in your Convex mutations, queries, and actions to validate
- * input that was passed as `v.any()`. Throws a structured error if
- * validation fails.
+ * Re-exports from convex-helpers for seamless Zod integration with Convex.
+ * Use these to define Convex functions with Zod schemas as the source of truth.
  *
- * @example
- * ```typescript
+ * @example Server-side (Convex mutation with Zod)
+ * ```ts
  * // convex/tasks.ts
- * import { validateZodInput } from 'better-convex-nuxt/zod'
- * import { addTaskInputSchema } from '../shared/schemas/task.schema'
+ * import { zCustomMutation, NoOp } from 'better-convex-nuxt/zod'
+ * import { mutation } from './_generated/server'
+ * import { z } from 'zod'
  *
- * export const add = mutation({
- *   args: { input: v.any() },
+ * const zMutation = zCustomMutation(mutation, NoOp)
+ *
+ * export const create = zMutation({
+ *   args: {
+ *     title: z.string().min(3),
+ *     priority: z.enum(['low', 'medium', 'high']),
+ *   },
  *   handler: async (ctx, args) => {
- *     // Validates and returns typed data
- *     const validated = validateZodInput(args.input, addTaskInputSchema)
- *
- *     // validated.title is fully typed!
- *     return ctx.db.insert('tasks', {
- *       title: validated.title,
- *       completed: false,
- *     })
- *   }
+ *     // args is fully typed from Zod schema
+ *     // Dashboard shows proper argument types
+ *     return ctx.db.insert('tasks', args)
+ *   },
  * })
  * ```
  *
- * @param input - The raw input to validate (typically from args.input)
- * @param schema - The Zod schema to validate against
- * @param options - Optional configuration
- * @returns The validated and typed data
- * @throws Error with structured validation details if validation fails
- */
-export function validateZodInput<TSchema extends z.ZodTypeAny>(
-  input: unknown,
-  schema: TSchema,
-  options: ValidateZodOptions = {},
-): z.output<TSchema> {
-  const { errorPrefix = 'Validation failed' } = options
-
-  const result = schema.safeParse(input)
-
-  if (!result.success) {
-    const issues = result.error.issues.map((issue) => ({
-      path: issue.path,
-      message: issue.message,
-      code: issue.code,
-    }))
-
-    const message = issues.map((e) => {
-      const path = e.path.length > 0 ? `${e.path.join('.')}: ` : ''
-      return `${path}${e.message}`
-    }).join('; ')
-
-    // Throw a plain Error with structured message
-    // Users can catch this and convert to ConvexError if needed
-    const error = new Error(`${errorPrefix}: ${message}`)
-
-    // Attach validation details for programmatic access
-    ;(error as Error & { validationError: ZodValidationError }).validationError = {
-      code: 'VALIDATION_ERROR',
-      message,
-      issues,
-    }
-
-    throw error
-  }
-
-  return result.data
-}
-
-/**
- * Type guard to check if an error is a Zod validation error from validateZodInput.
+ * @example Shared schema pattern
+ * ```ts
+ * // shared/schemas/task.ts
+ * import { z } from 'zod'
  *
- * @example
- * ```typescript
- * try {
- *   const validated = validateZodInput(input, schema)
- * } catch (error) {
- *   if (isZodValidationError(error)) {
- *     // Access structured validation details
- *     console.log(error.validationError.issues)
- *   }
- * }
+ * export const createTaskSchema = z.object({
+ *   title: z.string().min(3),
+ *   priority: z.enum(['low', 'medium', 'high']),
+ * })
+ *
+ * export type CreateTaskInput = z.infer<typeof createTaskSchema>
  * ```
+ *
+ * @example Converting Zod to Convex validators
+ * ```ts
+ * import { zodToConvex } from 'better-convex-nuxt/zod'
+ * import { z } from 'zod'
+ *
+ * const zodSchema = z.object({
+ *   name: z.string(),
+ *   age: z.number().min(0),
+ * })
+ *
+ * // Convert to Convex validator for use in defineTable, etc.
+ * const convexValidator = zodToConvex(zodSchema)
+ * ```
+ *
+ * @packageDocumentation
  */
-export function isZodValidationError(error: unknown): error is Error & { validationError: ZodValidationError } {
-  return (
-    error instanceof Error
-    && 'validationError' in error
-    && (error as Error & { validationError?: unknown }).validationError !== undefined
-    && typeof (error as Error & { validationError: { code?: unknown } }).validationError.code === 'string'
-  )
-}
+
+// Re-export Zod custom function builders
+export {
+  zCustomQuery,
+  zCustomMutation,
+  zCustomAction,
+} from 'convex-helpers/server/zod4'
+
+// Re-export Zod → Convex conversion utilities
+export {
+  zodToConvex,
+  zodToConvexFields,
+  zodOutputToConvex,
+  zodOutputToConvexFields,
+} from 'convex-helpers/server/zod4'
+
+// Re-export Convex → Zod conversion utilities
+export {
+  convexToZod,
+  convexToZodFields,
+} from 'convex-helpers/server/zod4'
+
+// Re-export ID and helper utilities
+export {
+  zid,
+  withSystemFields,
+} from 'convex-helpers/server/zod4'
+
+// Re-export NoOp for simple usage without customization
+export { NoOp } from 'convex-helpers/server/customFunctions'
+
+// Re-export Standard Schema utility (converts Convex validators to Standard Schema)
+export { toStandardSchema } from 'convex-helpers/standardSchema'
+
+// Re-export useful types
+export type {
+  CustomBuilder,
+  ZCustomCtx,
+  ConvexValidatorFromZod,
+  ConvexValidatorFromZodOutput,
+  ZodValidatorFromConvex,
+  Zid,
+} from 'convex-helpers/server/zod4'

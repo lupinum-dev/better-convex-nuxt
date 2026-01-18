@@ -17,12 +17,18 @@ importers:
       '@nuxt/kit':
         specifier: ^4.2.2
         version: 4.2.2(magicast@0.5.1)
+      '@standard-schema/spec':
+        specifier: ^1.0.0
+        version: 1.1.0
       better-auth:
         specifier: ^1.4.9
         version: 1.4.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.0.16)(vue@3.5.26(typescript@5.9.3))
       convex:
         specifier: ^1.31.2
         version: 1.31.2(react@19.2.3)
+      convex-helpers:
+        specifier: ^0.1.108
+        version: 0.1.108(@standard-schema/spec@1.1.0)(convex@1.31.2(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(zod@4.3.5)
       defu:
         specifier: ^6.1.4
         version: 6.1.4
