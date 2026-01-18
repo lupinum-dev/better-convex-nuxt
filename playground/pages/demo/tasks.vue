@@ -2,8 +2,9 @@
   <div class="container">
     <h1>My Tasks</h1>
     <p class="description">
-      A simple task manager demonstrating <code>useConvexQuery</code> with real-time updates
-      and <code>useConvexAuth</code> for authentication.
+      A simple task manager demonstrating <code>useConvexQuery</code> with real-time updates,
+      <code>useConvexAuth</code> for authentication, and <strong>Zod validation</strong> shared
+      between client and server. Check the browser console for validation logs!
     </p>
 
     <div v-if="!isAuthenticated" class="auth-warning">
@@ -27,17 +28,25 @@
         <input
           v-model="newTaskTitle"
           type="text"
-          placeholder="What needs to be done?"
+          placeholder="What needs to be done? (min 3 chars, alphanumeric + punctuation)"
           :disabled="isAdding"
         />
-        <button type="submit" :disabled="!newTaskTitle.trim() || isAdding">
+        <button type="submit" :disabled="isAdding">
           {{ isAdding ? 'Adding...' : 'Add' }}
         </button>
       </form>
 
-      <!-- Error display -->
+      <!-- Validation errors -->
+      <div v-if="validationErrors.length > 0" class="error-box">
+        <strong>Validation errors:</strong>
+        <ul>
+          <li v-for="(err, idx) in validationErrors" :key="idx">{{ err }}</li>
+        </ul>
+      </div>
+
+      <!-- Query error display -->
       <div v-if="error" class="error-box">
-        {{ error.message }}
+        <strong>Query error:</strong> {{ error.message }}
       </div>
 
       <!-- Tasks list -->
@@ -63,6 +72,7 @@
 <script setup lang="ts">
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
+import { addTaskInputSchema } from '~/shared/schemas/task.schema'
 
 definePageMeta({
   layout: 'sidebar',
@@ -79,26 +89,43 @@ const {
   data: tasks,
   pending,
   error,
-} = useConvexQuery(api.tasks.list, queryArgs, {
-  verbose: true, // Check console for detailed logs
-})
+} = useConvexQuery(api.tasks.list, queryArgs)
 
 // Client-only state
 const newTaskTitle = ref('')
 const isAdding = ref(false)
+const validationErrors = ref<string[]>([])
 
-// Add a new task
+// Add a new task with Zod validation
 async function addTask() {
-  if (!newTaskTitle.value.trim() || !client) return
+  if (!client) return
+
+  console.log('[Client] Attempting to add task with title:', newTaskTitle.value)
+
+  // Clear previous validation errors
+  validationErrors.value = []
+
+  // Validate with Zod on client side
+  const validationResult = addTaskInputSchema.safeParse({ title: newTaskTitle.value })
+
+  if (!validationResult.success) {
+    console.error('[Client] Validation failed:', validationResult.error.issues)
+    validationErrors.value = validationResult.error.issues.map((e) => e.message)
+    return
+  }
+
+  console.log('[Client] Validation passed. Sending to Convex:', validationResult.data)
 
   isAdding.value = true
   try {
-    await client.mutation(api.tasks.add, { title: newTaskTitle.value.trim() })
+    const taskId = await client.mutation(api.tasks.add, { input: validationResult.data })
+    console.log('[Client] Task added successfully with ID:', taskId)
     newTaskTitle.value = ''
     // Real-time subscription updates automatically!
   }
   catch (e) {
-    console.error('Failed to add task:', e)
+    console.error('[Client] Failed to add task:', e)
+    validationErrors.value = [(e as Error).message || 'Failed to add task']
   }
   finally {
     isAdding.value = false
@@ -192,6 +219,15 @@ code {
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 16px;
+}
+
+.error-box ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.error-box li {
+  margin: 4px 0;
 }
 
 .auth-warning {
