@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.6
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.5...v0.2.6)
+
+### 🚀 Enhancements
+
+- Add watch option to re-fetch data on cacheKey change in useConvexPaginatedQuery ([8ab7c4e](https://github.com/lupinum-dev/better-convex-nuxt/commit/8ab7c4e))
+- SSR-first defaults and simplified auth configuration ([#18](https://github.com/lupinum-dev/better-convex-nuxt/pull/18))
+
+### 🩹 Fixes
+
+- SSR login sync with race condition handling ([#15](https://github.com/lupinum-dev/better-convex-nuxt/pull/15))
+
+### 💅 Refactors
+
+- Simplify logging and remove dead DevTools code ([#16](https://github.com/lupinum-dev/better-convex-nuxt/pull/16))
+- Cleanup and simplify codebase architecture ([#17](https://github.com/lupinum-dev/better-convex-nuxt/pull/17))
+
+### 📖 Documentation
+
+- Rewrite first docs part ([23e0ec6](https://github.com/lupinum-dev/better-convex-nuxt/commit/23e0ec6))
+- Add args example & fix broken links ([87c62d4](https://github.com/lupinum-dev/better-convex-nuxt/commit/87c62d4))
+- Update section headers for clarity and consistency ([dbe04c2](https://github.com/lupinum-dev/better-convex-nuxt/commit/dbe04c2))
+- Refine code snippets and update configuration examples for clarity ([9dc7f78](https://github.com/lupinum-dev/better-convex-nuxt/commit/9dc7f78))
+
+### 🏡 Chore
+
+- **release:** V0.2.5 ([cc848d7](https://github.com/lupinum-dev/better-convex-nuxt/commit/cc848d7))
+- Move docs page ([e24f975](https://github.com/lupinum-dev/better-convex-nuxt/commit/e24f975))
+
+### ❤️ Contributors
+
+- Matthias Amon ([@Mat4m0](https://github.com/Mat4m0))
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.5
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.4...v0.2.5)
