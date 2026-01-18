@@ -38,8 +38,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp._convexInitialized = true
 
   const convexUrl = config.public.convex?.url as string | undefined
-  // Only use siteUrl if explicitly configured - don't auto-derive
-  // Users must explicitly set siteUrl to enable auth
+  // Check if auth is explicitly enabled via the auth flag
+  const isAuthEnabled = config.public.convex?.auth as boolean | undefined
   const siteUrl = config.public.convex?.siteUrl as string | undefined
 
   if (!convexUrl) {
@@ -61,9 +61,11 @@ export default defineNuxtPlugin((nuxtApp) => {
   // Pending state for auth operations (exposed via useConvexAuth)
   const convexPending = useState('convex:pending', () => false)
 
-  if (siteUrl) {
+  if (isAuthEnabled && siteUrl) {
+    // Use configured auth route instead of hardcoded '/api/auth'
+    const authRoute = config.public.convex?.authRoute as string | undefined || '/api/auth'
     const authBaseURL =
-      typeof window !== 'undefined' ? `${window.location.origin}/api/auth` : '/api/auth'
+      typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
 
     authClient = createAuthClient({
       baseURL: authBaseURL,
@@ -245,7 +247,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   // Log initial auth state if hydrated from SSR
   if (convexToken.value) {
     logger.auth({ phase: 'hydrate', outcome: 'success', details: { source: 'ssr' } })
+  } else if (isAuthEnabled) {
+    logger.debug('Client initialized (auth enabled, no session)')
   } else {
-    logger.debug('Client initialized (no auth)')
+    logger.debug('Client initialized (auth disabled)')
   }
 })

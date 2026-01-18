@@ -121,6 +121,18 @@ export async function setupDevToolsBridge(
       // Create a plain object copy to avoid proxy cloning issues
       return JSON.parse(JSON.stringify(toRaw(waterfall)))
     },
+
+    getAuthProxyStats: async () => {
+      // Fetch auth proxy stats from the DevTools server endpoint
+      // The proxy runs on the Nitro server, so we need to poll the endpoint
+      try {
+        const response = await fetch('/__convex_devtools__/proxy-stats')
+        if (!response.ok) return null
+        return await response.json()
+      } catch {
+        return null
+      }
+    },
   }
 
   // Expose on window for direct access (same-origin)

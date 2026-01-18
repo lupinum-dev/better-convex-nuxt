@@ -30,6 +30,18 @@ function isValidUrl(url: string): boolean {
   }
 }
 
+/**
+ * Derive the Convex site URL (HTTP Actions) from the deployment URL.
+ * Replaces .convex.cloud with .convex.site
+ */
+function deriveSiteUrl(url: string): string | undefined {
+  if (!url) return undefined
+  if (url.includes('.convex.cloud')) {
+    return url.replace('.convex.cloud', '.convex.site')
+  }
+  return undefined
+}
+
 export interface AuthCacheOptions {
   /**
    * Enable SSR auth token caching.
@@ -77,8 +89,28 @@ export interface QueryDefaults {
 export interface ModuleOptions {
   /** Convex deployment URL (WebSocket) - e.g., https://your-app.convex.cloud */
   url?: string
-  /** Convex site URL (HTTP/Auth) - e.g., https://your-app.convex.site. Required for authentication. */
+  /**
+   * Convex site URL (HTTP Actions) - e.g., https://your-app.convex.site.
+   * Used for HTTP Actions (webhooks, etc.) and required for authentication.
+   * If not provided, automatically derived from `url` by replacing .convex.cloud with .convex.site.
+   */
   siteUrl?: string
+  /**
+   * Enable authentication features.
+   * When true, enables auth composables (useConvexAuth, useAuthClient) and SSR token exchange.
+   * In SSR mode, automatically creates the auth proxy route.
+   * Requires a valid Convex URL (to derive siteUrl) or an explicit siteUrl.
+   * Set to false to disable auth if you only need Convex without Better Auth.
+   * @default true
+   */
+  auth?: boolean
+  /**
+   * Custom route path for the auth proxy.
+   * Defaults to '/api/auth'.
+   * The module will register a catch-all handler at `${authRoute}/**`.
+   * @default '/api/auth'
+   */
+  authRoute?: string
   /**
    * Additional trusted origins for CORS validation on the auth proxy.
    * By default, only requests from the origin matching siteUrl are allowed.
@@ -166,6 +198,8 @@ export default defineNuxtModule<ModuleOptions>({
   defaults: {
     url: process.env.CONVEX_URL,
     siteUrl: process.env.CONVEX_SITE_URL,
+    auth: true, // Enabled by default - this is a better-auth integration module
+    authRoute: '/api/auth',
     trustedOrigins: [],
     skipAuthRoutes: [],
     permissions: false,
@@ -189,9 +223,26 @@ export default defineNuxtModule<ModuleOptions>({
       logger.warn(`Invalid Convex URL format: "${options.url}". Expected a valid URL like "https://your-app.convex.cloud"`)
     }
 
-    // Validate site URL format if provided
-    if (options.siteUrl && !isValidUrl(options.siteUrl)) {
-      logger.warn(`Invalid Convex site URL format: "${options.siteUrl}". Expected a valid URL like "https://your-app.convex.site"`)
+    // Derive siteUrl from url if not explicitly provided
+    const resolvedSiteUrl = options.siteUrl || deriveSiteUrl(options.url || '')
+
+    // Validate site URL format if we have one
+    if (resolvedSiteUrl && !isValidUrl(resolvedSiteUrl)) {
+      logger.warn(`Invalid Convex site URL format: "${resolvedSiteUrl}". Expected a valid URL like "https://your-app.convex.site"`)
+    }
+
+    // Determine if auth is enabled
+    const isAuthEnabled = options.auth === true
+
+    // Get custom auth route or use default
+    const authRoute = options.authRoute || '/api/auth'
+
+    // Validate auth configuration
+    // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error
+    // Runtime validation happens in the plugins when the actual values are available
+    if (isAuthEnabled && !resolvedSiteUrl && options.url) {
+      // URL is set but couldn't derive siteUrl (e.g., custom domain without explicit siteUrl)
+      logger.warn('auth: true but could not derive siteUrl from url. Set siteUrl explicitly for custom domains.')
     }
 
     // 1. Safe Configuration Merging (preserves user-defined runtimeConfig)
@@ -199,7 +250,9 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.runtimeConfig.public.convex as Record<string, unknown> | undefined,
       {
         url: options.url || '',
-        siteUrl: options.siteUrl || '',
+        siteUrl: resolvedSiteUrl || '',
+        auth: isAuthEnabled,
+        authRoute,
         trustedOrigins: options.trustedOrigins ?? [],
         skipAuthRoutes: options.skipAuthRoutes ?? [],
         logging: options.logging ?? false,
@@ -226,11 +279,14 @@ export default defineNuxtModule<ModuleOptions>({
     // 3. Register Client Plugin (client-only via filename convention)
     addPlugin(resolver.resolve('./runtime/plugin.client'))
 
-    // 4. Register Auth Proxy Route (proxies /api/auth/* to Convex site)
-    addServerHandler({
-      route: '/api/auth/**',
-      handler: resolver.resolve('./runtime/server/api/auth/[...]'),
-    })
+    // 4. Register Auth Proxy Route (only when auth is enabled AND SSR is enabled)
+    // In SPA mode, the browser talks directly to Convex, no proxy needed
+    if (isAuthEnabled && nuxt.options.ssr) {
+      addServerHandler({
+        route: `${authRoute}/**`,
+        handler: resolver.resolve('./runtime/server/api/auth/[...]'),
+      })
+    }
 
     // 5. Register Type Augmentation for IDE support
     addTemplate({
@@ -267,16 +323,14 @@ export {}
 `,
     })
 
-    // 6. Auto-import composables
+    // 6. Auto-import composables (non-auth, always available)
     addImports([
-      { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
       { name: 'useConvex', from: resolver.resolve('./runtime/composables/useConvex') },
       {
         name: 'useConvexMutation',
         from: resolver.resolve('./runtime/composables/useConvexMutation'),
       },
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
-      { name: 'useAuthClient', from: resolver.resolve('./runtime/composables/useAuthClient') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
@@ -298,7 +352,7 @@ export {}
         name: 'deleteFromQuery',
         from: resolver.resolve('./runtime/composables/useConvexMutation'),
       },
-      // Optimistic update helpers for paginated queries (already available from useConvexPaginatedQuery)
+      // Optimistic update helpers for paginated queries
       {
         name: 'insertAtTop',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
@@ -330,7 +384,21 @@ export {}
       },
     ])
 
-    // 6b. Conditionally add permission composables
+    // 6b. Auth composables and components (only when auth enabled)
+    if (isAuthEnabled) {
+      addImports([
+        { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
+        { name: 'useAuthClient', from: resolver.resolve('./runtime/composables/useAuthClient') },
+      ])
+
+      // Register auth components
+      addComponentsDir({
+        path: resolver.resolve('./runtime/components'),
+        global: true,
+      })
+    }
+
+    // 6c. Conditionally add permission composables
     if (options.permissions) {
       addImports([
         {
@@ -347,12 +415,6 @@ export {}
       { name: 'fetchAction', from: resolver.resolve('./runtime/server/utils/convex') },
       { name: 'clearAuthCache', from: resolver.resolve('./runtime/server/utils/auth-cache') },
     ])
-
-    // 8. Register auth components
-    addComponentsDir({
-      path: resolver.resolve('./runtime/components'),
-      global: true,
-    })
 
     // 9. Add types to tsconfig references
     nuxt.hook('prepare:types', (opts) => {
