@@ -36,8 +36,8 @@ Repeat:
 - Re-run the loop until the repo is highly optimized, or no meaningful refactors remain without changing behavior.
 
 Tasks:
-- [x] Scan the repo and identify high-complexity or messy areas.
-- [x] Propose a short, ordered refactor plan.
-- [x] Execute the refactor plan step-by-step, preserving behavior.
-- [x] Iterate until no meaningful refactors remain without changing behavior.
-- [x] Write a summary to REFACTOR.md and create a single git commit.
+- [] Scan the repo and identify high-complexity or messy areas.
+- [] Propose a short, ordered refactor plan.
+- [] Execute the refactor plan step-by-step, preserving behavior.
+- [] Iterate until no meaningful refactors remain without changing behavior.
+- [] Write a summary to REFACTOR.md and create a single git commit.
