@@ -234,6 +234,30 @@ export function buildAuthEndpoint(siteUrl: string, authRoute: string, path: stri
   return `${normalizedSiteUrl}${authRoute}${normalizedPath}`
 }
 
+export interface AuthEndpointConfig {
+  authRoute: string
+  tokenExchangeUrl: string
+  sessionUrl: string
+}
+
+/**
+ * Resolve auth endpoints for Better Auth.
+ * Returns null when siteUrl is missing.
+ */
+export function resolveAuthEndpoints(
+  siteUrl: string | undefined,
+  rawAuthRoute?: string,
+): AuthEndpointConfig | null {
+  if (!siteUrl) return null
+
+  const authRoute = normalizeAuthRoute(rawAuthRoute)
+  return {
+    authRoute,
+    tokenExchangeUrl: buildAuthEndpoint(siteUrl, authRoute, '/convex/token'),
+    sessionUrl: buildAuthEndpoint(siteUrl, authRoute, '/get-session'),
+  }
+}
+
 // ============================================================================
 // Pagination ID Generation
 // ============================================================================

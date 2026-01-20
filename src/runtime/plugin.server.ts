@@ -16,7 +16,7 @@ import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cach
 import { decodeUserFromJwt } from './utils/convex-shared'
 import type { ConvexUser } from './utils/types'
 import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
-import { buildAuthEndpoint, getAuthSessionToken, normalizeAuthRoute } from './utils/shared-helpers'
+import { getAuthSessionToken, resolveAuthEndpoints } from './utils/shared-helpers'
 
 /**
  * Helper to build a waterfall phase entry (dev-only)
@@ -62,9 +62,9 @@ export default defineNuxtPlugin(async () => {
   }
 
   const siteUrl = config.public.convex?.siteUrl as string | undefined
-  const authRoute = normalizeAuthRoute(config.public.convex?.authRoute as string | undefined)
+  const endpoints = resolveAuthEndpoints(siteUrl, config.public.convex?.authRoute as string | undefined)
 
-  if (!siteUrl) {
+  if (!endpoints) {
     // This shouldn't happen if module validation is working, but handle gracefully
     endInit()
     logger.debug('No siteUrl configured, auth disabled')
@@ -170,8 +170,7 @@ export default defineNuxtPlugin(async () => {
 
     // Phase 3: Token Exchange (cache miss or caching disabled)
     const exchangeStart = trackWaterfall ? Date.now() : 0
-    const tokenExchangeUrl = buildAuthEndpoint(siteUrl, authRoute, '/convex/token')
-    const sessionUrl = buildAuthEndpoint(siteUrl, authRoute, '/get-session')
+    const { tokenExchangeUrl, sessionUrl } = endpoints
     const tokenResponse = (await $fetch(tokenExchangeUrl, {
       headers: { Cookie: cookieHeader },
     }).catch(() => null)) as { token?: string } | null

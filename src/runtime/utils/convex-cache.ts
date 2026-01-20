@@ -1,5 +1,5 @@
 import { useState, type useNuxtApp } from '#app'
-import { buildAuthEndpoint, getAuthSessionToken, normalizeAuthRoute } from './shared-helpers'
+import { getAuthSessionToken, resolveAuthEndpoints } from './shared-helpers'
 
 // Re-export shared utilities
 export {
@@ -88,12 +88,12 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   }
 
   // Fetch token if we have a site URL
-  if (!siteUrl) {
+  const endpoints = resolveAuthEndpoints(siteUrl, rawAuthRoute)
+  if (!endpoints) {
     return undefined
   }
 
-  const authRoute = normalizeAuthRoute(rawAuthRoute)
-  const tokenExchangeUrl = buildAuthEndpoint(siteUrl, authRoute, '/convex/token')
+  const { tokenExchangeUrl } = endpoints
 
   try {
     const response = await $fetch(tokenExchangeUrl, {
