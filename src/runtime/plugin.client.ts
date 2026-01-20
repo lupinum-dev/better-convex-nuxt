@@ -10,7 +10,8 @@ import { ConvexClient } from 'convex/browser'
 import { createLogger, getLogLevel } from './utils/logger'
 import { matchesSkipRoute } from './utils/route-matcher'
 import { decodeUserFromJwt } from './utils/convex-shared'
-import { normalizeAuthRoute } from './utils/shared-helpers'
+import { resolveAuthConfig } from './utils/shared-helpers'
+import type { ConvexAuthConfig } from './utils/shared-helpers'
 import type { AuthWaterfall } from './devtools/types'
 
 interface TokenResponse {
@@ -39,9 +40,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp._convexInitialized = true
 
   const convexUrl = config.public.convex?.url as string | undefined
-  // Check if auth is explicitly enabled via the auth flag
-  const isAuthEnabled = config.public.convex?.auth as boolean | undefined
-  const siteUrl = config.public.convex?.siteUrl as string | undefined
+  const convexConfig = config.public.convex as ConvexAuthConfig | undefined
+  const authConfig = resolveAuthConfig(convexConfig)
 
   if (!convexUrl) {
     logger.auth({ phase: 'init', outcome: 'error', error: new Error('No Convex URL configured') })
@@ -62,8 +62,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   // Pending state for auth operations (exposed via useConvexAuth)
   const convexPending = useState('convex:pending', () => false)
 
-  if (isAuthEnabled && siteUrl) {
-    const authRoute = normalizeAuthRoute(config.public.convex?.authRoute as string | undefined)
+  if (authConfig.enabled) {
+    const authRoute = authConfig.authRoute
     const authBaseURL =
       typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
 
@@ -245,7 +245,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   // Log initial auth state if hydrated from SSR
   if (convexToken.value) {
     logger.auth({ phase: 'hydrate', outcome: 'success', details: { source: 'ssr' } })
-  } else if (isAuthEnabled) {
+  } else if (authConfig.reason === 'missing-site-url') {
+    logger.debug('Client initialized (auth disabled, missing siteUrl)')
+  } else if (convexConfig?.auth) {
     logger.debug('Client initialized (auth enabled, no session)')
   } else {
     logger.debug('Client initialized (auth disabled)')

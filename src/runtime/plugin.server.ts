@@ -16,7 +16,8 @@ import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cach
 import { decodeUserFromJwt } from './utils/convex-shared'
 import type { ConvexUser } from './utils/types'
 import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
-import { getAuthSessionToken, resolveAuthEndpoints } from './utils/shared-helpers'
+import { getAuthSessionToken, resolveAuthConfig, resolveAuthEndpoints } from './utils/shared-helpers'
+import type { ConvexAuthConfig } from './utils/shared-helpers'
 
 /**
  * Helper to build a waterfall phase entry (dev-only)
@@ -45,12 +46,20 @@ export default defineNuxtPlugin(async () => {
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (server)')
 
-  // Check if auth is enabled
-  const isAuthEnabled = config.public.convex?.auth as boolean | undefined
-  if (!isAuthEnabled) {
-    // Auth not enabled - not an error, just skip auth setup
+  const authConfig = resolveAuthConfig(config.public.convex as ConvexAuthConfig | undefined)
+
+  if (!authConfig.enabled) {
     endInit()
-    logger.debug('Auth not enabled, skipping server-side auth')
+    if (authConfig.reason === 'missing-site-url') {
+      logger.auth({
+        phase: 'init',
+        outcome: 'error',
+        error: new Error('Auth enabled but siteUrl not configured'),
+      })
+    } else {
+      // Auth not enabled - not an error, just skip auth setup
+      logger.debug('Auth not enabled, skipping server-side auth')
+    }
     return
   }
 
@@ -61,13 +70,10 @@ export default defineNuxtPlugin(async () => {
     return
   }
 
-  const siteUrl = config.public.convex?.siteUrl as string | undefined
-  const endpoints = resolveAuthEndpoints(siteUrl, config.public.convex?.authRoute as string | undefined)
-
+  const endpoints = resolveAuthEndpoints(authConfig.siteUrl, authConfig.authRoute)
   if (!endpoints) {
-    // This shouldn't happen if module validation is working, but handle gracefully
     endInit()
-    logger.debug('No siteUrl configured, auth disabled')
+    logger.debug('Auth endpoints unavailable, skipping server-side auth')
     return
   }
 

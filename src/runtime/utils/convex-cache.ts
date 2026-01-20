@@ -1,5 +1,6 @@
 import { useState, type useNuxtApp } from '#app'
-import { getAuthSessionToken, resolveAuthEndpoints } from './shared-helpers'
+import { getAuthSessionToken, resolveAuthConfig, resolveAuthEndpoints } from './shared-helpers'
+import type { ConvexAuthConfig } from './shared-helpers'
 
 // Re-export shared utilities
 export {
@@ -45,10 +46,8 @@ export interface FetchAuthTokenOptions {
   isPublic: boolean
   /** Cookie header from the request */
   cookieHeader: string
-  /** Site URL for auth endpoint */
-  siteUrl: string | undefined
-  /** Optional auth route override */
-  authRoute?: string
+  /** Runtime convex config for auth resolution */
+  convexConfig?: ConvexAuthConfig
 }
 
 /**
@@ -68,10 +67,15 @@ export interface FetchAuthTokenOptions {
  * ```
  */
 export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { isPublic, cookieHeader, siteUrl, authRoute: rawAuthRoute } = options
+  const { isPublic, cookieHeader, convexConfig } = options
 
   // Skip for public queries
   if (isPublic) {
+    return undefined
+  }
+
+  const authConfig = resolveAuthConfig(convexConfig)
+  if (!authConfig.enabled) {
     return undefined
   }
 
@@ -88,7 +92,7 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   }
 
   // Fetch token if we have a site URL
-  const endpoints = resolveAuthEndpoints(siteUrl, rawAuthRoute)
+  const endpoints = resolveAuthEndpoints(authConfig.siteUrl, authConfig.authRoute)
   if (!endpoints) {
     return undefined
   }

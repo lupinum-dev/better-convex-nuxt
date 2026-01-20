@@ -200,6 +200,19 @@ export const SESSION_COOKIE_NAME = 'better-auth.session_token'
 /** Secure cookie name (used on HTTPS in production) */
 export const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
 
+export interface ConvexAuthConfig {
+  auth?: boolean
+  siteUrl?: string
+  authRoute?: string
+}
+
+export interface ResolvedAuthConfig {
+  enabled: boolean
+  siteUrl?: string
+  authRoute: string
+  reason?: 'disabled' | 'missing-site-url'
+}
+
 /**
  * Get the Better Auth session token from a cookie header.
  * Checks both the secure and standard cookie names.
@@ -223,6 +236,28 @@ export function normalizeAuthRoute(rawAuthRoute?: string): string {
   const route = rawAuthRoute?.trim() || '/api/auth'
   const withLeadingSlash = route.startsWith('/') ? route : `/${route}`
   return withLeadingSlash.replace(/\/+$/, '')
+}
+
+/**
+ * Normalize runtime auth configuration for consistent checks.
+ */
+export function resolveAuthConfig(config?: ConvexAuthConfig): ResolvedAuthConfig {
+  const authRoute = normalizeAuthRoute(config?.authRoute)
+  const authEnabled = config?.auth === true
+
+  if (!authEnabled) {
+    return { enabled: false, authRoute, reason: 'disabled' }
+  }
+
+  if (!config?.siteUrl) {
+    return { enabled: false, authRoute, reason: 'missing-site-url' }
+  }
+
+  return {
+    enabled: true,
+    authRoute,
+    siteUrl: config.siteUrl,
+  }
 }
 
 /**

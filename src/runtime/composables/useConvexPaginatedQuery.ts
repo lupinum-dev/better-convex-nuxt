@@ -25,7 +25,7 @@ import {
   releaseSubscription,
   getSubscription,
 } from '../utils/convex-cache'
-import { generatePaginationId } from '../utils/shared-helpers'
+import { generatePaginationId, type ConvexAuthConfig } from '../utils/shared-helpers'
 import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
 import type { PaginatedQueryReference, PaginatedQueryArgs, PaginatedQueryItem } from './optimistic-updates'
 
@@ -363,9 +363,6 @@ export function useConvexPaginatedQuery<
 
     const functionPath = getFunctionName(query)
     const currentArgs = getArgs() as PaginatedQueryArgs<Query>
-    const siteUrl = config.public.convex?.siteUrl
-    const authRoute = config.public.convex?.authRoute as string | undefined
-
     const fullArgs = {
       ...currentArgs,
       paginationOpts,
@@ -377,8 +374,7 @@ export function useConvexPaginatedQuery<
       authToken = await fetchAuthToken({
         isPublic,
         cookieHeader,
-        siteUrl,
-        authRoute,
+        convexConfig: config.public.convex as ConvexAuthConfig | undefined,
       })
     }
 

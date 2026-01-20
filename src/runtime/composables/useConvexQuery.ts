@@ -18,6 +18,7 @@ import {
   type QueryStatus,
 } from '../utils/convex-cache'
 import { createLogger, getLogLevel } from '../utils/logger'
+import type { ConvexAuthConfig } from '../utils/shared-helpers'
 
 // DevTools query registry (client-side only in dev mode)
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
@@ -211,14 +212,10 @@ export function useConvexQuery<
 
       // SSR: fetch via HTTP
       if (import.meta.server) {
-        const siteUrl = config.public.convex?.siteUrl
-        const authRoute = config.public.convex?.authRoute as string | undefined
-
         const authToken = await fetchAuthToken({
           isPublic,
           cookieHeader,
-          siteUrl,
-          authRoute,
+          convexConfig: config.public.convex as ConvexAuthConfig | undefined,
         })
 
         const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
