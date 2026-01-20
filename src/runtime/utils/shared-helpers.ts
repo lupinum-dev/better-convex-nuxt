@@ -212,6 +212,29 @@ export function getAuthSessionToken(cookieHeader: string | null | undefined): st
 }
 
 // ============================================================================
+// Auth Route Helpers
+// ============================================================================
+
+/**
+ * Normalize auth route values to a consistent path format.
+ * Ensures a leading slash and removes trailing slashes.
+ */
+export function normalizeAuthRoute(rawAuthRoute?: string): string {
+  const route = rawAuthRoute?.trim() || '/api/auth'
+  const withLeadingSlash = route.startsWith('/') ? route : `/${route}`
+  return withLeadingSlash.replace(/\/+$/, '')
+}
+
+/**
+ * Build a Better Auth endpoint URL from a site URL and route prefix.
+ */
+export function buildAuthEndpoint(siteUrl: string, authRoute: string, path: string): string {
+  const normalizedSiteUrl = siteUrl.replace(/\/+$/, '')
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${normalizedSiteUrl}${authRoute}${normalizedPath}`
+}
+
+// ============================================================================
 // Pagination ID Generation
 // ============================================================================
 

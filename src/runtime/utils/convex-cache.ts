@@ -1,5 +1,5 @@
 import { useState, type useNuxtApp } from '#app'
-import { getAuthSessionToken } from './shared-helpers'
+import { buildAuthEndpoint, getAuthSessionToken, normalizeAuthRoute } from './shared-helpers'
 
 // Re-export shared utilities
 export {
@@ -47,6 +47,8 @@ export interface FetchAuthTokenOptions {
   cookieHeader: string
   /** Site URL for auth endpoint */
   siteUrl: string | undefined
+  /** Optional auth route override */
+  authRoute?: string
 }
 
 /**
@@ -66,7 +68,7 @@ export interface FetchAuthTokenOptions {
  * ```
  */
 export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { isPublic, cookieHeader, siteUrl } = options
+  const { isPublic, cookieHeader, siteUrl, authRoute: rawAuthRoute } = options
 
   // Skip for public queries
   if (isPublic) {
@@ -90,8 +92,11 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
     return undefined
   }
 
+  const authRoute = normalizeAuthRoute(rawAuthRoute)
+  const tokenExchangeUrl = buildAuthEndpoint(siteUrl, authRoute, '/convex/token')
+
   try {
-    const response = await $fetch(`${siteUrl}/api/auth/convex/token`, {
+    const response = await $fetch(tokenExchangeUrl, {
       headers: { Cookie: cookieHeader },
     }) as { token?: string }
     if (response?.token) {

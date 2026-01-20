@@ -10,6 +10,7 @@ import {
 } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import { recordAuthProxyRequest } from '../../../devtools/auth-proxy-registry'
+import { normalizeAuthRoute } from '../../../utils/shared-helpers'
 
 /**
  * Validates if the given origin is allowed based on siteUrl and trustedOrigins.
@@ -53,10 +54,7 @@ export default defineEventHandler(async (event: H3Event) => {
     | undefined
   const siteUrl = convexConfig?.siteUrl
   const trustedOrigins = convexConfig?.trustedOrigins ?? []
-  // Normalize authRoute: ensure leading slash, remove trailing slash
-  const rawAuthRoute = convexConfig?.authRoute || '/api/auth'
-  const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`)
-    .replace(/\/+$/, '')
+  const authRoute = normalizeAuthRoute(convexConfig?.authRoute)
 
   // Dev mode: track request timing
   const startTime = import.meta.dev ? Date.now() : 0

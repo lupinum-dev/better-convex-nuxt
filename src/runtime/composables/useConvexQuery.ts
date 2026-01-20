@@ -212,11 +212,13 @@ export function useConvexQuery<
       // SSR: fetch via HTTP
       if (import.meta.server) {
         const siteUrl = config.public.convex?.siteUrl
+        const authRoute = config.public.convex?.authRoute as string | undefined
 
         const authToken = await fetchAuthToken({
           isPublic,
           cookieHeader,
           siteUrl,
+          authRoute,
         })
 
         const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)

@@ -16,7 +16,7 @@ import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cach
 import { decodeUserFromJwt } from './utils/convex-shared'
 import type { ConvexUser } from './utils/types'
 import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
-import { getAuthSessionToken } from './utils/shared-helpers'
+import { buildAuthEndpoint, getAuthSessionToken, normalizeAuthRoute } from './utils/shared-helpers'
 
 /**
  * Helper to build a waterfall phase entry (dev-only)
@@ -62,6 +62,7 @@ export default defineNuxtPlugin(async () => {
   }
 
   const siteUrl = config.public.convex?.siteUrl as string | undefined
+  const authRoute = normalizeAuthRoute(config.public.convex?.authRoute as string | undefined)
 
   if (!siteUrl) {
     // This shouldn't happen if module validation is working, but handle gracefully
@@ -169,14 +170,16 @@ export default defineNuxtPlugin(async () => {
 
     // Phase 3: Token Exchange (cache miss or caching disabled)
     const exchangeStart = trackWaterfall ? Date.now() : 0
-    const tokenResponse = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
+    const tokenExchangeUrl = buildAuthEndpoint(siteUrl, authRoute, '/convex/token')
+    const sessionUrl = buildAuthEndpoint(siteUrl, authRoute, '/get-session')
+    const tokenResponse = (await $fetch(tokenExchangeUrl, {
       headers: { Cookie: cookieHeader },
     }).catch(() => null)) as { token?: string } | null
 
     if (tokenResponse?.token) {
       if (trackWaterfall) {
         phases.push(
-          buildPhase('token-exchange', exchangeStart, waterfallStart, 'success', `${siteUrl}/api/auth/convex/token`),
+          buildPhase('token-exchange', exchangeStart, waterfallStart, 'success', tokenExchangeUrl),
         )
       }
       token = tokenResponse.token
@@ -188,7 +191,7 @@ export default defineNuxtPlugin(async () => {
 
       // If decode failed, fallback to session endpoint
       if (!convexUser.value) {
-        const sessionResponse = (await $fetch(`${siteUrl}/api/auth/get-session`, {
+        const sessionResponse = (await $fetch(sessionUrl, {
           headers: { Cookie: cookieHeader },
         }).catch(() => null)) as { user?: ConvexUser } | null
         if (sessionResponse?.user) {

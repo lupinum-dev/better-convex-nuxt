@@ -10,6 +10,7 @@ import { ConvexClient } from 'convex/browser'
 import { createLogger, getLogLevel } from './utils/logger'
 import { matchesSkipRoute } from './utils/route-matcher'
 import { decodeUserFromJwt } from './utils/convex-shared'
+import { normalizeAuthRoute } from './utils/shared-helpers'
 import type { AuthWaterfall } from './devtools/types'
 
 interface TokenResponse {
@@ -62,10 +63,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   const convexPending = useState('convex:pending', () => false)
 
   if (isAuthEnabled && siteUrl) {
-    // Normalize authRoute: ensure leading slash, remove trailing slash
-    const rawAuthRoute = (config.public.convex?.authRoute as string | undefined) || '/api/auth'
-    const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`)
-      .replace(/\/+$/, '')
+    const authRoute = normalizeAuthRoute(config.public.convex?.authRoute as string | undefined)
     const authBaseURL =
       typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
 

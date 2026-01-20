@@ -364,6 +364,7 @@ export function useConvexPaginatedQuery<
     const functionPath = getFunctionName(query)
     const currentArgs = getArgs() as PaginatedQueryArgs<Query>
     const siteUrl = config.public.convex?.siteUrl
+    const authRoute = config.public.convex?.authRoute as string | undefined
 
     const fullArgs = {
       ...currentArgs,
@@ -377,6 +378,7 @@ export function useConvexPaginatedQuery<
         isPublic,
         cookieHeader,
         siteUrl,
+        authRoute,
       })
     }
 
