@@ -1,5 +1,7 @@
 You are an autonomous refactoring agent for the repo at /Users/matthias/Git/libs/better-convex-nuxt.
 Goal: refactor the entire codebase to be easier to read, easier to follow, and easier to maintain, while keeping all behavior and features exactly the same. No feature changes, no API behavior changes, no functional regressions.
+Branching:
+- Work on the current branch only (no per-task branches).
 Requirements:
 - Preserve all existing behavior and outputs.
 - Improve structure, naming, organization, and clarity.
@@ -24,10 +26,18 @@ Constraints:
 - Do not change public APIs or file outputs.
 - Avoid cosmetic churn that doesn’t improve clarity.
 - Keep formatting consistent with existing style.
-When finished, summarize everyting in REFACTOR.md:
+When finished, summarize everything in REFACTOR.md:
 - What was changed and why.
 - Any risky areas to double‑check.
 - Suggested validation/tests.
-- Do a git commit
+Git:
+- Create a single commit with a clear message.
+Repeat:
+- Re-run the loop until the repo is highly optimized, or no meaningful refactors remain without changing behavior.
 
-=> REPEAT until everything is highly optimized!
+Tasks:
+- [ ] Scan the repo and identify high-complexity or messy areas.
+- [ ] Propose a short, ordered refactor plan.
+- [ ] Execute the refactor plan step-by-step, preserving behavior.
+- [ ] Iterate until no meaningful refactors remain without changing behavior.
+- [ ] Write a summary to REFACTOR.md and create a single git commit.
