@@ -48,10 +48,13 @@ function isOriginAllowed(
 
 export default defineEventHandler(async (event: H3Event) => {
   const config = useRuntimeConfig()
-  const siteUrl = config.public.convex?.siteUrl as string | undefined
-  const trustedOrigins = (config.public.convex?.trustedOrigins as string[]) ?? []
+  const convexConfig = config.public.convex as
+    | { siteUrl?: string; trustedOrigins?: string[]; authRoute?: string }
+    | undefined
+  const siteUrl = convexConfig?.siteUrl
+  const trustedOrigins = convexConfig?.trustedOrigins ?? []
   // Normalize authRoute: ensure leading slash, remove trailing slash
-  const rawAuthRoute = (config.public.convex?.authRoute as string) || '/api/auth'
+  const rawAuthRoute = convexConfig?.authRoute || '/api/auth'
   const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`)
     .replace(/\/+$/, '')
 
@@ -96,12 +99,19 @@ export default defineEventHandler(async (event: H3Event) => {
 
   // Set CORS headers for the response (only for validated origins)
   const origin = event.headers.get('origin')
-  if (origin && isOriginAllowed(origin, siteUrl, trustedOrigins)) {
+  const isAllowedOrigin = origin ? isOriginAllowed(origin, siteUrl, trustedOrigins) : true
+  if (origin && isAllowedOrigin) {
     setHeaders(event, {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Expose-Headers': 'Set-Cookie',
     })
+  }
+
+  // Enforce origin checks for non-preflight requests
+  if (origin && !isAllowedOrigin) {
+    setResponseStatus(event, 403)
+    return null
   }
 
   try {
