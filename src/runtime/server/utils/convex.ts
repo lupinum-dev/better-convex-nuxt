@@ -47,26 +47,29 @@ async function executeConvexOperation<T>(
     headers['Authorization'] = `Bearer ${options.authToken}`
   }
 
-  // Helper to log based on operation type
-  const logSuccess = (duration: number) => {
-    if (operationType === 'query') {
-      logger.query({ name: functionPath, event: 'update', args })
-    } else if (operationType === 'mutation') {
-      logger.mutation({ name: functionPath, event: 'success', args, duration })
-    } else {
-      logger.action({ name: functionPath, event: 'success', duration })
-    }
-  }
+  const loggers = {
+    query: {
+      success: (_duration: number) => logger.query({ name: functionPath, event: 'update', args }),
+      error: (err: Error, _duration: number) =>
+        logger.query({ name: functionPath, event: 'error', args, error: err }),
+    },
+    mutation: {
+      success: (duration: number) =>
+        logger.mutation({ name: functionPath, event: 'success', args, duration }),
+      error: (err: Error, duration: number) =>
+        logger.mutation({ name: functionPath, event: 'error', args, duration, error: err }),
+    },
+    action: {
+      success: (duration: number) => logger.action({ name: functionPath, event: 'success', duration }),
+      error: (err: Error, duration: number) =>
+        logger.action({ name: functionPath, event: 'error', duration, error: err }),
+    },
+  } satisfies Record<ConvexOperationType, {
+    success: (duration: number) => void
+    error: (err: Error, duration: number) => void
+  }>
 
-  const logError = (err: Error, duration: number) => {
-    if (operationType === 'query') {
-      logger.query({ name: functionPath, event: 'error', args, error: err })
-    } else if (operationType === 'mutation') {
-      logger.mutation({ name: functionPath, event: 'error', args, duration, error: err })
-    } else {
-      logger.action({ name: functionPath, event: 'error', duration, error: err })
-    }
-  }
+  const { success: logSuccess, error: logError } = loggers[operationType]
 
   try {
     const response = await fetch(`${convexUrl}/api/${operationType}`, {

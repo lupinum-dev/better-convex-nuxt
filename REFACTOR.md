@@ -15,3 +15,16 @@ High-complexity or messy areas identified during a quick scan:
 3. Modularize `src/runtime/utils/logger.ts` into formatters (ANSI/browser), event serializers, and public logging API.
 4. Decompose `src/runtime/server/api/auth/[...].ts` into CORS/proxy/auth routing helpers, then wrap them in a thin handler.
 5. Slice `src/module.ts` into setup phases (config validation, runtime config merge, handlers/devtools) with explicit orchestration.
+
+## Refactor Summary
+
+- Simplified Convex server logging selection by mapping operation types to handlers, reducing branching.
+- Streamlined subscription cache initialization to avoid repeated WeakMap lookups.
+
+## Risk Areas
+
+- Convex server logging routing for query/mutation/action events.
+
+## Suggested Validation
+
+- `npm run test`

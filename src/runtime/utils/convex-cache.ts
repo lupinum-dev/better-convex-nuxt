@@ -127,10 +127,14 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
  * ```
  */
 export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
-  if (!subscriptionRegistry.has(nuxtApp)) {
-    subscriptionRegistry.set(nuxtApp, {})
+  const existing = subscriptionRegistry.get(nuxtApp)
+  if (existing) {
+    return existing
   }
-  return subscriptionRegistry.get(nuxtApp)!
+
+  const cache: SubscriptionCache = {}
+  subscriptionRegistry.set(nuxtApp, cache)
+  return cache
 }
 
 /**
@@ -212,4 +216,3 @@ export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean
 
   return false
 }
-
