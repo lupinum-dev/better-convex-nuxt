@@ -195,6 +195,22 @@ export function getCookie(cookieHeader: string | null | undefined, name: string)
   return cookies[name] ?? null
 }
 
+/** Session cookie name used by Better Auth */
+export const SESSION_COOKIE_NAME = 'better-auth.session_token'
+/** Secure cookie name (used on HTTPS in production) */
+export const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
+
+/**
+ * Get the Better Auth session token from a cookie header.
+ * Checks both the secure and standard cookie names.
+ */
+export function getAuthSessionToken(cookieHeader: string | null | undefined): string | null {
+  return (
+    getCookie(cookieHeader, SECURE_SESSION_COOKIE_NAME) ||
+    getCookie(cookieHeader, SESSION_COOKIE_NAME)
+  )
+}
+
 // ============================================================================
 // Pagination ID Generation
 // ============================================================================

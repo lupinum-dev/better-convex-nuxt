@@ -1,4 +1,5 @@
 import { useState, type useNuxtApp } from '#app'
+import { getAuthSessionToken } from './shared-helpers'
 
 // Re-export shared utilities
 export {
@@ -73,7 +74,8 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   }
 
   // Check if we have session cookie
-  if (!cookieHeader.includes('better-auth.session_token')) {
+  const sessionToken = getAuthSessionToken(cookieHeader)
+  if (!sessionToken) {
     return undefined
   }
 

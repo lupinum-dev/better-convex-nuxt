@@ -16,12 +16,7 @@ import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cach
 import { decodeUserFromJwt } from './utils/convex-shared'
 import type { ConvexUser } from './utils/types'
 import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
-import { getCookie } from './utils/shared-helpers'
-
-/** Session cookie name used by Better Auth */
-const SESSION_COOKIE_NAME = 'better-auth.session_token'
-/** Secure cookie name (used on HTTPS in production) */
-const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
+import { getAuthSessionToken } from './utils/shared-helpers'
 
 /**
  * Helper to build a waterfall phase entry (dev-only)
@@ -95,8 +90,7 @@ export default defineNuxtPlugin(async () => {
   const sessionCheckStart = trackWaterfall ? Date.now() : 0
   const cookieHeader = event.headers.get('cookie')
   // Try both cookie names: __Secure- prefix is used on HTTPS (production)
-  const sessionToken =
-    getCookie(cookieHeader, SECURE_SESSION_COOKIE_NAME) || getCookie(cookieHeader, SESSION_COOKIE_NAME)
+  const sessionToken = getAuthSessionToken(cookieHeader)
 
   // Check if we have a session cookie
   if (!cookieHeader || !sessionToken) {
