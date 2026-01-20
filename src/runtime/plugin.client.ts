@@ -229,19 +229,17 @@ export default defineNuxtPlugin((nuxtApp) => {
     nuxtApp.provide('auth', authClient)
   }
 
-  // Expose for debugging
-  if (typeof window !== 'undefined') {
+  // Expose for debugging (dev only)
+  if (typeof window !== 'undefined' && import.meta.dev) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).__convex_client__ = client
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (authClient) (window as any).__auth_client__ = authClient
 
     // Setup DevTools bridge in dev mode
-    if (import.meta.dev) {
-      import('./devtools/bridge-setup').then(({ setupDevToolsBridge }) => {
-        setupDevToolsBridge(client, convexToken, convexUser, convexAuthWaterfall)
-      })
-    }
+    import('./devtools/bridge-setup').then(({ setupDevToolsBridge }) => {
+      setupDevToolsBridge(client, convexToken, convexUser, convexAuthWaterfall)
+    })
   }
 
   endInit()
