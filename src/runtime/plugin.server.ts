@@ -48,7 +48,24 @@ export default defineNuxtPlugin(async () => {
 
   const authConfig = resolveAuthConfig(config.public.convex as ConvexAuthConfig | undefined)
 
+  // Initialize useState for hydration (must be done even if unauthenticated)
+  const convexToken = useState<string | null>('convex:token', () => null)
+  const convexUser = useState<ConvexUser | null>('convex:user', () => null)
+  const convexPending = useState<boolean>('convex:pending', () => false)
+  const convexAuthError = useState<string | null>('convex:authError', () => null)
+  const convexAuthReady = useState<boolean>('convex:authReady', () => false)
+  const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
+
+  const finalizeAuth = () => {
+    convexPending.value = false
+    convexAuthReady.value = true
+  }
+
   if (!authConfig.enabled) {
+    convexToken.value = null
+    convexUser.value = null
+    convexAuthError.value = null
+    finalizeAuth()
     endInit()
     if (authConfig.reason === 'missing-site-url') {
       logger.auth({
@@ -67,11 +84,20 @@ export default defineNuxtPlugin(async () => {
   const event = useRequestEvent()
   if (!event) {
     logger.auth({ phase: 'init', outcome: 'error', error: new Error('No request event available') })
+    convexToken.value = null
+    convexUser.value = null
+    convexAuthError.value = 'No request event available'
+    finalizeAuth()
+    endInit()
     return
   }
 
   const endpoints = resolveAuthEndpoints(authConfig.siteUrl, authConfig.authRoute)
   if (!endpoints) {
+    convexToken.value = null
+    convexUser.value = null
+    convexAuthError.value = null
+    finalizeAuth()
     endInit()
     logger.debug('Auth endpoints unavailable, skipping server-side auth')
     return
@@ -81,11 +107,6 @@ export default defineNuxtPlugin(async () => {
   const logAuth = (phase: string, outcome: 'success' | 'error' | 'skip' | 'miss', details?: Record<string, unknown>, error?: Error) => {
     logger.auth({ phase, outcome, details, error })
   }
-
-  // Initialize useState for hydration (must be done even if unauthenticated)
-  const convexToken = useState<string | null>('convex:token', () => null)
-  const convexUser = useState<ConvexUser | null>('convex:user', () => null)
-  const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
 
   // Waterfall tracking (dev-only)
   const trackWaterfall = import.meta.dev
@@ -112,6 +133,10 @@ export default defineNuxtPlugin(async () => {
         cacheHit: false,
       }
     }
+    convexToken.value = null
+    convexUser.value = null
+    convexAuthError.value = null
+    finalizeAuth()
     endInit()
     logAuth('session-check', 'miss')
     return
@@ -156,6 +181,8 @@ export default defineNuxtPlugin(async () => {
           }
         }
 
+        convexAuthError.value = null
+        finalizeAuth()
         endInit()
         logAuth('cache', 'success', { source: 'cache' })
         return
@@ -189,6 +216,7 @@ export default defineNuxtPlugin(async () => {
       }
       token = tokenResponse.token
       convexToken.value = token
+      convexAuthError.value = null
 
       // Phase 4: JWT Decode
       const decodeStart = trackWaterfall ? Date.now() : 0
@@ -221,12 +249,17 @@ export default defineNuxtPlugin(async () => {
         }
       }
 
+      finalizeAuth()
       endInit()
       logAuth('exchange', 'success', { user: convexUser.value?.email })
     } else {
       if (trackWaterfall) {
         phases.push(buildPhase('token-exchange', exchangeStart, waterfallStart, 'error', 'No token returned'))
       }
+      convexToken.value = null
+      convexUser.value = null
+      convexAuthError.value = null
+      finalizeAuth()
       endInit()
       logAuth('exchange', 'miss')
     }
@@ -246,6 +279,7 @@ export default defineNuxtPlugin(async () => {
     // Token exchange failed - session may be invalid/expired
     convexToken.value = null
     convexUser.value = null
+    convexAuthError.value = error instanceof Error ? error.message : 'Token exchange failed'
 
     // Store waterfall with error (dev-only)
     if (trackWaterfall) {
@@ -260,6 +294,7 @@ export default defineNuxtPlugin(async () => {
       }
     }
 
+    finalizeAuth()
     endInit()
     logAuth('exchange', 'error', undefined, error instanceof Error ? error : new Error('Token exchange failed'))
   }

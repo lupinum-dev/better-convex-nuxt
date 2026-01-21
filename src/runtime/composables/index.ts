@@ -1,4 +1,6 @@
 export { useConvexAuth, type ConvexUser } from './useConvexAuth'
+export { useAuthReady } from './useAuthReady'
+export { useRequireAuth } from './useRequireAuth'
 export { useConvex } from './useConvex'
 export {
   useConvexConnectionState,

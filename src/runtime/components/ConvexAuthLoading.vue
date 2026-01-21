@@ -12,9 +12,9 @@
  */
 import { useConvexAuth } from '../composables/useConvexAuth'
 
-const { isPending } = useConvexAuth()
+const { isPending, authReady } = useConvexAuth()
 </script>
 
 <template>
-  <slot v-if="isPending" />
+  <slot v-if="isPending || !authReady" />
 </template>

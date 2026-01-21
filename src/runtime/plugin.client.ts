@@ -43,17 +43,25 @@ export default defineNuxtPlugin((nuxtApp) => {
   const convexConfig = config.public.convex as ConvexAuthConfig | undefined
   const authConfig = resolveAuthConfig(convexConfig)
 
-  if (!convexUrl) {
-    logger.auth({ phase: 'init', outcome: 'error', error: new Error('No Convex URL configured') })
-    endInit()
-    return
-  }
-
   // SSR-hydrated auth state
   const convexToken = useState<string | null>('convex:token')
   const convexUser = useState<unknown>('convex:user')
   const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall')
   const convexAuthError = useState<string | null>('convex:authError')
+  const convexAuthReady = useState<boolean>('convex:authReady', () => false)
+
+  const markAuthReady = () => {
+    if (!convexAuthReady.value) {
+      convexAuthReady.value = true
+    }
+  }
+
+  if (!convexUrl) {
+    logger.auth({ phase: 'init', outcome: 'error', error: new Error('No Convex URL configured') })
+    markAuthReady()
+    endInit()
+    return
+  }
 
   // Create Convex WebSocket client
   const client = new ConvexClient(convexUrl)
@@ -84,6 +92,14 @@ export default defineNuxtPlugin((nuxtApp) => {
     // Cancellation controller for session sync operations
     let currentAuthOperation: AbortController | null = null
 
+    const clearServerAuthCache = async () => {
+      try {
+        await $fetch('/api/convex/auth-cache', { method: 'DELETE' })
+      } catch (error) {
+        logger.debug(`Auth cache clear skipped: ${error instanceof Error ? error.message : 'unknown error'}`)
+      }
+    }
+
     const fetchToken = async ({
       forceRefreshToken,
       signal,
@@ -99,23 +115,27 @@ export default defineNuxtPlugin((nuxtApp) => {
 
       // Layer 3: Page-level skip via definePageMeta({ skipConvexAuth: true })
       if (route.meta?.skipConvexAuth === true) {
+        markAuthReady()
         return null
       }
 
       // Layer 2: Config-based route skip (skipAuthRoutes in nuxt.config)
       if (matchesSkipRoute(route.path, skipRoutes)) {
+        markAuthReady()
         return null
       }
 
       // Use SSR-hydrated token if available
       if (convexToken.value && !forceRefreshToken) {
         lastTokenValidation = Date.now()
+        markAuthReady()
         return convexToken.value
       }
 
       // Use cached token if recently validated
       const timeSinceValidation = Date.now() - lastTokenValidation
       if (convexToken.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
+        markAuthReady()
         return convexToken.value
       }
 
@@ -124,12 +144,14 @@ export default defineNuxtPlugin((nuxtApp) => {
       // Skip this check if forceRefreshToken is true (session changed client-side)
       const wasServerRendered = !!nuxtApp.payload?.serverRendered
       if (wasServerRendered && !convexToken.value && !convexUser.value && !forceRefreshToken) {
+        markAuthReady()
         return null
       }
 
       // Negative cache: if we recently confirmed no session, don't re-check
       // This prevents duplicate 401 requests during Convex client initialization
       if (!convexToken.value && Date.now() - lastNullTokenCheck < NULL_TOKEN_CACHE_MS) {
+        markAuthReady()
         return null
       }
 
@@ -151,6 +173,7 @@ export default defineNuxtPlugin((nuxtApp) => {
             convexAuthError.value = errorMsg
           }
           lastNullTokenCheck = Date.now() // Cache the "no session" result
+          markAuthReady()
           return null
         }
         const token = response.data.token
@@ -163,6 +186,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           convexUser.value = decodeUserFromJwt(token)
         }
 
+        markAuthReady()
         return token
       } catch (e) {
         // Check if operation was cancelled
@@ -173,6 +197,7 @@ export default defineNuxtPlugin((nuxtApp) => {
         // Set auth error for caught exceptions
         convexAuthError.value = e instanceof Error ? e.message : 'Authentication request failed'
         lastNullTokenCheck = Date.now() // Cache the failed result
+        markAuthReady()
         return null
       }
     }
@@ -184,6 +209,42 @@ export default defineNuxtPlugin((nuxtApp) => {
     // Watch Better Auth session changes and sync to Convex state
     // This ensures useConvexAuth() updates reactively after login/logout
     const session = authClient.useSession()
+
+    const syncAuth = async ({
+      hasSession,
+      hadSession,
+      signal,
+    }: {
+      hasSession: boolean
+      hadSession: boolean
+      signal: AbortSignal
+    }) => {
+      if (hasSession && !hadSession) {
+        // LOGIN: User logged in - clear caches and fetch fresh token
+        convexPending.value = true
+        try {
+          lastNullTokenCheck = 0
+          lastTokenValidation = 0
+          await fetchToken({ forceRefreshToken: true, signal })
+          logger.auth({ phase: 'login', outcome: 'success' })
+        } finally {
+          // Only update pending if this operation wasn't cancelled
+          if (!signal.aborted) {
+            convexPending.value = false
+          }
+        }
+      } else if (!hasSession && hadSession) {
+        // LOGOUT: User logged out - clear state immediately
+        convexPending.value = false // Reset pending in case login was in progress
+        convexToken.value = null
+        convexUser.value = null
+        convexAuthError.value = null // Clear any previous auth error
+        markAuthReady()
+        void clearServerAuthCache()
+        logger.auth({ phase: 'logout', outcome: 'success' })
+      }
+    }
+
     watch(
       () => session.value.data,
       async (sessionData, oldSessionData) => {
@@ -195,30 +256,13 @@ export default defineNuxtPlugin((nuxtApp) => {
         const hadSession = !!oldSessionData
         const hasSession = !!sessionData
 
-        if (hasSession && !hadSession) {
-          // LOGIN: User logged in - clear caches and fetch fresh token
-          convexPending.value = true
-          try {
-            lastNullTokenCheck = 0
-            lastTokenValidation = 0
-            await fetchToken({ forceRefreshToken: true, signal })
-            logger.auth({ phase: 'login', outcome: 'success' })
-          } finally {
-            // Only update pending if this operation wasn't cancelled
-            if (!signal.aborted) {
-              convexPending.value = false
-            }
-          }
-        } else if (!hasSession && hadSession) {
-          // LOGOUT: User logged out - clear state immediately
-          convexPending.value = false // Reset pending in case login was in progress
-          convexToken.value = null
-          convexUser.value = null
-          convexAuthError.value = null // Clear any previous auth error
-          logger.auth({ phase: 'logout', outcome: 'success' })
-        }
+        await syncAuth({ hasSession, hadSession, signal })
       },
     )
+  }
+
+  if (!authConfig.enabled) {
+    markAuthReady()
   }
 
   // Provide clients globally

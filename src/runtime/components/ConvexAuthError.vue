@@ -30,7 +30,7 @@
 import { computed } from 'vue'
 import { useConvexAuth } from '../composables/useConvexAuth'
 
-const { isAuthenticated, isPending, token, user, authError } = useConvexAuth()
+const { isAuthenticated, isPending, token, user, authError, authReady } = useConvexAuth()
 
 /**
  * Detect auth error state:
@@ -40,7 +40,7 @@ const { isAuthenticated, isPending, token, user, authError } = useConvexAuth()
  */
 const hasError = computed(() => {
   // Auth is still loading
-  if (isPending.value) return false
+  if (isPending.value || !authReady.value) return false
 
   // Successfully authenticated
   if (isAuthenticated.value) return false

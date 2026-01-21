@@ -18,11 +18,11 @@ export type { ConvexUser } from '../utils/types'
  * @example
  * ```vue
  * <script setup>
- * const { user, isAuthenticated, isPending } = useConvexAuth()
+ * const { user, isAuthenticated, isPending, authReady } = useConvexAuth()
  * </script>
  *
  * <template>
- *   <div v-if="isPending">Loading...</div>
+ *   <div v-if="!authReady || isPending">Loading...</div>
  *   <div v-else-if="isAuthenticated">Welcome, {{ user?.name }}</div>
  *   <div v-else>Please log in</div>
  * </template>
@@ -33,6 +33,7 @@ export function useConvexAuth() {
   const user = useState<ConvexUser | null>('convex:user', () => null)
   const pending = useState<boolean>('convex:pending', () => false)
   const authError = useState<string | null>('convex:authError', () => null)
+  const authReady = useState<boolean>('convex:authReady', () => false)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
 
@@ -47,5 +48,7 @@ export function useConvexAuth() {
     isPending: readonly(pending),
     /** Auth error message if authentication failed (e.g., 401/403) */
     authError: readonly(authError),
+    /** Whether the initial auth check completed */
+    authReady: readonly(authReady),
   }
 }

@@ -389,6 +389,8 @@ export {}
       addImports([
         { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
         { name: 'useAuthClient', from: resolver.resolve('./runtime/composables/useAuthClient') },
+        { name: 'useAuthReady', from: resolver.resolve('./runtime/composables/useAuthReady') },
+        { name: 'useRequireAuth', from: resolver.resolve('./runtime/composables/useRequireAuth') },
       ])
 
       // Register auth components
