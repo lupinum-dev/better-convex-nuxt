@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.7
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.6...v0.2.7)
+
+### 🩹 Fixes
+
+- Enhance debugging exposure in development mode ([902c952](https://github.com/lupinum-dev/better-convex-nuxt/commit/902c952))
+
+### 💅 Refactors
+
+- Improve auth configuration handling and enforce origin checks ([34617e7](https://github.com/lupinum-dev/better-convex-nuxt/commit/34617e7))
+- Clarify CORS origin validation logic and update documentation ([1cc1c8f](https://github.com/lupinum-dev/better-convex-nuxt/commit/1cc1c8f))
+
+### 🏡 Chore
+
+- Update better-convex-nuxt to version 0.2.6 in package.json and pnpm-lock.yaml ([f8a2d18](https://github.com/lupinum-dev/better-convex-nuxt/commit/f8a2d18))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.6
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.5...v0.2.6)
