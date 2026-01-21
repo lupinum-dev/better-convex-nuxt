@@ -1,6 +1,6 @@
 {
   "name": "better-convex-nuxt",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
   "keywords": [
     "authentication",

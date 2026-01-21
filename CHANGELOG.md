@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.8
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.7...v0.2.8)
+
+### 💅 Refactors
+
+- Update auth proxy route registration logic to always apply when auth is enabled ([e95f0c9](https://github.com/lupinum-dev/better-convex-nuxt/commit/e95f0c9))
+
+### 🏡 Chore
+
+- **release:** V0.2.7 ([0e37cdc](https://github.com/lupinum-dev/better-convex-nuxt/commit/0e37cdc))
+- Update better-convex-nuxt to version 0.2.7 in package.json ([ca423f4](https://github.com/lupinum-dev/better-convex-nuxt/commit/ca423f4))
+- Update better-convex-nuxt to version 0.2.7 in pnpm-lock.yaml ([cf6a41a](https://github.com/lupinum-dev/better-convex-nuxt/commit/cf6a41a))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.7
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.6...v0.2.7)
