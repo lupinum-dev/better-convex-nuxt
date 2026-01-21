@@ -280,9 +280,11 @@ export default defineNuxtModule<ModuleOptions>({
     // 3. Register Client Plugin (client-only via filename convention)
     addPlugin(resolver.resolve('./runtime/plugin.client'))
 
-    // 4. Register Auth Proxy Route (only when auth is enabled AND SSR is enabled)
-    // In SPA mode, the browser talks directly to Convex, no proxy needed
-    if (isAuthEnabled && nuxt.options.ssr) {
+    // 4. Register Auth Proxy Route (when auth is enabled)
+    // The proxy is needed even in SPA mode because:
+    // - Better Auth cookies must be set on the app's domain (not Convex's domain)
+    // - Cross-origin cookie setting is blocked by browsers
+    if (isAuthEnabled) {
       addServerHandler({
         route: `${authRoute}/**`,
         handler: resolver.resolve('./runtime/server/api/auth/[...]'),
