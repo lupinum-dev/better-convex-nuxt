@@ -12,22 +12,24 @@ import { useRuntimeConfig } from '#imports'
 import { recordAuthProxyRequest } from '../../../devtools/auth-proxy-registry'
 
 /**
- * Validates if the given origin is allowed based on siteUrl and trustedOrigins.
+ * Validates if the given origin is allowed.
+ * Same-origin requests are always allowed.
+ * Cross-origin requests must match a trustedOrigins pattern.
  * Supports wildcard patterns (e.g., 'https://preview-*.vercel.app').
  */
 function isOriginAllowed(
   origin: string,
-  siteUrl: string | undefined,
+  requestHost: string,
   trustedOrigins: string[],
 ): boolean {
-  // Check against siteUrl (extract origin from full URL)
-  if (siteUrl) {
-    try {
-      const siteOrigin = new URL(siteUrl).origin
-      if (origin === siteOrigin) return true
-    } catch {
-      // Invalid siteUrl, skip this check
-    }
+  // Same-origin requests are always allowed
+  // Compare origin (e.g., 'https://example.com') with request host
+  try {
+    const originUrl = new URL(origin)
+    // Request host might not have protocol, so compare just the host part
+    if (originUrl.host === requestHost) return true
+  } catch {
+    // Invalid origin URL
   }
 
   // Check against trustedOrigins (exact match or wildcard pattern)
@@ -79,10 +81,10 @@ export default defineEventHandler(async (event: H3Event) => {
   const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
 
   // Handle CORS preflight
-  // Security: Only allow CORS for validated origins
+  // Security: Only allow CORS for validated origins (same-origin or trustedOrigins)
   if (event.method === 'OPTIONS') {
     const origin = event.headers.get('origin')
-    if (!origin || !isOriginAllowed(origin, siteUrl, trustedOrigins)) {
+    if (!origin || !isOriginAllowed(origin, requestUrl.host, trustedOrigins)) {
       setResponseStatus(event, 403)
       return null
     }
@@ -99,7 +101,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
   // Set CORS headers for the response (only for validated origins)
   const origin = event.headers.get('origin')
-  const isAllowedOrigin = origin ? isOriginAllowed(origin, siteUrl, trustedOrigins) : true
+  const isAllowedOrigin = origin ? isOriginAllowed(origin, requestUrl.host, trustedOrigins) : true
   if (origin && isAllowedOrigin) {
     setHeaders(event, {
       'Access-Control-Allow-Origin': origin,

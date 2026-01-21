@@ -113,7 +113,8 @@ export interface ModuleOptions {
   authRoute?: string
   /**
    * Additional trusted origins for CORS validation on the auth proxy.
-   * By default, only requests from the origin matching siteUrl are allowed.
+   * Same-origin requests are always allowed automatically.
+   * Use this for cross-origin scenarios like iframes or separate frontend domains.
    * Supports wildcards for preview deployments (e.g., 'https://preview-*.vercel.app').
    * @default []
    */
