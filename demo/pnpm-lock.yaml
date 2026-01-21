@@ -24,8 +24,8 @@ importers:
         specifier: ^1.4.9
         version: 1.4.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.26(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: ^0.2.6
-        version: 0.2.6(@better-auth/core@1.4.11(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@standard-schema/spec@1.1.0)(better-call@1.1.7(zod@4.3.5))(magicast@0.5.1)(nanostores@1.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(vite@7.3.0(@types/node@22.19.5)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))(vue@3.5.26(typescript@5.9.3))
+        specifier: ^0.2.7
+        version: 0.2.7(@better-auth/core@1.4.11(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@standard-schema/spec@1.1.0)(better-call@1.1.7(zod@4.3.5))(magicast@0.5.1)(nanostores@1.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(vite@7.3.0(@types/node@22.19.5)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))(vue@3.5.26(typescript@5.9.3))
       convex:
         specifier: ^1.31.2
         version: 1.31.4(react@19.2.3)
@@ -2589,8 +2589,8 @@ packages:
       zod:
         optional: true
 
-  better-convex-nuxt@0.2.6:
-    resolution: {integrity: sha512-TNq0CYTmIiLII+d3/FMdIluRgf7/TPGctERnIgmHQFuUEr6jybirs2kVtsha9YeRLsmizQ58hjsi+m2kzjH17g==}
+  better-convex-nuxt@0.2.7:
+    resolution: {integrity: sha512-rD4x57BGYfx1X2Q9AvGtP2gwEIreLcWw9yovaM38SaNLo8vl7yVPyogH8RhCjpAUxeTOxCsbkPwZAW8GQT1EtQ==}
 
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
@@ -8136,7 +8136,7 @@ snapshots:
     optionalDependencies:
       zod: 4.3.5
 
-  better-convex-nuxt@0.2.6(@better-auth/core@1.4.11(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@standard-schema/spec@1.1.0)(better-call@1.1.7(zod@4.3.5))(magicast@0.5.1)(nanostores@1.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(vite@7.3.0(@types/node@22.19.5)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))(vue@3.5.26(typescript@5.9.3)):
+  better-convex-nuxt@0.2.7(@better-auth/core@1.4.11(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@standard-schema/spec@1.1.0)(better-call@1.1.7(zod@4.3.5))(magicast@0.5.1)(nanostores@1.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(vite@7.3.0(@types/node@22.19.5)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))(vue@3.5.26(typescript@5.9.3)):
     dependencies:
       '@convex-dev/better-auth': 0.10.10(@better-auth/core@1.4.11(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.21)(better-call@1.1.7(zod@4.3.5))(jose@6.1.3)(kysely@0.28.9)(nanostores@1.1.0))(@better-auth/utils@0.3.0)(@standard-schema/spec@1.1.0)(better-auth@1.4.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.26(typescript@5.9.3)))(better-call@1.1.7(zod@4.3.5))(convex@1.31.4(react@19.2.3))(nanostores@1.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
       '@nuxt/devtools-kit': 2.7.0(magicast@0.5.1)(vite@7.3.0(@types/node@22.19.5)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))
