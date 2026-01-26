@@ -16,6 +16,19 @@ type AuthClient = ReturnType<typeof createAuthClient>
  * but this is safe because auth operations (sign in, sign out) should only
  * be triggered by user interactions which only happen on the client.
  *
+ * ## Important: useSession() Cost
+ *
+ * Calling `authClient.useSession()` will trigger an additional `/api/auth/get-session`
+ * API call, which results in ~2 extra Convex database queries per page load.
+ * This is because Better Auth's useSession() fetches session data independently.
+ *
+ * **Recommended alternatives:**
+ * - Use `useConvexAuth()` for reading auth state (token, user, isAuthenticated)
+ * - Use `useConvexAuth().signOut()` for logging out (clears both Better Auth and Convex state)
+ *
+ * Only use `authClient.useSession()` if you specifically need Better Auth's
+ * reactive session features and are okay with the extra API call.
+ *
  * @example
  * ```vue
  * <script setup>
@@ -30,8 +43,10 @@ type AuthClient = ReturnType<typeof createAuthClient>
  *   })
  * }
  *
+ * // For logout, prefer useConvexAuth().signOut() instead:
+ * const { signOut } = useConvexAuth()
  * async function logout() {
- *   await authClient?.signOut()
+ *   await signOut() // Clears both Better Auth AND Convex state
  * }
  * </script>
  * ```

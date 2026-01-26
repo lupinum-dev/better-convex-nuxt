@@ -98,7 +98,6 @@ export default defineNuxtPlugin(async () => {
   const sessionToken =
     getCookie(cookieHeader, SECURE_SESSION_COOKIE_NAME) || getCookie(cookieHeader, SESSION_COOKIE_NAME)
 
-  // Check if we have a session cookie
   if (!cookieHeader || !sessionToken) {
     if (trackWaterfall) {
       phases.push(buildPhase('session-check', sessionCheckStart, waterfallStart, 'miss', 'No session cookie'))
