@@ -247,6 +247,10 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const fnName = getFunctionName(mutation)
   const hasOptimisticUpdate = !!options?.optimisticUpdate
 
+  // Get client at setup time (not inside async callback) to avoid Vue context issues
+  // Per Nuxt best practices, composables must be called synchronously at setup time
+  const client = useConvex()
+
   // Internal state
   const _status = ref<MutationStatus>('idle')
   const error = ref<Error | null>(null) as Ref<Error | null>
@@ -265,7 +269,6 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
   // The mutation function
   const mutate = async (args: Args): Promise<Result> => {
-    const client = useConvex()
     const startTime = Date.now()
 
     if (!client) {
