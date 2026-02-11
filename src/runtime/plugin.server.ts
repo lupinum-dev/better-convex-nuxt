@@ -49,6 +49,24 @@ export default defineNuxtPlugin(async () => {
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (server)')
+  const debugConfig = (config.public.convex?.debug as {
+    authFlow?: boolean
+    serverAuthFlow?: boolean
+  } | undefined)
+  const enableServerAuthTrace
+    = logLevel === 'debug' && (debugConfig?.authFlow === true || debugConfig?.serverAuthFlow === true)
+  const rawAuthLog = logger.auth.bind(logger)
+  logger.auth = (event) => {
+    rawAuthLog(event)
+    if (enableServerAuthTrace) {
+      console.log('[BCN_AUTH][server]', {
+        phase: event.phase,
+        outcome: event.outcome,
+        ...event.details,
+        error: event.error ? event.error.message : null,
+      })
+    }
+  }
 
   // Check if auth is enabled
   const isAuthEnabled = config.public.convex?.auth as boolean | undefined
@@ -65,6 +83,9 @@ export default defineNuxtPlugin(async () => {
     logger.auth({ phase: 'init', outcome: 'error', error: new Error('No request event available') })
     return
   }
+  const requestPath = event.path || event.node.req.url || '(unknown)'
+  const requestMethod = event.method || 'GET'
+  const requestId = crypto.randomUUID()
 
   const siteUrl = config.public.convex?.siteUrl as string | undefined
 
@@ -77,7 +98,17 @@ export default defineNuxtPlugin(async () => {
 
   // Helper to log auth events
   const logAuth = (phase: string, outcome: 'success' | 'error' | 'skip' | 'miss', details?: Record<string, unknown>, error?: Error) => {
-    logger.auth({ phase, outcome, details, error })
+    logger.auth({
+      phase,
+      outcome,
+      details: {
+        requestId,
+        method: requestMethod,
+        path: requestPath,
+        ...details,
+      },
+      error,
+    })
   }
 
   // Initialize useState for hydration (must be done even if unauthenticated)
@@ -90,6 +121,8 @@ export default defineNuxtPlugin(async () => {
   const waterfallStart = trackWaterfall ? Date.now() : 0
   const phases: AuthWaterfallPhase[] = []
   let cacheHit = false
+  // Get auth cache config
+  const authCacheConfig = (config.public.convex as { authCache?: { enabled: boolean; ttl: number } })?.authCache
 
   // Phase 1: Session Check
   const sessionCheckStart = trackWaterfall ? Date.now() : 0
@@ -97,12 +130,17 @@ export default defineNuxtPlugin(async () => {
   // Try both cookie names: __Secure- prefix is used on HTTPS (production)
   const sessionToken =
     getCookie(cookieHeader, SECURE_SESSION_COOKIE_NAME) || getCookie(cookieHeader, SESSION_COOKIE_NAME)
+  logAuth('server-init', 'success', {
+    hasCookieHeader: Boolean(cookieHeader),
+    hasSessionToken: Boolean(sessionToken),
+    cacheEnabled: Boolean(authCacheConfig?.enabled),
+  })
 
   if (!cookieHeader || !sessionToken) {
     if (trackWaterfall) {
       phases.push(buildPhase('session-check', sessionCheckStart, waterfallStart, 'miss', 'No session cookie'))
       convexAuthWaterfall.value = {
-        requestId: crypto.randomUUID(),
+        requestId,
         timestamp: waterfallStart,
         phases,
         totalDuration: Date.now() - waterfallStart,
@@ -118,9 +156,6 @@ export default defineNuxtPlugin(async () => {
   if (trackWaterfall) {
     phases.push(buildPhase('session-check', sessionCheckStart, waterfallStart, 'success', 'Cookie found'))
   }
-
-  // Get auth cache config
-  const authCacheConfig = (config.public.convex as { authCache?: { enabled: boolean; ttl: number } })?.authCache
 
   try {
     let token: string | null = null
@@ -145,7 +180,7 @@ export default defineNuxtPlugin(async () => {
             buildPhase('jwt-decode', decodeStart, waterfallStart, convexUser.value ? 'success' : 'error'),
           )
           convexAuthWaterfall.value = {
-            requestId: crypto.randomUUID(),
+            requestId,
             timestamp: waterfallStart,
             phases,
             totalDuration: Date.now() - waterfallStart,
@@ -231,7 +266,7 @@ export default defineNuxtPlugin(async () => {
     // Store waterfall (dev-only)
     if (trackWaterfall) {
       convexAuthWaterfall.value = {
-        requestId: crypto.randomUUID(),
+        requestId,
         timestamp: waterfallStart,
         phases,
         totalDuration: Date.now() - waterfallStart,
@@ -247,7 +282,7 @@ export default defineNuxtPlugin(async () => {
     // Store waterfall with error (dev-only)
     if (trackWaterfall) {
       convexAuthWaterfall.value = {
-        requestId: crypto.randomUUID(),
+        requestId,
         timestamp: waterfallStart,
         phases,
         totalDuration: Date.now() - waterfallStart,

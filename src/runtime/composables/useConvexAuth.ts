@@ -43,7 +43,8 @@ export function useConvexAuth() {
   const nuxtApp = useNuxtApp()
   const token = useState<string | null>('convex:token', () => null)
   const user = useState<ConvexUser | null>('convex:user', () => null)
-  const pending = useState<boolean>('convex:pending', () => false)
+  // Start pending=true until the client plugin resolves the first auth fetch cycle.
+  const pending = useState<boolean>('convex:pending', () => true)
   const authError = useState<string | null>('convex:authError', () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
