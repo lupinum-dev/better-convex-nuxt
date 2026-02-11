@@ -63,6 +63,7 @@ export default defineEventHandler(async (event: H3Event) => {
   // Dev mode: track request timing
   const startTime = import.meta.dev ? Date.now() : 0
   const requestId = import.meta.dev ? crypto.randomUUID() : ''
+  const requestUrl = getRequestURL(event)
 
   if (!siteUrl) {
     throw createError({
@@ -71,8 +72,6 @@ export default defineEventHandler(async (event: H3Event) => {
     })
   }
 
-  // Get the full URL with path and query
-  const requestUrl = getRequestURL(event)
   // Use configured authRoute for path stripping (escape special regex chars)
   const authRoutePattern = new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
   const path = requestUrl.pathname.replace(authRoutePattern, '') || '/'

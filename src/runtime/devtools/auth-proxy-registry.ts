@@ -1,14 +1,30 @@
 /**
  * Registry for tracking auth proxy requests in dev mode.
  * This runs on the Nitro server and stores request data in global state.
+ *
+ * WARNING: This module uses globalThis state which IS shared across SSR requests.
+ * This is acceptable because:
+ * 1. It's only used in development mode for debugging
+ * 2. It only stores non-sensitive timing/stats data
+ * 3. The data is intentionally aggregated across requests for the DevTools panel
+ *
+ * Do NOT use this pattern for user-specific data in production.
  */
 import type { AuthProxyRequest, AuthProxyStats } from './types'
+
+// Development-only guard: This registry is only useful during development
+// and should never be bundled into production code.
+if (!import.meta.dev) {
+  throw new Error(
+    '[better-convex-nuxt] auth-proxy-registry is only available in development mode.',
+  )
+}
 
 const MAX_REQUESTS = 20
 
 // Use globalThis to persist across HMR in dev mode
+// NOTE: This is intentionally shared state for dev-mode debugging.
 declare global {
-  // eslint-disable-next-line no-var
   var __convex_auth_proxy_requests__: AuthProxyRequest[] | undefined
 }
 

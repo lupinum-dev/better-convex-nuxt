@@ -2,7 +2,7 @@ import type { ConvexClient } from 'convex/browser'
 import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
 import type { AsyncData } from '#app'
 
-import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData } from '#imports'
+import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
 import { computed, watch, triggerRef, onUnmounted, toValue, isRef, isReactive, type Ref } from 'vue'
 
 import {
@@ -192,6 +192,10 @@ export function useConvexQuery<
   const event = import.meta.server ? useRequestEvent() : null
   const cookieHeader = event?.headers.get('cookie') || ''
 
+  // Get cached token state at setup time (synchronously) to avoid Vue context issues
+  // Per Nuxt best practices, useState must be called at setup time, not inside async callbacks
+  const cachedToken = useState<string | null>('convex:token')
+
   // Use Nuxt's useAsyncData for SSR + hydration
   // Note: Return null (not undefined) when skipped to avoid Nuxt warning about
   // undefined returns potentially causing duplicate requests on client
@@ -217,6 +221,7 @@ export function useConvexQuery<
           isPublic,
           cookieHeader,
           siteUrl,
+          cachedToken,
         })
 
         const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)

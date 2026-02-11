@@ -1,4 +1,4 @@
-import { useState, type useNuxtApp } from '#app'
+import type { useNuxtApp } from '#app'
 
 // Re-export shared utilities
 export {
@@ -46,26 +46,37 @@ export interface FetchAuthTokenOptions {
   cookieHeader: string
   /** Site URL for auth endpoint */
   siteUrl: string | undefined
+  /** Cached token state (must be obtained at setup time via useState) */
+  cachedToken: { value: string | null }
 }
 
 /**
  * Fetch auth token for SSR queries.
- * Uses caching via useState to avoid redundant fetches.
+ * Uses caching via the provided cachedToken ref to avoid redundant fetches.
+ *
+ * IMPORTANT: The cachedToken parameter must be obtained at component setup time
+ * using useState('convex:token') before being passed to this function.
+ * Calling useState inside an async function loses Vue context and will fail.
  *
  * @param options - Auth token fetch options
  * @returns The auth token if available, undefined otherwise
  *
  * @example
  * ```ts
+ * // At setup time (synchronous):
+ * const cachedToken = useState<string | null>('convex:token')
+ *
+ * // Later, in async context:
  * const authToken = await fetchAuthToken({
  *   isPublic: false,
  *   cookieHeader: event?.headers.get('cookie') || '',
  *   siteUrl: config.public.convex?.siteUrl,
+ *   cachedToken,
  * })
  * ```
  */
 export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { isPublic, cookieHeader, siteUrl } = options
+  const { isPublic, cookieHeader, siteUrl, cachedToken } = options
 
   // Skip for public queries
   if (isPublic) {
@@ -78,7 +89,6 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   }
 
   // Try cached token first
-  const cachedToken = useState<string | null>('convex:token')
   if (cachedToken.value) {
     return cachedToken.value
   }

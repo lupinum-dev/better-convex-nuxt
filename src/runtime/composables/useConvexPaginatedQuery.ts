@@ -1,7 +1,7 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, PaginationResult } from 'convex/server'
 
-import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData } from '#imports'
+import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
 import {
   ref,
   computed,
@@ -319,6 +319,10 @@ export function useConvexPaginatedQuery<
   const event = import.meta.server ? useRequestEvent() : null
   const cookieHeader = event?.headers.get('cookie') || ''
 
+  // Get cached token state at setup time (synchronously) to avoid Vue context issues
+  // Per Nuxt best practices, useState must be called at setup time, not inside async callbacks
+  const cachedToken = useState<string | null>('convex:token')
+
   // State management
   const currentPaginationId = ref(generatePaginationId())
   // pages ref holds ADDITIONAL pages (loaded via loadMore), NOT the first page
@@ -377,6 +381,7 @@ export function useConvexPaginatedQuery<
         isPublic,
         cookieHeader,
         siteUrl,
+        cachedToken,
       })
     }
 

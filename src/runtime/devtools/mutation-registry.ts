@@ -2,9 +2,20 @@
  * Mutation registry for DevTools integration.
  * Tracks in-flight and completed mutations with timeline data.
  * In-memory only, max 50 entries with LRU eviction.
+ *
+ * This module is client-only. Importing on the server will throw an error
+ * to prevent SSR state leakage between requests.
  */
-
 import type { MutationEntry } from './types'
+
+// SSR safety guard: This registry uses module-level state that would leak between
+// requests if used on the server. Throw early to catch misuse.
+if (import.meta.server) {
+  throw new Error(
+    '[better-convex-nuxt] DevTools mutation-registry must not be imported on server. ' +
+    'This would cause state leakage between SSR requests.',
+  )
+}
 
 const MAX_ENTRIES = 50
 

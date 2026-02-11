@@ -218,6 +218,10 @@ export function useConvexFileUpload<
   const logger = createLogger(logLevel)
   const fnName = getFunctionName(generateUploadUrlMutation)
 
+  // Get client at setup time (not inside async callback) to avoid Vue context issues
+  // Per Nuxt best practices, composables must be called synchronously at setup time
+  const client = useConvex()
+
   // Internal state
   const _status = ref<UploadStatus>('idle')
   const error = ref<Error | null>(null) as Ref<Error | null>
@@ -253,7 +257,6 @@ export function useConvexFileUpload<
 
   // The upload function
   const upload = async (file: File, mutationArgs?: FunctionArgs<Mutation>): Promise<string> => {
-    const client = useConvex()
     const startTime = Date.now()
 
     if (!client) {

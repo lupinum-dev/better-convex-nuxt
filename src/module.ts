@@ -86,6 +86,25 @@ export interface QueryDefaults {
   public?: boolean
 }
 
+export interface ConvexDebugOptions {
+  /**
+   * Enable detailed auth flow logs on both client and server plugins.
+   * Requires `logging: 'debug'` to print verbose phase logs.
+   * @default false
+   */
+  authFlow?: boolean
+  /**
+   * Enable detailed auth flow logs on the client plugin only.
+   * @default false
+   */
+  clientAuthFlow?: boolean
+  /**
+   * Enable detailed auth flow logs on the server plugin only.
+   * @default false
+   */
+  serverAuthFlow?: boolean
+}
+
 export interface ModuleOptions {
   /** Convex deployment URL (WebSocket) - e.g., https://your-app.convex.cloud */
   url?: string
@@ -141,6 +160,12 @@ export interface ModuleOptions {
    * @default false
    */
   logging?: LogLevel
+  /**
+   * Optional debug channels for runtime plugins.
+   * Use this to enable high-verbosity trace logs without changing regular logger behavior.
+   * @default { authFlow: false, clientAuthFlow: false, serverAuthFlow: false }
+   */
+  debug?: ConvexDebugOptions
   /**
    * SSR auth token caching configuration (opt-in).
    * Caches Convex JWT tokens server-side to reduce TTFB on subsequent requests.
@@ -205,6 +230,11 @@ export default defineNuxtModule<ModuleOptions>({
     skipAuthRoutes: [],
     permissions: false,
     logging: false,
+    debug: {
+      authFlow: false,
+      clientAuthFlow: false,
+      serverAuthFlow: false,
+    },
     authCache: {
       enabled: false,
       ttl: 900, // 15 minutes
@@ -257,6 +287,11 @@ export default defineNuxtModule<ModuleOptions>({
         trustedOrigins: options.trustedOrigins ?? [],
         skipAuthRoutes: options.skipAuthRoutes ?? [],
         logging: options.logging ?? false,
+        debug: {
+          authFlow: options.debug?.authFlow ?? false,
+          clientAuthFlow: options.debug?.clientAuthFlow ?? false,
+          serverAuthFlow: options.debug?.serverAuthFlow ?? false,
+        },
         authCache: {
           enabled: options.authCache?.enabled ?? false,
           ttl: options.authCache?.ttl ?? 900,
