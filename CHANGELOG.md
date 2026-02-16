@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.10
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.9...v0.2.10)
+
+### 💅 Refactors
+
+- Enhance dev mode logging for authentication proxy requests ([a624b69](https://github.com/lupinum-dev/better-convex-nuxt/commit/a624b69))
+
+### 🏡 Chore
+
+- **release:** V0.2.9 ([baedbdb](https://github.com/lupinum-dev/better-convex-nuxt/commit/baedbdb))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.9
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.8...v0.2.9)
