@@ -3,7 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
-import { computed, watch, triggerRef, onUnmounted, toValue, isRef, isReactive, type Ref } from 'vue'
+import { computed, watch, triggerRef, onScopeDispose, toValue, isRef, isReactive, type Ref } from 'vue'
 
 import {
   getFunctionName,
@@ -157,6 +157,9 @@ export function useConvexQuery<
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = createLogger(logLevel)
 
+  // Track subscription state for logging
+  let updateCount = 0
+
   // Get reactive args value
   const getArgs = (): Args => toValue(args) ?? ({} as Args)
   const isSkipped = computed(() => getArgs() === 'skip')
@@ -288,6 +291,9 @@ export function useConvexQuery<
   // Track whether this component instance has registered with the subscription cache
   let registeredCacheKey: string | null = null
 
+  // Stop function for the shared data watcher (used by secondary subscribers)
+  let stopSharedDataWatch: (() => void) | null = null
+
   // Setup WebSocket subscription bridge on client
   if (import.meta.client && subscribe) {
     const setupSubscription = () => {
@@ -303,22 +309,65 @@ export function useConvexQuery<
 
       const currentCacheKey = getCacheKey()
 
-      // Atomic check-and-join: if subscription exists, increment refCount directly
+      // Check if another component already has a subscription for this query+args
       const existingEntry = getSubscription(nuxtApp, currentCacheKey)
       if (existingEntry) {
         existingEntry.refCount++
         registeredCacheKey = currentCacheKey
 
-        // Log shared subscription
+        // Sync current data immediately from the shared store
+        // This handles the case where this component's useAsyncData has a different key
+        // (e.g., it started as 'skip' and resolved later) and therefore has its own ref
+        if (existingEntry.sharedData.value !== undefined) {
+          const transformedResult = applyTransform(existingEntry.sharedData.value as RawT)
+          ;(asyncData.data as Ref<DataT | null>).value = transformedResult
+          if (asyncData.error.value !== null) {
+            ;(asyncData.error as Ref<Error | null>).value = null
+          }
+          triggerRef(asyncData.data)
+        }
+
+        // Clean up any previous shared data watcher before creating a new one.
+        // This prevents memory leaks when setupSubscription() is called multiple times
+        // (e.g., rapid args toggling: skip → real → skip → real).
+        if (stopSharedDataWatch) {
+          stopSharedDataWatch()
+          stopSharedDataWatch = null
+        }
+
+        // Watch the shared data version counter so this component receives future updates.
+        // This is the core fix: each secondary subscriber watches dataVersion and syncs
+        // the raw shared data into its own asyncData ref (applying its own transform).
+        stopSharedDataWatch = watch(
+          () => existingEntry.dataVersion.value,
+          () => {
+            const transformedResult = applyTransform(existingEntry.sharedData.value as RawT)
+            ;(asyncData.data as Ref<DataT | null>).value = transformedResult
+
+            if (existingEntry.sharedError.value) {
+              const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
+              if (!hasData) {
+                ;(asyncData.error as Ref<Error | null>).value = existingEntry.sharedError.value
+              }
+            } else if (asyncData.error.value !== null) {
+              ;(asyncData.error as Ref<Error | null>).value = null
+            }
+
+            triggerRef(asyncData.data)
+          },
+        )
+
         logger.query({ name: fnName, event: 'share', refCount: existingEntry.refCount, args: currentArgs })
         return
       }
 
       try {
+        updateCount = 0
         const unsubscribeFn = convex.onUpdate(
           query,
           currentArgs as FunctionArgs<Query>,
           (result: RawT) => {
+            updateCount++
             const transformedResult = applyTransform(result)
             // Cast needed because useAsyncData has complex PickFrom type
             ;(asyncData.data as Ref<DataT | null>).value = transformedResult
@@ -328,6 +377,15 @@ export function useConvexQuery<
             }
             // Force Vue reactivity for all watchers
             triggerRef(asyncData.data)
+
+            // Update the shared data store so secondary subscribers can sync.
+            // Store raw (untransformed) data — each subscriber applies its own transform.
+            const entry = getSubscription(nuxtApp, currentCacheKey)
+            if (entry) {
+              entry.sharedData.value = result
+              entry.sharedError.value = null
+              entry.dataVersion.value++
+            }
 
             logger.query({
               name: fnName,
@@ -348,6 +406,13 @@ export function useConvexQuery<
           },
           (err: Error) => {
             logger.query({ name: fnName, event: 'error', error: err })
+
+            // Update shared error state
+            const entry = getSubscription(nuxtApp, currentCacheKey)
+            if (entry) {
+              entry.sharedError.value = err
+              entry.dataVersion.value++
+            }
 
             // Only set error if we don't have data
             // If we have data (from SSR or previous subscription), the subscription
@@ -404,6 +469,12 @@ export function useConvexQuery<
         () => toValue(args),
         (newArgs, oldArgs) => {
           if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
+            // Stop watching shared data from the old subscription
+            if (stopSharedDataWatch) {
+              stopSharedDataWatch()
+              stopSharedDataWatch = null
+            }
+
             // Release old subscription if we had one registered
             if (oldArgs !== 'skip' && registeredCacheKey) {
               const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
@@ -430,8 +501,14 @@ export function useConvexQuery<
       )
     }
 
-    // Cleanup on unmount - use ref-counted release
-    onUnmounted(() => {
+    // Cleanup on scope dispose (more reliable than onUnmounted for composables)
+    onScopeDispose(() => {
+      // Stop watching shared data
+      if (stopSharedDataWatch) {
+        stopSharedDataWatch()
+        stopSharedDataWatch = null
+      }
+
       if (registeredCacheKey) {
         // Release our reference to the subscription
         // This decrements the ref count - only actually unsubscribes when count reaches 0

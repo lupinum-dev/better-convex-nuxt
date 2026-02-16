@@ -1,4 +1,5 @@
 import type { useNuxtApp } from '#app'
+import { shallowRef, ref, type ShallowRef, type Ref } from 'vue'
 
 // Re-export shared utilities
 export {
@@ -22,12 +23,33 @@ const subscriptionRegistry = new WeakMap<object, SubscriptionCache>()
 // ============================================================================
 
 /**
- * Subscription entry with reference counting.
- * Multiple components can share the same subscription.
+ * Subscription entry with reference counting and shared data store.
+ *
+ * Multiple components can share the same WebSocket subscription. The shared
+ * data store ensures that ALL subscribers receive real-time updates, even when
+ * they have different `useAsyncData` keys (which happens when args start as
+ * 'skip' in one component and resolve later).
+ *
+ * Architecture:
+ * - `sharedData` holds the raw (untransformed) data from the WebSocket
+ * - `sharedError` holds the latest error state
+ * - `dataVersion` is a reactive counter incremented on each WebSocket update
+ * - Secondary subscribers watch `dataVersion.value` and sync their local
+ *   `asyncData` by applying their own `transform()` to `sharedData`
+ *
+ * `dataVersion` must be `Ref<number>` (not plain number) because the
+ * SubscriptionEntry is a plain object — Vue's reactivity can only track
+ * `.value` changes on Ref objects.
  */
 export interface SubscriptionEntry {
   unsubscribe: () => void
   refCount: number
+  /** Raw (untransformed) data from the latest WebSocket update */
+  sharedData: ShallowRef<unknown>
+  /** Latest error from the WebSocket subscription */
+  sharedError: ShallowRef<Error | null>
+  /** Reactive counter incremented on each update — used by secondary subscribers to sync */
+  dataVersion: Ref<number>
 }
 
 /**
@@ -166,8 +188,14 @@ export function registerSubscription(
     return false // This component is joining an existing subscription
   }
 
-  // New subscription
-  cache[cacheKey] = { unsubscribe, refCount: 1 }
+  // New subscription with shared data store
+  cache[cacheKey] = {
+    unsubscribe,
+    refCount: 1,
+    sharedData: shallowRef(undefined),
+    sharedError: shallowRef(null),
+    dataVersion: ref(0),
+  }
   return true // This component owns the subscription
 }
 
