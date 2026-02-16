@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.9
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.8...v0.2.9)
+
+### 💅 Refactors
+
+- Improve authentication handling and state management in Convex plugin ([#19](https://github.com/lupinum-dev/better-convex-nuxt/pull/19))
+
+### 🏡 Chore
+
+- Update better-convex-nuxt to version 0.2.8 in package.json and pnpm-lock.yaml ([292f014](https://github.com/lupinum-dev/better-convex-nuxt/commit/292f014))
+
+### ❤️ Contributors
+
+- Matthias Amon ([@Mat4m0](https://github.com/Mat4m0))
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.8
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.7...v0.2.8)
