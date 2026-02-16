@@ -9,7 +9,13 @@ import {
   send,
 } from 'h3'
 import { useRuntimeConfig } from '#imports'
-import { recordAuthProxyRequest } from '../../../devtools/auth-proxy-registry'
+import type { AuthProxyRequest } from '../../../devtools/types'
+
+async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
+  if (!import.meta.dev) return
+  const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry')
+  recordAuthProxyRequest(request)
+}
 
 /**
  * Validates if the given origin is allowed.
@@ -151,7 +157,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Dev mode: log the request
     if (import.meta.dev) {
-      recordAuthProxyRequest({
+      await recordAuthProxyRequestInDev({
         id: requestId,
         path,
         method: event.method,
@@ -193,7 +199,7 @@ export default defineEventHandler(async (event: H3Event) => {
   } catch (error) {
     // Dev mode: log the failed request
     if (import.meta.dev) {
-      recordAuthProxyRequest({
+      await recordAuthProxyRequestInDev({
         id: requestId,
         path,
         method: event.method,
