@@ -327,6 +327,14 @@ export function useConvexQuery<
           triggerRef(asyncData.data)
         }
 
+        // Clean up any previous shared data watcher before creating a new one.
+        // This prevents memory leaks when setupSubscription() is called multiple times
+        // (e.g., rapid args toggling: skip → real → skip → real).
+        if (stopSharedDataWatch) {
+          stopSharedDataWatch()
+          stopSharedDataWatch = null
+        }
+
         // Watch the shared data version counter so this component receives future updates.
         // This is the core fix: each secondary subscriber watches dataVersion and syncs
         // the raw shared data into its own asyncData ref (applying its own transform).
