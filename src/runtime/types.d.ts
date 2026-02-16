@@ -1,5 +1,6 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
+import type { LogLevel } from './utils/logger'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
@@ -13,10 +14,13 @@ export interface ConvexPublicRuntimeConfig {
   siteUrl?: string
   /** Routes that should skip auth checks */
   skipAuthRoutes?: string[]
-  /** Logging options */
-  logging?: {
-    enabled?: boolean | 'debug'
-    format?: 'pretty' | 'json'
+  /** Logging level */
+  logging?: LogLevel
+  /** Optional debug channels for high-verbosity traces */
+  debug?: {
+    authFlow?: boolean
+    clientAuthFlow?: boolean
+    serverAuthFlow?: boolean
   }
   /** Index signature for compatibility with Record<string, unknown> */
   [key: string]: unknown

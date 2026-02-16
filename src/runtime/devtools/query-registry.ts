@@ -1,7 +1,19 @@
 /**
  * Query registry for DevTools integration.
  * Tracks active queries with metadata for visualization.
+ *
+ * This module is client-only. Importing on the server will throw an error
+ * to prevent SSR state leakage between requests.
  */
+
+// SSR safety guard: This registry uses module-level state that would leak between
+// requests if used on the server. Throw early to catch misuse.
+if (import.meta.server) {
+  throw new Error(
+    '[better-convex-nuxt] DevTools query-registry must not be imported on server. ' +
+    'This would cause state leakage between SSR requests.',
+  )
+}
 
 export type QueryStatus = 'pending' | 'success' | 'error' | 'idle'
 export type DataSource = 'ssr' | 'websocket' | 'cache'
