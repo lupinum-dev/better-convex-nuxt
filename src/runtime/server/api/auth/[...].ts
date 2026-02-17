@@ -10,6 +10,7 @@ import {
 } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import type { AuthProxyRequest } from '../../../devtools/types'
+import { fetchWithCanonicalRedirects } from './redirect-utils'
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
@@ -147,12 +148,14 @@ export default defineEventHandler(async (event: H3Event) => {
       body = await readRawBody(event, 'utf8') || undefined
     }
 
-    // Make the request to Convex
-    const response = await fetch(target, {
+    // Make request to Convex (manual redirect handling).
+    // We internally follow only canonical host redirects (same path/query),
+    // but preserve intentional redirects to providers (OAuth, etc).
+    const response = await fetchWithCanonicalRedirects({
+      target,
       method: event.method,
       headers: forwardHeaders,
       body,
-      redirect: 'manual', // Don't follow redirects - let browser handle them
     })
 
     // Dev mode: log the request
@@ -188,7 +191,7 @@ export default defineEventHandler(async (event: H3Event) => {
       }
     }
 
-    // For redirect responses, don't send body - just let the headers do the work
+    // Preserve intentional redirects (OAuth flows, etc).
     if (response.status >= 300 && response.status < 400) {
       return ''
     }
