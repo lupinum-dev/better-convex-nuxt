@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.11
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.10...v0.2.11)
+
+### 🚀 Enhancements
+
+- Implement canonical redirect handling for authentication proxy requests ([cf16e0d](https://github.com/lupinum-dev/better-convex-nuxt/commit/cf16e0d))
+- Enhance authentication configuration for local development ([7de6f72](https://github.com/lupinum-dev/better-convex-nuxt/commit/7de6f72))
+
+### 🏡 Chore
+
+- **release:** V0.2.10 ([a1f7353](https://github.com/lupinum-dev/better-convex-nuxt/commit/a1f7353))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.2.10
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.9...v0.2.10)
