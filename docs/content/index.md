@@ -83,7 +83,7 @@ await mutate({ text: "Ship my app" });
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user } = useConvexAuth();
+const { isAuthenticated, user, signOut } = useConvexAuth();
 const authClient = useAuthClient();
 
 async function handleLogin(email: string, password: string) {
@@ -99,7 +99,7 @@ async function handleOAuth() {
 <template>
   <div v-if="isAuthenticated">
     Welcome, {{ user?.name }}!
-    <button @click="authClient.signOut()">Sign Out</button>
+    <button @click="signOut()">Sign Out</button>
   </div>
   <div v-else>
     <button @click="handleOAuth">Sign in with GitHub</button>
@@ -197,5 +197,4 @@ Built-in features for building production-ready apps
   :::
 :::
 ::
-
 

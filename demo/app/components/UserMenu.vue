@@ -1,27 +1,17 @@
 <script setup lang="ts">
-const { user, isAuthenticated, isPending } = useConvexAuth()
+const { user, isAuthenticated, isPending, signOut: convexSignOut } = useConvexAuth()
 const { user: permissionUser } = useDemoPermissions()
-const authClient = useAuthClient()
 const router = useRouter()
 
 // Get avatar URL from permission context (fetched from Convex, includes GitHub avatar)
 const avatarUrl = computed(() => (permissionUser.value as any)?.avatarUrl)
 
-// Access the auth state directly to clear it on signout
-const convexToken = useState<string | null>('convex:token')
-const convexUser = useState<unknown>('convex:user')
-
 const isSigningOut = ref(false)
 
 async function signOut() {
-  if (!authClient) return
-
   isSigningOut.value = true
   try {
-    await authClient.signOut()
-    // Clear local auth state immediately (cookies are already cleared)
-    convexToken.value = null
-    convexUser.value = null
+    await convexSignOut()
     router.push('/')
   } finally {
     isSigningOut.value = false

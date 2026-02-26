@@ -133,15 +133,10 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, token, user } = useConvexAuth()
-const authClient = useAuthClient()
+const { isAuthenticated, isPending, token, user, signOut: convexSignOut } = useConvexAuth()
 
 async function signOut() {
-  if (authClient) {
-    await authClient.signOut()
-    // Reload to clear state
-    window.location.reload()
-  }
+  await convexSignOut()
 }
 </script>
 

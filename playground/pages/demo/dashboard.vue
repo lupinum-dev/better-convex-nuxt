@@ -83,8 +83,7 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, token } = useConvexAuth()
-const authClient = useAuthClient()
+const { isAuthenticated, isPending, token, signOut: convexSignOut } = useConvexAuth()
 const convex = useConvex()
 
 const isSigningOut = ref(false)
@@ -101,13 +100,9 @@ const tokenPreview = computed(() => {
 })
 
 async function handleSignOut() {
-  if (!authClient) return
-
   isSigningOut.value = true
   try {
-    await authClient.signOut()
-    useState('convex:token').value = null
-    useState('convex:user').value = null
+    await convexSignOut()
     window.location.href = '/'
   }
   catch (error) {

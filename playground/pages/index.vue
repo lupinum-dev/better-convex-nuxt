@@ -146,8 +146,7 @@
 </template>
 
 <script setup lang="ts">
-const { user, isAuthenticated, token } = useConvexAuth()
-const authClient = useAuthClient()
+const { user, isAuthenticated, token, signOut: convexSignOut } = useConvexAuth()
 
 const isSigningOut = ref(false)
 
@@ -158,13 +157,9 @@ const debugInfo = computed(() => ({
 }))
 
 async function handleSignOut() {
-  if (!authClient) return
-
   isSigningOut.value = true
   try {
-    await authClient.signOut()
-    useState('convex:token').value = null
-    useState('convex:user').value = null
+    await convexSignOut()
     window.location.href = '/'
   }
   catch (error) {
