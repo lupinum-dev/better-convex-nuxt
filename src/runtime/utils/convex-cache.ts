@@ -46,9 +46,9 @@ export interface QuerySubscriptionBridge {
 }
 
 /**
- * Subscription cache stored on NuxtApp
+ * Subscription cache stored per NuxtApp instance.
  */
-export type SubscriptionCache = Record<string, SubscriptionEntry | undefined>
+export type SubscriptionCache = Map<string, SubscriptionEntry>
 
 export function createQueryBridge(): QuerySubscriptionBridge {
   return {
@@ -161,12 +161,12 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
  * when the NuxtApp is destroyed (e.g., during HMR or testing).
  *
  * @param nuxtApp - The NuxtApp instance
- * @returns The subscription cache object
+ * @returns The subscription cache map
  *
  * @example
  * ```ts
  * const cache = getSubscriptionCache(nuxtApp)
- * if (cache[cacheKey]) {
+ * if (cache.has(cacheKey)) {
  *   // Already subscribed
  *   return
  * }
@@ -174,7 +174,7 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
  */
 export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
   if (!subscriptionRegistry.has(nuxtApp)) {
-    subscriptionRegistry.set(nuxtApp, {})
+    subscriptionRegistry.set(nuxtApp, new Map())
   }
   return subscriptionRegistry.get(nuxtApp)!
 }
@@ -194,7 +194,7 @@ export function registerSubscription(
   unsubscribe: () => void,
 ): boolean {
   const cache = getSubscriptionCache(nuxtApp)
-  const existing = cache[cacheKey]
+  const existing = cache.get(cacheKey)
 
   if (existing) {
     // Subscription exists - increment ref count, don't replace
@@ -203,7 +203,7 @@ export function registerSubscription(
   }
 
   // New subscription
-  cache[cacheKey] = { unsubscribe, refCount: 1 }
+  cache.set(cacheKey, { unsubscribe, refCount: 1 })
   return true // This component owns the subscription
 }
 
@@ -216,7 +216,7 @@ export function registerSubscription(
  */
 export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
   const cache = getSubscriptionCache(nuxtApp)
-  return !!cache[cacheKey]
+  return cache.has(cacheKey)
 }
 
 /**
@@ -228,7 +228,7 @@ export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
  */
 export function getSubscription(nuxtApp: NuxtApp, cacheKey: string): SubscriptionEntry | undefined {
   const cache = getSubscriptionCache(nuxtApp)
-  return cache[cacheKey]
+  return cache.get(cacheKey)
 }
 
 /**
@@ -241,7 +241,7 @@ export function getSubscription(nuxtApp: NuxtApp, cacheKey: string): Subscriptio
  */
 export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
   const cache = getSubscriptionCache(nuxtApp)
-  const entry = cache[cacheKey]
+  const entry = cache.get(cacheKey)
 
   if (!entry) {
     return false
@@ -252,7 +252,7 @@ export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean
   if (entry.refCount <= 0) {
     // Last reference - actually unsubscribe
     entry.unsubscribe()
-    cache[cacheKey] = undefined
+    cache.delete(cacheKey)
     return true
   }
 

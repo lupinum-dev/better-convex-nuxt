@@ -30,7 +30,7 @@ function getMimeType(path: string): string {
 export default defineEventHandler((event) => {
   // Get the devtools output path from runtime config
   const config = useRuntimeConfig()
-  const outputDir = config.convexDevtoolsPath as string | undefined
+  const outputDir = typeof config.convexDevtoolsPath === 'string' ? config.convexDevtoolsPath : undefined
 
   const url = getRequestURL(event)
   let pathname = url.pathname.replace('/__convex_devtools__', '') || '/'

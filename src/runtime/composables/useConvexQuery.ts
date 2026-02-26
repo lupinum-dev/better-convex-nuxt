@@ -23,6 +23,7 @@ import {
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
+import { getConvexRuntimeConfig } from '../utils/runtime-config'
 
 // DevTools query registry (client-side only in dev mode)
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
@@ -144,9 +145,10 @@ export function useConvexQuery<
 
   const nuxtApp = useNuxtApp()
   const config = useRuntimeConfig()
+  const convexConfig = getConvexRuntimeConfig()
 
   // Resolve options from: per-call options → global defaults → built-in defaults
-  const defaults = config.public.convex?.defaults as { server?: boolean; lazy?: boolean; subscribe?: boolean; public?: boolean } | undefined
+  const defaults = convexConfig.defaults
   const lazy = options?.lazy ?? defaults?.lazy ?? false
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
@@ -212,7 +214,7 @@ export function useConvexQuery<
         return null
       }
 
-      const convexUrl = config.public.convex?.url
+      const convexUrl = convexConfig.url
       if (!convexUrl) {
         throw new Error('[useConvexQuery] Convex URL not configured')
       }
@@ -222,7 +224,7 @@ export function useConvexQuery<
       try {
         // SSR: fetch via HTTP
         if (import.meta.server) {
-          const siteUrl = config.public.convex?.siteUrl
+          const siteUrl = convexConfig.siteUrl
 
           const authToken = await fetchAuthToken({
             isPublic,

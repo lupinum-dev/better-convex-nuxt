@@ -1,7 +1,7 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, PaginationResult } from 'convex/server'
 
-import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
+import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 import {
   ref,
   computed,
@@ -30,6 +30,7 @@ import { generatePaginationId } from '../utils/shared-helpers'
 import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
 import type { PaginatedQueryReference, PaginatedQueryArgs, PaginatedQueryItem } from './optimistic-updates'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
+import { getConvexRuntimeConfig } from '../utils/runtime-config'
 
 // Re-export optimistic update helpers and types for backwards compatibility
 export {
@@ -260,10 +261,10 @@ export function useConvexPaginatedQuery<
   type Item = PaginatedQueryItem<Query>
 
   const nuxtApp = useNuxtApp()
-  const config = useRuntimeConfig()
+  const convexConfig = getConvexRuntimeConfig()
 
   // Resolve options from: per-call options → global defaults → built-in defaults
-  const defaults = config.public.convex?.defaults as { server?: boolean; lazy?: boolean; subscribe?: boolean; public?: boolean } | undefined
+  const defaults = convexConfig.defaults
   const initialNumItems = options?.initialNumItems ?? 10
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const lazy = options?.lazy ?? defaults?.lazy ?? false
@@ -356,20 +357,20 @@ export function useConvexPaginatedQuery<
     return `convex-paginated:${getQueryKey(query, { ...currentArgs, paginationOpts: stablePaginationOpts })}`
   })
 
-  // Fetch function for SSR
+    // Fetch function for HTTP transport (SSR and client HTTP-only mode)
   async function fetchPage(paginationOpts: {
     numItems: number
     cursor: string | null
     id: number
   }): Promise<PaginationResult<Item>> {
-    const convexUrl = config.public.convex?.url
+    const convexUrl = convexConfig.url
     if (!convexUrl) {
       throw new Error('[useConvexPaginatedQuery] Convex URL not configured')
     }
 
     const functionPath = getFunctionName(query)
     const currentArgs = getArgs() as PaginatedQueryArgs<Query>
-    const siteUrl = config.public.convex?.siteUrl
+    const siteUrl = convexConfig.siteUrl
 
     const fullArgs = {
       ...currentArgs,
@@ -847,7 +848,6 @@ export function useConvexPaginatedQuery<
     }
 
     // Watch for reactive args changes
-    // Only auto-refetch on args change if subscribe: true
     if (isRef(args)) {
       watch(
         () => toValue(args),
