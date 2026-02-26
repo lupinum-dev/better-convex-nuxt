@@ -67,8 +67,9 @@ export function useConvexAuth(): UseConvexAuthReturn {
   const nuxtApp = useNuxtApp()
   const token = useState<string | null>('convex:token', () => null)
   const user = useState<ConvexUser | null>('convex:user', () => null)
-  // Start pending=true until the client plugin resolves the first auth fetch cycle.
-  const pending = useState<boolean>('convex:pending', () => true)
+  // SSR auth is already settled before render, so default false on server to avoid
+  // hydration mismatches. CSR-first loads still start pending=true until client init.
+  const pending = useState<boolean>('convex:pending', () => import.meta.client)
   const authError = useState<string | null>('convex:authError', () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)

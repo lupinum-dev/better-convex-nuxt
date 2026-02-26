@@ -9,6 +9,14 @@
 
     <div class="current-state">
       <h2>Current Auth State</h2>
+      <p class="hint">
+        This page includes a TypeScript-only check for <code>user.role</code>, <code>user.authId</code>, and
+        <code>user.organizationId</code>. If this page compiles and loads, <code>ConvexUser</code> augmentation is working.
+      </p>
+      <p class="hint">
+        <strong>Important:</strong> the authoritative app role comes from Convex (see <code>convex db role</code> below).
+        The <code>custom role</code> field here is a demo JWT claim for extending <code>ConvexUser</code>.
+      </p>
       <div class="state-grid">
         <div class="state-item">
           <span class="label">isAuthenticated</span>
@@ -30,6 +38,44 @@
           <span class="label">user</span>
           <span class="value">{{ user?.name || user?.email || '(none)' }}</span>
         </div>
+        <div class="state-item">
+          <span class="label">custom role</span>
+          <span class="value">{{ augmentedUserFields.role || '(no JWT claim)' }}</span>
+        </div>
+        <div class="state-item">
+          <span class="label">custom authId</span>
+          <span class="value id">{{ augmentedUserFields.authId || '(no JWT claim)' }}</span>
+        </div>
+        <div class="state-item">
+          <span class="label">custom orgId</span>
+          <span class="value id">{{ augmentedUserFields.organizationId || '(no JWT claim)' }}</span>
+        </div>
+        <div class="state-item">
+          <span class="label">convex db role</span>
+          <span class="value">{{ permissionRole || '(not loaded)' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="isAuthenticated" class="demo-card">
+      <h3>Convex Role Management Demo (Authoritative)</h3>
+      <p class="demo-description">
+        This updates the role in the Convex <code>users</code> table (the real app source of truth).
+        The JWT claim shown above is intentionally a demo/static claim.
+      </p>
+      <div class="demo-output">
+        <div class="button-group role-buttons">
+          <button
+            v-for="roleOption in roleOptions"
+            :key="roleOption"
+            class="btn btn-secondary"
+            :disabled="isUpdatingRole"
+            @click="changeRole(roleOption)"
+          >
+            Set {{ roleOption }}
+          </button>
+        </div>
+        <p v-if="claimDemoStatus" class="status-text">{{ claimDemoStatus }}</p>
       </div>
     </div>
 
@@ -81,7 +127,7 @@
               <div>
                 <strong>Please log in</strong>
                 <p>You need to authenticate to access this feature.</p>
-                <NuxtLink to="/auth/login" class="login-link"> Go to Login &rarr; </NuxtLink>
+                <NuxtLink to="/auth/signin" class="login-link"> Go to Login &rarr; </NuxtLink>
               </div>
             </div>
           </ConvexUnauthenticated>
@@ -119,7 +165,7 @@
     <div class="auth-actions">
       <h2>Test Authentication</h2>
       <div class="button-group">
-        <NuxtLink v-if="!isAuthenticated" to="/auth/login" class="btn btn-primary">
+        <NuxtLink v-if="!isAuthenticated" to="/auth/signin" class="btn btn-primary">
           Log In
         </NuxtLink>
         <button v-else class="btn btn-secondary" @click="signOut">Sign Out</button>
@@ -129,11 +175,49 @@
 </template>
 
 <script setup lang="ts">
+import { api } from '~/convex/_generated/api'
+
 definePageMeta({
   layout: 'sidebar',
 })
 
 const { isAuthenticated, isPending, token, user, signOut: convexSignOut } = useConvexAuth()
+const convex = useConvex()
+const roleOptions = ['admin', 'member', 'viewer'] as const
+const isUpdatingRole = ref(false)
+const claimDemoStatus = ref('')
+
+const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : 'skip' as const))
+const { data: permissionContext } = useConvexQuery(api.auth.getPermissionContext, permissionQueryArgs)
+
+// Compile-time proof: these property accesses fail if ConvexUser augmentation
+// does not flow through useConvexAuth().user.
+const augmentedUserFields = computed(() => ({
+  role: user.value?.role,
+  authId: user.value?.authId,
+  organizationId: user.value?.organizationId,
+}))
+const permissionRole = computed(() => permissionContext.value && 'role' in permissionContext.value
+  ? permissionContext.value.role
+  : null)
+
+async function changeRole(role: (typeof roleOptions)[number]) {
+  if (!convex) {
+    claimDemoStatus.value = 'Convex client unavailable'
+    return
+  }
+
+  isUpdatingRole.value = true
+  claimDemoStatus.value = ''
+  try {
+    await convex.mutation(api.auth.setOwnRole, { role })
+    claimDemoStatus.value = `Convex DB role updated to ${role}. (Authoritative role is shown in "convex db role" above.)`
+  } catch (e) {
+    claimDemoStatus.value = `Failed to update role: ${e instanceof Error ? e.message : 'Unknown error'}`
+  } finally {
+    isUpdatingRole.value = false
+  }
+}
 
 async function signOut() {
   await convexSignOut()
@@ -161,6 +245,12 @@ h2 {
 .description {
   color: #666;
   margin-bottom: 24px;
+}
+
+.hint {
+  margin: 0 0 12px 0;
+  color: #555;
+  font-size: 0.9em;
 }
 
 code {
@@ -204,10 +294,21 @@ code {
 .state-item .value {
   font-weight: 600;
   font-family: monospace;
+  overflow-wrap: anywhere;
 }
 
 .state-item .value.positive { color: #4caf50; }
 .state-item .value.active { color: #ff9800; }
+.state-item .value.id { font-size: 0.9em; }
+
+.status-text {
+  margin: 12px 0 0;
+  color: #444;
+}
+
+.role-buttons {
+  flex-wrap: wrap;
+}
 
 .demo-card {
   background: white;
