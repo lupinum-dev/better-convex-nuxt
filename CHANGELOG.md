@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.2.12
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.11...v0.2.12)
+
+### 🚀 Enhancements
+
+- Add context7 configuration file ([9248423](https://github.com/lupinum-dev/better-convex-nuxt/commit/9248423))
+
+### 🩹 Fixes
+
+- Harden deduped useConvexQuery subscriptions for late-joining consumers ([#28](https://github.com/lupinum-dev/better-convex-nuxt/pull/28))
+
+### 📖 Documentation
+
+- Clarify auth proxy baseURL for OAuth ([e1d8181](https://github.com/lupinum-dev/better-convex-nuxt/commit/e1d8181))
+- Add advanced usage for Better Auth plugins and additional fields ([a9104e3](https://github.com/lupinum-dev/better-convex-nuxt/commit/a9104e3))
+
+### 🏡 Chore
+
+- **release:** V0.2.11 ([11c0eb4](https://github.com/lupinum-dev/better-convex-nuxt/commit/11c0eb4))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+- Matthias Amon ([@Mat4m0](https://github.com/Mat4m0))
+
 ## v0.2.11
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.10...v0.2.11)
