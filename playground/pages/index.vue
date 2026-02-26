@@ -62,6 +62,13 @@
               <p>Test useConvexQuery options</p>
             </div>
           </NuxtLink>
+          <NuxtLink to="/labs/query-features/middleware-permission-context" class="link-card new">
+            <span class="icon">G</span>
+            <div>
+              <strong>Middleware Query Guard</strong>
+              <p>useConvexQuery inside route middleware</p>
+            </div>
+          </NuxtLink>
           <NuxtLink to="/labs/pagination" class="link-card new">
             <span class="icon">P</span>
             <div>
@@ -111,6 +118,7 @@
             <NuxtLink to="/labs/query-features/skip" class="link-card-mini">Skip Queries</NuxtLink>
             <NuxtLink to="/labs/query-features/error" class="link-card-mini">Error Handling</NuxtLink>
             <NuxtLink to="/labs/query-features/refresh" class="link-card-mini">Query Refresh</NuxtLink>
+            <NuxtLink to="/labs/query-features/middleware-permission-context" class="link-card-mini">Middleware Query Guard</NuxtLink>
             <NuxtLink to="/labs/realtime" class="link-card-mini">Realtime</NuxtLink>
             <NuxtLink to="/labs/optimistic" class="link-card-mini">Optimistic</NuxtLink>
             <NuxtLink to="/labs/pagination" class="link-card-mini">Pagination</NuxtLink>
@@ -146,8 +154,7 @@
 </template>
 
 <script setup lang="ts">
-const { user, isAuthenticated, token } = useConvexAuth()
-const authClient = useAuthClient()
+const { user, isAuthenticated, token, signOut: convexSignOut } = useConvexAuth()
 
 const isSigningOut = ref(false)
 
@@ -158,13 +165,9 @@ const debugInfo = computed(() => ({
 }))
 
 async function handleSignOut() {
-  if (!authClient) return
-
   isSigningOut.value = true
   try {
-    await authClient.signOut()
-    useState('convex:token').value = null
-    useState('convex:user').value = null
+    await convexSignOut()
     window.location.href = '/'
   }
   catch (error) {

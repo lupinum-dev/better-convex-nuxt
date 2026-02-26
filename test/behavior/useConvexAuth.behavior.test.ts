@@ -270,7 +270,7 @@ describe('useConvexAuth behavior', async () => {
       const href = await page.$eval('.auth-actions .btn-primary', el => el.getAttribute('href'))
 
       // THEN it should link to the login page
-      expect(href).toContain('/auth/login')
+      expect(href).toContain('/auth/signin')
     }, 30000)
   })
 

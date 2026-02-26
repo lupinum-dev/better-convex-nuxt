@@ -76,13 +76,39 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
     return null
   }
 
-  return {
+  const user = {
     id: String(payload.sub || payload.userId || ''),
     name: String(payload.name || ''),
     email: String(payload.email || ''),
     emailVerified: typeof payload.emailVerified === 'boolean' ? payload.emailVerified : undefined,
     image: typeof payload.image === 'string' ? payload.image : undefined,
   }
+
+  // Preserve custom claims for consumers who augment ConvexUser.
+  // Skip standard JWT claims and the normalized fields we already mapped above.
+  for (const [key, value] of Object.entries(payload)) {
+    if (
+      key === 'sub'
+      || key === 'userId'
+      || key === 'name'
+      || key === 'email'
+      || key === 'emailVerified'
+      || key === 'image'
+      || key === 'iss'
+      || key === 'aud'
+      || key === 'exp'
+      || key === 'nbf'
+      || key === 'iat'
+      || key === 'jti'
+    ) {
+      continue
+    }
+
+    // Claims are JSON-safe values from JWT payload; attach as-is for augmented types.
+    ;(user as Record<string, unknown>)[key] = value
+  }
+
+  return user as ConvexUser
 }
 
 // ============================================================================
@@ -213,4 +239,3 @@ export function getQueryKey(query: FunctionReference<'query'>, args?: unknown): 
   const fnName = getFunctionName(query)
   return `convex:${fnName}:${hashArgs(args)}`
 }
-

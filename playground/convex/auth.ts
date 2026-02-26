@@ -77,7 +77,24 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     },
     plugins: [
       // convex() plugin includes JWT functionality - don't add separate jwt() plugin
-      convex({ authConfig }),
+      convex({
+        authConfig,
+        jwt: {
+          definePayload: ({ user }) => ({
+            // Keep the standard fields useConvexAuth() expects
+            name: user.name,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            image: user.image ?? undefined,
+            // Custom claims used by the auth lab to verify runtime behavior
+            authId: user.id,
+            // NOTE: Static demo claim. Real app roles should remain sourced from
+            // Convex queries (see /labs/auth "convex db role" section) until
+            // async definePayload is reliably awaited upstream.
+            role: 'member',
+          }),
+        },
+      }),
     ],
     session: {
       expiresIn: 60 * 60 * 24 * 7,

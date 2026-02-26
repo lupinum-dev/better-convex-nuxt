@@ -1,18 +1,13 @@
 <script setup lang="ts">
-const { user, isAuthenticated } = useConvexAuth()
-const authClient = useAuthClient()
+const { user, isAuthenticated, signOut: convexSignOut } = useConvexAuth()
 const route = useRoute()
 
 const isSigningOut = ref(false)
 
 async function handleSignOut() {
-  if (!authClient) return
-
   isSigningOut.value = true
   try {
-    await authClient.signOut()
-    useState('convex:token').value = null
-    useState('convex:user').value = null
+    await convexSignOut()
     window.location.href = '/'
   }
   catch (error) {
