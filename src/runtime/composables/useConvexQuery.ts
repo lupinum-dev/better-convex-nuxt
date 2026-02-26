@@ -3,7 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
-import { computed, watch, triggerRef, onUnmounted, toValue, isRef, isReactive, type Ref } from 'vue'
+import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, type Ref } from 'vue'
 
 import {
   getFunctionName,
@@ -287,9 +287,10 @@ export function useConvexQuery<
 
   // Track whether this component instance has registered with the subscription cache
   let registeredCacheKey: string | null = null
+  const cleanupScope = import.meta.client && subscribe ? getCurrentScope() : undefined
 
   // Setup WebSocket subscription bridge on client
-  if (import.meta.client && subscribe) {
+  if (import.meta.client && subscribe && cleanupScope) {
     const setupSubscription = () => {
       const currentArgs = getArgs()
       if (currentArgs === 'skip') {
@@ -430,8 +431,8 @@ export function useConvexQuery<
       )
     }
 
-    // Cleanup on unmount - use ref-counted release
-    onUnmounted(() => {
+    // Cleanup on scope dispose (component setup or other Vue effect scopes)
+    onScopeDispose(() => {
       if (registeredCacheKey) {
         // Release our reference to the subscription
         // This decrements the ref count - only actually unsubscribes when count reaches 0
@@ -449,6 +450,13 @@ export function useConvexQuery<
         registeredCacheKey = null
       }
     })
+  }
+  else if (import.meta.client && subscribe && import.meta.dev) {
+    console.warn(
+      `[useConvexQuery] Real-time subscriptions require a Vue component/effect scope for cleanup. ` +
+        `Detected usage outside a component (e.g. route middleware/plugin). ` +
+        `Falling back to one-shot query only. Pass { subscribe: false } to silence this warning.`,
+    )
   }
 
   // === Build thenable return (Object.assign pattern from useConvexPaginatedQuery) ===

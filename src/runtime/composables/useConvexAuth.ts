@@ -2,11 +2,35 @@ import { useState, computed, readonly, useNuxtApp, watch } from '#imports'
 
 import type { ConvexUser } from '../utils/types'
 import type { createAuthClient } from 'better-auth/vue'
+import type { ComputedRef, Ref } from 'vue'
 
 // Re-export for convenience
 export type { ConvexUser } from '../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
+
+export interface UseConvexAuthReturn {
+  /** The JWT token for Convex authentication (readonly) */
+  token: Readonly<Ref<string | null>>
+  /** The authenticated user data (readonly) */
+  user: Readonly<Ref<ConvexUser | null>>
+  /** Whether the user is authenticated */
+  isAuthenticated: ComputedRef<boolean>
+  /** Whether an auth operation is pending */
+  isPending: Readonly<Ref<boolean>>
+  /** Auth error message if authentication failed (e.g., 401/403) */
+  authError: Readonly<Ref<string | null>>
+  /**
+   * Signs out the user from both Better Auth and Convex.
+   * Clears local state immediately and calls Better Auth's signOut().
+   */
+  signOut: () => Promise<ReturnType<AuthClient['signOut']> extends Promise<infer T> ? T | null : null>
+  /**
+   * Force refresh Convex auth state after login.
+   * Triggers fresh token fetch and updates reactive state.
+   */
+  refreshAuth: () => Promise<void>
+}
 
 /**
  * Composable for accessing Convex authentication state.
@@ -39,7 +63,7 @@ type AuthClient = ReturnType<typeof createAuthClient>
  * </template>
  * ```
  */
-export function useConvexAuth() {
+export function useConvexAuth(): UseConvexAuthReturn {
   const nuxtApp = useNuxtApp()
   const token = useState<string | null>('convex:token', () => null)
   const user = useState<ConvexUser | null>('convex:user', () => null)
