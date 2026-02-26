@@ -12,6 +12,7 @@ import type { AuthProxyRequest } from '../../../devtools/types'
 import { fetchWithCanonicalRedirects } from './redirect-utils'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
 import { getAuthRoutePattern, isOriginAllowed } from './security'
+import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
@@ -23,7 +24,7 @@ import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
   const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry')
-  recordAuthProxyRequest(request)
+  await recordAuthProxyRequest(request)
 }
 
 /**
@@ -101,24 +102,10 @@ export default defineEventHandler(async (event: H3Event) => {
   }
 
   try {
-    // Get the original request URL for forwarding headers
-    const originalHost = event.headers.get('host') || requestUrl.host
-    const originalProto = requestUrl.protocol.replace(':', '') // 'http' or 'https'
-
-    // Build headers to forward
-    const forwardHeaders: Record<string, string> = {
-      'x-forwarded-host': originalHost,
-      'x-forwarded-proto': originalProto,
-    }
-
-    // Forward specific headers from original request
-    const headersToForward = ['cookie', 'content-type', 'accept', 'user-agent', 'origin', 'referer']
-    for (const header of headersToForward) {
-      const value = event.headers.get(header)
-      if (value) {
-        forwardHeaders[header] = value
-      }
-    }
+    const forwardHeaders = buildAuthProxyForwardHeaders(event, {
+      requestUrl,
+      originalHost: event.headers.get('host'),
+    })
 
     // Get request body for POST/PUT/PATCH
     let body: Buffer | undefined
@@ -168,8 +155,6 @@ export default defineEventHandler(async (event: H3Event) => {
     setResponseStatus(event, response.status, response.statusText)
 
     // Forward response headers (except some that shouldn't be forwarded)
-    const skipHeaders = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-
     // Handle Set-Cookie specially (can have multiple values)
     const cookies = response.headers.getSetCookie?.() || []
     for (const cookie of cookies) {
@@ -178,8 +163,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Forward other headers
     for (const [key, value] of response.headers.entries()) {
-      const lowerKey = key.toLowerCase()
-      if (lowerKey !== 'set-cookie' && !skipHeaders.includes(lowerKey)) {
+      if (!shouldSkipProxyResponseHeader(key)) {
         setHeaders(event, { [key]: value })
       }
     }

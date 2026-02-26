@@ -51,6 +51,10 @@ export default defineNuxtPlugin((nuxtApp) => {
     'convex:authTraceId',
     () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
   )
+  const convexDevtoolsInstanceId = useState<string>(
+    'convex:devtoolsInstanceId',
+    () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+  )
 
   // HMR-safe initialization
   if (nuxtApp.$convex) {
@@ -436,7 +440,13 @@ export default defineNuxtPlugin((nuxtApp) => {
 
     // Setup DevTools bridge in dev mode
     import('./devtools/bridge-setup').then(({ setupDevToolsBridge }) => {
-      setupDevToolsBridge(client, convexToken, convexUser, convexAuthWaterfall)
+      setupDevToolsBridge(
+        client,
+        convexToken,
+        convexUser,
+        convexAuthWaterfall,
+        convexDevtoolsInstanceId.value,
+      )
     })
   }
 

@@ -27,7 +27,7 @@ function getMimeType(path: string): string {
   return mimeTypes[ext] || 'application/octet-stream'
 }
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   // Get the devtools output path from runtime config
   const config = useRuntimeConfig()
   const outputDir = typeof config.convexDevtoolsPath === 'string' ? config.convexDevtoolsPath : undefined
@@ -39,12 +39,12 @@ export default defineEventHandler((event) => {
   if (pathname === '/proxy-stats') {
     setHeader(event, 'Content-Type', 'application/json')
     setHeader(event, 'Cache-Control', 'no-cache')
-    return JSON.stringify(getAuthProxyStats())
+    return JSON.stringify(await getAuthProxyStats())
   }
 
   // API endpoint: Clear auth proxy stats
   if (pathname === '/proxy-stats/clear' && event.method === 'POST') {
-    clearAuthProxyStats()
+    await clearAuthProxyStats()
     setHeader(event, 'Content-Type', 'application/json')
     return JSON.stringify({ success: true })
   }

@@ -1,9 +1,19 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { QueryRegistryEntry } from '../../query-registry'
-import { callBridge, getBroadcastChannel } from './useBridge'
+import { callBridge, getBridgeTransport, getBoundBridgeInstanceId } from './useBridge'
 
 const queries = ref<QueryRegistryEntry[]>([])
 const selectedQueryId = ref<string | null>(null)
+
+function mergeQueriesById(current: QueryRegistryEntry[], nextItems: QueryRegistryEntry[]): QueryRegistryEntry[] {
+  const currentById = new Map(current.map(item => [item.id, item]))
+  return nextItems.map((incoming) => {
+    const existing = currentById.get(incoming.id)
+    if (!existing) return incoming
+    Object.assign(existing, incoming)
+    return existing
+  })
+}
 
 /**
  * Composable for managing query data from the DevTools bridge.
@@ -14,22 +24,27 @@ export function useQueries() {
   onMounted(async () => {
     // Fetch initial data
     try {
-      queries.value = (await callBridge<QueryRegistryEntry[]>('getQueries')) || []
+      const initial = (await callBridge<QueryRegistryEntry[]>('getQueries')) || []
+      queries.value = mergeQueriesById(queries.value, initial)
     } catch {
       // Ignore initial fetch errors
     }
 
     // Listen for real-time updates
-    const channel = getBroadcastChannel()
-    if (channel) {
-      const handler = (event: MessageEvent) => {
+    const transport = getBridgeTransport()
+    if (transport) {
+      const handler = (event: { data: unknown }) => {
         const data = event.data
-        if (data?.type === 'CONVEX_DEVTOOLS_QUERIES') {
-          queries.value = data.queries || []
+        if (!data || typeof data !== 'object') return
+        const message = data as { type?: string; queries?: QueryRegistryEntry[]; instanceId?: string | null }
+        if (message.type === 'CONVEX_DEVTOOLS_QUERIES') {
+          const boundInstanceId = getBoundBridgeInstanceId()
+          if (boundInstanceId && message.instanceId !== boundInstanceId) return
+          queries.value = mergeQueriesById(queries.value, message.queries || [])
         }
       }
-      channel.addEventListener('message', handler)
-      cleanup = () => channel.removeEventListener('message', handler)
+      transport.addEventListener('message', handler)
+      cleanup = () => transport.removeEventListener('message', handler)
     }
   })
 

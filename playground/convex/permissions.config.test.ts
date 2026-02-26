@@ -40,6 +40,12 @@ describe('checkPermission', () => {
     it('returns false for unknown resource type', () => {
       expect(checkPermission(contexts.owner, 'unicorn.create' as Permission)).toBe(false)
     })
+
+    it('parses namespaced resource permissions using the last dot', () => {
+      expect(checkPermission(contexts.owner, 'settings.billing.view' as Permission)).toBe(true)
+      expect(checkPermission(contexts.admin, 'settings.billing.view' as Permission)).toBe(true)
+      expect(checkPermission(contexts.member, 'settings.billing.view' as Permission)).toBe(false)
+    })
   })
 
   // ==========================================

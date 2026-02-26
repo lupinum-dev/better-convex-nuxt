@@ -317,6 +317,7 @@ export function useConvexPaginatedQuery<
 
   // Check if query should be skipped (reactive via computed)
   const isSkipped = computed(() => getArgs() === 'skip')
+  const argsHash = computed(() => hashArgs(getArgs()))
 
   // Get request event and cookies on server
   const event = import.meta.server ? useRequestEvent() : null
@@ -850,9 +851,13 @@ export function useConvexPaginatedQuery<
     // Watch for reactive args changes
     if (isRef(args)) {
       watch(
-        () => toValue(args),
-        async (newArgs, oldArgs) => {
-          if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
+        () => ({
+          value: toValue(args),
+          hash: argsHash.value,
+        }),
+        async (next, prev) => {
+          if (next.hash !== prev.hash) {
+            const newArgs = next.value
             // Clean up all subscriptions
             cleanupAllSubscriptions()
             firstPageRealtimeData.value = null
@@ -876,7 +881,6 @@ export function useConvexPaginatedQuery<
             }
           }
         },
-        { deep: true },
       )
     }
 

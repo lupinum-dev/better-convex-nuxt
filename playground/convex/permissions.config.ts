@@ -58,6 +58,11 @@ export const permissions = {
     delete: { own: ['viewer'], any: ['owner', 'admin'] },
   },
 
+  // Example nested resource key to demonstrate split-last-dot parsing
+  'settings.billing': {
+    view: { roles: ['owner', 'admin'] },
+  },
+
   // ------------------------------------------
   // Add more resources here as needed...
   // ------------------------------------------
@@ -71,9 +76,14 @@ type GlobalPermission = keyof (typeof permissions)['global']
 
 type PostPermission = `post.${keyof (typeof permissions)['post']}`
 type CommentPermission = `comment.${keyof (typeof permissions)['comment']}`
+type SettingsBillingPermission = `settings.billing.${keyof (typeof permissions)['settings.billing']}`
 
 // Add new resource types here as you add them to config
-export type Permission = GlobalPermission | PostPermission | CommentPermission
+export type Permission =
+  | GlobalPermission
+  | PostPermission
+  | CommentPermission
+  | SettingsBillingPermission
 
 // ============================================
 // PERMISSION CONTEXT
@@ -125,7 +135,10 @@ export function checkPermission(
   // ------------------------------------------
   // Parse resource permission: "post.update" → ["post", "update"]
   // ------------------------------------------
-  const [resourceType, action] = permission.split('.') as [string, string]
+  const separatorIndex = permission.lastIndexOf('.')
+  if (separatorIndex <= 0 || separatorIndex === permission.length - 1) return false
+  const resourceType = permission.slice(0, separatorIndex)
+  const action = permission.slice(separatorIndex + 1)
 
   // Get the resource config
   const resourcePerms = permissions[resourceType as keyof typeof permissions]

@@ -490,9 +490,14 @@ export function useConvexQuery<
     // Watch for reactive args changes to update subscription
     if (isRef(args)) {
       watch(
-        () => toValue(args),
-        (newArgs, oldArgs) => {
-          if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
+        () => ({
+          value: toValue(args),
+          hash: argsHash.value,
+        }),
+        (next, prev) => {
+          if (next.hash !== prev.hash) {
+            const newArgs = next.value
+            const oldArgs = prev.value
             // Release old subscription if we had one registered
             if (oldArgs !== 'skip' && registeredCacheKey) {
               cleanupSharedBridgeWatchers()
@@ -516,7 +521,6 @@ export function useConvexQuery<
             }
           }
         },
-        { deep: true },
       )
     }
 

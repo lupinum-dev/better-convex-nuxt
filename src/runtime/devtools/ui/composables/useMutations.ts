@@ -1,9 +1,19 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import type { MutationEntry } from '../../types'
-import { callBridge, getBroadcastChannel } from './useBridge'
+import { callBridge, getBridgeTransport, getBoundBridgeInstanceId } from './useBridge'
 
 const mutations = ref<MutationEntry[]>([])
 const expandedIds = ref<Set<string>>(new Set())
+
+function mergeMutationsById(current: MutationEntry[], nextItems: MutationEntry[]): MutationEntry[] {
+  const currentById = new Map(current.map(item => [item.id, item]))
+  return nextItems.map((incoming) => {
+    const existing = currentById.get(incoming.id)
+    if (!existing) return incoming
+    Object.assign(existing, incoming)
+    return existing
+  })
+}
 
 /**
  * Composable for managing mutation data from the DevTools bridge.
@@ -14,22 +24,27 @@ export function useMutations() {
   onMounted(async () => {
     // Fetch initial data
     try {
-      mutations.value = (await callBridge<MutationEntry[]>('getMutations')) || []
+      const initial = (await callBridge<MutationEntry[]>('getMutations')) || []
+      mutations.value = mergeMutationsById(mutations.value, initial)
     } catch {
       // Ignore initial fetch errors
     }
 
     // Listen for real-time updates
-    const channel = getBroadcastChannel()
-    if (channel) {
-      const handler = (event: MessageEvent) => {
+    const transport = getBridgeTransport()
+    if (transport) {
+      const handler = (event: { data: unknown }) => {
         const data = event.data
-        if (data?.type === 'CONVEX_DEVTOOLS_MUTATIONS') {
-          mutations.value = data.mutations || []
+        if (!data || typeof data !== 'object') return
+        const message = data as { type?: string; mutations?: MutationEntry[]; instanceId?: string | null }
+        if (message.type === 'CONVEX_DEVTOOLS_MUTATIONS') {
+          const boundInstanceId = getBoundBridgeInstanceId()
+          if (boundInstanceId && message.instanceId !== boundInstanceId) return
+          mutations.value = mergeMutationsById(mutations.value, message.mutations || [])
         }
       }
-      channel.addEventListener('message', handler)
-      cleanup = () => channel.removeEventListener('message', handler)
+      transport.addEventListener('message', handler)
+      cleanup = () => transport.removeEventListener('message', handler)
     }
   })
 
