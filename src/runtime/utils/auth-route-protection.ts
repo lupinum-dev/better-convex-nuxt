@@ -1,4 +1,6 @@
-export type ConvexAuthPageMeta = boolean | { redirectTo?: string }
+import type { RouteLocationRaw } from 'vue-router'
+
+export type ConvexAuthPageMeta = boolean | { redirectTo?: RouteLocationRaw }
 
 export interface RouteProtectionDecisionInput {
   meta: ConvexAuthPageMeta | undefined
@@ -9,7 +11,7 @@ export interface RouteProtectionDecisionInput {
 }
 
 export interface RouteProtectionDecision {
-  redirectTo: string
+  redirectTo: RouteLocationRaw
 }
 
 export function resolveRouteProtectionDecision(
@@ -25,6 +27,9 @@ export function resolveRouteProtectionDecision(
     : defaultRedirectTo
 
   if (!redirectBase) return null
+  if (typeof redirectBase !== 'string') {
+    return { redirectTo: redirectBase }
+  }
   const redirectPathOnly = redirectBase.split('?')[0] || redirectBase
   if (currentPath === redirectPathOnly) return null
 

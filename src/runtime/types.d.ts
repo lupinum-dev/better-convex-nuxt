@@ -1,5 +1,6 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
+import type { RouteLocationRaw } from 'vue-router'
 import type { LogLevel } from './utils/logger'
 import type { ConvexAuthConfigInput } from './utils/auth-config'
 
@@ -64,7 +65,7 @@ declare module '#app' {
   }
   interface PageMeta {
     skipConvexAuth?: boolean
-    convexAuth?: boolean | { redirectTo?: string }
+    convexAuth?: boolean | { redirectTo?: RouteLocationRaw }
   }
 }
 

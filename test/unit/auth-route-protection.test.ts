@@ -40,5 +40,16 @@ describe('route protection decision', () => {
       currentPath: '/login',
     })).toBeNull()
   })
-})
 
+  it('supports object redirects without mutating route objects', () => {
+    const routeTarget = { path: '/login', query: { source: 'guard' } }
+
+    expect(resolveRouteProtectionDecision({
+      meta: { redirectTo: routeTarget },
+      defaultRedirectTo: '/auth/signin',
+      preserveReturnTo: true,
+      currentPath: '/dashboard',
+      currentFullPath: '/dashboard?tab=team',
+    })).toEqual({ redirectTo: routeTarget })
+  })
+})

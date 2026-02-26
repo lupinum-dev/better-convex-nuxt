@@ -33,6 +33,8 @@ export function buildAuthProxyForwardHeaders(
   options: AuthProxyForwardHeadersOptions,
 ): Record<string, string> {
   const headers = stripHopByHopHeaders(event.headers)
+  // Intentionally preserve cookies. Better Auth routes may depend on multiple cookies
+  // beyond the session token, and this proxy handles generic auth endpoints.
   const originalHost = options.originalHost || options.requestUrl.host
   const originalProto = options.requestUrl.protocol.replace(':', '')
 

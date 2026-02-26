@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script lang="ts">
 /**
  * Renders slot content only while auth state is being determined.
  * Useful for showing loading spinners during auth check.
@@ -10,7 +10,15 @@
  * </ConvexAuthLoading>
  * ```
  */
+export default {}
+</script>
+
+<script setup lang="ts">
 import { useConvexAuth } from '../composables/useConvexAuth'
+
+defineSlots<{
+  default(): any
+}>()
 
 const { isPending } = useConvexAuth()
 </script>

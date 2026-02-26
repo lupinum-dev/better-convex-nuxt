@@ -23,6 +23,7 @@ import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime
 
 // Re-export LogLevel from logger for external use
 export type { LogLevel } from './runtime/utils/logger'
+export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 
 const logger = useLogger('better-convex-nuxt')
 
@@ -203,7 +204,7 @@ export default defineNuxtModule<ModuleOptions>({
     name: 'better-convex-nuxt',
     configKey: 'convex',
     compatibility: {
-      nuxt: '>=3.0.0',
+      nuxt: '>=4.0.0',
     },
   },
   defaults: {
@@ -339,6 +340,7 @@ export default defineNuxtModule<ModuleOptions>({
       getContents: () => `
 import type { ConvexClient } from 'convex/browser'
 import type { createAuthClient } from 'better-auth/vue'
+import type { RouteLocationRaw } from 'vue-router'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
@@ -358,7 +360,7 @@ declare module '#app' {
        * Opt-in route protection powered by better-convex-nuxt.
        * true = require auth (default redirect), object = custom redirect.
        */
-      convexAuth?: boolean | { redirectTo?: string }
+      convexAuth?: boolean | { redirectTo?: RouteLocationRaw }
     }
   }
 

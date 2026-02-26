@@ -19,6 +19,7 @@
  */
 
 import type { FunctionReference } from 'convex/server'
+import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter, useRuntimeConfig } from '#imports'
 import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
@@ -99,11 +100,11 @@ export interface UsePermissionGuardOptions<TPermission extends string = string> 
   /** Permission required to access the page */
   permission: TPermission
   /** Path to redirect if permission denied */
-  redirectTo?: string
+  redirectTo?: RouteLocationRaw
   /** Resource to check ownership against */
   resource?: Resource
   /** Path to redirect if not authenticated */
-  loginPath?: string
+  loginPath?: RouteLocationRaw
 }
 
 // ============================================

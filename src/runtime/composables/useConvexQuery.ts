@@ -185,7 +185,12 @@ export function useConvexQuery<
     return getQueryKey(query, currentArgs)
   }
 
-  const cacheKey = getCacheKey()
+  const cacheKey = computed(() => getCacheKey())
+  // Transformed results are consumer-specific shapes and cannot safely share the same
+  // Nuxt async-data slot with untransformed consumers (or different transforms).
+  const asyncDataKey = computed(() =>
+    options?.transform ? `${cacheKey.value}:transformed` : cacheKey.value,
+  )
 
   // Computed hash of args for deep reactivity detection
   // This ensures useAsyncData re-fetches when args change deeply (not just ref identity)
@@ -208,7 +213,7 @@ export function useConvexQuery<
   // Note: Return null (not undefined) when skipped to avoid Nuxt warning about
   // undefined returns potentially causing duplicate requests on client
   const asyncData = useAsyncData<DataT | null, Error>(
-    cacheKey,
+    asyncDataKey,
     async () => {
       if (isSkipped.value) {
         return null
@@ -264,9 +269,8 @@ export function useConvexQuery<
       lazy,
       // Wrap default to handle undefined → null conversion for type compatibility
       default: options?.default ? () => options.default!() ?? null : undefined,
-      // Watch args hash to trigger re-fetch on deep changes (not just ref identity)
-      // This ensures server: false mode also re-fetches when args properties change
-      watch: isRef(args) ? [argsHash] : undefined,
+      // Convex payloads are replaced immutably; deep Vue traversal is unnecessary overhead.
+      deep: false,
     },
   )
 
@@ -518,6 +522,16 @@ export function useConvexQuery<
             // Setup new subscription (data will be updated by useAsyncData's watch)
             if (newArgs !== 'skip') {
               setupSubscription()
+
+              // When args switch (e.g. skip -> active), a reactive useAsyncData key can
+              // hydrate from a shared cached value after the bridge sync. Re-sync once
+              // more on the next macrotask so subscriber-specific transform() wins.
+              setTimeout(() => {
+                if (!registeredCacheKey) return
+                const entry = getSubscription(nuxtApp, registeredCacheKey)
+                if (!entry) return
+                attachSharedBridge(entry)
+              }, 0)
             }
           }
         },

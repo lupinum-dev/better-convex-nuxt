@@ -29,6 +29,46 @@ describe('auth proxy security helpers', () => {
         ),
       ).toBe(true)
     })
+
+    it('rejects wildcard suffix-trick domains', () => {
+      expect(
+        isOriginAllowed(
+          'https://preview-123.vercel.app.evil.com',
+          'https://app.example.com',
+          ['https://preview-*.vercel.app'],
+        ),
+      ).toBe(false)
+    })
+
+    it('rejects extra subdomain depth when wildcard only matches one label', () => {
+      expect(
+        isOriginAllowed(
+          'https://foo.bar.example.com',
+          'https://app.example.com',
+          ['https://*.example.com'],
+        ),
+      ).toBe(false)
+    })
+
+    it('rejects trusted origin entries with paths (not origin patterns)', () => {
+      expect(
+        isOriginAllowed(
+          'https://preview.example.com',
+          'https://app.example.com',
+          ['https://preview.example.com/path'],
+        ),
+      ).toBe(false)
+    })
+
+    it('fails closed on malformed trusted origin patterns', () => {
+      expect(
+        isOriginAllowed(
+          'https://preview.example.com',
+          'https://app.example.com',
+          ['not-a-url'],
+        ),
+      ).toBe(false)
+    })
   })
 
   describe('getAuthRoutePattern', () => {

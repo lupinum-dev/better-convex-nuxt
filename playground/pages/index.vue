@@ -69,6 +69,13 @@
               <p>useConvexQuery inside route middleware</p>
             </div>
           </NuxtLink>
+          <NuxtLink to="/labs/query-features/cache-reuse" class="link-card new">
+            <span class="icon">Z</span>
+            <div>
+              <strong>Instant Cache Reuse</strong>
+              <p>List card → slug page default + useNuxtData</p>
+            </div>
+          </NuxtLink>
           <NuxtLink to="/labs/pagination" class="link-card new">
             <span class="icon">P</span>
             <div>
@@ -118,6 +125,7 @@
             <NuxtLink to="/labs/query-features/skip" class="link-card-mini">Skip Queries</NuxtLink>
             <NuxtLink to="/labs/query-features/error" class="link-card-mini">Error Handling</NuxtLink>
             <NuxtLink to="/labs/query-features/refresh" class="link-card-mini">Query Refresh</NuxtLink>
+            <NuxtLink to="/labs/query-features/cache-reuse" class="link-card-mini">Instant Cache Reuse</NuxtLink>
             <NuxtLink to="/labs/query-features/middleware-permission-context" class="link-card-mini">Middleware Query Guard</NuxtLink>
             <NuxtLink to="/labs/realtime" class="link-card-mini">Realtime</NuxtLink>
             <NuxtLink to="/labs/optimistic" class="link-card-mini">Optimistic</NuxtLink>

@@ -11,6 +11,7 @@ import {
   isRef,
   isReactive,
   type ComputedRef,
+  type MaybeRefOrGetter,
   type Ref,
   type WatchStopHandle,
   shallowRef,
@@ -186,8 +187,6 @@ export interface UseConvexPaginatedQueryData<Item> {
 export type UseConvexPaginatedQueryReturn<Item> = UseConvexPaginatedQueryData<Item> &
   Promise<UseConvexPaginatedQueryData<Item>>
 
-type MaybeRef<T> = T | ReturnType<typeof ref<T>> | ReturnType<typeof computed<T>>
-
 // Internal page state
 interface PageState<T> {
   paginationOpts: { numItems: number; cursor: string | null; id: number }
@@ -264,7 +263,7 @@ export function useConvexPaginatedQuery<
   TransformedItem = PaginatedQueryItem<Query>,
 >(
   query: Query,
-  args?: MaybeRef<Args> | Args,
+  args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ): UseConvexPaginatedQueryReturn<TransformedItem> {
   type Item = PaginatedQueryItem<Query>
@@ -295,8 +294,10 @@ export function useConvexPaginatedQuery<
     )
   }
 
+  const hasReactiveArgsSource = args !== undefined && (isRef(args) || typeof args === 'function')
+
   // Check if query is statically skipped
-  const isStaticSkip = !isRef(args) && getArgs() === 'skip'
+  const isStaticSkip = !hasReactiveArgsSource && getArgs() === 'skip'
 
   // Early return for static skip
   if (isStaticSkip) {
@@ -790,7 +791,7 @@ export function useConvexPaginatedQuery<
 
     // Check asyncData error (first page fetch/subscription errors)
     const asyncError = asyncData.error.value
-    if (asyncError) {
+    if (asyncError != null) {
       // Convert NuxtError to Error if needed
       return asyncError instanceof Error ? asyncError : new Error(String(asyncError))
     }
@@ -805,7 +806,7 @@ export function useConvexPaginatedQuery<
   // Use useAsyncData for SSR-compatible first page fetch
   // This handles: SSR fetch, payload serialization, client hydration
   const asyncData = useAsyncData(
-    cacheKey.value,
+    cacheKey,
     async (): Promise<PaginationResult<Item> | null> => {
       if (isSkipped.value) return null
 
@@ -836,7 +837,8 @@ export function useConvexPaginatedQuery<
       server,
       lazy,
       dedupe: 'defer', // Use cached data if same key exists, avoids "different handler" warning
-      watch: [cacheKey], // Re-fetch when args change (cacheKey includes hashed args)
+      // Convex payloads are replaced immutably; deep Vue traversal is unnecessary overhead.
+      deep: false,
     },
   )
 
@@ -959,7 +961,7 @@ export function useConvexPaginatedQuery<
     }
 
     // Watch for reactive args changes
-    if (isRef(args)) {
+    if (hasReactiveArgsSource) {
       watch(
         () => ({
           value: toValue(args),
