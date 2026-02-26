@@ -12,6 +12,7 @@ import { matchesSkipRoute } from './utils/route-matcher'
 import { decodeUserFromJwt } from './utils/convex-shared'
 import { buildClientAuthRequestFailureMessage, buildClientAuthResponseErrorMessage, buildMissingSiteUrlMessage } from './utils/auth-errors'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './utils/convex-config'
+import { normalizeConvexAuthConfig } from './utils/auth-config'
 import type { AuthWaterfall } from './devtools/types'
 
 interface TokenResponse {
@@ -60,8 +61,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   appWithInitFlag._convexInitialized = true
 
   const convexUrl = config.public.convex?.url as string | undefined
-  // Check if auth is explicitly enabled via the auth flag
-  const isAuthEnabled = config.public.convex?.auth as boolean | undefined
+  const authConfig = normalizeConvexAuthConfig(config.public.convex?.auth)
+  const isAuthEnabled = authConfig.enabled
   const resolvedSiteUrl = resolveConvexSiteUrl({
     url: convexUrl,
     siteUrl: config.public.convex?.siteUrl as string | undefined,

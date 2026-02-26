@@ -12,8 +12,19 @@ export interface ConvexPublicRuntimeConfig {
   url?: string
   /** Convex site URL (HTTP/Auth) */
   siteUrl?: string
-  /** Whether auth integration is enabled */
-  auth?: boolean
+  /** Auth integration config */
+  auth?: {
+    enabled?: boolean
+    routeProtection?: {
+      redirectTo?: string
+      preserveReturnTo?: boolean
+    }
+    unauthorized?: {
+      enabled?: boolean
+      redirectTo?: string
+      includeQueries?: boolean
+    }
+  }
   /** Auth proxy route path */
   authRoute?: string
   /** Additional trusted origins for auth proxy CORS */
@@ -52,6 +63,10 @@ declare module '#app' {
     $auth?: AuthClient
     /** Internal cache for WebSocket subscriptions (prevents duplicates) */
     _convexSubscriptions?: Record<string, () => void>
+  }
+  interface PageMeta {
+    skipConvexAuth?: boolean
+    convexAuth?: boolean | { redirectTo?: string }
   }
 }
 

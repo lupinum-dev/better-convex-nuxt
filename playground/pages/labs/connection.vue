@@ -36,6 +36,22 @@
         <span class="value">{{ connectionRetries }}</span>
       </div>
       <div class="stat">
+        <span class="label">Hydrating Connection</span>
+        <span
+          class="value"
+          :class="{ active: isHydratingConnection }"
+          >{{ isHydratingConnection ? 'Yes' : 'No' }}</span
+        >
+      </div>
+      <div class="stat">
+        <span class="label">Should Show Offline UI</span>
+        <span
+          class="value"
+          :class="{ active: shouldShowOfflineUi }"
+          >{{ shouldShowOfflineUi ? 'Yes' : 'No' }}</span
+        >
+      </div>
+      <div class="stat">
         <span class="label">Inflight Requests</span>
         <span
           class="value"
@@ -85,6 +101,8 @@ const {
   isReconnecting,
   inflightMutations,
   inflightActions,
+  isHydratingConnection,
+  shouldShowOfflineUi,
 } = useConvexConnectionState()
 
 const statusClass = computed(() => {

@@ -24,6 +24,7 @@ import {
   buildTokenExchangeFailureMessage,
 } from './utils/auth-errors'
 import { resolveConvexSiteUrl } from './utils/convex-config'
+import { normalizeConvexAuthConfig } from './utils/auth-config'
 
 /** Session cookie name used by Better Auth */
 const SESSION_COOKIE_NAME = 'better-auth.session_token'
@@ -106,7 +107,8 @@ export default defineNuxtPlugin(async () => {
   }
 
   // Check if auth is enabled
-  const isAuthEnabled = config.public.convex?.auth as boolean | undefined
+  const authConfig = normalizeConvexAuthConfig(config.public.convex?.auth)
+  const isAuthEnabled = authConfig.enabled
   if (!isAuthEnabled) {
     // Auth not enabled - not an error, just skip auth setup
     endInit()

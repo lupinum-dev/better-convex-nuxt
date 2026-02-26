@@ -53,6 +53,17 @@ describe('useConvexConnectionState behavior', async () => {
       expect(state).toHaveProperty('hasInflightRequests')
       expect(state).toHaveProperty('isWebSocketConnected')
     }, 30000)
+
+    it('suppresses offline UI during initial hydration window', async () => {
+      const page = await createPage('/labs/connection')
+      await page.waitForLoadState('domcontentloaded')
+
+      const hydratingText = await page.textContent('.stat:has(.label:text("Hydrating Connection")) .value')
+      const offlineUiText = await page.textContent('.stat:has(.label:text("Should Show Offline UI")) .value')
+
+      expect(hydratingText).toBe('Yes')
+      expect(offlineUiText).toBe('No')
+    }, 30000)
   })
 
   // ============================================================================
@@ -88,6 +99,19 @@ describe('useConvexConnectionState behavior', async () => {
 
       // THEN it should eventually become Yes
       expect(hasEverConnectedText).toBe('Yes')
+    }, 30000)
+
+    it('ends hydration grace window after initial delay', async () => {
+      const page = await createPage('/labs/connection')
+      await page.waitForLoadState('networkidle')
+
+      await page.waitForFunction(() => {
+        const el = document.querySelector('.stat:has(.label:text("Hydrating Connection")) .value')
+        return el?.textContent === 'No'
+      }, { timeout: 5000 })
+
+      const hydratingText = await page.textContent('.stat:has(.label:text("Hydrating Connection")) .value')
+      expect(hydratingText).toBe('No')
     }, 30000)
   })
 

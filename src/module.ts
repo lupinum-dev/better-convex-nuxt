@@ -7,6 +7,7 @@ import {
   addServerHandler,
   addServerImports,
   addComponentsDir,
+  addRouteMiddleware,
   useLogger,
 } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
@@ -18,6 +19,7 @@ import {
   normalizeAuthRoute,
   resolveConvexSiteUrl,
 } from './runtime/utils/convex-config'
+import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 
 // Re-export LogLevel from logger for external use
 export type { LogLevel } from './runtime/utils/logger'
@@ -97,14 +99,15 @@ export interface ModuleOptions {
    */
   siteUrl?: string
   /**
-   * Enable authentication features.
-   * When true, enables auth composables (useAuth, useConvexAuth) and SSR token exchange.
-   * In SSR mode, automatically creates the auth proxy route.
-   * Requires a valid Convex URL (to derive siteUrl) or an explicit siteUrl.
-   * Set to false to disable auth if you only need Convex without Better Auth.
-   * @default true
+   * Authentication configuration.
+   * Enables auth composables (useAuth, useConvexAuth), SSR token exchange, route protection,
+   * and optional unauthorized-session recovery behavior.
+   *
+   * Set `auth.enabled = false` to disable auth features if you only need Convex without Better Auth.
+   *
+   * @default { enabled: true, routeProtection: { redirectTo: '/auth/signin', preserveReturnTo: true }, unauthorized: { enabled: false, redirectTo: '/auth/signin', includeQueries: false } }
    */
-  auth?: boolean
+  auth?: ConvexAuthConfigInput
   /**
    * Custom route path for the auth proxy.
    * Defaults to '/api/auth'.
@@ -206,7 +209,18 @@ export default defineNuxtModule<ModuleOptions>({
   defaults: {
     url: process.env.CONVEX_URL,
     siteUrl: undefined,
-    auth: true, // Enabled by default - this is a better-auth integration module
+    auth: {
+      enabled: true,
+      routeProtection: {
+        redirectTo: '/auth/signin',
+        preserveReturnTo: true,
+      },
+      unauthorized: {
+        enabled: false,
+        redirectTo: '/auth/signin',
+        includeQueries: false,
+      },
+    },
     authRoute: '/api/auth',
     trustedOrigins: [],
     skipAuthRoutes: [],
@@ -247,8 +261,8 @@ export default defineNuxtModule<ModuleOptions>({
       logger.warn(`Invalid Convex site URL format: "${resolvedSiteUrl}". Expected a valid URL like "https://your-app.convex.site"`)
     }
 
-    // Determine if auth is enabled
-    const isAuthEnabled = options.auth === true
+    const normalizedAuthConfig = normalizeConvexAuthConfig(options.auth)
+    const isAuthEnabled = normalizedAuthConfig.enabled
 
     // Get custom auth route or use default
     const authRoute = normalizeAuthRoute(options.authRoute)
@@ -266,7 +280,7 @@ export default defineNuxtModule<ModuleOptions>({
       {
         url: options.url || '',
         siteUrl: resolvedSiteUrl || '',
-        auth: isAuthEnabled,
+        auth: normalizedAuthConfig,
         authRoute,
         trustedOrigins: options.trustedOrigins ?? [],
         skipAuthRoutes: options.skipAuthRoutes ?? [],
@@ -300,6 +314,14 @@ export default defineNuxtModule<ModuleOptions>({
     // 3. Register Client Plugin (client-only via filename convention)
     addPlugin(resolver.resolve('./runtime/plugin.client'))
 
+    if (isAuthEnabled) {
+      addRouteMiddleware({
+        name: 'convex-auth',
+        path: resolver.resolve('./runtime/middleware/convex-auth.global'),
+        global: true,
+      })
+    }
+
     // 4. Register Auth Proxy Route (when auth is enabled)
     // The proxy is needed even in SPA mode because:
     // - Better Auth cookies must be set on the app's domain (not Convex's domain)
@@ -326,14 +348,19 @@ declare module '#app' {
     $auth?: AuthClient
   }
 
-  interface PageMeta {
+    interface PageMeta {
     /**
      * Skip Convex auth check for this page.
      * Useful for marketing pages that don't need authentication.
      */
-    skipConvexAuth?: boolean
+      skipConvexAuth?: boolean
+      /**
+       * Opt-in route protection powered by better-convex-nuxt.
+       * true = require auth (default redirect), object = custom redirect.
+       */
+      convexAuth?: boolean | { redirectTo?: string }
+    }
   }
-}
 
 declare module 'vue' {
   interface ComponentCustomProperties {

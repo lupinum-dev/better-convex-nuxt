@@ -1,4 +1,4 @@
-import { ref, readonly, computed, onUnmounted, type Ref } from 'vue'
+import { ref, readonly, computed, onMounted, onUnmounted, type Ref } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { createLogger, getLogLevel } from '../utils/logger'
@@ -139,6 +139,25 @@ export function useConvexConnectionState() {
   )
   const inflightMutations = computed(() => state.value.inflightMutations)
   const inflightActions = computed(() => state.value.inflightActions)
+  const isHydratingConnection = ref(true)
+  let hydrationTimer: ReturnType<typeof setTimeout> | null = null
+
+  onMounted(() => {
+    hydrationTimer = setTimeout(() => {
+      isHydratingConnection.value = false
+    }, 500)
+  })
+
+  onUnmounted(() => {
+    if (hydrationTimer) {
+      clearTimeout(hydrationTimer)
+      hydrationTimer = null
+    }
+  })
+
+  const shouldShowOfflineUi = computed(
+    () => !isConnected.value && !isHydratingConnection.value,
+  )
 
   return {
     /** Full connection state object */
@@ -157,5 +176,9 @@ export function useConvexConnectionState() {
     inflightMutations,
     /** Number of pending actions */
     inflightActions,
+    /** Suppress offline UI during initial client hydration/connection grace window */
+    isHydratingConnection: readonly(isHydratingConnection),
+    /** Convenience flag for offline banners (already suppresses hydration flash) */
+    shouldShowOfflineUi,
   }
 }

@@ -10,6 +10,7 @@ import {
   updateDevToolsSuccess,
   updateDevToolsError,
 } from '../utils/devtools-helpers'
+import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { useConvex } from './useConvex'
 
 /**
@@ -181,6 +182,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
       const duration = Date.now() - startTime
       logger.action({ name: fnName, event: 'error', duration, error: err })
+      void handleUnauthorizedAuthFailure({ error: err, source: 'action', functionName: fnName })
 
       throw err
     }

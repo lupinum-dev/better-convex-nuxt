@@ -11,6 +11,7 @@ import {
   updateDevToolsSuccess,
   updateDevToolsError,
 } from '../utils/devtools-helpers'
+import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { useConvex } from './useConvex'
 
 // Re-export optimistic update helpers for backwards compatibility
@@ -314,6 +315,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
       const duration = Date.now() - startTime
       logger.mutation({ name: fnName, event: 'error', args, duration, error: err })
+      void handleUnauthorizedAuthFailure({ error: err, source: 'mutation', functionName: fnName })
 
       throw err
     }
