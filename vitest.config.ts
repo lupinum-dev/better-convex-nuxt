@@ -1,5 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { defineVitestProject } from '@nuxt/test-utils/config'
+import { playwright } from '@vitest/browser-playwright'
+import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
 /**
@@ -18,7 +20,7 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     // Default timeout for all tests
-    testTimeout: 30000,
+    testTimeout: 10000,
 
     // Use projects for different test types
     projects: [
@@ -59,14 +61,35 @@ export default defineConfig({
         },
       }),
 
+      // Browser Component Tests: native browser rendering for Vue components
+      {
+        plugins: [vue()],
+        resolve: {
+          alias: {
+            '#imports': fileURLToPath(new URL('./test/browser/shims/imports.ts', import.meta.url)),
+          },
+        },
+        test: {
+          name: 'browser',
+          include: ['test/browser/**/*.browser.test.ts'],
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            instances: [{ browser: 'chromium' }],
+            headless: true,
+          },
+        },
+      },
+
       // E2E Tests: SSR + Browser behavior tests
       // Uses @nuxt/test-utils for full Nuxt lifecycle
-      // Slow (~60s) - run with `pnpm test:e2e`
+      // Manual/local only, serial to avoid port collisions
       {
         test: {
           name: 'e2e',
-          include: ['test/behavior/**/*.test.ts', 'test/basic.test.ts'],
+          include: ['test/e2e/**/*.e2e.test.ts'],
           testTimeout: 60000,
+          fileParallelism: false,
         },
       },
     ],

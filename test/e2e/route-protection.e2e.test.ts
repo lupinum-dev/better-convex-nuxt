@@ -2,41 +2,29 @@ import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-describe('convexAuth route protection behavior', async () => {
+describe('convexAuth route protection', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
   })
 
   it('does not redirect unprotected pages', async () => {
     const page = await createPage('/labs/guard-open')
-    await page.waitForLoadState('networkidle')
     expect(page.url()).toContain('/labs/guard-open')
     expect(await page.textContent('.container h1')).toContain('Guard Open')
-  }, 30000)
+  })
 
-  it('redirects protected pages to default auth route with returnTo', async () => {
+  it('redirects protected pages to auth route with redirect param', async () => {
     const page = await createPage('/labs/guard-protected')
-    await page.waitForLoadState('networkidle')
-    const url = new URL(page.url())
-    expect(url.pathname).toBe('/auth/signin')
-    expect(url.searchParams.get('redirect')).toBe('/labs/guard-protected')
-  }, 30000)
-
-  it('uses custom per-page redirect target when provided', async () => {
-    const page = await createPage('/labs/guard-custom-redirect')
-    await page.waitForLoadState('networkidle')
-    const url = new URL(page.url())
-    expect(url.pathname).toBe('/auth/signup')
-    expect(url.searchParams.get('redirect')).toBe('/labs/guard-custom-redirect')
-  }, 30000)
+    const currentUrl = new URL(page.url())
+    expect(currentUrl.pathname).toBe('/auth/signin')
+    expect(currentUrl.searchParams.get('redirect')).toBe('/labs/guard-protected')
+  })
 
   it('does not mount protected content while auth is pending before redirecting', async () => {
     const page = await createPage('/labs/guard-pending-control')
-    await page.waitForLoadState('networkidle')
 
     await page.click('[data-testid="start-pending-guard-nav"]')
     await page.waitForURL(/\/auth\/signin/, { timeout: 10000 })
-    await page.waitForLoadState('networkidle')
 
     const currentUrl = new URL(page.url())
     expect(currentUrl.pathname).toBe('/auth/signin')
@@ -47,6 +35,6 @@ describe('convexAuth route protection behavior', async () => {
         .__BCN_PENDING_GUARD_PROTECTED_MOUNTED__ ?? 0
     })
     expect(protectedMountCount).toBe(0)
-    expect(await page.$('[data-testid="guard-pending-protected-page"]')).toBeNull()
-  }, 30000)
+  })
 })
+

@@ -1,151 +1,68 @@
-# Testing Guide
+# Testing Guide (Deterministic Multi-Tier)
 
-## Philosophy
+## Why this layout
 
-- **KISS**: Simple tests that document behavior
-- **TDD**: Add tests when bugs are reported
-- **Fast**: CI should complete in <30 seconds
+Flaky tests came from using full browser E2E for composable-level behavior.
+The suite now uses deterministic tiers so we only use E2E where the full stack
+boundary is required.
 
-## Test Structure
+## Test layout
 
 ```
 test/
-├── basic.test.ts                           # Smoke: module loads, SSR works
-├── behavior/
-│   ├── useConvexQuery.behavior.test.ts     # Query composable contract
-│   ├── useConvexMutation.behavior.test.ts  # Mutation composable contract
-│   ├── useConvexAction.behavior.test.ts    # Action composable contract
-│   ├── useConvexPaginatedQuery.behavior.test.ts
-│   └── useConvexAuth.behavior.test.ts      # Auth composable contract
-├── fixtures/
-│   └── basic/                              # Minimal Nuxt fixture
-└── TESTING.md                              # This file
+├── unit/                                  # Pure TS logic
+├── nuxt/                                  # Composables in Nuxt runtime (happy-dom)
+├── browser/                               # Native browser component rendering
+├── e2e/                                   # Thin full-stack manual tests
+├── helpers/                               # Shared deterministic harnesses
+└── fixtures/                              # Minimal Nuxt fixture(s)
 
 playground/convex/
-├── notes.test.ts                           # Backend function tests
-├── posts.test.ts
-├── lib/permissions.test.ts
-├── permissions.config.test.ts
-└── test.setup.ts
+├── *.test.ts                              # Backend function tests with convex-test
+└── lib/*.test.ts                          # Backend helper/permission unit tests
 ```
 
-## Test Types
+## Vitest projects
 
-### 1. Smoke Test (`test/basic.test.ts`)
+- `unit`: Node-only tests.
+- `convex`: backend logic via `convex-test` (`edge-runtime`).
+- `nuxt`: composable contracts in Nuxt runtime.
+- `browser`: component rendering in Chromium via Vitest Browser Mode.
+- `e2e`: thin full-stack tests; serial execution.
 
-Verifies the module loads and basic SSR works.
-
-```typescript
-it('renders the index page', async () => {
-  const html = await $fetch('/')
-  expect(html).toContain('<div>basic</div>')
-})
-```
-
-### 2. Behavior Tests (`test/behavior/*.behavior.test.ts`)
-
-Document the **PUBLIC CONTRACT** of each composable:
-
-- What users can rely on
-- NOT implementation details
-- Add tests here when bugs are reported
-
-```typescript
-describe('useConvexQuery', () => {
-  it('fetches data on server and includes in HTML')
-  it('hydrates on client without loading flash')
-  it('returns undefined data when skip=true')
-})
-```
-
-### 3. Convex Function Tests (`playground/convex/*.test.ts`)
-
-Test backend logic with `convex-test`:
-
-- Fast (~100ms total)
-- Deterministic (no network)
-- Documents expected backend behavior
-
-```typescript
-it('returns empty array when no notes exist', async () => {
-  const t = convexTest(schema, modules)
-  const notes = await t.query(api.notes.list, {})
-  expect(notes).toEqual([])
-})
-```
-
-## Adding Tests (TDD Workflow)
-
-When a bug is reported:
-
-1. **Write a failing test** that reproduces the bug
-2. **Fix the bug**
-3. **Test passes**
-
-### Example: Bug in useConvexQuery skip behavior
-
-```typescript
-// test/behavior/useConvexQuery.behavior.test.ts
-
-// Bug: skip=true was showing pending=true briefly
-it('has pending=false immediately when skip=true', async () => {
-  const page = await createPage('/test-skip/static-skip')
-  await page.waitForLoadState('networkidle')
-
-  const content = await page.textContent('body')
-  expect(content).toContain('pending: false')
-})
-```
-
-## Running Tests
+## Commands
 
 ```bash
-# Run all tests (~20-30s)
+# CI/local reliability gate
 pnpm test
 
-# Watch mode (re-runs on file changes)
+# Fast dev loop for frontend/runtime
 pnpm test:watch
 
-# Run only convex tests
-pnpm test -- --project=convex
+# Nuxt runtime composables only
+pnpm test:nuxt
 
-# Run only e2e tests
-pnpm test -- --project=e2e
+# Browser component suite
+pnpm test:browser
+
+# Full-stack E2E (manual/local)
+pnpm test:e2e
+
+# Non-E2E full matrix
+pnpm test:full
 ```
 
-## CI Configuration
+## Design rules
 
-Tests run automatically on:
+1. Runtime/composable behavior goes to `test/nuxt`.
+2. Pure DOM visibility/render rules go to `test/browser`.
+3. End-to-end stays thin and intentional in `test/e2e`.
+4. Backend behavior belongs in `playground/convex/*.test.ts`.
+5. Avoid fixed sleeps in `test/nuxt` and `test/browser`.
+6. Prefer direct reactive state assertions over scraping `body` text.
 
-- Push to `main`
-- Pull requests to `main`
+## Regression workflow
 
-Expected CI time: **<30 seconds**
-
-## Best Practices
-
-1. **One test = one behavior**
-   - Test what, not how
-   - Avoid testing implementation details
-
-2. **Use descriptive names**
-
-   ```typescript
-   // Good
-   it('returns undefined data when skip=true')
-
-   // Bad
-   it('works correctly')
-   ```
-
-3. **Keep tests independent**
-   - Each test should work in isolation
-   - Don't depend on other tests' state
-
-4. **Prefer behavior tests over unit tests**
-   - Test the public API
-   - Avoid mocking internal details
-
-5. **Add tests for bugs, not for coverage**
-   - Every test should prevent a regression
-   - Don't add tests just to increase coverage %
+1. Reproduce with a failing test in the right tier.
+2. Fix the bug.
+3. Keep the regression test as a contract.
