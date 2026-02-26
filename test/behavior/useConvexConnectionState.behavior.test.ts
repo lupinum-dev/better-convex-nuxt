@@ -106,8 +106,12 @@ describe('useConvexConnectionState behavior', async () => {
       await page.waitForLoadState('networkidle')
 
       await page.waitForFunction(() => {
-        const el = document.querySelector('.stat:has(.label:text("Hydrating Connection")) .value')
-        return el?.textContent === 'No'
+        const stat = Array.from(document.querySelectorAll('.stat')).find((el) => {
+          const label = el.querySelector('.label')
+          return (label?.textContent || '').includes('Hydrating Connection')
+        })
+        const value = stat?.querySelector('.value')
+        return (value?.textContent || '').trim() === 'No'
       }, { timeout: 5000 })
 
       const hydratingText = await page.textContent('.stat:has(.label:text("Hydrating Connection")) .value')
