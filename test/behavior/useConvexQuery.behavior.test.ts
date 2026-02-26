@@ -11,7 +11,7 @@
  * DO NOT test implementation details here.
  */
 
-import { setup, $fetch, createPage } from '@nuxt/test-utils/e2e'
+import { setup, $fetch, createPage, url } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 
@@ -78,6 +78,119 @@ describe('useConvexQuery behavior', async () => {
 
       // THEN pending should be false (skipped queries are never pending)
       expect(content).toContain('pending: false')
+    }, 30000)
+  })
+
+  describe('Subscription Deduplication Regression', () => {
+    async function openSubscriptionDedupPage(path: string, pageTestId: string) {
+      const page = await createPage('/')
+      page.setDefaultTimeout(5000)
+      await page.goto(url(path), {
+        waitUntil: 'commit',
+        timeout: 5000,
+      }).catch(() => {})
+      await page.waitForSelector(pageTestId)
+      await page.waitForTimeout(1500)
+      return page
+    }
+
+    it('keeps all subscribers in sync when one starts as skip and resolves later', async () => {
+      // GIVEN a page with two useConvexQuery calls for the same query
+      // and the second starts as "skip" before resolving args later
+      const page = await openSubscriptionDedupPage(
+        '/labs/query-features/subscription-dedup-bug',
+        '[data-testid="subscription-dedup-bug-page"]',
+      )
+
+      const initialChildReady = await page.textContent('[data-testid="child-ready"]').catch(() => null)
+      const initialParentStatus = await page.textContent('[data-testid="parent-status"]').catch(() => null)
+      const initialChildStatus = await page.textContent('[data-testid="child-status"]').catch(() => null)
+      const initialParentCount = await page.textContent('[data-testid="parent-count"]').catch(() => null)
+      const initialChildCount = await page.textContent('[data-testid="child-count"]').catch(() => null)
+
+      expect(initialChildReady?.trim()).toBe('true')
+      expect(initialParentStatus?.trim()).toBe('success')
+      expect(initialChildStatus?.trim()).toBe('success')
+      expect(initialParentCount?.trim()).toBe('0')
+      expect(initialChildCount?.trim()).toBe('0')
+
+      // WHEN a real-time update is emitted
+      await page.click('[data-testid="increment-btn"]')
+      await page.waitForTimeout(200)
+
+      // THEN both subscribers should update
+      const parentCount = await page.textContent('[data-testid="parent-count"]')
+      const childCount = await page.textContent('[data-testid="child-count"]')
+
+      expect(parentCount?.trim()).toBe('1')
+      expect(childCount?.trim()).toBe('1')
+    }, 30000)
+
+    it('keeps remaining subscribers updating after the original subscriber unmounts', async () => {
+      const page = await openSubscriptionDedupPage(
+        '/labs/query-features/subscription-dedup-owner-unmount',
+        '[data-testid="subscription-dedup-owner-unmount-page"]',
+      )
+
+      expect((await page.textContent('[data-testid="child-ready"]'))?.trim()).toBe('true')
+      expect((await page.textContent('[data-testid="parent-count"]'))?.trim()).toBe('0')
+      expect((await page.textContent('[data-testid="child-count"]'))?.trim()).toBe('0')
+
+      await page.click('[data-testid="unmount-parent-btn"]')
+      await page.waitForTimeout(200)
+
+      expect((await page.textContent('[data-testid="show-parent"]'))?.trim()).toBe('false')
+      expect(await page.$('[data-testid="parent-card"]')).toBeNull()
+      expect((await page.textContent('[data-testid="listener-count"]'))?.trim()).toBe('1')
+
+      await page.click('[data-testid="increment-btn"]')
+      await page.waitForTimeout(200)
+
+      expect((await page.textContent('[data-testid="child-count"]'))?.trim()).toBe('1')
+      expect((await page.textContent('[data-testid="child-status"]'))?.trim()).toBe('success')
+    }, 30000)
+
+    it('supports divergent transforms across shared subscribers', async () => {
+      const page = await openSubscriptionDedupPage(
+        '/labs/query-features/subscription-dedup-transform',
+        '[data-testid="subscription-dedup-transform-page"]',
+      )
+
+      expect((await page.textContent('[data-testid="child-ready"]'))?.trim()).toBe('true')
+      expect((await page.textContent('[data-testid="parent-count"]'))?.trim()).toBe('0')
+      expect((await page.textContent('[data-testid="child-count"]'))?.trim()).toBe('count:0')
+
+      await page.click('[data-testid="increment-btn"]')
+      await page.waitForTimeout(200)
+
+      expect((await page.textContent('[data-testid="parent-count"]'))?.trim()).toBe('1')
+      expect((await page.textContent('[data-testid="child-count"]'))?.trim()).toBe('count:1')
+      expect((await page.textContent('[data-testid="child-status"]'))?.trim()).toBe('success')
+    }, 30000)
+
+    it('handles error before first data for late-joining subscribers without crashing', async () => {
+      const page = await openSubscriptionDedupPage(
+        '/labs/query-features/subscription-dedup-error-before-data',
+        '[data-testid="subscription-dedup-error-before-data-page"]',
+      )
+
+      expect((await page.textContent('[data-testid="child-ready"]'))?.trim()).toBe('true')
+      expect((await page.textContent('[data-testid="parent-count"]'))?.trim()).toBe('null')
+      expect((await page.textContent('[data-testid="child-count"]'))?.trim()).toBe('null')
+
+      await page.click('[data-testid="emit-error-btn"]')
+      await page.waitForTimeout(200)
+
+      expect((await page.textContent('[data-testid="parent-error"]'))?.trim()).toContain('Synthetic pre-data error')
+      expect((await page.textContent('[data-testid="child-error"]'))?.trim()).toContain('Synthetic pre-data error')
+
+      await page.click('[data-testid="increment-btn"]')
+      await page.waitForTimeout(300)
+
+      expect((await page.textContent('[data-testid="parent-count"]'))?.trim()).toBe('1')
+      expect((await page.textContent('[data-testid="child-count"]'))?.trim()).toBe('1')
+      expect((await page.textContent('[data-testid="parent-error"]'))?.trim()).toBe('null')
+      expect((await page.textContent('[data-testid="child-error"]'))?.trim()).toBe('null')
     }, 30000)
   })
 
