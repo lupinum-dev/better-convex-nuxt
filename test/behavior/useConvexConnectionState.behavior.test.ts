@@ -13,6 +13,51 @@ import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
 import { describe, it, expect } from 'vitest'
 
+type ConnectionPage = {
+  waitForFunction: (
+    pageFunction: () => boolean,
+    options?: { timeout?: number },
+  ) => Promise<unknown>
+  textContent: (selector: string) => Promise<string | null>
+}
+
+function statValueSelector(labelText: string) {
+  return `.stat:has(.label:text("${labelText}")) .value`
+}
+
+async function getConnectionDebugSnapshot(page: ConnectionPage) {
+  const [webSocketConnected, hasEverConnected, connectionRetries, rawState] = await Promise.all([
+    page.textContent(statValueSelector('WebSocket Connected')).catch(() => null),
+    page.textContent(statValueSelector('Has Ever Connected')).catch(() => null),
+    page.textContent(statValueSelector('Connection Retries')).catch(() => null),
+    page.textContent('.raw-state pre').catch(() => null),
+  ])
+
+  return {
+    webSocketConnected,
+    hasEverConnected,
+    connectionRetries,
+    rawStateSnippet: rawState?.slice(0, 1000) ?? null,
+  }
+}
+
+async function waitForHasEverConnected(page: ConnectionPage, timeout = 15000) {
+  try {
+    await page.waitForFunction(() => {
+      const stat = Array.from(document.querySelectorAll('.stat')).find((el) => {
+        const label = el.querySelector('.label')
+        return (label?.textContent || '').includes('Has Ever Connected')
+      })
+      const value = stat?.querySelector('.value')
+      return (value?.textContent || '').trim() === 'Yes'
+    }, { timeout })
+  } catch (error) {
+    const snapshot = await getConnectionDebugSnapshot(page)
+    console.error('[useConvexConnectionState.behavior] hasEverConnected wait timed out', snapshot)
+    throw error
+  }
+}
+
 describe('useConvexConnectionState behavior', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
@@ -91,11 +136,11 @@ describe('useConvexConnectionState behavior', async () => {
       const page = await createPage('/labs/connection')
       await page.waitForLoadState('networkidle')
 
-      // Wait for connection to establish
-      await page.waitForTimeout(2000)
+      // Wait for first successful WebSocket connection to be observed
+      await waitForHasEverConnected(page, 15000)
 
       // WHEN we check hasEverConnected
-      const hasEverConnectedText = await page.textContent('.stat:has(.label:text("Has Ever Connected")) .value')
+      const hasEverConnectedText = await page.textContent(statValueSelector('Has Ever Connected'))
 
       // THEN it should eventually become Yes
       expect(hasEverConnectedText).toBe('Yes')
