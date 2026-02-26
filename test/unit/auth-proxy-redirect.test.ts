@@ -60,10 +60,16 @@ describe("auth proxy canonical redirect handling", () => {
 
       expect(response.status).toBe(200);
       expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(fetchMock.mock.calls[0][0]).toBe(
+      const [firstCall, secondCall] = fetchMock.mock.calls;
+      expect(firstCall).toBeDefined();
+      expect(secondCall).toBeDefined();
+      if (!firstCall || !secondCall) {
+        throw new Error("Expected two fetch calls");
+      }
+      expect(firstCall[0]).toBe(
         "https://my-domain.com/api/auth/sign-up/email?foo=bar",
       );
-      expect(fetchMock.mock.calls[1][0]).toBe(
+      expect(secondCall[0]).toBe(
         "https://www.my-domain.com/api/auth/sign-up/email?foo=bar",
       );
     });
