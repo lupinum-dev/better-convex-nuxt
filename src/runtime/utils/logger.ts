@@ -536,6 +536,26 @@ export function createLogger(level: LogLevel): Logger {
   return createBrowserLogger(level)
 }
 
+const sharedServerLoggers = new Map<Exclude<LogLevel, false>, Logger>()
+const sharedBrowserLoggers = new Map<Exclude<LogLevel, false>, Logger>()
+
+/**
+ * Shared logger cache for hot composable paths.
+ * Do not mutate the returned logger methods.
+ */
+export function getSharedLogger(level: LogLevel): Logger {
+  if (!level) return noopLogger
+
+  const cache = (typeof window === 'undefined' ? sharedServerLoggers : sharedBrowserLoggers)
+  const typedLevel = level as Exclude<LogLevel, false>
+  const existing = cache.get(typedLevel)
+  if (existing) return existing
+
+  const logger = createLogger(level)
+  cache.set(typedLevel, logger)
+  return logger
+}
+
 /**
  * Get log level from runtime config.
  */

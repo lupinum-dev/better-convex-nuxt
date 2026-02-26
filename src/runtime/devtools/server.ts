@@ -3,10 +3,10 @@
  * Serves the built Vue devtools application and API endpoints.
  */
 import { defineEventHandler, setHeader, getRequestURL, createError } from 'h3'
-import { join, relative, resolve } from 'node:path'
 import { readFileSync, existsSync } from 'node:fs'
 import { useRuntimeConfig } from '#imports'
 import { getAuthProxyStats, clearAuthProxyStats } from './auth-proxy-registry'
+import { isPathInsideDirectory, resolveDevtoolsFilePath } from './path-utils'
 
 // MIME type mapping
 const mimeTypes: Record<string, string> = {
@@ -63,12 +63,10 @@ export default defineEventHandler((event) => {
     throw createError({ statusCode: 404, statusMessage: 'Not Found' })
   }
 
-  const outputDirResolved = resolve(outputDir)
-  const filePath = resolve(join(outputDirResolved, pathname))
-  const relativePath = relative(outputDirResolved, filePath)
+  const filePath = resolveDevtoolsFilePath(outputDir, pathname)
 
   // Security: prevent path traversal
-  if (relativePath.startsWith('..') || relativePath === '') {
+  if (!isPathInsideDirectory(outputDir, filePath)) {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   }
 

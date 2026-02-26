@@ -4,7 +4,7 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
-import { createLogger, getLogLevel } from '../utils/logger'
+import { getSharedLogger, getLogLevel } from '../utils/logger'
 import {
   registerDevToolsEntry,
   updateDevToolsSuccess,
@@ -119,7 +119,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = createLogger(logLevel)
+  const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(action)
 
   // Get client at setup time (not inside async callback) to avoid Vue context issues

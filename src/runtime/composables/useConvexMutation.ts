@@ -5,7 +5,7 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
-import { createLogger, getLogLevel } from '../utils/logger'
+import { getSharedLogger, getLogLevel } from '../utils/logger'
 import {
   registerDevToolsEntry,
   updateDevToolsSuccess,
@@ -244,7 +244,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = createLogger(logLevel)
+  const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(mutation)
   const hasOptimisticUpdate = !!options?.optimisticUpdate
 

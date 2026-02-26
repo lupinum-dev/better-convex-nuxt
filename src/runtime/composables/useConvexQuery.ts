@@ -20,19 +20,27 @@ import {
   type SubscriptionEntry,
   type QueryStatus,
 } from '../utils/convex-cache'
-import { createLogger, getLogLevel } from '../utils/logger'
+import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
+import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 
 // DevTools query registry (client-side only in dev mode)
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
+let devToolsRegistryPromise: Promise<void> | null = null
+let devToolsRegistryLoadFailed = false
 
-if (import.meta.client && import.meta.dev) {
-  import('../devtools/query-registry')
+function ensureDevToolsRegistryLoaded(): void {
+  if (!import.meta.client || !import.meta.dev || devToolsRegistry || devToolsRegistryPromise || devToolsRegistryLoadFailed) return
+  devToolsRegistryPromise = import('../devtools/query-registry')
     .then((module) => {
       devToolsRegistry = module
     })
-    .catch(() => {
-      // DevTools not available, ignore
+    .catch((error) => {
+      devToolsRegistryLoadFailed = true
+      console.warn('[useConvexQuery] Failed to load DevTools query registry:', error)
+    })
+    .finally(() => {
+      devToolsRegistryPromise = null
     })
 }
 
@@ -93,52 +101,7 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
   args: FunctionArgs<Query>,
   options?: { timeoutMs?: number },
 ): Promise<FunctionReturnType<Query>> {
-  const timeoutMs = options?.timeoutMs ?? 10_000
-  return new Promise((resolve, reject) => {
-    let settled = false
-    let timeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-      finishReject(new Error(`[useConvexQuery] Timed out waiting for subscription result after ${timeoutMs}ms`))
-    }, timeoutMs)
-
-    let unsubscribe: (() => void) | null = null
-    const cleanup = () => {
-      if (timeout) {
-        clearTimeout(timeout)
-        timeout = null
-      }
-      if (unsubscribe) {
-        unsubscribe()
-        unsubscribe = null
-      }
-    }
-    const finishResolve = (result: FunctionReturnType<Query>) => {
-      if (settled) return
-      settled = true
-      cleanup()
-      resolve(result)
-    }
-    const finishReject = (error: unknown) => {
-      if (settled) return
-      settled = true
-      cleanup()
-      reject(error instanceof Error ? error : new Error(String(error)))
-    }
-
-    try {
-      unsubscribe = convex.onUpdate(
-        query,
-        args,
-        (result: FunctionReturnType<Query>) => {
-          finishResolve(result)
-        },
-        (error: Error) => {
-          finishReject(error)
-        },
-      )
-    } catch (error) {
-      finishReject(error)
-    }
-  })
+  return executeQueryViaSubscriptionOnce(convex, query, args, options)
 }
 
 /**
@@ -194,7 +157,7 @@ export function useConvexQuery<
 
   // Setup logger
   const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = createLogger(logLevel)
+  const logger = getSharedLogger(logLevel)
 
   // Get reactive args value
   const getArgs = (): Args => toValue(args) ?? ({} as Args)
@@ -207,6 +170,10 @@ export function useConvexQuery<
         `Changes to reactive objects will NOT trigger query re-fetches. ` +
         `Use ref() or computed() instead.`,
     )
+  }
+
+  if (import.meta.dev) {
+    ensureDevToolsRegistryLoaded()
   }
 
   // Generate cache key

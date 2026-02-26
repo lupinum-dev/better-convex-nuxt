@@ -5,6 +5,8 @@
 
 // Lazy-loaded mutation registry module
 let mutationRegistry: typeof import('../devtools/mutation-registry') | null = null
+let mutationRegistryPromise: Promise<void> | null = null
+let mutationRegistryLoadFailed = false
 
 /**
  * Load the mutation registry module (lazy, cached).
@@ -15,22 +17,21 @@ function loadRegistry(): void {
     return
   }
 
-  if (mutationRegistry) {
+  if (mutationRegistry || mutationRegistryPromise || mutationRegistryLoadFailed) {
     return
   }
 
-  import('../devtools/mutation-registry')
+  mutationRegistryPromise = import('../devtools/mutation-registry')
     .then((module) => {
       mutationRegistry = module
     })
-    .catch(() => {
-      // DevTools not available, ignore
+    .catch((error) => {
+      mutationRegistryLoadFailed = true
+      console.warn('[devtools-helpers] Failed to load mutation registry:', error)
     })
-}
-
-// Pre-load in dev mode
-if (import.meta.client && import.meta.dev) {
-  loadRegistry()
+    .finally(() => {
+      mutationRegistryPromise = null
+    })
 }
 
 /**
@@ -43,6 +44,7 @@ export function registerDevToolsEntry(
   args: unknown,
   hasOptimisticUpdate: boolean = false,
 ): string | null {
+  loadRegistry()
   if (!import.meta.dev || !mutationRegistry) {
     return null
   }
@@ -65,6 +67,7 @@ export function updateDevToolsSuccess(
   startTime: number,
   result: unknown,
 ): void {
+  loadRegistry()
   if (!import.meta.dev || !mutationRegistry || !id) {
     return
   }
@@ -86,6 +89,7 @@ export function updateDevToolsError(
   startTime: number,
   error: string,
 ): void {
+  loadRegistry()
   if (!import.meta.dev || !mutationRegistry || !id) {
     return
   }

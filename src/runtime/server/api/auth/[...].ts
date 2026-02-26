@@ -11,6 +11,7 @@ import {
 import type { AuthProxyRequest } from '../../../devtools/types'
 import { fetchWithCanonicalRedirects } from './redirect-utils'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
+import { getAuthRoutePattern, isOriginAllowed } from './security'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
@@ -31,46 +32,6 @@ async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<v
  * Cross-origin requests must match a trustedOrigins pattern.
  * Supports wildcard patterns (e.g., 'https://preview-*.vercel.app').
  */
-function isOriginAllowed(
-  origin: string,
-  requestOrigin: string,
-  trustedOrigins: string[],
-): boolean {
-  // Same-origin requests are always allowed
-  // Compare origin (e.g., 'https://example.com') with request host
-  try {
-    const originUrl = new URL(origin)
-    if (originUrl.origin === requestOrigin) return true
-  } catch {
-    // Invalid origin URL
-  }
-
-  // Check against trustedOrigins (exact match or wildcard pattern)
-  for (const trusted of trustedOrigins) {
-    if (trusted.includes('*')) {
-      // Convert wildcard pattern to regex
-      const pattern = trusted
-        .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape regex special chars except *
-        .replace(/\*/g, '.*') // Convert * to .*
-      if (new RegExp(`^${pattern}$`).test(origin)) return true
-    } else if (origin === trusted) {
-      return true
-    }
-  }
-
-  return false
-}
-
-const authRoutePatternCache = new Map<string, RegExp>()
-
-function getAuthRoutePattern(authRoute: string): RegExp {
-  const cached = authRoutePatternCache.get(authRoute)
-  if (cached) return cached
-  const pattern = new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
-  authRoutePatternCache.set(authRoute, pattern)
-  return pattern
-}
-
 export default defineEventHandler(async (event: H3Event) => {
   const convexConfig = getConvexRuntimeConfig()
   const siteUrl = convexConfig.siteUrl

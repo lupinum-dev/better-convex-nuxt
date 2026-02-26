@@ -26,7 +26,7 @@ const { data: context, status, error } = await useConvexQuery(
     <h1>Route Middleware + Permission Context</h1>
     <p class="description">
       This page is protected by a route middleware that calls
-      <code>useConvexQuery(api.auth.getPermissionContext, {}, { subscribe: false })</code>.
+      <code>useConvexQuery(api.auth.getPermissionContext, {}, { subscribe: false })</code> (strict HTTP-only mode).
     </p>
 
     <div class="card success">

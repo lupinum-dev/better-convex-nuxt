@@ -9,7 +9,7 @@ import { ref, computed, onScopeDispose, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
-import { createLogger, getLogLevel } from '../utils/logger'
+import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
 import { useConvex } from './useConvex'
 
@@ -215,7 +215,7 @@ export function useConvexFileUpload<
 ): UseConvexFileUploadReturn<Mutation> {
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = createLogger(logLevel)
+  const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(generateUploadUrlMutation)
 
   // Get client at setup time (not inside async callback) to avoid Vue context issues

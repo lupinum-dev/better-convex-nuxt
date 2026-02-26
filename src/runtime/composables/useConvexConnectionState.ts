@@ -1,7 +1,7 @@
 import { ref, readonly, computed, onScopeDispose, type Ref } from 'vue'
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import { createLogger, getLogLevel } from '../utils/logger'
+import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { useConvex } from './useConvex'
 
 /**
@@ -84,7 +84,7 @@ export function useConvexConnectionState() {
   const client = useConvex()
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = createLogger(logLevel)
+  const logger = getSharedLogger(logLevel)
   const store = getConnectionStateStore(nuxtApp)
 
   // Only subscribe on client
