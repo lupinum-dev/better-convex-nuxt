@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-const authClient = useAuthClient()
+const { signIn, refreshAuth } = useAuth()
 
 const form = reactive({
   email: '',
@@ -56,16 +56,11 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 
 async function handleSignIn() {
-  if (!authClient) {
-    error.value = 'Auth client not available'
-    return
-  }
-
   isLoading.value = true
   error.value = null
 
   try {
-    const result = await authClient.signIn.email({
+    const result = await signIn.email({
       email: form.email,
       password: form.password,
     })
@@ -75,6 +70,7 @@ async function handleSignIn() {
       return
     }
 
+    await refreshAuth()
     window.location.href = '/'
   }
   catch (e) {

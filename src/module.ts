@@ -12,35 +12,17 @@ import {
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 import type { LogLevel } from './runtime/utils/logger'
+import {
+  getSiteUrlResolutionHint,
+  isValidAbsoluteUrl,
+  normalizeAuthRoute,
+  resolveConvexSiteUrl,
+} from './runtime/utils/convex-config'
 
 // Re-export LogLevel from logger for external use
 export type { LogLevel } from './runtime/utils/logger'
 
 const logger = useLogger('better-convex-nuxt')
-
-/**
- * Validate that a string is a valid URL.
- */
-function isValidUrl(url: string): boolean {
-  try {
-    new URL(url)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/**
- * Derive the Convex site URL (HTTP Actions) from the deployment URL.
- * Replaces .convex.cloud with .convex.site
- */
-function deriveSiteUrl(url: string): string | undefined {
-  if (!url) return undefined
-  if (url.includes('.convex.cloud')) {
-    return url.replace('.convex.cloud', '.convex.site')
-  }
-  return undefined
-}
 
 export interface AuthCacheOptions {
   /**
@@ -116,7 +98,7 @@ export interface ModuleOptions {
   siteUrl?: string
   /**
    * Enable authentication features.
-   * When true, enables auth composables (useConvexAuth, useAuthClient) and SSR token exchange.
+   * When true, enables auth composables (useAuth, useConvexAuth) and SSR token exchange.
    * In SSR mode, automatically creates the auth proxy route.
    * Requires a valid Convex URL (to derive siteUrl) or an explicit siteUrl.
    * Set to false to disable auth if you only need Convex without Better Auth.
@@ -223,7 +205,7 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     url: process.env.CONVEX_URL,
-    siteUrl: process.env.CONVEX_SITE_URL,
+    siteUrl: undefined,
     auth: true, // Enabled by default - this is a better-auth integration module
     authRoute: '/api/auth',
     trustedOrigins: [],
@@ -250,15 +232,18 @@ export default defineNuxtModule<ModuleOptions>({
     const resolver = createResolver(import.meta.url)
 
     // Validate Convex URL format
-    if (options.url && !isValidUrl(options.url)) {
+    if (options.url && !isValidAbsoluteUrl(options.url)) {
       logger.warn(`Invalid Convex URL format: "${options.url}". Expected a valid URL like "https://your-app.convex.cloud"`)
     }
 
-    // Derive siteUrl from url if not explicitly provided
-    const resolvedSiteUrl = options.siteUrl || deriveSiteUrl(options.url || '')
+    const siteUrlResolution = resolveConvexSiteUrl({
+      url: options.url,
+      siteUrl: options.siteUrl,
+    })
+    const resolvedSiteUrl = siteUrlResolution.siteUrl
 
     // Validate site URL format if we have one
-    if (resolvedSiteUrl && !isValidUrl(resolvedSiteUrl)) {
+    if (resolvedSiteUrl && !isValidAbsoluteUrl(resolvedSiteUrl)) {
       logger.warn(`Invalid Convex site URL format: "${resolvedSiteUrl}". Expected a valid URL like "https://your-app.convex.site"`)
     }
 
@@ -266,14 +251,13 @@ export default defineNuxtModule<ModuleOptions>({
     const isAuthEnabled = options.auth === true
 
     // Get custom auth route or use default
-    const authRoute = options.authRoute || '/api/auth'
+    const authRoute = normalizeAuthRoute(options.authRoute)
 
     // Validate auth configuration
     // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error
     // Runtime validation happens in the plugins when the actual values are available
-    if (isAuthEnabled && !resolvedSiteUrl && options.url) {
-      // URL is set but couldn't derive siteUrl (e.g., custom domain without explicit siteUrl)
-      logger.warn('auth: true but could not derive siteUrl from url. Set siteUrl explicitly for custom domains.')
+    if (isAuthEnabled && !resolvedSiteUrl) {
+      logger.warn(`auth: true but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(options.url)}`)
     }
 
     // 1. Safe Configuration Merging (preserves user-defined runtimeConfig)
@@ -286,6 +270,7 @@ export default defineNuxtModule<ModuleOptions>({
         authRoute,
         trustedOrigins: options.trustedOrigins ?? [],
         skipAuthRoutes: options.skipAuthRoutes ?? [],
+        permissions: options.permissions ?? false,
         logging: options.logging ?? false,
         debug: {
           authFlow: options.debug?.authFlow ?? false,
@@ -425,8 +410,8 @@ export {}
     // 6b. Auth composables and components (only when auth enabled)
     if (isAuthEnabled) {
       addImports([
+        { name: 'useAuth', from: resolver.resolve('./runtime/composables/useAuth') },
         { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
-        { name: 'useAuthClient', from: resolver.resolve('./runtime/composables/useAuthClient') },
       ])
 
       // Register auth components

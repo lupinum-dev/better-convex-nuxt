@@ -12,10 +12,30 @@ export interface ConvexPublicRuntimeConfig {
   url?: string
   /** Convex site URL (HTTP/Auth) */
   siteUrl?: string
+  /** Whether auth integration is enabled */
+  auth?: boolean
+  /** Auth proxy route path */
+  authRoute?: string
+  /** Additional trusted origins for auth proxy CORS */
+  trustedOrigins?: string[]
   /** Routes that should skip auth checks */
   skipAuthRoutes?: string[]
+  /** Whether permissions helper mode is enabled */
+  permissions?: boolean
   /** Logging level */
   logging?: LogLevel
+  /** SSR auth cache config */
+  authCache?: {
+    enabled?: boolean
+    ttl?: number
+  }
+  /** Global query defaults */
+  defaults?: {
+    server?: boolean
+    lazy?: boolean
+    subscribe?: boolean
+    public?: boolean
+  }
   /** Optional debug channels for high-verbosity traces */
   debug?: {
     authFlow?: boolean

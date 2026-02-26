@@ -20,7 +20,7 @@
 
 import type { FunctionReference } from 'convex/server'
 
-import { useRouter } from '#imports'
+import { useRouter, useRuntimeConfig } from '#imports'
 import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
 
 import { useConvexQuery } from './useConvexQuery'
@@ -149,7 +149,8 @@ export function createPermissions<
    */
   function usePermissions(): UsePermissionsReturn<TPermission, TContext> {
     // Fetch permission context from Convex
-    const { data: permissionContext, pending: isLoading } = useConvexQuery(query, {})
+    const { data: permissionContext, pending: isLoading, error } = useConvexQuery(query, {})
+    const runtimeConfig = useRuntimeConfig()
 
     // Build context object for checkPermission
     const ctx = computed(() => {
@@ -171,6 +172,23 @@ export function createPermissions<
     const user = computed(() => permissionContext.value as TContext | null)
     const role = computed(() => (permissionContext.value as TContext | null)?.role ?? null)
     const orgId = computed(() => (permissionContext.value as TContext | null)?.orgId ?? null)
+
+    if (import.meta.dev) {
+      let warnedPermissionSetupError = false
+      watchEffect(() => {
+        const permissionsEnabled = Boolean(runtimeConfig.public.convex?.permissions)
+        if (!permissionsEnabled) return
+        if (!error.value) return
+        if (warnedPermissionSetupError) return
+
+        warnedPermissionSetupError = true
+        console.warn(
+          '[better-convex-nuxt] Permissions enabled but permission context query failed. ' +
+            'Check `api.auth.getPermissionContext`, confirm your schema/query is synced, and run `npx convex dev` if needed.',
+          error.value,
+        )
+      })
+    }
 
     return {
       can,

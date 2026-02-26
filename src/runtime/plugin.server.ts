@@ -17,11 +17,48 @@ import { decodeUserFromJwt } from './utils/convex-shared'
 import type { ConvexUser } from './utils/types'
 import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
 import { getCookie } from './utils/shared-helpers'
+import {
+  buildAuthProxyUnreachableMessage,
+  buildAuthProxyUpstreamStatusMessage,
+  buildMissingSiteUrlMessage,
+  buildTokenExchangeFailureMessage,
+} from './utils/auth-errors'
+import { resolveConvexSiteUrl } from './utils/convex-config'
 
 /** Session cookie name used by Better Auth */
 const SESSION_COOKIE_NAME = 'better-auth.session_token'
 /** Secure cookie name (used on HTTPS in production) */
 const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
+const AUTH_HEALTHCHECK_CACHE_KEY = '__BCN_AUTH_HEALTHCHECK_DONE__'
+
+async function runAuthHealthcheckOnce(siteUrl: string): Promise<void> {
+  if (!import.meta.dev) return
+
+  const globalState = globalThis as typeof globalThis & { [AUTH_HEALTHCHECK_CACHE_KEY]?: Set<string> }
+  if (!globalState[AUTH_HEALTHCHECK_CACHE_KEY]) {
+    globalState[AUTH_HEALTHCHECK_CACHE_KEY] = new Set<string>()
+  }
+  const checked = globalState[AUTH_HEALTHCHECK_CACHE_KEY]
+  if (checked.has(siteUrl)) return
+  checked.add(siteUrl)
+
+  try {
+    const response = await fetch(`${siteUrl}/api/auth/get-session`, { method: 'GET' })
+    if ([200, 401, 403].includes(response.status)) {
+      return
+    }
+    if (response.status === 404) {
+      console.warn(
+        buildAuthProxyUpstreamStatusMessage(siteUrl, '/get-session', 404),
+        'Did you register Better Auth routes in `convex/http.ts` and deploy them?',
+      )
+      return
+    }
+    console.warn(buildAuthProxyUpstreamStatusMessage(siteUrl, '/get-session', response.status))
+  } catch (error) {
+    console.warn(buildAuthProxyUnreachableMessage(siteUrl, error))
+  }
+}
 
 /**
  * Helper to build a waterfall phase entry (dev-only)
@@ -87,14 +124,21 @@ export default defineNuxtPlugin(async () => {
   const requestMethod = event.method || 'GET'
   const requestId = crypto.randomUUID()
 
-  const siteUrl = config.public.convex?.siteUrl as string | undefined
+  const siteUrl = resolveConvexSiteUrl({
+    url: config.public.convex?.url as string | undefined,
+    siteUrl: config.public.convex?.siteUrl as string | undefined,
+  }).siteUrl
 
   if (!siteUrl) {
-    // This shouldn't happen if module validation is working, but handle gracefully
+    const message = buildMissingSiteUrlMessage(config.public.convex?.url as string | undefined)
+    const convexAuthError = useState<string | null>('convex:authError', () => null)
+    convexAuthError.value = message
     endInit()
-    logger.debug('No siteUrl configured, auth disabled')
+    logger.auth({ phase: 'init', outcome: 'error', error: new Error(message) })
     return
   }
+
+  void runAuthHealthcheckOnce(siteUrl)
 
   // Helper to log auth events
   const logAuth = (phase: string, outcome: 'success' | 'error' | 'skip' | 'miss', details?: Record<string, unknown>, error?: Error) => {
@@ -114,6 +158,7 @@ export default defineNuxtPlugin(async () => {
   // Initialize useState for hydration (must be done even if unauthenticated)
   const convexToken = useState<string | null>('convex:token', () => null)
   const convexUser = useState<ConvexUser | null>('convex:user', () => null)
+  const convexAuthError = useState<string | null>('convex:authError', () => null)
   const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
 
   // Waterfall tracking (dev-only)
@@ -137,6 +182,7 @@ export default defineNuxtPlugin(async () => {
   })
 
   if (!cookieHeader || !sessionToken) {
+    convexAuthError.value = null
     if (trackWaterfall) {
       phases.push(buildPhase('session-check', sessionCheckStart, waterfallStart, 'miss', 'No session cookie'))
       convexAuthWaterfall.value = {
@@ -159,6 +205,8 @@ export default defineNuxtPlugin(async () => {
 
   try {
     let token: string | null = null
+    let tokenExchangeStatus: number | undefined
+    let tokenExchangeThrown: unknown
 
     // Phase 2: Cache Lookup (if enabled)
     if (authCacheConfig?.enabled && sessionToken) {
@@ -209,9 +257,18 @@ export default defineNuxtPlugin(async () => {
 
     // Phase 3: Token Exchange (cache miss or caching disabled)
     const exchangeStart = trackWaterfall ? Date.now() : 0
-    const tokenResponse = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
-      headers: { Cookie: cookieHeader },
-    }).catch(() => null)) as { token?: string } | null
+    let tokenResponse: { token?: string } | null = null
+    try {
+      const response = await fetch(`${siteUrl}/api/auth/convex/token`, {
+        headers: { Cookie: cookieHeader },
+      })
+      tokenExchangeStatus = response.status
+      if (response.ok) {
+        tokenResponse = (await response.json().catch(() => null)) as { token?: string } | null
+      }
+    } catch (error) {
+      tokenExchangeThrown = error
+    }
 
     if (tokenResponse?.token) {
       if (trackWaterfall) {
@@ -221,6 +278,7 @@ export default defineNuxtPlugin(async () => {
       }
       token = tokenResponse.token
       convexToken.value = token
+      convexAuthError.value = null
 
       // Phase 4: JWT Decode
       const decodeStart = trackWaterfall ? Date.now() : 0
@@ -228,9 +286,17 @@ export default defineNuxtPlugin(async () => {
 
       // If decode failed, fallback to session endpoint
       if (!convexUser.value) {
-        const sessionResponse = (await $fetch(`${siteUrl}/api/auth/get-session`, {
-          headers: { Cookie: cookieHeader },
-        }).catch(() => null)) as { user?: ConvexUser } | null
+        let sessionResponse: { user?: ConvexUser } | null = null
+        try {
+          const sessionFetch = await fetch(`${siteUrl}/api/auth/get-session`, {
+            headers: { Cookie: cookieHeader },
+          })
+          if (sessionFetch.ok) {
+            sessionResponse = (await sessionFetch.json().catch(() => null)) as { user?: ConvexUser } | null
+          }
+        } catch {
+          // Ignore session fallback failure; JWT decode absence is already handled.
+        }
         if (sessionResponse?.user) {
           convexUser.value = sessionResponse.user
         }
@@ -256,11 +322,34 @@ export default defineNuxtPlugin(async () => {
       endInit()
       logAuth('exchange', 'success', { user: convexUser.value?.email })
     } else {
+      const likelyMisconfig = Boolean(tokenExchangeThrown)
+        || tokenExchangeStatus === 404
+        || (tokenExchangeStatus !== undefined && tokenExchangeStatus >= 500)
+      if (likelyMisconfig) {
+        convexAuthError.value = buildTokenExchangeFailureMessage({
+          siteUrl,
+          status: tokenExchangeStatus,
+          error: tokenExchangeThrown,
+        })
+      } else {
+        convexAuthError.value = null
+      }
       if (trackWaterfall) {
-        phases.push(buildPhase('token-exchange', exchangeStart, waterfallStart, 'error', 'No token returned'))
+        phases.push(buildPhase(
+          'token-exchange',
+          exchangeStart,
+          waterfallStart,
+          likelyMisconfig ? 'error' : 'miss',
+          tokenExchangeStatus ? `HTTP ${tokenExchangeStatus}` : 'No token returned',
+        ))
       }
       endInit()
-      logAuth('exchange', 'miss')
+      logAuth(
+        'exchange',
+        likelyMisconfig ? 'error' : 'miss',
+        tokenExchangeStatus ? { status: tokenExchangeStatus } : undefined,
+        tokenExchangeThrown instanceof Error ? tokenExchangeThrown : undefined,
+      )
     }
 
     // Store waterfall (dev-only)
@@ -278,6 +367,7 @@ export default defineNuxtPlugin(async () => {
     // Token exchange failed - session may be invalid/expired
     convexToken.value = null
     convexUser.value = null
+    convexAuthError.value = buildTokenExchangeFailureMessage({ siteUrl, error })
 
     // Store waterfall with error (dev-only)
     if (trackWaterfall) {
@@ -293,6 +383,11 @@ export default defineNuxtPlugin(async () => {
     }
 
     endInit()
-    logAuth('exchange', 'error', undefined, error instanceof Error ? error : new Error('Token exchange failed'))
+    logAuth(
+      'exchange',
+      'error',
+      undefined,
+      error instanceof Error ? error : new Error(convexAuthError.value),
+    )
   }
 })

@@ -1,6 +1,6 @@
 {
   "name": "better-convex-nuxt",
-  "version": "0.2.12",
+  "version": "0.3.0",
   "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
   "keywords": [
     "authentication",
@@ -37,7 +37,7 @@
         "./dist/types.d.mts"
       ],
       "server": [
-        "./dist/runtime/server/utils/convex.d.ts"
+        "./dist/runtime/server/index.d.ts"
       ]
     }
   },
@@ -47,8 +47,8 @@
       "import": "./dist/module.mjs"
     },
     "./server": {
-      "types": "./dist/runtime/server/utils/convex.d.ts",
-      "import": "./dist/runtime/server/utils/convex.js"
+      "types": "./dist/runtime/server/index.d.ts",
+      "import": "./dist/runtime/server/index.js"
     }
   },
   "scripts": {

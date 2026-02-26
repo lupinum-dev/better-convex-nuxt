@@ -83,16 +83,15 @@ await mutate({ text: "Ship my app" });
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user, signOut } = useConvexAuth();
-const authClient = useAuthClient();
+const { isAuthenticated, user, signOut, signIn } = useAuth();
 
 async function handleLogin(email: string, password: string) {
-  const { error } = await authClient.signIn.email({ email, password });
+  const { error } = await signIn.email({ email, password });
   if (!error) navigateTo("/dashboard");
 }
 
 async function handleOAuth() {
-  await authClient.signIn.social({ provider: "github" });
+  await signIn.social({ provider: "github" });
 }
 </script>
 
@@ -197,4 +196,3 @@ Built-in features for building production-ready apps
   :::
 :::
 ::
-

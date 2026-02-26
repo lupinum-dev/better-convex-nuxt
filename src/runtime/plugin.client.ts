@@ -10,6 +10,8 @@ import { ConvexClient } from 'convex/browser'
 import { createLogger, getLogLevel } from './utils/logger'
 import { matchesSkipRoute } from './utils/route-matcher'
 import { decodeUserFromJwt } from './utils/convex-shared'
+import { buildClientAuthRequestFailureMessage, buildClientAuthResponseErrorMessage, buildMissingSiteUrlMessage } from './utils/auth-errors'
+import { normalizeAuthRoute, resolveConvexSiteUrl } from './utils/convex-config'
 import type { AuthWaterfall } from './devtools/types'
 
 interface TokenResponse {
@@ -21,13 +23,8 @@ type AuthClientWithConvex = ReturnType<typeof createAuthClient> & {
   convex: { token: () => Promise<TokenResponse> }
 }
 
-declare module '#app' {
-  interface NuxtApp {
-    _convexInitialized?: boolean
-  }
-}
-
 export default defineNuxtPlugin((nuxtApp) => {
+  const appWithInitFlag = nuxtApp as typeof nuxtApp & { _convexInitialized?: boolean }
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = createLogger(logLevel)
@@ -56,16 +53,19 @@ export default defineNuxtPlugin((nuxtApp) => {
   )
 
   // HMR-safe initialization
-  if (nuxtApp._convexInitialized) {
+  if (appWithInitFlag._convexInitialized) {
     logger.debug('plugin:init (client) skipped; already initialized', { traceId: convexAuthTraceId.value })
     return
   }
-  nuxtApp._convexInitialized = true
+  appWithInitFlag._convexInitialized = true
 
   const convexUrl = config.public.convex?.url as string | undefined
   // Check if auth is explicitly enabled via the auth flag
   const isAuthEnabled = config.public.convex?.auth as boolean | undefined
-  const siteUrl = config.public.convex?.siteUrl as string | undefined
+  const resolvedSiteUrl = resolveConvexSiteUrl({
+    url: convexUrl,
+    siteUrl: config.public.convex?.siteUrl as string | undefined,
+  }).siteUrl
 
   if (!convexUrl) {
     logger.auth({ phase: 'init', outcome: 'error', error: new Error('No Convex URL configured') })
@@ -106,11 +106,19 @@ export default defineNuxtPlugin((nuxtApp) => {
     },
   })
 
-  if (isAuthEnabled && siteUrl) {
-    // Normalize authRoute: ensure leading slash, remove trailing slash
-    const rawAuthRoute = (config.public.convex?.authRoute as string | undefined) || '/api/auth'
-    const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`)
-      .replace(/\/+$/, '')
+  if (isAuthEnabled && !resolvedSiteUrl) {
+    convexAuthError.value = buildMissingSiteUrlMessage(convexUrl)
+    convexPending.value = false
+    logger.auth({
+      phase: 'client-init',
+      outcome: 'error',
+      error: new Error(convexAuthError.value),
+      details: { traceId: convexAuthTraceId.value },
+    })
+  }
+
+  if (isAuthEnabled && resolvedSiteUrl) {
+    const authRoute = normalizeAuthRoute(config.public.convex?.authRoute as string | undefined)
     const authBaseURL =
       typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
 
@@ -273,12 +281,14 @@ export default defineNuxtPlugin((nuxtApp) => {
         if (response.error || !response.data?.token) {
           convexToken.value = null
           convexUser.value = null
-          // Set auth error if there was an explicit error response
+          // Set auth error only for explicit failures. Missing token without error is typically "not signed in".
           if (response.error) {
             const errorMsg = typeof response.error === 'object' && response.error !== null && 'message' in response.error
               ? String((response.error as { message: unknown }).message)
               : 'Authentication failed'
-            convexAuthError.value = errorMsg
+            convexAuthError.value = buildClientAuthResponseErrorMessage(errorMsg)
+          } else {
+            convexAuthError.value = null
           }
           lastNullTokenCheck = Date.now() // Cache the "no session" result
           logger.auth({
@@ -329,7 +339,7 @@ export default defineNuxtPlugin((nuxtApp) => {
         convexToken.value = null
         convexUser.value = null
         // Set auth error for caught exceptions
-        convexAuthError.value = e instanceof Error ? e.message : 'Authentication request failed'
+        convexAuthError.value = buildClientAuthRequestFailureMessage(e)
         lastNullTokenCheck = Date.now() // Cache the failed result
         logger.auth({
           phase: 'client-fetchToken:response',

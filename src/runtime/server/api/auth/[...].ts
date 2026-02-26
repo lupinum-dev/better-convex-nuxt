@@ -11,6 +11,13 @@ import {
 import { useRuntimeConfig } from '#imports'
 import type { AuthProxyRequest } from '../../../devtools/types'
 import { fetchWithCanonicalRedirects } from './redirect-utils'
+import {
+  buildAuthProxyUnreachableMessage,
+  buildAuthProxyUpstreamStatusMessage,
+  buildBlockedOriginMessage,
+  buildMissingSiteUrlMessage,
+} from '../../../utils/auth-errors'
+import { normalizeAuthRoute, resolveConvexSiteUrl } from '../../../utils/convex-config'
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
@@ -58,14 +65,14 @@ function isOriginAllowed(
 export default defineEventHandler(async (event: H3Event) => {
   const config = useRuntimeConfig()
   const convexConfig = config.public.convex as
-    | { siteUrl?: string; trustedOrigins?: string[]; authRoute?: string }
+    | { url?: string; siteUrl?: string; trustedOrigins?: string[]; authRoute?: string }
     | undefined
-  const siteUrl = convexConfig?.siteUrl
+  const siteUrl = resolveConvexSiteUrl({
+    url: convexConfig?.url,
+    siteUrl: convexConfig?.siteUrl,
+  }).siteUrl
   const trustedOrigins = convexConfig?.trustedOrigins ?? []
-  // Normalize authRoute: ensure leading slash, remove trailing slash
-  const rawAuthRoute = convexConfig?.authRoute || '/api/auth'
-  const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`)
-    .replace(/\/+$/, '')
+  const authRoute = normalizeAuthRoute(convexConfig?.authRoute)
 
   // Dev mode: track request timing
   const startTime = import.meta.dev ? Date.now() : 0
@@ -75,7 +82,8 @@ export default defineEventHandler(async (event: H3Event) => {
   if (!siteUrl) {
     throw createError({
       statusCode: 500,
-      message: 'Convex site URL not configured',
+      message: buildMissingSiteUrlMessage(convexConfig?.url),
+      data: { code: 'BCN_AUTH_PROXY_SITE_URL_MISSING' },
     })
   }
 
@@ -91,8 +99,11 @@ export default defineEventHandler(async (event: H3Event) => {
   if (event.method === 'OPTIONS') {
     const origin = event.headers.get('origin')
     if (!origin || !isOriginAllowed(origin, requestUrl.host, trustedOrigins)) {
-      setResponseStatus(event, 403)
-      return null
+      throw createError({
+        statusCode: 403,
+        message: buildBlockedOriginMessage(origin, requestUrl.host),
+        data: { code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED', origin },
+      })
     }
     setHeaders(event, {
       'Access-Control-Allow-Origin': origin,
@@ -118,8 +129,11 @@ export default defineEventHandler(async (event: H3Event) => {
 
   // Enforce origin checks for non-preflight requests
   if (origin && !isAllowedOrigin) {
-    setResponseStatus(event, 403)
-    return null
+    throw createError({
+      statusCode: 403,
+      message: buildBlockedOriginMessage(origin, requestUrl.host),
+      data: { code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED', origin },
+    })
   }
 
   try {
@@ -157,6 +171,20 @@ export default defineEventHandler(async (event: H3Event) => {
       headers: forwardHeaders,
       body,
     })
+
+    // Common misconfig path: Convex site URL reachable, but Better Auth routes are missing.
+    const isCriticalAuthEndpoint = normalizedPath === '/convex/token' || normalizedPath === '/get-session'
+    if (isCriticalAuthEndpoint && (response.status === 404 || response.status >= 500)) {
+      throw createError({
+        statusCode: 502,
+        message: buildAuthProxyUpstreamStatusMessage(siteUrl, normalizedPath, response.status),
+        data: {
+          code: 'BCN_AUTH_PROXY_UPSTREAM_STATUS',
+          upstreamStatus: response.status,
+          path: normalizedPath,
+        },
+      })
+    }
 
     // Dev mode: log the request
     if (import.meta.dev) {
@@ -200,6 +228,10 @@ export default defineEventHandler(async (event: H3Event) => {
     const responseBody = await response.text()
     return send(event, responseBody)
   } catch (error) {
+    if (error && typeof error === 'object' && 'statusCode' in error) {
+      throw error
+    }
+
     // Dev mode: log the failed request
     if (import.meta.dev) {
       await recordAuthProxyRequestInDev({
@@ -215,11 +247,12 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Security: Don't leak internal error details in production
     const errorMessage = import.meta.dev
-      ? `Failed to proxy request to Convex: ${error instanceof Error ? error.message : String(error)}`
-      : 'Failed to proxy request to Convex'
+      ? buildAuthProxyUnreachableMessage(siteUrl, error)
+      : 'Failed to proxy request to Convex auth server'
     throw createError({
       statusCode: 502,
       message: errorMessage,
+      data: { code: 'BCN_AUTH_PROXY_UNREACHABLE' },
     })
   }
 })

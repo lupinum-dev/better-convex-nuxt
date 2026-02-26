@@ -1,4 +1,5 @@
 export { useConvexAuth, type ConvexUser } from './useConvexAuth'
+export { useAuth, type UseAuthReturn } from './useAuth'
 export { useConvex } from './useConvex'
 export {
   useConvexConnectionState,
@@ -27,7 +28,6 @@ export {
   type ActionStatus,
   type UseConvexActionReturn,
 } from './useConvexAction'
-export { useAuthClient } from './useAuthClient'
 export {
   useConvexQuery,
   getQueryKey,

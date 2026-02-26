@@ -257,7 +257,7 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, token, user, signOut: convexSignOut } = useConvexAuth()
+const { isAuthenticated, isPending, token, user, signOut: authSignOut } = useAuth()
 const convex = useConvex()
 const roleOptions = ['admin', 'member', 'viewer'] as const
 const isUpdatingRole = ref(false)
@@ -277,7 +277,7 @@ const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : 'skip' 
 const { data: permissionContext } = useConvexQuery(api.auth.getPermissionContext, permissionQueryArgs)
 
 // Compile-time proof: these property accesses fail if ConvexUser augmentation
-// does not flow through useConvexAuth().user.
+// does not flow through useAuth().user.
 const augmentedUserFields = computed(() => ({
   role: user.value?.role,
   authId: user.value?.authId,
@@ -430,7 +430,7 @@ async function changeRole(role: (typeof roleOptions)[number]) {
 }
 
 async function signOut() {
-  await convexSignOut()
+  await authSignOut()
 }
 </script>
 
