@@ -29,5 +29,24 @@ describe('convexAuth route protection behavior', async () => {
     expect(url.pathname).toBe('/auth/signup')
     expect(url.searchParams.get('redirect')).toBe('/labs/guard-custom-redirect')
   }, 30000)
-})
 
+  it('does not mount protected content while auth is pending before redirecting', async () => {
+    const page = await createPage('/labs/guard-pending-control')
+    await page.waitForLoadState('networkidle')
+
+    await page.click('[data-testid="start-pending-guard-nav"]')
+    await page.waitForURL(/\/auth\/signin/, { timeout: 10000 })
+    await page.waitForLoadState('networkidle')
+
+    const currentUrl = new URL(page.url())
+    expect(currentUrl.pathname).toBe('/auth/signin')
+    expect(currentUrl.searchParams.get('redirect')).toBe('/labs/guard-pending-protected')
+
+    const protectedMountCount = await page.evaluate(() => {
+      return (window as Window & { __BCN_PENDING_GUARD_PROTECTED_MOUNTED__?: number })
+        .__BCN_PENDING_GUARD_PROTECTED_MOUNTED__ ?? 0
+    })
+    expect(protectedMountCount).toBe(0)
+    expect(await page.$('[data-testid="guard-pending-protected-page"]')).toBeNull()
+  }, 30000)
+})

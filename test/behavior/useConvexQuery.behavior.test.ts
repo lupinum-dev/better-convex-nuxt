@@ -52,6 +52,32 @@ describe('useConvexQuery behavior', async () => {
       const hydrationErrors = consoleErrors.filter((msg) => msg.toLowerCase().includes('hydration'))
       expect(hydrationErrors).toHaveLength(0)
     }, 30000)
+
+    it('preserves Convex special values across SSR payload hydration (int64 + bytes)', async () => {
+      const html = await $fetch('/labs/query-features/convex-payload')
+      expect(html).toContain('data-testid="convex-payload-page"')
+      expect(html).toContain('data-testid="bigint-type"')
+
+      const page = await createPage('/labs/query-features/convex-payload')
+      const consoleErrors: string[] = []
+      page.on('console', (msg) => {
+        if (msg.type() === 'error') {
+          consoleErrors.push(msg.text())
+        }
+      })
+
+      await page.waitForLoadState('networkidle')
+
+      expect((await page.textContent('[data-testid="bigint-type"]'))?.trim()).toBe('bigint')
+      expect((await page.textContent('[data-testid="bigint-value"]'))?.trim()).toBe('123')
+      expect((await page.textContent('[data-testid="bytes-type"]'))?.trim()).toBe('ArrayBuffer')
+      expect((await page.textContent('[data-testid="bytes-length"]'))?.trim()).toBe('3')
+      expect((await page.textContent('[data-testid="bytes-values"]'))?.trim()).toBe('1,2,3')
+      expect((await page.textContent('[data-testid="convex-json-bytes"]'))?.trim()).toBe('AQID')
+
+      const hydrationErrors = consoleErrors.filter((msg) => msg.toLowerCase().includes('hydration'))
+      expect(hydrationErrors).toHaveLength(0)
+    }, 30000)
   })
 
   describe('Skip Behavior', () => {

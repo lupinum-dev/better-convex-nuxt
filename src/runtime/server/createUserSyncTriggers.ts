@@ -6,17 +6,21 @@ export interface BetterAuthUserDocLike {
   [key: string]: unknown
 }
 
+type UserSyncDb<TExistingUser extends { _id: unknown }> = {
+  insert: (table: string, value: Record<string, unknown>) => Promise<unknown>
+  query: (table: string) => ConvexQueryChain<TExistingUser>
+  patch: (id: TExistingUser['_id'], value: Record<string, unknown>) => Promise<unknown>
+  delete: (id: TExistingUser['_id']) => Promise<unknown>
+}
+
+type UserSyncCtx<TExistingUser extends { _id: unknown }> = {
+  db: UserSyncDb<TExistingUser>
+}
+
 export interface CreateUserSyncTriggersOptions<
-  TCtx = {
-    db: {
-      insert: (table: string, value: Record<string, unknown>) => Promise<unknown>
-      query: (table: string) => unknown
-      patch: (id: unknown, value: Record<string, unknown>) => Promise<unknown>
-      delete: (id: unknown) => Promise<unknown>
-    }
-  },
   TAuthUser extends BetterAuthUserDocLike = BetterAuthUserDocLike,
   TExistingUser extends { _id: unknown } = { _id: unknown },
+  TCtx extends UserSyncCtx<TExistingUser> = UserSyncCtx<TExistingUser>,
 > {
   /**
    * Convex table to sync Better Auth users into (for example: "users").
@@ -57,14 +61,16 @@ type ConvexQueryChain<TExistingUser> = {
   ) => { first: () => Promise<TExistingUser | null> }
 }
 
-async function findExistingByAuthId<TCtx, TExistingUser extends { _id: unknown }>(
-  ctx: TCtx,
-  options: Pick<CreateUserSyncTriggersOptions<TCtx, BetterAuthUserDocLike, TExistingUser>, 'table' | 'index' | 'authIdField'>,
+async function findExistingByAuthId<
+  TExistingUser extends { _id: unknown },
+  TCtx extends UserSyncCtx<TExistingUser>,
+>(
+  ctx: { db: Pick<UserSyncDb<TExistingUser>, 'query'> },
+  options: Pick<CreateUserSyncTriggersOptions<BetterAuthUserDocLike, TExistingUser, TCtx>, 'table' | 'index' | 'authIdField'>,
   authUserId: string,
 ): Promise<TExistingUser | null> {
   const authIdField = options.authIdField ?? 'authId'
-  const db = (ctx as { db: { query: (table: string) => ConvexQueryChain<TExistingUser> } }).db
-  return await db
+  return await ctx.db
     .query(options.table)
     .withIndex(options.index, (q) => q.eq(authIdField, authUserId))
     .first()
@@ -77,24 +83,16 @@ async function findExistingByAuthId<TCtx, TExistingUser extends { _id: unknown }
  * Better Auth configuration, plugins, and Convex `createClient()` wiring.
  */
 export function createUserSyncTriggers<
-  TCtx = {
-    db: {
-      insert: (table: string, value: Record<string, unknown>) => Promise<unknown>
-      query: (table: string) => unknown
-      patch: (id: unknown, value: Record<string, unknown>) => Promise<unknown>
-      delete: (id: unknown) => Promise<unknown>
-    }
-  },
   TAuthUser extends BetterAuthUserDocLike = BetterAuthUserDocLike,
   TExistingUser extends { _id: unknown } = { _id: unknown },
->(options: CreateUserSyncTriggersOptions<TCtx, TAuthUser, TExistingUser>) {
+  TCtx extends UserSyncCtx<TExistingUser> = UserSyncCtx<TExistingUser>,
+>(options: CreateUserSyncTriggersOptions<TAuthUser, TExistingUser, TCtx>) {
   return {
     user: {
       onCreate: async (ctx: TCtx, user: TAuthUser) => {
         const now = Date.now()
         const doc = await options.createDoc({ ctx, user, now })
-        const db = (ctx as { db: { insert: (table: string, value: Record<string, unknown>) => Promise<unknown> } }).db
-        await db.insert(options.table, doc)
+        await ctx.db.insert(options.table, doc)
       },
       onUpdate: async (ctx: TCtx, user: TAuthUser, previousUser: TAuthUser) => {
         if (!options.patchDoc) return
@@ -115,8 +113,7 @@ export function createUserSyncTriggers<
         })
         if (!patch || Object.keys(patch).length === 0) return
 
-        const db = (ctx as { db: { patch: (id: unknown, value: Record<string, unknown>) => Promise<unknown> } }).db
-        await db.patch(existing._id, patch)
+        await ctx.db.patch(existing._id, patch)
       },
       onDelete: async (ctx: TCtx, user: TAuthUser) => {
         const existing = await findExistingByAuthId(
@@ -126,10 +123,8 @@ export function createUserSyncTriggers<
         )
         if (!existing) return
 
-        const db = (ctx as { db: { delete: (id: unknown) => Promise<unknown> } }).db
-        await db.delete(existing._id)
+        await ctx.db.delete(existing._id)
       },
     },
   }
 }
-
