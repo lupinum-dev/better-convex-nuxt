@@ -1,6 +1,8 @@
 import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
+import { admin } from 'better-auth/plugins'
+import { v } from 'convex/values'
 
 import type { DataModel } from './_generated/dataModel'
 
@@ -75,6 +77,14 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     emailAndPassword: {
       enabled: true,
     },
+    user: {
+      // Playground-only demo fields to verify Better Auth `additionalFields`
+      // typing on the frontend (authClient.useSession()).
+      additionalFields: {
+        organizationId: { type: 'string', required: false },
+        marketingOptIn: { type: 'boolean', required: false },
+      },
+    },
     plugins: [
       // convex() plugin includes JWT functionality - don't add separate jwt() plugin
       convex({
@@ -95,6 +105,9 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
           }),
         },
       }),
+      // Playground demo for issue #22 docs: plugin server installation.
+      // Admin plugin permissions remain separate from Convex app roles.
+      admin(),
     ],
     session: {
       expiresIn: 60 * 60 * 24 * 7,
@@ -103,6 +116,9 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     trustedOrigins: [siteUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'],
   })
 }
+
+// Type-only bridge for frontend `inferAdditionalFields<AppAuth>()` usage.
+export type AppAuth = ReturnType<typeof createAuth>
 
 export const rotateKeys = internalAction({
   args: {},
@@ -227,5 +243,39 @@ export const getPermissionContext = query({
     // Always attach debug info for debugging
     return { ...context, _debug: debugInfo }
     // #endregion
+  },
+})
+
+// Playground-only demo mutation used by /labs/auth to prove the Convex DB role
+// (authoritative app role) is separate from JWT convenience claims.
+export const setOwnRole = mutation({
+  args: {
+    role: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error('Not authenticated')
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .first()
+
+    if (!user) {
+      throw new Error('User not found in Convex users table')
+    }
+
+    await ctx.db.patch(user._id, {
+      role: args.role,
+      updatedAt: Date.now(),
+    })
+
+    return {
+      ok: true,
+      role: args.role,
+      userId: user._id,
+    }
   },
 })
