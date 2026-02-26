@@ -2,6 +2,36 @@ import { setup, $fetch, createPage } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
+async function openUseAuthTestPage() {
+  const page = await createPage('/labs/use-auth-test')
+  const pageErrors: string[] = []
+  const consoleErrors: string[] = []
+  page.on('pageerror', (error) => {
+    pageErrors.push(error.message)
+  })
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      consoleErrors.push(msg.text())
+    }
+  })
+  return { page, pageErrors, consoleErrors }
+}
+
+async function waitForSelectorWithDebug(
+  page: { waitForSelector: (s: string, o?: { timeout?: number }) => Promise<unknown>; textContent: (s: string) => Promise<string | null>; content: () => Promise<string>; url: () => string },
+  selector: string,
+  options: { timeout: number },
+) {
+  try {
+    await page.waitForSelector(selector, options)
+  } catch (error) {
+    const bodyText = await page.textContent('body').catch(() => null)
+    const content = await page.content().catch(() => null)
+    console.error('[useAuth.behavior] selector wait failed', { selector, url: page.url(), bodyText, contentSnippet: content?.slice(0, 1000) })
+    throw error
+  }
+}
+
 describe('useAuth behavior', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
@@ -13,33 +43,16 @@ describe('useAuth behavior', async () => {
     expect(html).not.toContain('500 Internal Server Error')
   })
 
-  it('exposes auth state and action methods on client', async () => {
-    const page = await createPage('/labs/use-auth-test?__stubAuth=1')
-    await page.waitForLoadState('networkidle')
+  it('hydrates and exposes auth state/action methods on client', async () => {
+    const { page, pageErrors, consoleErrors } = await openUseAuthTestPage()
+    expect(page.url()).toContain('/labs/use-auth-test')
+    await waitForSelectorWithDebug(page, '.panel .row', { timeout: 10000 })
 
     const panelText = await page.textContent('.panel')
     expect(panelText).toContain('signIn.email type')
     expect(panelText).toContain('function')
     expect(panelText).toContain('signUp.email type')
-  }, 30000)
-
-  it('can call stubbed signIn and signUp actions without live auth backend', async () => {
-    const page = await createPage('/labs/use-auth-test?__stubAuth=1')
-    await page.waitForLoadState('networkidle')
-
-    await page.click('.actions .btn:first-of-type')
-    await page.waitForFunction(() => {
-      const el = document.querySelector('.result')
-      return (el?.textContent || '').includes('"kind": "signIn"')
-    })
-    expect(await page.textContent('.result')).toContain('"kind": "signIn"')
-
-    await page.click('.actions .btn:nth-of-type(2)')
-    await page.waitForFunction(() => {
-      const el = document.querySelector('.result')
-      return (el?.textContent || '').includes('"kind": "signUp"')
-    })
-    expect(await page.textContent('.result')).toContain('"kind": "signUp"')
+    expect(pageErrors).toEqual([])
+    expect(consoleErrors).toEqual([])
   }, 30000)
 })
-

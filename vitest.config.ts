@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+import { defineVitestProject } from '@nuxt/test-utils/config'
 import { defineConfig } from 'vitest/config'
 
 /**
@@ -10,6 +12,7 @@ import { defineConfig } from 'vitest/config'
  *
  * Run specific project:
  *   pnpm vitest --project=convex
+ *   pnpm vitest --project=nuxt
  *   pnpm vitest --project=e2e
  */
 export default defineConfig({
@@ -40,6 +43,21 @@ export default defineConfig({
           server: { deps: { inline: [/convex/] } },
         },
       },
+
+      // Nuxt Runtime Tests: composables/components needing nuxtApp context
+      // Fast-medium (~seconds) - run with `pnpm vitest --project=nuxt`
+      await defineVitestProject({
+        test: {
+          name: 'nuxt',
+          include: ['test/nuxt/**/*.test.ts'],
+          environment: 'nuxt',
+          environmentOptions: {
+            nuxt: {
+              rootDir: fileURLToPath(new URL('.', import.meta.url)),
+            },
+          },
+        },
+      }),
 
       // E2E Tests: SSR + Browser behavior tests
       // Uses @nuxt/test-utils for full Nuxt lifecycle
