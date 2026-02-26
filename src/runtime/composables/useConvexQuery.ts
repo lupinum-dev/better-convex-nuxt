@@ -3,7 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
-import { computed, watch, triggerRef, onUnmounted, toValue, isRef, isReactive, type Ref } from 'vue'
+import { computed, watch, triggerRef, onScopeDispose, toValue, isRef, isReactive, type Ref, type WatchStopHandle } from 'vue'
 
 import {
   getFunctionName,
@@ -12,9 +12,12 @@ import {
   parseConvexResponse,
   computeQueryStatus,
   fetchAuthToken,
+  createQueryBridge,
   registerSubscription,
   getSubscription,
   releaseSubscription,
+  ensureQueryBridge,
+  type SubscriptionEntry,
   type QueryStatus,
 } from '../utils/convex-cache'
 import { createLogger, getLogLevel } from '../utils/logger'
@@ -287,6 +290,68 @@ export function useConvexQuery<
 
   // Track whether this component instance has registered with the subscription cache
   let registeredCacheKey: string | null = null
+  let stopSharedDataWatch: WatchStopHandle | null = null
+  let stopSharedErrorWatch: WatchStopHandle | null = null
+
+  const cleanupSharedBridgeWatchers = () => {
+    if (stopSharedDataWatch) {
+      stopSharedDataWatch()
+      stopSharedDataWatch = null
+    }
+    if (stopSharedErrorWatch) {
+      stopSharedErrorWatch()
+      stopSharedErrorWatch = null
+    }
+  }
+
+  const attachSharedBridge = (
+    entry: SubscriptionEntry,
+  ) => {
+    cleanupSharedBridgeWatchers()
+
+    const bridge = ensureQueryBridge(entry)
+
+    const syncDataFromBridge = () => {
+      if (!bridge.hasRawData) return
+
+      const transformedResult = applyTransform(bridge.rawData as RawT)
+      ;(asyncData.data as Ref<DataT | null>).value = transformedResult
+
+      if (asyncData.error.value !== null) {
+        ;(asyncData.error as Ref<Error | null>).value = null
+      }
+
+      triggerRef(asyncData.data)
+    }
+
+    const syncErrorFromBridge = () => {
+      const err = bridge.error
+      if (!err) return
+
+      const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
+      if (!hasData) {
+        ;(asyncData.error as Ref<Error | null>).value = err
+      }
+    }
+
+    stopSharedDataWatch = watch(
+      () => bridge.dataVersion.value,
+      () => {
+        syncDataFromBridge()
+      },
+    )
+
+    stopSharedErrorWatch = watch(
+      () => bridge.errorVersion.value,
+      () => {
+        syncErrorFromBridge()
+      },
+    )
+
+    // Immediate sync for late joiners (e.g. skip -> real args)
+    syncDataFromBridge()
+    syncErrorFromBridge()
+  }
 
   // Setup WebSocket subscription bridge on client
   if (import.meta.client && subscribe) {
@@ -308,6 +373,7 @@ export function useConvexQuery<
       if (existingEntry) {
         existingEntry.refCount++
         registeredCacheKey = currentCacheKey
+        attachSharedBridge(existingEntry)
 
         // Log shared subscription
         logger.query({ name: fnName, event: 'share', refCount: existingEntry.refCount, args: currentArgs })
@@ -315,19 +381,19 @@ export function useConvexQuery<
       }
 
       try {
+        // Local bridge is created up-front so synchronous callbacks (if any) still have
+        // a place to write before the subscription entry is registered.
+        const localBridge = createQueryBridge()
+
         const unsubscribeFn = convex.onUpdate(
           query,
           currentArgs as FunctionArgs<Query>,
           (result: RawT) => {
-            const transformedResult = applyTransform(result)
-            // Cast needed because useAsyncData has complex PickFrom type
-            ;(asyncData.data as Ref<DataT | null>).value = transformedResult
-            // Clear error when subscription successfully receives data
-            if (asyncData.error.value !== null) {
-              ;(asyncData.error as Ref<Error | null>).value = null
-            }
-            // Force Vue reactivity for all watchers
-            triggerRef(asyncData.data)
+            // Subscription-level callback writes to shared bridge only.
+            localBridge.rawData = result
+            localBridge.hasRawData = true
+            localBridge.error = null
+            localBridge.dataVersion.value += 1
 
             logger.query({
               name: fnName,
@@ -337,27 +403,23 @@ export function useConvexQuery<
               data: result,
             })
 
-            // Update DevTools registry with new data
+            // DevTools stores raw shared subscription data (not transformed), because
+            // different subscribers may apply different transform() functions.
             if (import.meta.dev && devToolsRegistry) {
               devToolsRegistry.updateQueryStatus(currentCacheKey, {
                 status: 'success',
-                data: transformedResult,
+                data: result,
                 dataSource: 'websocket',
               })
             }
           },
           (err: Error) => {
+            localBridge.error = err
+            localBridge.errorVersion.value += 1
+
             logger.query({ name: fnName, event: 'error', error: err })
 
-            // Only set error if we don't have data
-            // If we have data (from SSR or previous subscription), the subscription
-            // will recover automatically and we don't want to flash an error state
-            const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
-            if (!hasData) {
-              ;(asyncData.error as Ref<Error | null>).value = err
-            }
-
-            // Update DevTools registry with error
+            // Keep DevTools subscription-level error visibility
             if (import.meta.dev && devToolsRegistry) {
               devToolsRegistry.updateQueryStatus(currentCacheKey, {
                 status: 'error',
@@ -367,7 +429,13 @@ export function useConvexQuery<
           },
         )
         registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
+        const registeredEntry = getSubscription(nuxtApp, currentCacheKey)
+        if (!registeredEntry) {
+          throw new Error('[useConvexQuery] Failed to register subscription entry')
+        }
+        registeredEntry.queryBridge = localBridge
         registeredCacheKey = currentCacheKey
+        attachSharedBridge(registeredEntry)
 
         logger.query({ name: fnName, event: 'subscribe', args: currentArgs })
 
@@ -406,6 +474,7 @@ export function useConvexQuery<
           if (hashArgs(newArgs) !== hashArgs(oldArgs)) {
             // Release old subscription if we had one registered
             if (oldArgs !== 'skip' && registeredCacheKey) {
+              cleanupSharedBridgeWatchers()
               const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
               if (wasUnsubscribed) {
@@ -430,9 +499,10 @@ export function useConvexQuery<
       )
     }
 
-    // Cleanup on unmount - use ref-counted release
-    onUnmounted(() => {
+    // Cleanup on scope dispose (more reliable for composables than onUnmounted)
+    onScopeDispose(() => {
       if (registeredCacheKey) {
+        cleanupSharedBridgeWatchers()
         // Release our reference to the subscription
         // This decrements the ref count - only actually unsubscribes when count reaches 0
         const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
@@ -447,6 +517,8 @@ export function useConvexQuery<
         }
 
         registeredCacheKey = null
+      } else {
+        cleanupSharedBridgeWatchers()
       }
     })
   }

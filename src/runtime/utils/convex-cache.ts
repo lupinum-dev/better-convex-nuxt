@@ -1,4 +1,5 @@
 import type { useNuxtApp } from '#app'
+import { shallowRef, type ShallowRef } from 'vue'
 
 // Re-export shared utilities
 export {
@@ -28,12 +29,47 @@ const subscriptionRegistry = new WeakMap<object, SubscriptionCache>()
 export interface SubscriptionEntry {
   unsubscribe: () => void
   refCount: number
+  queryBridge?: QuerySubscriptionBridge
+}
+
+/**
+ * Shared query state for deduplicated useConvexQuery subscribers.
+ * Stores raw subscription data and reactive version counters so each subscriber
+ * can sync into its own local asyncData refs with its own transform().
+ */
+export interface QuerySubscriptionBridge {
+  rawData: unknown
+  hasRawData: boolean
+  dataVersion: ShallowRef<number>
+  error: Error | null
+  errorVersion: ShallowRef<number>
 }
 
 /**
  * Subscription cache stored on NuxtApp
  */
 export type SubscriptionCache = Record<string, SubscriptionEntry | undefined>
+
+export function createQueryBridge(): QuerySubscriptionBridge {
+  return {
+    rawData: undefined,
+    hasRawData: false,
+    dataVersion: shallowRef(0),
+    error: null,
+    errorVersion: shallowRef(0),
+  }
+}
+
+/**
+ * Ensure a deduplicated query subscription has a shared bridge payload.
+ * Used by useConvexQuery to fan out subscription updates to all subscribers.
+ */
+export function ensureQueryBridge(entry: SubscriptionEntry): QuerySubscriptionBridge {
+  if (!entry.queryBridge) {
+    entry.queryBridge = createQueryBridge()
+  }
+  return entry.queryBridge
+}
 
 // ============================================================================
 // Auth Token Fetching
@@ -222,4 +258,3 @@ export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean
 
   return false
 }
-
