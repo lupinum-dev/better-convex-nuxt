@@ -1,3 +1,5 @@
+import type { ConvexProvideValue, SubscriptionDedupHarness } from '~~/utils/subscription-dedup-harness'
+
 export default defineNuxtPlugin({
   name: 'subscription-dedup-bug-fake-convex',
   enforce: 'pre',
@@ -11,7 +13,7 @@ export default defineNuxtPlugin({
     type CounterListener = (value: number) => void
     type ErrorListener = (error: Error) => void
 
-    class FakeConvexClient {
+    class FakeConvexClient implements SubscriptionDedupHarness {
       constructor(private autoInitialResult: boolean) {}
 
       private counter = 0
@@ -125,8 +127,8 @@ export default defineNuxtPlugin({
     }
 
     // Skip the real Convex plugin for this page and install the fake client instead.
-    ;(nuxtApp as any)._convexInitialized = true
-    nuxtApp.provide('convex', fakeConvex as any)
-    ;(window as any).__subscriptionDedupBugFakeConvex = fakeConvex
+    nuxtApp._convexInitialized = true
+    nuxtApp.provide('convex', fakeConvex as unknown as ConvexProvideValue)
+    window.__subscriptionDedupBugFakeConvex = fakeConvex
   },
 })

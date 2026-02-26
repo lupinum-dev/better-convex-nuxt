@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { getSubscriptionDedupHarness } from '~~/utils/subscription-dedup-harness'
+
 definePageMeta({
   layout: 'sidebar',
 })
@@ -7,7 +9,7 @@ const showParent = ref(true)
 const listenerCount = ref<number | null>(null)
 
 function getHarness() {
-  return import.meta.client ? (window as any).__subscriptionDedupBugFakeConvex : null
+  return getSubscriptionDedupHarness()
 }
 
 function increment() {

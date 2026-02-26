@@ -1,23 +1,27 @@
 <script setup lang="ts">
+import {
+  emptyQueryArgs,
+  getSubscriptionDedupHarness,
+  subscriptionDedupCounterQuery,
+} from '~~/utils/subscription-dedup-harness'
+
 definePageMeta({
   layout: 'sidebar',
 })
 
-const counterQuery = { _path: 'counter:get' } as any
-
 const {
   data: parentData,
   status: parentStatus,
-} = useConvexQuery(counterQuery, {}, { server: false })
+} = useConvexQuery(subscriptionDedupCounterQuery, emptyQueryArgs, { server: false })
 
 const childReady = ref(false)
 let childReadyTimer: ReturnType<typeof setTimeout> | null = null
 
-const childArgs = computed(() => (childReady.value ? {} : 'skip') as {} | 'skip')
+const childArgs = computed<Record<string, never> | 'skip'>(() => (childReady.value ? emptyQueryArgs : 'skip'))
 const {
   data: childData,
   status: childStatus,
-} = useConvexQuery(counterQuery, childArgs, { server: false })
+} = useConvexQuery(subscriptionDedupCounterQuery, childArgs, { server: false })
 
 onMounted(() => {
   // Simulates a child component receiving reactive args after mount.
@@ -33,9 +37,7 @@ onUnmounted(() => {
 })
 
 function increment() {
-  if (import.meta.client) {
-    ;(window as any).__subscriptionDedupBugFakeConvex?.increment()
-  }
+  getSubscriptionDedupHarness()?.increment()
 }
 </script>
 

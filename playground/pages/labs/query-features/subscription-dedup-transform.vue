@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import { getSubscriptionDedupHarness } from '~~/utils/subscription-dedup-harness'
+
 definePageMeta({
   layout: 'sidebar',
 })
 
 function increment() {
-  if (import.meta.client) {
-    ;(window as any).__subscriptionDedupBugFakeConvex?.increment()
-  }
+  getSubscriptionDedupHarness()?.increment()
 }
 </script>
 
