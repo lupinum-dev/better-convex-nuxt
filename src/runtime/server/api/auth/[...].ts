@@ -8,16 +8,16 @@ import {
   readRawBody,
   send,
 } from 'h3'
-import { useRuntimeConfig } from '#imports'
 import type { AuthProxyRequest } from '../../../devtools/types'
 import { fetchWithCanonicalRedirects } from './redirect-utils'
+import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
   buildBlockedOriginMessage,
   buildMissingSiteUrlMessage,
 } from '../../../utils/auth-errors'
-import { normalizeAuthRoute, resolveConvexSiteUrl } from '../../../utils/convex-config'
+import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
@@ -33,15 +33,14 @@ async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<v
  */
 function isOriginAllowed(
   origin: string,
-  requestHost: string,
+  requestOrigin: string,
   trustedOrigins: string[],
 ): boolean {
   // Same-origin requests are always allowed
   // Compare origin (e.g., 'https://example.com') with request host
   try {
     const originUrl = new URL(origin)
-    // Request host might not have protocol, so compare just the host part
-    if (originUrl.host === requestHost) return true
+    if (originUrl.origin === requestOrigin) return true
   } catch {
     // Invalid origin URL
   }
@@ -62,17 +61,21 @@ function isOriginAllowed(
   return false
 }
 
+const authRoutePatternCache = new Map<string, RegExp>()
+
+function getAuthRoutePattern(authRoute: string): RegExp {
+  const cached = authRoutePatternCache.get(authRoute)
+  if (cached) return cached
+  const pattern = new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
+  authRoutePatternCache.set(authRoute, pattern)
+  return pattern
+}
+
 export default defineEventHandler(async (event: H3Event) => {
-  const config = useRuntimeConfig()
-  const convexConfig = config.public.convex as
-    | { url?: string; siteUrl?: string; trustedOrigins?: string[]; authRoute?: string }
-    | undefined
-  const siteUrl = resolveConvexSiteUrl({
-    url: convexConfig?.url,
-    siteUrl: convexConfig?.siteUrl,
-  }).siteUrl
-  const trustedOrigins = convexConfig?.trustedOrigins ?? []
-  const authRoute = normalizeAuthRoute(convexConfig?.authRoute)
+  const convexConfig = getConvexRuntimeConfig()
+  const siteUrl = convexConfig.siteUrl
+  const trustedOrigins = convexConfig.trustedOrigins
+  const authRoute = convexConfig.authRoute
 
   // Dev mode: track request timing
   const startTime = import.meta.dev ? Date.now() : 0
@@ -80,15 +83,15 @@ export default defineEventHandler(async (event: H3Event) => {
   const requestUrl = getRequestURL(event)
 
   if (!siteUrl) {
-    throw createError({
-      statusCode: 500,
-      message: buildMissingSiteUrlMessage(convexConfig?.url),
-      data: { code: 'BCN_AUTH_PROXY_SITE_URL_MISSING' },
-    })
-  }
+      throw createError({
+        statusCode: 500,
+        message: buildMissingSiteUrlMessage(convexConfig.url),
+        data: { code: 'BCN_AUTH_PROXY_SITE_URL_MISSING' },
+      })
+    }
 
   // Use configured authRoute for path stripping (escape special regex chars)
-  const authRoutePattern = new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
+  const authRoutePattern = getAuthRoutePattern(authRoute)
   const path = requestUrl.pathname.replace(authRoutePattern, '') || '/'
   // Ensure path starts with / to avoid malformed URLs like /api/authtoken
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
@@ -98,7 +101,7 @@ export default defineEventHandler(async (event: H3Event) => {
   // Security: Only allow CORS for validated origins (same-origin or trustedOrigins)
   if (event.method === 'OPTIONS') {
     const origin = event.headers.get('origin')
-    if (!origin || !isOriginAllowed(origin, requestUrl.host, trustedOrigins)) {
+    if (!origin || !isOriginAllowed(origin, requestUrl.origin, trustedOrigins)) {
       throw createError({
         statusCode: 403,
         message: buildBlockedOriginMessage(origin, requestUrl.host),
@@ -118,7 +121,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
   // Set CORS headers for the response (only for validated origins)
   const origin = event.headers.get('origin')
-  const isAllowedOrigin = origin ? isOriginAllowed(origin, requestUrl.host, trustedOrigins) : true
+  const isAllowedOrigin = origin ? isOriginAllowed(origin, requestUrl.origin, trustedOrigins) : true
   if (origin && isAllowedOrigin) {
     setHeaders(event, {
       'Access-Control-Allow-Origin': origin,
@@ -157,9 +160,9 @@ export default defineEventHandler(async (event: H3Event) => {
     }
 
     // Get request body for POST/PUT/PATCH
-    let body: string | undefined
+    let body: Buffer | undefined
     if (['POST', 'PUT', 'PATCH'].includes(event.method)) {
-      body = await readRawBody(event, 'utf8') || undefined
+      body = (await readRawBody(event, false)) || undefined
     }
 
     // Make request to Convex (manual redirect handling).
@@ -170,6 +173,7 @@ export default defineEventHandler(async (event: H3Event) => {
       method: event.method,
       headers: forwardHeaders,
       body,
+      timeoutMs: DEFAULT_SERVER_FETCH_TIMEOUT_MS,
     })
 
     // Common misconfig path: Convex site URL reachable, but Better Auth routes are missing.
@@ -225,7 +229,7 @@ export default defineEventHandler(async (event: H3Event) => {
     }
 
     // Forward response body
-    const responseBody = await response.text()
+    const responseBody = Buffer.from(await response.arrayBuffer())
     return send(event, responseBody)
   } catch (error) {
     if (error && typeof error === 'object' && 'statusCode' in error) {

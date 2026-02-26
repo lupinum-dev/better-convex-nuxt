@@ -3,7 +3,7 @@
  * Serves the built Vue devtools application and API endpoints.
  */
 import { defineEventHandler, setHeader, getRequestURL, createError } from 'h3'
-import { join } from 'pathe'
+import { join, relative, resolve } from 'node:path'
 import { readFileSync, existsSync } from 'node:fs'
 import { useRuntimeConfig } from '#imports'
 import { getAuthProxyStats, clearAuthProxyStats } from './auth-proxy-registry'
@@ -63,10 +63,12 @@ export default defineEventHandler((event) => {
     throw createError({ statusCode: 404, statusMessage: 'Not Found' })
   }
 
-  const filePath = join(outputDir, pathname)
+  const outputDirResolved = resolve(outputDir)
+  const filePath = resolve(join(outputDirResolved, pathname))
+  const relativePath = relative(outputDirResolved, filePath)
 
   // Security: prevent path traversal
-  if (!filePath.startsWith(outputDir)) {
+  if (relativePath.startsWith('..') || relativePath === '') {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   }
 

@@ -1,14 +1,29 @@
-import { navigateTo, useRoute, useRuntimeConfig } from '#imports'
+import { navigateTo, useNuxtApp, useRoute, useRuntimeConfig } from '#imports'
 
 import { useAuth } from '../composables/useAuth'
-import { normalizeConvexAuthConfig } from './auth-config'
 import { isConvexUnauthorizedError } from './auth-unauthorized-core'
+import { normalizeConvexRuntimeConfig } from './runtime-config'
 
 export type UnauthorizedErrorSource = 'mutation' | 'action' | 'query'
 
-let activeUnauthorizedRecovery: Promise<void> | null = null
-let lastUnauthorizedRedirectKey: string | null = null
-let lastUnauthorizedRedirectAt = 0
+interface UnauthorizedRecoveryState {
+  activeRecovery: Promise<void> | null
+  lastRedirectKey: string | null
+  lastRedirectAt: number
+}
+
+function getUnauthorizedRecoveryState(): UnauthorizedRecoveryState {
+  const nuxtApp = useNuxtApp()
+  const appWithState = nuxtApp as typeof nuxtApp & { _bcnUnauthorizedRecoveryState?: UnauthorizedRecoveryState }
+  if (!appWithState._bcnUnauthorizedRecoveryState) {
+    appWithState._bcnUnauthorizedRecoveryState = {
+      activeRecovery: null,
+      lastRedirectKey: null,
+      lastRedirectAt: 0,
+    }
+  }
+  return appWithState._bcnUnauthorizedRecoveryState
+}
 
 export async function handleUnauthorizedAuthFailure(options: {
   error: unknown
@@ -19,8 +34,9 @@ export async function handleUnauthorizedAuthFailure(options: {
   if (!isConvexUnauthorizedError(options.error)) return false
 
   const runtimeConfig = useRuntimeConfig()
-  const authConfig = normalizeConvexAuthConfig(runtimeConfig.public.convex?.auth)
+  const authConfig = normalizeConvexRuntimeConfig(runtimeConfig.public.convex).auth
   const unauthorized = authConfig.unauthorized
+  const recoveryState = getUnauthorizedRecoveryState()
 
   if (!authConfig.enabled || !unauthorized.enabled) return false
   if (options.source === 'query' && !unauthorized.includeQueries) return false
@@ -32,16 +48,16 @@ export async function handleUnauthorizedAuthFailure(options: {
   const dedupeKey = `${options.source}:${redirectTo}:${route.fullPath}`
   const now = Date.now()
   if (
-    activeUnauthorizedRecovery
-    || (lastUnauthorizedRedirectKey === dedupeKey && now - lastUnauthorizedRedirectAt < 1500)
+    recoveryState.activeRecovery
+    || (recoveryState.lastRedirectKey === dedupeKey && now - recoveryState.lastRedirectAt < 1500)
   ) {
     return true
   }
 
-  lastUnauthorizedRedirectKey = dedupeKey
-  lastUnauthorizedRedirectAt = now
+  recoveryState.lastRedirectKey = dedupeKey
+  recoveryState.lastRedirectAt = now
 
-  activeUnauthorizedRecovery = (async () => {
+  recoveryState.activeRecovery = (async () => {
     try {
       const { signOut } = useAuth()
       try {
@@ -52,10 +68,10 @@ export async function handleUnauthorizedAuthFailure(options: {
 
       await navigateTo(redirectTo)
     } finally {
-      activeUnauthorizedRecovery = null
+      recoveryState.activeRecovery = null
     }
   })()
 
-  await activeUnauthorizedRecovery
+  await recoveryState.activeRecovery
   return true
 }

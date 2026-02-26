@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { decodeUserFromJwt } from '../../src/runtime/utils/convex-shared'
+import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
 
 function toBase64Url(value: string): string {
   return Buffer.from(value, 'utf-8')
@@ -57,5 +57,26 @@ describe('decodeUserFromJwt', () => {
       flags: ['beta'],
       profile: { theme: 'dark' },
     })
+  })
+
+  it('returns null when identifier claims resolve to an empty id', () => {
+    const token = makeJwt({
+      sub: '',
+      email: 'user@example.com',
+    })
+
+    expect(decodeUserFromJwt(token)).toBeNull()
+  })
+})
+
+describe('getJwtTimeUntilExpiryMs', () => {
+  it('returns null when exp is missing', () => {
+    const token = makeJwt({ sub: 'user_123' })
+    expect(getJwtTimeUntilExpiryMs(token, 1_000)).toBeNull()
+  })
+
+  it('returns remaining milliseconds until expiry', () => {
+    const token = makeJwt({ sub: 'user_123', exp: 10 })
+    expect(getJwtTimeUntilExpiryMs(token, 3_500)).toBe(6_500)
   })
 })

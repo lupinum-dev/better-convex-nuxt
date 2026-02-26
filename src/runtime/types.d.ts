@@ -1,6 +1,7 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 import type { LogLevel } from './utils/logger'
+import type { ConvexAuthConfigInput } from './utils/auth-config'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
@@ -13,18 +14,7 @@ export interface ConvexPublicRuntimeConfig {
   /** Convex site URL (HTTP/Auth) */
   siteUrl?: string
   /** Auth integration config */
-  auth?: {
-    enabled?: boolean
-    routeProtection?: {
-      redirectTo?: string
-      preserveReturnTo?: boolean
-    }
-    unauthorized?: {
-      enabled?: boolean
-      redirectTo?: string
-      includeQueries?: boolean
-    }
-  }
+  auth?: boolean | ConvexAuthConfigInput
   /** Auth proxy route path */
   authRoute?: string
   /** Additional trusted origins for auth proxy CORS */
@@ -63,6 +53,14 @@ declare module '#app' {
     $auth?: AuthClient
     /** Internal cache for WebSocket subscriptions (prevents duplicates) */
     _convexSubscriptions?: Record<string, () => void>
+    /** Internal dedupe state for unauthorized query/action/mutation recovery */
+    _bcnUnauthorizedRecoveryState?: {
+      activeRecovery: Promise<void> | null
+      lastRedirectKey: string | null
+      lastRedirectAt: number
+    }
+    /** Internal in-flight promise for useConvexAuth().refreshAuth() dedupe */
+    _convexRefreshAuthPromise?: Promise<void> | null
   }
   interface PageMeta {
     skipConvexAuth?: boolean

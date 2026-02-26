@@ -6,7 +6,7 @@ import {
   ref,
   computed,
   watch,
-  onUnmounted,
+  onScopeDispose,
   toValue,
   isRef,
   isReactive,
@@ -14,6 +14,7 @@ import {
   type Ref,
   shallowRef,
 } from 'vue'
+import type { NuxtError } from '#app'
 
 import {
   getFunctionName,
@@ -28,6 +29,7 @@ import {
 import { generatePaginationId } from '../utils/shared-helpers'
 import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
 import type { PaginatedQueryReference, PaginatedQueryArgs, PaginatedQueryItem } from './optimistic-updates'
+import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 
 // Re-export optimistic update helpers and types for backwards compatibility
 export {
@@ -151,7 +153,7 @@ export interface UseConvexPaginatedQueryData<Item> {
   /**
    * Error if any page failed to load.
    */
-  error: Ref<Error | null>
+  error: Readonly<Ref<Error | null>>
 
   /**
    * Re-fetch all currently loaded pages via HTTP.
@@ -374,7 +376,7 @@ export function useConvexPaginatedQuery<
       paginationOpts,
     }
 
-    // Get auth token using shared helper (only on server)
+    // Get auth token for HTTP transport
     let authToken: string | undefined
     if (import.meta.server) {
       authToken = await fetchAuthToken({
@@ -383,6 +385,8 @@ export function useConvexPaginatedQuery<
         siteUrl,
         cachedToken,
       })
+    } else if (!isPublic) {
+      authToken = cachedToken.value ?? undefined
     }
 
     return executeQueryHttp<PaginationResult<Item>>(convexUrl, functionPath, fullArgs, authToken)
@@ -448,6 +452,7 @@ export function useConvexPaginatedQuery<
           pages.value = newPages
         },
         (err: Error) => {
+          void handleUnauthorizedAuthFailure({ error: err, source: 'query', functionName: fnName })
           const currentPage = pages.value[pageIndex]
           if (!currentPage) return
           const newPages = [...pages.value]
@@ -508,7 +513,7 @@ export function useConvexPaginatedQuery<
     // Start fetching the new page (index in pages ref, not including first page from asyncData)
     const newPageIndex = pages.value.length - 1
 
-    if (import.meta.client) {
+    if (import.meta.client && subscribe) {
       const convex = nuxtApp.$convex as ConvexClient | undefined
       if (convex) {
         const currentArgs = getArgs() as PaginatedQueryArgs<Query>
@@ -535,6 +540,7 @@ export function useConvexPaginatedQuery<
             startPageSubscription(newPageIndex)
           })
           .catch((e) => {
+            void handleUnauthorizedAuthFailure({ error: e, source: 'query', functionName: fnName })
             const currentPage = pages.value[newPageIndex]
             if (!currentPage) return
             const newPages = [...pages.value]
@@ -547,8 +553,38 @@ export function useConvexPaginatedQuery<
             }
             pages.value = newPages
           })
+        return
       }
     }
+
+    void fetchPage(newPage.paginationOpts)
+      .then((result) => {
+        const currentPage = pages.value[newPageIndex]
+        if (!currentPage) return
+        const newPages = [...pages.value]
+        newPages[newPageIndex] = {
+          paginationOpts: currentPage.paginationOpts,
+          unsubscribe: currentPage.unsubscribe,
+          error: null,
+          result,
+          pending: false,
+        }
+        pages.value = newPages
+      })
+      .catch((e) => {
+        void handleUnauthorizedAuthFailure({ error: e, source: 'query', functionName: fnName })
+        const currentPage = pages.value[newPageIndex]
+        if (!currentPage) return
+        const newPages = [...pages.value]
+        newPages[newPageIndex] = {
+          paginationOpts: currentPage.paginationOpts,
+          unsubscribe: currentPage.unsubscribe,
+          result: currentPage.result,
+          error: e instanceof Error ? e : new Error(String(e)),
+          pending: false,
+        }
+        pages.value = newPages
+      })
   }
 
   // === Transform helper ===
@@ -677,21 +713,28 @@ export function useConvexPaginatedQuery<
     async (): Promise<PaginationResult<Item> | null> => {
       if (isSkipped.value) return null
 
-      // On client-side navigation, use WebSocket subscription
-      if (import.meta.client) {
-        const convex = nuxtApp.$convex as ConvexClient | undefined
-        if (convex) {
-          const currentArgs = getArgs() as PaginatedQueryArgs<Query>
-          const fullArgs = {
-            ...currentArgs,
-            paginationOpts: initialPaginationOpts.value,
+      try {
+        // On client-side navigation, use WebSocket subscription in live mode only
+        if (import.meta.client && subscribe) {
+          const convex = nuxtApp.$convex as ConvexClient | undefined
+          if (convex) {
+            const currentArgs = getArgs() as PaginatedQueryArgs<Query>
+            const fullArgs = {
+              ...currentArgs,
+              paginationOpts: initialPaginationOpts.value,
+            }
+            return await executeQueryViaSubscription(convex, query, fullArgs as FunctionArgs<Query>)
           }
-          return await executeQueryViaSubscription(convex, query, fullArgs as FunctionArgs<Query>)
         }
-      }
 
-      // On server, use HTTP fetch
-      return await fetchPage(initialPaginationOpts.value)
+        // Server or HTTP-only mode
+        return await fetchPage(initialPaginationOpts.value)
+      } catch (error) {
+        if (import.meta.client) {
+          void handleUnauthorizedAuthFailure({ error, source: 'query', functionName: fnName })
+        }
+        throw (error instanceof Error ? error : new Error(String(error)))
+      }
     },
     {
       server,
@@ -749,8 +792,9 @@ export function useConvexPaginatedQuery<
           firstPageRealtimeData.value = result
         },
         (err: Error) => {
+          void handleUnauthorizedAuthFailure({ error: err, source: 'query', functionName: fnName })
           // Update asyncData error state - match Nuxt's expected type
-          asyncData.error.value = err as unknown as typeof asyncData.error.value
+          setAsyncDataError(asyncData, err)
         },
       )
       // Register subscription in cache and wrap unsubscribe to go through ref-counting
@@ -804,7 +848,7 @@ export function useConvexPaginatedQuery<
 
     // Watch for reactive args changes
     // Only auto-refetch on args change if subscribe: true
-    if (isRef(args) && subscribe) {
+    if (isRef(args)) {
       watch(
         () => toValue(args),
         async (newArgs, oldArgs) => {
@@ -825,8 +869,10 @@ export function useConvexPaginatedQuery<
               // Refresh asyncData with new args (this will trigger re-fetch)
               await asyncData.refresh()
 
-              // Start subscriptions
-              startAllSubscriptions()
+              // Start subscriptions in live mode
+              if (subscribe) {
+                startAllSubscriptions()
+              }
             }
           }
         },
@@ -835,7 +881,7 @@ export function useConvexPaginatedQuery<
     }
 
     // Cleanup on unmount
-    onUnmounted(() => {
+    onScopeDispose(() => {
       cleanupAllSubscriptions()
     })
   }
@@ -908,20 +954,10 @@ export function useConvexPaginatedQuery<
     firstPageRealtimeData.value = null
     // Also clear asyncData to prevent stale data on re-mount
     asyncData.data.value = null
-    asyncData.error.value = undefined
+    setAsyncDataError(asyncData as { error: Ref<NuxtError | null | undefined> }, null)
     pages.value = []
     globalError.value = null
   }
-
-  // Return mutable ref for error to match interface
-  const errorRef = ref<Error | null>(null)
-  watch(
-    error,
-    (e) => {
-      errorRef.value = e
-    },
-    { immediate: true },
-  )
 
   // === Build thenable return ===
   let resolvePromise: Promise<void>
@@ -955,8 +991,8 @@ export function useConvexPaginatedQuery<
       // server: false during initial hydration - don't block
       resolvePromise = Promise.resolve()
     } else if (!subscribe) {
-      // subscribe: false - use HTTP refresh for data
-      resolvePromise = refresh()
+      // subscribe: false - asyncData already uses HTTP-only transport
+      resolvePromise = asyncData.then(() => {})
     } else {
       // Wait for asyncData (which uses subscription on client)
       resolvePromise = asyncData.then(() => {})
@@ -969,7 +1005,7 @@ export function useConvexPaginatedQuery<
     status,
     isLoading,
     loadMore,
-    error: errorRef,
+    error,
     refresh,
     reset,
     clear,
@@ -979,4 +1015,7 @@ export function useConvexPaginatedQuery<
   const resultPromise = resolvePromise.then(() => resultData)
   Object.assign(resultPromise, resultData)
   return resultPromise as UseConvexPaginatedQueryReturn<TransformedItem>
+}
+function setAsyncDataError(asyncData: { error: Ref<NuxtError | null | undefined> }, error: Error | null) {
+  ;(asyncData.error as unknown as Ref<Error | null>).value = error
 }

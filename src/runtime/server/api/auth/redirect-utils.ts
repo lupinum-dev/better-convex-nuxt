@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from '../../utils/http'
+
 export function normalizePathname(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, '')
   return normalized.length > 0 ? normalized : '/'
@@ -41,8 +43,9 @@ interface FetchWithCanonicalRedirectsOptions {
   target: string
   method: string
   headers: Record<string, string>
-  body?: string
+  body?: RequestInit['body']
   maxRedirects?: number
+  timeoutMs?: number
   fetchImpl?: FetchLike
 }
 
@@ -52,14 +55,17 @@ export async function fetchWithCanonicalRedirects({
   headers,
   body,
   maxRedirects = 2,
+  timeoutMs,
   fetchImpl = fetch,
 }: FetchWithCanonicalRedirectsOptions): Promise<Response> {
   let resolvedTarget = target
-  let response = await fetchImpl(resolvedTarget, {
+  let response = await fetchWithTimeout(resolvedTarget, {
     method,
     headers,
     body,
     redirect: 'manual',
+    timeoutMs,
+    fetchImpl,
   })
 
   let canonicalRedirectsFollowed = 0
@@ -71,11 +77,13 @@ export async function fetchWithCanonicalRedirects({
 
     resolvedTarget = canonicalTarget
     canonicalRedirectsFollowed += 1
-    response = await fetchImpl(resolvedTarget, {
+    response = await fetchWithTimeout(resolvedTarget, {
       method,
       headers,
       body,
       redirect: 'manual',
+      timeoutMs,
+      fetchImpl,
     })
   }
 

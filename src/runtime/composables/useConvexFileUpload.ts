@@ -267,6 +267,14 @@ export function useConvexFileUpload<
       throw err
     }
 
+    if (currentXhr) {
+      const err = new Error('Upload already in progress for this composable instance')
+      _status.value = 'error'
+      error.value = err
+      logger.upload({ name: fnName, event: 'error', filename: file.name, size: file.size, error: err })
+      throw err
+    }
+
     // Client-side validation before uploading
     if (options?.maxSize && file.size > options.maxSize) {
       const err = new Error(`File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`)
@@ -304,7 +312,9 @@ export function useConvexFileUpload<
         currentXhr = xhr
 
         xhr.open('POST', postUrl)
-        xhr.setRequestHeader('Content-Type', file.type)
+        if (file.type) {
+          xhr.setRequestHeader('Content-Type', file.type)
+        }
 
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
@@ -316,7 +326,11 @@ export function useConvexFileUpload<
           currentXhr = null
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
-              const response = JSON.parse(xhr.responseText)
+              const response = JSON.parse(xhr.responseText) as { storageId?: unknown }
+              if (typeof response?.storageId !== 'string' || response.storageId.length === 0) {
+                reject(new Error('Upload endpoint response missing valid storageId'))
+                return
+              }
               resolve(response.storageId)
             } catch {
               reject(new Error('Invalid response from upload endpoint'))

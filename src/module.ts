@@ -492,7 +492,9 @@ function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResolver>):
   nuxt.options.runtimeConfig.convexDevtoolsPath = devtoolsOutputPath
 
   // Register custom tab via Nuxt hook (more reliable than addCustomTab)
-  nuxt.hook('devtools:customTabs', (tabs) => {
+  ;(nuxt as Nuxt & {
+    hook: (name: 'devtools:customTabs', cb: (tabs: Array<Record<string, unknown>>) => void) => void
+  }).hook('devtools:customTabs', (tabs) => {
     tabs.push({
       name: 'convex',
       title: 'Convex',

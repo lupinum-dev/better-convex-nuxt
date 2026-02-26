@@ -1,5 +1,5 @@
-import { ref, readonly, computed, onMounted, onUnmounted, type Ref } from 'vue'
-import { useRuntimeConfig } from '#imports'
+import { ref, readonly, computed, onScopeDispose, type Ref } from 'vue'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { createLogger, getLogLevel } from '../utils/logger'
 import { useConvex } from './useConvex'
@@ -37,21 +37,27 @@ const DEFAULT_STATE: ConnectionState = {
   inflightActions: 0,
 }
 
-// Module-level singleton for shared connection state
-// Uses ref-counting to manage the single ConvexClient subscription
-//
-// SSR SAFETY: These module-level variables are safe because:
-// 1. Subscription creation and state mutation only happen inside `if (import.meta.client)` blocks
-// 2. On server, the composable just returns computed refs with default values
-// 3. The singleton pattern only matters on the client where we want to prevent
-//    multiple WebSocket subscriptions when multiple components use this composable
-//
-// NOTE: sharedState may be initialized on server but with no subscriptions attached,
-// each SSR request gets its own module scope (or the values are never mutated).
-let sharedState: Ref<ConnectionState> | null = null
-let sharedUnsubscribe: (() => void) | null = null
-let subscriberCount = 0
-let disconnectedAt: number | null = null
+interface ConnectionStateStore {
+  state: Ref<ConnectionState>
+  unsubscribe: (() => void) | null
+  subscriberCount: number
+  disconnectedAt: number | null
+}
+
+const connectionStateStores = new WeakMap<object, ConnectionStateStore>()
+
+function getConnectionStateStore(app: object): ConnectionStateStore {
+  const existing = connectionStateStores.get(app)
+  if (existing) return existing
+  const created: ConnectionStateStore = {
+    state: ref<ConnectionState>({ ...DEFAULT_STATE }),
+    unsubscribe: null,
+    subscriberCount: 0,
+    disconnectedAt: null,
+  }
+  connectionStateStores.set(app, created)
+  return created
+}
 
 /**
  * Monitor the Convex WebSocket connection state.
@@ -74,62 +80,59 @@ let disconnectedAt: number | null = null
  * ```
  */
 export function useConvexConnectionState() {
+  const nuxtApp = useNuxtApp()
   const client = useConvex()
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = createLogger(logLevel)
-
-  // Initialize shared state if not already created
-  if (!sharedState) {
-    sharedState = ref<ConnectionState>({ ...DEFAULT_STATE })
-  }
+  const store = getConnectionStateStore(nuxtApp)
 
   // Only subscribe on client
   if (import.meta.client && client) {
     // First subscriber initializes the connection
-    if (subscriberCount === 0) {
+    if (store.subscriberCount === 0) {
       // Get initial state
-      sharedState.value = client.connectionState() as ConnectionState
+      store.state.value = client.connectionState() as ConnectionState
 
       // Subscribe to connection state changes (single subscription for all components)
-      sharedUnsubscribe = client.subscribeToConnectionState((newState: ConnectionState) => {
-        if (!sharedState) return
+      store.unsubscribe = client.subscribeToConnectionState((newState: ConnectionState) => {
+        const currentState = store.state
 
-        const wasConnected = sharedState.value.isWebSocketConnected
+        const wasConnected = currentState.value.isWebSocketConnected
         const nowConnected = newState.isWebSocketConnected
 
         if (wasConnected !== nowConnected) {
           if (nowConnected) {
             // Reconnected
-            const offlineDuration = disconnectedAt ? Date.now() - disconnectedAt : undefined
+            const offlineDuration = store.disconnectedAt ? Date.now() - store.disconnectedAt : undefined
             logger.connection({ event: 'restored', offlineDuration })
-            disconnectedAt = null
+            store.disconnectedAt = null
           } else {
             // Disconnected
-            disconnectedAt = Date.now()
+            store.disconnectedAt = Date.now()
             logger.connection({ event: 'lost' })
           }
         }
 
-        sharedState.value = newState
+        currentState.value = newState
       })
     }
 
     // Increment subscriber count
-    subscriberCount++
+    store.subscriberCount++
 
     // Decrement on unmount, cleanup when last subscriber leaves
-    onUnmounted(() => {
-      subscriberCount--
-      if (subscriberCount === 0 && sharedUnsubscribe) {
-        sharedUnsubscribe()
-        sharedUnsubscribe = null
+    onScopeDispose(() => {
+      store.subscriberCount--
+      if (store.subscriberCount === 0 && store.unsubscribe) {
+        store.unsubscribe()
+        store.unsubscribe = null
       }
     })
   }
 
   // Computed shortcuts derived from shared state
-  const state = sharedState
+  const state = store.state
   const isConnected = computed(() => state.value.isWebSocketConnected)
   const hasEverConnected = computed(() => state.value.hasEverConnected)
   const connectionRetries = computed(() => state.value.connectionRetries)
@@ -141,14 +144,15 @@ export function useConvexConnectionState() {
   const inflightActions = computed(() => state.value.inflightActions)
   const isHydratingConnection = ref(true)
   let hydrationTimer: ReturnType<typeof setTimeout> | null = null
-
-  onMounted(() => {
+  if (import.meta.client) {
     hydrationTimer = setTimeout(() => {
       isHydratingConnection.value = false
     }, 500)
-  })
+  } else {
+    isHydratingConnection.value = false
+  }
 
-  onUnmounted(() => {
+  onScopeDispose(() => {
     if (hydrationTimer) {
       clearTimeout(hydrationTimer)
       hydrationTimer = null

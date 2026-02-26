@@ -71,6 +71,8 @@ export function useConvexAuth(): UseConvexAuthReturn {
   // hydration mismatches. CSR-first loads still start pending=true until client init.
   const pending = useState<boolean>('convex:pending', () => import.meta.client)
   const authError = useState<string | null>('convex:authError', () => null)
+  const refreshSignal = useState<number>('convex:refreshSignal', () => 0)
+  const refreshCompleteSignal = useState<number>('convex:refreshCompleteSignal', () => 0)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
 
@@ -137,45 +139,79 @@ export function useConvexAuth(): UseConvexAuthReturn {
    * ```
    */
   const refreshAuth = async (): Promise<void> => {
-    pending.value = true
+    const appState = nuxtApp as typeof nuxtApp & { _convexRefreshAuthPromise?: Promise<void> | null }
+    if (appState._convexRefreshAuthPromise) {
+      return appState._convexRefreshAuthPromise
+    }
 
-    // Clear any previous auth error before refreshing
-    authError.value = null
+    appState._convexRefreshAuthPromise = (async () => {
+      pending.value = true
+      authError.value = null
 
-    const refreshSignal = useState<number>('convex:refreshSignal', () => 0)
-    refreshSignal.value++
+      const startCompleteSignal = refreshCompleteSignal.value
+      refreshSignal.value++
 
-    // Wait for auth to settle (token populated or error)
-    await new Promise<void>((resolve) => {
-      let resolved = false
-      let stopWatcher: (() => void) | null = null
+      try {
+        await new Promise<void>((resolve, reject) => {
+          let settled = false
+          let stopWatcher: (() => void) | null = null
+          let timeout: ReturnType<typeof setTimeout> | null = null
 
-      const cleanup = () => {
-        if (!resolved) {
-          resolved = true
-          if (stopWatcher) stopWatcher()
-          resolve()
-        }
-      }
-
-      stopWatcher = watch(
-        [token, authError],
-        ([newToken, newError]) => {
-          // Only settle on token (success) or new error after refresh
-          if (newToken) {
-            cleanup()
-          } else if (newError && resolved === false) {
-            // Only treat as settled if we got a new error after the refresh started
-            cleanup()
+          const cleanup = () => {
+            if (stopWatcher) {
+              stopWatcher()
+              stopWatcher = null
+            }
+            if (timeout) {
+              clearTimeout(timeout)
+              timeout = null
+            }
           }
-        }
-      )
 
-      // Timeout fallback (5s)
-      setTimeout(cleanup, 5000)
-    })
+          const settleResolve = () => {
+            if (settled) return
+            settled = true
+            cleanup()
+            resolve()
+          }
 
-    pending.value = false
+          const settleReject = (error: unknown) => {
+            if (settled) return
+            settled = true
+            cleanup()
+            reject(error instanceof Error ? error : new Error(String(error)))
+          }
+
+          stopWatcher = watch(
+            [refreshCompleteSignal, token, authError],
+            ([completed, newToken, newError]) => {
+              if (completed <= startCompleteSignal) return
+              if (newToken) {
+                settleResolve()
+                return
+              }
+              if (newError) {
+                settleReject(new Error(newError))
+                return
+              }
+              authError.value = 'Authentication refresh completed without a token'
+              settleReject(new Error(authError.value))
+            },
+            { immediate: true },
+          )
+
+          timeout = setTimeout(() => {
+            authError.value = 'Authentication refresh timed out after 5 seconds'
+            settleReject(new Error(authError.value))
+          }, 5000)
+        })
+      } finally {
+        pending.value = false
+        appState._convexRefreshAuthPromise = null
+      }
+    })()
+
+    return appState._convexRefreshAuthPromise
   }
 
   return {

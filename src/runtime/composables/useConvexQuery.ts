@@ -3,7 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
-import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, type Ref, type WatchStopHandle } from 'vue'
+import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, type Ref, type WatchStopHandle, type MaybeRef } from 'vue'
 
 import {
   getFunctionName,
@@ -21,6 +21,7 @@ import {
   type QueryStatus,
 } from '../utils/convex-cache'
 import { createLogger, getLogLevel } from '../utils/logger'
+import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 
 // DevTools query registry (client-side only in dev mode)
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
@@ -57,8 +58,6 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   public?: boolean
 }
 
-type MaybeRef<T> = T | Ref<T>
-
 /**
  * Execute query via HTTP (works on both server and client without WebSocket)
  * @internal
@@ -92,16 +91,53 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
   convex: ConvexClient,
   query: Query,
   args: FunctionArgs<Query>,
+  options?: { timeoutMs?: number },
 ): Promise<FunctionReturnType<Query>> {
-  return new Promise((resolve) => {
-    let resolved = false
-    const unsubscribe = convex.onUpdate(query, args, (result: FunctionReturnType<Query>) => {
-      if (!resolved) {
-        resolved = true
-        unsubscribe()
-        resolve(result)
+  const timeoutMs = options?.timeoutMs ?? 10_000
+  return new Promise((resolve, reject) => {
+    let settled = false
+    let timeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      finishReject(new Error(`[useConvexQuery] Timed out waiting for subscription result after ${timeoutMs}ms`))
+    }, timeoutMs)
+
+    let unsubscribe: (() => void) | null = null
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout)
+        timeout = null
       }
-    })
+      if (unsubscribe) {
+        unsubscribe()
+        unsubscribe = null
+      }
+    }
+    const finishResolve = (result: FunctionReturnType<Query>) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve(result)
+    }
+    const finishReject = (error: unknown) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject(error instanceof Error ? error : new Error(String(error)))
+    }
+
+    try {
+      unsubscribe = convex.onUpdate(
+        query,
+        args,
+        (result: FunctionReturnType<Query>) => {
+          finishResolve(result)
+        },
+        (error: Error) => {
+          finishReject(error)
+        },
+      )
+    } catch (error) {
+      finishReject(error)
+    }
   })
 }
 
@@ -216,29 +252,43 @@ export function useConvexQuery<
 
       const currentArgs = getArgs() as FunctionArgs<Query>
 
-      // SSR: fetch via HTTP
-      if (import.meta.server) {
-        const siteUrl = config.public.convex?.siteUrl
+      try {
+        // SSR: fetch via HTTP
+        if (import.meta.server) {
+          const siteUrl = config.public.convex?.siteUrl
 
-        const authToken = await fetchAuthToken({
-          isPublic,
-          cookieHeader,
-          siteUrl,
-          cachedToken,
-        })
+          const authToken = await fetchAuthToken({
+            isPublic,
+            cookieHeader,
+            siteUrl,
+            cachedToken,
+          })
 
-        const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
+          const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
+          return applyTransform(result)
+        }
+
+        // Client HTTP-only mode (no WebSocket dependency)
+        if (!subscribe) {
+          const authToken = isPublic ? undefined : (cachedToken.value ?? undefined)
+          const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
+          return applyTransform(result)
+        }
+
+        // Client live mode: use WebSocket for first result
+        const convex = nuxtApp.$convex as ConvexClient | undefined
+        if (!convex) {
+          throw new Error('[useConvexQuery] Convex client not available')
+        }
+
+        const result = await executeQueryViaSubscription(convex, query, currentArgs)
         return applyTransform(result)
+      } catch (error) {
+        if (import.meta.client) {
+          void handleUnauthorizedAuthFailure({ error, source: 'query', functionName: fnName })
+        }
+        throw (error instanceof Error ? error : new Error(String(error)))
       }
-
-      // Client: use WebSocket for first result
-      const convex = nuxtApp.$convex as ConvexClient | undefined
-      if (!convex) {
-        throw new Error('[useConvexQuery] Convex client not available')
-      }
-
-      const result = await executeQueryViaSubscription(convex, query, currentArgs)
-      return applyTransform(result)
     },
     {
       server,
@@ -417,6 +467,7 @@ export function useConvexQuery<
           (err: Error) => {
             localBridge.error = err
             localBridge.errorVersion.value += 1
+            void handleUnauthorizedAuthFailure({ error: err, source: 'query', functionName: fnName })
 
             logger.query({ name: fnName, event: 'error', error: err })
 

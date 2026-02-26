@@ -61,6 +61,18 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
 }
 
 /**
+ * Returns milliseconds until JWT expiry, or null when `exp` is missing/invalid.
+ * Negative values mean the token is already expired.
+ */
+export function getJwtTimeUntilExpiryMs(token: string, nowMs = Date.now()): number | null {
+  const payload = decodeJwtPayload(token)
+  if (!payload) return null
+  const exp = payload.exp
+  if (typeof exp !== 'number' || !Number.isFinite(exp)) return null
+  return (exp * 1000) - nowMs
+}
+
+/**
  * Decode user info from JWT payload.
  * Extracts standard user fields from the JWT claims.
  *
@@ -82,6 +94,10 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
     email: String(payload.email || ''),
     emailVerified: typeof payload.emailVerified === 'boolean' ? payload.emailVerified : undefined,
     image: typeof payload.image === 'string' ? payload.image : undefined,
+  }
+
+  if (!user.id) {
+    return null
   }
 
   // Preserve custom claims for consumers who augment ConvexUser.

@@ -9,10 +9,9 @@ import { createAuthClient } from 'better-auth/vue'
 import { ConvexClient } from 'convex/browser'
 import { createLogger, getLogLevel } from './utils/logger'
 import { matchesSkipRoute } from './utils/route-matcher'
-import { decodeUserFromJwt } from './utils/convex-shared'
+import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from './utils/convex-shared'
 import { buildClientAuthRequestFailureMessage, buildClientAuthResponseErrorMessage, buildMissingSiteUrlMessage } from './utils/auth-errors'
-import { normalizeAuthRoute, resolveConvexSiteUrl } from './utils/convex-config'
-import { normalizeConvexAuthConfig } from './utils/auth-config'
+import { getConvexRuntimeConfig } from './utils/runtime-config'
 import type { AuthWaterfall } from './devtools/types'
 
 interface TokenResponse {
@@ -25,8 +24,8 @@ type AuthClientWithConvex = ReturnType<typeof createAuthClient> & {
 }
 
 export default defineNuxtPlugin((nuxtApp) => {
-  const appWithInitFlag = nuxtApp as typeof nuxtApp & { _convexInitialized?: boolean }
   const config = useRuntimeConfig()
+  const convexConfig = getConvexRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (client)')
@@ -54,19 +53,15 @@ export default defineNuxtPlugin((nuxtApp) => {
   )
 
   // HMR-safe initialization
-  if (appWithInitFlag._convexInitialized) {
+  if (nuxtApp.$convex) {
     logger.debug('plugin:init (client) skipped; already initialized', { traceId: convexAuthTraceId.value })
     return
   }
-  appWithInitFlag._convexInitialized = true
 
-  const convexUrl = config.public.convex?.url as string | undefined
-  const authConfig = normalizeConvexAuthConfig(config.public.convex?.auth)
+  const convexUrl = convexConfig.url
+  const authConfig = convexConfig.auth
   const isAuthEnabled = authConfig.enabled
-  const resolvedSiteUrl = resolveConvexSiteUrl({
-    url: convexUrl,
-    siteUrl: config.public.convex?.siteUrl as string | undefined,
-  }).siteUrl
+  const resolvedSiteUrl = convexConfig.siteUrl
 
   if (!convexUrl) {
     logger.auth({ phase: 'init', outcome: 'error', error: new Error('No Convex URL configured') })
@@ -97,6 +92,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // Signal for triggering auth refresh (used by useConvexAuth.refreshAuth())
   const refreshSignal = useState<number>('convex:refreshSignal', () => 0)
+  const refreshCompleteSignal = useState<number>('convex:refreshCompleteSignal', () => 0)
   logger.auth({
     phase: 'client-init',
     outcome: 'success',
@@ -119,7 +115,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   if (isAuthEnabled && resolvedSiteUrl) {
-    const authRoute = normalizeAuthRoute(config.public.convex?.authRoute as string | undefined)
+    const authRoute = convexConfig.authRoute
     const authBaseURL =
       typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
 
@@ -134,7 +130,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     let lastNullTokenCheck = 0
     const TOKEN_CACHE_MS = 10000
     const NULL_TOKEN_CACHE_MS = 5000 // Cache "not logged in" state to avoid duplicate 401s
-    const skipRoutes = (config.public.convex?.skipAuthRoutes as string[]) || []
+    const skipRoutes = convexConfig.skipAuthRoutes
     const router = useRouter()
 
     // Cancellation controller for auth operations (kept for potential future use)
@@ -210,18 +206,39 @@ export default defineNuxtPlugin((nuxtApp) => {
       // Use cached token if recently validated
       const timeSinceValidation = Date.now() - lastTokenValidation
       if (convexToken.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
-        logger.auth({
-          phase: 'client-fetchToken:cache',
-          outcome: 'success',
-          details: {
-            traceId: convexAuthTraceId.value,
-            source: 'recent-token-cache',
-            ageMs: timeSinceValidation,
-            path: routePath,
-          },
-        })
-        resolveInitialAuth()
-        return convexToken.value
+        const tokenTimeUntilExpiryMs = getJwtTimeUntilExpiryMs(convexToken.value)
+        const tokenExpirySafetyBufferMs = 2_000
+        if (
+          tokenTimeUntilExpiryMs !== null
+          && tokenTimeUntilExpiryMs <= tokenExpirySafetyBufferMs
+        ) {
+          logger.auth({
+            phase: 'client-fetchToken:cache',
+            outcome: 'skip',
+            details: {
+              traceId: convexAuthTraceId.value,
+              reason: 'token-expiring',
+              timeUntilExpiryMs: tokenTimeUntilExpiryMs,
+              path: routePath,
+            },
+          })
+        } else if (
+          tokenTimeUntilExpiryMs === null
+          || timeSinceValidation < Math.min(TOKEN_CACHE_MS, Math.max(0, tokenTimeUntilExpiryMs - tokenExpirySafetyBufferMs))
+        ) {
+          logger.auth({
+            phase: 'client-fetchToken:cache',
+            outcome: 'success',
+            details: {
+              traceId: convexAuthTraceId.value,
+              source: 'recent-token-cache',
+              ageMs: timeSinceValidation,
+              path: routePath,
+            },
+          })
+          resolveInitialAuth()
+          return convexToken.value
+        }
       }
 
       // Layer 1: SSR detection - trust hydration in SSR mode
@@ -383,6 +400,7 @@ export default defineNuxtPlugin((nuxtApp) => {
       // Re-call setAuth to trigger fresh authentication
       client.setAuth(fetchToken, (_isAuthenticated) => {
         // Auth refresh complete
+        refreshCompleteSignal.value++
       })
     })
 

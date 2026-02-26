@@ -1,12 +1,11 @@
 import { defineNuxtRouteMiddleware, navigateTo, useRuntimeConfig } from '#app'
 
 import { useAuth } from '../composables/useAuth'
-import { normalizeConvexAuthConfig } from '../utils/auth-config'
 import { resolveRouteProtectionDecision, type ConvexAuthPageMeta } from '../utils/auth-route-protection'
+import { normalizeConvexRuntimeConfig } from '../utils/runtime-config'
 
 export default defineNuxtRouteMiddleware((to) => {
-  const rawConvexConfig = useRuntimeConfig().public.convex
-  const authConfig = normalizeConvexAuthConfig(rawConvexConfig?.auth)
+  const authConfig = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex).auth
   if (!authConfig.enabled) return
 
   const pageMeta = to.meta as { convexAuth?: ConvexAuthPageMeta; skipConvexAuth?: boolean }
