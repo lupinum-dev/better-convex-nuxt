@@ -43,7 +43,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('counter:get:divergent')
 
-    const { result } = await captureInNuxt(() => {
+    const { result, wrapper } = await captureInNuxt(() => {
       const parent = useConvexQuery(query, {}, {
         transform: input => input.count,
       })
@@ -57,12 +57,16 @@ describe('useConvexQuery (Nuxt runtime)', () => {
 
     convex.emitQueryResult(query, {}, { count: 0 })
     await waitFor(() => result.parent.data.value === 0 && result.child.data.value === 'count:0')
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
 
     expect(result.parent.status.value).toBe('success')
     expect(result.child.status.value).toBe('success')
 
     convex.emitQueryResult(query, {}, { count: 1 })
     await waitFor(() => result.parent.data.value === 1 && result.child.data.value === 'count:1')
+
+    wrapper.unmount()
+    await waitFor(() => convex.activeListenerCount() === 0)
   })
 
   it('handles error-before-data for late subscribers and recovers on next data', async () => {

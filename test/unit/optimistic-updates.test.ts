@@ -157,6 +157,11 @@ describe('optimistic-updates helpers', () => {
       { orgId: 'org-2', paginationOpts: { numItems: 10, cursor: null } },
       { page: [{ _id: 'p2' }], isDone: false, continueCursor: 'c1' },
     )
+    localStore.setQuery(
+      query,
+      { orgId: 'org-1', paginationOpts: { numItems: 10, cursor: 'c1' } },
+      { page: [{ _id: 'p3' }], isDone: true, continueCursor: null },
+    )
 
     insertAtTop({
       paginatedQuery: query as never,
@@ -174,8 +179,13 @@ describe('optimistic-updates helpers', () => {
       orgId: 'org-2',
       paginationOpts: { numItems: 10, cursor: null },
     }) as { page: Array<{ _id: string }> }
+    const updatedOrg1NextPage = localStore.getQuery(query, {
+      orgId: 'org-1',
+      paginationOpts: { numItems: 10, cursor: 'c1' },
+    }) as { page: Array<{ _id: string }> }
 
     expect(updatedOrg1.page.map((item) => item._id)).toEqual(['new-top', 'p1'])
+    expect(updatedOrg1NextPage.page.map((item) => item._id)).toEqual(['new-top', 'p3'])
     expect(untouchedOrg2.page.map((item) => item._id)).toEqual(['p2'])
   })
 
@@ -211,6 +221,39 @@ describe('optimistic-updates helpers', () => {
     }) as { page: Array<{ _id: string }> }
 
     expect(updated.page.map((item) => item._id)).toEqual(['a', 'mid', 'b', 'c'])
+  })
+
+  it('insertAtPosition inserts in ascending order at the correct position', () => {
+    const localStore = new FakeOptimisticLocalStore()
+    const query = mockFnRef<'query'>('tasks:listPaginated:asc') as FunctionReference<'query'>
+
+    localStore.setQuery(
+      query,
+      { status: 'open', paginationOpts: { numItems: 10, cursor: null } },
+      {
+        page: [
+          { _id: 'a', order: 1 },
+          { _id: 'c', order: 3 },
+        ],
+        isDone: true,
+        continueCursor: null,
+      },
+    )
+
+    insertAtPosition({
+      paginatedQuery: query as never,
+      sortOrder: 'asc',
+      sortKeyFromItem: (item: { order: number }) => item.order,
+      localQueryStore: localStore as never,
+      item: { _id: 'b', order: 2 } as never,
+    })
+
+    const updated = localStore.getQuery(query, {
+      status: 'open',
+      paginationOpts: { numItems: 10, cursor: null },
+    }) as { page: Array<{ _id: string }> }
+
+    expect(updated.page.map((item) => item._id)).toEqual(['a', 'b', 'c'])
   })
 
   it('insertAtBottomIfLoaded only appends when result is fully loaded', () => {
