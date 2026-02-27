@@ -22,6 +22,12 @@ import { useConvex } from './useConvex'
  */
 export type UploadStatus = 'idle' | 'pending' | 'success' | 'error'
 
+export interface UploadProgressInfo {
+  loaded: number
+  total: number
+  percent: number
+}
+
 /**
  * Return value from useConvexFileUpload
  */
@@ -86,6 +92,11 @@ export interface UseConvexFileUploadOptions {
    * Callback when an error occurs.
    */
   onError?: (error: Error, file: File) => void
+  /**
+   * Callback for upload progress updates.
+   * Called when the browser reports computable upload progress.
+   */
+  onProgress?: (info: UploadProgressInfo, file: File) => void
   /**
    * Maximum file size in bytes.
    * Files exceeding this size will be rejected before upload starts.
@@ -318,7 +329,16 @@ export function useConvexFileUpload<
 
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
-            progress.value = Math.round((event.loaded / event.total) * 100)
+            const percent = Math.round((event.loaded / event.total) * 100)
+            progress.value = percent
+            options?.onProgress?.(
+              {
+                loaded: event.loaded,
+                total: event.total,
+                percent,
+              },
+              file,
+            )
           }
         }
 

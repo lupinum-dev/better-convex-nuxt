@@ -72,7 +72,7 @@ describe('usePermissions (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const permissionQuery = mockFnRef<'query'>('auth:getPermissionContext:guard-unauth')
 
-    const { usePermissionGuard, usePermissions } = createPermissions<Permission>({
+    const { usePermissionGuard } = createPermissions<Permission>({
       query: permissionQuery,
       checkPermission: (ctx, permission) => {
         if (!ctx) return false

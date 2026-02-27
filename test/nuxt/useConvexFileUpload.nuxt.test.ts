@@ -68,6 +68,29 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     expect(result.error.value).toBeNull()
   })
 
+  it('emits onProgress callback payloads while uploading', async () => {
+    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:on-progress')
+    convex.setMutationHandler('files:generateUploadUrl:on-progress', async () => 'http://upload.local')
+    const onProgress = vi.fn()
+
+    const { result } = await captureInNuxt(
+      () => useConvexFileUpload(mutation, { onProgress }),
+      { convex },
+    )
+    const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
+
+    await result.upload(file)
+
+    expect(onProgress).toHaveBeenCalledTimes(1)
+    expect(onProgress).toHaveBeenCalledWith(
+      { loaded: 5, total: 10, percent: 50 },
+      file,
+    )
+  })
+
   it('validates allowedTypes and reports errors deterministically', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl')

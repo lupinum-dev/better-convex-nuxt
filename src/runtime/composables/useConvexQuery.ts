@@ -180,8 +180,8 @@ export function useConvexQuery<
   if (import.meta.dev && args !== undefined && !isRef(args) && isReactive(args)) {
     console.warn(
       `[useConvexQuery] Detected reactive() object passed as args for "${fnName}". ` +
-        `Changes to reactive objects will NOT trigger query re-fetches. ` +
-        `Use ref() or computed() instead.`,
+        `Changes to plain reactive objects will NOT trigger query re-fetches. ` +
+        `Wrap args with ref() or computed(), e.g. \`const args = ref({ ... })\` or \`() => ({ id: state.id })\`.`,
     )
   }
 

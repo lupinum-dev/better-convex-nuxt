@@ -133,6 +133,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     let lastTokenValidation = Date.now()
     let lastNullTokenCheck = 0
     const TOKEN_CACHE_MS = 10000
+    const TOKEN_EXPIRY_SAFETY_BUFFER_MS = 30_000
     const NULL_TOKEN_CACHE_MS = 5000 // Cache "not logged in" state to avoid duplicate 401s
     const skipRoutes = convexConfig.skipAuthRoutes
     const router = useRouter()
@@ -211,10 +212,9 @@ export default defineNuxtPlugin((nuxtApp) => {
       const timeSinceValidation = Date.now() - lastTokenValidation
       if (convexToken.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
         const tokenTimeUntilExpiryMs = getJwtTimeUntilExpiryMs(convexToken.value)
-        const tokenExpirySafetyBufferMs = 2_000
         if (
           tokenTimeUntilExpiryMs !== null
-          && tokenTimeUntilExpiryMs <= tokenExpirySafetyBufferMs
+          && tokenTimeUntilExpiryMs <= TOKEN_EXPIRY_SAFETY_BUFFER_MS
         ) {
           logger.auth({
             phase: 'client-fetchToken:cache',
@@ -228,7 +228,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           })
         } else if (
           tokenTimeUntilExpiryMs === null
-          || timeSinceValidation < Math.min(TOKEN_CACHE_MS, Math.max(0, tokenTimeUntilExpiryMs - tokenExpirySafetyBufferMs))
+          || timeSinceValidation < Math.min(TOKEN_CACHE_MS, Math.max(0, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS))
         ) {
           logger.auth({
             phase: 'client-fetchToken:cache',

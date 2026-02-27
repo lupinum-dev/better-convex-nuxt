@@ -12,6 +12,17 @@ interface UnauthorizedRecoveryState {
   lastRedirectAt: number
 }
 
+export function normalizeRedirectTargetPath(redirectTo: string): string {
+  try {
+    const normalized = new URL(redirectTo, 'http://localhost').pathname
+    return normalized || '/'
+  } catch {
+    const pathOnly = redirectTo.split('?')[0]?.split('#')[0]
+    if (!pathOnly) return '/'
+    return pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`
+  }
+}
+
 function getUnauthorizedRecoveryState(): UnauthorizedRecoveryState {
   const nuxtApp = useNuxtApp()
   const appWithState = nuxtApp as typeof nuxtApp & { _bcnUnauthorizedRecoveryState?: UnauthorizedRecoveryState }
@@ -43,9 +54,10 @@ export async function handleUnauthorizedAuthFailure(options: {
 
   const route = useRoute()
   const redirectTo = unauthorized.redirectTo
-  if (route.path === redirectTo) return false
+  const redirectPath = normalizeRedirectTargetPath(redirectTo)
+  if (route.path === redirectPath) return false
 
-  const dedupeKey = `${options.source}:${redirectTo}:${route.fullPath}`
+  const dedupeKey = `${options.source}:${redirectPath}:${route.fullPath}`
   const now = Date.now()
   if (
     recoveryState.activeRecovery

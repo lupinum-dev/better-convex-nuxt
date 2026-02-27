@@ -10,6 +10,7 @@ import {
 } from 'h3'
 import type { AuthProxyRequest } from '../../../devtools/types'
 import { fetchWithCanonicalRedirects } from './redirect-utils'
+import { getRequestBodySizeError, getResponseBodySizeError } from './body-size'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
 import { getAuthRoutePattern, isOriginAllowed } from './security'
 import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers'
@@ -110,6 +111,18 @@ export default defineEventHandler(async (event: H3Event) => {
     // Get request body for POST/PUT/PATCH
     let body: Buffer | undefined
     if (['POST', 'PUT', 'PATCH'].includes(event.method)) {
+      const requestBodySizeError = getRequestBodySizeError(event.headers.get('content-length'))
+      if (requestBodySizeError) {
+        throw createError({
+          statusCode: requestBodySizeError.statusCode,
+          message: requestBodySizeError.message,
+          data: {
+            code: requestBodySizeError.code,
+            contentLengthBytes: requestBodySizeError.contentLengthBytes,
+            maxBytes: requestBodySizeError.maxBytes,
+          },
+        })
+      }
       body = (await readRawBody(event, false)) || undefined
     }
 
@@ -174,6 +187,18 @@ export default defineEventHandler(async (event: H3Event) => {
     }
 
     // Forward response body
+    const responseBodySizeError = getResponseBodySizeError(response.headers.get('content-length'))
+    if (responseBodySizeError) {
+      throw createError({
+        statusCode: responseBodySizeError.statusCode,
+        message: responseBodySizeError.message,
+        data: {
+          code: responseBodySizeError.code,
+          contentLengthBytes: responseBodySizeError.contentLengthBytes,
+          maxBytes: responseBodySizeError.maxBytes,
+        },
+      })
+    }
     const responseBody = Buffer.from(await response.arrayBuffer())
     return send(event, responseBody)
   } catch (error) {
