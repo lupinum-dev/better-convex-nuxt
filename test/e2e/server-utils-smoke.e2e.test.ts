@@ -1,5 +1,6 @@
-import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
+
+import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { ensureLocalConvex } from '../helpers/local-convex'
@@ -28,13 +29,13 @@ maybeDescribe('Server helpers smoke (fetchQuery/fetchMutation)', async () => {
   })
 
   it('round-trips through Nitro API endpoints backed by server fetch helpers', async () => {
-    const queryResponse = await $fetch<{
+    const queryResponse = (await $fetch('/api/test-server-query?limit=1')) as {
       success: boolean
       count: number
       totalAvailable: number
       notes: unknown[]
       executedOn: string
-    }>('/api/test-server-query?limit=1')
+    }
 
     expect(queryResponse.success).toBe(true)
     expect(queryResponse.executedOn).toBe('server')
@@ -42,17 +43,17 @@ maybeDescribe('Server helpers smoke (fetchQuery/fetchMutation)', async () => {
     expect(queryResponse.count).toBeLessThanOrEqual(1)
 
     const uniqueTitle = `Server smoke ${Date.now()}`
-    const mutationResponse = await $fetch<{
-      success: boolean
-      noteId?: string
-      meta?: { title?: string, executedOn?: string }
-    }>('/api/test-server-mutation', {
+    const mutationResponse = (await $fetch('/api/test-server-mutation', {
       method: 'POST',
       body: {
         title: uniqueTitle,
         content: 'Created by server-utils-smoke.e2e.test.ts',
       },
-    })
+    })) as {
+      success: boolean
+      noteId?: string
+      meta?: { title?: string; executedOn?: string }
+    }
 
     expect(mutationResponse.success).toBe(true)
     expect(mutationResponse.noteId).toBeTruthy()

@@ -1,4 +1,4 @@
-<script lang="ts">
+<script setup lang="ts">
 /**
  * Renders slot content only when the user is authenticated.
  * Waits for auth check to complete before rendering.
@@ -10,14 +10,10 @@
  * </ConvexAuthenticated>
  * ```
  */
-export default {}
-</script>
-
-<script setup lang="ts">
 import { useConvexAuth } from '../composables/useConvexAuth'
 
 defineSlots<{
-  default(): any
+  default(): unknown
 }>()
 
 const { isAuthenticated, isPending } = useConvexAuth()

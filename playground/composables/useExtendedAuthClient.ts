@@ -1,14 +1,19 @@
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
+import { inferAdditionalFields } from 'better-auth/client/plugins'
 import { createAuthClient as createClient } from 'better-auth/vue'
-import { adminClient, inferAdditionalFields } from 'better-auth/client/plugins'
+
 import { useRuntimeConfig } from '#imports'
 
 import type { AppAuth } from '../convex/auth'
 
 function resolveAuthBaseURL() {
   const config = useRuntimeConfig()
-  const rawAuthRoute = (config.public?.convex as { authRoute?: string } | undefined)?.authRoute || '/api/auth'
-  const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`).replace(/\/+$/, '')
+  const rawAuthRoute =
+    (config.public?.convex as { authRoute?: string } | undefined)?.authRoute || '/api/auth'
+  const authRoute = (rawAuthRoute.startsWith('/') ? rawAuthRoute : `/${rawAuthRoute}`).replace(
+    /\/+$/,
+    '',
+  )
 
   // Better Auth client expects an absolute URL (relative '/api/auth' fails validation).
   return `${window.location.origin}${authRoute}`
@@ -17,7 +22,7 @@ function resolveAuthBaseURL() {
 function createExtendedAuthClient(baseURL: string) {
   return createClient({
     baseURL,
-    plugins: [convexClient(), inferAdditionalFields<AppAuth>(), adminClient()],
+    plugins: [convexClient(), inferAdditionalFields<AppAuth>()],
     fetchOptions: { credentials: 'include' },
   })
 }

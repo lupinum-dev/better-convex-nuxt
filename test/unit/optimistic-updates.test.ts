@@ -35,11 +35,11 @@ class FakeOptimisticLocalStore {
     })
   }
 
-  getAllQueries(query: unknown): Array<{ args: Record<string, unknown>, value: unknown }> {
+  getAllQueries(query: unknown): Array<{ args: Record<string, unknown>; value: unknown }> {
     const path = this.pathFor(query)
     return [...this.entries.values()]
-      .filter(entry => this.pathFor(entry.query) === path)
-      .map(entry => ({ args: entry.args, value: entry.value }))
+      .filter((entry) => this.pathFor(entry.query) === path)
+      .map((entry) => ({ args: entry.args, value: entry.value }))
   }
 
   private keyFor(query: unknown, args: unknown): string {
@@ -52,7 +52,9 @@ class FakeOptimisticLocalStore {
     }
 
     const record = query as Record<string | symbol, unknown>
-    return String(record[Symbol.for('functionName')] ?? record._path ?? record.functionPath ?? 'unknown')
+    return String(
+      record[Symbol.for('functionName')] ?? record._path ?? record.functionPath ?? 'unknown',
+    )
   }
 }
 
@@ -65,15 +67,10 @@ describe('optimistic-updates helpers', () => {
       query,
       args: { orgId: 'org-1' },
       localQueryStore: localStore as never,
-      updater: current => [
-        ...(current ?? []),
-        { _id: 'n1', title: 'First' },
-      ],
+      updater: (current) => [...(current ?? []), { _id: 'n1', title: 'First' }],
     })
 
-    expect(localStore.getQuery(query, { orgId: 'org-1' })).toEqual([
-      { _id: 'n1', title: 'First' },
-    ])
+    expect(localStore.getQuery(query, { orgId: 'org-1' })).toEqual([{ _id: 'n1', title: 'First' }])
   })
 
   it('setQueryData writes value directly', () => {
@@ -132,7 +129,7 @@ describe('optimistic-updates helpers', () => {
       query,
       args: { userId: 'u1' },
       localQueryStore: localStore as never,
-      shouldDelete: task => task._id === 't2',
+      shouldDelete: (task: { _id: string }) => task._id === 't2',
     })
 
     deleteFromQuery({
@@ -163,7 +160,7 @@ describe('optimistic-updates helpers', () => {
 
     insertAtTop({
       paginatedQuery: query as never,
-      argsToMatch: { orgId: 'org-1' },
+      argsToMatch: { orgId: 'org-1' } as never,
       localQueryStore: localStore as never,
       item: { _id: 'new-top' } as never,
     })
@@ -178,8 +175,8 @@ describe('optimistic-updates helpers', () => {
       paginationOpts: { numItems: 10, cursor: null },
     }) as { page: Array<{ _id: string }> }
 
-    expect(updatedOrg1.page.map(item => item._id)).toEqual(['new-top', 'p1'])
-    expect(untouchedOrg2.page.map(item => item._id)).toEqual(['p2'])
+    expect(updatedOrg1.page.map((item) => item._id)).toEqual(['new-top', 'p1'])
+    expect(untouchedOrg2.page.map((item) => item._id)).toEqual(['p2'])
   })
 
   it('insertAtPosition respects multi-key sort ordering', () => {
@@ -203,7 +200,7 @@ describe('optimistic-updates helpers', () => {
     insertAtPosition({
       paginatedQuery: query as never,
       sortOrder: 'desc',
-      sortKeyFromItem: item => [item.priority, item.order],
+      sortKeyFromItem: (item: { priority: number; order: number }) => [item.priority, item.order],
       localQueryStore: localStore as never,
       item: { _id: 'mid', priority: 2, order: 25 } as never,
     })
@@ -213,7 +210,7 @@ describe('optimistic-updates helpers', () => {
       paginationOpts: { numItems: 10, cursor: null },
     }) as { page: Array<{ _id: string }> }
 
-    expect(updated.page.map(item => item._id)).toEqual(['a', 'mid', 'b', 'c'])
+    expect(updated.page.map((item) => item._id)).toEqual(['a', 'mid', 'b', 'c'])
   })
 
   it('insertAtBottomIfLoaded only appends when result is fully loaded', () => {
@@ -235,8 +232,8 @@ describe('optimistic-updates helpers', () => {
     const notDone = localStore.getQuery(query, {
       channel: 'general',
       paginationOpts: { numItems: 5, cursor: null },
-    }) as { page: Array<{ _id: string }>, isDone: boolean }
-    expect(notDone.page.map(item => item._id)).toEqual(['m1'])
+    }) as { page: Array<{ _id: string }>; isDone: boolean }
+    expect(notDone.page.map((item) => item._id)).toEqual(['m1'])
 
     localStore.setQuery(
       query,
@@ -253,8 +250,8 @@ describe('optimistic-updates helpers', () => {
     const done = localStore.getQuery(query, {
       channel: 'general',
       paginationOpts: { numItems: 5, cursor: null },
-    }) as { page: Array<{ _id: string }>, isDone: boolean }
-    expect(done.page.map(item => item._id)).toEqual(['m1', 'm2'])
+    }) as { page: Array<{ _id: string }>; isDone: boolean }
+    expect(done.page.map((item) => item._id)).toEqual(['m1', 'm2'])
   })
 
   it('optimisticallyUpdateValueInPaginatedQuery updates matching values in-place', () => {
@@ -276,15 +273,16 @@ describe('optimistic-updates helpers', () => {
 
     optimisticallyUpdateValueInPaginatedQuery({
       paginatedQuery: query as never,
-      argsToMatch: { listId: 'inbox' },
+      argsToMatch: { listId: 'inbox' } as never,
       localQueryStore: localStore as never,
-      updateValue: item => item._id === 't2' ? { ...item, done: true } as never : item,
+      updateValue: (item: { _id: string; done: boolean }) =>
+        (item._id === 't2' ? { ...item, done: true } : item) as never,
     })
 
     const updated = localStore.getQuery(query, {
       listId: 'inbox',
       paginationOpts: { numItems: 5, cursor: null },
-    }) as { page: Array<{ _id: string, done: boolean }> }
+    }) as { page: Array<{ _id: string; done: boolean }> }
 
     expect(updated.page).toEqual([
       { _id: 't1', done: false },
@@ -313,7 +311,7 @@ describe('optimistic-updates helpers', () => {
     deleteFromPaginatedQuery({
       paginatedQuery: query as never,
       localQueryStore: localStore as never,
-      shouldDelete: comment => comment.spam,
+      shouldDelete: (comment: { spam: boolean }) => comment.spam,
     })
 
     const updated = localStore.getQuery(query, {
@@ -321,6 +319,6 @@ describe('optimistic-updates helpers', () => {
       paginationOpts: { numItems: 5, cursor: null },
     }) as { page: Array<{ _id: string }> }
 
-    expect(updated.page.map(item => item._id)).toEqual(['c1', 'c3'])
+    expect(updated.page.map((item) => item._id)).toEqual(['c1', 'c3'])
   })
 })

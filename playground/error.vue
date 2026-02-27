@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import type { NuxtError } from "#app"
+import type { NuxtError } from '#app'
 
-const props = defineProps<{
+defineProps<{
   error: NuxtError
 }>()
 </script>
 
 <template>
   <div class="error-page">
-    <h1>{{ error.statusCode ?? 500 }}</h1>
-    <p>{{ error.message ?? "Server Error" }}</p>
+    <h1>{{ error.status ?? 500 }}</h1>
+    <p>{{ error.message ?? 'Server Error' }}</p>
   </div>
 </template>
 

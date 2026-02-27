@@ -10,12 +10,14 @@
     <div class="current-state">
       <h2>Current Auth State</h2>
       <p class="hint">
-        This page includes a TypeScript-only check for <code>user.role</code>, <code>user.authId</code>, and
-        <code>user.organizationId</code>. If this page compiles and loads, <code>ConvexUser</code> augmentation is working.
+        This page includes a TypeScript-only check for <code>user.role</code>,
+        <code>user.authId</code>, and <code>user.organizationId</code>. If this page compiles and
+        loads, <code>ConvexUser</code> augmentation is working.
       </p>
       <p class="hint">
-        <strong>Important:</strong> the authoritative app role comes from Convex (see <code>convex db role</code> below).
-        The <code>custom role</code> field here is a demo JWT claim for extending <code>ConvexUser</code>.
+        <strong>Important:</strong> the authoritative app role comes from Convex (see
+        <code>convex db role</code> below). The <code>custom role</code> field here is a demo JWT
+        claim for extending <code>ConvexUser</code>.
       </p>
       <div class="state-grid">
         <div class="state-item">
@@ -48,7 +50,9 @@
         </div>
         <div class="state-item">
           <span class="label">custom orgId</span>
-          <span class="value id">{{ augmentedUserFields?.organizationId || '(no JWT claim)' }}</span>
+          <span class="value id">{{
+            augmentedUserFields?.organizationId || '(no JWT claim)'
+          }}</span>
         </div>
         <div class="state-item">
           <span class="label">convex db role</span>
@@ -59,19 +63,10 @@
 
     <ClientOnly>
       <div class="plugin-lab">
-        <h2>Plugin + Additional Fields Verification (Issues #21 / #22)</h2>
+        <h2>Additional Fields Verification</h2>
         <p class="hint">
-          This panel verifies the docs recipes for:
-          <code>adminClient()</code> + <code>convexClient()</code> and typed Better Auth
-          <code>additionalFields</code> via <code>inferAdditionalFields&lt;AppAuth&gt;()</code>.
-        </p>
-        <p class="hint">
-          <strong>Noob checklist:</strong> sign in, confirm the first two checks are green, then click
-          <code>Probe admin.listUsers()</code>. A permission error is expected unless your Better Auth user is an admin.
-        </p>
-        <p class="hint">
-          <strong>Important:</strong> changing the <code>convex db role</code> below only updates your app's Convex
-          <code>users</code> table. It does <em>not</em> grant Better Auth Admin plugin permissions.
+          This panel verifies typed Better Auth <code>additionalFields</code> via
+          <code>inferAdditionalFields&lt;AppAuth&gt;()</code> while keeping Convex token sync.
         </p>
 
         <div class="state-grid plugin-grid">
@@ -79,12 +74,6 @@
             <span class="label">extended client</span>
             <span class="value" :class="{ positive: pluginChecks.hasExtendedClient }">
               {{ pluginChecks.hasExtendedClient ? 'ready' : 'initializing...' }}
-            </span>
-          </div>
-          <div class="state-item">
-            <span class="label">admin.listUsers method</span>
-            <span class="value" :class="{ positive: pluginChecks.hasAdminListUsers }">
-              {{ pluginChecks.hasAdminListUsers }}
             </span>
           </div>
           <div class="state-item">
@@ -106,28 +95,10 @@
             </span>
           </div>
         </div>
-
-        <div class="demo-card">
-          <h3>Admin Plugin Probe</h3>
-          <p class="demo-description">
-            Calls <code>authClient.admin.listUsers({ '{' } query: { '{' } limit: 3 {'}' } {'}' })</code>.
-            Success proves your admin plugin routes work. <strong>401/403 is also useful</strong> because it proves the plugin
-            method exists and the request reached the endpoint.
-          </p>
-          <div class="demo-output">
-            <div class="button-group role-buttons">
-              <button class="btn btn-secondary" :disabled="isProbingAdmin" @click="probeAdminListUsers">
-                {{ isProbingAdmin ? 'Probing...' : 'Probe admin.listUsers()' }}
-              </button>
-            </div>
-            <p v-if="adminProbeStatus" class="status-text">{{ adminProbeStatus }}</p>
-            <pre v-if="adminProbePreview" class="debug-preview">{{ adminProbePreview }}</pre>
-          </div>
-        </div>
       </div>
       <template #fallback>
         <div class="plugin-lab">
-          <h2>Plugin + Additional Fields Verification (Issues #21 / #22)</h2>
+          <h2>Additional Fields Verification</h2>
           <p class="hint">Client-only panel: waiting for hydration...</p>
         </div>
       </template>
@@ -262,9 +233,6 @@ const convex = useConvex()
 const roleOptions = ['admin', 'member', 'viewer'] as const
 const isUpdatingRole = ref(false)
 const claimDemoStatus = ref('')
-const isProbingAdmin = ref(false)
-const adminProbeStatus = ref('')
-const adminProbePreview = ref('')
 const pluginInitError = ref('')
 
 type ExtendedAuthClient = NonNullable<ReturnType<typeof useExtendedAuthClient>>
@@ -273,8 +241,11 @@ type ExtendedSessionData = ExtendedAuthClient['$Infer']['Session']
 const extendedAuthClient = shallowRef<ExtendedAuthClient | null>(null)
 const extendedSessionStore = shallowRef<unknown>(null)
 
-const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : 'skip' as const))
-const { data: permissionContext } = useConvexQuery(api.auth.getPermissionContext, permissionQueryArgs)
+const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : ('skip' as const)))
+const { data: permissionContext } = useConvexQuery(
+  api.auth.getPermissionContext,
+  permissionQueryArgs,
+)
 
 // Compile-time proof: these property accesses fail if ConvexUser augmentation
 // does not flow through useAuth().user.
@@ -283,9 +254,11 @@ const augmentedUserFields = computed(() => ({
   authId: user.value?.authId,
   organizationId: user.value?.organizationId,
 }))
-const permissionRole = computed(() => permissionContext.value && 'role' in permissionContext.value
-  ? permissionContext.value.role
-  : null)
+const permissionRole = computed(() =>
+  permissionContext.value && 'role' in permissionContext.value
+    ? permissionContext.value.role
+    : null,
+)
 
 onMounted(() => {
   try {
@@ -303,10 +276,9 @@ onMounted(() => {
     if (!pluginInitError.value) {
       pluginInitError.value = ''
     }
-
-    // Keep the type-checked docs verification access runtime-safe.
-    void client?.admin?.listUsers
-    const sessionStore = extendedSessionStore.value as { value?: { data?: ExtendedSessionData | null } } | null
+    const sessionStore = extendedSessionStore.value as {
+      value?: { data?: ExtendedSessionData | null }
+    } | null
     void sessionStore?.value?.data?.user?.organizationId
     void sessionStore?.value?.data?.user?.marketingOptIn
   } catch (error) {
@@ -318,11 +290,12 @@ onMounted(() => {
 
 const pluginChecks = computed(() => ({
   hasExtendedClient: !!extendedAuthClient.value,
-  hasAdminListUsers: typeof extendedAuthClient.value?.admin?.listUsers === 'function',
 }))
 
 const pluginSessionFields = computed(() => {
-  const sessionStore = extendedSessionStore.value as { value?: { data?: ExtendedSessionData | null } } | null
+  const sessionStore = extendedSessionStore.value as {
+    value?: { data?: ExtendedSessionData | null }
+  } | null
   const sessionUser = sessionStore?.value?.data?.user
   return {
     organizationId: sessionUser?.organizationId ?? '(undefined / not set yet)',
@@ -334,14 +307,6 @@ const pluginSessionFields = computed(() => {
   }
 })
 
-function formatProbeValue(value: unknown) {
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return String(value)
-  }
-}
-
 function formatErrorMessage(error: unknown) {
   if (error instanceof Error) {
     return error.message
@@ -349,65 +314,10 @@ function formatErrorMessage(error: unknown) {
   if (typeof error === 'string') {
     return error
   }
-  return formatProbeValue(error)
-}
-
-async function probeAdminListUsers() {
-  adminProbeStatus.value = ''
-  adminProbePreview.value = ''
-
-  if (!extendedAuthClient.value) {
-    adminProbeStatus.value = pluginInitError.value || 'Extended auth client is not available on this page yet.'
-    return
-  }
-
-  if (!isAuthenticated.value) {
-    adminProbeStatus.value = 'Sign in first, then click the probe button again.'
-    return
-  }
-
-  const listUsers = extendedAuthClient.value.admin?.listUsers
-  if (typeof listUsers !== 'function') {
-    adminProbeStatus.value = 'Admin plugin client methods are not available on this page load. Try a full refresh.'
-    return
-  }
-
-  isProbingAdmin.value = true
   try {
-    const result = await listUsers({
-      query: { limit: 3 },
-    })
-    const resultError = (
-      result &&
-      typeof result === 'object' &&
-      'error' in result &&
-      result.error &&
-      typeof result.error === 'object'
-    ) ? result.error : null
-
-    const resultMessage = (
-      resultError &&
-      'message' in resultError &&
-      typeof resultError.message === 'string'
-    ) ? resultError.message : ''
-
-    const isExpectedPermissionResult = /forbidden|unauthorized|permission|not allowed|admin/i.test(resultMessage)
-
-    adminProbeStatus.value = isExpectedPermissionResult
-      ? `Expected non-admin response (Convex DB role != Better Auth admin plugin access): ${resultMessage}`
-      : 'Success: admin plugin endpoint responded.'
-    adminProbePreview.value = formatProbeValue(result)
-  } catch (error) {
-    const message = formatErrorMessage(error)
-    const looksLikeExpectedPermissionError =
-      /forbidden|unauthorized|permission|not allowed|admin/i.test(message)
-
-    adminProbeStatus.value = looksLikeExpectedPermissionError
-      ? `Expected non-admin response (Convex DB role != Better Auth admin plugin access): ${message}`
-      : `Admin probe failed: ${message}`
-    adminProbePreview.value = formatProbeValue(error)
-  } finally {
-    isProbingAdmin.value = false
+    return JSON.stringify(error, null, 2)
+  } catch {
+    return String(error)
   }
 }
 
@@ -507,9 +417,15 @@ code {
   overflow-wrap: anywhere;
 }
 
-.state-item .value.positive { color: #4caf50; }
-.state-item .value.active { color: #ff9800; }
-.state-item .value.id { font-size: 0.9em; }
+.state-item .value.positive {
+  color: #4caf50;
+}
+.state-item .value.active {
+  color: #ff9800;
+}
+.state-item .value.id {
+  font-size: 0.9em;
+}
 
 .status-text {
   margin: 12px 0 0;
@@ -526,18 +442,6 @@ code {
 
 .plugin-grid {
   margin-bottom: 16px;
-}
-
-.debug-preview {
-  margin: 12px 0 0;
-  padding: 12px;
-  border-radius: 6px;
-  background: #fff;
-  border: 1px solid #ddd;
-  font-size: 12px;
-  line-height: 1.4;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .demo-card {
@@ -593,7 +497,9 @@ code {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .auth-content {

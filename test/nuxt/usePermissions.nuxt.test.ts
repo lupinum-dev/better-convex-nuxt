@@ -1,9 +1,10 @@
-import { useRouter } from '#imports'
 import { describe, expect, it, vi } from 'vitest'
 
+import { useRouter } from '#imports'
+
 import { createPermissions } from '../../src/runtime/composables/usePermissions'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 type Permission = 'post.edit' | 'org.members'
@@ -25,14 +26,17 @@ describe('usePermissions (Nuxt runtime)', () => {
       },
     })
 
-    const { result } = await captureInNuxt(() => {
-      const permissions = usePermissions()
-      return {
-        ...permissions,
-        canEditOwn: permissions.can('post.edit', { ownerId: 'user-1' }),
-        canEditOther: permissions.can('post.edit', { ownerId: 'user-2' }),
-      }
-    }, { convex })
+    const { result } = await captureInNuxt(
+      () => {
+        const permissions = usePermissions()
+        return {
+          ...permissions,
+          canEditOwn: permissions.can('post.edit', { ownerId: 'user-1' }),
+          canEditOther: permissions.can('post.edit', { ownerId: 'user-2' }),
+        }
+      },
+      { convex },
+    )
 
     expect(result.isAuthenticated.value).toBe(false)
     expect(result.role.value).toBeNull()
@@ -76,17 +80,20 @@ describe('usePermissions (Nuxt runtime)', () => {
       },
     })
 
-    const { result } = await captureInNuxt(() => {
-      const router = useRouter()
-      const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
+    const { result } = await captureInNuxt(
+      () => {
+        const router = useRouter()
+        const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
 
-      usePermissionGuard({
-        permission: 'org.members',
-        loginPath: '/auth/signin',
-      })
+        usePermissionGuard({
+          permission: 'org.members',
+          loginPath: '/auth/signin',
+        })
 
-      return { pushSpy }
-    }, { convex })
+        return { pushSpy }
+      },
+      { convex },
+    )
 
     expect(result.pushSpy).not.toHaveBeenCalled()
 
@@ -111,23 +118,26 @@ describe('usePermissions (Nuxt runtime)', () => {
       },
     })
 
-    let resolvePush: (() => void) | null = null
+    let resolvePush: ((value?: unknown) => void) | null = null
 
-    const { result } = await captureInNuxt(() => {
-      const router = useRouter()
-      const pushSpy = vi.spyOn(router, 'push').mockImplementation(() => {
-        return new Promise((resolve) => {
-          resolvePush = resolve
-        }) as never
-      })
+    const { result } = await captureInNuxt(
+      () => {
+        const router = useRouter()
+        const pushSpy = vi.spyOn(router, 'push').mockImplementation(() => {
+          return new Promise((resolve) => {
+            resolvePush = resolve
+          }) as never
+        })
 
-      usePermissionGuard({
-        permission: 'org.members',
-        redirectTo: '/forbidden',
-      })
+        usePermissionGuard({
+          permission: 'org.members',
+          redirectTo: '/forbidden',
+        })
 
-      return { pushSpy }
-    }, { convex })
+        return { pushSpy }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
     await waitFor(() => result.pushSpy.mock.calls.length === 1)
@@ -149,6 +159,7 @@ describe('usePermissions (Nuxt runtime)', () => {
     await waitFor(() => result.pushSpy.mock.calls.length === 1)
     expect(result.pushSpy).toHaveBeenCalledTimes(1)
 
-    resolvePush?.()
+    const releasePendingRedirect = resolvePush as unknown as (() => void) | null
+    releasePendingRedirect?.()
   })
 })

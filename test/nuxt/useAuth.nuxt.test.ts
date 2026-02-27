@@ -1,8 +1,10 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { useNuxtApp } from '#imports'
-import { computed, defineComponent, h, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { computed, defineComponent, h, ref } from 'vue'
 
+import { useNuxtApp } from '#imports'
+
+import { useAuth } from '../../src/runtime/composables/useAuth'
 import type { UseConvexAuthReturn } from '../../src/runtime/composables/useConvexAuth'
 
 const { mockUseConvexAuth } = vi.hoisted(() => ({
@@ -12,8 +14,6 @@ const { mockUseConvexAuth } = vi.hoisted(() => ({
 vi.mock('../../src/runtime/composables/useConvexAuth', () => ({
   useConvexAuth: mockUseConvexAuth,
 }))
-
-import { useAuth } from '../../src/runtime/composables/useAuth'
 
 function makeConvexAuthMock(): UseConvexAuthReturn {
   const token = ref<string | null>(null)
@@ -38,19 +38,21 @@ async function captureUseAuth(options?: { provideAuth?: unknown }) {
   let result: ReturnType<typeof useAuth> | undefined
   let nuxtAppRef: ReturnType<typeof useNuxtApp> | undefined
 
-  const wrapper = await mountSuspended(defineComponent({
-    setup() {
-      const nuxtApp = useNuxtApp()
-      nuxtAppRef = nuxtApp
+  const wrapper = await mountSuspended(
+    defineComponent({
+      setup() {
+        const nuxtApp = useNuxtApp()
+        nuxtAppRef = nuxtApp
 
-      if (options?.provideAuth) {
-        nuxtApp.provide('auth', options.provideAuth)
-      }
+        if (options?.provideAuth) {
+          nuxtApp.provide('auth', options.provideAuth)
+        }
 
-      result = useAuth()
-      return () => h('div')
-    },
-  }))
+        result = useAuth()
+        return () => h('div')
+      },
+    }),
+  )
 
   wrapper.unmount()
 

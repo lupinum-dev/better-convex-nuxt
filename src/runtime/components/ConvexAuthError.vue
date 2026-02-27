@@ -1,4 +1,4 @@
-<script lang="ts">
+<script setup lang="ts">
 /**
  * Renders slot content when authentication has failed or encountered an error.
  * Use this to display error messages or retry UI when auth operations fail.
@@ -27,15 +27,11 @@
  * </ConvexAuthError>
  * ```
  */
-export default {}
-</script>
-
-<script setup lang="ts">
 import { computed } from 'vue'
 import { useConvexAuth } from '../composables/useConvexAuth'
 
 defineSlots<{
-  default(props: { retry: () => void, error: string | null }): any
+  default(props: { retry: () => void; error: string | null }): unknown
 }>()
 
 const { isAuthenticated, isPending, token, user, authError } = useConvexAuth()

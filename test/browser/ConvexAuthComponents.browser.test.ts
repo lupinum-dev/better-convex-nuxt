@@ -1,7 +1,12 @@
-import { render } from 'vitest-browser-vue'
 import { afterEach, expect, test, vi } from 'vitest'
+import { render } from 'vitest-browser-vue'
 import { page } from 'vitest/browser'
 import { ref } from 'vue'
+
+import ConvexAuthenticated from '../../src/runtime/components/ConvexAuthenticated.vue'
+import ConvexAuthError from '../../src/runtime/components/ConvexAuthError.vue'
+import ConvexAuthLoading from '../../src/runtime/components/ConvexAuthLoading.vue'
+import ConvexUnauthenticated from '../../src/runtime/components/ConvexUnauthenticated.vue'
 
 const { useConvexAuthMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
@@ -10,11 +15,6 @@ const { useConvexAuthMock } = vi.hoisted(() => ({
 vi.mock('../../src/runtime/composables/useConvexAuth', () => ({
   useConvexAuth: useConvexAuthMock,
 }))
-
-import ConvexAuthenticated from '../../src/runtime/components/ConvexAuthenticated.vue'
-import ConvexUnauthenticated from '../../src/runtime/components/ConvexUnauthenticated.vue'
-import ConvexAuthLoading from '../../src/runtime/components/ConvexAuthLoading.vue'
-import ConvexAuthError from '../../src/runtime/components/ConvexAuthError.vue'
 
 afterEach(() => {
   useConvexAuthMock.mockReset()
