@@ -71,6 +71,14 @@ export interface QueryDefaults {
   public?: boolean
 }
 
+export interface UploadDefaults {
+  /**
+   * Maximum number of concurrent uploads for useConvexUploadQueue.
+   * @default 3
+   */
+  maxConcurrent?: number
+}
+
 export interface ConvexDebugOptions {
   /**
    * Enable detailed auth flow logs on both client and server plugins.
@@ -197,6 +205,10 @@ export interface ModuleOptions {
    * ```
    */
   defaults?: QueryDefaults
+  /**
+   * Default options for upload composables.
+   */
+  upload?: UploadDefaults
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -241,6 +253,9 @@ export default defineNuxtModule<ModuleOptions>({
       lazy: false,
       subscribe: true,
       public: false,
+    },
+    upload: {
+      maxConcurrent: 3,
     },
   },
   setup(options, nuxt) {
@@ -301,6 +316,9 @@ export default defineNuxtModule<ModuleOptions>({
           lazy: options.defaults?.lazy ?? false,
           subscribe: options.defaults?.subscribe ?? true,
           public: options.defaults?.public ?? false,
+        },
+        upload: {
+          maxConcurrent: options.upload?.maxConcurrent ?? 3,
         },
       },
     )
@@ -429,6 +447,10 @@ export {}
       {
         name: 'useConvexFileUpload',
         from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
+      },
+      {
+        name: 'useConvexUploadQueue',
+        from: resolver.resolve('./runtime/composables/useConvexUploadQueue'),
       },
       {
         name: 'useConvexStorageUrl',

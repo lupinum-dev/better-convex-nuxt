@@ -59,9 +59,19 @@ export {
 export {
   useConvexFileUpload,
   type UploadStatus,
+  type UploadProgressInfo,
   type UseConvexFileUploadReturn,
   type UseConvexFileUploadOptions,
 } from './useConvexFileUpload'
+export {
+  useConvexUploadQueue,
+  type UploadQueueItemStatus,
+  type UploadQueueItem,
+  type UploadQueueEnqueueItem,
+  type UploadQueueEnqueueInput,
+  type UseConvexUploadQueueOptions,
+  type UseConvexUploadQueueReturn,
+} from './useConvexUploadQueue'
 
 export { useConvexStorageUrl } from './useConvexStorageUrl'
 

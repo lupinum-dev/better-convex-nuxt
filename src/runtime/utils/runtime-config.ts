@@ -23,6 +23,9 @@ export interface NormalizedConvexRuntimeConfig {
     enabled: boolean
     ttl: number
   }
+  upload: {
+    maxConcurrent: number
+  }
   defaults: ConvexRuntimeDefaults
   debug: {
     authFlow: boolean
@@ -40,6 +43,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const defaults = asRecord(raw?.defaults)
   const debug = asRecord(raw?.debug)
   const authCache = asRecord(raw?.authCache)
+  const upload = asRecord(raw?.upload)
 
   const url = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
   const explicitSiteUrl = typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
@@ -60,6 +64,14 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     authCache: {
       enabled: authCache?.enabled === true,
       ttl: typeof authCache?.ttl === 'number' ? authCache.ttl : 900,
+    },
+    upload: {
+      maxConcurrent: (() => {
+        const candidate = upload?.maxConcurrent
+        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 3
+        const normalized = Math.trunc(candidate)
+        return normalized > 0 ? normalized : 1
+      })(),
     },
     defaults: {
       server: defaults?.server !== false,

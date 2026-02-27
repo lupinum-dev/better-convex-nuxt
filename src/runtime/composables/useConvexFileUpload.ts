@@ -11,7 +11,10 @@ import { useRuntimeConfig } from '#imports'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
+import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../utils/upload-core'
 import { useConvex } from './useConvex'
+
+export type { UploadProgressInfo } from '../utils/upload-core'
 
 /**
  * Upload status representing the current state of the upload
@@ -21,12 +24,6 @@ import { useConvex } from './useConvex'
  * - 'error': upload failed
  */
 export type UploadStatus = 'idle' | 'pending' | 'success' | 'error'
-
-export interface UploadProgressInfo {
-  loaded: number
-  total: number
-  percent: number
-}
 
 /**
  * Return value from useConvexFileUpload
@@ -239,8 +236,8 @@ export function useConvexFileUpload<
   const data = ref<string | undefined>(undefined) as Ref<string | undefined>
   const progress = ref(0)
 
-  // Track XHR for cancellation
-  let currentXhr: XMLHttpRequest | null = null
+  // Track in-flight upload for cancellation
+  let currentAbortController: AbortController | null = null
 
   // Computed - matches useConvexMutation pattern
   const status = computed(() => _status.value)
@@ -248,9 +245,9 @@ export function useConvexFileUpload<
 
   // Cancel function - aborts upload and resets state
   const cancel = () => {
-    if (currentXhr) {
-      currentXhr.abort()
-      currentXhr = null
+    if (currentAbortController) {
+      currentAbortController.abort()
+      currentAbortController = null
     }
     _status.value = 'idle'
     error.value = null
@@ -260,9 +257,9 @@ export function useConvexFileUpload<
 
   // Cleanup on scope dispose (component unmount)
   onScopeDispose(() => {
-    if (currentXhr) {
-      currentXhr.abort()
-      currentXhr = null
+    if (currentAbortController) {
+      currentAbortController.abort()
+      currentAbortController = null
     }
   })
 
@@ -278,7 +275,7 @@ export function useConvexFileUpload<
       throw err
     }
 
-    if (currentXhr) {
+    if (currentAbortController) {
       const err = new Error('Upload already in progress for this composable instance')
       _status.value = 'error'
       error.value = err
@@ -311,66 +308,21 @@ export function useConvexFileUpload<
 
     try {
       // Step 1: Get upload URL from Convex
-      const postUrl = await client.mutation(generateUploadUrlMutation, (mutationArgs ?? {}) as FunctionArgs<Mutation>)
-
-      if (typeof postUrl !== 'string') {
-        throw new TypeError('generateUploadUrl mutation must return a string URL')
-      }
+      const postUrl = await requestUploadUrl(
+        client,
+        generateUploadUrlMutation,
+        (mutationArgs ?? {}) as FunctionArgs<Mutation>,
+      )
 
       // Step 2: Upload file via XHR for progress tracking
-      const storageId = await new Promise<string>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        currentXhr = xhr
-
-        xhr.open('POST', postUrl)
-        if (file.type) {
-          xhr.setRequestHeader('Content-Type', file.type)
-        }
-
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const percent = Math.round((event.loaded / event.total) * 100)
-            progress.value = percent
-            options?.onProgress?.(
-              {
-                loaded: event.loaded,
-                total: event.total,
-                percent,
-              },
-              file,
-            )
-          }
-        }
-
-        xhr.onload = () => {
-          currentXhr = null
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const response = JSON.parse(xhr.responseText) as { storageId?: unknown }
-              if (typeof response?.storageId !== 'string' || response.storageId.length === 0) {
-                reject(new Error('Upload endpoint response missing valid storageId'))
-                return
-              }
-              resolve(response.storageId)
-            } catch {
-              reject(new Error('Invalid response from upload endpoint'))
-            }
-          } else {
-            reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`))
-          }
-        }
-
-        xhr.onerror = () => {
-          currentXhr = null
-          reject(new Error('Network error during upload'))
-        }
-
-        xhr.onabort = () => {
-          currentXhr = null
-          reject(new DOMException('Upload cancelled', 'AbortError'))
-        }
-
-        xhr.send(file)
+      const controller = new AbortController()
+      currentAbortController = controller
+      const storageId = await uploadFileViaXhr(postUrl, file, {
+        signal: controller.signal,
+        onProgress: (info) => {
+          progress.value = info.percent
+          options?.onProgress?.(info, file)
+        },
       })
 
       _status.value = 'success'
@@ -396,6 +348,8 @@ export function useConvexFileUpload<
 
       options?.onError?.(err, file)
       throw err
+    } finally {
+      currentAbortController = null
     }
   }
 

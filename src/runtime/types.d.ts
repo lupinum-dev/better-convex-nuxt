@@ -38,6 +38,10 @@ export interface ConvexPublicRuntimeConfig {
     subscribe?: boolean
     public?: boolean
   }
+  /** Upload defaults */
+  upload?: {
+    maxConcurrent?: number
+  }
   /** Optional debug channels for high-verbosity traces */
   debug?: {
     authFlow?: boolean
