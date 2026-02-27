@@ -32,7 +32,7 @@ Full-stack Nuxt that [feels like cheating]{.text-primary}
 
 ```vue
 <script setup lang="ts">
-import { api } from "~/convex/_generated/api";
+import { api } from "~~/convex/_generated/api";
 
 // Real-time subscription with SSR support
 const { data: tasks, status } = useConvexQuery(api.tasks.list, {
@@ -57,7 +57,7 @@ const { data: tasks, status } = useConvexQuery(api.tasks.list, {
 
 ```vue
 <script setup lang="ts">
-import { api } from "~/convex/_generated/api";
+import { api } from "~~/convex/_generated/api";
 
 const { mutate, pending } = useConvexMutation(api.tasks.create, {
   // Instant UI feedback with optimistic updates
@@ -192,6 +192,14 @@ Built-in features for building production-ready apps
   description: Full TypeScript inference from your Convex schema. Catch errors at compile time.
   icon: i-lucide-type
   to: /docs/data-fetching/queries#typescript
+  ---
+  :::
+  :::landing-feature
+  ---
+  title: File Storage
+  description: Upload files with progress tracking, cancel support, and multi-file queues with concurrency control.
+  icon: i-lucide-upload
+  to: /docs/advanced/file-storage
   ---
   :::
 :::
