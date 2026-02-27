@@ -61,7 +61,7 @@
     "lint": "eslint .",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "test": "vitest run --project=unit --project=convex --project=nuxt",
+    "test": "vitest run --project=unit --project=convex --project=nuxt --project=browser",
     "test:browser": "vitest run --project=browser",
     "test:e2e": "vitest run --project=e2e",
     "test:e2e:full": "vitest run --project=e2e",

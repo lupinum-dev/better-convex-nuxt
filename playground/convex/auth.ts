@@ -1,7 +1,6 @@
 import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
-import { admin } from 'better-auth/plugins'
 import { v } from 'convex/values'
 
 import type { DataModel } from './_generated/dataModel'
@@ -105,9 +104,6 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
           }),
         },
       }),
-      // Playground demo for issue #22 docs: plugin server installation.
-      // Admin plugin permissions remain separate from Convex app roles.
-      admin(),
     ],
     session: {
       expiresIn: 60 * 60 * 24 * 7,

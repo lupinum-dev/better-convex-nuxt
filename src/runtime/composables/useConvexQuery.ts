@@ -29,6 +29,8 @@ import { getConvexRuntimeConfig } from '../utils/runtime-config'
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
 let devToolsRegistryPromise: Promise<void> | null = null
 let devToolsRegistryLoadFailed = false
+const transformedAsyncDataKeyIds = new WeakMap<(input: unknown) => unknown, number>()
+let transformedAsyncDataKeySeq = 1
 
 function ensureDevToolsRegistryLoaded(): void {
   if (!import.meta.client || !import.meta.dev || devToolsRegistry || devToolsRegistryPromise || devToolsRegistryLoadFailed) return
@@ -43,6 +45,15 @@ function ensureDevToolsRegistryLoaded(): void {
     .finally(() => {
       devToolsRegistryPromise = null
     })
+}
+
+function getTransformedAsyncDataKeyId(transform: (input: unknown) => unknown): number {
+  const existing = transformedAsyncDataKeyIds.get(transform)
+  if (existing) return existing
+
+  const id = transformedAsyncDataKeySeq++
+  transformedAsyncDataKeyIds.set(transform, id)
+  return id
 }
 
 // Re-export for consumers
@@ -186,10 +197,13 @@ export function useConvexQuery<
   }
 
   const cacheKey = computed(() => getCacheKey())
+  const transformedKeySuffix = options?.transform
+    ? `:transformed:${getTransformedAsyncDataKeyId(options.transform as (input: unknown) => unknown)}`
+    : ''
   // Transformed results are consumer-specific shapes and cannot safely share the same
   // Nuxt async-data slot with untransformed consumers (or different transforms).
   const asyncDataKey = computed(() =>
-    options?.transform ? `${cacheKey.value}:transformed` : cacheKey.value,
+    `${cacheKey.value}${transformedKeySuffix}`,
   )
 
   // Computed hash of args for deep reactivity detection

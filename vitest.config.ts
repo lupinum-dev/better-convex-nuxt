@@ -8,8 +8,8 @@ import { defineConfig } from 'vitest/config'
  * Vitest Configuration
  *
  * Test commands:
- *   pnpm test       - Fast tests only (convex backend)
- *   pnpm test:e2e   - E2E tests (SSR, browser, ~60s)
+ *   pnpm test       - CI/local gate (unit + convex + nuxt + browser)
+ *   pnpm test:e2e   - Manual E2E tests (SSR + full stack)
  *   pnpm test:full  - All tests
  *
  * Run specific project:
