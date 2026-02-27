@@ -1,7 +1,6 @@
 <script setup lang="ts">
 const router = useRouter()
-const authClient = useAuthClient()
-const { isAuthenticated } = useConvexAuth()
+const { isAuthenticated, signIn } = useConvexAuth()
 
 const isLoading = ref(false)
 
@@ -17,10 +16,9 @@ const providers = [{
   icon: 'i-simple-icons-github',
   color: 'neutral' as const,
   onClick: async () => {
-    if (!authClient) return
     isLoading.value = true
     try {
-      await authClient.signIn.social({
+      await signIn.social({
         provider: 'github',
         callbackURL: '/demo'
       })

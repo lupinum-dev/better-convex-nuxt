@@ -1,6 +1,6 @@
 import { navigateTo, useNuxtApp, useRoute, useRuntimeConfig } from '#imports'
 
-import { useAuth } from '../composables/useAuth'
+import { useConvexAuth } from '../composables/useConvexAuth'
 import { isConvexUnauthorizedError } from './auth-unauthorized-core'
 import { normalizeConvexRuntimeConfig } from './runtime-config'
 
@@ -71,11 +71,11 @@ export async function handleUnauthorizedAuthFailure(options: {
 
   recoveryState.activeRecovery = (async () => {
     try {
-      const { signOut } = useAuth()
+      const { signOut } = useConvexAuth()
       try {
         await signOut()
       } catch {
-        // Best effort; local state is already cleared by useAuth().signOut()
+        // Best effort; local state is already cleared by useConvexAuth().signOut()
       }
 
       await navigateTo(redirectTo)

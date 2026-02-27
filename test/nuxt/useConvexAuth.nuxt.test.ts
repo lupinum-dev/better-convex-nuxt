@@ -55,5 +55,60 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(result.isAuthenticated.value).toBe(true)
     expect(result.isPending.value).toBe(false)
   })
+
+  it('returns callable SSR proxies when auth client is unavailable', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const { result } = await captureInNuxt(() => {
+      return useConvexAuth()
+    })
+    expect(typeof result.signIn.email).toBe('function')
+    expect(typeof result.signUp.email).toBe('function')
+
+    const signInResult = await result.signIn.email({
+      email: 'stub@example.com',
+      password: 'password123',
+    })
+    const signUpResult = await result.signUp.email({
+      name: 'Stub User',
+      email: 'stub@example.com',
+      password: 'password123',
+    })
+
+    expect(signInResult.data).toBeNull()
+    expect(signUpResult.data).toBeNull()
+    expect(signInResult.error?.message).toContain('client-only')
+    expect(signUpResult.error?.message).toContain('client-only')
+  })
+
+  it('forwards client/signIn/signUp from injected $auth', async () => {
+    const fakeAuthClient = {
+      signIn: {
+        email: vi.fn(async () => ({ data: { ok: true, kind: 'signIn' }, error: null })),
+      },
+      signUp: {
+        email: vi.fn(async () => ({ data: { ok: true, kind: 'signUp' }, error: null })),
+      },
+      signOut: vi.fn(async () => ({ data: { success: true }, error: null })),
+    }
+
+    const { result } = await captureInNuxt(() => {
+      return useConvexAuth()
+    }, {
+      auth: fakeAuthClient,
+    })
+
+    expect(result.client).toBeTruthy()
+    expect(result.signIn).toBe(fakeAuthClient.signIn)
+    expect(result.signUp).toBe(fakeAuthClient.signUp)
+
+    const signInResult = await result.signIn.email({
+      email: 'stub@example.com',
+      password: 'password123',
+    })
+
+    expect(fakeAuthClient.signIn.email).toHaveBeenCalledTimes(1)
+    expect(signInResult).toEqual({ data: { ok: true, kind: 'signIn' }, error: null })
+  })
 })
 

@@ -9,6 +9,33 @@ export type { ConvexUser } from '../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
+function createClientOnlyMethodProxy<T>(name: 'signIn' | 'signUp'): T {
+  const buildProxy = (path: string[]): unknown => {
+    const fn = () => {}
+    return new Proxy(fn, {
+      get(_target, prop) {
+        if (prop === 'then') return undefined
+        if (typeof prop === 'symbol') return undefined
+        return buildProxy([...path, prop])
+      },
+      apply() {
+        const methodPath = path.join('.')
+        const message
+          = `[useConvexAuth] \`${methodPath}\` is client-only. Call it from a browser event handler and ensure auth is enabled.`
+        if (import.meta.dev) {
+          console.warn(message)
+        }
+        return Promise.resolve({
+          data: null,
+          error: { message },
+        })
+      },
+    })
+  }
+
+  return buildProxy([name]) as T
+}
+
 export interface UseConvexAuthReturn {
   /** The JWT token for Convex authentication (readonly) */
   token: Readonly<Ref<string | null>>
@@ -30,6 +57,23 @@ export interface UseConvexAuthReturn {
    * Triggers fresh token fetch and updates reactive state.
    */
   refreshAuth: () => Promise<void>
+  /**
+   * Raw Better Auth client for advanced/plugin-specific APIs.
+   * Returns null during SSR.
+   */
+  client: AuthClient | null
+  /**
+   * Better Auth sign-in methods (client-only).
+   * During SSR, returns a proxy that warns if called.
+   * @example `signIn.email({ email, password })`
+   */
+  signIn: AuthClient['signIn']
+  /**
+   * Better Auth sign-up methods (client-only).
+   * During SSR, returns a proxy that warns if called.
+   * @example `signUp.email({ name, email, password })`
+   */
+  signUp: AuthClient['signUp']
 }
 
 /**
@@ -45,7 +89,7 @@ export interface UseConvexAuthReturn {
  * @example
  * ```vue
  * <script setup>
- * const { user, isAuthenticated, isPending, signOut } = useConvexAuth()
+ * const { user, isAuthenticated, isPending, signIn, signOut } = useConvexAuth()
  *
  * async function handleLogout() {
  *   await signOut()
@@ -214,6 +258,8 @@ export function useConvexAuth(): UseConvexAuthReturn {
     return appState._convexRefreshAuthPromise
   }
 
+  const client = (nuxtApp.$auth as AuthClient | undefined) ?? null
+
   return {
     /** The JWT token for Convex authentication (readonly) */
     token: readonly(token),
@@ -235,5 +281,11 @@ export function useConvexAuth(): UseConvexAuthReturn {
      * Triggers fresh token fetch and updates reactive state.
      */
     refreshAuth,
+    /** Raw Better Auth client for advanced/plugin-specific APIs. Null during SSR. */
+    client,
+    /** Better Auth sign-in methods (client-only). */
+    signIn: client?.signIn ?? createClientOnlyMethodProxy<AuthClient['signIn']>('signIn'),
+    /** Better Auth sign-up methods (client-only). */
+    signUp: client?.signUp ?? createClientOnlyMethodProxy<AuthClient['signUp']>('signUp'),
   }
 }

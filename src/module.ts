@@ -109,7 +109,7 @@ export interface ModuleOptions {
   siteUrl?: string
   /**
    * Authentication configuration.
-   * Enables auth composables (useAuth, useConvexAuth), SSR token exchange, route protection,
+   * Enables the auth composable (useConvexAuth), SSR token exchange, route protection,
    * and optional unauthorized-session recovery behavior.
    *
    * Set `auth.enabled = false` to disable auth features if you only need Convex without Better Auth.
@@ -461,7 +461,6 @@ export {}
     // 6b. Auth composables and components (only when auth enabled)
     if (isAuthEnabled) {
       addImports([
-        { name: 'useAuth', from: resolver.resolve('./runtime/composables/useAuth') },
         { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
       ])
 

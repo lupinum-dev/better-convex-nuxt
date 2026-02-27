@@ -1,6 +1,6 @@
 import { defineNuxtRouteMiddleware, navigateTo, useRuntimeConfig } from '#app'
 
-import { useAuth } from '../composables/useAuth'
+import { useConvexAuth } from '../composables/useConvexAuth'
 import { resolveRouteProtectionDecision, type ConvexAuthPageMeta } from '../utils/auth-route-protection'
 import { normalizeConvexRuntimeConfig } from '../utils/runtime-config'
 import { waitForPendingClear } from '../utils/auth-pending'
@@ -21,7 +21,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     )
   }
 
-  const { isAuthenticated, isPending } = useAuth()
+  const { isAuthenticated, isPending } = useConvexAuth()
 
   const decision = resolveRouteProtectionDecision({
     meta: pageMeta.convexAuth,

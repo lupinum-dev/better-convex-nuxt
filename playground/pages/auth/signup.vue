@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-const { signUp, refreshAuth } = useAuth()
+const { signUp, refreshAuth } = useConvexAuth()
 
 const form = reactive({
   name: '',

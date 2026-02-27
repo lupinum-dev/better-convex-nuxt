@@ -17,8 +17,8 @@ vi.mock('#imports', () => ({
   useRuntimeConfig: () => useRuntimeConfigMock(),
 }))
 
-vi.mock('../../src/runtime/composables/useAuth', () => ({
-  useAuth: () => ({ signOut: signOutMock }),
+vi.mock('../../src/runtime/composables/useConvexAuth', () => ({
+  useConvexAuth: () => ({ signOut: signOutMock }),
 }))
 
 describe('auth unauthorized recovery', () => {

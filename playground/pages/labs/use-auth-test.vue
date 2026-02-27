@@ -25,7 +25,7 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, client, signIn, signUp } = useAuth()
+const { isAuthenticated, isPending, client, signIn, signUp } = useConvexAuth()
 const resultText = ref('(idle)')
 
 const signInEmailType = computed(() => typeof signIn.email)

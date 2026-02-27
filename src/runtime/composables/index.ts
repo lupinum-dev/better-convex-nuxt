@@ -1,5 +1,4 @@
-export { useConvexAuth, type ConvexUser } from './useConvexAuth'
-export { useAuth, type UseAuthReturn } from './useAuth'
+export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
 export { useConvex } from './useConvex'
 export {
   useConvexConnectionState,

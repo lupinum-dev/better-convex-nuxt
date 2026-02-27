@@ -228,7 +228,7 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, token, user, signOut: authSignOut } = useAuth()
+const { isAuthenticated, isPending, token, user, signOut: authSignOut } = useConvexAuth()
 const convex = useConvex()
 const roleOptions = ['admin', 'member', 'viewer'] as const
 const isUpdatingRole = ref(false)
