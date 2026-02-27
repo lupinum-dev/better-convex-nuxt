@@ -80,7 +80,7 @@ const {
   pending,
   error,
 } = useConvexQuery(api.tasks.list, queryArgs, {
-  verbose: true, // Check console for detailed logs
+  // Check console for detailed logs
 })
 
 // Client-only state

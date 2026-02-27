@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -45,5 +45,47 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(result.error.value).toBeNull()
     expect(result.data.value).toBeUndefined()
   })
-})
 
+  it('invokes onSuccess and onError callbacks exactly once with args', async () => {
+    const convex = new MockConvexClient()
+    const successAction = mockFnRef<'action'>('testing:callback-success')
+    const failAction = mockFnRef<'action'>('testing:callback-fail')
+    convex.setActionHandler('testing:callback-success', async (args) => ({
+      ok: true,
+      payload: args,
+    }))
+    convex.setActionHandler('testing:callback-fail', async () => {
+      throw new Error('action callback boom')
+    })
+
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+
+    const { result } = await captureInNuxt(
+      () => ({
+        success: useConvexAction(successAction, { onSuccess }),
+        fail: useConvexAction(failAction, { onError }),
+      }),
+      { convex },
+    )
+
+    const successArgs = { value: 'ok' }
+    await expect(result.success.execute(successArgs as never)).resolves.toEqual({
+      ok: true,
+      payload: successArgs,
+    })
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(onSuccess).toHaveBeenCalledWith(
+      { ok: true, payload: successArgs },
+      successArgs,
+    )
+
+    const failArgs = { value: 'nope' }
+    await expect(result.fail.execute(failArgs as never)).rejects.toThrow('action callback boom')
+    expect(onError).toHaveBeenCalledTimes(1)
+    const callbackError = onError.mock.calls[0]?.[0]
+    expect(callbackError).toBeInstanceOf(Error)
+    expect((callbackError as Error).message).toBe('action callback boom')
+    expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
+  })
+})

@@ -16,7 +16,7 @@ try {
 
 const maybeDescribe = local ? describe : describe.skip
 
-maybeDescribe('Server helpers smoke (fetchQuery/fetchMutation)', async () => {
+maybeDescribe('Server helpers smoke (serverConvexQuery/serverConvexMutation)', async () => {
   afterAll(async () => {
     if (local) {
       await local.release()

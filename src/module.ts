@@ -483,10 +483,13 @@ export {}
 
     // 7. Auto-import server utilities
     addServerImports([
-      { name: 'fetchQuery', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'fetchMutation', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'fetchAction', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'clearAuthCache', from: resolver.resolve('./runtime/server/utils/auth-cache') },
+      { name: 'serverConvexQuery', from: resolver.resolve('./runtime/server/utils/convex') },
+      { name: 'serverConvexMutation', from: resolver.resolve('./runtime/server/utils/convex') },
+      { name: 'serverConvexAction', from: resolver.resolve('./runtime/server/utils/convex') },
+      {
+        name: 'serverConvexClearAuthCache',
+        from: resolver.resolve('./runtime/server/utils/auth-cache'),
+      },
     ])
 
     // 9. Add types to tsconfig references

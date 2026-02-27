@@ -17,7 +17,7 @@ definePageMeta({
 const { results, status, isLoading, loadMore, error } = useConvexPaginatedQuery(
   api.notes.listPaginated,
   {},
-  { initialNumItems: 3, verbose: true },
+  { initialNumItems: 3 },
 )
 
 const { mutate: addNote, pending: addPending } = useConvexMutation(api.notes.add)

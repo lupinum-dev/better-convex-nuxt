@@ -26,6 +26,7 @@ export {
   useConvexAction,
   type ActionStatus,
   type UseConvexActionReturn,
+  type UseConvexActionOptions,
 } from './useConvexAction'
 export {
   useConvexQuery,

@@ -109,7 +109,7 @@ export default defineEventHandler(async (event: H3Event) => {
     })
 
     // Get request body for POST/PUT/PATCH
-    let body: Buffer | undefined
+    let body: string | undefined
     if (['POST', 'PUT', 'PATCH'].includes(event.method)) {
       const requestBodySizeError = getRequestBodySizeError(event.headers.get('content-length'))
       if (requestBodySizeError) {
@@ -123,7 +123,7 @@ export default defineEventHandler(async (event: H3Event) => {
           },
         })
       }
-      body = (await readRawBody(event, false)) || undefined
+      body = (await readRawBody(event, 'utf8')) || undefined
     }
 
     // Make request to Convex (manual redirect handling).

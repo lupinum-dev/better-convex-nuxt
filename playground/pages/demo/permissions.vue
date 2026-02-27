@@ -10,7 +10,7 @@
       </header>
 
       <!-- Loading state -->
-      <div v-if="isLoading" class="loading">Loading permissions...</div>
+      <div v-if="pending" class="loading">Loading permissions...</div>
 
       <!-- Not authenticated -->
       <div v-else-if="!isAuthenticated" class="not-auth">
@@ -466,7 +466,7 @@ definePageMeta({
 })
 
 // Permissions
-const { can, user, role, orgId, isLoading, isAuthenticated } = usePermissions()
+const { can, user, role, orgId, pending, isAuthenticated } = usePermissions()
 
 // Queries - use status for explicit state management
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)

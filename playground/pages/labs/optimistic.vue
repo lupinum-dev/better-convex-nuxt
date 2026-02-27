@@ -28,7 +28,7 @@ definePageMeta({
 const { data, pending, status } = useConvexQuery(
   api.notes.list,
   {},
-  { verbose: true },
+  {},
 )
 
 // Track add/remove counts for verification

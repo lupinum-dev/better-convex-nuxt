@@ -109,7 +109,7 @@ async function executeConvexOperation<T>(
  * // server/api/tasks.get.ts
  * export default defineEventHandler(async (event) => {
  *   const config = useRuntimeConfig()
- *   const tasks = await fetchQuery(
+ *   const tasks = await serverConvexQuery(
  *     config.public.convex.url,
  *     api.tasks.list,
  *     { status: 'active' }
@@ -118,7 +118,7 @@ async function executeConvexOperation<T>(
  * })
  * ```
  */
-export async function fetchQuery<Query extends FunctionReference<'query'>>(
+export async function serverConvexQuery<Query extends FunctionReference<'query'>>(
   convexUrl: string,
   query: Query,
   args?: FunctionArgs<Query>,
@@ -145,7 +145,7 @@ export async function fetchQuery<Query extends FunctionReference<'query'>>(
  *   const config = useRuntimeConfig()
  *   const body = await readBody(event)
  *
- *   await fetchMutation(
+ *   await serverConvexMutation(
  *     config.public.convex.url,
  *     api.tasks.complete,
  *     { taskId: body.taskId }
@@ -155,7 +155,7 @@ export async function fetchQuery<Query extends FunctionReference<'query'>>(
  * })
  * ```
  */
-export async function fetchMutation<Mutation extends FunctionReference<'mutation'>>(
+export async function serverConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   convexUrl: string,
   mutation: Mutation,
   args?: FunctionArgs<Mutation>,
@@ -182,7 +182,7 @@ export async function fetchMutation<Mutation extends FunctionReference<'mutation
  *   const config = useRuntimeConfig()
  *   const body = await readBody(event)
  *
- *   const result = await fetchAction(
+ *   const result = await serverConvexAction(
  *     config.public.convex.url,
  *     api.email.send,
  *     { to: body.email, subject: body.subject }
@@ -192,7 +192,7 @@ export async function fetchMutation<Mutation extends FunctionReference<'mutation
  * })
  * ```
  */
-export async function fetchAction<Action extends FunctionReference<'action'>>(
+export async function serverConvexAction<Action extends FunctionReference<'action'>>(
   convexUrl: string,
   action: Action,
   args?: FunctionArgs<Action>,

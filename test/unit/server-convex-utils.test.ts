@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { fetchAction, fetchMutation, fetchQuery } from '../../src/runtime/server/utils/convex'
+import {
+  serverConvexAction,
+  serverConvexMutation,
+  serverConvexQuery,
+} from '../../src/runtime/server/utils/convex'
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: vi.fn(() => ({ public: { convex: {} } })),
@@ -20,7 +24,7 @@ describe('server Convex fetch helpers', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await fetchQuery(
+    const result = await serverConvexQuery(
       'http://127.0.0.1:3210',
       { _path: 'notes:list' } as never,
       { limit: 5 } as never,
@@ -52,7 +56,7 @@ describe('server Convex fetch helpers', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    await fetchMutation(
+    await serverConvexMutation(
       'http://127.0.0.1:3210',
       { _path: 'notes:add' } as never,
       { title: 'Hello' } as never,
@@ -79,7 +83,7 @@ describe('server Convex fetch helpers', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(
-      fetchQuery('http://127.0.0.1:3210', { _path: 'notes:list' } as never, {} as never),
+      serverConvexQuery('http://127.0.0.1:3210', { _path: 'notes:list' } as never, {} as never),
     ).rejects.toThrow('Unexpected response type: text/html')
   })
 
@@ -100,7 +104,7 @@ describe('server Convex fetch helpers', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(
-      fetchMutation(
+      serverConvexMutation(
         'http://127.0.0.1:3210',
         { _path: 'notes:delete' } as never,
         { id: 'n1' } as never,
@@ -121,14 +125,14 @@ describe('server Convex fetch helpers', () => {
       [Symbol.for('functionName')]: 'symbol:path',
     }
 
-    await fetchAction('http://127.0.0.1:3210', symbolRef as never, {} as never)
-    await fetchAction('http://127.0.0.1:3210', { _path: 'path:field' } as never, {} as never)
-    await fetchAction(
+    await serverConvexAction('http://127.0.0.1:3210', symbolRef as never, {} as never)
+    await serverConvexAction('http://127.0.0.1:3210', { _path: 'path:field' } as never, {} as never)
+    await serverConvexAction(
       'http://127.0.0.1:3210',
       { functionPath: 'function:path' } as never,
       {} as never,
     )
-    await fetchAction('http://127.0.0.1:3210', {} as never, {} as never)
+    await serverConvexAction('http://127.0.0.1:3210', {} as never, {} as never)
 
     const paths = fetchMock.mock.calls.map((call) => {
       const init = (call as unknown[])[1] as RequestInit | undefined

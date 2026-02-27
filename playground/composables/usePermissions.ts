@@ -30,7 +30,7 @@ const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGu
 // Wraps the base composable with auto-user-creation for the playground.
 //
 // Usage:
-//   const { can, user, isAuthenticated, isLoading } = usePermissions()
+//   const { can, user, isAuthenticated, pending } = usePermissions()
 //
 //   // In template:
 //   <button v-if="can('post.update', post)">Edit</button>
@@ -48,7 +48,7 @@ export function usePermissions() {
   const createUser = useConvexMutation(api.auth.createUserIfNeeded)
 
   watchEffect(async () => {
-    if (base.isLoading.value) return
+    if (base.pending.value) return
     const context = base.user.value as {
       _debug?: { hasIdentity?: boolean; hasUser?: boolean; reason?: string }
     } | null

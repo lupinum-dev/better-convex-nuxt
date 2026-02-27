@@ -25,7 +25,6 @@ const { data, pending, status, error } = useConvexQuery(
   {},
   {
     default: () => DEFAULT_DATA as typeof data.value,
-    verbose: true,
   },
 )
 

@@ -106,15 +106,15 @@ async function handleLogin() {
 | Composable                 | Description                                          |
 | -------------------------- | ---------------------------------------------------- |
 | `useConvexQuery`           | Execute queries with SSR and real-time subscriptions |
-| `useLazyConvexQuery`       | Non-blocking queries that load in background         |
 | `useConvexMutation`        | Execute mutations with optimistic updates            |
 | `useConvexAction`          | Execute Convex actions                               |
 | `useConvexPaginatedQuery`  | Paginated queries with `loadMore()`                  |
 | `useConvexFileUpload`      | Upload files to Convex storage with progress         |
+| `useConvexUploadQueue`     | Queue uploads with controlled concurrency            |
 | `useConvexStorageUrl`      | Get reactive URLs for stored files                   |
 | `useConvexAuth`            | Authentication state (user, token, isAuthenticated)  |
 | `useConvexConnectionState` | WebSocket connection status                          |
-| `useConvexCached`          | Read cached query data                               |
+| `createPermissions`        | Build app-specific permission composables            |
 | `useConvex`                | Access raw ConvexClient instance                     |
 
 ## Components
@@ -124,6 +124,7 @@ async function handleLogin() {
 | `<ConvexAuthenticated>`   | Renders content only when authenticated     |
 | `<ConvexUnauthenticated>` | Renders content only when not authenticated |
 | `<ConvexAuthLoading>`     | Renders content during auth state loading   |
+| `<ConvexAuthError>`       | Renders content when auth resolution fails  |
 
 ## Documentation
 

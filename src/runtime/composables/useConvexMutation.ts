@@ -79,7 +79,10 @@ export interface UseConvexMutationReturn<Args, Result> {
 /**
  * Options for useConvexMutation
  */
-export interface UseConvexMutationOptions<Args extends Record<string, unknown>> {
+export interface UseConvexMutationOptions<
+  Args extends Record<string, unknown>,
+  Result = unknown,
+> {
   /**
    * Optimistic update function. Receives Convex's OptimisticLocalStore and mutation args.
    * Called immediately before the mutation is sent to server.
@@ -108,8 +111,18 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>> 
    *   }
    * })
    * ```
-   */
+  */
   optimisticUpdate?: (localStore: OptimisticLocalStore, args: Args) => void
+  /**
+   * Called after a successful mutation.
+   * Errors thrown here are logged and ignored.
+   */
+  onSuccess?: (result: Result, args: Args) => void
+  /**
+   * Called after a failed mutation.
+   * Errors thrown here are logged and ignored.
+   */
+  onError?: (error: Error, args: Args) => void
 }
 
 /**
@@ -237,7 +250,7 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>> 
  */
 export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   mutation: Mutation,
-  options?: UseConvexMutationOptions<FunctionArgs<Mutation>>,
+  options?: UseConvexMutationOptions<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>,
 ): UseConvexMutationReturn<FunctionArgs<Mutation>, FunctionReturnType<Mutation>> {
   type Args = FunctionArgs<Mutation>
   type Result = FunctionReturnType<Mutation>
@@ -298,6 +311,16 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       _status.value = 'success'
       data.value = result
 
+      try {
+        options?.onSuccess?.(result, args)
+      } catch (callbackError) {
+        logger.mutation({
+          name: fnName,
+          event: 'error',
+          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
+        })
+      }
+
       // Update DevTools
       updateDevToolsSuccess(mutationId, startTime, result)
 
@@ -309,6 +332,16 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       const err = e instanceof Error ? e : new Error(String(e))
       _status.value = 'error'
       error.value = err
+
+      try {
+        options?.onError?.(err, args)
+      } catch (callbackError) {
+        logger.mutation({
+          name: fnName,
+          event: 'error',
+          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
+        })
+      }
 
       // Update DevTools
       updateDevToolsError(mutationId, startTime, err.message)

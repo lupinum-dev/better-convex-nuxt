@@ -26,18 +26,18 @@ async function getStorage() {
  * @example
  * ```ts
  * // In your logout API route or server middleware
- * import { clearAuthCache } from '#imports'
+ * import { serverConvexClearAuthCache } from '#imports'
  *
  * export default defineEventHandler(async (event) => {
  *   const sessionToken = getCookie(event, 'better-auth.session_token')
  *   if (sessionToken) {
- *     await clearAuthCache(sessionToken)
+ *     await serverConvexClearAuthCache(sessionToken)
  *   }
  *   // ... rest of logout logic
  * })
  * ```
  */
-export async function clearAuthCache(sessionToken: string): Promise<void> {
+export async function serverConvexClearAuthCache(sessionToken: string): Promise<void> {
   const storage = await getStorage()
   const cacheKey = `jwt:${hash(sessionToken)}`
   await storage.removeItem(cacheKey)

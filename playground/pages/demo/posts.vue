@@ -194,8 +194,7 @@ const {
   error,
   isLoading,
 } = useConvexQuery(api.posts.list, queryArgs, {
-  verbose: true,
-})
+  })
 
 // New post form
 const newPost = ref({

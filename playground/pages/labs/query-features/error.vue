@@ -19,7 +19,7 @@ definePageMeta({
 const { data, pending, status, error, refresh } = useConvexQuery(
   api.testing.alwaysFails,
   {},
-  { verbose: true },
+  {},
 )
 
 // Track retry count

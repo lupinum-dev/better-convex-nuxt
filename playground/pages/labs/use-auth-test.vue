@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <h1>useAuth Test</h1>
+    <h1>useConvexAuth Test</h1>
 
     <div class="panel">
       <div class="row"><span>isAuthenticated</span><strong>{{ isAuthenticated }}</strong></div>

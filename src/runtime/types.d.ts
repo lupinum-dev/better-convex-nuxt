@@ -15,7 +15,7 @@ export interface ConvexPublicRuntimeConfig {
   /** Convex site URL (HTTP/Auth) */
   siteUrl?: string
   /** Auth integration config */
-  auth?: boolean | ConvexAuthConfigInput
+  auth?: ConvexAuthConfigInput
   /** Auth proxy route path */
   authRoute?: string
   /** Additional trusted origins for auth proxy CORS */

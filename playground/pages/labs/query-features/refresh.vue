@@ -18,7 +18,7 @@ definePageMeta({
 const { data, pending, status, refresh } = useConvexQuery(
   api.notes.list,
   {},
-  { verbose: true },
+  {},
 )
 
 // Track refresh count and timestamps

@@ -123,6 +123,35 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     await waitFor(() => result.queryResult.data.value?.tag === 'beta')
   })
 
+  it('re-subscribes when args are passed as a getter function', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('search:notes:getter-args')
+
+    const { result, flush } = await captureInNuxt(() => {
+      const tag = ref('alpha')
+      const queryResult = useConvexQuery(query, () => ({
+        filter: { tag: tag.value },
+      }))
+      return { tag, queryResult }
+    }, { convex })
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+
+    convex.emitQueryResult(query, { filter: { tag: 'alpha' } }, { tag: 'alpha', hits: 2 })
+    await waitFor(() => result.queryResult.data.value?.tag === 'alpha')
+
+    result.tag.value = 'beta'
+    await flush()
+
+    await waitFor(() => convex.calls.onUpdate.some((call) => {
+      const args = call.args as { filter?: { tag?: string } }
+      return args.filter?.tag === 'beta'
+    }))
+
+    convex.emitQueryResult(query, { filter: { tag: 'beta' } }, { tag: 'beta', hits: 4 })
+    await waitFor(() => result.queryResult.data.value?.tag === 'beta')
+  })
+
   it('uses pending status contract for server:false + lazy:true until first data', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:server-false-lazy')

@@ -36,16 +36,9 @@ export const DEFAULT_CONVEX_AUTH_CONFIG: ConvexAuthConfig = {
 
 /**
  * Runtime-safe normalization for auth config.
- * Supports booleans temporarily for resilience, but the public API is object-based.
+ * Public API is object-based.
  */
 export function normalizeConvexAuthConfig(input: unknown): ConvexAuthConfig {
-  if (typeof input === 'boolean') {
-    return {
-      ...DEFAULT_CONVEX_AUTH_CONFIG,
-      enabled: input,
-    }
-  }
-
   if (!input || typeof input !== 'object') {
     return { ...DEFAULT_CONVEX_AUTH_CONFIG }
   }
@@ -70,4 +63,3 @@ export function normalizeConvexAuthConfig(input: unknown): ConvexAuthConfig {
     },
   }
 }
-

@@ -65,6 +65,22 @@ export interface UseConvexActionReturn<Args, Result> {
 }
 
 /**
+ * Options for useConvexAction
+ */
+export interface UseConvexActionOptions<Args, Result> {
+  /**
+   * Called after a successful action.
+   * Errors thrown here are logged and ignored.
+   */
+  onSuccess?: (result: Result, args: Args) => void
+  /**
+   * Called after a failed action.
+   * Errors thrown here are logged and ignored.
+   */
+  onError?: (error: Error, args: Args) => void
+}
+
+/**
  * Composable for calling Convex actions with automatic state tracking.
  *
  * Actions can call third-party APIs, run longer computations, and perform
@@ -113,6 +129,7 @@ export interface UseConvexActionReturn<Args, Result> {
  */
 export function useConvexAction<Action extends FunctionReference<'action'>>(
   action: Action,
+  options?: UseConvexActionOptions<FunctionArgs<Action>, FunctionReturnType<Action>>,
 ): UseConvexActionReturn<FunctionArgs<Action>, FunctionReturnType<Action>> {
   type Args = FunctionArgs<Action>
   type Result = FunctionReturnType<Action>
@@ -165,6 +182,16 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
       _status.value = 'success'
       data.value = result
 
+      try {
+        options?.onSuccess?.(result, args)
+      } catch (callbackError) {
+        logger.action({
+          name: fnName,
+          event: 'error',
+          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
+        })
+      }
+
       // Update DevTools
       updateDevToolsSuccess(actionId, startTime, result)
 
@@ -176,6 +203,16 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
       const err = e instanceof Error ? e : new Error(String(e))
       _status.value = 'error'
       error.value = err
+
+      try {
+        options?.onError?.(err, args)
+      } catch (callbackError) {
+        logger.action({
+          name: fnName,
+          event: 'error',
+          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
+        })
+      }
 
       // Update DevTools
       updateDevToolsError(actionId, startTime, err.message)

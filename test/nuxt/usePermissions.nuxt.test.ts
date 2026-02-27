@@ -49,7 +49,7 @@ describe('usePermissions (Nuxt runtime)', () => {
       orgId: 'org-1',
     })
 
-    await waitFor(() => result.isLoading.value === false)
+    await waitFor(() => result.pending.value === false)
 
     expect(result.isAuthenticated.value).toBe(true)
     expect(result.role.value).toBe('member')

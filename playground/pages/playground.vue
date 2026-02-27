@@ -157,20 +157,22 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
       </div>
     </section>
 
-    <!-- Section 6: Verbose Logging -->
+    <!-- Section 6: Logging -->
     <section class="section">
-      <h2>6. Verbose Logging</h2>
-      <p class="description">Check browser console for detailed logs</p>
+      <h2>6. Module Logging</h2>
+      <p class="description">Enable <code>convex.logging</code> in <code>nuxt.config.ts</code> to inspect lifecycle logs</p>
 
       <div class="code-block">
         <pre>
-const { data } = useConvexQuery(api.notes.list, {}, {
-  verbose: true // Check console!
+export default defineNuxtConfig({
+  convex: {
+    logging: 'debug'
+  }
 })</pre
         >
       </div>
 
-      <p class="hint">Open DevTools &rarr; Console to see detailed query lifecycle logs</p>
+      <p class="hint">Open DevTools &rarr; Console to inspect query/mutation/action logs</p>
     </section>
 
     <!-- Debug Section -->
@@ -197,7 +199,7 @@ const {
   data: notes,
   pending: notesPending,
   error: notesError,
-} = useConvexQuery(api.notes.list, {}, { verbose: true })
+} = useConvexQuery(api.notes.list, {})
 
 // Form state for adding notes
 const newNoteTitle = ref('')
@@ -259,7 +261,7 @@ const searchArgs = computed(() => {
 const {
   data: searchResults,
   pending: searchPending,
-} = useConvexQuery(api.notes.search, searchArgs, { verbose: true })
+} = useConvexQuery(api.notes.search, searchArgs)
 
 // ========== Section 3: Skip Pattern ==========
 const enableSkipDemo = useState('playground-skip-demo', () => true)

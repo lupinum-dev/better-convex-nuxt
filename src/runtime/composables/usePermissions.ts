@@ -90,7 +90,7 @@ export interface UsePermissionsReturn<
   /** Whether user is authenticated with valid permission context */
   isAuthenticated: ComputedRef<boolean>
   /** Whether permission context is still loading */
-  isLoading: Ref<boolean>
+  pending: Ref<boolean>
 }
 
 /**
@@ -150,7 +150,7 @@ export function createPermissions<
    */
   function usePermissions(): UsePermissionsReturn<TPermission, TContext> {
     // Fetch permission context from Convex
-    const { data: permissionContext, pending: isLoading, error } = useConvexQuery(query, {})
+    const { data: permissionContext, pending, error } = useConvexQuery(query, {})
     const runtimeConfig = useRuntimeConfig()
 
     // Build context object for checkPermission
@@ -197,7 +197,7 @@ export function createPermissions<
       role,
       orgId,
       isAuthenticated,
-      isLoading,
+      pending,
     }
   }
 
@@ -222,7 +222,7 @@ export function createPermissions<
   function usePermissionGuard(guardOptions: UsePermissionGuardOptions<TPermission>) {
     const { permission, redirectTo = '/', resource, loginPath = '/auth/signin' } = guardOptions
 
-    const { can, isLoading, isAuthenticated } = usePermissions()
+    const { can, pending, isAuthenticated } = usePermissions()
     const router = useRouter()
 
     // Create permission ref once at setup time
@@ -233,7 +233,7 @@ export function createPermissions<
 
     watchEffect(() => {
       // Wait for permissions to load
-      if (isLoading.value) return
+      if (pending.value) return
 
       // Prevent multiple rapid redirects
       if (pendingRedirect) return

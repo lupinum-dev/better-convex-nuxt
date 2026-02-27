@@ -248,7 +248,7 @@ const { data: permissionContext } = useConvexQuery(
 )
 
 // Compile-time proof: these property accesses fail if ConvexUser augmentation
-// does not flow through useAuth().user.
+// does not flow through useConvexAuth().user.
 const augmentedUserFields = computed(() => ({
   role: user.value?.role,
   authId: user.value?.authId,

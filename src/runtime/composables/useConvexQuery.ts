@@ -3,7 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
-import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, type Ref, type WatchStopHandle, type MaybeRef } from 'vue'
+import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, type Ref, type WatchStopHandle, type MaybeRefOrGetter } from 'vue'
 
 import {
   getFunctionName,
@@ -149,7 +149,7 @@ export function useConvexQuery<
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRef<Args> | Args,
+  args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
 ): AsyncData<DataT | null, Error | null> {
   type RawT = FunctionReturnType<Query>
@@ -175,13 +175,14 @@ export function useConvexQuery<
   // Get reactive args value
   const getArgs = (): Args => toValue(args) ?? ({} as Args)
   const isSkipped = computed(() => getArgs() === 'skip')
+  const hasReactiveArgsSource = args !== undefined && (isRef(args) || isReactive(args) || typeof args === 'function')
 
-  // Dev-mode warning for reactive() args (won't trigger re-fetches)
+  // Dev-mode guidance for reactive() args
   if (import.meta.dev && args !== undefined && !isRef(args) && isReactive(args)) {
     console.warn(
       `[useConvexQuery] Detected reactive() object passed as args for "${fnName}". ` +
-        `Changes to plain reactive objects will NOT trigger query re-fetches. ` +
-        `Wrap args with ref() or computed(), e.g. \`const args = ref({ ... })\` or \`() => ({ id: state.id })\`.`,
+        `This is supported, but using a getter function is preferred for clarity, e.g. ` +
+        `\`() => ({ id: state.id })\`.`,
     )
   }
 
@@ -506,7 +507,7 @@ export function useConvexQuery<
     setupSubscription()
 
     // Watch for reactive args changes to update subscription
-    if (isRef(args)) {
+    if (hasReactiveArgsSource) {
       watch(
         () => ({
           value: toValue(args),
