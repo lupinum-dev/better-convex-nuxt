@@ -36,6 +36,7 @@ import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
 import type { PaginatedQueryReference, PaginatedQueryArgs, PaginatedQueryItem } from './optimistic-updates'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
+import { deepUnref } from '../utils/deep-unref'
 
 // Re-export optimistic update helpers and types for backwards compatibility
 export {
@@ -125,6 +126,22 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
    * ```
    */
   transform?: (results: Item[]) => TransformedItem[]
+  /**
+   * Enable or disable query execution.
+   * When false, pagination is considered exhausted and no requests are sent.
+   * @default true
+   */
+  enabled?: MaybeRefOrGetter<boolean | undefined>
+  /**
+   * Keep previous successful results while first page for new args is loading.
+   * @default false
+   */
+  keepPreviousData?: boolean
+  /**
+   * Deeply unwrap refs inside args object/array values.
+   * @default true
+   */
+  deepUnrefArgs?: boolean
 }
 
 /**
@@ -149,6 +166,22 @@ export interface UseConvexPaginatedQueryData<Item> {
    * Whether the hook is currently loading results.
    */
   isLoading: ComputedRef<boolean>
+  /**
+   * Whether the first page is currently loading.
+   */
+  isLoadingFirstPage: ComputedRef<boolean>
+  /**
+   * Whether an additional page is currently loading.
+   */
+  isLoadingMore: ComputedRef<boolean>
+  /**
+   * Whether query is refreshing while keeping existing results visible.
+   */
+  isRefreshing: ComputedRef<boolean>
+  /**
+   * Whether another page can be loaded.
+   */
+  hasNextPage: ComputedRef<boolean>
 
   /**
    * Function to load more items.
@@ -259,7 +292,7 @@ interface StablePaginationOpts {
  */
 export function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
-  Args extends PaginatedQueryArgs<Query> | 'skip' = PaginatedQueryArgs<Query>,
+  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
   query: Query,
@@ -278,12 +311,20 @@ export function useConvexPaginatedQuery<
   const lazy = options?.lazy ?? defaults?.lazy ?? false
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
   const isPublic = options?.public ?? defaults?.public ?? false
+  const keepPreviousData = options?.keepPreviousData ?? false
+  const deepUnrefArgs = options?.deepUnrefArgs ?? true
 
   // Get function name (needed for cache key)
   const fnName = getFunctionName(query)
 
   // Get reactive args value
-  const getArgs = (): Args => toValue(args) ?? ({} as Args)
+  const getArgs = (): Args => {
+    const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
+    if (rawArgs === null || rawArgs === undefined) {
+      return rawArgs
+    }
+    return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
+  }
 
   // Dev-mode warning for reactive() args (won't trigger re-fetches)
   if (import.meta.dev && args !== undefined && !isRef(args) && isReactive(args)) {
@@ -294,39 +335,8 @@ export function useConvexPaginatedQuery<
     )
   }
 
-  const hasReactiveArgsSource = args !== undefined && (isRef(args) || typeof args === 'function')
-
-  // Check if query is statically skipped
-  const isStaticSkip = !hasReactiveArgsSource && getArgs() === 'skip'
-
-  // Early return for static skip
-  if (isStaticSkip) {
-    const results = computed(() => (options?.default?.() ?? []) as TransformedItem[])
-    const status = computed(() => 'Exhausted' as PaginationStatus)
-    const isLoading = computed(() => false)
-    const error = ref<Error | null>(null)
-    const loadMore = () => {}
-    const refresh = async () => {}
-    const reset = async () => {}
-    const clear = () => {}
-
-    const resultData: UseConvexPaginatedQueryData<TransformedItem> = {
-      results,
-      status,
-      isLoading,
-      loadMore,
-      error,
-      refresh,
-      reset,
-      clear,
-    }
-    const resultPromise = Promise.resolve(resultData)
-    Object.assign(resultPromise, resultData)
-    return resultPromise as UseConvexPaginatedQueryReturn<TransformedItem>
-  }
-
-  // Check if query should be skipped (reactive via computed)
-  const isSkipped = computed(() => getArgs() === 'skip')
+  const enabled = computed(() => toValue(options?.enabled) ?? true)
+  const isSkipped = computed(() => !enabled.value || getArgs() == null)
   const argsHash = computed(() => hashArgs(getArgs()))
 
   // Get request event and cookies on server
@@ -362,17 +372,23 @@ export function useConvexPaginatedQuery<
   // causing hydration mismatches. Only include args and initial numItems.
   // Made computed to stay in sync with reactive args changes
   const cacheKey = computed((): string => {
+    if (isSkipped.value) {
+      return `convex-paginated:idle:${fnName}`
+    }
     const currentArgs = getArgs()
-    if (currentArgs === 'skip') return `convex-paginated:skip:${fnName}`
+    if (currentArgs == null) return `convex-paginated:idle:${fnName}`
     // Use stable pagination options (without the changing id)
     const stablePaginationOpts = { numItems: initialNumItems, cursor: null }
     return `convex-paginated:${getQueryKey(query, { ...currentArgs, paginationOpts: stablePaginationOpts })}`
   })
 
   const getStablePaginatedSubscriptionKey = (paginationOpts: StablePaginationOpts): string => {
+    if (isSkipped.value) {
+      return `paginated:${cacheKey.value}:idle`
+    }
     const currentArgs = getArgs()
-    if (currentArgs === 'skip') {
-      return `paginated:${cacheKey.value}:skip`
+    if (currentArgs == null) {
+      return `paginated:${cacheKey.value}:idle`
     }
     return `paginated:${getQueryKey(query, {
       ...currentArgs,
@@ -688,6 +704,7 @@ export function useConvexPaginatedQuery<
   const applyTransform = (items: Item[]): TransformedItem[] => {
     return options?.transform ? options.transform(items) : (items as unknown as TransformedItem[])
   }
+  const lastSettledResults = shallowRef<TransformedItem[]>([])
 
   // Computed status (defined before results since results may use it for default)
   // Uses asyncData/firstPageRealtimeData for first page state, pages ref for additional pages
@@ -764,7 +781,7 @@ export function useConvexPaginatedQuery<
   })
 
   // Apply transform to results, use default if loading first page with no data
-  const results = computed((): TransformedItem[] => {
+  const transformedResults = computed((): TransformedItem[] => {
     const raw = rawResults.value
     // If we have raw data, transform it
     if (raw.length > 0) {
@@ -778,11 +795,31 @@ export function useConvexPaginatedQuery<
     return applyTransform([])
   })
 
+  const results = computed((): TransformedItem[] => {
+    if (
+      keepPreviousData
+      && status.value === 'LoadingFirstPage'
+      && transformedResults.value.length === 0
+      && lastSettledResults.value.length > 0
+    ) {
+      return lastSettledResults.value as TransformedItem[]
+    }
+
+    return transformedResults.value
+  })
+
   // Computed isLoading
   const isLoading = computed(() => {
     const s = status.value
     return s === 'LoadingFirstPage' || s === 'LoadingMore'
   })
+  const isLoadingFirstPage = computed(() => status.value === 'LoadingFirstPage')
+  const isLoadingMore = computed(() => status.value === 'LoadingMore')
+  const hasNextPage = computed(() => status.value === 'CanLoadMore')
+  const isRefreshing = computed(() =>
+    status.value === 'LoadingFirstPage'
+    && results.value.length > 0,
+  )
 
   // Computed error - checks all error sources
   // Note: asyncData is referenced here but defined below - this works because computed is lazily evaluated
@@ -840,6 +877,16 @@ export function useConvexPaginatedQuery<
       // Convex payloads are replaced immutably; deep Vue traversal is unnecessary overhead.
       deep: false,
     },
+  )
+
+  watch(
+    [() => status.value, () => transformedResults.value],
+    ([nextStatus, nextResults]) => {
+      if (isSkipped.value) return
+      if (nextStatus === 'LoadingFirstPage') return
+      lastSettledResults.value = nextResults as TransformedItem[]
+    },
+    { immediate: true },
   )
 
   // Start subscription for the first page (for real-time updates)
@@ -960,41 +1007,37 @@ export function useConvexPaginatedQuery<
       startAllSubscriptions()
     }
 
-    // Watch for reactive args changes
-    if (hasReactiveArgsSource) {
-      watch(
-        () => ({
-          value: toValue(args),
-          hash: argsHash.value,
-        }),
-        async (next, prev) => {
-          if (next.hash !== prev.hash) {
-            const newArgs = next.value
-            // Clean up all subscriptions
-            cleanupAllSubscriptions()
-            firstPageRealtimeData.value = null
+    watch(
+      () => ({ hash: argsHash.value, enabled: enabled.value }),
+      async (next, prev) => {
+        if (next.hash === prev.hash && next.enabled === prev.enabled) {
+          return
+        }
 
-            if (newArgs === 'skip') {
-              pages.value = []
-              globalError.value = null
-            } else {
-              // Reset pagination
-              currentPaginationId.value = generatePaginationId()
-              pages.value = []
-              globalError.value = null
+        // Clean up all subscriptions
+        cleanupAllSubscriptions()
+        firstPageRealtimeData.value = null
 
-              // Refresh asyncData with new args (this will trigger re-fetch)
-              await asyncData.refresh()
+        if (isSkipped.value) {
+          pages.value = []
+          globalError.value = null
+          return
+        }
 
-              // Start subscriptions in live mode
-              if (subscribe) {
-                startAllSubscriptions()
-              }
-            }
-          }
-        },
-      )
-    }
+        // Reset pagination
+        currentPaginationId.value = generatePaginationId()
+        pages.value = []
+        globalError.value = null
+
+        // Refresh asyncData with new args (this will trigger re-fetch)
+        await asyncData.refresh()
+
+        // Start subscriptions in live mode
+        if (subscribe) {
+          startAllSubscriptions()
+        }
+      },
+    )
 
     // Cleanup on unmount
     onScopeDispose(() => {
@@ -1120,6 +1163,10 @@ export function useConvexPaginatedQuery<
     results,
     status,
     isLoading,
+    isLoadingFirstPage,
+    isLoadingMore,
+    isRefreshing,
+    hasNextPage,
     loadMore,
     error,
     refresh,

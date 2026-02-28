@@ -2,7 +2,7 @@ export {
   serverConvexQuery,
   serverConvexMutation,
   serverConvexAction,
-  type FetchOptions,
+  type ServerConvexOptions,
 } from './utils/convex'
 export {
   createUserSyncTriggers,

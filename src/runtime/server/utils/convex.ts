@@ -1,41 +1,148 @@
 import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
+import type { H3Event } from 'h3'
 
 import { useRuntimeConfig } from '#imports'
 
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
+import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
+import { normalizeConvexError, toError } from '../../utils/call-result'
+import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
 
-/**
- * Options for server-side Convex operations
- */
-export interface FetchOptions {
+const SESSION_COOKIE_NAME = 'better-auth.session_token='
+const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token='
+
+type ConvexOperationType = 'query' | 'mutation' | 'action'
+
+export interface ServerConvexOptions {
   /**
-   * Auth token for authenticated operations.
-   * If not provided, the operation runs as unauthenticated.
+   * Auth policy for this call.
+   * - 'auto': use session cookie when available (default)
+   * - 'required': throw when auth token cannot be resolved
+   * - 'none': never attach auth
+   */
+  auth?: 'auto' | 'required' | 'none'
+  /**
+   * Explicit auth token override. When provided, skips auto resolution.
    */
   authToken?: string
 }
 
-/**
- * Internal type for operation type strings
- */
-type ConvexOperationType = 'query' | 'mutation' | 'action'
+function hasSessionCookie(cookieHeader: string): boolean {
+  return cookieHeader.includes(SESSION_COOKIE_NAME) || cookieHeader.includes(SECURE_SESSION_COOKIE_NAME)
+}
 
-/**
- * Execute a Convex operation via HTTP.
- * Shared implementation for queries, mutations, and actions.
- *
- * @internal
- */
+function extractSessionToken(cookieHeader: string): string | null {
+  const segments = cookieHeader.split(';')
+  for (const segment of segments) {
+    const trimmed = segment.trim()
+    if (trimmed.startsWith(SESSION_COOKIE_NAME)) {
+      return trimmed.slice(SESSION_COOKIE_NAME.length)
+    }
+    if (trimmed.startsWith(SECURE_SESSION_COOKIE_NAME)) {
+      return trimmed.slice(SECURE_SESSION_COOKIE_NAME.length)
+    }
+  }
+  return null
+}
+
+function getCookieHeader(event: H3Event): string {
+  const directHeader = (event as { headers?: { get?: (name: string) => string | null } }).headers
+  if (directHeader?.get) {
+    return directHeader.get('cookie') ?? ''
+  }
+
+  const nodeHeaders = (event as { node?: { req?: { headers?: Record<string, string | string[] | undefined> } } })
+    .node?.req?.headers
+  const raw = nodeHeaders?.cookie
+  if (Array.isArray(raw)) return raw.join('; ')
+  return typeof raw === 'string' ? raw : ''
+}
+
+async function resolveAuthToken(
+  event: H3Event,
+  options: ServerConvexOptions | undefined,
+): Promise<string | undefined> {
+  if (options?.authToken) {
+    return options.authToken
+  }
+
+  const policy = options?.auth ?? 'auto'
+  if (policy === 'none') {
+    return undefined
+  }
+
+  const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
+  const cookieHeader = getCookieHeader(event)
+  const sessionToken = extractSessionToken(cookieHeader)
+
+  if (!cookieHeader || !hasSessionCookie(cookieHeader)) {
+    if (policy === 'required') {
+      throw new Error('[serverConvex] Authentication required but no Better Auth session cookie was found')
+    }
+    return undefined
+  }
+
+  if (!config.siteUrl) {
+    if (policy === 'required') {
+      throw new Error('[serverConvex] Authentication required but convex.siteUrl is not configured')
+    }
+    return undefined
+  }
+
+  try {
+    if (config.authCache.enabled && sessionToken) {
+      const cached = await getCachedAuthToken(sessionToken)
+      if (cached) {
+        return cached
+      }
+    }
+
+    const response = await $fetch(`${config.siteUrl}/api/auth/convex/token`, {
+      headers: {
+        Cookie: cookieHeader,
+      },
+    }) as { token?: string } | null
+
+    if (response?.token) {
+      if (config.authCache.enabled && sessionToken) {
+        const ttl = config.authCache.ttl ?? 900
+        await setCachedAuthToken(sessionToken, response.token, ttl)
+      }
+      return response.token
+    }
+  } catch (error) {
+    if (policy === 'required') {
+      throw error instanceof Error
+        ? error
+        : new Error('[serverConvex] Failed to resolve auth token')
+    }
+    return undefined
+  }
+
+  if (policy === 'required') {
+    throw new Error('[serverConvex] Authentication required but token exchange returned no token')
+  }
+
+  return undefined
+}
+
 async function executeConvexOperation<T>(
-  convexUrl: string,
+  event: H3Event,
   operationType: ConvexOperationType,
   functionPath: string,
   args: Record<string, unknown> | undefined,
-  options?: FetchOptions,
+  options?: ServerConvexOptions,
 ): Promise<T> {
-  const config = useRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
+  const runtimeConfig = useRuntimeConfig()
+  const convexConfig = normalizeConvexRuntimeConfig(runtimeConfig.public.convex)
+  const convexUrl = convexConfig.url
+
+  if (!convexUrl) {
+    throw new Error('[serverConvex] Convex URL not configured')
+  }
+
+  const logLevel = getLogLevel(runtimeConfig.public.convex ?? {})
   const logger = createLogger(logLevel)
   const startTime = Date.now()
 
@@ -43,11 +150,11 @@ async function executeConvexOperation<T>(
     'Content-Type': 'application/json',
   }
 
-  if (options?.authToken) {
-    headers['Authorization'] = `Bearer ${options.authToken}`
+  const authToken = await resolveAuthToken(event, options)
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
   }
 
-  // Helper to log based on operation type
   const logSuccess = (duration: number) => {
     if (operationType === 'query') {
       logger.query({ name: functionPath, event: 'update', args })
@@ -78,11 +185,12 @@ async function executeConvexOperation<T>(
       }),
     })
 
-    // Handle non-JSON responses gracefully
     const contentType = response.headers.get('content-type')
     if (!contentType?.includes('application/json')) {
       const text = await response.text()
-      throw new Error(`Unexpected response type: ${contentType}. Body: ${text.slice(0, 200)}`)
+      const err = new Error(`Unexpected response type: ${contentType}. Body: ${text.slice(0, 200)}`)
+      ;(err as Error & { status?: number }).status = response.status
+      throw err
     }
 
     const json = await response.json()
@@ -93,40 +201,23 @@ async function executeConvexOperation<T>(
 
     return result
   } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error))
+    const normalized = normalizeConvexError(error)
+    const err = toError(normalized)
     const duration = Date.now() - startTime
     logError(err, duration)
-    throw error
+    throw err
   }
 }
 
-/**
- * Execute a one-off query on the server via HTTP.
- * Useful in API routes, server middleware, or webhooks.
- *
- * @example
- * ```typescript
- * // server/api/tasks.get.ts
- * export default defineEventHandler(async (event) => {
- *   const config = useRuntimeConfig()
- *   const tasks = await serverConvexQuery(
- *     config.public.convex.url,
- *     api.tasks.list,
- *     { status: 'active' }
- *   )
- *   return tasks
- * })
- * ```
- */
 export async function serverConvexQuery<Query extends FunctionReference<'query'>>(
-  convexUrl: string,
+  event: H3Event,
   query: Query,
   args?: FunctionArgs<Query>,
-  options?: FetchOptions,
+  options?: ServerConvexOptions,
 ): Promise<FunctionReturnType<Query>> {
   const functionPath = getFunctionName(query)
-  return executeConvexOperation<FunctionReturnType<Query>>(
-    convexUrl,
+  return await executeConvexOperation<FunctionReturnType<Query>>(
+    event,
     'query',
     functionPath,
     args as Record<string, unknown> | undefined,
@@ -134,36 +225,15 @@ export async function serverConvexQuery<Query extends FunctionReference<'query'>
   )
 }
 
-/**
- * Execute a mutation on the server via HTTP.
- * Useful in API routes, webhooks, or background jobs.
- *
- * @example
- * ```typescript
- * // server/api/webhook.post.ts
- * export default defineEventHandler(async (event) => {
- *   const config = useRuntimeConfig()
- *   const body = await readBody(event)
- *
- *   await serverConvexMutation(
- *     config.public.convex.url,
- *     api.tasks.complete,
- *     { taskId: body.taskId }
- *   )
- *
- *   return { success: true }
- * })
- * ```
- */
 export async function serverConvexMutation<Mutation extends FunctionReference<'mutation'>>(
-  convexUrl: string,
+  event: H3Event,
   mutation: Mutation,
   args?: FunctionArgs<Mutation>,
-  options?: FetchOptions,
+  options?: ServerConvexOptions,
 ): Promise<FunctionReturnType<Mutation>> {
   const functionPath = getFunctionName(mutation)
-  return executeConvexOperation<FunctionReturnType<Mutation>>(
-    convexUrl,
+  return await executeConvexOperation<FunctionReturnType<Mutation>>(
+    event,
     'mutation',
     functionPath,
     args as Record<string, unknown> | undefined,
@@ -171,36 +241,15 @@ export async function serverConvexMutation<Mutation extends FunctionReference<'m
   )
 }
 
-/**
- * Execute an action on the server via HTTP.
- * Useful for long-running operations from API routes or webhooks.
- *
- * @example
- * ```typescript
- * // server/api/send-email.post.ts
- * export default defineEventHandler(async (event) => {
- *   const config = useRuntimeConfig()
- *   const body = await readBody(event)
- *
- *   const result = await serverConvexAction(
- *     config.public.convex.url,
- *     api.email.send,
- *     { to: body.email, subject: body.subject }
- *   )
- *
- *   return result
- * })
- * ```
- */
 export async function serverConvexAction<Action extends FunctionReference<'action'>>(
-  convexUrl: string,
+  event: H3Event,
   action: Action,
   args?: FunctionArgs<Action>,
-  options?: FetchOptions,
+  options?: ServerConvexOptions,
 ): Promise<FunctionReturnType<Action>> {
   const functionPath = getFunctionName(action)
-  return executeConvexOperation<FunctionReturnType<Action>>(
-    convexUrl,
+  return await executeConvexOperation<FunctionReturnType<Action>>(
+    event,
     'action',
     functionPath,
     args as Record<string, unknown> | undefined,

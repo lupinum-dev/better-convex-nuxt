@@ -1,6 +1,5 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler, readBody, createError } from 'h3'
-import { useRuntimeConfig } from '#imports'
 import { serverConvexMutation } from '../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
@@ -11,13 +10,6 @@ import { api } from '../../convex/_generated/api'
  * It shows how you can use serverConvexMutation in API routes, webhooks, or background jobs.
  */
 export default defineEventHandler(async (event: H3Event) => {
-  const config = useRuntimeConfig(event)
-  const convexUrl = config.public.convex?.url
-
-  if (!convexUrl) {
-    throw createError({ statusCode: 500, message: 'Convex URL not configured' })
-  }
-
   // Read the request body
   const body = await readBody<{ title?: string; content?: string }>(event)
 
@@ -27,7 +19,7 @@ export default defineEventHandler(async (event: H3Event) => {
   try {
     // Use the new serverConvexMutation utility!
     // This is the key feature being tested - server-side mutations
-    const noteId = await serverConvexMutation(convexUrl, api.notes.add, { title, content })
+    const noteId = await serverConvexMutation(event, api.notes.add, { title, content })
 
     return {
       success: true,
@@ -41,6 +33,9 @@ export default defineEventHandler(async (event: H3Event) => {
       },
     }
   } catch (error) {
+    if (import.meta.dev && error instanceof Error && error.message.includes('Convex URL not configured')) {
+      throw createError({ statusCode: 500, message: error.message })
+    }
     return {
       success: false,
       message: 'Failed to create note',

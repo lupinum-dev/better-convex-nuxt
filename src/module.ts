@@ -404,6 +404,11 @@ export {}
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
+        name: 'createSharedConvexQuery',
+        from: resolver.resolve('./runtime/composables/createSharedConvexQuery'),
+      },
+      { name: 'useConvexOnce', from: resolver.resolve('./runtime/composables/useConvexOnce') },
+      {
         name: 'useConvexPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },

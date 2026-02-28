@@ -110,5 +110,40 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(fakeAuthClient.signIn.email).toHaveBeenCalledTimes(1)
     expect(signInResult).toEqual({ data: { ok: true, kind: 'signIn' }, error: null })
   })
-})
 
+  it('awaitAuthReady resolves final auth state without throwing', async () => {
+    const { result } = await captureInNuxt(() => {
+      const pending = useState<boolean>('convex:pending')
+      const token = useState<string | null>('convex:token')
+      const user = useState<Record<string, unknown> | null>('convex:user')
+      pending.value = true
+      token.value = null
+      user.value = null
+
+      setTimeout(() => {
+        token.value = 'ready.jwt.token'
+        user.value = { id: 'u-ready' }
+        pending.value = false
+      }, 10)
+
+      return useConvexAuth()
+    })
+
+    await expect(result.awaitAuthReady({ timeoutMs: 200 })).resolves.toBe(true)
+    expect(result.isAuthenticated.value).toBe(true)
+  })
+
+  it('awaitAuthReady returns false when pending does not settle before timeout', async () => {
+    const { result } = await captureInNuxt(() => {
+      const pending = useState<boolean>('convex:pending')
+      const token = useState<string | null>('convex:token')
+      const user = useState<Record<string, unknown> | null>('convex:user')
+      pending.value = true
+      token.value = null
+      user.value = null
+      return useConvexAuth()
+    })
+
+    await expect(result.awaitAuthReady({ timeoutMs: 5 })).resolves.toBe(false)
+  })
+})

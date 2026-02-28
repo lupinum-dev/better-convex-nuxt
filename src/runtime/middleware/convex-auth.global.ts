@@ -3,7 +3,6 @@ import { defineNuxtRouteMiddleware, navigateTo, useRuntimeConfig } from '#app'
 import { useConvexAuth } from '../composables/useConvexAuth'
 import { resolveRouteProtectionDecision, type ConvexAuthPageMeta } from '../utils/auth-route-protection'
 import { normalizeConvexRuntimeConfig } from '../utils/runtime-config'
-import { waitForPendingClear } from '../utils/auth-pending'
 
 const PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS = 5_000
 
@@ -21,7 +20,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     )
   }
 
-  const { isAuthenticated, isPending } = useConvexAuth()
+  const { isAuthenticated, isPending, awaitAuthReady } = useConvexAuth()
 
   const decision = resolveRouteProtectionDecision({
     meta: pageMeta.convexAuth,
@@ -35,19 +34,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // For protected routes, wait for auth state to settle to avoid protected-content flashes.
   if (import.meta.client && isPending.value) {
-    const settled = await waitForPendingClear(isPending, {
+    const authed = await awaitAuthReady({
       timeoutMs: PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS,
-      onTimeout: () => {
-        if (import.meta.dev) {
-          console.warn(
-            '[better-convex-nuxt] Auth middleware pending timeout on protected route; treating as unauthenticated.',
-            { path: to.fullPath, timeoutMs: PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS },
-          )
-        }
-      },
     })
-    // Timeout falls through to unauthenticated redirect (secure default).
-    if (!settled && isAuthenticated.value) return
+    if (authed) return
   }
 
   if (import.meta.server && isPending.value) {

@@ -1,6 +1,5 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler, createError, getQuery } from 'h3'
-import { useRuntimeConfig } from '#imports'
 import { serverConvexQuery } from '../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
@@ -11,20 +10,13 @@ import { api } from '../../convex/_generated/api'
  * It shows how you can use serverConvexQuery in API routes or server middleware.
  */
 export default defineEventHandler(async (event: H3Event) => {
-  const config = useRuntimeConfig(event)
-  const convexUrl = config.public.convex?.url
-
-  if (!convexUrl) {
-    throw createError({ statusCode: 500, message: 'Convex URL not configured' })
-  }
-
   const query = getQuery(event)
   const limit = Number(query.limit) || 5
 
   try {
     // Use the new serverConvexQuery utility!
     // This is the key feature being tested - server-side queries
-    const notes = await serverConvexQuery(convexUrl, api.notes.list, {})
+    const notes = await serverConvexQuery(event, api.notes.list, {})
 
     // Take only the requested limit
     const limitedNotes = notes.slice(0, limit)
@@ -38,6 +30,9 @@ export default defineEventHandler(async (event: H3Event) => {
       timestamp: new Date().toISOString(),
     }
   } catch (error) {
+    if (import.meta.dev && error instanceof Error && error.message.includes('Convex URL not configured')) {
+      throw createError({ statusCode: 500, message: error.message })
+    }
     return {
       success: false,
       message: 'Failed to fetch notes',

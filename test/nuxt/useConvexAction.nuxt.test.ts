@@ -88,4 +88,22 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect((callbackError as Error).message).toBe('action callback boom')
     expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
   })
+
+  it('executeSafe never throws and returns normalized errors', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:safe-action-fail')
+    convex.setActionHandler('testing:safe-action-fail', async () => {
+      throw new Error('LIMIT_ACTIONS: Action limit reached')
+    })
+
+    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+    const safeResult = await result.executeSafe({} as never)
+
+    expect(safeResult.ok).toBe(false)
+    if (safeResult.ok) {
+      throw new Error('Expected safe result to be an error')
+    }
+    expect(safeResult.error.code).toBe('LIMIT_ACTIONS')
+    expect(safeResult.error.message).toBe('Action limit reached')
+  })
 })

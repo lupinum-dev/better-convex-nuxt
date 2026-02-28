@@ -51,6 +51,7 @@ function keyFor(query: unknown, args: unknown): string {
 export class MockConvexClient {
   private nextListenerId = 1
   private listeners = new Map<number, QueryListener>()
+  private queryHandlers = new Map<string, (args: unknown) => unknown | Promise<unknown>>()
   private mutationHandlers = new Map<string, (args: unknown) => unknown | Promise<unknown>>()
   private actionHandlers = new Map<string, (args: unknown) => unknown | Promise<unknown>>()
   private connectionSubscribers = new Set<(state: MockConnectionState) => void>()
@@ -58,6 +59,7 @@ export class MockConvexClient {
 
   readonly calls = {
     onUpdate: [] as Array<{ query: unknown, args: unknown }>,
+    query: [] as Array<{ query: unknown, args: unknown }>,
     mutation: [] as Array<{ mutation: unknown, args: unknown }>,
     action: [] as Array<{ action: unknown, args: unknown }>,
   }
@@ -96,6 +98,18 @@ export class MockConvexClient {
     return await handler(args) as T
   }
 
+  query = async <T = unknown>(
+    query: FunctionReference<'query'> | unknown,
+    args: unknown,
+  ): Promise<T> => {
+    this.calls.query.push({ query, args })
+    const handler = this.queryHandlers.get(fnPath(query))
+    if (!handler) {
+      throw new Error(`No mock query handler for ${fnPath(query)}`)
+    }
+    return await handler(args) as T
+  }
+
   action = async <T = unknown>(
     action: FunctionReference<'action'> | unknown,
     args: unknown,
@@ -121,6 +135,10 @@ export class MockConvexClient {
 
   setMutationHandler(name: string, handler: (args: unknown) => unknown | Promise<unknown>) {
     this.mutationHandlers.set(name, handler)
+  }
+
+  setQueryHandler(name: string, handler: (args: unknown) => unknown | Promise<unknown>) {
+    this.queryHandlers.set(name, handler)
   }
 
   setActionHandler(name: string, handler: (args: unknown) => unknown | Promise<unknown>) {

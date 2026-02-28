@@ -3,7 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
-import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, type Ref, type WatchStopHandle, type MaybeRefOrGetter } from 'vue'
+import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, ref, type Ref, type WatchStopHandle, type MaybeRefOrGetter } from 'vue'
 
 import {
   getFunctionName,
@@ -24,6 +24,7 @@ import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
+import { deepUnref } from '../utils/deep-unref'
 
 // DevTools query registry (client-side only in dev mode)
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
@@ -76,6 +77,12 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   transform?: (input: RawT) => DataT
   /** Mark this query as public (no authentication needed). @default false (configurable via nuxt.config convex.defaults.public) */
   public?: boolean
+  /** Enable or disable query execution. When false, status is "idle". @default true */
+  enabled?: MaybeRefOrGetter<boolean | undefined>
+  /** Keep the last successful data while args are changing and next request is pending. @default false */
+  keepPreviousData?: boolean
+  /** Deeply unwrap refs inside args object/array values. @default true */
+  deepUnrefArgs?: boolean
 }
 
 /**
@@ -130,8 +137,11 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
  * // With args
  * const { data } = await useConvexQuery(api.posts.get, { slug: 'hello' })
  *
- * // Skip query conditionally
- * const { data } = await useConvexQuery(api.users.get, userId ? { id: userId } : 'skip')
+ * // Disable query conditionally
+ * const { data } = await useConvexQuery(
+ *   api.users.get,
+ *   () => userId ? { id: userId } : undefined,
+ * )
  *
  * // Lazy - doesn't block navigation
  * const { data, pending } = await useConvexQuery(api.posts.list, {}, { lazy: true })
@@ -145,7 +155,7 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
  */
 export function useConvexQuery<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | 'skip' = FunctionArgs<Query>,
+  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
@@ -164,6 +174,8 @@ export function useConvexQuery<
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
   const isPublic = options?.public ?? defaults?.public ?? false
+  const keepPreviousData = options?.keepPreviousData ?? false
+  const deepUnrefArgs = options?.deepUnrefArgs ?? true
 
   // Get function name for cache key and logging
   const fnName = getFunctionName(query)
@@ -172,10 +184,16 @@ export function useConvexQuery<
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = getSharedLogger(logLevel)
 
-  // Get reactive args value
-  const getArgs = (): Args => toValue(args) ?? ({} as Args)
-  const isSkipped = computed(() => getArgs() === 'skip')
-  const hasReactiveArgsSource = args !== undefined && (isRef(args) || isReactive(args) || typeof args === 'function')
+  // Resolve and unwrap args
+  const getArgs = (): Args => {
+    const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
+    if (rawArgs === null || rawArgs === undefined) {
+      return rawArgs
+    }
+    return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
+  }
+  const enabled = computed(() => toValue(options?.enabled) ?? true)
+  const isSkipped = computed(() => !enabled.value || getArgs() == null)
 
   // Dev-mode guidance for reactive() args
   if (import.meta.dev && args !== undefined && !isRef(args) && isReactive(args)) {
@@ -190,11 +208,13 @@ export function useConvexQuery<
     ensureDevToolsRegistryLoaded()
   }
 
+  const lastSettledData = ref<DataT | null>(null)
+
   // Generate cache key
   const getCacheKey = (): string => {
-    const currentArgs = getArgs()
-    if (currentArgs === 'skip') return `convex:skip:${fnName}`
-    return getQueryKey(query, currentArgs)
+    if (isSkipped.value) return `convex:idle:${fnName}`
+    const currentArgs = getArgs() as FunctionArgs<Query>
+    return getQueryKey(query, currentArgs ?? ({} as FunctionArgs<Query>))
   }
 
   const cacheKey = computed(() => getCacheKey())
@@ -282,11 +302,26 @@ export function useConvexQuery<
     {
       server,
       lazy,
-      // Wrap default to handle undefined → null conversion for type compatibility
-      default: options?.default ? () => options.default!() ?? null : undefined,
+      // Wrap default to handle undefined → null conversion for type compatibility.
+      default: () => {
+        if (keepPreviousData && lastSettledData.value !== null) {
+          return lastSettledData.value
+        }
+        return options?.default ? options.default() ?? null : null
+      },
       // Convex payloads are replaced immutably; deep Vue traversal is unnecessary overhead.
       deep: false,
     },
+  )
+
+  watch(
+    () => asyncData.data.value,
+    (value) => {
+      if (value !== null && value !== undefined) {
+        lastSettledData.value = value
+      }
+    },
+    { immediate: true },
   )
 
   // === Create our own pending/status with correct semantics ===
@@ -396,7 +431,7 @@ export function useConvexQuery<
   if (import.meta.client && subscribe && cleanupScope) {
     const setupSubscription = () => {
       const currentArgs = getArgs()
-      if (currentArgs === 'skip') {
+      if (currentArgs == null || !enabled.value) {
         return
       }
 
@@ -506,52 +541,45 @@ export function useConvexQuery<
     // Setup initial subscription
     setupSubscription()
 
-    // Watch for reactive args changes to update subscription
-    if (hasReactiveArgsSource) {
-      watch(
-        () => ({
-          value: toValue(args),
-          hash: argsHash.value,
-        }),
-        (next, prev) => {
-          if (next.hash !== prev.hash) {
-            const newArgs = next.value
-            const oldArgs = prev.value
-            // Release old subscription if we had one registered
-            if (oldArgs !== 'skip' && registeredCacheKey) {
-              cleanupSharedBridgeWatchers()
-              const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
+    watch(
+      () => ({ hash: argsHash.value, enabled: enabled.value }),
+      (next, prev) => {
+        if (next.hash === prev.hash && next.enabled === prev.enabled) {
+          return
+        }
 
-              if (wasUnsubscribed) {
-                logger.query({ name: fnName, event: 'unsubscribe' })
+        if (registeredCacheKey) {
+          cleanupSharedBridgeWatchers()
+          const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
-                // Unregister from DevTools only if we were the last user
-                if (import.meta.dev && devToolsRegistry) {
-                  devToolsRegistry.unregisterQuery(registeredCacheKey)
-                }
-              }
+          if (wasUnsubscribed) {
+            logger.query({ name: fnName, event: 'unsubscribe' })
 
-              registeredCacheKey = null
-            }
-
-            // Setup new subscription (data will be updated by useAsyncData's watch)
-            if (newArgs !== 'skip') {
-              setupSubscription()
-
-              // When args switch (e.g. skip -> active), a reactive useAsyncData key can
-              // hydrate from a shared cached value after the bridge sync. Re-sync once
-              // more on the next macrotask so subscriber-specific transform() wins.
-              setTimeout(() => {
-                if (!registeredCacheKey) return
-                const entry = getSubscription(nuxtApp, registeredCacheKey)
-                if (!entry) return
-                attachSharedBridge(entry)
-              }, 0)
+            // Unregister from DevTools only if we were the last user
+            if (import.meta.dev && devToolsRegistry) {
+              devToolsRegistry.unregisterQuery(registeredCacheKey)
             }
           }
-        },
-      )
-    }
+
+          registeredCacheKey = null
+        }
+
+        // Setup new subscription (data will be updated by useAsyncData's watch)
+        if (!isSkipped.value) {
+          setupSubscription()
+
+          // When args switch from disabled->active (or active->active), a reactive
+          // useAsyncData key can hydrate from a shared cached value after bridge sync.
+          // Re-sync once more on next macrotask so transform() stays subscriber-specific.
+          setTimeout(() => {
+            if (!registeredCacheKey) return
+            const entry = getSubscription(nuxtApp, registeredCacheKey)
+            if (!entry) return
+            attachSharedBridge(entry)
+          }, 0)
+        }
+      },
+    )
 
     // Cleanup on scope dispose (component setup or other Vue effect scopes)
     onScopeDispose(() => {

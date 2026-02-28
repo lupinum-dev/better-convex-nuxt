@@ -3,6 +3,7 @@ import { useState, computed, readonly, useNuxtApp, watch } from '#imports'
 import type { ConvexUser } from '../utils/types'
 import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
+import { waitForPendingClear } from '../utils/auth-pending'
 
 // Re-export for convenience
 export type { ConvexUser } from '../utils/types'
@@ -57,6 +58,11 @@ export interface UseConvexAuthReturn {
    * Triggers fresh token fetch and updates reactive state.
    */
   refreshAuth: () => Promise<void>
+  /**
+   * Wait until initial auth bootstrap settles and return the final auth state.
+   * Useful in route middleware to avoid auth flicker races on hydration.
+   */
+  awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
   /**
    * Raw Better Auth client for advanced/plugin-specific APIs.
    * Returns null during SSR.
@@ -258,6 +264,17 @@ export function useConvexAuth(): UseConvexAuthReturn {
     return appState._convexRefreshAuthPromise
   }
 
+  const awaitAuthReady = async (options?: { timeoutMs?: number }): Promise<boolean> => {
+    if (!import.meta.client) {
+      return isAuthenticated.value
+    }
+
+    await waitForPendingClear(pending, {
+      timeoutMs: options?.timeoutMs ?? 5_000,
+    })
+    return isAuthenticated.value
+  }
+
   const client = (nuxtApp.$auth as AuthClient | undefined) ?? null
 
   return {
@@ -281,6 +298,11 @@ export function useConvexAuth(): UseConvexAuthReturn {
      * Triggers fresh token fetch and updates reactive state.
      */
     refreshAuth,
+    /**
+     * Wait until initial auth bootstrap settles and return the final auth state.
+     * Useful in route middleware to avoid auth flicker races on hydration.
+     */
+    awaitAuthReady,
     /** Raw Better Auth client for advanced/plugin-specific APIs. Null during SSR. */
     client,
     /** Better Auth sign-in methods (client-only). */

@@ -11,6 +11,11 @@ import {
   updateDevToolsError,
 } from '../utils/devtools-helpers'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
+import {
+  normalizeConvexError,
+  toError,
+  type CallResult,
+} from '../utils/call-result'
 import { useConvex } from './useConvex'
 
 /**
@@ -32,6 +37,11 @@ export interface UseConvexActionReturn<Args, Result> {
    * Throws on error (use try/catch or check error ref after).
    */
   execute: (args: Args) => Promise<Result>
+  /**
+   * Execute the action without throwing.
+   * Returns a stable result envelope.
+   */
+  executeSafe: (args: Args) => Promise<CallResult<Result>>
 
   /**
    * Result data from the last successful action.
@@ -164,7 +174,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     const startTime = Date.now()
 
     if (!client) {
-      const err = new Error('ConvexClient not available - actions only work on client side')
+      const normalized = normalizeConvexError(new Error('ConvexClient not available - actions only work on client side'))
+      const err = toError(normalized)
       _status.value = 'error'
       error.value = err
       logger.action({ name: fnName, event: 'error', error: err })
@@ -200,7 +211,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
       return result
     } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e))
+      const normalized = normalizeConvexError(e)
+      const err = toError(normalized)
       _status.value = 'error'
       error.value = err
 
@@ -225,8 +237,18 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     }
   }
 
+  const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
+    try {
+      const result = await execute(args)
+      return { ok: true, data: result }
+    } catch (error) {
+      return { ok: false, error: normalizeConvexError(error) }
+    }
+  }
+
   return {
     execute,
+    executeSafe,
     data,
     status,
     pending,

@@ -12,6 +12,11 @@ import {
   updateDevToolsError,
 } from '../utils/devtools-helpers'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
+import {
+  normalizeConvexError,
+  toError,
+  type CallResult,
+} from '../utils/call-result'
 import { useConvex } from './useConvex'
 
 // Re-export optimistic update helpers for backwards compatibility
@@ -44,7 +49,12 @@ export interface UseConvexMutationReturn<Args, Result> {
    * Automatically tracks status, error, and data.
    * Throws on error (use try/catch or check error ref after).
    */
-  mutate: (args: Args) => Promise<Result>
+  execute: (args: Args) => Promise<Result>
+  /**
+   * Execute the mutation without throwing.
+   * Returns a stable result envelope.
+   */
+  executeSafe: (args: Args) => Promise<CallResult<Result>>
 
   /**
    * Result data from the last successful mutation.
@@ -282,11 +292,12 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   }
 
   // The mutation function
-  const mutate = async (args: Args): Promise<Result> => {
+  const execute = async (args: Args): Promise<Result> => {
     const startTime = Date.now()
 
     if (!client) {
-      const err = new Error('ConvexClient not available - mutations only work on client side')
+      const normalized = normalizeConvexError(new Error('ConvexClient not available - mutations only work on client side'))
+      const err = toError(normalized)
       _status.value = 'error'
       error.value = err
       logger.mutation({ name: fnName, event: 'error', error: err })
@@ -329,7 +340,8 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
       return result
     } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e))
+      const normalized = normalizeConvexError(e)
+      const err = toError(normalized)
       _status.value = 'error'
       error.value = err
 
@@ -354,8 +366,18 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     }
   }
 
+  const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
+    try {
+      const result = await execute(args)
+      return { ok: true, data: result }
+    } catch (error) {
+      return { ok: false, error: normalizeConvexError(error) }
+    }
+  }
+
   return {
-    mutate,
+    execute,
+    executeSafe,
     data,
     status,
     pending,

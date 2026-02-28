@@ -16,7 +16,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
     expect(result.status.value).toBe('idle')
-    const promise = result.mutate({ value: 'hello' } as never)
+    const promise = result.execute({ value: 'hello' } as never)
     expect(result.pending.value).toBe(true)
 
     await expect(promise).resolves.toEqual({ id: 'new-id', value: 'hello' })
@@ -34,7 +34,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
-    await expect(result.mutate({} as never)).rejects.toThrow('mutation failed')
+    await expect(result.execute({} as never)).rejects.toThrow('mutation failed')
     expect(result.status.value).toBe('error')
     expect(result.error.value?.message).toBe('mutation failed')
 
@@ -68,7 +68,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     )
 
     const successArgs = { value: 'ok' }
-    await expect(result.success.mutate(successArgs as never)).resolves.toEqual({
+    await expect(result.success.execute(successArgs as never)).resolves.toEqual({
       ok: true,
       payload: successArgs,
     })
@@ -79,11 +79,55 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     )
 
     const failArgs = { value: 'nope' }
-    await expect(result.fail.mutate(failArgs as never)).rejects.toThrow('callback boom')
+    await expect(result.fail.execute(failArgs as never)).rejects.toThrow('callback boom')
     expect(onError).toHaveBeenCalledTimes(1)
     const callbackError = onError.mock.calls[0]?.[0]
     expect(callbackError).toBeInstanceOf(Error)
     expect((callbackError as Error).message).toBe('callback boom')
     expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
+  })
+
+  it('executeSafe never throws and returns normalized error metadata', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:safe-fail')
+
+    convex.setMutationHandler('testing:safe-fail', async () => {
+      throw new Error('LIMIT_ITEMS: Limit reached')
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const safeResult = await result.executeSafe({} as never)
+
+    expect(safeResult.ok).toBe(false)
+    if (safeResult.ok) {
+      throw new Error('Expected safe result to be an error')
+    }
+    expect(safeResult.error.code).toBe('LIMIT_ITEMS')
+    expect(safeResult.error.message).toBe('Limit reached')
+    expect(result.status.value).toBe('error')
+  })
+
+  it('executeSafe prefers structured ConvexError payloads when present', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:safe-structured-fail')
+
+    convex.setMutationHandler('testing:safe-structured-fail', async () => {
+      const error = new Error('fallback message') as Error & {
+        data?: { message: string; code: string; status: number }
+      }
+      error.data = { message: 'Structured failure', code: 'STRUCTURED', status: 422 }
+      throw error
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const safeResult = await result.executeSafe({} as never)
+
+    expect(safeResult.ok).toBe(false)
+    if (safeResult.ok) {
+      throw new Error('Expected safe result to be an error')
+    }
+    expect(safeResult.error.code).toBe('STRUCTURED')
+    expect(safeResult.error.message).toBe('Structured failure')
+    expect(safeResult.error.status).toBe(422)
   })
 })

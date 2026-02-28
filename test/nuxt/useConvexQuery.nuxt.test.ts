@@ -7,16 +7,30 @@ import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexQuery (Nuxt runtime)', () => {
-  it('returns idle + pending=false immediately for static skip queries', async () => {
-    const query = mockFnRef<'query'>('notes:list:skip-static')
+  it('returns idle + pending=false immediately for disabled nullable args', async () => {
+    const query = mockFnRef<'query'>('notes:list:disabled-static')
     const { result } = await captureInNuxt(
-      () => useConvexQuery(query, 'skip'),
+      () => useConvexQuery(query, null),
       { convex: new MockConvexClient() },
     )
 
     expect(result.data.value).toBeNull()
     expect(result.pending.value).toBe(false)
     expect(result.status.value).toBe('idle')
+  })
+
+  it('respects enabled:false and does not start subscriptions', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:enabled-false')
+
+    const { result } = await captureInNuxt(
+      () => useConvexQuery(query, {}, { enabled: false }),
+      { convex },
+    )
+
+    expect(result.status.value).toBe('idle')
+    expect(result.pending.value).toBe(false)
+    expect(convex.calls.onUpdate.length).toBe(0)
   })
 
   it('uses default value while loading and transitions to success on first update', async () => {
@@ -74,7 +88,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('counter:get:error-late')
 
     const { result, flush } = await captureInNuxt(() => {
-      const lateArgs = ref<'skip' | Record<string, never>>('skip')
+      const lateArgs = ref<Record<string, never> | null>(null)
       const primary = useConvexQuery(query, {})
       const late = useConvexQuery(query, lateArgs)
       return { lateArgs, primary, late }
@@ -92,8 +106,8 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     convex.emitQueryResult(query, {}, { count: 7 })
     await waitFor(() => result.primary.data.value?.count === 7 && result.late.data.value?.count === 7)
 
-    expect(result.primary.error.value).toBeNull()
-    expect(result.late.error.value).toBeNull()
+    expect(result.primary.error.value).toBeFalsy()
+    expect(result.late.error.value).toBeFalsy()
   })
 
   it('re-subscribes when nested reactive args mutate deeply', async () => {
@@ -149,6 +163,61 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     }))
 
     convex.emitQueryResult(query, { filter: { tag: 'beta' } }, { tag: 'beta', hits: 4 })
+    await waitFor(() => result.queryResult.data.value?.tag === 'beta')
+  })
+
+  it('deep-unrefs refs inside plain args objects', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('search:notes:deep-unref')
+
+    const { result, flush } = await captureInNuxt(() => {
+      const tag = ref('alpha')
+      const queryResult = useConvexQuery(query, {
+        filter: {
+          tag,
+        },
+      })
+      return { tag, queryResult }
+    }, { convex })
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+    convex.emitQueryResult(query, { filter: { tag: 'alpha' } }, { tag: 'alpha', hits: 1 })
+    await waitFor(() => result.queryResult.data.value?.tag === 'alpha')
+
+    result.tag.value = 'beta'
+    await flush()
+
+    await waitFor(() => convex.calls.onUpdate.some((call) => {
+      const args = call.args as { filter?: { tag?: string } }
+      return args.filter?.tag === 'beta'
+    }))
+  })
+
+  it('keepPreviousData keeps settled result during args transition', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('search:notes:keep-previous')
+
+    const { result, flush } = await captureInNuxt(() => {
+      const tag = ref('alpha')
+      const queryResult = useConvexQuery(
+        query,
+        () => ({ filter: { tag: tag.value } }),
+        { keepPreviousData: true },
+      )
+      return { tag, queryResult }
+    }, { convex })
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+    convex.emitQueryResult(query, { filter: { tag: 'alpha' } }, { tag: 'alpha', hits: 2 })
+    await waitFor(() => result.queryResult.data.value?.tag === 'alpha')
+
+    result.tag.value = 'beta'
+    await flush()
+
+    expect(result.queryResult.data.value).toEqual({ tag: 'alpha', hits: 2 })
+    expect(result.queryResult.pending.value).toBe(true)
+
+    convex.emitQueryResult(query, { filter: { tag: 'beta' } }, { tag: 'beta', hits: 5 })
     await waitFor(() => result.queryResult.data.value?.tag === 'beta')
   })
 
