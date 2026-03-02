@@ -18,7 +18,7 @@ const queryArgs = computed(() => ({
 }))
 
 // The query automatically re-subscribes when queryArgs changes
-const { data: feedItems, status } = useConvexQueryLazy(api.feed.listFiltered, queryArgs)
+const { data: feedItems, status } = await useConvexQuery(api.feed.listFiltered, queryArgs)
 
 const typeOptions: Array<{ value: FeedType | undefined, label: string, icon: string }> = [
   { value: undefined, label: 'All Types', icon: 'i-lucide-list' },
@@ -51,7 +51,7 @@ const typeIcons: Record<string, string> = {
       color="secondary"
       variant="subtle"
       title="How it works"
-      description="When you pass a reactive object (ref or computed) as query args, useConvexQuery automatically re-subscribes whenever the args change. No manual refetching needed!"
+      description="When you pass a reactive object (ref or computed) as query args, await useConvexQuery automatically re-subscribes whenever the args change. No manual refetching needed."
     />
 
     <!-- Filter Controls -->
@@ -189,7 +189,7 @@ const queryArgs = computed(() => ({
 }))
 
 // Query automatically re-runs when args change
-const { data, status } = useConvexQueryLazy(
+const { data, status } = await useConvexQuery(
   api.feed.listFiltered,
   queryArgs  // Pass computed or ref - both work!
 )</code></pre>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Id } from '@@/convex/_generated/dataModel'
 import { api } from '@@/convex/_generated/api'
 
 definePageMeta({
@@ -17,13 +18,13 @@ const { upload, status: uploadStatus, progress, error: uploadError, cancel: canc
 )
 
 // Save file metadata after upload
-const { mutate: saveFile, error: saveError } = useConvexMutation(api.files.save)
+const { execute: saveFile, error: saveError } = useConvexMutation(api.files.save)
 
 // List files
-const { data: files, status: filesStatus } = useConvexQueryLazy(api.files.list, {})
+const { data: files, status: filesStatus } = await useConvexQuery(api.files.list, {})
 
 // Delete file
-const { mutate: deleteFile, error: deleteError } = useConvexMutation(api.files.remove)
+const { execute: deleteFile, error: deleteError } = useConvexMutation(api.files.remove)
 
 // Combined error from any operation
 const operationError = computed(() => deleteError.value || saveError.value)
@@ -58,7 +59,7 @@ async function uploadFile(file: File) {
     const storageId = await upload(file)
     if (storageId) {
       await saveFile({
-        storageId,
+        storageId: storageId as Id<'_storage'>,
         filename: file.name,
         mimeType: file.type,
         size: file.size
@@ -166,7 +167,7 @@ function formatFileSize(bytes: number) {
       <UAlert
         v-if="uploadError"
         class="mt-4"
-        color="red"
+        color="error"
         icon="i-lucide-alert-circle"
         :title="uploadError.message"
       />
@@ -176,7 +177,7 @@ function formatFileSize(bytes: number) {
       v-else
       class="mb-6"
       icon="i-lucide-lock"
-      color="amber"
+      color="warning"
       variant="subtle"
       title="Viewer role"
       description="Switch to Member, Admin, or Owner role to upload files."
@@ -238,7 +239,7 @@ function formatFileSize(bytes: number) {
             <UButton
               v-if="can('file.delete', { ownerId: file.uploadedBy })"
               icon="i-lucide-trash-2"
-              color="red"
+              color="error"
               size="xs"
               @click="deleteFile({ id: file._id })"
             >

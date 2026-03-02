@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxi dev",
-    "build": "nuxi build",
-    "generate": "nuxi generate"
+    "dev": "nuxi dev --dotenv .env.local",
+    "build": "nuxi build --dotenv .env.local",
+    "generate": "nuxi generate --dotenv .env.local"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.10.9",

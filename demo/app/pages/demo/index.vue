@@ -4,11 +4,17 @@ definePageMeta({
 })
 
 const { user, role } = useDemoPermissions()
+const roleBadgeColor = computed(() => {
+  if (role.value === 'owner') return 'warning'
+  if (role.value === 'admin') return 'info'
+  if (role.value === 'member') return 'success'
+  return 'neutral'
+})
 
 const demos = [
   {
     title: 'Real-time Feed',
-    description: 'Watch live updates appear instantly across browser tabs using useConvexQuery.',
+    description: 'Watch live updates appear instantly across browser tabs using await useConvexQuery.',
     icon: 'i-lucide-radio',
     to: '/demo/feed',
     color: 'green',
@@ -32,7 +38,7 @@ const demos = [
   },
   {
     title: 'Pagination',
-    description: 'Explore infinite scroll and load-more patterns with useConvexPaginatedQuery.',
+    description: 'Explore infinite scroll and load-more patterns with await useConvexPaginatedQuery.',
     icon: 'i-lucide-list',
     to: '/demo/pagination',
     color: 'blue',
@@ -57,7 +63,7 @@ const demos = [
         Welcome, {{ (user as any)?.displayName || 'Developer' }}!
       </h1>
       <p class="text-muted">
-        You're logged in as <UBadge :color="role === 'owner' ? 'amber' : role === 'admin' ? 'blue' : role === 'member' ? 'green' : 'gray'" variant="subtle">{{ role }}</UBadge>.
+        You're logged in as <UBadge :color="roleBadgeColor" variant="subtle">{{ role }}</UBadge>.
         Use the role switcher in the sidebar to see how permissions affect the UI.
       </p>
     </div>

@@ -7,14 +7,14 @@ definePageMeta({
 
 const { can } = useDemoPermissions()
 
-// Real-time feed subscription
-const { data: feedItems, status } = useConvexQueryLazy(api.feed.list, {})
+// Real-time feed subscription (blocking setup by default)
+const { data: feedItems, status } = await useConvexQuery(api.feed.list, {})
 
 // Add item mutation
-const { mutate: addItem, status: addStatus } = useConvexMutation(api.feed.add)
+const { execute: addItem, status: addStatus } = useConvexMutation(api.feed.add)
 
 // Delete mutation
-const { mutate: deleteItem } = useConvexMutation(api.feed.remove)
+const { execute: deleteItem } = useConvexMutation(api.feed.remove)
 
 // Form state
 const content = ref('')
@@ -109,7 +109,7 @@ function canDelete(item: { authorId: string }) {
       color="secondary"
       variant="subtle"
       title="How it works"
-      description="useConvexQuery creates a WebSocket subscription. Any changes to the data are pushed instantly to all connected clients."
+      description="await useConvexQuery creates a live subscription after initial blocking fetch. Any changes to the data are pushed instantly to all connected clients."
     />
 
     <!-- Input Form -->

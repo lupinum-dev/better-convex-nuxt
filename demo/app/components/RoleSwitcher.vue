@@ -2,8 +2,8 @@
 import { api } from '@@/convex/_generated/api'
 import { ROLE_INFO, ROLES, type Role } from '@@/convex/permissions.config'
 
-const { user, isLoading, isAuthenticated } = useDemoPermissions()
-const { mutate: setRole, status: mutationStatus } = useConvexMutation(api.auth.setOwnRole)
+const { user, pending: isPendingPermissions, isAuthenticated } = useDemoPermissions()
+const { execute: setRole, status: mutationStatus } = useConvexMutation(api.auth.setOwnRole)
 
 const currentRole = computed(() => (user.value as { role?: Role } | null)?.role)
 const isPending = computed(() => mutationStatus.value === 'pending')
@@ -15,7 +15,7 @@ async function selectRole(role: Role) {
 </script>
 
 <template>
-  <div v-if="isAuthenticated && !isLoading" class="p-4 bg-default rounded-lg border border-default">
+  <div v-if="isAuthenticated && !isPendingPermissions" class="p-4 bg-default rounded-lg border border-default">
     <div class="flex items-center gap-2 mb-3">
       <UIcon name="i-lucide-users" class="w-4 h-4 text-muted" />
       <span class="text-xs font-semibold uppercase tracking-wider text-muted">
@@ -61,7 +61,7 @@ async function selectRole(role: Role) {
   </div>
 
   <!-- Not authenticated state -->
-  <div v-else-if="!isAuthenticated && !isLoading" class="p-4 bg-default rounded-lg border border-default">
+  <div v-else-if="!isAuthenticated && !isPendingPermissions" class="p-4 bg-default rounded-lg border border-default">
     <p class="text-xs text-muted text-center">
       Sign in to try role switching
     </p>

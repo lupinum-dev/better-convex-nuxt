@@ -3,29 +3,29 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "nuxt build",
+    "build": "nuxt build --dotenv .env.local",
     "dev": "nuxt dev --dotenv .env.local",
-    "preview": "nuxt preview",
+    "preview": "nuxt preview --dotenv .env.local",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck --dotenv .env.local"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.10.9",
-    "@iconify-json/lucide": "^1.2.82",
-    "@iconify-json/simple-icons": "^1.2.63",
-    "@nuxt/ui": "^4.3.0",
-    "better-auth": "^1.4.9",
-    "better-convex-nuxt": "^0.2.8",
-    "convex": "^1.31.2",
-    "nuxt": "^4.2.2"
+    "@convex-dev/better-auth": "^0.10.13",
+    "@iconify-json/lucide": "^1.2.95",
+    "@iconify-json/simple-icons": "^1.2.71",
+    "@nuxt/ui": "^4.5.0",
+    "better-auth": "1.4.20",
+    "better-convex-nuxt": "link:..",
+    "convex": "^1.32.0",
+    "nuxt": "^4.3.1"
   },
   "devDependencies": {
-    "@nuxt/eslint": "^1.12.1",
-    "@types/node": "^22.15.21",
+    "@nuxt/eslint": "^1.15.2",
+    "@types/node": "^25.3.2",
     "eslint": "^9.39.2",
     "typescript": "^5.9.3",
-    "vue-tsc": "^3.2.1"
+    "vue-tsc": "^3.2.5"
   },
   "packageManager": "pnpm@10.26.1"
 }

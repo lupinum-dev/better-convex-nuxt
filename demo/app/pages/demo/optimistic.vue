@@ -7,16 +7,16 @@ definePageMeta({
 })
 
 // Shared task list query
-const { data: tasks, status } = useConvexQueryLazy(api.tasks.list, {})
+const { data: tasks, status } = await useConvexQuery(api.tasks.list, {})
 
 // ============================================
 // STANDARD MUTATIONS (left panel)
 // ============================================
 
 const standardInput = ref('')
-const { mutate: standardAdd, status: standardAddStatus } = useConvexMutation(api.tasks.add)
-const { mutate: standardToggle } = useConvexMutation(api.tasks.toggle)
-const { mutate: standardDelete } = useConvexMutation(api.tasks.remove)
+const { execute: standardAdd, status: standardAddStatus } = useConvexMutation(api.tasks.add)
+const { execute: standardToggle } = useConvexMutation(api.tasks.toggle)
+const { execute: standardDelete } = useConvexMutation(api.tasks.remove)
 
 async function addStandard() {
   if (!standardInput.value.trim()) return
@@ -30,7 +30,7 @@ async function addStandard() {
 
 const optimisticInput = ref('')
 
-const { mutate: optimisticAdd, status: optimisticAddStatus } = useConvexMutation(api.tasks.add, {
+const { execute: optimisticAdd, status: optimisticAddStatus } = useConvexMutation(api.tasks.add, {
   optimisticUpdate: (localStore, args) => {
     updateQuery({
       query: api.tasks.list,
@@ -51,7 +51,7 @@ const { mutate: optimisticAdd, status: optimisticAddStatus } = useConvexMutation
   }
 })
 
-const { mutate: optimisticToggle } = useConvexMutation(api.tasks.toggle, {
+const { execute: optimisticToggle } = useConvexMutation(api.tasks.toggle, {
   optimisticUpdate: (localStore, args) => {
     updateQuery({
       query: api.tasks.list,
@@ -65,7 +65,7 @@ const { mutate: optimisticToggle } = useConvexMutation(api.tasks.toggle, {
   }
 })
 
-const { mutate: optimisticDelete } = useConvexMutation(api.tasks.remove, {
+const { execute: optimisticDelete } = useConvexMutation(api.tasks.remove, {
   optimisticUpdate: (localStore, args) => {
     deleteFromQuery({
       query: api.tasks.list,
@@ -156,7 +156,7 @@ function isOptimistic(taskId: string) {
             </span>
             <UButton
               icon="i-lucide-trash-2"
-              color="red"
+              color="error"
               variant="ghost"
               size="xs"
               class="opacity-0 group-hover:opacity-100"
@@ -187,7 +187,7 @@ function isOptimistic(taskId: string) {
           />
           <UButton
             type="submit"
-            color="green"
+            color="success"
             :loading="optimisticAddStatus === 'pending'"
             :disabled="!optimisticInput.trim()"
           >
@@ -229,7 +229,7 @@ function isOptimistic(taskId: string) {
             <UButton
               v-if="!isOptimistic(task._id)"
               icon="i-lucide-trash-2"
-              color="red"
+              color="error"
               variant="ghost"
               size="xs"
               class="opacity-0 group-hover:opacity-100"
@@ -253,7 +253,7 @@ function isOptimistic(taskId: string) {
         </div>
       </template>
 
-      <pre class="text-xs bg-elevated p-4 rounded-lg overflow-x-auto"><code>const { mutate: addTask } = useConvexMutation(api.tasks.add, {
+      <pre class="text-xs bg-elevated p-4 rounded-lg overflow-x-auto"><code>const { execute: addTask } = useConvexMutation(api.tasks.add, {
   optimisticUpdate: (localStore, args) => {
     updateQuery({
       query: api.tasks.list,

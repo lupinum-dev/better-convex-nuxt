@@ -24,7 +24,7 @@ const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGu
  * @example
  * ```vue
  * <script setup>
- * const { can, user, role, isAuthenticated, isLoading } = useDemoPermissions()
+ * const { can, user, role, isAuthenticated, pending } = useDemoPermissions()
  * </script>
  *
  * <template>

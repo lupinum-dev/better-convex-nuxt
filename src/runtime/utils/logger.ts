@@ -530,7 +530,7 @@ export function createLogger(level: LogLevel): Logger {
   if (!level) return noopLogger
 
   // Use ANSI on server, CSS in browser
-  if (typeof window === 'undefined') {
+  if (!isBrowserRuntime()) {
     return createServerLogger(level)
   }
   return createBrowserLogger(level)
@@ -539,6 +539,10 @@ export function createLogger(level: LogLevel): Logger {
 const sharedServerLoggers = new Map<Exclude<LogLevel, false>, Logger>()
 const sharedBrowserLoggers = new Map<Exclude<LogLevel, false>, Logger>()
 
+function isBrowserRuntime(): boolean {
+  return typeof globalThis !== 'undefined' && typeof (globalThis as { window?: unknown }).window !== 'undefined'
+}
+
 /**
  * Shared logger cache for hot composable paths.
  * Do not mutate the returned logger methods.
@@ -546,7 +550,7 @@ const sharedBrowserLoggers = new Map<Exclude<LogLevel, false>, Logger>()
 export function getSharedLogger(level: LogLevel): Logger {
   if (!level) return noopLogger
 
-  const cache = (typeof window === 'undefined' ? sharedServerLoggers : sharedBrowserLoggers)
+  const cache = (isBrowserRuntime() ? sharedBrowserLoggers : sharedServerLoggers)
   const typedLevel = level as Exclude<LogLevel, false>
   const existing = cache.get(typedLevel)
   if (existing) return existing

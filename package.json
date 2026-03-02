@@ -54,9 +54,9 @@
   "scripts": {
     "build:devtools": "nuxi build src/runtime/devtools/ui --preset static",
     "prepack": "npm run build:devtools && nuxt-module-build build",
-    "dev": "npm run dev:prepare && nuxi dev --cwd playground",
-    "dev:build": "nuxi build --cwd playground",
-    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare --cwd playground",
+    "dev": "npm run dev:prepare && nuxi dev --cwd playground --dotenv .env.local",
+    "dev:build": "nuxi build --cwd playground --dotenv .env.local",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare --cwd playground --dotenv .env.local",
     "docs:api-surface": "node scripts/generate-api-surface.mjs",
     "release": "npm run lint && npm run test && npm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
     "lint": "eslint .",

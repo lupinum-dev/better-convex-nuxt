@@ -17,7 +17,7 @@ const {
   status: infiniteStatus,
   loadMore: infiniteLoadMore,
   isLoading: infiniteLoading
-} = useConvexPaginatedQueryLazy(
+} = await useConvexPaginatedQuery(
   api.messages.listPaginated,
   {},
   { initialNumItems: 10 }
@@ -31,8 +31,10 @@ onMounted(() => {
 
   const observer = new IntersectionObserver(
     (entries) => {
+      const [entry] = entries
+      if (!entry) return
       if (
-        entries[0].isIntersecting &&
+        entry.isIntersecting &&
         infiniteStatus.value === 'CanLoadMore' &&
         !infiniteLoading.value
       ) {
@@ -55,7 +57,7 @@ const {
   status: buttonStatus,
   loadMore: buttonLoadMore,
   isLoading: buttonLoading
-} = useConvexPaginatedQueryLazy(
+} = await useConvexPaginatedQuery(
   api.messages.listPaginated,
   {},
   { initialNumItems: 5 }
@@ -65,7 +67,7 @@ const {
 // ADD SAMPLE DATA
 // ============================================
 
-const { mutate: seedMessages, status: seedStatus } = useConvexMutation(api.messages.seed)
+const { execute: seedMessages, status: seedStatus } = useConvexMutation(api.messages.seed)
 
 async function addSampleData() {
   await seedMessages({ count: 20 })
@@ -78,7 +80,7 @@ async function addSampleData() {
     <div class="mb-6">
       <h1 class="text-2xl font-bold mb-2">Pagination</h1>
       <p class="text-muted">
-        Explore cursor-based pagination with useConvexPaginatedQuery.
+        Explore cursor-based pagination with await useConvexPaginatedQuery.
       </p>
     </div>
 
@@ -110,7 +112,7 @@ async function addSampleData() {
       color="primary"
       variant="subtle"
       title="How it works"
-      description="useConvexPaginatedQuery uses cursor-based pagination. It efficiently loads data in chunks and supports both infinite scroll and manual load more patterns."
+      description="await useConvexPaginatedQuery uses cursor-based pagination. It efficiently loads data in chunks and supports both infinite scroll and manual load-more patterns."
     />
 
     <!-- Tabs -->
@@ -228,7 +230,7 @@ async function addSampleData() {
         <div>
           <p class="text-muted">Infinite Scroll Status</p>
           <UBadge
-            :color="infiniteStatus === 'CanLoadMore' ? 'green' : infiniteStatus === 'LoadingMore' ? 'blue' : 'gray'"
+            :color="infiniteStatus === 'CanLoadMore' ? 'success' : infiniteStatus === 'LoadingMore' ? 'info' : 'neutral'"
           >
             {{ infiniteStatus }}
           </UBadge>
@@ -236,7 +238,7 @@ async function addSampleData() {
         <div>
           <p class="text-muted">Load More Status</p>
           <UBadge
-            :color="buttonStatus === 'CanLoadMore' ? 'green' : buttonStatus === 'LoadingMore' ? 'blue' : 'gray'"
+            :color="buttonStatus === 'CanLoadMore' ? 'success' : buttonStatus === 'LoadingMore' ? 'info' : 'neutral'"
           >
             {{ buttonStatus }}
           </UBadge>
