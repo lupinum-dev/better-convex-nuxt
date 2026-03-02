@@ -7,10 +7,10 @@ definePageMeta({
 <template>
   <PaginationLab
     :server-option="true"
-    :lazy-option="false"
+    execution-mode="blocking"
     page-id="server-true-lazy-false-page"
-    title="Paginated: server: true, lazy: false"
-    description="SSR fetches data, client navigation blocked until data loads (default)"
+    title="Paginated: server: true, await useConvexPaginatedQuery"
+    description="SSR fetches data, client navigation blocked until data loads"
     hub-link="/labs/pagination"
   />
 </template>

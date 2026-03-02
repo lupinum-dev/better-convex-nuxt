@@ -10,7 +10,7 @@ definePageMeta({
  * Pagination Lab Hub
  *
  * Combines:
- * - Navigation to server/lazy combinations
+ * - Navigation to server + API-mode combinations
  * - Basic paginated query test (from /test-paginated-query)
  */
 
@@ -53,15 +53,15 @@ function handleLoadMore() {
     <h1>Pagination Lab</h1>
     <p>Test paginated query with Load More functionality.</p>
 
-    <h2>Server + Lazy Combinations</h2>
+    <h2>Server + API Mode Combinations</h2>
     <nav class="nav-links">
       <NuxtLink
         to="/labs/pagination/server-false-lazy-true"
         data-testid="link-server-false-lazy-true"
         class="nav-link"
       >
-        server: false, lazy: true
-        <span class="hint">No SSR, instant client nav</span>
+        server: false + useConvexPaginatedQueryLazy
+        <span class="hint">No SSR, non-blocking client nav</span>
       </NuxtLink>
 
       <NuxtLink
@@ -69,7 +69,7 @@ function handleLoadMore() {
         data-testid="link-server-false-lazy-false"
         class="nav-link"
       >
-        server: false, lazy: false
+        server: false + await useConvexPaginatedQuery
         <span class="hint">No SSR, client nav blocked</span>
       </NuxtLink>
 
@@ -78,8 +78,8 @@ function handleLoadMore() {
         data-testid="link-server-true-lazy-true"
         class="nav-link best"
       >
-        server: true, lazy: true
-        <span class="hint">SSR + instant client nav (best of both worlds)</span>
+        server: true + useConvexPaginatedQueryLazy
+        <span class="hint">SSR + non-blocking client nav (recommended)</span>
       </NuxtLink>
 
       <NuxtLink
@@ -87,8 +87,8 @@ function handleLoadMore() {
         data-testid="link-server-true-lazy-false"
         class="nav-link"
       >
-        server: true, lazy: false
-        <span class="hint">SSR + client nav blocked (default)</span>
+        server: true + await useConvexPaginatedQuery
+        <span class="hint">SSR + client nav blocked</span>
       </NuxtLink>
     </nav>
 
@@ -205,7 +205,7 @@ function handleLoadMore() {
         <thead>
           <tr>
             <th>server</th>
-            <th>lazy</th>
+            <th>API mode</th>
             <th>SSR HTML</th>
             <th>Client Nav</th>
           </tr>
@@ -213,25 +213,25 @@ function handleLoadMore() {
         <tbody>
           <tr>
             <td>false</td>
-            <td>true</td>
+            <td><code>useConvexPaginatedQueryLazy</code></td>
             <td>status=LoadingFirstPage</td>
             <td>instant, loading state</td>
           </tr>
           <tr>
             <td>false</td>
-            <td>false</td>
+            <td><code>await useConvexPaginatedQuery</code></td>
             <td>status=LoadingFirstPage</td>
             <td>blocked until data</td>
           </tr>
           <tr class="highlight">
             <td>true</td>
-            <td>true</td>
+            <td><code>useConvexPaginatedQueryLazy</code></td>
             <td>hasData=true</td>
             <td>instant, loading state</td>
           </tr>
           <tr>
             <td>true</td>
-            <td>false</td>
+            <td><code>await useConvexPaginatedQuery</code></td>
             <td>hasData=true</td>
             <td>blocked until data</td>
           </tr>

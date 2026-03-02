@@ -1,12 +1,39 @@
 import { describe, expect, it } from 'vitest'
 import { reactive, ref } from 'vue'
 
-import { useConvexQueryLazy } from '../../src/runtime/composables/useConvexQuery'
+import { useConvexQuery, useConvexQueryLazy } from '../../src/runtime/composables/useConvexQuery'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { waitFor } from '../helpers/wait-for'
 
-describe('useConvexQueryLazy (Nuxt runtime)', () => {
+describe('useConvexQuery composables (Nuxt runtime)', () => {
+  it('useConvexQuery blocks until first value arrives', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:blocking-default')
+
+    const { result } = await captureInNuxt(
+      () => useConvexQuery(query, {}),
+      { convex },
+    )
+
+    let settled = false
+    const blockingResult = result.then((value) => {
+      settled = true
+      return value
+    })
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    convex.emitQueryResult(query, {}, [{ _id: 'n1', title: 'Loaded' }])
+    const resolved = await blockingResult
+
+    expect(resolved.status.value).toBe('success')
+    expect(resolved.pending.value).toBe(false)
+    expect(resolved.data.value).toEqual([{ _id: 'n1', title: 'Loaded' }])
+  })
+
   it('returns idle + pending=false immediately for disabled nullable args', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
     const { result } = await captureInNuxt(

@@ -105,7 +105,7 @@ const showingPreviewOnly = computed(() => Boolean(post.value && post.value.conte
       <h1>Slug Detail Page with Instant Reuse</h1>
       <p>
         This page reads cached list data via <code>useNuxtData(getQueryKey(api.notes.list, {}))</code>
-        and uses it as the <code>default</code> for a <code>lazy: true</code> detail query.
+        and uses it as the <code>default</code> for a <code>useConvexQueryLazy(...)</code> detail query.
       </p>
     </header>
 

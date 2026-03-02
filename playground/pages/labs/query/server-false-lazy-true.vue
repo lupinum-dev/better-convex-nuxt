@@ -7,10 +7,10 @@ definePageMeta({
 <template>
   <QueryLab
     :server-option="false"
-    :lazy-option="true"
+    execution-mode="lazy"
     page-id="server-false-lazy-true-page"
-    title="server: false, lazy: true"
-    description="No SSR fetch, instant client navigation"
+    title="server: false, useConvexQueryLazy"
+    description="No SSR fetch, non-blocking client navigation"
     hub-link="/labs/query"
   />
 </template>

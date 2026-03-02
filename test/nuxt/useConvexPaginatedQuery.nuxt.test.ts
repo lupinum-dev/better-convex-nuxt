@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import type { FunctionReference, PaginationOptions, PaginationResult } from 'convex/server'
 
-import { useConvexPaginatedQueryLazy } from '../../src/runtime/composables/useConvexPaginatedQuery'
+import { useConvexPaginatedQuery, useConvexPaginatedQueryLazy } from '../../src/runtime/composables/useConvexPaginatedQuery'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
@@ -12,7 +12,38 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('useConvexPaginatedQueryLazy (Nuxt runtime)', () => {
+describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
+  it('useConvexPaginatedQuery blocks until the first page arrives', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:blocking-default')
+
+    const { result } = await captureInNuxt(
+      () => useConvexPaginatedQuery(query as never, {}, { initialNumItems: 2 }),
+      { convex },
+    )
+
+    let settled = false
+    const blockingResult = result.then((value) => {
+      settled = true
+      return value
+    })
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+    await Promise.resolve()
+    expect(settled).toBe(false)
+
+    convex.emitQueryResultByPath('notes:listPaginated:blocking-default', {
+      page: [{ _id: 'n1', title: 'A' }],
+      isDone: true,
+      continueCursor: null,
+    })
+    const resolved = await blockingResult
+
+    expect(resolved.status.value).toBe('Exhausted')
+    expect(resolved.isLoading.value).toBe(false)
+    expect(resolved.results.value).toEqual([{ _id: 'n1', title: 'A' }])
+  })
+
   it('returns exhausted + not loading for disabled nullable args', async () => {
     const query = mockFnRef<'query'>('notes:listPaginated:disabled-static')
     const { result } = await captureInNuxt(

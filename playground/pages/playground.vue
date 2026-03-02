@@ -132,18 +132,18 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 
       <div class="options-grid">
         <div class="option-card">
-          <h4>lazy: true</h4>
-          <p>Doesn't block navigation</p>
+          <h4>useConvexQueryLazy</h4>
+          <p>Non-blocking query execution</p>
           <span class="badge" :class="{ loading: lazyPending }">
             {{ lazyPending ? 'Loading...' : `${lazyData?.length ?? 0} notes` }}
           </span>
         </div>
 
         <div class="option-card">
-          <h4>initialData: []</h4>
+          <h4>default: []</h4>
           <p>Shows placeholder immediately</p>
           <span class="badge success">
-            {{ initialDataDemo?.length ?? 0 }} notes (initial: [])
+            {{ initialDataDemo?.length ?? 0 }} notes (default: [])
           </span>
         </div>
 

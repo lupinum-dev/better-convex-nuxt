@@ -68,7 +68,7 @@ import { useConvexQueryLazy } from './useConvexQuery'
  * const props = defineProps<{ documentId: string }>()
  *
  * // Fetch document with storageId
- * const { data: document } = useConvexQuery(
+ * const { data: document } = await useConvexQuery(
  *   api.documents.get,
  *   computed(() => ({ id: props.documentId }))
  * )
@@ -85,7 +85,7 @@ export function useConvexStorageUrl(
   getUrlQuery: FunctionReference<'query'>,
   storageId: MaybeRef<string | null | undefined>,
 ): ComputedRef<string | null> {
-  // Use useConvexQuery with skip behavior when storageId is missing
+  // Use useConvexQueryLazy with skip behavior when storageId is missing
   const { data } = useConvexQueryLazy(
     getUrlQuery,
     computed(() => {

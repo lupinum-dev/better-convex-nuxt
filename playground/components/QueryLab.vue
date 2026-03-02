@@ -3,7 +3,7 @@ import { api } from '~~/convex/_generated/api'
 
 interface Props {
   serverOption: boolean
-  lazyOption: boolean
+  executionMode: 'lazy' | 'blocking'
   pageId: string
   title: string
   description: string
@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<Props>(), {
   hubLink: '/labs/query',
 })
 
-const queryResult = props.lazyOption
+const queryResult = props.executionMode === 'lazy'
   ? useConvexQueryLazy(api.notes.list, {}, {
       server: props.serverOption,
     })
