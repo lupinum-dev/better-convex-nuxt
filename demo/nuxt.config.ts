@@ -24,8 +24,6 @@ export default defineNuxtConfig({
     permissions: true
   },
 
-
-
   compatibilityDate: '2025-01-15',
 
   app: {
