@@ -89,7 +89,7 @@ describe('devtools useBridge instance binding', () => {
     })
 
     let settled = false
-    requestPromise.finally(() => {
+    void requestPromise.finally(() => {
       settled = true
     })
     await Promise.resolve()

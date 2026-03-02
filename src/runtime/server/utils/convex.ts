@@ -106,7 +106,7 @@ async function resolveAuthToken(
 
     if (response?.token) {
       if (config.authCache.enabled && sessionToken) {
-        const ttl = config.authCache.ttl ?? 900
+        const ttl = config.authCache.ttl ?? 60
         await setCachedAuthToken(sessionToken, response.token, ttl)
       }
       return response.token

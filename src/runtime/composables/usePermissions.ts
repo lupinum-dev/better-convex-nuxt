@@ -24,7 +24,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import { useRouter, useRuntimeConfig } from '#imports'
 import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
 
-import { useConvexQuery } from './useConvexQuery'
+import { useConvexQueryLazy } from './useConvexQuery'
 
 // ============================================
 // TYPES
@@ -150,7 +150,7 @@ export function createPermissions<
    */
   function usePermissions(): UsePermissionsReturn<TPermission, TContext> {
     // Fetch permission context from Convex
-    const { data: permissionContext, pending, error } = useConvexQuery(query, {})
+    const { data: permissionContext, pending, error } = useConvexQueryLazy(query, {})
     const runtimeConfig = useRuntimeConfig()
 
     // Build context object for checkPermission
@@ -241,7 +241,7 @@ export function createPermissions<
       // Redirect to login if not authenticated
       if (!isAuthenticated.value) {
         pendingRedirect = true
-        router.push(loginPath).finally(() => {
+        void router.push(loginPath).finally(() => {
           pendingRedirect = false
         })
         return
@@ -250,7 +250,7 @@ export function createPermissions<
       // Redirect if user lacks permission
       if (!hasPermission.value) {
         pendingRedirect = true
-        router.push(redirectTo).finally(() => {
+        void router.push(redirectTo).finally(() => {
           pendingRedirect = false
         })
       }

@@ -34,7 +34,6 @@ export interface ConvexPublicRuntimeConfig {
   /** Global query defaults */
   defaults?: {
     server?: boolean
-    lazy?: boolean
     subscribe?: boolean
     unauthenticated?: boolean
   }
@@ -61,8 +60,6 @@ declare module '#app' {
   interface NuxtApp {
     $convex?: ConvexClient
     $auth?: AuthClient
-    /** Internal cache for WebSocket subscriptions (prevents duplicates) */
-    _convexSubscriptions?: Record<string, () => void>
     /** Internal dedupe state for unauthorized query/action/mutation recovery */
     _bcnUnauthorizedRecoveryState?: {
       activeRecovery: Promise<void> | null
@@ -71,6 +68,9 @@ declare module '#app' {
     }
     /** Internal in-flight promise for useConvexAuth().refreshAuth() dedupe */
     _convexRefreshAuthPromise?: Promise<void> | null
+  }
+  interface RuntimeNuxtHooks {
+    'better-convex:auth:refresh': () => void | Promise<void>
   }
   interface PageMeta {
     skipConvexAuth?: boolean

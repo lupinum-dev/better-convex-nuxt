@@ -12,6 +12,21 @@ describe('runtime config normalization', () => {
     expect(config.upload.maxConcurrent).toBe(3)
   })
 
+  it('defaults auth cache ttl to 60 seconds', () => {
+    const config = normalizeConvexRuntimeConfig({})
+    expect(config.authCache.ttl).toBe(60)
+  })
+
+  it('clamps auth cache ttl to 1..60 seconds', () => {
+    expect(normalizeConvexRuntimeConfig({
+      authCache: { ttl: 0 },
+    }).authCache.ttl).toBe(1)
+
+    expect(normalizeConvexRuntimeConfig({
+      authCache: { ttl: 999 },
+    }).authCache.ttl).toBe(60)
+  })
+
   it('uses explicit upload maxConcurrent when valid', () => {
     const config = normalizeConvexRuntimeConfig({
       upload: {

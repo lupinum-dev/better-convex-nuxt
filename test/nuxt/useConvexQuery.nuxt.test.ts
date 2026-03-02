@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { reactive, ref } from 'vue'
 
-import { useConvexQuery } from '../../src/runtime/composables/useConvexQuery'
+import { useConvexQueryLazy } from '../../src/runtime/composables/useConvexQuery'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { waitFor } from '../helpers/wait-for'
 
-describe('useConvexQuery (Nuxt runtime)', () => {
+describe('useConvexQueryLazy (Nuxt runtime)', () => {
   it('returns idle + pending=false immediately for disabled nullable args', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
     const { result } = await captureInNuxt(
-      () => useConvexQuery(query, null),
+      () => useConvexQueryLazy(query, null),
       { convex: new MockConvexClient() },
     )
 
@@ -24,7 +24,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:list:enabled-false')
 
     const { result } = await captureInNuxt(
-      () => useConvexQuery(query, {}, { enabled: false }),
+      () => useConvexQueryLazy(query, {}, { enabled: false }),
       { convex },
     )
 
@@ -38,7 +38,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:list:default-loading')
 
     const { result } = await captureInNuxt(() =>
-      useConvexQuery(query, {}, {
+      useConvexQueryLazy(query, {}, {
         default: () => [{ _id: 'default', title: 'Loading placeholder' }],
       }), { convex })
 
@@ -58,10 +58,10 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('counter:get:divergent')
 
     const { result, wrapper } = await captureInNuxt(() => {
-      const parent = useConvexQuery(query, {}, {
+      const parent = useConvexQueryLazy(query, {}, {
         transform: input => input.count,
       })
-      const child = useConvexQuery(query, {}, {
+      const child = useConvexQueryLazy(query, {}, {
         transform: input => `count:${input.count}`,
       })
       return { parent, child }
@@ -89,8 +89,8 @@ describe('useConvexQuery (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const lateArgs = ref<Record<string, never> | null>(null)
-      const primary = useConvexQuery(query, {})
-      const late = useConvexQuery(query, lateArgs)
+      const primary = useConvexQueryLazy(query, {})
+      const late = useConvexQueryLazy(query, lateArgs)
       return { lateArgs, primary, late }
     }, { convex })
 
@@ -116,7 +116,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const args = ref({ filter: { tag: 'alpha' } })
-      const queryResult = useConvexQuery(query, args)
+      const queryResult = useConvexQueryLazy(query, args)
       return { args, queryResult }
     }, { convex })
 
@@ -143,7 +143,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const tag = ref('alpha')
-      const queryResult = useConvexQuery(query, () => ({
+      const queryResult = useConvexQueryLazy(query, () => ({
         filter: { tag: tag.value },
       }))
       return { tag, queryResult }
@@ -172,7 +172,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const tag = ref('alpha')
-      const queryResult = useConvexQuery(query, {
+      const queryResult = useConvexQueryLazy(query, {
         filter: {
           tag,
         },
@@ -199,7 +199,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const args = reactive({ filter: { tag: 'alpha' as string, sort: 'asc' as string } })
-      const queryResult = useConvexQuery(query, args)
+      const queryResult = useConvexQueryLazy(query, args)
       return { args, queryResult }
     }, { convex })
 
@@ -228,7 +228,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:list:default-transform')
 
     const { result } = await captureInNuxt(() =>
-      useConvexQuery(query, {}, {
+      useConvexQueryLazy(query, {}, {
         default: () => [{ _id: 'default', title: 'loading' }],
         transform: (items: Array<{ _id: string; title: string }>) =>
           items.map(item => ({ ...item, title: item.title.toUpperCase() })),
@@ -244,7 +244,7 @@ describe('useConvexQuery (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const tag = ref('alpha')
-      const queryResult = useConvexQuery(
+      const queryResult = useConvexQueryLazy(
         query,
         () => ({ filter: { tag: tag.value } }),
         { keepPreviousData: true },
@@ -266,12 +266,12 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     await waitFor(() => result.queryResult.data.value?.tag === 'beta')
   })
 
-  it('uses pending status contract for server:false + lazy:true until first data', async () => {
+  it('uses pending status contract for server:false in lazy mode until first data', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:server-false-lazy')
 
     const { result } = await captureInNuxt(
-      () => useConvexQuery(query, {}, { server: false, lazy: true }),
+      () => useConvexQueryLazy(query, {}, { server: false }),
       { convex },
     )
 
@@ -289,8 +289,8 @@ describe('useConvexQuery (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('counter:get:refcount')
 
-    const first = await captureInNuxt(() => useConvexQuery(query, {}), { convex })
-    const second = await captureInNuxt(() => useConvexQuery(query, {}), { convex })
+    const first = await captureInNuxt(() => useConvexQueryLazy(query, {}), { convex })
+    const second = await captureInNuxt(() => useConvexQueryLazy(query, {}), { convex })
 
     await waitFor(() => convex.calls.onUpdate.length >= 2)
     convex.emitQueryResult(query, {}, { count: 1 })

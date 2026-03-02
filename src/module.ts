@@ -27,6 +27,14 @@ export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 
 const logger = useLogger('better-convex-nuxt')
 
+function normalizeAuthCacheTtl(input: unknown): number {
+  if (typeof input !== 'number' || !Number.isFinite(input)) return 60
+  const normalized = Math.trunc(input)
+  if (normalized < 1) return 1
+  if (normalized > 60) return 60
+  return normalized
+}
+
 export interface AuthCacheOptions {
   /**
    * Enable SSR auth token caching.
@@ -39,7 +47,7 @@ export interface AuthCacheOptions {
    * Cache TTL in seconds.
    * Determines how long tokens are cached before requiring a fresh fetch.
    * Shorter TTL = more security, longer TTL = better performance.
-   * @default 900 (15 minutes)
+   * @default 60 (1 minute)
    */
   ttl?: number
 }
@@ -54,11 +62,6 @@ export interface QueryDefaults {
    * @default true
    */
   server?: boolean
-  /**
-   * Don't block navigation, load in background.
-   * @default false
-   */
-  lazy?: boolean
   /**
    * Subscribe to real-time updates via WebSocket.
    * @default true
@@ -184,7 +187,7 @@ export interface ModuleOptions {
    *   convex: {
    *     authCache: {
    *       enabled: true,
-   *       ttl: 900 // 15 minutes
+   *       ttl: 60 // 60 seconds
    *     }
    *   },
    *   // For multi-instance deployments, configure Redis:
@@ -210,8 +213,7 @@ export interface ModuleOptions {
    * export default defineNuxtConfig({
    *   convex: {
    *     defaults: {
-   *       server: false,  // Disable SSR globally
-   *       lazy: true      // Enable lazy loading globally
+   *       server: false // Disable SSR globally
    *     }
    *   }
    * })
@@ -263,11 +265,10 @@ export default defineNuxtModule<ModuleOptions>({
     },
     authCache: {
       enabled: false,
-      ttl: 900, // 15 minutes
+      ttl: 60,
     },
     defaults: {
       server: true, // SSR enabled by default (like Nuxt's useFetch)
-      lazy: false,
       subscribe: true,
       unauthenticated: false,
     },
@@ -311,6 +312,13 @@ export default defineNuxtModule<ModuleOptions>({
       logger.warn(`auth: true but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(options.url)}`)
     }
 
+    const normalizedAuthCacheTtl = normalizeAuthCacheTtl(options.authCache?.ttl)
+    if ((options.authCache?.ttl ?? 60) !== normalizedAuthCacheTtl) {
+      logger.warn(
+        `convex.authCache.ttl must be between 1 and 60 seconds. Using ${normalizedAuthCacheTtl}s instead.`,
+      )
+    }
+
     // 1. Safe Configuration Merging (preserves user-defined runtimeConfig)
     const convexConfig = defu(
       nuxt.options.runtimeConfig.public.convex as Record<string, unknown> | undefined,
@@ -330,11 +338,10 @@ export default defineNuxtModule<ModuleOptions>({
         },
         authCache: {
           enabled: options.authCache?.enabled ?? false,
-          ttl: options.authCache?.ttl ?? 900,
+          ttl: normalizedAuthCacheTtl,
         },
         defaults: {
           server: options.defaults?.server ?? true, // SSR enabled by default
-          lazy: options.defaults?.lazy ?? false,
           subscribe: options.defaults?.subscribe ?? true,
           unauthenticated: options.defaults?.unauthenticated ?? false,
         },
@@ -393,6 +400,10 @@ declare module '#app' {
     $auth?: AuthClient
   }
 
+  interface RuntimeNuxtHooks {
+    'better-convex:auth:refresh': () => void | Promise<void>
+  }
+
     interface PageMeta {
     /**
      * Skip Convex auth check for this page.
@@ -427,6 +438,7 @@ export {}
       },
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
+      { name: 'useConvexQueryLazy', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
         name: 'defineSharedConvexQuery',
@@ -435,6 +447,10 @@ export {}
       { name: 'useConvexRpc', from: resolver.resolve('./runtime/composables/useConvexRpc') },
       {
         name: 'useConvexPaginatedQuery',
+        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
+      },
+      {
+        name: 'useConvexPaginatedQueryLazy',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
       {

@@ -18,7 +18,7 @@ const queryArgs = computed(() => ({
 }))
 
 // The query automatically re-subscribes when queryArgs changes
-const { data: feedItems, status } = useConvexQuery(api.feed.listFiltered, queryArgs)
+const { data: feedItems, status } = useConvexQueryLazy(api.feed.listFiltered, queryArgs)
 
 const typeOptions: Array<{ value: FeedType | undefined, label: string, icon: string }> = [
   { value: undefined, label: 'All Types', icon: 'i-lucide-list' },
@@ -189,7 +189,7 @@ const queryArgs = computed(() => ({
 }))
 
 // Query automatically re-runs when args change
-const { data, status } = useConvexQuery(
+const { data, status } = useConvexQueryLazy(
   api.feed.listFiltered,
   queryArgs  // Pass computed or ref - both work!
 )</code></pre>

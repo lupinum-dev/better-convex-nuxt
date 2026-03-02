@@ -8,7 +8,7 @@ definePageMeta({
 const { can } = useDemoPermissions()
 
 // Real-time feed subscription
-const { data: feedItems, status } = useConvexQuery(api.feed.list, {})
+const { data: feedItems, status } = useConvexQueryLazy(api.feed.list, {})
 
 // Add item mutation
 const { mutate: addItem, status: addStatus } = useConvexMutation(api.feed.add)

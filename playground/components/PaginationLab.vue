@@ -14,17 +14,24 @@ const props = withDefaults(defineProps<Props>(), {
   hubLink: '/labs/pagination',
 })
 
-// Always await - useConvexPaginatedQuery internally handles server/lazy behavior
-// The await ensures Nuxt can properly block navigation when lazy: false
-const { results, status, isLoading, loadMore } = await useConvexPaginatedQuery(
-  api.notes.listPaginated,
-  {},
-  {
-    initialNumItems: 3,
-    server: props.serverOption,
-    lazy: props.lazyOption,
-  },
-)
+const paginatedResult = props.lazyOption
+  ? useConvexPaginatedQueryLazy(
+      api.notes.listPaginated,
+      {},
+      {
+        initialNumItems: 3,
+        server: props.serverOption,
+      },
+    )
+  : await useConvexPaginatedQuery(
+      api.notes.listPaginated,
+      {},
+      {
+        initialNumItems: 3,
+        server: props.serverOption,
+      },
+    )
+const { results, status, isLoading, loadMore } = paginatedResult
 
 // Capture state at script execution time (frozen snapshot)
 const capturedAtRender = {

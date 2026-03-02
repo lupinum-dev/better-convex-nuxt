@@ -90,8 +90,8 @@ export function useAuth() {
 
     // Poll for updates (reduced frequency since auth doesn't change often)
     intervalId = setInterval(() => {
-      updateConnectionState()
-      updateAuthState()
+      void updateConnectionState()
+      void updateAuthState()
     }, 2000) // Increased to 2 seconds
   })
 

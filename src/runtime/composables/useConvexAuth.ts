@@ -1,4 +1,4 @@
-import { useState, computed, readonly, useNuxtApp, watch } from '#imports'
+import { useState, computed, readonly, useNuxtApp } from '#imports'
 
 import type { ConvexUser } from '../utils/types'
 import type { createAuthClient } from 'better-auth/vue'
@@ -118,8 +118,6 @@ export function useConvexAuth(): UseConvexAuthReturn {
   // hydration mismatches. CSR-first loads still start pending=true until client init.
   const pending = useState<boolean>('convex:pending', () => import.meta.client)
   const authError = useState<string | null>('convex:authError', () => null)
-  const refreshSignal = useState<number>('convex:refreshSignal', () => 0)
-  const refreshCompleteSignal = useState<number>('convex:refreshCompleteSignal', () => 0)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
 
@@ -195,63 +193,28 @@ export function useConvexAuth(): UseConvexAuthReturn {
       pending.value = true
       authError.value = null
 
-      const startCompleteSignal = refreshCompleteSignal.value
-      refreshSignal.value++
-
       try {
-        await new Promise<void>((resolve, reject) => {
-          let settled = false
-          let stopWatcher: (() => void) | null = null
-          let timeout: ReturnType<typeof setTimeout> | null = null
+        await Promise.race([
+          nuxtApp.callHook('better-convex:auth:refresh'),
+          new Promise<never>((_resolve, reject) => {
+            setTimeout(() => {
+              reject(new Error('Authentication refresh timed out after 5 seconds'))
+            }, 5000)
+          }),
+        ])
 
-          const cleanup = () => {
-            if (stopWatcher) {
-              stopWatcher()
-              stopWatcher = null
-            }
-            if (timeout) {
-              clearTimeout(timeout)
-              timeout = null
-            }
-          }
+        if (token.value) {
+          return
+        }
+        if (authError.value) {
+          throw new Error(authError.value)
+        }
 
-          const settleResolve = () => {
-            if (settled) return
-            settled = true
-            cleanup()
-            resolve()
-          }
-
-          const settleReject = (error: unknown) => {
-            if (settled) return
-            settled = true
-            cleanup()
-            reject(error instanceof Error ? error : new Error(String(error)))
-          }
-
-          stopWatcher = watch(
-            [refreshCompleteSignal, token, authError],
-            ([completed, newToken, newError]) => {
-              if (completed <= startCompleteSignal) return
-              if (newToken) {
-                settleResolve()
-                return
-              }
-              if (newError) {
-                settleReject(new Error(newError))
-                return
-              }
-              authError.value = 'Authentication refresh completed without a token'
-              settleReject(new Error(authError.value))
-            },
-            { immediate: true },
-          )
-
-          timeout = setTimeout(() => {
-            authError.value = 'Authentication refresh timed out after 5 seconds'
-            settleReject(new Error(authError.value))
-          }, 5000)
-        })
+        authError.value = 'Authentication refresh completed without a token'
+        throw new Error(authError.value)
+      } catch (error) {
+        authError.value = error instanceof Error ? error.message : String(error)
+        throw error
       } finally {
         pending.value = false
         appState._convexRefreshAuthPromise = null

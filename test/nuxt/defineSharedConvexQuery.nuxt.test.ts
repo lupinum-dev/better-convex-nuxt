@@ -69,8 +69,8 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     })
 
     await expect(captureInNuxt(() => {
-      useSharedA()
-      useSharedB()
+      void useSharedA()
+      void useSharedB()
       return null
     }, { convex: new MockConvexClient() })).rejects.toThrow(/duplicate key/i)
   })

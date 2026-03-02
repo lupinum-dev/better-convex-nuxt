@@ -242,7 +242,7 @@ const extendedAuthClient = shallowRef<ExtendedAuthClient | null>(null)
 const extendedSessionStore = shallowRef<unknown>(null)
 
 const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : ('skip' as const)))
-const { data: permissionContext } = useConvexQuery(
+const { data: permissionContext } = useConvexQueryLazy(
   api.auth.getPermissionContext,
   permissionQueryArgs,
 )

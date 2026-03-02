@@ -199,7 +199,7 @@ const {
   data: notes,
   pending: notesPending,
   error: notesError,
-} = useConvexQuery(api.notes.list, {})
+} = useConvexQueryLazy(api.notes.list, {})
 
 // Form state for adding notes
 const newNoteTitle = ref('')
@@ -261,7 +261,7 @@ const searchArgs = computed(() => {
 const {
   data: searchResults,
   pending: searchPending,
-} = useConvexQuery(api.notes.search, searchArgs)
+} = useConvexQueryLazy(api.notes.search, searchArgs)
 
 // ========== Section 3: Skip Pattern ==========
 const enableSkipDemo = useState('playground-skip-demo', () => true)
@@ -273,7 +273,7 @@ const skipArgs = computed(() => {
 const {
   data: skipDemoData,
   pending: skipDemoPending,
-} = useConvexQuery(api.notes.list, skipArgs)
+} = useConvexQueryLazy(api.notes.list, skipArgs)
 
 // ========== Section 4: useNuxtData (Cache Access) ==========
 const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
@@ -284,18 +284,18 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 const {
   data: lazyData,
   pending: lazyPending,
-} = useConvexQuery(api.notes.list, {}, { lazy: true })
+} = useConvexQueryLazy(api.notes.list, {})
 
 // Default data (factory function that provides initial value)
 const {
   data: initialDataDemo,
-} = useConvexQuery(api.notes.list, {}, { default: () => [] })
+} = useConvexQueryLazy(api.notes.list, {}, { default: () => [] })
 
 // Client-only
 const {
   data: clientOnlyData,
   pending: clientOnlyPending,
-} = useConvexQuery(api.notes.list, {}, { server: false })
+} = useConvexQueryLazy(api.notes.list, {}, { server: false })
 
 // ========== Debug ==========
 const debugInfo = computed(() => ({

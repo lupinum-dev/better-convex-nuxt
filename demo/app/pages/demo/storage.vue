@@ -20,7 +20,7 @@ const { upload, status: uploadStatus, progress, error: uploadError, cancel: canc
 const { mutate: saveFile, error: saveError } = useConvexMutation(api.files.save)
 
 // List files
-const { data: files, status: filesStatus } = useConvexQuery(api.files.list, {})
+const { data: files, status: filesStatus } = useConvexQueryLazy(api.files.list, {})
 
 // Delete file
 const { mutate: deleteFile, error: deleteError } = useConvexMutation(api.files.remove)

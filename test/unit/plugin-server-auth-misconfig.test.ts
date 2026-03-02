@@ -95,7 +95,7 @@ describe('plugin.server token exchange failure policy', () => {
       url: 'https://demo.convex.cloud',
       siteUrl: 'https://demo.convex.site',
       auth: { enabled: true },
-      authCache: { enabled: false, ttl: 900 },
+      authCache: { enabled: false, ttl: 60 },
     })
 
     getCachedAuthTokenMock.mockResolvedValue(null)

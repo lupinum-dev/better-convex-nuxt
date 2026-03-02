@@ -16,7 +16,7 @@ definePageMeta({
  * - refresh() retries the query (still fails)
  */
 
-const { data, pending, status, error, refresh } = useConvexQuery(
+const { data, pending, status, error, refresh } = useConvexQueryLazy(
   api.testing.alwaysFails,
   {},
   {},

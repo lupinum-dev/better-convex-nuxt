@@ -5,7 +5,7 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const { data: tasks, status } = useConvexQuery(api.tasks.listMine, {})
+const { data: tasks, status } = useConvexQueryLazy(api.tasks.listMine, {})
 
 const input = ref('')
 const { mutate: addTask, status: addStatus } = useConvexMutation(api.tasks.add)

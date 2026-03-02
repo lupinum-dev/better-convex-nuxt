@@ -18,6 +18,18 @@ export default createConfigForNuxt({
     ignores: ['demo/**', 'docs/**', '**/convex/_generated/**'],
   },
 ).append(
+  {
+    files: ['src/module.ts', 'src/runtime/**/*.ts', 'test/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-floating-promises': ['error', { ignoreVoid: true }],
+    },
+  },
   // Allow self-closing void elements (matches oxcformat behavior)
   {
     files: ['**/*.vue'],

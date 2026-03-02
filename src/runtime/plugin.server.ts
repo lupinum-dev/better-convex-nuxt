@@ -323,7 +323,7 @@ export default defineNuxtPlugin(async () => {
       // Phase 5: Cache Store (if caching is enabled)
       if (authCacheConfig?.enabled && sessionToken && token) {
         const storeStart = trackWaterfall ? Date.now() : 0
-        const ttl = authCacheConfig.ttl ?? 900
+        const ttl = authCacheConfig.ttl ?? 60
         await setCachedAuthToken(sessionToken, token, ttl)
         if (trackWaterfall) {
           phases.push(buildPhase('cache-store', storeStart, waterfallStart, 'success', `TTL: ${ttl}s`))

@@ -5,7 +5,6 @@ import type { LogLevel } from './logger'
 
 export interface ConvexRuntimeDefaults {
   server: boolean
-  lazy: boolean
   subscribe: boolean
   unauthenticated: boolean
 }
@@ -42,6 +41,14 @@ function asRecord(input: unknown): Record<string, unknown> | null {
   return input && typeof input === 'object' ? (input as Record<string, unknown>) : null
 }
 
+function normalizeAuthCacheTtl(input: unknown): number {
+  if (typeof input !== 'number' || !Number.isFinite(input)) return 60
+  const normalized = Math.trunc(input)
+  if (normalized < 1) return 1
+  if (normalized > 60) return 60
+  return normalized
+}
+
 export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRuntimeConfig {
   const raw = asRecord(input)
   const defaults = asRecord(raw?.defaults)
@@ -68,7 +75,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     logging: raw?.logging === false || typeof raw?.logging === 'string' ? (raw.logging as LogLevel | false) : false,
     authCache: {
       enabled: authCache?.enabled === true,
-      ttl: typeof authCache?.ttl === 'number' ? authCache.ttl : 900,
+      ttl: normalizeAuthCacheTtl(authCache?.ttl),
     },
     upload: {
       maxConcurrent: (() => {
@@ -94,7 +101,6 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     },
     defaults: {
       server: defaults?.server !== false,
-      lazy: defaults?.lazy === true,
       subscribe: defaults?.subscribe !== false,
       unauthenticated: defaults?.unauthenticated === true,
     },

@@ -79,7 +79,7 @@ const {
   data: tasks,
   pending,
   error,
-} = useConvexQuery(api.tasks.list, queryArgs, {
+} = useConvexQueryLazy(api.tasks.list, queryArgs, {
   // Check console for detailed logs
 })
 

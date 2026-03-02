@@ -473,7 +473,7 @@ const { can, user, role, orgId, pending, isAuthenticated } = usePermissions()
 const {
   data: currentOrg,
   status: currentOrgStatus,
-} = useConvexQuery(
+} = useConvexQueryLazy(
   api.organizations.getCurrent,
   computed(() => (orgId.value ? {} : 'skip')),
 )
@@ -482,7 +482,7 @@ const {
   data: posts,
   status: postsStatus,
   error: postsError,
-} = useConvexQuery(
+} = useConvexQueryLazy(
   api.posts.list,
   computed(() => (orgId.value ? {} : 'skip')),
 )
@@ -491,18 +491,18 @@ const {
   data: members,
   status: membersStatus,
   error: membersError,
-} = useConvexQuery(
+} = useConvexQueryLazy(
   api.organizations.getMembers,
   computed(() => (orgId.value && can('org.members') ? {} : 'skip')),
 )
 
-const { data: pendingInvites } = useConvexQuery(
+const { data: pendingInvites } = useConvexQueryLazy(
   api.invites.listPending,
   computed(() => (orgId.value && can('org.invite') ? {} : 'skip')),
 )
 
 // Get my pending invites (when no orgId)
-const myInvitesQuery = useConvexQuery(
+const myInvitesQuery = useConvexQueryLazy(
   api.invites.getMyInvites,
   computed(() => (!orgId.value ? {} : 'skip')),
 )
@@ -514,13 +514,13 @@ const orgIdsForInvites = computed(() => {
   return myInvites.value.map(invite => invite.organizationId)
 })
 
-const { data: allOrgs } = useConvexQuery(
+const { data: allOrgs } = useConvexQueryLazy(
   api.organizations.getByIds,
   computed(() => (orgIdsForInvites.value.length ? { ids: orgIdsForInvites.value } : 'skip')),
 )
 
 // Get all organizations (for browsing)
-const allOrganizationsQuery = useConvexQuery(
+const allOrganizationsQuery = useConvexQueryLazy(
   api.organizations.list,
   computed(() => (!orgId.value ? {} : 'skip')),
 )

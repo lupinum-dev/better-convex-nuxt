@@ -1,10 +1,13 @@
-import type { AsyncData } from '#app'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { MaybeRefOrGetter } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import { useConvexQuery, type UseConvexQueryOptions } from './useConvexQuery'
+import {
+  useConvexQueryLazy,
+  type UseConvexQueryData,
+  type UseConvexQueryOptions,
+} from './useConvexQuery'
 
 interface SharedQueryRegistry {
   entries: Map<string, SharedQueryRegistryEntry<unknown>>
@@ -56,7 +59,7 @@ export function defineSharedConvexQuery<
   DataT = FunctionReturnType<Query>,
 >(
   config: DefineSharedConvexQueryOptions<Query, Args, DataT>,
-): () => AsyncData<DataT | null, Error | null> {
+): () => UseConvexQueryData<DataT> {
   return () => {
     const nuxtApp = useNuxtApp()
     const registry = getSharedRegistry(nuxtApp)
@@ -69,10 +72,10 @@ export function defineSharedConvexQuery<
           `Use unique keys per query definition.`,
         )
       }
-      return existing.value as AsyncData<DataT | null, Error | null>
+      return existing.value as UseConvexQueryData<DataT>
     }
 
-    const created = useConvexQuery<Query, Args, DataT>(
+    const created = useConvexQueryLazy<Query, Args, DataT>(
       config.query,
       config.args,
       config.options,

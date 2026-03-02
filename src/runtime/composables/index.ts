@@ -35,9 +35,10 @@ export {
 } from './useConvexAction'
 export {
   useConvexQuery,
+  useConvexQueryLazy,
   getQueryKey,
   type QueryStatus,
-  type UseConvexQueryReturn,
+  type UseConvexQueryData,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
 export {
@@ -50,9 +51,10 @@ export {
 } from './useConvexRpc'
 export {
   useConvexPaginatedQuery,
+  useConvexPaginatedQueryLazy,
   type PaginationStatus,
   type UseConvexPaginatedQueryOptions,
-  type UseConvexPaginatedQueryReturn,
+  type UseConvexPaginatedQueryData,
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,

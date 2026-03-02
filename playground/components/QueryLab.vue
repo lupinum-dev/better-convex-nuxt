@@ -14,12 +14,14 @@ const props = withDefaults(defineProps<Props>(), {
   hubLink: '/labs/query',
 })
 
-// Always await - useConvexQuery internally handles server/lazy behavior
-// The await ensures Nuxt can properly block navigation when lazy: false
-const { data, pending, status } = await useConvexQuery(api.notes.list, {}, {
-  server: props.serverOption,
-  lazy: props.lazyOption,
-})
+const queryResult = props.lazyOption
+  ? useConvexQueryLazy(api.notes.list, {}, {
+      server: props.serverOption,
+    })
+  : await useConvexQuery(api.notes.list, {}, {
+      server: props.serverOption,
+    })
+const { data, pending, status } = queryResult
 
 // Capture state at script execution time (frozen snapshot)
 const capturedAtRender = {

@@ -16,7 +16,7 @@ definePageMeta({
  * - No network requests made
  */
 
-const { data, pending, status, error } = useConvexQuery(
+const { data, pending, status, error } = useConvexQueryLazy(
   api.notes.list,
   'skip',
 )

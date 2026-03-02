@@ -65,8 +65,6 @@ export { getQueryKey }
  * Options for useConvexQuery
  */
 export interface UseConvexQueryOptions<RawT, DataT = RawT> {
-  /** Don't block when awaited. Query runs in background. @default false (configurable via nuxt.config convex.defaults.lazy) */
-  lazy?: boolean
   /** Run query on server during SSR. @default true (configurable via nuxt.config convex.defaults.server) */
   server?: boolean
   /** Subscribe to real-time updates via WebSocket. @default true (configurable via nuxt.config convex.defaults.subscribe) */
@@ -85,8 +83,18 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   deepUnrefArgs?: boolean
 }
 
-export type UseConvexQueryReturn<DataT> = AsyncData<DataT | null, Error | null> &
-  Promise<AsyncData<DataT | null, Error | null>>
+export type UseConvexQueryData<DataT> = Pick<
+  AsyncData<DataT | null, Error>,
+  'data' | 'error' | 'refresh' | 'execute' | 'clear'
+> & {
+  pending: Ref<boolean>
+  status: Ref<QueryStatus>
+}
+
+interface BuildConvexQueryResult<DataT> {
+  resultData: UseConvexQueryData<DataT>
+  resolvePromise: Promise<void>
+}
 
 /**
  * Execute query via HTTP (works on both server and client without WebSocket)
@@ -127,9 +135,7 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
 }
 
 /**
- * A Nuxt composable for querying Convex with SSR support and real-time subscriptions.
- *
- * Returns a standard Nuxt `AsyncData` object that is thenable (can be awaited).
+ * Build shared query state for blocking and lazy query composables.
  *
  * @example
  * ```vue
@@ -147,7 +153,7 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
  * )
  *
  * // Lazy - doesn't block navigation
- * const { data, pending } = await useConvexQuery(api.posts.list, {}, { lazy: true })
+ * const { data, pending } = useConvexQueryLazy(api.posts.list, {})
  *
  * // Transform data after fetching
  * const { data } = await useConvexQuery(api.posts.list, {}, {
@@ -156,7 +162,7 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
  * </script>
  * ```
  */
-export function useConvexQuery<
+function buildConvexQuery<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
@@ -164,7 +170,8 @@ export function useConvexQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
-): UseConvexQueryReturn<DataT> {
+  lazy = false,
+): BuildConvexQueryResult<DataT> {
   type RawT = FunctionReturnType<Query>
 
   const nuxtApp = useNuxtApp()
@@ -173,7 +180,6 @@ export function useConvexQuery<
 
   // Resolve options from: per-call options → global defaults → built-in defaults
   const defaults = convexConfig.defaults
-  const lazy = options?.lazy ?? defaults?.lazy ?? false
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
   const unauthenticated = options?.unauthenticated ?? defaults?.unauthenticated ?? false
@@ -187,16 +193,16 @@ export function useConvexQuery<
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = getSharedLogger(logLevel)
 
-  // Resolve and unwrap args
-  const getArgs = (): Args => {
+  const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
     if (rawArgs === null || rawArgs === undefined) {
       return rawArgs
     }
     return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
-  }
+  })
+  const getArgs = (): Args => normalizedArgs.value
   const enabled = computed(() => toValue(options?.enabled) ?? true)
-  const isSkipped = computed(() => !enabled.value || getArgs() == null)
+  const isSkipped = computed(() => !enabled.value || normalizedArgs.value == null)
 
   if (import.meta.dev) {
     ensureDevToolsRegistryLoaded()
@@ -223,7 +229,7 @@ export function useConvexQuery<
 
   // Computed hash of args for deep reactivity detection
   // This ensures useAsyncData re-fetches when args change deeply (not just ref identity)
-  const argsHash = computed(() => hashArgs(getArgs()))
+  const argsHash = computed(() => hashArgs(normalizedArgs.value))
 
   // Transform helper
   const applyTransform = (raw: RawT): DataT => {
@@ -330,18 +336,19 @@ export function useConvexQuery<
     if (isSkipped.value) return false
 
     const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
+    const hasSettled = asyncData.status.value === 'success' || asyncData.status.value === 'error'
 
     // When server: false, report pending until data arrives
     if (!server) {
       // On server: always pending (no SSR fetch, data will load on client)
       if (import.meta.server) return true
       // On client: pending until we have data
-      if (!hasData) return true
+      if (!hasData && !hasSettled) return true
     }
 
     // For lazy: true on client, show pending until data arrives
     // This handles the case where navigation is instant but data is still loading
-    if (lazy && import.meta.client && !hasData) {
+    if (lazy && import.meta.client && !hasData && !hasSettled) {
       return true
     }
 
@@ -609,8 +616,6 @@ export function useConvexQuery<
     )
   }
 
-  // === Build thenable return (Object.assign pattern from useConvexPaginatedQuery) ===
-
   // Determine when the promise should resolve based on options
   let resolvePromise: Promise<void>
 
@@ -642,9 +647,16 @@ export function useConvexQuery<
     }
   }
 
+  const data = computed<DataT | null>({
+    get: () => (asyncData.data.value ?? null) as DataT | null,
+    set: (value: DataT | null) => {
+      ;(asyncData.data as Ref<DataT | null | undefined>).value = value
+    },
+  })
+
   // Build result data object with our own pending/status
-  const resultData = {
-    data: asyncData.data,
+  const resultData: UseConvexQueryData<DataT> = {
+    data,
     pending,
     status,
     error: asyncData.error,
@@ -653,10 +665,34 @@ export function useConvexQuery<
     clear: asyncData.clear,
   }
 
-  // Create thenable result by extending the promise with result data
-  // This is the clean pattern: promise.then() returns a new promise, Object.assign copies properties
-  const resultPromise = resolvePromise.then(() => resultData)
-  Object.assign(resultPromise, resultData)
+  return {
+    resultData,
+    resolvePromise,
+  }
+}
 
-  return resultPromise as unknown as UseConvexQueryReturn<DataT>
+export async function useConvexQuery<
+  Query extends FunctionReference<'query'>,
+  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+): Promise<UseConvexQueryData<DataT>> {
+  const { resultData, resolvePromise } = buildConvexQuery(query, args, options, false)
+  await resolvePromise
+  return resultData
+}
+
+export function useConvexQueryLazy<
+  Query extends FunctionReference<'query'>,
+  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+): UseConvexQueryData<DataT> {
+  return buildConvexQuery(query, args, options, true).resultData
 }

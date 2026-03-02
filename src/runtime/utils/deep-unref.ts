@@ -11,19 +11,60 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * Non-plain objects (Date, Map, class instances, etc.) are treated as opaque.
  */
 export function deepUnref<T>(value: T): T {
-  const unwrapped = isRef(value) ? value.value : value
+  const seen = new WeakMap<object, unknown>()
 
-  if (Array.isArray(unwrapped)) {
-    return unwrapped.map(item => deepUnref(item)) as T
-  }
-
-  if (isPlainObject(unwrapped)) {
-    const output: Record<string, unknown> = {}
-    for (const [key, entry] of Object.entries(unwrapped)) {
-      output[key] = deepUnref(entry)
+  const unwrap = (input: unknown): unknown => {
+    const unwrapped = isRef(input) ? input.value : input
+    if (!unwrapped || typeof unwrapped !== 'object') {
+      return unwrapped
     }
-    return output as T
+
+    const objectValue = unwrapped as object
+    const existing = seen.get(objectValue)
+    if (existing) {
+      return existing
+    }
+
+    if (Array.isArray(unwrapped)) {
+      const arrayInput = unwrapped as unknown[]
+      const draft = Array.from({ length: arrayInput.length })
+      seen.set(objectValue, draft)
+
+      let changed = false
+      for (let i = 0; i < arrayInput.length; i++) {
+        const next = unwrap(arrayInput[i])
+        draft[i] = next
+        if (next !== arrayInput[i]) {
+          changed = true
+        }
+      }
+
+      const result = changed ? draft : arrayInput
+      seen.set(objectValue, result)
+      return result
+    }
+
+    if (isPlainObject(unwrapped)) {
+      const objectInput = unwrapped as Record<string, unknown>
+      const draft: Record<string, unknown> = {}
+      seen.set(objectValue, draft)
+
+      let changed = false
+      for (const [key, entry] of Object.entries(objectInput)) {
+        const next = unwrap(entry)
+        draft[key] = next
+        if (next !== entry) {
+          changed = true
+        }
+      }
+
+      const result = changed ? draft : objectInput
+      seen.set(objectValue, result)
+      return result
+    }
+
+    return unwrapped
   }
 
-  return unwrapped as T
+  return unwrap(value) as T
 }

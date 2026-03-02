@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 // Shared task list query
-const { data: tasks, status } = useConvexQuery(api.tasks.list, {})
+const { data: tasks, status } = useConvexQueryLazy(api.tasks.list, {})
 
 // ============================================
 // STANDARD MUTATIONS (left panel)

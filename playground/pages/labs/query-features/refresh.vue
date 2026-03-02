@@ -15,7 +15,7 @@ definePageMeta({
  * - Data should update (if changed on server)
  */
 
-const { data, pending, status, refresh } = useConvexQuery(
+const { data, pending, status, refresh } = useConvexQueryLazy(
   api.notes.list,
   {},
   {},

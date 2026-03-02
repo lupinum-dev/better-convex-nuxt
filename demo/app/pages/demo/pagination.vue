@@ -17,7 +17,7 @@ const {
   status: infiniteStatus,
   loadMore: infiniteLoadMore,
   isLoading: infiniteLoading
-} = useConvexPaginatedQuery(
+} = useConvexPaginatedQueryLazy(
   api.messages.listPaginated,
   {},
   { initialNumItems: 10 }
@@ -55,7 +55,7 @@ const {
   status: buttonStatus,
   loadMore: buttonLoadMore,
   isLoading: buttonLoading
-} = useConvexPaginatedQuery(
+} = useConvexPaginatedQueryLazy(
   api.messages.listPaginated,
   {},
   { initialNumItems: 5 }

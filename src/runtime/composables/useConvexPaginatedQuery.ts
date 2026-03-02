@@ -77,13 +77,6 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
   server?: boolean
 
   /**
-   * Don't block when awaited.
-   * Query runs in background, shows LoadingFirstPage state.
-   * @default false (configurable via nuxt.config convex.defaults.lazy)
-   */
-  lazy?: boolean
-
-  /**
    * Subscribe to real-time updates via WebSocket.
    * Set to false to skip WebSocket subscriptions and only use SSR data.
    * Use refresh() to manually re-fetch when needed.
@@ -210,12 +203,10 @@ export interface UseConvexPaginatedQueryData<Item> {
   clear: () => void
 }
 
-/**
- * Return value from useConvexPaginatedQuery.
- * Combines the data properties with Promise interface for await support.
- */
-export type UseConvexPaginatedQueryReturn<Item> = UseConvexPaginatedQueryData<Item> &
-  Promise<UseConvexPaginatedQueryData<Item>>
+interface BuildConvexPaginatedQueryResult<Item> {
+  resultData: UseConvexPaginatedQueryData<Item>
+  resolvePromise: Promise<void>
+}
 
 // Internal page state
 interface PageState<T> {
@@ -241,7 +232,7 @@ interface StablePaginationOpts {
  * import { api } from '~/convex/_generated/api'
  *
  * // Basic usage
- * const { results, status, loadMore, isLoading } = useConvexPaginatedQuery(
+ * const { results, status, loadMore, isLoading } = await useConvexPaginatedQuery(
  *   api.messages.list,
  *   {},
  *   { initialNumItems: 10 }
@@ -255,11 +246,7 @@ interface StablePaginationOpts {
  * )
  *
  * // Lazy loading (instant navigation, shows loading state)
- * const { results, status } = await useConvexPaginatedQuery(
- *   api.messages.list,
- *   {},
- *   { initialNumItems: 10, lazy: true }
- * )
+ * const { results, status } = useConvexPaginatedQueryLazy(api.messages.list, {}, { initialNumItems: 10 })
  *
  * // With transform
  * const { results } = await useConvexPaginatedQuery(
@@ -287,7 +274,7 @@ interface StablePaginationOpts {
  * </template>
  * ```
  */
-export function useConvexPaginatedQuery<
+function buildConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
   Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
@@ -295,7 +282,8 @@ export function useConvexPaginatedQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
-): UseConvexPaginatedQueryReturn<TransformedItem> {
+  lazy = false,
+): BuildConvexPaginatedQueryResult<TransformedItem> {
   type Item = PaginatedQueryItem<Query>
 
   const nuxtApp = useNuxtApp()
@@ -305,7 +293,6 @@ export function useConvexPaginatedQuery<
   const defaults = convexConfig.defaults
   const initialNumItems = options?.initialNumItems ?? 10
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
-  const lazy = options?.lazy ?? defaults?.lazy ?? false
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
   const unauthenticated = options?.unauthenticated ?? defaults?.unauthenticated ?? false
   const keepPreviousData = options?.keepPreviousData ?? false
@@ -314,18 +301,18 @@ export function useConvexPaginatedQuery<
   // Get function name (needed for cache key)
   const fnName = getFunctionName(query)
 
-  // Get reactive args value
-  const getArgs = (): Args => {
+  const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
     if (rawArgs === null || rawArgs === undefined) {
       return rawArgs
     }
     return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
-  }
+  })
+  const getArgs = (): Args => normalizedArgs.value
 
   const enabled = computed(() => toValue(options?.enabled) ?? true)
-  const isSkipped = computed(() => !enabled.value || getArgs() == null)
-  const argsHash = computed(() => hashArgs(getArgs()))
+  const isSkipped = computed(() => !enabled.value || normalizedArgs.value == null)
+  const argsHash = computed(() => hashArgs(normalizedArgs.value))
 
   // Get request event and cookies on server
   const event = import.meta.server ? useRequestEvent() : null
@@ -1106,7 +1093,6 @@ export function useConvexPaginatedQuery<
     globalError.value = null
   }
 
-  // === Build thenable return ===
   let resolvePromise: Promise<void>
 
   if (isSkipped.value) {
@@ -1162,11 +1148,38 @@ export function useConvexPaginatedQuery<
     clear,
   }
 
-  // Create thenable result by extending the promise with result data
-  const resultPromise = resolvePromise.then(() => resultData)
-  Object.assign(resultPromise, resultData)
-  return resultPromise as UseConvexPaginatedQueryReturn<TransformedItem>
+  return {
+    resultData,
+    resolvePromise,
+  }
 }
+
+export async function useConvexPaginatedQuery<
+  Query extends PaginatedQueryReference,
+  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
+  TransformedItem = PaginatedQueryItem<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
+): Promise<UseConvexPaginatedQueryData<TransformedItem>> {
+  const { resultData, resolvePromise } = buildConvexPaginatedQuery(query, args, options, false)
+  await resolvePromise
+  return resultData
+}
+
+export function useConvexPaginatedQueryLazy<
+  Query extends PaginatedQueryReference,
+  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
+  TransformedItem = PaginatedQueryItem<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
+): UseConvexPaginatedQueryData<TransformedItem> {
+  return buildConvexPaginatedQuery(query, args, options, true).resultData
+}
+
 function setAsyncDataError(asyncData: { error: Ref<NuxtError | null | undefined> }, error: Error | null) {
   ;(asyncData.error as unknown as Ref<Error | null>).value = error
 }

@@ -3,7 +3,6 @@
  * Manually wires up setAuth() for zero-flash auth on first render.
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
-import { watch } from 'vue'
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import { ConvexClient } from 'convex/browser'
@@ -94,9 +93,6 @@ export default defineNuxtPlugin((nuxtApp) => {
     }
   }
 
-  // Signal for triggering auth refresh (used by useConvexAuth.refreshAuth())
-  const refreshSignal = useState<number>('convex:refreshSignal', () => 0)
-  const refreshCompleteSignal = useState<number>('convex:refreshCompleteSignal', () => 0)
   logger.auth({
     phase: 'client-init',
     outcome: 'success',
@@ -110,6 +106,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   if (isAuthEnabled && !resolvedSiteUrl) {
     convexAuthError.value = buildMissingSiteUrlMessage(convexUrl)
     convexPending.value = false
+    nuxtApp.hook('better-convex:auth:refresh', async () => {
+      throw new Error(convexAuthError.value ?? buildMissingSiteUrlMessage(convexUrl))
+    })
     logger.auth({
       phase: 'client-init',
       outcome: 'error',
@@ -387,25 +386,30 @@ export default defineNuxtPlugin((nuxtApp) => {
       })
     })
 
-    // Watch for auth refresh signals (triggered by useConvexAuth.refreshAuth())
-    watch(refreshSignal, () => {
+    nuxtApp.hook('better-convex:auth:refresh', async () => {
       logger.auth({
         phase: 'client-refresh',
         outcome: 'success',
         details: {
           traceId: convexAuthTraceId.value,
-          refreshSignal: refreshSignal.value,
         },
       })
       // Reset cache timestamps to force fresh fetch
       lastTokenValidation = 0
       lastNullTokenCheck = 0
 
-      // Re-call setAuth to trigger fresh authentication
-      client.setAuth(fetchToken, (_isAuthenticated) => {
-        // Auth refresh complete
-        refreshCompleteSignal.value++
+      await new Promise<void>((resolve) => {
+        client.setAuth(fetchToken, (_isAuthenticated) => {
+          resolve()
+        })
       })
+
+      if (convexAuthError.value) {
+        throw new Error(convexAuthError.value)
+      }
+      if (!convexToken.value) {
+        throw new Error('Authentication refresh completed without a token')
+      }
     })
 
     // NOTE: We intentionally do NOT call authClient.useSession() here.
@@ -439,8 +443,8 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (authClient) (window as any).__auth_client__ = authClient
 
     // Setup DevTools bridge in dev mode
-    import('./devtools/bridge-setup').then(({ setupDevToolsBridge }) => {
-      setupDevToolsBridge(
+    void import('./devtools/bridge-setup').then(({ setupDevToolsBridge }) => {
+      void setupDevToolsBridge(
         client,
         convexToken,
         convexUser,

@@ -12,7 +12,7 @@ definePageMeta({
 const {
   data: parentData,
   status: parentStatus,
-} = useConvexQuery(subscriptionDedupCounterQuery, emptyQueryArgs, { server: false })
+} = useConvexQueryLazy(subscriptionDedupCounterQuery, emptyQueryArgs, { server: false })
 
 const childReady = ref(false)
 let childReadyTimer: ReturnType<typeof setTimeout> | null = null
@@ -21,7 +21,7 @@ const childArgs = computed<Record<string, never> | 'skip'>(() => (childReady.val
 const {
   data: childData,
   status: childStatus,
-} = useConvexQuery(subscriptionDedupCounterQuery, childArgs, { server: false })
+} = useConvexQueryLazy(subscriptionDedupCounterQuery, childArgs, { server: false })
 
 onMounted(() => {
   // Simulates a child component receiving reactive args after mount.

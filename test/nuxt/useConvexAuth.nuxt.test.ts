@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { watch } from 'vue'
-import { useState } from '#imports'
+import { useNuxtApp, useState } from '#imports'
 
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -27,23 +26,20 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(result.isAuthenticated.value).toBe(false)
   })
 
-  it('refreshAuth resolves after refresh-complete signal updates token', async () => {
+  it('refreshAuth resolves after refresh hook updates token', async () => {
     const { result } = await captureInNuxt(() => {
+      const nuxtApp = useNuxtApp()
       const token = useState<string | null>('convex:token')
       const user = useState<Record<string, unknown> | null>('convex:user')
-      const refreshSignal = useState<number>('convex:refreshSignal')
-      const refreshCompleteSignal = useState<number>('convex:refreshCompleteSignal')
       const authError = useState<string | null>('convex:authError')
 
       token.value = null
       user.value = null
       authError.value = null
 
-      watch(refreshSignal, (next, prev) => {
-        if (next <= prev) return
+      nuxtApp.hook('better-convex:auth:refresh', async () => {
         token.value = 'new.jwt.token'
         user.value = { id: 'u2' }
-        refreshCompleteSignal.value += 1
       })
 
       return useConvexAuth()

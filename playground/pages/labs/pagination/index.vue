@@ -14,7 +14,7 @@ definePageMeta({
  * - Basic paginated query test (from /test-paginated-query)
  */
 
-const { results, status, isLoading, loadMore, error } = useConvexPaginatedQuery(
+const { results, status, isLoading, loadMore, error } = useConvexPaginatedQueryLazy(
   api.notes.listPaginated,
   {},
   { initialNumItems: 3 },

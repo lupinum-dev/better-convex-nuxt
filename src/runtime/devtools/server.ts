@@ -28,6 +28,10 @@ function getMimeType(path: string): string {
 }
 
 export default defineEventHandler(async (event) => {
+  if (!import.meta.dev) {
+    throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+  }
+
   // Get the devtools output path from runtime config
   const config = useRuntimeConfig()
   const outputDir = typeof config.convexDevtoolsPath === 'string' ? config.convexDevtoolsPath : undefined

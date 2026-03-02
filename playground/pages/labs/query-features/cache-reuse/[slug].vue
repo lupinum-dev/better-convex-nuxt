@@ -61,11 +61,10 @@ const {
   pending,
   error,
   status,
-} = await useConvexQuery(
+} = useConvexQueryLazy(
   api.notes.get,
   computed(() => (noteId.value ? { id: noteId.value } : 'skip')),
   {
-    lazy: true,
     default: () => {
       if (!cachedCard.value) return undefined
       return {
