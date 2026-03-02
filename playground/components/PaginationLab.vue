@@ -14,6 +14,8 @@ const props = withDefaults(defineProps<Props>(), {
   hubLink: '/labs/pagination',
 })
 
+const setupStartedAt = import.meta.client ? performance.now() : 0
+
 const paginatedResult = props.executionMode === 'lazy'
   ? useConvexPaginatedQueryLazy(
       api.notes.listPaginated,
@@ -31,7 +33,38 @@ const paginatedResult = props.executionMode === 'lazy'
         server: props.serverOption,
       },
     )
-const { results, status, isLoading, loadMore } = paginatedResult
+const { results, status, isLoading, loadMore, error } = paginatedResult
+
+if (import.meta.client) {
+  const fmtMs = (value: number) => `${Math.round(value)}ms`
+
+  console.info(
+    `[PaginationLab:${props.pageId}] setup resolved`,
+    {
+      mode: props.executionMode,
+      server: props.serverOption,
+      elapsed: fmtMs(performance.now() - setupStartedAt),
+      status: status.value,
+      isLoading: isLoading.value,
+      error: error.value?.message ?? null,
+      resultCount: results.value.length,
+    },
+  )
+
+  watch([status, isLoading, results, error], ([nextStatus, nextLoading, nextResults, nextError], [prevStatus, prevLoading]) => {
+    console.info(
+      `[PaginationLab:${props.pageId}] state change`,
+      {
+        mode: props.executionMode,
+        elapsed: fmtMs(performance.now() - setupStartedAt),
+        status: `${String(prevStatus)} -> ${String(nextStatus)}`,
+        isLoading: `${String(prevLoading)} -> ${String(nextLoading)}`,
+        error: nextError?.message ?? null,
+        resultCount: nextResults.length,
+      },
+    )
+  })
+}
 
 // Capture state at script execution time (frozen snapshot)
 const capturedAtRender = {

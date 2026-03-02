@@ -14,6 +14,8 @@ const props = withDefaults(defineProps<Props>(), {
   hubLink: '/labs/query',
 })
 
+const setupStartedAt = import.meta.client ? performance.now() : 0
+
 const queryResult = props.executionMode === 'lazy'
   ? useConvexQueryLazy(api.notes.list, {}, {
       server: props.serverOption,
@@ -21,7 +23,40 @@ const queryResult = props.executionMode === 'lazy'
   : await useConvexQuery(api.notes.list, {}, {
       server: props.serverOption,
     })
-const { data, pending, status } = queryResult
+const { data, pending, status, error } = queryResult
+
+if (import.meta.client) {
+  const fmtMs = (value: number) => `${Math.round(value)}ms`
+
+  console.info(
+    `[QueryLab:${props.pageId}] setup resolved`,
+    {
+      mode: props.executionMode,
+      server: props.serverOption,
+      elapsed: fmtMs(performance.now() - setupStartedAt),
+      status: status.value,
+      pending: pending.value,
+      error: error.value?.message ?? null,
+      hasData: data.value !== null && data.value !== undefined,
+      dataLength: Array.isArray(data.value) ? data.value.length : null,
+    },
+  )
+
+  watch([status, pending, data, error], ([nextStatus, nextPending, nextData, nextError], [prevStatus, prevPending]) => {
+    console.info(
+      `[QueryLab:${props.pageId}] state change`,
+      {
+        mode: props.executionMode,
+        elapsed: fmtMs(performance.now() - setupStartedAt),
+        status: `${String(prevStatus)} -> ${String(nextStatus)}`,
+        pending: `${String(prevPending)} -> ${String(nextPending)}`,
+        error: nextError?.message ?? null,
+        hasData: nextData !== null && nextData !== undefined,
+        dataLength: Array.isArray(nextData) ? nextData.length : null,
+      },
+    )
+  })
+}
 
 // Capture state at script execution time (frozen snapshot)
 const capturedAtRender = {
