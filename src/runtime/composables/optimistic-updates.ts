@@ -88,7 +88,7 @@ export interface UpdateQueryOptions<Query extends FunctionReference<'query'>> {
  *
  * @example
  * ```ts
- * const { mutate } = useConvexMutation(api.notes.add, {
+ * const { execute } = useConvexMutation(api.notes.add, {
  *   optimisticUpdate: (localStore, args) => {
  *     updateQuery({
  *       query: api.notes.list,
@@ -135,7 +135,7 @@ export interface SetQueryDataOptions<Query extends FunctionReference<'query'>> {
  *
  * @example
  * ```ts
- * const { mutate } = useConvexMutation(api.users.updateProfile, {
+ * const { execute } = useConvexMutation(api.users.updateProfile, {
  *   optimisticUpdate: (localStore, args) => {
  *     setQueryData({
  *       query: api.users.get,
@@ -183,7 +183,7 @@ export interface UpdateAllQueriesOptions<Query extends FunctionReference<'query'
  *
  * @example
  * ```ts
- * const { mutate } = useConvexMutation(api.users.updateName, {
+ * const { execute } = useConvexMutation(api.users.updateName, {
  *   optimisticUpdate: (localStore, args) => {
  *     updateAllQueries({
  *       query: api.users.get,
@@ -244,7 +244,7 @@ export interface DeleteFromQueryOptions<
  *
  * @example
  * ```ts
- * const { mutate } = useConvexMutation(api.notes.remove, {
+ * const { execute } = useConvexMutation(api.notes.remove, {
  *   optimisticUpdate: (localStore, args) => {
  *     deleteFromQuery({
  *       query: api.notes.list,

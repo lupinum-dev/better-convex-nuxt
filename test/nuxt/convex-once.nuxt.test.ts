@@ -62,6 +62,39 @@ describe('useConvexOnce (Nuxt runtime)', () => {
     expect(safeResult.error.message).toContain('timed out')
   })
 
+  it('mutationSafe and actionSafe never throw and return normalized errors', async () => {
+    const convex = new MockConvexClient()
+    const badMutation = mockFnRef<'mutation'>('testing:once-bad-mutation')
+    const badAction = mockFnRef<'action'>('testing:once-bad-action')
+
+    convex.setMutationHandler('testing:once-bad-mutation', async () => {
+      throw new Error('LIMIT_MUTATION_ONCE: Mutation once limit reached')
+    })
+    convex.setActionHandler('testing:once-bad-action', async () => {
+      throw new Error('LIMIT_ACTION_ONCE: Action once limit reached')
+    })
+
+    const { result } = await captureInNuxt(
+      () => useConvexOnce({ timeoutMs: 20 }),
+      { convex },
+    )
+
+    const mutationSafeResult = await result.mutationSafe(badMutation, {} as never)
+    const actionSafeResult = await result.actionSafe(badAction, {} as never)
+
+    expect(mutationSafeResult.ok).toBe(false)
+    if (mutationSafeResult.ok) {
+      throw new Error('Expected mutationSafe to fail')
+    }
+    expect(mutationSafeResult.error.code).toBe('LIMIT_MUTATION_ONCE')
+
+    expect(actionSafeResult.ok).toBe(false)
+    if (actionSafeResult.ok) {
+      throw new Error('Expected actionSafe to fail')
+    }
+    expect(actionSafeResult.error.code).toBe('LIMIT_ACTION_ONCE')
+  })
+
   it('returns normalized errors from safe calls when client is unavailable', async () => {
     const query = mockFnRef<'query'>('testing:once-no-client')
 

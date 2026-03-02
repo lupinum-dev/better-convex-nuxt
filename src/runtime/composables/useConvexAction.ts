@@ -13,6 +13,7 @@ import {
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import {
   normalizeConvexError,
+  toCallResult,
   toError,
   type CallResult,
 } from '../utils/call-result'
@@ -238,12 +239,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   }
 
   const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
-    try {
-      const result = await execute(args)
-      return { ok: true, data: result }
-    } catch (error) {
-      return { ok: false, error: normalizeConvexError(error) }
-    }
+    return await toCallResult(() => execute(args))
   }
 
   return {

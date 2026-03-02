@@ -130,4 +130,31 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(safeResult.error.message).toBe('Structured failure')
     expect(safeResult.error.status).toBe(422)
   })
+
+  it('executeSafe wraps domain CallResult values without flattening them', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:safe-domain-result')
+
+    convex.setMutationHandler('testing:safe-domain-result', async () => {
+      return {
+        ok: false,
+        error: { message: 'Domain validation failed', code: 'DOMAIN_VALIDATION' },
+      }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const direct = await result.execute({} as never)
+    const wrapped = await result.executeSafe({} as never)
+
+    expect(direct).toEqual({
+      ok: false,
+      error: { message: 'Domain validation failed', code: 'DOMAIN_VALIDATION' },
+    })
+
+    expect(wrapped.ok).toBe(true)
+    if (!wrapped.ok) {
+      throw new Error('Expected wrapped result to be successful outer CallResult')
+    }
+    expect(wrapped.data).toEqual(direct)
+  })
 })

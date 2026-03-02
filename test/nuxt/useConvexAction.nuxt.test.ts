@@ -106,4 +106,30 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(safeResult.error.code).toBe('LIMIT_ACTIONS')
     expect(safeResult.error.message).toBe('Action limit reached')
   })
+
+  it('executeSafe wraps domain CallResult values without flattening them', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:safe-domain-result')
+    convex.setActionHandler('testing:safe-domain-result', async () => {
+      return {
+        ok: false,
+        error: { message: 'Action domain failure', code: 'ACTION_DOMAIN' },
+      }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+    const direct = await result.execute({} as never)
+    const wrapped = await result.executeSafe({} as never)
+
+    expect(direct).toEqual({
+      ok: false,
+      error: { message: 'Action domain failure', code: 'ACTION_DOMAIN' },
+    })
+
+    expect(wrapped.ok).toBe(true)
+    if (!wrapped.ok) {
+      throw new Error('Expected wrapped result to be successful outer CallResult')
+    }
+    expect(wrapped.data).toEqual(direct)
+  })
 })

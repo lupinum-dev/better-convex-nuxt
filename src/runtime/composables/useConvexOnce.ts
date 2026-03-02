@@ -1,7 +1,7 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 
 import {
-  normalizeConvexError,
+  toCallResult,
   type CallResult,
 } from '../utils/call-result'
 import { useConvex } from './useConvex'
@@ -83,36 +83,21 @@ export function useConvexOnce(options: UseConvexOnceOptions = {}) {
     queryRef: Query,
     args?: FunctionArgs<Query>,
   ): Promise<CallResult<FunctionReturnType<Query>>> => {
-    try {
-      const data = await query(queryRef, args)
-      return { ok: true, data }
-    } catch (error) {
-      return { ok: false, error: normalizeConvexError(error) }
-    }
+    return await toCallResult(() => query(queryRef, args))
   }
 
   const mutationSafe = async <Mutation extends FunctionReference<'mutation'>>(
     mutationRef: Mutation,
     args?: FunctionArgs<Mutation>,
   ): Promise<CallResult<FunctionReturnType<Mutation>>> => {
-    try {
-      const data = await mutation(mutationRef, args)
-      return { ok: true, data }
-    } catch (error) {
-      return { ok: false, error: normalizeConvexError(error) }
-    }
+    return await toCallResult(() => mutation(mutationRef, args))
   }
 
   const actionSafe = async <Action extends FunctionReference<'action'>>(
     actionRef: Action,
     args?: FunctionArgs<Action>,
   ): Promise<CallResult<FunctionReturnType<Action>>> => {
-    try {
-      const data = await action(actionRef, args)
-      return { ok: true, data }
-    } catch (error) {
-      return { ok: false, error: normalizeConvexError(error) }
-    }
+    return await toCallResult(() => action(actionRef, args))
   }
 
   return {

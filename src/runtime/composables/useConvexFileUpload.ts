@@ -206,7 +206,7 @@ export interface UseConvexFileUploadOptions {
  * import { api } from '~/convex/_generated/api'
  *
  * const { upload, pending, progress } = useConvexFileUpload(api.files.generateUploadUrl)
- * const { mutate: saveDocument } = useConvexMutation(api.documents.create)
+ * const { execute: saveDocument } = useConvexMutation(api.documents.create)
  *
  * async function handleUpload(file: File, title: string) {
  *   const storageId = await upload(file)

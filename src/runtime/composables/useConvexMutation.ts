@@ -14,6 +14,7 @@ import {
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import {
   normalizeConvexError,
+  toCallResult,
   toError,
   type CallResult,
 } from '../utils/call-result'
@@ -102,7 +103,7 @@ export interface UseConvexMutationOptions<
    *
    * @example
    * ```ts
-   * const { mutate } = useConvexMutation(api.notes.add, {
+   * const { execute } = useConvexMutation(api.notes.add, {
    *   optimisticUpdate: (localStore, args) => {
    *     // Update a regular query
    *     updateQuery({
@@ -121,7 +122,7 @@ export interface UseConvexMutationOptions<
    *   }
    * })
    * ```
-  */
+   */
   optimisticUpdate?: (localStore: OptimisticLocalStore, args: Args) => void
   /**
    * Called after a successful mutation.
@@ -155,7 +156,7 @@ export interface UseConvexMutationOptions<
  * import { api } from '~/convex/_generated/api'
  *
  * const {
- *   mutate: createPost,
+ *   execute: createPost,
  *   pending,
  *   status,
  *   error,
@@ -183,13 +184,13 @@ export interface UseConvexMutationOptions<
  * ```vue
  * <script setup>
  * const {
- *   mutate: createPost,
+ *   execute: createPost,
  *   pending: isCreating,
  *   error: createError,
  * } = useConvexMutation(api.posts.create)
  *
  * const {
- *   mutate: deletePost,
+ *   execute: deletePost,
  *   pending: isDeleting,
  *   error: deleteError,
  * } = useConvexMutation(api.posts.remove)
@@ -202,7 +203,7 @@ export interface UseConvexMutationOptions<
  * import { api } from '~/convex/_generated/api'
  * import { insertAtTop } from '#imports'
  *
- * const { mutate: addNote, pending } = useConvexMutation(api.notes.add, {
+ * const { execute: addNote, pending } = useConvexMutation(api.notes.add, {
  *   optimisticUpdate: (localStore, args) => {
  *     insertAtTop({
  *       paginatedQuery: api.notes.listPaginated,
@@ -226,7 +227,7 @@ export interface UseConvexMutationOptions<
  * import { updateQuery, deleteFromQuery } from '#imports'
  *
  * // Add to a list query
- * const { mutate: addNote } = useConvexMutation(api.notes.add, {
+ * const { execute: addNote } = useConvexMutation(api.notes.add, {
  *   optimisticUpdate: (localStore, args) => {
  *     updateQuery({
  *       query: api.notes.list,
@@ -245,7 +246,7 @@ export interface UseConvexMutationOptions<
  * })
  *
  * // Remove from a list query
- * const { mutate: removeNote } = useConvexMutation(api.notes.remove, {
+ * const { execute: removeNote } = useConvexMutation(api.notes.remove, {
  *   optimisticUpdate: (localStore, args) => {
  *     deleteFromQuery({
  *       query: api.notes.list,
@@ -367,12 +368,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   }
 
   const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
-    try {
-      const result = await execute(args)
-      return { ok: true, data: result }
-    } catch (error) {
-      return { ok: false, error: normalizeConvexError(error) }
-    }
+    return await toCallResult(() => execute(args))
   }
 
   return {

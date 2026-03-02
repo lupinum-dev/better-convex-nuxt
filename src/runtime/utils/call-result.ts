@@ -146,3 +146,12 @@ export function toError(error: ConvexCallError): Error {
   ;(err as Error & ConvexErrorLike).cause = error.cause
   return err
 }
+
+export async function toCallResult<T>(call: () => Promise<T>): Promise<CallResult<T>> {
+  try {
+    const data = await call()
+    return { ok: true, data }
+  } catch (error) {
+    return { ok: false, error: normalizeConvexError(error) }
+  }
+}
