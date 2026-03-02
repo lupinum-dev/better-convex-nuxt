@@ -65,10 +65,10 @@ export interface QueryDefaults {
    */
   subscribe?: boolean
   /**
-   * Skip auth checks for public queries.
+   * Skip auth checks for unauthenticated queries.
    * @default false
    */
-  public?: boolean
+  unauthenticated?: boolean
 }
 
 export interface UploadDefaults {
@@ -77,6 +77,19 @@ export interface UploadDefaults {
    * @default 3
    */
   maxConcurrent?: number
+}
+
+export interface AuthProxyDefaults {
+  /**
+   * Maximum allowed request body size for auth proxy.
+   * @default 1_048_576 (1 MiB)
+   */
+  maxRequestBodyBytes?: number
+  /**
+   * Maximum allowed upstream response body size for auth proxy.
+   * @default 1_048_576 (1 MiB)
+   */
+  maxResponseBodyBytes?: number
 }
 
 export interface ConvexDebugOptions {
@@ -209,6 +222,10 @@ export interface ModuleOptions {
    * Default options for upload composables.
    */
   upload?: UploadDefaults
+  /**
+   * Default body size limits for auth proxy.
+   */
+  authProxy?: AuthProxyDefaults
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -252,10 +269,14 @@ export default defineNuxtModule<ModuleOptions>({
       server: true, // SSR enabled by default (like Nuxt's useFetch)
       lazy: false,
       subscribe: true,
-      public: false,
+      unauthenticated: false,
     },
     upload: {
       maxConcurrent: 3,
+    },
+    authProxy: {
+      maxRequestBodyBytes: 1_048_576,
+      maxResponseBodyBytes: 1_048_576,
     },
   },
   setup(options, nuxt) {
@@ -315,10 +336,14 @@ export default defineNuxtModule<ModuleOptions>({
           server: options.defaults?.server ?? true, // SSR enabled by default
           lazy: options.defaults?.lazy ?? false,
           subscribe: options.defaults?.subscribe ?? true,
-          public: options.defaults?.public ?? false,
+          unauthenticated: options.defaults?.unauthenticated ?? false,
         },
         upload: {
           maxConcurrent: options.upload?.maxConcurrent ?? 3,
+        },
+        authProxy: {
+          maxRequestBodyBytes: options.authProxy?.maxRequestBodyBytes ?? 1_048_576,
+          maxResponseBodyBytes: options.authProxy?.maxResponseBodyBytes ?? 1_048_576,
         },
       },
     )
@@ -364,7 +389,7 @@ type AuthClient = ReturnType<typeof createAuthClient>
 
 declare module '#app' {
   interface NuxtApp {
-    $convex: ConvexClient
+    $convex?: ConvexClient
     $auth?: AuthClient
   }
 
@@ -384,7 +409,7 @@ declare module '#app' {
 
 declare module 'vue' {
   interface ComponentCustomProperties {
-    $convex: ConvexClient
+    $convex?: ConvexClient
     $auth?: AuthClient
   }
 }
@@ -404,10 +429,10 @@ export {}
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
-        name: 'createSharedConvexQuery',
-        from: resolver.resolve('./runtime/composables/createSharedConvexQuery'),
+        name: 'defineSharedConvexQuery',
+        from: resolver.resolve('./runtime/composables/defineSharedConvexQuery'),
       },
-      { name: 'useConvexOnce', from: resolver.resolve('./runtime/composables/useConvexOnce') },
+      { name: 'useConvexRpc', from: resolver.resolve('./runtime/composables/useConvexRpc') },
       {
         name: 'useConvexPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),

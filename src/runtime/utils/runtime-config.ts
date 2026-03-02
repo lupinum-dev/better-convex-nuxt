@@ -7,7 +7,7 @@ export interface ConvexRuntimeDefaults {
   server: boolean
   lazy: boolean
   subscribe: boolean
-  public: boolean
+  unauthenticated: boolean
 }
 
 export interface NormalizedConvexRuntimeConfig {
@@ -25,6 +25,10 @@ export interface NormalizedConvexRuntimeConfig {
   }
   upload: {
     maxConcurrent: number
+  }
+  authProxy: {
+    maxRequestBodyBytes: number
+    maxResponseBodyBytes: number
   }
   defaults: ConvexRuntimeDefaults
   debug: {
@@ -44,6 +48,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const debug = asRecord(raw?.debug)
   const authCache = asRecord(raw?.authCache)
   const upload = asRecord(raw?.upload)
+  const authProxy = asRecord(raw?.authProxy)
 
   const url = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
   const explicitSiteUrl = typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
@@ -73,11 +78,25 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
         return normalized > 0 ? normalized : 1
       })(),
     },
+    authProxy: {
+      maxRequestBodyBytes: (() => {
+        const candidate = authProxy?.maxRequestBodyBytes
+        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 1_048_576
+        const normalized = Math.trunc(candidate)
+        return normalized > 0 ? normalized : 1_048_576
+      })(),
+      maxResponseBodyBytes: (() => {
+        const candidate = authProxy?.maxResponseBodyBytes
+        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 1_048_576
+        const normalized = Math.trunc(candidate)
+        return normalized > 0 ? normalized : 1_048_576
+      })(),
+    },
     defaults: {
       server: defaults?.server !== false,
       lazy: defaults?.lazy === true,
       subscribe: defaults?.subscribe !== false,
-      public: defaults?.public === true,
+      unauthenticated: defaults?.unauthenticated === true,
     },
     debug: {
       authFlow: debug?.authFlow === true,

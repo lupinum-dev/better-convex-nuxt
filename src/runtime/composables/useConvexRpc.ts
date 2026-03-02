@@ -6,7 +6,7 @@ import {
 } from '../utils/call-result'
 import { useConvex } from './useConvex'
 
-export interface UseConvexOnceOptions {
+export interface UseConvexRpcOptions {
   timeoutMs?: number
 }
 
@@ -23,22 +23,19 @@ async function withTimeout<T>(
     promise,
     new Promise<T>((_, reject) => {
       setTimeout(() => {
-        reject(new Error(`[useConvexOnce] ${operation} timed out after ${timeoutMs}ms`))
+        reject(new Error(`[useConvexRpc] ${operation} timed out after ${timeoutMs}ms`))
       }, timeoutMs)
     }),
   ])
 }
 
-export function useConvexOnce(options: UseConvexOnceOptions = {}) {
+export function useConvexRpc(options: UseConvexRpcOptions = {}) {
   const client = useConvex()
   const timeoutMs = options.timeoutMs ?? 10_000
 
   const requireClient = () => {
     if (!import.meta.client) {
-      throw new Error('[useConvexOnce] One-shot calls are client-only in this composable')
-    }
-    if (!client) {
-      throw new Error('[useConvexOnce] Convex client not available')
+      throw new Error('[useConvexRpc] One-shot calls are client-only in this composable')
     }
     return client
   }

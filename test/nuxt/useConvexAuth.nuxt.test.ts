@@ -56,7 +56,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(result.isPending.value).toBe(false)
   })
 
-  it('returns callable SSR proxies when auth client is unavailable', async () => {
+  it('returns callable SSR proxies that reject loudly when auth client is unavailable', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const { result } = await captureInNuxt(() => {
@@ -65,20 +65,15 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(typeof result.signIn.email).toBe('function')
     expect(typeof result.signUp.email).toBe('function')
 
-    const signInResult = await result.signIn.email({
+    await expect(result.signIn.email({
       email: 'stub@example.com',
       password: 'password123',
-    })
-    const signUpResult = await result.signUp.email({
+    })).rejects.toThrow(/client-only/i)
+    await expect(result.signUp.email({
       name: 'Stub User',
       email: 'stub@example.com',
       password: 'password123',
-    })
-
-    expect(signInResult.data).toBeNull()
-    expect(signUpResult.data).toBeNull()
-    expect(signInResult.error?.message).toContain('client-only')
-    expect(signUpResult.error?.message).toContain('client-only')
+    })).rejects.toThrow(/client-only/i)
   })
 
   it('forwards client/signIn/signUp from injected $auth', async () => {

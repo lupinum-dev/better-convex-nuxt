@@ -39,6 +39,7 @@ export default defineEventHandler(async (event: H3Event) => {
   const siteUrl = convexConfig.siteUrl
   const trustedOrigins = convexConfig.trustedOrigins
   const authRoute = convexConfig.authRoute
+  const authProxy = convexConfig.authProxy
 
   // Dev mode: track request timing
   const startTime = import.meta.dev ? Date.now() : 0
@@ -111,7 +112,10 @@ export default defineEventHandler(async (event: H3Event) => {
     // Get request body for POST/PUT/PATCH
     let body: string | undefined
     if (['POST', 'PUT', 'PATCH'].includes(event.method)) {
-      const requestBodySizeError = getRequestBodySizeError(event.headers.get('content-length'))
+      const requestBodySizeError = getRequestBodySizeError(
+        event.headers.get('content-length'),
+        authProxy.maxRequestBodyBytes,
+      )
       if (requestBodySizeError) {
         throw createError({
           statusCode: requestBodySizeError.statusCode,
@@ -187,7 +191,10 @@ export default defineEventHandler(async (event: H3Event) => {
     }
 
     // Forward response body
-    const responseBodySizeError = getResponseBodySizeError(response.headers.get('content-length'))
+    const responseBodySizeError = getResponseBodySizeError(
+      response.headers.get('content-length'),
+      authProxy.maxResponseBodyBytes,
+    )
     if (responseBodySizeError) {
       throw createError({
         statusCode: responseBodySizeError.statusCode,

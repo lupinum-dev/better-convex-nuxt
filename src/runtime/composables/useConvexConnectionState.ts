@@ -1,8 +1,8 @@
 import { ref, readonly, computed, onScopeDispose, type Ref } from 'vue'
+import type { ConvexClient } from 'convex/browser'
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getSharedLogger, getLogLevel } from '../utils/logger'
-import { useConvex } from './useConvex'
 
 /**
  * Connection state from the Convex client
@@ -81,7 +81,7 @@ function getConnectionStateStore(app: object): ConnectionStateStore {
  */
 export function useConvexConnectionState() {
   const nuxtApp = useNuxtApp()
-  const client = useConvex()
+  const client = import.meta.client ? (nuxtApp.$convex as ConvexClient | undefined) : undefined
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = getSharedLogger(logLevel)

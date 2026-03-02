@@ -3,7 +3,7 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
-import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, isRef, isReactive, ref, type Ref, type WatchStopHandle, type MaybeRefOrGetter } from 'vue'
+import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, ref, type Ref, type WatchStopHandle, type MaybeRefOrGetter } from 'vue'
 
 import {
   getFunctionName,
@@ -59,7 +59,7 @@ function getTransformedAsyncDataKeyId(transform: (input: unknown) => unknown): n
 
 // Re-export for consumers
 export type { QueryStatus }
-export { parseConvexResponse, computeQueryStatus, getQueryKey }
+export { getQueryKey }
 
 /**
  * Options for useConvexQuery
@@ -72,11 +72,11 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   /** Subscribe to real-time updates via WebSocket. @default true (configurable via nuxt.config convex.defaults.subscribe) */
   subscribe?: boolean
   /** Factory function for default data value. */
-  default?: () => DataT | undefined
+  default?: () => RawT | undefined
   /** Transform data after fetching. */
   transform?: (input: RawT) => DataT
-  /** Mark this query as public (no authentication needed). @default false (configurable via nuxt.config convex.defaults.public) */
-  public?: boolean
+  /** Skip auth token attachment for this query. @default false (configurable via nuxt.config convex.defaults.unauthenticated) */
+  unauthenticated?: boolean
   /** Enable or disable query execution. When false, status is "idle". @default true */
   enabled?: MaybeRefOrGetter<boolean | undefined>
   /** Keep the last successful data while args are changing and next request is pending. @default false */
@@ -84,6 +84,9 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   /** Deeply unwrap refs inside args object/array values. @default true */
   deepUnrefArgs?: boolean
 }
+
+export type UseConvexQueryReturn<DataT> = AsyncData<DataT | null, Error | null> &
+  Promise<AsyncData<DataT | null, Error | null>>
 
 /**
  * Execute query via HTTP (works on both server and client without WebSocket)
@@ -161,7 +164,7 @@ export function useConvexQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
-): AsyncData<DataT | null, Error | null> {
+): UseConvexQueryReturn<DataT> {
   type RawT = FunctionReturnType<Query>
 
   const nuxtApp = useNuxtApp()
@@ -173,7 +176,7 @@ export function useConvexQuery<
   const lazy = options?.lazy ?? defaults?.lazy ?? false
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const isPublic = options?.public ?? defaults?.public ?? false
+  const unauthenticated = options?.unauthenticated ?? defaults?.unauthenticated ?? false
   const keepPreviousData = options?.keepPreviousData ?? false
   const deepUnrefArgs = options?.deepUnrefArgs ?? true
 
@@ -194,15 +197,6 @@ export function useConvexQuery<
   }
   const enabled = computed(() => toValue(options?.enabled) ?? true)
   const isSkipped = computed(() => !enabled.value || getArgs() == null)
-
-  // Dev-mode guidance for reactive() args
-  if (import.meta.dev && args !== undefined && !isRef(args) && isReactive(args)) {
-    console.warn(
-      `[useConvexQuery] Detected reactive() object passed as args for "${fnName}". ` +
-        `This is supported, but using a getter function is preferred for clarity, e.g. ` +
-        `\`() => ({ id: state.id })\`.`,
-    )
-  }
 
   if (import.meta.dev) {
     ensureDevToolsRegistryLoaded()
@@ -267,7 +261,7 @@ export function useConvexQuery<
           const siteUrl = convexConfig.siteUrl
 
           const authToken = await fetchAuthToken({
-            isPublic,
+            unauthenticated,
             cookieHeader,
             siteUrl,
             cachedToken,
@@ -279,7 +273,7 @@ export function useConvexQuery<
 
         // Client HTTP-only mode (no WebSocket dependency)
         if (!subscribe) {
-          const authToken = isPublic ? undefined : (cachedToken.value ?? undefined)
+          const authToken = unauthenticated ? undefined : (cachedToken.value ?? undefined)
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
           return applyTransform(result)
         }
@@ -307,7 +301,10 @@ export function useConvexQuery<
         if (keepPreviousData && lastSettledData.value !== null) {
           return lastSettledData.value
         }
-        return options?.default ? options.default() ?? null : null
+        if (!options?.default) return null
+        const fallbackRaw = options.default()
+        if (fallbackRaw == null) return null
+        return applyTransform(fallbackRaw as RawT)
       },
       // Convex payloads are replaced immutably; deep Vue traversal is unnecessary overhead.
       deep: false,
@@ -528,7 +525,7 @@ export function useConvexQuery<
               lazy,
               server,
               subscribe,
-              public: isPublic,
+              unauthenticated,
             },
           })
         }
@@ -661,5 +658,5 @@ export function useConvexQuery<
   const resultPromise = resolvePromise.then(() => resultData)
   Object.assign(resultPromise, resultData)
 
-  return resultPromise as unknown as AsyncData<DataT | null, Error | null>
+  return resultPromise as unknown as UseConvexQueryReturn<DataT>
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 
 import { useConvexQuery } from '../../src/runtime/composables/useConvexQuery'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -191,6 +191,51 @@ describe('useConvexQuery (Nuxt runtime)', () => {
       const args = call.args as { filter?: { tag?: string } }
       return args.filter?.tag === 'beta'
     }))
+  })
+
+  it('reactive args trigger refetches for deep updates and added keys', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('search:notes:reactive-args')
+
+    const { result, flush } = await captureInNuxt(() => {
+      const args = reactive({ filter: { tag: 'alpha' as string, sort: 'asc' as string } })
+      const queryResult = useConvexQuery(query, args)
+      return { args, queryResult }
+    }, { convex })
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+    convex.emitQueryResult(query, { filter: { tag: 'alpha', sort: 'asc' } }, { tag: 'alpha', hits: 1 })
+    await waitFor(() => result.queryResult.data.value?.tag === 'alpha')
+
+    result.args.filter.tag = 'beta'
+    await flush()
+
+    await waitFor(() => convex.calls.onUpdate.some((call) => {
+      const args = call.args as { filter?: { tag?: string } }
+      return args.filter?.tag === 'beta'
+    }))
+
+    result.args.filter.sort = 'desc'
+    await flush()
+    await waitFor(() => convex.calls.onUpdate.some((call) => {
+      const args = call.args as { filter?: { sort?: string } }
+      return args.filter?.sort === 'desc'
+    }))
+  })
+
+  it('applies transform to default values while loading', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:default-transform')
+
+    const { result } = await captureInNuxt(() =>
+      useConvexQuery(query, {}, {
+        default: () => [{ _id: 'default', title: 'loading' }],
+        transform: (items: Array<{ _id: string; title: string }>) =>
+          items.map(item => ({ ...item, title: item.title.toUpperCase() })),
+      }), { convex })
+
+    expect(result.data.value).toEqual([{ _id: 'default', title: 'LOADING' }])
+    expect(result.pending.value).toBe(true)
   })
 
   it('keepPreviousData keeps settled result during args transition', async () => {

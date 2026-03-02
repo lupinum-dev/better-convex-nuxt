@@ -267,14 +267,6 @@ export function useConvexFileUpload<
   const upload = async (file: File, mutationArgs?: FunctionArgs<Mutation>): Promise<string> => {
     const startTime = Date.now()
 
-    if (!client) {
-      const err = new Error('ConvexClient not available - file uploads only work on client side')
-      _status.value = 'error'
-      error.value = err
-      logger.upload({ name: fnName, event: 'error', error: err })
-      throw err
-    }
-
     if (currentAbortController) {
       const err = new Error('Upload already in progress for this composable instance')
       _status.value = 'error'

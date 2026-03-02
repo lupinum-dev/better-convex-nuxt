@@ -9,8 +9,8 @@ import { useNuxtApp } from '#imports'
  * - Configured with auth token from SSR
  * - Ready to use for queries, mutations, and actions
  *
- * Note: Returns null during SSR as ConvexClient only works on the client.
- * Use this composable in client-only code or check for null.
+ * Throws when ConvexClient is unavailable (for example during SSR or if the
+ * module is not configured with a Convex URL).
  *
  * @example
  * ```vue
@@ -21,17 +21,20 @@ import { useNuxtApp } from '#imports'
  *
  * // For client-only usage
  * onMounted(async () => {
- *   if (convex) {
- *     const result = await convex.query(api.tasks.list)
- *   }
+ *   const result = await convex.query(api.tasks.list)
  * })
  * </script>
  * ```
  */
-export function useConvex(): ConvexClient | null {
+export function useConvex(): ConvexClient {
   const nuxtApp = useNuxtApp()
   const convex = nuxtApp.$convex as ConvexClient | undefined
 
-  // Return null during SSR - ConvexClient only works on client
-  return convex ?? null
+  if (!convex) {
+    throw new Error(
+      '[useConvex] Convex client is unavailable. This composable is client-only and requires a configured Convex URL.',
+    )
+  }
+
+  return convex
 }

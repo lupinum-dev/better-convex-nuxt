@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
+import type { FunctionReference, PaginationOptions, PaginationResult } from 'convex/server'
 
 import { useConvexPaginatedQuery } from '../../src/runtime/composables/useConvexPaginatedQuery'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -251,7 +252,7 @@ describe('useConvexPaginatedQuery (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(
       () =>
         useConvexPaginatedQuery(
-          query as never,
+          query,
           {},
           {
             initialNumItems: 2,
@@ -414,5 +415,38 @@ describe('useConvexPaginatedQuery (Nuxt runtime)', () => {
       (result.queryResult.results.value as Array<{ title: string }>)[0]?.title === 'Archived B',
     )
     expect(result.queryResult.isRefreshing.value).toBe(false)
+  })
+
+  it('applies transform to default placeholder rows', async () => {
+    const convex = new MockConvexClient()
+    type DefaultTransformItem = { _id: string; title: string }
+    const query = mockFnRef<'query'>(
+      'notes:listPaginated:default-transform',
+    ) as unknown as FunctionReference<
+      'query',
+      'public',
+      { paginationOpts: PaginationOptions },
+      PaginationResult<DefaultTransformItem>
+    >
+
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexPaginatedQuery(
+          query as never,
+          {},
+          {
+            initialNumItems: 2,
+            server: false,
+            lazy: true,
+            default: () => [{ _id: 'placeholder', title: 'loading' }] as never[],
+            transform: (items: DefaultTransformItem[]) =>
+              items.map(item => ({ ...item, title: item.title.toUpperCase() })),
+          },
+        ),
+      { convex },
+    )
+
+    expect(result.results.value).toEqual([{ _id: 'placeholder', title: 'LOADING' }])
+    expect(result.status.value).toBe('LoadingFirstPage')
   })
 })

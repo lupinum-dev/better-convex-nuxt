@@ -153,6 +153,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   // Get client at setup time (not inside async callback) to avoid Vue context issues
   // Per Nuxt best practices, composables must be called synchronously at setup time
   const client = useConvex()
+  let activeRequestId = 0
 
   // Internal state
   const _status = ref<ActionStatus>('idle')
@@ -165,6 +166,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
   // Reset function
   const reset = () => {
+    activeRequestId += 1
     _status.value = 'idle'
     error.value = null
     data.value = undefined
@@ -173,15 +175,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   // The execute function
   const execute = async (args: Args): Promise<Result> => {
     const startTime = Date.now()
-
-    if (!client) {
-      const normalized = normalizeConvexError(new Error('ConvexClient not available - actions only work on client side'))
-      const err = toError(normalized)
-      _status.value = 'error'
-      error.value = err
-      logger.action({ name: fnName, event: 'error', error: err })
-      throw err
-    }
+    const currentRequestId = ++activeRequestId
 
     _status.value = 'pending'
     error.value = null
@@ -191,8 +185,10 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
     try {
       const result = await client.action(action, args)
-      _status.value = 'success'
-      data.value = result
+      if (currentRequestId === activeRequestId) {
+        _status.value = 'success'
+        data.value = result
+      }
 
       try {
         options?.onSuccess?.(result, args)
@@ -214,8 +210,10 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     } catch (e) {
       const normalized = normalizeConvexError(e)
       const err = toError(normalized)
-      _status.value = 'error'
-      error.value = err
+      if (currentRequestId === activeRequestId) {
+        _status.value = 'error'
+        error.value = err
+      }
 
       try {
         options?.onError?.(err, args)

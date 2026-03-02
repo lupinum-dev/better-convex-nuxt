@@ -26,10 +26,7 @@ function createClientOnlyMethodProxy<T>(name: 'signIn' | 'signUp'): T {
         if (import.meta.dev) {
           console.warn(message)
         }
-        return Promise.resolve({
-          data: null,
-          error: { message },
-        })
+        return Promise.reject(new Error(message))
       },
     })
   }

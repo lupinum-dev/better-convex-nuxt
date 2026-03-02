@@ -1,5 +1,5 @@
-export const MAX_PROXY_REQUEST_BODY_BYTES = 1_048_576 // 1 MiB
-export const MAX_PROXY_RESPONSE_BODY_BYTES = 1_048_576 // 1 MiB
+export const DEFAULT_MAX_PROXY_REQUEST_BODY_BYTES = 1_048_576 // 1 MiB
+export const DEFAULT_MAX_PROXY_RESPONSE_BODY_BYTES = 1_048_576 // 1 MiB
 
 interface ProxyBodySizeErrorShape {
   statusCode: 413 | 502
@@ -16,30 +16,36 @@ function parseContentLengthBytes(contentLengthHeader: string | null): number | n
   return Math.trunc(parsed)
 }
 
-export function getRequestBodySizeError(contentLengthHeader: string | null): ProxyBodySizeErrorShape | null {
+export function getRequestBodySizeError(
+  contentLengthHeader: string | null,
+  maxBytes: number = DEFAULT_MAX_PROXY_REQUEST_BODY_BYTES,
+): ProxyBodySizeErrorShape | null {
   const contentLengthBytes = parseContentLengthBytes(contentLengthHeader)
-  if (contentLengthBytes === null || contentLengthBytes <= MAX_PROXY_REQUEST_BODY_BYTES) {
+  if (contentLengthBytes === null || contentLengthBytes <= maxBytes) {
     return null
   }
   return {
     statusCode: 413,
     code: 'BCN_AUTH_PROXY_REQUEST_BODY_TOO_LARGE',
-    message: `Auth proxy request body too large (${contentLengthBytes} bytes). Maximum allowed is ${MAX_PROXY_REQUEST_BODY_BYTES} bytes.`,
+    message: `Auth proxy request body too large (${contentLengthBytes} bytes). Maximum allowed is ${maxBytes} bytes.`,
     contentLengthBytes,
-    maxBytes: MAX_PROXY_REQUEST_BODY_BYTES,
+    maxBytes,
   }
 }
 
-export function getResponseBodySizeError(contentLengthHeader: string | null): ProxyBodySizeErrorShape | null {
+export function getResponseBodySizeError(
+  contentLengthHeader: string | null,
+  maxBytes: number = DEFAULT_MAX_PROXY_RESPONSE_BODY_BYTES,
+): ProxyBodySizeErrorShape | null {
   const contentLengthBytes = parseContentLengthBytes(contentLengthHeader)
-  if (contentLengthBytes === null || contentLengthBytes <= MAX_PROXY_RESPONSE_BODY_BYTES) {
+  if (contentLengthBytes === null || contentLengthBytes <= maxBytes) {
     return null
   }
   return {
     statusCode: 502,
     code: 'BCN_AUTH_PROXY_UPSTREAM_BODY_TOO_LARGE',
-    message: `Auth proxy upstream response body too large (${contentLengthBytes} bytes). Maximum allowed is ${MAX_PROXY_RESPONSE_BODY_BYTES} bytes.`,
+    message: `Auth proxy upstream response body too large (${contentLengthBytes} bytes). Maximum allowed is ${maxBytes} bytes.`,
     contentLengthBytes,
-    maxBytes: MAX_PROXY_RESPONSE_BODY_BYTES,
+    maxBytes,
   }
 }

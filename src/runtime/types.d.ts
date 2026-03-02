@@ -36,11 +36,16 @@ export interface ConvexPublicRuntimeConfig {
     server?: boolean
     lazy?: boolean
     subscribe?: boolean
-    public?: boolean
+    unauthenticated?: boolean
   }
   /** Upload defaults */
   upload?: {
     maxConcurrent?: number
+  }
+  /** Auth proxy body-size defaults */
+  authProxy?: {
+    maxRequestBodyBytes?: number
+    maxResponseBodyBytes?: number
   }
   /** Optional debug channels for high-verbosity traces */
   debug?: {
@@ -54,7 +59,7 @@ export interface ConvexPublicRuntimeConfig {
 
 declare module '#app' {
   interface NuxtApp {
-    $convex: ConvexClient
+    $convex?: ConvexClient
     $auth?: AuthClient
     /** Internal cache for WebSocket subscriptions (prevents duplicates) */
     _convexSubscriptions?: Record<string, () => void>
@@ -75,7 +80,7 @@ declare module '#app' {
 
 declare module 'vue' {
   interface ComponentCustomProperties {
-    $convex: ConvexClient
+    $convex?: ConvexClient
     $auth?: AuthClient
   }
 }

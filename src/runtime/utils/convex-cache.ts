@@ -76,8 +76,8 @@ export function ensureQueryBridge(entry: SubscriptionEntry): QuerySubscriptionBr
 // ============================================================================
 
 export interface FetchAuthTokenOptions {
-  /** Whether this is a public query (skip auth) */
-  isPublic: boolean
+  /** Whether this query should skip auth token attachment. */
+  unauthenticated: boolean
   /** Cookie header from the request */
   cookieHeader: string
   /** Site URL for auth endpoint */
@@ -104,7 +104,7 @@ export interface FetchAuthTokenOptions {
  *
  * // Later, in async context:
  * const authToken = await fetchAuthToken({
- *   isPublic: false,
+ *   unauthenticated: false,
  *   cookieHeader: event?.headers.get('cookie') || '',
  *   siteUrl: config.public.convex?.siteUrl,
  *   cachedToken,
@@ -112,10 +112,10 @@ export interface FetchAuthTokenOptions {
  * ```
  */
 export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { isPublic, cookieHeader, siteUrl, cachedToken } = options
+  const { unauthenticated, cookieHeader, siteUrl, cachedToken } = options
 
-  // Skip for public queries
-  if (isPublic) {
+  // Skip for unauthenticated queries
+  if (unauthenticated) {
     return undefined
   }
 

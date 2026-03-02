@@ -7,7 +7,12 @@ import { useNuxtApp } from '#imports'
 import { useConvexQuery, type UseConvexQueryOptions } from './useConvexQuery'
 
 interface SharedQueryRegistry {
-  entries: Map<string, unknown>
+  entries: Map<string, SharedQueryRegistryEntry<unknown>>
+}
+
+interface SharedQueryRegistryEntry<T> {
+  value: T
+  config: unknown
 }
 
 function getSharedRegistry(nuxtApp: ReturnType<typeof useNuxtApp>): SharedQueryRegistry {
@@ -17,14 +22,14 @@ function getSharedRegistry(nuxtApp: ReturnType<typeof useNuxtApp>): SharedQueryR
 
   if (!app._convexSharedQueryRegistry) {
     app._convexSharedQueryRegistry = {
-      entries: new Map<string, unknown>(),
+      entries: new Map<string, SharedQueryRegistryEntry<unknown>>(),
     }
   }
 
-  return app._convexSharedQueryRegistry
+  return app._convexSharedQueryRegistry!
 }
 
-export interface CreateSharedConvexQueryOptions<
+export interface DefineSharedConvexQueryOptions<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
@@ -45,12 +50,12 @@ export interface CreateSharedConvexQueryOptions<
  * Useful for global context data (current user/team/settings) without custom
  * nuxtApp mutation patterns in app code.
  */
-export function createSharedConvexQuery<
+export function defineSharedConvexQuery<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(
-  config: CreateSharedConvexQueryOptions<Query, Args, DataT>,
+  config: DefineSharedConvexQueryOptions<Query, Args, DataT>,
 ): () => AsyncData<DataT | null, Error | null> {
   return () => {
     const nuxtApp = useNuxtApp()
@@ -58,7 +63,13 @@ export function createSharedConvexQuery<
 
     const existing = registry.entries.get(config.key)
     if (existing) {
-      return existing as AsyncData<DataT | null, Error | null>
+      if (existing.config !== config) {
+        throw new Error(
+          `[defineSharedConvexQuery] Duplicate key "${config.key}" registered with a different config object. ` +
+          `Use unique keys per query definition.`,
+        )
+      }
+      return existing.value as AsyncData<DataT | null, Error | null>
     }
 
     const created = useConvexQuery<Query, Args, DataT>(
@@ -67,7 +78,10 @@ export function createSharedConvexQuery<
       config.options,
     )
 
-    registry.entries.set(config.key, created)
+    registry.entries.set(config.key, {
+      value: created,
+      config,
+    })
     return created
   }
 }

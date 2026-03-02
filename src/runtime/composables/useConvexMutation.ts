@@ -20,7 +20,7 @@ import {
 } from '../utils/call-result'
 import { useConvex } from './useConvex'
 
-// Re-export optimistic update helpers for backwards compatibility
+// Re-export optimistic update helpers
 export {
   updateQuery,
   setQueryData,
@@ -275,6 +275,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   // Get client at setup time (not inside async callback) to avoid Vue context issues
   // Per Nuxt best practices, composables must be called synchronously at setup time
   const client = useConvex()
+  let activeRequestId = 0
 
   // Internal state
   const _status = ref<MutationStatus>('idle')
@@ -287,6 +288,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
   // Reset function
   const reset = () => {
+    activeRequestId += 1
     _status.value = 'idle'
     error.value = null
     data.value = undefined
@@ -295,15 +297,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   // The mutation function
   const execute = async (args: Args): Promise<Result> => {
     const startTime = Date.now()
-
-    if (!client) {
-      const normalized = normalizeConvexError(new Error('ConvexClient not available - mutations only work on client side'))
-      const err = toError(normalized)
-      _status.value = 'error'
-      error.value = err
-      logger.mutation({ name: fnName, event: 'error', error: err })
-      throw err
-    }
+    const currentRequestId = ++activeRequestId
 
     _status.value = 'pending'
     error.value = null
@@ -320,8 +314,10 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       const result = await client.mutation(mutation, args, {
         optimisticUpdate: options?.optimisticUpdate,
       })
-      _status.value = 'success'
-      data.value = result
+      if (currentRequestId === activeRequestId) {
+        _status.value = 'success'
+        data.value = result
+      }
 
       try {
         options?.onSuccess?.(result, args)
@@ -343,8 +339,10 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     } catch (e) {
       const normalized = normalizeConvexError(e)
       const err = toError(normalized)
-      _status.value = 'error'
-      error.value = err
+      if (currentRequestId === activeRequestId) {
+        _status.value = 'error'
+        error.value = err
+      }
 
       try {
         options?.onError?.(err, args)

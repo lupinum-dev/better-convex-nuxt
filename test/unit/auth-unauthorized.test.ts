@@ -11,7 +11,13 @@ describe('isConvexUnauthorizedError', () => {
 
   it('does not match unrelated errors', () => {
     expect(isConvexUnauthorizedError(new Error('Network timeout'))).toBe(false)
-    expect(isConvexUnauthorizedError({ message: 'Unauthorized' })).toBe(false)
     expect(isConvexUnauthorizedError(null)).toBe(false)
+  })
+
+  it('detects structured status/code unauthorized errors', () => {
+    expect(isConvexUnauthorizedError({ status: 401 })).toBe(true)
+    expect(isConvexUnauthorizedError({ status: 403 })).toBe(true)
+    expect(isConvexUnauthorizedError({ code: 'UNAUTHORIZED' })).toBe(true)
+    expect(isConvexUnauthorizedError({ data: { status: 401 } })).toBe(true)
   })
 })

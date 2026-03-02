@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { useConvexOnce } from '../../src/runtime/composables/useConvexOnce'
+import { useConvexRpc } from '../../src/runtime/composables/useConvexRpc'
+import * as useConvexModule from '../../src/runtime/composables/useConvex'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
-describe('useConvexOnce (Nuxt runtime)', () => {
+describe('useConvexRpc (Nuxt runtime)', () => {
   it('executes query/mutation/action one-shot calls', async () => {
     const convex = new MockConvexClient()
 
@@ -17,7 +18,7 @@ describe('useConvexOnce (Nuxt runtime)', () => {
     convex.setActionHandler('testing:once-action', async (args) => ({ done: true, args }))
 
     const { result } = await captureInNuxt(() => ({
-      once: useConvexOnce({ timeoutMs: 100 }),
+      once: useConvexRpc({ timeoutMs: 100 }),
       query,
       mutation,
       action,
@@ -48,7 +49,7 @@ describe('useConvexOnce (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(
-      () => useConvexOnce({ timeoutMs: 5 }),
+      () => useConvexRpc({ timeoutMs: 5 }),
       { convex },
     )
 
@@ -75,7 +76,7 @@ describe('useConvexOnce (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(
-      () => useConvexOnce({ timeoutMs: 20 }),
+      () => useConvexRpc({ timeoutMs: 20 }),
       { convex },
     )
 
@@ -95,16 +96,29 @@ describe('useConvexOnce (Nuxt runtime)', () => {
     expect(actionSafeResult.error.code).toBe('LIMIT_ACTION_ONCE')
   })
 
-  it('returns normalized errors from safe calls when client is unavailable', async () => {
-    const query = mockFnRef<'query'>('testing:once-no-client')
+  it('treats timeoutMs <= 0 as no timeout', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('testing:rpc-no-timeout')
+    convex.setQueryHandler('testing:rpc-no-timeout', async () => ({ ok: true }))
 
-    const { result } = await captureInNuxt(() => useConvexOnce({ timeoutMs: 20 }))
-    const safeResult = await result.querySafe(query, {} as never)
+    const { result } = await captureInNuxt(
+      () => useConvexRpc({ timeoutMs: 0 }),
+      { convex },
+    )
 
-    expect(safeResult.ok).toBe(false)
-    if (safeResult.ok) {
-      throw new Error('Expected safe no-client result to fail')
+    await expect(result.query(query, {} as never)).resolves.toEqual({ ok: true })
+  })
+
+  it('throws immediately when client is unavailable', async () => {
+    const spy = vi.spyOn(useConvexModule, 'useConvex').mockImplementation(() => {
+      throw new Error('Convex client is unavailable.')
+    })
+    try {
+      await expect(
+        captureInNuxt(() => useConvexRpc({ timeoutMs: 20 })),
+      ).rejects.toThrow(/Convex client is unavailable/i)
+    } finally {
+      spy.mockRestore()
     }
-    expect(safeResult.error.message).toMatch(/Convex client not available|query is not a function/i)
   })
 })

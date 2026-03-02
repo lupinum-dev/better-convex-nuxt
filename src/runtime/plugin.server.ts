@@ -354,6 +354,10 @@ export default defineNuxtPlugin(async () => {
           tokenExchangeStatus ? `HTTP ${tokenExchangeStatus}` : 'No token returned',
         ))
       }
+      if (import.meta.dev && likelyMisconfig) {
+        throw new Error(convexAuthError.value ?? 'Convex auth token exchange failed')
+      }
+
       endInit()
       logAuth(
         'exchange',
@@ -400,5 +404,9 @@ export default defineNuxtPlugin(async () => {
       undefined,
       error instanceof Error ? error : new Error(convexAuthError.value),
     )
+
+    if (import.meta.dev) {
+      throw (error instanceof Error ? error : new Error(convexAuthError.value))
+    }
   }
 })

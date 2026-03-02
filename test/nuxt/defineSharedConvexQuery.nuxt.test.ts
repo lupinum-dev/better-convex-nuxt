@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import { createSharedConvexQuery } from '../../src/runtime/composables/createSharedConvexQuery'
+import { defineSharedConvexQuery } from '../../src/runtime/composables/defineSharedConvexQuery'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { waitFor } from '../helpers/wait-for'
 
-describe('createSharedConvexQuery (Nuxt runtime)', () => {
+describe('defineSharedConvexQuery (Nuxt runtime)', () => {
   it('returns one shared query state per app instance for the same key', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('users:get-current:shared')
 
-    const useSharedUser = createSharedConvexQuery({
+    const useSharedUser = defineSharedConvexQuery({
       key: 'current-user',
       query,
       args: {},
@@ -34,12 +34,12 @@ describe('createSharedConvexQuery (Nuxt runtime)', () => {
 
   it('different keys create isolated shared query state', async () => {
     const query = mockFnRef<'query'>('users:get-current:shared:new-app')
-    const useSharedUser = createSharedConvexQuery({
+    const useSharedUser = defineSharedConvexQuery({
       key: 'current-user:new-app',
       query,
       args: {},
     })
-    const useSharedUserAlt = createSharedConvexQuery({
+    const useSharedUserAlt = defineSharedConvexQuery({
       key: 'current-user:new-app:alt',
       query,
       args: {},
@@ -51,5 +51,27 @@ describe('createSharedConvexQuery (Nuxt runtime)', () => {
     }), { convex: new MockConvexClient() })
 
     expect(result.first).not.toBe(result.second)
+  })
+
+  it('throws when same key is registered with a different config object', async () => {
+    const queryA = mockFnRef<'query'>('users:get-current:shared:collision-a')
+    const queryB = mockFnRef<'query'>('users:get-current:shared:collision-b')
+
+    const useSharedA = defineSharedConvexQuery({
+      key: 'current-user:collision',
+      query: queryA,
+      args: {},
+    })
+    const useSharedB = defineSharedConvexQuery({
+      key: 'current-user:collision',
+      query: queryB,
+      args: {},
+    })
+
+    await expect(captureInNuxt(() => {
+      useSharedA()
+      useSharedB()
+      return null
+    }, { convex: new MockConvexClient() })).rejects.toThrow(/duplicate key/i)
   })
 })

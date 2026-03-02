@@ -25,8 +25,8 @@ export interface QueryOptions {
   server: boolean
   /** Whether the query has an active subscription */
   subscribe: boolean
-  /** Whether the query is public (no auth required) */
-  public: boolean
+  /** Whether the query skips auth token attachment. */
+  unauthenticated: boolean
 }
 
 export interface QueryRegistryEntry {

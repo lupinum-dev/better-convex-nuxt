@@ -37,10 +37,17 @@ export {
   useConvexQuery,
   getQueryKey,
   type QueryStatus,
+  type UseConvexQueryReturn,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
-export { createSharedConvexQuery, type CreateSharedConvexQueryOptions } from './createSharedConvexQuery'
-export { useConvexOnce, type UseConvexOnceOptions } from './useConvexOnce'
+export {
+  defineSharedConvexQuery,
+  type DefineSharedConvexQueryOptions,
+} from './defineSharedConvexQuery'
+export {
+  useConvexRpc,
+  type UseConvexRpcOptions,
+} from './useConvexRpc'
 export {
   useConvexPaginatedQuery,
   type PaginationStatus,

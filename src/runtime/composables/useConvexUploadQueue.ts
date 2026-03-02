@@ -1,6 +1,7 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
+import { toCallResult, type CallResult } from '../utils/call-result'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
 import { useConvex } from './useConvex'
 
@@ -57,11 +58,31 @@ export interface UseConvexUploadQueueReturn<
   enqueue: (
     input: UploadQueueEnqueueInput<FunctionArgs<Mutation>>,
     mutationArgs?: FunctionArgs<Mutation>,
-  ) => string[]
+  ) => Promise<string[]>
+  enqueueSafe: (
+    input: UploadQueueEnqueueInput<FunctionArgs<Mutation>>,
+    mutationArgs?: FunctionArgs<Mutation>,
+  ) => Promise<CallResult<string[]>>
   cancelItem: (id: string) => void
   cancelAll: () => void
   clearFinished: () => void
   reset: () => void
+}
+
+interface Deferred<T> {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (reason: unknown) => void
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
 }
 
 let queueItemSequence = 1
@@ -104,6 +125,7 @@ export function useConvexUploadQueue<
   const items = ref<QueueItem[]>([])
   const haltedByError = ref(false)
   const activeById = new Map<string, AbortController>()
+  const completionById = new Map<string, Deferred<string>>()
   let scheduling = false
   let hasBeenBusy = false
 
@@ -179,6 +201,36 @@ export function useConvexUploadQueue<
     options?.onQueueIdle?.([...items.value])
   }
 
+  const rejectQueuedDeferredsAfterHalt = () => {
+    for (const item of items.value) {
+      if (item.status === 'queued') {
+        rejectItemDeferred(item.id, new Error('Upload queue halted after an upload error'))
+      }
+    }
+  }
+
+  const getItemDeferred = (id: string): Deferred<string> => {
+    const existing = completionById.get(id)
+    if (existing) return existing
+    const created = createDeferred<string>()
+    completionById.set(id, created)
+    return created
+  }
+
+  const resolveItemDeferred = (id: string, storageId: string) => {
+    const deferred = completionById.get(id)
+    if (!deferred) return
+    completionById.delete(id)
+    deferred.resolve(storageId)
+  }
+
+  const rejectItemDeferred = (id: string, error: unknown) => {
+    const deferred = completionById.get(id)
+    if (!deferred) return
+    completionById.delete(id)
+    deferred.reject(error)
+  }
+
   const runItem = async (itemId: string): Promise<void> => {
     const controller = new AbortController()
     activeById.set(itemId, controller)
@@ -191,7 +243,10 @@ export function useConvexUploadQueue<
 
     try {
       const item = items.value.find(entry => entry.id === itemId)
-      if (!item) return
+      if (!item) {
+        rejectItemDeferred(itemId, new Error('Upload item no longer exists'))
+        return
+      }
 
       const postUrl = await requestUploadUrl(
         client,
@@ -221,6 +276,7 @@ export function useConvexUploadQueue<
         finishedAt: Date.now(),
       }))
       if (successItem) options?.onItemSuccess?.(successItem)
+      resolveItemDeferred(itemId, storageId)
     } catch (error) {
       const now = Date.now()
       if (isUploadAbortError(error)) {
@@ -230,6 +286,7 @@ export function useConvexUploadQueue<
           error: null,
           finishedAt: now,
         }))
+        rejectItemDeferred(itemId, new Error('Upload cancelled'))
       } else {
         const normalizedError = error instanceof Error ? error : new Error(String(error))
         const erroredItem = mutateItem(itemId, current => ({
@@ -239,9 +296,11 @@ export function useConvexUploadQueue<
           finishedAt: now,
         }))
         if (erroredItem) options?.onItemError?.(erroredItem)
+        rejectItemDeferred(itemId, normalizedError)
 
         if (!continueOnError) {
           haltedByError.value = true
+          rejectQueuedDeferredsAfterHalt()
         }
       }
     } finally {
@@ -303,10 +362,10 @@ export function useConvexUploadQueue<
     })
   }
 
-  const enqueue = (
+  const enqueue = async (
     input: UploadQueueEnqueueInput<MutationArgs>,
     mutationArgs?: MutationArgs,
-  ): string[] => {
+  ): Promise<string[]> => {
     const entries = normalizeEnqueueInput(input, mutationArgs)
     if (entries.length === 0) return []
 
@@ -332,7 +391,36 @@ export function useConvexUploadQueue<
     items.value = [...items.value, ...newItems]
     void schedule()
 
-    return newItems.map(item => item.id)
+    const settled = await Promise.allSettled(
+      newItems.map(item => getItemDeferred(item.id).promise),
+    )
+
+    const storageIds: string[] = []
+    const failures: Error[] = []
+
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        storageIds.push(result.value)
+      } else {
+        failures.push(result.reason instanceof Error ? result.reason : new Error(String(result.reason)))
+      }
+    }
+
+    if (failures.length > 0) {
+      if (failures.length === 1) {
+        throw failures[0]
+      }
+      throw new AggregateError(failures, `${failures.length} uploads failed`)
+    }
+
+    return storageIds
+  }
+
+  const enqueueSafe = async (
+    input: UploadQueueEnqueueInput<MutationArgs>,
+    mutationArgs?: MutationArgs,
+  ): Promise<CallResult<string[]>> => {
+    return await toCallResult(() => enqueue(input, mutationArgs))
   }
 
   const cancelItem = (id: string): void => {
@@ -344,6 +432,7 @@ export function useConvexUploadQueue<
 
     mutateItem(id, item => {
       if (item.status !== 'queued') return item
+      rejectItemDeferred(id, new Error('Upload cancelled'))
       return {
         ...item,
         status: 'cancelled',
@@ -359,6 +448,7 @@ export function useConvexUploadQueue<
     const now = Date.now()
     items.value = items.value.map((item) => {
       if (item.status === 'queued') {
+        rejectItemDeferred(item.id, new Error('Upload cancelled'))
         return {
           ...item,
           status: 'cancelled',
@@ -381,6 +471,10 @@ export function useConvexUploadQueue<
   }
 
   const reset = (): void => {
+    for (const [id, deferred] of completionById.entries()) {
+      deferred.reject(new Error('Upload queue was reset'))
+      completionById.delete(id)
+    }
     for (const controller of activeById.values()) {
       controller.abort()
     }
@@ -405,6 +499,7 @@ export function useConvexUploadQueue<
     cancelledCount,
     aggregateProgress,
     enqueue,
+    enqueueSafe,
     cancelItem,
     cancelAll,
     clearFinished,

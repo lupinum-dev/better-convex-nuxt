@@ -8,8 +8,6 @@ import {
   watch,
   onScopeDispose,
   toValue,
-  isRef,
-  isReactive,
   type ComputedRef,
   type MaybeRefOrGetter,
   type Ref,
@@ -38,7 +36,7 @@ import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { deepUnref } from '../utils/deep-unref'
 
-// Re-export optimistic update helpers and types for backwards compatibility
+// Re-export optimistic update helpers and types
 export {
   insertAtTop,
   insertAtPosition,
@@ -94,24 +92,23 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
   subscribe?: boolean
 
   /**
-   * Mark this query as public (no authentication needed).
+   * Skip auth token attachment for this query.
    * When true, skips all auth token checks during SSR.
-   * @default false (configurable via nuxt.config convex.defaults.public)
+   * @default false (configurable via nuxt.config convex.defaults.unauthenticated)
    */
-  public?: boolean
+  unauthenticated?: boolean
 
   /**
-   * Factory function for default results value.
+   * Factory function for default raw results value.
    * Called to provide initial/placeholder data while loading first page.
-   * This is NOT transformed - provide already-transformed data.
+   * If transform() is provided, the default value is transformed as well.
    */
-  default?: () => TransformedItem[]
+  default?: () => Item[]
 
   /**
    * Transform results after fetching.
    * Called on the concatenated results array from all loaded pages.
-   * Applied on SSR result and every subscription update.
-   * Does NOT apply to the `default` value.
+   * Applied on SSR result, every subscription update, and the `default` value.
    *
    * @example
    * ```ts
@@ -310,7 +307,7 @@ export function useConvexPaginatedQuery<
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const lazy = options?.lazy ?? defaults?.lazy ?? false
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const isPublic = options?.public ?? defaults?.public ?? false
+  const unauthenticated = options?.unauthenticated ?? defaults?.unauthenticated ?? false
   const keepPreviousData = options?.keepPreviousData ?? false
   const deepUnrefArgs = options?.deepUnrefArgs ?? true
 
@@ -324,15 +321,6 @@ export function useConvexPaginatedQuery<
       return rawArgs
     }
     return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
-  }
-
-  // Dev-mode warning for reactive() args (won't trigger re-fetches)
-  if (import.meta.dev && args !== undefined && !isRef(args) && isReactive(args)) {
-    console.warn(
-      `[useConvexPaginatedQuery] Detected reactive() object passed as args for "${fnName}". ` +
-        `Changes to plain reactive objects will NOT trigger query re-fetches. ` +
-        `Wrap args with ref() or computed(), e.g. \`const args = ref({ ... })\` or \`() => ({ id: state.id })\`.`,
-    )
   }
 
   const enabled = computed(() => toValue(options?.enabled) ?? true)
@@ -480,12 +468,12 @@ export function useConvexPaginatedQuery<
     let authToken: string | undefined
     if (import.meta.server) {
       authToken = await fetchAuthToken({
-        isPublic,
+        unauthenticated,
         cookieHeader,
         siteUrl,
         cachedToken,
       })
-    } else if (!isPublic) {
+    } else if (!unauthenticated) {
       authToken = cachedToken.value ?? undefined
     }
 
@@ -789,7 +777,7 @@ export function useConvexPaginatedQuery<
     }
     // If loading first page and have default, use default
     if (status.value === 'LoadingFirstPage' && options?.default) {
-      return options.default()
+      return applyTransform(options.default())
     }
     // Otherwise return empty transformed array
     return applyTransform([])

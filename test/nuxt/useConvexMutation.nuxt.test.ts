@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { waitFor } from '../helpers/wait-for'
 
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -156,5 +157,32 @@ describe('useConvexMutation (Nuxt runtime)', () => {
       throw new Error('Expected wrapped result to be successful outer CallResult')
     }
     expect(wrapped.data).toEqual(direct)
+  })
+
+  it('keeps state bound to the latest in-flight request', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:race-mutation')
+
+    convex.setMutationHandler('testing:race-mutation', async (args) => {
+      const input = args as { value: string; delayMs: number; shouldFail?: boolean }
+      await new Promise(resolve => setTimeout(resolve, input.delayMs))
+      if (input.shouldFail) {
+        throw new Error(`failed:${input.value}`)
+      }
+      return { value: input.value }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+    const slowFail = result.execute({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const fastSuccess = result.execute({ value: 'second', delayMs: 5 } as never)
+
+    await expect(fastSuccess).resolves.toEqual({ value: 'second' })
+    await expect(slowFail).rejects.toThrow('failed:first')
+    await waitFor(() => result.pending.value === false)
+
+    expect(result.status.value).toBe('success')
+    expect(result.data.value).toEqual({ value: 'second' })
+    expect(result.error.value).toBeNull()
   })
 })
