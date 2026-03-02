@@ -14,8 +14,6 @@ export default defineNuxtConfig({
   },
 
   convex: {
-    url: process.env.CONVEX_URL || process.env.NUXT_PUBLIC_CONVEX_URL,
-    siteUrl: process.env.CONVEX_SITE_URL || process.env.NUXT_PUBLIC_CONVEX_SITE_URL,
-    permissions: true, // Enable createPermissions
+    permissions: true,
   },
 });

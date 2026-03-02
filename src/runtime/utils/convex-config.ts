@@ -26,9 +26,31 @@ export function isValidAbsoluteUrl(url: string | undefined | null): boolean {
  */
 export function deriveConvexSiteUrl(url?: string | null): string | undefined {
   if (!url) return undefined
-  if (url.includes('.convex.cloud')) {
-    return url.replace('.convex.cloud', '.convex.site')
+
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return undefined
   }
+
+  if (parsed.hostname.endsWith('.convex.cloud')) {
+    parsed.hostname = parsed.hostname.replace(/\.convex\.cloud$/, '.convex.site')
+    parsed.pathname = ''
+    parsed.search = ''
+    parsed.hash = ''
+    return parsed.toString().replace(/\/$/, '')
+  }
+
+  const isLocalConvexDevHost = parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost'
+  if (isLocalConvexDevHost && parsed.port === '3210') {
+    parsed.port = '3211'
+    parsed.pathname = ''
+    parsed.search = ''
+    parsed.hash = ''
+    return parsed.toString().replace(/\/$/, '')
+  }
+
   return undefined
 }
 
@@ -54,6 +76,10 @@ export function getSiteUrlResolutionHint(url?: string | null): string {
     return 'Set `convex.url` (or `CONVEX_URL`) first, or provide `convex.siteUrl` explicitly.'
   }
 
+  if (url.includes('localhost') || url.includes('127.0.0.1')) {
+    return 'For local Convex dev, use `convex.url` = `http://127.0.0.1:3210` (or `http://localhost:3210`), or set `convex.siteUrl` explicitly.'
+  }
+
   if (!url.includes('.convex.cloud')) {
     return 'Could not derive `siteUrl` from `convex.url` because this is not a `.convex.cloud` URL. Set `convex.siteUrl` explicitly for your custom HTTP Actions domain.'
   }
@@ -65,4 +91,3 @@ export function normalizeAuthRoute(authRoute?: string | null): string {
   const raw = authRoute || '/api/auth'
   return (raw.startsWith('/') ? raw : `/${raw}`).replace(/\/+$/, '') || '/api/auth'
 }
-

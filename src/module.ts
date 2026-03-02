@@ -240,7 +240,7 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     url: process.env.CONVEX_URL,
-    siteUrl: undefined,
+    siteUrl: process.env.CONVEX_SITE_URL,
     auth: {
       enabled: true,
       routeProtection: {

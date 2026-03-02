@@ -14,9 +14,18 @@ describe('convex config helpers', () => {
     )
   })
 
+  it('derives siteUrl from local convex dev url', () => {
+    expect(deriveConvexSiteUrl('http://127.0.0.1:3210')).toBe('http://127.0.0.1:3211')
+    expect(deriveConvexSiteUrl('http://localhost:3210')).toBe('http://localhost:3211')
+  })
+
   it('does not derive siteUrl from custom domains', () => {
     expect(deriveConvexSiteUrl('https://api.example.com')).toBeUndefined()
     expect(getSiteUrlResolutionHint('https://api.example.com')).toContain('Could not derive `siteUrl`')
+  })
+
+  it('returns local hint for unsupported localhost urls', () => {
+    expect(getSiteUrlResolutionHint('http://localhost:3000')).toContain('local Convex dev')
   })
 
   it('prefers explicit siteUrl override', () => {
@@ -36,4 +45,3 @@ describe('convex config helpers', () => {
     expect(normalizeAuthRoute('/custom/auth///')).toBe('/custom/auth')
   })
 })
-

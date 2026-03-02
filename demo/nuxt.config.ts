@@ -1,33 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 const siteUrl = (process.env.SITE_URL || 'https://better-convex-nuxt-demo.vercel.app/').replace(/\/$/, '') + '/'
 const ogImageUrl = `${siteUrl}og-image.png`
-const convexUrl = process.env.CONVEX_URL || process.env.NUXT_PUBLIC_CONVEX_URL || 'http://127.0.0.1:3210'
-const convexSiteUrl = process.env.CONVEX_SITE_URL || process.env.NUXT_PUBLIC_CONVEX_SITE_URL
-
-function deriveConvexSiteUrl(url?: string): string | undefined {
-  if (!url) return undefined
-
-  try {
-    const parsed = new URL(url)
-
-    if (parsed.hostname.endsWith('.convex.cloud')) {
-      parsed.hostname = parsed.hostname.replace(/\.convex\.cloud$/, '.convex.site')
-      return parsed.toString().replace(/\/$/, '')
-    }
-
-    if ((parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') && parsed.port === '3210') {
-      parsed.port = '3211'
-      return parsed.toString().replace(/\/$/, '')
-    }
-  }
-  catch {
-    return undefined
-  }
-
-  return undefined
-}
-
-const resolvedConvexSiteUrl = convexSiteUrl || deriveConvexSiteUrl(convexUrl) || 'http://127.0.0.1:3211'
 
 export default defineNuxtConfig({
   modules: [
@@ -39,20 +12,16 @@ export default defineNuxtConfig({
   devtools: {
     enabled: true
   },
-  
 
   ssr: false,
 
   css: ['~/assets/css/main.css'],
 
-  // Convex module configuration
   convex: {
-    url: convexUrl,
-    siteUrl: resolvedConvexSiteUrl,
     auth: {
       enabled: true
     },
-    permissions: true,
+    permissions: true
   },
 
 
