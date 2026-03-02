@@ -53,6 +53,28 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     expect(result.first).not.toBe(result.second)
   })
 
+  it('reuses existing shared state for equivalent duplicate key registration', async () => {
+    const query = mockFnRef<'query'>('users:get-current:shared:equivalent')
+
+    const useSharedA = defineSharedConvexQuery({
+      key: 'current-user:equivalent',
+      query,
+      args: {},
+    })
+    const useSharedB = defineSharedConvexQuery({
+      key: 'current-user:equivalent',
+      query,
+      args: {},
+    })
+
+    const { result } = await captureInNuxt(() => ({
+      first: useSharedA(),
+      second: useSharedB(),
+    }), { convex: new MockConvexClient() })
+
+    expect(result.first).toBe(result.second)
+  })
+
   it('throws when same key is registered with a different config object', async () => {
     const queryA = mockFnRef<'query'>('users:get-current:shared:collision-a')
     const queryB = mockFnRef<'query'>('users:get-current:shared:collision-b')
@@ -66,6 +88,27 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       key: 'current-user:collision',
       query: queryB,
       args: {},
+    })
+
+    await expect(captureInNuxt(() => {
+      void useSharedA()
+      void useSharedB()
+      return null
+    }, { convex: new MockConvexClient() })).rejects.toThrow(/duplicate key/i)
+  })
+
+  it('throws when same key and query use different static args', async () => {
+    const query = mockFnRef<'query'>('users:get-current:shared:args-collision')
+
+    const useSharedA = defineSharedConvexQuery({
+      key: 'current-user:args-collision',
+      query,
+      args: { a: 1 },
+    })
+    const useSharedB = defineSharedConvexQuery({
+      key: 'current-user:args-collision',
+      query,
+      args: { a: 2 },
     })
 
     await expect(captureInNuxt(() => {
