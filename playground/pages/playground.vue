@@ -132,7 +132,7 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 
       <div class="options-grid">
         <div class="option-card">
-          <h4>useConvexQueryLazy</h4>
+          <h4>useConvexQuery</h4>
           <p>Non-blocking query execution</p>
           <span class="badge" :class="{ loading: lazyPending }">
             {{ lazyPending ? 'Loading...' : `${lazyData?.length ?? 0} notes` }}
@@ -199,7 +199,7 @@ const {
   data: notes,
   pending: notesPending,
   error: notesError,
-} = useConvexQueryLazy(api.notes.list, {})
+} = await useConvexQuery(api.notes.list, {})
 
 // Form state for adding notes
 const newNoteTitle = ref('')
@@ -261,7 +261,7 @@ const searchArgs = computed(() => {
 const {
   data: searchResults,
   pending: searchPending,
-} = useConvexQueryLazy(api.notes.search, searchArgs)
+} = await useConvexQuery(api.notes.search, searchArgs)
 
 // ========== Section 3: Skip Pattern ==========
 const enableSkipDemo = useState('playground-skip-demo', () => true)
@@ -273,29 +273,29 @@ const skipArgs = computed(() => {
 const {
   data: skipDemoData,
   pending: skipDemoPending,
-} = useConvexQueryLazy(api.notes.list, skipArgs)
+} = await useConvexQuery(api.notes.list, skipArgs)
 
 // ========== Section 4: useNuxtData (Cache Access) ==========
 const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 
 // ========== Section 5: Options Demo ==========
 
-// Lazy loading
+// Client-only query example
 const {
   data: lazyData,
   pending: lazyPending,
-} = useConvexQueryLazy(api.notes.list, {})
+} = await useConvexQuery(api.notes.list, {})
 
 // Default data (factory function that provides initial value)
 const {
   data: initialDataDemo,
-} = useConvexQueryLazy(api.notes.list, {}, { default: () => [] })
+} = await useConvexQuery(api.notes.list, {}, { default: () => [] })
 
 // Client-only
 const {
   data: clientOnlyData,
   pending: clientOnlyPending,
-} = useConvexQueryLazy(api.notes.list, {}, { server: false })
+} = await useConvexQuery(api.notes.list, {}, { server: false })
 
 // ========== Debug ==========
 const debugInfo = computed(() => ({

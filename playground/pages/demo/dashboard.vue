@@ -92,7 +92,7 @@ const convexResult = ref<string | null>(null)
 const convexError = ref(false)
 
 // Get user profile with role from our users table
-const { data: user, pending: isLoadingUser } = useConvexQueryLazy(api.users.getCurrentUser, {})
+const { data: user, pending: isLoadingUser } = await useConvexQuery(api.users.getCurrentUser, {})
 
 const tokenPreview = computed(() => {
   if (!token.value) return 'None'

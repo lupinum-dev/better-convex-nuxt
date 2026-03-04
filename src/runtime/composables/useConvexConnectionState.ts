@@ -1,4 +1,4 @@
-import { ref, readonly, computed, onScopeDispose, type Ref } from 'vue'
+import { ref, readonly, computed, onScopeDispose, getCurrentScope, type Ref } from 'vue'
 import type { ConvexClient } from 'convex/browser'
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
@@ -82,13 +82,14 @@ function getConnectionStateStore(app: object): ConnectionStateStore {
 export function useConvexConnectionState() {
   const nuxtApp = useNuxtApp()
   const client = import.meta.client ? (nuxtApp.$convex as ConvexClient | undefined) : undefined
+  const currentScope = getCurrentScope()
   const config = useRuntimeConfig()
   const logLevel = getLogLevel(config.public.convex ?? {})
   const logger = getSharedLogger(logLevel)
   const store = getConnectionStateStore(nuxtApp)
 
   // Only subscribe on client
-  if (import.meta.client && client) {
+  if (import.meta.client && client && currentScope) {
     // First subscriber initializes the connection
     if (store.subscriberCount === 0) {
       // Get initial state
@@ -129,6 +130,9 @@ export function useConvexConnectionState() {
         store.unsubscribe = null
       }
     })
+  } else if (import.meta.client && client && !currentScope) {
+    // Scope-less callers get a snapshot only to avoid leaking global subscriptions.
+    store.state.value = client.connectionState() as ConnectionState
   }
 
   // Computed shortcuts derived from shared state
@@ -152,12 +156,14 @@ export function useConvexConnectionState() {
     isHydratingConnection.value = false
   }
 
-  onScopeDispose(() => {
-    if (hydrationTimer) {
-      clearTimeout(hydrationTimer)
-      hydrationTimer = null
-    }
-  })
+  if (currentScope) {
+    onScopeDispose(() => {
+      if (hydrationTimer) {
+        clearTimeout(hydrationTimer)
+        hydrationTimer = null
+      }
+    })
+  }
 
   const shouldShowOfflineUi = computed(
     () => !isConnected.value && !isHydratingConnection.value,

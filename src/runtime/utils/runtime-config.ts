@@ -56,9 +56,13 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const authCache = asRecord(raw?.authCache)
   const upload = asRecord(raw?.upload)
   const authProxy = asRecord(raw?.authProxy)
+  const envUrl = process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL
+  const envSiteUrl = process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL
 
-  const url = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
-  const explicitSiteUrl = typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
+  const runtimeUrl = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
+  const runtimeSiteUrl = typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
+  const url = runtimeUrl ?? envUrl
+  const explicitSiteUrl = runtimeSiteUrl ?? envSiteUrl
   const resolvedSiteUrl = resolveConvexSiteUrl({
     url,
     siteUrl: explicitSiteUrl,

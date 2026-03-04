@@ -14,7 +14,7 @@ definePageMeta({
  * - Basic paginated query test (from /test-paginated-query)
  */
 
-const { results, status, isLoading, loadMore, error } = useConvexPaginatedQueryLazy(
+const { results, status, isLoading, loadMore, error } = await useConvexPaginatedQuery(
   api.notes.listPaginated,
   {},
   { initialNumItems: 3 },
@@ -53,20 +53,11 @@ function handleLoadMore() {
     <h1>Pagination Lab</h1>
     <p>Test paginated query with Load More functionality.</p>
 
-    <h2>Server + API Mode Combinations</h2>
+    <h2>Server Mode Combinations</h2>
     <nav class="nav-links">
       <NuxtLink
-        to="/labs/pagination/server-false-lazy-true"
-        data-testid="link-server-false-lazy-true"
-        class="nav-link"
-      >
-        server: false + useConvexPaginatedQueryLazy
-        <span class="hint">No SSR, non-blocking client nav</span>
-      </NuxtLink>
-
-      <NuxtLink
-        to="/labs/pagination/server-false-lazy-false"
-        data-testid="link-server-false-lazy-false"
+        to="/labs/pagination/server-false-blocking"
+        data-testid="link-server-false-blocking"
         class="nav-link"
       >
         server: false + await useConvexPaginatedQuery
@@ -74,21 +65,12 @@ function handleLoadMore() {
       </NuxtLink>
 
       <NuxtLink
-        to="/labs/pagination/server-true-lazy-true"
-        data-testid="link-server-true-lazy-true"
+        to="/labs/pagination/server-true-blocking"
+        data-testid="link-server-true-blocking"
         class="nav-link best"
       >
-        server: true + useConvexPaginatedQueryLazy
-        <span class="hint">SSR + non-blocking client nav (recommended)</span>
-      </NuxtLink>
-
-      <NuxtLink
-        to="/labs/pagination/server-true-lazy-false"
-        data-testid="link-server-true-lazy-false"
-        class="nav-link"
-      >
         server: true + await useConvexPaginatedQuery
-        <span class="hint">SSR + client nav blocked</span>
+        <span class="hint">SSR + hydration-ready client navigation</span>
       </NuxtLink>
     </nav>
 
@@ -213,7 +195,7 @@ function handleLoadMore() {
         <tbody>
           <tr>
             <td>false</td>
-            <td><code>useConvexPaginatedQueryLazy</code></td>
+            <td><code>useConvexPaginatedQuery</code></td>
             <td>status=LoadingFirstPage</td>
             <td>instant, loading state</td>
           </tr>
@@ -225,7 +207,7 @@ function handleLoadMore() {
           </tr>
           <tr class="highlight">
             <td>true</td>
-            <td><code>useConvexPaginatedQueryLazy</code></td>
+            <td><code>useConvexPaginatedQuery</code></td>
             <td>hasData=true</td>
             <td>instant, loading state</td>
           </tr>

@@ -3,7 +3,6 @@ import { api } from '~~/convex/_generated/api'
 
 interface Props {
   serverOption: boolean
-  executionMode: 'lazy' | 'blocking'
   pageId: string
   title: string
   description: string
@@ -16,13 +15,9 @@ const props = withDefaults(defineProps<Props>(), {
 
 const setupStartedAt = import.meta.client ? performance.now() : 0
 
-const queryResult = props.executionMode === 'lazy'
-  ? useConvexQueryLazy(api.notes.list, {}, {
-      server: props.serverOption,
-    })
-  : await useConvexQuery(api.notes.list, {}, {
-      server: props.serverOption,
-    })
+const queryResult = await useConvexQuery(api.notes.list, {}, {
+  server: props.serverOption,
+})
 const { data, pending, status, error } = queryResult
 
 if (import.meta.client) {
@@ -31,7 +26,7 @@ if (import.meta.client) {
   console.info(
     `[QueryLab:${props.pageId}] setup resolved`,
     {
-      mode: props.executionMode,
+      mode: 'blocking',
       server: props.serverOption,
       elapsed: fmtMs(performance.now() - setupStartedAt),
       status: status.value,
@@ -46,7 +41,7 @@ if (import.meta.client) {
     console.info(
       `[QueryLab:${props.pageId}] state change`,
       {
-        mode: props.executionMode,
+        mode: 'blocking',
         elapsed: fmtMs(performance.now() - setupStartedAt),
         status: `${String(prevStatus)} -> ${String(nextStatus)}`,
         pending: `${String(prevPending)} -> ${String(nextPending)}`,

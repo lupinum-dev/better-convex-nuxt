@@ -25,6 +25,7 @@ import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { deepUnref } from '../utils/deep-unref'
+import { assertConvexComposableScope } from '../utils/composable-scope'
 
 // DevTools query registry (client-side only in dev mode)
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
@@ -135,7 +136,7 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
 }
 
 /**
- * Build shared query state for blocking and lazy query composables.
+ * Build shared query state for blocking composables and internal immediate-resolve consumers.
  *
  * @example
  * ```vue
@@ -152,9 +153,6 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
  *   () => userId ? { id: userId } : undefined,
  * )
  *
- * // Lazy - doesn't block navigation
- * const { data, pending } = useConvexQueryLazy(api.posts.list, {})
- *
  * // Transform data after fetching
  * const { data } = await useConvexQuery(api.posts.list, {}, {
  *   transform: (posts) => posts?.map(p => ({ ...p, formattedDate: formatDate(p.publishedAt) }))
@@ -162,7 +160,7 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
  * </script>
  * ```
  */
-function buildConvexQuery<
+export function createConvexQueryState<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
@@ -170,7 +168,7 @@ function buildConvexQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
-  lazy = false,
+  resolveImmediately = false,
 ): BuildConvexQueryResult<DataT> {
   type RawT = FunctionReturnType<Query>
 
@@ -243,6 +241,8 @@ function buildConvexQuery<
   // Get cached token state at setup time (synchronously) to avoid Vue context issues
   // Per Nuxt best practices, useState must be called at setup time, not inside async callbacks
   const cachedToken = useState<string | null>('convex:token')
+  const currentScope = import.meta.client ? getCurrentScope() : undefined
+  assertConvexComposableScope('useConvexQuery', import.meta.client, currentScope)
 
   // Use Nuxt's useAsyncData for SSR + hydration
   // Note: Return null (not undefined) when skipped to avoid Nuxt warning about
@@ -301,7 +301,7 @@ function buildConvexQuery<
     },
     {
       server,
-      lazy,
+      lazy: resolveImmediately,
       // Wrap default to handle undefined → null conversion for type compatibility.
       default: () => {
         if (keepPreviousData && lastSettledData.value !== null) {
@@ -330,7 +330,7 @@ function buildConvexQuery<
   // === Create our own pending/status with correct semantics ===
   // Nuxt's useAsyncData has different semantics than what we want:
   // - server: false → pending=false on SSR (but we want pending=true, data will load on client)
-  // - lazy: true on client nav → may show pending=false (but we want pending=true until data arrives)
+  // - immediate resolve on client nav → may show pending=false (but we want pending=true until data arrives)
 
   const pending = computed((): boolean => {
     if (isSkipped.value) return false
@@ -346,9 +346,9 @@ function buildConvexQuery<
       if (!hasData && !hasSettled) return true
     }
 
-    // For lazy: true on client, show pending until data arrives
+    // For immediate resolve on client, show pending until data arrives
     // This handles the case where navigation is instant but data is still loading
-    if (lazy && import.meta.client && !hasData && !hasSettled) {
+    if (resolveImmediately && import.meta.client && !hasData && !hasSettled) {
       return true
     }
 
@@ -367,7 +367,7 @@ function buildConvexQuery<
 
   // Track whether this component instance has registered with the subscription cache
   let registeredCacheKey: string | null = null
-  const cleanupScope = import.meta.client && subscribe ? getCurrentScope() : undefined
+  const cleanupScope = import.meta.client && subscribe ? currentScope : undefined
   let stopSharedDataWatch: WatchStopHandle | null = null
   let stopSharedErrorWatch: WatchStopHandle | null = null
 
@@ -529,7 +529,7 @@ function buildConvexQuery<
             data: asyncData.data.value,
             hasSubscription: true,
             options: {
-              lazy,
+              immediate: resolveImmediately,
               server,
               subscribe,
               unauthenticated,
@@ -608,13 +608,6 @@ function buildConvexQuery<
       }
     })
   }
-  else if (import.meta.client && subscribe && import.meta.dev) {
-    console.warn(
-      `[useConvexQuery] Real-time subscriptions require a Vue component/effect scope for cleanup. ` +
-        `Detected usage outside a component (e.g. route middleware/plugin). ` +
-        `Falling back to one-shot query only. Pass { subscribe: false } to silence this warning.`,
-    )
-  }
 
   // Determine when the promise should resolve based on options
   let resolvePromise: Promise<void>
@@ -638,8 +631,8 @@ function buildConvexQuery<
     if (hasExistingData) {
       // Already have data (from SSR hydration or cache)
       resolvePromise = Promise.resolve()
-    } else if (lazy) {
-      // lazy: true - resolve immediately, data loads in background
+    } else if (resolveImmediately) {
+      // Internal immediate resolve mode: resolve immediately while data loads in background.
       resolvePromise = Promise.resolve()
     } else {
       // Wait for asyncData to complete
@@ -680,19 +673,7 @@ export async function useConvexQuery<
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
 ): Promise<UseConvexQueryData<DataT>> {
-  const { resultData, resolvePromise } = buildConvexQuery(query, args, options, false)
+  const { resultData, resolvePromise } = createConvexQueryState(query, args, options, false)
   await resolvePromise
   return resultData
-}
-
-export function useConvexQueryLazy<
-  Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
-  DataT = FunctionReturnType<Query>,
->(
-  query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
-): UseConvexQueryData<DataT> {
-  return buildConvexQuery(query, args, options, true).resultData
 }

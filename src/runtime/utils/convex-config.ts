@@ -73,7 +73,7 @@ export function resolveConvexSiteUrl(input: ResolveConvexSiteUrlInput): ResolveC
 
 export function getSiteUrlResolutionHint(url?: string | null): string {
   if (!url) {
-    return 'Set `convex.url` (or `CONVEX_URL`) first, or provide `convex.siteUrl` explicitly.'
+    return 'Set `convex.url` (or `NUXT_PUBLIC_CONVEX_URL` / `CONVEX_URL`) first, or provide `convex.siteUrl` (or `NUXT_PUBLIC_CONVEX_SITE_URL` / `CONVEX_SITE_URL`) explicitly.'
   }
 
   if (url.includes('localhost') || url.includes('127.0.0.1')) {

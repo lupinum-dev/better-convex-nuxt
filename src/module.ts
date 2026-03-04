@@ -239,8 +239,8 @@ export default defineNuxtModule<ModuleOptions>({
     },
   },
   defaults: {
-    url: process.env.CONVEX_URL,
-    siteUrl: process.env.CONVEX_SITE_URL,
+    url: process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,
+    siteUrl: process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL,
     auth: {
       enabled: true,
       routeProtection: {
@@ -438,7 +438,6 @@ export {}
       },
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
-      { name: 'useConvexQueryLazy', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
         name: 'defineSharedConvexQuery',
@@ -447,10 +446,6 @@ export {}
       { name: 'useConvexRpc', from: resolver.resolve('./runtime/composables/useConvexRpc') },
       {
         name: 'useConvexPaginatedQuery',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'useConvexPaginatedQueryLazy',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
       {

@@ -5,25 +5,16 @@ definePageMeta({
 </script>
 
 <template>
-  <div data-testid="lazy-hub" class="query-hub">
+  <div data-testid="query-hub" class="query-hub">
     <h1>Query Lab</h1>
-    <p class="description">Test query behavior across server mode and execution API</p>
+    <p class="description">Test blocking query behavior across server modes.</p>
 
     <section class="section">
-      <h2>Server + API Mode Combinations</h2>
+      <h2>Server Mode Combinations</h2>
       <nav class="nav-links">
         <NuxtLink
-          to="/labs/query/server-false-lazy-true"
-          data-testid="link-server-false-lazy-true"
-          class="nav-link"
-        >
-          <span class="link-label">server: false + useConvexQueryLazy</span>
-          <span class="hint">No SSR, non-blocking client navigation</span>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/labs/query/server-false-lazy-false"
-          data-testid="link-server-false-lazy-false"
+          to="/labs/query/server-false-blocking"
+          data-testid="link-server-false-blocking"
           class="nav-link"
         >
           <span class="link-label">server: false + await useConvexQuery</span>
@@ -31,21 +22,12 @@ definePageMeta({
         </NuxtLink>
 
         <NuxtLink
-          to="/labs/query/server-true-lazy-true"
-          data-testid="link-server-true-lazy-true"
+          to="/labs/query/server-true-blocking"
+          data-testid="link-server-true-blocking"
           class="nav-link best"
         >
-          <span class="link-label">server: true + useConvexQueryLazy</span>
-          <span class="hint">SSR + non-blocking client nav (recommended)</span>
-        </NuxtLink>
-
-        <NuxtLink
-          to="/labs/query/server-true-lazy-false"
-          data-testid="link-server-true-lazy-false"
-          class="nav-link"
-        >
           <span class="link-label">server: true + await useConvexQuery</span>
-          <span class="hint">SSR + client nav blocked</span>
+          <span class="hint">SSR + hydration-ready client navigation</span>
         </NuxtLink>
       </nav>
     </section>
@@ -69,18 +51,12 @@ definePageMeta({
         <thead>
           <tr>
             <th>server</th>
-            <th>API mode</th>
+            <th>API call</th>
             <th>SSR HTML</th>
             <th>Client Nav</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>false</td>
-            <td><code>useConvexQueryLazy</code></td>
-            <td>pending=true</td>
-            <td>instant, loading state</td>
-          </tr>
           <tr>
             <td>false</td>
             <td><code>await useConvexQuery</code></td>
@@ -89,15 +65,9 @@ definePageMeta({
           </tr>
           <tr class="highlight">
             <td>true</td>
-            <td><code>useConvexQueryLazy</code></td>
-            <td>hasData=true</td>
-            <td>instant, loading state</td>
-          </tr>
-          <tr>
-            <td>true</td>
             <td><code>await useConvexQuery</code></td>
             <td>hasData=true</td>
-            <td>blocked until data</td>
+            <td>ready on hydration</td>
           </tr>
         </tbody>
       </table>

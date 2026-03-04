@@ -24,7 +24,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import { useRouter, useRuntimeConfig } from '#imports'
 import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
 
-import { useConvexQueryLazy } from './useConvexQuery'
+import { createConvexQueryState } from './useConvexQuery'
 
 // ============================================
 // TYPES
@@ -150,7 +150,7 @@ export function createPermissions<
    */
   function usePermissions(): UsePermissionsReturn<TPermission, TContext> {
     // Fetch permission context from Convex
-    const { data: permissionContext, pending, error } = useConvexQueryLazy(query, {})
+    const { data: permissionContext, pending, error } = createConvexQueryState(query, {}, undefined, true).resultData
     const runtimeConfig = useRuntimeConfig()
 
     // Build context object for checkPermission

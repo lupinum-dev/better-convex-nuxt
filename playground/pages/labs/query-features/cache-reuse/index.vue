@@ -61,7 +61,7 @@ async function seedDemoNotes() {
     {
       title: 'Nuxt 4 + Convex Instant Navigation',
       content:
-        'Use useNuxtData with getQueryKey to synchronously read list query results and seed a detail page default. Combine that with useConvexQueryLazy so route navigation does not block while the full query fetches in the background.',
+        'Use useNuxtData with getQueryKey to synchronously read list query results and seed a detail page default. Combine that with useConvexQuery so route navigation does not block while the full query fetches in the background.',
     },
     {
       title: 'Vue 3.5 Cleanup Patterns',

@@ -26,6 +26,9 @@ importers:
       defu:
         specifier: ^6.1.4
         version: 6.1.4
+      h3:
+        specifier: 1.15.5
+        version: 1.15.5
       ohash:
         specifier: ^2.0.11
         version: 2.0.11

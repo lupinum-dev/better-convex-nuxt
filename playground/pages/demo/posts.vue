@@ -193,7 +193,7 @@ const {
   pending,
   error,
   isLoading,
-} = useConvexQueryLazy(api.posts.list, queryArgs, {
+} = await useConvexQuery(api.posts.list, queryArgs, {
   })
 
 // New post form

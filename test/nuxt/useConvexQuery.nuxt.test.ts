@@ -1,10 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import { reactive, ref } from 'vue'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { MaybeRefOrGetter } from 'vue'
 
-import { useConvexQuery, useConvexQueryLazy } from '../../src/runtime/composables/useConvexQuery'
+import {
+  createConvexQueryState,
+  useConvexQuery,
+  type UseConvexQueryOptions,
+} from '../../src/runtime/composables/useConvexQuery'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { waitFor } from '../helpers/wait-for'
+
+function useConvexQueryState<
+  Query extends FunctionReference<'query'>,
+  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+) {
+  return createConvexQueryState<Query, Args, DataT>(query, args, options, true).resultData
+}
 
 describe('useConvexQuery composables (Nuxt runtime)', () => {
   it('useConvexQuery blocks until first value arrives', async () => {
@@ -37,7 +55,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
   it('returns idle + pending=false immediately for disabled nullable args', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
     const { result } = await captureInNuxt(
-      () => useConvexQueryLazy(query, null),
+      () => useConvexQueryState(query, null),
       { convex: new MockConvexClient() },
     )
 
@@ -51,7 +69,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:list:enabled-false')
 
     const { result } = await captureInNuxt(
-      () => useConvexQueryLazy(query, {}, { enabled: false }),
+      () => useConvexQueryState(query, {}, { enabled: false }),
       { convex },
     )
 
@@ -65,7 +83,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:list:default-loading')
 
     const { result } = await captureInNuxt(() =>
-      useConvexQueryLazy(query, {}, {
+      useConvexQueryState(query, {}, {
         default: () => [{ _id: 'default', title: 'Loading placeholder' }],
       }), { convex })
 
@@ -85,10 +103,10 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('counter:get:divergent')
 
     const { result, wrapper } = await captureInNuxt(() => {
-      const parent = useConvexQueryLazy(query, {}, {
+      const parent = useConvexQueryState(query, {}, {
         transform: input => input.count,
       })
-      const child = useConvexQueryLazy(query, {}, {
+      const child = useConvexQueryState(query, {}, {
         transform: input => `count:${input.count}`,
       })
       return { parent, child }
@@ -116,8 +134,8 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const lateArgs = ref<Record<string, never> | null>(null)
-      const primary = useConvexQueryLazy(query, {})
-      const late = useConvexQueryLazy(query, lateArgs)
+      const primary = useConvexQueryState(query, {})
+      const late = useConvexQueryState(query, lateArgs)
       return { lateArgs, primary, late }
     }, { convex })
 
@@ -143,7 +161,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const args = ref({ filter: { tag: 'alpha' } })
-      const queryResult = useConvexQueryLazy(query, args)
+      const queryResult = useConvexQueryState(query, args)
       return { args, queryResult }
     }, { convex })
 
@@ -170,7 +188,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const tag = ref('alpha')
-      const queryResult = useConvexQueryLazy(query, () => ({
+      const queryResult = useConvexQueryState(query, () => ({
         filter: { tag: tag.value },
       }))
       return { tag, queryResult }
@@ -199,7 +217,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const tag = ref('alpha')
-      const queryResult = useConvexQueryLazy(query, {
+      const queryResult = useConvexQueryState(query, {
         filter: {
           tag,
         },
@@ -226,7 +244,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const args = reactive({ filter: { tag: 'alpha' as string, sort: 'asc' as string } })
-      const queryResult = useConvexQueryLazy(query, args)
+      const queryResult = useConvexQueryState(query, args)
       return { args, queryResult }
     }, { convex })
 
@@ -255,7 +273,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:list:default-transform')
 
     const { result } = await captureInNuxt(() =>
-      useConvexQueryLazy(query, {}, {
+      useConvexQueryState(query, {}, {
         default: () => [{ _id: 'default', title: 'loading' }],
         transform: (items: Array<{ _id: string; title: string }>) =>
           items.map(item => ({ ...item, title: item.title.toUpperCase() })),
@@ -271,7 +289,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const tag = ref('alpha')
-      const queryResult = useConvexQueryLazy(
+      const queryResult = useConvexQueryState(
         query,
         () => ({ filter: { tag: tag.value } }),
         { keepPreviousData: true },
@@ -293,12 +311,12 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     await waitFor(() => result.queryResult.data.value?.tag === 'beta')
   })
 
-  it('uses pending status contract for server:false in lazy mode until first data', async () => {
+  it('uses pending status contract for server:false until first data', async () => {
     const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:server-false-lazy')
+    const query = mockFnRef<'query'>('notes:list:server-false-blocking')
 
     const { result } = await captureInNuxt(
-      () => useConvexQueryLazy(query, {}, { server: false }),
+      () => useConvexQueryState(query, {}, { server: false }),
       { convex },
     )
 
@@ -316,8 +334,8 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('counter:get:refcount')
 
-    const first = await captureInNuxt(() => useConvexQueryLazy(query, {}), { convex })
-    const second = await captureInNuxt(() => useConvexQueryLazy(query, {}), { convex })
+    const first = await captureInNuxt(() => useConvexQueryState(query, {}), { convex })
+    const second = await captureInNuxt(() => useConvexQueryState(query, {}), { convex })
 
     await waitFor(() => convex.calls.onUpdate.length >= 2)
     convex.emitQueryResult(query, {}, { count: 1 })

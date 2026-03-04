@@ -1,4 +1,4 @@
-import { navigateTo, useNuxtApp, useRoute, useRuntimeConfig } from '#imports'
+import { navigateTo, useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { useConvexAuth } from '../composables/useConvexAuth'
 import { isConvexUnauthorizedError } from './auth-unauthorized-core'
@@ -52,12 +52,21 @@ export async function handleUnauthorizedAuthFailure(options: {
   if (!authConfig.enabled || !unauthorized.enabled) return false
   if (options.source === 'query' && !unauthorized.includeQueries) return false
 
-  const route = useRoute()
+  const nuxtApp = useNuxtApp()
+  const routerRoute = nuxtApp.$router?.currentRoute?.value
+  const compatRoute = (nuxtApp as { _route?: { path?: string, fullPath?: string } })._route
+  const locationLike = (globalThis as { location?: Location }).location
+  const currentRoute = routerRoute ?? {
+    path: compatRoute?.path ?? locationLike?.pathname ?? '/',
+    fullPath:
+      compatRoute?.fullPath
+      ?? `${locationLike?.pathname ?? '/'}${locationLike?.search ?? ''}${locationLike?.hash ?? ''}`,
+  }
   const redirectTo = unauthorized.redirectTo
   const redirectPath = normalizeRedirectTargetPath(redirectTo)
-  if (route.path === redirectPath) return false
+  if (currentRoute.path === redirectPath) return false
 
-  const dedupeKey = `${options.source}:${redirectPath}:${route.fullPath}`
+  const dedupeKey = `${options.source}:${redirectPath}:${currentRoute.fullPath}`
   const now = Date.now()
   if (
     recoveryState.activeRecovery

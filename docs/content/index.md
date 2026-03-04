@@ -35,7 +35,7 @@ Full-stack Nuxt that [feels like cheating]{.text-primary}
 import { api } from "~~/convex/_generated/api";
 
 // Real-time subscription with SSR support
-const { data: tasks, status } = useConvexQuery(api.tasks.list, {
+const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
   status: "active",
 });
 
@@ -112,7 +112,7 @@ async function handleOAuth() {
 ```vue
 <script setup lang="ts">
 const { can, role } = usePermissions();
-const { data: post } = useConvexQuery(api.posts.get, { id: props.id });
+const { data: post } = await useConvexQuery(api.posts.get, { id: props.id });
 </script>
 
 <template>

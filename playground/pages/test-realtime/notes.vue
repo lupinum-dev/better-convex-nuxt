@@ -12,7 +12,7 @@ import type { Id } from '~/convex/_generated/dataModel'
  * - No page refresh needed - subscription handles updates
  */
 
-const { data, pending, status, error } = useConvexQueryLazy(
+const { data, pending, status, error } = await useConvexQuery(
   api.notes.list,
   {},
 )

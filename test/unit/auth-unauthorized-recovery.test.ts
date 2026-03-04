@@ -6,14 +6,12 @@ import {
 
 const navigateToMock = vi.fn(async (..._args: unknown[]) => {})
 const useNuxtAppMock = vi.fn()
-const useRouteMock = vi.fn()
 const useRuntimeConfigMock = vi.fn()
 const signOutMock = vi.fn(async () => {})
 
 vi.mock('#imports', () => ({
   navigateTo: (...args: unknown[]) => navigateToMock(...args),
   useNuxtApp: () => useNuxtAppMock(),
-  useRoute: () => useRouteMock(),
   useRuntimeConfig: () => useRuntimeConfigMock(),
 }))
 
@@ -47,9 +45,15 @@ describe('auth unauthorized recovery', () => {
   })
 
   it('skips recovery when already on the redirect path even with query params', async () => {
-    useRouteMock.mockReturnValue({
-      path: '/auth/signin',
-      fullPath: '/auth/signin?redirect=%2Fprotected',
+    useNuxtAppMock.mockReturnValue({
+      $router: {
+        currentRoute: {
+          value: {
+            path: '/auth/signin',
+            fullPath: '/auth/signin?redirect=%2Fprotected',
+          },
+        },
+      },
     })
 
     const handled = await handleUnauthorizedAuthFailure({
@@ -64,9 +68,15 @@ describe('auth unauthorized recovery', () => {
   })
 
   it('still signs out and redirects for unauthorized failures on other routes', async () => {
-    useRouteMock.mockReturnValue({
-      path: '/labs/protected',
-      fullPath: '/labs/protected?x=1',
+    useNuxtAppMock.mockReturnValue({
+      $router: {
+        currentRoute: {
+          value: {
+            path: '/labs/protected',
+            fullPath: '/labs/protected?x=1',
+          },
+        },
+      },
     })
 
     const handled = await handleUnauthorizedAuthFailure({

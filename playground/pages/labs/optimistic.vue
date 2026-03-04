@@ -25,7 +25,7 @@ definePageMeta({
  * 4. "Real-time update received" - when subscription confirms
  */
 
-const { data, pending, status } = useConvexQueryLazy(
+const { data, pending, status } = await useConvexQuery(
   api.notes.list,
   {},
   {},

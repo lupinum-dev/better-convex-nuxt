@@ -3,7 +3,6 @@ import { api } from '~~/convex/_generated/api'
 
 interface Props {
   serverOption: boolean
-  executionMode: 'lazy' | 'blocking'
   pageId: string
   title: string
   description: string
@@ -16,23 +15,14 @@ const props = withDefaults(defineProps<Props>(), {
 
 const setupStartedAt = import.meta.client ? performance.now() : 0
 
-const paginatedResult = props.executionMode === 'lazy'
-  ? useConvexPaginatedQueryLazy(
-      api.notes.listPaginated,
-      {},
-      {
-        initialNumItems: 3,
-        server: props.serverOption,
-      },
-    )
-  : await useConvexPaginatedQuery(
-      api.notes.listPaginated,
-      {},
-      {
-        initialNumItems: 3,
-        server: props.serverOption,
-      },
-    )
+const paginatedResult = await useConvexPaginatedQuery(
+  api.notes.listPaginated,
+  {},
+  {
+    initialNumItems: 3,
+    server: props.serverOption,
+  },
+)
 const { results, status, isLoading, loadMore, error } = paginatedResult
 
 if (import.meta.client) {
@@ -41,7 +31,7 @@ if (import.meta.client) {
   console.info(
     `[PaginationLab:${props.pageId}] setup resolved`,
     {
-      mode: props.executionMode,
+      mode: 'blocking',
       server: props.serverOption,
       elapsed: fmtMs(performance.now() - setupStartedAt),
       status: status.value,
@@ -55,7 +45,7 @@ if (import.meta.client) {
     console.info(
       `[PaginationLab:${props.pageId}] state change`,
       {
-        mode: props.executionMode,
+        mode: 'blocking',
         elapsed: fmtMs(performance.now() - setupStartedAt),
         status: `${String(prevStatus)} -> ${String(nextStatus)}`,
         isLoading: `${String(prevLoading)} -> ${String(nextLoading)}`,

@@ -20,7 +20,7 @@ definePageMeta({
 // Use ref with object - deep changes should trigger refetch
 const args = ref<{ query: string }>({ query: '' })
 
-const { data, pending, status } = useConvexQueryLazy(
+const { data, pending, status } = await useConvexQuery(
   api.notes.search,
   args,
 )

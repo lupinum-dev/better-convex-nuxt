@@ -5,7 +5,7 @@
  */
 
 import type { FunctionArgs, FunctionReference } from 'convex/server'
-import { ref, computed, onScopeDispose, type Ref, type ComputedRef } from 'vue'
+import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
@@ -256,12 +256,15 @@ export function useConvexFileUpload<
   }
 
   // Cleanup on scope dispose (component unmount)
-  onScopeDispose(() => {
-    if (currentAbortController) {
-      currentAbortController.abort()
-      currentAbortController = null
-    }
-  })
+  const currentScope = getCurrentScope()
+  if (currentScope) {
+    onScopeDispose(() => {
+      if (currentAbortController) {
+        currentAbortController.abort()
+        currentAbortController = null
+      }
+    })
+  }
 
   // The upload function
   const upload = async (file: File, mutationArgs?: FunctionArgs<Mutation>): Promise<string> => {

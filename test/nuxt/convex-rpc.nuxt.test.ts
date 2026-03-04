@@ -6,6 +6,20 @@ import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
 describe('useConvexRpc (Nuxt runtime)', () => {
+  it('works outside component scope via runWithContext (middleware-style)', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('testing:rpc-outside-scope')
+    convex.setQueryHandler('testing:rpc-outside-scope', async (args) => ({ ok: true, args }))
+
+    const { nuxtApp } = await captureInNuxt(() => true, { convex })
+    const once = nuxtApp.runWithContext(() => useConvexRpc({ timeoutMs: 100 }))
+
+    await expect(once.query(query, { q: 'ok' } as never)).resolves.toEqual({
+      ok: true,
+      args: { q: 'ok' },
+    })
+  })
+
   it('executes query/mutation/action one-shot calls', async () => {
     const convex = new MockConvexClient()
 

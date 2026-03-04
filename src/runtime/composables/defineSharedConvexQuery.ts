@@ -5,7 +5,7 @@ import { useNuxtApp } from '#imports'
 import { getFunctionName, hashArgs } from '../utils/convex-shared'
 
 import {
-  useConvexQueryLazy,
+  createConvexQueryState,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
@@ -125,11 +125,12 @@ export function defineSharedConvexQuery<
       return existing.value as UseConvexQueryData<DataT>
     }
 
-    const created = useConvexQueryLazy<Query, Args, DataT>(
+    const created = createConvexQueryState<Query, Args, DataT>(
       config.query,
       config.args,
       config.options,
-    )
+      true,
+    ).resultData
 
     registry.entries.set(config.key, {
       value: created,

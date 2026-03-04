@@ -20,7 +20,7 @@ const DEFAULT_DATA = [
   { _id: 'placeholder-1', title: 'Loading...', content: 'Please wait', _creationTime: 0 },
 ]
 
-const { data, pending, status, error } = useConvexQueryLazy(
+const { data, pending, status, error } = await useConvexQuery(
   api.notes.list,
   {},
   {

@@ -6,6 +6,7 @@ import {
   ref,
   computed,
   watch,
+  getCurrentScope,
   onScopeDispose,
   toValue,
   type ComputedRef,
@@ -35,6 +36,7 @@ import type { PaginatedQueryReference, PaginatedQueryArgs, PaginatedQueryItem } 
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { deepUnref } from '../utils/deep-unref'
+import { assertConvexComposableScope } from '../utils/composable-scope'
 
 // Re-export optimistic update helpers and types
 export {
@@ -245,9 +247,6 @@ interface StablePaginationOpts {
  *   { initialNumItems: 10 }
  * )
  *
- * // Lazy loading (instant navigation, shows loading state)
- * const { results, status } = useConvexPaginatedQueryLazy(api.messages.list, {}, { initialNumItems: 10 })
- *
  * // With transform
  * const { results } = await useConvexPaginatedQuery(
  *   api.messages.list,
@@ -274,7 +273,7 @@ interface StablePaginationOpts {
  * </template>
  * ```
  */
-function buildConvexPaginatedQuery<
+export function createConvexPaginatedQueryState<
   Query extends PaginatedQueryReference,
   Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
@@ -282,7 +281,7 @@ function buildConvexPaginatedQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
-  lazy = false,
+  resolveImmediately = false,
 ): BuildConvexPaginatedQueryResult<TransformedItem> {
   type Item = PaginatedQueryItem<Query>
 
@@ -297,6 +296,9 @@ function buildConvexPaginatedQuery<
   const unauthenticated = options?.unauthenticated ?? defaults?.unauthenticated ?? false
   const keepPreviousData = options?.keepPreviousData ?? false
   const deepUnrefArgs = options?.deepUnrefArgs ?? true
+  const cleanupScope = import.meta.client ? getCurrentScope() : undefined
+  assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
+  const subscribeRealtime = subscribe
 
   // Get function name (needed for cache key)
   const fnName = getFunctionName(query)
@@ -470,7 +472,7 @@ function buildConvexPaginatedQuery<
   // Start subscription for a specific page
   function startPageSubscription(pageIndex: number) {
     if (import.meta.server) return
-    if (!subscribe) return // Skip if subscriptions disabled
+    if (!subscribeRealtime) return // Skip if subscriptions disabled
 
     const page = pages.value[pageIndex]
     if (!page) return
@@ -601,7 +603,7 @@ function buildConvexPaginatedQuery<
     // Start fetching the new page (index in pages ref, not including first page from asyncData)
     const newPageIndex = pages.value.length - 1
 
-    if (import.meta.client && subscribe) {
+    if (import.meta.client && subscribeRealtime) {
       const convex = nuxtApp.$convex as ConvexClient | undefined
       if (convex) {
         const currentArgs = getArgs() as PaginatedQueryArgs<Query>
@@ -685,7 +687,7 @@ function buildConvexPaginatedQuery<
   // Uses asyncData/firstPageRealtimeData for first page state, pages ref for additional pages
   // NOTE: Nuxt's useAsyncData has different semantics than what we want:
   // - server: false → pending=false on SSR (but we want LoadingFirstPage, data will load on client)
-  // - lazy: true on client nav → may show pending=false (but we want LoadingFirstPage until data arrives)
+  // - immediate resolve on client nav → may show pending=false (but we want LoadingFirstPage until data arrives)
   const status = computed((): PaginationStatus => {
     if (isSkipped.value) return 'Exhausted'
 
@@ -704,9 +706,9 @@ function buildConvexPaginatedQuery<
       return 'LoadingFirstPage'
     }
 
-    // For lazy: true on client, show LoadingFirstPage until data arrives
+    // For immediate resolve on client, show LoadingFirstPage until data arrives
     // This handles the case where navigation is instant but data is still loading
-    if (lazy && import.meta.client && !firstPageData) {
+    if (resolveImmediately && import.meta.client && !firstPageData) {
       return 'LoadingFirstPage'
     }
 
@@ -824,7 +826,7 @@ function buildConvexPaginatedQuery<
 
       try {
         // On client-side navigation, use WebSocket subscription in live mode only
-        if (import.meta.client && subscribe) {
+        if (import.meta.client && subscribeRealtime) {
           const convex = nuxtApp.$convex as ConvexClient | undefined
           if (convex) {
             const currentArgs = getArgs() as PaginatedQueryArgs<Query>
@@ -847,7 +849,7 @@ function buildConvexPaginatedQuery<
     },
     {
       server,
-      lazy,
+      lazy: resolveImmediately,
       dedupe: 'defer', // Use cached data if same key exists, avoids "different handler" warning
       // Convex payloads are replaced immutably; deep Vue traversal is unnecessary overhead.
       deep: false,
@@ -867,7 +869,7 @@ function buildConvexPaginatedQuery<
   // Start subscription for the first page (for real-time updates)
   function startFirstPageSubscription() {
     if (import.meta.server) return
-    if (!subscribe) return // Skip if subscriptions disabled
+    if (!subscribeRealtime) return // Skip if subscriptions disabled
 
     const convex = nuxtApp.$convex as ConvexClient | undefined
     if (!convex) {
@@ -965,7 +967,7 @@ function buildConvexPaginatedQuery<
   // Client-side subscription setup
   if (import.meta.client) {
     const startAllSubscriptions = () => {
-      if (!subscribe) {
+      if (!subscribeRealtime) {
         return
       }
       // Start first page subscription
@@ -978,7 +980,7 @@ function buildConvexPaginatedQuery<
     }
 
     // Start subscriptions after hydration
-    if (!isSkipped.value) {
+    if (!isSkipped.value && subscribeRealtime) {
       startAllSubscriptions()
     }
 
@@ -1008,16 +1010,18 @@ function buildConvexPaginatedQuery<
         await asyncData.refresh()
 
         // Start subscriptions in live mode
-        if (subscribe) {
+        if (subscribeRealtime) {
           startAllSubscriptions()
         }
       },
     )
 
-    // Cleanup on unmount
-    onScopeDispose(() => {
-      cleanupAllSubscriptions()
-    })
+    // Cleanup on unmount/scope dispose.
+    if (cleanupScope) {
+      onScopeDispose(() => {
+        cleanupAllSubscriptions()
+      })
+    }
   }
 
   // === Methods ===
@@ -1072,7 +1076,7 @@ function buildConvexPaginatedQuery<
     await asyncData.refresh()
 
     // Restart subscriptions
-    if (import.meta.client && subscribe && !isSkipped.value) {
+    if (import.meta.client && subscribeRealtime && !isSkipped.value) {
       startFirstPageSubscription()
     }
   }
@@ -1105,8 +1109,7 @@ function buildConvexPaginatedQuery<
       resolvePromise = Promise.resolve()
     } else {
       // server: true - wait for asyncData (useAsyncData handles the blocking)
-      // NOTE: On SSR, we ignore `lazy` and ALWAYS wait for the fetch.
-      // The `lazy` option only affects CLIENT navigation behavior.
+      // NOTE: On SSR, immediate resolve is ignored and we always wait for fetch.
       resolvePromise = asyncData.then(() => {})
     }
   } else {
@@ -1117,14 +1120,14 @@ function buildConvexPaginatedQuery<
     if (hasExistingData) {
       // Already have data (from SSR hydration)
       resolvePromise = Promise.resolve()
-    } else if (lazy) {
-      // lazy: true - resolve immediately, data loads in background
+    } else if (resolveImmediately) {
+      // Internal immediate resolve mode: resolve immediately while data loads in background.
       resolvePromise = Promise.resolve()
     } else if (!server && isInitialHydration) {
       // server: false during initial hydration - don't block
       resolvePromise = Promise.resolve()
-    } else if (!subscribe) {
-      // subscribe: false - asyncData already uses HTTP-only transport
+    } else if (!subscribeRealtime) {
+      // Real-time subscriptions are disabled - asyncData uses HTTP-only transport.
       resolvePromise = asyncData.then(() => {})
     } else {
       // Wait for asyncData (which uses subscription on client)
@@ -1163,21 +1166,9 @@ export async function useConvexPaginatedQuery<
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ): Promise<UseConvexPaginatedQueryData<TransformedItem>> {
-  const { resultData, resolvePromise } = buildConvexPaginatedQuery(query, args, options, false)
+  const { resultData, resolvePromise } = createConvexPaginatedQueryState(query, args, options, false)
   await resolvePromise
   return resultData
-}
-
-export function useConvexPaginatedQueryLazy<
-  Query extends PaginatedQueryReference,
-  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
-  TransformedItem = PaginatedQueryItem<Query>,
->(
-  query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
-): UseConvexPaginatedQueryData<TransformedItem> {
-  return buildConvexPaginatedQuery(query, args, options, true).resultData
 }
 
 function setAsyncDataError(asyncData: { error: Ref<NuxtError | null | undefined> }, error: Error | null) {

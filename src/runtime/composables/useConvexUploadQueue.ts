@@ -1,5 +1,5 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
-import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { toCallResult, type CallResult } from '../utils/call-result'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
@@ -484,9 +484,12 @@ export function useConvexUploadQueue<
     maybeEmitQueueIdle()
   }
 
-  onScopeDispose(() => {
-    reset()
-  })
+  const currentScope = getCurrentScope()
+  if (currentScope) {
+    onScopeDispose(() => {
+      reset()
+    })
+  }
 
   return {
     items,

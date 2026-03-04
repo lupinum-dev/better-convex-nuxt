@@ -9,7 +9,7 @@ let mutationRegistryPromise: Promise<void> | null = null
 let mutationRegistryLoadFailed = false
 
 /**
- * Load the mutation registry module (lazy, cached).
+ * Load the mutation registry module (on-demand, cached).
  * Only loads in dev mode on client.
  */
 function loadRegistry(): void {

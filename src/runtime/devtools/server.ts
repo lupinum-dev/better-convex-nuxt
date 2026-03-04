@@ -2,7 +2,7 @@
  * Server handler for DevTools UI.
  * Serves the built Vue devtools application and API endpoints.
  */
-import { defineEventHandler, setHeader, getRequestURL, createError } from 'h3'
+import { defineEventHandler, setHeader, getRequestURL, createError, type H3Event } from 'h3'
 import { readFileSync, existsSync } from 'node:fs'
 import { useRuntimeConfig } from '#imports'
 import { getAuthProxyStats, clearAuthProxyStats } from './auth-proxy-registry'
@@ -27,7 +27,7 @@ function getMimeType(path: string): string {
   return mimeTypes[ext] || 'application/octet-stream'
 }
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event: H3Event) => {
   if (!import.meta.dev) {
     throw createError({ statusCode: 404, statusMessage: 'Not Found' })
   }

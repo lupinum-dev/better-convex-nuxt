@@ -1,11 +1,36 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import type { FunctionReference, PaginationOptions, PaginationResult } from 'convex/server'
+import type { MaybeRefOrGetter } from 'vue'
 
-import { useConvexPaginatedQuery, useConvexPaginatedQueryLazy } from '../../src/runtime/composables/useConvexPaginatedQuery'
+import {
+  createConvexPaginatedQueryState,
+  useConvexPaginatedQuery,
+  type PaginatedQueryArgs,
+  type PaginatedQueryReference,
+  type PaginatedQueryItem,
+  type UseConvexPaginatedQueryOptions,
+} from '../../src/runtime/composables/useConvexPaginatedQuery'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
+
+function useConvexPaginatedQueryState<
+  Query extends PaginatedQueryReference,
+  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
+  TransformedItem = PaginatedQueryItem<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
+) {
+  return createConvexPaginatedQueryState<Query, Args, TransformedItem>(
+    query,
+    args,
+    options,
+    true,
+  ).resultData
+}
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -47,7 +72,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
   it('returns exhausted + not loading for disabled nullable args', async () => {
     const query = mockFnRef<'query'>('notes:listPaginated:disabled-static')
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryLazy(query as never, null, { initialNumItems: 3 }),
+      () => useConvexPaginatedQueryState(query as never, null, { initialNumItems: 3 }),
       { convex: new MockConvexClient() },
     )
 
@@ -61,7 +86,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:listPaginated:enabled-false')
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryLazy(query as never, {}, { initialNumItems: 3, enabled: false }),
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 3, enabled: false }),
       { convex },
     )
 
@@ -76,7 +101,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:listPaginated:state-machine')
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryLazy(query as never, {}, { initialNumItems: 2 }),
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 }),
       { convex },
     )
 
@@ -164,7 +189,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryLazy(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
       { convex: new MockConvexClient() },
     )
 
@@ -232,7 +257,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryLazy(query as never, {}, { initialNumItems: 1, subscribe: false }),
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 1, subscribe: false }),
       { convex: new MockConvexClient() },
     )
 
@@ -256,7 +281,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:listPaginated:clear')
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryLazy(query as never, {}, { initialNumItems: 2 }),
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 }),
       { convex },
     )
 
@@ -282,7 +307,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () =>
-        useConvexPaginatedQueryLazy(
+        useConvexPaginatedQueryState(
           query,
           {},
           {
@@ -358,13 +383,13 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(result.results.value).toEqual(['n1:A*', 'n2:B', 'n3:C'])
   })
 
-  it('keeps LoadingFirstPage contract for lazy/server options until first data', async () => {
+  it('keeps LoadingFirstPage contract for server options until first data', async () => {
     const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:listPaginated:lazy-server')
+    const query = mockFnRef<'query'>('notes:listPaginated:blocking-server')
 
     const { result } = await captureInNuxt(
       () =>
-        useConvexPaginatedQueryLazy(
+        useConvexPaginatedQueryState(
           query as never,
           {},
           {
@@ -378,7 +403,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(result.isLoading.value).toBe(true)
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
-    convex.emitQueryResultByPath('notes:listPaginated:lazy-server', {
+    convex.emitQueryResultByPath('notes:listPaginated:blocking-server', {
       page: [{ _id: 'n1', title: 'A' }],
       isDone: true,
       continueCursor: null,
@@ -393,7 +418,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(() => {
       const status = ref<'active' | 'archived'>('active')
-      const queryResult = useConvexPaginatedQueryLazy(
+      const queryResult = useConvexPaginatedQueryState(
         query as never,
         () => ({ status: status.value }) as never,
         { initialNumItems: 2, keepPreviousData: true },
@@ -461,7 +486,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () =>
-        useConvexPaginatedQueryLazy(
+        useConvexPaginatedQueryState(
           query as never,
           {},
           {

@@ -19,8 +19,8 @@ export type QueryStatus = 'pending' | 'success' | 'error' | 'idle'
 export type DataSource = 'ssr' | 'websocket' | 'cache'
 
 export interface QueryOptions {
-  /** Whether the query was configured with lazy: true */
-  lazy: boolean
+  /** Whether the query was configured for immediate (non-blocking) resolve. */
+  immediate: boolean
   /** Whether the query fetches on server (SSR) */
   server: boolean
   /** Whether the query has an active subscription */

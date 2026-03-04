@@ -1,6 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, toValue, type ComputedRef, type MaybeRef } from 'vue'
-import { useConvexQueryLazy } from './useConvexQuery'
+import { createConvexQueryState } from './useConvexQuery'
 
 /**
  * Composable to retrieve a signed URL for a file in Convex storage.
@@ -85,14 +85,16 @@ export function useConvexStorageUrl(
   getUrlQuery: FunctionReference<'query'>,
   storageId: MaybeRef<string | null | undefined>,
 ): ComputedRef<string | null> {
-  // Use useConvexQueryLazy with skip behavior when storageId is missing
-  const { data } = useConvexQueryLazy(
+  // Build query state directly with non-blocking mode and skip behavior.
+  const { data } = createConvexQueryState(
     getUrlQuery,
     computed(() => {
       const id = toValue(storageId)
       return id ? { storageId: id } : undefined
     }),
-  )
+    undefined,
+    true,
+  ).resultData
 
   return computed(() => data.value ?? null)
 }

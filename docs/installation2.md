@@ -173,7 +173,7 @@ app/app.vue
 <script setup lang="ts">
 import { api } from '~~/convex/_generated/api'
 
-const { data, status, error }= useConvexQuery(api.tasks.list, { })
+const { data, status, error }= await useConvexQuery(api.tasks.list, { })
 </script>
 
 <template>
