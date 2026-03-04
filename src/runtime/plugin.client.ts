@@ -25,10 +25,11 @@ type AuthClientWithConvex = ReturnType<typeof createAuthClient> & {
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
+  const publicConvex = config.public.convex as Record<string, unknown> | undefined
+  const logLevel = getLogLevel(publicConvex)
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (client)')
-  const debugConfig = (config.public.convex?.debug as {
+  const debugConfig = (publicConvex?.debug as {
     authFlow?: boolean
     clientAuthFlow?: boolean
   } | undefined)

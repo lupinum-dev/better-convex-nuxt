@@ -563,7 +563,13 @@ export function getSharedLogger(level: LogLevel): Logger {
 /**
  * Get log level from runtime config.
  */
-export function getLogLevel(config: Record<string, unknown>): LogLevel {
-  const logging = config.logging as LogLevel | undefined
+export function getLogLevel(config: unknown): LogLevel {
+  const logging = (
+    config
+    && typeof config === 'object'
+    && 'logging' in config
+    ? (config as { logging?: LogLevel }).logging
+    : undefined
+  ) as LogLevel | undefined
   return logging ?? false
 }

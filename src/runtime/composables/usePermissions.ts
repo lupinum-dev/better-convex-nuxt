@@ -177,7 +177,8 @@ export function createPermissions<
     if (import.meta.dev) {
       let warnedPermissionSetupError = false
       watchEffect(() => {
-        const permissionsEnabled = Boolean(runtimeConfig.public.convex?.permissions)
+        const publicConvex = runtimeConfig.public.convex as Record<string, unknown> | undefined
+        const permissionsEnabled = Boolean(publicConvex?.permissions)
         if (!permissionsEnabled) return
         if (!error.value) return
         if (warnedPermissionSetupError) return

@@ -99,10 +99,11 @@ function buildPhase(
 export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
+  const publicConvex = config.public.convex as Record<string, unknown> | undefined
+  const logLevel = getLogLevel(publicConvex)
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (server)')
-  const debugConfig = (config.public.convex?.debug as {
+  const debugConfig = (publicConvex?.debug as {
     authFlow?: boolean
     serverAuthFlow?: boolean
   } | undefined)
