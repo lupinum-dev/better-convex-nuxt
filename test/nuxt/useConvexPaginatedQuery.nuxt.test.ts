@@ -64,19 +64,19 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     })
     const resolved = await blockingResult
 
-    expect(resolved.status.value).toBe('Exhausted')
+    expect(resolved.status.value).toBe('exhausted')
     expect(resolved.isLoading.value).toBe(false)
     expect(resolved.results.value).toEqual([{ _id: 'n1', title: 'A' }])
   })
 
-  it('returns exhausted + not loading for disabled nullable args', async () => {
+  it('returns idle + not loading for disabled nullable args', async () => {
     const query = mockFnRef<'query'>('notes:listPaginated:disabled-static')
     const { result } = await captureInNuxt(
       () => useConvexPaginatedQueryState(query as never, null, { initialNumItems: 3 }),
       { convex: new MockConvexClient() },
     )
 
-    expect(result.status.value).toBe('Exhausted')
+    expect(result.status.value).toBe('idle')
     expect(result.isLoading.value).toBe(false)
     expect(result.results.value).toEqual([])
   })
@@ -90,13 +90,13 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    expect(result.status.value).toBe('Exhausted')
+    expect(result.status.value).toBe('idle')
     expect(result.isLoading.value).toBe(false)
     expect(result.hasNextPage.value).toBe(false)
     expect(convex.calls.onUpdate.length).toBe(0)
   })
 
-  it('walks the full status machine: LoadingFirstPage -> CanLoadMore -> LoadingMore -> Exhausted', async () => {
+  it('walks the full status machine: loading-first-page -> ready -> loading-more -> exhausted', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:listPaginated:state-machine')
 
@@ -105,7 +105,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    expect(result.status.value).toBe('LoadingFirstPage')
+    expect(result.status.value).toBe('loading-first-page')
 
     convex.emitQueryResultWhere(
       ({ query: q, args }) => {
@@ -124,13 +124,13 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       },
     )
 
-    await waitFor(() => result.status.value === 'CanLoadMore')
-    expect(result.isLoadingFirstPage.value).toBe(false)
+    await waitFor(() => result.status.value === 'ready')
+    expect(result.isLoading.value).toBe(false)
     expect(result.hasNextPage.value).toBe(true)
 
     result.loadMore(2)
-    await waitFor(() => result.status.value === 'LoadingMore')
-    expect(result.isLoadingMore.value).toBe(true)
+    await waitFor(() => result.status.value === 'loading-more')
+    expect(result.isLoading.value).toBe(true)
     await waitFor(() =>
       convex.calls.onUpdate.some((call) => {
         const args = call.args as { paginationOpts?: { cursor?: string | null } }
@@ -152,9 +152,9 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       },
     )
 
-    await waitFor(() => result.status.value === 'Exhausted')
+    await waitFor(() => result.status.value === 'exhausted')
     expect(result.hasNextPage.value).toBe(false)
-    expect(result.isLoadingMore.value).toBe(false)
+    expect(result.isLoading.value).toBe(false)
     const finalResults = result.results.value as Array<{ _id: string }>
     expect(finalResults.map((item) => item._id)).toEqual(['n1', 'n2', 'n3'])
   })
@@ -276,29 +276,18 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(firstPageIds[0]).not.toBe(firstPageIds[firstPageIds.length - 1])
   })
 
-  it('clear() drops results and active subscriptions', async () => {
-    const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:listPaginated:clear')
-
+  it('reset() is the only reset primitive exposed (no clear)', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:shape')
     const { result } = await captureInNuxt(
       () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 }),
-      { convex },
+      { convex: new MockConvexClient() },
     )
 
-    await waitFor(() => convex.calls.onUpdate.length > 0)
-
-    convex.emitQueryResultByPath('notes:listPaginated:clear', {
-      page: [{ _id: 'n1', title: 'A' }],
-      isDone: true,
-      continueCursor: null,
-    })
-
-    await waitFor(() => result.results.value.length === 1)
-    result.clear()
-
-    expect(result.results.value).toEqual([])
-    expect(result.status.value).toBe('LoadingFirstPage')
-    expect(result.isLoading.value).toBe(true)
+    expect(typeof result.reset).toBe('function')
+    expect('clear' in (result as unknown as Record<string, unknown>)).toBe(false)
+    expect('isLoadingFirstPage' in (result as unknown as Record<string, unknown>)).toBe(false)
+    expect('isLoadingMore' in (result as unknown as Record<string, unknown>)).toBe(false)
+    expect('isRefreshing' in (result as unknown as Record<string, unknown>)).toBe(false)
   })
 
   it('applies transform on concatenated pages and subsequent updates', async () => {
@@ -383,7 +372,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(result.results.value).toEqual(['n1:A*', 'n2:B', 'n3:C'])
   })
 
-  it('keeps LoadingFirstPage contract for server options until first data', async () => {
+  it('keeps loading-first-page contract for server options until first data', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:listPaginated:blocking-server')
 
@@ -409,7 +398,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       continueCursor: null,
     })
 
-    await waitFor(() => result.status.value === 'Exhausted')
+    await waitFor(() => result.status.value === 'exhausted')
   })
 
   it('keepPreviousData keeps previous rows while first page refreshes on args changes', async () => {
@@ -447,8 +436,8 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     result.status.value = 'archived'
     await flush()
 
-    expect(result.queryResult.status.value).toBe('LoadingFirstPage')
-    expect(result.queryResult.isRefreshing.value).toBe(true)
+    expect(result.queryResult.status.value).toBe('loading-first-page')
+    expect(result.queryResult.isLoading.value).toBe(true)
     expect((result.queryResult.results.value as Array<{ title: string }>)[0]).toMatchObject({ title: 'Active A' })
 
     convex.emitQueryResultWhere(
@@ -469,7 +458,81 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     await waitFor(() =>
       (result.queryResult.results.value as Array<{ title: string }>)[0]?.title === 'Archived B',
     )
-    expect(result.queryResult.isRefreshing.value).toBe(false)
+    expect(result.queryResult.isLoading.value).toBe(false)
+  })
+
+  it('refresh() recovers from error back to ready/exhausted', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:error-recovery')
+    let firstRequest = true
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      if (cursor === null && firstRequest) {
+        firstRequest = false
+        throw new Error('first page failed')
+      }
+      return {
+        value: {
+          page: [{ _id: 'n1', title: 'Recovered' }],
+          isDone: true,
+          continueCursor: null,
+        },
+      }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.status.value === 'error')
+    expect(result.error.value?.message).toContain('first page failed')
+
+    const refreshPromise = result.refresh()
+    await waitFor(() => result.status.value === 'loading-first-page')
+    await refreshPromise
+    await waitFor(() => result.status.value === 'exhausted')
+    expect((result.results.value as Array<{ title: string }>)[0]?.title).toBe('Recovered')
+  })
+
+  it('reset() recovers from error and restarts first page load', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:error-reset')
+    let firstRequest = true
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      if (cursor === null && firstRequest) {
+        firstRequest = false
+        throw new Error('initial failed')
+      }
+      await new Promise(resolve => setTimeout(resolve, 10))
+      return {
+        value: {
+          page: [{ _id: 'n1', title: 'Recovered after reset' }],
+          isDone: true,
+          continueCursor: null,
+        },
+      }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.status.value === 'error')
+
+    const resetPromise = result.reset()
+    await waitFor(() => result.status.value === 'loading-first-page')
+    await resetPromise
+    await waitFor(() => result.status.value === 'exhausted')
+    expect((result.results.value as Array<{ title: string }>)[0]?.title).toBe('Recovered after reset')
   })
 
   it('applies transform to default placeholder rows', async () => {
@@ -501,6 +564,6 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     )
 
     expect(result.results.value).toEqual([{ _id: 'placeholder', title: 'LOADING' }])
-    expect(result.status.value).toBe('LoadingFirstPage')
+    expect(result.status.value).toBe('loading-first-page')
   })
 })

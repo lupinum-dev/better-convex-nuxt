@@ -19,7 +19,7 @@ const lastUpdatedTime = computed(() => {
   return new Date(props.query.lastUpdated).toLocaleTimeString()
 })
 
-const options = computed<{ immediate?: boolean; server?: boolean; subscribe?: boolean; unauthenticated?: boolean }>(() => props.query?.options || {})
+const options = computed<{ immediate?: boolean; server?: boolean; subscribe?: boolean; auth?: 'auto' | 'none' }>(() => props.query?.options || {})
 </script>
 
 <template>
@@ -89,15 +89,7 @@ const options = computed<{ immediate?: boolean; server?: boolean; subscribe?: bo
             <span>subscribe</span>
           </div>
           <div class="option-item">
-            <span class="option-icon" :class="options.unauthenticated ? 'enabled' : 'disabled'">
-              <svg v-if="options.unauthenticated" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </span>
-            <span>unauthenticated</span>
+            <span class="detail-value">auth: {{ options.auth || 'auto' }}</span>
           </div>
         </div>
       </div>

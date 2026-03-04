@@ -17,16 +17,8 @@ import {
   toError,
   type CallResult,
 } from '../utils/call-result'
+import type { ConvexCallStatus } from '../utils/types'
 import { useConvex } from './useConvex'
-
-/**
- * Action status representing the current state of the action
- * - 'idle': not yet called or reset
- * - 'pending': action in progress
- * - 'success': action completed successfully
- * - 'error': action failed
- */
-export type ActionStatus = 'idle' | 'pending' | 'success' | 'error'
 
 /**
  * Return value from useConvexAction
@@ -53,7 +45,7 @@ export interface UseConvexActionReturn<Args, Result> {
   /**
    * Action status for explicit state management.
    */
-  status: ComputedRef<ActionStatus>
+  status: ComputedRef<ConvexCallStatus>
 
   /**
    * Shorthand for status === 'pending'.
@@ -156,7 +148,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   let activeRequestId = 0
 
   // Internal state
-  const _status = ref<ActionStatus>('idle')
+  const _status = ref<ConvexCallStatus>('idle')
   const error = ref<Error | null>(null) as Ref<Error | null>
   const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
 

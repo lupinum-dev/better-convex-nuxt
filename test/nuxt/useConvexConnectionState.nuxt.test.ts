@@ -11,13 +11,11 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
 
     const { result, wrapper } = await captureInNuxt(() => useConvexConnectionState(), { convex })
 
-    expect(result.isHydratingConnection.value).toBe(true)
     expect(result.shouldShowOfflineUi.value).toBe(false)
 
     vi.advanceTimersByTime(500)
     await Promise.resolve()
 
-    expect(result.isHydratingConnection.value).toBe(false)
     expect(result.shouldShowOfflineUi.value).toBe(true)
     wrapper.unmount()
     vi.useRealTimers()
@@ -31,7 +29,6 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
       second: useConvexConnectionState(),
     }), { convex })
 
-    expect(convex.connectionSubscriberCount()).toBe(1)
     expect(result.first.isConnected.value).toBe(false)
     expect(result.second.isConnected.value).toBe(false)
 
@@ -43,7 +40,9 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
 
     expect(result.first.isConnected.value).toBe(true)
     expect(result.second.isConnected.value).toBe(true)
-    expect(result.first.hasEverConnected.value).toBe(true)
+    expect(result.first.isReconnecting.value).toBe(false)
+    expect(result.first.pendingMutations.value).toBe(0)
+    expect(result.second.pendingActions.value).toBe(0)
 
     wrapper.unmount()
     expect(convex.connectionSubscriberCount()).toBe(0)

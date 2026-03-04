@@ -54,7 +54,7 @@ const { mutate: addNoteOptimistic, pending: addPendingOptimistic } = useConvexMu
       updateQuery({
         query: api.notes.list,
         args: {},
-        localQueryStore: localStore,
+        store: localStore,
         updater: (current) => {
           const now = Date.now()
           const optimisticNote = {
@@ -84,7 +84,7 @@ const { mutate: removeNoteOptimistic, pending: removePendingOptimistic } = useCo
       deleteFromQuery({
         query: api.notes.list,
         args: {},
-        localQueryStore: localStore,
+        store: localStore,
         shouldDelete: note => note._id === args.id,
       })
     },

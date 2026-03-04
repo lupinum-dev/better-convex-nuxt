@@ -18,6 +18,7 @@ import {
   toError,
   type CallResult,
 } from '../utils/call-result'
+import type { ConvexCallStatus } from '../utils/types'
 import { useConvex } from './useConvex'
 
 // Re-export optimistic update helpers
@@ -31,15 +32,6 @@ export {
   type UpdateAllQueriesOptions,
   type DeleteFromQueryOptions,
 } from './optimistic-updates'
-
-/**
- * Mutation status representing the current state of the mutation
- * - 'idle': not yet called or reset
- * - 'pending': mutation in progress
- * - 'success': mutation completed successfully
- * - 'error': mutation failed
- */
-export type MutationStatus = 'idle' | 'pending' | 'success' | 'error'
 
 /**
  * Return value from useConvexMutation
@@ -66,7 +58,7 @@ export interface UseConvexMutationReturn<Args, Result> {
   /**
    * Mutation status for explicit state management.
    */
-  status: ComputedRef<MutationStatus>
+  status: ComputedRef<ConvexCallStatus>
 
   /**
    * True when mutation is in progress.
@@ -109,14 +101,14 @@ export interface UseConvexMutationOptions<
    *     updateQuery({
    *       query: api.notes.list,
    *       args: {},
-   *       localQueryStore: localStore,
+   *       store: localStore,
    *       updater: (current) => current ? [newNote, ...current] : [newNote]
    *     })
    *
    *     // Or update a paginated query
    *     insertAtTop({
-   *       paginatedQuery: api.notes.listPaginated,
-   *       localQueryStore: localStore,
+   *       query: api.notes.listPaginated,
+   *       store: localStore,
    *       item: { _id: crypto.randomUUID(), ...args }
    *     })
    *   }
@@ -206,8 +198,8 @@ export interface UseConvexMutationOptions<
  * const { execute: addNote, pending } = useConvexMutation(api.notes.add, {
  *   optimisticUpdate: (localStore, args) => {
  *     insertAtTop({
- *       paginatedQuery: api.notes.listPaginated,
- *       localQueryStore: localStore,
+ *       query: api.notes.listPaginated,
+ *       store: localStore,
  *       item: {
  *         _id: crypto.randomUUID() as Id<'notes'>,
  *         _creationTime: Date.now(),
@@ -232,7 +224,7 @@ export interface UseConvexMutationOptions<
  *     updateQuery({
  *       query: api.notes.list,
  *       args: { userId: args.userId },
- *       localQueryStore: localStore,
+ *       store: localStore,
  *       updater: (current) => {
  *         const newNote = {
  *           _id: crypto.randomUUID() as Id<'notes'>,
@@ -251,7 +243,7 @@ export interface UseConvexMutationOptions<
  *     deleteFromQuery({
  *       query: api.notes.list,
  *       args: { userId: currentUserId.value },
- *       localQueryStore: localStore,
+ *       store: localStore,
  *       shouldDelete: (note) => note._id === args.noteId,
  *     })
  *   },
@@ -278,7 +270,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   let activeRequestId = 0
 
   // Internal state
-  const _status = ref<MutationStatus>('idle')
+  const _status = ref<ConvexCallStatus>('idle')
   const error = ref<Error | null>(null) as Ref<Error | null>
   const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
 

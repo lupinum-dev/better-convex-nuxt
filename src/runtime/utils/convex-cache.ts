@@ -3,13 +3,13 @@ import { shallowRef, type ShallowRef } from 'vue'
 
 // Re-export shared utilities
 export {
-  type QueryStatus,
   parseConvexResponse,
   computeQueryStatus,
   getFunctionName,
   hashArgs,
   getQueryKey,
 } from './convex-shared'
+export type { ConvexCallStatus } from './types'
 
 // Get the NuxtApp type from useNuxtApp return type
 type NuxtApp = ReturnType<typeof useNuxtApp>
@@ -76,8 +76,8 @@ export function ensureQueryBridge(entry: SubscriptionEntry): QuerySubscriptionBr
 // ============================================================================
 
 export interface FetchAuthTokenOptions {
-  /** Whether this query should skip auth token attachment. */
-  unauthenticated: boolean
+  /** Auth token behavior for this query. */
+  auth: 'auto' | 'none'
   /** Cookie header from the request */
   cookieHeader: string
   /** Site URL for auth endpoint */
@@ -104,7 +104,7 @@ export interface FetchAuthTokenOptions {
  *
  * // Later, in async context:
  * const authToken = await fetchAuthToken({
- *   unauthenticated: false,
+ *   auth: 'auto',
  *   cookieHeader: event?.headers.get('cookie') || '',
  *   siteUrl: config.public.convex?.siteUrl,
  *   cachedToken,
@@ -112,10 +112,10 @@ export interface FetchAuthTokenOptions {
  * ```
  */
 export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { unauthenticated, cookieHeader, siteUrl, cachedToken } = options
+  const { auth, cookieHeader, siteUrl, cachedToken } = options
 
-  // Skip for unauthenticated queries
-  if (unauthenticated) {
+  // Skip when auth is explicitly disabled
+  if (auth === 'none') {
     return undefined
   }
 

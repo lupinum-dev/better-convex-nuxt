@@ -51,6 +51,23 @@ export const DEFAULT_TOKEN_CACHE_TTL_MS = 10_000 // 10 seconds
 // ============================================================================
 
 /**
+ * Shared lifecycle status for query/mutation/action composables.
+ */
+export type ConvexCallStatus = 'idle' | 'pending' | 'success' | 'error'
+
+/**
+ * Client-side auth mode for query composables.
+ * - auto: attach token when available
+ * - none: never attach auth token
+ */
+export type ConvexClientAuthMode = 'auto' | 'none'
+
+/**
+ * Server-side auth mode for server helper calls.
+ */
+export type ConvexServerAuthMode = 'auto' | 'required' | 'none'
+
+/**
  * Make specific properties optional in a type
  */
 export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>

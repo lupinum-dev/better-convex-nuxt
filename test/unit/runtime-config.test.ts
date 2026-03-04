@@ -67,21 +67,21 @@ describe('runtime config normalization', () => {
     expect(config.authProxy.maxResponseBodyBytes).toBe(4096)
   })
 
-  it('uses query default unauthenticated flag', () => {
+  it('uses query default auth mode', () => {
     const config = normalizeConvexRuntimeConfig({
       defaults: {
-        unauthenticated: true,
+        auth: 'none',
       },
     })
-    expect(config.defaults.unauthenticated).toBe(true)
+    expect(config.defaults.auth).toBe('none')
   })
 
-  it('does not map deprecated defaults.public to unauthenticated', () => {
+  it('does not map deprecated defaults.public to auth mode', () => {
     const config = normalizeConvexRuntimeConfig({
       defaults: {
         public: true,
       },
     })
-    expect(config.defaults.unauthenticated).toBe(false)
+    expect(config.defaults.auth).toBe('auto')
   })
 })

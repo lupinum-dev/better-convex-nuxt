@@ -72,7 +72,7 @@ export interface UpdateQueryOptions<Query extends FunctionReference<'query'>> {
   /** The args to match the specific query */
   args: FunctionArgs<Query>
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /**
    * Updater function. Receives current value (or undefined if not loaded).
    * Return the new value.
@@ -93,7 +93,7 @@ export interface UpdateQueryOptions<Query extends FunctionReference<'query'>> {
  *     updateQuery({
  *       query: api.notes.list,
  *       args: { userId: args.userId },
- *       localQueryStore: localStore,
+ *       store: localStore,
  *       updater: (current) => {
  *         const newNote = { _id: crypto.randomUUID(), ...args }
  *         return current ? [newNote, ...current] : [newNote]
@@ -106,11 +106,11 @@ export interface UpdateQueryOptions<Query extends FunctionReference<'query'>> {
 export function updateQuery<Query extends FunctionReference<'query'>>(
   options: UpdateQueryOptions<Query>,
 ): void {
-  const { query, args, localQueryStore, updater } = options
+  const { query, args, store, updater } = options
 
-  const currentValue = localQueryStore.getQuery(query, args)
+  const currentValue = store.getQuery(query, args)
   const newValue = updater(currentValue)
-  localQueryStore.setQuery(query, args, newValue)
+  store.setQuery(query, args, newValue)
 }
 
 /**
@@ -122,7 +122,7 @@ export interface SetQueryDataOptions<Query extends FunctionReference<'query'>> {
   /** The args to match the specific query */
   args: FunctionArgs<Query>
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /** The new value to set */
   value: FunctionReturnType<Query>
 }
@@ -140,7 +140,7 @@ export interface SetQueryDataOptions<Query extends FunctionReference<'query'>> {
  *     setQueryData({
  *       query: api.users.get,
  *       args: { userId: args.userId },
- *       localQueryStore: localStore,
+ *       store: localStore,
  *       value: { ...existingUser, name: args.name },
  *     })
  *   },
@@ -150,8 +150,8 @@ export interface SetQueryDataOptions<Query extends FunctionReference<'query'>> {
 export function setQueryData<Query extends FunctionReference<'query'>>(
   options: SetQueryDataOptions<Query>,
 ): void {
-  const { query, args, localQueryStore, value } = options
-  localQueryStore.setQuery(query, args, value)
+  const { query, args, store, value } = options
+  store.setQuery(query, args, value)
 }
 
 /**
@@ -163,7 +163,7 @@ export interface UpdateAllQueriesOptions<Query extends FunctionReference<'query'
   /** Optional args to filter which queries to update. If not provided, updates all. */
   argsToMatch?: Partial<FunctionArgs<Query>>
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /**
    * Updater function. Receives current value (or undefined if not loaded) and args.
    * Return the new value, or undefined to skip updating this query.
@@ -188,7 +188,7 @@ export interface UpdateAllQueriesOptions<Query extends FunctionReference<'query'
  *     updateAllQueries({
  *       query: api.users.get,
  *       argsToMatch: { userId: args.userId },
- *       localQueryStore: localStore,
+ *       store: localStore,
  *       updater: (current) => {
  *         if (!current) return undefined // Skip if not loaded
  *         return { ...current, name: args.name }
@@ -201,9 +201,9 @@ export interface UpdateAllQueriesOptions<Query extends FunctionReference<'query'
 export function updateAllQueries<Query extends FunctionReference<'query'>>(
   options: UpdateAllQueriesOptions<Query>,
 ): void {
-  const { query, argsToMatch, localQueryStore, updater } = options
+  const { query, argsToMatch, store, updater } = options
 
-  const allQueries = localQueryStore.getAllQueries(query)
+  const allQueries = store.getAllQueries(query)
 
   for (const { args, value } of allQueries) {
     // Skip if args don't match filter
@@ -215,7 +215,7 @@ export function updateAllQueries<Query extends FunctionReference<'query'>>(
 
     // Only update if updater returned a value
     if (newValue !== undefined) {
-      localQueryStore.setQuery(query, args, newValue)
+      store.setQuery(query, args, newValue)
     }
   }
 }
@@ -232,7 +232,7 @@ export interface DeleteFromQueryOptions<
   /** The args to match the specific query */
   args: FunctionArgs<Query>
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /** Predicate to identify items to delete. Return true to delete the item. */
   shouldDelete: (item: Item) => boolean
 }
@@ -249,7 +249,7 @@ export interface DeleteFromQueryOptions<
  *     deleteFromQuery({
  *       query: api.notes.list,
  *       args: { userId: currentUserId },
- *       localQueryStore: localStore,
+ *       store: localStore,
  *       shouldDelete: (note) => note._id === args.noteId,
  *     })
  *   },
@@ -260,9 +260,9 @@ export function deleteFromQuery<
   Query extends FunctionReference<'query'>,
   Item = FunctionReturnType<Query> extends (infer T)[] ? T : never,
 >(options: DeleteFromQueryOptions<Query, Item>): void {
-  const { query, args, localQueryStore, shouldDelete } = options
+  const { query, args, store, shouldDelete } = options
 
-  const currentValue = localQueryStore.getQuery(query, args)
+  const currentValue = store.getQuery(query, args)
 
   // Skip if query not loaded or not an array
   if (!currentValue || !Array.isArray(currentValue)) {
@@ -270,7 +270,7 @@ export function deleteFromQuery<
   }
 
   const newValue = currentValue.filter((item: Item) => !shouldDelete(item))
-  localQueryStore.setQuery(query, args, newValue as FunctionReturnType<Query>)
+  store.setQuery(query, args, newValue as FunctionReturnType<Query>)
 }
 
 // ============================================================================
@@ -282,11 +282,11 @@ export function deleteFromQuery<
  */
 export interface InsertAtTopOptions<Query extends PaginatedQueryReference> {
   /** The paginated query function reference */
-  paginatedQuery: Query
+  query: Query
   /** Optional args to match specific paginated queries. If not provided, updates all. */
   argsToMatch?: Partial<PaginatedQueryArgs<Query>>
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /** The item to insert at the top of results */
   item: PaginatedQueryItem<Query>
 }
@@ -302,8 +302,8 @@ export interface InsertAtTopOptions<Query extends PaginatedQueryReference> {
  * const sendMessage = useMutation(api.messages.send)
  *   .withOptimisticUpdate((localStore, args) => {
  *     insertAtTop({
- *       paginatedQuery: api.messages.list,
- *       localQueryStore: localStore,
+ *       query: api.messages.list,
+ *       store: localStore,
  *       item: {
  *         _id: crypto.randomUUID() as Id<"messages">,
  *         _creationTime: Date.now(),
@@ -317,10 +317,10 @@ export interface InsertAtTopOptions<Query extends PaginatedQueryReference> {
 export function insertAtTop<Query extends PaginatedQueryReference>(
   options: InsertAtTopOptions<Query>,
 ): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, item } = options
+  const { query, argsToMatch, store, item } = options
 
   // Get all queries matching this function
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
+  const allQueries = store.getAllQueries(query)
 
   for (const { args, value } of allQueries) {
     // Skip if args don't match filter
@@ -336,7 +336,7 @@ export function insertAtTop<Query extends PaginatedQueryReference>(
     // Insert item at the beginning of the page
     const newPage = [item, ...paginatedValue.page]
 
-    localQueryStore.setQuery(paginatedQuery, args, {
+    store.setQuery(query, args, {
       ...paginatedValue,
       page: newPage,
     })
@@ -348,7 +348,7 @@ export function insertAtTop<Query extends PaginatedQueryReference>(
  */
 export interface InsertAtPositionOptions<Query extends PaginatedQueryReference> {
   /** The paginated query function reference */
-  paginatedQuery: Query
+  query: Query
   /** Optional args to match specific paginated queries. If not provided, updates all. */
   argsToMatch?: Partial<PaginatedQueryArgs<Query>>
   /** Sort order of the paginated query ('asc' or 'desc') */
@@ -356,7 +356,7 @@ export interface InsertAtPositionOptions<Query extends PaginatedQueryReference> 
   /** Function to extract the sort key from an item */
   sortKeyFromItem: (item: PaginatedQueryItem<Query>) => Value | Value[]
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /** The item to insert at the correct sorted position */
   item: PaginatedQueryItem<Query>
 }
@@ -372,10 +372,10 @@ export interface InsertAtPositionOptions<Query extends PaginatedQueryReference> 
  * const addTask = useMutation(api.tasks.add)
  *   .withOptimisticUpdate((localStore, args) => {
  *     insertAtPosition({
- *       paginatedQuery: api.tasks.listByPriority,
+ *       query: api.tasks.listByPriority,
  *       sortOrder: 'desc',
  *       sortKeyFromItem: (task) => task.priority,
- *       localQueryStore: localStore,
+ *       store: localStore,
  *       item: {
  *         _id: crypto.randomUUID() as Id<"tasks">,
  *         _creationTime: Date.now(),
@@ -389,9 +389,9 @@ export interface InsertAtPositionOptions<Query extends PaginatedQueryReference> 
 export function insertAtPosition<Query extends PaginatedQueryReference>(
   options: InsertAtPositionOptions<Query>,
 ): void {
-  const { paginatedQuery, argsToMatch, sortOrder, sortKeyFromItem, localQueryStore, item } = options
+  const { query, argsToMatch, sortOrder, sortKeyFromItem, store, item } = options
 
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
+  const allQueries = store.getAllQueries(query)
 
   for (const { args, value } of allQueries) {
     if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
@@ -437,7 +437,7 @@ export function insertAtPosition<Query extends PaginatedQueryReference>(
       ...paginatedValue.page.slice(insertIndex),
     ]
 
-    localQueryStore.setQuery(paginatedQuery, args, {
+    store.setQuery(query, args, {
       ...paginatedValue,
       page: newPage,
     })
@@ -449,11 +449,11 @@ export function insertAtPosition<Query extends PaginatedQueryReference>(
  */
 export interface InsertAtBottomIfLoadedOptions<Query extends PaginatedQueryReference> {
   /** The paginated query function reference */
-  paginatedQuery: Query
+  query: Query
   /** Optional args to match specific paginated queries. If not provided, updates all. */
   argsToMatch?: Partial<PaginatedQueryArgs<Query>>
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /** The item to insert at the bottom of results */
   item: PaginatedQueryItem<Query>
 }
@@ -470,8 +470,8 @@ export interface InsertAtBottomIfLoadedOptions<Query extends PaginatedQueryRefer
  * const addOldMessage = useMutation(api.messages.add)
  *   .withOptimisticUpdate((localStore, args) => {
  *     insertAtBottomIfLoaded({
- *       paginatedQuery: api.messages.listOldestFirst,
- *       localQueryStore: localStore,
+ *       query: api.messages.listOldestFirst,
+ *       store: localStore,
  *       item: {
  *         _id: crypto.randomUUID() as Id<"messages">,
  *         _creationTime: Date.now(),
@@ -484,9 +484,9 @@ export interface InsertAtBottomIfLoadedOptions<Query extends PaginatedQueryRefer
 export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(
   options: InsertAtBottomIfLoadedOptions<Query>,
 ): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, item } = options
+  const { query, argsToMatch, store, item } = options
 
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
+  const allQueries = store.getAllQueries(query)
 
   for (const { args, value } of allQueries) {
     if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
@@ -504,7 +504,7 @@ export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(
 
     const newPage = [...paginatedValue.page, item]
 
-    localQueryStore.setQuery(paginatedQuery, args, {
+    store.setQuery(query, args, {
       ...paginatedValue,
       page: newPage,
     })
@@ -512,15 +512,15 @@ export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(
 }
 
 /**
- * Options for optimisticallyUpdateValueInPaginatedQuery helper
+ * Options for updateInPaginatedQuery helper
  */
 export interface UpdateInPaginatedQueryOptions<Query extends PaginatedQueryReference> {
   /** The paginated query function reference */
-  paginatedQuery: Query
+  query: Query
   /** Optional args to match specific paginated queries. If not provided, updates all. */
   argsToMatch?: Partial<PaginatedQueryArgs<Query>>
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /** Function to update matching items. Return the item unchanged if no update needed. */
   updateValue: (currentValue: PaginatedQueryItem<Query>) => PaginatedQueryItem<Query>
 }
@@ -535,9 +535,9 @@ export interface UpdateInPaginatedQueryOptions<Query extends PaginatedQueryRefer
  * ```ts
  * const toggleComplete = useMutation(api.tasks.toggleComplete)
  *   .withOptimisticUpdate((localStore, args) => {
- *     optimisticallyUpdateValueInPaginatedQuery({
- *       paginatedQuery: api.tasks.list,
- *       localQueryStore: localStore,
+ *     updateInPaginatedQuery({
+ *       query: api.tasks.list,
+ *       store: localStore,
  *       updateValue: (task) => {
  *         if (task._id === args.taskId) {
  *           return { ...task, completed: !task.completed }
@@ -548,12 +548,12 @@ export interface UpdateInPaginatedQueryOptions<Query extends PaginatedQueryRefer
  *   })
  * ```
  */
-export function optimisticallyUpdateValueInPaginatedQuery<Query extends PaginatedQueryReference>(
+export function updateInPaginatedQuery<Query extends PaginatedQueryReference>(
   options: UpdateInPaginatedQueryOptions<Query>,
 ): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, updateValue } = options
+  const { query, argsToMatch, store, updateValue } = options
 
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
+  const allQueries = store.getAllQueries(query)
 
   for (const { args, value } of allQueries) {
     if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
@@ -566,7 +566,7 @@ export function optimisticallyUpdateValueInPaginatedQuery<Query extends Paginate
 
     const newPage = paginatedValue.page.map(updateValue)
 
-    localQueryStore.setQuery(paginatedQuery, args, {
+    store.setQuery(query, args, {
       ...paginatedValue,
       page: newPage,
     })
@@ -578,11 +578,11 @@ export function optimisticallyUpdateValueInPaginatedQuery<Query extends Paginate
  */
 export interface DeleteFromPaginatedQueryOptions<Query extends PaginatedQueryReference> {
   /** The paginated query function reference */
-  paginatedQuery: Query
+  query: Query
   /** Optional args to match specific paginated queries. If not provided, updates all. */
   argsToMatch?: Partial<PaginatedQueryArgs<Query>>
   /** The local store from optimistic update context */
-  localQueryStore: OptimisticLocalStore
+  store: OptimisticLocalStore
   /** Predicate to identify items to delete. Return true to delete the item. */
   shouldDelete: (item: PaginatedQueryItem<Query>) => boolean
 }
@@ -597,8 +597,8 @@ export interface DeleteFromPaginatedQueryOptions<Query extends PaginatedQueryRef
  * const deleteTask = useMutation(api.tasks.delete)
  *   .withOptimisticUpdate((localStore, args) => {
  *     deleteFromPaginatedQuery({
- *       paginatedQuery: api.tasks.list,
- *       localQueryStore: localStore,
+ *       query: api.tasks.list,
+ *       store: localStore,
  *       shouldDelete: (task) => task._id === args.taskId,
  *     })
  *   })
@@ -607,9 +607,9 @@ export interface DeleteFromPaginatedQueryOptions<Query extends PaginatedQueryRef
 export function deleteFromPaginatedQuery<Query extends PaginatedQueryReference>(
   options: DeleteFromPaginatedQueryOptions<Query>,
 ): void {
-  const { paginatedQuery, argsToMatch, localQueryStore, shouldDelete } = options
+  const { query, argsToMatch, store, shouldDelete } = options
 
-  const allQueries = localQueryStore.getAllQueries(paginatedQuery)
+  const allQueries = store.getAllQueries(query)
 
   for (const { args, value } of allQueries) {
     if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
@@ -622,7 +622,7 @@ export function deleteFromPaginatedQuery<Query extends PaginatedQueryReference>(
 
     const newPage = paginatedValue.page.filter((item) => !shouldDelete(item))
 
-    localQueryStore.setQuery(paginatedQuery, args, {
+    store.setQuery(query, args, {
       ...paginatedValue,
       page: newPage,
     })

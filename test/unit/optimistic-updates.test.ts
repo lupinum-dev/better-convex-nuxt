@@ -9,7 +9,7 @@ import {
   insertAtTop,
   insertAtPosition,
   insertAtBottomIfLoaded,
-  optimisticallyUpdateValueInPaginatedQuery,
+  updateInPaginatedQuery,
   deleteFromPaginatedQuery,
 } from '../../src/runtime/composables/optimistic-updates'
 import { mockFnRef } from '../helpers/mock-convex-client'
@@ -66,7 +66,7 @@ describe('optimistic-updates helpers', () => {
     updateQuery({
       query,
       args: { orgId: 'org-1' },
-      localQueryStore: localStore as never,
+      store: localStore as never,
       updater: (current) => [...(current ?? []), { _id: 'n1', title: 'First' }],
     })
 
@@ -80,7 +80,7 @@ describe('optimistic-updates helpers', () => {
     setQueryData({
       query,
       args: { id: 'n1' },
-      localQueryStore: localStore as never,
+      store: localStore as never,
       value: { _id: 'n1', title: 'Stored' },
     })
 
@@ -98,7 +98,7 @@ describe('optimistic-updates helpers', () => {
     updateAllQueries({
       query,
       argsToMatch: { orgId: 'org-1' },
-      localQueryStore: localStore as never,
+      store: localStore as never,
       updater: (current, args) => {
         if (!current || args.archived === true) {
           return undefined
@@ -128,14 +128,14 @@ describe('optimistic-updates helpers', () => {
     deleteFromQuery({
       query,
       args: { userId: 'u1' },
-      localQueryStore: localStore as never,
+      store: localStore as never,
       shouldDelete: (task: { _id: string }) => task._id === 't2',
     })
 
     deleteFromQuery({
       query,
       args: { userId: 'missing' },
-      localQueryStore: localStore as never,
+      store: localStore as never,
       shouldDelete: () => true,
     })
 
@@ -164,9 +164,9 @@ describe('optimistic-updates helpers', () => {
     )
 
     insertAtTop({
-      paginatedQuery: query as never,
+      query: query as never,
       argsToMatch: { orgId: 'org-1' } as never,
-      localQueryStore: localStore as never,
+      store: localStore as never,
       item: { _id: 'new-top' } as never,
     })
 
@@ -208,10 +208,10 @@ describe('optimistic-updates helpers', () => {
     )
 
     insertAtPosition({
-      paginatedQuery: query as never,
+      query: query as never,
       sortOrder: 'desc',
       sortKeyFromItem: (item: { priority: number; order: number }) => [item.priority, item.order],
-      localQueryStore: localStore as never,
+      store: localStore as never,
       item: { _id: 'mid', priority: 2, order: 25 } as never,
     })
 
@@ -241,10 +241,10 @@ describe('optimistic-updates helpers', () => {
     )
 
     insertAtPosition({
-      paginatedQuery: query as never,
+      query: query as never,
       sortOrder: 'asc',
       sortKeyFromItem: (item: { order: number }) => item.order,
-      localQueryStore: localStore as never,
+      store: localStore as never,
       item: { _id: 'b', order: 2 } as never,
     })
 
@@ -267,8 +267,8 @@ describe('optimistic-updates helpers', () => {
     )
 
     insertAtBottomIfLoaded({
-      paginatedQuery: query as never,
-      localQueryStore: localStore as never,
+      query: query as never,
+      store: localStore as never,
       item: { _id: 'm2' } as never,
     })
 
@@ -285,8 +285,8 @@ describe('optimistic-updates helpers', () => {
     )
 
     insertAtBottomIfLoaded({
-      paginatedQuery: query as never,
-      localQueryStore: localStore as never,
+      query: query as never,
+      store: localStore as never,
       item: { _id: 'm2' } as never,
     })
 
@@ -297,7 +297,7 @@ describe('optimistic-updates helpers', () => {
     expect(done.page.map((item) => item._id)).toEqual(['m1', 'm2'])
   })
 
-  it('optimisticallyUpdateValueInPaginatedQuery updates matching values in-place', () => {
+  it('updateInPaginatedQuery updates matching values in-place', () => {
     const localStore = new FakeOptimisticLocalStore()
     const query = mockFnRef<'query'>('todos:listPaginated') as FunctionReference<'query'>
 
@@ -314,10 +314,10 @@ describe('optimistic-updates helpers', () => {
       },
     )
 
-    optimisticallyUpdateValueInPaginatedQuery({
-      paginatedQuery: query as never,
+    updateInPaginatedQuery({
+      query: query as never,
       argsToMatch: { listId: 'inbox' } as never,
-      localQueryStore: localStore as never,
+      store: localStore as never,
       updateValue: (item: { _id: string; done: boolean }) =>
         (item._id === 't2' ? { ...item, done: true } : item) as never,
     })
@@ -352,8 +352,8 @@ describe('optimistic-updates helpers', () => {
     )
 
     deleteFromPaginatedQuery({
-      paginatedQuery: query as never,
-      localQueryStore: localStore as never,
+      query: query as never,
+      store: localStore as never,
       shouldDelete: (comment: { spam: boolean }) => comment.spam,
     })
 

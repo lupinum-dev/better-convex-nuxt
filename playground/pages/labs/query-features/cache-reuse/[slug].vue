@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
+import { getQueryKey } from 'better-convex-nuxt/composables'
 
 definePageMeta({
   layout: 'sidebar',

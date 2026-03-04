@@ -7,6 +7,7 @@ import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
 import { normalizeConvexError, toError } from '../../utils/call-result'
+import type { ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
 
 const SESSION_COOKIE_NAME = 'better-auth.session_token='
@@ -21,7 +22,7 @@ export interface ServerConvexOptions {
    * - 'required': throw when auth token cannot be resolved
    * - 'none': never attach auth
    */
-  auth?: 'auto' | 'required' | 'none'
+  auth?: ConvexServerAuthMode
   /**
    * Explicit auth token override. When provided, skips auto resolution.
    */

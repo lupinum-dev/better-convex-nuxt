@@ -117,7 +117,7 @@ const capturedAtRender = {
     </section>
 
     <section class="actions-section">
-      <button data-testid="load-more-btn" :disabled="status !== 'CanLoadMore'" @click="loadMore(3)">
+      <button data-testid="load-more-btn" :disabled="status !== 'ready'" @click="loadMore(3)">
         Load More
       </button>
     </section>

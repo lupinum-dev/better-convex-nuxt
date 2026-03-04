@@ -138,14 +138,11 @@ export function useConvexConnectionState() {
   // Computed shortcuts derived from shared state
   const state = store.state
   const isConnected = computed(() => state.value.isWebSocketConnected)
-  const hasEverConnected = computed(() => state.value.hasEverConnected)
-  const connectionRetries = computed(() => state.value.connectionRetries)
-  const hasInflightRequests = computed(() => state.value.hasInflightRequests)
   const isReconnecting = computed(
     () => state.value.hasEverConnected && !state.value.isWebSocketConnected,
   )
-  const inflightMutations = computed(() => state.value.inflightMutations)
-  const inflightActions = computed(() => state.value.inflightActions)
+  const pendingMutations = computed(() => state.value.inflightMutations)
+  const pendingActions = computed(() => state.value.inflightActions)
   const isHydratingConnection = ref(true)
   let hydrationTimer: ReturnType<typeof setTimeout> | null = null
   if (import.meta.client) {
@@ -174,20 +171,12 @@ export function useConvexConnectionState() {
     state: readonly(state),
     /** Whether WebSocket is currently connected */
     isConnected,
-    /** Whether client has ever successfully connected */
-    hasEverConnected,
-    /** Number of connection retry attempts */
-    connectionRetries,
-    /** Whether there are pending requests */
-    hasInflightRequests,
     /** Whether client is reconnecting (was connected, now disconnected) */
     isReconnecting,
     /** Number of pending mutations */
-    inflightMutations,
+    pendingMutations,
     /** Number of pending actions */
-    inflightActions,
-    /** Suppress offline UI during initial client hydration/connection grace window */
-    isHydratingConnection: readonly(isHydratingConnection),
+    pendingActions,
     /** Convenience flag for offline banners (already suppresses hydration flash) */
     shouldShowOfflineUi,
   }

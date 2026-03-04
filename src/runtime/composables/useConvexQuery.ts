@@ -1,6 +1,5 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
-import type { AsyncData } from '#app'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
 import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, ref, type Ref, type WatchStopHandle, type MaybeRefOrGetter } from 'vue'
@@ -18,7 +17,7 @@ import {
   releaseSubscription,
   ensureQueryBridge,
   type SubscriptionEntry,
-  type QueryStatus,
+  type ConvexCallStatus,
 } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
@@ -26,6 +25,7 @@ import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { deepUnref } from '../utils/deep-unref'
 import { assertConvexComposableScope } from '../utils/composable-scope'
+import type { ConvexClientAuthMode } from '../utils/types'
 
 // DevTools query registry (client-side only in dev mode)
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
@@ -59,7 +59,7 @@ function getTransformedAsyncDataKeyId(transform: (input: unknown) => unknown): n
 }
 
 // Re-export for consumers
-export type { QueryStatus }
+export type { ConvexCallStatus }
 export { getQueryKey }
 
 /**
@@ -74,8 +74,8 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   default?: () => RawT | undefined
   /** Transform data after fetching. */
   transform?: (input: RawT) => DataT
-  /** Skip auth token attachment for this query. @default false (configurable via nuxt.config convex.defaults.unauthenticated) */
-  unauthenticated?: boolean
+  /** Auth token behavior for this query. @default 'auto' (configurable via nuxt.config convex.defaults.auth) */
+  auth?: ConvexClientAuthMode
   /** Enable or disable query execution. When false, status is "idle". @default true */
   enabled?: MaybeRefOrGetter<boolean | undefined>
   /** Keep the last successful data while args are changing and next request is pending. @default false */
@@ -84,12 +84,13 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   deepUnrefArgs?: boolean
 }
 
-export type UseConvexQueryData<DataT> = Pick<
-  AsyncData<DataT | null, Error>,
-  'data' | 'error' | 'refresh' | 'execute' | 'clear'
-> & {
+export interface UseConvexQueryData<DataT> {
+  data: Ref<DataT | null>
+  error: Ref<Error | null>
+  refresh: () => Promise<void>
+  clear: () => void
   pending: Ref<boolean>
-  status: Ref<QueryStatus>
+  status: Ref<ConvexCallStatus>
 }
 
 interface BuildConvexQueryResult<DataT> {
@@ -180,7 +181,7 @@ export function createConvexQueryState<
   const defaults = convexConfig.defaults
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const unauthenticated = options?.unauthenticated ?? defaults?.unauthenticated ?? false
+  const authMode = options?.auth ?? defaults?.auth ?? 'auto'
   const keepPreviousData = options?.keepPreviousData ?? false
   const deepUnrefArgs = options?.deepUnrefArgs ?? true
 
@@ -267,7 +268,7 @@ export function createConvexQueryState<
           const siteUrl = convexConfig.siteUrl
 
           const authToken = await fetchAuthToken({
-            unauthenticated,
+            auth: authMode,
             cookieHeader,
             siteUrl,
             cachedToken,
@@ -279,7 +280,7 @@ export function createConvexQueryState<
 
         // Client HTTP-only mode (no WebSocket dependency)
         if (!subscribe) {
-          const authToken = unauthenticated ? undefined : (cachedToken.value ?? undefined)
+          const authToken = authMode === 'none' ? undefined : (cachedToken.value ?? undefined)
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
           return applyTransform(result)
         }
@@ -356,7 +357,7 @@ export function createConvexQueryState<
     return asyncData.pending.value
   })
 
-  const status = computed((): QueryStatus => {
+  const status = computed((): ConvexCallStatus => {
     return computeQueryStatus(
       isSkipped.value,
       asyncData.error.value != null, // != catches both null AND undefined (strict !== would fail on undefined)
@@ -532,7 +533,7 @@ export function createConvexQueryState<
               immediate: resolveImmediately,
               server,
               subscribe,
-              unauthenticated,
+              auth: authMode,
             },
           })
         }
@@ -652,9 +653,8 @@ export function createConvexQueryState<
     data,
     pending,
     status,
-    error: asyncData.error,
+    error: asyncData.error as Ref<Error | null>,
     refresh: asyncData.refresh,
-    execute: asyncData.execute,
     clear: asyncData.clear,
   }
 

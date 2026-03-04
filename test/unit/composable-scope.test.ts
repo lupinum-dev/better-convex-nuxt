@@ -6,7 +6,7 @@ describe('assertConvexComposableScope', () => {
     expect(() =>
       assertConvexComposableScope('useConvexQuery', true, undefined),
     ).toThrow(
-      '[useConvexQuery] Must be called within component setup/effect scope. For middleware/plugins use useConvexRpc (client) or serverConvexQuery (server).',
+      '[useConvexQuery] Must be called within component setup/effect scope. For middleware/plugins use useConvexCall (client) or serverConvexQuery (server).',
     )
   })
 
@@ -14,7 +14,7 @@ describe('assertConvexComposableScope', () => {
     expect(() =>
       assertConvexComposableScope('useConvexPaginatedQuery', true, undefined),
     ).toThrow(
-      '[useConvexPaginatedQuery] Must be called within component setup/effect scope. For middleware/plugins use useConvexRpc (client) or serverConvexQuery (server).',
+      '[useConvexPaginatedQuery] Must be called within component setup/effect scope. For middleware/plugins use useConvexCall (client) or serverConvexQuery (server).',
     )
   })
 

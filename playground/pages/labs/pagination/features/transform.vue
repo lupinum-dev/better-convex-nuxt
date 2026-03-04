@@ -68,7 +68,7 @@ const { results, status, loadMore } = await useConvexPaginatedQuery(
     </section>
 
     <section class="actions-section">
-      <button data-testid="load-more-btn" class="action-btn" :disabled="status !== 'CanLoadMore'" @click="loadMore(3)">
+      <button data-testid="load-more-btn" class="action-btn" :disabled="status !== 'ready'" @click="loadMore(3)">
         Load More
       </button>
     </section>

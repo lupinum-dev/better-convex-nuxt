@@ -6,7 +6,7 @@ import type { LogLevel } from './logger'
 export interface ConvexRuntimeDefaults {
   server: boolean
   subscribe: boolean
-  unauthenticated: boolean
+  auth: 'auto' | 'none'
 }
 
 export interface NormalizedConvexRuntimeConfig {
@@ -106,7 +106,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     defaults: {
       server: defaults?.server !== false,
       subscribe: defaults?.subscribe !== false,
-      unauthenticated: defaults?.unauthenticated === true,
+      auth: defaults?.auth === 'none' ? 'none' : 'auto',
     },
     debug: {
       authFlow: debug?.authFlow === true,

@@ -1,6 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { hash } from 'ohash'
-import type { ConvexUser } from './types'
+import type { ConvexCallStatus, ConvexUser } from './types'
 
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')
@@ -131,11 +131,6 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
 // Types
 // ============================================================================
 
-/**
- * Query status representing the current state of the query
- */
-export type QueryStatus = 'idle' | 'pending' | 'success' | 'error'
-
 // ============================================================================
 // Response Parsing
 // ============================================================================
@@ -187,7 +182,7 @@ export function computeQueryStatus(
   hasError: boolean,
   isPending: boolean,
   hasData: boolean,
-): QueryStatus {
+): ConvexCallStatus {
   if (isSkipped) return 'idle'
   if (hasError) return 'error'
   if (isPending && !hasData) return 'pending'

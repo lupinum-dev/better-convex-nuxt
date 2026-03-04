@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { reactive, ref } from 'vue'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { MaybeRefOrGetter } from 'vue'
+import { useState } from '#imports'
 
 import {
   createConvexQueryState,
@@ -62,6 +63,50 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.data.value).toBeNull()
     expect(result.pending.value).toBe(false)
     expect(result.status.value).toBe('idle')
+  })
+
+  it('exposes refresh/clear but omits execute on query return shape', async () => {
+    const query = mockFnRef<'query'>('notes:list:return-shape')
+    const { result } = await captureInNuxt(
+      () => useConvexQueryState(query, null),
+      { convex: new MockConvexClient() },
+    )
+
+    expect(typeof result.refresh).toBe('function')
+    expect(typeof result.clear).toBe('function')
+    expect('execute' in (result as unknown as Record<string, unknown>)).toBe(false)
+  })
+
+  it('respects auth:none by omitting Authorization header in client HTTP mode', async () => {
+    const query = mockFnRef<'query'>('notes:list:auth-none')
+    const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))
+    vi.stubGlobal('$fetch', fetchMock)
+
+    await captureInNuxt(() =>
+      useConvexQueryState(query, {}, { subscribe: false, auth: 'none' }),
+    { convex: new MockConvexClient() })
+
+    const firstCall = fetchMock.mock.calls[0]
+    expect(firstCall).toBeDefined()
+    const [, init] = firstCall as unknown as [string, RequestInit]
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
+  })
+
+  it('uses cached token in auth:auto client HTTP mode', async () => {
+    const query = mockFnRef<'query'>('notes:list:auth-auto')
+    const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))
+    vi.stubGlobal('$fetch', fetchMock)
+
+    await captureInNuxt(() => {
+      const token = useState<string | null>('convex:token')
+      token.value = 'cached.jwt.token'
+      return useConvexQueryState(query, {}, { subscribe: false, auth: 'auto' })
+    }, { convex: new MockConvexClient() })
+
+    const firstCall = fetchMock.mock.calls[0]
+    expect(firstCall).toBeDefined()
+    const [, init] = firstCall as unknown as [string, RequestInit]
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer cached.jwt.token')
   })
 
   it('respects enabled:false and does not start subscriptions', async () => {

@@ -65,7 +65,7 @@ const { execute, pending } = useConvexMutation(api.tasks.create, {
     updateQuery({
       query: api.tasks.list,
       args: {},
-      localQueryStore: localStore,
+      store: localStore,
       updater: (current) =>
         current
           ? [{ _id: "temp", text: args.text, completed: false }, ...current]

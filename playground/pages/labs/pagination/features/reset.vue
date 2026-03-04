@@ -93,7 +93,7 @@ function handleLoadMore() {
       </button>
       <button
         data-testid="load-more-btn"
-        :disabled="status !== 'CanLoadMore'"
+        :disabled="status !== 'ready'"
         class="action-btn load-more-btn"
         @click="handleLoadMore"
       >

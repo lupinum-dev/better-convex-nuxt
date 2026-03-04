@@ -11,7 +11,6 @@ export {
 } from './useConvexConnectionState'
 export {
   useConvexMutation,
-  type MutationStatus,
   type UseConvexMutationReturn,
   type UseConvexMutationOptions,
   // Optimistic update helpers for regular queries
@@ -29,28 +28,27 @@ export {
 export type { OptimisticLocalStore } from 'convex/browser'
 export {
   useConvexAction,
-  type ActionStatus,
   type UseConvexActionReturn,
   type UseConvexActionOptions,
 } from './useConvexAction'
 export {
   useConvexQuery,
   getQueryKey,
-  type QueryStatus,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
+export type { ConvexCallStatus } from '../utils/types'
 export {
   defineSharedConvexQuery,
   type DefineSharedConvexQueryOptions,
 } from './defineSharedConvexQuery'
 export {
-  useConvexRpc,
-  type UseConvexRpcOptions,
-} from './useConvexRpc'
+  useConvexCall,
+  type UseConvexCallOptions,
+} from './useConvexCall'
 export {
   useConvexPaginatedQuery,
-  type PaginationStatus,
+  type PaginatedQueryStatus,
   type UseConvexPaginatedQueryOptions,
   type UseConvexPaginatedQueryData,
   type PaginatedQueryReference,
@@ -60,7 +58,7 @@ export {
   insertAtTop,
   insertAtPosition,
   insertAtBottomIfLoaded,
-  optimisticallyUpdateValueInPaginatedQuery,
+  updateInPaginatedQuery,
   deleteFromPaginatedQuery,
   type InsertAtTopOptions,
   type InsertAtPositionOptions,

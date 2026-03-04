@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { useConvexRpc } from '../../src/runtime/composables/useConvexRpc'
+import { useConvexCall } from '../../src/runtime/composables/useConvexCall'
 import * as useConvexModule from '../../src/runtime/composables/useConvex'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
-describe('useConvexRpc (Nuxt runtime)', () => {
+describe('useConvexCall (Nuxt runtime)', () => {
   it('works outside component scope via runWithContext (middleware-style)', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('testing:rpc-outside-scope')
     convex.setQueryHandler('testing:rpc-outside-scope', async (args) => ({ ok: true, args }))
 
     const { nuxtApp } = await captureInNuxt(() => true, { convex })
-    const once = nuxtApp.runWithContext(() => useConvexRpc({ timeoutMs: 100 }))
+    const once = await nuxtApp.runWithContext(async () => useConvexCall({ timeoutMs: 100 }))
 
     await expect(once.query(query, { q: 'ok' } as never)).resolves.toEqual({
       ok: true,
@@ -32,7 +32,7 @@ describe('useConvexRpc (Nuxt runtime)', () => {
     convex.setActionHandler('testing:once-action', async (args) => ({ done: true, args }))
 
     const { result } = await captureInNuxt(() => ({
-      once: useConvexRpc({ timeoutMs: 100 }),
+      once: useConvexCall({ timeoutMs: 100 }),
       query,
       mutation,
       action,
@@ -63,7 +63,7 @@ describe('useConvexRpc (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(
-      () => useConvexRpc({ timeoutMs: 5 }),
+      () => useConvexCall({ timeoutMs: 5 }),
       { convex },
     )
 
@@ -90,7 +90,7 @@ describe('useConvexRpc (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(
-      () => useConvexRpc({ timeoutMs: 20 }),
+      () => useConvexCall({ timeoutMs: 20 }),
       { convex },
     )
 
@@ -116,7 +116,7 @@ describe('useConvexRpc (Nuxt runtime)', () => {
     convex.setQueryHandler('testing:rpc-no-timeout', async () => ({ ok: true }))
 
     const { result } = await captureInNuxt(
-      () => useConvexRpc({ timeoutMs: 0 }),
+      () => useConvexCall({ timeoutMs: 0 }),
       { convex },
     )
 
@@ -129,7 +129,7 @@ describe('useConvexRpc (Nuxt runtime)', () => {
     })
     try {
       await expect(
-        captureInNuxt(() => useConvexRpc({ timeoutMs: 20 })),
+        captureInNuxt(() => useConvexCall({ timeoutMs: 20 })),
       ).rejects.toThrow(/Convex client is unavailable/i)
     } finally {
       spy.mockRestore()

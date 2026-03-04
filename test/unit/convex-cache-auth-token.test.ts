@@ -8,12 +8,12 @@ afterEach(() => {
 })
 
 describe('fetchAuthToken', () => {
-  it('skips token exchange entirely for unauthenticated queries', async () => {
+  it('skips token exchange entirely when auth mode is none', async () => {
     const fetchMock = vi.fn(async () => ({ token: 'jwt-should-not-be-used' }))
     vi.stubGlobal('$fetch', fetchMock)
 
     const token = await fetchAuthToken({
-      unauthenticated: true,
+      auth: 'none',
       cookieHeader: 'better-auth.session_token=abc',
       siteUrl: 'https://demo.convex.site',
       cachedToken: { value: null },
@@ -23,13 +23,13 @@ describe('fetchAuthToken', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('fetches and caches token when authenticated query has session cookie', async () => {
+  it('fetches and caches token in auto auth mode when session cookie exists', async () => {
     const fetchMock = vi.fn(async () => ({ token: 'jwt-from-exchange' }))
     vi.stubGlobal('$fetch', fetchMock)
 
     const cachedToken = { value: null as string | null }
     const token = await fetchAuthToken({
-      unauthenticated: false,
+      auth: 'auto',
       cookieHeader: 'better-auth.session_token=abc',
       siteUrl: 'https://demo.convex.site',
       cachedToken,

@@ -15,6 +15,7 @@ if (import.meta.server) {
   )
 }
 
+/** Internal devtools status — mirrors ConvexCallStatus but kept local to avoid SSR import. */
 export type QueryStatus = 'pending' | 'success' | 'error' | 'idle'
 export type DataSource = 'ssr' | 'websocket' | 'cache'
 
@@ -25,8 +26,8 @@ export interface QueryOptions {
   server: boolean
   /** Whether the query has an active subscription */
   subscribe: boolean
-  /** Whether the query skips auth token attachment. */
-  unauthenticated: boolean
+  /** Auth token behavior for the query. */
+  auth: 'auto' | 'none'
 }
 
 export interface QueryRegistryEntry {

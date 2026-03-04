@@ -186,6 +186,7 @@ export default defineNuxtConfig({
 <script setup lang="ts">
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
+import { getQueryKey } from 'better-convex-nuxt/composables'
 
 // Mutations using the new composable
 const addNoteMutation = useConvexMutation(api.notes.add)

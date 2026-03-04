@@ -94,7 +94,7 @@ function handleLoadMore() {
       <button
         data-testid="load-more-btn"
         class="action-btn load-more-btn"
-        :disabled="status !== 'CanLoadMore'"
+        :disabled="status !== 'ready'"
         @click="handleLoadMore"
       >
         {{ isLoading ? 'Loading...' : 'Load More' }}
@@ -138,7 +138,7 @@ function handleLoadMore() {
     <section class="notes-section">
       <h2>Notes</h2>
 
-      <div v-if="status === 'LoadingFirstPage'" class="loading" data-testid="loading">
+      <div v-if="status === 'loading-first-page'" class="loading" data-testid="loading">
         Loading first page...
       </div>
 
@@ -172,11 +172,11 @@ function handleLoadMore() {
         </li>
       </ul>
 
-      <div v-if="status === 'LoadingMore'" class="loading-more" data-testid="loading-more">
+      <div v-if="status === 'loading-more'" class="loading-more" data-testid="loading-more">
         Loading more...
       </div>
 
-      <div v-if="status === 'Exhausted'" class="exhausted" data-testid="exhausted">
+      <div v-if="status === 'exhausted'" class="exhausted" data-testid="exhausted">
         All notes loaded.
       </div>
     </section>
@@ -196,13 +196,13 @@ function handleLoadMore() {
           <tr>
             <td>false</td>
             <td><code>useConvexPaginatedQuery</code></td>
-            <td>status=LoadingFirstPage</td>
+            <td>status=loading-first-page</td>
             <td>instant, loading state</td>
           </tr>
           <tr>
             <td>false</td>
             <td><code>await useConvexPaginatedQuery</code></td>
-            <td>status=LoadingFirstPage</td>
+            <td>status=loading-first-page</td>
             <td>blocked until data</td>
           </tr>
           <tr class="highlight">

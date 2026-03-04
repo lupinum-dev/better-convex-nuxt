@@ -35,7 +35,7 @@ export interface ConvexPublicRuntimeConfig {
   defaults?: {
     server?: boolean
     subscribe?: boolean
-    unauthenticated?: boolean
+    auth?: 'auto' | 'none'
   }
   /** Upload defaults */
   upload?: {

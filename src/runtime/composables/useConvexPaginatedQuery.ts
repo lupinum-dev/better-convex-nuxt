@@ -15,7 +15,6 @@ import {
   type WatchStopHandle,
   shallowRef,
 } from 'vue'
-import type { NuxtError } from '#app'
 
 import {
   getFunctionName,
@@ -37,13 +36,14 @@ import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { deepUnref } from '../utils/deep-unref'
 import { assertConvexComposableScope } from '../utils/composable-scope'
+import type { ConvexClientAuthMode } from '../utils/types'
 
 // Re-export optimistic update helpers and types
 export {
   insertAtTop,
   insertAtPosition,
   insertAtBottomIfLoaded,
-  optimisticallyUpdateValueInPaginatedQuery,
+  updateInPaginatedQuery,
   deleteFromPaginatedQuery,
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
@@ -58,7 +58,13 @@ export {
 /**
  * Pagination status representing the current state of the pagination.
  */
-export type PaginationStatus = 'LoadingFirstPage' | 'CanLoadMore' | 'LoadingMore' | 'Exhausted'
+export type PaginatedQueryStatus =
+  | 'idle'
+  | 'loading-first-page'
+  | 'ready'
+  | 'loading-more'
+  | 'exhausted'
+  | 'error'
 
 /**
  * Options for useConvexPaginatedQuery
@@ -87,11 +93,12 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
   subscribe?: boolean
 
   /**
-   * Skip auth token attachment for this query.
-   * When true, skips all auth token checks during SSR.
-   * @default false (configurable via nuxt.config convex.defaults.unauthenticated)
+   * Auth token behavior for this query.
+   * - 'auto': attach token when available
+   * - 'none': never attach auth token
+   * @default 'auto' (configurable via nuxt.config convex.defaults.auth)
    */
-  unauthenticated?: boolean
+  auth?: ConvexClientAuthMode
 
   /**
    * Factory function for default raw results value.
@@ -120,7 +127,7 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
   transform?: (results: Item[]) => TransformedItem[]
   /**
    * Enable or disable query execution.
-   * When false, pagination is considered exhausted and no requests are sent.
+   * When false, status is "idle" and no requests are sent.
    * @default true
    */
   enabled?: MaybeRefOrGetter<boolean | undefined>
@@ -147,29 +154,19 @@ export interface UseConvexPaginatedQueryData<Item> {
 
   /**
    * The current pagination status.
-   * - 'LoadingFirstPage': Loading the initial page
-   * - 'CanLoadMore': More items available, call loadMore to fetch
-   * - 'LoadingMore': Currently loading another page
-   * - 'Exhausted': All items have been loaded
+   * - 'idle': Query disabled
+   * - 'loading-first-page': Loading initial page
+   * - 'ready': More items available
+   * - 'loading-more': Loading additional page
+   * - 'exhausted': All items loaded
+   * - 'error': Last request failed
    */
-  status: ComputedRef<PaginationStatus>
+  status: ComputedRef<PaginatedQueryStatus>
 
   /**
    * Whether the hook is currently loading results.
    */
   isLoading: ComputedRef<boolean>
-  /**
-   * Whether the first page is currently loading.
-   */
-  isLoadingFirstPage: ComputedRef<boolean>
-  /**
-   * Whether an additional page is currently loading.
-   */
-  isLoadingMore: ComputedRef<boolean>
-  /**
-   * Whether query is refreshing while keeping existing results visible.
-   */
-  isRefreshing: ComputedRef<boolean>
   /**
    * Whether another page can be loaded.
    */
@@ -198,11 +195,6 @@ export interface UseConvexPaginatedQueryData<Item> {
    */
   reset: () => Promise<void>
 
-  /**
-   * Clear all data and subscriptions.
-   * Sets results to empty, status to 'LoadingFirstPage'.
-   */
-  clear: () => void
 }
 
 interface BuildConvexPaginatedQueryResult<Item> {
@@ -265,7 +257,7 @@ interface StablePaginationOpts {
  *     </div>
  *     <button
  *       @click="loadMore(10)"
- *       :disabled="status !== 'CanLoadMore'"
+ *       :disabled="status !== 'ready'"
  *     >
  *       Load More
  *     </button>
@@ -293,7 +285,7 @@ export function createConvexPaginatedQueryState<
   const initialNumItems = options?.initialNumItems ?? 10
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const unauthenticated = options?.unauthenticated ?? defaults?.unauthenticated ?? false
+  const authMode = options?.auth ?? defaults?.auth ?? 'auto'
   const keepPreviousData = options?.keepPreviousData ?? false
   const deepUnrefArgs = options?.deepUnrefArgs ?? true
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
@@ -331,6 +323,7 @@ export function createConvexPaginatedQueryState<
   const pages = shallowRef<PageState<Item>[]>([])
   const globalError = ref<Error | null>(null)
   const pageBridgeWatchStops = new Map<number, { data: WatchStopHandle | null; error: WatchStopHandle | null }>()
+  const isManualRefreshPending = ref(false)
 
   // Real-time updates for the first page (overrides asyncData when available)
   const firstPageRealtimeData = shallowRef<PaginationResult<Item> | null>(null)
@@ -457,12 +450,12 @@ export function createConvexPaginatedQueryState<
     let authToken: string | undefined
     if (import.meta.server) {
       authToken = await fetchAuthToken({
-        unauthenticated,
+        auth: authMode,
         cookieHeader,
         siteUrl,
         cachedToken,
       })
-    } else if (!unauthenticated) {
+    } else if (authMode !== 'none') {
       authToken = cachedToken.value ?? undefined
     }
 
@@ -685,51 +678,55 @@ export function createConvexPaginatedQueryState<
 
   // Computed status (defined before results since results may use it for default)
   // Uses asyncData/firstPageRealtimeData for first page state, pages ref for additional pages
-  // NOTE: Nuxt's useAsyncData has different semantics than what we want:
-  // - server: false → pending=false on SSR (but we want LoadingFirstPage, data will load on client)
-  // - immediate resolve on client nav → may show pending=false (but we want LoadingFirstPage until data arrives)
-  const status = computed((): PaginationStatus => {
-    if (isSkipped.value) return 'Exhausted'
+  const status = computed((): PaginatedQueryStatus => {
+    if (isSkipped.value) return 'idle'
 
-    // When server: false, report LoadingFirstPage during SSR
-    // Nuxt's asyncData doesn't set pending=true when server:false, but we need
-    // consistent hydration (client will also be LoadingFirstPage until data arrives)
+    if (isManualRefreshPending.value) {
+      return 'loading-first-page'
+    }
+
+    const hasFirstPageError = asyncData.error.value != null
+    const hasMorePageError = pages.value.some(page => page.error != null)
+    if (globalError.value || hasFirstPageError || hasMorePageError) {
+      return 'error'
+    }
+
+    // When server: false, report loading-first-page during SSR
     if (!server && import.meta.server) {
-      return 'LoadingFirstPage'
+      return 'loading-first-page'
     }
 
     // First page status from real-time data or asyncData
     const firstPageData = firstPageRealtimeData.value ?? asyncData.data.value
-
-    // When server: false on client, show loading until data arrives
-    if (!server && import.meta.client && !firstPageData) {
-      return 'LoadingFirstPage'
-    }
-
-    // For immediate resolve on client, show LoadingFirstPage until data arrives
-    // This handles the case where navigation is instant but data is still loading
-    if (resolveImmediately && import.meta.client && !firstPageData) {
-      return 'LoadingFirstPage'
-    }
-
     const firstPagePending = asyncData.status.value === 'pending' && !firstPageRealtimeData.value
 
-    if (firstPagePending && !firstPageData) return 'LoadingFirstPage'
-
-    // If no first page data and not pending, still loading
-    if (!firstPageData) return 'LoadingFirstPage'
-
-    // Check additional pages for loading state
-    if (pages.value.length > 0) {
-      const lastPage = pages.value[pages.value.length - 1]
-      if (lastPage?.pending) return 'LoadingMore'
-      if (lastPage?.result?.isDone) return 'Exhausted'
+    // Client can be pending while waiting for first result in these paths
+    if (!firstPageData && (!server || resolveImmediately) && import.meta.client) {
+      return 'loading-first-page'
     }
 
-    // Only first page loaded - check if it's done
-    if (firstPageData.isDone) return 'Exhausted'
+    if (firstPagePending && !firstPageData) {
+      return 'loading-first-page'
+    }
 
-    return 'CanLoadMore'
+    if (!firstPageData) {
+      return 'loading-first-page'
+    }
+
+    const lastPage = pages.value.length > 0 ? pages.value[pages.value.length - 1] : null
+    if (lastPage?.pending) {
+      return 'loading-more'
+    }
+
+    if (lastPage?.result?.isDone) {
+      return 'exhausted'
+    }
+
+    if (firstPageData.isDone) {
+      return 'exhausted'
+    }
+
+    return 'ready'
   })
 
   // Computed results - concatenate all pages
@@ -765,7 +762,7 @@ export function createConvexPaginatedQueryState<
       return applyTransform(raw)
     }
     // If loading first page and have default, use default
-    if (status.value === 'LoadingFirstPage' && options?.default) {
+    if (status.value === 'loading-first-page' && options?.default) {
       return applyTransform(options.default())
     }
     // Otherwise return empty transformed array
@@ -775,7 +772,7 @@ export function createConvexPaginatedQueryState<
   const results = computed((): TransformedItem[] => {
     if (
       keepPreviousData
-      && status.value === 'LoadingFirstPage'
+      && status.value === 'loading-first-page'
       && transformedResults.value.length === 0
       && lastSettledResults.value.length > 0
     ) {
@@ -788,15 +785,9 @@ export function createConvexPaginatedQueryState<
   // Computed isLoading
   const isLoading = computed(() => {
     const s = status.value
-    return s === 'LoadingFirstPage' || s === 'LoadingMore'
+    return s === 'loading-first-page' || s === 'loading-more'
   })
-  const isLoadingFirstPage = computed(() => status.value === 'LoadingFirstPage')
-  const isLoadingMore = computed(() => status.value === 'LoadingMore')
-  const hasNextPage = computed(() => status.value === 'CanLoadMore')
-  const isRefreshing = computed(() =>
-    status.value === 'LoadingFirstPage'
-    && results.value.length > 0,
-  )
+  const hasNextPage = computed(() => status.value === 'ready')
 
   // Computed error - checks all error sources
   // Note: asyncData is referenced here but defined below - this works because computed is lazily evaluated
@@ -860,7 +851,7 @@ export function createConvexPaginatedQueryState<
     [() => status.value, () => transformedResults.value],
     ([nextStatus, nextResults]) => {
       if (isSkipped.value) return
-      if (nextStatus === 'LoadingFirstPage') return
+      if (nextStatus === 'loading-first-page') return
       lastSettledResults.value = nextResults as TransformedItem[]
     },
     { immediate: true },
@@ -921,8 +912,7 @@ export function createConvexPaginatedQueryState<
         },
         (err: Error) => {
           void handleUnauthorizedAuthFailure({ error: err, source: 'query', functionName: fnName })
-          // Update asyncData error state - match Nuxt's expected type
-          setAsyncDataError(asyncData, err)
+          ;(asyncData.error as unknown as Ref<Error | null>).value = err
         },
       )
       // Register subscription in cache and wrap unsubscribe to go through ref-counting
@@ -1032,10 +1022,28 @@ export function createConvexPaginatedQueryState<
       return
     }
 
+    isManualRefreshPending.value = true
+    globalError.value = null
+    ;(asyncData.error as unknown as Ref<Error | null>).value = null
+
+    if (pages.value.length > 0) {
+      const clearedPages = [...pages.value]
+      for (let i = 0; i < clearedPages.length; i++) {
+        const page = clearedPages[i]
+        if (!page) continue
+        clearedPages[i] = {
+          ...page,
+          error: null,
+        }
+      }
+      pages.value = clearedPages
+    }
+
     try {
       // Re-fetch first page
       const firstPageResult = await fetchPage(initialPaginationOpts.value)
       firstPageRealtimeData.value = firstPageResult
+      ;(asyncData.error as unknown as Ref<Error | null>).value = null
 
       // Re-fetch additional pages
       for (let i = 0; i < pages.value.length; i++) {
@@ -1056,11 +1064,15 @@ export function createConvexPaginatedQueryState<
       globalError.value = null
     } catch (e) {
       globalError.value = e instanceof Error ? e : new Error(String(e))
+    } finally {
+      isManualRefreshPending.value = false
     }
   }
 
   // Reset: Clear all pages and restart from the first page
   async function reset(): Promise<void> {
+    isManualRefreshPending.value = true
+
     // Clean up subscriptions
     if (import.meta.client) {
       cleanupAllSubscriptions()
@@ -1071,30 +1083,19 @@ export function createConvexPaginatedQueryState<
     currentPaginationId.value = generatePaginationId()
     pages.value = []
     globalError.value = null
+    ;(asyncData.error as unknown as Ref<Error | null>).value = null
 
     // Re-fetch first page via asyncData refresh
-    await asyncData.refresh()
+    try {
+      await asyncData.refresh()
+    } finally {
+      isManualRefreshPending.value = false
+    }
 
     // Restart subscriptions
     if (import.meta.client && subscribeRealtime && !isSkipped.value) {
       startFirstPageSubscription()
     }
-  }
-
-  // Clear: Remove all data and subscriptions without re-fetching
-  function clear(): void {
-    // Clean up subscriptions
-    if (import.meta.client) {
-      cleanupAllSubscriptions()
-    }
-
-    // Clear state
-    firstPageRealtimeData.value = null
-    // Also clear asyncData to prevent stale data on re-mount
-    asyncData.data.value = null
-    setAsyncDataError(asyncData as { error: Ref<NuxtError | null | undefined> }, null)
-    pages.value = []
-    globalError.value = null
   }
 
   let resolvePromise: Promise<void>
@@ -1140,15 +1141,11 @@ export function createConvexPaginatedQueryState<
     results,
     status,
     isLoading,
-    isLoadingFirstPage,
-    isLoadingMore,
-    isRefreshing,
     hasNextPage,
     loadMore,
     error,
     refresh,
     reset,
-    clear,
   }
 
   return {
@@ -1169,8 +1166,4 @@ export async function useConvexPaginatedQuery<
   const { resultData, resolvePromise } = createConvexPaginatedQueryState(query, args, options, false)
   await resolvePromise
   return resultData
-}
-
-function setAsyncDataError(asyncData: { error: Ref<NuxtError | null | undefined> }, error: Error | null) {
-  ;(asyncData.error as unknown as Ref<Error | null>).value = error
 }

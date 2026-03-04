@@ -68,10 +68,12 @@ export interface QueryDefaults {
    */
   subscribe?: boolean
   /**
-   * Skip auth checks for unauthenticated queries.
-   * @default false
+   * Auth token behavior for query composables.
+   * - 'auto': attach token when available
+   * - 'none': never attach token
+   * @default 'auto'
    */
-  unauthenticated?: boolean
+  auth?: 'auto' | 'none'
 }
 
 export interface UploadDefaults {
@@ -270,7 +272,7 @@ export default defineNuxtModule<ModuleOptions>({
     defaults: {
       server: true, // SSR enabled by default (like Nuxt's useFetch)
       subscribe: true,
-      unauthenticated: false,
+      auth: 'auto',
     },
     upload: {
       maxConcurrent: 3,
@@ -343,7 +345,7 @@ export default defineNuxtModule<ModuleOptions>({
         defaults: {
           server: options.defaults?.server ?? true, // SSR enabled by default
           subscribe: options.defaults?.subscribe ?? true,
-          unauthenticated: options.defaults?.unauthenticated ?? false,
+          auth: options.defaults?.auth ?? 'auto',
         },
         upload: {
           maxConcurrent: options.upload?.maxConcurrent ?? 3,
@@ -438,12 +440,11 @@ export {}
       },
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
-      { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
         name: 'defineSharedConvexQuery',
         from: resolver.resolve('./runtime/composables/defineSharedConvexQuery'),
       },
-      { name: 'useConvexRpc', from: resolver.resolve('./runtime/composables/useConvexRpc') },
+      { name: 'useConvexCall', from: resolver.resolve('./runtime/composables/useConvexCall') },
       {
         name: 'useConvexPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
@@ -477,7 +478,7 @@ export {}
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
       {
-        name: 'optimisticallyUpdateValueInPaginatedQuery',
+        name: 'updateInPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
       {
