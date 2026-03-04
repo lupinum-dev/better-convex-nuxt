@@ -64,7 +64,7 @@ const {
   status,
 } = await useConvexQuery(
   api.notes.get,
-  computed(() => (noteId.value ? { id: noteId.value } : 'skip')),
+  computed(() => (noteId.value ? { id: noteId.value } : undefined)),
   {
     default: () => {
       if (!cachedCard.value) return undefined

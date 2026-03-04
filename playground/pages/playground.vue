@@ -212,7 +212,7 @@ async function addNote() {
 
   isAdding.value = true
   try {
-    await addNoteMutation.mutate({
+    await addNoteMutation.execute({
       title: newNoteTitle.value.trim(),
       content: newNoteContent.value.trim() || 'No content',
     })
@@ -230,7 +230,7 @@ async function addNote() {
 
 async function deleteNote(id: Id<'notes'>) {
   try {
-    await deleteNoteMutation.mutate({ id })
+    await deleteNoteMutation.execute({ id })
     // Real-time subscription will update automatically!
   }
   catch (e) {
@@ -255,7 +255,7 @@ if (import.meta.client) {
 }
 
 const searchArgs = computed(() => {
-  if (!debouncedQuery.value.trim()) return 'skip' as const
+  if (!debouncedQuery.value.trim()) return undefined
   return { query: debouncedQuery.value }
 })
 
@@ -268,7 +268,7 @@ const {
 const enableSkipDemo = useState('playground-skip-demo', () => true)
 
 const skipArgs = computed(() => {
-  return enableSkipDemo.value ? {} : 'skip' as const
+  return enableSkipDemo.value ? {} : undefined
 })
 
 const {

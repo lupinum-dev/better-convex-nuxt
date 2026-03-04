@@ -19,7 +19,7 @@ definePageMeta({
  * - Deleting a note should IMMEDIATELY disappear (optimistic)
  *
  * Console log sequence for ADD:
- * 1. "[Optimistic] Mutate called" - when mutate() starts
+ * 1. "[Optimistic] Mutate called" - when execute() starts
  * 2. "[Optimistic] Data changed" - when optimistic update applies (IMMEDIATE)
  * 3. "[Optimistic] Mutate completed" - when server responds
  * 4. "Real-time update received" - when subscription confirms
@@ -46,7 +46,7 @@ watch(
 )
 
 // Mutation WITH optimistic update
-const { mutate: addNoteOptimistic, pending: addPendingOptimistic } = useConvexMutation(
+const { execute: addNoteOptimistic, pending: addPendingOptimistic } = useConvexMutation(
   api.notes.add,
   {
     optimisticUpdate: (localStore, args) => {
@@ -73,10 +73,10 @@ const { mutate: addNoteOptimistic, pending: addPendingOptimistic } = useConvexMu
 )
 
 // Mutation WITHOUT optimistic update (for comparison)
-const { mutate: addNoteNormal, pending: addPendingNormal } = useConvexMutation(api.notes.add)
+const { execute: addNoteNormal, pending: addPendingNormal } = useConvexMutation(api.notes.add)
 
 // Delete mutation WITH optimistic update
-const { mutate: removeNoteOptimistic, pending: removePendingOptimistic } = useConvexMutation(
+const { execute: removeNoteOptimistic, pending: removePendingOptimistic } = useConvexMutation(
   api.notes.remove,
   {
     optimisticUpdate: (localStore, args) => {
@@ -92,7 +92,7 @@ const { mutate: removeNoteOptimistic, pending: removePendingOptimistic } = useCo
 )
 
 // Delete mutation WITHOUT optimistic update (for comparison)
-const { mutate: removeNoteNormal, pending: removePendingNormal } = useConvexMutation(api.notes.remove)
+const { execute: removeNoteNormal, pending: removePendingNormal } = useConvexMutation(api.notes.remove)
 
 async function handleAddOptimistic() {
   const timestamp = Date.now()

@@ -229,7 +229,7 @@ definePageMeta({
 })
 
 const { isAuthenticated, isPending, token, user, signOut: authSignOut } = useConvexAuth()
-const convex = useConvex()
+const nuxtApp = useNuxtApp()
 const roleOptions = ['admin', 'member', 'viewer'] as const
 const isUpdatingRole = ref(false)
 const claimDemoStatus = ref('')
@@ -241,7 +241,7 @@ type ExtendedSessionData = ExtendedAuthClient['$Infer']['Session']
 const extendedAuthClient = shallowRef<ExtendedAuthClient | null>(null)
 const extendedSessionStore = shallowRef<unknown>(null)
 
-const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : ('skip' as const)))
+const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
 const { data: permissionContext } = await useConvexQuery(
   api.auth.getPermissionContext,
   permissionQueryArgs,
@@ -321,15 +321,19 @@ function formatErrorMessage(error: unknown) {
   }
 }
 
-async function changeRole(role: (typeof roleOptions)[number]) {
-  if (!convex) {
-    claimDemoStatus.value = 'Convex client unavailable'
-    return
+function getConvexClient() {
+  const client = nuxtApp.$convex
+  if (!client) {
+    throw new Error('Convex client unavailable')
   }
+  return client
+}
 
+async function changeRole(role: (typeof roleOptions)[number]) {
   isUpdatingRole.value = true
   claimDemoStatus.value = ''
   try {
+    const convex = getConvexClient()
     await convex.mutation(api.auth.setOwnRole, { role })
     claimDemoStatus.value = `Convex DB role updated to ${role}. (Authoritative role is shown in "convex db role" above.)`
   } catch (e) {

@@ -8,7 +8,7 @@ definePageMeta({
 /**
  * Test page for static skip behavior
  *
- * Uses args: 'skip' to permanently skip the query.
+ * Uses undefined args to permanently skip the query.
  * Expected behavior:
  * - status = 'idle'
  * - data = null
@@ -18,14 +18,14 @@ definePageMeta({
 
 const { data, pending, status, error } = await useConvexQuery(
   api.notes.list,
-  'skip',
+  undefined,
 )
 </script>
 
 <template>
   <div data-testid="static-skip-page" class="test-page">
     <h1>Static Skip</h1>
-    <p class="description">Query is always skipped with args: 'skip'</p>
+    <p class="description">Query is always skipped with undefined args</p>
 
     <NuxtLink to="/labs/query" class="back-link">Back to Query Lab</NuxtLink>
 

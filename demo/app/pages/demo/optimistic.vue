@@ -35,7 +35,7 @@ const { execute: optimisticAdd, status: optimisticAddStatus } = useConvexMutatio
     updateQuery({
       query: api.tasks.list,
       args: {},
-      localQueryStore: localStore,
+      store: localStore,
       updater: (current) => {
         const optimisticTask = {
           _id: `temp-${Date.now()}` as any,
@@ -56,7 +56,7 @@ const { execute: optimisticToggle } = useConvexMutation(api.tasks.toggle, {
     updateQuery({
       query: api.tasks.list,
       args: {},
-      localQueryStore: localStore,
+      store: localStore,
       updater: (current) =>
         current?.map((t) =>
           t._id === args.id ? { ...t, completed: !t.completed } : t
@@ -70,7 +70,7 @@ const { execute: optimisticDelete } = useConvexMutation(api.tasks.remove, {
     deleteFromQuery({
       query: api.tasks.list,
       args: {},
-      localQueryStore: localStore,
+      store: localStore,
       shouldDelete: (task) => task._id === args.id
     })
   }
@@ -258,7 +258,7 @@ function isOptimistic(taskId: string) {
     updateQuery({
       query: api.tasks.list,
       args: {},
-      localQueryStore: localStore,
+      store: localStore,
       updater: (current) => [
         { _id: 'temp', title: args.title, completed: false },
         ...(current || [])

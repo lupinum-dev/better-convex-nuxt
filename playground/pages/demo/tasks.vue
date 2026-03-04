@@ -69,11 +69,11 @@ definePageMeta({
 })
 
 const { isAuthenticated } = useConvexAuth()
-const client = useConvex()
+const nuxtApp = useNuxtApp()
 
 // Use useConvexQuery for SSR + real-time updates!
 // Skip query when not authenticated
-const queryArgs = computed(() => isAuthenticated.value ? {} : 'skip' as const)
+const queryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
 
 const {
   data: tasks,
@@ -87,12 +87,21 @@ const {
 const newTaskTitle = ref('')
 const isAdding = ref(false)
 
+function getConvexClient() {
+  const client = nuxtApp.$convex
+  if (!client) {
+    throw new Error('Convex client unavailable')
+  }
+  return client
+}
+
 // Add a new task
 async function addTask() {
-  if (!newTaskTitle.value.trim() || !client) return
+  if (!newTaskTitle.value.trim()) return
 
   isAdding.value = true
   try {
+    const client = getConvexClient()
     await client.mutation(api.tasks.add, { title: newTaskTitle.value.trim() })
     newTaskTitle.value = ''
     // Real-time subscription updates automatically!
@@ -107,8 +116,8 @@ async function addTask() {
 
 // Toggle task completion
 async function toggleTask(id: Id<'tasks'>) {
-  if (!client) return
   try {
+    const client = getConvexClient()
     await client.mutation(api.tasks.toggle, { id })
     // Real-time subscription updates automatically!
   }
@@ -119,8 +128,8 @@ async function toggleTask(id: Id<'tasks'>) {
 
 // Delete a task
 async function deleteTask(id: Id<'tasks'>) {
-  if (!client) return
   try {
+    const client = getConvexClient()
     await client.mutation(api.tasks.remove, { id })
     // Real-time subscription updates automatically!
   }

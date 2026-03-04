@@ -17,7 +17,7 @@ const {
 const childReady = ref(false)
 let childReadyTimer: ReturnType<typeof setTimeout> | null = null
 
-const childArgs = computed<Record<string, never> | 'skip'>(() => (childReady.value ? emptyQueryArgs : 'skip'))
+const childArgs = computed<Record<string, never> | undefined>(() => (childReady.value ? emptyQueryArgs : undefined))
 const {
   data: childData,
   status: childStatus,
@@ -45,7 +45,7 @@ function increment() {
   <div data-testid="subscription-dedup-bug-page" class="test-page">
     <h1>Subscription Deduplication Bug Repro</h1>
     <p class="description">
-      Parent subscribes immediately. "Child" starts with <code>'skip'</code> and resolves later.
+      Parent subscribes immediately. "Child" starts disabled and resolves later.
     </p>
 
     <button data-testid="increment-btn" class="action-btn" @click="increment">

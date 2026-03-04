@@ -19,7 +19,7 @@ definePageMeta({
 
 // Successful mutation
 const {
-  mutate: addNote,
+  execute: addNote,
   pending: addPending,
   status: addStatus,
   error: addError,
@@ -29,7 +29,7 @@ const {
 
 // Error mutation
 const {
-  mutate: failMutation,
+  execute: failMutation,
   pending: failPending,
   status: failStatus,
   error: failError,

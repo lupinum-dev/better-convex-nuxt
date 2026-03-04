@@ -39,7 +39,7 @@ const {
   refresh,
 } = await useConvexQuery(api.notes.list, {})
 
-const { mutate: addNote, pending: isCreating } = useConvexMutation(api.notes.add)
+const { execute: addNote, pending: isCreating } = useConvexMutation(api.notes.add)
 
 const cards = computed(() =>
   (notes.value ?? []).map((note) => ({

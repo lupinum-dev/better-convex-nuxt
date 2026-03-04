@@ -15,7 +15,7 @@
       </p>
 
       <!-- Loading state -->
-      <div v-if="isLoading" class="loading">Loading posts...</div>
+      <div v-if="pending && isAuthenticated" class="loading">Loading posts...</div>
 
       <!-- Not authenticated -->
       <div v-else-if="!isAuthenticated" class="not-auth">
@@ -183,18 +183,16 @@ definePageMeta({
 })
 
 const { isAuthenticated, user } = useConvexAuth()
-const client = useConvex()
+const nuxtApp = useNuxtApp()
 
 // Query posts with real-time updates
-const queryArgs = computed(() => (isAuthenticated.value ? {} : 'skip' as const))
+const queryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
 
 const {
   data: posts,
   pending,
   error,
-  isLoading,
-} = await useConvexQuery(api.posts.list, queryArgs, {
-  })
+} = await useConvexQuery(api.posts.list, queryArgs)
 
 // New post form
 const newPost = ref({
@@ -243,12 +241,21 @@ function canDelete(post: { ownerId: string }) {
   return user.value.authId === post.ownerId || ['owner', 'admin'].includes(user.value.role)
 }
 
+function getConvexClient() {
+  const client = nuxtApp.$convex
+  if (!client) {
+    throw new Error('Convex client unavailable')
+  }
+  return client
+}
+
 // Create post
 async function createPost() {
-  if (!newPost.value.title.trim() || !newPost.value.content.trim() || !client) return
+  if (!newPost.value.title.trim() || !newPost.value.content.trim()) return
 
   isCreating.value = true
   try {
+    const client = getConvexClient()
     await client.mutation(api.posts.create, {
       title: newPost.value.title.trim(),
       content: newPost.value.content.trim(),
@@ -281,10 +288,11 @@ function cancelEdit() {
 
 // Save edit
 async function saveEdit(postId: Id<'posts'>) {
-  if (!editingPost.value.title.trim() || !editingPost.value.content.trim() || !client) return
+  if (!editingPost.value.title.trim() || !editingPost.value.content.trim()) return
 
   isSaving.value = true
   try {
+    const client = getConvexClient()
     await client.mutation(api.posts.update, {
       id: postId,
       title: editingPost.value.title.trim(),
@@ -303,10 +311,9 @@ async function saveEdit(postId: Id<'posts'>) {
 
 // Publish post
 async function publishPost(postId: Id<'posts'>) {
-  if (!client) return
-
   publishingPostId.value = postId
   try {
+    const client = getConvexClient()
     await client.mutation(api.posts.publish, { id: postId })
   }
   catch (e) {
@@ -320,11 +327,11 @@ async function publishPost(postId: Id<'posts'>) {
 
 // Delete post
 async function deletePost(postId: Id<'posts'>) {
-  if (!client) return
   if (!confirm('Are you sure you want to delete this post?')) return
 
   deletingPostId.value = postId
   try {
+    const client = getConvexClient()
     await client.mutation(api.posts.remove, { id: postId })
   }
   catch (e) {

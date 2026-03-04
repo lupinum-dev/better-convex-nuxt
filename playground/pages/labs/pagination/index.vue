@@ -20,8 +20,8 @@ const { results, status, isLoading, loadMore, error } = await useConvexPaginated
   { initialNumItems: 3 },
 )
 
-const { mutate: addNote, pending: addPending } = useConvexMutation(api.notes.add)
-const { mutate: removeNote, pending: removePending } = useConvexMutation(api.notes.remove)
+const { execute: addNote, pending: addPending } = useConvexMutation(api.notes.add)
+const { execute: removeNote, pending: removePending } = useConvexMutation(api.notes.remove)
 
 // Track add/remove counts for verification
 const addCount = ref(0)

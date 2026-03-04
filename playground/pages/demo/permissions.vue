@@ -475,7 +475,7 @@ const {
   status: currentOrgStatus,
 } = await useConvexQuery(
   api.organizations.getCurrent,
-  computed(() => (orgId.value ? {} : 'skip')),
+  computed(() => (orgId.value ? {} : undefined)),
 )
 
 const {
@@ -484,7 +484,7 @@ const {
   error: postsError,
 } = await useConvexQuery(
   api.posts.list,
-  computed(() => (orgId.value ? {} : 'skip')),
+  computed(() => (orgId.value ? {} : undefined)),
 )
 
 const {
@@ -493,18 +493,18 @@ const {
   error: membersError,
 } = await useConvexQuery(
   api.organizations.getMembers,
-  computed(() => (orgId.value && can('org.members') ? {} : 'skip')),
+  computed(() => (orgId.value && can('org.members') ? {} : undefined)),
 )
 
 const { data: pendingInvites } = await useConvexQuery(
   api.invites.listPending,
-  computed(() => (orgId.value && can('org.invite') ? {} : 'skip')),
+  computed(() => (orgId.value && can('org.invite') ? {} : undefined)),
 )
 
 // Get my pending invites (when no orgId)
 const myInvitesQuery = await useConvexQuery(
   api.invites.getMyInvites,
-  computed(() => (!orgId.value ? {} : 'skip')),
+  computed(() => (!orgId.value ? {} : undefined)),
 )
 const { data: myInvites } = myInvitesQuery
 
@@ -516,13 +516,13 @@ const orgIdsForInvites = computed(() => {
 
 const { data: allOrgs } = await useConvexQuery(
   api.organizations.getByIds,
-  computed(() => (orgIdsForInvites.value.length ? { ids: orgIdsForInvites.value } : 'skip')),
+  computed(() => (orgIdsForInvites.value.length ? { ids: orgIdsForInvites.value } : undefined)),
 )
 
 // Get all organizations (for browsing)
 const allOrganizationsQuery = await useConvexQuery(
   api.organizations.list,
-  computed(() => (!orgId.value ? {} : 'skip')),
+  computed(() => (!orgId.value ? {} : undefined)),
 )
 const {
   data: allOrganizations,
@@ -538,18 +538,18 @@ await Promise.all([
 ])
 
 // Mutations - use pending/error shorthands from new API
-const { mutate: createOrg, pending: isCreatingOrg, error: createOrgError } = useConvexMutation(api.organizations.create)
-const { mutate: createPost, pending: isCreatingPost, error: createPostError } = useConvexMutation(api.posts.create)
-const { mutate: updatePost } = useConvexMutation(api.posts.update)
-const { mutate: publishPost } = useConvexMutation(api.posts.publish)
-const { mutate: deletePost } = useConvexMutation(api.posts.remove)
-const { mutate: changeMemberRole } = useConvexMutation(api.organizations.changeMemberRole)
-const { mutate: createInvite, pending: isInviting } = useConvexMutation(api.invites.create)
-const { mutate: revokeInvite } = useConvexMutation(api.invites.revoke)
-const { mutate: acceptInvite } = useConvexMutation(api.invites.accept)
-const { mutate: removeMember } = useConvexMutation(api.organizations.removeMember)
-const { mutate: leaveOrg, pending: isLeavingOrg } = useConvexMutation(api.organizations.leave)
-const { mutate: updateOrgSettings, pending: isSavingSettings } = useConvexMutation(api.organizations.updateSettings)
+const { execute: createOrg, pending: isCreatingOrg, error: createOrgError } = useConvexMutation(api.organizations.create)
+const { execute: createPost, pending: isCreatingPost, error: createPostError } = useConvexMutation(api.posts.create)
+const { execute: updatePost } = useConvexMutation(api.posts.update)
+const { execute: publishPost } = useConvexMutation(api.posts.publish)
+const { execute: deletePost } = useConvexMutation(api.posts.remove)
+const { execute: changeMemberRole } = useConvexMutation(api.organizations.changeMemberRole)
+const { execute: createInvite, pending: isInviting } = useConvexMutation(api.invites.create)
+const { execute: revokeInvite } = useConvexMutation(api.invites.revoke)
+const { execute: acceptInvite } = useConvexMutation(api.invites.accept)
+const { execute: removeMember } = useConvexMutation(api.organizations.removeMember)
+const { execute: leaveOrg, pending: isLeavingOrg } = useConvexMutation(api.organizations.leave)
+const { execute: updateOrgSettings, pending: isSavingSettings } = useConvexMutation(api.organizations.updateSettings)
 
 // State
 const error = ref<string | null>(null)

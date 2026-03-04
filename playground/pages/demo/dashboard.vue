@@ -84,7 +84,7 @@ definePageMeta({
 })
 
 const { isAuthenticated, isPending, token, signOut: convexSignOut } = useConvexAuth()
-const convex = useConvex()
+const nuxtApp = useNuxtApp()
 
 const isSigningOut = ref(false)
 const isTestingConvex = ref(false)
@@ -98,6 +98,14 @@ const tokenPreview = computed(() => {
   if (!token.value) return 'None'
   return token.value.substring(0, 20) + '...'
 })
+
+function getConvexClient() {
+  const client = nuxtApp.$convex
+  if (!client) {
+    throw new Error('Convex client unavailable')
+  }
+  return client
+}
 
 async function handleSignOut() {
   isSigningOut.value = true
@@ -114,16 +122,11 @@ async function handleSignOut() {
 }
 
 async function testConvexQuery() {
-  if (!convex) {
-    convexResult.value = 'Convex client not available'
-    convexError.value = true
-    return
-  }
-
   isTestingConvex.value = true
   convexError.value = false
 
   try {
+    const convex = getConvexClient()
     const result = await convex.query(api.users.getCurrentUser, {})
     convexResult.value = JSON.stringify(result, null, 2)
   }
