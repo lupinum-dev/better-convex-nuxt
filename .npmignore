@@ -25,5 +25,7 @@ _*.md
 
 # Nuxt build cache inside dist - not needed in published package
 **/.nuxt
-**/.DS_Store
+.DS_Store
+dist/**/.DS_Store
 dist/runtime/devtools/.gitignore
+dist/runtime/devtools/ui/.DS_Store
