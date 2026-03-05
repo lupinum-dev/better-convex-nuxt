@@ -62,11 +62,15 @@ const capturedAtRender = {
         </div>
         <div class="state-item">
           <span class="label">is default:</span>
-          <span data-testid="initial-is-default" class="value">{{ capturedAtRender.isDefaultData }}</span>
+          <span data-testid="initial-is-default" class="value">{{
+            capturedAtRender.isDefaultData
+          }}</span>
         </div>
         <div class="state-item">
           <span class="label">data length:</span>
-          <span data-testid="initial-data-length" class="value">{{ capturedAtRender.dataLength }}</span>
+          <span data-testid="initial-data-length" class="value">{{
+            capturedAtRender.dataLength
+          }}</span>
         </div>
       </div>
     </section>
@@ -94,7 +98,9 @@ const capturedAtRender = {
         </div>
         <div class="state-item">
           <span class="label">data count:</span>
-          <span data-testid="current-data-count" class="value">{{ Array.isArray(data) ? data.length : 'N/A' }}</span>
+          <span data-testid="current-data-count" class="value">{{
+            Array.isArray(data) ? data.length : 'N/A'
+          }}</span>
         </div>
         <div v-if="error" class="state-item">
           <span class="label">error:</span>

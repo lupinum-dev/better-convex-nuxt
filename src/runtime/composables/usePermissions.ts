@@ -19,10 +19,10 @@
  */
 
 import type { FunctionReference } from 'convex/server'
+import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter, useRuntimeConfig } from '#imports'
-import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
 
 import { createConvexQueryState } from './useConvexQuery'
 
@@ -150,7 +150,11 @@ export function createPermissions<
    */
   function usePermissions(): UsePermissionsReturn<TPermission, TContext> {
     // Fetch permission context from Convex
-    const { data: permissionContext, pending, error } = createConvexQueryState(query, {}, undefined, true).resultData
+    const {
+      data: permissionContext,
+      pending,
+      error,
+    } = createConvexQueryState(query, {}, undefined, true).resultData
     const runtimeConfig = useRuntimeConfig()
 
     // Build context object for checkPermission

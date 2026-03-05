@@ -1,12 +1,16 @@
 import { ref, onMounted, onUnmounted } from 'vue'
+
 import type { QueryRegistryEntry } from '../../query-registry'
 import { callBridge, getBridgeTransport, getBoundBridgeInstanceId } from './useBridge'
 
 const queries = ref<QueryRegistryEntry[]>([])
 const selectedQueryId = ref<string | null>(null)
 
-function mergeQueriesById(current: QueryRegistryEntry[], nextItems: QueryRegistryEntry[]): QueryRegistryEntry[] {
-  const currentById = new Map(current.map(item => [item.id, item]))
+function mergeQueriesById(
+  current: QueryRegistryEntry[],
+  nextItems: QueryRegistryEntry[],
+): QueryRegistryEntry[] {
+  const currentById = new Map(current.map((item) => [item.id, item]))
   return nextItems.map((incoming) => {
     const existing = currentById.get(incoming.id)
     if (!existing) return incoming
@@ -36,7 +40,11 @@ export function useQueries() {
       const handler = (event: { data: unknown }) => {
         const data = event.data
         if (!data || typeof data !== 'object') return
-        const message = data as { type?: string; queries?: QueryRegistryEntry[]; instanceId?: string | null }
+        const message = data as {
+          type?: string
+          queries?: QueryRegistryEntry[]
+          instanceId?: string | null
+        }
         if (message.type === 'CONVEX_DEVTOOLS_QUERIES') {
           const boundInstanceId = getBoundBridgeInstanceId()
           if (boundInstanceId && message.instanceId !== boundInstanceId) return
@@ -58,7 +66,7 @@ export function useQueries() {
 
   function getSelectedQuery(): QueryRegistryEntry | undefined {
     if (!selectedQueryId.value) return undefined
-    return queries.value.find(q => q.id === selectedQueryId.value)
+    return queries.value.find((q) => q.id === selectedQueryId.value)
   }
 
   return {

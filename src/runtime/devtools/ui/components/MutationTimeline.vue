@@ -33,7 +33,7 @@ function formatTime(timestamp: number): string {
     <div v-if="mutations.length === 0" class="empty-state">
       <div class="empty-state-icon">M</div>
       <div>No mutations yet</div>
-      <div style="font-size: 11px; margin-top: 4px;">Mutations will appear here when triggered</div>
+      <div style="font-size: 11px; margin-top: 4px">Mutations will appear here when triggered</div>
     </div>
     <div
       v-for="m in mutations"
@@ -58,7 +58,7 @@ function formatTime(timestamp: number): string {
         <span>{{ formatDuration(m.duration) }}</span>
       </div>
       <div class="timeline-details">
-        <div style="margin-bottom: 8px;">
+        <div style="margin-bottom: 8px">
           <div class="detail-title">Arguments</div>
           <JsonViewer :data="m.args" />
         </div>

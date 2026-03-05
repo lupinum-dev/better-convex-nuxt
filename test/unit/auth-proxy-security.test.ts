@@ -17,56 +17,48 @@ describe('auth proxy security helpers', () => {
     })
 
     it('allows trusted exact origins', () => {
-      expect(isOriginAllowed('https://preview.example.com', 'https://app.example.com', ['https://preview.example.com'])).toBe(true)
+      expect(
+        isOriginAllowed('https://preview.example.com', 'https://app.example.com', [
+          'https://preview.example.com',
+        ]),
+      ).toBe(true)
     })
 
     it('allows trusted wildcard origins', () => {
       expect(
-        isOriginAllowed(
-          'https://preview-123.vercel.app',
-          'https://app.example.com',
-          ['https://preview-*.vercel.app'],
-        ),
+        isOriginAllowed('https://preview-123.vercel.app', 'https://app.example.com', [
+          'https://preview-*.vercel.app',
+        ]),
       ).toBe(true)
     })
 
     it('rejects wildcard suffix-trick domains', () => {
       expect(
-        isOriginAllowed(
-          'https://preview-123.vercel.app.evil.com',
-          'https://app.example.com',
-          ['https://preview-*.vercel.app'],
-        ),
+        isOriginAllowed('https://preview-123.vercel.app.evil.com', 'https://app.example.com', [
+          'https://preview-*.vercel.app',
+        ]),
       ).toBe(false)
     })
 
     it('rejects extra subdomain depth when wildcard only matches one label', () => {
       expect(
-        isOriginAllowed(
-          'https://foo.bar.example.com',
-          'https://app.example.com',
-          ['https://*.example.com'],
-        ),
+        isOriginAllowed('https://foo.bar.example.com', 'https://app.example.com', [
+          'https://*.example.com',
+        ]),
       ).toBe(false)
     })
 
     it('rejects trusted origin entries with paths (not origin patterns)', () => {
       expect(
-        isOriginAllowed(
-          'https://preview.example.com',
-          'https://app.example.com',
-          ['https://preview.example.com/path'],
-        ),
+        isOriginAllowed('https://preview.example.com', 'https://app.example.com', [
+          'https://preview.example.com/path',
+        ]),
       ).toBe(false)
     })
 
     it('fails closed on malformed trusted origin patterns', () => {
       expect(
-        isOriginAllowed(
-          'https://preview.example.com',
-          'https://app.example.com',
-          ['not-a-url'],
-        ),
+        isOriginAllowed('https://preview.example.com', 'https://app.example.com', ['not-a-url']),
       ).toBe(false)
     })
   })

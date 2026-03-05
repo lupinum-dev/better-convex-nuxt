@@ -15,37 +15,30 @@ async function selectRole(role: Role) {
 </script>
 
 <template>
-  <div v-if="isAuthenticated && !isPendingPermissions" class="p-4 bg-default rounded-lg border border-default">
+  <div
+    v-if="isAuthenticated && !isPendingPermissions"
+    class="p-4 bg-default rounded-lg border border-default"
+  >
     <div class="flex items-center gap-2 mb-3">
       <UIcon name="i-lucide-users" class="w-4 h-4 text-muted" />
-      <span class="text-xs font-semibold uppercase tracking-wider text-muted">
-        Demo Role
-      </span>
+      <span class="text-xs font-semibold uppercase tracking-wider text-muted"> Demo Role </span>
     </div>
 
-    <p class="text-xs text-muted mb-3">
-      Switch roles to see how permissions affect the UI
-    </p>
+    <p class="text-xs text-muted mb-3">Switch roles to see how permissions affect the UI</p>
 
     <div class="grid grid-cols-2 gap-2">
       <UButton
         v-for="role in ROLES"
         :key="role"
         :variant="currentRole === role ? 'solid' : 'outline'"
-        :color="currentRole === role ? ROLE_INFO[role].color as any : 'neutral'"
+        :color="currentRole === role ? (ROLE_INFO[role].color as any) : 'neutral'"
         :loading="isPending"
         :disabled="isPending"
         size="sm"
-        :class="[
-          'justify-start relative',
-          currentRole === role && 'font-medium'
-        ]"
+        :class="['justify-start relative', currentRole === role && 'font-medium']"
         @click="selectRole(role)"
       >
-        <UIcon
-          :name="ROLE_INFO[role].icon"
-          class="shrink-0"
-        />
+        <UIcon :name="ROLE_INFO[role].icon" class="shrink-0" />
         {{ ROLE_INFO[role].label }}
         <UIcon
           v-if="currentRole === role"
@@ -61,9 +54,10 @@ async function selectRole(role: Role) {
   </div>
 
   <!-- Not authenticated state -->
-  <div v-else-if="!isAuthenticated && !isPendingPermissions" class="p-4 bg-default rounded-lg border border-default">
-    <p class="text-xs text-muted text-center">
-      Sign in to try role switching
-    </p>
+  <div
+    v-else-if="!isAuthenticated && !isPendingPermissions"
+    class="p-4 bg-default rounded-lg border border-default"
+  >
+    <p class="text-xs text-muted text-center">Sign in to try role switching</p>
   </div>
 </template>

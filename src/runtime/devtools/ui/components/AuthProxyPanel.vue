@@ -31,11 +31,7 @@ const hasRequests = computed(() => props.stats && props.stats.totalRequests > 0)
   <div class="auth-card proxy-panel">
     <div class="proxy-header">
       <div class="detail-title">Auth Proxy (SSR)</div>
-      <button
-        v-if="hasRequests"
-        class="btn btn-secondary btn-small"
-        @click="emit('clear')"
-      >
+      <button v-if="hasRequests" class="btn btn-secondary btn-small" @click="emit('clear')">
         Clear
       </button>
     </div>
@@ -48,7 +44,9 @@ const hasRequests = computed(() => props.stats && props.stats.totalRequests > 0)
     <div v-else-if="!hasRequests" class="empty-state">
       <div class="empty-state-icon">P</div>
       <div>No proxy requests yet</div>
-      <div style="font-size: 11px; margin-top: 4px;">Auth proxy requests will appear here during SSR</div>
+      <div style="font-size: 11px; margin-top: 4px">
+        Auth proxy requests will appear here during SSR
+      </div>
     </div>
 
     <template v-else>
@@ -74,11 +72,7 @@ const hasRequests = computed(() => props.stats && props.stats.totalRequests > 0)
 
       <!-- Recent requests -->
       <div class="request-list">
-        <div
-          v-for="req in stats!.recentRequests"
-          :key="req.id"
-          class="request-row"
-        >
+        <div v-for="req in stats!.recentRequests" :key="req.id" class="request-row">
           <span class="request-method" :class="req.method.toLowerCase()">{{ req.method }}</span>
           <span class="request-path">{{ req.path }}</span>
           <span class="request-status">
@@ -128,7 +122,7 @@ const hasRequests = computed(() => props.stats && props.stats.totalRequests > 0)
 .proxy-stat-value {
   font-size: 18px;
   font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 }
 
 .proxy-stat-value.success-text {
@@ -159,7 +153,7 @@ const hasRequests = computed(() => props.stats && props.stats.totalRequests > 0)
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   font-size: 12px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 }
 
 .request-row:last-child {

@@ -1,11 +1,7 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-const roleValidator = v.union(
-  v.literal('admin'),
-  v.literal('member'),
-  v.literal('viewer')
-)
+const roleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 
 export const roleValues = ['admin', 'member', 'viewer'] as const
 export type Role = (typeof roleValues)[number]
@@ -21,7 +17,7 @@ export default defineSchema({
     avatarUrl: v.optional(v.string()),
     role: roleValidator,
     createdAt: v.number(),
-    updatedAt: v.number()
+    updatedAt: v.number(),
   })
     .index('by_auth_id', ['authId'])
     .index('by_email', ['email']),
@@ -34,7 +30,7 @@ export default defineSchema({
     type: v.union(v.literal('message'), v.literal('task'), v.literal('event')),
     authorId: v.string(),
     authorName: v.optional(v.string()),
-    createdAt: v.number()
+    createdAt: v.number(),
   }).index('by_created', ['createdAt']),
 
   // ============================================
@@ -44,7 +40,7 @@ export default defineSchema({
     title: v.string(),
     completed: v.boolean(),
     userId: v.string(),
-    createdAt: v.number()
+    createdAt: v.number(),
   }).index('by_user', ['userId']),
 
   // ============================================
@@ -54,7 +50,7 @@ export default defineSchema({
     content: v.string(),
     authorId: v.string(),
     authorName: v.optional(v.string()),
-    createdAt: v.number()
+    createdAt: v.number(),
   }).index('by_created', ['createdAt']),
 
   // ============================================
@@ -66,8 +62,8 @@ export default defineSchema({
     mimeType: v.string(),
     size: v.number(),
     uploadedBy: v.string(),
-    createdAt: v.number()
+    createdAt: v.number(),
   })
     .index('by_uploaded_by', ['uploadedBy'])
-    .index('by_created', ['createdAt'])
+    .index('by_created', ['createdAt']),
 })

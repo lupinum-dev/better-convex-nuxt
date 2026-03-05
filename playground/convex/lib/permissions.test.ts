@@ -8,7 +8,6 @@
 import { describe, it, expect } from 'vitest'
 
 import type { Id } from '../_generated/dataModel'
-
 import { requireSameOrg, type AuthUser } from './permissions'
 
 // Test fixtures

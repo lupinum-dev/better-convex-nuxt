@@ -19,7 +19,12 @@ const lastUpdatedTime = computed(() => {
   return new Date(props.query.lastUpdated).toLocaleTimeString()
 })
 
-const options = computed<{ immediate?: boolean; server?: boolean; subscribe?: boolean; auth?: 'auto' | 'none' }>(() => props.query?.options || {})
+const options = computed<{
+  immediate?: boolean
+  server?: boolean
+  subscribe?: boolean
+  auth?: 'auto' | 'none'
+}>(() => props.query?.options || {})
 </script>
 
 <template>
@@ -32,7 +37,7 @@ const options = computed<{ immediate?: boolean; server?: boolean; subscribe?: bo
         <div class="detail-title">Query Info</div>
         <div class="detail-row">
           <span class="detail-label">Name</span>
-          <span class="detail-value" style="color: var(--accent);">{{ query.name }}</span>
+          <span class="detail-value" style="color: var(--accent)">{{ query.name }}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Status</span>
@@ -57,33 +62,84 @@ const options = computed<{ immediate?: boolean; server?: boolean; subscribe?: bo
         <div class="options-grid">
           <div class="option-item">
             <span class="option-icon" :class="options.immediate ? 'enabled' : 'disabled'">
-              <svg v-if="options.immediate" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"/>
+              <svg
+                v-if="options.immediate"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="20 6 9 17 4 12" />
               </svg>
-              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              <svg
+                v-else
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </span>
             <span>immediate</span>
           </div>
           <div class="option-item">
             <span class="option-icon" :class="options.server ? 'enabled' : 'disabled'">
-              <svg v-if="options.server" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"/>
+              <svg
+                v-if="options.server"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="20 6 9 17 4 12" />
               </svg>
-              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              <svg
+                v-else
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </span>
             <span>server</span>
           </div>
           <div class="option-item">
             <span class="option-icon" :class="options.subscribe ? 'enabled' : 'disabled'">
-              <svg v-if="options.subscribe" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"/>
+              <svg
+                v-if="options.subscribe"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="20 6 9 17 4 12" />
               </svg>
-              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              <svg
+                v-else
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </span>
             <span>subscribe</span>
@@ -96,7 +152,7 @@ const options = computed<{ immediate?: boolean; server?: boolean; subscribe?: bo
 
       <div class="detail-section">
         <div class="detail-title">Cache Key</div>
-        <div class="json-viewer" style="max-height: 60px;">{{ query.id }}</div>
+        <div class="json-viewer" style="max-height: 60px">{{ query.id }}</div>
       </div>
 
       <div class="detail-section">

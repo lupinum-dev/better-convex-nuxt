@@ -41,10 +41,7 @@ pnpm add better-convex-nuxt
 import { api } from '~/convex/_generated/api'
 
 // Real-time subscription with SSR support
-const { data: tasks, status } = await useConvexQuery(
-  api.tasks.list,
-  { status: 'active' }
-)
+const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: 'active' })
 </script>
 
 <template>
@@ -68,11 +65,10 @@ const { execute, pending } = useConvexMutation(api.tasks.create, {
       query: api.tasks.list,
       args: {},
       localQueryStore: localStore,
-      updater: (current) => current
-        ? [{ _id: 'temp', text: args.text, completed: false }, ...current]
-        : []
+      updater: (current) =>
+        current ? [{ _id: 'temp', text: args.text, completed: false }, ...current] : [],
     })
-  }
+  },
 })
 
 await execute({ text: 'Ship my app' })
@@ -92,12 +88,8 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div v-if="isAuthenticated">
-    Welcome, {{ user?.name }}!
-  </div>
-  <button v-else @click="handleLogin">
-    Sign in with GitHub
-  </button>
+  <div v-if="isAuthenticated">Welcome, {{ user?.name }}!</div>
+  <button v-else @click="handleLogin">Sign in with GitHub</button>
 </template>
 ```
 

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+
 import { useNuxtApp, useState } from '#imports'
 
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
@@ -8,15 +9,18 @@ describe('useConvexAuth (Nuxt runtime)', () => {
   it('computes authenticated state from token + user and signOut clears local state', async () => {
     const signOut = vi.fn(async () => ({ data: { success: true }, error: null }))
 
-    const { result } = await captureInNuxt(() => {
-      const token = useState<string | null>('convex:token')
-      const user = useState<unknown>('convex:user')
-      token.value = 'jwt.token'
-      user.value = { id: 'u1' }
-      return useConvexAuth()
-    }, {
-      auth: { signOut },
-    })
+    const { result } = await captureInNuxt(
+      () => {
+        const token = useState<string | null>('convex:token')
+        const user = useState<unknown>('convex:user')
+        token.value = 'jwt.token'
+        user.value = { id: 'u1' }
+        return useConvexAuth()
+      },
+      {
+        auth: { signOut },
+      },
+    )
 
     expect(result.isAuthenticated.value).toBe(true)
     await result.signOut()
@@ -61,15 +65,19 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(typeof result.signIn.email).toBe('function')
     expect(typeof result.signUp.email).toBe('function')
 
-    await expect(result.signIn.email({
-      email: 'stub@example.com',
-      password: 'password123',
-    })).rejects.toThrow(/client-only/i)
-    await expect(result.signUp.email({
-      name: 'Stub User',
-      email: 'stub@example.com',
-      password: 'password123',
-    })).rejects.toThrow(/client-only/i)
+    await expect(
+      result.signIn.email({
+        email: 'stub@example.com',
+        password: 'password123',
+      }),
+    ).rejects.toThrow(/client-only/i)
+    await expect(
+      result.signUp.email({
+        name: 'Stub User',
+        email: 'stub@example.com',
+        password: 'password123',
+      }),
+    ).rejects.toThrow(/client-only/i)
   })
 
   it('forwards client/signIn/signUp from injected $auth', async () => {
@@ -83,11 +91,14 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       signOut: vi.fn(async () => ({ data: { success: true }, error: null })),
     }
 
-    const { result } = await captureInNuxt(() => {
-      return useConvexAuth()
-    }, {
-      auth: fakeAuthClient,
-    })
+    const { result } = await captureInNuxt(
+      () => {
+        return useConvexAuth()
+      },
+      {
+        auth: fakeAuthClient,
+      },
+    )
 
     expect(result.client).toBeTruthy()
     expect(result.signIn).toBe(fakeAuthClient.signIn)

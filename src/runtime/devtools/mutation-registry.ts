@@ -13,7 +13,7 @@ import type { MutationEntry } from './types'
 if (import.meta.server) {
   throw new Error(
     '[better-convex-nuxt] DevTools mutation-registry must not be imported on server. ' +
-    'This would cause state leakage between SSR requests.',
+      'This would cause state leakage between SSR requests.',
   )
 }
 
@@ -44,8 +44,9 @@ function evictIfNeeded(): void {
   if (mutationRegistry.size <= MAX_ENTRIES) return
 
   // Sort by startedAt and remove oldest
-  const sorted = Array.from(mutationRegistry.entries())
-    .sort((a, b) => a[1].startedAt - b[1].startedAt)
+  const sorted = Array.from(mutationRegistry.entries()).sort(
+    (a, b) => a[1].startedAt - b[1].startedAt,
+  )
 
   const toRemove = sorted.slice(0, mutationRegistry.size - MAX_ENTRIES)
   for (const [id] of toRemove) {
@@ -96,8 +97,7 @@ export function updateMutationState(
  * Get all mutations, sorted by startedAt (newest first).
  */
 export function getMutations(): MutationEntry[] {
-  return Array.from(mutationRegistry.values())
-    .sort((a, b) => b.startedAt - a.startedAt)
+  return Array.from(mutationRegistry.values()).sort((a, b) => b.startedAt - a.startedAt)
 }
 
 /**

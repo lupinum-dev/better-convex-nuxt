@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import {
   handleUnauthorizedAuthFailure,
   normalizeRedirectTargetPath,
@@ -41,7 +42,9 @@ describe('auth unauthorized recovery', () => {
 
   it('normalizes redirect targets to pathname', () => {
     expect(normalizeRedirectTargetPath('/auth/signin?redirect=%2Ffoo')).toBe('/auth/signin')
-    expect(normalizeRedirectTargetPath('https://app.example.com/auth/signin?redirect=%2Ffoo')).toBe('/auth/signin')
+    expect(normalizeRedirectTargetPath('https://app.example.com/auth/signin?redirect=%2Ffoo')).toBe(
+      '/auth/signin',
+    )
   })
 
   it('skips recovery when already on the redirect path even with query params', async () => {

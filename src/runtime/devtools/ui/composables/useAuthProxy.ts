@@ -1,4 +1,5 @@
 import { ref, onMounted, onUnmounted } from 'vue'
+
 import type { AuthProxyStats } from '../../types'
 
 const proxyStats = ref<AuthProxyStats | null>(null)
@@ -22,7 +23,7 @@ export function useAuthProxy() {
         throw new Error(`HTTP ${response.status}`)
       }
 
-      const stats = await response.json() as AuthProxyStats
+      const stats = (await response.json()) as AuthProxyStats
       proxyStats.value = stats
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to fetch proxy stats'

@@ -9,19 +9,23 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const {
-  data: parentData,
-  status: parentStatus,
-} = await useConvexQuery(subscriptionDedupCounterQuery, emptyQueryArgs, { server: false })
+const { data: parentData, status: parentStatus } = await useConvexQuery(
+  subscriptionDedupCounterQuery,
+  emptyQueryArgs,
+  { server: false },
+)
 
 const childReady = ref(false)
 let childReadyTimer: ReturnType<typeof setTimeout> | null = null
 
-const childArgs = computed<Record<string, never> | undefined>(() => (childReady.value ? emptyQueryArgs : undefined))
-const {
-  data: childData,
-  status: childStatus,
-} = await useConvexQuery(subscriptionDedupCounterQuery, childArgs, { server: false })
+const childArgs = computed<Record<string, never> | undefined>(() =>
+  childReady.value ? emptyQueryArgs : undefined,
+)
+const { data: childData, status: childStatus } = await useConvexQuery(
+  subscriptionDedupCounterQuery,
+  childArgs,
+  { server: false },
+)
 
 onMounted(() => {
   // Simulates a child component receiving reactive args after mount.
@@ -48,9 +52,7 @@ function increment() {
       Parent subscribes immediately. "Child" starts disabled and resolves later.
     </p>
 
-    <button data-testid="increment-btn" class="action-btn" @click="increment">
-      Increment
-    </button>
+    <button data-testid="increment-btn" class="action-btn" @click="increment">Increment</button>
 
     <section class="state-grid">
       <div class="state-item">

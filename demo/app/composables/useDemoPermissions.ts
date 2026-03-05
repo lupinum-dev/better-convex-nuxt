@@ -4,18 +4,19 @@
  * Wraps the module's createPermissions() with demo-specific configuration.
  */
 
-import { createPermissions } from '#imports'
 import { api } from '@@/convex/_generated/api'
 import { checkPermission, type Permission, type Resource } from '@@/convex/permissions.config'
+
+import { createPermissions } from '#imports'
 
 // Re-export types
 export type { Permission, Resource }
 
 // Create base composables from module
-const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGuard }
-  = createPermissions<Permission>({
+const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGuard } =
+  createPermissions<Permission>({
     query: api.auth.getPermissionContext,
-    checkPermission: checkPermission as any
+    checkPermission: checkPermission as any,
   })
 
 /**
@@ -51,12 +52,12 @@ export function useDemoPermissions() {
 export function usePermissionGuard(
   permission: Permission,
   redirectTo: string = '/demo',
-  resource?: any
+  resource?: any,
 ) {
   return basePermissionGuard({
     permission,
     redirectTo,
     resource,
-    loginPath: '/'
+    loginPath: '/',
   })
 }

@@ -1,5 +1,6 @@
-import type { useNuxtApp } from '#app'
 import { shallowRef, type ShallowRef } from 'vue'
+
+import type { useNuxtApp } from '#app'
 
 // Re-export shared utilities
 export {
@@ -135,9 +136,9 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
   }
 
   try {
-    const response = await $fetch(`${siteUrl}/api/auth/convex/token`, {
+    const response = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
       headers: { Cookie: cookieHeader },
-    }) as { token?: string }
+    })) as { token?: string }
     if (response?.token) {
       cachedToken.value = response.token
       return response.token

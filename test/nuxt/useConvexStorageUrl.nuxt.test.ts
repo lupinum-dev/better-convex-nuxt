@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 
 import { useConvexStorageUrl } from '../../src/runtime/composables/useConvexStorageUrl'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexStorageUrl (Nuxt runtime)', () => {
@@ -11,11 +11,14 @@ describe('useConvexStorageUrl (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const getUrlQuery = mockFnRef<'query'>('files:getUrl')
 
-    const { result, flush } = await captureInNuxt(() => {
-      const storageId = ref<string | null>(null)
-      const url = useConvexStorageUrl(getUrlQuery, storageId)
-      return { storageId, url }
-    }, { convex })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const storageId = ref<string | null>(null)
+        const url = useConvexStorageUrl(getUrlQuery, storageId)
+        return { storageId, url }
+      },
+      { convex },
+    )
 
     expect(result.url.value).toBeNull()
     expect(convex.activeListenerCount()).toBe(0)
@@ -28,4 +31,3 @@ describe('useConvexStorageUrl (Nuxt runtime)', () => {
     expect(result.url.value).toBe('https://files.example.com/123')
   })
 })
-

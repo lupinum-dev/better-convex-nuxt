@@ -58,10 +58,10 @@ export class MockConvexClient {
   private currentConnectionState: MockConnectionState = { ...DEFAULT_CONNECTION_STATE }
 
   readonly calls = {
-    onUpdate: [] as Array<{ query: unknown, args: unknown }>,
-    query: [] as Array<{ query: unknown, args: unknown }>,
-    mutation: [] as Array<{ mutation: unknown, args: unknown }>,
-    action: [] as Array<{ action: unknown, args: unknown }>,
+    onUpdate: [] as Array<{ query: unknown; args: unknown }>,
+    query: [] as Array<{ query: unknown; args: unknown }>,
+    mutation: [] as Array<{ mutation: unknown; args: unknown }>,
+    action: [] as Array<{ action: unknown; args: unknown }>,
   }
 
   onUpdate = (
@@ -95,7 +95,7 @@ export class MockConvexClient {
     if (!handler) {
       throw new Error(`No mock mutation handler for ${fnPath(mutation)}`)
     }
-    return await handler(args) as T
+    return (await handler(args)) as T
   }
 
   query = async <T = unknown>(
@@ -107,7 +107,7 @@ export class MockConvexClient {
     if (!handler) {
       throw new Error(`No mock query handler for ${fnPath(query)}`)
     }
-    return await handler(args) as T
+    return (await handler(args)) as T
   }
 
   action = async <T = unknown>(
@@ -119,7 +119,7 @@ export class MockConvexClient {
     if (!handler) {
       throw new Error(`No mock action handler for ${fnPath(action)}`)
     }
-    return await handler(args) as T
+    return (await handler(args)) as T
   }
 
   connectionState(): MockConnectionState {
@@ -163,7 +163,7 @@ export class MockConvexClient {
   }
 
   emitQueryResultWhere(
-    match: (entry: { query: unknown, args: unknown }) => boolean,
+    match: (entry: { query: unknown; args: unknown }) => boolean,
     value: unknown,
   ) {
     for (const listener of this.listeners.values()) {
@@ -190,10 +190,7 @@ export class MockConvexClient {
     }
   }
 
-  emitQueryErrorWhere(
-    match: (entry: { query: unknown, args: unknown }) => boolean,
-    error: Error,
-  ) {
+  emitQueryErrorWhere(match: (entry: { query: unknown; args: unknown }) => boolean, error: Error) {
     for (const listener of this.listeners.values()) {
       if (match({ query: listener.query, args: listener.args })) {
         listener.onError?.(error)

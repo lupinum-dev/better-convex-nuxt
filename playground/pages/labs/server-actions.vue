@@ -2,8 +2,9 @@
   <div class="container">
     <h1>Server Actions Lab</h1>
     <p class="description">
-      Test <code>serverConvexQuery</code> and <code>serverConvexMutation</code> utilities for server-side Convex operations.
-      These work in API routes, server middleware, and background jobs.
+      Test <code>serverConvexQuery</code> and <code>serverConvexMutation</code> utilities for
+      server-side Convex operations. These work in API routes, server middleware, and background
+      jobs.
     </p>
 
     <div class="sections">
@@ -118,14 +119,12 @@ async function testFetchQuery() {
   try {
     const response = await $fetch(`/api/test-server-query?limit=${queryLimit.value}`)
     queryResult.value = response as Record<string, unknown>
-  }
-  catch (error) {
+  } catch (error) {
     queryResult.value = {
       success: false,
       error: error instanceof Error ? error.message : String(error),
     }
-  }
-  finally {
+  } finally {
     isQueryLoading.value = false
   }
 }
@@ -148,14 +147,12 @@ async function testFetchMutation() {
       noteTitle.value = ''
       noteContent.value = ''
     }
-  }
-  catch (error) {
+  } catch (error) {
     mutationResult.value = {
       success: false,
       error: error instanceof Error ? error.message : String(error),
     }
-  }
-  finally {
+  } finally {
     isMutationLoading.value = false
   }
 }
@@ -222,14 +219,14 @@ h2 {
   font-size: 0.9rem;
 }
 
-.controls input[type="number"] {
+.controls input[type='number'] {
   width: 60px;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 6px;
 }
 
-.controls input[type="text"] {
+.controls input[type='text'] {
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 6px;

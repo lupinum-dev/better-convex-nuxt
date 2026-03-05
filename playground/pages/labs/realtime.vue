@@ -18,10 +18,7 @@ definePageMeta({
  * - No page refresh needed - subscription handles updates
  */
 
-const { data, pending, status, error } = await useConvexQuery(
-  api.notes.list,
-  {},
-)
+const { data, pending, status, error } = await useConvexQuery(api.notes.list, {})
 
 const { execute: addNote, pending: addPending } = useConvexMutation(api.notes.add)
 const { execute: removeNote, pending: removePending } = useConvexMutation(api.notes.remove)

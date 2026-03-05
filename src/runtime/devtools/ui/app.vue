@@ -53,13 +53,19 @@ function switchTab(tab: typeof activeTab.value) {
           <span
             class="status-dot"
             :class="{
-              'pending': authState?.isPending,
-              'connected': authState?.isAuthenticated,
-              'disconnected': !authState?.isPending && !authState?.isAuthenticated
+              pending: authState?.isPending,
+              connected: authState?.isAuthenticated,
+              disconnected: !authState?.isPending && !authState?.isAuthenticated,
             }"
           />
           <span>
-            {{ authState?.isPending ? 'Loading...' : (authState?.isAuthenticated ? (authState.user?.name || 'Authenticated') : 'Not authenticated') }}
+            {{
+              authState?.isPending
+                ? 'Loading...'
+                : authState?.isAuthenticated
+                  ? authState.user?.name || 'Authenticated'
+                  : 'Not authenticated'
+            }}
           </span>
         </div>
       </div>
@@ -89,11 +95,7 @@ function switchTab(tab: typeof activeTab.value) {
         >
           Mutations <span class="tab-badge">{{ mutations.length }}</span>
         </button>
-        <button
-          class="tab"
-          :class="{ active: activeTab === 'auth' }"
-          @click="switchTab('auth')"
-        >
+        <button class="tab" :class="{ active: activeTab === 'auth' }" @click="switchTab('auth')">
           Auth
         </button>
       </nav>
@@ -101,11 +103,7 @@ function switchTab(tab: typeof activeTab.value) {
       <!-- Queries Tab -->
       <div v-show="activeTab === 'queries'" class="tab-content active">
         <div class="master-detail">
-          <QueryList
-            :queries="queries"
-            :selected-id="selectedQueryId"
-            @select="selectQuery"
-          />
+          <QueryList :queries="queries" :selected-id="selectedQueryId" @select="selectQuery" />
           <QueryDetail :query="getSelectedQuery()" />
         </div>
       </div>
@@ -120,13 +118,9 @@ function switchTab(tab: typeof activeTab.value) {
       </div>
 
       <!-- Auth Tab -->
-      <div v-show="activeTab === 'auth'" class="tab-content active" style="overflow-y: auto;">
+      <div v-show="activeTab === 'auth'" class="tab-content active" style="overflow-y: auto">
         <AuthPanel :auth-state="authState" :waterfall="authWaterfall" />
-        <AuthProxyPanel
-          :stats="proxyStats"
-          :loading="proxyLoading"
-          @clear="clearProxyStats"
-        />
+        <AuthProxyPanel :stats="proxyStats" :loading="proxyLoading" @clear="clearProxyStats" />
       </div>
     </template>
   </div>

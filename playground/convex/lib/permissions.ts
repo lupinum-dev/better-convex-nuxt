@@ -7,7 +7,6 @@
 
 import type { Id } from '../_generated/dataModel'
 import type { QueryCtx, MutationCtx } from '../_generated/server'
-
 import {
   checkPermission,
   type Permission,

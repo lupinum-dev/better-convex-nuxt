@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
+
 import {
   deepEqual,
   argsMatch,
@@ -85,11 +86,33 @@ describe('deepEqual', () => {
     })
 
     it('returns true for nested arrays', () => {
-      expect(deepEqual([[1, 2], [3, 4]], [[1, 2], [3, 4]])).toBe(true)
+      expect(
+        deepEqual(
+          [
+            [1, 2],
+            [3, 4],
+          ],
+          [
+            [1, 2],
+            [3, 4],
+          ],
+        ),
+      ).toBe(true)
     })
 
     it('returns false for different nested arrays', () => {
-      expect(deepEqual([[1, 2], [3, 4]], [[1, 2], [3, 5]])).toBe(false)
+      expect(
+        deepEqual(
+          [
+            [1, 2],
+            [3, 4],
+          ],
+          [
+            [1, 2],
+            [3, 5],
+          ],
+        ),
+      ).toBe(false)
     })
 
     it('returns true for empty arrays', () => {
@@ -166,25 +189,23 @@ describe('argsMatch', () => {
   })
 
   it('skips keys in skipKeys array', () => {
-    expect(argsMatch(
-      { a: 1, paginationOpts: { cursor: 'abc' } },
-      { a: 1, paginationOpts: { cursor: 'xyz' } },
-      ['paginationOpts']
-    )).toBe(true)
+    expect(
+      argsMatch(
+        { a: 1, paginationOpts: { cursor: 'abc' } },
+        { a: 1, paginationOpts: { cursor: 'xyz' } },
+        ['paginationOpts'],
+      ),
+    ).toBe(true)
   })
 
   it('handles nested object matching', () => {
-    expect(argsMatch(
-      { user: { id: 1, name: 'Alice' } },
-      { user: { id: 1, name: 'Alice' } }
-    )).toBe(true)
+    expect(argsMatch({ user: { id: 1, name: 'Alice' } }, { user: { id: 1, name: 'Alice' } })).toBe(
+      true,
+    )
   })
 
   it('returns false for different nested objects', () => {
-    expect(argsMatch(
-      { user: { id: 1 } },
-      { user: { id: 2 } }
-    )).toBe(false)
+    expect(argsMatch({ user: { id: 1 } }, { user: { id: 2 } })).toBe(false)
   })
 
   it('returns true for empty filter', () => {
@@ -263,22 +284,15 @@ describe('compareJsonValues', () => {
 
   describe('BigInt ($integer format)', () => {
     it('compares BigInt values correctly', () => {
-      expect(compareJsonValues(
-        { $integer: '100' },
-        { $integer: '200' }
-      )).toBeLessThan(0)
+      expect(compareJsonValues({ $integer: '100' }, { $integer: '200' })).toBeLessThan(0)
 
-      expect(compareJsonValues(
-        { $integer: '200' },
-        { $integer: '100' }
-      )).toBeGreaterThan(0)
+      expect(compareJsonValues({ $integer: '200' }, { $integer: '100' })).toBeGreaterThan(0)
     })
 
     it('handles large BigInt values', () => {
-      expect(compareJsonValues(
-        { $integer: '9007199254740992' },
-        { $integer: '9007199254740993' }
-      )).toBeLessThan(0)
+      expect(
+        compareJsonValues({ $integer: '9007199254740992' }, { $integer: '9007199254740993' }),
+      ).toBeLessThan(0)
     })
   })
 })

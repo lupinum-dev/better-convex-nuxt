@@ -131,7 +131,8 @@ const ICONS = {
 // ============================================================================
 
 const CSS = {
-  badge: 'background: #6366f1; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
+  badge:
+    'background: #6366f1; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;',
   success: 'color: #22c55e; font-weight: bold;',
   error: 'color: #ef4444; font-weight: bold;',
   warning: 'color: #f59e0b; font-weight: bold;',
@@ -276,7 +277,9 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
 
     connection(event: ConnectionEvent): void {
       if (event.event === 'lost') {
-        console.log(`${PREFIX} ${ANSI.yellow}${ICONS.warning}${ANSI.reset} Connection  ${ANSI.yellow}lost${ANSI.reset}`)
+        console.log(
+          `${PREFIX} ${ANSI.yellow}${ICONS.warning}${ANSI.reset} Connection  ${ANSI.yellow}lost${ANSI.reset}`,
+        )
       } else {
         let msg = `${PREFIX} ${ANSI.green}${ICONS.success}${ANSI.reset} Connection  ${ANSI.green}restored${ANSI.reset}`
         if (event.offlineDuration !== undefined) {
@@ -346,13 +349,27 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
   return {
     auth(event: AuthEvent): void {
       const icon =
-        event.outcome === 'success' ? ICONS.success : event.outcome === 'error' ? ICONS.error : ICONS.warning
-      const iconStyle = event.outcome === 'success' ? CSS.success : event.outcome === 'error' ? CSS.error : CSS.warning
+        event.outcome === 'success'
+          ? ICONS.success
+          : event.outcome === 'error'
+            ? ICONS.error
+            : ICONS.warning
+      const iconStyle =
+        event.outcome === 'success'
+          ? CSS.success
+          : event.outcome === 'error'
+            ? CSS.error
+            : CSS.warning
 
       const hasDetails = event.details && Object.keys(event.details).length > 0
 
       if (hasDetails || event.error) {
-        console.groupCollapsed(`%cConvex%c Auth | %c${icon} ${event.phase}`, CSS.badge, '', iconStyle)
+        console.groupCollapsed(
+          `%cConvex%c Auth | %c${icon} ${event.phase}`,
+          CSS.badge,
+          '',
+          iconStyle,
+        )
         if (event.details) console.log(event.details)
         if (event.error) console.error(event.error)
         console.groupEnd()
@@ -453,7 +470,12 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
 
     connection(event: ConnectionEvent): void {
       if (event.event === 'lost') {
-        console.log(`%cConvex%c ${ICONS.warning} Connection %clost`, CSS.badge, CSS.warning, CSS.warning)
+        console.log(
+          `%cConvex%c ${ICONS.warning} Connection %clost`,
+          CSS.badge,
+          CSS.warning,
+          CSS.warning,
+        )
       } else {
         let label = `%cConvex%c ${ICONS.success} Connection %crestored`
         const styles = [CSS.badge, CSS.success, CSS.success]
@@ -540,7 +562,10 @@ const sharedServerLoggers = new Map<Exclude<LogLevel, false>, Logger>()
 const sharedBrowserLoggers = new Map<Exclude<LogLevel, false>, Logger>()
 
 function isBrowserRuntime(): boolean {
-  return typeof globalThis !== 'undefined' && typeof (globalThis as { window?: unknown }).window !== 'undefined'
+  return (
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as { window?: unknown }).window !== 'undefined'
+  )
 }
 
 /**
@@ -550,7 +575,7 @@ function isBrowserRuntime(): boolean {
 export function getSharedLogger(level: LogLevel): Logger {
   if (!level) return noopLogger
 
-  const cache = (isBrowserRuntime() ? sharedBrowserLoggers : sharedServerLoggers)
+  const cache = isBrowserRuntime() ? sharedBrowserLoggers : sharedServerLoggers
   const typedLevel = level as Exclude<LogLevel, false>
   const existing = cache.get(typedLevel)
   if (existing) return existing
@@ -565,11 +590,9 @@ export function getSharedLogger(level: LogLevel): Logger {
  */
 export function getLogLevel(config: unknown): LogLevel {
   const logging = (
-    config
-    && typeof config === 'object'
-    && 'logging' in config
-    ? (config as { logging?: LogLevel }).logging
-    : undefined
+    config && typeof config === 'object' && 'logging' in config
+      ? (config as { logging?: LogLevel }).logging
+      : undefined
   ) as LogLevel | undefined
   return logging ?? false
 }

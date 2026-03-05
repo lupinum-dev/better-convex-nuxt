@@ -1,8 +1,9 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 import type { RouteLocationRaw } from 'vue-router'
-import type { LogLevel } from './utils/logger'
+
 import type { ConvexAuthConfigInput } from './utils/auth-config'
+import type { LogLevel } from './utils/logger'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 

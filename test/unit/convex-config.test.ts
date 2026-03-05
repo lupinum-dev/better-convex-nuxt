@@ -21,7 +21,9 @@ describe('convex config helpers', () => {
 
   it('does not derive siteUrl from custom domains', () => {
     expect(deriveConvexSiteUrl('https://api.example.com')).toBeUndefined()
-    expect(getSiteUrlResolutionHint('https://api.example.com')).toContain('Could not derive `siteUrl`')
+    expect(getSiteUrlResolutionHint('https://api.example.com')).toContain(
+      'Could not derive `siteUrl`',
+    )
   })
 
   it('returns local hint for unsupported localhost urls', () => {

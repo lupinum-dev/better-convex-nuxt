@@ -24,6 +24,7 @@ export default defineNuxtConfig({
     transpile: [],
   },
 
+  // @ts-expect-error nitro is valid at runtime but not in the narrowed NuxtConfig type here
   nitro: {
     preset: 'static',
     output: {

@@ -10,4 +10,3 @@ definePageMeta({
   layout: 'sidebar',
 })
 </script>
-

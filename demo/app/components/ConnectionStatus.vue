@@ -14,7 +14,7 @@ const config = useRuntimeConfig()
         <span
           :class="[
             'relative inline-flex rounded-full h-2.5 w-2.5',
-            isConnected ? 'bg-green-500' : isReconnecting ? 'bg-yellow-500' : 'bg-red-500'
+            isConnected ? 'bg-green-500' : isReconnecting ? 'bg-yellow-500' : 'bg-red-500',
           ]"
         />
       </span>
@@ -23,9 +23,7 @@ const config = useRuntimeConfig()
       </span>
     </div>
 
-    <p v-if="isReconnecting" class="text-xs text-muted mb-2">
-      Attempt {{ connectionRetries }}...
-    </p>
+    <p v-if="isReconnecting" class="text-xs text-muted mb-2">Attempt {{ connectionRetries }}...</p>
 
     <p class="text-[10px] text-muted font-mono truncate">
       {{ config.public.convex?.url || 'Not configured' }}

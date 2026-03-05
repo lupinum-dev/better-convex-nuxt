@@ -14,7 +14,11 @@
       <div class="status-row">
         <span
           class="badge"
-          :class="{ loading: notesPending, success: !notesPending && !notesError, error: notesError }"
+          :class="{
+            loading: notesPending,
+            success: !notesPending && !notesError,
+            error: notesError,
+          }"
         >
           {{ notesPending ? 'Loading...' : notesError ? 'Error' : 'Ready' }}
         </span>
@@ -90,7 +94,11 @@
       <div class="status-row">
         <span
           class="badge"
-          :class="{ loading: skipDemoPending, success: !skipDemoPending && enableSkipDemo, muted: !enableSkipDemo }"
+          :class="{
+            loading: skipDemoPending,
+            success: !skipDemoPending && enableSkipDemo,
+            muted: !enableSkipDemo,
+          }"
         >
           {{ !enableSkipDemo ? 'Skipped' : skipDemoPending ? 'Loading...' : 'Ready' }}
         </span>
@@ -160,7 +168,9 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
     <!-- Section 6: Logging -->
     <section class="section">
       <h2>6. Module Logging</h2>
-      <p class="description">Enable <code>convex.logging</code> in <code>nuxt.config.ts</code> to inspect lifecycle logs</p>
+      <p class="description">
+        Enable <code>convex.logging</code> in <code>nuxt.config.ts</code> to inspect lifecycle logs
+      </p>
 
       <div class="code-block">
         <pre>
@@ -219,11 +229,9 @@ async function addNote() {
     newNoteTitle.value = ''
     newNoteContent.value = ''
     // Real-time subscription will update automatically!
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to add note:', e)
-  }
-  finally {
+  } finally {
     isAdding.value = false
   }
 }
@@ -232,8 +240,7 @@ async function deleteNote(id: Id<'notes'>) {
   try {
     await deleteNoteMutation.execute({ id })
     // Real-time subscription will update automatically!
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to delete note:', e)
   }
 }
@@ -259,10 +266,10 @@ const searchArgs = computed(() => {
   return { query: debouncedQuery.value }
 })
 
-const {
-  data: searchResults,
-  pending: searchPending,
-} = await useConvexQuery(api.notes.search, searchArgs)
+const { data: searchResults, pending: searchPending } = await useConvexQuery(
+  api.notes.search,
+  searchArgs,
+)
 
 // ========== Section 3: Skip Pattern ==========
 const enableSkipDemo = useState('playground-skip-demo', () => true)
@@ -271,10 +278,10 @@ const skipArgs = computed(() => {
   return enableSkipDemo.value ? {} : undefined
 })
 
-const {
-  data: skipDemoData,
-  pending: skipDemoPending,
-} = await useConvexQuery(api.notes.list, skipArgs)
+const { data: skipDemoData, pending: skipDemoPending } = await useConvexQuery(
+  api.notes.list,
+  skipArgs,
+)
 
 // ========== Section 4: useNuxtData (Cache Access) ==========
 const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
@@ -282,21 +289,17 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 // ========== Section 5: Options Demo ==========
 
 // Client-only query example
-const {
-  data: lazyData,
-  pending: lazyPending,
-} = await useConvexQuery(api.notes.list, {})
+const { data: lazyData, pending: lazyPending } = await useConvexQuery(api.notes.list, {})
 
 // Default data (factory function that provides initial value)
-const {
-  data: initialDataDemo,
-} = await useConvexQuery(api.notes.list, {}, { default: () => [] })
+const { data: initialDataDemo } = await useConvexQuery(api.notes.list, {}, { default: () => [] })
 
 // Client-only
-const {
-  data: clientOnlyData,
-  pending: clientOnlyPending,
-} = await useConvexQuery(api.notes.list, {}, { server: false })
+const { data: clientOnlyData, pending: clientOnlyPending } = await useConvexQuery(
+  api.notes.list,
+  {},
+  { server: false },
+)
 
 // ========== Debug ==========
 const debugInfo = computed(() => ({

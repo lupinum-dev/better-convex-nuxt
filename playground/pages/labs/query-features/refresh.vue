@@ -15,11 +15,7 @@ definePageMeta({
  * - Data should update (if changed on server)
  */
 
-const { data, pending, status, refresh } = await useConvexQuery(
-  api.notes.list,
-  {},
-  {},
-)
+const { data, pending, status, refresh } = await useConvexQuery(api.notes.list, {}, {})
 
 // Track refresh count and timestamps
 const refreshCount = ref(0)
@@ -33,11 +29,15 @@ async function handleRefresh() {
 
 // Capture initial data timestamp for comparison
 const initialDataLength = ref<number | null>(null)
-watch(data, (newData) => {
-  if (newData && initialDataLength.value === null) {
-    initialDataLength.value = newData.length
-  }
-}, { immediate: true })
+watch(
+  data,
+  (newData) => {
+    if (newData && initialDataLength.value === null) {
+      initialDataLength.value = newData.length
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

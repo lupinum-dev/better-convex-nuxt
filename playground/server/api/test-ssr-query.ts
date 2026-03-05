@@ -1,7 +1,9 @@
+import { ConvexHttpClient } from 'convex/browser'
 import type { H3Event } from 'h3'
 import { defineEventHandler, createError } from 'h3'
+
 import { useRuntimeConfig } from '#imports'
-import { ConvexHttpClient } from 'convex/browser'
+
 import { api } from '../../convex/_generated/api'
 
 export default defineEventHandler(async (event: H3Event) => {

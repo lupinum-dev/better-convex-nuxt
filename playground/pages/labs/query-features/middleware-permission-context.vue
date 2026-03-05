@@ -12,7 +12,11 @@ if (!runMarker.value) {
 }
 
 // Page-level query for debugging/visibility (middleware does the actual guard).
-const { data: context, status, error } = await useConvexQuery(
+const {
+  data: context,
+  status,
+  error,
+} = await useConvexQuery(
   api.auth.getPermissionContext,
   {},
   {
@@ -26,7 +30,8 @@ const { data: context, status, error } = await useConvexQuery(
     <h1>Route Middleware + Permission Context</h1>
     <p class="description">
       This page is protected by a route middleware that calls
-      <code>useConvexQuery(api.auth.getPermissionContext, {}, { subscribe: false })</code> (strict HTTP-only mode).
+      <code>useConvexQuery(api.auth.getPermissionContext, {}, { subscribe: false })</code> (strict
+      HTTP-only mode).
     </p>
 
     <div class="card success">
@@ -45,14 +50,18 @@ const { data: context, status, error } = await useConvexQuery(
         <li>Navigate to another page (for example <code>/labs/query</code>).</li>
         <li>Click back to this page and confirm it still loads (SPA navigation).</li>
         <li>Refresh this page directly and confirm it still loads (SSR).</li>
-        <li>Open browser console and confirm you do not see the Vue <code>onUnmounted</code> warning.</li>
+        <li>
+          Open browser console and confirm you do not see the Vue <code>onUnmounted</code> warning.
+        </li>
       </ol>
     </div>
 
     <div class="grid">
       <div class="card">
         <h2>Query Status</h2>
-        <p><strong>Status:</strong> <code>{{ status }}</code></p>
+        <p>
+          <strong>Status:</strong> <code>{{ status }}</code>
+        </p>
         <p v-if="error"><strong>Error:</strong> {{ error.message }}</p>
       </div>
 

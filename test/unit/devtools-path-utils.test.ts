@@ -1,7 +1,11 @@
 import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
-import { isPathInsideDirectory, resolveDevtoolsFilePath } from '../../src/runtime/devtools/path-utils'
+import {
+  isPathInsideDirectory,
+  resolveDevtoolsFilePath,
+} from '../../src/runtime/devtools/path-utils'
 
 describe('devtools path utils', () => {
   it('allows files inside output directory', () => {

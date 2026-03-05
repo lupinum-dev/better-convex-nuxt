@@ -1,5 +1,4 @@
 import type { H3Event } from 'h3'
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -161,11 +160,7 @@ describe('server Convex fetch helpers', () => {
     const event = createEvent()
     await serverConvexAction(event, symbolRef as never, {} as never)
     await serverConvexAction(event, { _path: 'path:field' } as never, {} as never)
-    await serverConvexAction(
-      event,
-      { functionPath: 'function:path' } as never,
-      {} as never,
-    )
+    await serverConvexAction(event, { functionPath: 'function:path' } as never, {} as never)
     await serverConvexAction(event, {} as never, {} as never)
 
     const paths = fetchMock.mock.calls.map((call) => {
@@ -212,12 +207,9 @@ describe('server Convex fetch helpers', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(
-      serverConvexQuery(
-        createEvent(),
-        { _path: 'notes:list' } as never,
-        {} as never,
-        { auth: 'required' },
-      ),
+      serverConvexQuery(createEvent(), { _path: 'notes:list' } as never, {} as never, {
+        auth: 'required',
+      }),
     ).rejects.toThrow('Authentication required')
   })
 

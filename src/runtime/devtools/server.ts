@@ -1,10 +1,13 @@
+import { readFileSync, existsSync } from 'node:fs'
+
 /**
  * Server handler for DevTools UI.
  * Serves the built Vue devtools application and API endpoints.
  */
 import { defineEventHandler, setHeader, getRequestURL, createError, type H3Event } from 'h3'
-import { readFileSync, existsSync } from 'node:fs'
+
 import { useRuntimeConfig } from '#imports'
+
 import { getAuthProxyStats, clearAuthProxyStats } from './auth-proxy-registry'
 import { isPathInsideDirectory, resolveDevtoolsFilePath } from './path-utils'
 
@@ -34,7 +37,8 @@ export default defineEventHandler(async (event: H3Event) => {
 
   // Get the devtools output path from runtime config
   const config = useRuntimeConfig()
-  const outputDir = typeof config.convexDevtoolsPath === 'string' ? config.convexDevtoolsPath : undefined
+  const outputDir =
+    typeof config.convexDevtoolsPath === 'string' ? config.convexDevtoolsPath : undefined
 
   const url = getRequestURL(event)
   let pathname = url.pathname.replace('/__convex_devtools__', '') || '/'

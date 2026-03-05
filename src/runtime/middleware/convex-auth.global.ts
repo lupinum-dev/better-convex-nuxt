@@ -1,7 +1,10 @@
 import { defineNuxtRouteMiddleware, navigateTo, useRuntimeConfig } from '#app'
 
 import { useConvexAuth } from '../composables/useConvexAuth'
-import { resolveRouteProtectionDecision, type ConvexAuthPageMeta } from '../utils/auth-route-protection'
+import {
+  resolveRouteProtectionDecision,
+  type ConvexAuthPageMeta,
+} from '../utils/auth-route-protection'
 import { normalizeConvexRuntimeConfig } from '../utils/runtime-config'
 
 const PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS = 5_000

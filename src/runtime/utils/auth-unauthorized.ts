@@ -25,7 +25,9 @@ export function normalizeRedirectTargetPath(redirectTo: string): string {
 
 function getUnauthorizedRecoveryState(): UnauthorizedRecoveryState {
   const nuxtApp = useNuxtApp()
-  const appWithState = nuxtApp as typeof nuxtApp & { _bcnUnauthorizedRecoveryState?: UnauthorizedRecoveryState }
+  const appWithState = nuxtApp as typeof nuxtApp & {
+    _bcnUnauthorizedRecoveryState?: UnauthorizedRecoveryState
+  }
   if (!appWithState._bcnUnauthorizedRecoveryState) {
     appWithState._bcnUnauthorizedRecoveryState = {
       activeRecovery: null,
@@ -53,14 +55,17 @@ export async function handleUnauthorizedAuthFailure(options: {
   if (options.source === 'query' && !unauthorized.includeQueries) return false
 
   const nuxtApp = useNuxtApp()
-  const routerRoute = nuxtApp.$router?.currentRoute?.value
-  const compatRoute = (nuxtApp as { _route?: { path?: string, fullPath?: string } })._route
+  const router = nuxtApp.$router as
+    | { currentRoute?: { value?: { path?: string; fullPath?: string } } }
+    | undefined
+  const routerRoute = router?.currentRoute?.value
+  const compatRoute = (nuxtApp as { _route?: { path?: string; fullPath?: string } })._route
   const locationLike = (globalThis as { location?: Location }).location
   const currentRoute = routerRoute ?? {
     path: compatRoute?.path ?? locationLike?.pathname ?? '/',
     fullPath:
-      compatRoute?.fullPath
-      ?? `${locationLike?.pathname ?? '/'}${locationLike?.search ?? ''}${locationLike?.hash ?? ''}`,
+      compatRoute?.fullPath ??
+      `${locationLike?.pathname ?? '/'}${locationLike?.search ?? ''}${locationLike?.hash ?? ''}`,
   }
   const redirectTo = unauthorized.redirectTo
   const redirectPath = normalizeRedirectTargetPath(redirectTo)
@@ -69,8 +74,8 @@ export async function handleUnauthorizedAuthFailure(options: {
   const dedupeKey = `${options.source}:${redirectPath}:${currentRoute.fullPath}`
   const now = Date.now()
   if (
-    recoveryState.activeRecovery
-    || (recoveryState.lastRedirectKey === dedupeKey && now - recoveryState.lastRedirectAt < 1500)
+    recoveryState.activeRecovery ||
+    (recoveryState.lastRedirectKey === dedupeKey && now - recoveryState.lastRedirectAt < 1500)
   ) {
     return true
   }

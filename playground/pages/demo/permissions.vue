@@ -27,10 +27,9 @@
           <div class="invites-list">
             <div v-for="invite in myInvites" :key="invite._id" class="invite-card">
               <div class="invite-info">
-                <span
-                  class="invite-org"
-                  >{{ getOrgName(invite.organizationId) || 'Organization' }}</span
-                >
+                <span class="invite-org">{{
+                  getOrgName(invite.organizationId) || 'Organization'
+                }}</span>
                 <span class="role-badge small" :class="invite.role">{{ invite.role }}</span>
               </div>
               <button
@@ -145,20 +144,18 @@
                 <span
                   v-if="currentOrgStatus === 'pending'"
                   class="skeleton skeleton-text"
-                  style="width: 120px; display: inline-block;"
+                  style="width: 120px; display: inline-block"
                 />
-                <span
-                  v-else-if="currentOrgStatus === 'success'"
-                  class="value"
-                  >{{ currentOrg?.name || orgId }}</span
-                >
+                <span v-else-if="currentOrgStatus === 'success'" class="value">{{
+                  currentOrg?.name || orgId
+                }}</span>
                 <span v-else-if="currentOrgStatus === 'error'" class="value error"
                   >Failed to load</span
                 >
                 <template #fallback>
                   <span
                     class="skeleton skeleton-text"
-                    style="width: 120px; display: inline-block;"
+                    style="width: 120px; display: inline-block"
                   />
                 </template>
               </ClientOnly>
@@ -373,10 +370,9 @@
             <div v-else-if="membersStatus === 'success'" class="members-list">
               <div v-for="member in members" :key="member._id" class="member-card">
                 <div class="member-info">
-                  <span
-                    class="member-name"
-                    >{{ member.displayName || member.email || 'Unknown User' }}</span
-                  >
+                  <span class="member-name">{{
+                    member.displayName || member.email || 'Unknown User'
+                  }}</span>
                   <span class="role-badge small" :class="member.role">{{ member.role }}</span>
                 </div>
                 <div class="member-actions">
@@ -386,7 +382,9 @@
                     :value="member.role"
                     class="role-select"
                     :disabled="member.role === 'admin' && role !== 'owner'"
-                    @change="handleRoleChange(member._id, ($event.target as HTMLSelectElement).value)"
+                    @change="
+                      handleRoleChange(member._id, ($event.target as HTMLSelectElement).value)
+                    "
                   >
                     <option value="admin" :disabled="role !== 'owner'">Admin</option>
                     <option value="member">Member</option>
@@ -396,7 +394,11 @@
 
                   <!-- Remove member button (can't remove owner or yourself) -->
                   <button
-                    v-if="member.role !== 'owner' && member.authId !== user?.userId && (role === 'owner' || (role === 'admin' && member.role !== 'admin'))"
+                    v-if="
+                      member.role !== 'owner' &&
+                      member.authId !== user?.userId &&
+                      (role === 'owner' || (role === 'admin' && member.role !== 'admin'))
+                    "
                     class="btn btn-small btn-danger"
                     :disabled="isRemovingMember === member._id"
                     @click="handleRemoveMember(member._id)"
@@ -470,10 +472,7 @@ const { can, user, role, orgId, pending, isAuthenticated } = usePermissions()
 
 // Queries - use status for explicit state management
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)
-const {
-  data: currentOrg,
-  status: currentOrgStatus,
-} = await useConvexQuery(
+const { data: currentOrg, status: currentOrgStatus } = await useConvexQuery(
   api.organizations.getCurrent,
   computed(() => (orgId.value ? {} : undefined)),
 )
@@ -511,7 +510,7 @@ const { data: myInvites } = myInvitesQuery
 // Get organizations for invite display
 const orgIdsForInvites = computed(() => {
   if (!myInvites.value?.length) return []
-  return myInvites.value.map(invite => invite.organizationId)
+  return myInvites.value.map((invite) => invite.organizationId)
 })
 
 const { data: allOrgs } = await useConvexQuery(
@@ -532,14 +531,19 @@ const {
 
 // Wait for initial queries to load before completing navigation
 // This blocks client-side navigation until data is ready
-await Promise.all([
-  myInvitesQuery,
-  allOrganizationsQuery,
-])
+await Promise.all([myInvitesQuery, allOrganizationsQuery])
 
 // Mutations - use pending/error shorthands from new API
-const { execute: createOrg, pending: isCreatingOrg, error: createOrgError } = useConvexMutation(api.organizations.create)
-const { execute: createPost, pending: isCreatingPost, error: createPostError } = useConvexMutation(api.posts.create)
+const {
+  execute: createOrg,
+  pending: isCreatingOrg,
+  error: createOrgError,
+} = useConvexMutation(api.organizations.create)
+const {
+  execute: createPost,
+  pending: isCreatingPost,
+  error: createPostError,
+} = useConvexMutation(api.posts.create)
 const { execute: updatePost } = useConvexMutation(api.posts.update)
 const { execute: publishPost } = useConvexMutation(api.posts.publish)
 const { execute: deletePost } = useConvexMutation(api.posts.remove)
@@ -549,7 +553,9 @@ const { execute: revokeInvite } = useConvexMutation(api.invites.revoke)
 const { execute: acceptInvite } = useConvexMutation(api.invites.accept)
 const { execute: removeMember } = useConvexMutation(api.organizations.removeMember)
 const { execute: leaveOrg, pending: isLeavingOrg } = useConvexMutation(api.organizations.leave)
-const { execute: updateOrgSettings, pending: isSavingSettings } = useConvexMutation(api.organizations.updateSettings)
+const { execute: updateOrgSettings, pending: isSavingSettings } = useConvexMutation(
+  api.organizations.updateSettings,
+)
 
 // State
 const error = ref<string | null>(null)
@@ -582,8 +588,7 @@ async function handleCreateOrg() {
     await createOrg({ name: newOrgName.value, slug: newOrgSlug.value })
     // Reload page to get new permissions
     window.location.reload()
-  }
-  catch {
+  } catch {
     // Error is automatically tracked by createOrgError shorthand
   }
 }
@@ -593,20 +598,18 @@ async function handleCreatePost() {
   try {
     await createPost({ title: newPostTitle.value, content: 'Demo content' })
     newPostTitle.value = ''
-  }
-  catch {
+  } catch {
     // Error is automatically tracked by createPostError shorthand
   }
 }
 
-async function handleEditPost(post: { _id: Id<'posts'>, title: string }) {
+async function handleEditPost(post: { _id: Id<'posts'>; title: string }) {
   const newTitle = prompt('New title:', post.title)
   if (!newTitle || newTitle === post.title) return
   error.value = null
   try {
     await updatePost({ id: post._id, title: newTitle })
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to update post'
   }
 }
@@ -616,11 +619,9 @@ async function handlePublishPost(id: Id<'posts'>) {
   error.value = null
   try {
     await publishPost({ id })
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to publish post'
-  }
-  finally {
+  } finally {
     isPublishing.value = null
   }
 }
@@ -631,11 +632,9 @@ async function handleDeletePost(id: Id<'posts'>) {
   error.value = null
   try {
     await deletePost({ id })
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to delete post'
-  }
-  finally {
+  } finally {
     isDeleting.value = null
   }
 }
@@ -648,8 +647,7 @@ async function handleRoleChange(userId: Id<'users'>, newRole: string) {
       userId,
       newRole: newRole as 'admin' | 'member' | 'viewer',
     })
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to change role'
   }
 }
@@ -660,8 +658,7 @@ async function handleInvite() {
   try {
     await createInvite({ email: inviteEmail.value, role: inviteRole.value })
     inviteEmail.value = ''
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to create invite'
   }
 }
@@ -670,8 +667,7 @@ async function handleRevokeInvite(id: Id<'invites'>) {
   error.value = null
   try {
     await revokeInvite({ id })
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to revoke invite'
   }
 }
@@ -683,24 +679,22 @@ async function handleAcceptInvite(id: Id<'invites'>) {
     await acceptInvite({ id })
     // Reload page to get new permissions
     window.location.reload()
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to accept invite'
-  }
-  finally {
+  } finally {
     isAcceptingInvite.value = null
   }
 }
 
 function getOrgName(orgId: Id<'organizations'>): string {
   if (!allOrgs.value) return ''
-  const org = allOrgs.value.find(o => o._id === orgId)
+  const org = allOrgs.value.find((o) => o._id === orgId)
   return org?.name || ''
 }
 
 function hasInviteForOrg(orgId: Id<'organizations'>): boolean {
   if (!myInvites.value) return false
-  return myInvites.value.some(invite => invite.organizationId === orgId)
+  return myInvites.value.some((invite) => invite.organizationId === orgId)
 }
 
 async function handleRequestJoin(orgId: Id<'organizations'>) {
@@ -710,12 +704,11 @@ async function handleRequestJoin(orgId: Id<'organizations'>) {
     // For now, just show a message - in a real app, this would send a join request
     // or create an invite request. For simplicity, we'll just show an error message
     // suggesting they contact the organization owner.
-    error.value = 'To join this organization, you need to be invited by an admin or owner. Contact the organization owner to request an invite.'
-  }
-  catch (e) {
+    error.value =
+      'To join this organization, you need to be invited by an admin or owner. Contact the organization owner to request an invite.'
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to request join'
-  }
-  finally {
+  } finally {
     isRequestingJoin.value = null
   }
 }
@@ -726,11 +719,9 @@ async function handleRemoveMember(userId: Id<'users'>) {
   error.value = null
   try {
     await removeMember({ userId })
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to remove member'
-  }
-  finally {
+  } finally {
     isRemovingMember.value = null
   }
 }
@@ -742,8 +733,7 @@ async function handleLeaveOrg() {
     await leaveOrg({})
     // Reload page to get new state
     window.location.reload()
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to leave organization'
   }
 }
@@ -763,12 +753,10 @@ async function handleSaveSettings() {
   try {
     await updateOrgSettings({ name: editOrgName.value.trim() })
     isEditingSettings.value = false
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to save settings'
   }
 }
-
 </script>
 
 <style scoped>
@@ -1425,5 +1413,4 @@ select:focus {
   gap: 12px;
   margin-top: 8px;
 }
-
 </style>

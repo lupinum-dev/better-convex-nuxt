@@ -25,11 +25,7 @@ definePageMeta({
  * 4. "Real-time update received" - when subscription confirms
  */
 
-const { data, pending, status } = await useConvexQuery(
-  api.notes.list,
-  {},
-  {},
-)
+const { data, pending, status } = await useConvexQuery(api.notes.list, {}, {})
 
 // Track add/remove counts for verification
 const addCount = ref(0)
@@ -85,14 +81,16 @@ const { execute: removeNoteOptimistic, pending: removePendingOptimistic } = useC
         query: api.notes.list,
         args: {},
         store: localStore,
-        shouldDelete: note => note._id === args.id,
+        shouldDelete: (note) => note._id === args.id,
       })
     },
   },
 )
 
 // Delete mutation WITHOUT optimistic update (for comparison)
-const { execute: removeNoteNormal, pending: removePendingNormal } = useConvexMutation(api.notes.remove)
+const { execute: removeNoteNormal, pending: removePendingNormal } = useConvexMutation(
+  api.notes.remove,
+)
 
 async function handleAddOptimistic() {
   const timestamp = Date.now()

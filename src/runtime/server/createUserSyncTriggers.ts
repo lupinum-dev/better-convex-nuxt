@@ -51,7 +51,11 @@ export interface CreateUserSyncTriggersOptions<
     previousUser: TAuthUser
     existing: TExistingUser
     now: number
-  }) => Record<string, unknown> | null | undefined | Promise<Record<string, unknown> | null | undefined>
+  }) =>
+    | Record<string, unknown>
+    | null
+    | undefined
+    | Promise<Record<string, unknown> | null | undefined>
 }
 
 type ConvexQueryChain<TExistingUser> = {
@@ -66,7 +70,10 @@ async function findExistingByAuthId<
   TCtx extends UserSyncCtx<TExistingUser>,
 >(
   ctx: { db: Pick<UserSyncDb<TExistingUser>, 'query'> },
-  options: Pick<CreateUserSyncTriggersOptions<BetterAuthUserDocLike, TExistingUser, TCtx>, 'table' | 'index' | 'authIdField'>,
+  options: Pick<
+    CreateUserSyncTriggersOptions<BetterAuthUserDocLike, TExistingUser, TCtx>,
+    'table' | 'index' | 'authIdField'
+  >,
   authUserId: string,
 ): Promise<TExistingUser | null> {
   const authIdField = options.authIdField ?? 'authId'

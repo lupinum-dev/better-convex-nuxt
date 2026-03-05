@@ -24,13 +24,14 @@ const { results, status, loadMore } = await useConvexPaginatedQuery(
   {},
   {
     initialNumItems: 3,
-    transform: (items): TransformedNote[] => items.map(item => ({
-      _id: item._id,
-      title: item.title,
-      content: item.content,
-      formattedTitle: `[TRANSFORMED] ${item.title.toUpperCase()}`,
-      titleLength: item.title.length,
-    })),
+    transform: (items): TransformedNote[] =>
+      items.map((item) => ({
+        _id: item._id,
+        title: item.title,
+        content: item.content,
+        formattedTitle: `[TRANSFORMED] ${item.title.toUpperCase()}`,
+        titleLength: item.title.length,
+      })),
   },
 )
 </script>
@@ -58,17 +59,26 @@ const { results, status, loadMore } = await useConvexPaginatedQuery(
         </div>
         <div v-if="results.length > 0" class="state-item">
           <span class="label">has formattedTitle:</span>
-          <span data-testid="has-formatted" class="value">{{ 'formattedTitle' in results[0] }}</span>
+          <span data-testid="has-formatted" class="value">{{
+            'formattedTitle' in results[0]
+          }}</span>
         </div>
         <div v-if="results.length > 0" class="state-item">
           <span class="label">has titleLength:</span>
-          <span data-testid="has-title-length" class="value">{{ 'titleLength' in results[0] }}</span>
+          <span data-testid="has-title-length" class="value">{{
+            'titleLength' in results[0]
+          }}</span>
         </div>
       </div>
     </section>
 
     <section class="actions-section">
-      <button data-testid="load-more-btn" class="action-btn" :disabled="status !== 'ready'" @click="loadMore(3)">
+      <button
+        data-testid="load-more-btn"
+        class="action-btn"
+        :disabled="status !== 'ready'"
+        @click="loadMore(3)"
+      >
         Load More
       </button>
     </section>

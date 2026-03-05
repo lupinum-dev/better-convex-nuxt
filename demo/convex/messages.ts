@@ -4,16 +4,17 @@
  * Demonstrates pagination with useConvexPaginatedQuery.
  */
 
-import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
 import { paginationOptsValidator } from 'convex/server'
+import { v } from 'convex/values'
+
+import { mutation, query } from './_generated/server'
 
 /**
  * List messages with cursor-based pagination
  */
 export const listPaginated = query({
   args: {
-    paginationOpts: paginationOptsValidator
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
     const messages = await ctx.db
@@ -23,7 +24,7 @@ export const listPaginated = query({
       .paginate(args.paginationOpts)
 
     return messages
-  }
+  },
 })
 
 /**
@@ -31,7 +32,7 @@ export const listPaginated = query({
  */
 export const add = mutation({
   args: {
-    content: v.string()
+    content: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -49,11 +50,11 @@ export const add = mutation({
       content: args.content,
       authorId: identity.subject,
       authorName: user?.displayName || identity.name || 'Anonymous',
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
 
     return messageId
-  }
+  },
 })
 
 /**
@@ -61,7 +62,7 @@ export const add = mutation({
  */
 export const seed = mutation({
   args: {
-    count: v.optional(v.number())
+    count: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -97,7 +98,7 @@ export const seed = mutation({
       'The build is green!',
       'Refactoring complete',
       'New PR ready for review',
-      'Sprint planning tomorrow'
+      'Sprint planning tomorrow',
     ]
 
     const messageIds = []
@@ -107,13 +108,13 @@ export const seed = mutation({
         content: `${content} (#${i + 1})`,
         authorId: identity.subject,
         authorName,
-        createdAt: Date.now() - i * 60000 // Stagger timestamps
+        createdAt: Date.now() - i * 60000, // Stagger timestamps
       })
       messageIds.push(messageId)
     }
 
     return { created: messageIds.length }
-  }
+  },
 })
 
 /**
@@ -134,5 +135,5 @@ export const clearAll = mutation({
     }
 
     return { deleted: messages.length }
-  }
+  },
 })

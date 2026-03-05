@@ -1,5 +1,6 @@
-import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
+
+import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { describe, expect, it } from 'vitest'
 
 describe('convexAuth route protection', async () => {
@@ -31,10 +32,11 @@ describe('convexAuth route protection', async () => {
     expect(currentUrl.searchParams.get('redirect')).toBe('/labs/guard-pending-protected')
 
     const protectedMountCount = await page.evaluate(() => {
-      return (window as Window & { __BCN_PENDING_GUARD_PROTECTED_MOUNTED__?: number })
-        .__BCN_PENDING_GUARD_PROTECTED_MOUNTED__ ?? 0
+      return (
+        (window as Window & { __BCN_PENDING_GUARD_PROTECTED_MOUNTED__?: number })
+          .__BCN_PENDING_GUARD_PROTECTED_MOUNTED__ ?? 0
+      )
     })
     expect(protectedMountCount).toBe(0)
   })
 })
-

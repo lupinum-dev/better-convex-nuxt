@@ -17,8 +17,9 @@ async function triggerPendingProtectedNavigation() {
   convexToken.value = null
   convexUser.value = null
   convexAuthError.value = null
-  ;(window as Window & { __BCN_PENDING_GUARD_PROTECTED_MOUNTED__?: number })
-    .__BCN_PENDING_GUARD_PROTECTED_MOUNTED__ = 0
+  ;(
+    window as Window & { __BCN_PENDING_GUARD_PROTECTED_MOUNTED__?: number }
+  ).__BCN_PENDING_GUARD_PROTECTED_MOUNTED__ = 0
 
   window.setTimeout(() => {
     convexPending.value = false
@@ -33,7 +34,11 @@ async function triggerPendingProtectedNavigation() {
   <div class="container" data-testid="guard-pending-control-page">
     <h1>Guard Pending Control</h1>
     <p>Test harness for pending-auth route protection behavior.</p>
-    <button data-testid="start-pending-guard-nav" :disabled="isNavigating" @click="triggerPendingProtectedNavigation">
+    <button
+      data-testid="start-pending-guard-nav"
+      :disabled="isNavigating"
+      @click="triggerPendingProtectedNavigation"
+    >
       {{ isNavigating ? 'Navigating...' : 'Navigate to Protected Route With Pending Auth' }}
     </button>
   </div>

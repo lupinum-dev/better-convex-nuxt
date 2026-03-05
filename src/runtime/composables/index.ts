@@ -1,14 +1,7 @@
 export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
 export { useConvex } from './useConvex'
-export {
-  type CallResult,
-  type ConvexCallError,
-  normalizeConvexError,
-} from '../utils/call-result'
-export {
-  useConvexConnectionState,
-  type ConnectionState,
-} from './useConvexConnectionState'
+export { type CallResult, type ConvexCallError, normalizeConvexError } from '../utils/call-result'
+export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'
 export {
   useConvexMutation,
   type UseConvexMutationReturn,
@@ -42,10 +35,7 @@ export {
   defineSharedConvexQuery,
   type DefineSharedConvexQueryOptions,
 } from './defineSharedConvexQuery'
-export {
-  useConvexCall,
-  type UseConvexCallOptions,
-} from './useConvexCall'
+export { useConvexCall, type UseConvexCallOptions } from './useConvexCall'
 export {
   useConvexPaginatedQuery,
   type PaginatedQueryStatus,

@@ -11,7 +11,7 @@
 if (import.meta.server) {
   throw new Error(
     '[better-convex-nuxt] DevTools query-registry must not be imported on server. ' +
-    'This would cause state leakage between SSR requests.',
+      'This would cause state leakage between SSR requests.',
   )
 }
 
@@ -76,7 +76,9 @@ function notifySubscribers(): void {
 /**
  * Register a new query or update an existing one.
  */
-export function registerQuery(entry: Omit<QueryRegistryEntry, 'lastUpdated' | 'updateCount'> & { updateCount?: number }): void {
+export function registerQuery(
+  entry: Omit<QueryRegistryEntry, 'lastUpdated' | 'updateCount'> & { updateCount?: number },
+): void {
   const existing = queryRegistry.get(entry.id)
   queryRegistry.set(entry.id, {
     ...entry,
@@ -91,7 +93,9 @@ export function registerQuery(entry: Omit<QueryRegistryEntry, 'lastUpdated' | 'u
  */
 export function updateQueryStatus(
   id: string,
-  update: Partial<Pick<QueryRegistryEntry, 'status' | 'data' | 'error' | 'dataSource' | 'hasSubscription'>>,
+  update: Partial<
+    Pick<QueryRegistryEntry, 'status' | 'data' | 'error' | 'dataSource' | 'hasSubscription'>
+  >,
 ): void {
   const existing = queryRegistry.get(id)
   if (!existing) return
@@ -100,7 +104,8 @@ export function updateQueryStatus(
     ...existing,
     ...update,
     lastUpdated: Date.now(),
-    updateCount: update.dataSource === 'websocket' ? existing.updateCount + 1 : existing.updateCount,
+    updateCount:
+      update.dataSource === 'websocket' ? existing.updateCount + 1 : existing.updateCount,
   })
   notifySubscribers()
 }

@@ -72,11 +72,9 @@ async function handleSignIn() {
 
     await refreshAuth()
     window.location.href = '/'
-  }
-  catch (e) {
+  } catch (e) {
     error.value = e instanceof Error ? e.message : 'An unexpected error occurred'
-  }
-  finally {
+  } finally {
     isLoading.value = false
   }
 }

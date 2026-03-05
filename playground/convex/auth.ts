@@ -3,9 +3,8 @@ import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
 import { v } from 'convex/values'
 
-import type { DataModel } from './_generated/dataModel'
-
 import { components, internal } from './_generated/api'
+import type { DataModel } from './_generated/dataModel'
 import { internalAction, mutation, query } from './_generated/server'
 import authConfig from './auth.config'
 // Note: getUser and buildPermissionContext are available from './lib/permissions' if needed

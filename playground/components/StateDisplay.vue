@@ -37,7 +37,9 @@ function formatValue(value: unknown): string {
     <div class="state-grid">
       <div v-for="(item, index) in items" :key="item.label" class="state-item">
         <span class="label">{{ item.label }}:</span>
-        <span :data-testid="getTestId(item, index)" class="value">{{ formatValue(item.value) }}</span>
+        <span :data-testid="getTestId(item, index)" class="value">{{
+          formatValue(item.value)
+        }}</span>
       </div>
     </div>
     <slot />

@@ -36,7 +36,10 @@ defineProps<Props>()
           v-for="link in section.links"
           :key="link.to"
           :to="link.to"
-          :data-testid="link.testId || (testIdPrefix ? `${testIdPrefix}-${link.to.split('/').pop()}` : undefined)"
+          :data-testid="
+            link.testId ||
+            (testIdPrefix ? `${testIdPrefix}-${link.to.split('/').pop()}` : undefined)
+          "
           class="nav-link"
           :class="{ featured: link.featured }"
         >

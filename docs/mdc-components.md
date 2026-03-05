@@ -1,10 +1,13 @@
 ## Accordion
 
-::accordion
----
+## ::accordion
+
 defaultValue:
-  - '1'
+
+- '1'
+
 ---
+
 ::accordion-item{label="Is Nuxt UI free to use?" icon="i-lucide-circle-help"}
 Yes! Nuxt UI is completely free and open source under the MIT license. All 125+ components are available to everyone.
 ::
@@ -24,7 +27,6 @@ Yes! Nuxt UI is used in production by thousands of applications with extensive t
 This is a `callout` with full **markdown** support.
 ::
 
-
 ::note
 Here's some additional information.
 ::
@@ -41,10 +43,9 @@ Be careful with this action as it might have unexpected results.
 This action cannot be undone.
 ::
 
-
 ## Cards
 
-::card{title="Startup" icon="i-lucide-users" color="primary" to="https://nuxt.lemonsqueezy.com" target="_blank"}
+::card{title="Startup" icon="i-lucide-users" color="primary" to="https://nuxt.lemonsqueezy.com" target="\_blank"}
 Best suited for small teams, startups and agencies with up to 5 developers.
 ::
 
@@ -52,48 +53,55 @@ Best suited for small teams, startups and agencies with up to 5 developers.
 
 ::card-group
 
-::card
----
+## ::card
+
 title: Dashboard
 icon: i-simple-icons-github
 to: https://github.com/nuxt-ui-templates/dashboard
-target: _blank
+target: \_blank
+
 ---
+
 A dashboard with multi-column layout.
 ::
 
-::card
----
+## ::card
+
 title: SaaS
 icon: i-simple-icons-github
 to: https://github.com/nuxt-ui-templates/saas
-target: _blank
+target: \_blank
+
 ---
+
 A template with landing, pricing, docs and blog.
 ::
 
-::card
----
+## ::card
+
 title: Docs
 icon: i-simple-icons-github
 to: https://github.com/nuxt-ui-templates/docs
-target: _blank
+target: \_blank
+
 ---
+
 A documentation with `@nuxt/content`.
 ::
 
-::card
----
+## ::card
+
 title: Landing
 icon: i-simple-icons-github
 to: https://github.com/nuxt-ui-templates/landing
-target: _blank
+target: \_blank
+
 ---
+
 A landing page you can use as starting point.
 ::
 
 ::
-
 
 ## Code collapse
 
@@ -102,25 +110,25 @@ Wrap your code-block with a code-collapse component to display a collapsible cod
 ::code-collapse
 
 ```css [main.css]
-@import "tailwindcss";
-@import "@nuxt/ui";
+@import 'tailwindcss';
+@import '@nuxt/ui';
 
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
 
   --breakpoint-3xl: 1920px;
 
-  --color-green-50: #EFFDF5;
-  --color-green-100: #D9FBE8;
-  --color-green-200: #B3F5D1;
-  --color-green-300: #75EDAE;
-  --color-green-400: #00DC82;
-  --color-green-500: #00C16A;
-  --color-green-600: #00A155;
-  --color-green-700: #007F45;
+  --color-green-50: #effdf5;
+  --color-green-100: #d9fbe8;
+  --color-green-200: #b3f5d1;
+  --color-green-300: #75edae;
+  --color-green-400: #00dc82;
+  --color-green-500: #00c16a;
+  --color-green-600: #00a155;
+  --color-green-700: #007f45;
   --color-green-800: #016538;
-  --color-green-900: #0A5331;
-  --color-green-950: #052E16;
+  --color-green-900: #0a5331;
+  --color-green-950: #052e16;
 }
 ```
 
@@ -156,14 +164,13 @@ bun add @nuxt/ui
 export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
 
-  css: ['~/assets/css/main.css']
+  css: ['~/assets/css/main.css'],
 })
-
 ```
 
 ```css [app/assets/css/main.css]
-@import "tailwindcss";
-@import "@nuxt/ui";
+@import 'tailwindcss';
+@import '@nuxt/ui';
 ```
 
 ```ts [app/app.config.ts]
@@ -171,9 +178,9 @@ export default defineAppConfig({
   ui: {
     colors: {
       primary: 'sky',
-      colors: 'slate'
-    }
-  }
+      colors: 'slate',
+    },
+  },
 })
 ```
 
@@ -296,13 +303,12 @@ Check out the [deployment documentation](https://nuxt.com/docs/getting-started/d
 
 ::
 
-
 ## Collapsible
 
 ::collapsible
 
 | Prop    | Default   | Type                     |
-|---------|-----------|--------------------------|
+| ------- | --------- | ------------------------ |
 | `name`  |           | `string`{lang="ts-type"} |
 | `size`  | `md`      | `string`{lang="ts-type"} |
 | `color` | `neutral` | `string`{lang="ts-type"} |
@@ -315,31 +321,29 @@ Check out the [deployment documentation](https://nuxt.com/docs/getting-started/d
 The `description` can be set as prop or in the default slot with full **markdown** support.
 ::
 
-
 ## Field Group
+
 ::field-group
 ::field{name="analytics" type="boolean"}
-  Default to `false` - Enables analytics for your project (coming soon).
+Default to `false` - Enables analytics for your project (coming soon).
 ::
 
 ::field{name="blob" type="boolean"}
-  Default to `false` - Enables blob storage to store static assets, such as images, videos and more.
+Default to `false` - Enables blob storage to store static assets, such as images, videos and more.
 ::
 
 ::field{name="cache" type="boolean"}
-  Default to `false` - Enables cache storage to cache your server route responses or functions using Nitro's `cachedEventHandler` and `cachedFunction`
+Default to `false` - Enables cache storage to cache your server route responses or functions using Nitro's `cachedEventHandler` and `cachedFunction`
 ::
 
 ::field{name="database" type="boolean"}
-  Default to `false` - Enables SQL database to store your application's data.
+Default to `false` - Enables SQL database to store your application's data.
 ::
 ::
-
 
 ## Icon
 
 :icon{name="i-simple-icons-nuxtdotjs"}
-
 
 ## Steps
 
@@ -349,14 +353,14 @@ The `description` can be set as prop or in the default slot with full **markdown
 
 ```ts [nuxt.config.ts]
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui']
+  modules: ['@nuxt/ui'],
 })
 ```
 
 #### Import Tailwind CSS in your CSS
 
 ```css [assets/css/main.css]
-@import "tailwindcss";
+@import 'tailwindcss';
 ```
 
 #### Start your development server
@@ -366,7 +370,6 @@ npm run dev
 ```
 
 ::
-
 
 ## Tabs
 

@@ -1,5 +1,6 @@
-import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
+
+import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { ensureLocalConvex } from '../helpers/local-convex'
@@ -34,7 +35,9 @@ maybeDescribe('Connection state (full stack)', async () => {
     const heading = await page.textContent('.container h1')
     expect(heading).toContain('Connection Lab')
 
-    const webSocketConnected = await page.textContent('.stat:has(.label:text("WebSocket Connected")) .value')
+    const webSocketConnected = await page.textContent(
+      '.stat:has(.label:text("WebSocket Connected")) .value',
+    )
     expect(webSocketConnected).toMatch(/Yes|No/)
 
     const rawState = await page.textContent('.raw-state pre')

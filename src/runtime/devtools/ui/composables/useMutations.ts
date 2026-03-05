@@ -1,4 +1,5 @@
 import { ref, onMounted, onUnmounted } from 'vue'
+
 import type { MutationEntry } from '../../types'
 import { callBridge, getBridgeTransport, getBoundBridgeInstanceId } from './useBridge'
 
@@ -6,7 +7,7 @@ const mutations = ref<MutationEntry[]>([])
 const expandedIds = ref<Set<string>>(new Set())
 
 function mergeMutationsById(current: MutationEntry[], nextItems: MutationEntry[]): MutationEntry[] {
-  const currentById = new Map(current.map(item => [item.id, item]))
+  const currentById = new Map(current.map((item) => [item.id, item]))
   return nextItems.map((incoming) => {
     const existing = currentById.get(incoming.id)
     if (!existing) return incoming
@@ -36,7 +37,11 @@ export function useMutations() {
       const handler = (event: { data: unknown }) => {
         const data = event.data
         if (!data || typeof data !== 'object') return
-        const message = data as { type?: string; mutations?: MutationEntry[]; instanceId?: string | null }
+        const message = data as {
+          type?: string
+          mutations?: MutationEntry[]
+          instanceId?: string | null
+        }
         if (message.type === 'CONVEX_DEVTOOLS_MUTATIONS') {
           const boundInstanceId = getBoundBridgeInstanceId()
           if (boundInstanceId && message.instanceId !== boundInstanceId) return

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { useConvexCall } from '../../src/runtime/composables/useConvexCall'
 import * as useConvexModule from '../../src/runtime/composables/useConvex'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { useConvexCall } from '../../src/runtime/composables/useConvexCall'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
 describe('useConvexCall (Nuxt runtime)', () => {
   it('works outside component scope via runWithContext (middleware-style)', async () => {
@@ -31,12 +31,15 @@ describe('useConvexCall (Nuxt runtime)', () => {
     convex.setMutationHandler('testing:once-mutation', async (args) => ({ saved: true, args }))
     convex.setActionHandler('testing:once-action', async (args) => ({ done: true, args }))
 
-    const { result } = await captureInNuxt(() => ({
-      once: useConvexCall({ timeoutMs: 100 }),
-      query,
-      mutation,
-      action,
-    }), { convex })
+    const { result } = await captureInNuxt(
+      () => ({
+        once: useConvexCall({ timeoutMs: 100 }),
+        query,
+        mutation,
+        action,
+      }),
+      { convex },
+    )
 
     await expect(result.once.query(result.query, { q: 'abc' } as never)).resolves.toEqual({
       ok: true,
@@ -62,10 +65,7 @@ describe('useConvexCall (Nuxt runtime)', () => {
       })
     })
 
-    const { result } = await captureInNuxt(
-      () => useConvexCall({ timeoutMs: 5 }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexCall({ timeoutMs: 5 }), { convex })
 
     await expect(result.query(slowQuery, {} as never)).rejects.toThrow('timed out')
 
@@ -89,10 +89,7 @@ describe('useConvexCall (Nuxt runtime)', () => {
       throw new Error('LIMIT_ACTION_ONCE: Action once limit reached')
     })
 
-    const { result } = await captureInNuxt(
-      () => useConvexCall({ timeoutMs: 20 }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexCall({ timeoutMs: 20 }), { convex })
 
     const mutationSafeResult = await result.mutationSafe(badMutation, {} as never)
     const actionSafeResult = await result.actionSafe(badAction, {} as never)
@@ -115,10 +112,7 @@ describe('useConvexCall (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('testing:rpc-no-timeout')
     convex.setQueryHandler('testing:rpc-no-timeout', async () => ({ ok: true }))
 
-    const { result } = await captureInNuxt(
-      () => useConvexCall({ timeoutMs: 0 }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexCall({ timeoutMs: 0 }), { convex })
 
     await expect(result.query(query, {} as never)).resolves.toEqual({ ok: true })
   })
@@ -128,9 +122,9 @@ describe('useConvexCall (Nuxt runtime)', () => {
       throw new Error('Convex client is unavailable.')
     })
     try {
-      await expect(
-        captureInNuxt(() => useConvexCall({ timeoutMs: 20 })),
-      ).rejects.toThrow(/Convex client is unavailable/i)
+      await expect(captureInNuxt(() => useConvexCall({ timeoutMs: 20 }))).rejects.toThrow(
+        /Convex client is unavailable/i,
+      )
     } finally {
       spy.mockRestore()
     }

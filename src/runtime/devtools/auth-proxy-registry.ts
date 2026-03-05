@@ -31,18 +31,17 @@ export async function recordAuthProxyRequest(request: AuthProxyRequest): Promise
 
 export async function getAuthProxyStats(): Promise<AuthProxyStats> {
   const requests = await getRequests()
-  const successful = requests.filter(r => r.success)
-  const durations = successful
-    .filter(r => r.duration !== undefined)
-    .map(r => r.duration!)
+  const successful = requests.filter((r) => r.success)
+  const durations = successful.filter((r) => r.duration !== undefined).map((r) => r.duration!)
 
   return {
     totalRequests: requests.length,
     successCount: successful.length,
-    errorCount: requests.filter(r => !r.success).length,
-    avgDuration: durations.length > 0
-      ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
-      : 0,
+    errorCount: requests.filter((r) => !r.success).length,
+    avgDuration:
+      durations.length > 0
+        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+        : 0,
     recentRequests: [...requests],
   }
 }

@@ -1,23 +1,18 @@
 import type { OptimisticLocalStore } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
+
 import { useRuntimeConfig } from '#imports'
 
+import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
+import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
 import { getFunctionName } from '../utils/convex-cache'
-import { getSharedLogger, getLogLevel } from '../utils/logger'
 import {
   registerDevToolsEntry,
   updateDevToolsSuccess,
   updateDevToolsError,
 } from '../utils/devtools-helpers'
-import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
-import {
-  normalizeConvexError,
-  toCallResult,
-  toError,
-  type CallResult,
-} from '../utils/call-result'
+import { getSharedLogger, getLogLevel } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
 import { useConvex } from './useConvex'
 
@@ -82,10 +77,7 @@ export interface UseConvexMutationReturn<Args, Result> {
 /**
  * Options for useConvexMutation
  */
-export interface UseConvexMutationOptions<
-  Args extends Record<string, unknown>,
-  Result = unknown,
-> {
+export interface UseConvexMutationOptions<Args extends Record<string, unknown>, Result = unknown> {
   /**
    * Optimistic update function. Receives Convex's OptimisticLocalStore and mutation args.
    * Called immediately before the mutation is sent to server.

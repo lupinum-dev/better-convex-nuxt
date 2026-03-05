@@ -7,13 +7,10 @@ import {
   getRequestURL,
   readRawBody,
   send,
+  appendResponseHeader,
 } from 'h3'
+
 import type { AuthProxyRequest } from '../../../devtools/types'
-import { fetchWithCanonicalRedirects } from './redirect-utils'
-import { getRequestBodySizeError, getResponseBodySizeError } from './body-size'
-import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
-import { getAuthRoutePattern, isOriginAllowed } from './security'
-import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
@@ -21,6 +18,11 @@ import {
   buildMissingSiteUrlMessage,
 } from '../../../utils/auth-errors'
 import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
+import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
+import { getRequestBodySizeError, getResponseBodySizeError } from './body-size'
+import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers'
+import { fetchWithCanonicalRedirects } from './redirect-utils'
+import { getAuthRoutePattern, isOriginAllowed } from './security'
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
@@ -47,12 +49,12 @@ export default defineEventHandler(async (event: H3Event) => {
   const requestUrl = getRequestURL(event)
 
   if (!siteUrl) {
-      throw createError({
-        statusCode: 500,
-        message: buildMissingSiteUrlMessage(convexConfig.url),
-        data: { code: 'BCN_AUTH_PROXY_SITE_URL_MISSING' },
-      })
-    }
+    throw createError({
+      statusCode: 500,
+      message: buildMissingSiteUrlMessage(convexConfig.url),
+      data: { code: 'BCN_AUTH_PROXY_SITE_URL_MISSING' },
+    })
+  }
 
   // Use configured authRoute for path stripping (escape special regex chars)
   const authRoutePattern = getAuthRoutePattern(authRoute)
@@ -142,7 +144,8 @@ export default defineEventHandler(async (event: H3Event) => {
     })
 
     // Common misconfig path: Convex site URL reachable, but Better Auth routes are missing.
-    const isCriticalAuthEndpoint = normalizedPath === '/convex/token' || normalizedPath === '/get-session'
+    const isCriticalAuthEndpoint =
+      normalizedPath === '/convex/token' || normalizedPath === '/get-session'
     if (isCriticalAuthEndpoint && (response.status === 404 || response.status >= 500)) {
       throw createError({
         statusCode: 502,
@@ -175,7 +178,7 @@ export default defineEventHandler(async (event: H3Event) => {
     // Handle Set-Cookie specially (can have multiple values)
     const cookies = response.headers.getSetCookie?.() || []
     for (const cookie of cookies) {
-      event.node.res.appendHeader('set-cookie', cookie)
+      appendResponseHeader(event, 'set-cookie', cookie)
     }
 
     // Forward other headers
@@ -206,7 +209,7 @@ export default defineEventHandler(async (event: H3Event) => {
         },
       })
     }
-    const responseBody = Buffer.from(await response.arrayBuffer())
+    const responseBody = new Uint8Array(await response.arrayBuffer())
     return send(event, responseBody)
   } catch (error) {
     if (error && typeof error === 'object' && 'statusCode' in error) {

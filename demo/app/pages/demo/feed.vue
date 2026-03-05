@@ -2,7 +2,7 @@
 import { api } from '@@/convex/_generated/api'
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
 })
 
 const { can } = useDemoPermissions()
@@ -26,7 +26,7 @@ const error = ref<{ title: string; description: string } | null>(null)
 const typeOptions = [
   { value: 'message', label: 'Message', icon: 'i-lucide-message-circle' },
   { value: 'task', label: 'Task', icon: 'i-lucide-check-square' },
-  { value: 'event', label: 'Event', icon: 'i-lucide-calendar' }
+  { value: 'event', label: 'Event', icon: 'i-lucide-calendar' },
 ]
 
 async function submitItem() {
@@ -36,22 +36,20 @@ async function submitItem() {
   try {
     await addItem({
       content: content.value,
-      type: itemType.value
+      type: itemType.value,
     })
     content.value = ''
-  }
-  catch (e: any) {
+  } catch (e: any) {
     const message = e.message || 'Failed to create post'
     if (message.includes('Permission denied')) {
       error.value = {
         title: 'Permission Denied',
-        description: message.replace('Permission denied: ', '')
+        description: message.replace('Permission denied: ', ''),
       }
-    }
-    else {
+    } else {
       error.value = {
         title: 'Error',
-        description: message
+        description: message,
       }
     }
   }
@@ -62,19 +60,17 @@ async function handleDelete(itemId: string) {
 
   try {
     await deleteItem({ id: itemId as any })
-  }
-  catch (e: any) {
+  } catch (e: any) {
     const message = e.message || 'Failed to delete post'
     if (message.includes('Permission denied')) {
       error.value = {
         title: 'Permission Denied',
-        description: message.replace('Permission denied: ', '')
+        description: message.replace('Permission denied: ', ''),
       }
-    }
-    else {
+    } else {
       error.value = {
         title: 'Error',
-        description: message
+        description: message,
       }
     }
   }
@@ -83,7 +79,7 @@ async function handleDelete(itemId: string) {
 const typeIcons: Record<string, string> = {
   message: 'i-lucide-message-circle',
   task: 'i-lucide-check-square',
-  event: 'i-lucide-calendar'
+  event: 'i-lucide-calendar',
 }
 
 function canDelete(item: { authorId: string }) {
@@ -101,7 +97,6 @@ function canDelete(item: { authorId: string }) {
       </p>
     </div>
 
-
     <!-- Tip Alert -->
     <UAlert
       class="mb-6"
@@ -116,30 +111,17 @@ function canDelete(item: { authorId: string }) {
     <UCard v-if="can('feed.create')" class="mb-6">
       <form @submit.prevent="submitItem" class="space-y-4">
         <div class="flex gap-3">
-          <USelect
-            v-model="itemType"
-            :items="typeOptions"
-            value-key="value"
-            class="w-36"
-          />
-          <UInput
-            v-model="content"
-            placeholder="What's happening?"
-            class="flex-1"
-          />
-          <UButton
-            type="submit"
-            :loading="addStatus === 'pending'"
-            :disabled="!content.trim()"
-          >
+          <USelect v-model="itemType" :items="typeOptions" value-key="value" class="w-36" />
+          <UInput v-model="content" placeholder="What's happening?" class="flex-1" />
+          <UButton type="submit" :loading="addStatus === 'pending'" :disabled="!content.trim()">
             Post
           </UButton>
         </div>
       </form>
     </UCard>
 
-        <!-- Error Alert -->
-        <UAlert
+    <!-- Error Alert -->
+    <UAlert
       v-if="error"
       class="mb-6"
       icon="i-lucide-alert-circle"
@@ -150,7 +132,6 @@ function canDelete(item: { authorId: string }) {
       close
       @update:open="error = null"
     />
-
 
     <UAlert
       v-else
@@ -177,13 +158,11 @@ function canDelete(item: { authorId: string }) {
 
       <!-- Feed items -->
       <TransitionGroup v-else name="list">
-        <UCard
-          v-for="item in feedItems"
-          :key="item._id"
-          class="group"
-        >
+        <UCard v-for="item in feedItems" :key="item._id" class="group">
           <div class="flex gap-4">
-            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <div
+              class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0"
+            >
               <UIcon :name="typeIcons[item.type]" class="w-5 h-5 text-primary" />
             </div>
             <div class="flex-1 min-w-0">

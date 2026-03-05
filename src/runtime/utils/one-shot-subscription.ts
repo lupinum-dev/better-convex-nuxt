@@ -12,7 +12,11 @@ export function executeQueryViaSubscriptionOnce<Query extends FunctionReference<
   return new Promise((resolve, reject) => {
     let settled = false
     let timeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-      finishReject(new Error(`[useConvexQuery] Timed out waiting for subscription result after ${timeoutMs}ms`))
+      finishReject(
+        new Error(
+          `[useConvexQuery] Timed out waiting for subscription result after ${timeoutMs}ms`,
+        ),
+      )
     }, timeoutMs)
 
     let unsubscribe: (() => void) | null = null

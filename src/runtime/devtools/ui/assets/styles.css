@@ -83,7 +83,8 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   font-size: 13px;
   background: var(--bg);
   color: var(--text);
@@ -93,10 +94,20 @@ body {
 }
 
 /* Custom scrollbar */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--scrollbar-bg); }
-::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
 
 /* App Shell */
 .app-shell {
@@ -130,7 +141,9 @@ body {
   font-size: 14px;
 }
 
-.logo-icon { color: var(--accent); }
+.logo-icon {
+  color: var(--accent);
+}
 
 .status-bar {
   display: flex;
@@ -167,8 +180,13 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* Tabs */
@@ -281,7 +299,7 @@ body {
 .list-item-name {
   font-weight: 500;
   color: var(--accent);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
   font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -305,10 +323,22 @@ body {
   letter-spacing: 0.3px;
 }
 
-.badge.success { background: var(--success-bg); color: var(--success); }
-.badge.error { background: var(--error-bg); color: var(--error); }
-.badge.pending { background: var(--warning-bg); color: var(--warning); }
-.badge.optimistic { background: var(--info-bg); color: var(--info); }
+.badge.success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.badge.error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+.badge.pending {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.badge.optimistic {
+  background: var(--info-bg);
+  color: var(--info);
+}
 
 /* Card Base Style */
 .card {
@@ -350,13 +380,13 @@ body {
 
 .detail-value {
   font-weight: 500;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
   font-size: 12px;
 }
 
 /* JSON Viewer */
 .json-viewer {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
   font-size: 11px;
   background: var(--bg);
   padding: 12px;
@@ -369,11 +399,21 @@ body {
   box-shadow: var(--card-shadow);
 }
 
-.json-key { color: var(--json-key); }
-.json-string { color: var(--json-string); }
-.json-number { color: var(--json-number); }
-.json-boolean { color: var(--json-boolean); }
-.json-null { color: var(--json-null); }
+.json-key {
+  color: var(--json-key);
+}
+.json-string {
+  color: var(--json-string);
+}
+.json-number {
+  color: var(--json-number);
+}
+.json-boolean {
+  color: var(--json-boolean);
+}
+.json-null {
+  color: var(--json-null);
+}
 
 /* Options Grid */
 .options-grid {
@@ -397,8 +437,12 @@ body {
   justify-content: center;
 }
 
-.option-icon.enabled { color: var(--success); }
-.option-icon.disabled { color: var(--text-secondary); }
+.option-icon.enabled {
+  color: var(--success);
+}
+.option-icon.disabled {
+  color: var(--text-secondary);
+}
 
 /* Timeline */
 .timeline {
@@ -432,7 +476,7 @@ body {
 .timeline-name {
   font-weight: 500;
   color: var(--accent);
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
   font-size: 12px;
 }
 
@@ -540,7 +584,7 @@ body {
 .token-stat-value {
   font-size: 18px;
   font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 }
 
 .token-stat-label {
@@ -558,7 +602,7 @@ body {
   overflow-y: auto;
   flex: 1;
   font-size: 11px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 }
 
 .event-item {
@@ -611,7 +655,9 @@ body {
   transition: background 0.15s;
 }
 
-.btn:hover { background: var(--accent-hover); }
+.btn:hover {
+  background: var(--accent-hover);
+}
 
 .btn-secondary {
   background: var(--bg);
@@ -619,7 +665,9 @@ body {
   color: var(--text);
 }
 
-.btn-secondary:hover { background: var(--bg-hover); }
+.btn-secondary:hover {
+  background: var(--bg-hover);
+}
 
 .btn-small {
   padding: 4px 8px;
@@ -662,7 +710,11 @@ body {
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Actions Bar */
 .actions-bar {

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { useConvexConnectionState } from '../../src/runtime/composables/useConvexConnectionState'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
 describe('useConvexConnectionState (Nuxt runtime)', () => {
   it('suppresses offline UI during hydration grace window', async () => {
@@ -24,10 +24,13 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
   it('shares one connection-state subscription for multiple consumers', async () => {
     const convex = new MockConvexClient()
 
-    const { result, wrapper } = await captureInNuxt(() => ({
-      first: useConvexConnectionState(),
-      second: useConvexConnectionState(),
-    }), { convex })
+    const { result, wrapper } = await captureInNuxt(
+      () => ({
+        first: useConvexConnectionState(),
+        second: useConvexConnectionState(),
+      }),
+      { convex },
+    )
 
     expect(result.first.isConnected.value).toBe(false)
     expect(result.second.isConnected.value).toBe(false)

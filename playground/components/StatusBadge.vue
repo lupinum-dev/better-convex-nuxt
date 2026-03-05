@@ -11,7 +11,14 @@ const props = defineProps<Props>()
 
 const normalizedStatus = computed<StatusType>(() => {
   const s = props.status.toLowerCase()
-  if (s === 'idle' || s === 'pending' || s === 'loading' || s === 'success' || s === 'error' || s === 'info') {
+  if (
+    s === 'idle' ||
+    s === 'pending' ||
+    s === 'loading' ||
+    s === 'success' ||
+    s === 'error' ||
+    s === 'info'
+  ) {
     return s as StatusType
   }
   // Map common variations

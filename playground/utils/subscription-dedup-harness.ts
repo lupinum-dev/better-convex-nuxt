@@ -21,7 +21,9 @@ export function getSubscriptionDedupHarness(): SubscriptionDedupHarness | undefi
 }
 
 // Minimal fake query reference used by the playground repro pages.
-export const subscriptionDedupCounterQuery = { _path: 'counter:get' } as unknown as FunctionReference<'query'>
+export const subscriptionDedupCounterQuery = {
+  _path: 'counter:get',
+} as unknown as FunctionReference<'query'>
 
 export const emptyQueryArgs: Record<string, never> = {}
 

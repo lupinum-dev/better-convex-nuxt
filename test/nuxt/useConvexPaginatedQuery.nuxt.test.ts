@@ -1,6 +1,6 @@
+import type { FunctionReference, PaginationOptions, PaginationResult } from 'convex/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import type { FunctionReference, PaginationOptions, PaginationResult } from 'convex/server'
 import type { MaybeRefOrGetter } from 'vue'
 
 import {
@@ -24,12 +24,8 @@ function useConvexPaginatedQueryState<
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ) {
-  return createConvexPaginatedQueryState<Query, Args, TransformedItem>(
-    query,
-    args,
-    options,
-    true,
-  ).resultData
+  return createConvexPaginatedQueryState<Query, Args, TransformedItem>(query, args, options, true)
+    .resultData
 }
 
 afterEach(() => {
@@ -86,7 +82,8 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:listPaginated:enabled-false')
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 3, enabled: false }),
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 3, enabled: false }),
       { convex },
     )
 
@@ -189,7 +186,8 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
       { convex: new MockConvexClient() },
     )
 
@@ -257,7 +255,8 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 1, subscribe: false }),
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 1, subscribe: false }),
       { convex: new MockConvexClient() },
     )
 
@@ -405,23 +404,28 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:listPaginated:keep-previous')
 
-    const { result, flush } = await captureInNuxt(() => {
-      const status = ref<'active' | 'archived'>('active')
-      const queryResult = useConvexPaginatedQueryState(
-        query as never,
-        () => ({ status: status.value }) as never,
-        { initialNumItems: 2, keepPreviousData: true },
-      )
-      return { status, queryResult }
-    }, { convex })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const status = ref<'active' | 'archived'>('active')
+        const queryResult = useConvexPaginatedQueryState(
+          query as never,
+          () => ({ status: status.value }) as never,
+          { initialNumItems: 2, keepPreviousData: true },
+        )
+        return { status, queryResult }
+      },
+      { convex },
+    )
 
     convex.emitQueryResultWhere(
       ({ query: q, args }) => {
         const path = (q as { _path?: string })._path
         const a = args as { status?: string; paginationOpts?: { cursor?: string | null } }
-        return path === 'notes:listPaginated:keep-previous'
-          && a.status === 'active'
-          && a.paginationOpts?.cursor === null
+        return (
+          path === 'notes:listPaginated:keep-previous' &&
+          a.status === 'active' &&
+          a.paginationOpts?.cursor === null
+        )
       },
       {
         page: [{ _id: 'n1', title: 'Active A' }],
@@ -431,22 +435,28 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     )
 
     await waitFor(() => result.queryResult.results.value.length === 1)
-    expect((result.queryResult.results.value as Array<{ title: string }>)[0]).toMatchObject({ title: 'Active A' })
+    expect((result.queryResult.results.value as Array<{ title: string }>)[0]).toMatchObject({
+      title: 'Active A',
+    })
 
     result.status.value = 'archived'
     await flush()
 
     expect(result.queryResult.status.value).toBe('loading-first-page')
     expect(result.queryResult.isLoading.value).toBe(true)
-    expect((result.queryResult.results.value as Array<{ title: string }>)[0]).toMatchObject({ title: 'Active A' })
+    expect((result.queryResult.results.value as Array<{ title: string }>)[0]).toMatchObject({
+      title: 'Active A',
+    })
 
     convex.emitQueryResultWhere(
       ({ query: q, args }) => {
         const path = (q as { _path?: string })._path
         const a = args as { status?: string; paginationOpts?: { cursor?: string | null } }
-        return path === 'notes:listPaginated:keep-previous'
-          && a.status === 'archived'
-          && a.paginationOpts?.cursor === null
+        return (
+          path === 'notes:listPaginated:keep-previous' &&
+          a.status === 'archived' &&
+          a.paginationOpts?.cursor === null
+        )
       },
       {
         page: [{ _id: 'n2', title: 'Archived B' }],
@@ -455,8 +465,9 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       },
     )
 
-    await waitFor(() =>
-      (result.queryResult.results.value as Array<{ title: string }>)[0]?.title === 'Archived B',
+    await waitFor(
+      () =>
+        (result.queryResult.results.value as Array<{ title: string }>)[0]?.title === 'Archived B',
     )
     expect(result.queryResult.isLoading.value).toBe(false)
   })
@@ -484,7 +495,8 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
       { convex: new MockConvexClient() },
     )
 
@@ -510,7 +522,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
         firstRequest = false
         throw new Error('initial failed')
       }
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise((resolve) => setTimeout(resolve, 10))
       return {
         value: {
           page: [{ _id: 'n1', title: 'Recovered after reset' }],
@@ -522,7 +534,8 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
       { convex: new MockConvexClient() },
     )
 
@@ -532,7 +545,9 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     await waitFor(() => result.status.value === 'loading-first-page')
     await resetPromise
     await waitFor(() => result.status.value === 'exhausted')
-    expect((result.results.value as Array<{ title: string }>)[0]?.title).toBe('Recovered after reset')
+    expect((result.results.value as Array<{ title: string }>)[0]?.title).toBe(
+      'Recovered after reset',
+    )
   })
 
   it('applies transform to default placeholder rows', async () => {
@@ -557,7 +572,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
             server: false,
             default: () => [{ _id: 'placeholder', title: 'loading' }] as never[],
             transform: (items: DefaultTransformItem[]) =>
-              items.map(item => ({ ...item, title: item.title.toUpperCase() })),
+              items.map((item) => ({ ...item, title: item.title.toUpperCase() })),
           },
         ),
       { convex },

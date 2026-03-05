@@ -6,6 +6,7 @@
 
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
+
 import { useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
@@ -28,9 +29,7 @@ export type UploadStatus = 'idle' | 'pending' | 'success' | 'error'
 /**
  * Return value from useConvexFileUpload
  */
-export interface UseConvexFileUploadReturn<
-  Mutation extends FunctionReference<'mutation'>,
-> {
+export interface UseConvexFileUploadReturn<Mutation extends FunctionReference<'mutation'>> {
   /**
    * Upload a file. Returns the storageId on success.
    * Automatically tracks status, error, progress, and data.
@@ -215,9 +214,7 @@ export interface UseConvexFileUploadOptions {
  * </script>
  * ```
  */
-export function useConvexFileUpload<
-  Mutation extends FunctionReference<'mutation'>,
->(
+export function useConvexFileUpload<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options?: UseConvexFileUploadOptions,
 ): UseConvexFileUploadReturn<Mutation> {
@@ -274,7 +271,13 @@ export function useConvexFileUpload<
       const err = new Error('Upload already in progress for this composable instance')
       _status.value = 'error'
       error.value = err
-      logger.upload({ name: fnName, event: 'error', filename: file.name, size: file.size, error: err })
+      logger.upload({
+        name: fnName,
+        event: 'error',
+        filename: file.name,
+        size: file.size,
+        error: err,
+      })
       throw err
     }
 
@@ -283,13 +286,21 @@ export function useConvexFileUpload<
       const err = new Error(`File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`)
       _status.value = 'error'
       error.value = err
-      logger.upload({ name: fnName, event: 'error', filename: file.name, size: file.size, error: err })
+      logger.upload({
+        name: fnName,
+        event: 'error',
+        filename: file.name,
+        size: file.size,
+        error: err,
+      })
       options?.onError?.(err, file)
       throw err
     }
 
     if (options?.allowedTypes && !isFileTypeAllowed(file.type, options.allowedTypes)) {
-      const err = new Error(`File type "${file.type}" not allowed. Allowed: ${options.allowedTypes.join(', ')}`)
+      const err = new Error(
+        `File type "${file.type}" not allowed. Allowed: ${options.allowedTypes.join(', ')}`,
+      )
       _status.value = 'error'
       error.value = err
       logger.upload({ name: fnName, event: 'error', filename: file.name, error: err })
@@ -324,7 +335,13 @@ export function useConvexFileUpload<
       data.value = storageId
 
       const duration = Date.now() - startTime
-      logger.upload({ name: fnName, event: 'success', filename: file.name, size: file.size, duration })
+      logger.upload({
+        name: fnName,
+        event: 'success',
+        filename: file.name,
+        size: file.size,
+        duration,
+      })
 
       options?.onSuccess?.(storageId, file)
       return storageId
@@ -339,7 +356,14 @@ export function useConvexFileUpload<
       error.value = err
 
       const duration = Date.now() - startTime
-      logger.upload({ name: fnName, event: 'error', filename: file.name, size: file.size, duration, error: err })
+      logger.upload({
+        name: fnName,
+        event: 'error',
+        filename: file.name,
+        size: file.size,
+        duration,
+        error: err,
+      })
 
       options?.onError?.(err, file)
       throw err

@@ -1,4 +1,7 @@
-import type { ConvexProvideValue, SubscriptionDedupHarness } from '~~/utils/subscription-dedup-harness'
+import type {
+  ConvexProvideValue,
+  SubscriptionDedupHarness,
+} from '~~/utils/subscription-dedup-harness'
 
 export default defineNuxtPlugin({
   name: 'subscription-dedup-bug-fake-convex',
@@ -107,9 +110,10 @@ export default defineNuxtPlugin({
       }
 
       private getKey(query: unknown, args: unknown) {
-        const fn = typeof (query as { _path?: unknown })?._path === 'string'
-          ? (query as { _path: string })._path
-          : 'unknown'
+        const fn =
+          typeof (query as { _path?: unknown })?._path === 'string'
+            ? (query as { _path: string })._path
+            : 'unknown'
         return `${fn}:${JSON.stringify(args ?? {})}`
       }
     }

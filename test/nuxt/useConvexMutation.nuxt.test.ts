@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { waitFor } from '../helpers/wait-for'
 
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexMutation (Nuxt runtime)', () => {
   it('tracks pending and success states and exposes result data', async () => {
@@ -74,10 +74,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
       payload: successArgs,
     })
     expect(onSuccess).toHaveBeenCalledTimes(1)
-    expect(onSuccess).toHaveBeenCalledWith(
-      { ok: true, payload: successArgs },
-      successArgs,
-    )
+    expect(onSuccess).toHaveBeenCalledWith({ ok: true, payload: successArgs }, successArgs)
 
     const failArgs = { value: 'nope' }
     await expect(result.fail.execute(failArgs as never)).rejects.toThrow('callback boom')
@@ -165,7 +162,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
     convex.setMutationHandler('testing:race-mutation', async (args) => {
       const input = args as { value: string; delayMs: number; shouldFail?: boolean }
-      await new Promise(resolve => setTimeout(resolve, input.delayMs))
+      await new Promise((resolve) => setTimeout(resolve, input.delayMs))
       if (input.shouldFail) {
         throw new Error(`failed:${input.value}`)
       }

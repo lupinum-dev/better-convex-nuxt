@@ -1,8 +1,8 @@
-import { eventHandler, getRouterParams, createError, setHeader } from 'h3'
-import { withLeadingSlash } from 'ufo'
-import { stringify } from 'minimark/stringify'
-import { queryCollection } from '@nuxt/content/server'
 import type { Collections } from '@nuxt/content'
+import { queryCollection } from '@nuxt/content/server'
+import { eventHandler, getRouterParams, createError, setHeader } from 'h3'
+import { stringify } from 'minimark/stringify'
+import { withLeadingSlash } from 'ufo'
 
 export default eventHandler(async (event) => {
   const slug = getRouterParams(event)['slug.md']
@@ -12,7 +12,9 @@ export default eventHandler(async (event) => {
 
   const path = withLeadingSlash(slug.replace('.md', ''))
 
-  const page = await queryCollection(event, 'docs' as keyof Collections).path(path).first()
+  const page = await queryCollection(event, 'docs' as keyof Collections)
+    .path(path)
+    .first()
   if (!page) {
     throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true })
   }

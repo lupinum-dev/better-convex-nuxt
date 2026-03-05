@@ -12,10 +12,7 @@ import type { Id } from '~/convex/_generated/dataModel'
  * - No page refresh needed - subscription handles updates
  */
 
-const { data, pending, status, error } = await useConvexQuery(
-  api.notes.list,
-  {},
-)
+const { data, pending, status, error } = await useConvexQuery(api.notes.list, {})
 
 const { execute: addNote, pending: addPending } = useConvexMutation(api.notes.add)
 const { execute: removeNote, pending: removePending } = useConvexMutation(api.notes.remove)
@@ -70,7 +67,7 @@ async function handleRemove(id: Id<'notes'>) {
         </div>
         <div v-if="error" class="state-item">
           <span class="label">error:</span>
-          <span data-testid="error" class="value" style="color: red;">{{ error.message }}</span>
+          <span data-testid="error" class="value" style="color: red">{{ error.message }}</span>
         </div>
         <div class="state-item">
           <span class="label">note count:</span>

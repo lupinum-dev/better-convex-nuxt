@@ -16,10 +16,7 @@ definePageMeta({
  * - No network requests made
  */
 
-const { data, pending, status, error } = await useConvexQuery(
-  api.notes.list,
-  undefined,
-)
+const { data, pending, status, error } = await useConvexQuery(api.notes.list, undefined)
 </script>
 
 <template>
@@ -42,7 +39,9 @@ const { data, pending, status, error } = await useConvexQuery(
         </div>
         <div class="state-item">
           <span class="label">data:</span>
-          <span data-testid="data" class="value">{{ data === null ? 'null' : JSON.stringify(data) }}</span>
+          <span data-testid="data" class="value">{{
+            data === null ? 'null' : JSON.stringify(data)
+          }}</span>
         </div>
         <div class="state-item">
           <span class="label">has data:</span>

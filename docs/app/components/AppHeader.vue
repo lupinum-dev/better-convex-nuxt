@@ -11,52 +11,46 @@ const navItems = computed<NavigationMenuItem[]>(() => [
   {
     label: 'Getting Started',
     to: '/docs/guide/get-started',
-    active: route.path.startsWith('/docs/guide')
+    active: route.path.startsWith('/docs/guide'),
   },
   {
     label: 'Data Fetching',
     to: '/docs/data-fetching/queries',
-    active: route.path.startsWith('/docs/data-fetching')
+    active: route.path.startsWith('/docs/data-fetching'),
   },
   {
     label: 'Mutations',
     to: '/docs/mutations/mutations',
-    active: route.path.startsWith('/docs/mutations')
+    active: route.path.startsWith('/docs/mutations'),
   },
   {
     label: 'Auth',
     to: '/docs/auth-security/authentication',
-    active: route.path.startsWith('/docs/auth-security')
+    active: route.path.startsWith('/docs/auth-security'),
   },
   {
     label: 'Server-Side',
     to: '/docs/server-side/server-routes',
-    active: route.path.startsWith('/docs/server-side')
+    active: route.path.startsWith('/docs/server-side'),
   },
   {
     label: 'Advanced',
-    to: '/docs/advanced/performance'
-  }
+    to: '/docs/advanced/performance',
+  },
 ])
 </script>
 
 <template>
-  <UHeader
-    :ui="{ center: 'flex-1' }"
-    :to="header?.to || '/'"
-  >
+  <UHeader :ui="{ center: 'flex-1' }" :to="header?.to || '/'">
     <UNavigationMenu
       :items="navItems"
       variant="link"
       :ui="{
-        link: 'text-highlighted hover:text-primary data-active:text-primary'
+        link: 'text-highlighted hover:text-primary data-active:text-primary',
       }"
     />
 
-    <template
-      v-if="header?.logo?.dark || header?.logo?.light || header?.title"
-      #title
-    >
+    <template v-if="header?.logo?.dark || header?.logo?.light || header?.title" #title>
       <UColorModeImage
         v-if="header?.logo?.dark || header?.logo?.light"
         :light="header?.logo?.light!"
@@ -70,10 +64,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
       </span>
     </template>
 
-    <template
-      v-else
-      #left
-    >
+    <template v-else #left>
       <NuxtLink :to="header?.to || '/'">
         <AppLogo class="w-auto h-6 shrink-0" />
       </NuxtLink>
@@ -105,16 +96,9 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     </template>
 
     <template #body>
-      <UNavigationMenu
-        :items="navItems"
-        orientation="vertical"
-        class="-mx-2.5 mb-4"
-      />
+      <UNavigationMenu :items="navItems" orientation="vertical" class="-mx-2.5 mb-4" />
 
-      <UContentNavigation
-        highlight
-        :navigation="navigation"
-      />
+      <UContentNavigation highlight :navigation="navigation" />
     </template>
   </UHeader>
 </template>

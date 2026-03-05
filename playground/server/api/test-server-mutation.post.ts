@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler, readBody, createError } from 'h3'
+
 import { serverConvexMutation } from '../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
@@ -33,7 +34,11 @@ export default defineEventHandler(async (event: H3Event) => {
       },
     }
   } catch (error) {
-    if (import.meta.dev && error instanceof Error && error.message.includes('Convex URL not configured')) {
+    if (
+      import.meta.dev &&
+      error instanceof Error &&
+      error.message.includes('Convex URL not configured')
+    ) {
       throw createError({ statusCode: 500, message: error.message })
     }
     return {

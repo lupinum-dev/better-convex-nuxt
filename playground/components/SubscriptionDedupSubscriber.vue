@@ -1,37 +1,43 @@
 <script setup lang="ts">
 import { emptyQueryArgs, subscriptionDedupCounterQuery } from '~~/utils/subscription-dedup-harness'
 
-const props = withDefaults(defineProps<{
-  prefix: string
-  label: string
-  delayed?: boolean
-  delayMs?: number
-  transformMode?: 'raw' | 'label'
-}>(), {
-  delayed: false,
-  delayMs: 50,
-  transformMode: 'raw',
-})
+const props = withDefaults(
+  defineProps<{
+    prefix: string
+    label: string
+    delayed?: boolean
+    delayMs?: number
+    transformMode?: 'raw' | 'label'
+  }>(),
+  {
+    delayed: false,
+    delayMs: 50,
+    transformMode: 'raw',
+  },
+)
 
 const ready = ref(!props.delayed)
 let readyTimer: ReturnType<typeof setTimeout> | null = null
 
-const queryArgs = computed<Record<string, never> | 'skip'>(() => (ready.value ? emptyQueryArgs : 'skip'))
+const queryArgs = computed<Record<string, never> | 'skip'>(() =>
+  ready.value ? emptyQueryArgs : 'skip',
+)
 
-const result = props.transformMode === 'label'
-  ? useConvexQuery<typeof subscriptionDedupCounterQuery, Record<string, never> | 'skip', string>(
-      subscriptionDedupCounterQuery,
-      queryArgs,
-      {
-        server: false,
-        transform: (value: number) => `count:${value}`,
-      },
-    )
-  : useConvexQuery<typeof subscriptionDedupCounterQuery, Record<string, never> | 'skip', number>(
-      subscriptionDedupCounterQuery,
-      queryArgs,
-      { server: false },
-    )
+const result =
+  props.transformMode === 'label'
+    ? useConvexQuery<typeof subscriptionDedupCounterQuery, Record<string, never> | 'skip', string>(
+        subscriptionDedupCounterQuery,
+        queryArgs,
+        {
+          server: false,
+          transform: (value: number) => `count:${value}`,
+        },
+      )
+    : useConvexQuery<typeof subscriptionDedupCounterQuery, Record<string, never> | 'skip', number>(
+        subscriptionDedupCounterQuery,
+        queryArgs,
+        { server: false },
+      )
 
 const { data, status, error } = result
 

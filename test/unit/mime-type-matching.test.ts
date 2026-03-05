@@ -6,10 +6,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import {
-  matchesMimeType,
-  isFileTypeAllowed,
-} from '../../src/runtime/utils/mime-type'
+
+import { matchesMimeType, isFileTypeAllowed } from '../../src/runtime/utils/mime-type'
 
 // ============================================================================
 // matchesMimeType Tests

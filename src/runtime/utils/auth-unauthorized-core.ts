@@ -1,6 +1,6 @@
 export function isConvexUnauthorizedError(error: unknown): boolean {
   if (error && typeof error === 'object') {
-    const record = error as { status?: unknown, code?: unknown, data?: unknown, message?: unknown }
+    const record = error as { status?: unknown; code?: unknown; data?: unknown; message?: unknown }
     const status = typeof record.status === 'number' ? record.status : undefined
     if (status === 401 || status === 403) {
       return true
@@ -12,7 +12,7 @@ export function isConvexUnauthorizedError(error: unknown): boolean {
     }
 
     if (record.data && typeof record.data === 'object') {
-      const data = record.data as { status?: unknown, code?: unknown }
+      const data = record.data as { status?: unknown; code?: unknown }
       const dataStatus = typeof data.status === 'number' ? data.status : undefined
       if (dataStatus === 401 || dataStatus === 403) {
         return true
@@ -26,9 +26,9 @@ export function isConvexUnauthorizedError(error: unknown): boolean {
     if (typeof record.message === 'string') {
       const message = record.message.toLowerCase()
       return (
-        message.includes('unauthorized')
-        || message.includes('not authenticated')
-        || message.includes('authentication')
+        message.includes('unauthorized') ||
+        message.includes('not authenticated') ||
+        message.includes('authentication')
       )
     }
   }
@@ -36,18 +36,18 @@ export function isConvexUnauthorizedError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase()
     return (
-      message.includes('unauthorized')
-      || message.includes('not authenticated')
-      || message.includes('authentication')
+      message.includes('unauthorized') ||
+      message.includes('not authenticated') ||
+      message.includes('authentication')
     )
   }
 
   if (typeof error === 'string') {
     const message = error.toLowerCase()
     return (
-      message.includes('unauthorized')
-      || message.includes('not authenticated')
-      || message.includes('authentication')
+      message.includes('unauthorized') ||
+      message.includes('not authenticated') ||
+      message.includes('authentication')
     )
   }
 

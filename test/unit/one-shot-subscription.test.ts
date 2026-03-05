@@ -53,7 +53,12 @@ describe('executeQueryViaSubscriptionOnce', () => {
     vi.useFakeTimers()
     try {
       const mock = createMockConvexClient<unknown>()
-      const promise = executeQueryViaSubscriptionOnce(mock.client as never, {} as never, {} as never, { timeoutMs: 50 })
+      const promise = executeQueryViaSubscriptionOnce(
+        mock.client as never,
+        {} as never,
+        {} as never,
+        { timeoutMs: 50 },
+      )
       const assertion = expect(promise).rejects.toThrow('Timed out waiting for subscription result')
 
       await vi.advanceTimersByTimeAsync(51)

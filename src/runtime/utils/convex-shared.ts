@@ -1,5 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { hash } from 'ohash'
+
 import type { ConvexCallStatus, ConvexUser } from './types'
 
 // Convex stores function names using this Symbol
@@ -69,7 +70,7 @@ export function getJwtTimeUntilExpiryMs(token: string, nowMs = Date.now()): numb
   if (!payload) return null
   const exp = payload.exp
   if (typeof exp !== 'number' || !Number.isFinite(exp)) return null
-  return (exp * 1000) - nowMs
+  return exp * 1000 - nowMs
 }
 
 /**
@@ -104,18 +105,18 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
   // Skip standard JWT claims and the normalized fields we already mapped above.
   for (const [key, value] of Object.entries(payload)) {
     if (
-      key === 'sub'
-      || key === 'userId'
-      || key === 'name'
-      || key === 'email'
-      || key === 'emailVerified'
-      || key === 'image'
-      || key === 'iss'
-      || key === 'aud'
-      || key === 'exp'
-      || key === 'nbf'
-      || key === 'iat'
-      || key === 'jti'
+      key === 'sub' ||
+      key === 'userId' ||
+      key === 'name' ||
+      key === 'email' ||
+      key === 'emailVerified' ||
+      key === 'image' ||
+      key === 'iss' ||
+      key === 'aud' ||
+      key === 'exp' ||
+      key === 'nbf' ||
+      key === 'iat' ||
+      key === 'jti'
     ) {
       continue
     }

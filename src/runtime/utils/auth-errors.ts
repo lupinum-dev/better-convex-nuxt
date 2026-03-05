@@ -26,10 +26,15 @@ export function buildAuthProxyUnreachableMessage(siteUrl: string, error?: unknow
   )
 }
 
-export function buildAuthProxyUpstreamStatusMessage(siteUrl: string, path: string, status: number): string {
-  const hint = status === 404
-    ? 'This usually means Better Auth routes are not registered in `convex/http.ts` or `convex.siteUrl` points to the wrong host.'
-    : 'Check your Convex deployment health and Better Auth setup.'
+export function buildAuthProxyUpstreamStatusMessage(
+  siteUrl: string,
+  path: string,
+  status: number,
+): string {
+  const hint =
+    status === 404
+      ? 'This usually means Better Auth routes are not registered in `convex/http.ts` or `convex.siteUrl` points to the wrong host.'
+      : 'Check your Convex deployment health and Better Auth setup.'
   return prefix(`Auth proxy upstream returned ${status} for ${siteUrl}/api/auth${path}. ${hint}`)
 }
 
@@ -55,7 +60,9 @@ export function buildClientAuthRequestFailureMessage(error: unknown): string {
     }
     return prefix(`Auth request failed. ${error.message}`)
   }
-  return prefix('Auth request failed. Check your Nuxt auth proxy route and Convex auth configuration.')
+  return prefix(
+    'Auth request failed. Check your Nuxt auth proxy route and Convex auth configuration.',
+  )
 }
 
 export function buildClientAuthResponseErrorMessage(rawMessage: string): string {
@@ -72,4 +79,3 @@ export function buildClientAuthResponseErrorMessage(rawMessage: string): string 
 
   return prefix(message || 'Authentication failed')
 }
-

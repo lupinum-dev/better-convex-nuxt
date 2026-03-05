@@ -20,7 +20,9 @@ function normalizeRepoUrl(input) {
   return cleaned.startsWith('https://') ? cleaned : null
 }
 
-const repoBase = normalizeRepoUrl(packageJson?.repository?.url) ?? 'https://github.com/lupinum-dev/better-convex-nuxt'
+const repoBase =
+  normalizeRepoUrl(packageJson?.repository?.url) ??
+  'https://github.com/lupinum-dev/better-convex-nuxt'
 
 function extractNames(pattern) {
   const names = new Set()
@@ -38,8 +40,8 @@ const serverImports = extractNames(
   /name:\s*'([^']+)'\s*,\s*from:\s*resolver\.resolve\('\.\/runtime\/server\/utils\/[^']+'\)/g,
 )
 const componentNames = readdirSync(componentsDir)
-  .filter(name => name.endsWith('.vue'))
-  .map(name => name.replace(/\.vue$/, ''))
+  .filter((name) => name.endsWith('.vue'))
+  .map((name) => name.replace(/\.vue$/, ''))
   .sort((a, b) => a.localeCompare(b))
 
 const composableMeta = {

@@ -2,7 +2,7 @@
 import { api } from '@@/convex/_generated/api'
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
 })
 
 // Tab state
@@ -16,12 +16,8 @@ const {
   results: infiniteResults,
   status: infiniteStatus,
   loadMore: infiniteLoadMore,
-  isLoading: infiniteLoading
-} = await useConvexPaginatedQuery(
-  api.messages.listPaginated,
-  {},
-  { initialNumItems: 10 }
-)
+  isLoading: infiniteLoading,
+} = await useConvexPaginatedQuery(api.messages.listPaginated, {}, { initialNumItems: 10 })
 
 const loadMoreRef = ref<HTMLElement | null>(null)
 
@@ -41,7 +37,7 @@ onMounted(() => {
         infiniteLoadMore(5)
       }
     },
-    { threshold: 0.1 }
+    { threshold: 0.1 },
   )
 
   observer.observe(loadMoreRef.value)
@@ -56,12 +52,8 @@ const {
   results: buttonResults,
   status: buttonStatus,
   loadMore: buttonLoadMore,
-  isLoading: buttonLoading
-} = await useConvexPaginatedQuery(
-  api.messages.listPaginated,
-  {},
-  { initialNumItems: 5 }
-)
+  isLoading: buttonLoading,
+} = await useConvexPaginatedQuery(api.messages.listPaginated, {}, { initialNumItems: 5 })
 
 // ============================================
 // ADD SAMPLE DATA
@@ -79,9 +71,7 @@ async function addSampleData() {
     <!-- Header -->
     <div class="mb-6">
       <h1 class="text-2xl font-bold mb-2">Pagination</h1>
-      <p class="text-muted">
-        Explore cursor-based pagination with await useConvexPaginatedQuery.
-      </p>
+      <p class="text-muted">Explore cursor-based pagination with await useConvexPaginatedQuery.</p>
     </div>
 
     <!-- Add sample data button -->
@@ -95,11 +85,7 @@ async function addSampleData() {
       <template #title>Need sample data?</template>
       <template #description>
         <p class="mb-3">Add some messages to test pagination.</p>
-        <UButton
-          size="sm"
-          :loading="seedStatus === 'pending'"
-          @click="addSampleData"
-        >
+        <UButton size="sm" :loading="seedStatus === 'pending'" @click="addSampleData">
           Add 20 Messages
         </UButton>
       </template>
@@ -120,7 +106,7 @@ async function addSampleData() {
       v-model="activeTab"
       :items="[
         { label: 'Infinite Scroll', value: 'infinite', icon: 'i-lucide-arrow-down' },
-        { label: 'Load More Button', value: 'button', icon: 'i-lucide-plus' }
+        { label: 'Load More Button', value: 'button', icon: 'i-lucide-plus' },
       ]"
       class="mb-6"
     />
@@ -152,7 +138,11 @@ async function addSampleData() {
 
           <!-- Intersection observer target -->
           <div ref="loadMoreRef" class="py-4 text-center">
-            <UIcon v-if="infiniteStatus === 'LoadingMore' || infiniteLoading" name="i-lucide-loader-circle" class="size-5 animate-spin" />
+            <UIcon
+              v-if="infiniteStatus === 'LoadingMore' || infiniteLoading"
+              name="i-lucide-loader-circle"
+              class="size-5 animate-spin"
+            />
             <p v-else-if="infiniteStatus === 'Exhausted'" class="text-muted text-sm">
               No more messages
             </p>
@@ -204,7 +194,8 @@ async function addSampleData() {
             Load More
           </UButton>
           <p v-else-if="buttonStatus === 'LoadingMore'" class="text-muted">
-            <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin mr-2 inline" /> Loading...
+            <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin mr-2 inline" />
+            Loading...
           </p>
           <p v-else-if="buttonStatus === 'Exhausted'" class="text-muted text-sm">
             All messages loaded
@@ -230,7 +221,13 @@ async function addSampleData() {
         <div>
           <p class="text-muted">Infinite Scroll Status</p>
           <UBadge
-            :color="infiniteStatus === 'CanLoadMore' ? 'success' : infiniteStatus === 'LoadingMore' ? 'info' : 'neutral'"
+            :color="
+              infiniteStatus === 'CanLoadMore'
+                ? 'success'
+                : infiniteStatus === 'LoadingMore'
+                  ? 'info'
+                  : 'neutral'
+            "
           >
             {{ infiniteStatus }}
           </UBadge>
@@ -238,7 +235,13 @@ async function addSampleData() {
         <div>
           <p class="text-muted">Load More Status</p>
           <UBadge
-            :color="buttonStatus === 'CanLoadMore' ? 'success' : buttonStatus === 'LoadingMore' ? 'info' : 'neutral'"
+            :color="
+              buttonStatus === 'CanLoadMore'
+                ? 'success'
+                : buttonStatus === 'LoadingMore'
+                  ? 'info'
+                  : 'neutral'
+            "
           >
             {{ buttonStatus }}
           </UBadge>

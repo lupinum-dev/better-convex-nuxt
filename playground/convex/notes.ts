@@ -117,8 +117,6 @@ export const remove = mutation({
 export const listDelayed = query({
   args: {},
   handler: async (ctx) => {
-
-
     const notes = await ctx.db.query('notes').order('desc').take(50)
     return notes.map((note) => ({
       ...note,

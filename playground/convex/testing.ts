@@ -167,7 +167,7 @@ export const echo = action({
   args: { message: v.string() },
   handler: async (_ctx, args) => {
     // Simulate some async work
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100))
     return {
       echoed: args.message,
       timestamp: Date.now(),

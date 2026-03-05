@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
 })
 
 const { user, role } = useDemoPermissions()
@@ -14,19 +14,21 @@ const roleBadgeColor = computed(() => {
 const demos = [
   {
     title: 'Real-time Feed',
-    description: 'Watch live updates appear instantly across browser tabs using await useConvexQuery.',
+    description:
+      'Watch live updates appear instantly across browser tabs using await useConvexQuery.',
     icon: 'i-lucide-radio',
     to: '/demo/feed',
     color: 'green',
-    features: ['Live subscriptions', 'Multi-tab sync', 'Auto-reconnect']
+    features: ['Live subscriptions', 'Multi-tab sync', 'Auto-reconnect'],
   },
   {
     title: 'Reactive Args',
-    description: 'See queries automatically re-run when their arguments change using reactive refs.',
+    description:
+      'See queries automatically re-run when their arguments change using reactive refs.',
     icon: 'i-lucide-refresh-cw',
     to: '/demo/reactive',
     color: 'cyan',
-    features: ['Auto re-subscribe', 'Computed args', 'Filter controls']
+    features: ['Auto re-subscribe', 'Computed args', 'Filter controls'],
   },
   {
     title: 'Optimistic Updates',
@@ -34,15 +36,16 @@ const demos = [
     icon: 'i-lucide-zap',
     to: '/demo/optimistic',
     color: 'amber',
-    features: ['Instant feedback', 'Rollback on error', 'Local state prediction']
+    features: ['Instant feedback', 'Rollback on error', 'Local state prediction'],
   },
   {
     title: 'Pagination',
-    description: 'Explore infinite scroll and load-more patterns with await useConvexPaginatedQuery.',
+    description:
+      'Explore infinite scroll and load-more patterns with await useConvexPaginatedQuery.',
     icon: 'i-lucide-list',
     to: '/demo/pagination',
     color: 'blue',
-    features: ['Cursor pagination', 'Infinite scroll', 'Load more button']
+    features: ['Cursor pagination', 'Infinite scroll', 'Load more button'],
   },
   {
     title: 'File Storage',
@@ -50,8 +53,8 @@ const demos = [
     icon: 'i-lucide-cloud-upload',
     to: '/demo/storage',
     color: 'purple',
-    features: ['Progress tracking', 'Image preview', 'Storage URLs']
-  }
+    features: ['Progress tracking', 'Image preview', 'Storage URLs'],
+  },
 ]
 </script>
 
@@ -63,31 +66,23 @@ const demos = [
         Welcome, {{ (user as any)?.displayName || 'Developer' }}!
       </h1>
       <p class="text-muted">
-        You're logged in as <UBadge :color="roleBadgeColor" variant="subtle">{{ role }}</UBadge>.
-        Use the role switcher in the sidebar to see how permissions affect the UI.
+        You're logged in as <UBadge :color="roleBadgeColor" variant="subtle">{{ role }}</UBadge
+        >. Use the role switcher in the sidebar to see how permissions affect the UI.
       </p>
     </div>
 
     <!-- Demos Grid -->
     <div class="grid gap-6 md:grid-cols-2">
-      <NuxtLink
-        v-for="demo in demos"
-        :key="demo.to"
-        :to="demo.to"
-        class="group"
-      >
+      <NuxtLink v-for="demo in demos" :key="demo.to" :to="demo.to" class="group">
         <UCard class="h-full transition-all hover:border-primary/50 hover:shadow-lg">
           <div class="flex items-start gap-4">
             <div
               :class="[
                 'w-12 h-12 rounded-xl flex items-center justify-center shrink-0',
-                `bg-${demo.color}-500/10`
+                `bg-${demo.color}-500/10`,
               ]"
             >
-              <UIcon
-                :name="demo.icon"
-                :class="['w-6 h-6', `text-${demo.color}-500`]"
-              />
+              <UIcon :name="demo.icon" :class="['w-6 h-6', `text-${demo.color}-500`]" />
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-semibold group-hover:text-primary transition-colors">

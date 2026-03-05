@@ -112,11 +112,9 @@ async function handleSignOut() {
   try {
     await convexSignOut()
     window.location.href = '/'
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Sign out failed:', error)
-  }
-  finally {
+  } finally {
     isSigningOut.value = false
   }
 }
@@ -129,12 +127,10 @@ async function testConvexQuery() {
     const convex = getConvexClient()
     const result = await convex.query(api.users.getCurrentUser, {})
     convexResult.value = JSON.stringify(result, null, 2)
-  }
-  catch (e) {
+  } catch (e) {
     convexResult.value = e instanceof Error ? e.message : 'Query failed'
     convexError.value = true
-  }
-  finally {
+  } finally {
     isTestingConvex.value = false
   }
 }
@@ -179,7 +175,8 @@ h1 {
   background: #e5e7eb;
 }
 
-.loading, .not-auth {
+.loading,
+.not-auth {
   text-align: center;
   padding: 40px;
 }

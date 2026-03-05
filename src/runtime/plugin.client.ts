@@ -1,17 +1,23 @@
+import { convexClient } from '@convex-dev/better-auth/client/plugins'
+import { createAuthClient } from 'better-auth/vue'
+import { ConvexClient } from 'convex/browser'
+
 /**
  * Client-side Convex plugin with SSR token hydration.
  * Manually wires up setAuth() for zero-flash auth on first render.
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
-import { convexClient } from '@convex-dev/better-auth/client/plugins'
-import { createAuthClient } from 'better-auth/vue'
-import { ConvexClient } from 'convex/browser'
+
+import type { AuthWaterfall } from './devtools/types'
+import {
+  buildClientAuthRequestFailureMessage,
+  buildClientAuthResponseErrorMessage,
+  buildMissingSiteUrlMessage,
+} from './utils/auth-errors'
+import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from './utils/convex-shared'
 import { createLogger, getLogLevel } from './utils/logger'
 import { matchesSkipRoute } from './utils/route-matcher'
-import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from './utils/convex-shared'
-import { buildClientAuthRequestFailureMessage, buildClientAuthResponseErrorMessage, buildMissingSiteUrlMessage } from './utils/auth-errors'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
-import type { AuthWaterfall } from './devtools/types'
 
 interface TokenResponse {
   data?: { token: string } | null
@@ -29,12 +35,14 @@ export default defineNuxtPlugin((nuxtApp) => {
   const logLevel = getLogLevel(publicConvex)
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (client)')
-  const debugConfig = (publicConvex?.debug as {
-    authFlow?: boolean
-    clientAuthFlow?: boolean
-  } | undefined)
-  const enableClientAuthTrace
-    = logLevel === 'debug' && (debugConfig?.authFlow === true || debugConfig?.clientAuthFlow === true)
+  const debugConfig = publicConvex?.debug as
+    | {
+        authFlow?: boolean
+        clientAuthFlow?: boolean
+      }
+    | undefined
+  const enableClientAuthTrace =
+    logLevel === 'debug' && (debugConfig?.authFlow === true || debugConfig?.clientAuthFlow === true)
   const rawAuthLog = logger.auth.bind(logger)
   logger.auth = (event) => {
     rawAuthLog(event)
@@ -58,7 +66,9 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // HMR-safe initialization
   if (nuxtApp.$convex) {
-    logger.debug('plugin:init (client) skipped; already initialized', { traceId: convexAuthTraceId.value })
+    logger.debug('plugin:init (client) skipped; already initialized', {
+      traceId: convexAuthTraceId.value,
+    })
     return
   }
 
@@ -148,7 +158,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       forceRefreshToken: boolean
       signal?: AbortSignal
     }) => {
-
       const route = router.currentRoute.value
       const routePath = route.path
 
@@ -169,7 +178,11 @@ export default defineNuxtPlugin((nuxtApp) => {
         logger.auth({
           phase: 'client-fetchToken:abort',
           outcome: 'skip',
-          details: { traceId: convexAuthTraceId.value, reason: 'signal-aborted-before-start', path: routePath },
+          details: {
+            traceId: convexAuthTraceId.value,
+            reason: 'signal-aborted-before-start',
+            path: routePath,
+          },
         })
         return null
       }
@@ -213,8 +226,8 @@ export default defineNuxtPlugin((nuxtApp) => {
       if (convexToken.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
         const tokenTimeUntilExpiryMs = getJwtTimeUntilExpiryMs(convexToken.value)
         if (
-          tokenTimeUntilExpiryMs !== null
-          && tokenTimeUntilExpiryMs <= TOKEN_EXPIRY_SAFETY_BUFFER_MS
+          tokenTimeUntilExpiryMs !== null &&
+          tokenTimeUntilExpiryMs <= TOKEN_EXPIRY_SAFETY_BUFFER_MS
         ) {
           logger.auth({
             phase: 'client-fetchToken:cache',
@@ -227,8 +240,12 @@ export default defineNuxtPlugin((nuxtApp) => {
             },
           })
         } else if (
-          tokenTimeUntilExpiryMs === null
-          || timeSinceValidation < Math.min(TOKEN_CACHE_MS, Math.max(0, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS))
+          tokenTimeUntilExpiryMs === null ||
+          timeSinceValidation <
+            Math.min(
+              TOKEN_CACHE_MS,
+              Math.max(0, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS),
+            )
         ) {
           logger.auth({
             phase: 'client-fetchToken:cache',
@@ -286,7 +303,11 @@ export default defineNuxtPlugin((nuxtApp) => {
         logger.auth({
           phase: 'client-fetchToken:request',
           outcome: 'success',
-          details: { traceId: convexAuthTraceId.value, endpoint: `${authRoute}/convex/token`, path: routePath },
+          details: {
+            traceId: convexAuthTraceId.value,
+            endpoint: `${authRoute}/convex/token`,
+            path: routePath,
+          },
         })
         const response = await authClient!.convex.token()
 
@@ -295,7 +316,11 @@ export default defineNuxtPlugin((nuxtApp) => {
           logger.auth({
             phase: 'client-fetchToken:abort',
             outcome: 'skip',
-            details: { traceId: convexAuthTraceId.value, reason: 'signal-aborted-after-request', path: routePath },
+            details: {
+              traceId: convexAuthTraceId.value,
+              reason: 'signal-aborted-after-request',
+              path: routePath,
+            },
           })
           return null
         }
@@ -305,9 +330,12 @@ export default defineNuxtPlugin((nuxtApp) => {
           convexUser.value = null
           // Set auth error only for explicit failures. Missing token without error is typically "not signed in".
           if (response.error) {
-            const errorMsg = typeof response.error === 'object' && response.error !== null && 'message' in response.error
-              ? String((response.error as { message: unknown }).message)
-              : 'Authentication failed'
+            const errorMsg =
+              typeof response.error === 'object' &&
+              response.error !== null &&
+              'message' in response.error
+                ? String((response.error as { message: unknown }).message)
+                : 'Authentication failed'
             convexAuthError.value = buildClientAuthResponseErrorMessage(errorMsg)
           } else {
             convexAuthError.value = null
@@ -353,7 +381,11 @@ export default defineNuxtPlugin((nuxtApp) => {
           logger.auth({
             phase: 'client-fetchToken:abort',
             outcome: 'skip',
-            details: { traceId: convexAuthTraceId.value, reason: 'signal-aborted-after-error', path: routePath },
+            details: {
+              traceId: convexAuthTraceId.value,
+              reason: 'signal-aborted-after-error',
+              path: routePath,
+            },
           })
           return null
         }
@@ -424,8 +456,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     //
     // If you need reactive session watching, use authClient.useSession() in your component,
     // but be aware it adds an extra API call (~2 Convex queries).
-  }
-  else {
+  } else {
     // No auth integration configured - avoid leaving pending=true forever.
     convexPending.value = false
   }

@@ -1,4 +1,5 @@
 import { useRuntimeConfig } from '#imports'
+
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config'
 import type { LogLevel } from './logger'
@@ -60,7 +61,8 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const envSiteUrl = process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL
 
   const runtimeUrl = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
-  const runtimeSiteUrl = typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
+  const runtimeSiteUrl =
+    typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
   const url = runtimeUrl ?? envUrl
   const explicitSiteUrl = runtimeSiteUrl ?? envSiteUrl
   const resolvedSiteUrl = resolveConvexSiteUrl({
@@ -73,10 +75,17 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     siteUrl: resolvedSiteUrl || undefined,
     auth: normalizeConvexAuthConfig(raw?.auth),
     authRoute: normalizeAuthRoute(typeof raw?.authRoute === 'string' ? raw.authRoute : undefined),
-    trustedOrigins: Array.isArray(raw?.trustedOrigins) ? raw.trustedOrigins.filter((v): v is string => typeof v === 'string') : [],
-    skipAuthRoutes: Array.isArray(raw?.skipAuthRoutes) ? raw.skipAuthRoutes.filter((v): v is string => typeof v === 'string') : [],
+    trustedOrigins: Array.isArray(raw?.trustedOrigins)
+      ? raw.trustedOrigins.filter((v): v is string => typeof v === 'string')
+      : [],
+    skipAuthRoutes: Array.isArray(raw?.skipAuthRoutes)
+      ? raw.skipAuthRoutes.filter((v): v is string => typeof v === 'string')
+      : [],
     permissions: raw?.permissions === true,
-    logging: raw?.logging === false || typeof raw?.logging === 'string' ? (raw.logging as LogLevel | false) : false,
+    logging:
+      raw?.logging === false || typeof raw?.logging === 'string'
+        ? (raw.logging as LogLevel | false)
+        : false,
     authCache: {
       enabled: authCache?.enabled === true,
       ttl: normalizeAuthCacheTtl(authCache?.ttl),

@@ -3,8 +3,8 @@ import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
 import { v } from 'convex/values'
 
-import type { DataModel } from './_generated/dataModel'
 import { components, internal } from './_generated/api'
+import type { DataModel } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
 import authConfig from './auth.config'
 
@@ -29,7 +29,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           email: doc.email,
           avatarUrl: doc.image ?? undefined, // Convert null to undefined
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
         })
       },
       // Sync name and email changes
@@ -47,7 +47,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
               ...(nameChanged && { displayName: newDoc.name }),
               ...(emailChanged && { email: newDoc.email }),
               ...(imageChanged && { avatarUrl: newDoc.image ?? undefined }),
-              updatedAt: Date.now()
+              updatedAt: Date.now(),
             })
           }
         }
@@ -61,9 +61,9 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         if (user) {
           await ctx.db.delete(user._id)
         }
-      }
-    }
-  }
+      },
+    },
+  },
 })
 
 // Export trigger handlers for the component
@@ -78,18 +78,18 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     socialProviders: {
       github: {
         clientId: process.env.GITHUB_CLIENT_ID!,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET!
-      }
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      },
     },
     plugins: [
       // convex() plugin includes JWT functionality
-      convex({ authConfig })
+      convex({ authConfig }),
     ],
     session: {
       expiresIn: 60 * 60 * 24 * 7, // 7 days
-      updateAge: 60 * 60 * 24 // 1 day
+      updateAge: 60 * 60 * 24, // 1 day
     },
-    trustedOrigins: [siteUrl, 'http://localhost:3000', 'http://127.0.0.1:3000']
+    trustedOrigins: [siteUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'],
   })
 }
 
@@ -124,9 +124,9 @@ export const getPermissionContext = query({
       userId: user.authId,
       displayName: user.displayName,
       email: user.email,
-      avatarUrl: user.avatarUrl
+      avatarUrl: user.avatarUrl,
     }
-  }
+  },
 })
 
 // ============================================
@@ -136,11 +136,7 @@ export const getPermissionContext = query({
 
 export const setOwnRole = mutation({
   args: {
-    role: v.union(
-      v.literal('admin'),
-      v.literal('member'),
-      v.literal('viewer')
-    )
+    role: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
   handler: async (ctx, { role }) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -159,11 +155,11 @@ export const setOwnRole = mutation({
 
     await ctx.db.patch(user._id, {
       role,
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     })
 
     return { success: true, newRole: role }
-  }
+  },
 })
 
 // ============================================
@@ -184,5 +180,5 @@ export const getCurrentUser = query({
       .first()
 
     return user
-  }
+  },
 })

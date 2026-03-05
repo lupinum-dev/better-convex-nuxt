@@ -1,5 +1,6 @@
-import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
+
+import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { assertLocalAuthReady, ensureLocalConvex } from '../helpers/local-convex'
@@ -44,8 +45,10 @@ describe('Auth loop (full stack)', async () => {
     ]).catch(() => {})
 
     const postSignupCookies = await page.context().cookies()
-    const hasSessionAfterSignup = postSignupCookies.some(cookie =>
-      cookie.name === 'better-auth.session_token' || cookie.name === '__Secure-better-auth.session_token',
+    const hasSessionAfterSignup = postSignupCookies.some(
+      (cookie) =>
+        cookie.name === 'better-auth.session_token' ||
+        cookie.name === '__Secure-better-auth.session_token',
     )
 
     if (!hasSessionAfterSignup) {
@@ -56,12 +59,16 @@ describe('Auth loop (full stack)', async () => {
     await page.goto('http://localhost:3000/demo/dashboard')
     await page.waitForSelector('h2', { timeout: 30_000 })
 
-    const headings = await page.$$eval('h2', nodes => nodes.map(node => node.textContent?.trim() || ''))
+    const headings = await page.$$eval('h2', (nodes) =>
+      nodes.map((node) => node.textContent?.trim() || ''),
+    )
     expect(headings).toContain('Your Profile')
 
     const cookies = await page.context().cookies()
-    const hasSessionCookie = cookies.some(cookie =>
-      cookie.name === 'better-auth.session_token' || cookie.name === '__Secure-better-auth.session_token',
+    const hasSessionCookie = cookies.some(
+      (cookie) =>
+        cookie.name === 'better-auth.session_token' ||
+        cookie.name === '__Secure-better-auth.session_token',
     )
     expect(hasSessionCookie).toBe(true)
 

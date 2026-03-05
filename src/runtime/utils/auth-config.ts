@@ -51,8 +51,8 @@ export function normalizeConvexAuthConfig(input: unknown): ConvexAuthConfig {
       redirectTo:
         auth.routeProtection?.redirectTo ?? DEFAULT_CONVEX_AUTH_CONFIG.routeProtection.redirectTo,
       preserveReturnTo:
-        auth.routeProtection?.preserveReturnTo
-        ?? DEFAULT_CONVEX_AUTH_CONFIG.routeProtection.preserveReturnTo,
+        auth.routeProtection?.preserveReturnTo ??
+        DEFAULT_CONVEX_AUTH_CONFIG.routeProtection.preserveReturnTo,
     },
     unauthorized: {
       enabled: auth.unauthorized?.enabled ?? DEFAULT_CONVEX_AUTH_CONFIG.unauthorized.enabled,

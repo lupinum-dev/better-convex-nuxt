@@ -1,5 +1,6 @@
-import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
+
+import { setup, createPage } from '@nuxt/test-utils/e2e'
 import { describe, expect, it } from 'vitest'
 
 describe('plugin.server dev misconfig overlay', async () => {

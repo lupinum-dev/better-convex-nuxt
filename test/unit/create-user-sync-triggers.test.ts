@@ -49,11 +49,13 @@ describe('createUserSyncTriggers', () => {
     )
     expect(query).toHaveBeenCalledWith('users')
     expect(withIndex).toHaveBeenCalled()
-    expect(patch).toHaveBeenCalledWith('user-1', expect.objectContaining({ email: 'b@example.com' }))
+    expect(patch).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ email: 'b@example.com' }),
+    )
 
     first.mockResolvedValueOnce({ _id: 'user-1' })
     await triggers.user.onDelete(ctx, { _id: 'auth-1' })
     expect(remove).toHaveBeenCalledWith('user-1')
   })
 })
-

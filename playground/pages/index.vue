@@ -121,12 +121,22 @@
           <summary class="legacy-toggle">Show lab pages</summary>
           <div class="links legacy-links">
             <NuxtLink to="/labs/query" class="link-card-mini">Query Options</NuxtLink>
-            <NuxtLink to="/labs/query-features/deep-reactive" class="link-card-mini">Reactive Args</NuxtLink>
+            <NuxtLink to="/labs/query-features/deep-reactive" class="link-card-mini"
+              >Reactive Args</NuxtLink
+            >
             <NuxtLink to="/labs/query-features/skip" class="link-card-mini">Skip Queries</NuxtLink>
-            <NuxtLink to="/labs/query-features/error" class="link-card-mini">Error Handling</NuxtLink>
-            <NuxtLink to="/labs/query-features/refresh" class="link-card-mini">Query Refresh</NuxtLink>
-            <NuxtLink to="/labs/query-features/cache-reuse" class="link-card-mini">Instant Cache Reuse</NuxtLink>
-            <NuxtLink to="/labs/query-features/middleware-permission-context" class="link-card-mini">Middleware Query Guard</NuxtLink>
+            <NuxtLink to="/labs/query-features/error" class="link-card-mini"
+              >Error Handling</NuxtLink
+            >
+            <NuxtLink to="/labs/query-features/refresh" class="link-card-mini"
+              >Query Refresh</NuxtLink
+            >
+            <NuxtLink to="/labs/query-features/cache-reuse" class="link-card-mini"
+              >Instant Cache Reuse</NuxtLink
+            >
+            <NuxtLink to="/labs/query-features/middleware-permission-context" class="link-card-mini"
+              >Middleware Query Guard</NuxtLink
+            >
             <NuxtLink to="/labs/realtime" class="link-card-mini">Realtime</NuxtLink>
             <NuxtLink to="/labs/optimistic" class="link-card-mini">Optimistic</NuxtLink>
             <NuxtLink to="/labs/pagination" class="link-card-mini">Pagination</NuxtLink>
@@ -177,11 +187,9 @@ async function handleSignOut() {
   try {
     await convexSignOut()
     window.location.href = '/'
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Sign out failed:', error)
-  }
-  finally {
+  } finally {
     isSigningOut.value = false
   }
 }
@@ -192,7 +200,10 @@ async function handleSignOut() {
   max-width: 1200px;
   margin: 0 auto;
   padding: 40px 20px;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 .header {

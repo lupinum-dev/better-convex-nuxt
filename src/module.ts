@@ -12,14 +12,15 @@ import {
 } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
-import type { LogLevel } from './runtime/utils/logger'
+
+import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 import {
   getSiteUrlResolutionHint,
   isValidAbsoluteUrl,
   normalizeAuthRoute,
   resolveConvexSiteUrl,
 } from './runtime/utils/convex-config'
-import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
+import type { LogLevel } from './runtime/utils/logger'
 
 // Re-export LogLevel from logger for external use
 export type { LogLevel } from './runtime/utils/logger'
@@ -287,7 +288,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Validate Convex URL format
     if (options.url && !isValidAbsoluteUrl(options.url)) {
-      logger.warn(`Invalid Convex URL format: "${options.url}". Expected a valid URL like "https://your-app.convex.cloud"`)
+      logger.warn(
+        `Invalid Convex URL format: "${options.url}". Expected a valid URL like "https://your-app.convex.cloud"`,
+      )
     }
 
     const siteUrlResolution = resolveConvexSiteUrl({
@@ -298,7 +301,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Validate site URL format if we have one
     if (resolvedSiteUrl && !isValidAbsoluteUrl(resolvedSiteUrl)) {
-      logger.warn(`Invalid Convex site URL format: "${resolvedSiteUrl}". Expected a valid URL like "https://your-app.convex.site"`)
+      logger.warn(
+        `Invalid Convex site URL format: "${resolvedSiteUrl}". Expected a valid URL like "https://your-app.convex.site"`,
+      )
     }
 
     const normalizedAuthConfig = normalizeConvexAuthConfig(options.auth)
@@ -311,7 +316,9 @@ export default defineNuxtModule<ModuleOptions>({
     // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error
     // Runtime validation happens in the plugins when the actual values are available
     if (isAuthEnabled && !resolvedSiteUrl) {
-      logger.warn(`auth: true but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(options.url)}`)
+      logger.warn(
+        `auth: true but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(options.url)}`,
+      )
     }
 
     const normalizedAuthCacheTtl = normalizeAuthCacheTtl(options.authCache?.ttl)
@@ -380,6 +387,12 @@ export default defineNuxtModule<ModuleOptions>({
     // - Better Auth cookies must be set on the app's domain (not Convex's domain)
     // - Cross-origin cookie setting is blocked by browsers
     if (isAuthEnabled) {
+      // Register both exact and wildcard routes so requests without a trailing
+      // slash (e.g. POST /api/auth) are not missed by the /** glob in Nitro.
+      addServerHandler({
+        route: authRoute,
+        handler: resolver.resolve('./runtime/server/api/auth/[...]'),
+      })
       addServerHandler({
         route: `${authRoute}/**`,
         handler: resolver.resolve('./runtime/server/api/auth/[...]'),
@@ -560,9 +573,14 @@ function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResolver>):
   nuxt.options.runtimeConfig.convexDevtoolsPath = devtoolsOutputPath
 
   // Register custom tab via Nuxt hook (more reliable than addCustomTab)
-  ;(nuxt as Nuxt & {
-    hook: (name: 'devtools:customTabs', cb: (tabs: Array<Record<string, unknown>>) => void) => void
-  }).hook('devtools:customTabs', (tabs) => {
+  ;(
+    nuxt as Nuxt & {
+      hook: (
+        name: 'devtools:customTabs',
+        cb: (tabs: Array<Record<string, unknown>>) => void,
+      ) => void
+    }
+  ).hook('devtools:customTabs', (tabs) => {
     tabs.push({
       name: 'convex',
       title: 'Convex',

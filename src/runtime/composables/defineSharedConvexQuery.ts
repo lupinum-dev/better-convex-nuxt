@@ -2,8 +2,8 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import type { MaybeRefOrGetter } from 'vue'
 
 import { useNuxtApp } from '#imports'
-import { getFunctionName, hashArgs } from '../utils/convex-shared'
 
+import { getFunctionName, hashArgs } from '../utils/convex-shared'
 import {
   createConvexQueryState,
   type UseConvexQueryData,
@@ -40,10 +40,10 @@ function getFingerprint(value: unknown): string {
 
   const objectValue = value as Record<string, unknown>
   if (
-    '__v_isRef' in objectValue
-    || '__v_isReadonly' in objectValue
-    || '__v_isReactive' in objectValue
-    || 'effect' in objectValue
+    '__v_isRef' in objectValue ||
+    '__v_isReadonly' in objectValue ||
+    '__v_isReactive' in objectValue ||
+    'effect' in objectValue
   ) {
     return 'dynamic:vue-reactive'
   }
@@ -94,9 +94,7 @@ export function defineSharedConvexQuery<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
->(
-  config: DefineSharedConvexQueryOptions<Query, Args, DataT>,
-): () => UseConvexQueryData<DataT> {
+>(config: DefineSharedConvexQueryOptions<Query, Args, DataT>): () => UseConvexQueryData<DataT> {
   return () => {
     const nuxtApp = useNuxtApp()
     const registry = getSharedRegistry(nuxtApp)
@@ -107,19 +105,19 @@ export function defineSharedConvexQuery<
     const existing = registry.entries.get(config.key)
     if (existing) {
       const queryMismatch = existing.queryName !== queryName
-      const staticArgsMismatch
-        = !isDynamicFingerprint(existing.argsFingerprint)
-          && !isDynamicFingerprint(argsFingerprint)
-          && existing.argsFingerprint !== argsFingerprint
-      const staticOptionsMismatch
-        = !isDynamicFingerprint(existing.optionsFingerprint)
-          && !isDynamicFingerprint(optionsFingerprint)
-          && existing.optionsFingerprint !== optionsFingerprint
+      const staticArgsMismatch =
+        !isDynamicFingerprint(existing.argsFingerprint) &&
+        !isDynamicFingerprint(argsFingerprint) &&
+        existing.argsFingerprint !== argsFingerprint
+      const staticOptionsMismatch =
+        !isDynamicFingerprint(existing.optionsFingerprint) &&
+        !isDynamicFingerprint(optionsFingerprint) &&
+        existing.optionsFingerprint !== optionsFingerprint
 
       if (queryMismatch || staticArgsMismatch || staticOptionsMismatch) {
         throw new Error(
           `[defineSharedConvexQuery] Duplicate key "${config.key}" registered with a different config object. ` +
-          `Use unique keys per query definition.`,
+            `Use unique keys per query definition.`,
         )
       }
       return existing.value as UseConvexQueryData<DataT>

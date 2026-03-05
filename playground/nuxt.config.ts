@@ -1,11 +1,11 @@
 export default defineNuxtConfig({
-  modules: ["../src/module"],
+  modules: ['../src/module'],
 
   pages: true,
 
   devtools: { enabled: true },
 
-  compatibilityDate: "2026-02-26",
+  compatibilityDate: '2026-02-26',
 
   routeRules: {},
 
@@ -16,4 +16,4 @@ export default defineNuxtConfig({
   convex: {
     permissions: true,
   },
-});
+})

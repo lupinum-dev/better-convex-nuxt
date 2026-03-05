@@ -5,9 +5,9 @@
  * playground-specific features like auto-user-creation.
  */
 
-import { createPermissions } from '#imports'
 import { watchEffect } from 'vue'
 
+import { createPermissions } from '#imports'
 import { api } from '~/convex/_generated/api'
 import { checkPermission, type Permission, type Resource } from '~/convex/permissions.config'
 

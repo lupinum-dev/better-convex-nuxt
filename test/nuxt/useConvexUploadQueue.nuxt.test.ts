@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { useConvexUploadQueue } from '../../src/runtime/composables/useConvexUploadQueue'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 interface UploadPlan {
@@ -63,11 +63,19 @@ class FakeQueueXhr {
     FakeQueueXhr.maxInflight = Math.max(FakeQueueXhr.maxInflight, FakeQueueXhr.inflight)
 
     const half = Math.max(1, Math.floor(file.size / 2))
-    this.upload.onprogress?.({ lengthComputable: true, loaded: half, total: file.size } as ProgressEvent)
+    this.upload.onprogress?.({
+      lengthComputable: true,
+      loaded: half,
+      total: file.size,
+    } as ProgressEvent)
 
     this.timer = setTimeout(() => {
       if (this.done) return
-      this.upload.onprogress?.({ lengthComputable: true, loaded: file.size, total: file.size } as ProgressEvent)
+      this.upload.onprogress?.({
+        lengthComputable: true,
+        loaded: file.size,
+        total: file.size,
+      } as ProgressEvent)
       this.status = plan.status
       this.responseText = plan.responseText
       this.finish()
@@ -116,13 +124,10 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
       FakeQueueXhr.setPlan(`http://upload.local/${i}`, { delayMs: 20 })
     }
 
-    const { result } = await captureInNuxt(
-      () => useConvexUploadQueue(mutation),
-      {
-        convex,
-        convexConfig: { upload: { maxConcurrent: 3 } },
-      },
-    )
+    const { result } = await captureInNuxt(() => useConvexUploadQueue(mutation), {
+      convex,
+      convexConfig: { upload: { maxConcurrent: 3 } },
+    })
 
     void result.enqueue(
       Array.from({ length: 10 }).map((_, i) => ({
@@ -195,10 +200,9 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
       { file: makeFile('large.bin', 90), mutationArgs: { id: 'large' } },
     ])
 
-    await waitFor(
-      () => result.successCount.value === 1 && result.pendingCount.value === 1,
-      { timeoutMs: 2000 },
-    )
+    await waitFor(() => result.successCount.value === 1 && result.pendingCount.value === 1, {
+      timeoutMs: 2000,
+    })
 
     // small complete (10/10), large halfway (45/90): 55/100 => 55%
     expect(result.aggregateProgress.value).toBe(55)
@@ -230,11 +234,13 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
       { convex },
     )
 
-    void result.enqueue([
-      { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
-      { file: makeFile('second.bin', 10), mutationArgs: { id: 'second' } },
-      { file: makeFile('third.bin', 10), mutationArgs: { id: 'third' } },
-    ]).catch(() => {})
+    void result
+      .enqueue([
+        { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
+        { file: makeFile('second.bin', 10), mutationArgs: { id: 'second' } },
+        { file: makeFile('third.bin', 10), mutationArgs: { id: 'third' } },
+      ])
+      .catch(() => {})
 
     await waitFor(() => result.successCount.value === 2 && result.errorCount.value === 1, {
       timeoutMs: 3000,
@@ -268,14 +274,16 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
       { convex },
     )
 
-    const enqueueResultPromise = result.enqueue([
-      { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
-      { file: makeFile('second.bin', 10), mutationArgs: { id: 'second' } },
-      { file: makeFile('third.bin', 10), mutationArgs: { id: 'third' } },
-    ]).then(
-      storageIds => ({ ok: true as const, storageIds }),
-      error => ({ ok: false as const, error }),
-    )
+    const enqueueResultPromise = result
+      .enqueue([
+        { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
+        { file: makeFile('second.bin', 10), mutationArgs: { id: 'second' } },
+        { file: makeFile('third.bin', 10), mutationArgs: { id: 'third' } },
+      ])
+      .then(
+        (storageIds) => ({ ok: true as const, storageIds }),
+        (error) => ({ ok: false as const, error }),
+      )
 
     await waitFor(() => result.errorCount.value === 1 && result.pendingCount.value === 0, {
       timeoutMs: 2000,
@@ -336,7 +344,11 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
     })
 
     FakeQueueXhr.setPlan('http://upload.local/one', { delayMs: 10 })
-    FakeQueueXhr.setPlan('http://upload.local/two', { delayMs: 10, status: 500, responseText: 'fail' })
+    FakeQueueXhr.setPlan('http://upload.local/two', {
+      delayMs: 10,
+      status: 500,
+      responseText: 'fail',
+    })
 
     const { result } = await captureInNuxt(
       () => useConvexUploadQueue(mutation, { maxConcurrent: 2, continueOnError: true }),
@@ -374,11 +386,13 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
       { convex },
     )
 
-    void result.enqueue([
-      { file: makeFile('one.bin', 10), mutationArgs: { id: 'one' } },
-      { file: makeFile('two.bin', 10), mutationArgs: { id: 'two' } },
-      { file: makeFile('three.bin', 10), mutationArgs: { id: 'three' } },
-    ]).catch(() => {})
+    void result
+      .enqueue([
+        { file: makeFile('one.bin', 10), mutationArgs: { id: 'one' } },
+        { file: makeFile('two.bin', 10), mutationArgs: { id: 'two' } },
+        { file: makeFile('three.bin', 10), mutationArgs: { id: 'three' } },
+      ])
+      .catch(() => {})
     const firstId = result.items.value[0]?.id
     if (!firstId) throw new Error('Expected first queued item id')
 
@@ -412,16 +426,20 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
       { convex },
     )
 
-    const enqueueResultPromise = result.enqueue([
-      { file: makeFile('one.bin', 10), mutationArgs: { id: 'one' } },
-      { file: makeFile('two.bin', 10), mutationArgs: { id: 'two' } },
-    ]).then(
-      storageIds => ({ ok: true as const, storageIds }),
-      error => ({ ok: false as const, error }),
-    )
+    const enqueueResultPromise = result
+      .enqueue([
+        { file: makeFile('one.bin', 10), mutationArgs: { id: 'one' } },
+        { file: makeFile('two.bin', 10), mutationArgs: { id: 'two' } },
+      ])
+      .then(
+        (storageIds) => ({ ok: true as const, storageIds }),
+        (error) => ({ ok: false as const, error }),
+      )
 
-    await waitFor(() => result.queuedCount.value >= 1 && result.pendingCount.value === 1, { timeoutMs: 1000 })
-    const queuedItem = result.items.value.find(item => item.status === 'queued')
+    await waitFor(() => result.queuedCount.value >= 1 && result.pendingCount.value === 1, {
+      timeoutMs: 1000,
+    })
+    const queuedItem = result.items.value.find((item) => item.status === 'queued')
     if (!queuedItem) throw new Error('Expected queued upload item to cancel')
     result.cancelItem(queuedItem.id)
 

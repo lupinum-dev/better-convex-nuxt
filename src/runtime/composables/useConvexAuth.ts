@@ -1,9 +1,10 @@
-import { useState, computed, readonly, useNuxtApp } from '#imports'
-
-import type { ConvexUser } from '../utils/types'
 import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
+
+import { useState, computed, readonly, useNuxtApp } from '#imports'
+
 import { waitForPendingClear } from '../utils/auth-pending'
+import type { ConvexUser } from '../utils/types'
 
 // Re-export for convenience
 export type { ConvexUser } from '../utils/types'
@@ -21,8 +22,7 @@ function createClientOnlyMethodProxy<T>(name: 'signIn' | 'signUp'): T {
       },
       apply() {
         const methodPath = path.join('.')
-        const message
-          = `[useConvexAuth] \`${methodPath}\` is client-only. Call it from a browser event handler and ensure auth is enabled.`
+        const message = `[useConvexAuth] \`${methodPath}\` is client-only. Call it from a browser event handler and ensure auth is enabled.`
         if (import.meta.dev) {
           console.warn(message)
         }
@@ -49,7 +49,9 @@ export interface UseConvexAuthReturn {
    * Signs out the user from both Better Auth and Convex.
    * Clears local state immediately and calls Better Auth's signOut().
    */
-  signOut: () => Promise<ReturnType<AuthClient['signOut']> extends Promise<infer T> ? T | null : null>
+  signOut: () => Promise<
+    ReturnType<AuthClient['signOut']> extends Promise<infer T> ? T | null : null
+  >
   /**
    * Force refresh Convex auth state after login.
    * Triggers fresh token fetch and updates reactive state.
@@ -184,7 +186,9 @@ export function useConvexAuth(): UseConvexAuthReturn {
    * ```
    */
   const refreshAuth = async (): Promise<void> => {
-    const appState = nuxtApp as typeof nuxtApp & { _convexRefreshAuthPromise?: Promise<void> | null }
+    const appState = nuxtApp as typeof nuxtApp & {
+      _convexRefreshAuthPromise?: Promise<void> | null
+    }
     if (appState._convexRefreshAuthPromise) {
       return appState._convexRefreshAuthPromise
     }

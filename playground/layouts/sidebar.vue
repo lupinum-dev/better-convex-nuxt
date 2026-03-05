@@ -9,11 +9,9 @@ async function handleSignOut() {
   try {
     await convexSignOut()
     window.location.href = '/'
-  }
-  catch (error) {
+  } catch (error) {
     console.error('Sign out failed:', error)
-  }
-  finally {
+  } finally {
     isSigningOut.value = false
   }
 }
@@ -64,11 +62,7 @@ const isActiveRoute = (to: string) => {
           <h3 class="nav-title">{{ section.title }}</h3>
           <ul class="nav-list">
             <li v-for="link in section.links" :key="link.to">
-              <NuxtLink
-                :to="link.to"
-                class="nav-item"
-                :class="{ active: isActiveRoute(link.to) }"
-              >
+              <NuxtLink :to="link.to" class="nav-item" :class="{ active: isActiveRoute(link.to) }">
                 <span class="nav-icon">{{ link.icon }}</span>
                 {{ link.label }}
               </NuxtLink>

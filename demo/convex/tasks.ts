@@ -5,6 +5,7 @@
  */
 
 import { v } from 'convex/values'
+
 import { mutation, query } from './_generated/server'
 
 /**
@@ -13,13 +14,10 @@ import { mutation, query } from './_generated/server'
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const tasks = await ctx.db
-      .query('demoTasks')
-      .order('desc')
-      .take(100)
+    const tasks = await ctx.db.query('demoTasks').order('desc').take(100)
 
     return tasks
-  }
+  },
 })
 
 /**
@@ -40,7 +38,7 @@ export const listMine = query({
       .take(100)
 
     return tasks
-  }
+  },
 })
 
 /**
@@ -48,7 +46,7 @@ export const listMine = query({
  */
 export const add = mutation({
   args: {
-    title: v.string()
+    title: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -60,11 +58,11 @@ export const add = mutation({
       title: args.title,
       completed: false,
       userId: identity.subject,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
 
     return taskId
-  }
+  },
 })
 
 /**
@@ -72,7 +70,7 @@ export const add = mutation({
  */
 export const toggle = mutation({
   args: {
-    id: v.id('demoTasks')
+    id: v.id('demoTasks'),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -90,9 +88,9 @@ export const toggle = mutation({
     }
 
     await ctx.db.patch(args.id, {
-      completed: !task.completed
+      completed: !task.completed,
     })
-  }
+  },
 })
 
 /**
@@ -100,7 +98,7 @@ export const toggle = mutation({
  */
 export const remove = mutation({
   args: {
-    id: v.id('demoTasks')
+    id: v.id('demoTasks'),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -118,7 +116,7 @@ export const remove = mutation({
     }
 
     await ctx.db.delete(args.id)
-  }
+  },
 })
 
 /**
@@ -142,5 +140,5 @@ export const clearAll = mutation({
     }
 
     return { deleted: tasks.length }
-  }
+  },
 })

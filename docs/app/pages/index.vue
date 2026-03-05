@@ -1,12 +1,12 @@
 <script setup lang="ts">
 const { data: page } = await useAsyncData('index', () =>
-  queryCollection('landing').path('/').first()
+  queryCollection('landing').path('/').first(),
 )
 if (!page.value) {
   throw createError({
     statusCode: 404,
     statusMessage: 'Page not found',
-    fatal: true
+    fatal: true,
   })
 }
 
@@ -24,9 +24,6 @@ useSeoMeta({
 
 <template>
   <div class="bg-eggshell dark:bg-neutral-950">
-    <ContentRenderer
-      v-if="page"
-      :value="page"
-    />
+    <ContentRenderer v-if="page" :value="page" />
   </div>
 </template>

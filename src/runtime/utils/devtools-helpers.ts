@@ -62,11 +62,7 @@ export function registerDevToolsEntry(
 /**
  * Update DevTools entry on success.
  */
-export function updateDevToolsSuccess(
-  id: string | null,
-  startTime: number,
-  result: unknown,
-): void {
+export function updateDevToolsSuccess(id: string | null, startTime: number, result: unknown): void {
   loadRegistry()
   if (!import.meta.dev || !mutationRegistry || !id) {
     return
@@ -84,11 +80,7 @@ export function updateDevToolsSuccess(
 /**
  * Update DevTools entry on error.
  */
-export function updateDevToolsError(
-  id: string | null,
-  startTime: number,
-  error: string,
-): void {
+export function updateDevToolsError(id: string | null, startTime: number, error: string): void {
   loadRegistry()
   if (!import.meta.dev || !mutationRegistry || !id) {
     return

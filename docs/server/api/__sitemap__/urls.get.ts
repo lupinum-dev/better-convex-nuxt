@@ -1,12 +1,13 @@
-import { defineSitemapEventHandler, asSitemapUrl } from '#imports'
-import { queryCollection } from '@nuxt/content/server'
 import type { Collections } from '@nuxt/content'
+import { queryCollection } from '@nuxt/content/server'
+
+import { defineSitemapEventHandler, asSitemapUrl } from '#imports'
 
 export default defineSitemapEventHandler(async (e) => {
   // Query all collections
   const [docsPages, landingPages] = await Promise.all([
     queryCollection(e, 'docs' as keyof Collections).all(),
-    queryCollection(e, 'landing' as keyof Collections).all()
+    queryCollection(e, 'landing' as keyof Collections).all(),
   ])
 
   const contentList = [...docsPages, ...landingPages]
@@ -25,7 +26,7 @@ export default defineSitemapEventHandler(async (e) => {
         loc: sitemapData.loc || c._path,
         lastmod: sitemapData.lastmod || c.updatedAt || c.createdAt,
         changefreq: sitemapData.changefreq,
-        priority: sitemapData.priority
+        priority: sitemapData.priority,
       })
     })
 })

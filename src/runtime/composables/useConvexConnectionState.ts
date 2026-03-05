@@ -1,5 +1,6 @@
-import { ref, readonly, computed, onScopeDispose, getCurrentScope, type Ref } from 'vue'
 import type { ConvexClient } from 'convex/browser'
+import { ref, readonly, computed, onScopeDispose, getCurrentScope, type Ref } from 'vue'
+
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getSharedLogger, getLogLevel } from '../utils/logger'
@@ -105,7 +106,9 @@ export function useConvexConnectionState() {
         if (wasConnected !== nowConnected) {
           if (nowConnected) {
             // Reconnected
-            const offlineDuration = store.disconnectedAt ? Date.now() - store.disconnectedAt : undefined
+            const offlineDuration = store.disconnectedAt
+              ? Date.now() - store.disconnectedAt
+              : undefined
             logger.connection({ event: 'restored', offlineDuration })
             store.disconnectedAt = null
           } else {
@@ -162,9 +165,7 @@ export function useConvexConnectionState() {
     })
   }
 
-  const shouldShowOfflineUi = computed(
-    () => !isConnected.value && !isHydratingConnection.value,
-  )
+  const shouldShowOfflineUi = computed(() => !isConnected.value && !isHydratingConnection.value)
 
   return {
     /** Full connection state object */

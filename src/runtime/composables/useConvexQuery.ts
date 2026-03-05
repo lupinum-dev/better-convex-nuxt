@@ -1,9 +1,22 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
+import {
+  computed,
+  watch,
+  triggerRef,
+  onScopeDispose,
+  getCurrentScope,
+  toValue,
+  ref,
+  type Ref,
+  type WatchStopHandle,
+  type MaybeRefOrGetter,
+} from 'vue'
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
-import { computed, watch, triggerRef, onScopeDispose, getCurrentScope, toValue, ref, type Ref, type WatchStopHandle, type MaybeRefOrGetter } from 'vue'
 
+import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
+import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
   getFunctionName,
   hashArgs,
@@ -19,23 +32,27 @@ import {
   type SubscriptionEntry,
   type ConvexCallStatus,
 } from '../utils/convex-cache'
+import { deepUnref } from '../utils/deep-unref'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
-import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
-import { deepUnref } from '../utils/deep-unref'
-import { assertConvexComposableScope } from '../utils/composable-scope'
 import type { ConvexClientAuthMode } from '../utils/types'
 
 // DevTools query registry (client-side only in dev mode)
 let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
 let devToolsRegistryPromise: Promise<void> | null = null
 let devToolsRegistryLoadFailed = false
-const transformedAsyncDataKeyIds = new WeakMap<(input: unknown) => unknown, number>()
-let transformedAsyncDataKeySeq = 1
+const transformedAsyncDataKeyIds = new WeakMap<(input: unknown) => unknown, string>()
 
 function ensureDevToolsRegistryLoaded(): void {
-  if (!import.meta.client || !import.meta.dev || devToolsRegistry || devToolsRegistryPromise || devToolsRegistryLoadFailed) return
+  if (
+    !import.meta.client ||
+    !import.meta.dev ||
+    devToolsRegistry ||
+    devToolsRegistryPromise ||
+    devToolsRegistryLoadFailed
+  )
+    return
   devToolsRegistryPromise = import('../devtools/query-registry')
     .then((module) => {
       devToolsRegistry = module
@@ -49,11 +66,18 @@ function ensureDevToolsRegistryLoaded(): void {
     })
 }
 
-function getTransformedAsyncDataKeyId(transform: (input: unknown) => unknown): number {
+function getTransformedAsyncDataKeyId(transform: (input: unknown) => unknown): string {
   const existing = transformedAsyncDataKeyIds.get(transform)
   if (existing) return existing
 
-  const id = transformedAsyncDataKeySeq++
+  // Derive a stable key from the function's source text so server and client
+  // always produce the same suffix regardless of component initialization order.
+  const source = transform.toString()
+  let hash = 0
+  for (let i = 0; i < source.length; i++) {
+    hash = (hash * 31 + source.charCodeAt(i)) >>> 0
+  }
+  const id = hash.toString(36)
   transformedAsyncDataKeyIds.set(transform, id)
   return id
 }
@@ -222,9 +246,7 @@ export function createConvexQueryState<
     : ''
   // Transformed results are consumer-specific shapes and cannot safely share the same
   // Nuxt async-data slot with untransformed consumers (or different transforms).
-  const asyncDataKey = computed(() =>
-    `${cacheKey.value}${transformedKeySuffix}`,
-  )
+  const asyncDataKey = computed(() => `${cacheKey.value}${transformedKeySuffix}`)
 
   // Computed hash of args for deep reactivity detection
   // This ensures useAsyncData re-fetches when args change deeply (not just ref identity)
@@ -297,7 +319,7 @@ export function createConvexQueryState<
         if (import.meta.client) {
           void handleUnauthorizedAuthFailure({ error, source: 'query', functionName: fnName })
         }
-        throw (error instanceof Error ? error : new Error(String(error)))
+        throw error instanceof Error ? error : new Error(String(error))
       }
     },
     {
@@ -383,9 +405,7 @@ export function createConvexQueryState<
     }
   }
 
-  const attachSharedBridge = (
-    entry: SubscriptionEntry,
-  ) => {
+  const attachSharedBridge = (entry: SubscriptionEntry) => {
     cleanupSharedBridgeWatchers()
 
     const bridge = ensureQueryBridge(entry)
@@ -455,7 +475,12 @@ export function createConvexQueryState<
         attachSharedBridge(existingEntry)
 
         // Log shared subscription
-        logger.query({ name: fnName, event: 'share', refCount: existingEntry.refCount, args: currentArgs })
+        logger.query({
+          name: fnName,
+          event: 'share',
+          refCount: existingEntry.refCount,
+          args: currentArgs,
+        })
         return
       }
 
@@ -495,7 +520,11 @@ export function createConvexQueryState<
           (err: Error) => {
             localBridge.error = err
             localBridge.errorVersion.value += 1
-            void handleUnauthorizedAuthFailure({ error: err, source: 'query', functionName: fnName })
+            void handleUnauthorizedAuthFailure({
+              error: err,
+              source: 'query',
+              functionName: fnName,
+            })
 
             logger.query({ name: fnName, event: 'error', error: err })
 

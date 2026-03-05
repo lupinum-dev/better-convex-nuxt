@@ -1,4 +1,5 @@
 import { ref, onMounted, onUnmounted } from 'vue'
+
 import type { EnhancedAuthState, ConnectionState, AuthWaterfall } from '../../types'
 import { callBridge } from './useBridge'
 
@@ -82,11 +83,7 @@ export function useAuth() {
 
   onMounted(async () => {
     // Initial fetch
-    await Promise.all([
-      updateConnectionState(),
-      updateAuthState(),
-      updateAuthWaterfall(),
-    ])
+    await Promise.all([updateConnectionState(), updateAuthState(), updateAuthWaterfall()])
 
     // Poll for updates (reduced frequency since auth doesn't change often)
     intervalId = setInterval(() => {

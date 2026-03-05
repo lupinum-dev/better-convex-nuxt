@@ -5,7 +5,10 @@ interface FetchWithTimeoutOptions extends RequestInit {
   fetchImpl?: typeof fetch
 }
 
-function createTimeoutSignal(timeoutMs: number, parentSignal?: AbortSignal): {
+function createTimeoutSignal(
+  timeoutMs: number,
+  parentSignal?: AbortSignal,
+): {
   signal: AbortSignal
   cleanup: () => void
 } {

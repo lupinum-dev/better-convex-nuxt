@@ -31,7 +31,9 @@ function parseNoteIdFromSlug(value: string): Id<'notes'> | null {
 }
 
 const route = useRoute()
-const slugParam = computed(() => normalizeSlugParam(route.params.slug as string | string[] | undefined))
+const slugParam = computed(() =>
+  normalizeSlugParam(route.params.slug as string | string[] | undefined),
+)
 const noteId = computed(() => parseNoteIdFromSlug(slugParam.value))
 
 const listCacheKey = getQueryKey(api.notes.list, {})
@@ -39,7 +41,7 @@ const { data: cachedNotes } = useNuxtData<NoteRecord[]>(listCacheKey)
 
 const cachedCard = computed(() => {
   if (!noteId.value) return null
-  const note = cachedNotes.value?.find(candidate => candidate._id === noteId.value)
+  const note = cachedNotes.value?.find((candidate) => candidate._id === noteId.value)
   if (!note) return null
   return {
     _id: note._id,
@@ -105,8 +107,9 @@ const showingPreviewOnly = computed(() => Boolean(post.value && post.value.conte
     <header class="hero">
       <h1>Slug Detail Page with Instant Reuse</h1>
       <p>
-        This page reads cached list data via <code>useNuxtData(getQueryKey(api.notes.list, {}))</code>
-        and uses it as the <code>default</code> for a <code>await useConvexQuery(...)</code> detail query.
+        This page reads cached list data via
+        <code>useNuxtData(getQueryKey(api.notes.list, {}))</code> and uses it as the
+        <code>default</code> for a <code>await useConvexQuery(...)</code> detail query.
       </p>
     </header>
 
@@ -131,7 +134,9 @@ const showingPreviewOnly = computed(() => Boolean(post.value && post.value.conte
 
     <section v-if="!noteId" class="panel panel-error">
       <h2>Invalid slug</h2>
-      <p>This demo expects a slug in the form <code>&lt;noteId&gt;--&lt;slugified-title&gt;</code>.</p>
+      <p>
+        This demo expects a slug in the form <code>&lt;noteId&gt;--&lt;slugified-title&gt;</code>.
+      </p>
     </section>
 
     <section v-else-if="error" class="panel panel-error">
@@ -152,7 +157,9 @@ const showingPreviewOnly = computed(() => Boolean(post.value && post.value.conte
         </div>
         <div class="meta">
           <span>ID: {{ post.id }}</span>
-          <span v-if="post.createdAt">Created: {{ new Date(post.createdAt).toLocaleString() }}</span>
+          <span v-if="post.createdAt"
+            >Created: {{ new Date(post.createdAt).toLocaleString() }}</span
+          >
         </div>
       </div>
 

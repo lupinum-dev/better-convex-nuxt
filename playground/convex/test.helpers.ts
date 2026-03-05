@@ -8,7 +8,6 @@ import { convexTest } from 'convex-test'
 
 import type { Id } from './_generated/dataModel'
 import type { Role } from './permissions.config'
-
 import schema from './schema'
 import { modules, fixtures } from './test.setup'
 

@@ -5,28 +5,34 @@ const { isAuthenticated, signIn } = useConvexAuth()
 const isLoading = ref(false)
 
 // Redirect to demo if already authenticated
-watch(isAuthenticated, (authenticated) => {
-  if (authenticated) {
-    router.push('/demo')
-  }
-}, { immediate: true })
-
-const providers = [{
-  label: 'Continue with GitHub',
-  icon: 'i-simple-icons-github',
-  color: 'neutral' as const,
-  onClick: async () => {
-    isLoading.value = true
-    try {
-      await signIn.social({
-        provider: 'github',
-        callbackURL: '/demo'
-      })
-    } catch {
-      isLoading.value = false
+watch(
+  isAuthenticated,
+  (authenticated) => {
+    if (authenticated) {
+      router.push('/demo')
     }
-  }
-}]
+  },
+  { immediate: true },
+)
+
+const providers = [
+  {
+    label: 'Continue with GitHub',
+    icon: 'i-simple-icons-github',
+    color: 'neutral' as const,
+    onClick: async () => {
+      isLoading.value = true
+      try {
+        await signIn.social({
+          provider: 'github',
+          callbackURL: '/demo',
+        })
+      } catch {
+        isLoading.value = false
+      }
+    },
+  },
+]
 </script>
 
 <template>

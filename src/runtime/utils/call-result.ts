@@ -5,9 +5,7 @@ export interface ConvexCallError {
   cause?: unknown
 }
 
-export type CallResult<T, E = ConvexCallError> =
-  | { ok: true, data: T }
-  | { ok: false, error: E }
+export type CallResult<T, E = ConvexCallError> = { ok: true; data: T } | { ok: false; error: E }
 
 const LIMIT_ERROR_MARKER = 'LIMIT_'
 
@@ -32,7 +30,7 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
-function parseMessageForCode(message: string): { message: string, code?: string } {
+function parseMessageForCode(message: string): { message: string; code?: string } {
   const markerIndex = message.indexOf(LIMIT_ERROR_MARKER)
   if (markerIndex < 0) {
     return { message }

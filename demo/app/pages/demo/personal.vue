@@ -2,7 +2,7 @@
 import { api } from '@@/convex/_generated/api'
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
 })
 
 const { data: tasks, status } = await useConvexQuery(api.tasks.listMine, {})
@@ -24,9 +24,7 @@ async function add() {
   <div class="p-6 lg:p-8 max-w-2xl mx-auto">
     <div class="mb-6">
       <h1 class="text-2xl font-bold mb-2">My Tasks</h1>
-      <p class="text-muted">
-        Personal task list - only you can see and manage these tasks.
-      </p>
+      <p class="text-muted">Personal task list - only you can see and manage these tasks.</p>
     </div>
 
     <UAlert
@@ -40,16 +38,8 @@ async function add() {
 
     <UCard>
       <form @submit.prevent="add" class="flex gap-2 mb-4">
-        <UInput
-          v-model="input"
-          placeholder="Add a task..."
-          class="flex-1"
-        />
-        <UButton
-          type="submit"
-          :loading="addStatus === 'pending'"
-          :disabled="!input.trim()"
-        >
+        <UInput v-model="input" placeholder="Add a task..." class="flex-1" />
+        <UButton type="submit" :loading="addStatus === 'pending'" :disabled="!input.trim()">
           Add
         </UButton>
       </form>
@@ -68,10 +58,7 @@ async function add() {
             :model-value="task.completed"
             @update:model-value="toggleTask({ id: task._id })"
           />
-          <span
-            :class="{ 'line-through text-muted': task.completed }"
-            class="flex-1"
-          >
+          <span :class="{ 'line-through text-muted': task.completed }" class="flex-1">
             {{ task.title }}
           </span>
           <UButton
@@ -85,9 +72,7 @@ async function add() {
         </li>
       </ul>
 
-      <p v-else class="text-center text-muted py-8">
-        No tasks yet. Add one above!
-      </p>
+      <p v-else class="text-center text-muted py-8">No tasks yet. Add one above!</p>
 
       <template #footer v-if="tasks?.length">
         <div class="flex justify-between items-center text-sm text-muted">

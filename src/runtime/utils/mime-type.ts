@@ -41,5 +41,5 @@ export function matchesMimeType(fileType: string, pattern: string): boolean {
  * isFileTypeAllowed('application/pdf', ['image/*', 'application/pdf'])  // true
  */
 export function isFileTypeAllowed(fileType: string, allowedTypes: string[]): boolean {
-  return allowedTypes.some(pattern => matchesMimeType(fileType, pattern))
+  return allowedTypes.some((pattern) => matchesMimeType(fileType, pattern))
 }

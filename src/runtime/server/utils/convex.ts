@@ -3,10 +3,10 @@ import type { H3Event } from 'h3'
 
 import { useRuntimeConfig } from '#imports'
 
+import { normalizeConvexError, toError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
-import { normalizeConvexError, toError } from '../../utils/call-result'
 import type { ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
 
@@ -30,7 +30,9 @@ export interface ServerConvexOptions {
 }
 
 function hasSessionCookie(cookieHeader: string): boolean {
-  return cookieHeader.includes(SESSION_COOKIE_NAME) || cookieHeader.includes(SECURE_SESSION_COOKIE_NAME)
+  return (
+    cookieHeader.includes(SESSION_COOKIE_NAME) || cookieHeader.includes(SECURE_SESSION_COOKIE_NAME)
+  )
 }
 
 function extractSessionToken(cookieHeader: string): string | null {
@@ -53,8 +55,9 @@ function getCookieHeader(event: H3Event): string {
     return directHeader.get('cookie') ?? ''
   }
 
-  const nodeHeaders = (event as { node?: { req?: { headers?: Record<string, string | string[] | undefined> } } })
-    .node?.req?.headers
+  const nodeHeaders = (
+    event as { node?: { req?: { headers?: Record<string, string | string[] | undefined> } } }
+  ).node?.req?.headers
   const raw = nodeHeaders?.cookie
   if (Array.isArray(raw)) return raw.join('; ')
   return typeof raw === 'string' ? raw : ''
@@ -79,7 +82,9 @@ async function resolveAuthToken(
 
   if (!cookieHeader || !hasSessionCookie(cookieHeader)) {
     if (policy === 'required') {
-      throw new Error('[serverConvex] Authentication required but no Better Auth session cookie was found')
+      throw new Error(
+        '[serverConvex] Authentication required but no Better Auth session cookie was found',
+      )
     }
     return undefined
   }
@@ -99,11 +104,11 @@ async function resolveAuthToken(
       }
     }
 
-    const response = await $fetch(`${config.siteUrl}/api/auth/convex/token`, {
+    const response = (await $fetch(`${config.siteUrl}/api/auth/convex/token`, {
       headers: {
         Cookie: cookieHeader,
       },
-    }) as { token?: string } | null
+    })) as { token?: string } | null
 
     if (response?.token) {
       if (config.authCache.enabled && sessionToken) {

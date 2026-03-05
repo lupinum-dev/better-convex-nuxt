@@ -123,7 +123,11 @@ function waitForPort(port: number, timeoutMs: number): Promise<void> {
   })
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -141,32 +145,32 @@ function sanitizeBodyPreview(text: string): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, 240)
 }
 
-export async function assertLocalAuthReady(
-  options: LocalAuthPreflightOptions = {},
-): Promise<void> {
+export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = {}): Promise<void> {
   const cwd = options.cwd ?? path.resolve(process.cwd(), 'playground')
   const timeoutMs = options.timeoutMs ?? 5000
   const envFile = await readLocalConvexEnv(cwd)
   const mergedEnv = options.env ?? {}
 
   const convexUrl = mergedEnv.CONVEX_URL ?? process.env.CONVEX_URL ?? envFile.url
-  const siteUrl = mergedEnv.CONVEX_SITE_URL
-    ?? process.env.CONVEX_SITE_URL
-    ?? envFile.siteUrl
-    ?? (convexUrl ? deriveSiteUrlFromConvexUrl(convexUrl) ?? undefined : undefined)
+  const siteUrl =
+    mergedEnv.CONVEX_SITE_URL ??
+    process.env.CONVEX_SITE_URL ??
+    envFile.siteUrl ??
+    (convexUrl ? (deriveSiteUrlFromConvexUrl(convexUrl) ?? undefined) : undefined)
 
   if (!convexUrl || !siteUrl) {
-    const missing = [
-      !convexUrl ? 'CONVEX_URL' : null,
-      !siteUrl ? 'CONVEX_SITE_URL' : null,
-    ].filter(Boolean).join(', ')
+    const missing = [!convexUrl ? 'CONVEX_URL' : null, !siteUrl ? 'CONVEX_SITE_URL' : null]
+      .filter(Boolean)
+      .join(', ')
 
-    throw new Error([
-      `[e2e][auth-loop] Missing required local Convex env values: ${missing}.`,
-      `- resolved CONVEX_URL: ${convexUrl ?? 'missing'}`,
-      `- resolved CONVEX_SITE_URL: ${siteUrl ?? 'missing'}`,
-      buildManualAuthSetupHelp(cwd),
-    ].join('\n'))
+    throw new Error(
+      [
+        `[e2e][auth-loop] Missing required local Convex env values: ${missing}.`,
+        `- resolved CONVEX_URL: ${convexUrl ?? 'missing'}`,
+        `- resolved CONVEX_SITE_URL: ${siteUrl ?? 'missing'}`,
+        buildManualAuthSetupHelp(cwd),
+      ].join('\n'),
+    )
   }
 
   const origin = options.origin ?? 'http://localhost:3000'
@@ -174,55 +178,67 @@ export async function assertLocalAuthReady(
 
   let response: Response
   try {
-    response = await fetchWithTimeout(getSessionEndpoint, {
-      method: 'GET',
-      headers: {
-        origin,
-        'x-forwarded-host': 'localhost:3000',
-        'x-forwarded-proto': 'http',
+    response = await fetchWithTimeout(
+      getSessionEndpoint,
+      {
+        method: 'GET',
+        headers: {
+          origin,
+          'x-forwarded-host': 'localhost:3000',
+          'x-forwarded-proto': 'http',
+        },
+        redirect: 'manual',
       },
-      redirect: 'manual',
-    }, timeoutMs)
+      timeoutMs,
+    )
   } catch (error) {
-    throw new Error([
-      `[e2e][auth-loop] Could not reach Better Auth endpoint: ${getSessionEndpoint}`,
-      `- cause: ${error instanceof Error ? error.message : String(error)}`,
-      buildManualAuthSetupHelp(cwd),
-    ].join('\n'))
+    throw new Error(
+      [
+        `[e2e][auth-loop] Could not reach Better Auth endpoint: ${getSessionEndpoint}`,
+        `- cause: ${error instanceof Error ? error.message : String(error)}`,
+        buildManualAuthSetupHelp(cwd),
+      ].join('\n'),
+    )
   }
 
   if (response.status === 404) {
-    throw new Error([
-      `[e2e][auth-loop] Better Auth HTTP route returned 404 at ${getSessionEndpoint}.`,
-      '- likely cause: Better Auth routes are not registered on the local Convex site URL.',
-      buildManualAuthSetupHelp(cwd),
-    ].join('\n'))
+    throw new Error(
+      [
+        `[e2e][auth-loop] Better Auth HTTP route returned 404 at ${getSessionEndpoint}.`,
+        '- likely cause: Better Auth routes are not registered on the local Convex site URL.',
+        buildManualAuthSetupHelp(cwd),
+      ].join('\n'),
+    )
   }
 
   if (response.status === 403) {
     const body = sanitizeBodyPreview(await response.text())
-    throw new Error([
-      `[e2e][auth-loop] Better Auth origin validation failed (403) at ${getSessionEndpoint}.`,
-      `- attempted origin: ${origin}`,
-      `- response: ${body || '(empty body)'}`,
-      '- likely cause: SITE_URL/trusted origins do not include http://localhost:3000.',
-      buildManualAuthSetupHelp(cwd),
-    ].join('\n'))
+    throw new Error(
+      [
+        `[e2e][auth-loop] Better Auth origin validation failed (403) at ${getSessionEndpoint}.`,
+        `- attempted origin: ${origin}`,
+        `- response: ${body || '(empty body)'}`,
+        '- likely cause: SITE_URL/trusted origins do not include http://localhost:3000.',
+        buildManualAuthSetupHelp(cwd),
+      ].join('\n'),
+    )
   }
 
   if (response.status >= 500) {
     const body = sanitizeBodyPreview(await response.text())
-    throw new Error([
-      `[e2e][auth-loop] Better Auth endpoint returned ${response.status} at ${getSessionEndpoint}.`,
-      `- response: ${body || '(empty body)'}`,
-      '- likely cause: missing/invalid BETTER_AUTH_SECRET or local auth component setup.',
-      buildManualAuthSetupHelp(cwd),
-    ].join('\n'))
+    throw new Error(
+      [
+        `[e2e][auth-loop] Better Auth endpoint returned ${response.status} at ${getSessionEndpoint}.`,
+        `- response: ${body || '(empty body)'}`,
+        '- likely cause: missing/invalid BETTER_AUTH_SECRET or local auth component setup.',
+        buildManualAuthSetupHelp(cwd),
+      ].join('\n'),
+    )
   }
 }
 
 export async function ensureLocalConvex(
-  options: { port?: number, cwd?: string, timeoutMs?: number } = {},
+  options: { port?: number; cwd?: string; timeoutMs?: number } = {},
 ): Promise<EnsureLocalConvexResult> {
   const cwd = options.cwd ?? path.resolve(process.cwd(), 'playground')
   const timeoutMs = options.timeoutMs ?? 25_000
@@ -230,9 +246,8 @@ export async function ensureLocalConvex(
   const explicitUrl = process.env.CONVEX_URL ?? envFile.url
 
   if (explicitUrl) {
-    const explicitSiteUrl = process.env.CONVEX_SITE_URL
-      ?? envFile.siteUrl
-      ?? deriveSiteUrlFromConvexUrl(explicitUrl)
+    const explicitSiteUrl =
+      process.env.CONVEX_SITE_URL ?? envFile.siteUrl ?? deriveSiteUrlFromConvexUrl(explicitUrl)
 
     let explicitPort: number | null = null
     try {

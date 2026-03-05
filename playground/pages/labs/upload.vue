@@ -133,12 +133,7 @@ function handleCancel() {
 
     <section v-if="imageUrl" class="preview-section">
       <h2>Preview</h2>
-      <img
-        data-testid="preview-image"
-        :src="imageUrl"
-        alt="Uploaded file"
-        class="preview-image"
-      />
+      <img data-testid="preview-image" :src="imageUrl" alt="Uploaded file" class="preview-image" />
     </section>
 
     <!-- Progress bar for visual feedback during tests -->

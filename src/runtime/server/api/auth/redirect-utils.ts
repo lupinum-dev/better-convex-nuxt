@@ -10,7 +10,10 @@ export function normalizePathname(pathname: string): string {
  * This avoids leaking auth XHR/fetch requests to the browser as cross-origin redirects,
  * while still preserving intentional redirects (like OAuth provider redirects).
  */
-export function getCanonicalRedirectTarget(currentTarget: string, locationHeader: string | null): string | null {
+export function getCanonicalRedirectTarget(
+  currentTarget: string,
+  locationHeader: string | null,
+): string | null {
   if (!locationHeader) {
     return null
   }
@@ -69,8 +72,15 @@ export async function fetchWithCanonicalRedirects({
   })
 
   let canonicalRedirectsFollowed = 0
-  while (response.status >= 300 && response.status < 400 && canonicalRedirectsFollowed < maxRedirects) {
-    const canonicalTarget = getCanonicalRedirectTarget(resolvedTarget, response.headers.get('location'))
+  while (
+    response.status >= 300 &&
+    response.status < 400 &&
+    canonicalRedirectsFollowed < maxRedirects
+  ) {
+    const canonicalTarget = getCanonicalRedirectTarget(
+      resolvedTarget,
+      response.headers.get('location'),
+    )
     if (!canonicalTarget) {
       break
     }

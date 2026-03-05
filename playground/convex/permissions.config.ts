@@ -76,7 +76,8 @@ type GlobalPermission = keyof (typeof permissions)['global']
 
 type PostPermission = `post.${keyof (typeof permissions)['post']}`
 type CommentPermission = `comment.${keyof (typeof permissions)['comment']}`
-type SettingsBillingPermission = `settings.billing.${keyof (typeof permissions)['settings.billing']}`
+type SettingsBillingPermission =
+  `settings.billing.${keyof (typeof permissions)['settings.billing']}`
 
 // Add new resource types here as you add them to config
 export type Permission =

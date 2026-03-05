@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useConvexFileUpload } from '../../src/runtime/composables/useConvexFileUpload'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 interface FakeUploadListenerMap {
@@ -73,22 +73,21 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
 
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:on-progress')
-    convex.setMutationHandler('files:generateUploadUrl:on-progress', async () => 'http://upload.local')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:on-progress',
+      async () => 'http://upload.local',
+    )
     const onProgress = vi.fn()
 
-    const { result } = await captureInNuxt(
-      () => useConvexFileUpload(mutation, { onProgress }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexFileUpload(mutation, { onProgress }), {
+      convex,
+    })
     const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
 
     await result.upload(file)
 
     expect(onProgress).toHaveBeenCalledTimes(1)
-    expect(onProgress).toHaveBeenCalledWith(
-      { loaded: 5, total: 10, percent: 50 },
-      file,
-    )
+    expect(onProgress).toHaveBeenCalledWith({ loaded: 5, total: 10, percent: 50 }, file)
   })
 
   it('validates allowedTypes and reports errors deterministically', async () => {

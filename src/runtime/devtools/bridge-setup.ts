@@ -5,9 +5,11 @@
  * and the DevTools iframe using BroadcastChannel.
  */
 
-import { toRaw } from 'vue'
 import type { ConvexClient } from 'convex/browser'
+import { toRaw } from 'vue'
 import type { Ref } from 'vue'
+
+import { createAppDevtoolsTransport, cloneDevtoolsPayload } from './transport'
 import type {
   ConvexDevToolsBridge,
   ConvexUser,
@@ -16,7 +18,6 @@ import type {
   AuthState,
   AuthWaterfall,
 } from './types'
-import { createAppDevtoolsTransport, cloneDevtoolsPayload } from './transport'
 
 /**
  * Setup the DevTools bridge on the window object.
@@ -159,7 +160,11 @@ export async function setupDevToolsBridge(
 
     if (message.type === 'CONVEX_DEVTOOLS_INIT') {
       // DevTools iframe is requesting connection
-      transport.postMessage({ type: 'CONVEX_DEVTOOLS_READY', instanceId, transport: transport.kind })
+      transport.postMessage({
+        type: 'CONVEX_DEVTOOLS_READY',
+        instanceId,
+        transport: transport.kind,
+      })
     } else if (message.type === 'CONVEX_DEVTOOLS_REQUEST') {
       if (message.instanceId && message.instanceId !== instanceId) {
         return

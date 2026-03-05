@@ -46,9 +46,11 @@ export function buildAuthProxyForwardHeaders(
 
 export function shouldSkipProxyResponseHeader(name: string): boolean {
   const lower = name.toLowerCase()
-  return lower === 'set-cookie'
-    || lower === 'content-encoding'
-    || lower === 'content-length'
-    || lower === 'transfer-encoding'
-    || lower === 'connection'
+  return (
+    lower === 'set-cookie' ||
+    lower === 'content-encoding' ||
+    lower === 'content-length' ||
+    lower === 'transfer-encoding' ||
+    lower === 'connection'
+  )
 }

@@ -88,9 +88,7 @@
                   <span class="status-badge" :class="post.status">{{ post.status }}</span>
                 </div>
                 <div class="post-meta">
-                  <span class="meta-item">
-                    Created: {{ formatDate(post.createdAt) }}
-                  </span>
+                  <span class="meta-item"> Created: {{ formatDate(post.createdAt) }} </span>
                   <span v-if="post.publishedAt" class="meta-item">
                     Published: {{ formatDate(post.publishedAt) }}
                   </span>
@@ -136,21 +134,11 @@
               >
                 <div class="form-group">
                   <label>Title</label>
-                  <input
-                    v-model="editingPost.title"
-                    type="text"
-                    :disabled="isSaving"
-                    required
-                  />
+                  <input v-model="editingPost.title" type="text" :disabled="isSaving" required />
                 </div>
                 <div class="form-group">
                   <label>Content</label>
-                  <textarea
-                    v-model="editingPost.content"
-                    rows="4"
-                    :disabled="isSaving"
-                    required
-                  />
+                  <textarea v-model="editingPost.content" rows="4" :disabled="isSaving" required />
                 </div>
                 <div class="form-actions">
                   <button type="submit" class="btn btn-sm btn-primary" :disabled="isSaving">
@@ -188,11 +176,7 @@ const nuxtApp = useNuxtApp()
 // Query posts with real-time updates
 const queryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
 
-const {
-  data: posts,
-  pending,
-  error,
-} = await useConvexQuery(api.posts.list, queryArgs)
+const { data: posts, pending, error } = await useConvexQuery(api.posts.list, queryArgs)
 
 // New post form
 const newPost = ref({
@@ -261,12 +245,10 @@ async function createPost() {
       content: newPost.value.content.trim(),
     })
     newPost.value = { title: '', content: '' }
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to create post:', e)
     alert(`Failed to create post: ${e instanceof Error ? e.message : 'Unknown error'}`)
-  }
-  finally {
+  } finally {
     isCreating.value = false
   }
 }
@@ -299,12 +281,10 @@ async function saveEdit(postId: Id<'posts'>) {
       content: editingPost.value.content.trim(),
     })
     cancelEdit()
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to update post:', e)
     alert(`Failed to update post: ${e instanceof Error ? e.message : 'Unknown error'}`)
-  }
-  finally {
+  } finally {
     isSaving.value = false
   }
 }
@@ -315,12 +295,10 @@ async function publishPost(postId: Id<'posts'>) {
   try {
     const client = getConvexClient()
     await client.mutation(api.posts.publish, { id: postId })
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to publish post:', e)
     alert(`Failed to publish post: ${e instanceof Error ? e.message : 'Unknown error'}`)
-  }
-  finally {
+  } finally {
     publishingPostId.value = null
   }
 }
@@ -333,12 +311,10 @@ async function deletePost(postId: Id<'posts'>) {
   try {
     const client = getConvexClient()
     await client.mutation(api.posts.remove, { id: postId })
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to delete post:', e)
     alert(`Failed to delete post: ${e instanceof Error ? e.message : 'Unknown error'}`)
-  }
-  finally {
+  } finally {
     deletingPostId.value = null
   }
 }

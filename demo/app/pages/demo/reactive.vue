@@ -2,7 +2,7 @@
 import { api } from '@@/convex/_generated/api'
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
 })
 
 type FeedType = 'message' | 'task' | 'event'
@@ -14,23 +14,23 @@ const limit = ref(10)
 // Computed args object - updates whenever selectedType or limit changes
 const queryArgs = computed(() => ({
   type: selectedType.value,
-  limit: limit.value
+  limit: limit.value,
 }))
 
 // The query automatically re-subscribes when queryArgs changes
 const { data: feedItems, status } = await useConvexQuery(api.feed.listFiltered, queryArgs)
 
-const typeOptions: Array<{ value: FeedType | undefined, label: string, icon: string }> = [
+const typeOptions: Array<{ value: FeedType | undefined; label: string; icon: string }> = [
   { value: undefined, label: 'All Types', icon: 'i-lucide-list' },
   { value: 'message', label: 'Messages', icon: 'i-lucide-message-circle' },
   { value: 'task', label: 'Tasks', icon: 'i-lucide-check-square' },
-  { value: 'event', label: 'Events', icon: 'i-lucide-calendar' }
+  { value: 'event', label: 'Events', icon: 'i-lucide-calendar' },
 ]
 
 const typeIcons: Record<string, string> = {
   message: 'i-lucide-message-circle',
   task: 'i-lucide-check-square',
-  event: 'i-lucide-calendar'
+  event: 'i-lucide-calendar',
 }
 </script>
 
@@ -39,9 +39,7 @@ const typeIcons: Record<string, string> = {
     <!-- Header -->
     <div class="mb-6">
       <h1 class="text-2xl font-bold mb-2">Reactive Args</h1>
-      <p class="text-muted">
-        Watch queries automatically re-run when their arguments change.
-      </p>
+      <p class="text-muted">Watch queries automatically re-run when their arguments change.</p>
     </div>
 
     <!-- Explanation -->
@@ -86,13 +84,7 @@ const typeIcons: Record<string, string> = {
         <div>
           <label class="text-sm font-medium mb-2 block">Results Limit</label>
           <div class="flex items-center gap-4">
-            <URange
-              v-model="limit"
-              :min="5"
-              :max="50"
-              :step="5"
-              class="flex-1"
-            />
+            <URange v-model="limit" :min="5" :max="50" :step="5" class="flex-1" />
             <UBadge variant="subtle" color="neutral" class="min-w-12 justify-center">
               {{ limit }}
             </UBadge>
@@ -102,7 +94,9 @@ const typeIcons: Record<string, string> = {
         <!-- Current Args Display -->
         <div class="pt-4 border-t border-default">
           <label class="text-sm font-medium mb-2 block">Current Query Args</label>
-          <pre class="text-xs bg-elevated p-3 rounded-lg overflow-x-auto"><code>{{ JSON.stringify(queryArgs, null, 2) }}</code></pre>
+          <pre
+            class="text-xs bg-elevated p-3 rounded-lg overflow-x-auto"
+          ><code>{{ JSON.stringify(queryArgs, null, 2) }}</code></pre>
         </div>
       </div>
     </UCard>
@@ -113,17 +107,11 @@ const typeIcons: Record<string, string> = {
         <div class="flex items-center justify-between">
           <span class="font-semibold">Feed Items</span>
           <div class="flex items-center gap-2">
-            <UBadge
-              v-if="status === 'pending'"
-              color="primary"
-              variant="subtle"
-            >
+            <UBadge v-if="status === 'pending'" color="primary" variant="subtle">
               <UIcon name="i-lucide-loader-2" class="w-3 h-3 animate-spin mr-1" />
               Loading
             </UBadge>
-            <UBadge variant="subtle" color="neutral">
-              {{ feedItems?.length || 0 }} results
-            </UBadge>
+            <UBadge variant="subtle" color="neutral"> {{ feedItems?.length || 0 }} results </UBadge>
           </div>
         </div>
       </template>
@@ -139,7 +127,8 @@ const typeIcons: Record<string, string> = {
         <p class="text-muted">No items match the current filter.</p>
         <p class="text-sm text-muted mt-1">
           Try selecting "All Types" or add some items in the
-          <NuxtLink to="/demo/feed" class="text-primary hover:underline">Real-time Feed</NuxtLink> demo.
+          <NuxtLink to="/demo/feed" class="text-primary hover:underline">Real-time Feed</NuxtLink>
+          demo.
         </p>
       </div>
 
@@ -150,7 +139,9 @@ const typeIcons: Record<string, string> = {
           :key="item._id"
           class="flex gap-4 p-3 rounded-lg bg-elevated"
         >
-          <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <div
+            class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0"
+          >
             <UIcon :name="typeIcons[item.type]" class="w-5 h-5 text-primary" />
           </div>
           <div class="flex-1 min-w-0">

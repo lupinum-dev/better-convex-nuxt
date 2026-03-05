@@ -24,4 +24,3 @@ describe('auth config normalization', () => {
     })
   })
 })
-

@@ -3,7 +3,7 @@ export default defineAppConfig({
     colors: {
       primary: 'convex-purple',
       secondary: 'blue',
-      neutral: 'neutral'
-    }
-  }
+      neutral: 'neutral',
+    },
+  },
 })

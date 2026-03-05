@@ -1,9 +1,6 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 
-import {
-  toCallResult,
-  type CallResult,
-} from '../utils/call-result'
+import { toCallResult, type CallResult } from '../utils/call-result'
 import { useConvex } from './useConvex'
 
 export interface UseConvexCallOptions {
@@ -42,59 +39,87 @@ export function useConvexCall(options: UseConvexCallOptions = {}) {
 
   const query = async <Query extends FunctionReference<'query'>>(
     queryRef: Query,
-    args?: FunctionArgs<Query>,
+    ...args: FunctionArgs<Query> extends Record<string, never> ? [] : [args: FunctionArgs<Query>]
   ): Promise<FunctionReturnType<Query>> => {
     const convex = requireClient()
-    return await withTimeout(
-      convex.query(queryRef, (args ?? {}) as FunctionArgs<Query>),
+    return (await withTimeout(
+      convex.query(queryRef, (args[0] ?? {}) as FunctionArgs<Query>),
       timeoutMs,
       'query',
-    ) as FunctionReturnType<Query>
+    )) as FunctionReturnType<Query>
   }
 
   const mutation = async <Mutation extends FunctionReference<'mutation'>>(
     mutationRef: Mutation,
-    args?: FunctionArgs<Mutation>,
+    ...args: FunctionArgs<Mutation> extends Record<string, never>
+      ? []
+      : [args: FunctionArgs<Mutation>]
   ): Promise<FunctionReturnType<Mutation>> => {
     const convex = requireClient()
-    return await withTimeout(
-      convex.mutation(mutationRef, (args ?? {}) as FunctionArgs<Mutation>),
+    return (await withTimeout(
+      convex.mutation(mutationRef, (args[0] ?? {}) as FunctionArgs<Mutation>),
       timeoutMs,
       'mutation',
-    ) as FunctionReturnType<Mutation>
+    )) as FunctionReturnType<Mutation>
   }
 
   const action = async <Action extends FunctionReference<'action'>>(
     actionRef: Action,
-    args?: FunctionArgs<Action>,
+    ...args: FunctionArgs<Action> extends Record<string, never> ? [] : [args: FunctionArgs<Action>]
   ): Promise<FunctionReturnType<Action>> => {
     const convex = requireClient()
-    return await withTimeout(
-      convex.action(actionRef, (args ?? {}) as FunctionArgs<Action>),
+    return (await withTimeout(
+      convex.action(actionRef, (args[0] ?? {}) as FunctionArgs<Action>),
       timeoutMs,
       'action',
-    ) as FunctionReturnType<Action>
+    )) as FunctionReturnType<Action>
   }
 
   const querySafe = async <Query extends FunctionReference<'query'>>(
     queryRef: Query,
-    args?: FunctionArgs<Query>,
+    ...args: FunctionArgs<Query> extends Record<string, never> ? [] : [args: FunctionArgs<Query>]
   ): Promise<CallResult<FunctionReturnType<Query>>> => {
-    return await toCallResult(() => query(queryRef, args))
+    const convex = requireClient()
+    return toCallResult(
+      () =>
+        withTimeout(
+          convex.query(queryRef, (args[0] ?? {}) as FunctionArgs<Query>),
+          timeoutMs,
+          'query',
+        ) as Promise<FunctionReturnType<Query>>,
+    )
   }
 
   const mutationSafe = async <Mutation extends FunctionReference<'mutation'>>(
     mutationRef: Mutation,
-    args?: FunctionArgs<Mutation>,
+    ...args: FunctionArgs<Mutation> extends Record<string, never>
+      ? []
+      : [args: FunctionArgs<Mutation>]
   ): Promise<CallResult<FunctionReturnType<Mutation>>> => {
-    return await toCallResult(() => mutation(mutationRef, args))
+    const convex = requireClient()
+    return toCallResult(
+      () =>
+        withTimeout(
+          convex.mutation(mutationRef, (args[0] ?? {}) as FunctionArgs<Mutation>),
+          timeoutMs,
+          'mutation',
+        ) as Promise<FunctionReturnType<Mutation>>,
+    )
   }
 
   const actionSafe = async <Action extends FunctionReference<'action'>>(
     actionRef: Action,
-    args?: FunctionArgs<Action>,
+    ...args: FunctionArgs<Action> extends Record<string, never> ? [] : [args: FunctionArgs<Action>]
   ): Promise<CallResult<FunctionReturnType<Action>>> => {
-    return await toCallResult(() => action(actionRef, args))
+    const convex = requireClient()
+    return toCallResult(
+      () =>
+        withTimeout(
+          convex.action(actionRef, (args[0] ?? {}) as FunctionArgs<Action>),
+          timeoutMs,
+          'action',
+        ) as Promise<FunctionReturnType<Action>>,
+    )
   }
 
   return {

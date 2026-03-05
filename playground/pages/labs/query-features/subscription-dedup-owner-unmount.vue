@@ -41,13 +41,15 @@ onMounted(() => {
     </p>
 
     <div class="actions">
-      <button data-testid="increment-btn" class="action-btn" @click="increment">
-        Increment
-      </button>
+      <button data-testid="increment-btn" class="action-btn" @click="increment">Increment</button>
       <button data-testid="unmount-parent-btn" class="action-btn" @click="unmountParent">
         Unmount Parent
       </button>
-      <button data-testid="refresh-listener-count-btn" class="action-btn" @click="refreshListenerCount">
+      <button
+        data-testid="refresh-listener-count-btn"
+        class="action-btn"
+        @click="refreshListenerCount"
+      >
         Refresh Listener Count
       </button>
     </div>
@@ -60,11 +62,7 @@ onMounted(() => {
     </div>
 
     <div class="grid">
-      <SubscriptionDedupSubscriber
-        v-if="showParent"
-        prefix="parent"
-        label="Parent"
-      />
+      <SubscriptionDedupSubscriber v-if="showParent" prefix="parent" label="Parent" />
 
       <SubscriptionDedupSubscriber
         prefix="child"

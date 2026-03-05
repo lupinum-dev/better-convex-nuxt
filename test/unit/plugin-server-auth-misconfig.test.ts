@@ -66,7 +66,8 @@ describe('plugin.server token exchange failure policy', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     stateStore.clear()
-    delete (globalThis as typeof globalThis & { __BCN_AUTH_HEALTHCHECK_DONE__?: Set<string> }).__BCN_AUTH_HEALTHCHECK_DONE__
+    delete (globalThis as typeof globalThis & { __BCN_AUTH_HEALTHCHECK_DONE__?: Set<string> })
+      .__BCN_AUTH_HEALTHCHECK_DONE__
 
     useRuntimeConfigMock.mockReturnValue({
       public: {
@@ -85,7 +86,7 @@ describe('plugin.server token exchange failure policy', () => {
 
     useStateMock.mockImplementation((key: string, init?: (() => unknown) | unknown) => {
       if (!stateStore.has(key)) {
-        const value = typeof init === 'function' ? (init as () => unknown)() : init ?? null
+        const value = typeof init === 'function' ? (init as () => unknown)() : (init ?? null)
         stateStore.set(key, { value })
       }
       return stateStore.get(key)
@@ -123,7 +124,9 @@ describe('plugin.server token exchange failure policy', () => {
       await expect(run).resolves.toBeUndefined()
     }
 
-    expect(String(stateStore.get('convex:authError')?.value ?? '')).toMatch(/convex\/token|token exchange/i)
+    expect(String(stateStore.get('convex:authError')?.value ?? '')).toMatch(
+      /convex\/token|token exchange/i,
+    )
   })
 
   it('keeps 401 token exchange as graceful unauthenticated (no throw)', async () => {

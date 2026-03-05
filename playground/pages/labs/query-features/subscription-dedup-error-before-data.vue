@@ -26,19 +26,14 @@ function emitError() {
     </p>
 
     <div class="actions">
-      <button data-testid="emit-error-btn" class="action-btn" @click="emitError">
-        Emit Error
-      </button>
+      <button data-testid="emit-error-btn" class="action-btn" @click="emitError">Emit Error</button>
       <button data-testid="increment-btn" class="action-btn" @click="increment">
         Emit First Data (Increment)
       </button>
     </div>
 
     <div class="grid">
-      <SubscriptionDedupSubscriber
-        prefix="parent"
-        label="Parent"
-      />
+      <SubscriptionDedupSubscriber prefix="parent" label="Parent" />
 
       <SubscriptionDedupSubscriber
         prefix="child"

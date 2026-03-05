@@ -62,10 +62,20 @@ async function handleRefresh() {
     </section>
 
     <section class="actions-section">
-      <button data-testid="refresh-btn" class="action-btn refresh-btn" :disabled="isRefreshing" @click="handleRefresh">
+      <button
+        data-testid="refresh-btn"
+        class="action-btn refresh-btn"
+        :disabled="isRefreshing"
+        @click="handleRefresh"
+      >
         {{ isRefreshing ? 'Refreshing...' : 'Refresh' }}
       </button>
-      <button data-testid="load-more-btn" class="action-btn load-more-btn" :disabled="status !== 'ready'" @click="loadMore(3)">
+      <button
+        data-testid="load-more-btn"
+        class="action-btn load-more-btn"
+        :disabled="status !== 'ready'"
+        @click="loadMore(3)"
+      >
         Load More
       </button>
     </section>

@@ -17,15 +17,10 @@ function increment() {
       Two subscribers share one subscription, but use different transform outputs.
     </p>
 
-    <button data-testid="increment-btn" class="action-btn" @click="increment">
-      Increment
-    </button>
+    <button data-testid="increment-btn" class="action-btn" @click="increment">Increment</button>
 
     <div class="grid">
-      <SubscriptionDedupSubscriber
-        prefix="parent"
-        label="Parent (raw)"
-      />
+      <SubscriptionDedupSubscriber prefix="parent" label="Parent (raw)" />
 
       <SubscriptionDedupSubscriber
         prefix="child"

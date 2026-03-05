@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+
 import { matchesSkipRoute } from '../../src/runtime/utils/route-matcher'
 
 describe('matchesSkipRoute', () => {

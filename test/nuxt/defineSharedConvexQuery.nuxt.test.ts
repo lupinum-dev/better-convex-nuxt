@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { defineSharedConvexQuery } from '../../src/runtime/composables/defineSharedConvexQuery'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 describe('defineSharedConvexQuery (Nuxt runtime)', () => {
@@ -16,11 +16,14 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       args: {},
     })
 
-    const { result, wrapper } = await captureInNuxt(() => {
-      const first = useSharedUser()
-      const second = useSharedUser()
-      return { first, second }
-    }, { convex })
+    const { result, wrapper } = await captureInNuxt(
+      () => {
+        const first = useSharedUser()
+        const second = useSharedUser()
+        return { first, second }
+      },
+      { convex },
+    )
 
     expect(result.first).toBe(result.second)
 
@@ -45,10 +48,13 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       args: {},
     })
 
-    const { result } = await captureInNuxt(() => ({
-      first: useSharedUser(),
-      second: useSharedUserAlt(),
-    }), { convex: new MockConvexClient() })
+    const { result } = await captureInNuxt(
+      () => ({
+        first: useSharedUser(),
+        second: useSharedUserAlt(),
+      }),
+      { convex: new MockConvexClient() },
+    )
 
     expect(result.first).not.toBe(result.second)
   })
@@ -67,10 +73,13 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       args: {},
     })
 
-    const { result } = await captureInNuxt(() => ({
-      first: useSharedA(),
-      second: useSharedB(),
-    }), { convex: new MockConvexClient() })
+    const { result } = await captureInNuxt(
+      () => ({
+        first: useSharedA(),
+        second: useSharedB(),
+      }),
+      { convex: new MockConvexClient() },
+    )
 
     expect(result.first).toBe(result.second)
   })
@@ -90,11 +99,16 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       args: {},
     })
 
-    await expect(captureInNuxt(() => {
-      void useSharedA()
-      void useSharedB()
-      return null
-    }, { convex: new MockConvexClient() })).rejects.toThrow(/duplicate key/i)
+    await expect(
+      captureInNuxt(
+        () => {
+          void useSharedA()
+          void useSharedB()
+          return null
+        },
+        { convex: new MockConvexClient() },
+      ),
+    ).rejects.toThrow(/duplicate key/i)
   })
 
   it('throws when same key and query use different static args', async () => {
@@ -111,10 +125,15 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       args: { a: 2 },
     })
 
-    await expect(captureInNuxt(() => {
-      void useSharedA()
-      void useSharedB()
-      return null
-    }, { convex: new MockConvexClient() })).rejects.toThrow(/duplicate key/i)
+    await expect(
+      captureInNuxt(
+        () => {
+          void useSharedA()
+          void useSharedB()
+          return null
+        },
+        { convex: new MockConvexClient() },
+      ),
+    ).rejects.toThrow(/duplicate key/i)
   })
 })

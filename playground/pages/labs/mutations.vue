@@ -70,7 +70,9 @@ function handleReset() {
 <template>
   <div data-testid="mutation-status-page" class="test-page">
     <h1>Mutations Lab</h1>
-    <p class="description">Test mutation status tracking, error handling, and reset functionality.</p>
+    <p class="description">
+      Test mutation status tracking, error handling, and reset functionality.
+    </p>
 
     <section class="control-section">
       <button
@@ -91,13 +93,7 @@ function handleReset() {
         {{ failPending ? 'Running...' : 'Run Error Mutation' }}
       </button>
 
-      <button
-        data-testid="reset-btn"
-        class="btn reset-btn"
-        @click="handleReset"
-      >
-        Reset All
-      </button>
+      <button data-testid="reset-btn" class="btn reset-btn" @click="handleReset">Reset All</button>
     </section>
 
     <section class="state-section">
@@ -177,11 +173,23 @@ function handleReset() {
   cursor: pointer;
 }
 
-.success-btn { background: #4caf50; color: white; }
-.error-btn { background: #f44336; color: white; }
-.reset-btn { background: #9e9e9e; color: white; }
+.success-btn {
+  background: #4caf50;
+  color: white;
+}
+.error-btn {
+  background: #f44336;
+  color: white;
+}
+.reset-btn {
+  background: #9e9e9e;
+  color: white;
+}
 
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .state-section {
   margin: 20px 0;

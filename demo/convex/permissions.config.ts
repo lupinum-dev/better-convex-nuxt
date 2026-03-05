@@ -8,25 +8,28 @@
 export const ROLES = ['admin', 'member', 'viewer'] as const
 export type Role = (typeof ROLES)[number]
 
-export const ROLE_INFO: Record<Role, { label: string; icon: string; color: string; description: string }> = {
+export const ROLE_INFO: Record<
+  Role,
+  { label: string; icon: string; color: string; description: string }
+> = {
   admin: {
     label: 'Admin',
     icon: 'i-lucide-shield',
     color: 'blue',
-    description: 'Full access to everything'
+    description: 'Full access to everything',
   },
   member: {
     label: 'Member',
     icon: 'i-lucide-user',
     color: 'green',
-    description: 'Create and edit own content'
+    description: 'Create and edit own content',
   },
   viewer: {
     label: 'Viewer',
     icon: 'i-lucide-eye',
     color: 'gray',
-    description: 'View content only'
-  }
+    description: 'View content only',
+  },
 }
 
 /**
@@ -40,25 +43,25 @@ export const permissions = {
   // Global permissions
   global: {
     'admin.settings': { roles: ['admin'] as const },
-    'view.all': { roles: ['admin', 'member', 'viewer'] as const }
+    'view.all': { roles: ['admin', 'member', 'viewer'] as const },
   },
   // Feed permissions
   feed: {
     create: { roles: ['admin', 'member'] as const },
     read: { roles: ['admin', 'member', 'viewer'] as const },
-    delete: { own: ['member'] as const, any: ['admin'] as const }
+    delete: { own: ['member'] as const, any: ['admin'] as const },
   },
   // Task permissions
   task: {
     create: { roles: ['admin', 'member'] as const },
     update: { own: ['member', 'viewer'] as const, any: ['admin'] as const },
-    delete: { own: ['member'] as const, any: ['admin'] as const }
+    delete: { own: ['member'] as const, any: ['admin'] as const },
   },
   // File permissions
   file: {
     upload: { roles: ['admin', 'member'] as const },
-    delete: { own: ['member'] as const, any: ['admin'] as const }
-  }
+    delete: { own: ['member'] as const, any: ['admin'] as const },
+  },
 } as const
 
 // All possible permission strings
@@ -92,7 +95,7 @@ export interface Resource {
 export function checkPermission(
   ctx: PermissionContext | null,
   permission: Permission,
-  resource?: Resource
+  resource?: Resource,
 ): boolean {
   if (!ctx) return false
 

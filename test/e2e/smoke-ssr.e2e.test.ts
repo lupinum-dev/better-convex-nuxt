@@ -1,5 +1,6 @@
-import { setup, $fetch } from '@nuxt/test-utils/e2e'
 import { fileURLToPath } from 'node:url'
+
+import { setup, $fetch } from '@nuxt/test-utils/e2e'
 import { describe, expect, it } from 'vitest'
 
 describe('SSR smoke', async () => {
@@ -12,4 +13,3 @@ describe('SSR smoke', async () => {
     expect(html).toContain('<div>basic</div>')
   })
 })
-

@@ -18,13 +18,17 @@ describe('runtime config normalization', () => {
   })
 
   it('clamps auth cache ttl to 1..60 seconds', () => {
-    expect(normalizeConvexRuntimeConfig({
-      authCache: { ttl: 0 },
-    }).authCache.ttl).toBe(1)
+    expect(
+      normalizeConvexRuntimeConfig({
+        authCache: { ttl: 0 },
+      }).authCache.ttl,
+    ).toBe(1)
 
-    expect(normalizeConvexRuntimeConfig({
-      authCache: { ttl: 999 },
-    }).authCache.ttl).toBe(60)
+    expect(
+      normalizeConvexRuntimeConfig({
+        authCache: { ttl: 999 },
+      }).authCache.ttl,
+    ).toBe(60)
   })
 
   it('uses explicit upload maxConcurrent when valid', () => {
@@ -37,17 +41,23 @@ describe('runtime config normalization', () => {
   })
 
   it('normalizes invalid upload maxConcurrent values', () => {
-    expect(normalizeConvexRuntimeConfig({
-      upload: { maxConcurrent: 0 },
-    }).upload.maxConcurrent).toBe(1)
+    expect(
+      normalizeConvexRuntimeConfig({
+        upload: { maxConcurrent: 0 },
+      }).upload.maxConcurrent,
+    ).toBe(1)
 
-    expect(normalizeConvexRuntimeConfig({
-      upload: { maxConcurrent: 4.8 },
-    }).upload.maxConcurrent).toBe(4)
+    expect(
+      normalizeConvexRuntimeConfig({
+        upload: { maxConcurrent: 4.8 },
+      }).upload.maxConcurrent,
+    ).toBe(4)
 
-    expect(normalizeConvexRuntimeConfig({
-      upload: { maxConcurrent: Number.NaN },
-    }).upload.maxConcurrent).toBe(3)
+    expect(
+      normalizeConvexRuntimeConfig({
+        upload: { maxConcurrent: Number.NaN },
+      }).upload.maxConcurrent,
+    ).toBe(3)
   })
 
   it('defaults auth proxy body-size limits to 1 MiB', () => {

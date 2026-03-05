@@ -38,9 +38,8 @@ describe('fetchAuthToken', () => {
     expect(token).toBe('jwt-from-exchange')
     expect(cachedToken.value).toBe('jwt-from-exchange')
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://demo.convex.site/api/auth/convex/token',
-      { headers: { Cookie: 'better-auth.session_token=abc' } },
-    )
+    expect(fetchMock).toHaveBeenCalledWith('https://demo.convex.site/api/auth/convex/token', {
+      headers: { Cookie: 'better-auth.session_token=abc' },
+    })
   })
 })

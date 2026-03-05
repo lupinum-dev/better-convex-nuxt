@@ -1,6 +1,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
-import type { ConvexDevToolsBridge } from '../../types'
+
 import { createUiDevtoolsTransport, type DevtoolsTransport } from '../../transport'
+import type { ConvexDevToolsBridge } from '../../types'
 
 type BridgeMethod = keyof Omit<ConvexDevToolsBridge, 'version'>
 
@@ -20,7 +21,10 @@ let cleanupBridgeListener: (() => void) | null = null
 /**
  * Call a method on the DevTools bridge transport.
  */
-export async function callBridge<T = unknown>(method: BridgeMethod, ...args: unknown[]): Promise<T> {
+export async function callBridge<T = unknown>(
+  method: BridgeMethod,
+  ...args: unknown[]
+): Promise<T> {
   return new Promise((resolve, reject) => {
     if (!transportRef.value) {
       reject(new Error('Bridge not connected'))

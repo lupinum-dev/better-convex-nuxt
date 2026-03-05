@@ -1,7 +1,5 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, PaginationResult } from 'convex/server'
-
-import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 import {
   ref,
   computed,
@@ -16,6 +14,10 @@ import {
   shallowRef,
 } from 'vue'
 
+import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
+
+import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
+import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
   getFunctionName,
   hashArgs,
@@ -29,14 +31,16 @@ import {
   ensureQueryBridge,
   type SubscriptionEntry,
 } from '../utils/convex-cache'
-import { generatePaginationId } from '../utils/shared-helpers'
-import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
-import type { PaginatedQueryReference, PaginatedQueryArgs, PaginatedQueryItem } from './optimistic-updates'
-import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
-import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { deepUnref } from '../utils/deep-unref'
-import { assertConvexComposableScope } from '../utils/composable-scope'
+import { getConvexRuntimeConfig } from '../utils/runtime-config'
+import { generatePaginationId } from '../utils/shared-helpers'
 import type { ConvexClientAuthMode } from '../utils/types'
+import type {
+  PaginatedQueryReference,
+  PaginatedQueryArgs,
+  PaginatedQueryItem,
+} from './optimistic-updates'
+import { executeQueryHttp, executeQueryViaSubscription } from './useConvexQuery'
 
 // Re-export optimistic update helpers and types
 export {
@@ -194,7 +198,6 @@ export interface UseConvexPaginatedQueryData<Item> {
    * Equivalent to args change - resets pagination state completely.
    */
   reset: () => Promise<void>
-
 }
 
 interface BuildConvexPaginatedQueryResult<Item> {
@@ -322,7 +325,10 @@ export function createConvexPaginatedQueryState<
   // First page comes from asyncData (for SSR) + firstPageRealtimeData (for real-time updates)
   const pages = shallowRef<PageState<Item>[]>([])
   const globalError = ref<Error | null>(null)
-  const pageBridgeWatchStops = new Map<number, { data: WatchStopHandle | null; error: WatchStopHandle | null }>()
+  const pageBridgeWatchStops = new Map<
+    number,
+    { data: WatchStopHandle | null; error: WatchStopHandle | null }
+  >()
   const isManualRefreshPending = ref(false)
 
   // Real-time updates for the first page (overrides asyncData when available)
@@ -686,7 +692,7 @@ export function createConvexPaginatedQueryState<
     }
 
     const hasFirstPageError = asyncData.error.value != null
-    const hasMorePageError = pages.value.some(page => page.error != null)
+    const hasMorePageError = pages.value.some((page) => page.error != null)
     if (globalError.value || hasFirstPageError || hasMorePageError) {
       return 'error'
     }
@@ -771,10 +777,10 @@ export function createConvexPaginatedQueryState<
 
   const results = computed((): TransformedItem[] => {
     if (
-      keepPreviousData
-      && status.value === 'loading-first-page'
-      && transformedResults.value.length === 0
-      && lastSettledResults.value.length > 0
+      keepPreviousData &&
+      status.value === 'loading-first-page' &&
+      transformedResults.value.length === 0 &&
+      lastSettledResults.value.length > 0
     ) {
       return lastSettledResults.value as TransformedItem[]
     }
@@ -835,7 +841,7 @@ export function createConvexPaginatedQueryState<
         if (import.meta.client) {
           void handleUnauthorizedAuthFailure({ error, source: 'query', functionName: fnName })
         }
-        throw (error instanceof Error ? error : new Error(String(error)))
+        throw error instanceof Error ? error : new Error(String(error))
       }
     },
     {
@@ -1163,7 +1169,12 @@ export async function useConvexPaginatedQuery<
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ): Promise<UseConvexPaginatedQueryData<TransformedItem>> {
-  const { resultData, resolvePromise } = createConvexPaginatedQueryState(query, args, options, false)
+  const { resultData, resolvePromise } = createConvexPaginatedQueryState(
+    query,
+    args,
+    options,
+    false,
+  )
   await resolvePromise
   return resultData
 }

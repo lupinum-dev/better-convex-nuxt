@@ -3,7 +3,7 @@ import { api } from '@@/convex/_generated/api'
 import { updateQuery, deleteFromQuery } from '#imports'
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
 })
 
 // Shared task list query
@@ -43,12 +43,12 @@ const { execute: optimisticAdd, status: optimisticAddStatus } = useConvexMutatio
           title: `${args.title} (optimistic)`,
           completed: false,
           userId: 'pending',
-          createdAt: Date.now()
+          createdAt: Date.now(),
         }
         return current ? [optimisticTask, ...current] : [optimisticTask]
-      }
+      },
     })
-  }
+  },
 })
 
 const { execute: optimisticToggle } = useConvexMutation(api.tasks.toggle, {
@@ -58,11 +58,9 @@ const { execute: optimisticToggle } = useConvexMutation(api.tasks.toggle, {
       args: {},
       store: localStore,
       updater: (current) =>
-        current?.map((t) =>
-          t._id === args.id ? { ...t, completed: !t.completed } : t
-        ) ?? []
+        current?.map((t) => (t._id === args.id ? { ...t, completed: !t.completed } : t)) ?? [],
     })
-  }
+  },
 })
 
 const { execute: optimisticDelete } = useConvexMutation(api.tasks.remove, {
@@ -71,9 +69,9 @@ const { execute: optimisticDelete } = useConvexMutation(api.tasks.remove, {
       query: api.tasks.list,
       args: {},
       store: localStore,
-      shouldDelete: (task) => task._id === args.id
+      shouldDelete: (task) => task._id === args.id,
     })
-  }
+  },
 })
 
 async function addOptimistic() {
@@ -93,9 +91,7 @@ function isOptimistic(taskId: string) {
     <!-- Header -->
     <div class="mb-6">
       <h1 class="text-2xl font-bold mb-2">Optimistic Updates</h1>
-      <p class="text-muted">
-        Compare standard mutations (left) with optimistic updates (right).
-      </p>
+      <p class="text-muted">Compare standard mutations (left) with optimistic updates (right).</p>
     </div>
 
     <!-- Explanation -->
@@ -120,11 +116,7 @@ function isOptimistic(taskId: string) {
         </template>
 
         <form @submit.prevent="addStandard" class="flex gap-2 mb-4">
-          <UInput
-            v-model="standardInput"
-            placeholder="Add task..."
-            class="flex-1"
-          />
+          <UInput v-model="standardInput" placeholder="Add task..." class="flex-1" />
           <UButton
             type="submit"
             :loading="standardAddStatus === 'pending'"
@@ -148,10 +140,7 @@ function isOptimistic(taskId: string) {
               :model-value="task.completed"
               @update:model-value="standardToggle({ id: task._id })"
             />
-            <span
-              :class="{ 'line-through text-muted': task.completed }"
-              class="flex-1"
-            >
+            <span :class="{ 'line-through text-muted': task.completed }" class="flex-1">
               {{ task.title }}
             </span>
             <UButton
@@ -165,9 +154,7 @@ function isOptimistic(taskId: string) {
           </li>
         </ul>
 
-        <p v-if="tasks && !tasks.length" class="text-center text-muted py-4">
-          No tasks yet
-        </p>
+        <p v-if="tasks && !tasks.length" class="text-center text-muted py-4">No tasks yet</p>
       </UCard>
 
       <!-- Optimistic Panel -->
@@ -180,11 +167,7 @@ function isOptimistic(taskId: string) {
         </template>
 
         <form @submit.prevent="addOptimistic" class="flex gap-2 mb-4">
-          <UInput
-            v-model="optimisticInput"
-            placeholder="Add task..."
-            class="flex-1"
-          />
+          <UInput v-model="optimisticInput" placeholder="Add task..." class="flex-1" />
           <UButton
             type="submit"
             color="success"
@@ -207,7 +190,7 @@ function isOptimistic(taskId: string) {
               'flex items-center gap-3 p-2 rounded-lg group',
               isOptimistic(task._id)
                 ? 'bg-green-500/10 border border-green-500/20'
-                : 'hover:bg-elevated'
+                : 'hover:bg-elevated',
             ]"
           >
             <UIcon
@@ -220,10 +203,7 @@ function isOptimistic(taskId: string) {
               :model-value="task.completed"
               @update:model-value="optimisticToggle({ id: task._id })"
             />
-            <span
-              :class="{ 'line-through text-muted': task.completed }"
-              class="flex-1"
-            >
+            <span :class="{ 'line-through text-muted': task.completed }" class="flex-1">
               {{ task.title }}
             </span>
             <UButton
@@ -238,9 +218,7 @@ function isOptimistic(taskId: string) {
           </li>
         </ul>
 
-        <p v-if="tasks && !tasks.length" class="text-center text-muted py-4">
-          No tasks yet
-        </p>
+        <p v-if="tasks && !tasks.length" class="text-center text-muted py-4">No tasks yet</p>
       </UCard>
     </div>
 
@@ -253,7 +231,9 @@ function isOptimistic(taskId: string) {
         </div>
       </template>
 
-      <pre class="text-xs bg-elevated p-4 rounded-lg overflow-x-auto"><code>const { execute: addTask } = useConvexMutation(api.tasks.add, {
+      <pre
+        class="text-xs bg-elevated p-4 rounded-lg overflow-x-auto"
+      ><code>const { execute: addTask } = useConvexMutation(api.tasks.add, {
   optimisticUpdate: (localStore, args) => {
     updateQuery({
       query: api.tasks.list,

@@ -17,19 +17,15 @@
     <div class="stats">
       <div class="stat">
         <span class="label">WebSocket Connected</span>
-        <span
-          class="value"
-          :class="{ positive: isConnected }"
-          >{{ isConnected ? 'Yes' : 'No' }}</span
-        >
+        <span class="value" :class="{ positive: isConnected }">{{
+          isConnected ? 'Yes' : 'No'
+        }}</span>
       </div>
       <div class="stat">
         <span class="label">Has Ever Connected</span>
-        <span
-          class="value"
-          :class="{ positive: hasEverConnected }"
-          >{{ hasEverConnected ? 'Yes' : 'No' }}</span
-        >
+        <span class="value" :class="{ positive: hasEverConnected }">{{
+          hasEverConnected ? 'Yes' : 'No'
+        }}</span>
       </div>
       <div class="stat">
         <span class="label">Connection Retries</span>
@@ -37,27 +33,21 @@
       </div>
       <div class="stat">
         <span class="label">Hydrating Connection</span>
-        <span
-          class="value"
-          :class="{ active: isHydratingConnection }"
-          >{{ isHydratingConnection ? 'Yes' : 'No' }}</span
-        >
+        <span class="value" :class="{ active: isHydratingConnection }">{{
+          isHydratingConnection ? 'Yes' : 'No'
+        }}</span>
       </div>
       <div class="stat">
         <span class="label">Should Show Offline UI</span>
-        <span
-          class="value"
-          :class="{ active: shouldShowOfflineUi }"
-          >{{ shouldShowOfflineUi ? 'Yes' : 'No' }}</span
-        >
+        <span class="value" :class="{ active: shouldShowOfflineUi }">{{
+          shouldShowOfflineUi ? 'Yes' : 'No'
+        }}</span>
       </div>
       <div class="stat">
         <span class="label">Inflight Requests</span>
-        <span
-          class="value"
-          :class="{ active: hasInflightRequests }"
-          >{{ hasInflightRequests ? 'Yes' : 'No' }}</span
-        >
+        <span class="value" :class="{ active: hasInflightRequests }">{{
+          hasInflightRequests ? 'Yes' : 'No'
+        }}</span>
       </div>
       <div class="stat">
         <span class="label">Inflight Mutations</span>
@@ -179,8 +169,13 @@ code {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .status-indicator {
@@ -190,9 +185,15 @@ code {
   transition: background-color 0.3s ease;
 }
 
-.connected .status-indicator { background: #4caf50; }
-.disconnected .status-indicator { background: #f44336; }
-.reconnecting .status-indicator { background: #ff9800; }
+.connected .status-indicator {
+  background: #4caf50;
+}
+.disconnected .status-indicator {
+  background: #f44336;
+}
+.reconnecting .status-indicator {
+  background: #ff9800;
+}
 
 .status-text {
   font-size: 1.1em;
@@ -224,8 +225,12 @@ code {
   font-weight: 600;
 }
 
-.stat .value.positive { color: #4caf50; }
-.stat .value.active { color: #2196f3; }
+.stat .value.positive {
+  color: #4caf50;
+}
+.stat .value.active {
+  color: #2196f3;
+}
 
 .raw-state {
   margin-bottom: 24px;

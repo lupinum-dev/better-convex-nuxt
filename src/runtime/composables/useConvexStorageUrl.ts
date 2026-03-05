@@ -1,5 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, toValue, type ComputedRef, type MaybeRef } from 'vue'
+
 import { createConvexQueryState } from './useConvexQuery'
 
 /**

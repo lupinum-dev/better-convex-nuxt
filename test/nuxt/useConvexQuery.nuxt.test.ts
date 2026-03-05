@@ -1,7 +1,8 @@
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { describe, expect, it, vi } from 'vitest'
 import { reactive, ref } from 'vue'
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { MaybeRefOrGetter } from 'vue'
+
 import { useState } from '#imports'
 
 import {
@@ -9,8 +10,8 @@ import {
   useConvexQuery,
   type UseConvexQueryOptions,
 } from '../../src/runtime/composables/useConvexQuery'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 function useConvexQueryState<
@@ -30,10 +31,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:blocking-default')
 
-    const { result } = await captureInNuxt(
-      () => useConvexQuery(query, {}),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexQuery(query, {}), { convex })
 
     let settled = false
     const blockingResult = result.then((value) => {
@@ -55,10 +53,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
   it('returns idle + pending=false immediately for disabled nullable args', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
-    const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, null),
-      { convex: new MockConvexClient() },
-    )
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, null), {
+      convex: new MockConvexClient(),
+    })
 
     expect(result.data.value).toBeNull()
     expect(result.pending.value).toBe(false)
@@ -67,10 +64,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
   it('exposes refresh/clear but omits execute on query return shape', async () => {
     const query = mockFnRef<'query'>('notes:list:return-shape')
-    const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, null),
-      { convex: new MockConvexClient() },
-    )
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, null), {
+      convex: new MockConvexClient(),
+    })
 
     expect(typeof result.refresh).toBe('function')
     expect(typeof result.clear).toBe('function')
@@ -82,9 +78,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))
     vi.stubGlobal('$fetch', fetchMock)
 
-    await captureInNuxt(() =>
-      useConvexQueryState(query, {}, { subscribe: false, auth: 'none' }),
-    { convex: new MockConvexClient() })
+    await captureInNuxt(() => useConvexQueryState(query, {}, { subscribe: false, auth: 'none' }), {
+      convex: new MockConvexClient(),
+    })
 
     const firstCall = fetchMock.mock.calls[0]
     expect(firstCall).toBeDefined()
@@ -97,11 +93,14 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))
     vi.stubGlobal('$fetch', fetchMock)
 
-    await captureInNuxt(() => {
-      const token = useState<string | null>('convex:token')
-      token.value = 'cached.jwt.token'
-      return useConvexQueryState(query, {}, { subscribe: false, auth: 'auto' })
-    }, { convex: new MockConvexClient() })
+    await captureInNuxt(
+      () => {
+        const token = useState<string | null>('convex:token')
+        token.value = 'cached.jwt.token'
+        return useConvexQueryState(query, {}, { subscribe: false, auth: 'auto' })
+      },
+      { convex: new MockConvexClient() },
+    )
 
     const firstCall = fetchMock.mock.calls[0]
     expect(firstCall).toBeDefined()
@@ -127,10 +126,17 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:default-loading')
 
-    const { result } = await captureInNuxt(() =>
-      useConvexQueryState(query, {}, {
-        default: () => [{ _id: 'default', title: 'Loading placeholder' }],
-      }), { convex })
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexQueryState(
+          query,
+          {},
+          {
+            default: () => [{ _id: 'default', title: 'Loading placeholder' }],
+          },
+        ),
+      { convex },
+    )
 
     expect(result.data.value).toEqual([{ _id: 'default', title: 'Loading placeholder' }])
     expect(result.pending.value).toBe(true)
@@ -147,15 +153,26 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('counter:get:divergent')
 
-    const { result, wrapper } = await captureInNuxt(() => {
-      const parent = useConvexQueryState(query, {}, {
-        transform: input => input.count,
-      })
-      const child = useConvexQueryState(query, {}, {
-        transform: input => `count:${input.count}`,
-      })
-      return { parent, child }
-    }, { convex })
+    const { result, wrapper } = await captureInNuxt(
+      () => {
+        const parent = useConvexQueryState(
+          query,
+          {},
+          {
+            transform: (input) => input.count,
+          },
+        )
+        const child = useConvexQueryState(
+          query,
+          {},
+          {
+            transform: (input) => `count:${input.count}`,
+          },
+        )
+        return { parent, child }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.onUpdate.length >= 2)
 
@@ -177,12 +194,15 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('counter:get:error-late')
 
-    const { result, flush } = await captureInNuxt(() => {
-      const lateArgs = ref<Record<string, never> | null>(null)
-      const primary = useConvexQueryState(query, {})
-      const late = useConvexQueryState(query, lateArgs)
-      return { lateArgs, primary, late }
-    }, { convex })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const lateArgs = ref<Record<string, never> | null>(null)
+        const primary = useConvexQueryState(query, {})
+        const late = useConvexQueryState(query, lateArgs)
+        return { lateArgs, primary, late }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
     convex.emitQueryError(query, {}, new Error('upstream unavailable'))
@@ -194,7 +214,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     await waitFor(() => result.late.error.value?.message === 'upstream unavailable')
 
     convex.emitQueryResult(query, {}, { count: 7 })
-    await waitFor(() => result.primary.data.value?.count === 7 && result.late.data.value?.count === 7)
+    await waitFor(
+      () => result.primary.data.value?.count === 7 && result.late.data.value?.count === 7,
+    )
 
     expect(result.primary.error.value).toBeFalsy()
     expect(result.late.error.value).toBeFalsy()
@@ -204,11 +226,14 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('search:notes:deep-args')
 
-    const { result, flush } = await captureInNuxt(() => {
-      const args = ref({ filter: { tag: 'alpha' } })
-      const queryResult = useConvexQueryState(query, args)
-      return { args, queryResult }
-    }, { convex })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const args = ref({ filter: { tag: 'alpha' } })
+        const queryResult = useConvexQueryState(query, args)
+        return { args, queryResult }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
 
@@ -218,10 +243,12 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     result.args.value.filter.tag = 'beta'
     await flush()
 
-    await waitFor(() => convex.calls.onUpdate.some((call) => {
-      const args = call.args as { filter?: { tag?: string } }
-      return args.filter?.tag === 'beta'
-    }))
+    await waitFor(() =>
+      convex.calls.onUpdate.some((call) => {
+        const args = call.args as { filter?: { tag?: string } }
+        return args.filter?.tag === 'beta'
+      }),
+    )
 
     convex.emitQueryResult(query, { filter: { tag: 'beta' } }, { tag: 'beta', hits: 5 })
     await waitFor(() => result.queryResult.data.value?.tag === 'beta')
@@ -231,13 +258,16 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('search:notes:getter-args')
 
-    const { result, flush } = await captureInNuxt(() => {
-      const tag = ref('alpha')
-      const queryResult = useConvexQueryState(query, () => ({
-        filter: { tag: tag.value },
-      }))
-      return { tag, queryResult }
-    }, { convex })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const tag = ref('alpha')
+        const queryResult = useConvexQueryState(query, () => ({
+          filter: { tag: tag.value },
+        }))
+        return { tag, queryResult }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
 
@@ -247,10 +277,12 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     result.tag.value = 'beta'
     await flush()
 
-    await waitFor(() => convex.calls.onUpdate.some((call) => {
-      const args = call.args as { filter?: { tag?: string } }
-      return args.filter?.tag === 'beta'
-    }))
+    await waitFor(() =>
+      convex.calls.onUpdate.some((call) => {
+        const args = call.args as { filter?: { tag?: string } }
+        return args.filter?.tag === 'beta'
+      }),
+    )
 
     convex.emitQueryResult(query, { filter: { tag: 'beta' } }, { tag: 'beta', hits: 4 })
     await waitFor(() => result.queryResult.data.value?.tag === 'beta')
@@ -260,15 +292,18 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('search:notes:deep-unref')
 
-    const { result, flush } = await captureInNuxt(() => {
-      const tag = ref('alpha')
-      const queryResult = useConvexQueryState(query, {
-        filter: {
-          tag,
-        },
-      })
-      return { tag, queryResult }
-    }, { convex })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const tag = ref('alpha')
+        const queryResult = useConvexQueryState(query, {
+          filter: {
+            tag,
+          },
+        })
+        return { tag, queryResult }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
     convex.emitQueryResult(query, { filter: { tag: 'alpha' } }, { tag: 'alpha', hits: 1 })
@@ -277,52 +312,72 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     result.tag.value = 'beta'
     await flush()
 
-    await waitFor(() => convex.calls.onUpdate.some((call) => {
-      const args = call.args as { filter?: { tag?: string } }
-      return args.filter?.tag === 'beta'
-    }))
+    await waitFor(() =>
+      convex.calls.onUpdate.some((call) => {
+        const args = call.args as { filter?: { tag?: string } }
+        return args.filter?.tag === 'beta'
+      }),
+    )
   })
 
   it('reactive args trigger refetches for deep updates and added keys', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('search:notes:reactive-args')
 
-    const { result, flush } = await captureInNuxt(() => {
-      const args = reactive({ filter: { tag: 'alpha' as string, sort: 'asc' as string } })
-      const queryResult = useConvexQueryState(query, args)
-      return { args, queryResult }
-    }, { convex })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const args = reactive({ filter: { tag: 'alpha' as string, sort: 'asc' as string } })
+        const queryResult = useConvexQueryState(query, args)
+        return { args, queryResult }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
-    convex.emitQueryResult(query, { filter: { tag: 'alpha', sort: 'asc' } }, { tag: 'alpha', hits: 1 })
+    convex.emitQueryResult(
+      query,
+      { filter: { tag: 'alpha', sort: 'asc' } },
+      { tag: 'alpha', hits: 1 },
+    )
     await waitFor(() => result.queryResult.data.value?.tag === 'alpha')
 
     result.args.filter.tag = 'beta'
     await flush()
 
-    await waitFor(() => convex.calls.onUpdate.some((call) => {
-      const args = call.args as { filter?: { tag?: string } }
-      return args.filter?.tag === 'beta'
-    }))
+    await waitFor(() =>
+      convex.calls.onUpdate.some((call) => {
+        const args = call.args as { filter?: { tag?: string } }
+        return args.filter?.tag === 'beta'
+      }),
+    )
 
     result.args.filter.sort = 'desc'
     await flush()
-    await waitFor(() => convex.calls.onUpdate.some((call) => {
-      const args = call.args as { filter?: { sort?: string } }
-      return args.filter?.sort === 'desc'
-    }))
+    await waitFor(() =>
+      convex.calls.onUpdate.some((call) => {
+        const args = call.args as { filter?: { sort?: string } }
+        return args.filter?.sort === 'desc'
+      }),
+    )
   })
 
   it('applies transform to default values while loading', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:default-transform')
 
-    const { result } = await captureInNuxt(() =>
-      useConvexQueryState(query, {}, {
-        default: () => [{ _id: 'default', title: 'loading' }],
-        transform: (items: Array<{ _id: string; title: string }>) =>
-          items.map(item => ({ ...item, title: item.title.toUpperCase() })),
-      }), { convex })
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexQueryState(
+          query,
+          {},
+          {
+            default: () => [{ _id: 'default', title: 'loading' }],
+            transform: (items: Array<{ _id: string; title: string }>) =>
+              items.map((item) => ({ ...item, title: item.title.toUpperCase() })),
+          },
+        ),
+      { convex },
+    )
 
     expect(result.data.value).toEqual([{ _id: 'default', title: 'LOADING' }])
     expect(result.pending.value).toBe(true)
@@ -332,15 +387,16 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('search:notes:keep-previous')
 
-    const { result, flush } = await captureInNuxt(() => {
-      const tag = ref('alpha')
-      const queryResult = useConvexQueryState(
-        query,
-        () => ({ filter: { tag: tag.value } }),
-        { keepPreviousData: true },
-      )
-      return { tag, queryResult }
-    }, { convex })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const tag = ref('alpha')
+        const queryResult = useConvexQueryState(query, () => ({ filter: { tag: tag.value } }), {
+          keepPreviousData: true,
+        })
+        return { tag, queryResult }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
     convex.emitQueryResult(query, { filter: { tag: 'alpha' } }, { tag: 'alpha', hits: 2 })
@@ -384,7 +440,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     await waitFor(() => convex.calls.onUpdate.length >= 2)
     convex.emitQueryResult(query, {}, { count: 1 })
-    await waitFor(() => first.result.data.value?.count === 1 && second.result.data.value?.count === 1)
+    await waitFor(
+      () => first.result.data.value?.count === 1 && second.result.data.value?.count === 1,
+    )
 
     first.wrapper.unmount()
     await second.flush()

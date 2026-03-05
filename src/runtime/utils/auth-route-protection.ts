@@ -22,9 +22,10 @@ export function resolveRouteProtectionDecision(
 
   if (meta === undefined || meta === false) return null
 
-  const redirectBase = typeof meta === 'object' && meta !== null && meta.redirectTo
-    ? meta.redirectTo
-    : defaultRedirectTo
+  const redirectBase =
+    typeof meta === 'object' && meta !== null && meta.redirectTo
+      ? meta.redirectTo
+      : defaultRedirectTo
 
   if (!redirectBase) return null
   if (typeof redirectBase !== 'string') {

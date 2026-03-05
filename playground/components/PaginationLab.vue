@@ -28,32 +28,29 @@ const { results, status, isLoading, loadMore, error } = paginatedResult
 if (import.meta.client) {
   const fmtMs = (value: number) => `${Math.round(value)}ms`
 
-  console.info(
-    `[PaginationLab:${props.pageId}] setup resolved`,
-    {
-      mode: 'blocking',
-      server: props.serverOption,
-      elapsed: fmtMs(performance.now() - setupStartedAt),
-      status: status.value,
-      isLoading: isLoading.value,
-      error: error.value?.message ?? null,
-      resultCount: results.value.length,
-    },
-  )
+  console.info(`[PaginationLab:${props.pageId}] setup resolved`, {
+    mode: 'blocking',
+    server: props.serverOption,
+    elapsed: fmtMs(performance.now() - setupStartedAt),
+    status: status.value,
+    isLoading: isLoading.value,
+    error: error.value?.message ?? null,
+    resultCount: results.value.length,
+  })
 
-  watch([status, isLoading, results, error], ([nextStatus, nextLoading, nextResults, nextError], [prevStatus, prevLoading]) => {
-    console.info(
-      `[PaginationLab:${props.pageId}] state change`,
-      {
+  watch(
+    [status, isLoading, results, error],
+    ([nextStatus, nextLoading, nextResults, nextError], [prevStatus, prevLoading]) => {
+      console.info(`[PaginationLab:${props.pageId}] state change`, {
         mode: 'blocking',
         elapsed: fmtMs(performance.now() - setupStartedAt),
         status: `${String(prevStatus)} -> ${String(nextStatus)}`,
         isLoading: `${String(prevLoading)} -> ${String(nextLoading)}`,
         error: nextError?.message ?? null,
         resultCount: nextResults.length,
-      },
-    )
-  })
+      })
+    },
+  )
 }
 
 // Capture state at script execution time (frozen snapshot)
@@ -81,7 +78,9 @@ const capturedAtRender = {
         </div>
         <div class="state-item">
           <span class="label">isLoading:</span>
-          <span data-testid="initial-is-loading" class="value">{{ capturedAtRender.isLoading }}</span>
+          <span data-testid="initial-is-loading" class="value">{{
+            capturedAtRender.isLoading
+          }}</span>
         </div>
         <div class="state-item">
           <span class="label">hasData:</span>
@@ -89,7 +88,9 @@ const capturedAtRender = {
         </div>
         <div class="state-item">
           <span class="label">dataLength:</span>
-          <span data-testid="initial-data-length" class="value">{{ capturedAtRender.dataLength }}</span>
+          <span data-testid="initial-data-length" class="value">{{
+            capturedAtRender.dataLength
+          }}</span>
         </div>
       </div>
     </section>
@@ -125,9 +126,9 @@ const capturedAtRender = {
     <section v-if="isLoading" class="loading-section">
       <h2>Loading...</h2>
       <div class="skeleton">
-        <div class="skeleton-item"/>
-        <div class="skeleton-item"/>
-        <div class="skeleton-item"/>
+        <div class="skeleton-item" />
+        <div class="skeleton-item" />
+        <div class="skeleton-item" />
       </div>
     </section>
 

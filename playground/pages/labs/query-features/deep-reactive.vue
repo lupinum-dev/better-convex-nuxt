@@ -20,16 +20,17 @@ definePageMeta({
 // Use ref with object - deep changes should trigger refetch
 const args = ref<{ query: string }>({ query: '' })
 
-const { data, pending, status } = await useConvexQuery(
-  api.notes.search,
-  args,
-)
+const { data, pending, status } = await useConvexQuery(api.notes.search, args)
 
 // Track refetch count
 const updateCount = ref(0)
-watch(data, () => {
-  updateCount.value++
-}, { deep: true })
+watch(
+  data,
+  () => {
+    updateCount.value++
+  },
+  { deep: true },
+)
 
 // Deep mutation - changes args.value.query without changing args ref identity
 function changeFilter(newQuery: string) {
@@ -65,24 +66,14 @@ function cycleRefReplace() {
     <section class="actions-section">
       <h2>Test Actions</h2>
       <div class="button-group">
-        <button
-          data-testid="deep-mutation-btn"
-          class="action-btn"
-          @click="cycleDeepMutation"
-        >
+        <button data-testid="deep-mutation-btn" class="action-btn" @click="cycleDeepMutation">
           Deep Mutation (args.value.query = ...)
         </button>
-        <button
-          data-testid="ref-replace-btn"
-          class="action-btn secondary"
-          @click="cycleRefReplace"
-        >
+        <button data-testid="ref-replace-btn" class="action-btn secondary" @click="cycleRefReplace">
           Ref Replace (args.value = {...})
         </button>
       </div>
-      <p class="hint">
-        Deep mutation modifies a nested property. This should trigger refetch.
-      </p>
+      <p class="hint">Deep mutation modifies a nested property. This should trigger refetch.</p>
     </section>
 
     <section class="state-section">
@@ -114,11 +105,7 @@ function cycleRefReplace() {
     <section v-if="data && data.length > 0" class="results-section">
       <h2>Results</h2>
       <ul class="results-list">
-        <li
-          v-for="note in data"
-          :key="note._id"
-          class="result-item"
-        >
+        <li v-for="note in data" :key="note._id" class="result-item">
           <strong>{{ note.title }}</strong>
         </li>
       </ul>

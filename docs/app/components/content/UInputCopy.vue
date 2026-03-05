@@ -1,10 +1,13 @@
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
-  value: string
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
-}>(), {
-  size: 'lg'
-})
+const props = withDefaults(
+  defineProps<{
+    value: string
+    size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl'
+  }>(),
+  {
+    size: 'lg',
+  },
+)
 
 const { copy, copied } = useClipboard()
 </script>
@@ -15,9 +18,9 @@ const { copy, copied } = useClipboard()
       :model-value="value"
       :size="size"
       disabled
-      :ui="{ 
+      :ui="{
         base: 'disabled:cursor-default',
-        trailing: 'pe-1' 
+        trailing: 'pe-1',
       }"
     >
       <template #trailing>
@@ -29,7 +32,7 @@ const { copy, copied } = useClipboard()
           :ui="{ leadingIcon: 'size-4' }"
           :class="{
             'text-green-500 hover:text-green-500 dark:text-green-400 hover:dark:text-green-400':
-              copied
+              copied,
           }"
           aria-label="copy button"
           @click="copy(value)"

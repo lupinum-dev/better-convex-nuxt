@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { cloneDevtoolsPayload, createUiDevtoolsTransport } from '../../src/runtime/devtools/transport'
+import {
+  cloneDevtoolsPayload,
+  createUiDevtoolsTransport,
+} from '../../src/runtime/devtools/transport'
 
 function installMockWindow() {
   const listeners = new Map<string, Set<(event: MessageEvent) => void>>()
@@ -77,9 +80,11 @@ describe('devtools transport', () => {
       source: null,
     } as MessageEvent)
 
-    expect(listener).toHaveBeenCalledWith(expect.objectContaining({
-      data: { type: 'PING' },
-    }))
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { type: 'PING' },
+      }),
+    )
 
     transport.close()
   })
@@ -101,9 +106,12 @@ describe('cloneDevtoolsPayload', () => {
   })
 
   it('falls back to JSON clone when structuredClone throws', () => {
-    vi.stubGlobal('structuredClone', vi.fn(() => {
-      throw new Error('fail')
-    }))
+    vi.stubGlobal(
+      'structuredClone',
+      vi.fn(() => {
+        throw new Error('fail')
+      }),
+    )
 
     const input = { nested: { a: 1 } }
     const result = cloneDevtoolsPayload(input)

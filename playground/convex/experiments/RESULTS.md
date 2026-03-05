@@ -39,7 +39,17 @@ Identity structure from `ctx.auth.getUserIdentity()`:
   "name": "Matthias",
   "emailVerified": true,
   "sessionId": "...",
-  "allFields": ["tokenIdentifier", "issuer", "subject", "createdAt", "email", "emailVerified", "name", "sessionId", "updatedAt"]
+  "allFields": [
+    "tokenIdentifier",
+    "issuer",
+    "subject",
+    "createdAt",
+    "email",
+    "emailVerified",
+    "name",
+    "sessionId",
+    "updatedAt"
+  ]
 }
 ```
 

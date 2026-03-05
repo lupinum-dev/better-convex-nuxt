@@ -19,16 +19,20 @@ async function signOut() {
 }
 
 const items = computed(() => [
-  [{
-    label: user.value?.email || 'Unknown',
-    slot: 'account',
-    disabled: true
-  }],
-  [{
-    label: 'Sign out',
-    icon: 'i-lucide-log-out',
-    onSelect: signOut
-  }]
+  [
+    {
+      label: user.value?.email || 'Unknown',
+      slot: 'account',
+      disabled: true,
+    },
+  ],
+  [
+    {
+      label: 'Sign out',
+      icon: 'i-lucide-log-out',
+      onSelect: signOut,
+    },
+  ],
 ])
 </script>
 
@@ -37,31 +41,14 @@ const items = computed(() => [
     <USkeleton class="w-8 h-8 rounded-full" />
   </div>
 
-  <UDropdownMenu
-    v-else-if="isAuthenticated && user"
-    :items="items"
-    :content="{ align: 'end' }"
-  >
-    <UButton
-      color="neutral"
-      variant="ghost"
-      class="p-0.5"
-      :loading="isSigningOut"
-    >
-      <UAvatar
-        :src="avatarUrl"
-        :alt="user.name || user.email || 'User'"
-        size="sm"
-      />
+  <UDropdownMenu v-else-if="isAuthenticated && user" :items="items" :content="{ align: 'end' }">
+    <UButton color="neutral" variant="ghost" class="p-0.5" :loading="isSigningOut">
+      <UAvatar :src="avatarUrl" :alt="user.name || user.email || 'User'" size="sm" />
     </UButton>
 
     <template #account>
       <div class="flex items-center gap-2 px-1 py-1.5">
-        <UAvatar
-          :src="avatarUrl"
-          :alt="user.name || user.email || 'User'"
-          size="xs"
-        />
+        <UAvatar :src="avatarUrl" :alt="user.name || user.email || 'User'" size="xs" />
         <div class="text-left">
           <p class="font-medium text-sm truncate">{{ user.name || 'User' }}</p>
           <p class="text-xs text-muted truncate">{{ user.email }}</p>
@@ -70,12 +57,5 @@ const items = computed(() => [
     </template>
   </UDropdownMenu>
 
-  <UButton
-    v-else
-    to="/auth/signin"
-    color="primary"
-    variant="soft"
-  >
-    Sign in
-  </UButton>
+  <UButton v-else to="/auth/signin" color="primary" variant="soft"> Sign in </UButton>
 </template>

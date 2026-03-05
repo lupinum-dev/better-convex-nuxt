@@ -17,11 +17,11 @@ const resultColors: Record<AuthWaterfallPhase['result'], string> = {
 
 // Distinct colors for each phase (waterfall style)
 const phaseColors: Record<string, string> = {
-  'session-check': '#3b82f6',   // Blue
-  'cache-lookup': '#06b6d4',    // Cyan
-  'token-exchange': '#f59e0b',  // Amber
-  'jwt-decode': '#10b981',      // Emerald
-  'cache-store': '#ec4899',     // Pink
+  'session-check': '#3b82f6', // Blue
+  'cache-lookup': '#06b6d4', // Cyan
+  'token-exchange': '#f59e0b', // Amber
+  'jwt-decode': '#10b981', // Emerald
+  'cache-store': '#ec4899', // Pink
 }
 
 // Phase display names
@@ -51,7 +51,7 @@ const totalDuration = computed(() => {
 const phaseWidths = computed(() => {
   if (!props.waterfall || totalDuration.value === 0) return []
 
-  return props.waterfall.phases.map(phase => ({
+  return props.waterfall.phases.map((phase) => ({
     ...phase,
     displayName: phaseNames[phase.name] || phase.name,
     width: Math.max(2, (phase.duration / totalDuration.value) * 100), // Min 2% for visibility
@@ -62,10 +62,14 @@ const phaseWidths = computed(() => {
 const outcomeColor = computed(() => {
   if (!props.waterfall) return 'var(--text-secondary)'
   switch (props.waterfall.outcome) {
-    case 'authenticated': return 'var(--success)'
-    case 'unauthenticated': return 'var(--warning)'
-    case 'error': return 'var(--error)'
-    default: return 'var(--text-secondary)'
+    case 'authenticated':
+      return 'var(--success)'
+    case 'unauthenticated':
+      return 'var(--warning)'
+    case 'error':
+      return 'var(--error)'
+    default:
+      return 'var(--text-secondary)'
   }
 })
 
@@ -80,8 +84,8 @@ const formatTime = (ms: number) => {
   <div class="waterfall-container">
     <!-- No waterfall data -->
     <div v-if="!waterfall" class="waterfall-empty">
-      <div style="opacity: 0.5; margin-bottom: 8px;">No SSR auth data</div>
-      <div style="font-size: 11px; color: var(--text-secondary);">
+      <div style="opacity: 0.5; margin-bottom: 8px">No SSR auth data</div>
+      <div style="font-size: 11px; color: var(--text-secondary)">
         Auth waterfall is only captured during SSR requests
       </div>
     </div>
@@ -96,7 +100,10 @@ const formatTime = (ms: number) => {
         </div>
         <div class="summary-item">
           <span class="summary-label">Cache</span>
-          <span class="summary-value" :style="{ color: waterfall.cacheHit ? 'var(--success)' : 'var(--warning)' }">
+          <span
+            class="summary-value"
+            :style="{ color: waterfall.cacheHit ? 'var(--success)' : 'var(--warning)' }"
+          >
             {{ waterfall.cacheHit ? 'HIT' : 'MISS' }}
           </span>
         </div>
@@ -124,11 +131,7 @@ const formatTime = (ms: number) => {
 
       <!-- Legend -->
       <div class="waterfall-legend">
-        <div
-          v-for="(phase, index) in phaseWidths"
-          :key="index"
-          class="legend-item"
-        >
+        <div v-for="(phase, index) in phaseWidths" :key="index" class="legend-item">
           <span class="legend-dot" :style="{ backgroundColor: phase.color }" />
           <span class="legend-name">{{ phase.displayName }}</span>
           <span class="legend-time">{{ formatTime(phase.duration) }}</span>
@@ -178,7 +181,7 @@ const formatTime = (ms: number) => {
 .summary-value {
   font-size: 14px;
   font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 }
 
 .waterfall-chart {
@@ -227,7 +230,7 @@ const formatTime = (ms: number) => {
 }
 
 .legend-time {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
   color: var(--text-secondary);
   min-width: 50px;
 }

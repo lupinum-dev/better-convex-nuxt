@@ -2,25 +2,21 @@
 const { seo } = useAppConfig()
 
 const { data: navigation } = await useAsyncData('navigation', () =>
-  queryCollectionNavigation('docs')
+  queryCollectionNavigation('docs'),
 )
-const { data: files } = useLazyAsyncData(
-  'search',
-  () => queryCollectionSearchSections('docs'),
-  {
-    server: false
-  }
-)
+const { data: files } = useLazyAsyncData('search', () => queryCollectionSearchSections('docs'), {
+  server: false,
+})
 
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-    { name: 'google-site-verification', content: 'mFA4hQqscVMdgB5EefYAjQxRZRBYMDJeJ7Rqbx76ewk' }
+    { name: 'google-site-verification', content: 'mFA4hQqscVMdgB5EefYAjQxRZRBYMDJeJ7Rqbx76ewk' },
   ],
   link: [{ rel: 'icon', href: '/favicon.ico' }],
   htmlAttrs: {
-    lang: 'en'
-  }
+    lang: 'en',
+  },
 })
 
 useSeoMeta({
@@ -29,7 +25,7 @@ useSeoMeta({
   twitterCard: 'summary_large_image',
   ogImage: 'https://better-convex-nuxt.vercel.app/og-image.png',
   twitterImage: 'https://better-convex-nuxt.vercel.app/og-image.png',
-  ogUrl: 'https://better-convex-nuxt.vercel.app/'
+  ogUrl: 'https://better-convex-nuxt.vercel.app/',
 })
 
 const navigationChildren = computed(() => navigation.value?.[0]?.children || [])
@@ -46,7 +42,7 @@ provide('navigation', navigationChildren)
       close
       :ui="{
         title: 'text-white!',
-        icon: 'text-white!'
+        icon: 'text-white!',
       }"
     />
 
@@ -63,10 +59,7 @@ provide('navigation', navigationChildren)
     <AppFooter />
 
     <ClientOnly>
-      <LazyUContentSearch
-        :files="files"
-        :navigation="navigation"
-      />
+      <LazyUContentSearch :files="files" :navigation="navigation" />
     </ClientOnly>
   </UApp>
 </template>

@@ -12,9 +12,9 @@ const navigation = [
       { label: 'Optimistic Updates', to: '/demo/optimistic', icon: 'i-lucide-zap' },
       { label: 'Pagination', to: '/demo/pagination', icon: 'i-lucide-list' },
       { label: 'File Storage', to: '/demo/storage', icon: 'i-lucide-cloud-upload' },
-      { label: 'Personal Tasks', to: '/demo/personal', icon: 'i-lucide-lock' }
-    ]
-  }
+      { label: 'Personal Tasks', to: '/demo/personal', icon: 'i-lucide-lock' },
+    ],
+  },
 ]
 
 // Check if current route is in demo section
@@ -38,14 +38,7 @@ const isLoginPage = computed(() => route.path === '/')
       <template #right>
         <UColorModeButton />
         <UserMenu v-if="isDemoRoute" />
-        <UButton
-          v-else
-          to="/demo"
-          color="primary"
-          variant="soft"
-        >
-          Enter Demo
-        </UButton>
+        <UButton v-else to="/demo" color="primary" variant="soft"> Enter Demo </UButton>
       </template>
     </UHeader>
 
@@ -71,7 +64,7 @@ const isLoginPage = computed(() => route.path === '/')
                 :class="[
                   route.path === item.to
                     ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-muted hover:text-default hover:bg-elevated'
+                    : 'text-muted hover:text-default hover:bg-elevated',
                 ]"
               >
                 <UIcon :name="item.icon" class="w-4 h-4" />
@@ -119,9 +112,7 @@ const isLoginPage = computed(() => route.path === '/')
     <!-- Footer - hidden on login and demo pages -->
     <UFooter v-if="!isDemoRoute && !isLoginPage">
       <template #left>
-        <p class="text-sm text-muted">
-          Built with better-convex-nuxt
-        </p>
+        <p class="text-sm text-muted">Built with better-convex-nuxt</p>
       </template>
       <template #right>
         <UButton

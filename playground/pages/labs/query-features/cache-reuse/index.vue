@@ -12,12 +12,13 @@ type NoteListItem = {
 }
 
 function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    || 'note'
+  return (
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'note'
+  )
 }
 
 function toExcerpt(value: string, max = 100): string {
@@ -32,12 +33,7 @@ function toSlugPath(note: Pick<NoteListItem, '_id' | 'title'>): string {
 
 const listCacheKey = getQueryKey(api.notes.list, {})
 
-const {
-  data: notes,
-  pending,
-  error,
-  refresh,
-} = await useConvexQuery(api.notes.list, {})
+const { data: notes, pending, error, refresh } = await useConvexQuery(api.notes.list, {})
 
 const { execute: addNote, pending: isCreating } = useConvexMutation(api.notes.add)
 
@@ -102,8 +98,9 @@ async function seedDemoNotes() {
     <section class="panel">
       <h2>How this page sets up the cache</h2>
       <p>
-        This page uses <code>useConvexQuery(api.notes.list, {})</code>. That populates Nuxt async-data
-        cache under the key below, which the slug page reads using <code>useNuxtData(...)</code>.
+        This page uses <code>useConvexQuery(api.notes.list, {})</code>. That populates Nuxt
+        async-data cache under the key below, which the slug page reads using
+        <code>useNuxtData(...)</code>.
       </p>
       <pre class="code" data-testid="cache-key">{{ listCacheKey }}</pre>
     </section>
@@ -256,7 +253,9 @@ h1 {
   text-decoration: none;
   color: inherit;
   background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .card:hover {

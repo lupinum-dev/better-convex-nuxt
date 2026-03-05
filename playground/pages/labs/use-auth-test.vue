@@ -3,13 +3,23 @@
     <h1>useConvexAuth Test</h1>
 
     <div class="panel">
-      <div class="row"><span>isAuthenticated</span><strong>{{ isAuthenticated }}</strong></div>
-      <div class="row"><span>isPending</span><strong>{{ isPending }}</strong></div>
+      <div class="row">
+        <span>isAuthenticated</span><strong>{{ isAuthenticated }}</strong>
+      </div>
+      <div class="row">
+        <span>isPending</span><strong>{{ isPending }}</strong>
+      </div>
       <ClientOnly>
-        <div class="row"><span>hasClient</span><strong>{{ client ? 'yes' : 'no' }}</strong></div>
+        <div class="row">
+          <span>hasClient</span><strong>{{ client ? 'yes' : 'no' }}</strong>
+        </div>
       </ClientOnly>
-      <div class="row"><span>signIn.email type</span><strong>{{ signInEmailType }}</strong></div>
-      <div class="row"><span>signUp.email type</span><strong>{{ signUpEmailType }}</strong></div>
+      <div class="row">
+        <span>signIn.email type</span><strong>{{ signInEmailType }}</strong>
+      </div>
+      <div class="row">
+        <span>signUp.email type</span><strong>{{ signUpEmailType }}</strong>
+      </div>
     </div>
 
     <div class="panel actions">

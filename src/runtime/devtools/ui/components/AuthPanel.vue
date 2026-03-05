@@ -28,10 +28,12 @@ const expirationDisplay = computed(() => {
   <div id="auth-content">
     <!-- Not authenticated -->
     <div v-if="!authState?.isAuthenticated" class="auth-card">
-      <div style="text-align: center; padding: 20px;">
-        <div style="font-size: 32px; margin-bottom: 12px; opacity: 0.5;">A</div>
-        <div style="font-weight: 500; margin-bottom: 4px;">Not Authenticated</div>
-        <div style="color: var(--text-secondary); font-size: 12px;">Log in to see authentication details</div>
+      <div style="text-align: center; padding: 20px">
+        <div style="font-size: 32px; margin-bottom: 12px; opacity: 0.5">A</div>
+        <div style="font-weight: 500; margin-bottom: 4px">Not Authenticated</div>
+        <div style="color: var(--text-secondary); font-size: 12px">
+          Log in to see authentication details
+        </div>
       </div>
     </div>
 
@@ -39,7 +41,7 @@ const expirationDisplay = computed(() => {
     <div v-else class="auth-card">
       <div class="auth-user">
         <div class="avatar">
-          <img v-if="user.image" :src="user.image" alt="">
+          <img v-if="user.image" :src="user.image" alt="" />
           <template v-else>{{ avatarInitial }}</template>
         </div>
         <div class="user-details">

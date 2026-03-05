@@ -3,19 +3,22 @@ import type { Id } from '@@/convex/_generated/dataModel'
 import { api } from '@@/convex/_generated/api'
 
 definePageMeta({
-  middleware: 'auth'
+  middleware: 'auth',
 })
 
 const { can } = useDemoPermissions()
 
 // File upload
-const { upload, status: uploadStatus, progress, error: uploadError, cancel: cancelUpload } = useConvexFileUpload(
-  api.files.generateUploadUrl,
-  {
-    maxSize: 5 * 1024 * 1024, // 5MB
-    allowedTypes: ['image/*']
-  }
-)
+const {
+  upload,
+  status: uploadStatus,
+  progress,
+  error: uploadError,
+  cancel: cancelUpload,
+} = useConvexFileUpload(api.files.generateUploadUrl, {
+  maxSize: 5 * 1024 * 1024, // 5MB
+  allowedTypes: ['image/*'],
+})
 
 // Save file metadata after upload
 const { execute: saveFile, error: saveError } = useConvexMutation(api.files.save)
@@ -62,7 +65,7 @@ async function uploadFile(file: File) {
         storageId: storageId as Id<'_storage'>,
         filename: file.name,
         mimeType: file.type,
-        size: file.size
+        size: file.size,
       })
     }
   } catch (e) {
@@ -86,9 +89,7 @@ function formatFileSize(bytes: number) {
     <!-- Header -->
     <div class="mb-6">
       <h1 class="text-2xl font-bold mb-2">File Storage</h1>
-      <p class="text-muted">
-        Upload images with progress tracking using useConvexFileUpload.
-      </p>
+      <p class="text-muted">Upload images with progress tracking using useConvexFileUpload.</p>
     </div>
 
     <!-- Explanation -->
@@ -129,9 +130,7 @@ function formatFileSize(bytes: number) {
         @drop.prevent="handleDrop"
         :class="[
           'border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer',
-          isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-default hover:border-primary/50'
+          isDragging ? 'border-primary bg-primary/5' : 'border-default hover:border-primary/50',
         ]"
         @click="fileInputRef?.click()"
       >
@@ -154,7 +153,7 @@ function formatFileSize(bytes: number) {
             name="i-lucide-upload-cloud"
             :class="[
               'w-12 h-12 mx-auto mb-4 transition-colors',
-              isDragging ? 'text-primary' : 'text-muted'
+              isDragging ? 'text-primary' : 'text-muted',
             ]"
           />
           <p class="font-medium mb-1">
@@ -188,14 +187,15 @@ function formatFileSize(bytes: number) {
       <template #header>
         <div class="flex items-center justify-between">
           <span class="font-semibold">Uploaded Files</span>
-          <UBadge variant="subtle" color="neutral">
-            {{ files?.length || 0 }} files
-          </UBadge>
+          <UBadge variant="subtle" color="neutral"> {{ files?.length || 0 }} files </UBadge>
         </div>
       </template>
 
       <!-- Loading state -->
-      <div v-if="filesStatus === 'pending'" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div
+        v-if="filesStatus === 'pending'"
+        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+      >
         <USkeleton v-for="i in 4" :key="i" class="aspect-square rounded-lg" />
       </div>
 
@@ -207,11 +207,7 @@ function formatFileSize(bytes: number) {
 
       <!-- File grid -->
       <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <div
-          v-for="file in files"
-          :key="file._id"
-          class="group relative"
-        >
+        <div v-for="file in files" :key="file._id" class="group relative">
           <FilePreview
             :storage-id="file.storageId"
             :filename="file.filename"
@@ -219,7 +215,9 @@ function formatFileSize(bytes: number) {
           />
 
           <!-- Overlay -->
-          <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex flex-col items-center justify-center p-2">
+          <div
+            class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex flex-col items-center justify-center p-2"
+          >
             <p class="text-white text-xs text-center truncate w-full mb-1">
               {{ file.filename }}
             </p>
@@ -227,11 +225,7 @@ function formatFileSize(bytes: number) {
               {{ formatFileSize(file.size) }}
             </p>
             <div class="flex items-center gap-1.5 mb-2">
-              <UAvatar
-                :src="file.uploaderAvatarUrl"
-                :alt="file.uploaderName"
-                size="2xs"
-              />
+              <UAvatar :src="file.uploaderAvatarUrl" :alt="file.uploaderName" size="2xs" />
               <span class="text-white/80 text-xs truncate max-w-20">
                 {{ file.uploaderName }}
               </span>

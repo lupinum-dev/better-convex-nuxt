@@ -26,7 +26,7 @@ const formattedJson = computed(() => {
     const json = JSON.stringify(
       props.data,
       (_, v) => (typeof v === 'bigint' ? v.toString() + 'n' : v),
-      2
+      2,
     )
 
     // Syntax highlight JSON
@@ -46,7 +46,7 @@ const formattedJson = computed(() => {
           cls = 'json-null'
         }
         return `<span class="${cls}">${escapeHtml(match)}</span>`
-      }
+      },
     )
   } catch {
     return '<span class="json-null">[Circular]</span>'
@@ -56,10 +56,6 @@ const formattedJson = computed(() => {
 
 <template>
   <!-- eslint-disable vue/no-v-html -- Safe: all dynamic content is escaped via escapeHtml() -->
-  <div
-    class="json-viewer"
-    :style="{ maxHeight: maxHeight || '200px' }"
-    v-html="formattedJson"
-  />
+  <div class="json-viewer" :style="{ maxHeight: maxHeight || '200px' }" v-html="formattedJson" />
   <!-- eslint-enable vue/no-v-html -->
 </template>

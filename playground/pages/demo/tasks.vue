@@ -2,8 +2,8 @@
   <div class="container">
     <h1>My Tasks</h1>
     <p class="description">
-      A simple task manager demonstrating <code>useConvexQuery</code> with real-time updates
-      and <code>useConvexAuth</code> for authentication.
+      A simple task manager demonstrating <code>useConvexQuery</code> with real-time updates and
+      <code>useConvexAuth</code> for authentication.
     </p>
 
     <div v-if="!isAuthenticated" class="auth-warning">
@@ -105,11 +105,9 @@ async function addTask() {
     await client.mutation(api.tasks.add, { title: newTaskTitle.value.trim() })
     newTaskTitle.value = ''
     // Real-time subscription updates automatically!
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to add task:', e)
-  }
-  finally {
+  } finally {
     isAdding.value = false
   }
 }
@@ -120,8 +118,7 @@ async function toggleTask(id: Id<'tasks'>) {
     const client = getConvexClient()
     await client.mutation(api.tasks.toggle, { id })
     // Real-time subscription updates automatically!
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to toggle task:', e)
   }
 }
@@ -132,8 +129,7 @@ async function deleteTask(id: Id<'tasks'>) {
     const client = getConvexClient()
     await client.mutation(api.tasks.remove, { id })
     // Real-time subscription updates automatically!
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to delete task:', e)
   }
 }

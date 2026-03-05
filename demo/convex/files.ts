@@ -5,6 +5,7 @@
  */
 
 import { v } from 'convex/values'
+
 import { mutation, query } from './_generated/server'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -32,7 +33,7 @@ export const generateUploadUrl = mutation({
     }
 
     return await ctx.storage.generateUploadUrl()
-  }
+  },
 })
 
 /**
@@ -43,7 +44,7 @@ export const save = mutation({
     storageId: v.id('_storage'),
     filename: v.string(),
     mimeType: v.string(),
-    size: v.number()
+    size: v.number(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -82,11 +83,11 @@ export const save = mutation({
       mimeType: args.mimeType,
       size: args.size,
       uploadedBy: identity.subject,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
 
     return fileId
-  }
+  },
 })
 
 /**
@@ -94,11 +95,11 @@ export const save = mutation({
  */
 export const getUrl = query({
   args: {
-    storageId: v.id('_storage')
+    storageId: v.id('_storage'),
   },
   handler: async (ctx, args) => {
     return await ctx.storage.getUrl(args.storageId)
-  }
+  },
 })
 
 /**
@@ -107,11 +108,7 @@ export const getUrl = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const files = await ctx.db
-      .query('files')
-      .withIndex('by_created')
-      .order('desc')
-      .take(50)
+    const files = await ctx.db.query('files').withIndex('by_created').order('desc').take(50)
 
     // Fetch uploader info for each file
     const filesWithUploader = await Promise.all(
@@ -124,13 +121,13 @@ export const list = query({
         return {
           ...file,
           uploaderName: uploader?.displayName || uploader?.email || 'Unknown',
-          uploaderAvatarUrl: uploader?.avatarUrl
+          uploaderAvatarUrl: uploader?.avatarUrl,
         }
-      })
+      }),
     )
 
     return filesWithUploader
-  }
+  },
 })
 
 /**
@@ -138,7 +135,7 @@ export const list = query({
  */
 export const remove = mutation({
   args: {
-    id: v.id('files')
+    id: v.id('files'),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -173,5 +170,5 @@ export const remove = mutation({
 
     // Delete metadata
     await ctx.db.delete(args.id)
-  }
+  },
 })

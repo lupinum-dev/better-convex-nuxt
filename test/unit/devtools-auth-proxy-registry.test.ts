@@ -47,7 +47,7 @@ describe('devtools auth proxy registry', () => {
     expect(stats.successCount).toBe(1)
     expect(stats.errorCount).toBe(1)
     expect(stats.avgDuration).toBe(40)
-    expect(stats.recentRequests.map(r => r.id)).toEqual(['2', '1'])
+    expect(stats.recentRequests.map((r) => r.id)).toEqual(['2', '1'])
   })
 
   it('clears stored stats', async () => {

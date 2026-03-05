@@ -2,11 +2,7 @@
  * Same-origin is strict (protocol + host + port), not host-only.
  */
 function isOriginPatternUrl(url: URL): boolean {
-  return !url.username
-    && !url.password
-    && !url.search
-    && !url.hash
-    && url.pathname === '/'
+  return !url.username && !url.password && !url.search && !url.hash && url.pathname === '/'
 }
 
 function escapeRegex(input: string): string {

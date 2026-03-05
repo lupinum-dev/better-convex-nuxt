@@ -15,32 +15,33 @@ const props = withDefaults(defineProps<Props>(), {
 
 const setupStartedAt = import.meta.client ? performance.now() : 0
 
-const queryResult = await useConvexQuery(api.notes.list, {}, {
-  server: props.serverOption,
-})
+const queryResult = await useConvexQuery(
+  api.notes.list,
+  {},
+  {
+    server: props.serverOption,
+  },
+)
 const { data, pending, status, error } = queryResult
 
 if (import.meta.client) {
   const fmtMs = (value: number) => `${Math.round(value)}ms`
 
-  console.info(
-    `[QueryLab:${props.pageId}] setup resolved`,
-    {
-      mode: 'blocking',
-      server: props.serverOption,
-      elapsed: fmtMs(performance.now() - setupStartedAt),
-      status: status.value,
-      pending: pending.value,
-      error: error.value?.message ?? null,
-      hasData: data.value !== null && data.value !== undefined,
-      dataLength: Array.isArray(data.value) ? data.value.length : null,
-    },
-  )
+  console.info(`[QueryLab:${props.pageId}] setup resolved`, {
+    mode: 'blocking',
+    server: props.serverOption,
+    elapsed: fmtMs(performance.now() - setupStartedAt),
+    status: status.value,
+    pending: pending.value,
+    error: error.value?.message ?? null,
+    hasData: data.value !== null && data.value !== undefined,
+    dataLength: Array.isArray(data.value) ? data.value.length : null,
+  })
 
-  watch([status, pending, data, error], ([nextStatus, nextPending, nextData, nextError], [prevStatus, prevPending]) => {
-    console.info(
-      `[QueryLab:${props.pageId}] state change`,
-      {
+  watch(
+    [status, pending, data, error],
+    ([nextStatus, nextPending, nextData, nextError], [prevStatus, prevPending]) => {
+      console.info(`[QueryLab:${props.pageId}] state change`, {
         mode: 'blocking',
         elapsed: fmtMs(performance.now() - setupStartedAt),
         status: `${String(prevStatus)} -> ${String(nextStatus)}`,
@@ -48,9 +49,9 @@ if (import.meta.client) {
         error: nextError?.message ?? null,
         hasData: nextData !== null && nextData !== undefined,
         dataLength: Array.isArray(nextData) ? nextData.length : null,
-      },
-    )
-  })
+      })
+    },
+  )
 }
 
 // Capture state at script execution time (frozen snapshot)
@@ -86,7 +87,9 @@ const capturedAtRender = {
         </div>
         <div class="state-item">
           <span class="label">dataLength:</span>
-          <span data-testid="initial-data-length" class="value">{{ capturedAtRender.dataLength }}</span>
+          <span data-testid="initial-data-length" class="value">{{
+            capturedAtRender.dataLength
+          }}</span>
         </div>
       </div>
     </section>
@@ -104,11 +107,15 @@ const capturedAtRender = {
         </div>
         <div class="state-item">
           <span class="label">hasData:</span>
-          <span data-testid="current-has-data" class="value">{{ data !== null && data !== undefined }}</span>
+          <span data-testid="current-has-data" class="value">{{
+            data !== null && data !== undefined
+          }}</span>
         </div>
         <div class="state-item">
           <span class="label">dataLength:</span>
-          <span data-testid="current-data-length" class="value">{{ Array.isArray(data) ? data.length : null }}</span>
+          <span data-testid="current-data-length" class="value">{{
+            Array.isArray(data) ? data.length : null
+          }}</span>
         </div>
       </div>
     </section>

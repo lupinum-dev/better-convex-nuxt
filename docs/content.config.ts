@@ -7,8 +7,8 @@ const docsSchema = z.object({
         label: z.string(),
         icon: z.string(),
         to: z.string(),
-        target: z.string().optional()
-      })
+        target: z.string().optional(),
+      }),
     )
     .optional(),
   sitemap: z
@@ -18,23 +18,23 @@ const docsSchema = z.object({
       changefreq: z
         .enum(['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'])
         .optional(),
-      priority: z.number().min(0).max(1).optional()
+      priority: z.number().min(0).max(1).optional(),
     })
-    .optional()
+    .optional(),
 })
 
 export default defineContentConfig({
   collections: {
     landing: defineCollection({
       type: 'page',
-      source: 'index.md'
+      source: 'index.md',
     }),
     docs: defineCollection({
       type: 'page',
       source: {
-        include: 'docs/**'
+        include: 'docs/**',
       },
-      schema: docsSchema
-    })
-  }
+      schema: docsSchema,
+    }),
+  },
 })

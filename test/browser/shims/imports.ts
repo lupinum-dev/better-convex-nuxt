@@ -9,4 +9,3 @@ export function useState<T>(_key: string, init?: () => T): { value: T } {
 export function useNuxtApp(): Record<string, unknown> {
   return {}
 }
-

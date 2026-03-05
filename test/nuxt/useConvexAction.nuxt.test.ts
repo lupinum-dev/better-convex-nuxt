@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { waitFor } from '../helpers/wait-for'
 
 import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexAction (Nuxt runtime)', () => {
   it('tracks pending and success states and exposes result data', async () => {
@@ -76,10 +76,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
       payload: successArgs,
     })
     expect(onSuccess).toHaveBeenCalledTimes(1)
-    expect(onSuccess).toHaveBeenCalledWith(
-      { ok: true, payload: successArgs },
-      successArgs,
-    )
+    expect(onSuccess).toHaveBeenCalledWith({ ok: true, payload: successArgs }, successArgs)
 
     const failArgs = { value: 'nope' }
     await expect(result.fail.execute(failArgs as never)).rejects.toThrow('action callback boom')
@@ -139,7 +136,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     const action = mockFnRef<'action'>('testing:race-action')
     convex.setActionHandler('testing:race-action', async (args) => {
       const input = args as { value: string; delayMs: number; shouldFail?: boolean }
-      await new Promise(resolve => setTimeout(resolve, input.delayMs))
+      await new Promise((resolve) => setTimeout(resolve, input.delayMs))
       if (input.shouldFail) {
         throw new Error(`failed:${input.value}`)
       }

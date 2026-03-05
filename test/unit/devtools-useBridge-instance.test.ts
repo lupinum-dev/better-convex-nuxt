@@ -53,12 +53,14 @@ describe('devtools useBridge instance binding', () => {
   it('ignores responses from non-bound instances after READY binding', async () => {
     const bridgeModule = await import('../../src/runtime/devtools/ui/composables/useBridge')
 
-    const app = createApp(defineComponent({
-      setup() {
-        bridgeModule.useBridge()
-        return () => h('div')
-      },
-    }))
+    const app = createApp(
+      defineComponent({
+        setup() {
+          bridgeModule.useBridge()
+          return () => h('div')
+        },
+      }),
+    )
 
     const root = document.createElement('div')
     document.body.appendChild(root)
@@ -70,12 +72,17 @@ describe('devtools useBridge instance binding', () => {
 
     const requestPromise = bridgeModule.callBridge('getQueries')
     const requestMessage = fakeTransport.postMessage.mock.calls.find(
-      ([msg]) => msg && typeof msg === 'object' && (msg as { type?: string }).type === 'CONVEX_DEVTOOLS_REQUEST',
-    )?.[0] as {
-      type: string
-      id: number
-      instanceId: string | null
-    } | undefined
+      ([msg]) =>
+        msg &&
+        typeof msg === 'object' &&
+        (msg as { type?: string }).type === 'CONVEX_DEVTOOLS_REQUEST',
+    )?.[0] as
+      | {
+          type: string
+          id: number
+          instanceId: string | null
+        }
+      | undefined
 
     expect(requestMessage).toBeDefined()
     expect(requestMessage?.instanceId).toBe('tab-a')
