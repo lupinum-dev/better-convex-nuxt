@@ -96,8 +96,9 @@ jobs:
       - name: Pack module
         id: pack
         run: |
-          TARBALL="$(npm pack --silent | tail -n 1)"
-          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/pack"
+          TARBALL="$(npm pack --silent --pack-destination "$RUNNER_TEMP/pack" | tail -n 1)"
+          echo "tarball_path=$RUNNER_TEMP/pack/$TARBALL" >> "$GITHUB_OUTPUT"
 
       - name: Install fixture dependencies
         working-directory: test/fixtures/consumer-smoke
@@ -105,7 +106,11 @@ jobs:
 
       - name: Install packed module in fixture
         working-directory: test/fixtures/consumer-smoke
-        run: npx nypm@latest add "../../../${{ steps.pack.outputs.tarball }}"
+        run: npx nypm@latest add "${{ steps.pack.outputs.tarball_path }}"
+
+      - name: Verify packed module resolves
+        working-directory: test/fixtures/consumer-smoke
+        run: node -e "import('better-convex-nuxt').then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
 
       - name: Consumer build
         working-directory: test/fixtures/consumer-smoke
