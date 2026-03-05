@@ -1,6 +1,10 @@
 # Changelog
 
 
+## v0.3.1
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.3.0...v0.3.1)
+
 ## v0.3.0
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.2.12...v0.3.0)
