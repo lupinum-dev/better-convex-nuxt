@@ -1,6 +1,21 @@
 # Changelog
 
 
+## v0.3.4
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.3.0...v0.3.4)
+
+### 🏡 Chore
+
+- **release:** V0.3.1 ([134fbdc](https://github.com/lupinum-dev/better-convex-nuxt/commit/134fbdc))
+- Update .npmignore and nuxt.config.ts ([5133e3e](https://github.com/lupinum-dev/better-convex-nuxt/commit/5133e3e))
+- Refine .npmignore to exclude additional unnecessary files ([1ad761a](https://github.com/lupinum-dev/better-convex-nuxt/commit/1ad761a))
+- Bump version to v0.3.3 to fix npm release pipeline ([638c188](https://github.com/lupinum-dev/better-convex-nuxt/commit/638c188))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.3.1
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.3.0...v0.3.1)
