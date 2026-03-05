@@ -22,3 +22,8 @@ renovate.json
 _*.md
 .env*
 *.log
+
+# Nuxt build cache inside dist - not needed in published package
+**/.nuxt
+**/.DS_Store
+dist/runtime/devtools/.gitignore

@@ -1,6 +1,7 @@
 const config = {
   ssr: false,
   srcDir: '.',
+  buildDir: '../../../../node_modules/.cache/nuxt/devtools-ui',
   devtools: { enabled: false },
 
   app: {
