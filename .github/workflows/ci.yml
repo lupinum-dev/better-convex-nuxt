@@ -77,3 +77,40 @@ jobs:
 
       - name: Publish preview release
         run: npx pkg-pr-new publish --pnpm
+
+  consumer-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - run: npm i -g --force corepack@latest && corepack enable
+
+      - name: Install dependencies
+        run: npx nypm@latest i
+
+      - name: Pack module
+        id: pack
+        run: |
+          TARBALL="$(npm pack --silent | tail -n 1)"
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+
+      - name: Install fixture dependencies
+        working-directory: test/fixtures/consumer-smoke
+        run: npx nypm@latest i
+
+      - name: Install packed module in fixture
+        working-directory: test/fixtures/consumer-smoke
+        run: npx nypm@latest add "../../../${{ steps.pack.outputs.tarball }}"
+
+      - name: Consumer build
+        working-directory: test/fixtures/consumer-smoke
+        run: npm run build
+
+      - name: Consumer typecheck
+        working-directory: test/fixtures/consumer-smoke
+        run: npm run typecheck
