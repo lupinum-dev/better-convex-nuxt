@@ -1,4 +1,4 @@
-export default defineNuxtConfig({
+const config = {
   ssr: false,
   srcDir: '.',
   devtools: { enabled: false },
@@ -24,7 +24,6 @@ export default defineNuxtConfig({
     transpile: [],
   },
 
-  // @ts-ignore nitro is valid at runtime; type availability varies across Nuxt versions
   nitro: {
     preset: 'static',
     output: {
@@ -33,5 +32,7 @@ export default defineNuxtConfig({
     },
   },
 
-  compatibilityDate: '2025-01-01',
-})
+  compatibilityDate: '2025-01-01' as const,
+}
+
+export default defineNuxtConfig(config)

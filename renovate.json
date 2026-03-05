@@ -1,19 +1,57 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "schedule:weekly", ":automergeMinor", ":automergePatch"],
-  "labels": ["dependencies"],
+  "extends": ["config:recommended", ":dependencyDashboard", "schedule:weekly"],
+  "enabledManagers": ["npm", "github-actions"],
+  "timezone": "Europe/Vienna",
+  "labels": ["dependencies", "renovate"],
+  "minimumReleaseAge": "3 days",
+  "rangeStrategy": "bump",
+  "prConcurrentLimit": 8,
+  "prHourlyLimit": 2,
+  "rebaseWhen": "conflicted",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"],
+    "automerge": true
+  },
+  "postUpdateOptions": ["pnpmDedupe"],
   "packageRules": [
     {
       "matchUpdateTypes": ["major"],
       "automerge": false
     },
     {
-      "matchPackagePatterns": ["^@nuxt/", "^nuxt$"],
-      "groupName": "nuxt"
+      "description": "Automerge low-risk updates after CI passes.",
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "matchPackagePatterns": ["^@nuxt/", "^nuxt$", "^@nuxtjs/"],
+      "groupName": "nuxt ecosystem",
+      "automerge": false
     },
     {
       "matchPackagePatterns": ["^convex", "^@convex-dev/"],
-      "groupName": "convex"
+      "groupName": "convex ecosystem",
+      "automerge": false
+    },
+    {
+      "description": "Temporary guardrail until @convex-dev/better-auth supports better-auth 1.5+.",
+      "matchPackageNames": ["better-auth"],
+      "allowedVersions": "<1.5.0",
+      "automerge": false
+    },
+    {
+      "description": "Stay on h3 v1 while Nuxt/Nitro remains on the 1.x line.",
+      "matchPackageNames": ["h3"],
+      "allowedVersions": "<2.0.0",
+      "automerge": false
     }
   ]
 }

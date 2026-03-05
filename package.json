@@ -87,7 +87,7 @@
     "@convex-dev/better-auth": "^0.10.13",
     "@nuxt/devtools-kit": "^3.2.2",
     "@nuxt/kit": "^4.3.1",
-    "better-auth": "^1.5.3",
+    "better-auth": "^1.4.9",
     "convex": "^1.32.0",
     "defu": "^6.1.4",
     "h3": "1.15.5",
@@ -100,19 +100,19 @@
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "^4.3.1",
     "@nuxt/test-utils": "^4.0.0",
-    "@nuxtjs/robots": "5.7.0",
+    "@nuxtjs/robots": "5.7.1",
     "@playwright/test": "^1.58.2",
     "@types/node": "latest",
     "@vitejs/plugin-vue": "^6.0.4",
     "@vitest/browser-playwright": "^4.0.18",
     "changelogen": "^0.6.2",
     "convex-test": "^0.0.41",
-    "eslint": "^10.0.2",
+    "eslint": "^9.39.3",
     "happy-dom": "^20.8.3",
     "husky": "^9.1.7",
     "lint-staged": "^16.3.2",
     "nuxt": "^4.3.1",
-    "oxfmt": "^0.35.0",
+    "oxfmt": "^0.36.0",
     "playwright-core": "^1.58.2",
     "typescript": "~5.9.3",
     "vitest": "^4.0.18",
@@ -122,5 +122,5 @@
   "lint-staged": {
     "!(**/_generated/**/*)": "oxfmt --no-error-on-unmatched-pattern"
   },
-  "packageManager": "pnpm@10.24.0+sha512.01ff8ae71b4419903b65c60fb2dc9d34cf8bb6e06d03bde112ef38f7a34d6904c424ba66bea5cdcf12890230bf39f9580473140ed9c946fef328b6e5238a345a"
+  "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017"
 }
