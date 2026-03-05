@@ -24,7 +24,7 @@ export default defineNuxtConfig({
     transpile: [],
   },
 
-  // @ts-expect-error nitro is valid at runtime but not in the narrowed NuxtConfig type here
+  // @ts-ignore nitro is valid at runtime; type availability varies across Nuxt versions
   nitro: {
     preset: 'static',
     output: {
