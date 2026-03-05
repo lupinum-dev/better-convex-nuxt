@@ -1,5 +1,6 @@
 <script setup lang="ts">
-const { isConnected, isReconnecting, connectionRetries } = useConvexConnectionState()
+const { isConnected, isReconnecting, state } = useConvexConnectionState()
+const connectionRetries = computed(() => state.value.connectionRetries)
 const config = useRuntimeConfig()
 </script>
 

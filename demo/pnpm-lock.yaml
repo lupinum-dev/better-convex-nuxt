@@ -24,8 +24,8 @@ importers:
         specifier: 1.4.20
         version: 1.4.20(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.28.11)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.29(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: link:..
-        version: link:..
+        specifier: 0.3.4
+        version: 0.3.4(30c17a3e6a5f4180b5ae8f5dc590a14d)
       convex:
         specifier: ^1.32.0
         version: 1.32.0(react@19.2.3)
@@ -3008,6 +3008,9 @@ packages:
     peerDependenciesMeta:
       zod:
         optional: true
+
+  better-convex-nuxt@0.3.4:
+    resolution: {integrity: sha512-fNTQr/Pv7Mkwi+BJHZPbIV2TWvo7PzfAzNRVsREsVuJkq7DtCUzVKx6DHzvGh6ru+nSb1xUU5g3CrRGhYFUSLg==}
 
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
@@ -9330,6 +9333,50 @@ snapshots:
       set-cookie-parser: 3.0.1
     optionalDependencies:
       zod: 4.3.6
+
+  better-convex-nuxt@0.3.4(30c17a3e6a5f4180b5ae8f5dc590a14d):
+    dependencies:
+      '@convex-dev/better-auth': 0.10.13(e92baf567527a80dfb876fd6dae1ed66)
+      '@nuxt/devtools-kit': 3.2.2(magicast@0.5.1)(vite@7.3.1(@types/node@25.3.3)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.44.1)(yaml@2.8.2))
+      '@nuxt/kit': 4.3.1(magicast@0.5.1)
+      better-auth: 1.4.20(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.28.11)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.29(typescript@5.9.3))
+      convex: 1.32.0(react@19.2.3)
+      defu: 6.1.4
+      h3: 1.15.5
+      ohash: 2.0.11
+    transitivePeerDependencies:
+      - '@auth0/auth0-react'
+      - '@better-auth/core'
+      - '@better-auth/utils'
+      - '@clerk/clerk-react'
+      - '@lynx-js/react'
+      - '@prisma/client'
+      - '@standard-schema/spec'
+      - '@sveltejs/kit'
+      - '@tanstack/react-start'
+      - '@tanstack/solid-start'
+      - better-call
+      - better-sqlite3
+      - bufferutil
+      - drizzle-kit
+      - drizzle-orm
+      - hono
+      - magicast
+      - mongodb
+      - mysql2
+      - nanostores
+      - next
+      - pg
+      - prisma
+      - react
+      - react-dom
+      - solid-js
+      - svelte
+      - typescript
+      - utf-8-validate
+      - vite
+      - vitest
+      - vue
 
   bindings@1.5.0:
     dependencies:

@@ -31,7 +31,7 @@ onMounted(() => {
       if (!entry) return
       if (
         entry.isIntersecting &&
-        infiniteStatus.value === 'CanLoadMore' &&
+        infiniteStatus.value === 'ready' &&
         !infiniteLoading.value
       ) {
         infiniteLoadMore(5)
@@ -139,14 +139,14 @@ async function addSampleData() {
           <!-- Intersection observer target -->
           <div ref="loadMoreRef" class="py-4 text-center">
             <UIcon
-              v-if="infiniteStatus === 'LoadingMore' || infiniteLoading"
+              v-if="infiniteStatus === 'loading-more' || infiniteLoading"
               name="i-lucide-loader-circle"
               class="size-5 animate-spin"
             />
-            <p v-else-if="infiniteStatus === 'Exhausted'" class="text-muted text-sm">
+            <p v-else-if="infiniteStatus === 'exhausted'" class="text-muted text-sm">
               No more messages
             </p>
-            <p v-else-if="infiniteStatus === 'CanLoadMore'" class="text-muted text-sm">
+            <p v-else-if="infiniteStatus === 'ready'" class="text-muted text-sm">
               Scroll for more...
             </p>
           </div>
@@ -186,18 +186,18 @@ async function addSampleData() {
 
         <div class="mt-4 text-center">
           <UButton
-            v-if="buttonStatus === 'CanLoadMore'"
+            v-if="buttonStatus === 'ready'"
             variant="outline"
             :loading="buttonLoading"
             @click="buttonLoadMore(5)"
           >
             Load More
           </UButton>
-          <p v-else-if="buttonStatus === 'LoadingMore'" class="text-muted">
+          <p v-else-if="buttonStatus === 'loading-more'" class="text-muted">
             <UIcon name="i-lucide-loader-circle" class="size-4 animate-spin mr-2 inline" />
             Loading...
           </p>
-          <p v-else-if="buttonStatus === 'Exhausted'" class="text-muted text-sm">
+          <p v-else-if="buttonStatus === 'exhausted'" class="text-muted text-sm">
             All messages loaded
           </p>
         </div>
@@ -222,9 +222,9 @@ async function addSampleData() {
           <p class="text-muted">Infinite Scroll Status</p>
           <UBadge
             :color="
-              infiniteStatus === 'CanLoadMore'
+              infiniteStatus === 'ready'
                 ? 'success'
-                : infiniteStatus === 'LoadingMore'
+                : infiniteStatus === 'loading-more'
                   ? 'info'
                   : 'neutral'
             "
@@ -236,9 +236,9 @@ async function addSampleData() {
           <p class="text-muted">Load More Status</p>
           <UBadge
             :color="
-              buttonStatus === 'CanLoadMore'
+              buttonStatus === 'ready'
                 ? 'success'
-                : buttonStatus === 'LoadingMore'
+                : buttonStatus === 'loading-more'
                   ? 'info'
                   : 'neutral'
             "

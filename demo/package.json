@@ -16,7 +16,7 @@
     "@iconify-json/simple-icons": "^1.2.71",
     "@nuxt/ui": "^4.5.0",
     "better-auth": "1.4.20",
-    "better-convex-nuxt": "link:..",
+    "better-convex-nuxt": "0.3.4",
     "convex": "^1.32.0",
     "nuxt": "^4.3.1"
   },
