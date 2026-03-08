@@ -3,7 +3,6 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import {
   computed,
   watch,
-  triggerRef,
   onScopeDispose,
   getCurrentScope,
   toValue,
@@ -68,13 +67,6 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   keepPreviousData?: boolean
   /** Deeply unwrap refs inside args object/array values. @default true */
   deepUnrefArgs?: boolean
-  /**
-   * Stable string key used to namespace the useAsyncData cache slot when `transform` is set.
-   * Required when using `transform` to prevent hydration mismatches between server and client.
-   * Must be unique per distinct transform function in your application.
-   * @example transformKey: 'posts-format-date'
-   */
-  transformKey?: string
 }
 
 export interface UseConvexQueryData<DataT> {
@@ -198,15 +190,9 @@ export function createConvexQueryState<
 
   if (import.meta.dev) {
     loadQueryDevTools()
-    if (options?.transform && !options.transformKey) {
-      console.warn(
-        `[useConvexQuery] "${fnName}" uses transform without transformKey. ` +
-          'Add a stable transformKey option to prevent potential hydration mismatches.',
-      )
-    }
   }
 
-  const lastSettledData = ref<DataT | null>(null)
+  const lastSettledData = ref<RawT | null>(null)
 
   // Generate cache key
   const getCacheKey = (): string => {
@@ -216,11 +202,7 @@ export function createConvexQueryState<
   }
 
   const cacheKey = computed(() => getCacheKey())
-  // Transformed results are consumer-specific shapes and cannot safely share the same
-  // Nuxt async-data slot with untransformed consumers (or different transforms).
-  // transformKey must be provided by the caller for correctness across SSR/client.
-  const transformedKeySuffix = options?.transform ? `:transformed:${options.transformKey ?? ''}` : ''
-  const asyncDataKey = computed(() => `${cacheKey.value}${transformedKeySuffix}`)
+  const asyncDataKey = cacheKey
 
   // Computed hash of args for deep reactivity detection
   // This ensures useAsyncData re-fetches when args change deeply (not just ref identity)
@@ -244,7 +226,7 @@ export function createConvexQueryState<
   // Use Nuxt's useAsyncData for SSR + hydration
   // Note: Return null (not undefined) when skipped to avoid Nuxt warning about
   // undefined returns potentially causing duplicate requests on client
-  const asyncData = useAsyncData<DataT | null, Error>(
+  const asyncData = useAsyncData<RawT | null, Error>(
     asyncDataKey,
     async () => {
       if (isSkipped.value) {
@@ -271,14 +253,14 @@ export function createConvexQueryState<
           })
 
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
-          return applyTransform(result)
+          return result
         }
 
         // Client HTTP-only mode (no WebSocket dependency)
         if (!subscribe) {
           const authToken = authMode === 'none' ? undefined : (cachedToken.value ?? undefined)
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
-          return applyTransform(result)
+          return result
         }
 
         // Client live mode: use WebSocket for first result
@@ -288,7 +270,7 @@ export function createConvexQueryState<
         }
 
         const result = await executeQueryViaSubscription(convex, query, currentArgs)
-        return applyTransform(result)
+        return result
       } catch (error) {
         if (import.meta.client) {
           void handleUnauthorizedAuthFailure({ error, source: 'query', functionName: fnName })
@@ -307,7 +289,7 @@ export function createConvexQueryState<
         if (!options?.default) return null
         const fallbackRaw = options.default()
         if (fallbackRaw == null) return null
-        return applyTransform(fallbackRaw as RawT)
+        return fallbackRaw as RawT
       },
       // Convex payloads are replaced immutably; deep Vue traversal is unnecessary overhead.
       deep: false,
@@ -387,14 +369,11 @@ export function createConvexQueryState<
     const syncDataFromBridge = () => {
       if (!bridge.hasRawData) return
 
-      const transformedResult = applyTransform(bridge.rawData as RawT)
-      ;(asyncData.data as Ref<DataT | null>).value = transformedResult
+      ;(asyncData.data as Ref<RawT | null>).value = bridge.rawData as RawT
 
       if (asyncData.error.value !== null) {
         ;(asyncData.error as Ref<Error | null>).value = null
       }
-
-      triggerRef(asyncData.data)
     }
 
     const syncErrorFromBridge = () => {
@@ -638,12 +617,9 @@ export function createConvexQueryState<
     }
   }
 
-  const data = computed<DataT | null>({
-    get: () => (asyncData.data.value ?? null) as DataT | null,
-    set: (value: DataT | null) => {
-      ;(asyncData.data as Ref<DataT | null | undefined>).value = value
-    },
-  })
+  const data = computed<DataT | null>(() =>
+    asyncData.data.value != null ? applyTransform(asyncData.data.value as RawT) : null,
+  )
 
   // Build result data object with our own pending/status
   const resultData: UseConvexQueryData<DataT> = {
