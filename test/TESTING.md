@@ -1,75 +1,57 @@
-# Testing Guide (Deterministic Multi-Tier)
+# Testing Guide
 
-## Why this layout
+This file only covers test strategy and test-specific setup. For shared local env and workspace setup, use [DEVELOPMENT.md](../DEVELOPMENT.md).
 
-Flaky tests came from using full browser E2E for composable-level behavior.
-The suite now uses deterministic tiers so we only use E2E where the full stack
-boundary is required.
+## Test Layout
 
-## Test layout
-
-```
+```text
 test/
-├── unit/                                  # Pure TS logic
-├── nuxt/                                  # Composables in Nuxt runtime (happy-dom)
-├── browser/                               # Native browser component rendering
-├── e2e/                                   # Thin full-stack manual tests
-├── helpers/                               # Shared deterministic harnesses
-└── fixtures/                              # Minimal Nuxt fixture(s)
-
-playground/convex/
-├── *.test.ts                              # Backend function tests with convex-test
-└── lib/*.test.ts                          # Backend helper/permission unit tests
+├── unit/
+├── nuxt/
+├── browser/
+├── e2e/
+├── helpers/
+└── fixtures/
 ```
 
-## Vitest projects
+Backend tests live in:
 
-- `unit`: Node-only tests.
-- `convex`: backend logic via `convex-test` (`edge-runtime`).
-- `nuxt`: composable contracts in Nuxt runtime.
-- `browser`: component rendering in Chromium via Vitest Browser Mode.
-- `e2e`: thin full-stack tests; serial execution.
+```text
+playground/convex/
+├── *.test.ts
+└── lib/*.test.ts
+```
 
 ## Commands
 
 ```bash
-# CI/local reliability gate (unit + convex + nuxt + browser)
 pnpm test
-
-# Fast dev loop for frontend/runtime
 pnpm test:watch
-
-# Nuxt runtime composables only
 pnpm test:nuxt
-
-# Browser component suite
 pnpm test:browser
-
-# Full-stack E2E (manual/local)
 pnpm test:e2e
-
-# Non-E2E full matrix
 pnpm test:full
 ```
 
-## Design rules
+## Design Rules
 
-1. Runtime/composable behavior goes to `test/nuxt`.
-2. Pure DOM visibility/render rules go to `test/browser`.
-3. End-to-end stays thin and intentional in `test/e2e`.
-4. Backend behavior belongs in `playground/convex/*.test.ts`.
-5. Avoid fixed sleeps in `test/nuxt` and `test/browser`.
-6. Prefer direct reactive state assertions over scraping `body` text.
+1. Runtime/composable behavior goes in `test/nuxt`.
+2. Pure browser rendering behavior goes in `test/browser`.
+3. Full-stack tests stay thin and intentional in `test/e2e`.
+4. Convex/backend behavior belongs in `playground/convex/*.test.ts`.
+5. Prefer deterministic assertions over sleeps.
 
-## E2E local requirements
+## E2E Auth Setup
 
-1. Run local Convex backend (or export `CONVEX_URL` + `CONVEX_SITE_URL`).
-2. Configure Better Auth in local Convex env:
-   - `BETTER_AUTH_SECRET`
-   - `SITE_URL` (must include `http://localhost:3000` for strict auth-loop E2E)
-3. Keep E2E manual/local (`pnpm test:e2e`), not part of CI gate.
+For local auth-loop E2E you need:
 
-### Auth-loop bootstrap (strict fail-fast)
+- local Convex running
+- `CONVEX_URL`
+- optionally `CONVEX_SITE_URL` if you are not using the local default
+- `SITE_URL`
+- `BETTER_AUTH_SECRET`
+
+Example:
 
 ```bash
 cd /Users/matthias/Git/libs/better-convex-nuxt/playground
@@ -80,11 +62,4 @@ cd /Users/matthias/Git/libs/better-convex-nuxt
 pnpm test:e2e
 ```
 
-The auth-loop suite is intentionally strict: it does not soft-skip setup errors.
-If setup is incomplete, preflight checks fail immediately with actionable diagnostics.
-
-## Regression workflow
-
-1. Reproduce with a failing test in the right tier.
-2. Fix the bug.
-3. Keep the regression test as a contract.
+The auth-loop suite is intentionally strict and fails fast when setup is incomplete.

@@ -140,7 +140,7 @@ export default defineNuxtConfig({
         description: 'Installation, quick start guide, and core concepts.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/1.getting-started%' },
+          { field: 'path', operator: 'LIKE', value: '%/1.guide%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -194,7 +194,7 @@ export default defineNuxtConfig({
         description: 'Guide for deploying your application to production.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/7.deployment%' },
+          { field: 'path', operator: 'LIKE', value: '%/8.deployment%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
