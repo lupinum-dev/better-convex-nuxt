@@ -1,36 +1,26 @@
 /**
- * DevTools helper utilities for mutation and action tracing.
+ * DevTools helper utilities for mutation, action, and query tracing.
  * Provides shared functions for registering and updating DevTools entries.
  */
 
-// Lazy-loaded mutation registry module
+import type { QueryRegistryEntry } from '../devtools/query-registry'
+
+// ============================================================================
+// Mutation / Action registry (lazy-loaded)
+// ============================================================================
+
 let mutationRegistry: typeof import('../devtools/mutation-registry') | null = null
-let mutationRegistryPromise: Promise<void> | null = null
-let mutationRegistryLoadFailed = false
+let mutationRegistryAttempted = false
 
-/**
- * Load the mutation registry module (on-demand, cached).
- * Only loads in dev mode on client.
- */
-function loadRegistry(): void {
-  if (!import.meta.client || !import.meta.dev) {
-    return
-  }
-
-  if (mutationRegistry || mutationRegistryPromise || mutationRegistryLoadFailed) {
-    return
-  }
-
-  mutationRegistryPromise = import('../devtools/mutation-registry')
+function loadMutationRegistry(): void {
+  if (!import.meta.client || !import.meta.dev || mutationRegistryAttempted) return
+  mutationRegistryAttempted = true
+  import('../devtools/mutation-registry')
     .then((module) => {
       mutationRegistry = module
     })
     .catch((error) => {
-      mutationRegistryLoadFailed = true
       console.warn('[devtools-helpers] Failed to load mutation registry:', error)
-    })
-    .finally(() => {
-      mutationRegistryPromise = null
     })
 }
 
@@ -44,10 +34,8 @@ export function registerDevToolsEntry(
   args: unknown,
   hasOptimisticUpdate: boolean = false,
 ): string | null {
-  loadRegistry()
-  if (!import.meta.dev || !mutationRegistry) {
-    return null
-  }
+  loadMutationRegistry()
+  if (!import.meta.dev || !mutationRegistry) return null
 
   return mutationRegistry.registerMutation({
     name,
@@ -63,10 +51,7 @@ export function registerDevToolsEntry(
  * Update DevTools entry on success.
  */
 export function updateDevToolsSuccess(id: string | null, startTime: number, result: unknown): void {
-  loadRegistry()
-  if (!import.meta.dev || !mutationRegistry || !id) {
-    return
-  }
+  if (!import.meta.dev || !mutationRegistry || !id) return
 
   const settledAt = Date.now()
   mutationRegistry.updateMutationState(id, {
@@ -81,10 +66,7 @@ export function updateDevToolsSuccess(id: string | null, startTime: number, resu
  * Update DevTools entry on error.
  */
 export function updateDevToolsError(id: string | null, startTime: number, error: string): void {
-  loadRegistry()
-  if (!import.meta.dev || !mutationRegistry || !id) {
-    return
-  }
+  if (!import.meta.dev || !mutationRegistry || !id) return
 
   const settledAt = Date.now()
   mutationRegistry.updateMutationState(id, {
@@ -95,10 +77,47 @@ export function updateDevToolsError(id: string | null, startTime: number, error:
   })
 }
 
-/**
- * Get the mutation registry (for direct access if needed).
- * Returns null if not available.
- */
-export function getDevToolsRegistry(): typeof import('../devtools/mutation-registry') | null {
-  return mutationRegistry
+// ============================================================================
+// Query registry (lazy-loaded)
+// ============================================================================
+
+type QueryEntry = Omit<QueryRegistryEntry, 'lastUpdated' | 'updateCount'> & { updateCount?: number }
+type QueryStatusUpdate = Partial<
+  Pick<QueryRegistryEntry, 'status' | 'data' | 'error' | 'dataSource' | 'hasSubscription'>
+>
+
+let queryRegistry: typeof import('../devtools/query-registry') | null = null
+let queryRegistryAttempted = false
+
+function loadQueryRegistry(): void {
+  if (!import.meta.client || !import.meta.dev || queryRegistryAttempted) return
+  queryRegistryAttempted = true
+  import('../devtools/query-registry')
+    .then((module) => {
+      queryRegistry = module
+    })
+    .catch((error) => {
+      console.warn('[devtools-helpers] Failed to load query registry:', error)
+    })
+}
+
+/** Trigger early load of the query registry. Call at composable setup time. */
+export function loadQueryDevTools(): void {
+  loadQueryRegistry()
+}
+
+export function registerDevToolsQuery(entry: QueryEntry): void {
+  loadQueryRegistry()
+  if (!import.meta.dev || !queryRegistry) return
+  queryRegistry.registerQuery(entry)
+}
+
+export function updateDevToolsQueryStatus(id: string, update: QueryStatusUpdate): void {
+  if (!import.meta.dev || !queryRegistry) return
+  queryRegistry.updateQueryStatus(id, update)
+}
+
+export function unregisterDevToolsQuery(id: string): void {
+  if (!import.meta.dev || !queryRegistry) return
+  queryRegistry.unregisterQuery(id)
 }

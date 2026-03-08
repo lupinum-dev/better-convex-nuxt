@@ -12,7 +12,7 @@ import {
   updateDevToolsSuccess,
   updateDevToolsError,
 } from '../utils/devtools-helpers'
-import { getSharedLogger, getLogLevel } from '../utils/logger'
+import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
 import { useConvex } from './useConvex'
 
@@ -120,6 +120,118 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
   onError?: (error: Error, args: Args) => void
 }
 
+// ============================================================================
+// Shared execute state for mutations and actions
+// ============================================================================
+
+/**
+ * @internal — not part of the public API, exported only for useConvexAction.
+ */
+export function createConvexCallState<Args extends Record<string, unknown>, Result>(config: {
+  fnName: string
+  callType: 'mutation' | 'action'
+  logger: Logger
+  hasOptimisticUpdate: boolean
+  callFn: (args: Args) => Promise<Result>
+  onSuccess?: (result: Result, args: Args) => void
+  onError?: (error: Error, args: Args) => void
+}): UseConvexMutationReturn<Args, Result> {
+  const { fnName, callType, logger, hasOptimisticUpdate, callFn, onSuccess, onError } = config
+
+  let activeRequestId = 0
+  const _status = ref<ConvexCallStatus>('idle')
+  const error = ref<Error | null>(null) as Ref<Error | null>
+  const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
+
+  const status = computed(() => _status.value)
+  const pending = computed(() => _status.value === 'pending')
+
+  const reset = () => {
+    activeRequestId += 1
+    _status.value = 'idle'
+    error.value = null
+    data.value = undefined
+  }
+
+  const execute = async (args: Args): Promise<Result> => {
+    const startTime = Date.now()
+    const currentRequestId = ++activeRequestId
+
+    _status.value = 'pending'
+    error.value = null
+
+    const callId = registerDevToolsEntry(fnName, callType, args, hasOptimisticUpdate)
+
+    if (hasOptimisticUpdate) {
+      logger.mutation({ name: fnName, event: 'optimistic', args })
+    }
+
+    try {
+      const result = await callFn(args)
+      if (currentRequestId === activeRequestId) {
+        _status.value = 'success'
+        data.value = result
+      }
+
+      try {
+        onSuccess?.(result, args)
+      } catch (callbackError) {
+        logger.debug(
+          `[${callType}] onSuccess callback threw in ${fnName}`,
+          callbackError,
+        )
+      }
+
+      updateDevToolsSuccess(callId, startTime, result)
+      const duration = Date.now() - startTime
+      if (callType === 'mutation') {
+        logger.mutation({ name: fnName, event: 'success', args, duration })
+      } else {
+        logger.action({ name: fnName, event: 'success', duration })
+      }
+
+      return result
+    } catch (e) {
+      const normalized = normalizeConvexError(e)
+      const err = toError(normalized)
+      if (currentRequestId === activeRequestId) {
+        _status.value = 'error'
+        error.value = err
+      }
+
+      try {
+        onError?.(err, args)
+      } catch (callbackError) {
+        logger.debug(
+          `[${callType}] onError callback threw in ${fnName}`,
+          callbackError,
+        )
+      }
+
+      updateDevToolsError(callId, startTime, err.message)
+      const duration = Date.now() - startTime
+      if (callType === 'mutation') {
+        logger.mutation({ name: fnName, event: 'error', args, duration, error: err })
+      } else {
+        logger.action({ name: fnName, event: 'error', duration, error: err })
+      }
+      void handleUnauthorizedAuthFailure({ error: err, source: callType, functionName: fnName })
+
+      throw err
+    }
+  }
+
+  const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
+    return await toCallResult(() => execute(args))
+  }
+
+  return { execute, executeSafe, data, status, pending, error, reset }
+}
+
+// ============================================================================
+// useConvexMutation composable
+// ============================================================================
+
 /**
  * Composable for calling Convex mutations with automatic state tracking.
  *
@@ -164,46 +276,6 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
  * </template>
  * ```
  *
- * @example Multiple mutations with individual state
- * ```vue
- * <script setup>
- * const {
- *   execute: createPost,
- *   pending: isCreating,
- *   error: createError,
- * } = useConvexMutation(api.posts.create)
- *
- * const {
- *   execute: deletePost,
- *   pending: isDeleting,
- *   error: deleteError,
- * } = useConvexMutation(api.posts.remove)
- * </script>
- * ```
- *
- * @example With optimistic update for paginated queries
- * ```vue
- * <script setup>
- * import { api } from '~/convex/_generated/api'
- * import { insertAtTop } from '#imports'
- *
- * const { execute: addNote, pending } = useConvexMutation(api.notes.add, {
- *   optimisticUpdate: (localStore, args) => {
- *     insertAtTop({
- *       query: api.notes.listPaginated,
- *       store: localStore,
- *       item: {
- *         _id: crypto.randomUUID() as Id<'notes'>,
- *         _creationTime: Date.now(),
- *         title: args.title,
- *         content: args.content,
- *       },
- *     })
- *   },
- * })
- * </script>
- * ```
- *
  * @example With optimistic update for regular queries
  * ```vue
  * <script setup>
@@ -228,18 +300,6 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
  *     })
  *   },
  * })
- *
- * // Remove from a list query
- * const { execute: removeNote } = useConvexMutation(api.notes.remove, {
- *   optimisticUpdate: (localStore, args) => {
- *     deleteFromQuery({
- *       query: api.notes.list,
- *       args: { userId: currentUserId.value },
- *       store: localStore,
- *       shouldDelete: (note) => note._id === args.noteId,
- *     })
- *   },
- * })
  * </script>
  * ```
  */
@@ -251,115 +311,17 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   type Result = FunctionReturnType<Mutation>
 
   const config = useRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = getSharedLogger(logLevel)
+  const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
   const fnName = getFunctionName(mutation)
-  const hasOptimisticUpdate = !!options?.optimisticUpdate
-
-  // Get client at setup time (not inside async callback) to avoid Vue context issues
-  // Per Nuxt best practices, composables must be called synchronously at setup time
   const client = useConvex()
-  let activeRequestId = 0
 
-  // Internal state
-  const _status = ref<ConvexCallStatus>('idle')
-  const error = ref<Error | null>(null) as Ref<Error | null>
-  const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
-
-  // Computed - matches useConvexQuery pattern
-  const status = computed(() => _status.value)
-  const pending = computed(() => _status.value === 'pending')
-
-  // Reset function
-  const reset = () => {
-    activeRequestId += 1
-    _status.value = 'idle'
-    error.value = null
-    data.value = undefined
-  }
-
-  // The mutation function
-  const execute = async (args: Args): Promise<Result> => {
-    const startTime = Date.now()
-    const currentRequestId = ++activeRequestId
-
-    _status.value = 'pending'
-    error.value = null
-
-    // Register with DevTools
-    const mutationId = registerDevToolsEntry(fnName, 'mutation', args, hasOptimisticUpdate)
-
-    // Log optimistic update if present
-    if (hasOptimisticUpdate) {
-      logger.mutation({ name: fnName, event: 'optimistic', args })
-    }
-
-    try {
-      const result = await client.mutation(mutation, args, {
-        optimisticUpdate: options?.optimisticUpdate,
-      })
-      if (currentRequestId === activeRequestId) {
-        _status.value = 'success'
-        data.value = result
-      }
-
-      try {
-        options?.onSuccess?.(result, args)
-      } catch (callbackError) {
-        logger.mutation({
-          name: fnName,
-          event: 'error',
-          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-        })
-      }
-
-      // Update DevTools
-      updateDevToolsSuccess(mutationId, startTime, result)
-
-      const duration = Date.now() - startTime
-      logger.mutation({ name: fnName, event: 'success', args, duration })
-
-      return result
-    } catch (e) {
-      const normalized = normalizeConvexError(e)
-      const err = toError(normalized)
-      if (currentRequestId === activeRequestId) {
-        _status.value = 'error'
-        error.value = err
-      }
-
-      try {
-        options?.onError?.(err, args)
-      } catch (callbackError) {
-        logger.mutation({
-          name: fnName,
-          event: 'error',
-          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-        })
-      }
-
-      // Update DevTools
-      updateDevToolsError(mutationId, startTime, err.message)
-
-      const duration = Date.now() - startTime
-      logger.mutation({ name: fnName, event: 'error', args, duration, error: err })
-      void handleUnauthorizedAuthFailure({ error: err, source: 'mutation', functionName: fnName })
-
-      throw err
-    }
-  }
-
-  const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
-    return await toCallResult(() => execute(args))
-  }
-
-  return {
-    execute,
-    executeSafe,
-    data,
-    status,
-    pending,
-    error,
-    reset,
-  }
+  return createConvexCallState<Args, Result>({
+    fnName,
+    callType: 'mutation',
+    logger,
+    hasOptimisticUpdate: !!options?.optimisticUpdate,
+    callFn: (args) => client.mutation(mutation, args, { optimisticUpdate: options?.optimisticUpdate }),
+    onSuccess: options?.onSuccess,
+    onError: options?.onError,
+  })
 }

@@ -1,66 +1,21 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
 import { useRuntimeConfig } from '#imports'
 
-import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
-import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
 import { getFunctionName } from '../utils/convex-cache'
-import {
-  registerDevToolsEntry,
-  updateDevToolsSuccess,
-  updateDevToolsError,
-} from '../utils/devtools-helpers'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
-import type { ConvexCallStatus } from '../utils/types'
 import { useConvex } from './useConvex'
+import { createConvexCallState, type UseConvexMutationReturn } from './useConvexMutation'
+import type { CallResult } from '../utils/call-result'
 
 /**
- * Return value from useConvexAction
+ * Return value from useConvexAction.
+ * Identical shape to UseConvexMutationReturn (no optimisticUpdate on the output).
  */
-export interface UseConvexActionReturn<Args, Result> {
-  /**
-   * Execute the action. Returns a promise with the result.
-   * Automatically tracks status, error, and data.
-   * Throws on error (use try/catch or check error ref after).
-   */
-  execute: (args: Args) => Promise<Result>
-  /**
-   * Execute the action without throwing.
-   * Returns a stable result envelope.
-   */
-  executeSafe: (args: Args) => Promise<CallResult<Result>>
+export type UseConvexActionReturn<Args, Result> = UseConvexMutationReturn<Args, Result>
 
-  /**
-   * Result data from the last successful action.
-   * undefined if action hasn't succeeded yet.
-   */
-  data: Ref<Result | undefined>
-
-  /**
-   * Action status for explicit state management.
-   */
-  status: ComputedRef<ConvexCallStatus>
-
-  /**
-   * Shorthand for status === 'pending'.
-   * True when action is in progress.
-   */
-  pending: ComputedRef<boolean>
-
-  /**
-   * Shorthand for error state.
-   * Error from the last action attempt.
-   * null if no error or action hasn't been called.
-   */
-  error: Ref<Error | null>
-
-  /**
-   * Reset action state back to idle.
-   * Clears error and data.
-   */
-  reset: () => void
-}
+// Re-export so callers don't need a separate import
+export type { CallResult }
 
 /**
  * Options for useConvexAction
@@ -133,107 +88,17 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   type Result = FunctionReturnType<Action>
 
   const config = useRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = getSharedLogger(logLevel)
+  const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
   const fnName = getFunctionName(action)
-
-  // Get client at setup time (not inside async callback) to avoid Vue context issues
-  // Per Nuxt best practices, composables must be called synchronously at setup time
   const client = useConvex()
-  let activeRequestId = 0
 
-  // Internal state
-  const _status = ref<ConvexCallStatus>('idle')
-  const error = ref<Error | null>(null) as Ref<Error | null>
-  const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
-
-  // Computed - matches useConvexMutation pattern
-  const status = computed(() => _status.value)
-  const pending = computed(() => _status.value === 'pending')
-
-  // Reset function
-  const reset = () => {
-    activeRequestId += 1
-    _status.value = 'idle'
-    error.value = null
-    data.value = undefined
-  }
-
-  // The execute function
-  const execute = async (args: Args): Promise<Result> => {
-    const startTime = Date.now()
-    const currentRequestId = ++activeRequestId
-
-    _status.value = 'pending'
-    error.value = null
-
-    // Register with DevTools
-    const actionId = registerDevToolsEntry(fnName, 'action', args, false)
-
-    try {
-      const result = await client.action(action, args)
-      if (currentRequestId === activeRequestId) {
-        _status.value = 'success'
-        data.value = result
-      }
-
-      try {
-        options?.onSuccess?.(result, args)
-      } catch (callbackError) {
-        logger.action({
-          name: fnName,
-          event: 'error',
-          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-        })
-      }
-
-      // Update DevTools
-      updateDevToolsSuccess(actionId, startTime, result)
-
-      const duration = Date.now() - startTime
-      logger.action({ name: fnName, event: 'success', duration })
-
-      return result
-    } catch (e) {
-      const normalized = normalizeConvexError(e)
-      const err = toError(normalized)
-      if (currentRequestId === activeRequestId) {
-        _status.value = 'error'
-        error.value = err
-      }
-
-      try {
-        options?.onError?.(err, args)
-      } catch (callbackError) {
-        logger.action({
-          name: fnName,
-          event: 'error',
-          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-        })
-      }
-
-      // Update DevTools
-      updateDevToolsError(actionId, startTime, err.message)
-
-      const duration = Date.now() - startTime
-      logger.action({ name: fnName, event: 'error', duration, error: err })
-      void handleUnauthorizedAuthFailure({ error: err, source: 'action', functionName: fnName })
-
-      throw err
-    }
-  }
-
-  const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
-    return await toCallResult(() => execute(args))
-  }
-
-  return {
-    execute,
-    executeSafe,
-    data,
-    status,
-    pending,
-    error,
-    reset,
-  }
+  return createConvexCallState<Args, Result>({
+    fnName,
+    callType: 'action',
+    logger,
+    hasOptimisticUpdate: false,
+    callFn: (args) => client.action(action, args),
+    onSuccess: options?.onSuccess,
+    onError: options?.onError,
+  })
 }

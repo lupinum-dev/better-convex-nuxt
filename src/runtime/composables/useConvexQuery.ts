@@ -33,54 +33,16 @@ import {
   type ConvexCallStatus,
 } from '../utils/convex-cache'
 import { deepUnref } from '../utils/deep-unref'
+import {
+  loadQueryDevTools,
+  registerDevToolsQuery,
+  updateDevToolsQueryStatus,
+  unregisterDevToolsQuery,
+} from '../utils/devtools-helpers'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import type { ConvexClientAuthMode } from '../utils/types'
-
-// DevTools query registry (client-side only in dev mode)
-let devToolsRegistry: typeof import('../devtools/query-registry') | null = null
-let devToolsRegistryPromise: Promise<void> | null = null
-let devToolsRegistryLoadFailed = false
-const transformedAsyncDataKeyIds = new WeakMap<(input: unknown) => unknown, string>()
-
-function ensureDevToolsRegistryLoaded(): void {
-  if (
-    !import.meta.client ||
-    !import.meta.dev ||
-    devToolsRegistry ||
-    devToolsRegistryPromise ||
-    devToolsRegistryLoadFailed
-  )
-    return
-  devToolsRegistryPromise = import('../devtools/query-registry')
-    .then((module) => {
-      devToolsRegistry = module
-    })
-    .catch((error) => {
-      devToolsRegistryLoadFailed = true
-      console.warn('[useConvexQuery] Failed to load DevTools query registry:', error)
-    })
-    .finally(() => {
-      devToolsRegistryPromise = null
-    })
-}
-
-function getTransformedAsyncDataKeyId(transform: (input: unknown) => unknown): string {
-  const existing = transformedAsyncDataKeyIds.get(transform)
-  if (existing) return existing
-
-  // Derive a stable key from the function's source text so server and client
-  // always produce the same suffix regardless of component initialization order.
-  const source = transform.toString()
-  let hash = 0
-  for (let i = 0; i < source.length; i++) {
-    hash = (hash * 31 + source.charCodeAt(i)) >>> 0
-  }
-  const id = hash.toString(36)
-  transformedAsyncDataKeyIds.set(transform, id)
-  return id
-}
 
 // Re-export for consumers
 export type { ConvexCallStatus }
@@ -106,6 +68,13 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   keepPreviousData?: boolean
   /** Deeply unwrap refs inside args object/array values. @default true */
   deepUnrefArgs?: boolean
+  /**
+   * Stable string key used to namespace the useAsyncData cache slot when `transform` is set.
+   * Required when using `transform` to prevent hydration mismatches between server and client.
+   * Must be unique per distinct transform function in your application.
+   * @example transformKey: 'posts-format-date'
+   */
+  transformKey?: string
 }
 
 export interface UseConvexQueryData<DataT> {
@@ -228,7 +197,13 @@ export function createConvexQueryState<
   const isSkipped = computed(() => !enabled.value || normalizedArgs.value == null)
 
   if (import.meta.dev) {
-    ensureDevToolsRegistryLoaded()
+    loadQueryDevTools()
+    if (options?.transform && !options.transformKey) {
+      console.warn(
+        `[useConvexQuery] "${fnName}" uses transform without transformKey. ` +
+          'Add a stable transformKey option to prevent potential hydration mismatches.',
+      )
+    }
   }
 
   const lastSettledData = ref<DataT | null>(null)
@@ -241,11 +216,10 @@ export function createConvexQueryState<
   }
 
   const cacheKey = computed(() => getCacheKey())
-  const transformedKeySuffix = options?.transform
-    ? `:transformed:${getTransformedAsyncDataKeyId(options.transform as (input: unknown) => unknown)}`
-    : ''
   // Transformed results are consumer-specific shapes and cannot safely share the same
   // Nuxt async-data slot with untransformed consumers (or different transforms).
+  // transformKey must be provided by the caller for correctness across SSR/client.
+  const transformedKeySuffix = options?.transform ? `:transformed:${options.transformKey ?? ''}` : ''
   const asyncDataKey = computed(() => `${cacheKey.value}${transformedKeySuffix}`)
 
   // Computed hash of args for deep reactivity detection
@@ -509,8 +483,8 @@ export function createConvexQueryState<
 
             // DevTools stores raw shared subscription data (not transformed), because
             // different subscribers may apply different transform() functions.
-            if (import.meta.dev && devToolsRegistry) {
-              devToolsRegistry.updateQueryStatus(currentCacheKey, {
+            if (import.meta.dev) {
+              updateDevToolsQueryStatus(currentCacheKey, {
                 status: 'success',
                 data: result,
                 dataSource: 'websocket',
@@ -528,9 +502,8 @@ export function createConvexQueryState<
 
             logger.query({ name: fnName, event: 'error', error: err })
 
-            // Keep DevTools subscription-level error visibility
-            if (import.meta.dev && devToolsRegistry) {
-              devToolsRegistry.updateQueryStatus(currentCacheKey, {
+            if (import.meta.dev) {
+              updateDevToolsQueryStatus(currentCacheKey, {
                 status: 'error',
                 error: err.message,
               })
@@ -548,9 +521,8 @@ export function createConvexQueryState<
 
         logger.query({ name: fnName, event: 'subscribe', args: currentArgs })
 
-        // Register with DevTools in dev mode
-        if (import.meta.dev && devToolsRegistry) {
-          devToolsRegistry.registerQuery({
+        if (import.meta.dev) {
+          registerDevToolsQuery({
             id: currentCacheKey,
             name: fnName,
             args: currentArgs,
@@ -588,10 +560,8 @@ export function createConvexQueryState<
 
           if (wasUnsubscribed) {
             logger.query({ name: fnName, event: 'unsubscribe' })
-
-            // Unregister from DevTools only if we were the last user
-            if (import.meta.dev && devToolsRegistry) {
-              devToolsRegistry.unregisterQuery(registeredCacheKey)
+            if (import.meta.dev) {
+              unregisterDevToolsQuery(registeredCacheKey)
             }
           }
 
@@ -625,10 +595,8 @@ export function createConvexQueryState<
 
         if (wasUnsubscribed) {
           logger.query({ name: fnName, event: 'unsubscribe' })
-
-          // Unregister from DevTools only if we were the last user
-          if (import.meta.dev && devToolsRegistry) {
-            devToolsRegistry.unregisterQuery(registeredCacheKey)
+          if (import.meta.dev) {
+            unregisterDevToolsQuery(registeredCacheKey)
           }
         }
 
