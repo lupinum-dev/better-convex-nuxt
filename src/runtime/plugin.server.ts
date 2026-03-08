@@ -12,7 +12,7 @@
 
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 
-import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
+import type { AuthWaterfall, AuthWaterfallPhase } from './utils/auth-debug'
 import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cache'
 import { fetchWithTimeout } from './server/utils/http'
 import {

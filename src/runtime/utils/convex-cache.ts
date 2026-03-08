@@ -1,6 +1,7 @@
 import { shallowRef, type ShallowRef } from 'vue'
 
 import type { useNuxtApp } from '#app'
+import { resolveClientAuthToken } from './auth-token'
 
 // Re-export shared utilities
 export {
@@ -113,41 +114,7 @@ export interface FetchAuthTokenOptions {
  * ```
  */
 export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { auth, cookieHeader, siteUrl, cachedToken } = options
-
-  // Skip when auth is explicitly disabled
-  if (auth === 'none') {
-    return undefined
-  }
-
-  // Check if we have session cookie
-  if (!cookieHeader.includes('better-auth.session_token')) {
-    return undefined
-  }
-
-  // Try cached token first
-  if (cachedToken.value) {
-    return cachedToken.value
-  }
-
-  // Fetch token if we have a site URL
-  if (!siteUrl) {
-    return undefined
-  }
-
-  try {
-    const response = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
-      headers: { Cookie: cookieHeader },
-    })) as { token?: string }
-    if (response?.token) {
-      cachedToken.value = response.token
-      return response.token
-    }
-  } catch {
-    // Auth token fetch failed - continue without auth
-  }
-
-  return undefined
+  return await resolveClientAuthToken(options)
 }
 
 // ============================================================================

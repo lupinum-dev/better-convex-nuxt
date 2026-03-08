@@ -4,14 +4,14 @@ import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
 import { useRuntimeConfig } from '#imports'
 
+import {
+  registerDevtoolsEntry,
+  updateDevtoolsEntrySuccess,
+  updateDevtoolsEntryError,
+} from '../devtools/runtime'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
 import { getFunctionName } from '../utils/convex-cache'
-import {
-  registerDevToolsEntry,
-  updateDevToolsSuccess,
-  updateDevToolsError,
-} from '../utils/devtools-helpers'
 import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
 import { useConvex } from './useConvex'
@@ -125,7 +125,7 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
 // ============================================================================
 
 /**
- * @internal — not part of the public API, exported only for useConvexAction.
+ * Internal helper exported only for useConvexAction.
  */
 export function createConvexCallState<Args extends Record<string, unknown>, Result>(config: {
   fnName: string
@@ -160,7 +160,7 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
     _status.value = 'pending'
     error.value = null
 
-    const callId = registerDevToolsEntry(fnName, callType, args, hasOptimisticUpdate)
+    const callId = registerDevtoolsEntry(fnName, callType, args, hasOptimisticUpdate)
 
     if (hasOptimisticUpdate) {
       logger.mutation({ name: fnName, event: 'optimistic', args })
@@ -182,7 +182,7 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
         )
       }
 
-      updateDevToolsSuccess(callId, startTime, result)
+      updateDevtoolsEntrySuccess(callId, startTime, result)
       const duration = Date.now() - startTime
       if (callType === 'mutation') {
         logger.mutation({ name: fnName, event: 'success', args, duration })
@@ -208,7 +208,7 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
         )
       }
 
-      updateDevToolsError(callId, startTime, err.message)
+      updateDevtoolsEntryError(callId, startTime, err.message)
       const duration = Date.now() - startTime
       if (callType === 'mutation') {
         logger.mutation({ name: fnName, event: 'error', args, duration, error: err })
