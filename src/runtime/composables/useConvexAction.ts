@@ -1,10 +1,10 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 
-import { useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
-import { useConvex } from './useConvex'
+import { getRequiredConvexClient } from './useConvex'
 import { createConvexCallState, type UseConvexMutationReturn } from './useConvexMutation'
 import type { CallResult } from '../utils/call-result'
 
@@ -90,14 +90,14 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const config = useRuntimeConfig()
   const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
   const fnName = getFunctionName(action)
-  const client = useConvex()
+  const nuxtApp = useNuxtApp()
 
   return createConvexCallState<Args, Result>({
     fnName,
     callType: 'action',
     logger,
     hasOptimisticUpdate: false,
-    callFn: (args) => client.action(action, args),
+    callFn: (args) => getRequiredConvexClient(nuxtApp).action(action, args),
     onSuccess: options?.onSuccess,
     onError: options?.onError,
   })

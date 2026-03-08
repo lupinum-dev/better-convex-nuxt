@@ -2,6 +2,21 @@ import type { ConvexClient } from 'convex/browser'
 
 import { useNuxtApp } from '#imports'
 
+export const MISSING_CONVEX_CLIENT_MESSAGE =
+  '[useConvex] Convex client is unavailable. This composable is client-only and requires a configured Convex URL.'
+
+export function getRequiredConvexClient(
+  nuxtApp: ReturnType<typeof useNuxtApp> = useNuxtApp(),
+): ConvexClient {
+  const convex = nuxtApp.$convex as ConvexClient | undefined
+
+  if (!convex) {
+    throw new Error(MISSING_CONVEX_CLIENT_MESSAGE)
+  }
+
+  return convex
+}
+
 /**
  * Composable for accessing the Convex client instance.
  *
@@ -27,14 +42,5 @@ import { useNuxtApp } from '#imports'
  * ```
  */
 export function useConvex(): ConvexClient {
-  const nuxtApp = useNuxtApp()
-  const convex = nuxtApp.$convex as ConvexClient | undefined
-
-  if (!convex) {
-    throw new Error(
-      '[useConvex] Convex client is unavailable. This composable is client-only and requires a configured Convex URL.',
-    )
-  }
-
-  return convex
+  return getRequiredConvexClient(useNuxtApp())
 }

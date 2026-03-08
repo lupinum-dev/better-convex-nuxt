@@ -2,7 +2,7 @@ import type { OptimisticLocalStore } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
-import { useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import {
   registerDevtoolsEntry,
@@ -14,7 +14,7 @@ import { normalizeConvexError, toCallResult, toError, type CallResult } from '..
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
-import { useConvex } from './useConvex'
+import { getRequiredConvexClient } from './useConvex'
 
 // Re-export optimistic update helpers
 export {
@@ -313,14 +313,17 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const config = useRuntimeConfig()
   const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
   const fnName = getFunctionName(mutation)
-  const client = useConvex()
+  const nuxtApp = useNuxtApp()
 
   return createConvexCallState<Args, Result>({
     fnName,
     callType: 'mutation',
     logger,
     hasOptimisticUpdate: !!options?.optimisticUpdate,
-    callFn: (args) => client.mutation(mutation, args, { optimisticUpdate: options?.optimisticUpdate }),
+    callFn: (args) =>
+      getRequiredConvexClient(nuxtApp).mutation(mutation, args, {
+        optimisticUpdate: options?.optimisticUpdate,
+      }),
     onSuccess: options?.onSuccess,
     onError: options?.onError,
   })
