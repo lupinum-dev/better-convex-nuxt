@@ -51,11 +51,11 @@
       </div>
       <div class="stat">
         <span class="label">Inflight Mutations</span>
-        <span class="value">{{ inflightMutations }}</span>
+        <span class="value">{{ pendingMutations }}</span>
       </div>
       <div class="stat">
         <span class="label">Inflight Actions</span>
-        <span class="value">{{ inflightActions }}</span>
+        <span class="value">{{ pendingActions }}</span>
       </div>
     </div>
 
@@ -89,8 +89,8 @@ const {
   connectionRetries,
   hasInflightRequests,
   isReconnecting,
-  inflightMutations,
-  inflightActions,
+  pendingMutations,
+  pendingActions,
   isHydratingConnection,
   shouldShowOfflineUi,
 } = useConvexConnectionState()

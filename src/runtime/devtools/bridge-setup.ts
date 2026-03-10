@@ -16,8 +16,8 @@ import type {
   JWTClaims,
   EnhancedAuthState,
   AuthState,
-  AuthWaterfall,
 } from './types'
+import type { AuthWaterfall } from '../utils/auth-debug'
 
 /**
  * Setup the DevTools bridge on the window object.

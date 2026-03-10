@@ -8,7 +8,7 @@ import { ConvexClient } from 'convex/browser'
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
-import type { AuthWaterfall } from './devtools/types'
+import type { AuthWaterfall } from './utils/auth-debug'
 import {
   buildClientAuthRequestFailureMessage,
   buildClientAuthResponseErrorMessage,

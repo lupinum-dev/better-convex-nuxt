@@ -50,6 +50,11 @@ const composableMeta = {
     purpose: 'Builds a typed permission API for route/UI guards and capability checks.',
     guide: '/docs/auth-security/permissions',
   },
+  defineSharedConvexQuery: {
+    kind: 'Helper',
+    purpose: 'Creates a shared query instance that is reused across a Nuxt app/request.',
+    guide: '/docs/data-fetching/queries',
+  },
   deleteFromPaginatedQuery: {
     kind: 'Helper',
     purpose: 'Optimistically removes an item from a paginated query cache.',
@@ -95,6 +100,11 @@ const composableMeta = {
     purpose: 'Applies an updater across multiple cached query results.',
     guide: '/docs/data-fetching/caching-reuse',
   },
+  updateInPaginatedQuery: {
+    kind: 'Helper',
+    purpose: 'Optimistically updates matching items across paginated query pages.',
+    guide: '/docs/mutations/optimistic-updates',
+  },
   updateQuery: {
     kind: 'Helper',
     purpose: 'Applies an updater to one cached query result.',
@@ -114,6 +124,11 @@ const composableMeta = {
     kind: 'Composable',
     purpose: 'Tracks auth state and user/session information in Nuxt.',
     guide: '/docs/auth-security/authentication',
+  },
+  useConvexCall: {
+    kind: 'Composable',
+    purpose: 'Runs imperative one-shot query, mutation, or action calls on the client.',
+    guide: '/docs/data-fetching/queries',
   },
   useConvexConnectionState: {
     kind: 'Composable',
@@ -160,7 +175,8 @@ const serverMeta = {
   },
   serverConvexClearAuthCache: {
     kind: 'Server helper',
-    purpose: 'Clears cached auth token state used by server calls.',
+    purpose:
+      'Clears cached auth token state for Nuxt server routes via the `#imports` auto-import surface.',
     guide: '/docs/server-side/ssr-hydration',
   },
   serverConvexMutation: {
@@ -230,12 +246,17 @@ Source of truth:
 - [src/module.ts](${repoBase}/blob/main/src/module.ts)
 - [src/runtime/composables/index.ts](${repoBase}/blob/main/src/runtime/composables/index.ts)
 - [src/runtime/server/utils](${repoBase}/tree/main/src/runtime/server/utils)
+- [src/runtime/server/utils/auth-cache.ts](${repoBase}/blob/main/src/runtime/server/utils/auth-cache.ts)
 - [src/runtime/components](${repoBase}/tree/main/src/runtime/components)
 
 This reference answers:
 - Which APIs are auto-imported?
 - What is each API for?
 - Where is the best guide for examples and deeper usage?
+
+Note:
+- Server APIs listed here are Nuxt auto-imports available from \`#imports\`.
+- The package export \`better-convex-nuxt/server\` is narrower and should not be assumed to match the full Nuxt auto-import surface.
 
 Regenerate this page with:
 
