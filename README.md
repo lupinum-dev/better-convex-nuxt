@@ -114,6 +114,54 @@ For most apps:
 The full matrix, including `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`, provider credentials, `REDIS_URL`, and `JWKS`, lives here:
 
 - [Environment Matrix](https://better-convex-nuxt.vercel.app/docs/deployment/environment-matrix)
+- [Local Development](https://better-convex-nuxt.vercel.app/docs/deployment/local-development)
+
+## Local Development
+
+If you want fixed localhost Convex URLs during Nuxt development, wire the local backend through
+`convex-vite-plugin` and keep hosted Convex values in `.env.local` as the default mode.
+
+```ts
+import { convexLocal } from 'convex-vite-plugin'
+
+const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
+const localConvexUrl = 'http://127.0.0.1:3210'
+const localConvexSiteUrl = 'http://127.0.0.1:3211'
+const appUrl = process.env.SITE_URL || 'http://localhost:3000'
+
+export default defineNuxtConfig({
+  modules: ['better-convex-nuxt'],
+  convex: {
+    url: useLocalConvex ? localConvexUrl : process.env.CONVEX_URL,
+    siteUrl: useLocalConvex ? localConvexSiteUrl : process.env.CONVEX_SITE_URL,
+  },
+  hooks: {
+    'vite:extendConfig': (config, { isClient }) => {
+      if (!useLocalConvex || !isClient) return
+      config.plugins = [
+        ...(config.plugins ?? []),
+        convexLocal({
+          port: 3210,
+          siteProxyPort: 3211,
+          projectDir: '.',
+          convexDir: 'convex',
+          envVars: {
+            SITE_URL: appUrl,
+            AUTH_BASE_URL: process.env.AUTH_BASE_URL || appUrl,
+            AUTH_TRUSTED_ORIGINS: process.env.AUTH_TRUSTED_ORIGINS || appUrl,
+            BETTER_AUTH_SECRET:
+              process.env.BETTER_AUTH_SECRET || 'local-dev-better-auth-secret-not-for-production',
+          },
+        }),
+      ]
+    },
+  },
+})
+```
+
+In local mode the Nuxt auth proxy and `serverConvex*` helpers still talk to `convex.siteUrl`; the
+only difference is that `convex.siteUrl` now points at the local HTTP Actions proxy instead of a
+hosted `.convex.site` domain.
 
 ## Docs
 
@@ -130,6 +178,7 @@ The full matrix, including `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_UR
 pnpm install
 pnpm dev:prepare
 pnpm dev
+pnpm dev:local
 pnpm test
 pnpm lint
 ```

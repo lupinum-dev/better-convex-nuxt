@@ -24,6 +24,11 @@ interface TokenResponse {
   error?: unknown
 }
 
+interface SessionResponse {
+  session?: Record<string, unknown> | null
+  user?: Record<string, unknown> | null
+}
+
 type AuthClientWithConvex = ReturnType<typeof createAuthClient> & {
   convex: { token: () => Promise<TokenResponse> }
 }
@@ -147,6 +152,28 @@ export default defineNuxtPlugin((nuxtApp) => {
     const NULL_TOKEN_CACHE_MS = 5000 // Cache "not logged in" state to avoid duplicate 401s
     const skipRoutes = convexConfig.skipAuthRoutes
     const router = useRouter()
+
+    const hasClientSession = async () => {
+      try {
+        const response = await fetch(`${authBaseURL}/get-session`, {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        })
+
+        if (response.status === 401 || response.status === 403) {
+          return false
+        }
+
+        if (!response.ok) {
+          return null
+        }
+
+        const payload = (await response.json().catch(() => null)) as SessionResponse | null
+        return Boolean(payload?.session && payload?.user)
+      } catch {
+        return null
+      }
+    }
 
     // Cancellation controller for auth operations (kept for potential future use)
     // let currentAuthOperation: AbortController | null = null
@@ -298,7 +325,44 @@ export default defineNuxtPlugin((nuxtApp) => {
         return null
       }
 
-      // CSR mode: must fetch token (unavoidable for HttpOnly cookie auth)
+      // On CSR cold boot, probe Better Auth session first.
+      // This avoids noisy 401s from /convex/token when the user is simply signed out.
+      if (!forceRefreshToken) {
+        const hasSession = await hasClientSession()
+
+        if (signal?.aborted) {
+          logger.auth({
+            phase: 'client-fetchToken:abort',
+            outcome: 'skip',
+            details: {
+              traceId: convexAuthTraceId.value,
+              reason: 'signal-aborted-after-session-probe',
+              path: routePath,
+            },
+          })
+          return null
+        }
+
+        if (hasSession === false) {
+          convexToken.value = null
+          convexUser.value = null
+          convexAuthError.value = null
+          lastNullTokenCheck = Date.now()
+          logger.auth({
+            phase: 'client-fetchToken:skip',
+            outcome: 'skip',
+            details: {
+              traceId: convexAuthTraceId.value,
+              reason: 'no-better-auth-session',
+              path: routePath,
+            },
+          })
+          resolveInitialAuth()
+          return null
+        }
+      }
+
+      // CSR mode: exchange Better Auth session for Convex token
       try {
         logger.auth({
           phase: 'client-fetchToken:request',

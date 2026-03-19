@@ -12,6 +12,15 @@ import type { ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
+type ServerConvexHelperName = 'serverConvexQuery' | 'serverConvexMutation' | 'serverConvexAction'
+
+interface ServerConvexErrorContext {
+  helper: ServerConvexHelperName
+  operation: ConvexOperationType
+  functionPath: string
+  convexUrl?: string
+  authMode: ConvexServerAuthMode
+}
 
 export interface ServerConvexOptions {
   /**
@@ -25,6 +34,36 @@ export interface ServerConvexOptions {
    * Explicit auth token override. When provided, skips auto resolution.
    */
   authToken?: string
+}
+
+function getHelperName(operationType: ConvexOperationType): ServerConvexHelperName {
+  if (operationType === 'query') return 'serverConvexQuery'
+  if (operationType === 'mutation') return 'serverConvexMutation'
+  return 'serverConvexAction'
+}
+
+function applyErrorContext(error: Error, context: ServerConvexErrorContext): Error {
+  Object.assign(error, context)
+  return error
+}
+
+function toServerConvexError(
+  error: unknown,
+  context: ServerConvexErrorContext,
+  phase: 'auth' | 'request',
+): Error {
+  const normalized = normalizeConvexError(error)
+  const err = toError({ ...normalized, ...context })
+  const prefix =
+    phase === 'auth'
+      ? `Failed to resolve auth for ${context.functionPath} (auth: ${context.authMode}).`
+      : `Request failed for ${context.functionPath} via ${context.convexUrl}/api/${context.operation}.`
+  err.message = `[${context.helper}] ${prefix} ${err.message}`
+  return applyErrorContext(err, context)
+}
+
+function createServerConvexError(message: string, context: ServerConvexErrorContext): Error {
+  return applyErrorContext(new Error(`[${context.helper}] ${message}`), context)
 }
 
 function getCookieHeader(event: H3Event): string {
@@ -73,9 +112,20 @@ async function executeConvexOperation<T>(
   const runtimeConfig = useRuntimeConfig()
   const convexConfig = normalizeConvexRuntimeConfig(runtimeConfig.public.convex)
   const convexUrl = convexConfig.url
+  const authMode = options?.auth ?? 'auto'
+  const errorContext: ServerConvexErrorContext = {
+    helper: getHelperName(operationType),
+    operation: operationType,
+    functionPath,
+    convexUrl,
+    authMode,
+  }
 
   if (!convexUrl) {
-    throw new Error('[serverConvex] Convex URL not configured')
+    throw createServerConvexError(
+      `Convex URL not configured for ${functionPath}. Set \`convex.url\` in \`nuxt.config.ts\` or provide \`CONVEX_URL\` / \`NUXT_PUBLIC_CONVEX_URL\`.`,
+      errorContext,
+    )
   }
 
   const logLevel = getLogLevel(runtimeConfig.public.convex ?? {})
@@ -84,11 +134,6 @@ async function executeConvexOperation<T>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-  }
-
-  const authToken = await resolveAuthToken(event, options)
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`
   }
 
   const logSuccess = (duration: number) => {
@@ -109,6 +154,20 @@ async function executeConvexOperation<T>(
     } else {
       logger.action({ name: functionPath, event: 'error', duration, error: err })
     }
+  }
+
+  let authToken: string | undefined
+  try {
+    authToken = await resolveAuthToken(event, options)
+  } catch (error) {
+    const err = toServerConvexError(error, errorContext, 'auth')
+    const duration = Date.now() - startTime
+    logError(err, duration)
+    throw err
+  }
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
   }
 
   try {
@@ -137,8 +196,7 @@ async function executeConvexOperation<T>(
 
     return result
   } catch (error) {
-    const normalized = normalizeConvexError(error)
-    const err = toError(normalized)
+    const err = toServerConvexError(error, errorContext, 'request')
     const duration = Date.now() - startTime
     logError(err, duration)
     throw err
