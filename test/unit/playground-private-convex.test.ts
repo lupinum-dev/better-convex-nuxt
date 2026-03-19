@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FunctionReference } from 'convex/server'
 
-import { api } from '../../playground/convex/_generated/api'
-
-const privateSystemOverview = (
-  api as unknown as Record<string, { systemOverview: FunctionReference<'query'> }>
-)['private/demo']!.systemOverview
+import {
+  PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
+  privateSystemOverview,
+} from '../../playground/private-function-references'
 
 const { useRuntimeConfigMock, fetchMock } = vi.hoisted(() => ({
   useRuntimeConfigMock: vi.fn(),
@@ -19,6 +17,7 @@ vi.mock('#imports', () => ({
 describe('playground private Convex helper', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useRealTimers()
 
     useRuntimeConfigMock.mockReturnValue({
       public: {
@@ -29,6 +28,7 @@ describe('playground private Convex helper', () => {
       },
     })
 
+    process.env.PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE = 'true'
     process.env.CONVEX_PRIVATE_BRIDGE_KEY = 'server-only-bridge-key'
     vi.stubGlobal(
       'fetch',
@@ -41,8 +41,23 @@ describe('playground private Convex helper', () => {
   })
 
   afterEach(() => {
+    delete process.env.PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE
     delete process.env.CONVEX_PRIVATE_BRIDGE_KEY
+    vi.useRealTimers()
     vi.unstubAllGlobals()
+  })
+
+  it('reports the privileged reference lane as disabled until explicitly enabled', async () => {
+    delete process.env.PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE
+
+    const { getPrivateBridgeReferenceState } = await import('../../playground/server/utils/private-convex')
+
+    expect(getPrivateBridgeReferenceState()).toMatchObject({
+      demoEnabled: false,
+      hasServerBridgeKey: true,
+      hasConvexUrl: true,
+      isConfigured: false,
+    })
   })
 
   it('injects the server-only bridge key into privileged queries', async () => {
@@ -55,11 +70,47 @@ describe('playground private Convex helper', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://demo.convex.cloud/api/query')
     expect(JSON.parse(String(init.body))).toMatchObject({
-      path: 'private/demo:systemOverview',
+      path: PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
       args: {
         apiKey: 'server-only-bridge-key',
       },
     })
+  })
+
+  it('returns readiness metadata instead of attempting a backend call when the demo lane is disabled', async () => {
+    delete process.env.PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE
+
+    const handler = (await import('../../playground/server/api/references/private-system.get')).default
+    const result = await handler({} as never)
+
+    expect(result).toMatchObject({
+      ok: false,
+      functionPath: PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
+      readiness: {
+        demoEnabled: false,
+        isConfigured: false,
+      },
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps readiness metadata when the backend call fails after the lane is configured', async () => {
+    vi.stubGlobal('fetch', fetchMock.mockRejectedValue(new Error('boom')))
+
+    const handler = (await import('../../playground/server/api/references/private-system.get')).default
+    const result = await handler({} as never)
+
+    expect(result).toMatchObject({
+      ok: false,
+      helper: 'privateConvexQuery',
+      source: 'privileged',
+      functionPath: PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
+      readiness: {
+        demoEnabled: true,
+        isConfigured: true,
+      },
+    })
+    expect(result.message).toContain('boom')
   })
 
   it('fails closed when the bridge key is missing, even if public runtime contains a lookalike', async () => {
@@ -87,11 +138,45 @@ describe('playground private Convex helper', () => {
         helper: 'privateConvexQuery',
         source: 'privileged',
         operation: 'query',
-        functionPath: 'private/demo:systemOverview',
+        functionPath: PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
         convexUrl: 'https://demo.convex.cloud',
       })
       expect((error as Error).message).toContain('Privileged query failed')
       expect((error as Error).message).toContain('boom')
     }
+  })
+
+  it('adds timeout metadata when the privileged request hangs', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise((_resolve, reject) => {
+          const signal = init?.signal
+          signal?.addEventListener(
+            'abort',
+            () => {
+              reject(signal.reason ?? new Error('aborted'))
+            },
+            { once: true },
+          )
+        })
+      }),
+    )
+
+    const { privateConvexQuery } = await import('../../playground/server/utils/private-convex')
+
+    const request = privateConvexQuery(privateSystemOverview).catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    const error = await request
+    expect(error).toMatchObject({
+      helper: 'privateConvexQuery',
+      source: 'privileged',
+      operation: 'query',
+      functionPath: PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
+      convexUrl: 'https://demo.convex.cloud',
+    })
+    expect((error as Error).message).toContain('Request timed out after 5000ms')
   })
 })

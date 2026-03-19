@@ -82,15 +82,20 @@
           <h2>4. Privileged backend-only query</h2>
           <p>
             Calls an app-local helper that injects `CONVEX_PRIVATE_BRIDGE_KEY` before querying
-            `api['private/demo'].systemOverview`.
+            `private/demo:systemOverview`. This demo lane is opt-in and stays disabled in plain
+            `pnpm dev` unless you configure it intentionally.
           </p>
         </div>
-        <button class="button" :disabled="privateQueryPending" @click="runPrivateQuery">
+        <button class="button" :disabled="privateQueryPending || !privateLaneReady" @click="runPrivateQuery">
           {{ privateQueryPending ? 'Running…' : 'Run privileged server query' }}
         </button>
       </div>
 
       <div class="panel">
+        <div class="panel-meta">
+          <span>Status: {{ privateLaneReady ? 'configured' : 'not configured' }}</span>
+        </div>
+        <p class="muted">{{ privateLaneMessage }}</p>
         <pre>{{ privateQueryPreview }}</pre>
       </div>
     </section>
@@ -130,6 +135,21 @@ const {
   error: notesError,
   refresh: refreshNotes,
 } = await useConvexQuery(api.notes.list, {}, { default: () => [] })
+const { data: privateLaneStatus } = await useFetch<{
+  demoEnabled: boolean
+  hasServerBridgeKey: boolean
+  hasConvexUrl: boolean
+  isConfigured: boolean
+  message: string
+}>('/api/references/private-system-readiness', {
+  default: () => ({
+    demoEnabled: false,
+    hasServerBridgeKey: false,
+    hasConvexUrl: false,
+    isConfigured: false,
+    message: 'Loading privileged reference lane status.',
+  }),
+})
 
 const {
   execute: addTask,
@@ -171,11 +191,17 @@ const privateQueryPreview = computed(() =>
   JSON.stringify(
     privateQueryResult.value ?? {
       ok: null,
-      message: 'Run the privileged server query to inspect the backend-only path.',
+      demoEnabled: privateLaneStatus.value?.demoEnabled ?? false,
+      isConfigured: privateLaneStatus.value?.isConfigured ?? false,
+      message: privateLaneStatus.value?.message ?? 'Loading privileged reference lane status.',
     },
     null,
     2,
   ),
+)
+const privateLaneReady = computed(() => privateLaneStatus.value?.isConfigured === true)
+const privateLaneMessage = computed(
+  () => privateLaneStatus.value?.message ?? 'Loading privileged reference lane status.',
 )
 const serverAuthPreview = computed(() =>
   JSON.stringify(
@@ -227,6 +253,16 @@ async function runServerQuery() {
 }
 
 async function runPrivateQuery() {
+  if (!privateLaneReady.value) {
+    privateQueryResult.value = {
+      ok: false,
+      demoEnabled: privateLaneStatus.value?.demoEnabled ?? false,
+      isConfigured: false,
+      message: privateLaneMessage.value,
+    }
+    return
+  }
+
   privateQueryPending.value = true
   try {
     privateQueryResult.value = (await $fetch('/api/references/private-system')) as Record<
@@ -369,6 +405,11 @@ async function runServerAuthRequired() {
   gap: 12px;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.muted {
+  margin: 0 0 12px;
+  color: #6b7280;
 }
 
 .inline-link {

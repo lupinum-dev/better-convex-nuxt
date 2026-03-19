@@ -1,15 +1,12 @@
 import { convexTest } from 'convex-test'
-import type { FunctionReference } from 'convex/server'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { api } from '../_generated/api'
+import { privateSystemOverview } from '../../private-function-references'
 import schema from '../schema'
 import { modules } from '../test.setup'
 
 const TEST_BRIDGE_KEY = 'playground-test-bridge-key'
-const privateSystemOverview = (
-  api as unknown as Record<string, { systemOverview: FunctionReference<'query'> }>
-)['private/demo']!.systemOverview
 
 describe('private.demo.systemOverview', () => {
   beforeEach(() => {

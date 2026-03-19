@@ -119,7 +119,9 @@ The full matrix, including `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_UR
 ## Local Development
 
 If you want fixed localhost Convex URLs during Nuxt development, wire the local backend through
-`convex-vite-plugin` and keep hosted Convex values in `.env.local` as the default mode.
+`convex-vite-plugin` and keep hosted Convex values in `.env.local` as the default mode. This is an
+optional dev-only dependency for playground/local DX. It does not affect the published module
+runtime.
 
 ```ts
 import { convexLocal } from 'convex-vite-plugin'
@@ -162,6 +164,11 @@ export default defineNuxtConfig({
 In local mode the Nuxt auth proxy and `serverConvex*` helpers still talk to `convex.siteUrl`; the
 only difference is that `convex.siteUrl` now points at the local HTTP Actions proxy instead of a
 hosted `.convex.site` domain.
+
+The privileged reference lane shown in the playground is also opt-in. `pnpm dev:local` enables it
+with a playground-only key for demo purposes. Plain `pnpm dev` leaves that backend-only lane
+disabled unless you explicitly configure matching bridge keys in both the Nuxt server runtime and
+the Convex backend env.
 
 ## Docs
 
