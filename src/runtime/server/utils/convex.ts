@@ -3,10 +3,10 @@ import type { H3Event } from 'h3'
 
 import { useRuntimeConfig } from '#imports'
 
+import { resolveServerAuthToken } from '../../utils/auth-token'
 import { normalizeConvexError, toError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
-import { resolveServerAuthToken } from '../../utils/auth-token'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
 import type { ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
@@ -92,13 +92,12 @@ async function resolveAuthToken(
     cookieHeader,
     siteUrl: config.siteUrl,
     getCachedToken: config.authCache.enabled ? getCachedAuthToken : undefined,
-    setCachedToken:
-      config.authCache.enabled
-        ? async (sessionToken, token) => {
-            const ttl = config.authCache.ttl ?? 60
-            await setCachedAuthToken(sessionToken, token, ttl)
-          }
-        : undefined,
+    setCachedToken: config.authCache.enabled
+      ? async (sessionToken, token) => {
+          const ttl = config.authCache.ttl ?? 60
+          await setCachedAuthToken(sessionToken, token, ttl)
+        }
+      : undefined,
   })
 }
 
@@ -182,8 +181,9 @@ async function executeConvexOperation<T>(
 
     const contentType = response.headers.get('content-type')
     if (!contentType?.includes('application/json')) {
-      const text = await response.text()
-      const err = new Error(`Unexpected response type: ${contentType}. Body: ${text.slice(0, 200)}`)
+      const err = new Error(
+        `Unexpected response type: ${contentType}. Expected JSON from ${convexUrl}/api/${operationType}.`,
+      )
       ;(err as Error & { status?: number }).status = response.status
       throw err
     }

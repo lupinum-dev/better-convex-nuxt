@@ -116,9 +116,7 @@ describe('server Convex fetch helpers', () => {
 
     await expect(
       serverConvexQuery(createEvent(), { _path: 'notes:list' } as never, {} as never),
-    ).rejects.toThrow(
-      '[serverConvexQuery] Request failed for notes:list via http://127.0.0.1:3210/api/query.',
-    )
+    ).rejects.toThrow(/Unexpected response type: text\/html/)
   })
 
   it('parses Convex error response payloads', async () => {

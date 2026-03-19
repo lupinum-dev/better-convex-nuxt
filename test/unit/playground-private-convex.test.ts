@@ -50,7 +50,8 @@ describe('playground private Convex helper', () => {
   it('reports the privileged reference lane as disabled until explicitly enabled', async () => {
     delete process.env.PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE
 
-    const { getPrivateBridgeReferenceState } = await import('../../playground/server/utils/private-convex')
+    const { getPrivateBridgeReferenceState } =
+      await import('../../playground/server/utils/private-convex')
 
     expect(getPrivateBridgeReferenceState()).toMatchObject({
       demoEnabled: false,
@@ -80,7 +81,8 @@ describe('playground private Convex helper', () => {
   it('returns readiness metadata instead of attempting a backend call when the demo lane is disabled', async () => {
     delete process.env.PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE
 
-    const handler = (await import('../../playground/server/api/references/private-system.get')).default
+    const handler = (await import('../../playground/server/api/references/private-system.get'))
+      .default
     const result = await handler({} as never)
 
     expect(result).toMatchObject({
@@ -94,10 +96,26 @@ describe('playground private Convex helper', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('returns 404 from the privileged route in production mode', async () => {
+    const originalNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+
+    try {
+      const handler = (await import('../../playground/server/api/references/private-system.get'))
+        .default
+      await expect(handler({} as never)).rejects.toMatchObject({
+        statusCode: 404,
+      })
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv
+    }
+  })
+
   it('keeps readiness metadata when the backend call fails after the lane is configured', async () => {
     vi.stubGlobal('fetch', fetchMock.mockRejectedValue(new Error('boom')))
 
-    const handler = (await import('../../playground/server/api/references/private-system.get')).default
+    const handler = (await import('../../playground/server/api/references/private-system.get'))
+      .default
     const result = await handler({} as never)
 
     expect(result).toMatchObject({
@@ -118,9 +136,7 @@ describe('playground private Convex helper', () => {
 
     const { privateConvexQuery } = await import('../../playground/server/utils/private-convex')
 
-    await expect(privateConvexQuery(privateSystemOverview)).rejects.toThrow(
-      'Missing server-only',
-    )
+    await expect(privateConvexQuery(privateSystemOverview)).rejects.toThrow('Missing server-only')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -143,6 +159,28 @@ describe('playground private Convex helper', () => {
       })
       expect((error as Error).message).toContain('Privileged query failed')
       expect((error as Error).message).toContain('boom')
+    }
+  })
+
+  it('does not reflect upstream response bodies in privileged errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      fetchMock.mockResolvedValue(
+        new Response('<html>secret upstream body</html>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+      ),
+    )
+
+    const { privateConvexQuery } = await import('../../playground/server/utils/private-convex')
+
+    try {
+      await privateConvexQuery(privateSystemOverview)
+      throw new Error('Expected query to fail')
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message).toContain('Unexpected response type: text/html')
+      expect((error as Error).message).not.toContain('secret upstream body')
     }
   })
 

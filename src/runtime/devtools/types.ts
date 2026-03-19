@@ -1,8 +1,8 @@
+import type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult } from '../utils/auth-debug'
 /**
  * DevTools types and interfaces.
  */
 import type { QueryRegistryEntry } from './query-registry'
-import type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult } from '../utils/auth-debug'
 
 export type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult }
 

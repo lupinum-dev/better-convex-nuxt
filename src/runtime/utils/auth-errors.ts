@@ -73,9 +73,7 @@ export function buildClientAuthResponseErrorMessage(rawMessage: string): string 
     return 'Not signed in'
   }
 
-  if (lower.includes('site url') || lower.includes('convex') || lower.includes('proxy')) {
-    return prefix(message)
-  }
-
-  return prefix(message || 'Authentication failed')
+  return prefix(
+    'Authentication failed. Check your Nuxt auth proxy route and Convex auth configuration.',
+  )
 }

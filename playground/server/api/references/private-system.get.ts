@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'h3'
+import { createError, defineEventHandler } from 'h3'
 
 import {
   PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
@@ -7,6 +7,10 @@ import {
 import { getPrivateBridgeReferenceState, privateConvexQuery } from '../../utils/private-convex'
 
 export default defineEventHandler(async () => {
+  if (process.env.NODE_ENV === 'production') {
+    throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+  }
+
   const readiness = getPrivateBridgeReferenceState()
   if (!readiness.isConfigured) {
     return {
@@ -38,13 +42,17 @@ export default defineEventHandler(async () => {
       executedOn: 'server',
       readiness,
       message: error instanceof Error ? error.message : String(error),
-      helper: error instanceof Error ? (error as Error & { helper?: string }).helper ?? null : null,
-      source: error instanceof Error ? (error as Error & { source?: string }).source ?? null : null,
+      helper:
+        error instanceof Error ? ((error as Error & { helper?: string }).helper ?? null) : null,
+      source:
+        error instanceof Error ? ((error as Error & { source?: string }).source ?? null) : null,
       operation:
-        error instanceof Error ? (error as Error & { operation?: string }).operation ?? null : null,
+        error instanceof Error
+          ? ((error as Error & { operation?: string }).operation ?? null)
+          : null,
       functionPath:
         error instanceof Error
-          ? (error as Error & { functionPath?: string }).functionPath ?? null
+          ? ((error as Error & { functionPath?: string }).functionPath ?? null)
           : null,
     }
   }

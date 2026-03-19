@@ -140,11 +140,16 @@ describe('plugin.client auth flow', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('caches signed-out misses without surfacing a user-facing auth error', async () => {
-    tokenMock.mockResolvedValue({
-      data: null,
-      error: null,
-    })
+  it('retries immediately after a signed-out miss and can pick up a fresh login', async () => {
+    tokenMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { token: 'jwt-after-login' },
+        error: null,
+      })
     vi.stubGlobal('fetch', vi.fn())
 
     const plugin = (await import('../../src/runtime/plugin.client')).default
@@ -161,11 +166,10 @@ describe('plugin.client auth flow', () => {
     const second = await fetchToken!({ forceRefreshToken: false })
 
     expect(first).toBeNull()
-    expect(second).toBeNull()
-    expect(tokenMock).toHaveBeenCalledTimes(1)
+    expect(second).toBe('jwt-after-login')
+    expect(tokenMock).toHaveBeenCalledTimes(2)
     expect(stateStore.get('convex:authError')?.value).toBeNull()
-    expect(stateStore.get('convex:token')?.value).toBeNull()
-    expect(stateStore.get('convex:user')?.value).toBeNull()
+    expect(stateStore.get('convex:token')?.value).toBe('jwt-after-login')
     expect(fetch).not.toHaveBeenCalled()
   })
 })

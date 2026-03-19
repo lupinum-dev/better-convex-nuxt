@@ -1,11 +1,17 @@
-import { defineEventHandler } from 'h3'
+import { createError, defineEventHandler } from 'h3'
 
 import { PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH } from '../../../private-function-references'
 import { getPrivateBridgeReferenceState } from '../../utils/private-convex'
 
-export default defineEventHandler(() => ({
-  executedOn: 'server',
-  source: 'privileged',
-  functionPath: PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
-  ...getPrivateBridgeReferenceState(),
-}))
+export default defineEventHandler(() => {
+  if (process.env.NODE_ENV === 'production') {
+    throw createError({ statusCode: 404, statusMessage: 'Not Found' })
+  }
+
+  return {
+    executedOn: 'server',
+    source: 'privileged',
+    functionPath: PRIVATE_SYSTEM_OVERVIEW_FUNCTION_PATH,
+    ...getPrivateBridgeReferenceState(),
+  }
+})

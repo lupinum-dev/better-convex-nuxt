@@ -5,7 +5,6 @@ import {
   setResponseStatus,
   createError,
   getRequestURL,
-  readRawBody,
   send,
   appendResponseHeader,
 } from 'h3'
@@ -19,7 +18,12 @@ import {
 } from '../../../utils/auth-errors'
 import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
-import { getRequestBodySizeError, getResponseBodySizeError } from './body-size'
+import {
+  getRequestBodySizeError,
+  getResponseBodySizeError,
+  readRequestBodyWithLimit,
+  readResponseBodyWithLimit,
+} from './body-size'
 import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers'
 import { fetchWithCanonicalRedirects } from './redirect-utils'
 import { getAuthRoutePattern, isOriginAllowed } from './security'
@@ -129,7 +133,7 @@ export default defineEventHandler(async (event: H3Event) => {
           },
         })
       }
-      body = (await readRawBody(event, 'utf8')) || undefined
+      body = await readRequestBodyWithLimit(event, authProxy.maxRequestBodyBytes)
     }
 
     // Make request to Convex (manual redirect handling).
@@ -171,25 +175,18 @@ export default defineEventHandler(async (event: H3Event) => {
       })
     }
 
-    // Forward response status
-    setResponseStatus(event, response.status, response.statusText)
-
-    // Forward response headers (except some that shouldn't be forwarded)
-    // Handle Set-Cookie specially (can have multiple values)
-    const cookies = response.headers.getSetCookie?.() || []
-    for (const cookie of cookies) {
-      appendResponseHeader(event, 'set-cookie', cookie)
-    }
-
-    // Forward other headers
-    for (const [key, value] of response.headers.entries()) {
-      if (!shouldSkipProxyResponseHeader(key)) {
-        setHeaders(event, { [key]: value })
-      }
-    }
-
     // Preserve intentional redirects (OAuth flows, etc).
     if (response.status >= 300 && response.status < 400) {
+      setResponseStatus(event, response.status, response.statusText)
+      const cookies = response.headers.getSetCookie?.() || []
+      for (const cookie of cookies) {
+        appendResponseHeader(event, 'set-cookie', cookie)
+      }
+      for (const [key, value] of response.headers.entries()) {
+        if (!shouldSkipProxyResponseHeader(key)) {
+          setHeaders(event, { [key]: value })
+        }
+      }
       return ''
     }
 
@@ -209,7 +206,24 @@ export default defineEventHandler(async (event: H3Event) => {
         },
       })
     }
-    const responseBody = new Uint8Array(await response.arrayBuffer())
+    const responseBody = await readResponseBodyWithLimit(response, authProxy.maxResponseBodyBytes)
+
+    // Forward response status
+    setResponseStatus(event, response.status, response.statusText)
+
+    // Forward response headers (except some that shouldn't be forwarded)
+    // Handle Set-Cookie specially (can have multiple values)
+    const cookies = response.headers.getSetCookie?.() || []
+    for (const cookie of cookies) {
+      appendResponseHeader(event, 'set-cookie', cookie)
+    }
+
+    // Forward other headers
+    for (const [key, value] of response.headers.entries()) {
+      if (!shouldSkipProxyResponseHeader(key)) {
+        setHeaders(event, { [key]: value })
+      }
+    }
     return send(event, responseBody)
   } catch (error) {
     if (error && typeof error === 'object' && 'statusCode' in error) {
@@ -230,12 +244,12 @@ export default defineEventHandler(async (event: H3Event) => {
     }
 
     // Security: Don't leak internal error details in production
-    const errorMessage = import.meta.dev
-      ? buildAuthProxyUnreachableMessage(siteUrl, error)
-      : 'Failed to proxy request to Convex auth server'
+    if (import.meta.dev) {
+      console.error(buildAuthProxyUnreachableMessage(siteUrl, error))
+    }
     throw createError({
       statusCode: 502,
-      message: errorMessage,
+      message: 'Failed to proxy request to Convex auth server',
       data: { code: 'BCN_AUTH_PROXY_UNREACHABLE' },
     })
   }

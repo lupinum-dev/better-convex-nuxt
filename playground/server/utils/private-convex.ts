@@ -46,7 +46,10 @@ function createPrivateConvexError(
 }
 
 function isPrivateBridgeDemoEnabled(): boolean {
-  return process.env.PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE === 'true'
+  return (
+    process.env.NODE_ENV !== 'production' &&
+    process.env.PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE === 'true'
+  )
 }
 
 function getConfiguredPrivateBridgeKey(): string | undefined {
@@ -161,11 +164,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 async function executePrivateConvexOperation<
   Operation extends PrivateOperationType,
   Func extends FunctionReference<Operation>,
->(
-  operation: Operation,
-  func: Func,
-  args?: FunctionArgs<Func>,
-): Promise<FunctionReturnType<Func>> {
+>(operation: Operation, func: Func, args?: FunctionArgs<Func>): Promise<FunctionReturnType<Func>> {
   const functionPath = getFunctionName(func)
   const helper = getHelperName(operation)
   const initialContext: PrivateConvexErrorContext = {
@@ -173,6 +172,13 @@ async function executePrivateConvexOperation<
     source: 'privileged',
     operation,
     functionPath,
+  }
+
+  if (!isPrivateBridgeDemoEnabled()) {
+    throw createPrivateConvexError(
+      'Privileged reference lane is disabled outside local development.',
+      initialContext,
+    )
   }
 
   const convexUrl = getConvexUrl(initialContext)
@@ -197,8 +203,9 @@ async function executePrivateConvexOperation<
 
     const contentType = response.headers.get('content-type')
     if (!contentType?.includes('application/json')) {
-      const text = await response.text()
-      throw new Error(`Unexpected response type: ${contentType}. Body: ${text.slice(0, 200)}`)
+      throw new Error(
+        `Unexpected response type: ${contentType}. Expected JSON from ${convexUrl}/api/${operation}.`,
+      )
     }
 
     return parseConvexResponse<FunctionReturnType<Func>>(await response.json())
