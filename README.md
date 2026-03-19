@@ -167,8 +167,10 @@ hosted `.convex.site` domain.
 
 - [Getting Started](https://better-convex-nuxt.vercel.app/docs/guide/get-started)
 - [Authentication Reference](https://better-convex-nuxt.vercel.app/docs/auth-security/authentication)
+- [Server Call Lanes](https://better-convex-nuxt.vercel.app/docs/server-side/server-call-lanes)
 - [Permissions Setup](https://better-convex-nuxt.vercel.app/docs/auth-security/permissions-setup)
 - [Server Routes](https://better-convex-nuxt.vercel.app/docs/server-side/server-routes)
+- [System Workloads: Private Bridge](https://better-convex-nuxt.vercel.app/docs/recipes/system-workloads-private-bridge)
 - [Module Configuration](https://better-convex-nuxt.vercel.app/docs/advanced/module-config)
 - [Deployment Overview](https://better-convex-nuxt.vercel.app/docs/deployment/overview)
 

@@ -11,6 +11,7 @@ export default defineEventHandler(async (event: H3Event) => {
     return {
       ok: true,
       executedOn: 'server',
+      source: 'user-scoped',
       count: tasks.length,
       sample: tasks.slice(0, 3),
     }
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event: H3Event) => {
     return {
       ok: false,
       executedOn: 'server',
+      source: 'user-scoped',
       message: error instanceof Error ? error.message : String(error),
       helper: error instanceof Error ? (error as Error & { helper?: string }).helper ?? null : null,
       functionPath:

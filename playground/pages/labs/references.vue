@@ -79,7 +79,26 @@
     <section class="section">
       <div class="section-head">
         <div>
-          <h2>4. Auth-required server failure</h2>
+          <h2>4. Privileged backend-only query</h2>
+          <p>
+            Calls an app-local helper that injects `CONVEX_PRIVATE_BRIDGE_KEY` before querying
+            `api['private/demo'].systemOverview`.
+          </p>
+        </div>
+        <button class="button" :disabled="privateQueryPending" @click="runPrivateQuery">
+          {{ privateQueryPending ? 'Running…' : 'Run privileged server query' }}
+        </button>
+      </div>
+
+      <div class="panel">
+        <pre>{{ privateQueryPreview }}</pre>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>5. Auth-required server failure</h2>
           <p>
             Calls a Nitro route that uses `serverConvexQuery(..., { auth: 'required' })` so you
             can see the auth error surface when the request is unauthenticated.
@@ -123,6 +142,8 @@ const taskTitle = ref('')
 const taskResult = ref<Record<string, unknown> | null>(null)
 const serverQueryPending = ref(false)
 const serverQueryResult = ref<Record<string, unknown> | null>(null)
+const privateQueryPending = ref(false)
+const privateQueryResult = ref<Record<string, unknown> | null>(null)
 const serverAuthPending = ref(false)
 const serverAuthResult = ref<Record<string, unknown> | null>(null)
 
@@ -142,6 +163,16 @@ const taskResultPreview = computed(() =>
 const serverQueryPreview = computed(() =>
   JSON.stringify(
     serverQueryResult.value ?? { ok: null, message: 'Run the server query to inspect the result.' },
+    null,
+    2,
+  ),
+)
+const privateQueryPreview = computed(() =>
+  JSON.stringify(
+    privateQueryResult.value ?? {
+      ok: null,
+      message: 'Run the privileged server query to inspect the backend-only path.',
+    },
     null,
     2,
   ),
@@ -192,6 +223,23 @@ async function runServerQuery() {
     }
   } finally {
     serverQueryPending.value = false
+  }
+}
+
+async function runPrivateQuery() {
+  privateQueryPending.value = true
+  try {
+    privateQueryResult.value = (await $fetch('/api/references/private-system')) as Record<
+      string,
+      unknown
+    >
+  } catch (error) {
+    privateQueryResult.value = {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error),
+    }
+  } finally {
+    privateQueryPending.value = false
   }
 }
 

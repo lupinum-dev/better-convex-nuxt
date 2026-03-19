@@ -115,7 +115,7 @@
             <span class="icon">S</span>
             <div>
               <strong>Server Boundary Reference</strong>
-              <p>Public query, auth mutation, and server helper flow</p>
+              <p>Public, user-scoped, privileged, and auth-failure server flows</p>
             </div>
           </NuxtLink>
         </div>

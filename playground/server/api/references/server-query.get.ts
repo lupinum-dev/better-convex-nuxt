@@ -11,6 +11,7 @@ export default defineEventHandler(async (event: H3Event) => {
     return {
       ok: true,
       executedOn: 'server',
+      source: 'user-scoped',
       count: notes.length,
       sample: notes.slice(0, 3),
     }
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event: H3Event) => {
     return {
       ok: false,
       executedOn: 'server',
+      source: 'user-scoped',
       message: error instanceof Error ? error.message : String(error),
     }
   }

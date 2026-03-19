@@ -11,6 +11,8 @@ const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true'
 const playgroundUrl = process.env.SITE_URL || 'http://localhost:3000'
 const localConvexUrl = 'http://127.0.0.1:3210'
 const localConvexSiteUrl = 'http://127.0.0.1:3211'
+const localPrivateBridgeKey =
+  process.env.CONVEX_PRIVATE_BRIDGE_KEY || 'playground-private-bridge-key-not-for-production'
 
 function appendOrigin(origins: string | undefined, origin: string): string {
   const values = new Set(
@@ -79,6 +81,7 @@ export default defineNuxtConfig({
             BETTER_AUTH_SECRET:
               process.env.BETTER_AUTH_SECRET ||
               'local-dev-better-auth-secret-not-for-production',
+            CONVEX_PRIVATE_BRIDGE_KEY: localPrivateBridgeKey,
           }
         })
       ]
