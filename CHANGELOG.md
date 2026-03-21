@@ -1,5 +1,116 @@
 # Changelog
 
+## v0.4.0
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.3.4...v0.4.0)
+
+This release introduces the **private bridge** for privileged server-only Convex operations, **lazy query variants** for layout-safe usage, an improved connection state API, local development support, and significant internal hardening of the auth proxy and error handling.
+
+### 🚀 Enhancements
+
+#### Lazy Query Composables
+
+Two new composable variants return refs **immediately** without blocking `setup()`. Use them in layouts, reusable composables, or anywhere `await` is not appropriate:
+
+- **`useConvexQueryLazy`** — non-blocking variant of `useConvexQuery`
+- **`useConvexPaginatedQueryLazy`** — non-blocking variant of `useConvexPaginatedQuery`
+
+```ts
+// Safe inside layouts — no await needed
+const { data, pending, status } = useConvexQueryLazy(api.users.me, {})
+
+// Paginated
+const { results, status, loadMore } = useConvexPaginatedQueryLazy(
+  api.messages.list,
+  {},
+  { initialNumItems: 20 }
+)
+```
+
+Standard `useConvexQuery` / `useConvexPaginatedQuery` with `await` remain the recommended choice for pages where blocking SSR is desired.
+
+#### App-Local Private Bridge
+
+A new "private bridge" pattern lets Nuxt **server routes** call backend-only Convex functions without a user identity. This is designed for cron jobs, webhooks, and admin operations that must bypass user auth.
+
+The bridge is secured with a `PRIVATE_BRIDGE_KEY` environment variable shared between your Nuxt server and your Convex deployment.
+
+```ts
+// server/api/admin/report.get.ts
+import { privateConvexQuery } from '~/server/utils/private-convex'
+import { privateFunctions } from '~/private-function-references'
+
+export default defineEventHandler(async () => {
+  return privateConvexQuery(privateFunctions.admin.generateReport, {})
+})
+```
+
+See the [Server Call Lanes](./docs/content/docs/5.server-side/3.server-call-lanes.md) guide for setup including environment variables and security model.
+
+#### New `useConvexConnectionState` Properties
+
+Three new computed properties are now exposed:
+
+| Property | Description |
+|---|---|
+| `hasEverConnected` | `true` after the first successful WebSocket connection |
+| `hasInflightRequests` | `true` while any mutation or action is in-flight |
+| `connectionRetries` | Number of reconnection attempts since last successful connection |
+| `isHydratingConnection` | Suppresses offline UI during the initial hydration grace window |
+
+```ts
+const {
+  isConnected,
+  hasEverConnected,
+  hasInflightRequests,
+  connectionRetries,
+  isHydratingConnection,
+  shouldShowOfflineUi,
+} = useConvexConnectionState()
+```
+
+#### Local Development with `convex-vite-plugin`
+
+The module now supports running a local Convex backend via `@convex-dev/convex-vite-plugin`. Point `NUXT_PUBLIC_CONVEX_URL` at `http://127.0.0.1:3210` and use the new `dev:local` scripts. See [Local Development](./docs/content/docs/8.deployment/0.local-development.md).
+
+### 🩹 Fixes
+
+- Auth proxy body size limits now use **incremental streaming reads** for both request and response bodies, rejecting oversized payloads as they arrive instead of buffering everything first. This reduces peak memory and makes limit enforcement reliable.
+- Auth proxy response headers are now forwarded **after** body size validation, preventing partial header forwarding on oversized upstream responses.
+- Private bridge API route returns **404** in production when accessed without the correct key, avoiding leakage of the privileged endpoint's existence.
+- `decodeUserFromJwt` now validates that the JWT payload is a plain object before processing, preventing unexpected behavior on malformed tokens.
+- Server-side helpers (`serverConvexQuery`, `serverConvexMutation`, `serverConvexAction`) now produce structured error messages with `helper`, `operation`, `functionPath`, `convexUrl`, and `authMode` context for easier debugging.
+
+### 💅 Refactors
+
+- `useConvexQuery` and `useConvexPaginatedQuery` internals extracted into a shared `createLiveQueryResource` helper, eliminating duplication and providing a consistent subscription lifecycle for both standard and lazy variants.
+- `useConvexMutation` and `useConvexAction` now use a centralized `getRequiredConvexClient()` helper for Convex client access.
+- Auth-related types (`AuthWaterfall`, `AuthWaterfallPhase`) moved to `utils/auth-debug` module.
+- Auth token resolution extracted to `utils/auth-token` module (`resolveClientAuthToken`, `resolveServerAuthToken`).
+- DevTools helper functions renamed for consistency (`registerDevtoolsEntry`, `updateDevtoolsEntrySuccess`, `updateDevtoolsEntryError`).
+
+#### ⚠️ Breaking Changes
+
+| Change | Migration |
+|---|---|
+| `inflightMutations` / `inflightActions` renamed to `pendingMutations` / `pendingActions` in connection state | Update any direct references to the renamed properties |
+| Custom JWT claims no longer forwarded onto `ConvexUser` from `decodeUserFromJwt` | Access custom claims from the raw JWT directly if needed |
+| `transformKey` option removed from `useConvexQuery` | Remove `transformKey` from options — results are applied directly |
+
+### 📖 Documentation
+
+- New [Server Call Lanes](./docs/content/docs/5.server-side/3.server-call-lanes.md) guide covering public, authenticated, and private bridge lanes
+- New [Local Development](./docs/content/docs/8.deployment/0.local-development.md) guide for `convex-vite-plugin` setup
+- Updated query and pagination docs with lazy variant examples
+- Updated connection state docs for new computed properties
+- Added callout notes for SSR usage of `useConvexMutation` and `useConvexAction`
+- New deployment guides: [Overview](./docs/content/docs/8.deployment/1.overview.md), [Environment Matrix](./docs/content/docs/8.deployment/2.environment-matrix.md), [Vercel](./docs/content/docs/8.deployment/3.vercel.md), [Troubleshooting](./docs/content/docs/8.deployment/4.troubleshooting.md)
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
+---
 
 ## v0.3.4
 
