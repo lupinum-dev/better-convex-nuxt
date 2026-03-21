@@ -254,4 +254,16 @@ async function executeViaSharedRuntime<Query extends FunctionReference<'query'>>
   })
 }
 
+export function useConvexQueryLazy<
+  Query extends FunctionReference<'query'>,
+  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+): UseConvexQueryData<DataT> {
+  return createConvexQueryState(query, args, options, true).resultData
+}
+
 export { executeViaSharedRuntime as executeConvexQuery }

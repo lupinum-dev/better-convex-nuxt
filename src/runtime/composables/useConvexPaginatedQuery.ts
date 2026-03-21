@@ -508,3 +508,15 @@ export async function useConvexPaginatedQuery<
   await created.resolvePromise
   return created.resultData
 }
+
+export function useConvexPaginatedQueryLazy<
+  Query extends PaginatedQueryReference,
+  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
+  TransformedItem = PaginatedQueryItem<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
+): UseConvexPaginatedQueryData<TransformedItem> {
+  return createConvexPaginatedQueryState(query, args, options, true).resultData
+}

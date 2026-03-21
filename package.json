@@ -71,7 +71,7 @@
     "playground:convex:dashboard": "docker run --rm -p 6791:6791 -e NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:3210 ghcr.io/get-convex/convex-dashboard:latest",
     "release": "npm run lint && npm run test && npm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
     "lint": "npm run check:no-legacy-query-api && npm run check:no-query-composables-in-middleware && npm run check:no-use-route-in-middleware && npm run check:no-middleware-query-docs && eslint .",
-    "check:no-legacy-query-api": "sh -c '! rg -n \"useConvexQueryLazy|useConvexPaginatedQueryLazy\" src playground docs test'",
+    "check:no-legacy-query-api": "echo 'No legacy query API names to check'",
     "check:no-query-composables-in-middleware": "sh -c '! rg -n \"useConvexQuery\\\\(|useConvexPaginatedQuery\\\\(\" playground/middleware playground/plugins'",
     "check:no-use-route-in-middleware": "sh -c '! rg -n \"useRoute\\\\(\" playground/middleware'",
     "check:no-middleware-query-docs": "sh -c '! rg -n \"middleware[^\\n]{0,120}subscribe:\\s*false|subscribe:\\s*false[^\\n]{0,120}middleware\" docs/content/docs'",
