@@ -80,6 +80,12 @@ jobs:
 
   consumer-smoke:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        fixture:
+          - consumer-smoke
+          - consumer-smoke-auth
+          - consumer-smoke-own-convex
 
     steps:
       - uses: actions/checkout@v6
@@ -101,21 +107,21 @@ jobs:
           echo "tarball_path=$RUNNER_TEMP/pack/$TARBALL" >> "$GITHUB_OUTPUT"
 
       - name: Install fixture dependencies
-        working-directory: test/fixtures/consumer-smoke
+        working-directory: test/fixtures/${{ matrix.fixture }}
         run: npx nypm@latest i
 
       - name: Install packed module in fixture
-        working-directory: test/fixtures/consumer-smoke
+        working-directory: test/fixtures/${{ matrix.fixture }}
         run: npx nypm@latest add "${{ steps.pack.outputs.tarball_path }}"
 
       - name: Verify packed module resolves
-        working-directory: test/fixtures/consumer-smoke
+        working-directory: test/fixtures/${{ matrix.fixture }}
         run: node -e "import('better-convex-nuxt').then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
 
       - name: Consumer build
-        working-directory: test/fixtures/consumer-smoke
+        working-directory: test/fixtures/${{ matrix.fixture }}
         run: npm run build
 
       - name: Consumer typecheck
-        working-directory: test/fixtures/consumer-smoke
+        working-directory: test/fixtures/${{ matrix.fixture }}
         run: npm run typecheck

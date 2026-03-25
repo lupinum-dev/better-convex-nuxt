@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 
 import { useRuntimeConfig } from '#imports'
 
+import { resolveServerAuthToken } from '../../utils/auth-token'
 import { normalizeConvexError, toError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
@@ -10,10 +11,16 @@ import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
 import type { ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
 
-const SESSION_COOKIE_NAME = 'better-auth.session_token='
-const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token='
-
 type ConvexOperationType = 'query' | 'mutation' | 'action'
+type ServerConvexHelperName = 'serverConvexQuery' | 'serverConvexMutation' | 'serverConvexAction'
+
+interface ServerConvexErrorContext {
+  helper: ServerConvexHelperName
+  operation: ConvexOperationType
+  functionPath: string
+  convexUrl?: string
+  authMode: ConvexServerAuthMode
+}
 
 export interface ServerConvexOptions {
   /**
@@ -29,24 +36,34 @@ export interface ServerConvexOptions {
   authToken?: string
 }
 
-function hasSessionCookie(cookieHeader: string): boolean {
-  return (
-    cookieHeader.includes(SESSION_COOKIE_NAME) || cookieHeader.includes(SECURE_SESSION_COOKIE_NAME)
-  )
+function getHelperName(operationType: ConvexOperationType): ServerConvexHelperName {
+  if (operationType === 'query') return 'serverConvexQuery'
+  if (operationType === 'mutation') return 'serverConvexMutation'
+  return 'serverConvexAction'
 }
 
-function extractSessionToken(cookieHeader: string): string | null {
-  const segments = cookieHeader.split(';')
-  for (const segment of segments) {
-    const trimmed = segment.trim()
-    if (trimmed.startsWith(SESSION_COOKIE_NAME)) {
-      return trimmed.slice(SESSION_COOKIE_NAME.length)
-    }
-    if (trimmed.startsWith(SECURE_SESSION_COOKIE_NAME)) {
-      return trimmed.slice(SECURE_SESSION_COOKIE_NAME.length)
-    }
-  }
-  return null
+function applyErrorContext(error: Error, context: ServerConvexErrorContext): Error {
+  Object.assign(error, context)
+  return error
+}
+
+function toServerConvexError(
+  error: unknown,
+  context: ServerConvexErrorContext,
+  phase: 'auth' | 'request',
+): Error {
+  const normalized = normalizeConvexError(error)
+  const err = toError({ ...normalized, ...context })
+  const prefix =
+    phase === 'auth'
+      ? `Failed to resolve auth for ${context.functionPath} (auth: ${context.authMode}).`
+      : `Request failed for ${context.functionPath} via ${context.convexUrl}/api/${context.operation}.`
+  err.message = `[${context.helper}] ${prefix} ${err.message}`
+  return applyErrorContext(err, context)
+}
+
+function createServerConvexError(message: string, context: ServerConvexErrorContext): Error {
+  return applyErrorContext(new Error(`[${context.helper}] ${message}`), context)
 }
 
 function getCookieHeader(event: H3Event): string {
@@ -67,70 +84,21 @@ async function resolveAuthToken(
   event: H3Event,
   options: ServerConvexOptions | undefined,
 ): Promise<string | undefined> {
-  if (options?.authToken) {
-    return options.authToken
-  }
-
-  const policy = options?.auth ?? 'auto'
-  if (policy === 'none') {
-    return undefined
-  }
-
   const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
   const cookieHeader = getCookieHeader(event)
-  const sessionToken = extractSessionToken(cookieHeader)
-
-  if (!cookieHeader || !hasSessionCookie(cookieHeader)) {
-    if (policy === 'required') {
-      throw new Error(
-        '[serverConvex] Authentication required but no Better Auth session cookie was found',
-      )
-    }
-    return undefined
-  }
-
-  if (!config.siteUrl) {
-    if (policy === 'required') {
-      throw new Error('[serverConvex] Authentication required but convex.siteUrl is not configured')
-    }
-    return undefined
-  }
-
-  try {
-    if (config.authCache.enabled && sessionToken) {
-      const cached = await getCachedAuthToken(sessionToken)
-      if (cached) {
-        return cached
-      }
-    }
-
-    const response = (await $fetch(`${config.siteUrl}/api/auth/convex/token`, {
-      headers: {
-        Cookie: cookieHeader,
-      },
-    })) as { token?: string } | null
-
-    if (response?.token) {
-      if (config.authCache.enabled && sessionToken) {
-        const ttl = config.authCache.ttl ?? 60
-        await setCachedAuthToken(sessionToken, response.token, ttl)
-      }
-      return response.token
-    }
-  } catch (error) {
-    if (policy === 'required') {
-      throw error instanceof Error
-        ? error
-        : new Error('[serverConvex] Failed to resolve auth token')
-    }
-    return undefined
-  }
-
-  if (policy === 'required') {
-    throw new Error('[serverConvex] Authentication required but token exchange returned no token')
-  }
-
-  return undefined
+  return await resolveServerAuthToken({
+    auth: options?.auth ?? 'auto',
+    authToken: options?.authToken,
+    cookieHeader,
+    siteUrl: config.siteUrl,
+    getCachedToken: config.authCache.enabled ? getCachedAuthToken : undefined,
+    setCachedToken: config.authCache.enabled
+      ? async (sessionToken, token) => {
+          const ttl = config.authCache.ttl ?? 60
+          await setCachedAuthToken(sessionToken, token, ttl)
+        }
+      : undefined,
+  })
 }
 
 async function executeConvexOperation<T>(
@@ -143,9 +111,20 @@ async function executeConvexOperation<T>(
   const runtimeConfig = useRuntimeConfig()
   const convexConfig = normalizeConvexRuntimeConfig(runtimeConfig.public.convex)
   const convexUrl = convexConfig.url
+  const authMode = options?.auth ?? 'auto'
+  const errorContext: ServerConvexErrorContext = {
+    helper: getHelperName(operationType),
+    operation: operationType,
+    functionPath,
+    convexUrl,
+    authMode,
+  }
 
   if (!convexUrl) {
-    throw new Error('[serverConvex] Convex URL not configured')
+    throw createServerConvexError(
+      `Convex URL not configured for ${functionPath}. Set \`convex.url\` in \`nuxt.config.ts\` or provide \`CONVEX_URL\` / \`NUXT_PUBLIC_CONVEX_URL\`.`,
+      errorContext,
+    )
   }
 
   const logLevel = getLogLevel(runtimeConfig.public.convex ?? {})
@@ -154,11 +133,6 @@ async function executeConvexOperation<T>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-  }
-
-  const authToken = await resolveAuthToken(event, options)
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`
   }
 
   const logSuccess = (duration: number) => {
@@ -181,6 +155,20 @@ async function executeConvexOperation<T>(
     }
   }
 
+  let authToken: string | undefined
+  try {
+    authToken = await resolveAuthToken(event, options)
+  } catch (error) {
+    const err = toServerConvexError(error, errorContext, 'auth')
+    const duration = Date.now() - startTime
+    logError(err, duration)
+    throw err
+  }
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+
   try {
     const response = await fetch(`${convexUrl}/api/${operationType}`, {
       method: 'POST',
@@ -193,8 +181,9 @@ async function executeConvexOperation<T>(
 
     const contentType = response.headers.get('content-type')
     if (!contentType?.includes('application/json')) {
-      const text = await response.text()
-      const err = new Error(`Unexpected response type: ${contentType}. Body: ${text.slice(0, 200)}`)
+      const err = new Error(
+        `Unexpected response type: ${contentType}. Expected JSON from ${convexUrl}/api/${operationType}.`,
+      )
       ;(err as Error & { status?: number }).status = response.status
       throw err
     }
@@ -207,8 +196,7 @@ async function executeConvexOperation<T>(
 
     return result
   } catch (error) {
-    const normalized = normalizeConvexError(error)
-    const err = toError(normalized)
+    const err = toServerConvexError(error, errorContext, 'request')
     const duration = Date.now() - startTime
     logError(err, duration)
     throw err

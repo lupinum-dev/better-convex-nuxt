@@ -124,14 +124,10 @@ export function useConvexAuth(): UseConvexAuthReturn {
   const isAuthenticated = computed(() => !!token.value && !!user.value)
 
   /**
-   * Signs out the user from both Better Auth and clears Convex auth state.
+   * Signs out the user from Better Auth and clears Convex auth state.
    *
-   * This is the recommended way to sign out as it:
-   * 1. Calls Better Auth's signOut() to clear the session cookie
-   * 2. Clears the local Convex token/user state immediately
-   *
-   * Using this instead of `authClient.signOut()` directly ensures
-   * the Convex auth state is cleared atomically with the session.
+   * This clears local Convex auth state immediately, then calls Better Auth's
+   * signOut() when available.
    *
    * @returns The result from Better Auth's signOut call, or null if auth client unavailable
    *

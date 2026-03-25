@@ -6,6 +6,16 @@ import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexAction (Nuxt runtime)', () => {
+  it('does not throw during setup without a client and fails only on execute()', async () => {
+    const action = mockFnRef<'action'>('testing:missing-client')
+
+    const { result } = await captureInNuxt(() => useConvexAction(action))
+
+    expect(result.status.value).toBe('idle')
+    await expect(result.execute({} as never)).rejects.toThrow('Convex client is unavailable')
+    expect(result.status.value).toBe('error')
+  })
+
   it('tracks pending and success states and exposes result data', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:echo')

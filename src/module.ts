@@ -453,6 +453,7 @@ export {}
       },
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
+      { name: 'useConvexQueryLazy', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
         name: 'defineSharedConvexQuery',
         from: resolver.resolve('./runtime/composables/defineSharedConvexQuery'),
@@ -460,6 +461,10 @@ export {}
       { name: 'useConvexCall', from: resolver.resolve('./runtime/composables/useConvexCall') },
       {
         name: 'useConvexPaginatedQuery',
+        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
+      },
+      {
+        name: 'useConvexPaginatedQueryLazy',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
       {

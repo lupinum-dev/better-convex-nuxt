@@ -26,6 +26,7 @@ export {
 } from './useConvexAction'
 export {
   useConvexQuery,
+  useConvexQueryLazy,
   getQueryKey,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
@@ -38,6 +39,7 @@ export {
 export { useConvexCall, type UseConvexCallOptions } from './useConvexCall'
 export {
   useConvexPaginatedQuery,
+  useConvexPaginatedQueryLazy,
   type PaginatedQueryStatus,
   type UseConvexPaginatedQueryOptions,
   type UseConvexPaginatedQueryData,

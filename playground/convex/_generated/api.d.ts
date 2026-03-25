@@ -16,6 +16,7 @@ import type * as lib_permissions from "../lib/permissions.js";
 import type * as notes from "../notes.js";
 import type * as organizations from "../organizations.js";
 import type * as posts from "../posts.js";
+import type * as private_demo from "../private/demo.js";
 import type * as tasks from "../tasks.js";
 import type * as testing from "../testing.js";
 import type * as users from "../users.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   notes: typeof notes;
   organizations: typeof organizations;
   posts: typeof posts;
+  "private/demo": typeof private_demo;
   tasks: typeof tasks;
   testing: typeof testing;
   users: typeof users;

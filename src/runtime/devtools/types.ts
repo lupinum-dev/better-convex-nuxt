@@ -1,7 +1,10 @@
+import type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult } from '../utils/auth-debug'
 /**
  * DevTools types and interfaces.
  */
 import type { QueryRegistryEntry } from './query-registry'
+
+export type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult }
 
 // ============================================================================
 // Mutation Types
@@ -94,44 +97,6 @@ export interface ConnectionState {
   hasEverConnected: boolean
   connectionRetries: number
   inflightRequests: number
-}
-
-// ============================================================================
-// Auth Waterfall Types (SSR Performance Debugging)
-// ============================================================================
-
-export type WaterfallPhaseResult = 'hit' | 'miss' | 'success' | 'error' | 'skipped'
-
-export interface AuthWaterfallPhase {
-  /** Phase name (e.g., "session-check", "cache-lookup", "token-exchange") */
-  name: string
-  /** Start time relative to waterfall start (ms) */
-  start: number
-  /** End time relative to waterfall start (ms) */
-  end: number
-  /** Duration in ms */
-  duration: number
-  /** Result of this phase */
-  result: WaterfallPhaseResult
-  /** Optional details (e.g., cache key, status code) */
-  details?: string
-}
-
-export interface AuthWaterfall {
-  /** Unique request identifier */
-  requestId: string
-  /** Timestamp when this waterfall was captured */
-  timestamp: number
-  /** Ordered list of phases in the auth flow */
-  phases: AuthWaterfallPhase[]
-  /** Total duration of all phases (ms) */
-  totalDuration: number
-  /** Final outcome of the auth check */
-  outcome: 'authenticated' | 'unauthenticated' | 'error'
-  /** Whether the auth token was served from cache */
-  cacheHit: boolean
-  /** Error message if outcome is 'error' */
-  error?: string
 }
 
 // ============================================================================

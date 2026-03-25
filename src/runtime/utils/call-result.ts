@@ -2,6 +2,11 @@ export interface ConvexCallError {
   message: string
   code?: string
   status?: number
+  helper?: string
+  operation?: string
+  functionPath?: string
+  convexUrl?: string
+  authMode?: string
   cause?: unknown
 }
 
@@ -14,6 +19,11 @@ interface ConvexErrorLike {
   message?: unknown
   status?: unknown
   code?: unknown
+  helper?: unknown
+  operation?: unknown
+  functionPath?: unknown
+  convexUrl?: unknown
+  authMode?: unknown
   cause?: unknown
 }
 
@@ -28,6 +38,16 @@ function asString(value: unknown): string | undefined {
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function getErrorMetadata(record: Record<string, unknown>): Omit<ConvexCallError, 'message' | 'code' | 'status' | 'cause'> {
+  return {
+    helper: asString(record.helper),
+    operation: asString(record.operation),
+    functionPath: asString(record.functionPath),
+    convexUrl: asString(record.convexUrl),
+    authMode: asString(record.authMode),
+  }
 }
 
 function parseMessageForCode(message: string): { message: string; code?: string } {
@@ -82,11 +102,13 @@ export function normalizeConvexError(error: unknown): ConvexCallError {
 
   if (error instanceof Error) {
     const record = error as Error & ConvexErrorLike
+    const metadata = getErrorMetadata(record as unknown as Record<string, unknown>)
     const structured = asRecord(record.data)
     if (structured) {
       const fromData = fromStructuredData(structured)
       if (fromData) {
         return {
+          ...metadata,
           ...fromData,
           status: fromData.status ?? asNumber(record.status),
           cause: record,
@@ -97,6 +119,7 @@ export function normalizeConvexError(error: unknown): ConvexCallError {
     const message = asString(record.message) ?? fallbackMessage
     const parsed = parseMessageForCode(message)
     return {
+      ...metadata,
       message: parsed.message,
       code: asString(record.code) ?? parsed.code,
       status: asNumber(record.status),
@@ -106,11 +129,13 @@ export function normalizeConvexError(error: unknown): ConvexCallError {
 
   const record = asRecord(error)
   if (record) {
+    const metadata = getErrorMetadata(record)
     const structured = asRecord(record.data)
     if (structured) {
       const fromData = fromStructuredData(structured)
       if (fromData) {
         return {
+          ...metadata,
           ...fromData,
           status: fromData.status ?? asNumber(record.status),
           cause: error,
@@ -121,6 +146,7 @@ export function normalizeConvexError(error: unknown): ConvexCallError {
     const message = asString(record.message) ?? fallbackMessage
     const parsed = parseMessageForCode(message)
     return {
+      ...metadata,
       message: parsed.message,
       code: asString(record.code) ?? parsed.code,
       status: asNumber(record.status),
@@ -141,6 +167,11 @@ export function toError(error: ConvexCallError): Error {
   const err = new Error(error.message)
   ;(err as Error & ConvexErrorLike).code = error.code
   ;(err as Error & ConvexErrorLike).status = error.status
+  ;(err as Error & ConvexErrorLike).helper = error.helper
+  ;(err as Error & ConvexErrorLike).operation = error.operation
+  ;(err as Error & ConvexErrorLike).functionPath = error.functionPath
+  ;(err as Error & ConvexErrorLike).convexUrl = error.convexUrl
+  ;(err as Error & ConvexErrorLike).authMode = error.authMode
   ;(err as Error & ConvexErrorLike).cause = error.cause
   return err
 }

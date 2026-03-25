@@ -8,7 +8,7 @@ import { ConvexClient } from 'convex/browser'
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
-import type { AuthWaterfall } from './devtools/types'
+import type { AuthWaterfall } from './utils/auth-debug'
 import {
   buildClientAuthRequestFailureMessage,
   buildClientAuthResponseErrorMessage,
@@ -141,15 +141,10 @@ export default defineNuxtPlugin((nuxtApp) => {
 
     // Token cache to avoid redundant fetches
     let lastTokenValidation = Date.now()
-    let lastNullTokenCheck = 0
     const TOKEN_CACHE_MS = 10000
     const TOKEN_EXPIRY_SAFETY_BUFFER_MS = 30_000
-    const NULL_TOKEN_CACHE_MS = 5000 // Cache "not logged in" state to avoid duplicate 401s
     const skipRoutes = convexConfig.skipAuthRoutes
     const router = useRouter()
-
-    // Cancellation controller for auth operations (kept for potential future use)
-    // let currentAuthOperation: AbortController | null = null
 
     const fetchToken = async ({
       forceRefreshToken,
@@ -173,7 +168,6 @@ export default defineNuxtPlugin((nuxtApp) => {
         },
       })
 
-      // Check if operation was cancelled before starting
       if (signal?.aborted) {
         logger.auth({
           phase: 'client-fetchToken:abort',
@@ -184,10 +178,10 @@ export default defineNuxtPlugin((nuxtApp) => {
             path: routePath,
           },
         })
+        resolveInitialAuth()
         return null
       }
 
-      // Layer 3: Page-level skip via definePageMeta({ skipConvexAuth: true })
       if (route.meta?.skipConvexAuth === true) {
         logger.auth({
           phase: 'client-fetchToken:skip',
@@ -198,7 +192,6 @@ export default defineNuxtPlugin((nuxtApp) => {
         return null
       }
 
-      // Layer 2: Config-based route skip (skipAuthRoutes in nuxt.config)
       if (matchesSkipRoute(route.path, skipRoutes)) {
         logger.auth({
           phase: 'client-fetchToken:skip',
@@ -209,7 +202,6 @@ export default defineNuxtPlugin((nuxtApp) => {
         return null
       }
 
-      // Use SSR-hydrated token if available
       if (convexToken.value && !forceRefreshToken) {
         lastTokenValidation = Date.now()
         logger.auth({
@@ -221,10 +213,30 @@ export default defineNuxtPlugin((nuxtApp) => {
         return convexToken.value
       }
 
-      // Use cached token if recently validated
       const timeSinceValidation = Date.now() - lastTokenValidation
       if (convexToken.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
         const tokenTimeUntilExpiryMs = getJwtTimeUntilExpiryMs(convexToken.value)
+        const canReuseToken =
+          tokenTimeUntilExpiryMs === null ||
+          (tokenTimeUntilExpiryMs > TOKEN_EXPIRY_SAFETY_BUFFER_MS &&
+            timeSinceValidation <
+              Math.min(TOKEN_CACHE_MS, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS))
+
+        if (canReuseToken) {
+          logger.auth({
+            phase: 'client-fetchToken:cache',
+            outcome: 'success',
+            details: {
+              traceId: convexAuthTraceId.value,
+              source: 'recent-token-cache',
+              ageMs: timeSinceValidation,
+              path: routePath,
+            },
+          })
+          resolveInitialAuth()
+          return convexToken.value
+        }
+
         if (
           tokenTimeUntilExpiryMs !== null &&
           tokenTimeUntilExpiryMs <= TOKEN_EXPIRY_SAFETY_BUFFER_MS
@@ -239,32 +251,9 @@ export default defineNuxtPlugin((nuxtApp) => {
               path: routePath,
             },
           })
-        } else if (
-          tokenTimeUntilExpiryMs === null ||
-          timeSinceValidation <
-            Math.min(
-              TOKEN_CACHE_MS,
-              Math.max(0, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS),
-            )
-        ) {
-          logger.auth({
-            phase: 'client-fetchToken:cache',
-            outcome: 'success',
-            details: {
-              traceId: convexAuthTraceId.value,
-              source: 'recent-token-cache',
-              ageMs: timeSinceValidation,
-              path: routePath,
-            },
-          })
-          resolveInitialAuth()
-          return convexToken.value
         }
       }
 
-      // Layer 1: SSR detection - trust hydration in SSR mode
-      // If server rendered and no token/user, server would have hydrated if user was logged in
-      // Skip this check if forceRefreshToken is true (session changed client-side)
       const wasServerRendered = !!nuxtApp.payload?.serverRendered
       if (wasServerRendered && !convexToken.value && !convexUser.value && !forceRefreshToken) {
         logger.auth({
@@ -280,25 +269,6 @@ export default defineNuxtPlugin((nuxtApp) => {
         return null
       }
 
-      // Negative cache: if we recently confirmed no session, don't re-check
-      // This prevents duplicate 401 requests during Convex client initialization
-      const timeSinceNullCheck = Date.now() - lastNullTokenCheck
-      if (!convexToken.value && timeSinceNullCheck < NULL_TOKEN_CACHE_MS) {
-        logger.auth({
-          phase: 'client-fetchToken:cache',
-          outcome: 'miss',
-          details: {
-            traceId: convexAuthTraceId.value,
-            source: 'negative-cache',
-            ageMs: timeSinceNullCheck,
-            path: routePath,
-          },
-        })
-        resolveInitialAuth()
-        return null
-      }
-
-      // CSR mode: must fetch token (unavoidable for HttpOnly cookie auth)
       try {
         logger.auth({
           phase: 'client-fetchToken:request',
@@ -311,7 +281,6 @@ export default defineNuxtPlugin((nuxtApp) => {
         })
         const response = await authClient!.convex.token()
 
-        // Check if operation was cancelled after async operation
         if (signal?.aborted) {
           logger.auth({
             phase: 'client-fetchToken:abort',
@@ -322,13 +291,14 @@ export default defineNuxtPlugin((nuxtApp) => {
               path: routePath,
             },
           })
+          resolveInitialAuth()
           return null
         }
 
         if (response.error || !response.data?.token) {
           convexToken.value = null
           convexUser.value = null
-          // Set auth error only for explicit failures. Missing token without error is typically "not signed in".
+
           if (response.error) {
             const errorMsg =
               typeof response.error === 'object' &&
@@ -340,7 +310,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           } else {
             convexAuthError.value = null
           }
-          lastNullTokenCheck = Date.now() // Cache the "no session" result
+
           logger.auth({
             phase: 'client-fetchToken:response',
             outcome: 'miss',
@@ -353,12 +323,12 @@ export default defineNuxtPlugin((nuxtApp) => {
           resolveInitialAuth()
           return null
         }
+
         const token = response.data.token
         convexToken.value = token
-        convexAuthError.value = null // Clear any previous error on success
+        convexAuthError.value = null
         lastTokenValidation = Date.now()
 
-        // In CSR mode, extract user from JWT since server didn't hydrate it
         if (!convexUser.value) {
           convexUser.value = decodeUserFromJwt(token)
         }
@@ -376,7 +346,6 @@ export default defineNuxtPlugin((nuxtApp) => {
         resolveInitialAuth()
         return token
       } catch (e) {
-        // Check if operation was cancelled
         if (signal?.aborted) {
           logger.auth({
             phase: 'client-fetchToken:abort',
@@ -387,14 +356,13 @@ export default defineNuxtPlugin((nuxtApp) => {
               path: routePath,
             },
           })
+          resolveInitialAuth()
           return null
         }
 
         convexToken.value = null
         convexUser.value = null
-        // Set auth error for caught exceptions
         convexAuthError.value = buildClientAuthRequestFailureMessage(e)
-        lastNullTokenCheck = Date.now() // Cache the failed result
         logger.auth({
           phase: 'client-fetchToken:response',
           outcome: 'error',
@@ -429,7 +397,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       })
       // Reset cache timestamps to force fresh fetch
       lastTokenValidation = 0
-      lastNullTokenCheck = 0
 
       await new Promise<void>((resolve) => {
         client.setAuth(fetchToken, (_isAuthenticated) => {
@@ -446,13 +413,14 @@ export default defineNuxtPlugin((nuxtApp) => {
     })
 
     // NOTE: We intentionally do NOT call authClient.useSession() here.
-    // useSession() triggers a separate /get-session fetch which is redundant
-    // since we already fetch /convex/token and decode user info from the JWT.
+    // That would add an extra /get-session round trip on top of /convex/token.
+    // We keep the client auth path to a single token exchange and decode user info
+    // directly from the JWT.
     //
     // Login/logout detection:
     // - LOGIN: User refreshes page or navigates after login → token is fetched naturally
-    // - LOGOUT: Use the signOut() helper from useConvexAuth() which clears both
-    //           Better Auth session AND Convex state atomically
+    // - LOGOUT: Use the signOut() helper from useConvexAuth() which clears local
+    //           Convex state and signs out from Better Auth
     //
     // If you need reactive session watching, use authClient.useSession() in your component,
     // but be aware it adds an extra API call (~2 Convex queries).

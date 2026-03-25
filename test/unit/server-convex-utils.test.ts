@@ -116,7 +116,7 @@ describe('server Convex fetch helpers', () => {
 
     await expect(
       serverConvexQuery(createEvent(), { _path: 'notes:list' } as never, {} as never),
-    ).rejects.toThrow('Unexpected response type: text/html')
+    ).rejects.toThrow(/Unexpected response type: text\/html/)
   })
 
   it('parses Convex error response payloads', async () => {
@@ -211,6 +211,36 @@ describe('server Convex fetch helpers', () => {
         auth: 'required',
       }),
     ).rejects.toThrow('Authentication required')
+  })
+
+  it('includes helper metadata on auth resolution failures', async () => {
+    useRuntimeConfigMock.mockReturnValue({
+      public: {
+        convex: {
+          url: 'https://api.example.com',
+          siteUrl: '',
+        },
+      },
+    })
+
+    try {
+      await serverConvexQuery(
+        createEvent('better-auth.session_token=session123'),
+        { _path: 'tasks:list' } as never,
+        {} as never,
+        { auth: 'required' },
+      )
+      throw new Error('Expected query to fail')
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error)
+      expect(error).toMatchObject({
+        helper: 'serverConvexQuery',
+        functionPath: 'tasks:list',
+        authMode: 'required',
+      })
+      expect((error as Error).message).toContain('Failed to resolve auth for tasks:list')
+      expect((error as Error).message).toContain('convex.siteUrl is not configured')
+    }
   })
 
   it('auth:none never calls token exchange endpoint', async () => {

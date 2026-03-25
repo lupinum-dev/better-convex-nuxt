@@ -2,7 +2,7 @@
  * Playground-only example: extend ConvexUser returned by useConvexAuth().
  *
  * This demonstrates module augmentation for local development in this repo.
- * Runtime values only appear if these claims are present in the Convex JWT.
+ * The runtime decoder only fills the normalized identity fields.
  */
 declare module '../../src/runtime/utils/types' {
   interface ConvexUser {

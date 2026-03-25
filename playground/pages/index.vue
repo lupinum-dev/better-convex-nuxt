@@ -111,6 +111,13 @@
               <p>useConvexConnectionState</p>
             </div>
           </NuxtLink>
+          <NuxtLink to="/labs/references" class="link-card new">
+            <span class="icon">S</span>
+            <div>
+              <strong>Server Boundary Reference</strong>
+              <p>Public, user-scoped, privileged, and auth-failure server flows</p>
+            </div>
+          </NuxtLink>
         </div>
       </section>
 
@@ -143,6 +150,7 @@
             <NuxtLink to="/labs/connection" class="link-card-mini">Connection</NuxtLink>
             <NuxtLink to="/labs/auth" class="link-card-mini">Auth Components</NuxtLink>
             <NuxtLink to="/labs/mutations" class="link-card-mini">Mutations</NuxtLink>
+            <NuxtLink to="/labs/references" class="link-card-mini">Server Boundary</NuxtLink>
             <NuxtLink to="/labs/upload" class="link-card-mini">File Upload</NuxtLink>
           </div>
         </details>

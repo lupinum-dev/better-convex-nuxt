@@ -12,12 +12,12 @@
       <p class="hint">
         This page includes a TypeScript-only check for <code>user.role</code>,
         <code>user.authId</code>, and <code>user.organizationId</code>. If this page compiles and
-        loads, <code>ConvexUser</code> augmentation is working.
+        loads, the local <code>ConvexUser</code> augmentation is working.
       </p>
       <p class="hint">
         <strong>Important:</strong> the authoritative app role comes from Convex (see
         <code>convex db role</code> below). The <code>custom role</code> field here is a demo JWT
-        claim for extending <code>ConvexUser</code>.
+        typing example, not a runtime auth field.
       </p>
       <div class="state-grid">
         <div class="state-item">

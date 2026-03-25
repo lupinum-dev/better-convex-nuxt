@@ -5,31 +5,42 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, and permissions.
+Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, file uploads, and permissions.
 
 - [Documentation](https://better-convex-nuxt.vercel.app)
 
 > [!NOTE]
-> **Work In Progress**
-> This module is rapidly evolving. While we are using it in our own apps, features and APIs are subject to change as we refine the best patterns for Nuxt + Convex.
+> This module is evolving quickly. Prefer the hosted docs for the latest setup and deployment guidance.
 
-Contributions and PRs to help improve the library, playground or docs are highly appreciated! 🙏
-
-## Features
-
-- **Real-time Queries** - Fetch data with SSR, then upgrade to WebSocket subscriptions
-- **Optimistic Updates** - Instant UI feedback with automatic rollback on failure
-- **Authentication** - Better Auth integration with email/password, OAuth, and magic links
-- **Permissions** - Role-based access control with ownership rules
-- **SSR Support** - Server-side rendering with hydration
-- **Type Safety** - Full TypeScript inference from your Convex schema
-
-## Quick Setup
-
-Install the module:
+## Install
 
 ```bash
-pnpm add better-convex-nuxt
+pnpm add convex better-convex-nuxt
+```
+
+## Quick Start
+
+1. Add the module to `nuxt.config.ts`.
+2. Run `npx convex dev` to create your Convex project and generate `.env.local`.
+3. Start Nuxt with `--dotenv .env.local`.
+
+```ts
+export default defineNuxtConfig({
+  modules: ['better-convex-nuxt'],
+  convex: {
+    url: process.env.CONVEX_URL,
+  },
+})
+```
+
+```json
+{
+  "scripts": {
+    "dev": "nuxt dev --dotenv .env.local",
+    "build": "nuxt build --dotenv .env.local",
+    "typecheck": "nuxt typecheck --dotenv .env.local"
+  }
+}
 ```
 
 ## Usage
@@ -40,7 +51,6 @@ pnpm add better-convex-nuxt
 <script setup lang="ts">
 import { api } from '~/convex/_generated/api'
 
-// Real-time subscription with SSR support
 const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: 'active' })
 </script>
 
@@ -59,12 +69,12 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: '
 <script setup lang="ts">
 import { api } from '~/convex/_generated/api'
 
-const { execute, pending } = useConvexMutation(api.tasks.create, {
+const { execute } = useConvexMutation(api.tasks.create, {
   optimisticUpdate: (localStore, args) => {
     updateQuery({
       query: api.tasks.list,
       args: {},
-      localQueryStore: localStore,
+      store: localStore,
       updater: (current) =>
         current ? [{ _id: 'temp', text: args.text, completed: false }, ...current] : [],
     })
@@ -79,11 +89,10 @@ await execute({ text: 'Ship my app' })
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user } = useConvexAuth()
-const authClient = useAuthClient()
+const { isAuthenticated, user, signIn } = useConvexAuth()
 
 async function handleLogin() {
-  await authClient.signIn.social({ provider: 'github' })
+  await signIn.social({ provider: 'github' })
 }
 </script>
 
@@ -93,69 +102,101 @@ async function handleLogin() {
 </template>
 ```
 
-## Composables
+## Where Env Vars Go
 
-| Composable                 | Description                                          |
-| -------------------------- | ---------------------------------------------------- |
-| `useConvexQuery`           | Execute queries with SSR and real-time subscriptions |
-| `useConvexMutation`        | Execute mutations with optimistic updates            |
-| `useConvexAction`          | Execute Convex actions                               |
-| `useConvexPaginatedQuery`  | Paginated queries with `loadMore()`                  |
-| `useConvexFileUpload`      | Upload files to Convex storage with progress         |
-| `useConvexUploadQueue`     | Queue uploads with controlled concurrency            |
-| `useConvexStorageUrl`      | Get reactive URLs for stored files                   |
-| `useConvexAuth`            | Authentication state (user, token, isAuthenticated)  |
-| `useConvexConnectionState` | WebSocket connection status                          |
-| `createPermissions`        | Build app-specific permission composables            |
-| `useConvex`                | Access raw ConvexClient instance                     |
+For most apps:
 
-## Components
+- `CONVEX_URL`: set in the Nuxt app environment or read in `nuxt.config.ts`
+- `CONVEX_SITE_URL`: optional override only when auto-derivation is not correct
+- `SITE_URL`: set in Convex Dashboard for Better Auth redirects/callbacks
+- `BETTER_AUTH_SECRET`: set in Convex Dashboard when auth is enabled
 
-| Component                 | Description                                 |
-| ------------------------- | ------------------------------------------- |
-| `<ConvexAuthenticated>`   | Renders content only when authenticated     |
-| `<ConvexUnauthenticated>` | Renders content only when not authenticated |
-| `<ConvexAuthLoading>`     | Renders content during auth state loading   |
-| `<ConvexAuthError>`       | Renders content when auth resolution fails  |
+The full matrix, including `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`, provider credentials, `REDIS_URL`, and `JWKS`, lives here:
 
-## Documentation
+- [Environment Matrix](https://better-convex-nuxt.vercel.app/docs/deployment/environment-matrix)
+- [Local Development](https://better-convex-nuxt.vercel.app/docs/deployment/local-development)
 
-Visit [better-convex-nuxt.vercel.app](https://better-convex-nuxt.vercel.app) for full documentation including:
+## Local Development
 
-- [Installation & Setup](https://better-convex-nuxt.vercel.app/getting-started/installation)
-- [SSR Patterns](https://better-convex-nuxt.vercel.app/patterns/ssr-patterns)
-- [Optimistic Updates](https://better-convex-nuxt.vercel.app/patterns/optimistic-updates)
-- [Permissions](https://better-convex-nuxt.vercel.app/patterns/permissions)
-- [Server Utilities](https://better-convex-nuxt.vercel.app/server/server-utilities)
+If you want fixed localhost Convex URLs during Nuxt development, wire the local backend through
+`convex-vite-plugin` and keep hosted Convex values in `.env.local` as the default mode. This is an
+optional dev-only dependency for playground/local DX. It does not affect the published module
+runtime.
+
+```ts
+import { convexLocal } from 'convex-vite-plugin'
+
+const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
+const localConvexUrl = 'http://127.0.0.1:3210'
+const localConvexSiteUrl = 'http://127.0.0.1:3211'
+const appUrl = process.env.SITE_URL || 'http://localhost:3000'
+
+export default defineNuxtConfig({
+  modules: ['better-convex-nuxt'],
+  convex: {
+    url: useLocalConvex ? localConvexUrl : process.env.CONVEX_URL,
+    siteUrl: useLocalConvex ? localConvexSiteUrl : process.env.CONVEX_SITE_URL,
+  },
+  hooks: {
+    'vite:extendConfig': (config, { isClient }) => {
+      if (!useLocalConvex || !isClient) return
+      config.plugins = [
+        ...(config.plugins ?? []),
+        convexLocal({
+          port: 3210,
+          siteProxyPort: 3211,
+          projectDir: '.',
+          convexDir: 'convex',
+          envVars: {
+            SITE_URL: appUrl,
+            AUTH_BASE_URL: process.env.AUTH_BASE_URL || appUrl,
+            AUTH_TRUSTED_ORIGINS: process.env.AUTH_TRUSTED_ORIGINS || appUrl,
+            BETTER_AUTH_SECRET:
+              process.env.BETTER_AUTH_SECRET || 'local-dev-better-auth-secret-not-for-production',
+          },
+        }),
+      ]
+    },
+  },
+})
+```
+
+In local mode the Nuxt auth proxy and `serverConvex*` helpers still talk to `convex.siteUrl`; the
+only difference is that `convex.siteUrl` now points at the local HTTP Actions proxy instead of a
+hosted `.convex.site` domain.
+
+The privileged reference lane shown in the playground is also opt-in. `pnpm dev:local` enables it
+with a playground-only key for demo purposes. Plain `pnpm dev` leaves that backend-only lane
+disabled unless you explicitly configure matching bridge keys in both the Nuxt server runtime and
+the Convex backend env.
+
+## Docs
+
+- [Getting Started](https://better-convex-nuxt.vercel.app/docs/guide/get-started)
+- [Authentication Reference](https://better-convex-nuxt.vercel.app/docs/auth-security/authentication)
+- [Server Call Lanes](https://better-convex-nuxt.vercel.app/docs/server-side/server-call-lanes)
+- [Permissions Setup](https://better-convex-nuxt.vercel.app/docs/auth-security/permissions-setup)
+- [Server Routes](https://better-convex-nuxt.vercel.app/docs/server-side/server-routes)
+- [System Workloads: Private Bridge](https://better-convex-nuxt.vercel.app/docs/recipes/system-workloads-private-bridge)
+- [Module Configuration](https://better-convex-nuxt.vercel.app/docs/advanced/module-config)
+- [Deployment Overview](https://better-convex-nuxt.vercel.app/docs/deployment/overview)
 
 ## Contributing
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Generate type stubs
 pnpm dev:prepare
-
-# Develop with the playground
 pnpm dev
-
-# Run tests
+pnpm dev:local
 pnpm test
-
-# Lint
 pnpm lint
 ```
 
-## Acknowledgements
-
-- File upload composables inspired by [nuxt-convex](https://github.com/onmax/nuxt-convex) by [@onmax](https://github.com/onmax)
+Maintainer setup notes live in [DEVELOPMENT.md](./DEVELOPMENT.md).
 
 ## License
 
 [MIT](./LICENSE)
-
-<!-- Badges -->
 
 [npm-version-src]: https://img.shields.io/npm/v/better-convex-nuxt/latest.svg?style=flat&colorA=020420&colorB=00DC82
 [npm-version-href]: https://npmjs.com/package/better-convex-nuxt

@@ -35,7 +35,7 @@ describe('decodeUserFromJwt', () => {
     })
   })
 
-  it('preserves custom claims for augmented ConvexUser consumers', () => {
+  it('ignores custom claims and keeps the user shape strict', () => {
     const token = makeJwt({
       sub: 'user_123',
       name: 'Ada',
@@ -46,17 +46,20 @@ describe('decodeUserFromJwt', () => {
       profile: { theme: 'dark' },
       iat: 1234567890,
       exp: 1234567999,
+      ['__proto__']: { polluted: true },
+      constructor: { polluted: true },
+      prototype: { polluted: true },
     })
 
-    expect(decodeUserFromJwt(token)).toEqual({
+    const user = decodeUserFromJwt(token)
+
+    expect(user).toEqual({
       id: 'user_123',
       name: 'Ada',
       email: 'ada@example.com',
-      role: 'admin',
-      organizationId: 'org_1',
-      flags: ['beta'],
-      profile: { theme: 'dark' },
     })
+    expect(user).not.toHaveProperty('claims')
+    expect(({} as { polluted?: boolean }).polluted).toBeUndefined()
   })
 
   it('returns null when identifier claims resolve to an empty id', () => {

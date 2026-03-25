@@ -83,6 +83,7 @@ export function getJwtTimeUntilExpiryMs(token: string, nowMs = Date.now()): numb
 export function decodeUserFromJwt(token: string): ConvexUser | null {
   const payload = decodeJwtPayload(token)
   if (!payload) return null
+  if (typeof payload !== 'object' || Array.isArray(payload)) return null
 
   // Check for required identifiers
   if (!payload.sub && !payload.userId && !payload.email) {
@@ -99,30 +100,6 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
 
   if (!user.id) {
     return null
-  }
-
-  // Preserve custom claims for consumers who augment ConvexUser.
-  // Skip standard JWT claims and the normalized fields we already mapped above.
-  for (const [key, value] of Object.entries(payload)) {
-    if (
-      key === 'sub' ||
-      key === 'userId' ||
-      key === 'name' ||
-      key === 'email' ||
-      key === 'emailVerified' ||
-      key === 'image' ||
-      key === 'iss' ||
-      key === 'aud' ||
-      key === 'exp' ||
-      key === 'nbf' ||
-      key === 'iat' ||
-      key === 'jti'
-    ) {
-      continue
-    }
-
-    // Claims are JSON-safe values from JWT payload; attach as-is for augmented types.
-    ;(user as Record<string, unknown>)[key] = value
   }
 
   return user as ConvexUser
