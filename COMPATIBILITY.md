@@ -7,8 +7,8 @@
 | Dependency                | Bundled Version  | Consumer Range (if bringing your own) |
 | ------------------------- | ---------------- | ------------------------------------- |
 | `convex`                  | `^1.34.0`        | `^1.32.0` (optional peer)             |
-| `better-auth`             | `>=1.4.9 <1.5.0` | N/A (bundled only)                    |
-| `@convex-dev/better-auth` | `^0.10.13`       | N/A (bundled only)                    |
+| `better-auth`             | `>=1.5.0 <1.6.0` | N/A (bundled only)                    |
+| `@convex-dev/better-auth` | `^0.11.3`        | N/A (bundled only)                    |
 | Nuxt                      | —                | `>=4.0.0`                             |
 
 ### v0.3.x
@@ -29,7 +29,7 @@ This is the only dependency you might share with the library. `better-auth` and 
 
 The trio (`convex` + `better-auth` + `@convex-dev/better-auth`) is always upgraded together in a single release. We never bump one independently.
 
-The `better-auth` range has a ceiling (`<1.5.0`) that matches the `@convex-dev/better-auth` peer constraint. This ceiling is lifted when the Convex adapter adds support for newer better-auth versions.
+The `better-auth` range has a ceiling (`<1.6.0`) that matches the `@convex-dev/better-auth` peer constraint. This ceiling is lifted when the Convex adapter adds support for newer better-auth versions.
 
 ## CI Verification
 
