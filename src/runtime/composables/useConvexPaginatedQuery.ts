@@ -145,7 +145,6 @@ export function createConvexPaginatedQueryState<
 
   const fnName = getFunctionName(query)
   const enabled = computed(() => toValue(options?.enabled) ?? true)
-  const isSkipped = computed(() => !enabled.value)
 
   const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
@@ -159,6 +158,12 @@ export function createConvexPaginatedQueryState<
       return {} as Args
     }
     return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
+  })
+
+  const isSkipped = computed(() => {
+    if (!enabled.value) return true
+    const rawArgs = args === undefined ? {} : toValue(args)
+    return rawArgs == null
   })
 
   const argsHash = computed(() => hashArgs(normalizedArgs.value))

@@ -15,38 +15,21 @@ export interface ConvexPublicRuntimeConfig {
   url?: string
   /** Convex site URL (HTTP/Auth) */
   siteUrl?: string
-  /** Auth integration config */
+  /** Auth integration config (route, trusted origins, cache, proxy, skip routes) */
   auth?: ConvexAuthConfigInput
-  /** Auth proxy route path */
-  authRoute?: string
-  /** Additional trusted origins for auth proxy CORS */
-  trustedOrigins?: string[]
-  /** Routes that should skip auth checks */
-  skipAuthRoutes?: string[]
-  /** Whether permissions helper mode is enabled */
-  permissions?: boolean
-  /** Logging level */
-  logging?: LogLevel
-  /** SSR auth cache config */
-  authCache?: {
-    enabled?: boolean
-    ttl?: number
-  }
   /** Global query defaults */
-  defaults?: {
+  query?: {
     server?: boolean
     subscribe?: boolean
-    auth?: 'auto' | 'none'
   }
   /** Upload defaults */
   upload?: {
     maxConcurrent?: number
   }
-  /** Auth proxy body-size defaults */
-  authProxy?: {
-    maxRequestBodyBytes?: number
-    maxResponseBodyBytes?: number
-  }
+  /** Whether permissions helper mode is enabled */
+  permissions?: boolean
+  /** Logging level */
+  logging?: LogLevel
   /** Optional debug channels for high-verbosity traces */
   debug?: {
     authFlow?: boolean

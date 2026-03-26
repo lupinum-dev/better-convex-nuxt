@@ -15,7 +15,13 @@ import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#
 import type { AuthWaterfall, AuthWaterfallPhase } from './utils/auth-debug'
 import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cache'
 import { fetchWithTimeout } from './server/utils/http'
-import { SERVER_FETCH_TIMEOUT_MS } from './utils/constants'
+import {
+  SERVER_FETCH_TIMEOUT_MS,
+  STATE_KEY_TOKEN,
+  STATE_KEY_USER,
+  STATE_KEY_AUTH_ERROR,
+  STATE_KEY_AUTH_WATERFALL,
+} from './utils/constants'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
@@ -142,7 +148,7 @@ export default defineNuxtPlugin(async () => {
 
   if (!siteUrl) {
     const message = buildMissingSiteUrlMessage(convexConfig.url)
-    const convexAuthError = useState<string | null>('convex:authError', () => null)
+    const convexAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
     convexAuthError.value = message
     endInit()
     logger.auth({ phase: 'init', outcome: 'error', error: new Error(message) })
@@ -172,10 +178,13 @@ export default defineNuxtPlugin(async () => {
   }
 
   // Initialize useState for hydration (must be done even if unauthenticated)
-  const convexToken = useState<string | null>('convex:token', () => null)
-  const convexUser = useState<ConvexUser | null>('convex:user', () => null)
-  const convexAuthError = useState<string | null>('convex:authError', () => null)
-  const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
+  const convexToken = useState<string | null>(STATE_KEY_TOKEN, () => null)
+  const convexUser = useState<ConvexUser | null>(STATE_KEY_USER, () => null)
+  const convexAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
+  // authWaterfall is dev-only — skip allocation in production to avoid serializing dead state
+  const convexAuthWaterfall = import.meta.dev
+    ? useState<AuthWaterfall | null>(STATE_KEY_AUTH_WATERFALL, () => null)
+    : { value: null as AuthWaterfall | null }
 
   // Waterfall tracking (dev-only)
   const trackWaterfall = import.meta.dev

@@ -103,20 +103,26 @@ export function createConvexQueryState<
   const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
 
   const enabled = computed(() => toValue(options?.enabled) ?? true)
-  const isSkipped = computed(() => !enabled.value)
 
   const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
+    if (rawArgs == null) return {} as Args
+    return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
+  })
+
+  const isSkipped = computed(() => {
+    if (!enabled.value) return true
+    const rawArgs = args === undefined ? {} : toValue(args)
     if (rawArgs == null) {
-      if (import.meta.dev && enabled.value) {
+      if (import.meta.dev) {
         console.warn(
           `[better-convex-nuxt] Query "${fnName}" received null/undefined args while enabled. ` +
             `Use \`enabled: () => !!id\` to conditionally skip queries instead of passing null args.`,
         )
       }
-      return {} as Args
+      return true
     }
-    return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
+    return false
   })
 
   assertConvexComposableScope(
