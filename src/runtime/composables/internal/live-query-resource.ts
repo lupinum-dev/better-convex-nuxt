@@ -252,6 +252,7 @@ export function startSharedQuerySubscription<Query extends FunctionReference<'qu
     cleanupBridgeWatchers()
     if (unsubscribe && !registered) {
       unsubscribe()
+      unsubscribe = null
     }
     onError(error instanceof Error ? error : new Error(String(error)))
   }

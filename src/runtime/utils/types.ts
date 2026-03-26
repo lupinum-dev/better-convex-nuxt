@@ -33,19 +33,6 @@ export interface ConvexUser {
 // Module Configuration Types
 // ============================================================================
 
-/**
- * Token cache configuration for client-side token validation.
- */
-export interface TokenCacheConfig {
-  /** Time-to-live in milliseconds for cached tokens */
-  ttlMs: number
-}
-
-/**
- * Default token cache configuration
- */
-export const DEFAULT_TOKEN_CACHE_TTL_MS = 10_000 // 10 seconds
-
 // ============================================================================
 // Utility Types
 // ============================================================================
@@ -53,7 +40,7 @@ export const DEFAULT_TOKEN_CACHE_TTL_MS = 10_000 // 10 seconds
 /**
  * Shared lifecycle status for query/mutation/action composables.
  */
-export type ConvexCallStatus = 'idle' | 'pending' | 'success' | 'error'
+export type ConvexCallStatus = 'idle' | 'pending' | 'success' | 'error' | 'skipped'
 
 /**
  * Client-side auth mode for query composables.

@@ -10,7 +10,7 @@ export function assertConvexComposableScope(
   }
 
   throw new Error(
-    `[${composable}] Must be called within component setup/effect scope. ` +
-      'For middleware/plugins use useConvexCall (client) or serverConvexQuery (server).',
+    `[${composable}] Must be called inside <script setup> or a component lifecycle hook. ` +
+      'For middleware/plugins, use useConvex() directly or serverConvexQuery() on the server.',
   )
 }

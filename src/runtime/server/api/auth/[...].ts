@@ -43,9 +43,9 @@ async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<v
 export default defineEventHandler(async (event: H3Event) => {
   const convexConfig = getConvexRuntimeConfig()
   const siteUrl = convexConfig.siteUrl
-  const trustedOrigins = convexConfig.trustedOrigins
-  const authRoute = convexConfig.authRoute
-  const authProxy = convexConfig.authProxy
+  const trustedOrigins = convexConfig.auth.trustedOrigins
+  const authRoute = convexConfig.auth.route
+  const authProxy = convexConfig.auth.proxy
 
   // Dev mode: track request timing
   const startTime = import.meta.dev ? Date.now() : 0
@@ -65,7 +65,9 @@ export default defineEventHandler(async (event: H3Event) => {
   const path = requestUrl.pathname.replace(authRoutePattern, '') || '/'
   // Ensure path starts with / to avoid malformed URLs like /api/authtoken
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
+  // Sanitize path traversal sequences before forwarding to upstream
+  const sanitizedPath = normalizedPath.replace(/\.\.[/\\]/g, '').replace(/\.\.$/, '')
+  const target = `${siteUrl}/api/auth${sanitizedPath}${requestUrl.search}`
 
   // Handle CORS preflight
   // Security: Only allow CORS for validated origins (same-origin or trustedOrigins)
@@ -147,9 +149,15 @@ export default defineEventHandler(async (event: H3Event) => {
       timeoutMs: DEFAULT_SERVER_FETCH_TIMEOUT_MS,
     })
 
+    // Add security headers to all non-redirect responses
+    setHeaders(event, {
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    })
+
     // Common misconfig path: Convex site URL reachable, but Better Auth routes are missing.
     const isCriticalAuthEndpoint =
-      normalizedPath === '/convex/token' || normalizedPath === '/get-session'
+      sanitizedPath === '/convex/token' || sanitizedPath === '/get-session'
     if (isCriticalAuthEndpoint && (response.status === 404 || response.status >= 500)) {
       throw createError({
         statusCode: 502,

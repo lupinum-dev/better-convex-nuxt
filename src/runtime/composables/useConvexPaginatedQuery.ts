@@ -18,7 +18,6 @@ import { getFunctionName, getQueryKey, hashArgs } from '../utils/convex-cache'
 import { deepUnref } from '../utils/deep-unref'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { generatePaginationId } from '../utils/shared-helpers'
-import type { ConvexClientAuthMode } from '../utils/types'
 import type {
   PaginatedQueryReference,
   PaginatedQueryArgs,
@@ -48,7 +47,7 @@ export {
 } from './optimistic-updates'
 
 export type PaginatedQueryStatus =
-  | 'idle'
+  | 'skipped'
   | 'loading-first-page'
   | 'ready'
   | 'loading-more'
@@ -57,13 +56,31 @@ export type PaginatedQueryStatus =
 
 export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem = Item> {
   initialNumItems: number
+  /** @default true — run first page server-side during SSR */
   server?: boolean
+  /** @default true — keep a live WebSocket subscription after initial load */
   subscribe?: boolean
-  auth?: ConvexClientAuthMode
+  /** Fallback items while the first page is loading */
   default?: () => Item[]
+  /** Transform raw items before exposing via `results` */
   transform?: (results: Item[]) => TransformedItem[]
+  /**
+   * When `false` (default), `useConvexPaginatedQuery` returns a Promise that resolves
+   * once the first page arrives. When `true`, returns synchronously.
+   * @default false
+   */
+  lazy?: boolean
+  /**
+   * Disable the query. Use `enabled: () => !!id` instead of passing `null` args.
+   * @default true
+   */
   enabled?: MaybeRefOrGetter<boolean | undefined>
+  /** Preserve previous results while a new first page is loading */
   keepPreviousData?: boolean
+  /**
+   * Recursively unref Vue refs inside args before sending to Convex.
+   * @default false
+   */
   deepUnrefArgs?: boolean
 }
 
@@ -71,11 +88,14 @@ export interface UseConvexPaginatedQueryData<Item> {
   results: ComputedRef<Item[]>
   status: ComputedRef<PaginatedQueryStatus>
   isLoading: ComputedRef<boolean>
+  isExhausted: ComputedRef<boolean>
   hasNextPage: ComputedRef<boolean>
   loadMore: (numItems: number) => void
   error: Readonly<Ref<Error | null>>
-  refresh: () => Promise<void>
-  reset: () => Promise<void>
+  /** Re-fetch all current pages in-place, preserving pagination positions */
+  refetch: () => Promise<void>
+  /** Clear all pages and restart from page 1 */
+  restart: () => Promise<void>
 }
 
 interface BuildConvexPaginatedQueryResult<Item> {
@@ -113,34 +133,42 @@ export function createConvexPaginatedQueryState<
   type Item = PaginatedQueryItem<Query>
 
   const convexConfig = getConvexRuntimeConfig()
-  const defaults = convexConfig.defaults
+  const query_defaults = convexConfig.query
   const initialNumItems = options?.initialNumItems ?? 10
-  const server = options?.server ?? defaults?.server ?? true
-  const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const authMode = options?.auth ?? defaults?.auth ?? 'auto'
+  const server = options?.server ?? query_defaults?.server ?? true
+  const subscribe = options?.subscribe ?? query_defaults?.subscribe ?? true
   const keepPreviousData = options?.keepPreviousData ?? false
-  const deepUnrefArgs = options?.deepUnrefArgs ?? true
+  const deepUnrefArgs = options?.deepUnrefArgs ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
 
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
 
   const fnName = getFunctionName(query)
+  const enabled = computed(() => toValue(options?.enabled) ?? true)
+  const isSkipped = computed(() => !enabled.value)
+
   const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
     if (rawArgs == null) {
-      return rawArgs
+      if (import.meta.dev && enabled.value) {
+        console.warn(
+          `[better-convex-nuxt] PaginatedQuery "${fnName}" received null/undefined args while enabled. ` +
+            `Use \`enabled: () => !!id\` to conditionally skip queries instead of passing null args.`,
+        )
+      }
+      return {} as Args
     }
     return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
   })
-  const enabled = computed(() => toValue(options?.enabled) ?? true)
-  const isSkipped = computed(() => !enabled.value || normalizedArgs.value == null)
+
   const argsHash = computed(() => hashArgs(normalizedArgs.value))
 
   const currentPaginationId = ref(generatePaginationId())
   const pages = shallowRef<PageState<Item>[]>([])
   const globalError = ref<Error | null>(null)
   const isManualRefreshPending = ref(false)
-  const lastSettledResults = shallowRef<TransformedItem[]>([])
+
+  const lastSettledResults = keepPreviousData ? shallowRef<TransformedItem[]>([]) : null
 
   const initialPaginationOpts = computed(() => ({
     numItems: initialNumItems,
@@ -159,7 +187,7 @@ export function createConvexPaginatedQueryState<
 
   const firstPageCacheKey = computed(() => {
     if (isSkipped.value) {
-      return `convex-paginated:idle:${fnName}`
+      return `convex-paginated:skipped:${fnName}`
     }
     return `convex-paginated:${getQueryKey(query, buildPageArgs({ numItems: initialNumItems, cursor: null }))}`
   })
@@ -181,7 +209,7 @@ export function createConvexPaginatedQueryState<
     isSkipped,
     server,
     subscribe,
-    authMode,
+    authMode: 'auto',
     resolveImmediately,
     dedupe: 'defer',
   })
@@ -248,13 +276,13 @@ export function createConvexPaginatedQueryState<
 
   const runPageQuery = async (
     paginationOpts: PageState<Item>['paginationOpts'],
-    options: { subscribe?: boolean } = {},
+    opts: { subscribe?: boolean } = {},
   ): Promise<PaginationResult<Item>> => {
     return await executeLiveQuery<Query, PaginationResult<Item>>({
       query,
       args: buildPageArgs(paginationOpts),
-      subscribe: options.subscribe ?? subscribe,
-      authMode,
+      subscribe: opts.subscribe ?? subscribe,
+      authMode: 'auto',
       functionName: fnName,
     })
   }
@@ -306,7 +334,7 @@ export function createConvexPaginatedQueryState<
   }
 
   const status = computed((): PaginatedQueryStatus => {
-    if (isSkipped.value) return 'idle'
+    if (isSkipped.value) return 'skipped'
     if (isManualRefreshPending.value) return 'loading-first-page'
 
     const firstPageError = firstPageResource.asyncData.error.value
@@ -372,9 +400,9 @@ export function createConvexPaginatedQueryState<
       keepPreviousData &&
       status.value === 'loading-first-page' &&
       transformedResults.value.length === 0 &&
-      lastSettledResults.value.length > 0
+      lastSettledResults!.value.length > 0
     ) {
-      return lastSettledResults.value
+      return lastSettledResults!.value
     }
     return transformedResults.value
   })
@@ -390,14 +418,16 @@ export function createConvexPaginatedQueryState<
     return null
   })
 
-  watch(
-    [() => status.value, () => transformedResults.value],
-    ([nextStatus, nextResults]) => {
-      if (isSkipped.value || nextStatus === 'loading-first-page') return
-      lastSettledResults.value = nextResults
-    },
-    { immediate: true },
-  )
+  if (keepPreviousData && lastSettledResults) {
+    watch(
+      [() => status.value, () => transformedResults.value],
+      ([nextStatus, nextResults]) => {
+        if (isSkipped.value || nextStatus === 'loading-first-page') return
+        lastSettledResults!.value = nextResults
+      },
+      { immediate: true },
+    )
+  }
 
   watch(
     () => `${argsHash.value}:${enabled.value ? 'enabled' : 'disabled'}`,
@@ -417,7 +447,7 @@ export function createConvexPaginatedQueryState<
     },
   )
 
-  async function refresh(): Promise<void> {
+  async function refetch(): Promise<void> {
     if (isSkipped.value) return
 
     isManualRefreshPending.value = true
@@ -443,11 +473,11 @@ export function createConvexPaginatedQueryState<
               pending: false,
               error: null,
             }
-          } catch (error) {
+          } catch (err) {
             return {
               ...page,
               pending: false,
-              error: toError(error),
+              error: toError(err),
             }
           }
         }),
@@ -458,7 +488,7 @@ export function createConvexPaginatedQueryState<
     }
   }
 
-  async function reset(): Promise<void> {
+  async function restart(): Promise<void> {
     cleanupAllPageSubscriptions()
     pages.value = []
     globalError.value = null
@@ -485,17 +515,32 @@ export function createConvexPaginatedQueryState<
       isLoading: computed(
         () => status.value === 'loading-first-page' || status.value === 'loading-more',
       ),
+      isExhausted: computed(() => status.value === 'exhausted'),
       hasNextPage: computed(() => status.value === 'ready'),
       loadMore,
       error,
-      refresh,
-      reset,
+      refetch,
+      restart,
     },
     resolvePromise: firstPageResource.resolvePromise,
   }
 }
 
-export async function useConvexPaginatedQuery<
+// Overload: lazy: true → synchronous return
+export function useConvexPaginatedQuery<
+  Query extends PaginatedQueryReference,
+  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
+  TransformedItem = PaginatedQueryItem<Query>,
+>(
+  query: Query,
+  args: MaybeRefOrGetter<Args> | undefined,
+  options: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem> & {
+    lazy: true
+  },
+): UseConvexPaginatedQueryData<TransformedItem>
+
+// Overload: default (lazy: false) → async return
+export function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
   Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
@@ -503,12 +548,29 @@ export async function useConvexPaginatedQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
-): Promise<UseConvexPaginatedQueryData<TransformedItem>> {
-  const created = createConvexPaginatedQueryState(query, args, options, false)
-  await created.resolvePromise
-  return created.resultData
+): Promise<UseConvexPaginatedQueryData<TransformedItem>>
+
+// Implementation
+export function useConvexPaginatedQuery<
+  Query extends PaginatedQueryReference,
+  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
+  TransformedItem = PaginatedQueryItem<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
+): UseConvexPaginatedQueryData<TransformedItem> | Promise<UseConvexPaginatedQueryData<TransformedItem>> {
+  const lazy = options?.lazy ?? false
+  const created = createConvexPaginatedQueryState(query, args, options, lazy)
+  if (lazy) {
+    return created.resultData
+  }
+  return created.resolvePromise.then(() => created.resultData)
 }
 
+/**
+ * @deprecated Use `useConvexPaginatedQuery(query, args, { lazy: true })` instead.
+ */
 export function useConvexPaginatedQueryLazy<
   Query extends PaginatedQueryReference,
   Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
@@ -518,5 +580,7 @@ export function useConvexPaginatedQueryLazy<
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ): UseConvexPaginatedQueryData<TransformedItem> {
-  return createConvexPaginatedQueryState(query, args, options, true).resultData
+  return useConvexPaginatedQuery(query, args, { ...options, lazy: true } as typeof options & {
+    lazy: true
+  })
 }

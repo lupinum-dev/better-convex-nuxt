@@ -15,6 +15,7 @@ import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#
 import type { AuthWaterfall, AuthWaterfallPhase } from './utils/auth-debug'
 import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cache'
 import { fetchWithTimeout } from './server/utils/http'
+import { SERVER_FETCH_TIMEOUT_MS } from './utils/constants'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
@@ -49,7 +50,7 @@ async function runAuthHealthcheckOnce(siteUrl: string): Promise<void> {
   try {
     const response = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
       method: 'GET',
-      timeoutMs: 5_000,
+      timeoutMs: SERVER_FETCH_TIMEOUT_MS,
     })
     if ([200, 401, 403].includes(response.status)) {
       return
@@ -67,21 +68,6 @@ async function runAuthHealthcheckOnce(siteUrl: string): Promise<void> {
   }
 }
 
-async function fetchSessionUser(siteUrl: string, cookieHeader: string): Promise<ConvexUser | null> {
-  try {
-    const sessionFetch = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
-      headers: { Cookie: cookieHeader },
-      timeoutMs: 5_000,
-    })
-    if (!sessionFetch.ok) return null
-    const sessionResponse = (await sessionFetch.json().catch(() => null)) as {
-      user?: ConvexUser
-    } | null
-    return sessionResponse?.user ?? null
-  } catch {
-    return null
-  }
-}
 
 /**
  * Helper to build a waterfall phase entry (dev-only)
@@ -197,7 +183,7 @@ export default defineNuxtPlugin(async () => {
   const phases: AuthWaterfallPhase[] = []
   let cacheHit = false
   // Get auth cache config
-  const authCacheConfig = convexConfig.authCache
+  const authCacheConfig = convexConfig.auth.cache
 
   // Phase 1: Session Check
   const sessionCheckStart = trackWaterfall ? Date.now() : 0
@@ -260,8 +246,10 @@ export default defineNuxtPlugin(async () => {
         const decodeStart = trackWaterfall ? Date.now() : 0
         convexToken.value = token
         convexUser.value = decodeUserFromJwt(token)
-        if (!convexUser.value) {
-          convexUser.value = await fetchSessionUser(siteUrl, cookieHeader)
+        if (!convexUser.value && import.meta.dev) {
+          console.warn(
+            '[better-convex-nuxt] JWT decode failed — user info unavailable for this SSR render. Configure Better Auth to include user claims in the JWT.',
+          )
         }
         if (trackWaterfall) {
           phases.push(
@@ -270,7 +258,7 @@ export default defineNuxtPlugin(async () => {
               decodeStart,
               waterfallStart,
               convexUser.value ? 'success' : 'error',
-              convexUser.value ? undefined : 'Cache hit decode fallback failed',
+              convexUser.value ? undefined : 'JWT decode failed — no user claims in token',
             ),
           )
           convexAuthWaterfall.value = {
@@ -307,7 +295,7 @@ export default defineNuxtPlugin(async () => {
     try {
       const response = await fetchWithTimeout(`${siteUrl}/api/auth/convex/token`, {
         headers: { Cookie: cookieHeader },
-        timeoutMs: 5_000,
+        timeoutMs: SERVER_FETCH_TIMEOUT_MS,
       })
       tokenExchangeStatus = response.status
       if (response.ok) {
@@ -337,22 +325,21 @@ export default defineNuxtPlugin(async () => {
       const decodeStart = trackWaterfall ? Date.now() : 0
       convexUser.value = decodeUserFromJwt(token)
 
-      // If decode failed, fallback to session endpoint
-      if (!convexUser.value) {
-        convexUser.value = await fetchSessionUser(siteUrl, cookieHeader)
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'jwt-decode',
-              decodeStart,
-              waterfallStart,
-              'success',
-              'Fallback to session endpoint',
-            ),
-          )
-        }
-      } else if (trackWaterfall) {
-        phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, 'success'))
+      if (!convexUser.value && import.meta.dev) {
+        console.warn(
+          '[better-convex-nuxt] JWT decode failed — user info unavailable for this SSR render. Configure Better Auth to include user claims in the JWT.',
+        )
+      }
+      if (trackWaterfall) {
+        phases.push(
+          buildPhase(
+            'jwt-decode',
+            decodeStart,
+            waterfallStart,
+            convexUser.value ? 'success' : 'error',
+            convexUser.value ? undefined : 'JWT decode failed — no user claims in token',
+          ),
+        )
       }
 
       // Phase 5: Cache Store (if caching is enabled)

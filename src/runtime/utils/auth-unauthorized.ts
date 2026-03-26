@@ -1,6 +1,6 @@
-import { navigateTo, useNuxtApp, useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import { useConvexAuth } from '../composables/useConvexAuth'
+import { UNAUTHORIZED_REDIRECT_DEBOUNCE_MS } from './constants'
 import { isConvexUnauthorizedError } from './auth-unauthorized-core'
 import { normalizeConvexRuntimeConfig } from './runtime-config'
 
@@ -75,7 +75,8 @@ export async function handleUnauthorizedAuthFailure(options: {
   const now = Date.now()
   if (
     recoveryState.activeRecovery ||
-    (recoveryState.lastRedirectKey === dedupeKey && now - recoveryState.lastRedirectAt < 1500)
+    (recoveryState.lastRedirectKey === dedupeKey &&
+      now - recoveryState.lastRedirectAt < UNAUTHORIZED_REDIRECT_DEBOUNCE_MS)
   ) {
     return true
   }
@@ -85,14 +86,13 @@ export async function handleUnauthorizedAuthFailure(options: {
 
   recoveryState.activeRecovery = (async () => {
     try {
-      const { signOut } = useConvexAuth()
-      try {
-        await signOut()
-      } catch {
-        // Best effort; local state is already cleared by useConvexAuth().signOut()
-      }
-
-      await navigateTo(redirectTo)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await nuxtApp.callHook('convex:unauthorized' as any, {
+        error: options.error,
+        source: options.source,
+        functionName: options.functionName,
+        redirectTo,
+      })
     } finally {
       recoveryState.activeRecovery = null
     }

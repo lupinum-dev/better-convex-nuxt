@@ -161,7 +161,7 @@ export function computeQueryStatus(
   isPending: boolean,
   hasData: boolean,
 ): ConvexCallStatus {
-  if (isSkipped) return 'idle'
+  if (isSkipped) return 'skipped'
   if (hasError) return 'error'
   if (isPending && !hasData) return 'pending'
   return 'success'

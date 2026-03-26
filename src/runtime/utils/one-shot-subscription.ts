@@ -1,13 +1,15 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 
+import { SUBSCRIPTION_TIMEOUT_MS } from './constants'
+
 export function executeQueryViaSubscriptionOnce<Query extends FunctionReference<'query'>>(
   convex: ConvexClient,
   query: Query,
   args: FunctionArgs<Query>,
   options?: { timeoutMs?: number },
 ): Promise<FunctionReturnType<Query>> {
-  const timeoutMs = options?.timeoutMs ?? 10_000
+  const timeoutMs = options?.timeoutMs ?? SUBSCRIPTION_TIMEOUT_MS
 
   return new Promise((resolve, reject) => {
     let settled = false

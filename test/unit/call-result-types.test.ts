@@ -1,33 +1,28 @@
 import { describe, expect, it } from 'vitest'
 
-import type { UseConvexActionReturn } from '../../src/runtime/composables/useConvexAction'
-import type { UseConvexMutationReturn } from '../../src/runtime/composables/useConvexMutation'
-import type { CallResult } from '../../src/runtime/utils/call-result'
+import { ConvexError, toCallResult, type CallResult } from '../../src/runtime/utils/call-result'
 
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 type Assert<T extends true> = T
 
-type _MutationNestedSafe = Assert<
+type _NestedCallResult = Assert<
   IsEqual<
-    Awaited<
-      ReturnType<UseConvexMutationReturn<{ id: string }, CallResult<{ id: string }>>['executeSafe']>
-    >,
-    CallResult<CallResult<{ id: string }>>
-  >
->
-
-type _ActionNestedSafe = Assert<
-  IsEqual<
-    Awaited<
-      ReturnType<UseConvexActionReturn<{ id: string }, CallResult<{ id: string }>>['executeSafe']>
-    >,
+    Awaited<ReturnType<typeof toCallResult<CallResult<{ id: string }>>>>,
     CallResult<CallResult<{ id: string }>>
   >
 >
 
 describe('CallResult type contracts', () => {
-  it('keeps nested safe result typing for domain CallResult endpoints', () => {
-    expect(true).toBe(true)
+  it('toCallResult wraps domain CallResult values without flattening them', async () => {
+    const domainResult: CallResult<{ id: string }> = {
+      ok: false,
+      error: new ConvexError('Domain validation failed', { code: 'DOMAIN_VALIDATION' }),
+    }
+    const wrapped = await toCallResult(async () => domainResult)
+
+    expect(wrapped.ok).toBe(true)
+    if (!wrapped.ok) throw new Error('Expected outer CallResult to be ok')
+    expect(wrapped.data).toEqual(domainResult)
   })
 })

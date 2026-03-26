@@ -104,9 +104,7 @@ describe('plugin.client auth flow', () => {
     getConvexRuntimeConfigMock.mockReturnValue({
       url: 'https://demo.convex.cloud',
       siteUrl: 'https://demo.convex.site',
-      auth: { enabled: true },
-      authRoute: '/api/auth',
-      skipAuthRoutes: [],
+      auth: { enabled: true, route: '/api/auth', skipAuthRoutes: [] },
     })
 
     createAuthClientMock.mockReturnValue({

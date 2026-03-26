@@ -10,7 +10,7 @@ import {
   updateDevtoolsEntryError,
 } from '../devtools/runtime'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
-import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
+import { toConvexError } from '../utils/call-result'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
@@ -35,14 +35,9 @@ export interface UseConvexMutationReturn<Args, Result> {
   /**
    * Execute the mutation. Returns a promise with the result.
    * Automatically tracks status, error, and data.
-   * Throws on error (use try/catch or check error ref after).
+   * Throws on error — use try/catch or wrap with `toCallResult(() => execute(args))` for safe variant.
    */
   execute: (args: Args) => Promise<Result>
-  /**
-   * Execute the mutation without throwing.
-   * Returns a stable result envelope.
-   */
-  executeSafe: (args: Args) => Promise<CallResult<Result>>
 
   /**
    * Result data from the last successful mutation.
@@ -176,10 +171,9 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
       try {
         onSuccess?.(result, args)
       } catch (callbackError) {
-        logger.debug(
-          `[${callType}] onSuccess callback threw in ${fnName}`,
-          callbackError,
-        )
+        if (import.meta.dev) {
+          console.warn(`[better-convex-nuxt] ${callType} onSuccess callback threw in ${fnName}:`, callbackError)
+        }
       }
 
       updateDevtoolsEntrySuccess(callId, startTime, result)
@@ -192,8 +186,7 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
 
       return result
     } catch (e) {
-      const normalized = normalizeConvexError(e)
-      const err = toError(normalized)
+      const err = toConvexError(e)
       if (currentRequestId === activeRequestId) {
         _status.value = 'error'
         error.value = err
@@ -202,10 +195,9 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
       try {
         onError?.(err, args)
       } catch (callbackError) {
-        logger.debug(
-          `[${callType}] onError callback threw in ${fnName}`,
-          callbackError,
-        )
+        if (import.meta.dev) {
+          console.warn(`[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`, callbackError)
+        }
       }
 
       updateDevtoolsEntryError(callId, startTime, err.message)
@@ -221,11 +213,7 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
     }
   }
 
-  const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
-    return await toCallResult(() => execute(args))
-  }
-
-  return { execute, executeSafe, data, status, pending, error, reset }
+  return { execute, data, status, pending, error, reset }
 }
 
 // ============================================================================

@@ -4,7 +4,7 @@ import type { H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 
 import { resolveServerAuthToken } from '../../utils/auth-token'
-import { normalizeConvexError, toError } from '../../utils/call-result'
+import { ConvexError, toConvexError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
@@ -42,28 +42,24 @@ function getHelperName(operationType: ConvexOperationType): ServerConvexHelperNa
   return 'serverConvexAction'
 }
 
-function applyErrorContext(error: Error, context: ServerConvexErrorContext): Error {
-  Object.assign(error, context)
-  return error
-}
-
 function toServerConvexError(
   error: unknown,
   context: ServerConvexErrorContext,
   phase: 'auth' | 'request',
-): Error {
-  const normalized = normalizeConvexError(error)
-  const err = toError({ ...normalized, ...context })
+): ConvexError {
+  const base = toConvexError(error)
   const prefix =
     phase === 'auth'
       ? `Failed to resolve auth for ${context.functionPath} (auth: ${context.authMode}).`
       : `Request failed for ${context.functionPath} via ${context.convexUrl}/api/${context.operation}.`
-  err.message = `[${context.helper}] ${prefix} ${err.message}`
-  return applyErrorContext(err, context)
+  return new ConvexError(`[${context.helper}] ${prefix} ${base.message}`, {
+    ...context,
+    cause: base,
+  })
 }
 
-function createServerConvexError(message: string, context: ServerConvexErrorContext): Error {
-  return applyErrorContext(new Error(`[${context.helper}] ${message}`), context)
+function createServerConvexError(message: string, context: ServerConvexErrorContext): ConvexError {
+  return new ConvexError(`[${context.helper}] ${message}`, context)
 }
 
 function getCookieHeader(event: H3Event): string {
@@ -91,10 +87,10 @@ async function resolveAuthToken(
     authToken: options?.authToken,
     cookieHeader,
     siteUrl: config.siteUrl,
-    getCachedToken: config.authCache.enabled ? getCachedAuthToken : undefined,
-    setCachedToken: config.authCache.enabled
+    getCachedToken: config.auth.cache.enabled ? getCachedAuthToken : undefined,
+    setCachedToken: config.auth.cache.enabled
       ? async (sessionToken, token) => {
-          const ttl = config.authCache.ttl ?? 60
+          const ttl = config.auth.cache.ttl ?? 60
           await setCachedAuthToken(sessionToken, token, ttl)
         }
       : undefined,

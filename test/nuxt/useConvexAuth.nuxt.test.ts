@@ -56,63 +56,6 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(result.isPending.value).toBe(false)
   })
 
-  it('returns callable SSR proxies that reject loudly when auth client is unavailable', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    const { result } = await captureInNuxt(() => {
-      return useConvexAuth()
-    })
-    expect(typeof result.signIn.email).toBe('function')
-    expect(typeof result.signUp.email).toBe('function')
-
-    await expect(
-      result.signIn.email({
-        email: 'stub@example.com',
-        password: 'password123',
-      }),
-    ).rejects.toThrow(/client-only/i)
-    await expect(
-      result.signUp.email({
-        name: 'Stub User',
-        email: 'stub@example.com',
-        password: 'password123',
-      }),
-    ).rejects.toThrow(/client-only/i)
-  })
-
-  it('forwards client/signIn/signUp from injected $auth', async () => {
-    const fakeAuthClient = {
-      signIn: {
-        email: vi.fn(async () => ({ data: { ok: true, kind: 'signIn' }, error: null })),
-      },
-      signUp: {
-        email: vi.fn(async () => ({ data: { ok: true, kind: 'signUp' }, error: null })),
-      },
-      signOut: vi.fn(async () => ({ data: { success: true }, error: null })),
-    }
-
-    const { result } = await captureInNuxt(
-      () => {
-        return useConvexAuth()
-      },
-      {
-        auth: fakeAuthClient,
-      },
-    )
-
-    expect(result.client).toBeTruthy()
-    expect(result.signIn).toBe(fakeAuthClient.signIn)
-    expect(result.signUp).toBe(fakeAuthClient.signUp)
-
-    const signInResult = await result.signIn.email({
-      email: 'stub@example.com',
-      password: 'password123',
-    })
-
-    expect(fakeAuthClient.signIn.email).toHaveBeenCalledTimes(1)
-    expect(signInResult).toEqual({ data: { ok: true, kind: 'signIn' }, error: null })
-  })
-
   it('awaitAuthReady resolves final auth state without throwing', async () => {
     const { result } = await captureInNuxt(() => {
       const pending = useState<boolean>('convex:pending')

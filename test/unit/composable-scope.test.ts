@@ -5,13 +5,13 @@ import { assertConvexComposableScope } from '../../src/runtime/utils/composable-
 describe('assertConvexComposableScope', () => {
   it('throws for useConvexQuery when on client without scope', () => {
     expect(() => assertConvexComposableScope('useConvexQuery', true, undefined)).toThrow(
-      '[useConvexQuery] Must be called within component setup/effect scope. For middleware/plugins use useConvexCall (client) or serverConvexQuery (server).',
+      '[useConvexQuery] Must be called inside <script setup> or a component lifecycle hook. For middleware/plugins, use useConvex() directly or serverConvexQuery() on the server.',
     )
   })
 
   it('throws for useConvexPaginatedQuery when on client without scope', () => {
     expect(() => assertConvexComposableScope('useConvexPaginatedQuery', true, undefined)).toThrow(
-      '[useConvexPaginatedQuery] Must be called within component setup/effect scope. For middleware/plugins use useConvexCall (client) or serverConvexQuery (server).',
+      '[useConvexPaginatedQuery] Must be called inside <script setup> or a component lifecycle hook. For middleware/plugins, use useConvex() directly or serverConvexQuery() on the server.',
     )
   })
 

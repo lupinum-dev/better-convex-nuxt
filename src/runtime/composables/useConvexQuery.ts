@@ -16,7 +16,6 @@ import { deepUnref } from '../utils/deep-unref'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
-import type { ConvexClientAuthMode } from '../utils/types'
 import {
   createLiveQueryResource,
   executeLiveQuery,
@@ -27,13 +26,33 @@ export type { ConvexCallStatus }
 export { getQueryKey, executeQueryHttp }
 
 export interface UseConvexQueryOptions<RawT, DataT = RawT> {
+  /** @default true — run query server-side during SSR */
   server?: boolean
+  /** @default true — keep a live WebSocket subscription after initial load */
   subscribe?: boolean
+  /** Fallback value while the query is pending or skipped */
   default?: () => RawT | undefined
+  /** Transform raw Convex data before exposing it via `data` */
   transform?: (input: RawT) => DataT
-  auth?: ConvexClientAuthMode
+  /**
+   * When `false` (default), `useConvexQuery` returns a Promise that resolves
+   * once the first data arrives — blocking navigation (async data pattern).
+   * When `true`, returns synchronously and data arrives reactively.
+   * @default false
+   */
+  lazy?: boolean
+  /**
+   * Disable the query. Use `enabled: () => !!id` instead of passing `null` args.
+   * @default true
+   */
   enabled?: MaybeRefOrGetter<boolean | undefined>
+  /** Preserve previous data while a new result is loading */
   keepPreviousData?: boolean
+  /**
+   * Recursively unref Vue refs inside args before sending to Convex.
+   * Usually not needed — prefer passing raw values.
+   * @default false
+   */
   deepUnrefArgs?: boolean
 }
 
@@ -41,7 +60,8 @@ export interface UseConvexQueryData<DataT> {
   data: Ref<DataT | null>
   error: Ref<Error | null>
   refresh: () => Promise<void>
-  clear: () => void
+  /** Clear local data and error, resetting to initial state */
+  reset: () => void
   pending: Ref<boolean>
   status: Ref<ConvexCallStatus>
 }
@@ -74,24 +94,30 @@ export function createConvexQueryState<
 
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
-  const defaults = convexConfig.defaults
+  const defaults = convexConfig.query
   const server = options?.server ?? defaults?.server ?? true
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const authMode = options?.auth ?? defaults?.auth ?? 'auto'
   const keepPreviousData = options?.keepPreviousData ?? false
-  const deepUnrefArgs = options?.deepUnrefArgs ?? true
+  const deepUnrefArgs = options?.deepUnrefArgs ?? false
   const fnName = getFunctionName(query)
   const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
+
+  const enabled = computed(() => toValue(options?.enabled) ?? true)
+  const isSkipped = computed(() => !enabled.value)
 
   const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
     if (rawArgs == null) {
-      return rawArgs
+      if (import.meta.dev && enabled.value) {
+        console.warn(
+          `[better-convex-nuxt] Query "${fnName}" received null/undefined args while enabled. ` +
+            `Use \`enabled: () => !!id\` to conditionally skip queries instead of passing null args.`,
+        )
+      }
+      return {} as Args
     }
     return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
   })
-  const enabled = computed(() => toValue(options?.enabled) ?? true)
-  const isSkipped = computed(() => !enabled.value || normalizedArgs.value == null)
 
   assertConvexComposableScope(
     'useConvexQuery',
@@ -103,13 +129,17 @@ export function createConvexQueryState<
     warmQueryDevtools()
   }
 
-  const lastSettledData = ref<RawT | null>(null)
   const cacheKey = computed(() => {
     if (isSkipped.value) {
-      return `convex:idle:${fnName}`
+      return `convex:skipped:${fnName}`
     }
     return getQueryKey(query, normalizedArgs.value ?? {})
   })
+
+  let lastSettledData: Ref<RawT | null> | null = null
+  if (keepPreviousData) {
+    lastSettledData = ref<RawT | null>(null)
+  }
 
   const resource = createLiveQueryResource<Query, RawT>({
     query,
@@ -118,11 +148,12 @@ export function createConvexQueryState<
     isSkipped,
     server,
     subscribe,
-    authMode,
+    authMode: 'auto',
     resolveImmediately,
+    dedupe: 'defer',
     defaultValue: () => {
-      if (keepPreviousData && lastSettledData.value !== null) {
-        return lastSettledData.value
+      if (keepPreviousData && lastSettledData?.value !== null) {
+        return lastSettledData!.value
       }
       const fallback = options?.default?.()
       return fallback == null ? null : (fallback as RawT)
@@ -150,7 +181,7 @@ export function createConvexQueryState<
           immediate: resolveImmediately,
           server,
           subscribe,
-          auth: authMode,
+          auth: 'auto',
         },
       })
     },
@@ -192,15 +223,17 @@ export function createConvexQueryState<
     },
   })
 
-  watch(
-    () => resource.asyncData.data.value,
-    (value) => {
-      if (value != null) {
-        lastSettledData.value = value
-      }
-    },
-    { immediate: true },
-  )
+  if (keepPreviousData && lastSettledData) {
+    watch(
+      () => resource.asyncData.data.value,
+      (value) => {
+        if (value != null) {
+          lastSettledData!.value = value
+        }
+      },
+      { immediate: true },
+    )
+  }
 
   const applyTransform = (raw: RawT): DataT => {
     return options?.transform ? options.transform(raw) : (raw as unknown as DataT)
@@ -215,7 +248,7 @@ export function createConvexQueryState<
       data,
       error: resource.asyncData.error as Ref<Error | null>,
       refresh: resource.asyncData.refresh,
-      clear: resource.asyncData.clear,
+      reset: resource.asyncData.clear,
       pending: resource.pending as Ref<boolean>,
       status: resource.status as Ref<ConvexCallStatus>,
     },
@@ -223,7 +256,19 @@ export function createConvexQueryState<
   }
 }
 
-export async function useConvexQuery<
+// Overload: lazy: true → synchronous return
+export function useConvexQuery<
+  Query extends FunctionReference<'query'>,
+  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  args: MaybeRefOrGetter<Args> | undefined,
+  options: UseConvexQueryOptions<FunctionReturnType<Query>, DataT> & { lazy: true },
+): UseConvexQueryData<DataT>
+
+// Overload: default (lazy: false) → async return
+export function useConvexQuery<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
@@ -231,10 +276,24 @@ export async function useConvexQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
-): Promise<UseConvexQueryData<DataT>> {
-  const created = createConvexQueryState(query, args, options, false)
-  await created.resolvePromise
-  return created.resultData
+): Promise<UseConvexQueryData<DataT>>
+
+// Implementation
+export function useConvexQuery<
+  Query extends FunctionReference<'query'>,
+  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<Args>,
+  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+): UseConvexQueryData<DataT> | Promise<UseConvexQueryData<DataT>> {
+  const lazy = options?.lazy ?? false
+  const created = createConvexQueryState(query, args, options, lazy)
+  if (lazy) {
+    return created.resultData
+  }
+  return created.resolvePromise.then(() => created.resultData)
 }
 
 async function executeViaSharedRuntime<Query extends FunctionReference<'query'>>(
@@ -242,18 +301,20 @@ async function executeViaSharedRuntime<Query extends FunctionReference<'query'>>
   args: FunctionArgs<Query>,
   options: {
     subscribe?: boolean
-    auth?: ConvexClientAuthMode
   } = {},
 ): Promise<FunctionReturnType<Query>> {
   const convexConfig = getConvexRuntimeConfig()
   return await executeLiveQuery<Query, FunctionReturnType<Query>>({
     query,
     args,
-    subscribe: options.subscribe ?? convexConfig.defaults.subscribe ?? true,
-    authMode: options.auth ?? convexConfig.defaults.auth ?? 'auto',
+    subscribe: options.subscribe ?? convexConfig.query.subscribe ?? true,
+    authMode: 'auto',
   })
 }
 
+/**
+ * @deprecated Use `useConvexQuery(query, args, { lazy: true })` instead.
+ */
 export function useConvexQueryLazy<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
@@ -263,7 +324,7 @@ export function useConvexQueryLazy<
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
 ): UseConvexQueryData<DataT> {
-  return createConvexQueryState(query, args, options, true).resultData
+  return useConvexQuery(query, args, { ...options, lazy: true })
 }
 
 export { executeViaSharedRuntime as executeConvexQuery }

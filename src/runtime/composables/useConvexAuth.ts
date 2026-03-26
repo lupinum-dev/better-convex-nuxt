@@ -3,6 +3,13 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { useState, computed, readonly, useNuxtApp } from '#imports'
 
+import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants'
+import {
+  STATE_KEY_AUTH_ERROR,
+  STATE_KEY_PENDING,
+  STATE_KEY_TOKEN,
+  STATE_KEY_USER,
+} from '../utils/constants'
 import { waitForPendingClear } from '../utils/auth-pending'
 import type { ConvexUser } from '../utils/types'
 
@@ -10,29 +17,6 @@ import type { ConvexUser } from '../utils/types'
 export type { ConvexUser } from '../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
-
-function createClientOnlyMethodProxy<T>(name: 'signIn' | 'signUp'): T {
-  const buildProxy = (path: string[]): unknown => {
-    const fn = () => {}
-    return new Proxy(fn, {
-      get(_target, prop) {
-        if (prop === 'then') return undefined
-        if (typeof prop === 'symbol') return undefined
-        return buildProxy([...path, prop])
-      },
-      apply() {
-        const methodPath = path.join('.')
-        const message = `[useConvexAuth] \`${methodPath}\` is client-only. Call it from a browser event handler and ensure auth is enabled.`
-        if (import.meta.dev) {
-          console.warn(message)
-        }
-        return Promise.reject(new Error(message))
-      },
-    })
-  }
-
-  return buildProxy([name]) as T
-}
 
 export interface UseConvexAuthReturn {
   /** The JWT token for Convex authentication (readonly) */
@@ -62,23 +46,6 @@ export interface UseConvexAuthReturn {
    * Useful in route middleware to avoid auth flicker races on hydration.
    */
   awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
-  /**
-   * Raw Better Auth client for advanced/plugin-specific APIs.
-   * Returns null during SSR.
-   */
-  client: AuthClient | null
-  /**
-   * Better Auth sign-in methods (client-only).
-   * During SSR, returns a proxy that warns if called.
-   * @example `signIn.email({ email, password })`
-   */
-  signIn: AuthClient['signIn']
-  /**
-   * Better Auth sign-up methods (client-only).
-   * During SSR, returns a proxy that warns if called.
-   * @example `signUp.email({ name, email, password })`
-   */
-  signUp: AuthClient['signUp']
 }
 
 /**
@@ -94,53 +61,34 @@ export interface UseConvexAuthReturn {
  * @example
  * ```vue
  * <script setup>
- * const { user, isAuthenticated, isPending, signIn, signOut } = useConvexAuth()
+ * const { user, isAuthenticated, isPending, signOut } = useConvexAuth()
  *
  * async function handleLogout() {
  *   await signOut()
  *   navigateTo('/login')
  * }
  * </script>
+ * ```
  *
- * <template>
- *   <div v-if="isPending">Loading...</div>
- *   <div v-else-if="isAuthenticated">
- *     Welcome, {{ user?.name }}
- *     <button @click="handleLogout">Sign out</button>
- *   </div>
- *   <div v-else>Please log in</div>
- * </template>
+ * To sign in, import the Better Auth client directly:
+ * ```ts
+ * import { createAuthClient } from 'better-auth/vue'
+ * const authClient = createAuthClient({ baseURL: '/api/auth' })
+ * await authClient.signIn.email({ email, password })
+ * await refreshAuth()
  * ```
  */
 export function useConvexAuth(): UseConvexAuthReturn {
   const nuxtApp = useNuxtApp()
-  const token = useState<string | null>('convex:token', () => null)
-  const user = useState<ConvexUser | null>('convex:user', () => null)
+  const token = useState<string | null>(STATE_KEY_TOKEN, () => null)
+  const user = useState<ConvexUser | null>(STATE_KEY_USER, () => null)
   // SSR auth is already settled before render, so default false on server to avoid
   // hydration mismatches. CSR-first loads still start pending=true until client init.
-  const pending = useState<boolean>('convex:pending', () => import.meta.client)
-  const authError = useState<string | null>('convex:authError', () => null)
+  const pending = useState<boolean>(STATE_KEY_PENDING, () => import.meta.client)
+  const authError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
 
-  /**
-   * Signs out the user from Better Auth and clears Convex auth state.
-   *
-   * This clears local Convex auth state immediately, then calls Better Auth's
-   * signOut() when available.
-   *
-   * @returns The result from Better Auth's signOut call, or null if auth client unavailable
-   *
-   * @example
-   * ```ts
-   * const { signOut } = useConvexAuth()
-   *
-   * async function handleLogout() {
-   *   await signOut()
-   *   navigateTo('/login')
-   * }
-   * ```
-   */
   const signOut = async () => {
     const authClient = nuxtApp.$auth as AuthClient | undefined
 
@@ -149,13 +97,10 @@ export function useConvexAuth(): UseConvexAuthReturn {
     user.value = null
     authError.value = null
 
-    // Call Better Auth signOut if available
     if (authClient) {
       try {
         return await authClient.signOut()
       } catch (e) {
-        // Still consider signout successful since local state is cleared
-        // The session cookie may still be cleared even if the request failed
         console.warn('signOut request failed:', e)
         return null
       }
@@ -164,23 +109,6 @@ export function useConvexAuth(): UseConvexAuthReturn {
     return null
   }
 
-  /**
-   * Force refresh the Convex authentication state.
-   * Call this after Better Auth login to sync the new session with Convex.
-   *
-   * @returns Promise that resolves when auth state has settled (token populated or error)
-   *
-   * @example
-   * ```ts
-   * const { refreshAuth } = useConvexAuth()
-   *
-   * async function handleLogin() {
-   *   await authClient.signIn.email({ email, password })
-   *   await refreshAuth() // Sync new session with Convex
-   *   navigateTo('/dashboard')
-   * }
-   * ```
-   */
   const refreshAuth = async (): Promise<void> => {
     const appState = nuxtApp as typeof nuxtApp & {
       _convexRefreshAuthPromise?: Promise<void> | null
@@ -198,17 +126,18 @@ export function useConvexAuth(): UseConvexAuthReturn {
           nuxtApp.callHook('better-convex:auth:refresh'),
           new Promise<never>((_resolve, reject) => {
             setTimeout(() => {
-              reject(new Error('Authentication refresh timed out after 5 seconds'))
-            }, 5000)
+              if (import.meta.dev) {
+                console.warn(
+                  `[better-convex-nuxt] Auth refresh timed out after ${AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
+                )
+              }
+              reject(new Error(`Authentication refresh timed out after ${AUTH_REFRESH_TIMEOUT_MS}ms`))
+            }, AUTH_REFRESH_TIMEOUT_MS)
           }),
         ])
 
-        if (token.value) {
-          return
-        }
-        if (authError.value) {
-          throw new Error(authError.value)
-        }
+        if (token.value) return
+        if (authError.value) throw new Error(authError.value)
 
         authError.value = 'Authentication refresh completed without a token'
         throw new Error(authError.value)
@@ -230,44 +159,26 @@ export function useConvexAuth(): UseConvexAuthReturn {
     }
 
     await waitForPendingClear(pending, {
-      timeoutMs: options?.timeoutMs ?? 5_000,
+      timeoutMs: options?.timeoutMs ?? AUTH_REFRESH_TIMEOUT_MS,
     })
+
+    if (import.meta.dev && !isAuthenticated.value && pending.value) {
+      console.warn(
+        `[better-convex-nuxt] Auth state did not settle within ${options?.timeoutMs ?? AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
+      )
+    }
+
     return isAuthenticated.value
   }
 
-  const client = (nuxtApp.$auth as AuthClient | undefined) ?? null
-
   return {
-    /** The JWT token for Convex authentication (readonly) */
     token: readonly(token),
-    /** The authenticated user data (readonly) */
     user: readonly(user),
-    /** Whether the user is authenticated */
     isAuthenticated,
-    /** Whether an auth operation is pending */
     isPending: readonly(pending),
-    /** Auth error message if authentication failed (e.g., 401/403) */
     authError: readonly(authError),
-    /**
-     * Signs out the user from both Better Auth and Convex.
-     * Clears local state immediately and calls Better Auth's signOut().
-     */
     signOut,
-    /**
-     * Force refresh Convex auth state after login.
-     * Triggers fresh token fetch and updates reactive state.
-     */
     refreshAuth,
-    /**
-     * Wait until initial auth bootstrap settles and return the final auth state.
-     * Useful in route middleware to avoid auth flicker races on hydration.
-     */
     awaitAuthReady,
-    /** Raw Better Auth client for advanced/plugin-specific APIs. Null during SSR. */
-    client,
-    /** Better Auth sign-in methods (client-only). */
-    signIn: client?.signIn ?? createClientOnlyMethodProxy<AuthClient['signIn']>('signIn'),
-    /** Better Auth sign-up methods (client-only). */
-    signUp: client?.signUp ?? createClientOnlyMethodProxy<AuthClient['signUp']>('signUp'),
   }
 }

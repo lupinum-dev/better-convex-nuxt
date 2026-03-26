@@ -1,5 +1,7 @@
 import { watch, type Ref } from 'vue'
 
+import { AUTH_REFRESH_TIMEOUT_MS } from './constants'
+
 export interface WaitForPendingClearOptions {
   timeoutMs?: number
   onTimeout?: () => void
@@ -17,7 +19,7 @@ export async function waitForPendingClear(
     return true
   }
 
-  const timeoutMs = options.timeoutMs ?? 5_000
+  const timeoutMs = options.timeoutMs ?? AUTH_REFRESH_TIMEOUT_MS
 
   return await new Promise<boolean>((resolve) => {
     let settled = false

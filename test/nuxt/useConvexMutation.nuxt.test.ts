@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { toCallResult } from '../../src/runtime/utils/call-result'
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -95,7 +96,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
   })
 
-  it('executeSafe never throws and returns normalized error metadata', async () => {
+  it('toCallResult never throws and returns normalized error metadata', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-fail')
 
@@ -104,7 +105,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const safeResult = await result.executeSafe({} as never)
+    const safeResult = await toCallResult(() => result.execute({} as never))
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -115,7 +116,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.status.value).toBe('error')
   })
 
-  it('executeSafe prefers structured ConvexError payloads when present', async () => {
+  it('toCallResult prefers structured ConvexError payloads when present', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-structured-fail')
 
@@ -128,7 +129,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const safeResult = await result.executeSafe({} as never)
+    const safeResult = await toCallResult(() => result.execute({} as never))
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -139,7 +140,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(safeResult.error.status).toBe(422)
   })
 
-  it('executeSafe wraps domain CallResult values without flattening them', async () => {
+  it('toCallResult wraps domain CallResult values without flattening them', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-domain-result')
 
@@ -152,7 +153,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
     const direct = await result.execute({} as never)
-    const wrapped = await result.executeSafe({} as never)
+    const wrapped = await toCallResult(() => result.execute({} as never))
 
     expect(direct).toEqual({
       ok: false,

@@ -5,25 +5,21 @@ import {
   normalizeRedirectTargetPath,
 } from '../../src/runtime/utils/auth-unauthorized'
 
-const navigateToMock = vi.fn(async (..._args: unknown[]) => {})
 const useNuxtAppMock = vi.fn()
 const useRuntimeConfigMock = vi.fn()
-const signOutMock = vi.fn(async () => {})
 
 vi.mock('#imports', () => ({
-  navigateTo: (...args: unknown[]) => navigateToMock(...args),
   useNuxtApp: () => useNuxtAppMock(),
   useRuntimeConfig: () => useRuntimeConfigMock(),
 }))
 
-vi.mock('../../src/runtime/composables/useConvexAuth', () => ({
-  useConvexAuth: () => ({ signOut: signOutMock }),
-}))
-
 describe('auth unauthorized recovery', () => {
+  let callHookMock: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
     vi.clearAllMocks()
-    useNuxtAppMock.mockReturnValue({})
+    callHookMock = vi.fn(async () => {})
+    useNuxtAppMock.mockReturnValue({ callHook: callHookMock })
     useRuntimeConfigMock.mockReturnValue({
       public: {
         convex: {
@@ -49,6 +45,7 @@ describe('auth unauthorized recovery', () => {
 
   it('skips recovery when already on the redirect path even with query params', async () => {
     useNuxtAppMock.mockReturnValue({
+      callHook: callHookMock,
       $router: {
         currentRoute: {
           value: {
@@ -66,12 +63,12 @@ describe('auth unauthorized recovery', () => {
     })
 
     expect(handled).toBe(false)
-    expect(signOutMock).not.toHaveBeenCalled()
-    expect(navigateToMock).not.toHaveBeenCalled()
+    expect(callHookMock).not.toHaveBeenCalled()
   })
 
-  it('still signs out and redirects for unauthorized failures on other routes', async () => {
+  it('emits convex:unauthorized hook for unauthorized failures on other routes', async () => {
     useNuxtAppMock.mockReturnValue({
+      callHook: callHookMock,
       $router: {
         currentRoute: {
           value: {
@@ -83,13 +80,19 @@ describe('auth unauthorized recovery', () => {
     })
 
     const handled = await handleUnauthorizedAuthFailure({
-      error: new Error('Unauthorized'),
+      error: Object.assign(new Error('Unauthorized'), { status: 401 }),
       source: 'query',
       functionName: 'notes:list',
     })
 
     expect(handled).toBe(true)
-    expect(signOutMock).toHaveBeenCalledTimes(1)
-    expect(navigateToMock).toHaveBeenCalledWith('/auth/signin?redirect=%2Fprotected')
+    expect(callHookMock).toHaveBeenCalledWith(
+      'convex:unauthorized',
+      expect.objectContaining({
+        source: 'query',
+        functionName: 'notes:list',
+        redirectTo: '/auth/signin?redirect=%2Fprotected',
+      }),
+    )
   })
 })

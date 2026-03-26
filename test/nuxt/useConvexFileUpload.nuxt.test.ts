@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { useConvexFileUpload } from '../../src/runtime/composables/useConvexFileUpload'
+import { useConvexUpload } from '../../src/runtime/composables/useConvexUpload'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
@@ -48,7 +48,7 @@ afterEach(() => {
   FakeXhr.delayMs = 0
 })
 
-describe('useConvexFileUpload (Nuxt runtime)', () => {
+describe('useConvexUpload single-file mode (Nuxt runtime)', () => {
   it('uploads file, tracks progress, and stores returned storageId', async () => {
     globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
 
@@ -56,7 +56,7 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl')
     convex.setMutationHandler('files:generateUploadUrl', async () => 'http://upload.local')
 
-    const { result } = await captureInNuxt(() => useConvexFileUpload(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation), { convex })
     const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
 
     const storageId = await result.upload(file)
@@ -79,7 +79,7 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     )
     const onProgress = vi.fn()
 
-    const { result } = await captureInNuxt(() => useConvexFileUpload(mutation, { onProgress }), {
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation, { onProgress }), {
       convex,
     })
     const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
@@ -97,7 +97,7 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     const onError = vi.fn()
 
     const { result } = await captureInNuxt(
-      () => useConvexFileUpload(mutation, { allowedTypes: ['image/*'], onError }),
+      () => useConvexUpload(mutation, { allowedTypes: ['image/*'], onError }),
       { convex },
     )
 
@@ -115,12 +115,12 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl')
     convex.setMutationHandler('files:generateUploadUrl', async () => 'http://upload.local')
 
-    const { result } = await captureInNuxt(() => useConvexFileUpload(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation), { convex })
     const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
 
     const uploadPromise = result.upload(file)
     await waitFor(() => result.progress.value > 0, { timeoutMs: 1000 })
-    result.cancel()
+    result.reset()
 
     await expect(uploadPromise).rejects.toThrow()
     expect(result.status.value).toBe('idle')

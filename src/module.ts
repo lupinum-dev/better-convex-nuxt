@@ -46,11 +46,62 @@ export interface AuthCacheOptions {
   enabled: boolean
   /**
    * Cache TTL in seconds.
-   * Determines how long tokens are cached before requiring a fresh fetch.
-   * Shorter TTL = more security, longer TTL = better performance.
    * @default 60 (1 minute)
    */
   ttl?: number
+}
+
+export interface AuthProxyOptions {
+  /**
+   * Maximum allowed request body size for auth proxy.
+   * @default 1_048_576 (1 MiB)
+   */
+  maxRequestBodyBytes?: number
+  /**
+   * Maximum allowed upstream response body size for auth proxy.
+   * @default 1_048_576 (1 MiB)
+   */
+  maxResponseBodyBytes?: number
+}
+
+/**
+ * Auth configuration. All auth-related settings live here.
+ */
+export interface AuthOptions extends ConvexAuthConfigInput {
+  /**
+   * Custom route path for the auth proxy.
+   * @default '/api/auth'
+   */
+  route?: string
+  /**
+   * Additional trusted origins for CORS validation on the auth proxy.
+   * Same-origin requests are always allowed.
+   * Supports wildcards (e.g., 'https://preview-*.vercel.app').
+   * @default []
+   */
+  trustedOrigins?: string[]
+  /**
+   * Routes that skip auth token fetches.
+   * Supports glob patterns (e.g., '/docs/**').
+   * Also use definePageMeta({ skipConvexAuth: true }) for per-page control.
+   * @default []
+   */
+  skipAuthRoutes?: string[]
+  /**
+   * SSR auth token caching (opt-in).
+   * Caches Convex JWT tokens server-side to reduce TTFB on subsequent requests.
+   *
+   * @example
+   * ```ts
+   * convex: { auth: { cache: { enabled: true, ttl: 60 } } }
+   * // For multi-instance: configure nitro.storage with driver: 'redis'
+   * ```
+   */
+  cache?: AuthCacheOptions
+  /**
+   * Body size limits for the auth proxy.
+   */
+  proxy?: AuthProxyOptions
 }
 
 /**
@@ -68,40 +119,19 @@ export interface QueryDefaults {
    * @default true
    */
   subscribe?: boolean
-  /**
-   * Auth token behavior for query composables.
-   * - 'auto': attach token when available
-   * - 'none': never attach token
-   * @default 'auto'
-   */
-  auth?: 'auto' | 'none'
 }
 
 export interface UploadDefaults {
   /**
-   * Maximum number of concurrent uploads for useConvexUploadQueue.
+   * Maximum number of concurrent uploads.
    * @default 3
    */
   maxConcurrent?: number
 }
 
-export interface AuthProxyDefaults {
-  /**
-   * Maximum allowed request body size for auth proxy.
-   * @default 1_048_576 (1 MiB)
-   */
-  maxRequestBodyBytes?: number
-  /**
-   * Maximum allowed upstream response body size for auth proxy.
-   * @default 1_048_576 (1 MiB)
-   */
-  maxResponseBodyBytes?: number
-}
-
 export interface ConvexDebugOptions {
   /**
    * Enable detailed auth flow logs on both client and server plugins.
-   * Requires `logging: 'debug'` to print verbose phase logs.
    * @default false
    */
   authFlow?: boolean
@@ -118,50 +148,31 @@ export interface ConvexDebugOptions {
 }
 
 export interface ModuleOptions {
-  /** Convex deployment URL (WebSocket) - e.g., https://your-app.convex.cloud */
+  /** Convex deployment URL (WebSocket) — e.g., https://your-app.convex.cloud */
   url?: string
   /**
-   * Convex site URL (HTTP Actions) - e.g., https://your-app.convex.site.
-   * Used for HTTP Actions (webhooks, etc.) and required for authentication.
-   * If not provided, automatically derived from `url` by replacing .convex.cloud with .convex.site.
+   * Convex site URL (HTTP Actions) — e.g., https://your-app.convex.site.
+   * Auto-derived from `url` if not provided.
    */
   siteUrl?: string
   /**
-   * Authentication configuration.
-   * Enables the auth composable (useConvexAuth), SSR token exchange, route protection,
-   * and optional unauthorized-session recovery behavior.
+   * All authentication configuration in one place.
+   * Set `auth.enabled = false` to disable auth entirely.
+   */
+  auth?: AuthOptions
+  /**
+   * Default behavior for query composables.
    *
-   * Set `auth.enabled = false` to disable auth features if you only need Convex without Better Auth.
-   *
-   * @default { enabled: true, routeProtection: { redirectTo: '/auth/signin', preserveReturnTo: true }, unauthorized: { enabled: false, redirectTo: '/auth/signin', includeQueries: false } }
+   * @example
+   * ```ts
+   * convex: { query: { server: false } } // Disable SSR globally
+   * ```
    */
-  auth?: ConvexAuthConfigInput
-  /**
-   * Custom route path for the auth proxy.
-   * Defaults to '/api/auth'.
-   * The module will register a catch-all handler at `${authRoute}/**`.
-   * @default '/api/auth'
-   */
-  authRoute?: string
-  /**
-   * Additional trusted origins for CORS validation on the auth proxy.
-   * Same-origin requests are always allowed automatically.
-   * Use this for cross-origin scenarios like iframes or separate frontend domains.
-   * Supports wildcards for preview deployments (e.g., 'https://preview-*.vercel.app').
-   * @default []
-   */
-  trustedOrigins?: string[]
-  /**
-   * Routes that should skip auth checks entirely.
-   * Useful for marketing pages that never need authentication.
-   * Supports glob patterns (e.g., '/docs/**', '/blog/**').
-   * Can also use definePageMeta({ skipConvexAuth: true }) for per-page control.
-   * @default []
-   */
-  skipAuthRoutes?: string[]
+  query?: QueryDefaults
+  /** Default options for upload composables. */
+  upload?: UploadDefaults
   /**
    * Enable permission composables (createPermissions factory).
-   * When true, auto-imports createPermissions for building usePermissions.
    * @default false
    */
   permissions?: boolean
@@ -174,64 +185,20 @@ export interface ModuleOptions {
    */
   logging?: LogLevel
   /**
-   * Optional debug channels for runtime plugins.
-   * Use this to enable high-verbosity trace logs without changing regular logger behavior.
-   * @default { authFlow: false, clientAuthFlow: false, serverAuthFlow: false }
+   * High-verbosity trace channels for debugging the auth flow.
    */
   debug?: ConvexDebugOptions
-  /**
-   * SSR auth token caching configuration (opt-in).
-   * Caches Convex JWT tokens server-side to reduce TTFB on subsequent requests.
-   *
-   * @example
-   * ```ts
-   * // nuxt.config.ts
-   * export default defineNuxtConfig({
-   *   convex: {
-   *     authCache: {
-   *       enabled: true,
-   *       ttl: 60 // 60 seconds
-   *     }
-   *   },
-   *   // For multi-instance deployments, configure Redis:
-   *   nitro: {
-   *     storage: {
-   *       'cache:convex:auth': {
-   *         driver: 'redis',
-   *         url: process.env.REDIS_URL
-   *       }
-   *     }
-   *   }
-   * })
-   * ```
-   */
-  authCache?: AuthCacheOptions
-  /**
-   * Default options for query composables (useConvexQuery, useConvexPaginatedQuery).
-   * Per-query options override these defaults.
-   *
-   * @example
-   * ```ts
-   * // nuxt.config.ts
-   * export default defineNuxtConfig({
-   *   convex: {
-   *     defaults: {
-   *       server: false // Disable SSR globally
-   *     }
-   *   }
-   * })
-   * ```
-   */
-  defaults?: QueryDefaults
-  /**
-   * Default options for upload composables.
-   */
-  upload?: UploadDefaults
-  /**
-   * Default body size limits for auth proxy.
-   */
-  authProxy?: AuthProxyDefaults
 }
+
+// ---------------------------------------------------------------------------
+// Deprecated aliases — kept for one release, will be removed
+// ---------------------------------------------------------------------------
+
+/** @deprecated Use `AuthOptions` instead */
+export type AuthProxyDefaults = AuthProxyOptions
+
+/** @deprecated Use `query` key instead of `defaults` */
+export type { QueryDefaults as QueryDefaultsDeprecated }
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -246,6 +213,9 @@ export default defineNuxtModule<ModuleOptions>({
     siteUrl: process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL,
     auth: {
       enabled: true,
+      route: '/api/auth',
+      trustedOrigins: [],
+      skipAuthRoutes: [],
       routeProtection: {
         redirectTo: '/auth/signin',
         preserveReturnTo: true,
@@ -255,32 +225,28 @@ export default defineNuxtModule<ModuleOptions>({
         redirectTo: '/auth/signin',
         includeQueries: false,
       },
+      cache: {
+        enabled: false,
+        ttl: 60,
+      },
+      proxy: {
+        maxRequestBodyBytes: 1_048_576,
+        maxResponseBodyBytes: 1_048_576,
+      },
     },
-    authRoute: '/api/auth',
-    trustedOrigins: [],
-    skipAuthRoutes: [],
+    query: {
+      server: true,
+      subscribe: true,
+    },
+    upload: {
+      maxConcurrent: 3,
+    },
     permissions: false,
     logging: false,
     debug: {
       authFlow: false,
       clientAuthFlow: false,
       serverAuthFlow: false,
-    },
-    authCache: {
-      enabled: false,
-      ttl: 60,
-    },
-    defaults: {
-      server: true, // SSR enabled by default (like Nuxt's useFetch)
-      subscribe: true,
-      auth: 'auto',
-    },
-    upload: {
-      maxConcurrent: 3,
-    },
-    authProxy: {
-      maxRequestBodyBytes: 1_048_576,
-      maxResponseBodyBytes: 1_048_576,
     },
   },
   setup(options, nuxt) {
@@ -309,22 +275,20 @@ export default defineNuxtModule<ModuleOptions>({
     const normalizedAuthConfig = normalizeConvexAuthConfig(options.auth)
     const isAuthEnabled = normalizedAuthConfig.enabled
 
-    // Get custom auth route or use default
-    const authRoute = normalizeAuthRoute(options.authRoute)
+    const authRoute = normalizeAuthRoute(options.auth?.route ?? '/api/auth')
 
-    // Validate auth configuration
-    // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error
-    // Runtime validation happens in the plugins when the actual values are available
+    // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error.
+    // Runtime validation happens in the plugins when the actual values are available.
     if (isAuthEnabled && !resolvedSiteUrl) {
       logger.warn(
-        `auth: true but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(options.url)}`,
+        `auth.enabled = true but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(options.url)}`,
       )
     }
 
-    const normalizedAuthCacheTtl = normalizeAuthCacheTtl(options.authCache?.ttl)
-    if ((options.authCache?.ttl ?? 60) !== normalizedAuthCacheTtl) {
+    const normalizedAuthCacheTtl = normalizeAuthCacheTtl(options.auth?.cache?.ttl)
+    if ((options.auth?.cache?.ttl ?? 60) !== normalizedAuthCacheTtl) {
       logger.warn(
-        `convex.authCache.ttl must be between 1 and 60 seconds. Using ${normalizedAuthCacheTtl}s instead.`,
+        `convex.auth.cache.ttl must be between 1 and 60 seconds. Using ${normalizedAuthCacheTtl}s instead.`,
       )
     }
 
@@ -334,32 +298,33 @@ export default defineNuxtModule<ModuleOptions>({
       {
         url: options.url || '',
         siteUrl: resolvedSiteUrl || '',
-        auth: normalizedAuthConfig,
-        authRoute,
-        trustedOrigins: options.trustedOrigins ?? [],
-        skipAuthRoutes: options.skipAuthRoutes ?? [],
+        auth: {
+          ...normalizedAuthConfig,
+          route: authRoute,
+          trustedOrigins: options.auth?.trustedOrigins ?? [],
+          skipAuthRoutes: options.auth?.skipAuthRoutes ?? [],
+          cache: {
+            enabled: options.auth?.cache?.enabled ?? false,
+            ttl: normalizedAuthCacheTtl,
+          },
+          proxy: {
+            maxRequestBodyBytes: options.auth?.proxy?.maxRequestBodyBytes ?? 1_048_576,
+            maxResponseBodyBytes: options.auth?.proxy?.maxResponseBodyBytes ?? 1_048_576,
+          },
+        },
+        query: {
+          server: options.query?.server ?? true,
+          subscribe: options.query?.subscribe ?? true,
+        },
+        upload: {
+          maxConcurrent: options.upload?.maxConcurrent ?? 3,
+        },
         permissions: options.permissions ?? false,
         logging: options.logging ?? false,
         debug: {
           authFlow: options.debug?.authFlow ?? false,
           clientAuthFlow: options.debug?.clientAuthFlow ?? false,
           serverAuthFlow: options.debug?.serverAuthFlow ?? false,
-        },
-        authCache: {
-          enabled: options.authCache?.enabled ?? false,
-          ttl: normalizedAuthCacheTtl,
-        },
-        defaults: {
-          server: options.defaults?.server ?? true, // SSR enabled by default
-          subscribe: options.defaults?.subscribe ?? true,
-          auth: options.defaults?.auth ?? 'auto',
-        },
-        upload: {
-          maxConcurrent: options.upload?.maxConcurrent ?? 3,
-        },
-        authProxy: {
-          maxRequestBodyBytes: options.authProxy?.maxRequestBodyBytes ?? 1_048_576,
-          maxResponseBodyBytes: options.authProxy?.maxResponseBodyBytes ?? 1_048_576,
         },
       },
     )
@@ -417,6 +382,8 @@ declare module '#app' {
 
   interface RuntimeNuxtHooks {
     'better-convex:auth:refresh': () => void | Promise<void>
+    /** Fired when a Convex call returns a 401/403. Handle sign-out + redirect here. */
+    'convex:unauthorized': (payload: { error: unknown; source: string; functionName?: string; redirectTo: string }) => void | Promise<void>
   }
 
     interface PageMeta {
@@ -453,16 +420,17 @@ export {}
       },
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
+      // Deprecated alias — use useConvexQuery(..., { lazy: true }) instead
       { name: 'useConvexQueryLazy', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
         name: 'defineSharedConvexQuery',
         from: resolver.resolve('./runtime/composables/defineSharedConvexQuery'),
       },
-      { name: 'useConvexCall', from: resolver.resolve('./runtime/composables/useConvexCall') },
       {
         name: 'useConvexPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
+      // Deprecated alias — use useConvexPaginatedQuery(..., { lazy: true }) instead
       {
         name: 'useConvexPaginatedQueryLazy',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
@@ -503,19 +471,17 @@ export {}
         name: 'deleteFromPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
-      // File upload composables
+      // Unified upload composable (replaces useConvexFileUpload + useConvexUploadQueue)
       {
-        name: 'useConvexFileUpload',
-        from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
-      },
-      {
-        name: 'useConvexUploadQueue',
-        from: resolver.resolve('./runtime/composables/useConvexUploadQueue'),
+        name: 'useConvexUpload',
+        from: resolver.resolve('./runtime/composables/useConvexUpload'),
       },
       {
         name: 'useConvexStorageUrl',
         from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
       },
+      // toCallResult utility for safe-call pattern
+      { name: 'toCallResult', from: resolver.resolve('./runtime/utils/call-result') },
     ])
 
     // 6b. Auth composables and components (only when auth enabled)
@@ -550,6 +516,8 @@ export {}
         name: 'serverConvexClearAuthCache',
         from: resolver.resolve('./runtime/server/utils/auth-cache'),
       },
+      // Error class for server-side instanceof checks
+      { name: 'ConvexError', from: resolver.resolve('./runtime/utils/call-result') },
     ])
 
     // 9. Add types to tsconfig references

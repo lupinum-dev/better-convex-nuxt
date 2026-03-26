@@ -1,6 +1,11 @@
 export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
 export { useConvex } from './useConvex'
-export { type CallResult, type ConvexCallError, normalizeConvexError } from '../utils/call-result'
+export {
+  type CallResult,
+  toCallResult,
+  ConvexError,
+  type ConvexCallError,
+} from '../utils/call-result'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'
 export {
   useConvexMutation,
@@ -27,7 +32,6 @@ export {
 export {
   useConvexQuery,
   useConvexQueryLazy,
-  getQueryKey,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
@@ -36,7 +40,6 @@ export {
   defineSharedConvexQuery,
   type DefineSharedConvexQueryOptions,
 } from './defineSharedConvexQuery'
-export { useConvexCall, type UseConvexCallOptions } from './useConvexCall'
 export {
   useConvexPaginatedQuery,
   useConvexPaginatedQueryLazy,
@@ -59,23 +62,19 @@ export {
   type DeleteFromPaginatedQueryOptions,
 } from './useConvexPaginatedQuery'
 
-// File upload composables
+// Upload composable (unified single-file and queue mode)
 export {
-  useConvexFileUpload,
+  useConvexUpload,
+  type UseConvexUploadOptions,
+  type UseConvexUploadReturn,
+  type UseConvexUploadQueueReturn,
   type UploadStatus,
   type UploadProgressInfo,
-  type UseConvexFileUploadReturn,
-  type UseConvexFileUploadOptions,
-} from './useConvexFileUpload'
-export {
-  useConvexUploadQueue,
   type UploadQueueItemStatus,
   type UploadQueueItem,
   type UploadQueueEnqueueItem,
   type UploadQueueEnqueueInput,
-  type UseConvexUploadQueueOptions,
-  type UseConvexUploadQueueReturn,
-} from './useConvexUploadQueue'
+} from './useConvexUpload'
 
 export { useConvexStorageUrl } from './useConvexStorageUrl'
 

@@ -51,34 +51,40 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(resolved.data.value).toEqual([{ _id: 'n1', title: 'Loaded' }])
   })
 
-  it('returns idle + pending=false immediately for disabled nullable args', async () => {
+  it('returns skipped + pending=false immediately for disabled query', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
-    const { result } = await captureInNuxt(() => useConvexQueryState(query, null), {
-      convex: new MockConvexClient(),
-    })
+    const { result } = await captureInNuxt(
+      () => useConvexQueryState(query, {}, { enabled: false }),
+      {
+        convex: new MockConvexClient(),
+      },
+    )
 
     expect(result.data.value).toBeNull()
     expect(result.pending.value).toBe(false)
-    expect(result.status.value).toBe('idle')
+    expect(result.status.value).toBe('skipped')
   })
 
-  it('exposes refresh/clear but omits execute on query return shape', async () => {
+  it('exposes refresh/reset but omits execute on query return shape', async () => {
     const query = mockFnRef<'query'>('notes:list:return-shape')
-    const { result } = await captureInNuxt(() => useConvexQueryState(query, null), {
-      convex: new MockConvexClient(),
-    })
+    const { result } = await captureInNuxt(
+      () => useConvexQueryState(query, {}, { enabled: false }),
+      {
+        convex: new MockConvexClient(),
+      },
+    )
 
     expect(typeof result.refresh).toBe('function')
-    expect(typeof result.clear).toBe('function')
+    expect(typeof result.reset).toBe('function')
     expect('execute' in (result as unknown as Record<string, unknown>)).toBe(false)
   })
 
-  it('respects auth:none by omitting Authorization header in client HTTP mode', async () => {
+  it('omits Authorization header when no token is cached (auth:auto with no token)', async () => {
     const query = mockFnRef<'query'>('notes:list:auth-none')
     const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))
     vi.stubGlobal('$fetch', fetchMock)
 
-    await captureInNuxt(() => useConvexQueryState(query, {}, { subscribe: false, auth: 'none' }), {
+    await captureInNuxt(() => useConvexQueryState(query, {}, { subscribe: false }), {
       convex: new MockConvexClient(),
     })
 
@@ -97,7 +103,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       () => {
         const token = useState<string | null>('convex:token')
         token.value = 'cached.jwt.token'
-        return useConvexQueryState(query, {}, { subscribe: false, auth: 'auto' })
+        return useConvexQueryState(query, {}, { subscribe: false })
       },
       { convex: new MockConvexClient() },
     )
@@ -117,7 +123,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    expect(result.status.value).toBe('idle')
+    expect(result.status.value).toBe('skipped')
     expect(result.pending.value).toBe(false)
     expect(convex.calls.onUpdate.length).toBe(0)
   })
@@ -196,10 +202,10 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(
       () => {
-        const lateArgs = ref<Record<string, never> | null>(null)
+        const lateEnabled = ref(false)
         const primary = useConvexQueryState(query, {})
-        const late = useConvexQueryState(query, lateArgs)
-        return { lateArgs, primary, late }
+        const late = useConvexQueryState(query, {}, { enabled: () => lateEnabled.value })
+        return { lateEnabled, primary, late }
       },
       { convex },
     )
@@ -208,7 +214,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     convex.emitQueryError(query, {}, new Error('upstream unavailable'))
     await waitFor(() => result.primary.error.value?.message === 'upstream unavailable')
 
-    result.lateArgs.value = {}
+    result.lateEnabled.value = true
     await flush()
 
     await waitFor(() => result.late.error.value?.message === 'upstream unavailable')
@@ -295,11 +301,15 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const tag = ref('alpha')
-        const queryResult = useConvexQueryState(query, {
-          filter: {
-            tag,
+        const queryResult = useConvexQueryState(
+          query,
+          {
+            filter: {
+              tag,
+            },
           },
-        })
+          { deepUnrefArgs: true },
+        )
         return { tag, queryResult }
       },
       { convex },

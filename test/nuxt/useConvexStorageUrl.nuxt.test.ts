@@ -14,20 +14,22 @@ describe('useConvexStorageUrl (Nuxt runtime)', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const storageId = ref<string | null>(null)
-        const url = useConvexStorageUrl(getUrlQuery, storageId)
-        return { storageId, url }
+        const query = useConvexStorageUrl(getUrlQuery, storageId)
+        return { storageId, query }
       },
       { convex },
     )
 
-    expect(result.url.value).toBeNull()
+    expect(result.query.data.value).toBeNull()
+    expect(result.query.status.value).toBe('skipped')
     expect(convex.activeListenerCount()).toBe(0)
 
     result.storageId.value = 'storage_123'
     await flush()
 
     convex.emitQueryResultByPath('files:getUrl', 'https://files.example.com/123')
-    await waitFor(() => result.url.value === 'https://files.example.com/123')
-    expect(result.url.value).toBe('https://files.example.com/123')
+    await waitFor(() => result.query.data.value === 'https://files.example.com/123')
+    expect(result.query.data.value).toBe('https://files.example.com/123')
+    expect(result.query.status.value).toBe('success')
   })
 })

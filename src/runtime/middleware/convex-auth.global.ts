@@ -1,13 +1,12 @@
 import { defineNuxtRouteMiddleware, navigateTo, useRuntimeConfig } from '#app'
 
 import { useConvexAuth } from '../composables/useConvexAuth'
+import { AUTH_MIDDLEWARE_TIMEOUT_MS } from '../utils/constants'
 import {
   resolveRouteProtectionDecision,
   type ConvexAuthPageMeta,
 } from '../utils/auth-route-protection'
 import { normalizeConvexRuntimeConfig } from '../utils/runtime-config'
-
-const PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS = 5_000
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authConfig = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex).auth
@@ -38,7 +37,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // For protected routes, wait for auth state to settle to avoid protected-content flashes.
   if (import.meta.client && isPending.value) {
     const authed = await awaitAuthReady({
-      timeoutMs: PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS,
+      timeoutMs: AUTH_MIDDLEWARE_TIMEOUT_MS,
     })
     if (authed) return
   }

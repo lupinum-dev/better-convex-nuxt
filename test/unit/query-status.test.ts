@@ -12,8 +12,8 @@ import { computeQueryStatus } from '../../src/runtime/utils/convex-shared'
 
 describe('computeQueryStatus', () => {
   describe('state priority', () => {
-    it('idle when skipped (highest priority)', () => {
-      expect(computeQueryStatus(true, true, true, false)).toBe('idle')
+    it('skipped when isSkipped (highest priority)', () => {
+      expect(computeQueryStatus(true, true, true, false)).toBe('skipped')
     })
 
     it('error when hasError (second priority)', () => {

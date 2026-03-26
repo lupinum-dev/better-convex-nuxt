@@ -119,8 +119,9 @@
 
       <div class="code-block">
         <pre>
-// Access cached notes list using native Nuxt pattern
-const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
+// Share reactive data between components without extra requests
+// The data ref from useConvexQuery is reactive and shared via the subscription cache
+const { data: notes } = await useConvexQuery(api.notes.list, {})
 // Count: {{ cachedNotes?.length ?? 'undefined' }}</pre
         >
       </div>
@@ -196,7 +197,6 @@ export default defineNuxtConfig({
 <script setup lang="ts">
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import { getQueryKey } from 'better-convex-nuxt/composables'
 
 // Mutations using the new composable
 const addNoteMutation = useConvexMutation(api.notes.add)
@@ -284,7 +284,9 @@ const { data: skipDemoData, pending: skipDemoPending } = await useConvexQuery(
 )
 
 // ========== Section 4: useNuxtData (Cache Access) ==========
-const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
+// useNuxtData gives access to data cached by useConvexQuery using the same key
+// The key is auto-managed; access via the data ref returned from useConvexQuery
+const cachedNotes = notes
 
 // ========== Section 5: Options Demo ==========
 

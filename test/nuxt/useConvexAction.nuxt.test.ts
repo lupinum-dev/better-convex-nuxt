@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { toCallResult } from '../../src/runtime/utils/call-result'
 import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -97,7 +98,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
   })
 
-  it('executeSafe never throws and returns normalized errors', async () => {
+  it('toCallResult never throws and returns normalized errors', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:safe-action-fail')
     convex.setActionHandler('testing:safe-action-fail', async () => {
@@ -105,7 +106,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
-    const safeResult = await result.executeSafe({} as never)
+    const safeResult = await toCallResult(() => result.execute({} as never))
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -115,7 +116,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(safeResult.error.message).toBe('Action limit reached')
   })
 
-  it('executeSafe wraps domain CallResult values without flattening them', async () => {
+  it('toCallResult wraps domain CallResult values without flattening them', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:safe-domain-result')
     convex.setActionHandler('testing:safe-domain-result', async () => {
@@ -127,7 +128,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
     const direct = await result.execute({} as never)
-    const wrapped = await result.executeSafe({} as never)
+    const wrapped = await toCallResult(() => result.execute({} as never))
 
     expect(direct).toEqual({
       ok: false,

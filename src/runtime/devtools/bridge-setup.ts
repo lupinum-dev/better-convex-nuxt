@@ -10,6 +10,7 @@ import { toRaw } from 'vue'
 import type { Ref } from 'vue'
 
 import { createAppDevtoolsTransport, cloneDevtoolsPayload } from './transport'
+import { getDevtoolsChannelName } from '../utils/constants'
 import type {
   ConvexDevToolsBridge,
   ConvexUser,
@@ -143,7 +144,8 @@ export async function setupDevToolsBridge(
 
   // Generate a unique instance ID for this tab/window to prevent cross-tab interference
   const instanceId = providedInstanceId ?? Math.random().toString(36).slice(2, 10)
-  const transport = createAppDevtoolsTransport('convex-devtools')
+  const channelName = getDevtoolsChannelName(window.location.origin)
+  const transport = createAppDevtoolsTransport(channelName)
 
   // Handle messages from DevTools iframe via transport (BroadcastChannel or postMessage fallback)
   const onMessage = (event: { data: unknown }) => {
