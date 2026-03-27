@@ -495,8 +495,6 @@ export {}
         name: 'serverConvexClearAuthCache',
         from: resolver.resolve('./runtime/server/utils/auth-cache'),
       },
-      // Error class for server-side instanceof checks
-      { name: 'ConvexCallError', from: resolver.resolve('./runtime/utils/call-result') },
     ])
 
     // 9. Add types to tsconfig references

@@ -180,13 +180,12 @@
 </template>
 
 <script setup lang="ts">
-const { user, isAuthenticated, token, signOut: convexSignOut } = useConvexAuth()
+const { user, isAuthenticated, signOut: convexSignOut } = useConvexAuth()
 
 const isSigningOut = ref(false)
 
 const debugInfo = computed(() => ({
   isAuthenticated: isAuthenticated.value,
-  hasToken: !!token.value,
   user: user.value,
 }))
 
