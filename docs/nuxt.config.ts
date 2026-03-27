@@ -164,10 +164,19 @@ export default defineNuxtConfig({
       },
       {
         title: 'Authentication & Security',
-        description: 'Setup guide for authentication, permissions, and role-based access.',
+        description: 'Setup guide for authentication, route protection, and token management.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/4.auth-security%' },
+          { field: 'extension', operator: '=', value: 'md' },
+        ],
+      },
+      {
+        title: 'File Uploads',
+        description: 'Single file uploads, multi-file queues, and storage URLs.',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '%/5.file-uploads%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -176,16 +185,34 @@ export default defineNuxtConfig({
         description: 'Using Convex with Nuxt server routes and SSR hydration.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/5.server-side%' },
+          { field: 'path', operator: 'LIKE', value: '%/6.server-side%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Advanced',
-        description: 'Connection state management, error handling, file storage, and logging.',
+        title: 'Permissions',
+        description: 'Role-based access control with backend-driven permission checks.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/6.advanced%' },
+          { field: 'path', operator: 'LIKE', value: '%/7.permissions%' },
+          { field: 'extension', operator: '=', value: 'md' },
+        ],
+      },
+      {
+        title: 'Real-Time',
+        description: 'WebSocket subscriptions and connection state management.',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '%/8.real-time%' },
+          { field: 'extension', operator: '=', value: 'md' },
+        ],
+      },
+      {
+        title: 'Configuration',
+        description: 'Module options, environment variables, auth proxy, and logging.',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '%/9.configuration%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -194,7 +221,25 @@ export default defineNuxtConfig({
         description: 'Guide for deploying your application to production.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/8.deployment%' },
+          { field: 'path', operator: 'LIKE', value: '%/10.deployment%' },
+          { field: 'extension', operator: '=', value: 'md' },
+        ],
+      },
+      {
+        title: 'DevTools',
+        description: 'Nuxt DevTools integration for debugging queries, mutations, and auth.',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '%/11.devtools%' },
+          { field: 'extension', operator: '=', value: 'md' },
+        ],
+      },
+      {
+        title: 'API Reference',
+        description: 'Complete API reference for composables, components, server utilities, and types.',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '%/12.api-reference%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },

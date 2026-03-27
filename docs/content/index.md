@@ -171,7 +171,7 @@ Built-in features for building production-ready apps
   title: Permissions
   description: Role-based access control with ownership rules. Backend enforces, frontend displays.
   icon: i-lucide-shield
-  to: /docs/auth-security/permissions
+  to: /docs/permissions/setup
   ---
   :::
   :::landing-feature
@@ -179,7 +179,7 @@ Built-in features for building production-ready apps
   title: SSR Support
   description: Server-side rendering with hydration. Fast initial loads, then real-time updates.
   icon: i-lucide-server
-  to: /docs/server-side/ssr-hydration
+  to: /docs/server-side/ssr-overview
   ---
   :::
   :::landing-feature
@@ -195,7 +195,7 @@ Built-in features for building production-ready apps
   title: File Storage
   description: Upload files with progress tracking, cancel support, and multi-file queues with concurrency control.
   icon: i-lucide-upload
-  to: /docs/advanced/file-storage
+  to: /docs/file-uploads/single-file-upload
   ---
   :::
 :::
