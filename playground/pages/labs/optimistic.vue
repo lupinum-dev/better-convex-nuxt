@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Id } from '~~/convex/_generated/dataModel'
 import { api } from '~~/convex/_generated/api'
-import { updateQuery, deleteFromQuery } from '#imports'
 
 definePageMeta({
   layout: 'sidebar',
@@ -45,24 +44,19 @@ watch(
 const { execute: addNoteOptimistic, pending: addPendingOptimistic } = useConvexMutation(
   api.notes.add,
   {
-    optimisticUpdate: (localStore, args) => {
+    optimisticUpdate: (ctx, args) => {
       console.log('[Optimistic] Applying optimistic update for add')
-      updateQuery({
-        query: api.notes.list,
-        args: {},
-        store: localStore,
-        updater: (current) => {
-          const now = Date.now()
-          const optimisticNote = {
-            _id: `optimistic-${now}` as Id<'notes'>,
-            _creationTime: now,
-            createdAt: now,
-            title: args.title,
-            content: args.content,
-          }
-          console.log('[Optimistic] Created optimistic note:', optimisticNote.title)
-          return current ? [optimisticNote, ...current] : [optimisticNote]
-        },
+      ctx.query(api.notes.list, {}).update((current) => {
+        const now = Date.now()
+        const optimisticNote = {
+          _id: `optimistic-${now}` as Id<'notes'>,
+          _creationTime: now,
+          createdAt: now,
+          title: args.title,
+          content: args.content,
+        }
+        console.log('[Optimistic] Created optimistic note:', optimisticNote.title)
+        return current ? [optimisticNote, ...current] : [optimisticNote]
       })
     },
   },
@@ -75,14 +69,11 @@ const { execute: addNoteNormal, pending: addPendingNormal } = useConvexMutation(
 const { execute: removeNoteOptimistic, pending: removePendingOptimistic } = useConvexMutation(
   api.notes.remove,
   {
-    optimisticUpdate: (localStore, args) => {
+    optimisticUpdate: (ctx, args) => {
       console.log('[Optimistic] Applying optimistic update for remove')
-      deleteFromQuery({
-        query: api.notes.list,
-        args: {},
-        store: localStore,
-        shouldDelete: (note) => note._id === args.id,
-      })
+      ctx.query(api.notes.list, {}).update((current) =>
+        current?.filter((note) => note._id !== args.id) ?? [],
+      )
     },
   },
 )

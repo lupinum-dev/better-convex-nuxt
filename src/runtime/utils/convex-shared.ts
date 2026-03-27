@@ -1,7 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 import { hash } from 'ohash'
 
-import type { ConvexCallStatus, ConvexUser } from './types'
+import type { QueryStatus, ConvexUser } from './types'
 
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')
@@ -160,7 +160,7 @@ export function computeQueryStatus(
   hasError: boolean,
   isPending: boolean,
   hasData: boolean,
-): ConvexCallStatus {
+): QueryStatus {
   if (isSkipped) return 'skipped'
   if (hasError) return 'error'
   if (isPending && !hasData) return 'pending'

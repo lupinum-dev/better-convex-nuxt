@@ -50,12 +50,6 @@ export type QueryStatus = 'pending' | 'success' | 'error' | 'skipped'
 export type MutationStatus = 'idle' | 'pending' | 'success' | 'error'
 
 /**
- * @deprecated Use QueryStatus or MutationStatus for precise typing.
- * Will be removed in v3.
- */
-export type ConvexCallStatus = QueryStatus | MutationStatus
-
-/**
  * Client-side auth mode for query composables.
  * - auto: attach token when available
  * - none: never attach auth token

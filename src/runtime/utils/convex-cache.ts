@@ -11,7 +11,7 @@ export {
   hashArgs,
   getQueryKey,
 } from './convex-shared'
-export type { ConvexCallStatus } from './types'
+export type { QueryStatus } from './types'
 
 // Get the NuxtApp type from useNuxtApp return type
 type NuxtApp = ReturnType<typeof useNuxtApp>

@@ -31,19 +31,9 @@ import {
 } from './internal/live-query-resource'
 
 export {
-  insertAtTop,
-  insertAtPosition,
-  insertAtBottomIfLoaded,
-  updateInPaginatedQuery,
-  deleteFromPaginatedQuery,
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
-  type InsertAtTopOptions,
-  type InsertAtPositionOptions,
-  type InsertAtBottomIfLoadedOptions,
-  type UpdateInPaginatedQueryOptions,
-  type DeleteFromPaginatedQueryOptions,
 } from './optimistic-updates'
 
 export type PaginatedQueryStatus =
@@ -557,21 +547,4 @@ export function useConvexPaginatedQuery<
     return created.resultData
   }
   return created.resolvePromise.then(() => created.resultData)
-}
-
-/**
- * @deprecated Use `useConvexPaginatedQuery(query, args, { lazy: true })` instead.
- */
-export function useConvexPaginatedQueryLazy<
-  Query extends PaginatedQueryReference,
-  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
-  TransformedItem = PaginatedQueryItem<Query>,
->(
-  query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
-): UseConvexPaginatedQueryData<TransformedItem> {
-  return useConvexPaginatedQuery(query, args, { ...options, lazy: true } as typeof options & {
-    lazy: true
-  })
 }

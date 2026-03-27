@@ -5,22 +5,12 @@ export {
   type CallResult,
   toCallResult,
   ConvexError,
-  type ConvexCallError,
 } from '../utils/call-result'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'
 export {
   useConvexMutation,
   type UseConvexMutationReturn,
   type UseConvexMutationOptions,
-  // @deprecated flat helpers — use ctx.query().update() / ctx.paginatedQuery().insertAtTop() etc.
-  updateQuery,
-  setQueryData,
-  updateAllQueries,
-  deleteFromQuery,
-  type UpdateQueryOptions,
-  type SetQueryDataOptions,
-  type UpdateAllQueriesOptions,
-  type DeleteFromQueryOptions,
 } from './useConvexMutation'
 // Optimistic update builder types — exported directly from source to avoid re-export hop
 export {
@@ -38,35 +28,22 @@ export {
 } from './useConvexAction'
 export {
   useConvexQuery,
-  useConvexQueryLazy,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
-export type { QueryStatus, MutationStatus, ConvexCallStatus } from '../utils/types'
+export type { QueryStatus, MutationStatus } from '../utils/types'
 export {
   defineSharedConvexQuery,
   type DefineSharedConvexQueryOptions,
 } from './defineSharedConvexQuery'
 export {
   useConvexPaginatedQuery,
-  useConvexPaginatedQueryLazy,
   type PaginatedQueryStatus,
   type UseConvexPaginatedQueryOptions,
   type UseConvexPaginatedQueryData,
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
-  // @deprecated flat helpers — use ctx.paginatedQuery().insertAtTop() etc.
-  insertAtTop,
-  insertAtPosition,
-  insertAtBottomIfLoaded,
-  updateInPaginatedQuery,
-  deleteFromPaginatedQuery,
-  type InsertAtTopOptions,
-  type InsertAtPositionOptions,
-  type InsertAtBottomIfLoadedOptions,
-  type UpdateInPaginatedQueryOptions,
-  type DeleteFromPaginatedQueryOptions,
 } from './useConvexPaginatedQuery'
 
 // Upload composables

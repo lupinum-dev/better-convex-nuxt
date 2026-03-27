@@ -11,7 +11,7 @@ import {
   warmQueryDevtools,
 } from '../devtools/runtime'
 import { assertConvexComposableScope } from '../utils/composable-scope'
-import { getQueryKey, getFunctionName, type ConvexCallStatus } from '../utils/convex-cache'
+import { getQueryKey, getFunctionName } from '../utils/convex-cache'
 import type { QueryStatus } from '../utils/types'
 import { deepUnref } from '../utils/deep-unref'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
@@ -23,7 +23,6 @@ import {
   executeQueryHttp,
 } from './internal/live-query-resource'
 
-export type { ConvexCallStatus }
 export { getQueryKey, executeQueryHttp }
 
 export interface UseConvexQueryOptions<RawT, DataT = RawT> {
@@ -58,8 +57,6 @@ export interface UseConvexQueryData<DataT> {
   refresh: () => Promise<void>
   /** Clear local data and error, resetting to initial state. Matches Nuxt's useAsyncData.clear(). */
   clear: () => void
-  /** @deprecated Use clear() */
-  reset: () => void
   pending: Ref<boolean>
   status: Ref<QueryStatus>
 }
@@ -243,7 +240,6 @@ export function createConvexQueryState<
       error: resource.asyncData.error as Ref<Error | null>,
       refresh: resource.asyncData.refresh,
       clear: resource.asyncData.clear,
-      reset: resource.asyncData.clear, // @deprecated alias
       pending: resource.pending as Ref<boolean>,
       status: resource.status as Ref<QueryStatus>,
     },
@@ -305,21 +301,6 @@ async function executeViaSharedRuntime<Query extends FunctionReference<'query'>>
     subscribe: options.subscribe ?? convexConfig.query.subscribe ?? true,
     authMode: 'auto',
   })
-}
-
-/**
- * @deprecated Use `useConvexQuery(query, args, { lazy: true })` instead.
- */
-export function useConvexQueryLazy<
-  Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
-  DataT = FunctionReturnType<Query>,
->(
-  query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
-): UseConvexQueryData<DataT> {
-  return useConvexQuery(query, args, { ...options, lazy: true })
 }
 
 export { executeViaSharedRuntime as executeConvexQuery }

@@ -18,20 +18,11 @@ import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
 import type { MutationStatus } from '../utils/types'
 import { getRequiredConvexClient } from './useConvex'
 
-// Re-export optimistic update builder and types
+// Re-export optimistic update builder types
 export {
   type OptimisticContext,
   type OptimisticQueryHandle,
   type OptimisticPaginatedHandle,
-  // @deprecated — use ctx.query().update() / ctx.paginatedQuery().insertAtTop() etc. instead
-  updateQuery,
-  setQueryData,
-  updateAllQueries,
-  deleteFromQuery,
-  type UpdateQueryOptions,
-  type SetQueryDataOptions,
-  type UpdateAllQueriesOptions,
-  type DeleteFromQueryOptions,
 } from './optimistic-updates'
 
 /**
@@ -86,27 +77,6 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
    *
    * Use this to update local query results for instant UI feedback.
    *
-   * @example
-   * ```ts
-   * const { execute } = useConvexMutation(api.notes.add, {
-   *   optimisticUpdate: (localStore, args) => {
-   *     // Update a regular query
-   *     updateQuery({
-   *       query: api.notes.list,
-   *       args: {},
-   *       store: localStore,
-   *       updater: (current) => current ? [newNote, ...current] : [newNote]
-   *     })
-   *
-   *     // Or update a paginated query
-   *     insertAtTop({
-   *       query: api.notes.listPaginated,
-   *       store: localStore,
-   *       item: { _id: crypto.randomUUID(), ...args }
-   *     })
-   *   }
-   * })
-   * ```
    */
   /**
    * Optimistic update callback. Receives a typed context (`ctx`) and mutation args.
@@ -288,27 +258,20 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
  * </template>
  * ```
  *
- * @example With optimistic update for regular queries
+ * @example With optimistic update
  * ```vue
  * <script setup>
  * import { api } from '~/convex/_generated/api'
- * import { updateQuery, deleteFromQuery } from '#imports'
  *
- * // Add to a list query
  * const { execute: addNote } = useConvexMutation(api.notes.add, {
- *   optimisticUpdate: (localStore, args) => {
- *     updateQuery({
- *       query: api.notes.list,
- *       args: { userId: args.userId },
- *       store: localStore,
- *       updater: (current) => {
- *         const newNote = {
- *           _id: crypto.randomUUID() as Id<'notes'>,
- *           _creationTime: Date.now(),
- *           ...args,
- *         }
- *         return current ? [newNote, ...current] : [newNote]
- *       },
+ *   optimisticUpdate: (ctx, args) => {
+ *     ctx.query(api.notes.list, { userId: args.userId }).update(current => {
+ *       const newNote = {
+ *         _id: crypto.randomUUID() as Id<'notes'>,
+ *         _creationTime: Date.now(),
+ *         ...args,
+ *       }
+ *       return current ? [newNote, ...current] : [newNote]
  *     })
  *   },
  * })

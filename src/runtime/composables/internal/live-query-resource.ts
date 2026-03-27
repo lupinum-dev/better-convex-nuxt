@@ -14,7 +14,7 @@ import {
   createQueryBridge,
   getFunctionName,
   parseConvexResponse,
-  type ConvexCallStatus,
+  type QueryStatus,
 } from '../../utils/convex-cache'
 import { executeQueryViaSubscriptionOnce } from '../../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config'
@@ -66,7 +66,7 @@ export interface LiveQueryResourceOptions<Query extends FunctionReference<'query
 export interface LiveQueryResource<Result> {
   asyncData: ReturnType<typeof useAsyncData<Result | null, Error>>
   pending: ComputedRef<boolean>
-  status: ComputedRef<ConvexCallStatus>
+  status: ComputedRef<QueryStatus>
   resolvePromise: Promise<void>
 }
 
@@ -388,7 +388,7 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
     return asyncData.pending.value
   })
 
-  const status = computed((): ConvexCallStatus =>
+  const status = computed((): QueryStatus =>
     computeQueryStatus(
       isSkipped.value,
       asyncData.error.value != null,

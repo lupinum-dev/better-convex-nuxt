@@ -75,22 +75,6 @@ class BcnError extends Error {
  */
 export { BcnError as ConvexError }
 
-/**
- * @deprecated Use `ConvexError` class instead.
- * This type alias remains for one release for backwards compatibility.
- */
-export interface ConvexCallError {
-  message: string
-  code?: string
-  status?: number
-  helper?: string
-  operation?: string
-  functionPath?: string
-  convexUrl?: string
-  authMode?: string
-  cause?: unknown
-}
-
 export type CallResult<T, E = BcnError> = { ok: true; data: T } | { ok: false; error: E }
 
 // ============================================================================
@@ -239,12 +223,6 @@ export function toConvexError(error: unknown): BcnError {
   const parsed = parseMessageForCode(message)
   return new BcnError(parsed.message, { code: parsed.code, cause: error })
 }
-
-/**
- * @deprecated Use `toConvexError` instead.
- * Kept for one release for backwards compatibility.
- */
-export const normalizeConvexError = toConvexError
 
 /**
  * Wrap a promise-returning function in a `CallResult` envelope.

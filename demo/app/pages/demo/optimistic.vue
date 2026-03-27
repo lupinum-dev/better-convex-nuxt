@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { api } from '@@/convex/_generated/api'
-import { updateQuery, deleteFromQuery } from '#imports'
 
 definePageMeta({
   middleware: 'auth',
@@ -31,46 +30,34 @@ async function addStandard() {
 const optimisticInput = ref('')
 
 const { execute: optimisticAdd, status: optimisticAddStatus } = useConvexMutation(api.tasks.add, {
-  optimisticUpdate: (localStore, args) => {
-    updateQuery({
-      query: api.tasks.list,
-      args: {},
-      store: localStore,
-      updater: (current) => {
-        const optimisticTask = {
-          _id: `temp-${Date.now()}` as any,
-          _creationTime: Date.now(),
-          title: `${args.title} (optimistic)`,
-          completed: false,
-          userId: 'pending',
-          createdAt: Date.now(),
-        }
-        return current ? [optimisticTask, ...current] : [optimisticTask]
-      },
+  optimisticUpdate: (ctx, args) => {
+    ctx.query(api.tasks.list, {}).update((current) => {
+      const optimisticTask = {
+        _id: `temp-${Date.now()}` as any,
+        _creationTime: Date.now(),
+        title: `${args.title} (optimistic)`,
+        completed: false,
+        userId: 'pending',
+        createdAt: Date.now(),
+      }
+      return current ? [optimisticTask, ...current] : [optimisticTask]
     })
   },
 })
 
 const { execute: optimisticToggle } = useConvexMutation(api.tasks.toggle, {
-  optimisticUpdate: (localStore, args) => {
-    updateQuery({
-      query: api.tasks.list,
-      args: {},
-      store: localStore,
-      updater: (current) =>
-        current?.map((t) => (t._id === args.id ? { ...t, completed: !t.completed } : t)) ?? [],
-    })
+  optimisticUpdate: (ctx, args) => {
+    ctx.query(api.tasks.list, {}).update((current) =>
+      current?.map((t) => (t._id === args.id ? { ...t, completed: !t.completed } : t)) ?? [],
+    )
   },
 })
 
 const { execute: optimisticDelete } = useConvexMutation(api.tasks.remove, {
-  optimisticUpdate: (localStore, args) => {
-    deleteFromQuery({
-      query: api.tasks.list,
-      args: {},
-      store: localStore,
-      shouldDelete: (task) => task._id === args.id,
-    })
+  optimisticUpdate: (ctx, args) => {
+    ctx.query(api.tasks.list, {}).update((current) =>
+      current?.filter((task) => task._id !== args.id) ?? [],
+    )
   },
 })
 
@@ -234,16 +221,11 @@ function isOptimistic(taskId: string) {
       <pre
         class="text-xs bg-elevated p-4 rounded-lg overflow-x-auto"
       ><code>const { execute: addTask } = useConvexMutation(api.tasks.add, {
-  optimisticUpdate: (localStore, args) => {
-    updateQuery({
-      query: api.tasks.list,
-      args: {},
-      store: localStore,
-      updater: (current) => [
-        { _id: 'temp', title: args.title, completed: false },
-        ...(current || [])
-      ]
-    })
+  optimisticUpdate: (ctx, args) => {
+    ctx.query(api.tasks.list, {}).update(current => [
+      { _id: 'temp', title: args.title, completed: false },
+      ...(current || [])
+    ])
   }
 })</code></pre>
     </UCard>

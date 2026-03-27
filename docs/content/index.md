@@ -61,16 +61,12 @@ import { api } from "~~/convex/_generated/api";
 
 const { execute, pending } = useConvexMutation(api.tasks.create, {
   // Instant UI feedback with optimistic updates
-  optimisticUpdate: (localStore, args) => {
-    updateQuery({
-      query: api.tasks.list,
-      args: {},
-      store: localStore,
-      updater: (current) =>
-        current
-          ? [{ _id: "temp", text: args.text, completed: false }, ...current]
-          : [],
-    });
+  optimisticUpdate: (ctx, args) => {
+    ctx.query(api.tasks.list, {}).update((current) =>
+      current
+        ? [{ _id: "temp", text: args.text, completed: false }, ...current]
+        : [],
+    );
   },
 });
 
