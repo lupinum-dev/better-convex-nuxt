@@ -106,35 +106,10 @@ export interface UseConvexUploadQueueReturn<Mutation extends FunctionReference<'
   reset: () => void
 }
 
-// ─── Overloads ─────────────────────────────────────────────────────────────
-
-/** Simple mode (no maxConcurrent): upload one file at a time */
-export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
-  generateUploadUrlMutation: Mutation,
-  options?: UseConvexUploadOptions & { maxConcurrent?: undefined },
-): UseConvexUploadReturn<Mutation>
-
-/** Queue mode (maxConcurrent set): concurrent multi-file upload queue */
-export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
-  generateUploadUrlMutation: Mutation,
-  options: UseConvexUploadOptions & { maxConcurrent: number },
-): UseConvexUploadQueueReturn<Mutation>
-
-// ─── Implementation ────────────────────────────────────────────────────────
-
-export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
-  generateUploadUrlMutation: Mutation,
-  options?: UseConvexUploadOptions,
-): UseConvexUploadReturn<Mutation> | UseConvexUploadQueueReturn<Mutation> {
-  if (options?.maxConcurrent !== undefined) {
-    return useUploadQueue(generateUploadUrlMutation, options as UseConvexUploadOptions & { maxConcurrent: number })
-  }
-  return useUploadSingle(generateUploadUrlMutation, options)
-}
-
 // ─── Single-file implementation ────────────────────────────────────────────
 
-function useUploadSingle<Mutation extends FunctionReference<'mutation'>>(
+/** @internal - use useConvexFileUpload instead */
+export function useUploadSingle<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options?: UseConvexUploadOptions,
 ): UseConvexUploadReturn<Mutation> {
@@ -297,7 +272,8 @@ function normalizeMaxConcurrent(value: number): number {
   return n > 0 ? n : 1
 }
 
-function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
+/** @internal - use useConvexUploadQueue instead */
+export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options: UseConvexUploadOptions & { maxConcurrent: number },
 ): UseConvexUploadQueueReturn<Mutation> {

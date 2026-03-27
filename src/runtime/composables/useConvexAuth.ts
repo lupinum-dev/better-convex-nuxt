@@ -3,14 +3,12 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { useState, computed, readonly, useNuxtApp } from '#imports'
 
-import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_PENDING,
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from '../utils/constants'
-import { waitForPendingClear } from '../utils/auth-pending'
 import type { ConvexUser } from '../utils/types'
 
 // Re-export for convenience
@@ -19,33 +17,19 @@ export type { ConvexUser } from '../utils/types'
 type AuthClient = ReturnType<typeof createAuthClient>
 
 export interface UseConvexAuthReturn {
-  /** The JWT token for Convex authentication (readonly) */
-  token: Readonly<Ref<string | null>>
   /** The authenticated user data (readonly) */
   user: Readonly<Ref<ConvexUser | null>>
-  /** Whether the user is authenticated */
+  /** Whether the user is currently authenticated */
   isAuthenticated: ComputedRef<boolean>
-  /** Whether an auth operation is pending */
+  /** Whether auth is still initializing (true on client until first token fetch resolves) */
   isPending: Readonly<Ref<boolean>>
-  /** Auth error message if authentication failed (e.g., 401/403) */
-  authError: Readonly<Ref<string | null>>
   /**
    * Signs out the user from both Better Auth and Convex.
-   * Clears local state immediately and calls Better Auth's signOut().
+   * Clears local state immediately, then calls Better Auth's signOut().
    */
   signOut: () => Promise<
     ReturnType<AuthClient['signOut']> extends Promise<infer T> ? T | null : null
   >
-  /**
-   * Force refresh Convex auth state after login.
-   * Triggers fresh token fetch and updates reactive state.
-   */
-  refreshAuth: () => Promise<void>
-  /**
-   * Wait until initial auth bootstrap settles and return the final auth state.
-   * Useful in route middleware to avoid auth flicker races on hydration.
-   */
-  awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
 }
 
 /**
@@ -70,10 +54,11 @@ export interface UseConvexAuthReturn {
  * </script>
  * ```
  *
- * To sign in, import the Better Auth client directly:
+ * To sign in and refresh Convex auth state afterwards:
  * ```ts
  * import { createAuthClient } from 'better-auth/vue'
  * const authClient = createAuthClient({ baseURL: '/api/auth' })
+ * const { refreshAuth } = useConvexAuthInternal()
  * await authClient.signIn.email({ email, password })
  * await refreshAuth()
  * ```
@@ -109,76 +94,10 @@ export function useConvexAuth(): UseConvexAuthReturn {
     return null
   }
 
-  const refreshAuth = async (): Promise<void> => {
-    const appState = nuxtApp as typeof nuxtApp & {
-      _convexRefreshAuthPromise?: Promise<void> | null
-    }
-    if (appState._convexRefreshAuthPromise) {
-      return appState._convexRefreshAuthPromise
-    }
-
-    appState._convexRefreshAuthPromise = (async () => {
-      pending.value = true
-      authError.value = null
-
-      try {
-        await Promise.race([
-          nuxtApp.callHook('better-convex:auth:refresh'),
-          new Promise<never>((_resolve, reject) => {
-            setTimeout(() => {
-              if (import.meta.dev) {
-                console.warn(
-                  `[better-convex-nuxt] Auth refresh timed out after ${AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
-                )
-              }
-              reject(new Error(`Authentication refresh timed out after ${AUTH_REFRESH_TIMEOUT_MS}ms`))
-            }, AUTH_REFRESH_TIMEOUT_MS)
-          }),
-        ])
-
-        if (token.value) return
-        if (authError.value) throw new Error(authError.value)
-
-        authError.value = 'Authentication refresh completed without a token'
-        throw new Error(authError.value)
-      } catch (error) {
-        authError.value = error instanceof Error ? error.message : String(error)
-        throw error
-      } finally {
-        pending.value = false
-        appState._convexRefreshAuthPromise = null
-      }
-    })()
-
-    return appState._convexRefreshAuthPromise
-  }
-
-  const awaitAuthReady = async (options?: { timeoutMs?: number }): Promise<boolean> => {
-    if (!import.meta.client) {
-      return isAuthenticated.value
-    }
-
-    await waitForPendingClear(pending, {
-      timeoutMs: options?.timeoutMs ?? AUTH_REFRESH_TIMEOUT_MS,
-    })
-
-    if (import.meta.dev && !isAuthenticated.value && pending.value) {
-      console.warn(
-        `[better-convex-nuxt] Auth state did not settle within ${options?.timeoutMs ?? AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
-      )
-    }
-
-    return isAuthenticated.value
-  }
-
   return {
-    token: readonly(token),
     user: readonly(user),
     isAuthenticated,
     isPending: readonly(pending),
-    authError: readonly(authError),
     signOut,
-    refreshAuth,
-    awaitAuthReady,
   }
 }

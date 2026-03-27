@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { useNuxtApp, useState } from '#imports'
+import { useState } from '#imports'
 
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -25,70 +25,20 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(result.isAuthenticated.value).toBe(true)
     await result.signOut()
     expect(signOut).toHaveBeenCalledTimes(1)
-    expect(result.token.value).toBeNull()
     expect(result.user.value).toBeNull()
     expect(result.isAuthenticated.value).toBe(false)
   })
 
-  it('refreshAuth resolves after refresh hook updates token', async () => {
-    const { result } = await captureInNuxt(() => {
-      const nuxtApp = useNuxtApp()
-      const token = useState<string | null>('convex:token')
-      const user = useState<Record<string, unknown> | null>('convex:user')
-      const authError = useState<string | null>('convex:authError')
+  it('exposes only the public 4-property surface', async () => {
+    const { result } = await captureInNuxt(() => useConvexAuth())
 
-      token.value = null
-      user.value = null
-      authError.value = null
-
-      nuxtApp.hook('better-convex:auth:refresh', async () => {
-        token.value = 'new.jwt.token'
-        user.value = { id: 'u2' }
-      })
-
-      return useConvexAuth()
-    })
-
-    await result.refreshAuth()
-    expect(result.token.value).toBe('new.jwt.token')
-    expect(result.user.value).toEqual({ id: 'u2' })
-    expect(result.isAuthenticated.value).toBe(true)
-    expect(result.isPending.value).toBe(false)
-  })
-
-  it('awaitAuthReady resolves final auth state without throwing', async () => {
-    const { result } = await captureInNuxt(() => {
-      const pending = useState<boolean>('convex:pending')
-      const token = useState<string | null>('convex:token')
-      const user = useState<Record<string, unknown> | null>('convex:user')
-      pending.value = true
-      token.value = null
-      user.value = null
-
-      setTimeout(() => {
-        token.value = 'ready.jwt.token'
-        user.value = { id: 'u-ready' }
-        pending.value = false
-      }, 10)
-
-      return useConvexAuth()
-    })
-
-    await expect(result.awaitAuthReady({ timeoutMs: 200 })).resolves.toBe(true)
-    expect(result.isAuthenticated.value).toBe(true)
-  })
-
-  it('awaitAuthReady returns false when pending does not settle before timeout', async () => {
-    const { result } = await captureInNuxt(() => {
-      const pending = useState<boolean>('convex:pending')
-      const token = useState<string | null>('convex:token')
-      const user = useState<Record<string, unknown> | null>('convex:user')
-      pending.value = true
-      token.value = null
-      user.value = null
-      return useConvexAuth()
-    })
-
-    await expect(result.awaitAuthReady({ timeoutMs: 5 })).resolves.toBe(false)
+    expect('user' in result).toBe(true)
+    expect('isAuthenticated' in result).toBe(true)
+    expect('isPending' in result).toBe(true)
+    expect('signOut' in result).toBe(true)
+    expect('token' in result).toBe(false)
+    expect('authError' in result).toBe(false)
+    expect('refreshAuth' in result).toBe(false)
+    expect('awaitAuthReady' in result).toBe(false)
   })
 })

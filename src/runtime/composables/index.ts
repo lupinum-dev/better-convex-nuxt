@@ -1,4 +1,5 @@
 export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
+export { useConvexAuthInternal, type UseConvexAuthInternalReturn } from './useConvexAuthInternal'
 export { useConvex } from './useConvex'
 export {
   type CallResult,
@@ -11,7 +12,11 @@ export {
   useConvexMutation,
   type UseConvexMutationReturn,
   type UseConvexMutationOptions,
-  // Optimistic update helpers for regular queries
+  // Optimistic update builder (preferred)
+  type OptimisticContext,
+  type OptimisticQueryHandle,
+  type OptimisticPaginatedHandle,
+  // @deprecated flat helpers — use ctx.query().update() / ctx.paginatedQuery().insertAtTop() etc.
   updateQuery,
   setQueryData,
   updateAllQueries,
@@ -35,7 +40,7 @@ export {
   type UseConvexQueryData,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
-export type { ConvexCallStatus } from '../utils/types'
+export type { QueryStatus, MutationStatus, ConvexCallStatus } from '../utils/types'
 export {
   defineSharedConvexQuery,
   type DefineSharedConvexQueryOptions,
@@ -49,7 +54,7 @@ export {
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
-  // Optimistic update helpers
+  // @deprecated flat helpers — use ctx.paginatedQuery().insertAtTop() etc.
   insertAtTop,
   insertAtPosition,
   insertAtBottomIfLoaded,
@@ -62,19 +67,23 @@ export {
   type DeleteFromPaginatedQueryOptions,
 } from './useConvexPaginatedQuery'
 
-// Upload composable (unified single-file and queue mode)
+// Upload composables
 export {
-  useConvexUpload,
-  type UseConvexUploadOptions,
+  useConvexFileUpload,
+  type UseConvexFileUploadOptions,
   type UseConvexUploadReturn,
-  type UseConvexUploadQueueReturn,
   type UploadStatus,
-  type UploadProgressInfo,
-  type UploadQueueItemStatus,
+} from './useConvexFileUpload'
+export {
+  useConvexUploadQueue,
+  type UseConvexUploadQueueOptions,
+  type UseConvexUploadQueueReturn,
   type UploadQueueItem,
+  type UploadQueueItemStatus,
   type UploadQueueEnqueueItem,
   type UploadQueueEnqueueInput,
-} from './useConvexUpload'
+  type UploadProgressInfo,
+} from './useConvexUploadQueue'
 
 export { useConvexStorageUrl } from './useConvexStorageUrl'
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { useConvexUpload } from '../../src/runtime/composables/useConvexUpload'
+import { useConvexUploadQueue as useConvexUpload } from '../../src/runtime/composables/useConvexUploadQueue'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'

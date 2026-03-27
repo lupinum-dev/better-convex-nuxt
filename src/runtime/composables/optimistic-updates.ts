@@ -665,3 +665,135 @@ function argsMatchForPaginatedQuery(
 function compareJsonValues(a: unknown, b: unknown): number {
   return sharedCompareJsonValues(a, b)
 }
+
+// ============================================================================
+// OptimisticContext — fluent builder API for optimistic updates
+// ============================================================================
+
+/**
+ * Handle for performing optimistic updates on a regular (non-paginated) query.
+ * Obtained via `ctx.query(api.x, args)` inside an `optimisticUpdate` callback.
+ */
+export interface OptimisticQueryHandle<Query extends FunctionReference<'query'>> {
+  /**
+   * Update the query result using an updater function.
+   * @example ctx.query(api.notes.list, {}).update(notes => [...notes, newNote])
+   */
+  update: (updater: (current: FunctionReturnType<Query> | undefined) => FunctionReturnType<Query>) => void
+  /**
+   * Replace the query result with a new value.
+   * @example ctx.query(api.notes.get, { id }).set({ ...note, title: 'Updated' })
+   */
+  set: (value: FunctionReturnType<Query>) => void
+}
+
+/**
+ * Handle for performing optimistic updates on a paginated query.
+ * Obtained via `ctx.paginatedQuery(api.x, args)` inside an `optimisticUpdate` callback.
+ * Applies the operation across all currently loaded pages for the given query + args.
+ */
+export interface OptimisticPaginatedHandle<Query extends PaginatedQueryReference> {
+  /** Insert an item at the top of the first page. */
+  insertAtTop: (item: PaginatedQueryItem<Query>) => void
+  /** Insert an item at a specific position across all pages. */
+  insertAtPosition: (item: PaginatedQueryItem<Query>, position: number) => void
+  /** Insert an item at the bottom of the last loaded page (only if all pages are loaded). */
+  insertAtBottomIfLoaded: (item: PaginatedQueryItem<Query>) => void
+  /** Update all items that match the predicate. */
+  updateItem: (id: string, updater: (item: PaginatedQueryItem<Query>) => PaginatedQueryItem<Query>) => void
+  /** Remove all items that match the predicate. */
+  deleteItem: (id: string) => void
+}
+
+/**
+ * Typed context passed to the `optimisticUpdate` callback in `useConvexMutation`.
+ * Provides a discoverable, fluent API over `OptimisticLocalStore`.
+ *
+ * @example
+ * ```ts
+ * const { execute } = useConvexMutation(api.notes.add, {
+ *   optimisticUpdate: (ctx, args) => {
+ *     // Regular query update
+ *     ctx.query(api.notes.list, {}).update(notes => [...notes, { ...args, _id: 'temp' }])
+ *
+ *     // Paginated query update
+ *     ctx.paginatedQuery(api.notes.listPaginated, {}).insertAtTop({ ...args, _id: 'temp' })
+ *   }
+ * })
+ * ```
+ */
+export interface OptimisticContext {
+  /**
+   * Get a handle to perform optimistic updates on a regular query.
+   */
+  query<Q extends FunctionReference<'query'>>(query: Q, args: FunctionArgs<Q>): OptimisticQueryHandle<Q>
+  /**
+   * Get a handle to perform optimistic updates on a paginated query.
+   * Applies to all currently loaded pages matching these args.
+   */
+  paginatedQuery<Q extends PaginatedQueryReference>(
+    query: Q,
+    args: PaginatedQueryArgs<Q>,
+  ): OptimisticPaginatedHandle<Q>
+  /**
+   * Escape hatch: direct access to the underlying Convex OptimisticLocalStore.
+   * Use when the builder methods don't cover your use case.
+   */
+  store: OptimisticLocalStore
+}
+
+/**
+ * Create an OptimisticContext that wraps a Convex OptimisticLocalStore
+ * with a typed, discoverable builder API.
+ * @internal — used by createConvexCallState in useConvexMutation
+ */
+export function createOptimisticContext(store: OptimisticLocalStore): OptimisticContext {
+  return {
+    store,
+
+    query<Q extends FunctionReference<'query'>>(query: Q, args: FunctionArgs<Q>): OptimisticQueryHandle<Q> {
+      return {
+        update(updater) {
+          updateQuery({ query, args, store, updater })
+        },
+        set(value) {
+          store.setQuery(query, args, value)
+        },
+      }
+    },
+
+    paginatedQuery<Q extends PaginatedQueryReference>(
+      query: Q,
+      args: PaginatedQueryArgs<Q>,
+    ): OptimisticPaginatedHandle<Q> {
+      return {
+        insertAtTop(item) {
+          insertAtTop({ query, store, item })
+        },
+        insertAtPosition(item, position) {
+          insertAtPosition({ query, store, item, position })
+        },
+        insertAtBottomIfLoaded(item) {
+          insertAtBottomIfLoaded({ query, store, item })
+        },
+        updateItem(id, updater) {
+          updateInPaginatedQuery({
+            query,
+            store,
+            argsToMatch: args as Record<string, unknown>,
+            shouldUpdate: (item) => (item as { _id?: string })._id === id,
+            updater,
+          })
+        },
+        deleteItem(id) {
+          deleteFromPaginatedQuery({
+            query,
+            store,
+            argsToMatch: args as Record<string, unknown>,
+            shouldDelete: (item) => (item as { _id?: string })._id === id,
+          })
+        },
+      }
+    },
+  }
+}

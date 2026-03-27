@@ -28,6 +28,22 @@ export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 
 const logger = useLogger('better-convex-nuxt')
 
+/**
+ * Normalize the `auth` option shorthand forms into a full AuthOptions object.
+ * - `true` → `{ enabled: true }`
+ * - `'/login'` → `{ enabled: true, routeProtection: { redirectTo: '/login' } }`
+ * - `false` / `undefined` → `{ enabled: false }`
+ * - Full object → passed through unchanged
+ */
+function normalizeAuthShorthand(auth: AuthOptions | boolean | string | undefined): AuthOptions {
+  if (auth === true) return { enabled: true }
+  if (auth === false || auth === undefined) return { enabled: false }
+  if (typeof auth === 'string') {
+    return { enabled: true, routeProtection: { redirectTo: auth } }
+  }
+  return auth
+}
+
 function normalizeAuthCacheTtl(input: unknown): number {
   if (typeof input !== 'number' || !Number.isFinite(input)) return 60
   const normalized = Math.trunc(input)
@@ -156,10 +172,28 @@ export interface ModuleOptions {
    */
   siteUrl?: string
   /**
-   * All authentication configuration in one place.
-   * Set `auth.enabled = false` to disable auth entirely.
+   * Enable authentication and configure auth behavior.
+   *
+   * Shorthand forms:
+   * - `auth: true` — enable auth with all defaults
+   * - `auth: '/login'` — enable auth and set the login redirect path
+   *
+   * Full object form for advanced configuration:
+   * - `auth: { routeProtection: { redirectTo: '/login' }, cache: { enabled: true } }`
+   *
+   * @example
+   * ```ts
+   * // Zero-config auth:
+   * convex: { auth: true }
+   *
+   * // Custom login page:
+   * convex: { auth: '/login' }
+   *
+   * // Full control:
+   * convex: { auth: { routeProtection: { redirectTo: '/login', preserveReturnTo: true } } }
+   * ```
    */
-  auth?: AuthOptions
+  auth?: AuthOptions | boolean | string
   /**
    * Default behavior for query composables.
    *
@@ -272,10 +306,13 @@ export default defineNuxtModule<ModuleOptions>({
       )
     }
 
-    const normalizedAuthConfig = normalizeConvexAuthConfig(options.auth)
+    // Normalize auth shorthand (true / '/login' / full object) to AuthOptions
+    const authOptions = normalizeAuthShorthand(options.auth)
+
+    const normalizedAuthConfig = normalizeConvexAuthConfig(authOptions)
     const isAuthEnabled = normalizedAuthConfig.enabled
 
-    const authRoute = normalizeAuthRoute(options.auth?.route ?? '/api/auth')
+    const authRoute = normalizeAuthRoute(authOptions?.route ?? '/api/auth')
 
     // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error.
     // Runtime validation happens in the plugins when the actual values are available.
@@ -285,8 +322,8 @@ export default defineNuxtModule<ModuleOptions>({
       )
     }
 
-    const normalizedAuthCacheTtl = normalizeAuthCacheTtl(options.auth?.cache?.ttl)
-    if ((options.auth?.cache?.ttl ?? 60) !== normalizedAuthCacheTtl) {
+    const normalizedAuthCacheTtl = normalizeAuthCacheTtl(authOptions?.cache?.ttl)
+    if ((authOptions?.cache?.ttl ?? 60) !== normalizedAuthCacheTtl) {
       logger.warn(
         `convex.auth.cache.ttl must be between 1 and 60 seconds. Using ${normalizedAuthCacheTtl}s instead.`,
       )
@@ -301,15 +338,15 @@ export default defineNuxtModule<ModuleOptions>({
         auth: {
           ...normalizedAuthConfig,
           route: authRoute,
-          trustedOrigins: options.auth?.trustedOrigins ?? [],
-          skipAuthRoutes: options.auth?.skipAuthRoutes ?? [],
+          trustedOrigins: authOptions?.trustedOrigins ?? [],
+          skipAuthRoutes: authOptions?.skipAuthRoutes ?? [],
           cache: {
-            enabled: options.auth?.cache?.enabled ?? false,
+            enabled: authOptions?.cache?.enabled ?? false,
             ttl: normalizedAuthCacheTtl,
           },
           proxy: {
-            maxRequestBodyBytes: options.auth?.proxy?.maxRequestBodyBytes ?? 1_048_576,
-            maxResponseBodyBytes: options.auth?.proxy?.maxResponseBodyBytes ?? 1_048_576,
+            maxRequestBodyBytes: authOptions?.proxy?.maxRequestBodyBytes ?? 1_048_576,
+            maxResponseBodyBytes: authOptions?.proxy?.maxResponseBodyBytes ?? 1_048_576,
           },
         },
         query: {
@@ -471,10 +508,13 @@ export {}
         name: 'deleteFromPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
-      // Unified upload composable (replaces useConvexFileUpload + useConvexUploadQueue)
       {
-        name: 'useConvexUpload',
-        from: resolver.resolve('./runtime/composables/useConvexUpload'),
+        name: 'useConvexFileUpload',
+        from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
+      },
+      {
+        name: 'useConvexUploadQueue',
+        from: resolver.resolve('./runtime/composables/useConvexUploadQueue'),
       },
       {
         name: 'useConvexStorageUrl',
@@ -488,6 +528,7 @@ export {}
     if (isAuthEnabled) {
       addImports([
         { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
+        { name: 'useConvexAuthInternal', from: resolver.resolve('./runtime/composables/useConvexAuthInternal') },
       ])
 
       // Register auth components

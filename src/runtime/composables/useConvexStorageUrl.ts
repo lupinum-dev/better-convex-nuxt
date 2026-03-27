@@ -93,10 +93,11 @@ export function useConvexStorageUrl(
   getUrlQuery: FunctionReference<'query'>,
   storageId: MaybeRef<string | null | undefined>,
 ): UseConvexQueryData<string> {
+  // null storageId → null args → query is skipped (status: 'skipped')
   return createConvexQueryState(
     getUrlQuery,
-    computed(() => ({ storageId: toValue(storageId) ?? '' })),
-    { enabled: () => !!toValue(storageId) },
+    computed(() => toValue(storageId) ? { storageId: toValue(storageId)! } : null),
+    {},
     true,
   ).resultData
 }

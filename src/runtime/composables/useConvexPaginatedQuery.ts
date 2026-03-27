@@ -70,11 +70,6 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
    * @default false
    */
   lazy?: boolean
-  /**
-   * Disable the query. Use `enabled: () => !!id` instead of passing `null` args.
-   * @default true
-   */
-  enabled?: MaybeRefOrGetter<boolean | undefined>
   /** Preserve previous results while a new first page is loading */
   keepPreviousData?: boolean
   /**
@@ -144,24 +139,15 @@ export function createConvexPaginatedQueryState<
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
 
   const fnName = getFunctionName(query)
-  const enabled = computed(() => toValue(options?.enabled) ?? true)
-
   const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
-    if (rawArgs == null) {
-      if (import.meta.dev && enabled.value) {
-        console.warn(
-          `[better-convex-nuxt] PaginatedQuery "${fnName}" received null/undefined args while enabled. ` +
-            `Use \`enabled: () => !!id\` to conditionally skip queries instead of passing null args.`,
-        )
-      }
-      return {} as Args
-    }
+    if (rawArgs == null) return {} as Args
     return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
   })
 
+  // null/undefined args = skip. Canonical pattern:
+  // useConvexPaginatedQuery(api.tasks.list, () => teamId.value ? { teamId: teamId.value } : null, ...)
   const isSkipped = computed(() => {
-    if (!enabled.value) return true
     const rawArgs = args === undefined ? {} : toValue(args)
     return rawArgs == null
   })
@@ -198,7 +184,7 @@ export function createConvexPaginatedQueryState<
   })
 
   const firstPageWatchSource = computed(
-    () => `${argsHash.value}:${enabled.value ? 'enabled' : 'disabled'}:${currentPaginationId.value}`,
+    () => `${argsHash.value}:${isSkipped.value ? 'skipped' : 'enabled'}:${currentPaginationId.value}`,
   )
 
   const firstPageArgs = computed(() => {
@@ -435,7 +421,7 @@ export function createConvexPaginatedQueryState<
   }
 
   watch(
-    () => `${argsHash.value}:${enabled.value ? 'enabled' : 'disabled'}`,
+    () => `${argsHash.value}:${isSkipped.value ? 'skipped' : 'enabled'}`,
     async (next, prev) => {
       if (next === prev) return
 

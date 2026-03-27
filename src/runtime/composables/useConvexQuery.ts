@@ -12,6 +12,7 @@ import {
 } from '../devtools/runtime'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getQueryKey, getFunctionName, type ConvexCallStatus } from '../utils/convex-cache'
+import type { QueryStatus } from '../utils/types'
 import { deepUnref } from '../utils/deep-unref'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
@@ -41,11 +42,6 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
    * @default false
    */
   lazy?: boolean
-  /**
-   * Disable the query. Use `enabled: () => !!id` instead of passing `null` args.
-   * @default true
-   */
-  enabled?: MaybeRefOrGetter<boolean | undefined>
   /** Preserve previous data while a new result is loading */
   keepPreviousData?: boolean
   /**
@@ -60,10 +56,12 @@ export interface UseConvexQueryData<DataT> {
   data: Ref<DataT | null>
   error: Ref<Error | null>
   refresh: () => Promise<void>
-  /** Clear local data and error, resetting to initial state */
+  /** Clear local data and error, resetting to initial state. Matches Nuxt's useAsyncData.clear(). */
+  clear: () => void
+  /** @deprecated Use clear() */
   reset: () => void
   pending: Ref<boolean>
-  status: Ref<ConvexCallStatus>
+  status: Ref<QueryStatus>
 }
 
 interface BuildConvexQueryResult<DataT> {
@@ -102,27 +100,17 @@ export function createConvexQueryState<
   const fnName = getFunctionName(query)
   const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
 
-  const enabled = computed(() => toValue(options?.enabled) ?? true)
-
   const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
     if (rawArgs == null) return {} as Args
     return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
   })
 
+  // null/undefined args = skip. This is the canonical pattern for conditional queries:
+  // useConvexQuery(api.notes.get, () => id.value ? { id: id.value } : null)
   const isSkipped = computed(() => {
-    if (!enabled.value) return true
     const rawArgs = args === undefined ? {} : toValue(args)
-    if (rawArgs == null) {
-      if (import.meta.dev) {
-        console.warn(
-          `[better-convex-nuxt] Query "${fnName}" received null/undefined args while enabled. ` +
-            `Use \`enabled: () => !!id\` to conditionally skip queries instead of passing null args.`,
-        )
-      }
-      return true
-    }
-    return false
+    return rawArgs == null
   })
 
   assertConvexComposableScope(
@@ -254,9 +242,10 @@ export function createConvexQueryState<
       data,
       error: resource.asyncData.error as Ref<Error | null>,
       refresh: resource.asyncData.refresh,
-      reset: resource.asyncData.clear,
+      clear: resource.asyncData.clear,
+      reset: resource.asyncData.clear, // @deprecated alias
       pending: resource.pending as Ref<boolean>,
-      status: resource.status as Ref<ConvexCallStatus>,
+      status: resource.status as Ref<QueryStatus>,
     },
     resolvePromise: resource.resolvePromise,
   }

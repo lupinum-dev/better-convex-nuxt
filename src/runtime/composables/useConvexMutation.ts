@@ -1,4 +1,6 @@
 import type { OptimisticLocalStore } from 'convex/browser'
+import { createOptimisticContext } from './optimistic-updates'
+import type { OptimisticContext } from './optimistic-updates'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
@@ -13,11 +15,15 @@ import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { toConvexError } from '../utils/call-result'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
-import type { ConvexCallStatus } from '../utils/types'
+import type { MutationStatus } from '../utils/types'
 import { getRequiredConvexClient } from './useConvex'
 
-// Re-export optimistic update helpers
+// Re-export optimistic update builder and types
 export {
+  type OptimisticContext,
+  type OptimisticQueryHandle,
+  type OptimisticPaginatedHandle,
+  // @deprecated — use ctx.query().update() / ctx.paginatedQuery().insertAtTop() etc. instead
   updateQuery,
   setQueryData,
   updateAllQueries,
@@ -48,7 +54,7 @@ export interface UseConvexMutationReturn<Args, Result> {
   /**
    * Mutation status for explicit state management.
    */
-  status: ComputedRef<ConvexCallStatus>
+  status: ComputedRef<MutationStatus>
 
   /**
    * True when mutation is in progress.
@@ -102,7 +108,25 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
    * })
    * ```
    */
-  optimisticUpdate?: (localStore: OptimisticLocalStore, args: Args) => void
+  /**
+   * Optimistic update callback. Receives a typed context (`ctx`) and mutation args.
+   * Called immediately before the mutation is sent to the server.
+   * Automatically rolled back when the server response arrives.
+   *
+   * @example
+   * ```ts
+   * const { execute } = useConvexMutation(api.notes.add, {
+   *   optimisticUpdate: (ctx, args) => {
+   *     // Update a regular query
+   *     ctx.query(api.notes.list, {}).update(notes => [...notes, { ...args, _id: 'temp' }])
+   *
+   *     // Update a paginated query
+   *     ctx.paginatedQuery(api.notes.listPaginated, {}).insertAtTop({ ...args, _id: 'temp' })
+   *   }
+   * })
+   * ```
+   */
+  optimisticUpdate?: (ctx: OptimisticContext, args: Args) => void
   /**
    * Called after a successful mutation.
    * Errors thrown here are logged and ignored.
@@ -134,7 +158,7 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
   const { fnName, callType, logger, hasOptimisticUpdate, callFn, onSuccess, onError } = config
 
   let activeRequestId = 0
-  const _status = ref<ConvexCallStatus>('idle')
+  const _status = ref<MutationStatus>('idle')
   const error = ref<Error | null>(null) as Ref<Error | null>
   const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
 
@@ -310,7 +334,10 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     hasOptimisticUpdate: !!options?.optimisticUpdate,
     callFn: (args) =>
       getRequiredConvexClient(nuxtApp).mutation(mutation, args, {
-        optimisticUpdate: options?.optimisticUpdate,
+        optimisticUpdate: options?.optimisticUpdate
+          ? (store: OptimisticLocalStore, mutArgs: Args) =>
+              options.optimisticUpdate!(createOptimisticContext(store), mutArgs)
+          : undefined,
       }),
     onSuccess: options?.onSuccess,
     onError: options?.onError,

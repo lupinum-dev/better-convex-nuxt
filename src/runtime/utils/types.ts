@@ -38,9 +38,22 @@ export interface ConvexUser {
 // ============================================================================
 
 /**
- * Shared lifecycle status for query/mutation/action composables.
+ * Lifecycle status for query composables.
+ * Queries start as 'pending' (no 'idle') and can be 'skipped' when args are null.
  */
-export type ConvexCallStatus = 'idle' | 'pending' | 'success' | 'error' | 'skipped'
+export type QueryStatus = 'pending' | 'success' | 'error' | 'skipped'
+
+/**
+ * Lifecycle status for mutation and action composables.
+ * Mutations start as 'idle' and cannot be 'skipped'.
+ */
+export type MutationStatus = 'idle' | 'pending' | 'success' | 'error'
+
+/**
+ * @deprecated Use QueryStatus or MutationStatus for precise typing.
+ * Will be removed in v3.
+ */
+export type ConvexCallStatus = QueryStatus | MutationStatus
 
 /**
  * Client-side auth mode for query composables.

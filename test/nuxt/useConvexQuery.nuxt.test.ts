@@ -51,10 +51,10 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(resolved.data.value).toEqual([{ _id: 'n1', title: 'Loaded' }])
   })
 
-  it('returns skipped + pending=false immediately for disabled query', async () => {
+  it('returns skipped + pending=false immediately for null args', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
     const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, {}, { enabled: false }),
+      () => useConvexQueryState(query, null, {}),
       {
         convex: new MockConvexClient(),
       },
@@ -65,17 +65,17 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.status.value).toBe('skipped')
   })
 
-  it('exposes refresh/reset but omits execute on query return shape', async () => {
+  it('exposes refresh/clear but omits execute on query return shape', async () => {
     const query = mockFnRef<'query'>('notes:list:return-shape')
     const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, {}, { enabled: false }),
+      () => useConvexQueryState(query, null, {}),
       {
         convex: new MockConvexClient(),
       },
     )
 
     expect(typeof result.refresh).toBe('function')
-    expect(typeof result.reset).toBe('function')
+    expect(typeof result.clear).toBe('function')
     expect('execute' in (result as unknown as Record<string, unknown>)).toBe(false)
   })
 
@@ -114,12 +114,12 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer cached.jwt.token')
   })
 
-  it('respects enabled:false and does not start subscriptions', async () => {
+  it('null args does not start subscriptions', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:enabled-false')
 
     const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, {}, { enabled: false }),
+      () => useConvexQueryState(query, null, {}),
       { convex },
     )
 

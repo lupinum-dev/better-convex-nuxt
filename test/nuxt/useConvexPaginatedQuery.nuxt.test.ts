@@ -65,11 +65,11 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(resolved.results.value).toEqual([{ _id: 'n1', title: 'A' }])
   })
 
-  it('returns skipped + not loading for disabled query', async () => {
+  it('returns skipped + not loading for null args', async () => {
     const query = mockFnRef<'query'>('notes:listPaginated:disabled-static')
     const { result } = await captureInNuxt(
       () =>
-        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 3, enabled: false }),
+        useConvexPaginatedQueryState(query as never, null, { initialNumItems: 3 }),
       { convex: new MockConvexClient() },
     )
 
@@ -78,13 +78,13 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(result.results.value).toEqual([])
   })
 
-  it('respects enabled:false and does not start subscriptions', async () => {
+  it('null args does not start subscriptions', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:listPaginated:enabled-false')
 
     const { result } = await captureInNuxt(
       () =>
-        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 3, enabled: false }),
+        useConvexPaginatedQueryState(query as never, null, { initialNumItems: 3 }),
       { convex },
     )
 
