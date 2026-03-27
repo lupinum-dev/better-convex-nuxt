@@ -441,10 +441,6 @@ export {}
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
-        name: 'defineSharedConvexQuery',
-        from: resolver.resolve('./runtime/composables/defineSharedConvexQuery'),
-      },
-      {
         name: 'useConvexPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
@@ -455,14 +451,6 @@ export {}
       {
         name: 'useConvexUpload',
         from: resolver.resolve('./runtime/composables/useConvexUpload'),
-      },
-      {
-        name: 'useConvexFileUpload',
-        from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
-      },
-      {
-        name: 'useConvexUploadQueue',
-        from: resolver.resolve('./runtime/composables/useConvexUploadQueue'),
       },
       {
         name: 'useConvexStorageUrl',
@@ -509,7 +497,6 @@ export {}
       },
       // Error class for server-side instanceof checks
       { name: 'ConvexCallError', from: resolver.resolve('./runtime/utils/call-result') },
-      { name: 'ConvexError', from: resolver.resolve('./runtime/utils/call-result') },
     ])
 
     // 9. Add types to tsconfig references

@@ -50,7 +50,7 @@ export const CONNECTION_HYDRATION_GRACE_MS = 500
 // Upload defaults
 // ============================================================
 
-/** Default maximum number of concurrent uploads for useConvexUploadQueue. */
+/** Default maximum number of concurrent uploads for useConvexUpload queue mode. */
 export const DEFAULT_UPLOAD_MAX_CONCURRENT = 3
 
 // ============================================================

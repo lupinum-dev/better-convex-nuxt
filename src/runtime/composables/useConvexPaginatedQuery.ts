@@ -15,7 +15,6 @@ import {
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getFunctionName, getQueryKey, hashArgs } from '../utils/convex-cache'
-import { deepUnref } from '../utils/deep-unref'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { generatePaginationId } from '../utils/shared-helpers'
 import type {
@@ -44,14 +43,6 @@ export type PaginatedQueryStatus =
   | 'exhausted'
   | 'error'
 
-const PAGINATED_QUERY_DEPRECATION_WARNINGS = new Set<string>()
-
-function warnPaginatedQueryDeprecation(key: string, message: string): void {
-  if (!import.meta.dev || PAGINATED_QUERY_DEPRECATION_WARNINGS.has(key)) return
-  PAGINATED_QUERY_DEPRECATION_WARNINGS.add(key)
-  console.warn(message)
-}
-
 export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem = Item> {
   initialNumItems: number
   /** @default true — run first page server-side during SSR */
@@ -64,12 +55,6 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
   transform?: (results: Item[]) => TransformedItem[]
   /** Preserve previous results while a new first page is loading */
   keepPreviousData?: boolean
-  /**
-   * Recursively unref Vue refs inside args before sending to Convex.
-   * @default false
-   * @deprecated Prefer getter args like `() => ({ id: id.value })`.
-   */
-  deepUnrefArgs?: boolean
 }
 
 export interface UseConvexPaginatedQueryData<Item> {
@@ -130,15 +115,7 @@ export function createConvexPaginatedQueryState<
   const server = options?.server ?? query_defaults?.server ?? true
   const subscribe = options?.subscribe ?? query_defaults?.subscribe ?? true
   const keepPreviousData = options?.keepPreviousData ?? false
-  const deepUnrefArgs = options?.deepUnrefArgs ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
-
-  if (options?.deepUnrefArgs) {
-    warnPaginatedQueryDeprecation(
-      'deepUnrefArgs',
-      '[better-convex-nuxt] useConvexPaginatedQuery: `deepUnrefArgs` is deprecated. Prefer getter args like `() => ({ id: id.value })`.',
-    )
-  }
 
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
 
@@ -146,7 +123,7 @@ export function createConvexPaginatedQueryState<
   const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
     if (rawArgs == null) return {} as Args
-    return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
+    return rawArgs as Args
   })
 
   // null/undefined args = skip. Canonical pattern:

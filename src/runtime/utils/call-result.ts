@@ -18,7 +18,7 @@
  */
 export class ConvexCallError extends Error {
   /** Type brand for instanceof checks without importing the class. */
-  readonly isConvexError = true as const
+  readonly isConvexCallError = true as const
 
   /** Convex error code (e.g. "LIMIT_CALLS", "UNAUTHENTICATED"). */
   code?: string
@@ -67,11 +67,6 @@ export class ConvexCallError extends Error {
     }
   }
 }
-
-/**
- * @deprecated Use `ConvexCallError`.
- */
-export { ConvexCallError as ConvexError }
 
 // ============================================================================
 // Internal parsing helpers

@@ -4,7 +4,7 @@ import { mutation, query } from './_generated/server'
 
 /**
  * Generate a signed upload URL for file storage.
- * This is required by useConvexFileUpload.
+ * This is required by useConvexUpload.
  */
 export const generateUploadUrl = mutation({
   args: {},

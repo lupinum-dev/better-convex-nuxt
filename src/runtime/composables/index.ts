@@ -1,6 +1,6 @@
 export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
 export { useConvex } from './useConvex'
-export { ConvexCallError, ConvexError } from '../utils/call-result'
+export { ConvexCallError } from '../utils/call-result'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'
 export {
   useConvexMutation,
@@ -33,10 +33,6 @@ export {
 } from './useConvexQuery'
 export type { QueryStatus, MutationStatus } from '../utils/types'
 export {
-  defineSharedConvexQuery,
-  type DefineSharedConvexQueryOptions,
-} from './defineSharedConvexQuery'
-export {
   useConvexPaginatedQuery,
   type PaginatedQueryStatus,
   type UseConvexPaginatedQueryOptions,
@@ -58,16 +54,6 @@ export {
   type UploadQueueEnqueueInput,
   type UploadProgressInfo,
 } from './useConvexUpload'
-export {
-  useConvexFileUpload,
-  type UseConvexFileUploadOptions,
-  type UseConvexSingleUploadReturn,
-} from './useConvexFileUpload'
-export {
-  useConvexUploadQueue,
-  type UseConvexUploadQueueOptions,
-  type UseConvexUploadQueueReturn,
-} from './useConvexUploadQueue'
 
 export { useConvexStorageUrl } from './useConvexStorageUrl'
 

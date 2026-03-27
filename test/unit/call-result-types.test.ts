@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConvexCallError, ConvexError, toConvexError } from '../../src/runtime/utils/call-result'
+import { ConvexCallError, toConvexError } from '../../src/runtime/utils/call-result'
 
 describe('Convex call error contracts', () => {
   it('normalizes structured errors into ConvexCallError', () => {
@@ -18,10 +18,9 @@ describe('Convex call error contracts', () => {
     expect(error.status).toBe(422)
   })
 
-  it('keeps ConvexError as a deprecated alias of ConvexCallError', () => {
-    const error = new ConvexError('Alias still works')
-
-    expect(error).toBeInstanceOf(ConvexCallError)
+  it('has the isConvexCallError brand property', () => {
+    const error = new ConvexCallError('Brand check')
+    expect(error.isConvexCallError).toBe(true)
     expect(error.name).toBe('ConvexCallError')
   })
 })

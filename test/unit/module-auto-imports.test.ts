@@ -11,8 +11,10 @@ describe('module auto-import surface', () => {
 
     expect(addImportsBlock).toBeTruthy()
     expect(addImportsBlock).toMatch(/name:\s*'useConvexUpload'/)
-    expect(addImportsBlock).toMatch(/name:\s*'useConvexFileUpload'/)
-    expect(addImportsBlock).toMatch(/name:\s*'useConvexUploadQueue'/)
+    // Removed deprecated composables
+    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexFileUpload'/)
+    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexUploadQueue'/)
+    expect(addImportsBlock).not.toMatch(/name:\s*'defineSharedConvexQuery'/)
     expect(addImportsBlock).not.toMatch(/name:\s*'useConvexStorageUrlRef'/)
     expect(addImportsBlock).not.toMatch(/name:\s*'toCallResult'/)
     expect(addImportsBlock).not.toMatch(/name:\s*'useConvexAuthInternal'/)

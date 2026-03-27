@@ -32,7 +32,7 @@ import { useConvexQuery } from './useConvexQuery'
  * </template>
  * ```
  *
- * @example With useConvexFileUpload
+ * @example With useConvexUpload
  * ```vue
  * <script setup>
  * import { api } from '~/convex/_generated/api'
@@ -42,7 +42,7 @@ import { useConvexQuery } from './useConvexQuery'
  *   pending,
  *   progress,
  *   data: storageId,
- * } = useConvexFileUpload(api.files.generateUploadUrl)
+ * } = useConvexUpload(api.files.generateUploadUrl)
  *
  * // URL automatically updates when storageId changes
  * const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId)

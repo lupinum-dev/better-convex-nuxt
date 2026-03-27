@@ -2,7 +2,7 @@
  * Unit Tests for MIME type matching utilities
  *
  * Tests the matchesMimeType and isFileTypeAllowed functions
- * used for client-side file validation in useConvexFileUpload.
+ * used for client-side file validation in useConvexUpload.
  */
 
 import { describe, it, expect } from 'vitest'

@@ -13,7 +13,6 @@ import {
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getQueryKey, getFunctionName, hashArgs } from '../utils/convex-cache'
 import type { QueryStatus } from '../utils/types'
-import { deepUnref } from '../utils/deep-unref'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
@@ -24,14 +23,6 @@ import {
 } from './internal/live-query-resource'
 
 export { getQueryKey, executeQueryHttp }
-
-const QUERY_DEPRECATION_WARNINGS = new Set<string>()
-
-function warnQueryDeprecation(key: string, message: string): void {
-  if (!import.meta.dev || QUERY_DEPRECATION_WARNINGS.has(key)) return
-  QUERY_DEPRECATION_WARNINGS.add(key)
-  console.warn(message)
-}
 
 export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   /** @default true — run query server-side during SSR */
@@ -44,20 +35,6 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   transform?: (input: RawT) => DataT
   /** Preserve previous data while a new result is loading */
   keepPreviousData?: boolean
-  /**
-   * Recursively unref Vue refs inside args before sending to Convex.
-   * Usually not needed — prefer passing raw values.
-   * @default false
-   * @deprecated Prefer getter args like `() => ({ id: id.value })`.
-   */
-  deepUnrefArgs?: boolean
-  /**
-   * Reactive toggle to enable/disable the query.
-   * When `false`, the query is skipped (status becomes 'skipped').
-   * Defaults to `true`. Also supports the null-args skip pattern.
-   * @deprecated Prefer returning `null` from the args getter to skip the query.
-   */
-  enabled?: MaybeRefOrGetter<boolean>
   /** Stable app-level key used to share one query state instance per app/request. */
   shared?: string
   /**
@@ -221,36 +198,18 @@ export function createConvexQueryState<
   const server = options?.server ?? defaults?.server ?? true
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
   const keepPreviousData = options?.keepPreviousData ?? false
-  const deepUnrefArgs = options?.deepUnrefArgs ?? false
   const fnName = getFunctionName(query)
   const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
-
-  if (options?.enabled !== undefined) {
-    warnQueryDeprecation(
-      'enabled',
-      '[better-convex-nuxt] useConvexQuery: `enabled` is deprecated. Prefer returning `null` from the args getter to skip the query.',
-    )
-  }
-
-  if (options?.deepUnrefArgs) {
-    warnQueryDeprecation(
-      'deepUnrefArgs',
-      '[better-convex-nuxt] useConvexQuery: `deepUnrefArgs` is deprecated. Prefer getter args like `() => ({ id: id.value })`.',
-    )
-  }
 
   const normalizedArgs = computed((): Args => {
     const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
     if (rawArgs == null) return {} as Args
-    return (deepUnrefArgs ? deepUnref(rawArgs) : rawArgs) as Args
+    return rawArgs as Args
   })
 
-  // null/undefined args = skip. This is the canonical pattern for conditional queries:
+  // null/undefined args = skip. Canonical pattern for conditional queries:
   // useConvexQuery(api.notes.get, () => id.value ? { id: id.value } : null)
-  // The `enabled` option provides an explicit alternative:
-  // useConvexQuery(api.notes.get, { id }, { enabled: () => !!id.value })
   const isSkipped = computed(() => {
-    if (toValue(options?.enabled) === false) return true
     const rawArgs = args === undefined ? {} : toValue(args)
     return rawArgs == null
   })

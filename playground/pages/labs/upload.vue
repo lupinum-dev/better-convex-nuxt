@@ -8,13 +8,13 @@ definePageMeta({
 /**
  * Upload Lab
  *
- * Tests all states of useConvexFileUpload:
+ * Tests all states of useConvexUpload:
  * - idle: initial state, no upload running
  * - pending: upload in progress
  * - success: upload completed successfully
  * - error: upload failed
  *
- * Also tests cancel() function and progress tracking
+ * Also tests reset (cancel) and progress tracking
  */
 
 const {
@@ -24,8 +24,8 @@ const {
   progress,
   error,
   data: storageId,
-  cancel,
-} = useConvexFileUpload(api.files.generateUploadUrl)
+  reset,
+} = useConvexUpload(api.files.generateUploadUrl)
 
 // Get URL for uploaded file
 const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId)
@@ -43,7 +43,7 @@ async function handleFileChange(event: Event) {
     await upload(file)
     successCount.value++
   } catch (e) {
-    // Check if it was a cancel
+    // Check if it was a cancel (reset aborts in-progress uploads)
     if (e instanceof DOMException && e.name === 'AbortError') {
       cancelCount.value++
     }
@@ -54,7 +54,7 @@ async function handleFileChange(event: Event) {
 }
 
 function handleCancel() {
-  cancel()
+  reset()
 }
 </script>
 
@@ -62,7 +62,7 @@ function handleCancel() {
   <div data-testid="file-upload-status-page" class="container">
     <h1>Upload Lab</h1>
     <p class="description">
-      This page tests the <code>useConvexFileUpload</code> composable. Upload an image to see the
+      This page tests the <code>useConvexUpload</code> composable. Upload an image to see the
       status tracking, progress, and cancel functionality.
     </p>
 

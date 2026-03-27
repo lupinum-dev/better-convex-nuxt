@@ -49,7 +49,7 @@ const demos = [
   },
   {
     title: 'File Storage',
-    description: 'Upload files with progress tracking using useConvexFileUpload.',
+    description: 'Upload files with progress tracking using useConvexUpload.',
     icon: 'i-lucide-cloud-upload',
     to: '/demo/storage',
     color: 'purple',

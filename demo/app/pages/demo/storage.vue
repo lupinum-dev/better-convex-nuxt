@@ -14,9 +14,9 @@ const {
   status: uploadStatus,
   progress,
   error: uploadError,
-  cancel: cancelUpload,
-} = useConvexFileUpload(api.files.generateUploadUrl, {
-  maxSize: 5 * 1024 * 1024, // 5MB
+  reset: cancelUpload,
+} = useConvexUpload(api.files.generateUploadUrl, {
+  maxSizeBytes: 5 * 1024 * 1024, // 5MB
   allowedTypes: ['image/*'],
 })
 
@@ -89,7 +89,7 @@ function formatFileSize(bytes: number) {
     <!-- Header -->
     <div class="mb-6">
       <h1 class="text-2xl font-bold mb-2">File Storage</h1>
-      <p class="text-muted">Upload images with progress tracking using useConvexFileUpload.</p>
+      <p class="text-muted">Upload images with progress tracking using useConvexUpload.</p>
     </div>
 
     <!-- Explanation -->
@@ -99,7 +99,7 @@ function formatFileSize(bytes: number) {
       color="secondary"
       variant="subtle"
       title="How it works"
-      description="useConvexFileUpload handles the entire upload flow: generating upload URLs, uploading to Convex storage, and tracking progress. useConvexStorageUrl converts storage IDs to accessible URLs."
+      description="useConvexUpload handles the entire upload flow: generating upload URLs, uploading to Convex storage, and tracking progress. useConvexStorageUrl converts storage IDs to accessible URLs."
     />
 
     <!-- Operation Error -->

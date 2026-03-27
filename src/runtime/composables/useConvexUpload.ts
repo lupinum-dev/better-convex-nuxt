@@ -119,7 +119,6 @@ export interface UseConvexUploadQueueReturn<Mutation extends FunctionReference<'
 
 // ─── Single-file implementation ────────────────────────────────────────────
 
-// Internal implementation — use useConvexFileUpload instead
 /** @internal */
 export function useUploadSingle<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
@@ -284,7 +283,6 @@ function normalizeMaxConcurrent(value: number): number {
   return n > 0 ? n : 1
 }
 
-// Internal implementation — use useConvexUploadQueue instead
 /** @internal */
 export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,

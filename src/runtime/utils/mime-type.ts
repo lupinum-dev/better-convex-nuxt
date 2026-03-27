@@ -1,6 +1,6 @@
 /**
  * MIME type matching utilities for file validation.
- * Used by useConvexFileUpload for client-side file type validation.
+ * Used by useConvexUpload for client-side file type validation.
  */
 
 /**
