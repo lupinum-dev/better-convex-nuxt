@@ -517,6 +517,71 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect((onError.mock.calls[0]?.[0] as Error).message).toBe('upstream down')
   })
 
+  it('shared option returns same state for same key within one app', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:shared-same-key')
+
+    const { result } = await captureInNuxt(
+      () => {
+        const first = useConvexQueryState(query, {}, { shared: 'notes' })
+        const second = useConvexQueryState(query, {}, { shared: 'notes' })
+        return { first, second }
+      },
+      { convex },
+    )
+
+    expect(result.first.data).toBe(result.second.data)
+    expect(result.first.pending).toBe(result.second.pending)
+    expect(result.first.error).toBe(result.second.error)
+  })
+
+  it('shared option throws for same key with different query', async () => {
+    const convex = new MockConvexClient()
+    const query1 = mockFnRef<'query'>('notes:list:shared-diff-query')
+    const query2 = mockFnRef<'query'>('tasks:list:shared-diff-query')
+
+    await expect(
+      captureInNuxt(
+        () => {
+          useConvexQueryState(query1, {}, { shared: 'collision' })
+          useConvexQueryState(query2, {}, { shared: 'collision' })
+        },
+        { convex },
+      ),
+    ).rejects.toThrow(/Duplicate key "collision"/)
+  })
+
+  it('shared option throws for same key with different static args', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:shared-diff-args')
+
+    await expect(
+      captureInNuxt(
+        () => {
+          useConvexQueryState(query, { orgId: 'a' }, { shared: 'notes-by-org' })
+          useConvexQueryState(query, { orgId: 'b' }, { shared: 'notes-by-org' })
+        },
+        { convex },
+      ),
+    ).rejects.toThrow(/Duplicate key "notes-by-org"/)
+  })
+
+  it('shared option allows dynamic args (getter) without throwing', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:shared-dynamic')
+
+    const { result } = await captureInNuxt(
+      () => {
+        useConvexQueryState(query, () => ({ orgId: 'a' }), { shared: 'dynamic-notes' })
+        // Different getter should NOT throw — dynamic fingerprints skip validation
+        return useConvexQueryState(query, () => ({ orgId: 'b' }), { shared: 'dynamic-notes' })
+      },
+      { convex },
+    )
+
+    expect(result).toBeDefined()
+  })
+
   it('keeps shared subscription alive until the final consumer scope stops', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('counter:get:refcount')

@@ -108,6 +108,23 @@ describe('useConvexUpload single-file mode (Nuxt runtime)', () => {
     expect(onError).toHaveBeenCalledTimes(1)
   })
 
+  it('rejects files exceeding maxSizeBytes before upload starts', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:max-size')
+    convex.setMutationHandler('files:generateUploadUrl:max-size', async () => 'http://upload.local')
+    const onError = vi.fn()
+
+    const { result } = await captureInNuxt(
+      () => useConvexUpload(mutation, { maxSizeBytes: 10, onError }),
+      { convex },
+    )
+
+    const file = new File(['x'.repeat(20)], 'large.bin', { type: 'application/octet-stream' })
+    await expect(result.upload(file)).rejects.toThrow('exceeds maximum')
+    expect(result.status.value).toBe('error')
+    expect(onError).toHaveBeenCalledTimes(1)
+  })
+
   it('cancel() aborts in-flight upload and resets state', async () => {
     globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
     FakeXhr.delayMs = 50

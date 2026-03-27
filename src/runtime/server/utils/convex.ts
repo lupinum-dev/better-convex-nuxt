@@ -209,23 +209,32 @@ function resolveServerEvent(
   try {
     const currentEvent = useRequestEvent()
     if (currentEvent) return currentEvent
-  } catch {}
+  } catch (resolveError) {
+    // useRequestEvent() throws when called outside a request context.
+    // Preserve the original error as cause for debugging unexpected failures.
+    throw new ConvexCallError(
+      `[${helper}] No H3 event available for ${functionPath}. Pass the event explicitly or call this helper inside a Nitro request context.`,
+      { helper, operation, functionPath, authMode: 'auto', cause: resolveError },
+    )
+  }
 
   throw new ConvexCallError(
     `[${helper}] No H3 event available for ${functionPath}. Pass the event explicitly or call this helper inside a Nitro request context.`,
-    {
-      helper,
-      operation,
-      functionPath,
-      authMode: 'auto',
-    },
+    { helper, operation, functionPath, authMode: 'auto' },
   )
 }
 
 function isH3EventLike(value: unknown): value is H3Event {
   if (!value || typeof value !== 'object') return false
   const record = value as Record<string, unknown>
-  return 'node' in record || 'headers' in record
+  // H3Event has __is_event__ marker. Fall back to node.req+node.res for mocks.
+  return (
+    '__is_event__' in record ||
+    (typeof record.node === 'object' &&
+      record.node !== null &&
+      'req' in (record.node as Record<string, unknown>) &&
+      'res' in (record.node as Record<string, unknown>))
+  )
 }
 
 function parseServerConvexArgs<Fn extends FunctionReference<'query' | 'mutation' | 'action'>>(
@@ -241,11 +250,9 @@ function parseServerConvexArgs<Fn extends FunctionReference<'query' | 'mutation'
   const helper = getHelperName(operationType)
 
   if (isH3EventLike(first)) {
-    const fn = second as Fn
-    const functionPath = getFunctionName(fn)
     return {
       event: first,
-      fn,
+      fn: second as Fn,
       args: third as FunctionArgs<Fn> | undefined,
       options: fourth,
     }

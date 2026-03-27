@@ -59,7 +59,7 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
 <script setup lang="ts">
 import { api } from "~~/convex/_generated/api";
 
-const { execute, pending } = useConvexMutation(api.tasks.create, {
+const createTask = useConvexMutation(api.tasks.create, {
   // Instant UI feedback with optimistic updates
   optimisticUpdate: (ctx, args) => {
     ctx.query(api.tasks.list, {}).update((current) =>
@@ -70,7 +70,7 @@ const { execute, pending } = useConvexMutation(api.tasks.create, {
   },
 });
 
-await execute({ text: "Ship my app" });
+await createTask({ text: "Ship my app" });
 </script>
 ```
 

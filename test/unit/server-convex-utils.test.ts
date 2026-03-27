@@ -29,12 +29,14 @@ vi.mock('#imports', () => ({
 
 function createEvent(cookie?: string): H3Event {
   return {
+    __is_event__: true,
     node: {
       req: {
         headers: {
           ...(cookie ? { cookie } : {}),
         },
       },
+      res: {},
     },
   } as unknown as H3Event
 }
@@ -196,6 +198,29 @@ describe('server Convex fetch helpers', () => {
       return JSON.parse(String(init?.body)).path
     })
     expect(paths).toEqual(['symbol:path', 'path:field', 'function:path', 'unknown'])
+  })
+
+  it('does not misidentify args with node/headers as H3Event', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    useRequestEventMock.mockReturnValue(createEvent() as never)
+
+    // Args with 'headers' or 'node' should NOT be mistaken for an H3 event
+    await serverConvexQuery(
+      { _path: 'messages:byHeaders' } as never,
+      { headers: ['x-custom'] } as never,
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(String(init.body))
+    expect(body.path).toBe('messages:byHeaders')
+    expect(body.args).toEqual({ headers: ['x-custom'] })
   })
 
   it('auth:auto exchanges cookie for token and attaches bearer header', async () => {

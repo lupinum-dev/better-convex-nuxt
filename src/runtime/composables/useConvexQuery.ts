@@ -106,7 +106,10 @@ function getFingerprint(value: unknown): string {
 
   try {
     return `hash:${hashArgs(value)}`
-  } catch {
+  } catch (e) {
+    if (import.meta.dev) {
+      console.warn('[better-convex-nuxt] Failed to fingerprint shared query args — duplicate-key detection is degraded:', e)
+    }
     return 'dynamic:object'
   }
 }
@@ -386,9 +389,6 @@ export function useConvexQuery<
             )
           }),
       )
-      .then((value) => {
-        return value
-      })
       .then(onFulfilled, onRejected)
   return result
 }

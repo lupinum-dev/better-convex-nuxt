@@ -115,7 +115,7 @@ export interface OptimisticPaginatedHandle<Query extends PaginatedQueryReference
 export interface OptimisticMatchedQueryHandle<Query extends FunctionReference<'query'>> {
   update: (
     updater: (
-      current: FunctionReturnType<Query> | undefined,
+      current: FunctionReturnType<Query>,
       args: FunctionArgs<Query>,
     ) => FunctionReturnType<Query>,
   ) => void
@@ -124,7 +124,7 @@ export interface OptimisticMatchedQueryHandle<Query extends FunctionReference<'q
 export interface OptimisticMatchedPaginatedHandle<Query extends PaginatedQueryReference> {
   update: (
     updater: (
-      current: PaginationResult<PaginatedQueryItem<Query>> | undefined,
+      current: PaginationResult<PaginatedQueryItem<Query>>,
       args: FunctionArgs<Query>,
     ) => PaginationResult<PaginatedQueryItem<Query>>,
   ) => void
@@ -202,10 +202,11 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
       return {
         update(updater) {
           for (const { args, value } of store.getAllQueries(query)) {
+            if (value === undefined) continue
             store.setQuery(
               query,
               args as FunctionArgs<Q>,
-              updater(value as FunctionReturnType<Q> | undefined, args as FunctionArgs<Q>),
+              updater(value as FunctionReturnType<Q>, args as FunctionArgs<Q>),
             )
           }
         },
@@ -291,11 +292,12 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
       return {
         update(updater) {
           for (const { args, value } of store.getAllQueries(query)) {
+            if (value === undefined) continue
             store.setQuery(
               query,
               args as FunctionArgs<Q>,
               updater(
-                value as PaginationResult<PaginatedQueryItem<Q>> | undefined,
+                value as PaginationResult<PaginatedQueryItem<Q>>,
                 args as FunctionArgs<Q>,
               ),
             )

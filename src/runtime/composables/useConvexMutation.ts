@@ -54,14 +54,6 @@ export type UseConvexMutationReturn<Args, Result> = ((args: Args) => Promise<Res
  */
 export interface UseConvexMutationOptions<Args extends Record<string, unknown>, Result = unknown> {
   /**
-   * Optimistic update function. Receives Convex's OptimisticLocalStore and mutation args.
-   * Called immediately before the mutation is sent to server.
-   * Automatically rolled back when the mutation completes and server data arrives.
-   *
-   * Use this to update local query results for instant UI feedback.
-   *
-   */
-  /**
    * Optimistic update callback. Receives a typed context (`ctx`) and mutation args.
    * Called immediately before the mutation is sent to the server.
    * Automatically rolled back when the server response arrives.

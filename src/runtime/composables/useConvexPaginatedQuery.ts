@@ -529,9 +529,6 @@ export function useConvexPaginatedQuery<
             )
           }),
       )
-      .then((value) => {
-        return value
-      })
       .then(onFulfilled, onRejected)
   return result
 }
