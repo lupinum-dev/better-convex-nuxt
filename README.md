@@ -89,10 +89,11 @@ await execute({ text: 'Ship my app' })
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user, signIn } = useConvexAuth()
+const { $auth } = useNuxtApp()
+const { isAuthenticated, user } = useConvexAuth()
 
 async function handleLogin() {
-  await signIn.social({ provider: 'github' })
+  await $auth.signIn.social({ provider: 'github' })
 }
 </script>
 

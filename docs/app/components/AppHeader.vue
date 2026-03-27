@@ -30,12 +30,12 @@ const navItems = computed<NavigationMenuItem[]>(() => [
   },
   {
     label: 'Server-Side',
-    to: '/docs/server-side/server-routes',
+    to: '/docs/server-side/ssr-overview',
     active: route.path.startsWith('/docs/server-side'),
   },
   {
     label: 'Advanced',
-    to: '/docs/advanced/performance',
+    to: '/docs/configuration/module-options',
   },
 ])
 </script>

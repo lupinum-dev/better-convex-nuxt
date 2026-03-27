@@ -79,15 +79,19 @@ await createTask({ text: "Ship my app" });
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user, signOut, signIn } = useConvexAuth();
+const { $auth } = useNuxtApp();
+const { isAuthenticated, user, signOut } = useConvexAuth();
+const { refreshAuth } = useConvexAuthInternal();
 
 async function handleLogin(email: string, password: string) {
-  const { error } = await signIn.email({ email, password });
-  if (!error) navigateTo("/dashboard");
+  const { error } = await $auth.signIn.email({ email, password });
+  if (error) return;
+  await refreshAuth();
+  navigateTo("/dashboard");
 }
 
 async function handleOAuth() {
-  await signIn.social({ provider: "github" });
+  await $auth.signIn.social({ provider: "github" });
 }
 </script>
 

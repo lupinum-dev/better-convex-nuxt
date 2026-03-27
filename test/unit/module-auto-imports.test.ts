@@ -6,20 +6,17 @@ import { describe, expect, it } from 'vitest'
 describe('module auto-import surface', () => {
   it('includes the consolidated upload/query helpers and excludes removed/internal exports', () => {
     const moduleSource = readFileSync(resolve(process.cwd(), 'src/module.ts'), 'utf8')
-    const addImportsBlock = moduleSource.match(/addImports\(\[(?<imports>[\s\S]*?)\]\)/)?.groups
-      ?.imports
 
-    expect(addImportsBlock).toBeTruthy()
-    expect(addImportsBlock).toMatch(/name:\s*'useConvexUpload'/)
+    expect(moduleSource).toMatch(/name:\s*'useConvexUpload'/)
+    expect(moduleSource).toMatch(/name:\s*'useConvexAuthInternal'/)
     // Removed deprecated composables
-    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexFileUpload'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexUploadQueue'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'defineSharedConvexQuery'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexStorageUrlRef'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'toCallResult'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexAuthInternal'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexCall'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'getQueryKey'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexRpc'/)
+    expect(moduleSource).not.toMatch(/name:\s*'useConvexFileUpload'/)
+    expect(moduleSource).not.toMatch(/name:\s*'useConvexUploadQueue'/)
+    expect(moduleSource).not.toMatch(/name:\s*'defineSharedConvexQuery'/)
+    expect(moduleSource).not.toMatch(/name:\s*'useConvexStorageUrlRef'/)
+    expect(moduleSource).not.toMatch(/name:\s*'toCallResult'/)
+    expect(moduleSource).not.toMatch(/name:\s*'useConvexCall'/)
+    expect(moduleSource).not.toMatch(/name:\s*'getQueryKey'/)
+    expect(moduleSource).not.toMatch(/name:\s*'useConvexRpc'/)
   })
 })

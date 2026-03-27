@@ -467,6 +467,10 @@ export {}
     if (isAuthEnabled) {
       addImports([
         { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
+        {
+          name: 'useConvexAuthInternal',
+          from: resolver.resolve('./runtime/composables/useConvexAuthInternal'),
+        },
       ])
 
       // Register auth components
