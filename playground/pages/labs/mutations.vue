@@ -18,23 +18,10 @@ definePageMeta({
  */
 
 // Successful mutation
-const {
-  execute: addNote,
-  pending: addPending,
-  status: addStatus,
-  error: addError,
-  data: addData,
-  reset: addReset,
-} = useConvexMutation(api.notes.add)
+const addNote = useConvexMutation(api.notes.add)
 
 // Error mutation
-const {
-  execute: failMutation,
-  pending: failPending,
-  status: failStatus,
-  error: failError,
-  reset: failReset,
-} = useConvexMutation(api.testing.alwaysFailsMutation)
+const failMutation = useConvexMutation(api.testing.alwaysFailsMutation)
 
 // Track mutation counts
 const successCount = ref(0)
@@ -62,8 +49,8 @@ async function handleError() {
 }
 
 function handleReset() {
-  addReset()
-  failReset()
+  addNote.reset()
+  failMutation.reset()
 }
 </script>
 
@@ -78,19 +65,19 @@ function handleReset() {
       <button
         data-testid="success-btn"
         class="btn success-btn"
-        :disabled="addPending"
+        :disabled="addNote.pending.value"
         @click="handleSuccess"
       >
-        {{ addPending ? 'Running...' : 'Run Success Mutation' }}
+        {{ addNote.pending.value ? 'Running...' : 'Run Success Mutation' }}
       </button>
 
       <button
         data-testid="error-btn"
         class="btn error-btn"
-        :disabled="failPending"
+        :disabled="failMutation.pending.value"
         @click="handleError"
       >
-        {{ failPending ? 'Running...' : 'Run Error Mutation' }}
+        {{ failMutation.pending.value ? 'Running...' : 'Run Error Mutation' }}
       </button>
 
       <button data-testid="reset-btn" class="btn reset-btn" @click="handleReset">Reset All</button>
@@ -101,19 +88,19 @@ function handleReset() {
       <div class="state-grid">
         <div class="state-item">
           <span class="label">status:</span>
-          <span data-testid="add-status" class="value">{{ addStatus }}</span>
+          <span data-testid="add-status" class="value">{{ addNote.status.value }}</span>
         </div>
         <div class="state-item">
           <span class="label">pending:</span>
-          <span data-testid="add-pending" class="value">{{ addPending }}</span>
+          <span data-testid="add-pending" class="value">{{ addNote.pending.value }}</span>
         </div>
         <div class="state-item">
           <span class="label">error:</span>
-          <span data-testid="add-error" class="value">{{ addError?.message ?? 'null' }}</span>
+          <span data-testid="add-error" class="value">{{ addNote.error.value?.message ?? 'null' }}</span>
         </div>
         <div class="state-item">
           <span class="label">data (noteId):</span>
-          <span data-testid="add-data" class="value">{{ addData ?? 'undefined' }}</span>
+          <span data-testid="add-data" class="value">{{ addNote.data.value ?? 'undefined' }}</span>
         </div>
         <div class="state-item">
           <span class="label">success count:</span>
@@ -127,15 +114,15 @@ function handleReset() {
       <div class="state-grid">
         <div class="state-item">
           <span class="label">status:</span>
-          <span data-testid="fail-status" class="value">{{ failStatus }}</span>
+          <span data-testid="fail-status" class="value">{{ failMutation.status.value }}</span>
         </div>
         <div class="state-item">
           <span class="label">pending:</span>
-          <span data-testid="fail-pending" class="value">{{ failPending }}</span>
+          <span data-testid="fail-pending" class="value">{{ failMutation.pending.value }}</span>
         </div>
         <div class="state-item">
           <span class="label">error:</span>
-          <span data-testid="fail-error" class="value">{{ failError?.message ?? 'null' }}</span>
+          <span data-testid="fail-error" class="value">{{ failMutation.error.value?.message ?? 'null' }}</span>
         </div>
         <div class="state-item">
           <span class="label">error count:</span>

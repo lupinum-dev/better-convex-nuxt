@@ -33,9 +33,9 @@ function toSlugPath(note: Pick<NoteListItem, '_id' | 'title'>): string {
 
 const listCacheKey = getQueryKey(api.notes.list, {})
 
-const { data: notes, pending, error, refresh } = await useConvexQuery(api.notes.list, {})
+const { data: notes, pending, error, refresh } = useConvexQuery(api.notes.list, {})
 
-const { execute: addNote, pending: isCreating } = useConvexMutation(api.notes.add)
+const addNote = useConvexMutation(api.notes.add)
 
 const cards = computed(() =>
   (notes.value ?? []).map((note) => ({
@@ -89,8 +89,8 @@ async function seedDemoNotes() {
         <button class="btn" :disabled="pending" @click="refresh()">
           {{ pending ? 'Refreshing...' : 'Refresh List' }}
         </button>
-        <button class="btn btn-primary" :disabled="isCreating" @click="seedDemoNotes">
-          {{ isCreating ? 'Seeding...' : 'Seed Demo Notes' }}
+        <button class="btn btn-primary" :disabled="addNote.pending.value" @click="seedDemoNotes">
+          {{ addNote.pending.value ? 'Seeding...' : 'Seed Demo Notes' }}
         </button>
       </div>
     </header>

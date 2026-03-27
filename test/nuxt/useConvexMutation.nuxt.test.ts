@@ -13,7 +13,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => useConvexMutation(mutation))
 
     expect(result.status.value).toBe('idle')
-    await expect(result.execute({} as never)).rejects.toThrow('Convex client is unavailable')
+    await expect(result({} as never)).rejects.toThrow('Convex client is unavailable')
     expect(result.status.value).toBe('error')
   })
 
@@ -28,7 +28,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
     expect(result.status.value).toBe('idle')
-    const promise = result.execute({ value: 'hello' } as never)
+    const promise = result({ value: 'hello' } as never)
     expect(result.pending.value).toBe(true)
 
     await expect(promise).resolves.toEqual({ id: 'new-id', value: 'hello' })
@@ -46,7 +46,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
-    await expect(result.execute({} as never)).rejects.toThrow('mutation failed')
+    await expect(result({} as never)).rejects.toThrow('mutation failed')
     expect(result.status.value).toBe('error')
     expect(result.error.value?.message).toBe('mutation failed')
 
@@ -80,7 +80,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     )
 
     const successArgs = { value: 'ok' }
-    await expect(result.success.execute(successArgs as never)).resolves.toEqual({
+    await expect(result.success(successArgs as never)).resolves.toEqual({
       ok: true,
       payload: successArgs,
     })
@@ -88,7 +88,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(onSuccess).toHaveBeenCalledWith({ ok: true, payload: successArgs }, successArgs)
 
     const failArgs = { value: 'nope' }
-    await expect(result.fail.execute(failArgs as never)).rejects.toThrow('callback boom')
+    await expect(result.fail(failArgs as never)).rejects.toThrow('callback boom')
     expect(onError).toHaveBeenCalledTimes(1)
     const callbackError = onError.mock.calls[0]?.[0]
     expect(callbackError).toBeInstanceOf(Error)
@@ -105,7 +105,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const safeResult = await toCallResult(() => result.execute({} as never))
+    const safeResult = await toCallResult(() => result({} as never))
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -129,7 +129,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const safeResult = await toCallResult(() => result.execute({} as never))
+    const safeResult = await toCallResult(() => result({} as never))
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -152,8 +152,8 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const direct = await result.execute({} as never)
-    const wrapped = await toCallResult(() => result.execute({} as never))
+    const direct = await result({} as never)
+    const wrapped = await toCallResult(() => result({} as never))
 
     expect(direct).toEqual({
       ok: false,
@@ -182,8 +182,8 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
-    const slowFail = result.execute({ value: 'first', delayMs: 30, shouldFail: true } as never)
-    const fastSuccess = result.execute({ value: 'second', delayMs: 5 } as never)
+    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
 
     await expect(fastSuccess).resolves.toEqual({ value: 'second' })
     await expect(slowFail).rejects.toThrow('failed:first')

@@ -118,11 +118,11 @@
               <label>Slug</label>
               <input v-model="newOrgSlug" type="text" placeholder="my-company" required />
             </div>
-            <button type="submit" class="btn btn-primary" :disabled="isCreatingOrg">
-              {{ isCreatingOrg ? 'Creating...' : 'Create Organization' }}
+            <button type="submit" class="btn btn-primary" :disabled="createOrg.pending.value">
+              {{ createOrg.pending.value ? 'Creating...' : 'Create Organization' }}
             </button>
-            <p v-if="createOrgError" class="error-inline">
-              {{ createOrgError.message }}
+            <p v-if="createOrg.error.value" class="error-inline">
+              {{ createOrg.error.value.message }}
             </p>
           </form>
         </section>
@@ -168,8 +168,8 @@
 
           <!-- Leave Organization (non-owners only) -->
           <div v-if="role !== 'owner'" class="leave-org">
-            <button class="btn btn-danger" :disabled="isLeavingOrg" @click="handleLeaveOrg">
-              {{ isLeavingOrg ? 'Leaving...' : 'Leave Organization' }}
+            <button class="btn btn-danger" :disabled="leaveOrg.pending.value" @click="handleLeaveOrg">
+              {{ leaveOrg.pending.value ? 'Leaving...' : 'Leave Organization' }}
             </button>
           </div>
         </section>
@@ -200,8 +200,8 @@
                 <input v-model="editOrgName" type="text" required />
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn-primary" :disabled="isSavingSettings">
-                  {{ isSavingSettings ? 'Saving...' : 'Save Changes' }}
+                <button type="submit" class="btn btn-primary" :disabled="updateOrgSettings.pending.value">
+                  {{ updateOrgSettings.pending.value ? 'Saving...' : 'Save Changes' }}
                 </button>
                 <button type="button" class="btn btn-secondary" @click="cancelEditSettings">
                   Cancel
@@ -247,11 +247,11 @@
           <div v-if="can('post.create')" class="create-form">
             <form class="form inline" @submit.prevent="handleCreatePost">
               <input v-model="newPostTitle" type="text" placeholder="New post title..." required />
-              <button type="submit" class="btn btn-primary" :disabled="isCreatingPost">
-                {{ isCreatingPost ? '...' : 'Create' }}
+              <button type="submit" class="btn btn-primary" :disabled="createPost.pending.value">
+                {{ createPost.pending.value ? '...' : 'Create' }}
               </button>
-              <span v-if="createPostError" class="error-inline">
-                {{ createPostError.message }}
+              <span v-if="createPost.error.value" class="error-inline">
+                {{ createPost.error.value.message }}
               </span>
             </form>
           </div>
@@ -432,8 +432,8 @@
               <option value="viewer">Viewer</option>
               <option v-if="role === 'owner'" value="admin">Admin</option>
             </select>
-            <button type="submit" class="btn btn-primary" :disabled="isInviting">
-              {{ isInviting ? '...' : 'Invite' }}
+            <button type="submit" class="btn btn-primary" :disabled="createInvite.pending.value">
+              {{ createInvite.pending.value ? '...' : 'Invite' }}
             </button>
           </form>
 
@@ -472,7 +472,7 @@ const { can, user, role, orgId, pending, isAuthenticated } = usePermissions()
 
 // Queries - use status for explicit state management
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)
-const { data: currentOrg, status: currentOrgStatus } = await useConvexQuery(
+const { data: currentOrg, status: currentOrgStatus } = useConvexQuery(
   api.organizations.getCurrent,
   computed(() => (orgId.value ? {} : undefined)),
 )
@@ -481,7 +481,7 @@ const {
   data: posts,
   status: postsStatus,
   error: postsError,
-} = await useConvexQuery(
+} = useConvexQuery(
   api.posts.list,
   computed(() => (orgId.value ? {} : undefined)),
 )
@@ -490,18 +490,18 @@ const {
   data: members,
   status: membersStatus,
   error: membersError,
-} = await useConvexQuery(
+} = useConvexQuery(
   api.organizations.getMembers,
   computed(() => (orgId.value && can('org.members') ? {} : undefined)),
 )
 
-const { data: pendingInvites } = await useConvexQuery(
+const { data: pendingInvites } = useConvexQuery(
   api.invites.listPending,
   computed(() => (orgId.value && can('org.invite') ? {} : undefined)),
 )
 
 // Get my pending invites (when no orgId)
-const myInvitesQuery = await useConvexQuery(
+const myInvitesQuery = useConvexQuery(
   api.invites.getMyInvites,
   computed(() => (!orgId.value ? {} : undefined)),
 )
@@ -513,49 +513,34 @@ const orgIdsForInvites = computed(() => {
   return myInvites.value.map((invite) => invite.organizationId)
 })
 
-const { data: allOrgs } = await useConvexQuery(
+const { data: allOrgs } = useConvexQuery(
   api.organizations.getByIds,
   computed(() => (orgIdsForInvites.value.length ? { ids: orgIdsForInvites.value } : undefined)),
 )
 
 // Get all organizations (for browsing)
-const allOrganizationsQuery = await useConvexQuery(
-  api.organizations.list,
-  computed(() => (!orgId.value ? {} : undefined)),
-)
 const {
   data: allOrganizations,
   status: allOrganizationsStatus,
   error: allOrganizationsError,
-} = allOrganizationsQuery
-
-// Wait for initial queries to load before completing navigation
-// This blocks client-side navigation until data is ready
-await Promise.all([myInvitesQuery, allOrganizationsQuery])
-
-// Mutations - use pending/error shorthands from new API
-const {
-  execute: createOrg,
-  pending: isCreatingOrg,
-  error: createOrgError,
-} = useConvexMutation(api.organizations.create)
-const {
-  execute: createPost,
-  pending: isCreatingPost,
-  error: createPostError,
-} = useConvexMutation(api.posts.create)
-const { execute: updatePost } = useConvexMutation(api.posts.update)
-const { execute: publishPost } = useConvexMutation(api.posts.publish)
-const { execute: deletePost } = useConvexMutation(api.posts.remove)
-const { execute: changeMemberRole } = useConvexMutation(api.organizations.changeMemberRole)
-const { execute: createInvite, pending: isInviting } = useConvexMutation(api.invites.create)
-const { execute: revokeInvite } = useConvexMutation(api.invites.revoke)
-const { execute: acceptInvite } = useConvexMutation(api.invites.accept)
-const { execute: removeMember } = useConvexMutation(api.organizations.removeMember)
-const { execute: leaveOrg, pending: isLeavingOrg } = useConvexMutation(api.organizations.leave)
-const { execute: updateOrgSettings, pending: isSavingSettings } = useConvexMutation(
-  api.organizations.updateSettings,
+} = useConvexQuery(
+  api.organizations.list,
+  computed(() => (!orgId.value ? {} : undefined)),
 )
+
+// Mutations - use .pending/.error properties from new API
+const createOrg = useConvexMutation(api.organizations.create)
+const createPost = useConvexMutation(api.posts.create)
+const updatePost = useConvexMutation(api.posts.update)
+const publishPost = useConvexMutation(api.posts.publish)
+const deletePost = useConvexMutation(api.posts.remove)
+const changeMemberRole = useConvexMutation(api.organizations.changeMemberRole)
+const createInvite = useConvexMutation(api.invites.create)
+const revokeInvite = useConvexMutation(api.invites.revoke)
+const acceptInvite = useConvexMutation(api.invites.accept)
+const removeMember = useConvexMutation(api.organizations.removeMember)
+const leaveOrg = useConvexMutation(api.organizations.leave)
+const updateOrgSettings = useConvexMutation(api.organizations.updateSettings)
 
 // State
 const error = ref<string | null>(null)
@@ -589,7 +574,7 @@ async function handleCreateOrg() {
     // Reload page to get new permissions
     window.location.reload()
   } catch {
-    // Error is automatically tracked by createOrgError shorthand
+    // Error is automatically tracked by createOrg.error shorthand
   }
 }
 
@@ -599,7 +584,7 @@ async function handleCreatePost() {
     await createPost({ title: newPostTitle.value, content: 'Demo content' })
     newPostTitle.value = ''
   } catch {
-    // Error is automatically tracked by createPostError shorthand
+    // Error is automatically tracked by createPost.error shorthand
   }
 }
 

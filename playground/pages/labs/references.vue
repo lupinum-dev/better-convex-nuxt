@@ -46,14 +46,14 @@
 
       <form class="mutation-form" @submit.prevent="createTask">
         <input v-model="taskTitle" type="text" placeholder="Task title" />
-        <button class="button" :disabled="taskPending">
-          {{ taskPending ? 'Creating…' : 'Create task' }}
+        <button class="button" :disabled="addTask.pending.value">
+          {{ addTask.pending.value ? 'Creating…' : 'Create task' }}
         </button>
       </form>
 
       <div class="panel">
         <div class="panel-meta">
-          <span>Status: {{ taskStatus }}</span>
+          <span>Status: {{ addTask.status.value }}</span>
           <NuxtLink v-if="!isAuthenticated" to="/auth/signin" class="inline-link">Sign in</NuxtLink>
         </div>
         <pre>{{ taskResultPreview }}</pre>
@@ -134,7 +134,7 @@ const {
   status: notesStatus,
   error: notesError,
   refresh: refreshNotes,
-} = await useConvexQuery(api.notes.list, {}, { default: () => [] })
+} = useConvexQuery(api.notes.list, {}, { default: () => [] })
 const { data: privateLaneStatus } = await useFetch<{
   demoEnabled: boolean
   hasServerBridgeKey: boolean
@@ -151,12 +151,7 @@ const { data: privateLaneStatus } = await useFetch<{
   }),
 })
 
-const {
-  execute: addTask,
-  pending: taskPending,
-  status: taskStatus,
-  error: taskError,
-} = useConvexMutation(api.tasks.add)
+const addTask = useConvexMutation(api.tasks.add)
 
 const taskTitle = ref('')
 const taskResult = ref<Record<string, unknown> | null>(null)
@@ -174,7 +169,7 @@ const taskResultPreview = computed(() =>
   JSON.stringify(
     taskResult.value ?? {
       ok: null,
-      message: taskError.value?.message ?? 'Run the mutation to see client-side auth behavior.',
+      message: addTask.error.value?.message ?? 'Run the mutation to see client-side auth behavior.',
     },
     null,
     2,

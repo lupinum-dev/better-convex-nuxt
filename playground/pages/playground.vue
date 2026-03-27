@@ -121,7 +121,7 @@
         <pre>
 // Share reactive data between components without extra requests
 // The data ref from useConvexQuery is reactive and shared via the subscription cache
-const { data: notes } = await useConvexQuery(api.notes.list, {})
+const { data: notes } = useConvexQuery(api.notes.list, {})
 // Count: {{ cachedNotes?.length ?? 'undefined' }}</pre
         >
       </div>
@@ -210,7 +210,7 @@ const {
   data: notes,
   pending: notesPending,
   error: notesError,
-} = await useConvexQuery(api.notes.list, {})
+} = useConvexQuery(api.notes.list, {})
 
 // Form state for adding notes
 const newNoteTitle = ref('')
@@ -222,7 +222,7 @@ async function addNote() {
 
   isAdding.value = true
   try {
-    await addNoteMutation.execute({
+    await addNoteMutation({
       title: newNoteTitle.value.trim(),
       content: newNoteContent.value.trim() || 'No content',
     })
@@ -238,7 +238,7 @@ async function addNote() {
 
 async function deleteNote(id: Id<'notes'>) {
   try {
-    await deleteNoteMutation.execute({ id })
+    await deleteNoteMutation({ id })
     // Real-time subscription will update automatically!
   } catch (e) {
     console.error('Failed to delete note:', e)
@@ -266,7 +266,7 @@ const searchArgs = computed(() => {
   return { query: debouncedQuery.value }
 })
 
-const { data: searchResults, pending: searchPending } = await useConvexQuery(
+const { data: searchResults, pending: searchPending } = useConvexQuery(
   api.notes.search,
   searchArgs,
 )
@@ -278,7 +278,7 @@ const skipArgs = computed(() => {
   return enableSkipDemo.value ? {} : undefined
 })
 
-const { data: skipDemoData, pending: skipDemoPending } = await useConvexQuery(
+const { data: skipDemoData, pending: skipDemoPending } = useConvexQuery(
   api.notes.list,
   skipArgs,
 )
@@ -291,13 +291,13 @@ const cachedNotes = notes
 // ========== Section 5: Options Demo ==========
 
 // Client-only query example
-const { data: lazyData, pending: lazyPending } = await useConvexQuery(api.notes.list, {})
+const { data: lazyData, pending: lazyPending } = useConvexQuery(api.notes.list, {})
 
 // Default data (factory function that provides initial value)
-const { data: initialDataDemo } = await useConvexQuery(api.notes.list, {}, { default: () => [] })
+const { data: initialDataDemo } = useConvexQuery(api.notes.list, {}, { default: () => [] })
 
 // Client-only
-const { data: clientOnlyData, pending: clientOnlyPending } = await useConvexQuery(
+const { data: clientOnlyData, pending: clientOnlyPending } = useConvexQuery(
   api.notes.list,
   {},
   { server: false },

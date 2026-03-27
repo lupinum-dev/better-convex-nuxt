@@ -27,11 +27,11 @@ function useConvexQueryState<
 }
 
 describe('useConvexQuery composables (Nuxt runtime)', () => {
-  it('useConvexQuery blocks until first value arrives', async () => {
+  it('useConvexQuery blocks until first value arrives with blocking: true', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:blocking-default')
 
-    const { result } = await captureInNuxt(() => useConvexQuery(query, {}), { convex })
+    const { result } = await captureInNuxt(() => useConvexQuery(query, {}, { blocking: true }), { convex })
 
     let settled = false
     const blockingResult = result.then((value) => {

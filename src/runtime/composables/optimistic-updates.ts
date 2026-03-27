@@ -244,3 +244,92 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
     },
   }
 }
+
+// ============================================================================
+// Standalone optimistic update helpers
+// ============================================================================
+
+/** Infer the array item type from a query that returns an array. */
+type ArrayQueryItem<Q extends FunctionReference<'query'>> =
+  FunctionReturnType<Q> extends Array<infer T> ? T : never
+
+/**
+ * Prepend an item to a query result that returns an array.
+ *
+ * @example
+ * ```ts
+ * const addNote = useConvexMutation(api.notes.add, {
+ *   optimisticUpdate: (ctx, args) =>
+ *     prependTo(ctx, api.notes.list, {}, { ...args, _id: crypto.randomUUID(), _creationTime: Date.now() }),
+ * })
+ * ```
+ */
+export function prependTo<Q extends FunctionReference<'query'>>(
+  ctx: OptimisticContext,
+  query: Q,
+  args: FunctionArgs<Q>,
+  item: ArrayQueryItem<Q>,
+): void {
+  ctx.query(query, args).update((list) => [item, ...((list as unknown[]) ?? [])] as FunctionReturnType<Q>)
+}
+
+/**
+ * Append an item to a query result that returns an array.
+ */
+export function appendTo<Q extends FunctionReference<'query'>>(
+  ctx: OptimisticContext,
+  query: Q,
+  args: FunctionArgs<Q>,
+  item: ArrayQueryItem<Q>,
+): void {
+  ctx.query(query, args).update((list) => [...((list as unknown[]) ?? []), item] as FunctionReturnType<Q>)
+}
+
+/**
+ * Remove items from a query result that returns an array, using a predicate.
+ *
+ * @example
+ * ```ts
+ * const deleteNote = useConvexMutation(api.notes.delete, {
+ *   optimisticUpdate: (ctx, args) =>
+ *     removeFrom(ctx, api.notes.list, {}, (note) => note._id === args.id),
+ * })
+ * ```
+ */
+export function removeFrom<Q extends FunctionReference<'query'>>(
+  ctx: OptimisticContext,
+  query: Q,
+  args: FunctionArgs<Q>,
+  predicate: (item: ArrayQueryItem<Q>) => boolean,
+): void {
+  ctx.query(query, args).update(
+    (list) => ((list as unknown[]) ?? []).filter((i) => !predicate(i as ArrayQueryItem<Q>)) as FunctionReturnType<Q>,
+  )
+}
+
+/**
+ * Update items in a query result that returns an array, applying an updater to matching items.
+ *
+ * @example
+ * ```ts
+ * const updateNote = useConvexMutation(api.notes.update, {
+ *   optimisticUpdate: (ctx, args) =>
+ *     updateIn(ctx, api.notes.list, {}, (note) => note._id === args.id, (note) => ({ ...note, ...args })),
+ * })
+ * ```
+ */
+export function updateIn<Q extends FunctionReference<'query'>>(
+  ctx: OptimisticContext,
+  query: Q,
+  args: FunctionArgs<Q>,
+  predicate: (item: ArrayQueryItem<Q>) => boolean,
+  updater: (item: ArrayQueryItem<Q>) => ArrayQueryItem<Q>,
+): void {
+  ctx.query(query, args).update(
+    (list) =>
+      ((list as unknown[]) ?? []).map((i) => {
+        const item = i as ArrayQueryItem<Q>
+        return predicate(item) ? updater(item) : item
+      }) as FunctionReturnType<Q>,
+  )
+}

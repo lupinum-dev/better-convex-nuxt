@@ -26,43 +26,26 @@ export {
 } from './optimistic-updates'
 
 /**
- * Return value from useConvexMutation
+ * Return value from useConvexMutation / useConvexAction.
+ *
+ * Callable directly as a function, with reactive state properties attached:
+ * ```ts
+ * const createPost = useConvexMutation(api.posts.create)
+ * await createPost({ title: 'Hello' })  // callable directly
+ * createPost.pending.value              // state access
+ * createPost.error.value                // error access
+ * ```
  */
-export interface UseConvexMutationReturn<Args, Result> {
-  /**
-   * Execute the mutation. Returns a promise with the result.
-   * Automatically tracks status, error, and data.
-   * Throws on error — use try/catch or wrap with `toCallResult(() => execute(args))` for safe variant.
-   */
-  execute: (args: Args) => Promise<Result>
-
-  /**
-   * Result data from the last successful mutation.
-   * undefined if mutation hasn't succeeded yet.
-   */
+export type UseConvexMutationReturn<Args, Result> = ((args: Args) => Promise<Result>) & {
+  /** Result data from the last successful call. */
   data: Ref<Result | undefined>
-
-  /**
-   * Mutation status for explicit state management.
-   */
+  /** Call status: 'idle' | 'pending' | 'success' | 'error' */
   status: ComputedRef<MutationStatus>
-
-  /**
-   * True when mutation is in progress.
-   * Equivalent to status === 'pending'.
-   */
+  /** True when call is in progress. */
   pending: ComputedRef<boolean>
-
-  /**
-   * Error from the last mutation attempt.
-   * null if no error or mutation hasn't been called.
-   */
+  /** Error from the last call attempt, or null. */
   error: Ref<Error | null>
-
-  /**
-   * Reset mutation state back to idle.
-   * Clears error and data.
-   */
+  /** Reset state back to idle. Clears error and data. */
   reset: () => void
 }
 
@@ -85,7 +68,7 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
    *
    * @example
    * ```ts
-   * const { execute } = useConvexMutation(api.notes.add, {
+   * const addNote = useConvexMutation(api.notes.add, {
    *   optimisticUpdate: (ctx, args) => {
    *     // Update a regular query
    *     ctx.query(api.notes.list, {}).update(notes => [...notes, { ...args, _id: 'temp' }])
@@ -207,7 +190,14 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
     }
   }
 
-  return { execute, data, status, pending, error, reset }
+  // Return a callable function with state properties attached
+  const callable = ((args: Args) => execute(args)) as UseConvexMutationReturn<Args, Result>
+  callable.data = data
+  callable.status = status
+  callable.pending = pending
+  callable.error = error
+  callable.reset = reset
+  return callable
 }
 
 // ============================================================================
@@ -233,28 +223,23 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
  * <script setup>
  * import { api } from '~/convex/_generated/api'
  *
- * const {
- *   execute: createPost,
- *   pending,
- *   status,
- *   error,
- * } = useConvexMutation(api.posts.create)
+ * const createPost = useConvexMutation(api.posts.create)
  *
  * async function handleSubmit() {
  *   try {
  *     await createPost({ title: 'Hello' })
  *   } catch {
- *     // error is automatically tracked
+ *     // error is automatically tracked via createPost.error
  *   }
  * }
  * </script>
  *
  * <template>
- *   <button :disabled="pending" @click="handleSubmit">
- *     {{ pending ? 'Creating...' : 'Create' }}
+ *   <button :disabled="createPost.pending.value" @click="handleSubmit">
+ *     {{ createPost.pending.value ? 'Creating...' : 'Create' }}
  *   </button>
- *   <p v-if="status === 'error'" class="error">{{ error?.message }}</p>
- *   <p v-if="status === 'success'">Created!</p>
+ *   <p v-if="createPost.status.value === 'error'" class="error">{{ createPost.error.value?.message }}</p>
+ *   <p v-if="createPost.status.value === 'success'">Created!</p>
  * </template>
  * ```
  *
@@ -263,7 +248,7 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
  * <script setup>
  * import { api } from '~/convex/_generated/api'
  *
- * const { execute: addNote } = useConvexMutation(api.notes.add, {
+ * const addNote = useConvexMutation(api.notes.add, {
  *   optimisticUpdate: (ctx, args) => {
  *     ctx.query(api.notes.list, { userId: args.userId }).update(current => {
  *       const newNote = {

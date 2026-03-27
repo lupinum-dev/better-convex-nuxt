@@ -12,11 +12,15 @@ export {
   type UseConvexMutationReturn,
   type UseConvexMutationOptions,
 } from './useConvexMutation'
-// Optimistic update builder types — exported directly from source to avoid re-export hop
+// Optimistic update builder types and helpers — exported directly from source to avoid re-export hop
 export {
   type OptimisticContext,
   type OptimisticQueryHandle,
   type OptimisticPaginatedHandle,
+  prependTo,
+  appendTo,
+  removeFrom,
+  updateIn,
 } from './optimistic-updates'
 
 // Re-export Convex types for convenience
@@ -64,7 +68,7 @@ export {
   type UploadProgressInfo,
 } from './useConvexUploadQueue'
 
-export { useConvexStorageUrl } from './useConvexStorageUrl'
+export { useConvexStorageUrl, useConvexStorageUrlRef } from './useConvexStorageUrl'
 
 // Permission composables (opt-in via module config)
 export {

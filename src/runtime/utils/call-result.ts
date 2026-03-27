@@ -75,6 +75,7 @@ class BcnError extends Error {
  */
 export { BcnError as ConvexError }
 
+/** @deprecated Use try/catch with `ConvexError` instanceof checks instead. Will be removed in v0.5.0. */
 export type CallResult<T, E = BcnError> = { ok: true; data: T } | { ok: false; error: E }
 
 // ============================================================================
@@ -228,13 +229,16 @@ export function toConvexError(error: unknown): BcnError {
  * Wrap a promise-returning function in a `CallResult` envelope.
  * Returns `{ ok: true, data }` on success, `{ ok: false, error: ConvexError }` on failure.
  *
- * @example
+ * @deprecated Use try/catch with `ConvexError` instanceof checks instead. Will be removed in v0.5.0.
+ *
+ * @example Prefer this pattern instead:
  * ```ts
- * const result = await toCallResult(() => execute(args))
- * if (result.ok) {
- *   console.log(result.data)
- * } else {
- *   console.error(result.error.message)
+ * try {
+ *   const data = await myMutation(args)
+ * } catch (e) {
+ *   if (e instanceof ConvexError) {
+ *     console.error(e.code, e.message)
+ *   }
  * }
  * ```
  */

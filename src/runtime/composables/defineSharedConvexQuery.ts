@@ -74,8 +74,9 @@ export interface DefineSharedConvexQueryOptions<
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 > {
-  /** Stable app-level key used to share a single query state instance. */
-  key: string
+  /** Stable app-level key used to share a single query state instance.
+   * When omitted, auto-derived from the query function name. */
+  key?: string
   /** Convex query reference. */
   query: Query
   /** Query args (supports refs/getters, including nullable disable semantics). */
@@ -99,10 +100,11 @@ export function defineSharedConvexQuery<
     const nuxtApp = useNuxtApp()
     const registry = getSharedRegistry(nuxtApp)
     const queryName = getFunctionName(config.query)
+    const resolvedKey = config.key ?? `convex:shared:${queryName}`
     const argsFingerprint = getFingerprint(config.args)
     const optionsFingerprint = getFingerprint(config.options)
 
-    const existing = registry.entries.get(config.key)
+    const existing = registry.entries.get(resolvedKey)
     if (existing) {
       const queryMismatch = existing.queryName !== queryName
       const staticArgsMismatch =
@@ -116,7 +118,7 @@ export function defineSharedConvexQuery<
 
       if (queryMismatch || staticArgsMismatch || staticOptionsMismatch) {
         throw new Error(
-          `[defineSharedConvexQuery] Duplicate key "${config.key}" registered with a different config object. ` +
+          `[defineSharedConvexQuery] Duplicate key "${resolvedKey}" registered with a different config object. ` +
             `Use unique keys per query definition.`,
         )
       }
@@ -130,7 +132,7 @@ export function defineSharedConvexQuery<
       true,
     ).resultData
 
-    registry.entries.set(config.key, {
+    registry.entries.set(resolvedKey, {
       value: created,
       config,
       queryName,

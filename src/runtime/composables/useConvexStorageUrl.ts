@@ -1,5 +1,5 @@
 import type { FunctionReference } from 'convex/server'
-import { computed, toValue, type MaybeRef } from 'vue'
+import { computed, toValue, type ComputedRef, type MaybeRef } from 'vue'
 
 import { createConvexQueryState, type UseConvexQueryData } from './useConvexQuery'
 
@@ -100,4 +100,22 @@ export function useConvexStorageUrl(
     {},
     true,
   ).resultData
+}
+
+/**
+ * Simplified variant that returns just the URL as a `ComputedRef<string | null>`.
+ * Use `useConvexStorageUrl` if you need full query state (pending, error, refresh, etc.).
+ *
+ * @example
+ * ```ts
+ * const url = useConvexStorageUrlRef(api.files.getUrl, storageId)
+ * // url.value is string | null
+ * ```
+ */
+export function useConvexStorageUrlRef(
+  getUrlQuery: FunctionReference<'query'>,
+  storageId: MaybeRef<string | null | undefined>,
+): ComputedRef<string | null> {
+  const { data } = useConvexStorageUrl(getUrlQuery, storageId)
+  return computed(() => data.value)
 }

@@ -12,10 +12,10 @@ import type { Id } from '~/convex/_generated/dataModel'
  * - No page refresh needed - subscription handles updates
  */
 
-const { data, pending, status, error } = await useConvexQuery(api.notes.list, {})
+const { data, pending, status, error } = useConvexQuery(api.notes.list, {})
 
-const { execute: addNote, pending: addPending } = useConvexMutation(api.notes.add)
-const { execute: removeNote, pending: removePending } = useConvexMutation(api.notes.remove)
+const addNote = useConvexMutation(api.notes.add)
+const removeNote = useConvexMutation(api.notes.remove)
 
 // Track add/remove counts for verification
 const addCount = ref(0)
@@ -47,10 +47,10 @@ async function handleRemove(id: Id<'notes'>) {
       <button
         data-testid="add-btn"
         class="action-btn add-btn"
-        :disabled="addPending"
+        :disabled="addNote.pending.value"
         @click="handleAdd"
       >
-        {{ addPending ? 'Adding...' : 'Add Note' }}
+        {{ addNote.pending.value ? 'Adding...' : 'Add Note' }}
       </button>
     </section>
 
@@ -111,7 +111,7 @@ async function handleRemove(id: Id<'notes'>) {
           <button
             class="delete-btn"
             :data-testid="`delete-${note._id}`"
-            :disabled="removePending"
+            :disabled="removeNote.pending.value"
             @click="handleRemove(note._id)"
           >
             Delete

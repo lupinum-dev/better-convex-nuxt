@@ -67,8 +67,8 @@
     <div class="test-actions">
       <h3>Test Actions</h3>
       <p>Trigger a mutation to see inflight state:</p>
-      <button :disabled="addingNote" @click="triggerMutation">
-        {{ addingNote ? 'Adding...' : 'Add Test Note' }}
+      <button :disabled="addNote.pending.value" @click="triggerMutation">
+        {{ addNote.pending.value ? 'Adding...' : 'Add Test Note' }}
       </button>
       <span v-if="lastNoteId" class="success">Added note: {{ lastNoteId }}</span>
     </div>
@@ -108,7 +108,7 @@ const statusLabel = computed(() => {
 })
 
 // Test mutation to see inflight state
-const { execute: addNote, pending: addingNote } = useConvexMutation(api.notes.add)
+const addNote = useConvexMutation(api.notes.add)
 const lastNoteId = ref<string | null>(null)
 
 async function triggerMutation() {

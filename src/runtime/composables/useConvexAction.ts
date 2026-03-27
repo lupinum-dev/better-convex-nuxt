@@ -39,14 +39,8 @@ export interface UseConvexActionOptions<Args, Result> {
  * Actions can call third-party APIs, run longer computations, and perform
  * side effects that aren't possible in queries or mutations.
  *
- * Returns an execute function along with reactive status, error, and data refs.
+ * Returns a callable function with reactive state properties attached.
  * The action automatically tracks its state - no manual loading refs needed.
- *
- * API designed to match useConvexMutation for consistency:
- * - `data` - result from last successful call
- * - `status` - 'idle' | 'pending' | 'success' | 'error'
- * - `pending` - boolean shorthand for status === 'pending'
- * - `error` - Error | null
  *
  * Note: Actions only work on the client side.
  *
@@ -55,28 +49,23 @@ export interface UseConvexActionOptions<Args, Result> {
  * <script setup>
  * import { api } from '~/convex/_generated/api'
  *
- * const {
- *   execute: sendEmail,
- *   pending,
- *   status,
- *   error,
- * } = useConvexAction(api.emails.send)
+ * const sendEmail = useConvexAction(api.emails.send)
  *
  * async function handleSend() {
  *   try {
  *     await sendEmail({ to: 'user@example.com', subject: 'Hello' })
  *   } catch {
- *     // error is automatically tracked
+ *     // error is automatically tracked via sendEmail.error
  *   }
  * }
  * </script>
  *
  * <template>
- *   <button :disabled="pending" @click="handleSend">
- *     {{ pending ? 'Sending...' : 'Send' }}
+ *   <button :disabled="sendEmail.pending.value" @click="handleSend">
+ *     {{ sendEmail.pending.value ? 'Sending...' : 'Send' }}
  *   </button>
- *   <p v-if="status === 'error'" class="error">{{ error?.message }}</p>
- *   <p v-if="status === 'success'">Sent!</p>
+ *   <p v-if="sendEmail.status.value === 'error'" class="error">{{ sendEmail.error.value?.message }}</p>
+ *   <p v-if="sendEmail.status.value === 'success'">Sent!</p>
  * </template>
  * ```
  */

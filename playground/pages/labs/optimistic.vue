@@ -24,7 +24,7 @@ definePageMeta({
  * 4. "Real-time update received" - when subscription confirms
  */
 
-const { data, pending, status } = await useConvexQuery(api.notes.list, {}, {})
+const { data, pending, status } = useConvexQuery(api.notes.list, {}, {})
 
 // Track add/remove counts for verification
 const addCount = ref(0)
@@ -41,7 +41,7 @@ watch(
 )
 
 // Mutation WITH optimistic update
-const { execute: addNoteOptimistic, pending: addPendingOptimistic } = useConvexMutation(
+const addNoteOptimistic = useConvexMutation(
   api.notes.add,
   {
     optimisticUpdate: (ctx, args) => {
@@ -63,10 +63,10 @@ const { execute: addNoteOptimistic, pending: addPendingOptimistic } = useConvexM
 )
 
 // Mutation WITHOUT optimistic update (for comparison)
-const { execute: addNoteNormal, pending: addPendingNormal } = useConvexMutation(api.notes.add)
+const addNoteNormal = useConvexMutation(api.notes.add)
 
 // Delete mutation WITH optimistic update
-const { execute: removeNoteOptimistic, pending: removePendingOptimistic } = useConvexMutation(
+const removeNoteOptimistic = useConvexMutation(
   api.notes.remove,
   {
     optimisticUpdate: (ctx, args) => {
@@ -79,7 +79,7 @@ const { execute: removeNoteOptimistic, pending: removePendingOptimistic } = useC
 )
 
 // Delete mutation WITHOUT optimistic update (for comparison)
-const { execute: removeNoteNormal, pending: removePendingNormal } = useConvexMutation(
+const removeNoteNormal = useConvexMutation(
   api.notes.remove,
 )
 
@@ -130,19 +130,19 @@ async function handleRemoveNormal(id: string) {
         <button
           data-testid="add-optimistic-btn"
           class="action-btn add-btn optimistic"
-          :disabled="addPendingOptimistic"
+          :disabled="addNoteOptimistic.pending.value"
           @click="handleAddOptimistic"
         >
-          {{ addPendingOptimistic ? 'Adding...' : 'Add (Optimistic)' }}
+          {{ addNoteOptimistic.pending.value ? 'Adding...' : 'Add (Optimistic)' }}
         </button>
 
         <button
           data-testid="add-normal-btn"
           class="action-btn add-btn normal"
-          :disabled="addPendingNormal"
+          :disabled="addNoteNormal.pending.value"
           @click="handleAddNormal"
         >
-          {{ addPendingNormal ? 'Adding...' : 'Add (Normal)' }}
+          {{ addNoteNormal.pending.value ? 'Adding...' : 'Add (Normal)' }}
         </button>
       </div>
     </section>
@@ -205,7 +205,7 @@ async function handleRemoveNormal(id: string) {
             <button
               class="delete-btn optimistic"
               :data-testid="`delete-optimistic-${note._id}`"
-              :disabled="removePendingOptimistic"
+              :disabled="removeNoteOptimistic.pending.value"
               @click="handleRemoveOptimistic(note._id)"
             >
               Delete (Opt)
@@ -213,7 +213,7 @@ async function handleRemoveNormal(id: string) {
             <button
               class="delete-btn normal"
               :data-testid="`delete-normal-${note._id}`"
-              :disabled="removePendingNormal"
+              :disabled="removeNoteNormal.pending.value"
               @click="handleRemoveNormal(note._id)"
             >
               Delete (Norm)

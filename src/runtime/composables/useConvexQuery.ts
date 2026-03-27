@@ -35,10 +35,14 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   /** Transform raw Convex data before exposing it via `data` */
   transform?: (input: RawT) => DataT
   /**
-   * When `false` (default), `useConvexQuery` returns a Promise that resolves
-   * once the first data arrives — blocking navigation (async data pattern).
-   * When `true`, returns synchronously and data arrives reactively.
+   * When `true`, `useConvexQuery` returns a Promise that resolves once the
+   * first data arrives — blocking navigation (async data pattern).
+   * When `false` (default), returns synchronously and data arrives reactively.
    * @default false
+   */
+  blocking?: boolean
+  /**
+   * @deprecated Use `blocking: true` instead of `lazy: false`, or simply remove `lazy: true` (sync is now the default).
    */
   lazy?: boolean
   /** Preserve previous data while a new result is loading */
@@ -49,6 +53,21 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
    * @default false
    */
   deepUnrefArgs?: boolean
+  /**
+   * Reactive toggle to enable/disable the query.
+   * When `false`, the query is skipped (status becomes 'skipped').
+   * Defaults to `true`. Also supports the null-args skip pattern.
+   */
+  enabled?: MaybeRefOrGetter<boolean>
+  /**
+   * Called whenever new data arrives from the server or subscription.
+   * Fires for both the initial load and subsequent reactive updates.
+   */
+  onData?: (data: DataT) => void
+  /**
+   * Called when the query encounters an error.
+   */
+  onError?: (error: Error) => void
 }
 
 export interface UseConvexQueryData<DataT> {
@@ -105,7 +124,10 @@ export function createConvexQueryState<
 
   // null/undefined args = skip. This is the canonical pattern for conditional queries:
   // useConvexQuery(api.notes.get, () => id.value ? { id: id.value } : null)
+  // The `enabled` option provides an explicit alternative:
+  // useConvexQuery(api.notes.get, { id }, { enabled: () => !!id.value })
   const isSkipped = computed(() => {
+    if (toValue(options?.enabled) === false) return true
     const rawArgs = args === undefined ? {} : toValue(args)
     return rawArgs == null
   })
@@ -202,6 +224,9 @@ export function createConvexQueryState<
           hasSubscription: subscribe,
         })
       }
+
+      // Forward to user callback (apply transform to match the exposed data shape)
+      options?.onData?.(applyTransform(result))
     },
     onError: (error) => {
       logger.query({ name: fnName, event: 'error', error })
@@ -211,6 +236,7 @@ export function createConvexQueryState<
           error: error.message,
         })
       }
+      options?.onError?.(error)
     },
   })
 
@@ -247,7 +273,19 @@ export function createConvexQueryState<
   }
 }
 
-// Overload: lazy: true → synchronous return
+// Known option keys used to distinguish options from args at runtime
+const OPTION_KEYS = new Set([
+  'server', 'subscribe', 'default', 'transform', 'blocking', 'lazy',
+  'keepPreviousData', 'deepUnrefArgs', 'enabled', 'onData', 'onError',
+])
+
+function isOptionsObject(value: unknown): value is UseConvexQueryOptions<unknown> {
+  if (!value || typeof value !== 'object' || typeof value === 'function') return false
+  if ('__v_isRef' in (value as Record<string, unknown>)) return false
+  return Object.keys(value).some(k => OPTION_KEYS.has(k))
+}
+
+// Overload: blocking: true → async return (SSR navigation blocking)
 export function useConvexQuery<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
@@ -255,10 +293,28 @@ export function useConvexQuery<
 >(
   query: Query,
   args: MaybeRefOrGetter<Args> | undefined,
-  options: UseConvexQueryOptions<FunctionReturnType<Query>, DataT> & { lazy: true },
+  options: UseConvexQueryOptions<FunctionReturnType<Query>, DataT> & { blocking: true },
+): Promise<UseConvexQueryData<DataT>>
+
+// Overload: options as 2nd param (no-arg queries), blocking
+export function useConvexQuery<
+  Query extends FunctionReference<'query'>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  options: UseConvexQueryOptions<FunctionReturnType<Query>, DataT> & { blocking: true },
+): Promise<UseConvexQueryData<DataT>>
+
+// Overload: options as 2nd param (no-arg queries), sync
+export function useConvexQuery<
+  Query extends FunctionReference<'query'>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
 ): UseConvexQueryData<DataT>
 
-// Overload: default (lazy: false) → async return
+// Overload: default — sync return (data arrives reactively)
 export function useConvexQuery<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
@@ -267,7 +323,7 @@ export function useConvexQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
-): Promise<UseConvexQueryData<DataT>>
+): UseConvexQueryData<DataT>
 
 // Implementation
 export function useConvexQuery<
@@ -276,15 +332,44 @@ export function useConvexQuery<
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+  argsOrOptions?: MaybeRefOrGetter<Args> | UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+  maybeOptions?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
 ): UseConvexQueryData<DataT> | Promise<UseConvexQueryData<DataT>> {
-  const lazy = options?.lazy ?? false
-  const created = createConvexQueryState(query, args, options, lazy)
-  if (lazy) {
-    return created.resultData
+  // Smart detection: if 2nd arg looks like options (has known option keys), treat it as options
+  let args: MaybeRefOrGetter<Args> | undefined
+  let options: UseConvexQueryOptions<FunctionReturnType<Query>, DataT> | undefined
+
+  if (maybeOptions !== undefined) {
+    // 3 args: (query, args, options)
+    args = argsOrOptions as MaybeRefOrGetter<Args>
+    options = maybeOptions
+  } else if (argsOrOptions !== undefined && isOptionsObject(argsOrOptions)) {
+    // 2 args where 2nd is options: (query, options)
+    args = undefined
+    options = argsOrOptions as UseConvexQueryOptions<FunctionReturnType<Query>, DataT>
+  } else {
+    // 2 args where 2nd is args: (query, args) or 1 arg: (query)
+    args = argsOrOptions as MaybeRefOrGetter<Args> | undefined
+    options = undefined
   }
-  return created.resolvePromise.then(() => created.resultData)
+
+  // blocking: true → resolve via promise (SSR navigation blocking)
+  // lazy: false (deprecated) → same as blocking: true
+  // Default: sync return (data arrives reactively)
+  const isBlocking = options?.blocking === true || (options?.lazy !== undefined && options.lazy === false)
+
+  if (import.meta.dev && options?.lazy !== undefined) {
+    console.warn(
+      '[better-convex-nuxt] useConvexQuery: `lazy` option is deprecated. ' +
+      'Sync return is now the default — remove `lazy: true`, or use `blocking: true` instead of `lazy: false`.',
+    )
+  }
+
+  const created = createConvexQueryState(query, args, options, !isBlocking)
+  if (isBlocking) {
+    return created.resolvePromise.then(() => created.resultData)
+  }
+  return created.resultData
 }
 
 async function executeViaSharedRuntime<Query extends FunctionReference<'query'>>(

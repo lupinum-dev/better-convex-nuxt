@@ -32,7 +32,7 @@ const logger = useLogger('better-convex-nuxt')
 /**
  * Normalize the `auth` option shorthand forms into a full AuthOptions object.
  * - `true` → `{ enabled: true }`
- * - `'/login'` → `{ enabled: true, routeProtection: { redirectTo: '/login' } }`
+ * - `'/login'` → `{ enabled: true, routeProtection: { redirectTo: '/login' }, unauthorized: { redirectTo: '/login' } }`
  * - `false` / `undefined` → `{ enabled: false }`
  * - Full object → passed through unchanged
  */
@@ -40,7 +40,7 @@ function normalizeAuthShorthand(auth: AuthOptions | boolean | string | undefined
   if (auth === true) return { enabled: true }
   if (auth === false || auth === undefined) return { enabled: false }
   if (typeof auth === 'string') {
-    return { enabled: true, routeProtection: { redirectTo: auth } }
+    return { enabled: true, routeProtection: { redirectTo: auth }, unauthorized: { redirectTo: auth } }
   }
   return auth
 }
@@ -472,7 +472,16 @@ export {}
         name: 'useConvexStorageUrl',
         from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
       },
-      // toCallResult utility for safe-call pattern
+      {
+        name: 'useConvexStorageUrlRef',
+        from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
+      },
+      // Optimistic update standalone helpers
+      { name: 'prependTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
+      { name: 'appendTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
+      { name: 'removeFrom', from: resolver.resolve('./runtime/composables/optimistic-updates') },
+      { name: 'updateIn', from: resolver.resolve('./runtime/composables/optimistic-updates') },
+      // toCallResult utility for safe-call pattern (deprecated)
       { name: 'toCallResult', from: resolver.resolve('./runtime/utils/call-result') },
     ])
 

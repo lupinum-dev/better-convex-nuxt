@@ -13,7 +13,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => useConvexAction(action))
 
     expect(result.status.value).toBe('idle')
-    await expect(result.execute({} as never)).rejects.toThrow('Convex client is unavailable')
+    await expect(result({} as never)).rejects.toThrow('Convex client is unavailable')
     expect(result.status.value).toBe('error')
   })
 
@@ -27,7 +27,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
 
     expect(result.status.value).toBe('idle')
-    const promise = result.execute({ message: 'hi' } as never)
+    const promise = result({ message: 'hi' } as never)
     expect(result.pending.value).toBe(true)
 
     const value = await promise
@@ -48,7 +48,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
 
-    await expect(result.execute({} as never)).rejects.toThrow('boom')
+    await expect(result({} as never)).rejects.toThrow('boom')
     expect(result.status.value).toBe('error')
     expect(result.error.value?.message).toBe('boom')
 
@@ -82,7 +82,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     )
 
     const successArgs = { value: 'ok' }
-    await expect(result.success.execute(successArgs as never)).resolves.toEqual({
+    await expect(result.success(successArgs as never)).resolves.toEqual({
       ok: true,
       payload: successArgs,
     })
@@ -90,7 +90,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(onSuccess).toHaveBeenCalledWith({ ok: true, payload: successArgs }, successArgs)
 
     const failArgs = { value: 'nope' }
-    await expect(result.fail.execute(failArgs as never)).rejects.toThrow('action callback boom')
+    await expect(result.fail(failArgs as never)).rejects.toThrow('action callback boom')
     expect(onError).toHaveBeenCalledTimes(1)
     const callbackError = onError.mock.calls[0]?.[0]
     expect(callbackError).toBeInstanceOf(Error)
@@ -106,7 +106,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
-    const safeResult = await toCallResult(() => result.execute({} as never))
+    const safeResult = await toCallResult(() => result({} as never))
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -127,8 +127,8 @@ describe('useConvexAction (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
-    const direct = await result.execute({} as never)
-    const wrapped = await toCallResult(() => result.execute({} as never))
+    const direct = await result({} as never)
+    const wrapped = await toCallResult(() => result({} as never))
 
     expect(direct).toEqual({
       ok: false,
@@ -156,8 +156,8 @@ describe('useConvexAction (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
 
-    const slowFail = result.execute({ value: 'first', delayMs: 30, shouldFail: true } as never)
-    const fastSuccess = result.execute({ value: 'second', delayMs: 5 } as never)
+    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
 
     await expect(fastSuccess).resolves.toEqual({ value: 'second' })
     await expect(slowFail).rejects.toThrow('failed:first')
