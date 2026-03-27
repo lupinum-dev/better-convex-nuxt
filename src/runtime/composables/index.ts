@@ -12,10 +12,6 @@ export {
   useConvexMutation,
   type UseConvexMutationReturn,
   type UseConvexMutationOptions,
-  // Optimistic update builder (preferred)
-  type OptimisticContext,
-  type OptimisticQueryHandle,
-  type OptimisticPaginatedHandle,
   // @deprecated flat helpers — use ctx.query().update() / ctx.paginatedQuery().insertAtTop() etc.
   updateQuery,
   setQueryData,
@@ -26,6 +22,12 @@ export {
   type UpdateAllQueriesOptions,
   type DeleteFromQueryOptions,
 } from './useConvexMutation'
+// Optimistic update builder types — exported directly from source to avoid re-export hop
+export {
+  type OptimisticContext,
+  type OptimisticQueryHandle,
+  type OptimisticPaginatedHandle,
+} from './optimistic-updates'
 
 // Re-export Convex types for convenience
 export type { OptimisticLocalStore } from 'convex/browser'

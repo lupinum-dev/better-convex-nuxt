@@ -102,6 +102,7 @@ export interface UpdateQueryOptions<Query extends FunctionReference<'query'>> {
  *   },
  * })
  * ```
+ * @deprecated Use `ctx.query(query, args).update(updater)` in the `optimisticUpdate` callback instead.
  */
 export function updateQuery<Query extends FunctionReference<'query'>>(
   options: UpdateQueryOptions<Query>,
@@ -146,6 +147,7 @@ export interface SetQueryDataOptions<Query extends FunctionReference<'query'>> {
  *   },
  * })
  * ```
+ * @deprecated Use `ctx.query(query, args).set(value)` in the `optimisticUpdate` callback instead.
  */
 export function setQueryData<Query extends FunctionReference<'query'>>(
   options: SetQueryDataOptions<Query>,
@@ -197,6 +199,7 @@ export interface UpdateAllQueriesOptions<Query extends FunctionReference<'query'
  *   },
  * })
  * ```
+ * @deprecated Use `ctx.query(query, args).update(updater)` in the `optimisticUpdate` callback instead.
  */
 export function updateAllQueries<Query extends FunctionReference<'query'>>(
   options: UpdateAllQueriesOptions<Query>,
@@ -255,6 +258,7 @@ export interface DeleteFromQueryOptions<
  *   },
  * })
  * ```
+ * @deprecated Use `ctx.query(query, args).update(items => items.filter(...))` in the `optimisticUpdate` callback instead.
  */
 export function deleteFromQuery<
   Query extends FunctionReference<'query'>,
@@ -313,6 +317,7 @@ export interface InsertAtTopOptions<Query extends PaginatedQueryReference> {
  *     })
  *   })
  * ```
+ * @deprecated Use `ctx.paginatedQuery(query, args).insertAtTop(item)` in the `optimisticUpdate` callback instead.
  */
 export function insertAtTop<Query extends PaginatedQueryReference>(
   options: InsertAtTopOptions<Query>,
@@ -385,6 +390,7 @@ export interface InsertAtPositionOptions<Query extends PaginatedQueryReference> 
  *     })
  *   })
  * ```
+ * @deprecated Use `ctx.paginatedQuery(query, args).insertAtPosition(item, position)` in the `optimisticUpdate` callback instead.
  */
 export function insertAtPosition<Query extends PaginatedQueryReference>(
   options: InsertAtPositionOptions<Query>,
@@ -480,6 +486,7 @@ export interface InsertAtBottomIfLoadedOptions<Query extends PaginatedQueryRefer
  *     })
  *   })
  * ```
+ * @deprecated Use `ctx.paginatedQuery(query, args).insertAtBottomIfLoaded(item)` in the `optimisticUpdate` callback instead.
  */
 export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(
   options: InsertAtBottomIfLoadedOptions<Query>,
@@ -547,6 +554,7 @@ export interface UpdateInPaginatedQueryOptions<Query extends PaginatedQueryRefer
  *     })
  *   })
  * ```
+ * @deprecated Use `ctx.paginatedQuery(query, args).updateItem(id, updater)` in the `optimisticUpdate` callback instead.
  */
 export function updateInPaginatedQuery<Query extends PaginatedQueryReference>(
   options: UpdateInPaginatedQueryOptions<Query>,
@@ -603,6 +611,7 @@ export interface DeleteFromPaginatedQueryOptions<Query extends PaginatedQueryRef
  *     })
  *   })
  * ```
+ * @deprecated Use `ctx.paginatedQuery(query, args).deleteItem(id)` in the `optimisticUpdate` callback instead.
  */
 export function deleteFromPaginatedQuery<Query extends PaginatedQueryReference>(
   options: DeleteFromPaginatedQueryOptions<Query>,
@@ -699,9 +708,15 @@ export interface OptimisticPaginatedHandle<Query extends PaginatedQueryReference
   insertAtPosition: (item: PaginatedQueryItem<Query>, position: number) => void
   /** Insert an item at the bottom of the last loaded page (only if all pages are loaded). */
   insertAtBottomIfLoaded: (item: PaginatedQueryItem<Query>) => void
-  /** Update all items that match the predicate. */
+  /**
+   * Update the item matching the given Convex document `_id`.
+   * All Convex documents have a system-generated `_id` field — this is the standard matching key.
+   */
   updateItem: (id: string, updater: (item: PaginatedQueryItem<Query>) => PaginatedQueryItem<Query>) => void
-  /** Remove all items that match the predicate. */
+  /**
+   * Remove the item matching the given Convex document `_id`.
+   * All Convex documents have a system-generated `_id` field — this is the standard matching key.
+   */
   deleteItem: (id: string) => void
 }
 

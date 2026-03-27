@@ -13,6 +13,7 @@ import {
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 
+import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 import {
   getSiteUrlResolutionHint,
@@ -273,7 +274,7 @@ export default defineNuxtModule<ModuleOptions>({
       subscribe: true,
     },
     upload: {
-      maxConcurrent: 3,
+      maxConcurrent: DEFAULT_UPLOAD_MAX_CONCURRENT,
     },
     permissions: false,
     logging: false,
@@ -308,6 +309,17 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Normalize auth shorthand (true / '/login' / full object) to AuthOptions
     const authOptions = normalizeAuthShorthand(options.auth)
+
+    // Warn about deprecated top-level options that were restructured in v2.2
+    const _rawOptions = options as ModuleOptions & { authRoute?: string; defaults?: QueryDefaults }
+    if (_rawOptions.authRoute) {
+      logger.warn('`convex.authRoute` is deprecated. Move it inside `convex.auth.route` instead.')
+    }
+    if (_rawOptions.defaults) {
+      logger.warn(
+        '`convex.defaults` is deprecated. Move it to `convex.query` instead (e.g., `convex.query.server`).',
+      )
+    }
 
     const normalizedAuthConfig = normalizeConvexAuthConfig(authOptions)
     const isAuthEnabled = normalizedAuthConfig.enabled

@@ -1,5 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 
+import { DEFAULT_UPLOAD_MAX_CONCURRENT } from '../utils/constants'
 import {
   useUploadQueue,
   type UseConvexUploadQueueReturn,
@@ -66,6 +67,6 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
 ): UseConvexUploadQueueReturn<Mutation> {
   return useUploadQueue(generateUploadUrlMutation, {
     ...options,
-    maxConcurrent: options?.maxConcurrent ?? 3,
+    maxConcurrent: options?.maxConcurrent ?? DEFAULT_UPLOAD_MAX_CONCURRENT,
   })
 }

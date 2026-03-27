@@ -47,6 +47,13 @@ export const UNAUTHORIZED_REDIRECT_DEBOUNCE_MS = 1_500
 export const CONNECTION_HYDRATION_GRACE_MS = 500
 
 // ============================================================
+// Upload defaults
+// ============================================================
+
+/** Default maximum number of concurrent uploads for useConvexUploadQueue. */
+export const DEFAULT_UPLOAD_MAX_CONCURRENT = 3
+
+// ============================================================
 // DevTools
 // ============================================================
 

@@ -79,6 +79,17 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect('execute' in (result as unknown as Record<string, unknown>)).toBe(false)
   })
 
+  it('reset() is a deprecated alias for clear() pointing to the same function', async () => {
+    const query = mockFnRef<'query'>('notes:list:reset-alias')
+    const { result } = await captureInNuxt(
+      () => useConvexQueryState(query, {}, {}),
+      { convex: new MockConvexClient() },
+    )
+
+    expect(typeof result.reset).toBe('function')
+    expect(result.reset).toBe(result.clear)
+  })
+
   it('omits Authorization header when no token is cached (auth:auto with no token)', async () => {
     const query = mockFnRef<'query'>('notes:list:auth-none')
     const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))

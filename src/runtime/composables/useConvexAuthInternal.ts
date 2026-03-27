@@ -2,8 +2,8 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { useState, computed, readonly, useNuxtApp } from '#imports'
 
-import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants'
 import {
+  AUTH_REFRESH_TIMEOUT_MS,
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_PENDING,
   STATE_KEY_TOKEN,

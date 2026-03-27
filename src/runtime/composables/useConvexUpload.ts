@@ -76,7 +76,11 @@ export interface UseConvexUploadReturn<Mutation extends FunctionReference<'mutat
   /** Upload progress 0–100 */
   progress: Ref<number>
   error: Ref<Error | null>
-  /** Cancel any in-progress upload and reset to idle */
+  /**
+   * Cancel any in-progress upload and reset to idle state.
+   * Named `reset` (not `clear`) to distinguish from query composables:
+   * this aborts an active XHR upload and returns to `idle`, rather than just clearing cached data.
+   */
   reset: () => void
 }
 
@@ -108,7 +112,8 @@ export interface UseConvexUploadQueueReturn<Mutation extends FunctionReference<'
 
 // ─── Single-file implementation ────────────────────────────────────────────
 
-/** @internal - use useConvexFileUpload instead */
+// Internal implementation — use useConvexFileUpload instead
+/** @internal */
 export function useUploadSingle<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options?: UseConvexUploadOptions,
@@ -272,7 +277,8 @@ function normalizeMaxConcurrent(value: number): number {
   return n > 0 ? n : 1
 }
 
-/** @internal - use useConvexUploadQueue instead */
+// Internal implementation — use useConvexUploadQueue instead
+/** @internal */
 export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options: UseConvexUploadOptions & { maxConcurrent: number },

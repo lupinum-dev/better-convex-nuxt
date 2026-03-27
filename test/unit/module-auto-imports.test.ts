@@ -12,7 +12,7 @@ describe('module auto-import surface', () => {
     expect(addImportsBlock).toBeTruthy()
     expect(addImportsBlock).toMatch(/name:\s*'useConvexFileUpload'/)
     expect(addImportsBlock).toMatch(/name:\s*'useConvexUploadQueue'/)
-    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexUpload'[^Q]/)
+    expect(addImportsBlock).not.toMatch(/name:\s*'useConvexUpload'(?!Queue)/)
     expect(addImportsBlock).not.toMatch(/name:\s*'useConvexCall'/)
     expect(addImportsBlock).not.toMatch(/name:\s*'getQueryKey'/)
     expect(addImportsBlock).not.toMatch(/name:\s*'useConvexRpc'/)
