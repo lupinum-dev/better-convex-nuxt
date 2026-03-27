@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { useConvexFileUpload as useConvexUpload } from '../../src/runtime/composables/useConvexFileUpload'
+import { useConvexUpload } from '../../src/runtime/composables/useConvexUpload'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
@@ -59,13 +59,14 @@ describe('useConvexUpload single-file mode (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => useConvexUpload(mutation), { convex })
     const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
 
-    const storageId = await result.upload(file)
+    const storageId = await result(file)
 
     expect(storageId).toBe('storage_1')
     expect(result.progress.value).toBe(50)
     expect(result.status.value).toBe('success')
     expect(result.data.value).toBe('storage_1')
     expect(result.error.value).toBeNull()
+    expect(result.items.value).toEqual([])
   })
 
   it('emits onProgress callback payloads while uploading', async () => {

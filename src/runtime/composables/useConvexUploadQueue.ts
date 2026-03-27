@@ -21,6 +21,8 @@ export type {
   UploadProgressInfo,
 }
 
+let hasWarnedUseConvexUploadQueue = false
+
 export interface UseConvexUploadQueueOptions extends Omit<UseConvexUploadOptions, 'maxConcurrent'> {
   /**
    * Maximum number of uploads to process concurrently.
@@ -65,6 +67,13 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   generateUploadUrlMutation: Mutation,
   options?: UseConvexUploadQueueOptions,
 ): UseConvexUploadQueueReturn<Mutation> {
+  if (import.meta.dev && !hasWarnedUseConvexUploadQueue) {
+    hasWarnedUseConvexUploadQueue = true
+    console.warn(
+      '[better-convex-nuxt] `useConvexUploadQueue` is deprecated. Prefer `useConvexUpload`.',
+    )
+  }
+
   return useUploadQueue(generateUploadUrlMutation, {
     ...options,
     maxConcurrent: options?.maxConcurrent ?? DEFAULT_UPLOAD_MAX_CONCURRENT,

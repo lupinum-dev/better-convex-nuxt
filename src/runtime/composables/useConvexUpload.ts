@@ -3,7 +3,7 @@ import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type 
 
 import { useRuntimeConfig } from '#imports'
 
-import { toCallResult, type CallResult } from '../utils/call-result'
+import { DEFAULT_UPLOAD_MAX_CONCURRENT } from '../utils/constants'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
@@ -64,27 +64,38 @@ export interface UseConvexUploadOptions {
   onQueueIdle?: () => void
 }
 
-// ─── Simple mode return type ───────────────────────────────────────────────
-
 export interface UseConvexUploadReturn<Mutation extends FunctionReference<'mutation'>> {
-  /** Upload a file. Returns the storageId on success. */
-  upload: (file: File, mutationArgs?: FunctionArgs<Mutation>) => Promise<string>
-  /** storageId from the last successful upload */
+  (
+    input: File | File[],
+    mutationArgs?: FunctionArgs<Mutation>,
+  ): Promise<string | string[]>
+  upload: (
+    input: File | File[],
+    mutationArgs?: FunctionArgs<Mutation>,
+  ) => Promise<string | string[]>
+  /** storageId from the last successful single-file upload */
   data: Ref<string | undefined>
   status: ComputedRef<UploadStatus>
   pending: ComputedRef<boolean>
-  /** Upload progress 0–100 */
-  progress: Ref<number>
-  error: Ref<Error | null>
-  /**
-   * Cancel any in-progress upload and reset to idle state.
-   * Named `reset` (not `clear`) to distinguish from query composables:
-   * this aborts an active XHR upload and returns to `idle`, rather than just clearing cached data.
-   */
+  /** Single-file progress or aggregate queue progress (0-100). */
+  progress: ComputedRef<number>
+  error: Readonly<Ref<Error | null>>
+  items: Ref<UploadQueueItem<FunctionArgs<Mutation>>[]>
+  cancelItem: (id: string) => void
+  cancelAll: () => void
+  clearFinished: () => void
   reset: () => void
 }
 
-// ─── Queue mode return type ────────────────────────────────────────────────
+export interface UseConvexSingleUploadReturn<Mutation extends FunctionReference<'mutation'>> {
+  upload: (file: File, mutationArgs?: FunctionArgs<Mutation>) => Promise<string>
+  data: Ref<string | undefined>
+  status: ComputedRef<UploadStatus>
+  pending: ComputedRef<boolean>
+  progress: Ref<number>
+  error: Ref<Error | null>
+  reset: () => void
+}
 
 export interface UseConvexUploadQueueReturn<Mutation extends FunctionReference<'mutation'>> {
   items: Ref<UploadQueueItem<FunctionArgs<Mutation>>[]>
@@ -100,10 +111,6 @@ export interface UseConvexUploadQueueReturn<Mutation extends FunctionReference<'
     input: UploadQueueEnqueueInput<FunctionArgs<Mutation>>,
     mutationArgs?: FunctionArgs<Mutation>,
   ) => Promise<string[]>
-  enqueueSafe: (
-    input: UploadQueueEnqueueInput<FunctionArgs<Mutation>>,
-    mutationArgs?: FunctionArgs<Mutation>,
-  ) => Promise<CallResult<string[]>>
   cancelItem: (id: string) => void
   cancelAll: () => void
   clearFinished: () => void
@@ -117,7 +124,7 @@ export interface UseConvexUploadQueueReturn<Mutation extends FunctionReference<'
 export function useUploadSingle<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options?: UseConvexUploadOptions,
-): UseConvexUploadReturn<Mutation> {
+): UseConvexSingleUploadReturn<Mutation> {
   const config = useRuntimeConfig()
   const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
   const fnName = getFunctionName(generateUploadUrlMutation)
@@ -541,13 +548,6 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
     return storageIds
   }
 
-  const enqueueSafe = async (
-    input: UploadQueueEnqueueInput<MutationArgs>,
-    mutationArgs?: MutationArgs,
-  ): Promise<CallResult<string[]>> => {
-    return toCallResult(() => enqueue(input, mutationArgs))
-  }
-
   const cancelItem = (id: string): void => {
     const controller = activeById.get(id)
     if (controller) {
@@ -616,10 +616,85 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
     cancelledCount,
     aggregateProgress,
     enqueue,
-    enqueueSafe,
     cancelItem,
     cancelAll,
     clearFinished,
     reset,
   }
+}
+
+export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
+  generateUploadUrlMutation: Mutation,
+  options?: UseConvexUploadOptions,
+): UseConvexUploadReturn<Mutation> {
+  type MutationArgs = FunctionArgs<Mutation>
+
+  const single = useUploadSingle(generateUploadUrlMutation, options)
+  const queue = useUploadQueue(generateUploadUrlMutation, {
+    ...options,
+    maxConcurrent: options?.maxConcurrent ?? DEFAULT_UPLOAD_MAX_CONCURRENT,
+  })
+
+  const mode = ref<'idle' | 'single' | 'queue'>('idle')
+  const progress = computed(() =>
+    mode.value === 'queue' ? queue.aggregateProgress.value : single.progress.value,
+  )
+  const pending = computed(() =>
+    mode.value === 'queue' ? queue.isRunning.value : single.pending.value,
+  )
+  const status = computed<UploadStatus>(() => {
+    if (mode.value === 'queue') {
+      if (queue.isRunning.value) return 'pending'
+      if (queue.errorCount.value > 0) return 'error'
+      if (queue.successCount.value > 0) return 'success'
+      return 'idle'
+    }
+    return single.status.value
+  })
+  const error = computed(() => {
+    if (mode.value === 'queue') {
+      const latestQueueError = [...queue.items.value]
+        .reverse()
+        .find((item) => item.error)?.error
+      return latestQueueError ?? null
+    }
+    return single.error.value
+  })
+  const reset = () => {
+    single.reset()
+    queue.reset()
+    mode.value = 'idle'
+  }
+
+  const upload = async (
+    input: File | File[],
+    mutationArgs?: MutationArgs,
+  ): Promise<string | string[]> => {
+    if (Array.isArray(input)) {
+      mode.value = 'queue'
+      single.reset()
+      return await queue.enqueue(input, mutationArgs)
+    }
+
+    mode.value = 'single'
+    queue.reset()
+    return await single.upload(input, mutationArgs)
+  }
+
+  const callable = ((input: File | File[], mutationArgs?: MutationArgs) =>
+    upload(input, mutationArgs)) as UseConvexUploadReturn<Mutation>
+
+  callable.upload = upload
+  callable.data = single.data
+  callable.status = status
+  callable.pending = pending
+  callable.progress = progress
+  callable.error = error as Readonly<Ref<Error | null>>
+  callable.items = queue.items
+  callable.cancelItem = queue.cancelItem
+  callable.cancelAll = queue.cancelAll
+  callable.clearFinished = queue.clearFinished
+  callable.reset = reset
+
+  return callable
 }

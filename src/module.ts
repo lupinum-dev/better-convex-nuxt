@@ -32,16 +32,12 @@ const logger = useLogger('better-convex-nuxt')
 /**
  * Normalize the `auth` option shorthand forms into a full AuthOptions object.
  * - `true` → `{ enabled: true }`
- * - `'/login'` → `{ enabled: true, routeProtection: { redirectTo: '/login' }, unauthorized: { redirectTo: '/login' } }`
  * - `false` / `undefined` → `{ enabled: false }`
  * - Full object → passed through unchanged
  */
-function normalizeAuthShorthand(auth: AuthOptions | boolean | string | undefined): AuthOptions {
+function normalizeAuthShorthand(auth: AuthOptions | boolean | undefined): AuthOptions {
   if (auth === true) return { enabled: true }
   if (auth === false || auth === undefined) return { enabled: false }
-  if (typeof auth === 'string') {
-    return { enabled: true, routeProtection: { redirectTo: auth }, unauthorized: { redirectTo: auth } }
-  }
   return auth
 }
 
@@ -177,7 +173,6 @@ export interface ModuleOptions {
    *
    * Shorthand forms:
    * - `auth: true` — enable auth with all defaults
-   * - `auth: '/login'` — enable auth and set the login redirect path
    *
    * Full object form for advanced configuration:
    * - `auth: { routeProtection: { redirectTo: '/login' }, cache: { enabled: true } }`
@@ -187,14 +182,11 @@ export interface ModuleOptions {
    * // Zero-config auth:
    * convex: { auth: true }
    *
-   * // Custom login page:
-   * convex: { auth: '/login' }
-   *
    * // Full control:
    * convex: { auth: { routeProtection: { redirectTo: '/login', preserveReturnTo: true } } }
    * ```
    */
-  auth?: AuthOptions | boolean | string
+  auth?: AuthOptions | boolean
   /**
    * Default behavior for query composables.
    *
@@ -297,7 +289,7 @@ export default defineNuxtModule<ModuleOptions>({
       )
     }
 
-    // Normalize auth shorthand (true / '/login' / full object) to AuthOptions
+    // Normalize auth shorthand (true / full object) to AuthOptions
     const authOptions = normalizeAuthShorthand(options.auth)
 
     const normalizedAuthConfig = normalizeConvexAuthConfig(authOptions)
@@ -461,6 +453,10 @@ export {}
         from: resolver.resolve('./runtime/composables/useConvexConnectionState'),
       },
       {
+        name: 'useConvexUpload',
+        from: resolver.resolve('./runtime/composables/useConvexUpload'),
+      },
+      {
         name: 'useConvexFileUpload',
         from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
       },
@@ -472,24 +468,17 @@ export {}
         name: 'useConvexStorageUrl',
         from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
       },
-      {
-        name: 'useConvexStorageUrlRef',
-        from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
-      },
       // Optimistic update standalone helpers
       { name: 'prependTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
       { name: 'appendTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
       { name: 'removeFrom', from: resolver.resolve('./runtime/composables/optimistic-updates') },
       { name: 'updateIn', from: resolver.resolve('./runtime/composables/optimistic-updates') },
-      // toCallResult utility for safe-call pattern (deprecated)
-      { name: 'toCallResult', from: resolver.resolve('./runtime/utils/call-result') },
     ])
 
     // 6b. Auth composables and components (only when auth enabled)
     if (isAuthEnabled) {
       addImports([
         { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
-        { name: 'useConvexAuthInternal', from: resolver.resolve('./runtime/composables/useConvexAuthInternal') },
       ])
 
       // Register auth components
@@ -519,6 +508,7 @@ export {}
         from: resolver.resolve('./runtime/server/utils/auth-cache'),
       },
       // Error class for server-side instanceof checks
+      { name: 'ConvexCallError', from: resolver.resolve('./runtime/utils/call-result') },
       { name: 'ConvexError', from: resolver.resolve('./runtime/utils/call-result') },
     ])
 

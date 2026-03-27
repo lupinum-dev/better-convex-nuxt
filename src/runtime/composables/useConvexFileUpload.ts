@@ -2,15 +2,17 @@ import type { FunctionReference } from 'convex/server'
 
 import {
   useUploadSingle,
-  type UseConvexUploadReturn,
+  type UseConvexSingleUploadReturn,
   type UseConvexUploadOptions,
   type UploadStatus,
   type UploadProgressInfo,
 } from './useConvexUpload'
 
-export type { UseConvexUploadReturn, UploadStatus, UploadProgressInfo }
+export type { UseConvexSingleUploadReturn, UploadStatus, UploadProgressInfo }
 
 export type UseConvexFileUploadOptions = Omit<UseConvexUploadOptions, 'maxConcurrent' | 'onQueueIdle' | 'continueOnError'>
+
+let hasWarnedUseConvexFileUpload = false
 
 /**
  * Composable for single-file uploads to Convex storage.
@@ -46,6 +48,12 @@ export type UseConvexFileUploadOptions = Omit<UseConvexUploadOptions, 'maxConcur
 export function useConvexFileUpload<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options?: UseConvexFileUploadOptions,
-): UseConvexUploadReturn<Mutation> {
+): UseConvexSingleUploadReturn<Mutation> {
+  if (import.meta.dev && !hasWarnedUseConvexFileUpload) {
+    hasWarnedUseConvexFileUpload = true
+    console.warn(
+      '[better-convex-nuxt] `useConvexFileUpload` is deprecated. Prefer `useConvexUpload`.',
+    )
+  }
   return useUploadSingle(generateUploadUrlMutation, options)
 }

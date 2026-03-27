@@ -18,8 +18,13 @@ const { useRuntimeConfigMock } = vi.hoisted(() => ({
   })),
 }))
 
+const { useRequestEventMock } = vi.hoisted(() => ({
+  useRequestEventMock: vi.fn(() => undefined),
+}))
+
 vi.mock('#imports', () => ({
   useRuntimeConfig: useRuntimeConfigMock,
+  useRequestEvent: useRequestEventMock,
 }))
 
 function createEvent(cookie?: string): H3Event {
@@ -37,6 +42,7 @@ function createEvent(cookie?: string): H3Event {
 describe('server Convex fetch helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    useRequestEventMock.mockReturnValue(undefined)
     useRuntimeConfigMock.mockReturnValue({
       public: {
         convex: {
@@ -77,6 +83,28 @@ describe('server Convex fetch helpers', () => {
       path: 'notes:list',
       args: { limit: 5 },
     })
+  })
+
+  it('resolves the current Nitro event when the event argument is omitted', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    useRequestEventMock.mockReturnValue(createEvent() as never)
+
+    const result = await serverConvexQuery({ _path: 'notes:list' } as never, { limit: 2 } as never)
+
+    expect(result).toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('throws a clear error when no request context is available and event is omitted', async () => {
+    await expect(
+      serverConvexQuery({ _path: 'notes:list' } as never, { limit: 2 } as never),
+    ).rejects.toThrow(/No H3 event available/)
   })
 
   it('adds Authorization header when authToken is provided', async () => {

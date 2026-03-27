@@ -27,11 +27,11 @@ function useConvexQueryState<
 }
 
 describe('useConvexQuery composables (Nuxt runtime)', () => {
-  it('useConvexQuery blocks until first value arrives with blocking: true', async () => {
+  it('await useConvexQuery blocks until first value arrives', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:blocking-default')
 
-    const { result } = await captureInNuxt(() => useConvexQuery(query, {}, { blocking: true }), { convex })
+    const { result } = await captureInNuxt(() => useConvexQuery(query, {}), { convex })
 
     let settled = false
     const blockingResult = result.then((value) => {
@@ -442,10 +442,10 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
   })
 
   // ==========================================================================
-  // v0.4.0: sync-by-default, enabled, onData/onError, args-vs-options, lazy
+  // v0.4.0: Promise-like return, enabled deprecation, onData/onError
   // ==========================================================================
 
-  it('sync-by-default: returns data synchronously (not a Promise)', async () => {
+  it('returns a Promise-like object while remaining synchronously usable', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:sync-default')
 
@@ -457,7 +457,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    expect(result.isThenable).toBe(false)
+    expect(result.isThenable).toBe(true)
     expect(result.queryResult.status.value).toBe('pending')
     expect(result.queryResult.data.value).toBeNull()
 
@@ -551,75 +551,6 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(onError.mock.calls.length).toBeGreaterThanOrEqual(1)
     expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error)
     expect((onError.mock.calls[0]?.[0] as Error).message).toBe('upstream down')
-  })
-
-  it('args-vs-options heuristic: options as 2nd param for no-arg query', async () => {
-    const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:heuristic-options')
-
-    const { result } = await captureInNuxt(
-      () => useConvexQuery(query, { blocking: true }),
-      { convex },
-    )
-
-    let settled = false
-    const blockingResult = result.then((value) => {
-      settled = true
-      return value
-    })
-
-    await waitFor(() => convex.calls.onUpdate.length > 0)
-    expect(settled).toBe(false)
-
-    convex.emitQueryResultByPath('notes:list:heuristic-options', [{ _id: 'n1' }])
-    const resolved = await blockingResult
-    expect(resolved.status.value).toBe('success')
-  })
-
-  it('args-vs-options heuristic: plain args not mistaken for options', async () => {
-    const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:heuristic-args')
-
-    const { result } = await captureInNuxt(
-      () => {
-        const queryResult = useConvexQuery(query, { title: 'hello' })
-        return { queryResult, isThenable: typeof (queryResult as unknown as { then?: unknown }).then === 'function' }
-      },
-      { convex },
-    )
-
-    // { title: 'hello' } has no option keys → treated as args, sync return
-    expect(result.isThenable).toBe(false)
-    expect(result.queryResult.status.value).toBe('pending')
-
-    await waitFor(() => convex.calls.onUpdate.length > 0)
-    // Verify args were passed through
-    const subscribedArgs = convex.calls.onUpdate[0]?.args
-    expect(subscribedArgs).toEqual({ title: 'hello' })
-  })
-
-  it('lazy: false deprecated behaves like blocking: true', async () => {
-    const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:lazy-deprecated')
-
-    const { result } = await captureInNuxt(
-      () => useConvexQuery(query, {}, { lazy: false }),
-      { convex },
-    )
-
-    // lazy: false should return a Promise (same as blocking: true)
-    let settled = false
-    const blockingResult = result.then((value) => {
-      settled = true
-      return value
-    })
-
-    await waitFor(() => convex.calls.onUpdate.length > 0)
-    expect(settled).toBe(false)
-
-    convex.emitQueryResultByPath('notes:list:lazy-deprecated', [{ _id: 'n1' }])
-    const resolved = await blockingResult
-    expect(resolved.status.value).toBe('success')
   })
 
   it('keeps shared subscription alive until the final consumer scope stops', async () => {

@@ -6,16 +6,12 @@ import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { getRequiredConvexClient } from './useConvex'
 import { createConvexCallState, type UseConvexMutationReturn } from './useConvexMutation'
-import type { CallResult } from '../utils/call-result'
 
 /**
  * Return value from useConvexAction.
  * Identical shape to UseConvexMutationReturn (no optimisticUpdate on the output).
  */
 export type UseConvexActionReturn<Args, Result> = UseConvexMutationReturn<Args, Result>
-
-// Re-export so callers don't need a separate import
-export type { CallResult }
 
 /**
  * Options for useConvexAction

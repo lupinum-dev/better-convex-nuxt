@@ -28,8 +28,13 @@ maybeDescribe('Server helpers smoke (serverConvexQuery/serverConvexMutation)', a
     env: local?.env,
   })
 
+  const fetchAny = $fetch as unknown as (
+    request: string,
+    options?: Record<string, unknown>,
+  ) => Promise<unknown>
+
   it('round-trips through Nitro API endpoints backed by server fetch helpers', async () => {
-    const queryResponse = (await $fetch('/api/test-server-query?limit=1')) as {
+    const queryResponse = (await fetchAny('/api/test-server-query?limit=1')) as {
       success: boolean
       count: number
       totalAvailable: number
@@ -43,7 +48,7 @@ maybeDescribe('Server helpers smoke (serverConvexQuery/serverConvexMutation)', a
     expect(queryResponse.count).toBeLessThanOrEqual(1)
 
     const uniqueTitle = `Server smoke ${Date.now()}`
-    const mutationResponse = (await $fetch('/api/test-server-mutation', {
+    const mutationResponse = (await fetchAny('/api/test-server-mutation', {
       method: 'POST',
       body: {
         title: uniqueTitle,

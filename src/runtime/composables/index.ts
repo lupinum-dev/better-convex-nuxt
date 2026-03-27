@@ -1,11 +1,6 @@
 export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
-export { useConvexAuthInternal, type UseConvexAuthInternalReturn } from './useConvexAuthInternal'
 export { useConvex } from './useConvex'
-export {
-  type CallResult,
-  toCallResult,
-  ConvexError,
-} from '../utils/call-result'
+export { ConvexCallError, ConvexError } from '../utils/call-result'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'
 export {
   useConvexMutation,
@@ -34,6 +29,7 @@ export {
   useConvexQuery,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
+  type UseConvexQueryReturn,
 } from './useConvexQuery'
 export type { QueryStatus, MutationStatus } from '../utils/types'
 export {
@@ -45,30 +41,35 @@ export {
   type PaginatedQueryStatus,
   type UseConvexPaginatedQueryOptions,
   type UseConvexPaginatedQueryData,
+  type UseConvexPaginatedQueryReturn,
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
 } from './useConvexPaginatedQuery'
 
-// Upload composables
 export {
-  useConvexFileUpload,
-  type UseConvexFileUploadOptions,
+  useConvexUpload,
+  type UseConvexUploadOptions,
   type UseConvexUploadReturn,
   type UploadStatus,
-} from './useConvexFileUpload'
-export {
-  useConvexUploadQueue,
-  type UseConvexUploadQueueOptions,
-  type UseConvexUploadQueueReturn,
   type UploadQueueItem,
   type UploadQueueItemStatus,
   type UploadQueueEnqueueItem,
   type UploadQueueEnqueueInput,
   type UploadProgressInfo,
+} from './useConvexUpload'
+export {
+  useConvexFileUpload,
+  type UseConvexFileUploadOptions,
+  type UseConvexSingleUploadReturn,
+} from './useConvexFileUpload'
+export {
+  useConvexUploadQueue,
+  type UseConvexUploadQueueOptions,
+  type UseConvexUploadQueueReturn,
 } from './useConvexUploadQueue'
 
-export { useConvexStorageUrl, useConvexStorageUrlRef } from './useConvexStorageUrl'
+export { useConvexStorageUrl } from './useConvexStorageUrl'
 
 // Permission composables (opt-in via module config)
 export {

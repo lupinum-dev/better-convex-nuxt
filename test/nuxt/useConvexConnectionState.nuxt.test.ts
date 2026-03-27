@@ -45,7 +45,7 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
     expect(result.second.isConnected.value).toBe(true)
     expect(result.first.isReconnecting.value).toBe(false)
     expect(result.first.pendingMutations.value).toBe(0)
-    expect(result.second.pendingActions.value).toBe(0)
+    expect(result.second.state.value.inflightActions).toBe(0)
 
     wrapper.unmount()
     expect(convex.connectionSubscriberCount()).toBe(0)

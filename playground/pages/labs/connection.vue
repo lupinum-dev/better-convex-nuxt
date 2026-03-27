@@ -10,7 +10,6 @@
       <div class="status-indicator" />
       <div class="status-text">
         <strong>{{ statusLabel }}</strong>
-        <span v-if="isReconnecting"> (attempt {{ connectionRetries }})</span>
       </div>
     </div>
 
@@ -23,18 +22,18 @@
       </div>
       <div class="stat">
         <span class="label">Has Ever Connected</span>
-        <span class="value" :class="{ positive: hasEverConnected }">{{
-          hasEverConnected ? 'Yes' : 'No'
+        <span class="value" :class="{ positive: state.hasEverConnected }">{{
+          state.hasEverConnected ? 'Yes' : 'No'
         }}</span>
       </div>
       <div class="stat">
         <span class="label">Connection Retries</span>
-        <span class="value">{{ connectionRetries }}</span>
+        <span class="value">{{ state.connectionRetries }}</span>
       </div>
       <div class="stat">
         <span class="label">Hydrating Connection</span>
-        <span class="value" :class="{ active: isHydratingConnection }">{{
-          isHydratingConnection ? 'Yes' : 'No'
+        <span class="value" :class="{ active: !shouldShowOfflineUi && !isConnected }">{{
+          !shouldShowOfflineUi && !isConnected ? 'Yes' : 'No'
         }}</span>
       </div>
       <div class="stat">
@@ -45,8 +44,8 @@
       </div>
       <div class="stat">
         <span class="label">Inflight Requests</span>
-        <span class="value" :class="{ active: hasInflightRequests }">{{
-          hasInflightRequests ? 'Yes' : 'No'
+        <span class="value" :class="{ active: state.hasInflightRequests }">{{
+          state.hasInflightRequests ? 'Yes' : 'No'
         }}</span>
       </div>
       <div class="stat">
@@ -55,7 +54,7 @@
       </div>
       <div class="stat">
         <span class="label">Inflight Actions</span>
-        <span class="value">{{ pendingActions }}</span>
+        <span class="value">{{ state.inflightActions }}</span>
       </div>
     </div>
 
@@ -85,13 +84,8 @@ definePageMeta({
 const {
   state,
   isConnected,
-  hasEverConnected,
-  connectionRetries,
-  hasInflightRequests,
   isReconnecting,
   pendingMutations,
-  pendingActions,
-  isHydratingConnection,
   shouldShowOfflineUi,
 } = useConvexConnectionState()
 

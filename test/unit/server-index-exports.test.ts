@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: () => ({ public: { convex: {} } }),
+  useRequestEvent: () => undefined,
 }))
 
 describe('server entrypoint exports', () => {

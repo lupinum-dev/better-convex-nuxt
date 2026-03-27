@@ -10,14 +10,13 @@
  * try {
  *   await execute(args)
  * } catch (e) {
- *   if (e instanceof ConvexError) {
+ *   if (e instanceof ConvexCallError) {
  *     console.log(e.code, e.status)
  *   }
  * }
  * ```
  */
-// Internal class name avoids esbuild naming conflict with convex/values ConvexError
-class BcnError extends Error {
+export class ConvexCallError extends Error {
   /** Type brand for instanceof checks without importing the class. */
   readonly isConvexError = true as const
 
@@ -56,7 +55,7 @@ class BcnError extends Error {
     },
   ) {
     super(message, init?.cause !== undefined ? { cause: init.cause } : undefined)
-    this.name = 'ConvexError'
+    this.name = 'ConvexCallError'
     if (init) {
       this.code = init.code
       this.status = init.status
@@ -70,13 +69,9 @@ class BcnError extends Error {
 }
 
 /**
- * Public name for BcnError. The internal class is named BcnError to avoid
- * a bundler naming conflict with convex/values which also exports ConvexError.
+ * @deprecated Use `ConvexCallError`.
  */
-export { BcnError as ConvexError }
-
-/** @deprecated Use try/catch with `ConvexError` instanceof checks instead. Will be removed in v0.5.0. */
-export type CallResult<T, E = BcnError> = { ok: true; data: T } | { ok: false; error: E }
+export { ConvexCallError as ConvexError }
 
 // ============================================================================
 // Internal parsing helpers
@@ -111,7 +106,7 @@ function asNumber(value: unknown): number | undefined {
 
 function getErrorInit(
   record: Record<string, unknown>,
-): Omit<ConstructorParameters<typeof BcnError>[1] & object, 'cause' | 'code' | 'status'> {
+): Omit<ConstructorParameters<typeof ConvexCallError>[1] & object, 'cause' | 'code' | 'status'> {
   return {
     helper: asString(record.helper),
     operation: asString(record.operation),
@@ -160,15 +155,15 @@ function fromStructuredData(
 // ============================================================================
 
 /**
- * Normalize an unknown thrown value into a `ConvexError` instance.
+ * Normalize an unknown thrown value into a `ConvexCallError` instance.
  *
  * Handles: native Errors, plain objects, strings, and nested Convex error shapes.
  * The original value is preserved as `cause` for debugging.
  */
-export function toConvexError(error: unknown): BcnError {
+export function toConvexError(error: unknown): ConvexCallError {
   const fallbackMessage = 'Unknown Convex error'
 
-  if (error instanceof BcnError) return error
+  if (error instanceof ConvexCallError) return error
 
   if (error instanceof Error) {
     const record = error as Error & ConvexErrorLike
@@ -177,7 +172,7 @@ export function toConvexError(error: unknown): BcnError {
     if (structured) {
       const fromData = fromStructuredData(structured)
       if (fromData) {
-        return new BcnError(fromData.message, {
+        return new ConvexCallError(fromData.message, {
           ...init,
           code: fromData.code,
           status: fromData.status ?? asNumber(record.status),
@@ -187,7 +182,7 @@ export function toConvexError(error: unknown): BcnError {
     }
     const message = asString(record.message) ?? fallbackMessage
     const parsed = parseMessageForCode(message)
-    return new BcnError(parsed.message, {
+    return new ConvexCallError(parsed.message, {
       ...init,
       code: asString(record.code) ?? parsed.code,
       status: asNumber(record.status),
@@ -202,7 +197,7 @@ export function toConvexError(error: unknown): BcnError {
     if (structured) {
       const fromData = fromStructuredData(structured)
       if (fromData) {
-        return new BcnError(fromData.message, {
+        return new ConvexCallError(fromData.message, {
           ...init,
           code: fromData.code,
           status: fromData.status ?? asNumber(record.status),
@@ -212,7 +207,7 @@ export function toConvexError(error: unknown): BcnError {
     }
     const message = asString(record.message) ?? fallbackMessage
     const parsed = parseMessageForCode(message)
-    return new BcnError(parsed.message, {
+    return new ConvexCallError(parsed.message, {
       ...init,
       code: asString(record.code) ?? parsed.code,
       status: asNumber(record.status),
@@ -222,31 +217,5 @@ export function toConvexError(error: unknown): BcnError {
 
   const message = typeof error === 'string' && error.length > 0 ? error : fallbackMessage
   const parsed = parseMessageForCode(message)
-  return new BcnError(parsed.message, { code: parsed.code, cause: error })
-}
-
-/**
- * Wrap a promise-returning function in a `CallResult` envelope.
- * Returns `{ ok: true, data }` on success, `{ ok: false, error: ConvexError }` on failure.
- *
- * @deprecated Use try/catch with `ConvexError` instanceof checks instead. Will be removed in v0.5.0.
- *
- * @example Prefer this pattern instead:
- * ```ts
- * try {
- *   const data = await myMutation(args)
- * } catch (e) {
- *   if (e instanceof ConvexError) {
- *     console.error(e.code, e.message)
- *   }
- * }
- * ```
- */
-export async function toCallResult<T>(call: () => Promise<T>): Promise<CallResult<T>> {
-  try {
-    const data = await call()
-    return { ok: true, data }
-  } catch (error) {
-    return { ok: false, error: toConvexError(error) }
-  }
+  return new ConvexCallError(parsed.message, { code: parsed.code, cause: error })
 }

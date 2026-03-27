@@ -50,9 +50,14 @@ export async function exchangeConvexAuthToken(
   siteUrl: string,
   cookieHeader: string,
 ): Promise<string | undefined> {
-  const response = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
+  const url = `${siteUrl}/api/auth/convex/token` as string
+  const fetchJson = $fetch as unknown as (
+    request: string,
+    options?: { headers?: Record<string, string> },
+  ) => Promise<{ token?: string } | null>
+  const response = await fetchJson(url, {
     headers: { Cookie: cookieHeader },
-  })) as { token?: string } | null
+  })
 
   return response?.token
 }

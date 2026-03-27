@@ -29,12 +29,14 @@
  */
 import { computed } from 'vue'
 import { useConvexAuth } from '../composables/useConvexAuth'
+import { useConvexAuthInternal } from '../composables/useConvexAuthInternal'
 
 defineSlots<{
   default(props: { retry: () => void; error: string | null }): unknown
 }>()
 
-const { isAuthenticated, isPending, token, user, authError } = useConvexAuth()
+const { isAuthenticated, isPending, user } = useConvexAuth()
+const { token, authError } = useConvexAuthInternal()
 
 /**
  * Detect auth error state:

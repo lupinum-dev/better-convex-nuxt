@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { toCallResult } from '../../src/runtime/utils/call-result'
 import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -98,7 +97,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
   })
 
-  it('toCallResult never throws and returns normalized errors', async () => {
+  it('normalizes thrown errors into ConvexCallError metadata', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:safe-action-fail')
     convex.setActionHandler('testing:safe-action-fail', async () => {
@@ -106,40 +105,10 @@ describe('useConvexAction (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
-    const safeResult = await toCallResult(() => result({} as never))
-
-    expect(safeResult.ok).toBe(false)
-    if (safeResult.ok) {
-      throw new Error('Expected safe result to be an error')
-    }
-    expect(safeResult.error.code).toBe('LIMIT_ACTIONS')
-    expect(safeResult.error.message).toBe('Action limit reached')
-  })
-
-  it('toCallResult wraps domain CallResult values without flattening them', async () => {
-    const convex = new MockConvexClient()
-    const action = mockFnRef<'action'>('testing:safe-domain-result')
-    convex.setActionHandler('testing:safe-domain-result', async () => {
-      return {
-        ok: false,
-        error: { message: 'Action domain failure', code: 'ACTION_DOMAIN' },
-      }
+    await expect(result({} as never)).rejects.toMatchObject({
+      code: 'LIMIT_ACTIONS',
+      message: 'Action limit reached',
     })
-
-    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
-    const direct = await result({} as never)
-    const wrapped = await toCallResult(() => result({} as never))
-
-    expect(direct).toEqual({
-      ok: false,
-      error: { message: 'Action domain failure', code: 'ACTION_DOMAIN' },
-    })
-
-    expect(wrapped.ok).toBe(true)
-    if (!wrapped.ok) {
-      throw new Error('Expected wrapped result to be successful outer CallResult')
-    }
-    expect(wrapped.data).toEqual(direct)
   })
 
   it('returns a callable function with state properties attached', async () => {

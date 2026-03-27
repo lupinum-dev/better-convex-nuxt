@@ -9,6 +9,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 /**
  * Deeply unwrap Vue refs contained inside plain objects/arrays.
  * Non-plain objects (Date, Map, class instances, etc.) are treated as opaque.
+ *
+ * @deprecated Prefer getter args like `() => ({ id: id.value })` over deep unwrapping refs.
  */
 export function deepUnref<T>(value: T): T {
   const seen = new WeakMap<object, unknown>()

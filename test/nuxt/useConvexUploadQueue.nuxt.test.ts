@@ -333,40 +333,6 @@ describe('useConvexUpload queue mode (Nuxt runtime)', () => {
     expect(result.successCount.value).toBe(2)
   })
 
-  it('enqueueSafe returns failure result when any upload fails', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
-    const convex = new MockConvexClient()
-    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-safe')
-    convex.setMutationHandler('files:generateUploadUrl:queue-safe', async (args) => {
-      const id = (args as { id: string }).id
-      return `http://upload.local/${id}`
-    })
-
-    FakeQueueXhr.setPlan('http://upload.local/one', { delayMs: 10 })
-    FakeQueueXhr.setPlan('http://upload.local/two', {
-      delayMs: 10,
-      status: 500,
-      responseText: 'fail',
-    })
-
-    const { result } = await captureInNuxt(
-      () => useConvexUpload(mutation, { maxConcurrent: 2, continueOnError: true }),
-      { convex },
-    )
-
-    const safe = await result.enqueueSafe([
-      { file: makeFile('one.bin', 10), mutationArgs: { id: 'one' } },
-      { file: makeFile('two.bin', 10), mutationArgs: { id: 'two' } },
-    ])
-
-    expect(safe.ok).toBe(false)
-    if (safe.ok) {
-      throw new Error('Expected enqueueSafe to fail')
-    }
-    expect(safe.error.message).toMatch(/upload/i)
-  })
-
   it('supports cancelItem, cancelAll, and clearFinished', async () => {
     globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
 

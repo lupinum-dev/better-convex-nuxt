@@ -1,10 +1,10 @@
 import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 
-import { useRuntimeConfig } from '#imports'
+import { useRequestEvent, useRuntimeConfig } from '#imports'
 
 import { resolveServerAuthToken } from '../../utils/auth-token'
-import { ConvexError, toConvexError } from '../../utils/call-result'
+import { ConvexCallError, toConvexError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
@@ -46,20 +46,20 @@ function toServerConvexError(
   error: unknown,
   context: ServerConvexErrorContext,
   phase: 'auth' | 'request',
-): ConvexError {
+): ConvexCallError {
   const base = toConvexError(error)
   const prefix =
     phase === 'auth'
       ? `Failed to resolve auth for ${context.functionPath} (auth: ${context.authMode}).`
       : `Request failed for ${context.functionPath} via ${context.convexUrl}/api/${context.operation}.`
-  return new ConvexError(`[${context.helper}] ${prefix} ${base.message}`, {
+  return new ConvexCallError(`[${context.helper}] ${prefix} ${base.message}`, {
     ...context,
     cause: base,
   })
 }
 
-function createServerConvexError(message: string, context: ServerConvexErrorContext): ConvexError {
-  return new ConvexError(`[${context.helper}] ${message}`, context)
+function createServerConvexError(message: string, context: ServerConvexErrorContext): ConvexCallError {
+  return new ConvexCallError(`[${context.helper}] ${message}`, context)
 }
 
 function getCookieHeader(event: H3Event): string {
@@ -199,50 +199,130 @@ async function executeConvexOperation<T>(
   }
 }
 
+function resolveServerEvent(
+  event: H3Event | undefined,
+  helper: ServerConvexHelperName,
+  operation: ConvexOperationType,
+  functionPath: string,
+): H3Event {
+  if (event) return event
+  try {
+    const currentEvent = useRequestEvent()
+    if (currentEvent) return currentEvent
+  } catch {}
+
+  throw new ConvexCallError(
+    `[${helper}] No H3 event available for ${functionPath}. Pass the event explicitly or call this helper inside a Nitro request context.`,
+    {
+      helper,
+      operation,
+      functionPath,
+      authMode: 'auto',
+    },
+  )
+}
+
+function isH3EventLike(value: unknown): value is H3Event {
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  return 'node' in record || 'headers' in record
+}
+
+function parseServerConvexArgs<Fn extends FunctionReference<'query' | 'mutation' | 'action'>>(
+  operationType: ConvexOperationType,
+  input: [H3Event | Fn, Fn | FunctionArgs<Fn> | undefined, FunctionArgs<Fn> | ServerConvexOptions | undefined, ServerConvexOptions | undefined],
+): {
+  event: H3Event
+  fn: Fn
+  args: FunctionArgs<Fn> | undefined
+  options: ServerConvexOptions | undefined
+} {
+  const [first, second, third, fourth] = input
+  const helper = getHelperName(operationType)
+
+  if (isH3EventLike(first)) {
+    const fn = second as Fn
+    const functionPath = getFunctionName(fn)
+    return {
+      event: first,
+      fn,
+      args: third as FunctionArgs<Fn> | undefined,
+      options: fourth,
+    }
+  }
+
+  const fn = first as Fn
+  const functionPath = getFunctionName(fn)
+  return {
+    event: resolveServerEvent(undefined, helper, operationType, functionPath),
+    fn,
+    args: second as FunctionArgs<Fn> | undefined,
+    options: third as ServerConvexOptions | undefined,
+  }
+}
+
 export async function serverConvexQuery<Query extends FunctionReference<'query'>>(
-  event: H3Event,
-  query: Query,
+  eventOrQuery: H3Event | Query,
+  queryOrArgs?: Query | FunctionArgs<Query>,
   args?: FunctionArgs<Query>,
   options?: ServerConvexOptions,
 ): Promise<FunctionReturnType<Query>> {
-  const functionPath = getFunctionName(query)
+  const parsed = parseServerConvexArgs<Query>('query', [
+    eventOrQuery,
+    queryOrArgs as Query | FunctionArgs<Query> | undefined,
+    args,
+    options,
+  ])
+  const functionPath = getFunctionName(parsed.fn)
   return await executeConvexOperation<FunctionReturnType<Query>>(
-    event,
+    parsed.event,
     'query',
     functionPath,
-    args as Record<string, unknown> | undefined,
-    options,
+    parsed.args as Record<string, unknown> | undefined,
+    parsed.options,
   )
 }
 
 export async function serverConvexMutation<Mutation extends FunctionReference<'mutation'>>(
-  event: H3Event,
-  mutation: Mutation,
+  eventOrMutation: H3Event | Mutation,
+  mutationOrArgs?: Mutation | FunctionArgs<Mutation>,
   args?: FunctionArgs<Mutation>,
   options?: ServerConvexOptions,
 ): Promise<FunctionReturnType<Mutation>> {
-  const functionPath = getFunctionName(mutation)
+  const parsed = parseServerConvexArgs<Mutation>('mutation', [
+    eventOrMutation,
+    mutationOrArgs as Mutation | FunctionArgs<Mutation> | undefined,
+    args,
+    options,
+  ])
+  const functionPath = getFunctionName(parsed.fn)
   return await executeConvexOperation<FunctionReturnType<Mutation>>(
-    event,
+    parsed.event,
     'mutation',
     functionPath,
-    args as Record<string, unknown> | undefined,
-    options,
+    parsed.args as Record<string, unknown> | undefined,
+    parsed.options,
   )
 }
 
 export async function serverConvexAction<Action extends FunctionReference<'action'>>(
-  event: H3Event,
-  action: Action,
+  eventOrAction: H3Event | Action,
+  actionOrArgs?: Action | FunctionArgs<Action>,
   args?: FunctionArgs<Action>,
   options?: ServerConvexOptions,
 ): Promise<FunctionReturnType<Action>> {
-  const functionPath = getFunctionName(action)
+  const parsed = parseServerConvexArgs<Action>('action', [
+    eventOrAction,
+    actionOrArgs as Action | FunctionArgs<Action> | undefined,
+    args,
+    options,
+  ])
+  const functionPath = getFunctionName(parsed.fn)
   return await executeConvexOperation<FunctionReturnType<Action>>(
-    event,
+    parsed.event,
     'action',
     functionPath,
-    args as Record<string, unknown> | undefined,
-    options,
+    parsed.args as Record<string, unknown> | undefined,
+    parsed.options,
   )
 }

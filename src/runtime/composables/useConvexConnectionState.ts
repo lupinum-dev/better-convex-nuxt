@@ -70,13 +70,11 @@ function getConnectionStateStore(app: object): ConnectionStateStore {
  * @example
  * ```vue
  * <script setup>
- * const { isConnected, isReconnecting, connectionRetries } = useConvexConnectionState()
+ * const { isConnected, isReconnecting, shouldShowOfflineUi } = useConvexConnectionState()
  * </script>
  *
  * <template>
- *   <div v-if="isReconnecting" class="offline-banner">
- *     Reconnecting... (attempt {{ connectionRetries }})
- *   </div>
+ *   <div v-if="isReconnecting || shouldShowOfflineUi" class="offline-banner">Reconnecting...</div>
  * </template>
  * ```
  */
@@ -141,14 +139,10 @@ export function useConvexConnectionState() {
   // Computed shortcuts derived from shared state
   const state = store.state
   const isConnected = computed(() => state.value.isWebSocketConnected)
-  const hasEverConnected = computed(() => state.value.hasEverConnected)
-  const hasInflightRequests = computed(() => state.value.hasInflightRequests)
-  const connectionRetries = computed(() => state.value.connectionRetries)
   const isReconnecting = computed(
     () => state.value.hasEverConnected && !state.value.isWebSocketConnected,
   )
   const pendingMutations = computed(() => state.value.inflightMutations)
-  const pendingActions = computed(() => state.value.inflightActions)
   const isHydratingConnection = ref(true)
   let hydrationTimer: ReturnType<typeof setTimeout> | null = null
   if (import.meta.client) {
@@ -175,20 +169,10 @@ export function useConvexConnectionState() {
     state: readonly(state),
     /** Whether WebSocket is currently connected */
     isConnected,
-    /** Whether the client has ever successfully connected */
-    hasEverConnected,
-    /** Whether there are requests currently in flight */
-    hasInflightRequests,
-    /** Number of connection retry attempts */
-    connectionRetries,
     /** Whether client is reconnecting (was connected, now disconnected) */
     isReconnecting,
     /** Number of pending mutations */
     pendingMutations,
-    /** Number of pending actions */
-    pendingActions,
-    /** Suppresses offline UI during the initial hydration grace window */
-    isHydratingConnection,
     /** Convenience flag for offline banners (already suppresses hydration flash) */
     shouldShowOfflineUi,
   }

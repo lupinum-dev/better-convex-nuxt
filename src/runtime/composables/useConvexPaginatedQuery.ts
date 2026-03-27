@@ -44,6 +44,14 @@ export type PaginatedQueryStatus =
   | 'exhausted'
   | 'error'
 
+const PAGINATED_QUERY_DEPRECATION_WARNINGS = new Set<string>()
+
+function warnPaginatedQueryDeprecation(key: string, message: string): void {
+  if (!import.meta.dev || PAGINATED_QUERY_DEPRECATION_WARNINGS.has(key)) return
+  PAGINATED_QUERY_DEPRECATION_WARNINGS.add(key)
+  console.warn(message)
+}
+
 export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem = Item> {
   initialNumItems: number
   /** @default true — run first page server-side during SSR */
@@ -54,17 +62,12 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
   default?: () => Item[]
   /** Transform raw items before exposing via `results` */
   transform?: (results: Item[]) => TransformedItem[]
-  /**
-   * When `false` (default), `useConvexPaginatedQuery` returns a Promise that resolves
-   * once the first page arrives. When `true`, returns synchronously.
-   * @default false
-   */
-  lazy?: boolean
   /** Preserve previous results while a new first page is loading */
   keepPreviousData?: boolean
   /**
    * Recursively unref Vue refs inside args before sending to Convex.
    * @default false
+   * @deprecated Prefer getter args like `() => ({ id: id.value })`.
    */
   deepUnrefArgs?: boolean
 }
@@ -83,9 +86,13 @@ export interface UseConvexPaginatedQueryData<Item> {
   restart: () => Promise<void>
 }
 
+export interface UseConvexPaginatedQueryReturn<Item>
+  extends UseConvexPaginatedQueryData<Item>,
+    PromiseLike<UseConvexPaginatedQueryData<Item>> {}
+
 interface BuildConvexPaginatedQueryResult<Item> {
   resultData: UseConvexPaginatedQueryData<Item>
-  resolvePromise: Promise<void>
+  resolvePromise: () => Promise<void>
 }
 
 interface StablePaginationOpts {
@@ -125,6 +132,13 @@ export function createConvexPaginatedQueryState<
   const keepPreviousData = options?.keepPreviousData ?? false
   const deepUnrefArgs = options?.deepUnrefArgs ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
+
+  if (options?.deepUnrefArgs) {
+    warnPaginatedQueryDeprecation(
+      'deepUnrefArgs',
+      '[better-convex-nuxt] useConvexPaginatedQuery: `deepUnrefArgs` is deprecated. Prefer getter args like `() => ({ id: id.value })`.',
+    )
+  }
 
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
 
@@ -503,24 +517,9 @@ export function createConvexPaginatedQueryState<
       refetch,
       restart,
     },
-    resolvePromise: firstPageResource.resolvePromise,
+    resolvePromise: () => Promise.resolve(firstPageResource.asyncData).then(() => {}),
   }
 }
-
-// Overload: lazy: true → synchronous return
-export function useConvexPaginatedQuery<
-  Query extends PaginatedQueryReference,
-  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
-  TransformedItem = PaginatedQueryItem<Query>,
->(
-  query: Query,
-  args: MaybeRefOrGetter<Args> | undefined,
-  options: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem> & {
-    lazy: true
-  },
-): UseConvexPaginatedQueryData<TransformedItem>
-
-// Overload: default (lazy: false) → async return
 export function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
   Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
@@ -529,22 +528,33 @@ export function useConvexPaginatedQuery<
   query: Query,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
-): Promise<UseConvexPaginatedQueryData<TransformedItem>>
+): UseConvexPaginatedQueryReturn<TransformedItem> {
+  const created = createConvexPaginatedQueryState(query, args, options, true)
+  const result = created.resultData as UseConvexPaginatedQueryReturn<TransformedItem>
+  const resolvedResult = { ...created.resultData } as UseConvexPaginatedQueryData<TransformedItem>
+  result.then = (onFulfilled, onRejected) =>
+    created.resolvePromise()
+      .then(
+        () =>
+          new Promise<UseConvexPaginatedQueryData<TransformedItem>>((resolve) => {
+            if (!result.isLoading.value) {
+              resolve(resolvedResult)
+              return
+            }
 
-// Implementation
-export function useConvexPaginatedQuery<
-  Query extends PaginatedQueryReference,
-  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
-  TransformedItem = PaginatedQueryItem<Query>,
->(
-  query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
-): UseConvexPaginatedQueryData<TransformedItem> | Promise<UseConvexPaginatedQueryData<TransformedItem>> {
-  const lazy = options?.lazy ?? false
-  const created = createConvexPaginatedQueryState(query, args, options, lazy)
-  if (lazy) {
-    return created.resultData
-  }
-  return created.resolvePromise.then(() => created.resultData)
+            const stop = watch(
+              () => result.isLoading.value,
+              (isLoading) => {
+                if (isLoading) return
+                stop()
+                resolve(resolvedResult)
+              },
+            )
+          }),
+      )
+      .then((value) => {
+        return value
+      })
+      .then(onFulfilled, onRejected)
+  return result
 }

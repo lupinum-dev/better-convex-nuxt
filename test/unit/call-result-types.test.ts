@@ -1,28 +1,27 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConvexError, toCallResult, type CallResult } from '../../src/runtime/utils/call-result'
+import { ConvexCallError, ConvexError, toConvexError } from '../../src/runtime/utils/call-result'
 
-type IsEqual<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
-type Assert<T extends true> = T
+describe('Convex call error contracts', () => {
+  it('normalizes structured errors into ConvexCallError', () => {
+    const error = toConvexError({
+      data: {
+        message: 'Structured failure',
+        code: 'STRUCTURED',
+        status: 422,
+      },
+    })
 
-type _NestedCallResult = Assert<
-  IsEqual<
-    Awaited<ReturnType<typeof toCallResult<CallResult<{ id: string }>>>>,
-    CallResult<CallResult<{ id: string }>>
-  >
->
+    expect(error).toBeInstanceOf(ConvexCallError)
+    expect(error.message).toBe('Structured failure')
+    expect(error.code).toBe('STRUCTURED')
+    expect(error.status).toBe(422)
+  })
 
-describe('CallResult type contracts', () => {
-  it('toCallResult wraps domain CallResult values without flattening them', async () => {
-    const domainResult: CallResult<{ id: string }> = {
-      ok: false,
-      error: new ConvexError('Domain validation failed', { code: 'DOMAIN_VALIDATION' }),
-    }
-    const wrapped = await toCallResult(async () => domainResult)
+  it('keeps ConvexError as a deprecated alias of ConvexCallError', () => {
+    const error = new ConvexError('Alias still works')
 
-    expect(wrapped.ok).toBe(true)
-    if (!wrapped.ok) throw new Error('Expected outer CallResult to be ok')
-    expect(wrapped.data).toEqual(domainResult)
+    expect(error).toBeInstanceOf(ConvexCallError)
+    expect(error.name).toBe('ConvexCallError')
   })
 })

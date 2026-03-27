@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 
-import { useConvexStorageUrl, useConvexStorageUrlRef } from '../../src/runtime/composables/useConvexStorageUrl'
+import { useConvexStorageUrl } from '../../src/runtime/composables/useConvexStorageUrl'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexStorageUrl (Nuxt runtime)', () => {
-  it('useConvexStorageUrlRef returns just the URL as a computed ref', async () => {
+  it('returns just the URL as a computed ref', async () => {
     const convex = new MockConvexClient()
     const getUrlQuery = mockFnRef<'query'>('files:getUrl:ref')
 
     const { result, flush } = await captureInNuxt(
       () => {
         const storageId = ref<string | null>(null)
-        const url = useConvexStorageUrlRef(getUrlQuery, storageId)
+        const url = useConvexStorageUrl(getUrlQuery, storageId)
         return { storageId, url }
       },
       { convex },
@@ -38,22 +38,20 @@ describe('useConvexStorageUrl (Nuxt runtime)', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const storageId = ref<string | null>(null)
-        const query = useConvexStorageUrl(getUrlQuery, storageId)
-        return { storageId, query }
+        const url = useConvexStorageUrl(getUrlQuery, storageId)
+        return { storageId, url }
       },
       { convex },
     )
 
-    expect(result.query.data.value).toBeNull()
-    expect(result.query.status.value).toBe('skipped')
+    expect(result.url.value).toBeNull()
     expect(convex.activeListenerCount()).toBe(0)
 
     result.storageId.value = 'storage_123'
     await flush()
 
     convex.emitQueryResultByPath('files:getUrl', 'https://files.example.com/123')
-    await waitFor(() => result.query.data.value === 'https://files.example.com/123')
-    expect(result.query.data.value).toBe('https://files.example.com/123')
-    expect(result.query.status.value).toBe('success')
+    await waitFor(() => result.url.value === 'https://files.example.com/123')
+    expect(result.url.value).toBe('https://files.example.com/123')
   })
 })

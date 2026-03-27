@@ -191,7 +191,7 @@ describe('optimistic-updates fluent API', () => {
       )
 
       ctx.paginatedQuery(query as never, { listId: 'inbox' } as never)
-        .updateItem('t2', (item: any) => ({ ...item, done: true }))
+        .updateItem('t2', (item) => ({ ...(item as { _id: string; done: boolean }), done: true } as never))
 
       const updated = store.getQuery(query, {
         listId: 'inbox',
@@ -239,6 +239,73 @@ describe('optimistic-updates fluent API', () => {
     const store = new FakeOptimisticLocalStore()
     const ctx = createOptimisticContext(store as never)
     expect(ctx.store).toBe(store)
+  })
+
+  it('matchQuery() updates every active arg combination for a query', () => {
+    const store = new FakeOptimisticLocalStore()
+    const query = mockFnRef<'query'>('notes:list:match-all')
+    const ctx = createOptimisticContext(store as never)
+
+    store.setQuery(query, { orgId: 'a' }, [{ _id: 'n1', orgId: 'a' }])
+    store.setQuery(query, { orgId: 'b' }, [{ _id: 'n2', orgId: 'b' }])
+
+    ctx.matchQuery(query).update((current, args) => [
+      ...((current ?? []) as Array<{ _id: string; orgId: string }>),
+      { _id: `extra:${args.orgId}`, orgId: args.orgId },
+    ] as never)
+
+    expect(store.getQuery(query, { orgId: 'a' })).toEqual([
+      { _id: 'n1', orgId: 'a' },
+      { _id: 'extra:a', orgId: 'a' },
+    ])
+    expect(store.getQuery(query, { orgId: 'b' })).toEqual([
+      { _id: 'n2', orgId: 'b' },
+      { _id: 'extra:b', orgId: 'b' },
+    ])
+  })
+
+  it('matchPaginatedQuery() updates every active page entry for a query', () => {
+    const store = new FakeOptimisticLocalStore()
+    const query = mockFnRef<'query'>('posts:listPaginated:match-all') as FunctionReference<'query'>
+    const ctx = createOptimisticContext(store as never)
+
+    store.setQuery(
+      query,
+      { orgId: 'a', paginationOpts: { numItems: 2, cursor: null } },
+      { page: [{ _id: 'p1' }], isDone: false, continueCursor: 'c1' },
+    )
+    store.setQuery(
+      query,
+      { orgId: 'a', paginationOpts: { numItems: 2, cursor: 'c1' } },
+      { page: [{ _id: 'p2' }], isDone: true, continueCursor: null },
+    )
+
+    ctx.matchPaginatedQuery(query as never).update((current, args) => ({
+      ...(current as { page: Array<{ _id: string }>; isDone: boolean; continueCursor: string | null }),
+      page: [
+        ...(current?.page ?? []),
+        {
+          _id: `extra:${String((args as { paginationOpts?: { cursor?: string | null } }).paginationOpts?.cursor ?? 'root')}`,
+        },
+      ],
+    }) as never)
+
+    expect(store.getQuery(query, {
+      orgId: 'a',
+      paginationOpts: { numItems: 2, cursor: null },
+    })).toEqual({
+      page: [{ _id: 'p1' }, { _id: 'extra:root' }],
+      isDone: false,
+      continueCursor: 'c1',
+    })
+    expect(store.getQuery(query, {
+      orgId: 'a',
+      paginationOpts: { numItems: 2, cursor: 'c1' },
+    })).toEqual({
+      page: [{ _id: 'p2' }, { _id: 'extra:c1' }],
+      isDone: true,
+      continueCursor: null,
+    })
   })
 
   // ==========================================================================

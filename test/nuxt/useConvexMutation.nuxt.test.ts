@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { toCallResult } from '../../src/runtime/utils/call-result'
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -96,7 +95,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
   })
 
-  it('toCallResult never throws and returns normalized error metadata', async () => {
+  it('normalizes thrown errors into ConvexCallError metadata', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-fail')
 
@@ -105,18 +104,14 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const safeResult = await toCallResult(() => result({} as never))
-
-    expect(safeResult.ok).toBe(false)
-    if (safeResult.ok) {
-      throw new Error('Expected safe result to be an error')
-    }
-    expect(safeResult.error.code).toBe('LIMIT_ITEMS')
-    expect(safeResult.error.message).toBe('Limit reached')
+    await expect(result({} as never)).rejects.toMatchObject({
+      code: 'LIMIT_ITEMS',
+      message: 'Limit reached',
+    })
     expect(result.status.value).toBe('error')
   })
 
-  it('toCallResult prefers structured ConvexError payloads when present', async () => {
+  it('prefers structured Convex error payloads when present', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-structured-fail')
 
@@ -129,42 +124,11 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const safeResult = await toCallResult(() => result({} as never))
-
-    expect(safeResult.ok).toBe(false)
-    if (safeResult.ok) {
-      throw new Error('Expected safe result to be an error')
-    }
-    expect(safeResult.error.code).toBe('STRUCTURED')
-    expect(safeResult.error.message).toBe('Structured failure')
-    expect(safeResult.error.status).toBe(422)
-  })
-
-  it('toCallResult wraps domain CallResult values without flattening them', async () => {
-    const convex = new MockConvexClient()
-    const mutation = mockFnRef<'mutation'>('testing:safe-domain-result')
-
-    convex.setMutationHandler('testing:safe-domain-result', async () => {
-      return {
-        ok: false,
-        error: { message: 'Domain validation failed', code: 'DOMAIN_VALIDATION' },
-      }
+    await expect(result({} as never)).rejects.toMatchObject({
+      code: 'STRUCTURED',
+      message: 'Structured failure',
+      status: 422,
     })
-
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const direct = await result({} as never)
-    const wrapped = await toCallResult(() => result({} as never))
-
-    expect(direct).toEqual({
-      ok: false,
-      error: { message: 'Domain validation failed', code: 'DOMAIN_VALIDATION' },
-    })
-
-    expect(wrapped.ok).toBe(true)
-    if (!wrapped.ok) {
-      throw new Error('Expected wrapped result to be successful outer CallResult')
-    }
-    expect(wrapped.data).toEqual(direct)
   })
 
   it('returns a callable function with state properties attached', async () => {
