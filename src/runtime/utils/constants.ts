@@ -13,6 +13,13 @@ export const STATE_KEY_AUTH_TRACE_ID = 'convex:authTraceId'
 export const STATE_KEY_DEVTOOLS_INSTANCE_ID = 'convex:devtoolsInstanceId'
 
 // ============================================================
+// Better Auth cookie names
+// ============================================================
+
+export const BETTER_AUTH_SESSION_COOKIE_NAME = 'better-auth.session_token'
+export const BETTER_AUTH_SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
+
+// ============================================================
 // Timeouts — all values in milliseconds
 // ============================================================
 

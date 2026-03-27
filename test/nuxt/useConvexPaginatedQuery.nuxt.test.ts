@@ -76,6 +76,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(result.status.value).toBe('skipped')
     expect(result.isLoading.value).toBe(false)
     expect(result.results.value).toEqual([])
+    expect(result.isStale.value).toBe(false)
   })
 
   it('null args does not start subscriptions', async () => {
@@ -124,11 +125,13 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
 
     await waitFor(() => result.status.value === 'ready')
     expect(result.isLoading.value).toBe(false)
+    expect(result.isStale.value).toBe(false)
     expect(result.hasNextPage.value).toBe(true)
 
     result.loadMore(2)
     await waitFor(() => result.status.value === 'loading-more')
     expect(result.isLoading.value).toBe(true)
+    expect(result.isStale.value).toBe(false)
     await waitFor(() =>
       convex.calls.onUpdate.some((call) => {
         const args = call.args as { paginationOpts?: { cursor?: string | null } }
@@ -439,12 +442,14 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect((result.queryResult.results.value as Array<{ title: string }>)[0]).toMatchObject({
       title: 'Active A',
     })
+    expect(result.queryResult.isStale.value).toBe(false)
 
     result.status.value = 'archived'
     await flush()
 
     expect(result.queryResult.status.value).toBe('loading-first-page')
     expect(result.queryResult.isLoading.value).toBe(true)
+    expect(result.queryResult.isStale.value).toBe(true)
     expect((result.queryResult.results.value as Array<{ title: string }>)[0]).toMatchObject({
       title: 'Active A',
     })
@@ -471,6 +476,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
         (result.queryResult.results.value as Array<{ title: string }>)[0]?.title === 'Archived B',
     )
     expect(result.queryResult.isLoading.value).toBe(false)
+    expect(result.queryResult.isStale.value).toBe(false)
   })
 
   it('refresh() recovers from error back to ready/exhausted', async () => {

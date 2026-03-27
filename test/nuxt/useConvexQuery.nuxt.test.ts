@@ -63,6 +63,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.data.value).toBeNull()
     expect(result.pending.value).toBe(false)
     expect(result.status.value).toBe('skipped')
+    expect(result.isStale.value).toBe(false)
   })
 
   it('exposes refresh/clear but omits execute on query return shape', async () => {
@@ -146,6 +147,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     expect(result.data.value).toEqual([{ _id: 'default', title: 'Loading placeholder' }])
     expect(result.pending.value).toBe(true)
+    expect(result.isStale.value).toBe(false)
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
     convex.emitQueryResultByPath('notes:list:default-loading', [{ _id: 'n1', title: 'Loaded' }])
@@ -375,15 +377,18 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     await waitFor(() => convex.calls.onUpdate.length > 0)
     convex.emitQueryResult(query, { filter: { tag: 'alpha' } }, { tag: 'alpha', hits: 2 })
     await waitFor(() => result.queryResult.data.value?.tag === 'alpha')
+    expect(result.queryResult.isStale.value).toBe(false)
 
     result.tag.value = 'beta'
     await flush()
 
     expect(result.queryResult.data.value).toEqual({ tag: 'alpha', hits: 2 })
     expect(result.queryResult.pending.value).toBe(true)
+    expect(result.queryResult.isStale.value).toBe(true)
 
     convex.emitQueryResult(query, { filter: { tag: 'beta' } }, { tag: 'beta', hits: 5 })
     await waitFor(() => result.queryResult.data.value?.tag === 'beta')
+    expect(result.queryResult.isStale.value).toBe(false)
   })
 
   it('uses pending status contract for server:false until first data', async () => {

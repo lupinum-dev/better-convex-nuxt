@@ -61,6 +61,8 @@ export interface UseConvexPaginatedQueryData<Item> {
   results: ComputedRef<Item[]>
   status: ComputedRef<PaginatedQueryStatus>
   isLoading: ComputedRef<boolean>
+  /** True while keepPreviousData is showing the last settled first-page result for stale args. */
+  isStale: ComputedRef<boolean>
   isExhausted: ComputedRef<boolean>
   hasNextPage: ComputedRef<boolean>
   loadMore: (numItems: number) => void
@@ -141,6 +143,7 @@ export function createConvexPaginatedQueryState<
   const isManualRefreshPending = ref(false)
 
   const lastSettledResults = keepPreviousData ? shallowRef<TransformedItem[]>([]) : null
+  const lastSettledArgsHash = keepPreviousData ? ref<string | null>(null) : null
 
   const initialPaginationOpts = computed(() => ({
     numItems: initialNumItems,
@@ -389,13 +392,23 @@ export function createConvexPaginatedQueryState<
     }
     return null
   })
+  const isStale = computed(() => {
+    if (!keepPreviousData || !lastSettledArgsHash) return false
+    if (isSkipped.value || status.value !== 'loading-first-page') return false
+    if (error.value) return false
+    if (lastSettledArgsHash.value === null || lastSettledArgsHash.value === argsHash.value) {
+      return false
+    }
+    return results.value.length > 0
+  })
 
   if (keepPreviousData && lastSettledResults) {
     watch(
-      [() => status.value, () => transformedResults.value],
-      ([nextStatus, nextResults]) => {
+      [() => status.value, () => transformedResults.value, () => argsHash.value],
+      ([nextStatus, nextResults, nextArgsHash]) => {
         if (isSkipped.value || nextStatus === 'loading-first-page') return
         lastSettledResults!.value = nextResults
+        lastSettledArgsHash!.value = nextArgsHash
       },
       { immediate: true },
     )
@@ -487,6 +500,7 @@ export function createConvexPaginatedQueryState<
       isLoading: computed(
         () => status.value === 'loading-first-page' || status.value === 'loading-more',
       ),
+      isStale,
       isExhausted: computed(() => status.value === 'exhausted'),
       hasNextPage: computed(() => status.value === 'ready'),
       loadMore,

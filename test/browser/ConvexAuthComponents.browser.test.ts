@@ -8,16 +8,22 @@ import ConvexAuthError from '../../src/runtime/components/ConvexAuthError.vue'
 import ConvexAuthLoading from '../../src/runtime/components/ConvexAuthLoading.vue'
 import ConvexUnauthenticated from '../../src/runtime/components/ConvexUnauthenticated.vue'
 
-const { useConvexAuthMock } = vi.hoisted(() => ({
+const { useConvexAuthMock, useConvexAuthInternalMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
+  useConvexAuthInternalMock: vi.fn(),
 }))
 
 vi.mock('../../src/runtime/composables/useConvexAuth', () => ({
   useConvexAuth: useConvexAuthMock,
 }))
 
+vi.mock('../../src/runtime/composables/useConvexAuthInternal', () => ({
+  useConvexAuthInternal: useConvexAuthInternalMock,
+}))
+
 afterEach(() => {
   useConvexAuthMock.mockReset()
+  useConvexAuthInternalMock.mockReset()
 })
 
 test('<ConvexAuthenticated> renders slot only when authenticated and not pending', async () => {
@@ -29,6 +35,12 @@ test('<ConvexAuthenticated> renders slot only when authenticated and not pending
     authError: ref(null),
     signOut: vi.fn(),
     refreshAuth: vi.fn(),
+  })
+  useConvexAuthInternalMock.mockReturnValue({
+    token: ref('jwt'),
+    authError: ref(null),
+    refreshAuth: vi.fn(),
+    awaitAuthReady: vi.fn(),
   })
 
   render(ConvexAuthenticated, {
@@ -48,6 +60,12 @@ test('<ConvexUnauthenticated> renders slot only when unauthenticated and not pen
     signOut: vi.fn(),
     refreshAuth: vi.fn(),
   })
+  useConvexAuthInternalMock.mockReturnValue({
+    token: ref(null),
+    authError: ref(null),
+    refreshAuth: vi.fn(),
+    awaitAuthReady: vi.fn(),
+  })
 
   render(ConvexUnauthenticated, {
     slots: { default: '<div>Please Sign In</div>' },
@@ -66,6 +84,12 @@ test('<ConvexAuthLoading> renders slot while pending', async () => {
     signOut: vi.fn(),
     refreshAuth: vi.fn(),
   })
+  useConvexAuthInternalMock.mockReturnValue({
+    token: ref(null),
+    authError: ref(null),
+    refreshAuth: vi.fn(),
+    awaitAuthReady: vi.fn(),
+  })
 
   render(ConvexAuthLoading, {
     slots: { default: '<div>Checking authentication...</div>' },
@@ -83,6 +107,12 @@ test('<ConvexAuthError> renders slot when auth is not pending and has explicit a
     authError: ref('Unauthorized'),
     signOut: vi.fn(),
     refreshAuth: vi.fn(),
+  })
+  useConvexAuthInternalMock.mockReturnValue({
+    token: ref(null),
+    authError: ref('Unauthorized'),
+    refreshAuth: vi.fn(),
+    awaitAuthReady: vi.fn(),
   })
 
   render(ConvexAuthError, {

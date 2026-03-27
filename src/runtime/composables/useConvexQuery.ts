@@ -56,6 +56,8 @@ export interface UseConvexQueryData<DataT> {
   clear: () => void
   pending: Ref<boolean>
   status: Ref<QueryStatus>
+  /** True while keepPreviousData is showing the last settled result for stale args. */
+  isStale: Ref<boolean>
 }
 
 export interface UseConvexQueryReturn<DataT>
@@ -235,9 +237,14 @@ export function createConvexQueryState<
   })
 
   let lastSettledData: Ref<RawT | null> | null = null
+  let lastSettledArgsHash: Ref<string | null> | null = null
+  let lastReceivedArgsHash: Ref<string | null> | null = null
   if (keepPreviousData) {
     lastSettledData = ref<RawT | null>(null)
+    lastSettledArgsHash = ref<string | null>(null)
+    lastReceivedArgsHash = ref<string | null>(null)
   }
+  const currentArgsHash = computed(() => (isSkipped.value ? null : hashArgs(normalizedArgs.value ?? {})))
 
   const resource = createLiveQueryResource<Query, RawT>({
     query,
@@ -291,6 +298,10 @@ export function createConvexQueryState<
       }
     },
     onData: (result, source) => {
+      if (keepPreviousData && lastReceivedArgsHash && currentArgsHash.value) {
+        lastReceivedArgsHash.value = currentArgsHash.value
+      }
+
       if (source === 'subscription') {
         logger.query({
           name: fnName,
@@ -327,10 +338,11 @@ export function createConvexQueryState<
 
   if (keepPreviousData && lastSettledData) {
     watch(
-      () => resource.asyncData.data.value,
-      (value) => {
-        if (value != null) {
+      [() => resource.asyncData.data.value, () => resource.pending.value, () => currentArgsHash.value],
+      ([value, pending, argsHash]) => {
+        if (value != null && !pending && argsHash) {
           lastSettledData!.value = value
+          lastSettledArgsHash!.value = argsHash
         }
       },
       { immediate: true },
@@ -344,6 +356,20 @@ export function createConvexQueryState<
   const data = computed<DataT | null>(() =>
     resource.asyncData.data.value != null ? applyTransform(resource.asyncData.data.value) : null,
   )
+  const isStale = computed(() => {
+    if (!keepPreviousData || !lastSettledData || !lastSettledArgsHash || !lastReceivedArgsHash) {
+      return false
+    }
+    if (isSkipped.value || resource.pending.value === false) return false
+    if (resource.asyncData.error.value) return false
+
+    const currentArgsKey = currentArgsHash.value
+    if (!currentArgsKey || lastSettledArgsHash.value === null) return false
+    if (lastSettledArgsHash.value === currentArgsKey) return false
+    if (lastReceivedArgsHash.value === currentArgsKey) return false
+
+    return resource.asyncData.data.value !== null && resource.asyncData.data.value !== undefined
+  })
 
   return {
     resultData: {
@@ -353,6 +379,7 @@ export function createConvexQueryState<
       clear: resource.asyncData.clear,
       pending: resource.pending as Ref<boolean>,
       status: resource.status as Ref<QueryStatus>,
+      isStale: isStale as Ref<boolean>,
     },
     resolvePromise: () => Promise.resolve(resource.asyncData).then(() => {}),
   }

@@ -1,16 +1,14 @@
 import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 
-import { useEvent } from 'nitropack/runtime'
-import { useRuntimeConfig } from '#imports'
+import { useRequestEvent, useRuntimeConfig } from '#imports'
 
-import { resolveServerAuthToken } from '../../utils/auth-token'
 import { ConvexCallError, toConvexError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
 import type { ConvexServerAuthMode } from '../../utils/types'
-import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
+import { resolveRequestAuthToken } from './auth-resolver'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
 type ServerConvexHelperName = 'serverConvexQuery' | 'serverConvexMutation' | 'serverConvexAction'
@@ -63,39 +61,12 @@ function createServerConvexError(message: string, context: ServerConvexErrorCont
   return new ConvexCallError(`[${context.helper}] ${message}`, context)
 }
 
-function getCookieHeader(event: H3Event): string {
-  const directHeader = (event as { headers?: { get?: (name: string) => string | null } }).headers
-  if (directHeader?.get) {
-    return directHeader.get('cookie') ?? ''
-  }
-
-  const nodeHeaders = (
-    event as { node?: { req?: { headers?: Record<string, string | string[] | undefined> } } }
-  ).node?.req?.headers
-  const raw = nodeHeaders?.cookie
-  if (Array.isArray(raw)) return raw.join('; ')
-  return typeof raw === 'string' ? raw : ''
-}
-
 async function resolveAuthToken(
   event: H3Event,
   options: ServerConvexOptions | undefined,
 ): Promise<string | undefined> {
   const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
-  const cookieHeader = getCookieHeader(event)
-  return await resolveServerAuthToken({
-    auth: options?.auth ?? 'auto',
-    authToken: options?.authToken,
-    cookieHeader,
-    siteUrl: config.siteUrl,
-    getCachedToken: config.auth.cache.enabled ? getCachedAuthToken : undefined,
-    setCachedToken: config.auth.cache.enabled
-      ? async (sessionToken, token) => {
-          const ttl = config.auth.cache.ttl ?? 60
-          await setCachedAuthToken(sessionToken, token, ttl)
-        }
-      : undefined,
-  })
+  return await resolveRequestAuthToken(event, config, options)
 }
 
 async function executeConvexOperation<T>(
@@ -208,10 +179,10 @@ function resolveServerEvent(
 ): H3Event {
   if (event) return event
   try {
-    const currentEvent = useEvent()
+    const currentEvent = useRequestEvent()
     if (currentEvent) return currentEvent
   } catch (resolveError) {
-    // useEvent() throws when called outside a Nitro request context.
+    // useRequestEvent() can throw when called outside a Nitro request context.
     // Preserve the original error as cause for debugging unexpected failures.
     throw new ConvexCallError(
       `[${helper}] No H3 event available for ${functionPath}. Pass the event explicitly or call this helper inside a Nitro request context.`,

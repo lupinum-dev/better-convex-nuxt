@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### 🚀 Enhancements
+
+- `useConvexQuery()` and `useConvexPaginatedQuery()` now expose `isStale`, making it possible to distinguish "showing previous args while refreshing" from initial loading, skipped queries, and steady-state data.
+- Server auth resolution is now shared per request across SSR hydration and `serverConvexQuery()` / `serverConvexMutation()` / `serverConvexAction()`, avoiding repeated cookie parsing and token exchange within the same Nitro request.
+
+### 📖 Documentation
+
+- Added docs and API reference coverage for `isStale` and request-scoped server auth reuse.
+
+### Scope
+
+- No new auth modes were added in this pass.
+- No headless or external-session auth support was added in this pass.
+- No `expectAuth` query mode was added in this pass.
+
 ## v0.4.0
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.3.4...v0.4.0)
@@ -207,4 +224,3 @@ The module now supports running a local Convex backend via `@convex-dev/convex-v
 ### ❤️ Contributors
 
 - Mat4m0 <matthias.amon@me.com>
-

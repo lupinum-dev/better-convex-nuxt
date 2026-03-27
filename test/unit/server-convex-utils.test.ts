@@ -18,16 +18,13 @@ const { useRuntimeConfigMock } = vi.hoisted(() => ({
   })),
 }))
 
-const { useEventMock } = vi.hoisted(() => ({
-  useEventMock: vi.fn(() => undefined),
+const { useRequestEventMock } = vi.hoisted(() => ({
+  useRequestEventMock: vi.fn(() => undefined),
 }))
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: useRuntimeConfigMock,
-}))
-
-vi.mock('nitropack/runtime', () => ({
-  useEvent: useEventMock,
+  useRequestEvent: useRequestEventMock,
 }))
 
 function createEvent(cookie?: string): H3Event {
@@ -47,7 +44,7 @@ function createEvent(cookie?: string): H3Event {
 describe('server Convex fetch helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    useEventMock.mockReturnValue(undefined)
+    useRequestEventMock.mockReturnValue(undefined)
     useRuntimeConfigMock.mockReturnValue({
       public: {
         convex: {
@@ -98,7 +95,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    useEventMock.mockReturnValue(createEvent() as never)
+    useRequestEventMock.mockReturnValue(createEvent() as never)
 
     const result = await serverConvexQuery({ _path: 'notes:list' } as never, { limit: 2 } as never)
 
@@ -211,7 +208,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    useEventMock.mockReturnValue(createEvent() as never)
+    useRequestEventMock.mockReturnValue(createEvent() as never)
 
     // Args with 'headers' or 'node' should NOT be mistaken for an H3 event
     await serverConvexQuery(
@@ -227,15 +224,19 @@ describe('server Convex fetch helpers', () => {
   })
 
   it('auth:auto exchanges cookie for token and attaches bearer header', async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ value: { ok: true } }), {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
+        return new Response(JSON.stringify({ token: 'auto.jwt.token' }), {
           headers: { 'content-type': 'application/json' },
-        }),
-    )
-    const tokenFetchMock = vi.fn(async () => ({ token: 'auto.jwt.token' }))
+        })
+      }
+
+      return new Response(JSON.stringify({ value: { ok: true } }), {
+        headers: { 'content-type': 'application/json' },
+      })
+    })
     vi.stubGlobal('fetch', fetchMock)
-    vi.stubGlobal('$fetch', tokenFetchMock)
 
     await serverConvexQuery(
       createEvent('better-auth.session_token=session123'),
@@ -244,13 +245,49 @@ describe('server Convex fetch helpers', () => {
       { auth: 'auto' },
     )
 
-    expect(tokenFetchMock).toHaveBeenCalledTimes(1)
-    const firstCall = fetchMock.mock.calls[0]
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const authCall = fetchMock.mock.calls[0]
+    expect(authCall).toBeDefined()
+    const [authUrl, authInit] = authCall as unknown as [string, RequestInit]
+    expect(authUrl).toBe('http://127.0.0.1:3220/api/auth/convex/token')
+    expect(authInit.headers).toMatchObject({
+      Cookie: 'better-auth.session_token=session123',
+    })
+
+    const firstCall = fetchMock.mock.calls[1]
     expect(firstCall).toBeDefined()
     const [, init] = firstCall as unknown as [string, RequestInit]
     expect(init.headers).toMatchObject({
       Authorization: 'Bearer auto.jwt.token',
     })
+  })
+
+  it('reuses one auth resolution across multiple serverConvex calls in the same request', async () => {
+    const event = createEvent('better-auth.session_token=session123')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
+        return new Response(JSON.stringify({ token: 'auto.jwt.token' }), {
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+
+      return new Response(JSON.stringify({ value: { ok: true } }), {
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await serverConvexQuery(event, { _path: 'notes:list' } as never, {} as never, { auth: 'auto' })
+    await serverConvexMutation(event, { _path: 'notes:add' } as never, { title: 'Hello' } as never, {
+      auth: 'auto',
+    })
+
+    expect(
+      fetchMock.mock.calls.filter((call) =>
+        String((call as unknown[])[0]).endsWith('/api/auth/convex/token'),
+      ),
+    ).toHaveLength(1)
   })
 
   it('auth:required throws when session cookie is missing', async () => {
@@ -300,15 +337,12 @@ describe('server Convex fetch helpers', () => {
   })
 
   it('auth:none never calls token exchange endpoint', async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ value: { ok: true } }), {
-          headers: { 'content-type': 'application/json' },
-        }),
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ value: { ok: true } }), {
+        headers: { 'content-type': 'application/json' },
+      }),
     )
-    const tokenFetchMock = vi.fn(async () => ({ token: 'should-not-be-used' }))
     vi.stubGlobal('fetch', fetchMock)
-    vi.stubGlobal('$fetch', tokenFetchMock)
 
     await serverConvexQuery(
       createEvent('better-auth.session_token=session123'),
@@ -317,7 +351,11 @@ describe('server Convex fetch helpers', () => {
       { auth: 'none' },
     )
 
-    expect(tokenFetchMock).not.toHaveBeenCalled()
+    expect(
+      fetchMock.mock.calls.filter((call) =>
+        String((call as unknown[])[0]).endsWith('/api/auth/convex/token'),
+      ),
+    ).toHaveLength(0)
     const firstCall = fetchMock.mock.calls[0]
     expect(firstCall).toBeDefined()
     const [, init] = firstCall as unknown as [string, RequestInit]
