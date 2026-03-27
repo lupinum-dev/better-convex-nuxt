@@ -111,6 +111,48 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     ).rejects.toThrow(/duplicate key/i)
   })
 
+  it('auto-derives key from query name and shares state without explicit key', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('users:get-current:shared:auto-key')
+
+    const useSharedA = defineSharedConvexQuery({ query, args: {} })
+    const useSharedB = defineSharedConvexQuery({ query, args: {} })
+
+    const { result, wrapper } = await captureInNuxt(
+      () => ({
+        first: useSharedA(),
+        second: useSharedB(),
+      }),
+      { convex },
+    )
+
+    expect(result.first).toBe(result.second)
+
+    convex.emitQueryResultByPath('users:get-current:shared:auto-key', { id: 'u1' })
+    await waitFor(() => result.first.data.value?.id === 'u1')
+    expect(result.second.data.value?.id).toBe('u1')
+
+    wrapper.unmount()
+  })
+
+  it('auto-derived keys are isolated for different queries', async () => {
+    const queryA = mockFnRef<'query'>('users:get-current:shared:auto-iso-a')
+    const queryB = mockFnRef<'query'>('users:get-current:shared:auto-iso-b')
+
+    const useSharedA = defineSharedConvexQuery({ query: queryA, args: {} })
+    const useSharedB = defineSharedConvexQuery({ query: queryB, args: {} })
+
+    const { result } = await captureInNuxt(
+      () => ({
+        first: useSharedA(),
+        second: useSharedB(),
+      }),
+      { convex: new MockConvexClient() },
+    )
+
+    expect(result.first).not.toBe(result.second)
+  })
+
   it('throws when same key and query use different static args', async () => {
     const query = mockFnRef<'query'>('users:get-current:shared:args-collision')
 

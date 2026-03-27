@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createOptimisticContext } from '../../src/runtime/composables/optimistic-updates'
+import { createOptimisticContext, prependTo, appendTo, removeFrom, updateIn } from '../../src/runtime/composables/optimistic-updates'
 import { mockFnRef } from '../helpers/mock-convex-client'
 import type { FunctionReference } from 'convex/server'
 
@@ -239,5 +239,97 @@ describe('optimistic-updates fluent API', () => {
     const store = new FakeOptimisticLocalStore()
     const ctx = createOptimisticContext(store as never)
     expect(ctx.store).toBe(store)
+  })
+
+  // ==========================================================================
+  // v0.4.0: standalone helpers (prependTo, appendTo, removeFrom, updateIn)
+  // ==========================================================================
+
+  describe('standalone helpers', () => {
+    it('prependTo prepends item to existing array', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list:prepend')
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(query, {}, [{ _id: 'n1', title: 'First' }, { _id: 'n2', title: 'Second' }])
+
+      prependTo(ctx, query as never, {} as never, { _id: 'n0', title: 'Prepended' } as never)
+
+      const result = store.getQuery(query, {}) as Array<{ _id: string; title: string }>
+      expect(result.map((i) => i._id)).toEqual(['n0', 'n1', 'n2'])
+      expect(result[0]?.title).toBe('Prepended')
+    })
+
+    it('appendTo appends item to existing array', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list:append')
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(query, {}, [{ _id: 'n1' }, { _id: 'n2' }])
+
+      appendTo(ctx, query as never, {} as never, { _id: 'n3' } as never)
+
+      const result = store.getQuery(query, {}) as Array<{ _id: string }>
+      expect(result.map((i) => i._id)).toEqual(['n1', 'n2', 'n3'])
+    })
+
+    it('removeFrom removes matching items by predicate', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list:remove')
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(query, {}, [
+        { _id: 'n1', title: 'Keep' },
+        { _id: 'n2', title: 'Remove' },
+        { _id: 'n3', title: 'Keep' },
+      ])
+
+      removeFrom(ctx, query as never, {} as never, ((item: { _id: string }) => item._id === 'n2') as never)
+
+      const result = store.getQuery(query, {}) as Array<{ _id: string }>
+      expect(result.map((i) => i._id)).toEqual(['n1', 'n3'])
+    })
+
+    it('updateIn updates matching items in-place', () => {
+      const store = new FakeOptimisticLocalStore()
+      const query = mockFnRef<'query'>('notes:list:update-in')
+      const ctx = createOptimisticContext(store as never)
+
+      store.setQuery(query, {}, [
+        { _id: 'n1', title: 'Old', done: false },
+        { _id: 'n2', title: 'Keep', done: false },
+        { _id: 'n3', title: 'Old', done: false },
+      ])
+
+      updateIn(
+        ctx,
+        query as never,
+        {} as never,
+        ((item: { _id: string }) => item._id === 'n1') as never,
+        ((item: { _id: string; title: string; done: boolean }) => ({ ...item, title: 'Updated', done: true })) as never,
+      )
+
+      const result = store.getQuery(query, {}) as Array<{ _id: string; title: string; done: boolean }>
+      expect(result[0]).toEqual({ _id: 'n1', title: 'Updated', done: true })
+      expect(result[1]).toEqual({ _id: 'n2', title: 'Keep', done: false })
+      expect(result[2]).toEqual({ _id: 'n3', title: 'Old', done: false })
+    })
+
+    it('prependTo and appendTo handle undefined current value gracefully', () => {
+      const store = new FakeOptimisticLocalStore()
+      const queryPrepend = mockFnRef<'query'>('notes:list:prepend-empty')
+      const queryAppend = mockFnRef<'query'>('notes:list:append-empty')
+      const ctx = createOptimisticContext(store as never)
+
+      // No prior value in store
+      prependTo(ctx, queryPrepend as never, {} as never, { _id: 'n1' } as never)
+      appendTo(ctx, queryAppend as never, {} as never, { _id: 'n2' } as never)
+
+      const prependResult = store.getQuery(queryPrepend, {}) as Array<{ _id: string }>
+      const appendResult = store.getQuery(queryAppend, {}) as Array<{ _id: string }>
+
+      expect(prependResult).toEqual([{ _id: 'n1' }])
+      expect(appendResult).toEqual([{ _id: 'n2' }])
+    })
   })
 })

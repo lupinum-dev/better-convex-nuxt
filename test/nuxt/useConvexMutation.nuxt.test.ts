@@ -167,6 +167,38 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(wrapped.data).toEqual(direct)
   })
 
+  it('returns a callable function with state properties attached', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:callable-shape')
+    convex.setMutationHandler('testing:callable-shape', async (args) => {
+      return { ok: true, args }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+    // Must be callable as a function
+    expect(typeof result).toBe('function')
+
+    // Must have state properties
+    expect(result.data).toBeDefined()
+    expect(result.status).toBeDefined()
+    expect(result.pending).toBeDefined()
+    expect(result.error).toBeDefined()
+    expect(typeof result.reset).toBe('function')
+
+    // Initial state
+    expect(result.status.value).toBe('idle')
+    expect(result.pending.value).toBe(false)
+    expect(result.error.value).toBeNull()
+    expect(result.data.value).toBeUndefined()
+
+    // Callable directly (not via .execute)
+    const response = await result({ value: 'test' } as never)
+    expect(response).toEqual({ ok: true, args: { value: 'test' } })
+    expect(result.status.value).toBe('success')
+    expect(result.data.value).toEqual({ ok: true, args: { value: 'test' } })
+  })
+
   it('keeps state bound to the latest in-flight request', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:race-mutation')
