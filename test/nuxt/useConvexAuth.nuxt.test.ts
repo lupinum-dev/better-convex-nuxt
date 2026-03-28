@@ -60,9 +60,10 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     wrapper.unmount()
   })
 
-  it('computes authenticated state from token + user and signOut clears local state', async () => {
-    const signOut = vi.fn(async () => ({ data: { success: true }, error: null }))
+  it('computes authenticated state from token + user and signOut deauths through the invalidate hook', async () => {
+    const signOut = vi.fn(async () => undefined)
     const hookSpy = vi.fn()
+    const invalidateSpy = vi.fn()
 
     const { result, wrapper } = await captureInNuxt(
       () => {
@@ -72,6 +73,9 @@ describe('useConvexAuth (Nuxt runtime)', () => {
         token.value = 'jwt.token'
         user.value = { id: 'u1' }
         nuxtApp.hook('convex:auth:changed' as any, hookSpy)
+        nuxtApp.hook('better-convex:auth:invalidate', async () => {
+          invalidateSpy()
+        })
         return useConvexAuth()
       },
       {
@@ -82,9 +86,12 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(result.isAuthenticated.value).toBe(true)
     await result.signOut()
     await Promise.resolve()
+    expect(invalidateSpy).toHaveBeenCalledTimes(1)
     expect(signOut).toHaveBeenCalledTimes(1)
     expect(result.user.value).toBeNull()
     expect(result.isAuthenticated.value).toBe(false)
+    expect(result.authError.value).toBeNull()
+    expect(result.isSessionExpired.value).toBe(false)
     expect(hookSpy).toHaveBeenCalledTimes(1)
     expect(hookSpy).toHaveBeenCalledWith({
       isAuthenticated: false,
@@ -92,6 +99,73 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       user: null,
       previousUser: { id: 'u1' },
     })
+    wrapper.unmount()
+  })
+
+  it('signOut throws on upstream failure but keeps local auth state deauthed', async () => {
+    const signOut = vi.fn(async () => {
+      throw new Error('logout failed')
+    })
+    const invalidateSpy = vi.fn()
+
+    const { result, wrapper } = await captureInNuxt(
+      () => {
+        const nuxtApp = useNuxtApp()
+        const token = useState<string | null>('convex:token')
+        const user = useState<unknown>('convex:user')
+        token.value = 'jwt.token'
+        user.value = { id: 'u1' }
+        nuxtApp.hook('better-convex:auth:invalidate', async () => {
+          invalidateSpy()
+        })
+        return useConvexAuth()
+      },
+      {
+        auth: { signOut },
+      },
+    )
+
+    await expect(result.signOut()).rejects.toThrow('logout failed')
+
+    expect(invalidateSpy).toHaveBeenCalledTimes(1)
+    expect(signOut).toHaveBeenCalledTimes(1)
+    expect(result.user.value).toBeNull()
+    expect(result.isAuthenticated.value).toBe(false)
+    expect(result.isSessionExpired.value).toBe(false)
+    expect(result.authError.value).toBeInstanceOf(Error)
+    expect(result.authError.value?.message).toBe('logout failed')
+    wrapper.unmount()
+  })
+
+  it('dedupes concurrent signOut calls', async () => {
+    const signOut = vi.fn(
+      async () =>
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 10)
+        }),
+    )
+
+    const { result, wrapper } = await captureInNuxt(
+      () => {
+        const nuxtApp = useNuxtApp()
+        const token = useState<string | null>('convex:token')
+        const user = useState<unknown>('convex:user')
+        token.value = 'jwt.token'
+        user.value = { id: 'u1' }
+        nuxtApp.hook('better-convex:auth:invalidate', async () => {})
+        return useConvexAuth()
+      },
+      {
+        auth: { signOut },
+      },
+    )
+
+    const first = result.signOut()
+    const second = result.signOut()
+
+    await Promise.all([first, second])
+
+    expect(signOut).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
 

@@ -37,6 +37,41 @@ export function getBetterAuthSessionToken(cookieHeader: string): string | null {
   return null
 }
 
+function isBetterAuthSessionCookieName(cookieName: string): boolean {
+  return (
+    cookieName === BETTER_AUTH_SESSION_COOKIE_NAME
+    || cookieName === BETTER_AUTH_SECURE_SESSION_COOKIE_NAME
+  )
+}
+
+function isCookieExplicitlyCleared(setCookieValue: string): boolean {
+  const lower = setCookieValue.toLowerCase()
+  return (
+    /(?:^|;\s*)max-age=0(?:;|$)/.test(lower)
+    || /(?:^|;\s*)expires=thu,\s*01 jan 1970 00:00:00 gmt(?:;|$)/.test(lower)
+  )
+}
+
+export function clearsBetterAuthSessionCookie(setCookieHeaders: string[]): boolean {
+  for (const header of setCookieHeaders) {
+    const firstPart = header.split(';', 1)[0]?.trim()
+    if (!firstPart) continue
+
+    const separatorIndex = firstPart.indexOf('=')
+    if (separatorIndex <= 0) continue
+
+    const cookieName = firstPart.slice(0, separatorIndex).trim()
+    const cookieValue = firstPart.slice(separatorIndex + 1)
+
+    if (!isBetterAuthSessionCookieName(cookieName)) continue
+    if (!cookieValue || isCookieExplicitlyCleared(header)) {
+      return true
+    }
+  }
+
+  return false
+}
+
 export async function exchangeConvexAuthToken(
   siteUrl: string,
   cookieHeader: string,

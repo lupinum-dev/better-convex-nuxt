@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { fetchAuthToken } from '../../src/runtime/utils/convex-cache'
+import { clearsBetterAuthSessionCookie } from '../../src/runtime/utils/auth-token'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -41,5 +42,39 @@ describe('fetchAuthToken', () => {
     expect(fetchMock).toHaveBeenCalledWith('https://demo.convex.site/api/auth/convex/token', {
       headers: { Cookie: 'better-auth.session_token=abc' },
     })
+  })
+})
+
+describe('clearsBetterAuthSessionCookie', () => {
+  it('detects an empty better-auth session cookie', () => {
+    expect(
+      clearsBetterAuthSessionCookie(['better-auth.session_token=; Path=/; HttpOnly']),
+    ).toBe(true)
+  })
+
+  it('detects a secure session cookie cleared via Max-Age=0', () => {
+    expect(
+      clearsBetterAuthSessionCookie(['__Secure-better-auth.session_token=deleted; Max-Age=0; Path=/']),
+    ).toBe(true)
+  })
+
+  it('detects a session cookie cleared via epoch expires', () => {
+    expect(
+      clearsBetterAuthSessionCookie([
+        'better-auth.session_token=deleted; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/',
+      ]),
+    ).toBe(true)
+  })
+
+  it('ignores active session cookies', () => {
+    expect(
+      clearsBetterAuthSessionCookie(['better-auth.session_token=active-token; Path=/; HttpOnly']),
+    ).toBe(false)
+  })
+
+  it('ignores unrelated cookies', () => {
+    expect(
+      clearsBetterAuthSessionCookie(['theme=dark; Path=/', 'session=abc; Path=/']),
+    ).toBe(false)
   })
 })

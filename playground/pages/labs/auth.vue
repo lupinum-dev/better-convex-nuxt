@@ -217,6 +217,7 @@
         </NuxtLink>
         <button v-else class="btn btn-secondary" @click="signOut">Sign Out</button>
       </div>
+      <p v-if="signOutError" class="status-text">{{ signOutError }}</p>
     </div>
   </div>
 </template>
@@ -234,6 +235,7 @@ const roleOptions = ['admin', 'member', 'viewer'] as const
 const isUpdatingRole = ref(false)
 const claimDemoStatus = ref('')
 const pluginInitError = ref('')
+const signOutError = ref('')
 
 type ExtendedAuthClient = NonNullable<ReturnType<typeof useExtendedAuthClient>>
 type ExtendedSessionData = ExtendedAuthClient['$Infer']['Session']
@@ -344,7 +346,12 @@ async function changeRole(role: (typeof roleOptions)[number]) {
 }
 
 async function signOut() {
-  await authSignOut()
+  signOutError.value = ''
+  try {
+    await authSignOut()
+  } catch (error) {
+    signOutError.value = `Sign out failed: ${formatErrorMessage(error)}`
+  }
 }
 </script>
 

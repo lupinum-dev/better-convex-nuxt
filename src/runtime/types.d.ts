@@ -59,9 +59,12 @@ declare module '#app' {
     }
     /** Internal in-flight promise for useConvexAuth().refreshAuth() dedupe */
     _convexRefreshAuthPromise?: Promise<void> | null
+    /** Internal in-flight promise for useConvexAuth().signOut() dedupe */
+    _convexSignOutPromise?: Promise<void> | null
   }
   interface RuntimeNuxtHooks {
     'better-convex:auth:refresh': () => void | Promise<void>
+    'better-convex:auth:invalidate': () => void | Promise<void>
     'convex:unauthorized': (payload: ConvexUnauthorizedPayload) => void | Promise<void>
     'convex:mutation:success': (payload: ConvexCallSuccessPayload<'mutation'>) => void | Promise<void>
     'convex:mutation:error': (payload: ConvexCallErrorPayload<'mutation'>) => void | Promise<void>

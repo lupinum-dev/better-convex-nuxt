@@ -405,10 +405,13 @@ declare module '#app' {
   interface NuxtApp {
     $convex?: ConvexClient
     $auth?: AuthClient
+    _convexRefreshAuthPromise?: Promise<void> | null
+    _convexSignOutPromise?: Promise<void> | null
   }
 
   interface RuntimeNuxtHooks {
     'better-convex:auth:refresh': () => void | Promise<void>
+    'better-convex:auth:invalidate': () => void | Promise<void>
     /** Fired when a Convex call returns a 401/403. Handle sign-out + redirect here. */
     'convex:unauthorized': (payload: ConvexUnauthorizedPayload) => void | Promise<void>
     /** Fired after every successful mutation. */

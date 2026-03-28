@@ -15,39 +15,51 @@ describe('auth proxy canonical redirect handling', () => {
   })
 
   describe('getCanonicalRedirectTarget', () => {
-    it('returns redirect target for cross-origin canonical redirect', () => {
+    it('returns redirect target only when redirect stays on the allowed origin', () => {
       const target = getCanonicalRedirectTarget(
-        'https://my-domain.com/api/auth/sign-up/email?foo=bar',
-        'https://www.my-domain.com/api/auth/sign-up/email?foo=bar',
+        'https://app.example.com/api/auth/sign-up/email?foo=bar',
+        'https://demo.convex.site/api/auth/sign-up/email?foo=bar',
+        'https://demo.convex.site',
       )
-      expect(target).toBe('https://www.my-domain.com/api/auth/sign-up/email?foo=bar')
+      expect(target).toBe('https://demo.convex.site/api/auth/sign-up/email?foo=bar')
+    })
+
+    it('returns null for canonical-looking redirects to a different origin', () => {
+      const target = getCanonicalRedirectTarget(
+        'https://demo.convex.site/api/auth/sign-up/email?foo=bar',
+        'https://evil.example.com/api/auth/sign-up/email?foo=bar',
+        'https://demo.convex.site',
+      )
+      expect(target).toBeNull()
     })
 
     it('returns null for different path redirects', () => {
       const target = getCanonicalRedirectTarget(
-        'https://my-domain.com/api/auth/sign-up/email',
-        'https://www.my-domain.com/oauth/authorize',
+        'https://demo.convex.site/api/auth/sign-up/email',
+        'https://demo.convex.site/oauth/authorize',
+        'https://demo.convex.site',
       )
       expect(target).toBeNull()
     })
   })
 
   describe('fetchWithCanonicalRedirects', () => {
-    it('follows canonical cross-origin redirects internally', async () => {
+    it('follows canonical redirects only when they stay on the allowed origin', async () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(
           new Response('', {
             status: 307,
             headers: {
-              location: 'https://www.my-domain.com/api/auth/sign-up/email?foo=bar',
+              location: 'https://demo.convex.site/api/auth/sign-up/email?foo=bar',
             },
           }),
         )
         .mockResolvedValueOnce(new Response('ok', { status: 200 }))
 
       const response = await fetchWithCanonicalRedirects({
-        target: 'https://my-domain.com/api/auth/sign-up/email?foo=bar',
+        target: 'https://demo.convex.cloud/api/auth/sign-up/email?foo=bar',
+        allowedOrigin: 'https://demo.convex.site',
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: '{"email":"test@example.com"}',
@@ -62,11 +74,11 @@ describe('auth proxy canonical redirect handling', () => {
       if (!firstCall || !secondCall) {
         throw new Error('Expected two fetch calls')
       }
-      expect(firstCall[0]).toBe('https://my-domain.com/api/auth/sign-up/email?foo=bar')
-      expect(secondCall[0]).toBe('https://www.my-domain.com/api/auth/sign-up/email?foo=bar')
+      expect(firstCall[0]).toBe('https://demo.convex.cloud/api/auth/sign-up/email?foo=bar')
+      expect(secondCall[0]).toBe('https://demo.convex.site/api/auth/sign-up/email?foo=bar')
     })
 
-    it('does not follow non-canonical redirects (oauth style)', async () => {
+    it('does not follow provider redirects (oauth style)', async () => {
       const fetchMock = vi.fn().mockResolvedValueOnce(
         new Response('', {
           status: 302,
@@ -77,7 +89,8 @@ describe('auth proxy canonical redirect handling', () => {
       )
 
       const response = await fetchWithCanonicalRedirects({
-        target: 'https://www.my-domain.com/api/auth/sign-in/social',
+        target: 'https://demo.convex.site/api/auth/sign-in/social',
+        allowedOrigin: 'https://demo.convex.site',
         method: 'GET',
         headers: {},
         fetchImpl: fetchMock,
@@ -87,14 +100,36 @@ describe('auth proxy canonical redirect handling', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    it('stops after max canonical redirects', async () => {
+    it('does not follow canonical-looking redirects to an off-origin host', async () => {
+      const fetchMock = vi.fn().mockResolvedValueOnce(
+        new Response('', {
+          status: 307,
+          headers: {
+            location: 'https://evil.example.com/api/auth/sign-up/email',
+          },
+        }),
+      )
+
+      const response = await fetchWithCanonicalRedirects({
+        target: 'https://demo.convex.site/api/auth/sign-up/email',
+        allowedOrigin: 'https://demo.convex.site',
+        method: 'POST',
+        headers: {},
+        fetchImpl: fetchMock,
+      })
+
+      expect(response.status).toBe(307)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('stops after max allowed-origin canonical redirects', async () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(
           new Response('', {
             status: 307,
             headers: {
-              location: 'https://www.my-domain.com/api/auth/sign-up/email',
+              location: 'https://demo.convex.site/api/auth/sign-up/email',
             },
           }),
         )
@@ -102,7 +137,7 @@ describe('auth proxy canonical redirect handling', () => {
           new Response('', {
             status: 307,
             headers: {
-              location: 'https://auth.my-domain.com/api/auth/sign-up/email',
+              location: 'https://demo.convex.site/api/auth/sign-up/email',
             },
           }),
         )
@@ -110,13 +145,14 @@ describe('auth proxy canonical redirect handling', () => {
           new Response('', {
             status: 307,
             headers: {
-              location: 'https://next.my-domain.com/api/auth/sign-up/email',
+              location: 'https://demo.convex.site/api/auth/sign-up/email',
             },
           }),
         )
 
       const response = await fetchWithCanonicalRedirects({
-        target: 'https://my-domain.com/api/auth/sign-up/email',
+        target: 'https://demo.convex.cloud/api/auth/sign-up/email',
+        allowedOrigin: 'https://demo.convex.site',
         method: 'POST',
         headers: {},
         maxRedirects: 2,

@@ -13,6 +13,7 @@ export function normalizePathname(pathname: string): string {
 export function getCanonicalRedirectTarget(
   currentTarget: string,
   locationHeader: string | null,
+  allowedOrigin: string,
 ): string | null {
   if (!locationHeader) {
     return null
@@ -28,9 +29,8 @@ export function getCanonicalRedirectTarget(
 
     const samePath = normalizePathname(toUrl.pathname) === normalizePathname(fromUrl.pathname)
     const sameQuery = toUrl.search === fromUrl.search
-    const isCrossOrigin = toUrl.origin !== fromUrl.origin
 
-    if (samePath && sameQuery && isCrossOrigin) {
+    if (samePath && sameQuery && toUrl.origin === allowedOrigin) {
       return toUrl.toString()
     }
   } catch {
@@ -44,6 +44,7 @@ type FetchLike = typeof fetch
 
 interface FetchWithCanonicalRedirectsOptions {
   target: string
+  allowedOrigin: string
   method: string
   headers: Record<string, string>
   body?: RequestInit['body']
@@ -54,6 +55,7 @@ interface FetchWithCanonicalRedirectsOptions {
 
 export async function fetchWithCanonicalRedirects({
   target,
+  allowedOrigin,
   method,
   headers,
   body,
@@ -80,6 +82,7 @@ export async function fetchWithCanonicalRedirects({
     const canonicalTarget = getCanonicalRedirectTarget(
       resolvedTarget,
       response.headers.get('location'),
+      allowedOrigin,
     )
     if (!canonicalTarget) {
       break

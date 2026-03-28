@@ -28,11 +28,10 @@ export interface UseConvexAuthReturn {
   authError: Readonly<Ref<Error | null>>
   /**
    * Signs out the user from both Better Auth and Convex.
-   * Clears local state immediately, then calls Better Auth's signOut().
+   * De-authenticates Convex immediately, clears local auth state, then calls Better Auth's signOut().
+   * Throws if upstream logout fails.
    */
-  signOut: () => Promise<
-    ReturnType<AuthClient['signOut']> extends Promise<infer T> ? T | null : null
-  >
+  signOut: () => Promise<void>
 }
 
 /**
@@ -67,24 +66,6 @@ export interface UseConvexAuthReturn {
 export function useConvexAuth(): UseConvexAuthReturn {
   const auth = useConvexAuthController()
 
-  const signOut = async () => {
-    // Clear local state immediately for responsive UI
-    auth.token.value = null
-    auth.user.value = null
-    auth.rawAuthError.value = null
-
-    if (auth.client) {
-      try {
-        return await auth.client.signOut()
-      } catch (e) {
-        console.warn('signOut request failed:', e)
-        return null
-      }
-    }
-
-    return null
-  }
-
   return {
     user: readonly(auth.user),
     isAuthenticated: auth.isAuthenticated,
@@ -94,6 +75,6 @@ export function useConvexAuth(): UseConvexAuthReturn {
     client: auth.client,
     refreshAuth: auth.refreshAuth,
     authError: readonly(auth.authError),
-    signOut,
+    signOut: auth.signOut,
   }
 }

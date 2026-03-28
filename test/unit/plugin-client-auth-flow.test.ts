@@ -12,14 +12,20 @@ const {
   tokenMock,
   clientState,
   MockConvexClient,
+  hookRegistry,
 } = vi.hoisted(() => {
   const clientState = {
     fetchToken: null as null | ((input: { forceRefreshToken: boolean }) => Promise<string | null>),
   }
+  const hookRegistry = new Map<string, (...args: unknown[]) => unknown>()
 
   class MockConvexClient {
-    setAuth(fetchToken: (input: { forceRefreshToken: boolean }) => Promise<string | null>) {
+    setAuth(
+      fetchToken: (input: { forceRefreshToken: boolean }) => Promise<string | null>,
+      onChange?: (isAuthenticated: boolean) => void,
+    ) {
       clientState.fetchToken = fetchToken
+      onChange?.(false)
     }
   }
 
@@ -33,6 +39,7 @@ const {
     tokenMock: vi.fn(),
     clientState,
     MockConvexClient,
+    hookRegistry,
   }
 })
 
@@ -73,6 +80,7 @@ describe('plugin.client auth flow', () => {
     vi.clearAllMocks()
     stateStore.clear()
     clientState.fetchToken = null
+    hookRegistry.clear()
 
     useRuntimeConfigMock.mockReturnValue({
       public: {
@@ -124,7 +132,9 @@ describe('plugin.client auth flow', () => {
     const plugin = (await import('../../src/runtime/plugin.client')).default
     await plugin({
       payload: { serverRendered: false },
-      hook: vi.fn(),
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
       provide: vi.fn(),
     } as never)
 
@@ -153,7 +163,9 @@ describe('plugin.client auth flow', () => {
     const plugin = (await import('../../src/runtime/plugin.client')).default
     await plugin({
       payload: { serverRendered: false },
-      hook: vi.fn(),
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
       provide: vi.fn(),
     } as never)
 
@@ -169,5 +181,39 @@ describe('plugin.client auth flow', () => {
     expect(stateStore.get('convex:authError')?.value).toBeNull()
     expect(stateStore.get('convex:token')?.value).toBe('jwt-after-login')
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('invalidates the live auth transport and clears local auth state', async () => {
+    tokenMock.mockResolvedValue({
+      data: { token: 'jwt-from-token-exchange' },
+      error: null,
+    })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin({
+      payload: { serverRendered: false },
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
+      provide: vi.fn(),
+    } as never)
+
+    const fetchToken = clientState.fetchToken
+    expect(fetchToken).toBeTypeOf('function')
+
+    await fetchToken!({ forceRefreshToken: false })
+    stateStore.get('convex:user')!.value = { id: 'u1' }
+    stateStore.get('convex:authError')!.value = 'stale error'
+
+    const invalidate = hookRegistry.get('better-convex:auth:invalidate')
+    expect(invalidate).toBeTypeOf('function')
+
+    await invalidate?.()
+
+    expect(stateStore.get('convex:token')?.value).toBeNull()
+    expect(stateStore.get('convex:user')?.value).toBeNull()
+    expect(stateStore.get('convex:authError')?.value).toBeNull()
+    await expect(clientState.fetchToken?.({ forceRefreshToken: false }) ?? Promise.resolve(null)).resolves.toBeNull()
   })
 })

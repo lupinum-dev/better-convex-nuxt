@@ -16,8 +16,13 @@ import {
   buildBlockedOriginMessage,
   buildMissingSiteUrlMessage,
 } from '../../../utils/auth-errors'
+import {
+  clearsBetterAuthSessionCookie,
+  getBetterAuthSessionToken,
+} from '../../../utils/auth-token'
 import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
+import { serverConvexClearAuthCache } from '../../utils/auth-cache'
 import {
   getRequestBodySizeError,
   getResponseBodySizeError,
@@ -51,6 +56,7 @@ export default defineEventHandler(async (event: H3Event) => {
   const startTime = import.meta.dev ? Date.now() : 0
   const requestId = import.meta.dev ? crypto.randomUUID() : ''
   const requestUrl = getRequestURL(event)
+  const incomingSessionToken = getBetterAuthSessionToken(event.headers.get('cookie') ?? '')
 
   if (!siteUrl) {
     throw createError({
@@ -59,6 +65,7 @@ export default defineEventHandler(async (event: H3Event) => {
       data: { code: 'BCN_AUTH_PROXY_SITE_URL_MISSING' },
     })
   }
+  const upstreamOrigin = new URL(siteUrl).origin
 
   // Use configured authRoute for path stripping (escape special regex chars)
   const authRoutePattern = getAuthRoutePattern(authRoute)
@@ -143,6 +150,7 @@ export default defineEventHandler(async (event: H3Event) => {
     // but preserve intentional redirects to providers (OAuth, etc).
     const response = await fetchWithCanonicalRedirects({
       target,
+      allowedOrigin: upstreamOrigin,
       method: event.method,
       headers: forwardHeaders,
       body,
@@ -158,6 +166,7 @@ export default defineEventHandler(async (event: H3Event) => {
     // Common misconfig path: Convex site URL reachable, but Better Auth routes are missing.
     const isCriticalAuthEndpoint =
       sanitizedPath === '/convex/token' || sanitizedPath === '/get-session'
+    const redirectLocation = response.headers.get('location')
     if (isCriticalAuthEndpoint && (response.status === 404 || response.status >= 500)) {
       throw createError({
         statusCode: 502,
@@ -168,6 +177,37 @@ export default defineEventHandler(async (event: H3Event) => {
           path: normalizedPath,
         },
       })
+    }
+    if (isCriticalAuthEndpoint && response.status >= 300 && response.status < 400) {
+      let redirectOrigin: string | null = null
+      try {
+        redirectOrigin = redirectLocation ? new URL(redirectLocation, target).origin : null
+      } catch {
+        redirectOrigin = null
+      }
+
+      if (!redirectOrigin || redirectOrigin !== upstreamOrigin) {
+        throw createError({
+          statusCode: 502,
+          message: buildAuthProxyUpstreamStatusMessage(siteUrl, normalizedPath, response.status),
+          data: {
+            code: 'BCN_AUTH_PROXY_UPSTREAM_STATUS',
+            upstreamStatus: response.status,
+            path: normalizedPath,
+          },
+        })
+      }
+    }
+
+    const cookies = response.headers.getSetCookie?.() || []
+    const shouldClearSessionCache =
+      Boolean(incomingSessionToken)
+      && response.status >= 200
+      && response.status < 400
+      && clearsBetterAuthSessionCookie(cookies)
+
+    if (shouldClearSessionCache && incomingSessionToken) {
+      await serverConvexClearAuthCache(incomingSessionToken)
     }
 
     // Dev mode: log the request
@@ -186,7 +226,6 @@ export default defineEventHandler(async (event: H3Event) => {
     // Preserve intentional redirects (OAuth flows, etc).
     if (response.status >= 300 && response.status < 400) {
       setResponseStatus(event, response.status, response.statusText)
-      const cookies = response.headers.getSetCookie?.() || []
       for (const cookie of cookies) {
         appendResponseHeader(event, 'set-cookie', cookie)
       }
@@ -221,7 +260,6 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Forward response headers (except some that shouldn't be forwarded)
     // Handle Set-Cookie specially (can have multiple values)
-    const cookies = response.headers.getSetCookie?.() || []
     for (const cookie of cookies) {
       appendResponseHeader(event, 'set-cookie', cookie)
     }

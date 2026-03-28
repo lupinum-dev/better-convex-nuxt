@@ -237,6 +237,19 @@ export function initAuthClient(
     }
   })
 
+  nuxtApp.hook('better-convex:auth:invalidate', async () => {
+    logger.auth({ phase: 'client-invalidate', outcome: 'success', details: { traceId } })
+    lastTokenValidation = 0
+    inflightFetch = null
+    convexToken.value = null
+    convexUser.value = null
+    convexAuthError.value = null
+
+    await new Promise<void>((resolve) => {
+      convexClientInstance.setAuth(async () => null, () => resolve())
+    })
+  })
+
   if (typeof window !== 'undefined' && import.meta.dev) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).__auth_client__ = authClient

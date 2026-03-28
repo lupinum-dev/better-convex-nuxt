@@ -21,12 +21,14 @@ export interface ConvexAuthController {
   user: Ref<ConvexUser | null>
   pending: Ref<boolean>
   rawAuthError: Ref<string | null>
+  wasAuthenticated: Ref<boolean>
   authError: ComputedRef<Error | null>
   isAuthenticated: ComputedRef<boolean>
   isAnonymous: ComputedRef<boolean>
   isSessionExpired: ComputedRef<boolean>
   client: AuthClient | null
   refreshAuth: () => Promise<void>
+  signOut: () => Promise<void>
   awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
 }
 
@@ -103,6 +105,43 @@ export function useConvexAuthController(): ConvexAuthController {
     return appState._convexRefreshAuthPromise
   }
 
+  const signOut = async (): Promise<void> => {
+    const appState = nuxtApp as typeof nuxtApp & {
+      _convexSignOutPromise?: Promise<void> | null
+    }
+    if (appState._convexSignOutPromise) {
+      return appState._convexSignOutPromise
+    }
+
+    appState._convexSignOutPromise = (async () => {
+      pending.value = true
+      rawAuthError.value = null
+
+      try {
+        if (import.meta.client) {
+          await nuxtApp.callHook('better-convex:auth:invalidate')
+        }
+
+        token.value = null
+        user.value = null
+        rawAuthError.value = null
+        wasAuthenticated.value = false
+
+        if (client) {
+          await client.signOut()
+        }
+      } catch (error) {
+        rawAuthError.value = error instanceof Error ? error.message : String(error)
+        throw error
+      } finally {
+        pending.value = false
+        appState._convexSignOutPromise = null
+      }
+    })()
+
+    return appState._convexSignOutPromise
+  }
+
   const awaitAuthReady = async (options?: { timeoutMs?: number }): Promise<boolean> => {
     if (!import.meta.client) {
       return isAuthenticated.value
@@ -126,12 +165,14 @@ export function useConvexAuthController(): ConvexAuthController {
     user,
     pending,
     rawAuthError,
+    wasAuthenticated,
     authError,
     isAuthenticated,
     isAnonymous,
     isSessionExpired,
     client,
     refreshAuth,
+    signOut,
     awaitAuthReady,
   }
 }
