@@ -77,6 +77,12 @@ export {
 
 // Validation — Convex validator → Standard Schema conversion
 export { toConvexSchema, useConvexSchema } from '../utils/convex-schema'
+export {
+  defineConvexSchema,
+  type ConvexSchemaDefinition,
+  type ConvexSchemaMeta,
+  type ConvexSchemaFieldMeta,
+} from '../utils/define-convex-schema'
 export type { ValidateOption } from '../utils/resolve-validator'
 export type { StandardSchemaV1 } from '../utils/standard-schema'
 

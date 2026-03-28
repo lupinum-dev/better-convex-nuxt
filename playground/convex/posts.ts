@@ -10,6 +10,7 @@ import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
 import { getUser, authorize, requireSameOrg } from './lib/permissions'
+import { createPostArgs, updatePostArgs } from '../shared/schemas/post'
 
 // ============================================
 // LIST
@@ -89,10 +90,7 @@ export const get = query({
 // Creates a new post. User must have post.create permission.
 
 export const create = mutation({
-  args: {
-    title: v.string(),
-    content: v.string(),
-  },
+  args: createPostArgs,
   handler: async (ctx, args) => {
     // authorize() does:
     // 1. Checks user is logged in
@@ -118,11 +116,7 @@ export const create = mutation({
 // Updates a post. Checks ownership for members.
 
 export const update = mutation({
-  args: {
-    id: v.id('posts'),
-    title: v.optional(v.string()),
-    content: v.optional(v.string()),
-  },
+  args: updatePostArgs,
   handler: async (ctx, args) => {
     // Get post first (need it for ownership check)
     const post = await ctx.db.get(args.id)
