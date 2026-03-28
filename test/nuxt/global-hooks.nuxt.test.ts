@@ -18,7 +18,7 @@ describe('global hooks (Nuxt runtime)', () => {
       const mutation = mockFnRef<'mutation'>('testing:hook-success')
       convex.setMutationHandler('testing:hook-success', async (args) => ({
         id: 'new',
-        ...args,
+        ...(args as Record<string, unknown>),
       }))
 
       const hookSpy = vi.fn()
@@ -33,7 +33,7 @@ describe('global hooks (Nuxt runtime)', () => {
       await result({ title: 'Test' } as never)
 
       expect(hookSpy).toHaveBeenCalledTimes(1)
-      const payload = hookSpy.mock.calls[0][0]
+      const payload = hookSpy.mock.calls[0]![0]
       expect(payload.functionPath).toBe('testing:hook-success')
       expect(payload.operation).toBe('mutation')
       expect(payload.args).toEqual({ title: 'Test' })
@@ -60,7 +60,7 @@ describe('global hooks (Nuxt runtime)', () => {
       await expect(result({} as never)).rejects.toThrow('boom')
 
       expect(hookSpy).toHaveBeenCalledTimes(1)
-      const payload = hookSpy.mock.calls[0][0]
+      const payload = hookSpy.mock.calls[0]![0]
       expect(payload.functionPath).toBe('testing:hook-fail')
       expect(payload.operation).toBe('mutation')
       expect(payload.error).toBeInstanceOf(ConvexCallError)
@@ -88,7 +88,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       await expect(result({} as never)).rejects.toThrow()
 
-      const payload = hookSpy.mock.calls[0][0]
+      const payload = hookSpy.mock.calls[0]![0]
       expect(payload.error.category).toBe('auth')
       expect(payload.error.isRecoverable).toBe(true)
     })
@@ -103,7 +103,7 @@ describe('global hooks (Nuxt runtime)', () => {
       const action = mockFnRef<'action'>('testing:action-hook-success')
       convex.setActionHandler('testing:action-hook-success', async (args) => ({
         sent: true,
-        ...args,
+        ...(args as Record<string, unknown>),
       }))
 
       const hookSpy = vi.fn()
@@ -118,7 +118,7 @@ describe('global hooks (Nuxt runtime)', () => {
       await result({ to: 'user@test.com' } as never)
 
       expect(hookSpy).toHaveBeenCalledTimes(1)
-      const payload = hookSpy.mock.calls[0][0]
+      const payload = hookSpy.mock.calls[0]![0]
       expect(payload.functionPath).toBe('testing:action-hook-success')
       expect(payload.operation).toBe('action')
       expect(payload.args).toEqual({ to: 'user@test.com' })
@@ -144,7 +144,7 @@ describe('global hooks (Nuxt runtime)', () => {
       await expect(result({} as never)).rejects.toThrow('action boom')
 
       expect(hookSpy).toHaveBeenCalledTimes(1)
-      const payload = hookSpy.mock.calls[0][0]
+      const payload = hookSpy.mock.calls[0]![0]
       expect(payload.functionPath).toBe('testing:action-hook-fail')
       expect(payload.operation).toBe('action')
       expect(payload.error).toBeInstanceOf(ConvexCallError)

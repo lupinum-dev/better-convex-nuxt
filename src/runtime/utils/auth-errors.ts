@@ -1,3 +1,4 @@
+import { ConvexCallError } from './call-result'
 import { getSiteUrlResolutionHint } from './convex-config'
 
 const PREFIX = 'NuxtConvexError'
@@ -75,5 +76,25 @@ export function buildClientAuthResponseErrorMessage(rawMessage: string): string 
 
   return prefix(
     'Authentication failed. Check your Nuxt auth proxy route and Convex auth configuration.',
+  )
+}
+
+/**
+ * Wrap a Better Auth error response into a ConvexCallError.
+ *
+ * Better Auth methods return `{ data, error }` where error is typically
+ * `{ message: string; status?: number; code?: string }`.
+ * The category is auto-derived by ConvexCallError's constructor.
+ */
+export function wrapBetterAuthError(error: unknown, operation: string): ConvexCallError {
+  const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : null
+  return new ConvexCallError(
+    (typeof record?.message === 'string' ? record.message : null) || `${operation} failed`,
+    {
+      code: typeof record?.code === 'string' ? record.code : undefined,
+      status: typeof record?.status === 'number' ? record.status : undefined,
+      operation,
+      cause: error,
+    },
   )
 }

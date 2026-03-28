@@ -480,6 +480,14 @@ export {}
           name: 'useConvexAuthInternal',
           from: resolver.resolve('./runtime/composables/useConvexAuthInternal'),
         },
+        {
+          name: 'useConvexAuthFlow',
+          from: resolver.resolve('./runtime/composables/useConvexAuthFlow'),
+        },
+        {
+          name: 'useAuthRedirect',
+          from: resolver.resolve('./runtime/composables/useAuthRedirect'),
+        },
       ])
 
       // Register auth components

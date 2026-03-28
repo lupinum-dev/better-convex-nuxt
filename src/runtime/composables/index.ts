@@ -62,6 +62,19 @@ export {
 
 export { useConvexStorageUrl } from './useConvexStorageUrl'
 
+// Auth flow composables (available when auth enabled)
+export {
+  useConvexAuthFlow,
+  type UseConvexAuthFlowOptions,
+  type UseConvexAuthFlowReturn,
+} from './useConvexAuthFlow'
+export {
+  useAuthRedirect,
+  resolveRedirectTarget,
+  validateRedirectPath,
+  type UseAuthRedirectReturn,
+} from './useAuthRedirect'
+
 // Permission composables (opt-in via module config)
 export {
   createPermissions,

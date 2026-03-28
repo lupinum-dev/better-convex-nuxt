@@ -33,6 +33,8 @@ function noopLogger() {
     action: vi.fn(),
     connection: vi.fn(),
     upload: vi.fn(),
+    debug: vi.fn(),
+    time: vi.fn(() => vi.fn()),
   }
 }
 
