@@ -1,9 +1,9 @@
 import type { H3Event } from 'h3'
 import type {
-  McpRequestExtra,
   McpToolAnnotations,
   McpToolCallbackResult,
   McpToolDefinition,
+  McpToolExtra,
 } from '@nuxtjs/mcp-toolkit/server'
 import { convexToZodFields } from 'convex-helpers/server/zod4'
 import type { ZodValidatorFromConvex } from 'convex-helpers/server/zod4'
@@ -349,7 +349,7 @@ function _buildToolDefinition<
 
   const wrappedHandler = async (
     args: InferSchemaData<S> & { _confirmed?: boolean },
-    extra: McpRequestExtra,
+    extra: McpToolExtra,
   ): Promise<McpToolCallbackResult> => {
     try {
       // ── Step 1: Resolve event + auth once ─────────────────────────────
@@ -442,7 +442,7 @@ function _buildToolDefinition<
 
   async function runHandlerWithConfirmation(
     args: InferSchemaData<S> & { _confirmed?: boolean },
-    extra: McpRequestExtra,
+    extra: McpToolExtra,
     ctx: ConvexToolMiddlewareCtx<P>,
   ): Promise<McpToolCallbackResult> {
     const confirmed = args._confirmed === true

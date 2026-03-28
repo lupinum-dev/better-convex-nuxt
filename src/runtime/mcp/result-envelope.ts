@@ -1,4 +1,4 @@
-import type { CallToolResult } from '@nuxtjs/mcp-toolkit/server'
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 import type { ConvexErrorCategory, ConvexErrorIssue } from '../utils/types'
 import type { PreviewResult } from './types'

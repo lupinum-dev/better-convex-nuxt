@@ -1,8 +1,8 @@
 import type { H3Event } from 'h3'
 import type {
-  McpRequestExtra,
   McpToolAnnotations,
   McpToolCache,
+  McpToolExtra,
   McpToolCallbackResult,
 } from '@nuxtjs/mcp-toolkit/server'
 import type { PropertyValidators } from 'convex/values'
@@ -105,7 +105,7 @@ export interface DefineConvexToolOptions<
   /** Shared Convex schema — provides input validation and metadata. */
   schema: S
   /** Tool handler. Return plain data — the framework wraps it. */
-  handler: (args: InferSchemaData<S>, extra: McpRequestExtra) => unknown | Promise<unknown>
+  handler: (args: InferSchemaData<S>, extra: McpToolExtra) => unknown | Promise<unknown>
 
   // ── Identity ──────────────────────────────────────────────
   /** Tool name. Default: derived from filename by mcp-toolkit. */

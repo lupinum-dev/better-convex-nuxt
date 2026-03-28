@@ -1,4 +1,4 @@
-import type { McpRequestExtra } from '@nuxtjs/mcp-toolkit/server'
+import type { McpToolExtra } from '@nuxtjs/mcp-toolkit/server'
 import { v } from 'convex/values'
 import { useEvent } from 'nitropack/runtime'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
@@ -18,7 +18,7 @@ vi.mock('nitropack/runtime', () => ({
   useEvent: vi.fn(),
 }))
 
-const mockExtra = {} as McpRequestExtra
+const mockExtra = {} as McpToolExtra
 
 // ============================================================================
 // Helpers
@@ -30,6 +30,10 @@ function getStructured(result: unknown): Record<string, unknown> {
 
 function getContent(result: unknown): string {
   return (result as any).content?.[0]?.text
+}
+
+function getSchemaDescription(schema: unknown): string | undefined {
+  return (schema as { description?: string } | undefined)?.description
 }
 
 function mockAuth(auth: { role: string; userId: string } | null) {
@@ -275,10 +279,10 @@ describe('defineConvexTool', () => {
 
       const tool = defineConvexTool({ schema, handler: () => ({}) })
 
-      expect(tool.inputSchema!.format.description).toBe(
+      expect(getSchemaDescription(tool.inputSchema?.format)).toBe(
         'Content format. One of: markdown, html. Default: "markdown"',
       )
-      expect(tool.inputSchema!.title.description).toBe(
+      expect(getSchemaDescription(tool.inputSchema?.title)).toBe(
         'Post title. (e.g. "My First Post", "Weekly Update")',
       )
     })
@@ -700,10 +704,14 @@ describe('defineConvexTool', () => {
       const tool = defineConvexTool({
         schema,
         auth: 'optional',
-        middleware: async (_args, _ctx, next) => {
+        middleware: (async (
+          _args: unknown,
+          _ctx: unknown,
+          next: () => Promise<unknown>,
+        ) => {
           await next()
           // Forgot to return!
-        },
+        }) as any,
         handler: () => ({ done: true }),
       })
 
