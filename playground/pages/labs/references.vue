@@ -164,7 +164,7 @@ const serverAuthResult = ref<Record<string, unknown> | null>(null)
 
 const notesCount = computed(() => notes.value?.length ?? 0)
 const notesPreview = computed(() => JSON.stringify((notes.value ?? []).slice(0, 5), null, 2))
-const authStateMessage = computed(() => authError.value ?? 'Client auth composables are healthy.')
+const authStateMessage = computed(() => authError.value?.message ?? 'Client auth composables are healthy.')
 const taskResultPreview = computed(() =>
   JSON.stringify(
     taskResult.value ?? {

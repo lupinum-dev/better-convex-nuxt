@@ -33,8 +33,8 @@
           />
         </div>
 
-        <div v-if="error" class="error">
-          {{ error }}
+        <div v-if="errorMessage" class="error">
+          {{ errorMessage }}
         </div>
 
         <button type="submit" class="btn btn-primary" :disabled="isLoading">
@@ -51,7 +51,12 @@
 </template>
 
 <script setup lang="ts">
-const { signUp, refreshAuth } = useConvexAuth()
+definePageMeta({
+  skipConvexAuth: true,
+})
+
+const { client } = useConvexAuth()
+const { execute, pending, error } = useConvexAuthActions()
 
 const form = reactive({
   name: '',
@@ -59,31 +64,25 @@ const form = reactive({
   password: '',
 })
 
-const isLoading = ref(false)
-const error = ref<string | null>(null)
+const isLoading = computed(() => pending.value)
+const errorMessage = computed(() => error.value?.message ?? null)
 
 async function handleSignUp() {
-  isLoading.value = true
-  error.value = null
-
   try {
-    const result = await signUp.email({
-      name: form.name,
-      email: form.email,
-      password: form.password,
-    })
-
-    if (result.error) {
-      error.value = result.error.message || 'Sign up failed'
-      return
+    if (!client) {
+      throw new Error('Auth client unavailable')
     }
 
-    await refreshAuth()
-    window.location.href = '/'
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unexpected error occurred'
-  } finally {
-    isLoading.value = false
+    await execute(
+      () => client.signUp.email({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+      }),
+      { redirectTo: '/' },
+    )
+  } catch {
+    // Error state is already normalized by useConvexAuthActions().
   }
 }
 </script>

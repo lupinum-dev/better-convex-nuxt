@@ -33,8 +33,8 @@
           </span>
         </div>
         <div class="state-item">
-          <span class="label">token</span>
-          <span class="value">{{ token ? '(present)' : '(none)' }}</span>
+          <span class="label">convex jwt</span>
+          <span class="value">{{ isAuthenticated ? '(hydrated)' : '(none)' }}</span>
         </div>
         <div class="state-item">
           <span class="label">user</span>
@@ -228,7 +228,7 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, token, user, signOut: authSignOut } = useConvexAuth()
+const { isAuthenticated, isPending, user, signOut: authSignOut } = useConvexAuth()
 const nuxtApp = useNuxtApp()
 const roleOptions = ['admin', 'member', 'viewer'] as const
 const isUpdatingRole = ref(false)

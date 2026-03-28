@@ -1,5 +1,4 @@
 export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
-export { useConvexAuthInternal, type UseConvexAuthInternalReturn } from './useConvexAuthInternal'
 export { useConvex } from './useConvex'
 export { ConvexCallError } from '../utils/call-result'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'
@@ -61,16 +60,10 @@ export { useConvexStorageUrl } from './useConvexStorageUrl'
 
 // Auth flow composables (available when auth enabled)
 export {
-  useConvexAuthFlow,
-  type UseConvexAuthFlowOptions,
-  type UseConvexAuthFlowReturn,
-} from './useConvexAuthFlow'
-export {
-  useAuthRedirect,
-  resolveRedirectTarget,
-  validateRedirectPath,
-  type UseAuthRedirectReturn,
-} from './useAuthRedirect'
+  useConvexAuthActions,
+  type UseConvexAuthActionsOptions,
+  type UseConvexAuthActionsReturn,
+} from './useConvexAuthActions'
 
 // Validation — Convex validator → Standard Schema conversion
 export { toConvexSchema, useConvexSchema } from '../utils/convex-schema'

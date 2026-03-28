@@ -3,7 +3,7 @@ import { useRoute, useRuntimeConfig, navigateTo } from '#imports'
 import { normalizeConvexAuthConfig } from '../utils/auth-config'
 import { validateRedirectPath, resolveRedirectTarget } from '../utils/redirect-safety'
 
-// Re-export pure functions so existing consumers keep working
+// Keep the pure redirect helpers colocated with the internal auth redirect composable.
 export { validateRedirectPath, resolveRedirectTarget }
 
 export interface UseAuthRedirectReturn {

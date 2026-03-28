@@ -49,12 +49,12 @@
           <h2>Session Info</h2>
           <div class="info-grid">
             <div class="info-item">
-              <span class="label">Has Token</span>
-              <span class="value">{{ token ? 'Yes' : 'No' }}</span>
+              <span class="label">Authenticated</span>
+              <span class="value">{{ isAuthenticated ? 'Yes' : 'No' }}</span>
             </div>
             <div class="info-item">
-              <span class="label">Token Preview</span>
-              <span class="value id">{{ tokenPreview }}</span>
+              <span class="label">Session Status</span>
+              <span class="value id">{{ isPending ? 'Checking...' : isAuthenticated ? 'JWT ready' : 'No JWT' }}</span>
             </div>
           </div>
         </section>
@@ -83,7 +83,7 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, token, signOut: convexSignOut } = useConvexAuth()
+const { isAuthenticated, isPending, signOut: convexSignOut } = useConvexAuth()
 const nuxtApp = useNuxtApp()
 
 const isSigningOut = ref(false)
@@ -93,11 +93,6 @@ const convexError = ref(false)
 
 // Get user profile with role from our users table
 const { data: user, pending: isLoadingUser } = await useConvexQuery(api.users.getCurrentUser, {})
-
-const tokenPreview = computed(() => {
-  if (!token.value) return 'None'
-  return token.value.substring(0, 20) + '...'
-})
 
 function getConvexClient() {
   const client = nuxtApp.$convex

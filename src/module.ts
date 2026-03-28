@@ -485,16 +485,8 @@ export {}
       addImports([
         { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
         {
-          name: 'useConvexAuthInternal',
-          from: resolver.resolve('./runtime/composables/useConvexAuthInternal'),
-        },
-        {
-          name: 'useConvexAuthFlow',
-          from: resolver.resolve('./runtime/composables/useConvexAuthFlow'),
-        },
-        {
-          name: 'useAuthRedirect',
-          from: resolver.resolve('./runtime/composables/useAuthRedirect'),
+          name: 'useConvexAuthActions',
+          from: resolver.resolve('./runtime/composables/useConvexAuthActions'),
         },
       ])
 

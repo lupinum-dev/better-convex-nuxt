@@ -1,16 +1,8 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
-import { watch } from 'vue'
-
-import { useState, computed, readonly, useNuxtApp } from '#imports'
-
-import {
-  STATE_KEY_AUTH_ERROR,
-  STATE_KEY_PENDING,
-  STATE_KEY_TOKEN,
-  STATE_KEY_USER,
-} from '../utils/constants'
+import { readonly } from '#imports'
 import type { ConvexUser } from '../utils/types'
+import { useConvexAuthController } from './internal/useConvexAuthController'
 
 // Re-export for convenience
 export type { ConvexUser } from '../utils/types'
@@ -28,6 +20,12 @@ export interface UseConvexAuthReturn {
   isAnonymous: ComputedRef<boolean>
   /** True when the user was previously authenticated but lost their session */
   isSessionExpired: ComputedRef<boolean>
+  /** Better Auth client for direct sign-in, sign-up, and provider actions. */
+  client: AuthClient | null
+  /** Force refresh Convex auth state after a Better Auth session change. */
+  refreshAuth: () => Promise<void>
+  /** Last auth error as an Error instance, or null when healthy. */
+  authError: Readonly<Ref<Error | null>>
   /**
    * Signs out the user from both Better Auth and Convex.
    * Clears local state immediately, then calls Better Auth's signOut().
@@ -59,49 +57,25 @@ export interface UseConvexAuthReturn {
  * </script>
  * ```
  *
- * To sign in and refresh Convex auth state afterwards:
+ * To sign in directly with Better Auth and refresh Convex auth state afterwards:
  * ```ts
- * import { createAuthClient } from 'better-auth/vue'
- * const authClient = createAuthClient({ baseURL: '/api/auth' })
- * const { refreshAuth } = useConvexAuthInternal()
- * await authClient.signIn.email({ email, password })
+ * const { client, refreshAuth } = useConvexAuth()
+ * await client!.signIn.email({ email, password })
  * await refreshAuth()
  * ```
  */
 export function useConvexAuth(): UseConvexAuthReturn {
-  const nuxtApp = useNuxtApp()
-  const token = useState<string | null>(STATE_KEY_TOKEN, () => null)
-  const user = useState<ConvexUser | null>(STATE_KEY_USER, () => null)
-  // SSR auth is already settled before render, so default false on server to avoid
-  // hydration mismatches. CSR-first loads still start pending=true until client init.
-  const pending = useState<boolean>(STATE_KEY_PENDING, () => import.meta.client)
-  const authError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
-
-  const isAuthenticated = computed(() => !!token.value && !!user.value)
-  const isAnonymous = computed(() => !pending.value && !isAuthenticated.value)
-
-  // Track whether the user was ever authenticated in this session.
-  // Uses useState so the flag survives SSR → client hydration.
-  const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () => !!token.value && !!user.value)
-  if (isAuthenticated.value) {
-    wasAuthenticated.value = true
-  }
-  watch(isAuthenticated, (val) => {
-    if (val) wasAuthenticated.value = true
-  })
-  const isSessionExpired = computed(() => !pending.value && !isAuthenticated.value && wasAuthenticated.value)
+  const auth = useConvexAuthController()
 
   const signOut = async () => {
-    const authClient = nuxtApp.$auth as AuthClient | undefined
-
     // Clear local state immediately for responsive UI
-    token.value = null
-    user.value = null
-    authError.value = null
+    auth.token.value = null
+    auth.user.value = null
+    auth.rawAuthError.value = null
 
-    if (authClient) {
+    if (auth.client) {
       try {
-        return await authClient.signOut()
+        return await auth.client.signOut()
       } catch (e) {
         console.warn('signOut request failed:', e)
         return null
@@ -112,11 +86,14 @@ export function useConvexAuth(): UseConvexAuthReturn {
   }
 
   return {
-    user: readonly(user),
-    isAuthenticated,
-    isPending: readonly(pending),
-    isAnonymous,
-    isSessionExpired,
+    user: readonly(auth.user),
+    isAuthenticated: auth.isAuthenticated,
+    isPending: readonly(auth.pending),
+    isAnonymous: auth.isAnonymous,
+    isSessionExpired: auth.isSessionExpired,
+    client: auth.client,
+    refreshAuth: auth.refreshAuth,
+    authError: readonly(auth.authError),
     signOut,
   }
 }

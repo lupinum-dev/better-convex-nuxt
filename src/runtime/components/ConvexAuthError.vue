@@ -32,7 +32,7 @@
  */
 import { computed, ref } from 'vue'
 import { useConvexAuth } from '../composables/useConvexAuth'
-import { useConvexAuthInternal } from '../composables/useConvexAuthInternal'
+import { useConvexAuthController } from '../composables/internal/useConvexAuthController'
 import type { ConvexErrorCategory } from '../utils/types'
 
 interface StructuredAuthError {
@@ -49,8 +49,8 @@ defineSlots<{
     retry: () => Promise<void>
     /** True while a retry is in progress. */
     retrying: boolean
-    /** Raw error string for backwards compatibility. */
-    error: string | null
+    /** Raw auth error instance, or null when unavailable. */
+    error: Error | null
     /** Structured error with category and recoverability info. */
     structuredError: StructuredAuthError | null
     /** Whether the error is likely recoverable (shorthand). */
@@ -58,8 +58,8 @@ defineSlots<{
   }): unknown
 }>()
 
-const { isAuthenticated, isPending, user } = useConvexAuth()
-const { token, authError, refreshAuth } = useConvexAuthInternal()
+const { isAuthenticated, isPending, user, authError } = useConvexAuth()
+const { token, refreshAuth } = useConvexAuthController()
 
 /**
  * Detect auth error state:
@@ -105,7 +105,7 @@ const structuredError = computed<StructuredAuthError | null>(() => {
   const isTokenDecode = !!(token.value && !user.value)
   const isExplicitFailure = !!authError.value
   return {
-    message: authError.value || (isTokenDecode ? 'Failed to decode auth token' : 'Authentication error'),
+    message: authError.value?.message || (isTokenDecode ? 'Failed to decode auth token' : 'Authentication error'),
     category: 'auth' as ConvexErrorCategory,
     isRecoverable: true,
     isTokenDecode,

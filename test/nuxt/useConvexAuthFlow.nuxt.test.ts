@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { useNuxtApp, useState } from '#imports'
 
-import { useConvexAuthFlow } from '../../src/runtime/composables/useConvexAuthFlow'
+import { useConvexAuthActions } from '../../src/runtime/composables/useConvexAuthActions'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
@@ -32,7 +32,7 @@ function initAuthState() {
   })
 }
 
-describe('useConvexAuthFlow (Nuxt runtime)', () => {
+describe('useConvexAuthActions (Nuxt runtime)', () => {
   // Tests with success-only refresh hooks come first.
   // Tests that register failing hooks come last, since the shared nuxtApp
   // accumulates hook listeners across tests within the same describe block.
@@ -41,7 +41,7 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(
       () => {
         initAuthState()
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )
@@ -53,13 +53,15 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
     expect(fnResult).toEqual({ data: { user: { id: 'u1' } }, error: null })
     expect(result.error.value).toBeNull()
     expect(result.pending.value).toBe(false)
+    expect(result.status.value).toBe('success')
+    expect(result.data.value).toEqual({ data: { user: { id: 'u1' } }, error: null })
   })
 
   it('sets pending=true during execution', async () => {
     const { result } = await captureInNuxt(
       () => {
         initAuthState()
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )
@@ -82,7 +84,7 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(
       () => {
         initAuthState()
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )
@@ -100,7 +102,7 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(
       () => {
         initAuthState()
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )
@@ -116,13 +118,14 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
     // Second call succeeds — error should be cleared
     await result.execute(async () => ({ data: 'ok', error: null }))
     expect(result.error.value).toBeNull()
+    expect(result.data.value).toEqual({ data: 'ok', error: null })
   })
 
   it('detects Better Auth { error } response and throws ConvexCallError', async () => {
     const { result } = await captureInNuxt(
       () => {
         initAuthState()
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )
@@ -135,16 +138,18 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
     ).rejects.toThrow(ConvexCallError)
 
     expect(result.error.value).toBeInstanceOf(ConvexCallError)
-    expect(result.error.value!.message).toBe('Invalid credentials')
-    expect(result.error.value!.status).toBe(401)
-    expect(result.error.value!.category).toBe('auth')
+    const convexError = result.error.value as ConvexCallError
+    expect(convexError.message).toBe('Invalid credentials')
+    expect(convexError.status).toBe(401)
+    expect(convexError.category).toBe('auth')
+    expect(result.status.value).toBe('error')
   })
 
   it('wraps non-ConvexCallError thrown by fn', async () => {
     const { result } = await captureInNuxt(
       () => {
         initAuthState()
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )
@@ -163,7 +168,7 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(
       () => {
         initAuthState()
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )
@@ -198,7 +203,7 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
           token.value = 'should-not-be-set'
         })
 
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )
@@ -211,6 +216,25 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
     ).rejects.toThrow()
 
     expect(refreshCalled.value).toBe(false)
+  })
+
+  it('reset clears data and error and returns to idle', async () => {
+    const { result } = await captureInNuxt(
+      () => {
+        initAuthState()
+        return useConvexAuthActions()
+      },
+      { convexConfig: AUTH_CONFIG },
+    )
+
+    await result.execute(async () => ({ data: 'ok', error: null }))
+    expect(result.status.value).toBe('success')
+
+    result.reset()
+
+    expect(result.status.value).toBe('idle')
+    expect(result.error.value).toBeNull()
+    expect(result.data.value).toBeUndefined()
   })
 
   // This test registers a FAILING refresh hook on the shared nuxtApp.
@@ -233,7 +257,7 @@ describe('useConvexAuthFlow (Nuxt runtime)', () => {
           throw new Error('Token refresh failed')
         })
 
-        return useConvexAuthFlow()
+        return useConvexAuthActions()
       },
       { convexConfig: AUTH_CONFIG },
     )

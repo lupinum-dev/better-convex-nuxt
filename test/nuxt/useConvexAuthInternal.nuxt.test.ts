@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { useNuxtApp, useState } from '#imports'
 
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
-import { useConvexAuthInternal } from '../../src/runtime/composables/useConvexAuthInternal'
+import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
-describe('useConvexAuthInternal (Nuxt runtime)', () => {
+describe('useConvexAuthController (Nuxt runtime)', () => {
   it('refreshAuth resolves after refresh hook updates token', async () => {
     const { result } = await captureInNuxt(() => {
       const nuxtApp = useNuxtApp()
@@ -23,7 +23,7 @@ describe('useConvexAuthInternal (Nuxt runtime)', () => {
         user.value = { id: 'u2' }
       })
 
-      return { auth: useConvexAuth(), internal: useConvexAuthInternal() }
+      return { auth: useConvexAuth(), internal: useConvexAuthController() }
     })
 
     await result.internal.refreshAuth()
@@ -48,7 +48,7 @@ describe('useConvexAuthInternal (Nuxt runtime)', () => {
         pending.value = false
       }, 10)
 
-      return { auth: useConvexAuth(), internal: useConvexAuthInternal() }
+      return { auth: useConvexAuth(), internal: useConvexAuthController() }
     })
 
     await expect(result.internal.awaitAuthReady({ timeoutMs: 200 })).resolves.toBe(true)
@@ -63,18 +63,19 @@ describe('useConvexAuthInternal (Nuxt runtime)', () => {
       pending.value = true
       token.value = null
       user.value = null
-      return useConvexAuthInternal()
+      return useConvexAuthController()
     })
 
     await expect(result.awaitAuthReady({ timeoutMs: 5 })).resolves.toBe(false)
   })
 
   it('exposes token, authError, refreshAuth, and awaitAuthReady', async () => {
-    const { result } = await captureInNuxt(() => useConvexAuthInternal())
+    const { result } = await captureInNuxt(() => useConvexAuthController())
 
     expect('token' in result).toBe(true)
     expect('authError' in result).toBe(true)
     expect('refreshAuth' in result).toBe(true)
     expect('awaitAuthReady' in result).toBe(true)
+    expect(result.authError.value).toBeNull()
   })
 })

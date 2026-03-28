@@ -8,37 +8,44 @@ import ConvexAuthError from '../../src/runtime/components/ConvexAuthError.vue'
 import ConvexAuthLoading from '../../src/runtime/components/ConvexAuthLoading.vue'
 import ConvexUnauthenticated from '../../src/runtime/components/ConvexUnauthenticated.vue'
 
-const { useConvexAuthMock, useConvexAuthInternalMock } = vi.hoisted(() => ({
+const { useConvexAuthMock, useConvexAuthControllerMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
-  useConvexAuthInternalMock: vi.fn(),
+  useConvexAuthControllerMock: vi.fn(),
 }))
 
 vi.mock('../../src/runtime/composables/useConvexAuth', () => ({
   useConvexAuth: useConvexAuthMock,
 }))
 
-vi.mock('../../src/runtime/composables/useConvexAuthInternal', () => ({
-  useConvexAuthInternal: useConvexAuthInternalMock,
+vi.mock('../../src/runtime/composables/internal/useConvexAuthController', () => ({
+  useConvexAuthController: useConvexAuthControllerMock,
 }))
 
 afterEach(() => {
   useConvexAuthMock.mockReset()
-  useConvexAuthInternalMock.mockReset()
+  useConvexAuthControllerMock.mockReset()
 })
 
 test('<ConvexAuthenticated> renders slot only when authenticated and not pending', async () => {
   useConvexAuthMock.mockReturnValue({
-    token: ref('jwt'),
     user: ref({ id: 'u1' }),
     isAuthenticated: ref(true),
     isPending: ref(false),
     authError: ref(null),
+    client: null,
     signOut: vi.fn(),
     refreshAuth: vi.fn(),
   })
-  useConvexAuthInternalMock.mockReturnValue({
+  useConvexAuthControllerMock.mockReturnValue({
     token: ref('jwt'),
     authError: ref(null),
+    rawAuthError: ref(null),
+    user: ref({ id: 'u1' }),
+    pending: ref(false),
+    isAuthenticated: ref(true),
+    isAnonymous: ref(false),
+    isSessionExpired: ref(false),
+    client: null,
     refreshAuth: vi.fn(),
     awaitAuthReady: vi.fn(),
   })
@@ -52,17 +59,24 @@ test('<ConvexAuthenticated> renders slot only when authenticated and not pending
 
 test('<ConvexUnauthenticated> renders slot only when unauthenticated and not pending', async () => {
   useConvexAuthMock.mockReturnValue({
-    token: ref(null),
     user: ref(null),
     isAuthenticated: ref(false),
     isPending: ref(false),
     authError: ref(null),
+    client: null,
     signOut: vi.fn(),
     refreshAuth: vi.fn(),
   })
-  useConvexAuthInternalMock.mockReturnValue({
+  useConvexAuthControllerMock.mockReturnValue({
     token: ref(null),
     authError: ref(null),
+    rawAuthError: ref(null),
+    user: ref(null),
+    pending: ref(false),
+    isAuthenticated: ref(false),
+    isAnonymous: ref(true),
+    isSessionExpired: ref(false),
+    client: null,
     refreshAuth: vi.fn(),
     awaitAuthReady: vi.fn(),
   })
@@ -76,17 +90,24 @@ test('<ConvexUnauthenticated> renders slot only when unauthenticated and not pen
 
 test('<ConvexAuthLoading> renders slot while pending', async () => {
   useConvexAuthMock.mockReturnValue({
-    token: ref(null),
     user: ref(null),
     isAuthenticated: ref(false),
     isPending: ref(true),
     authError: ref(null),
+    client: null,
     signOut: vi.fn(),
     refreshAuth: vi.fn(),
   })
-  useConvexAuthInternalMock.mockReturnValue({
+  useConvexAuthControllerMock.mockReturnValue({
     token: ref(null),
     authError: ref(null),
+    rawAuthError: ref(null),
+    user: ref(null),
+    pending: ref(true),
+    isAuthenticated: ref(false),
+    isAnonymous: ref(false),
+    isSessionExpired: ref(false),
+    client: null,
     refreshAuth: vi.fn(),
     awaitAuthReady: vi.fn(),
   })
@@ -100,17 +121,24 @@ test('<ConvexAuthLoading> renders slot while pending', async () => {
 
 test('<ConvexAuthError> renders slot when auth is not pending and has explicit auth error', async () => {
   useConvexAuthMock.mockReturnValue({
-    token: ref(null),
     user: ref(null),
     isAuthenticated: ref(false),
     isPending: ref(false),
-    authError: ref('Unauthorized'),
+    authError: ref(new Error('Unauthorized')),
+    client: null,
     signOut: vi.fn(),
     refreshAuth: vi.fn(),
   })
-  useConvexAuthInternalMock.mockReturnValue({
+  useConvexAuthControllerMock.mockReturnValue({
     token: ref(null),
-    authError: ref('Unauthorized'),
+    authError: ref(new Error('Unauthorized')),
+    rawAuthError: ref('Unauthorized'),
+    user: ref(null),
+    pending: ref(false),
+    isAuthenticated: ref(false),
+    isAnonymous: ref(true),
+    isSessionExpired: ref(false),
+    client: null,
     refreshAuth: vi.fn(),
     awaitAuthReady: vi.fn(),
   })

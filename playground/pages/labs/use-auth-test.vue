@@ -9,6 +9,9 @@
       <div class="row">
         <span>isPending</span><strong>{{ isPending }}</strong>
       </div>
+      <div class="row">
+        <span>authError</span><strong>{{ authError?.message ?? '(none)' }}</strong>
+      </div>
       <ClientOnly>
         <div class="row">
           <span>hasClient</span><strong>{{ client ? 'yes' : 'no' }}</strong>
@@ -35,26 +38,42 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, client, signIn, signUp } = useConvexAuth()
+const { isAuthenticated, isPending, client, refreshAuth, authError } = useConvexAuth()
 const resultText = ref('(idle)')
 
-const signInEmailType = computed(() => typeof signIn.email)
-const signUpEmailType = computed(() => typeof signUp.email)
+const signInEmailType = computed(() => typeof client?.signIn?.email)
+const signUpEmailType = computed(() => typeof client?.signUp?.email)
 
 async function callSignIn() {
-  const result = await signIn.email({
+  if (!client) {
+    resultText.value = 'Auth client unavailable'
+    return
+  }
+
+  const result = await client.signIn.email({
     email: 'stub@example.com',
     password: 'password123',
   })
+  if (!('error' in result) || !result.error) {
+    await refreshAuth()
+  }
   resultText.value = JSON.stringify(result, null, 2)
 }
 
 async function callSignUp() {
-  const result = await signUp.email({
+  if (!client) {
+    resultText.value = 'Auth client unavailable'
+    return
+  }
+
+  const result = await client.signUp.email({
     name: 'Stub User',
     email: 'stub@example.com',
     password: 'password123',
   })
+  if (!('error' in result) || !result.error) {
+    await refreshAuth()
+  }
   resultText.value = JSON.stringify(result, null, 2)
 }
 </script>

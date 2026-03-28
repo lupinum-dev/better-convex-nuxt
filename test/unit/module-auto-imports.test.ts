@@ -8,7 +8,9 @@ describe('module auto-import surface', () => {
     const moduleSource = readFileSync(resolve(process.cwd(), 'src/module.ts'), 'utf8')
 
     expect(moduleSource).toMatch(/name:\s*'useConvexUpload'/)
-    expect(moduleSource).toMatch(/name:\s*'useConvexAuthInternal'/)
+    expect(moduleSource).toMatch(/name:\s*'useConvexAuthActions'/)
+    expect(moduleSource).not.toMatch(/name:\s*'useConvexAuthInternal'/)
+    expect(moduleSource).not.toMatch(/name:\s*'useAuthRedirect'/)
     // Removed deprecated composables
     expect(moduleSource).not.toMatch(/name:\s*'useConvexFileUpload'/)
     expect(moduleSource).not.toMatch(/name:\s*'useConvexUploadQueue'/)
