@@ -26,6 +26,7 @@ import type {
   DefineConvexToolOptions,
   InferSchemaData,
   InferSchemaValidators,
+  McpAuthIdentity,
   PreviewResult,
 } from './types'
 
@@ -38,7 +39,7 @@ interface DefineConvexToolFullOptions<
   P extends string = string,
 > extends DefineConvexToolOptions<S, P> {
   _checkPermission?: CheckPermissionFn<P>
-  _resolveAuth?: (event: H3Event) => { role: string; userId: string } | null | Promise<{ role: string; userId: string } | null>
+  _resolveAuth?: (event: H3Event) => McpAuthIdentity | null | Promise<McpAuthIdentity | null>
 }
 
 // ============================================================================
@@ -81,12 +82,9 @@ function convexIdToZod(cv: unknown): ZodTypeAny | null {
     if (inner) return inner.optional()
   }
 
-  // Fail-fast: v.union() containing v.id() can't be auto-converted
+  // Fail-fast: v.union() containing v.id() (at any depth) can't be auto-converted
   if (v.kind === 'union' && Array.isArray(v.members)) {
-    const hasId = v.members.some((m) => {
-      const inner = m as { kind?: string; tableName?: string }
-      return inner.kind === 'id' && inner.tableName
-    })
+    const hasId = v.members.some(m => convexIdToZod(m) !== null)
     if (hasId) {
       throw new Error(
         `defineConvexTool: v.union() containing v.id() cannot be auto-converted to JSON Schema. `
@@ -103,8 +101,14 @@ function convexToMcpZodFields<V extends PropertyValidators>(
 ): ConvexMcpInputSchema<V> {
   const shape = convexToZodFields(validators)
   for (const key of Object.keys(validators) as (keyof V & string)[]) {
-    const replacement = convexIdToZod(validators[key])
+    let replacement = convexIdToZod(validators[key])
     if (replacement) {
+      // Convex collapses v.optional(v.id()) into {kind:'id', isOptional:'optional'}
+      // so convexIdToZod returns a required z.string() — restore optionality here
+      const cv = validators[key] as { isOptional?: string }
+      if (cv.isOptional === 'optional') {
+        replacement = replacement.optional()
+      }
       shape[key] = replacement as ConvexMcpInputSchema<V>[keyof V]
     }
   }
@@ -211,7 +215,7 @@ function buildInputExamples<V extends PropertyValidators>(
 // Auth helpers
 // ============================================================================
 
-function resolveDefaultAuth(event: { context: Record<string, unknown> }): { role: string; userId: string } | null {
+function resolveDefaultAuth(event: { context: Record<string, unknown> }): McpAuthIdentity | null {
   const auth = event.context.mcpAuth as { role?: string; userId?: string } | undefined
   if (!auth?.role || !auth?.userId) return null
   return { role: auth.role, userId: auth.userId }
@@ -352,7 +356,7 @@ function _buildToolDefinition<
       const { useEvent } = await import('nitropack/runtime')
       const event = useEvent()
 
-      let resolvedAuth: { role: string; userId: string } | null = null
+      let resolvedAuth: McpAuthIdentity | null = null
       if (auth !== 'none') {
         resolvedAuth = _resolveAuth
           ? await _resolveAuth(event)

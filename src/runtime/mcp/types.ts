@@ -66,13 +66,22 @@ export interface PreviewResult {
 }
 
 // ============================================================================
+// Auth identity
+// ============================================================================
+
+export interface McpAuthIdentity {
+  readonly role: string
+  readonly userId: string
+}
+
+// ============================================================================
 // Middleware context
 // ============================================================================
 
 export interface ConvexToolMiddlewareCtx<P extends string = string> {
   event: H3Event
   /** Resolved auth data, or null if auth is 'none' or no credentials provided. */
-  mcpAuth: { role: string; userId: string } | null
+  mcpAuth: McpAuthIdentity | null
   can: (permission: P, resource?: Resource) => boolean
 }
 
@@ -163,5 +172,5 @@ export interface CreateConvexToolsOptions<P extends string = string> {
   /** Permission check function from your permissions.config.ts */
   checkPermission: CheckPermissionFn<P>
   /** Custom auth resolver. Default: reads event.context.mcpAuth */
-  resolveAuth?: (event: H3Event) => { role: string; userId: string } | null | Promise<{ role: string; userId: string } | null>
+  resolveAuth?: (event: H3Event) => McpAuthIdentity | null | Promise<McpAuthIdentity | null>
 }

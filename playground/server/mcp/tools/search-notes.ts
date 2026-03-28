@@ -1,9 +1,9 @@
 /**
- * MCP Tool: Search Notes (auth: 'optional' + annotations override + explicit inputExamples)
+ * MCP Tool: Search Notes (auth: 'optional' + explicit inputExamples)
  *
  * Demonstrates:
- * - auth: 'optional' — works without auth, but authed users get enriched results
- * - operation: 'query' with explicit annotation overrides
+ * - auth: 'optional' — works for everyone (auth available to middleware if needed)
+ * - operation: 'query'
  * - explicit inputExamples (instead of auto-generated from schema)
  * - withSummary for human-readable responses
  */
@@ -22,13 +22,8 @@ export default defineConvexTool({
   name: 'search-notes',
   operation: 'query',
 
-  // Optional auth: works for everyone, but authed users get metadata
+  // Optional auth: works for everyone, auth available in middleware if needed
   auth: 'optional',
-
-  // Explicit annotation overrides (normally auto-derived from operation)
-  annotations: {
-    openWorldHint: true, // search hits external-ish data
-  },
 
   // Explicit inputExamples (overrides auto-generation from schema.meta.fields)
   inputExamples: [

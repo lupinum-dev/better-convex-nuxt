@@ -61,15 +61,17 @@ export default defineConvexTool({
 
   handler: async (args) => {
     let deleted = 0
-    const skipped: string[] = []
+    const skipped: { id: string; reason: string }[] = []
 
     for (const id of args.ids) {
       try {
         await serverConvexMutation(api.notes.remove, { id })
         deleted++
       }
-      catch {
-        skipped.push(id)
+      catch (err) {
+        const reason = err instanceof Error ? err.message : String(err)
+        console.warn(`[bulk-delete-notes] Failed to delete ${id}: ${reason}`)
+        skipped.push({ id, reason })
       }
     }
 

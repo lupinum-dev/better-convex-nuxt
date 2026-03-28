@@ -809,6 +809,15 @@ describe('defineConvexTool', () => {
       ).toThrow('v.union() containing v.id()')
     })
 
+    it('throws when schema contains v.union(v.array(v.id()), ...)', () => {
+      const schema = defineConvexSchema({
+        ref: v.union(v.array(v.id('posts')), v.literal('none')),
+      })
+      expect(() =>
+        defineConvexTool({ schema, handler: () => ({}) }),
+      ).toThrow('v.union() containing v.id()')
+    })
+
     it('throws when maxItems.field is not in schema', () => {
       const schema = defineConvexSchema({ ids: v.array(v.string()) })
       expect(() =>
@@ -906,6 +915,55 @@ describe('defineConvexTool', () => {
       })
 
       expect(tool.description).toBe('Create post\n\nRequires authentication.')
+    })
+  })
+
+  // ── v.id() to z.string() conversion ──────────────────────────────────────
+
+  describe('v.id() conversion', () => {
+    it('converts v.id() field to z.string()', () => {
+      const schema = defineConvexSchema({ noteId: v.id('notes') })
+      const tool = defineConvexTool({ schema, handler: () => ({}) })
+      const parser = z.object(tool.inputSchema as any)
+      expect(() => parser.parse({ noteId: 'some-id' })).not.toThrow()
+    })
+
+    it('converts v.array(v.id()) to z.array(z.string())', () => {
+      const schema = defineConvexSchema({ ids: v.array(v.id('notes')) })
+      const tool = defineConvexTool({ schema, handler: () => ({}) })
+      const parser = z.object(tool.inputSchema as any)
+      expect(() => parser.parse({ ids: ['id1', 'id2'] })).not.toThrow()
+    })
+
+    it('converts v.optional(v.id()) to optional z.string()', () => {
+      const schema = defineConvexSchema({ ref: v.optional(v.id('notes')) })
+      const tool = defineConvexTool({ schema, handler: () => ({}) })
+      const parser = z.object(tool.inputSchema as any)
+      expect(() => parser.parse({})).not.toThrow()
+      expect(() => parser.parse({ ref: 'some-id' })).not.toThrow()
+    })
+  })
+
+  // ── outputSchema auto-wrapping ─────────────────────────────────────────
+
+  describe('outputSchema auto-wrapping', () => {
+    it('wraps outputSchema in { ok, data } envelope', () => {
+      const schema = defineConvexSchema({ id: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        outputSchema: { count: z.number(), name: z.string() },
+        handler: () => ({ count: 1, name: 'test' }),
+      })
+      const wrapped = tool.outputSchema as any
+      expect(wrapped).toBeDefined()
+      const parser = z.object(wrapped)
+      expect(() => parser.parse({ ok: true, data: { count: 1, name: 'test' } })).not.toThrow()
+    })
+
+    it('leaves outputSchema undefined when not provided', () => {
+      const schema = defineConvexSchema({ id: v.string() })
+      const tool = defineConvexTool({ schema, handler: () => ({}) })
+      expect(tool.outputSchema).toBeUndefined()
     })
   })
 

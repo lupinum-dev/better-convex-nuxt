@@ -14,6 +14,7 @@ export {
 export type {
   DefineConvexToolOptions,
   CreateConvexToolsOptions,
+  McpAuthIdentity,
   PreviewResult,
   ConvexToolResult,
   ConvexToolSuccessResult,
