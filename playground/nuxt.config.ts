@@ -26,7 +26,11 @@ function appendOrigin(origins: string | undefined, origin: string): string {
 }
 
 export default defineNuxtConfig({
-  modules: ['../src/module'],
+  modules: ['../src/module', '@nuxtjs/mcp-toolkit'],
+
+  mcp: {
+    name: 'better-convex-nuxt-playground',
+  },
 
   alias: {
     // The playground runs against the local module source, not an installed package.

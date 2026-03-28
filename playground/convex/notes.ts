@@ -2,6 +2,7 @@ import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
+import { createNoteArgs } from '../shared/schemas/note'
 
 // Public notes - no auth required (for demo purposes)
 
@@ -91,10 +92,7 @@ export const search = query({
 
 // Add a new note (public for demo)
 export const add = mutation({
-  args: {
-    title: v.string(),
-    content: v.string(),
-  },
+  args: createNoteArgs,
   handler: async (ctx, args) => {
     const noteId = await ctx.db.insert('notes', {
       title: args.title,

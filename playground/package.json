@@ -9,8 +9,11 @@
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.10.9",
+    "@nuxtjs/mcp-toolkit": "latest",
     "better-auth": "^1.4.9",
     "convex": "^1.31.2",
-    "nuxt": "^4.3.1"
+    "nuxt": "^4.3.1",
+    "secure-exec": "^0.1.0",
+    "zod": "^4.3.0"
   }
 }
