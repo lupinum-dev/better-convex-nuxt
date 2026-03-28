@@ -70,3 +70,70 @@ export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
  * Extract the element type from an array type
  */
 export type ArrayElement<T> = T extends readonly (infer E)[] ? E : never
+
+// ============================================================================
+// Error Types
+// ============================================================================
+
+/**
+ * Semantic category for Convex errors.
+ * Auto-derived from error code and HTTP status, or set explicitly.
+ */
+export type ConvexErrorCategory =
+  | 'auth'
+  | 'validation'
+  | 'not_found'
+  | 'rate_limit'
+  | 'network'
+  | 'server'
+  | 'conflict'
+  | 'unknown'
+
+/**
+ * A single field-level validation issue.
+ * Populated when `category` is `'validation'` and the server returns structured issues.
+ */
+export interface ConvexErrorIssue {
+  /** Dot-path to the invalid field (e.g. "address.zip"). */
+  path?: string
+  /** Human-readable error message. */
+  message: string
+  /** Machine-readable issue code. */
+  code?: string
+}
+
+// ============================================================================
+// Hook Payload Types
+// ============================================================================
+
+/**
+ * Payload for `convex:mutation:success` and `convex:action:success` hooks.
+ */
+export interface ConvexCallSuccessPayload<T = unknown> {
+  /** Convex function path (e.g. "posts:create"). */
+  functionPath: string
+  /** Whether this was a mutation or action. */
+  operation: 'mutation' | 'action'
+  /** The arguments passed to the call. */
+  args: Record<string, unknown>
+  /** The return value. */
+  result: T
+  /** Wall-clock duration in milliseconds. */
+  duration: number
+}
+
+/**
+ * Payload for `convex:mutation:error` and `convex:action:error` hooks.
+ */
+export interface ConvexCallErrorPayload {
+  /** Convex function path (e.g. "posts:create"). */
+  functionPath: string
+  /** Whether this was a mutation or action. */
+  operation: 'mutation' | 'action'
+  /** The arguments passed to the call. */
+  args: Record<string, unknown>
+  /** The ConvexCallError instance. */
+  error: import('./call-result').ConvexCallError
+  /** Wall-clock duration in milliseconds. */
+  duration: number
+}

@@ -4,6 +4,7 @@ import type { OptimisticContext } from './optimistic-updates'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
+import type { NuxtApp } from '#app'
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import {
@@ -95,12 +96,13 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
   fnName: string
   callType: 'mutation' | 'action'
   logger: Logger
+  nuxtApp: NuxtApp
   hasOptimisticUpdate: boolean
   callFn: (args: Args) => Promise<Result>
   onSuccess?: (result: Result, args: Args) => void
   onError?: (error: Error, args: Args) => void
 }): UseConvexMutationReturn<Args, Result> {
-  const { fnName, callType, logger, hasOptimisticUpdate, callFn, onSuccess, onError } = config
+  const { fnName, callType, logger, nuxtApp, hasOptimisticUpdate, callFn, onSuccess, onError } = config
 
   let activeRequestId = 0
   const _status = ref<MutationStatus>('idle')
@@ -153,6 +155,14 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
         logger.action({ name: fnName, event: 'success', duration })
       }
 
+      void nuxtApp.callHook(`convex:${callType}:success` as any, {
+        functionPath: fnName,
+        operation: callType,
+        args: args as Record<string, unknown>,
+        result,
+        duration,
+      })
+
       return result
     } catch (e) {
       const err = toConvexError(e)
@@ -176,6 +186,13 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
       } else {
         logger.action({ name: fnName, event: 'error', duration, error: err })
       }
+      void nuxtApp.callHook(`convex:${callType}:error` as any, {
+        functionPath: fnName,
+        operation: callType,
+        args: args as Record<string, unknown>,
+        error: err,
+        duration,
+      })
       void handleUnauthorizedAuthFailure({ error: err, source: callType, functionName: fnName })
 
       throw err
@@ -271,6 +288,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     fnName,
     callType: 'mutation',
     logger,
+    nuxtApp,
     hasOptimisticUpdate: !!options?.optimisticUpdate,
     callFn: (args) =>
       getRequiredConvexClient(nuxtApp).mutation(mutation, args, {

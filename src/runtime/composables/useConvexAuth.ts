@@ -1,5 +1,6 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
+import { watch } from 'vue'
 
 import { useState, computed, readonly, useNuxtApp } from '#imports'
 
@@ -23,6 +24,10 @@ export interface UseConvexAuthReturn {
   isAuthenticated: ComputedRef<boolean>
   /** Whether auth is still initializing (true on client until first token fetch resolves) */
   isPending: Readonly<Ref<boolean>>
+  /** True when not authenticated and not pending (reads better in templates than `!isAuthenticated`) */
+  isAnonymous: ComputedRef<boolean>
+  /** True when the user was previously authenticated but lost their session */
+  isSessionExpired: ComputedRef<boolean>
   /**
    * Signs out the user from both Better Auth and Convex.
    * Clears local state immediately, then calls Better Auth's signOut().
@@ -73,6 +78,18 @@ export function useConvexAuth(): UseConvexAuthReturn {
   const authError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
+  const isAnonymous = computed(() => !pending.value && !isAuthenticated.value)
+
+  // Track whether the user was ever authenticated in this session.
+  // Uses useState so the flag survives SSR → client hydration.
+  const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () => !!token.value && !!user.value)
+  if (isAuthenticated.value) {
+    wasAuthenticated.value = true
+  }
+  watch(isAuthenticated, (val) => {
+    if (val) wasAuthenticated.value = true
+  })
+  const isSessionExpired = computed(() => !pending.value && !isAuthenticated.value && wasAuthenticated.value)
 
   const signOut = async () => {
     const authClient = nuxtApp.$auth as AuthClient | undefined
@@ -98,6 +115,8 @@ export function useConvexAuth(): UseConvexAuthReturn {
     user: readonly(user),
     isAuthenticated,
     isPending: readonly(pending),
+    isAnonymous,
+    isSessionExpired,
     signOut,
   }
 }

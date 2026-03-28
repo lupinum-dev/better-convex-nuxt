@@ -81,6 +81,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     fnName,
     callType: 'action',
     logger,
+    nuxtApp,
     hasOptimisticUpdate: false,
     callFn: (args) => getRequiredConvexClient(nuxtApp).action(action, args),
     onSuccess: options?.onSuccess,

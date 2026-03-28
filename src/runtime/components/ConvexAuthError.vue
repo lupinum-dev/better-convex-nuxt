@@ -17,26 +17,49 @@
  * </ConvexAuthError>
  * ```
  *
- * @example With custom error handling
+ * @example With structured error handling
  * ```vue
- * <ConvexAuthError v-slot="{ retry, error }">
- *   <ErrorCard
- *     :message="error || 'Session expired'"
- *     :onRetry="retry"
- *   />
+ * <ConvexAuthError v-slot="{ retry, retrying, error, structuredError, isRecoverable }">
+ *   <div v-if="isRecoverable">
+ *     <p>Session expired.</p>
+ *     <button @click="retry" :disabled="retrying">Try again</button>
+ *   </div>
+ *   <div v-else>
+ *     <p>{{ error }}</p>
+ *   </div>
  * </ConvexAuthError>
  * ```
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useConvexAuth } from '../composables/useConvexAuth'
 import { useConvexAuthInternal } from '../composables/useConvexAuthInternal'
+import type { ConvexErrorCategory } from '../utils/types'
+
+interface StructuredAuthError {
+  message: string
+  category: ConvexErrorCategory
+  isRecoverable: boolean
+  isTokenDecode: boolean
+  isExplicitFailure: boolean
+}
 
 defineSlots<{
-  default(props: { retry: () => void; error: string | null }): unknown
+  default(props: {
+    /** Retry authentication via refreshAuth() (not a page reload). */
+    retry: () => Promise<void>
+    /** True while a retry is in progress. */
+    retrying: boolean
+    /** Raw error string for backwards compatibility. */
+    error: string | null
+    /** Structured error with category and recoverability info. */
+    structuredError: StructuredAuthError | null
+    /** Whether the error is likely recoverable (shorthand). */
+    isRecoverable: boolean
+  }): unknown
 }>()
 
 const { isAuthenticated, isPending, user } = useConvexAuth()
-const { token, authError } = useConvexAuthInternal()
+const { token, authError, refreshAuth } = useConvexAuthInternal()
 
 /**
  * Detect auth error state:
@@ -60,14 +83,46 @@ const hasError = computed(() => {
   return false
 })
 
+const retrying = ref(false)
+
 /**
- * Retry authentication by reloading the page
+ * Retry authentication by calling refreshAuth() instead of a full page reload.
  */
-function retry() {
-  window.location.reload()
+async function retry() {
+  if (retrying.value) return
+  retrying.value = true
+  try {
+    await refreshAuth()
+  } catch {
+    // refreshAuth failed — authError state is updated by refreshAuth itself
+  } finally {
+    retrying.value = false
+  }
 }
+
+const structuredError = computed<StructuredAuthError | null>(() => {
+  if (!hasError.value) return null
+  const isTokenDecode = !!(token.value && !user.value)
+  const isExplicitFailure = !!authError.value
+  return {
+    message: authError.value || (isTokenDecode ? 'Failed to decode auth token' : 'Authentication error'),
+    category: 'auth' as ConvexErrorCategory,
+    isRecoverable: true,
+    isTokenDecode,
+    isExplicitFailure,
+  }
+})
+
+const isRecoverable = computed(() => structuredError.value?.isRecoverable ?? false)
 </script>
 
 <template>
-  <slot v-if="hasError" :retry="retry" :error="authError" />
+  <slot
+    v-if="hasError"
+    :retry="retry"
+    :retrying="retrying"
+    :error="authError"
+    :structured-error="structuredError"
+    :is-recoverable="isRecoverable"
+  />
 </template>

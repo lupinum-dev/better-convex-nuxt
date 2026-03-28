@@ -1,3 +1,5 @@
+import type { ConvexErrorCategory, ConvexErrorIssue } from './types'
+
 /**
  * A proper Error subclass for Convex-originated errors.
  *
@@ -41,6 +43,17 @@ export class ConvexCallError extends Error {
   /** Auth mode that was active when the error occurred. */
   authMode?: string
 
+  /** Semantic error category, auto-derived from code/status or set explicitly. */
+  category: ConvexErrorCategory
+
+  /** Field-level validation issues when category is 'validation'. */
+  issues?: ConvexErrorIssue[]
+
+  /** Whether the error is likely recoverable (auth, network, rate_limit). */
+  get isRecoverable(): boolean {
+    return this.category === 'auth' || this.category === 'network' || this.category === 'rate_limit'
+  }
+
   constructor(
     message: string,
     init?: {
@@ -52,6 +65,8 @@ export class ConvexCallError extends Error {
       functionPath?: string
       convexUrl?: string
       authMode?: string
+      category?: ConvexErrorCategory
+      issues?: ConvexErrorIssue[]
     },
   ) {
     super(message, init?.cause !== undefined ? { cause: init.cause } : undefined)
@@ -64,8 +79,39 @@ export class ConvexCallError extends Error {
       this.functionPath = init.functionPath
       this.convexUrl = init.convexUrl
       this.authMode = init.authMode
+      this.issues = init.issues
     }
+    this.category = init?.category ?? categorizeError(this.code, this.status)
   }
+}
+
+// ============================================================================
+// Error categorization
+// ============================================================================
+
+/**
+ * Derive a semantic error category from an error code and/or HTTP status.
+ * Code-based matching takes precedence over status-based matching.
+ */
+export function categorizeError(code?: string, status?: number): ConvexErrorCategory {
+  if (code) {
+    const upper = code.toUpperCase()
+    if (upper.includes('UNAUTH') || upper === 'FORBIDDEN') return 'auth'
+    if (upper.startsWith('LIMIT_')) return 'rate_limit'
+    if (upper === 'NOT_FOUND') return 'not_found'
+    if (upper === 'VALIDATION' || upper === 'INVALID_ARGS') return 'validation'
+    if (upper === 'CONFLICT') return 'conflict'
+    if (upper === 'INTERNAL_ERROR' || upper === 'INTERNAL') return 'server'
+  }
+  if (status !== undefined) {
+    if (status === 401 || status === 403) return 'auth'
+    if (status === 400 || status === 422) return 'validation'
+    if (status === 404) return 'not_found'
+    if (status === 409) return 'conflict'
+    if (status === 429) return 'rate_limit'
+    if (status >= 500) return 'server'
+  }
+  return 'unknown'
 }
 
 // ============================================================================
@@ -84,6 +130,12 @@ interface ConvexErrorLike {
   functionPath?: unknown
   convexUrl?: unknown
   authMode?: unknown
+}
+
+function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) return true
+  if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('fetch'))) return true
+  return false
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -128,9 +180,22 @@ function parseMessageForCode(message: string): { message: string; code?: string 
   return { message: normalizedMessage, code }
 }
 
+function extractIssues(data: Record<string, unknown>): ConvexErrorIssue[] | undefined {
+  const raw = data.issues ?? data.errors ?? data.fieldErrors
+  if (!Array.isArray(raw)) return undefined
+  const mapped = raw
+    .filter((i): i is Record<string, unknown> => !!i && typeof i === 'object')
+    .map(i => ({
+      path: asString(i.path ?? i.field),
+      message: asString(i.message) ?? 'Unknown error',
+      code: asString(i.code),
+    }))
+  return mapped.length > 0 ? mapped : undefined
+}
+
 function fromStructuredData(
   data: Record<string, unknown>,
-): { message: string; code?: string; status?: number } | null {
+): { message: string; code?: string; status?: number; issues?: ConvexErrorIssue[] } | null {
   const dataMessage = asString(data.message)
   const dataCode = asString(data.code) ?? asString(data.errorCode)
   const dataStatus = asNumber(data.status)
@@ -142,6 +207,7 @@ function fromStructuredData(
     message: parsed.message,
     code: dataCode ?? parsed.code,
     status: dataStatus,
+    issues: extractIssues(data),
   }
 }
 
@@ -171,6 +237,7 @@ export function toConvexError(error: unknown): ConvexCallError {
           ...init,
           code: fromData.code,
           status: fromData.status ?? asNumber(record.status),
+          issues: fromData.issues,
           cause: record,
         })
       }
@@ -181,6 +248,7 @@ export function toConvexError(error: unknown): ConvexCallError {
       ...init,
       code: asString(record.code) ?? parsed.code,
       status: asNumber(record.status),
+      category: isNetworkError(error) ? 'network' : undefined,
       cause: record,
     })
   }
@@ -196,6 +264,7 @@ export function toConvexError(error: unknown): ConvexCallError {
           ...init,
           code: fromData.code,
           status: fromData.status ?? asNumber(record.status),
+          issues: fromData.issues,
           cause: error,
         })
       }
@@ -212,5 +281,9 @@ export function toConvexError(error: unknown): ConvexCallError {
 
   const message = typeof error === 'string' && error.length > 0 ? error : fallbackMessage
   const parsed = parseMessageForCode(message)
-  return new ConvexCallError(parsed.message, { code: parsed.code, cause: error })
+  return new ConvexCallError(parsed.message, {
+    code: parsed.code,
+    category: isNetworkError(error) ? 'network' : undefined,
+    cause: error,
+  })
 }
