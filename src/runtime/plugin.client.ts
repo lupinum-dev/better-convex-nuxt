@@ -7,6 +7,7 @@ import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 import { initAuthClient } from './client/auth-client'
 import { initConvexClient } from './client/convex-client'
 import { setupDevtoolsBridgeIfDev } from './client/devtools'
+import { initRuntimeAuthHooks, initRuntimeConnectionHooks } from './client/runtime-hooks'
 import { initHydrationState } from './client/auth-hydration'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors'
 import { STATE_KEY_AUTH_TRACE_ID, STATE_KEY_DEVTOOLS_INSTANCE_ID } from './utils/constants'
@@ -104,6 +105,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   nuxtApp.provide('convex', client)
+  initRuntimeConnectionHooks(nuxtApp, client, logger)
+  initRuntimeAuthHooks(nuxtApp, hydration.convexToken, hydration.convexUser)
   if (authClient) {
     nuxtApp.provide('auth', authClient)
   }

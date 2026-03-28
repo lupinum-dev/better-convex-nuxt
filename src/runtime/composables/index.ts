@@ -32,7 +32,16 @@ export {
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,
 } from './useConvexQuery'
-export type { QueryStatus, MutationStatus } from '../utils/types'
+export type {
+  QueryStatus,
+  MutationStatus,
+  ConvexCallSuccessPayload,
+  ConvexCallErrorPayload,
+  ConvexUnauthorizedPayload,
+  ConvexConnectionPhase,
+  ConvexConnectionChangedPayload,
+  ConvexAuthChangedPayload,
+} from '../utils/types'
 export {
   useConvexPaginatedQuery,
   type PaginatedQueryStatus,

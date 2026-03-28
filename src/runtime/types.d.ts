@@ -4,6 +4,13 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import type { ConvexAuthConfigInput } from './utils/auth-config'
 import type { LogLevel } from './utils/logger'
+import type {
+  ConvexAuthChangedPayload,
+  ConvexCallErrorPayload,
+  ConvexCallSuccessPayload,
+  ConvexConnectionChangedPayload,
+  ConvexUnauthorizedPayload,
+} from './utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
@@ -55,6 +62,13 @@ declare module '#app' {
   }
   interface RuntimeNuxtHooks {
     'better-convex:auth:refresh': () => void | Promise<void>
+    'convex:unauthorized': (payload: ConvexUnauthorizedPayload) => void | Promise<void>
+    'convex:mutation:success': (payload: ConvexCallSuccessPayload<'mutation'>) => void | Promise<void>
+    'convex:mutation:error': (payload: ConvexCallErrorPayload<'mutation'>) => void | Promise<void>
+    'convex:action:success': (payload: ConvexCallSuccessPayload<'action'>) => void | Promise<void>
+    'convex:action:error': (payload: ConvexCallErrorPayload<'action'>) => void | Promise<void>
+    'convex:connection:changed': (payload: ConvexConnectionChangedPayload) => void | Promise<void>
+    'convex:auth:changed': (payload: ConvexAuthChangedPayload) => void | Promise<void>
   }
   interface PageMeta {
     skipConvexAuth?: boolean

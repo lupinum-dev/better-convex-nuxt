@@ -3,6 +3,7 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { useNuxtApp, useState, computed } from '#imports'
 
+import { initRuntimeAuthHooks } from '../../client/runtime-hooks'
 import {
   AUTH_REFRESH_TIMEOUT_MS,
   STATE_KEY_AUTH_ERROR,
@@ -36,6 +37,8 @@ export function useConvexAuthController(): ConvexAuthController {
   const pending = useState<boolean>(STATE_KEY_PENDING, () => import.meta.client)
   const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
   const client = (nuxtApp.$auth as AuthClient | undefined) ?? null
+
+  initRuntimeAuthHooks(nuxtApp, token, user)
 
   const authError = computed(() => (rawAuthError.value ? new Error(rawAuthError.value) : null))
   const isAuthenticated = computed(() => !!token.value && !!user.value)

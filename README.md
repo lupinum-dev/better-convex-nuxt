@@ -270,6 +270,36 @@ with a playground-only key for demo purposes. Plain `pnpm dev` leaves that backe
 disabled unless you explicitly configure matching bridge keys in both the Nuxt server runtime and
 the Convex backend env.
 
+## Runtime Hooks
+
+The module emits a small set of Nuxt runtime hooks for cross-cutting side effects like analytics,
+global error handling, auth reactions, and connection banners.
+
+| Hook | Fires When |
+| --- | --- |
+| `convex:mutation:success` | A mutation completes successfully |
+| `convex:mutation:error` | A mutation fails |
+| `convex:action:success` | An action completes successfully |
+| `convex:action:error` | An action fails |
+| `convex:unauthorized` | Unauthorized recovery is triggered for a Convex call |
+| `convex:connection:changed` | The derived connection phase changes (`connecting`, `connected`, `reconnecting`) |
+| `convex:auth:changed` | The effective authenticated user changes |
+| `better-convex:auth:refresh` | Internal auth refresh runs |
+
+Full docs: [Runtime Hooks](https://better-convex-nuxt.vercel.app/docs/api-reference/runtime-hooks)
+
+```ts
+export default defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.hook('convex:connection:changed', ({ state, previousState }) => {
+    console.log(`Convex connection ${previousState} -> ${state}`)
+  })
+
+  nuxtApp.hook('convex:auth:changed', ({ isAuthenticated, user }) => {
+    console.log('Auth changed:', isAuthenticated, user?.id)
+  })
+})
+```
+
 ## Docs
 
 - [Getting Started](https://better-convex-nuxt.vercel.app/docs/guide/get-started)

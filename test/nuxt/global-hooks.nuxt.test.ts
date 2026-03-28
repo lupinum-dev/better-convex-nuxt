@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { useNuxtApp } from '#imports'
+import { useNuxtApp, useState } from '#imports'
 
 import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
+import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
+import { useConvexConnectionState } from '../../src/runtime/composables/useConvexConnectionState'
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -232,6 +234,78 @@ describe('global hooks (Nuxt runtime)', () => {
 
       expect(onError).toHaveBeenCalledTimes(1)
       expect(hookSpy).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('connection and auth hooks', () => {
+    it('registers convex:connection:changed with the expected payload shape', async () => {
+      const convex = new MockConvexClient()
+      const hookSpy = vi.fn()
+
+      const { wrapper } = await captureInNuxt(() => {
+        const nuxtApp = useNuxtApp()
+        nuxtApp.hook('convex:connection:changed' as any, hookSpy)
+        return useConvexConnectionState()
+      }, { convex })
+
+      convex.updateConnectionState({
+        isWebSocketConnected: true,
+        hasEverConnected: true,
+        connectionCount: 1,
+      })
+      await Promise.resolve()
+
+      expect(hookSpy).toHaveBeenCalledTimes(1)
+      expect(hookSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          state: 'connected',
+          previousState: 'connecting',
+          connection: expect.objectContaining({
+            isWebSocketConnected: true,
+            connectionCount: 1,
+          }),
+          previousConnection: expect.objectContaining({
+            isWebSocketConnected: false,
+          }),
+        }),
+      )
+
+      wrapper.unmount()
+    })
+
+    it('registers convex:auth:changed with the expected payload shape', async () => {
+      const hookSpy = vi.fn()
+
+      const { result, wrapper } = await captureInNuxt(() => {
+        const nuxtApp = useNuxtApp()
+        const token = useState<string | null>('convex:token')
+        const user = useState<Record<string, unknown> | null>('convex:user')
+
+        token.value = 'jwt.token'
+        user.value = { id: 'u1' }
+        nuxtApp.hook('convex:auth:changed' as any, hookSpy)
+
+        return {
+          auth: useConvexAuth(),
+          user,
+        }
+      }, {
+        auth: { signOut: vi.fn() },
+      })
+
+      result.user.value = { id: 'u2' }
+      await Promise.resolve()
+
+      expect(result.auth.isAuthenticated.value).toBe(true)
+      expect(hookSpy).toHaveBeenCalledTimes(1)
+      expect(hookSpy).toHaveBeenCalledWith({
+        isAuthenticated: true,
+        previousIsAuthenticated: true,
+        user: { id: 'u2' },
+        previousUser: { id: 'u1' },
+      })
+
+      wrapper.unmount()
     })
   })
 })

@@ -391,7 +391,13 @@ export default defineNuxtModule<ModuleOptions>({
 import type { ConvexClient } from 'convex/browser'
 import type { createAuthClient } from 'better-auth/vue'
 import type { RouteLocationRaw } from 'vue-router'
-import type { ConvexCallError } from '${resolver.resolve('./runtime/utils/call-result')}'
+import type {
+  ConvexAuthChangedPayload,
+  ConvexCallErrorPayload,
+  ConvexCallSuccessPayload,
+  ConvexConnectionChangedPayload,
+  ConvexUnauthorizedPayload,
+} from '${resolver.resolve('./runtime/utils/types')}'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
@@ -404,15 +410,19 @@ declare module '#app' {
   interface RuntimeNuxtHooks {
     'better-convex:auth:refresh': () => void | Promise<void>
     /** Fired when a Convex call returns a 401/403. Handle sign-out + redirect here. */
-    'convex:unauthorized': (payload: { error: unknown; source: string; functionName?: string; redirectTo: string }) => void | Promise<void>
+    'convex:unauthorized': (payload: ConvexUnauthorizedPayload) => void | Promise<void>
     /** Fired after every successful mutation. */
-    'convex:mutation:success': (payload: { functionPath: string; operation: 'mutation'; args: Record<string, unknown>; result: unknown; duration: number }) => void | Promise<void>
+    'convex:mutation:success': (payload: ConvexCallSuccessPayload<'mutation'>) => void | Promise<void>
     /** Fired after every failed mutation. */
-    'convex:mutation:error': (payload: { functionPath: string; operation: 'mutation'; args: Record<string, unknown>; error: ConvexCallError; duration: number }) => void | Promise<void>
+    'convex:mutation:error': (payload: ConvexCallErrorPayload<'mutation'>) => void | Promise<void>
     /** Fired after every successful action. */
-    'convex:action:success': (payload: { functionPath: string; operation: 'action'; args: Record<string, unknown>; result: unknown; duration: number }) => void | Promise<void>
+    'convex:action:success': (payload: ConvexCallSuccessPayload<'action'>) => void | Promise<void>
     /** Fired after every failed action. */
-    'convex:action:error': (payload: { functionPath: string; operation: 'action'; args: Record<string, unknown>; error: ConvexCallError; duration: number }) => void | Promise<void>
+    'convex:action:error': (payload: ConvexCallErrorPayload<'action'>) => void | Promise<void>
+    /** Fired when the derived connection phase changes. */
+    'convex:connection:changed': (payload: ConvexConnectionChangedPayload) => void | Promise<void>
+    /** Fired when the effective authenticated user changes. */
+    'convex:auth:changed': (payload: ConvexAuthChangedPayload) => void | Promise<void>
   }
 
     interface PageMeta {
