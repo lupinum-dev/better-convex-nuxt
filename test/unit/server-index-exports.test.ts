@@ -19,12 +19,12 @@ describe('server entrypoint exports', () => {
     expect(serverApi).toHaveProperty('serverConvexQuery')
     expect(serverApi).toHaveProperty('serverConvexMutation')
     expect(serverApi).toHaveProperty('serverConvexAction')
-    expect(serverApi).toHaveProperty('defineConvexMcpTool')
   })
 
-  it('does not expose legacy helper names', () => {
+  it('does not expose legacy or MCP-only helper names', () => {
     expect(serverApi).not.toHaveProperty('fetchQuery')
     expect(serverApi).not.toHaveProperty('fetchMutation')
     expect(serverApi).not.toHaveProperty('fetchAction')
+    expect(serverApi).not.toHaveProperty('defineConvexMcpTool')
   })
 })

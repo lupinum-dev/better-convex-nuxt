@@ -18,5 +18,6 @@ describe('module auto-import surface', () => {
     expect(moduleSource).not.toMatch(/name:\s*'useConvexCall'/)
     expect(moduleSource).not.toMatch(/name:\s*'getQueryKey'/)
     expect(moduleSource).not.toMatch(/name:\s*'useConvexRpc'/)
+    expect(moduleSource).not.toMatch(/name:\s*'defineConvexMcpTool'/)
   })
 })

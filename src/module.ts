@@ -530,10 +530,6 @@ export {}
       },
       { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
       { name: 'defineConvexSchema', from: resolver.resolve('./runtime/utils/define-convex-schema') },
-      {
-        name: 'defineConvexMcpTool',
-        from: resolver.resolve('./runtime/server/utils/define-convex-mcp-tool'),
-      },
     ])
 
     // 9. Add types to tsconfig references

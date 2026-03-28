@@ -1,7 +1,12 @@
 import { convexToZodFields } from 'convex-helpers/server/zod4'
 import type { ZodValidatorFromConvex } from 'convex-helpers/server/zod4'
 import type { PropertyValidators } from 'convex/values'
-import type { ZodTypeAny } from 'zod'
+import type {
+  McpToolExtra,
+  McpToolCallbackResult,
+  McpToolDefinition,
+} from '@nuxtjs/mcp-toolkit/server'
+import type { ZodRawShape, ZodTypeAny } from 'zod'
 
 import type {
   ConvexSchemaDefinition,
@@ -20,29 +25,22 @@ export type ConvexMcpInputSchema<V extends PropertyValidators> = {
   [K in keyof V]: ZodValidatorFromConvex<V[K]>
 }
 
+export type ConvexMcpToolExtra = McpToolExtra
+
 export interface ConvexMcpToolDefinition<
   S extends AnyConvexSchema,
-  OutputSchema extends Record<string, ZodTypeAny> = Record<string, ZodTypeAny>,
-> {
-  name?: string
-  title?: string
-  description?: string
-  group?: string
-  tags?: string[]
+  OutputSchema extends ZodRawShape = ZodRawShape,
+  Extra extends ConvexMcpToolExtra = ConvexMcpToolExtra,
+> extends Omit<McpToolDefinition<ConvexMcpInputSchema<InferSchemaValidators<S>>, OutputSchema>, 'handler' | 'inputSchema'> {
   inputSchema: ConvexMcpInputSchema<InferSchemaValidators<S>>
-  outputSchema?: OutputSchema
-  annotations?: Record<string, unknown>
-  inputExamples?: Partial<InferSchemaData<S>>[]
-  _meta?: Record<string, unknown>
-  cache?: unknown
-  enabled?: (event: unknown) => boolean | Promise<boolean>
-  handler: (args: InferSchemaData<S>, extra: unknown) => unknown | Promise<unknown>
+  handler: (args: InferSchemaData<S>, extra: Extra) => McpToolCallbackResult | Promise<McpToolCallbackResult>
 }
 
 export interface ConvexMcpToolOptions<
   S extends AnyConvexSchema,
-  OutputSchema extends Record<string, ZodTypeAny> = Record<string, ZodTypeAny>,
-> extends Omit<ConvexMcpToolDefinition<S, OutputSchema>, 'inputSchema' | 'description'> {
+  OutputSchema extends ZodRawShape = ZodRawShape,
+  Extra extends ConvexMcpToolExtra = ConvexMcpToolExtra,
+> extends Omit<ConvexMcpToolDefinition<S, OutputSchema, Extra>, 'inputSchema' | 'description'> {
   schema: S
   description?: string
 }
@@ -73,10 +71,11 @@ function applyFieldDescriptions<V extends PropertyValidators>(
  */
 export function defineConvexMcpTool<
   S extends AnyConvexSchema,
-  OutputSchema extends Record<string, ZodTypeAny> = Record<string, ZodTypeAny>,
+  OutputSchema extends ZodRawShape = ZodRawShape,
+  Extra extends ConvexMcpToolExtra = ConvexMcpToolExtra,
 >(
-  options: ConvexMcpToolOptions<S, OutputSchema>,
-): ConvexMcpToolDefinition<S, OutputSchema> {
+  options: ConvexMcpToolOptions<S, OutputSchema, Extra>,
+): ConvexMcpToolDefinition<S, OutputSchema, Extra> {
   const { schema, description = schema.meta?.description, ...tool } = options
   const inputSchema = applyFieldDescriptions(
     convexToZodFields(schema.args),

@@ -4,6 +4,7 @@ import { convexLocal } from 'convex-vite-plugin'
 const runtimeComposablesEntry = fileURLToPath(
   new URL('../src/runtime/composables/index.ts', import.meta.url),
 )
+const runtimeMcpEntry = fileURLToPath(new URL('../src/runtime/mcp/index.ts', import.meta.url))
 const runtimeServerEntry = fileURLToPath(new URL('../src/runtime/server/index.ts', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('./', import.meta.url))
 const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
@@ -36,6 +37,7 @@ export default defineNuxtConfig({
     // The playground runs against the local module source, not an installed package.
     // Mirror the published subpath imports so examples stay copy-pastable for consumers.
     'better-convex-nuxt/composables': runtimeComposablesEntry,
+    'better-convex-nuxt/mcp': runtimeMcpEntry,
     'better-convex-nuxt/server': runtimeServerEntry,
   },
 

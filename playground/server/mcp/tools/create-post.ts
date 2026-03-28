@@ -7,7 +7,8 @@
  * Requires authentication — posts.create checks permissions.
  */
 import { defineConvexSchema } from 'better-convex-nuxt/composables'
-import { defineConvexMcpTool, serverConvexMutation } from 'better-convex-nuxt/server'
+import { defineConvexMcpTool } from 'better-convex-nuxt/mcp'
+import { serverConvexMutation } from 'better-convex-nuxt/server'
 
 import { api } from '../../../convex/_generated/api'
 import { createPostArgs, createPostMeta } from '../../../shared/schemas/post'

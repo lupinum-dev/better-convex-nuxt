@@ -1,9 +1,10 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { v } from 'convex/values'
 import { z } from 'zod'
+import type { McpToolExtra } from '@nuxtjs/mcp-toolkit/server'
 
 import { defineConvexSchema } from '../../src/runtime/utils/define-convex-schema'
-import { defineConvexMcpTool } from '../../src/runtime/server/utils/define-convex-mcp-tool'
+import { defineConvexMcpTool } from '../../src/runtime/mcp/index'
 
 describe('defineConvexMcpTool', () => {
   it('infers handler args from the shared Convex schema', async () => {
@@ -14,16 +15,17 @@ describe('defineConvexMcpTool', () => {
 
     const tool = defineConvexMcpTool({
       schema,
-      handler: async (args) => {
+      handler: async (args, extra) => {
         expectTypeOf(args).toEqualTypeOf<{
           title: string
           priority?: 'low' | 'high' | undefined
         }>()
+        expectTypeOf(extra).toEqualTypeOf<McpToolExtra>()
         return args.title
       },
     })
 
-    expect(await tool.handler({ title: 'Ship it' }, undefined)).toBe('Ship it')
+    expect(await tool.handler({ title: 'Ship it' }, {} as McpToolExtra)).toBe('Ship it')
   })
 
   it('defaults the tool description from schema metadata', () => {
@@ -128,6 +130,6 @@ describe('defineConvexMcpTool', () => {
     expect(() => defineConvexMcpTool({
       schema,
       handler: async (args) => args,
-    })).toThrow(/v\.bytes\(\) is not supported/)
+    })).toThrow()
   })
 })

@@ -28,8 +28,11 @@ export interface ConvexSchemaMetaBase {
   description?: string
 }
 
+/** Back-compat alias for earlier experimental type name. */
+export type ConvexSchemaMeta = ConvexSchemaMetaBase
+
 export type ConvexSchemaMetaFor<V extends PropertyValidators> = ConvexSchemaMetaBase & {
-  /** Per-field metadata */
+  /** Per-field metadata; if provided, it must cover every validator key. */
   fields?: { [K in keyof V]: ConvexSchemaFieldMeta }
 }
 

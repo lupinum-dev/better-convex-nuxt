@@ -5,7 +5,8 @@
  * and handler args stay aligned with the Convex mutation.
  */
 import { defineConvexSchema } from 'better-convex-nuxt/composables'
-import { defineConvexMcpTool, serverConvexMutation } from 'better-convex-nuxt/server'
+import { defineConvexMcpTool } from 'better-convex-nuxt/mcp'
+import { serverConvexMutation } from 'better-convex-nuxt/server'
 
 import { api } from '../../../convex/_generated/api'
 import { createNoteArgs, createNoteMeta } from '../../../shared/schemas/note'
