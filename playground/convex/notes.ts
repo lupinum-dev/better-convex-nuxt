@@ -103,6 +103,33 @@ export const add = mutation({
   },
 })
 
+// Update a note
+export const update = mutation({
+  args: {
+    id: v.id('notes'),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.id)
+    if (!note) throw new Error('Note not found')
+
+    await ctx.db.patch(args.id, {
+      ...(args.title !== undefined && { title: args.title }),
+      ...(args.content !== undefined && { content: args.content }),
+    })
+  },
+})
+
+// Count all notes
+export const count = query({
+  args: {},
+  handler: async (ctx) => {
+    const notes = await ctx.db.query('notes').collect()
+    return { total: notes.length }
+  },
+})
+
 // Delete a note
 export const remove = mutation({
   args: { id: v.id('notes') },

@@ -71,7 +71,8 @@ export interface PreviewResult {
 
 export interface ConvexToolMiddlewareCtx<P extends string = string> {
   event: H3Event
-  mcpAuth: unknown
+  /** Resolved auth data, or null if auth is 'none' or no credentials provided. */
+  mcpAuth: { role: string; userId: string } | null
   can: (permission: P, resource?: Resource) => boolean
 }
 
@@ -116,7 +117,14 @@ export interface DefineConvexToolOptions<
   require?: P
 
   // ── Safety ────────────────────────────────────────────────
-  /** Mark as destructive. Enables two-call confirmation flow. */
+  /**
+   * Mark as destructive — enables two-call confirmation flow.
+   *
+   * Adds a `_confirmed` boolean to the input schema. On the first call
+   * (without `_confirmed: true`), returns a preview (if `preview` is provided)
+   * or a `confirmation_required` error. The second call with `_confirmed: true`
+   * executes the handler.
+   */
   destructive?: boolean
   /** Limit array field size for bulk operations. Field must exist in schema. */
   maxItems?: { field: keyof InferSchemaData<S> & string; limit: number }

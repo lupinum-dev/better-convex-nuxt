@@ -797,6 +797,18 @@ describe('defineConvexTool', () => {
       ).toThrow('rateLimit')
     })
 
+    it('throws when schema contains v.union() with v.id()', () => {
+      const schema = defineConvexSchema({
+        ref: v.union(v.id('posts'), v.literal('none')),
+      })
+      expect(() =>
+        defineConvexTool({
+          schema,
+          handler: () => ({}),
+        }),
+      ).toThrow('v.union() containing v.id()')
+    })
+
     it('throws when maxItems.field is not in schema', () => {
       const schema = defineConvexSchema({ ids: v.array(v.string()) })
       expect(() =>
@@ -844,7 +856,6 @@ describe('defineConvexTool', () => {
 
   describe('preview without auth', () => {
     it('returns preview when auth: none + destructive + preview', async () => {
-      // needsEvent should be true due to destructive + preview, even without auth
       vi.mocked(useEvent).mockReturnValue({
         context: {},
       } as any)

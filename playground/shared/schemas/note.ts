@@ -31,3 +31,59 @@ export const deleteNoteMeta = {
     id: { label: 'Note ID', description: 'The ID of the note to delete' },
   },
 } satisfies ConvexSchemaMetaFor<typeof deleteNoteArgs>
+
+// ── Update note ──────────────────────────────────────────────────────────────
+
+export const updateNoteArgs = {
+  id: v.id('notes'),
+  title: v.optional(v.string()),
+  content: v.optional(v.string()),
+} satisfies PropertyValidators
+
+export const updateNoteMeta = {
+  description: 'Update an existing note',
+  fields: {
+    id: { label: 'Note ID', description: 'The note to update' },
+    title: { label: 'Title', description: 'New title (optional)', examples: ['Updated Title'] },
+    content: { label: 'Content', description: 'New content (optional)' },
+  },
+} satisfies ConvexSchemaMetaFor<typeof updateNoteArgs>
+
+// ── Search notes ─────────────────────────────────────────────────────────────
+
+export const searchNotesArgs = {
+  query: v.string(),
+} satisfies PropertyValidators
+
+export const searchNotesMeta = {
+  description: 'Search notes by title or content',
+  fields: {
+    query: { label: 'Search query', description: 'Text to search for in titles and content', examples: ['meeting', 'TODO'] },
+  },
+} satisfies ConvexSchemaMetaFor<typeof searchNotesArgs>
+
+// ── Bulk delete notes ────────────────────────────────────────────────────────
+
+export const bulkDeleteNotesArgs = {
+  ids: v.array(v.id('notes')),
+} satisfies PropertyValidators
+
+export const bulkDeleteNotesMeta = {
+  description: 'Delete multiple notes at once (max 10)',
+  fields: {
+    ids: { label: 'Note IDs', description: 'Array of note IDs to delete', examples: [['id1', 'id2']] },
+  },
+} satisfies ConvexSchemaMetaFor<typeof bulkDeleteNotesArgs>
+
+// ── Export notes ─────────────────────────────────────────────────────────────
+
+export const exportNotesArgs = {
+  format: v.union(v.literal('json'), v.literal('csv')),
+} satisfies PropertyValidators
+
+export const exportNotesMeta = {
+  description: 'Export all notes in the specified format',
+  fields: {
+    format: { label: 'Format', description: 'Export format', enum: ['json', 'csv'] },
+  },
+} satisfies ConvexSchemaMetaFor<typeof exportNotesArgs>

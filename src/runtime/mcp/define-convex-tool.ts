@@ -56,14 +56,56 @@ type ConvexMcpInputSchema<V extends PropertyValidators> = {
 // JSON Schema. We patch those fields to z.string() in a single pass.
 // ============================================================================
 
+/**
+ * Check if a Convex validator contains v.id() anywhere in its tree.
+ * Returns a JSON-Schema-safe Zod replacement if so, or null if no fixup needed.
+ */
+function convexIdToZod(cv: unknown): ZodTypeAny | null {
+  const v = cv as { kind?: string; tableName?: string; element?: unknown; inner?: unknown; members?: unknown[] }
+  if (!v || typeof v !== 'object' || !v.kind) return null
+
+  // Direct: v.id('table')
+  if (v.kind === 'id' && v.tableName) {
+    return z.string().describe(`Convex ID for "${v.tableName}" table`)
+  }
+
+  // Wrapper: v.array(v.id('table'))
+  if (v.kind === 'array' && v.element) {
+    const inner = convexIdToZod(v.element)
+    if (inner) return z.array(inner)
+  }
+
+  // Wrapper: v.optional(v.id('table'))
+  if (v.kind === 'optional' && v.inner) {
+    const inner = convexIdToZod(v.inner)
+    if (inner) return inner.optional()
+  }
+
+  // Fail-fast: v.union() containing v.id() can't be auto-converted
+  if (v.kind === 'union' && Array.isArray(v.members)) {
+    const hasId = v.members.some((m) => {
+      const inner = m as { kind?: string; tableName?: string }
+      return inner.kind === 'id' && inner.tableName
+    })
+    if (hasId) {
+      throw new Error(
+        `defineConvexTool: v.union() containing v.id() cannot be auto-converted to JSON Schema. `
+        + `Use a plain v.string() instead, or provide the field description via schema metadata.`,
+      )
+    }
+  }
+
+  return null
+}
+
 function convexToMcpZodFields<V extends PropertyValidators>(
   validators: V,
 ): ConvexMcpInputSchema<V> {
   const shape = convexToZodFields(validators)
   for (const key of Object.keys(validators) as (keyof V & string)[]) {
-    const cv = validators[key] as unknown as { kind?: string; tableName?: string }
-    if (cv.kind === 'id' && cv.tableName) {
-      shape[key] = z.string().describe(`Convex ID for "${cv.tableName}" table`) as ConvexMcpInputSchema<V>[keyof V]
+    const replacement = convexIdToZod(validators[key])
+    if (replacement) {
+      shape[key] = replacement as ConvexMcpInputSchema<V>[keyof V]
     }
   }
   return shape
@@ -293,9 +335,11 @@ function _buildToolDefinition<
     ? { max: rateLimit.max, windowMs: parseWindowString(rateLimit.window) }
     : undefined
 
-  // ── Determine if pipeline needs event access ───────────────────────────
+  // ── Auto-wrap outputSchema in our structured envelope ────────────────
 
-  const needsEvent = auth !== 'none' || !!middleware || (destructive && !!preview)
+  const wrappedOutputSchema = outputSchema
+    ? { ok: z.literal(true), data: z.object(outputSchema) }
+    : undefined
 
   // ── The wrapped handler with safety pipeline ───────────────────────────
 
@@ -305,27 +349,23 @@ function _buildToolDefinition<
   ): Promise<McpToolCallbackResult> => {
     try {
       // ── Step 1: Resolve event + auth once ─────────────────────────────
+      const { useEvent } = await import('nitropack/runtime')
+      const event = useEvent()
+
       let resolvedAuth: { role: string; userId: string } | null = null
-      let middlewareCtx: ConvexToolMiddlewareCtx<P> | undefined
+      if (auth !== 'none') {
+        resolvedAuth = _resolveAuth
+          ? await _resolveAuth(event)
+          : resolveDefaultAuth(event)
+      }
 
-      if (needsEvent) {
-        const { useEvent } = await import('nitropack/runtime')
-        const event = useEvent()
-
-        if (auth !== 'none') {
-          resolvedAuth = _resolveAuth
-            ? await _resolveAuth(event)
-            : resolveDefaultAuth(event)
-        }
-
-        middlewareCtx = {
-          event,
-          mcpAuth: resolvedAuth ?? (event.context.mcpAuth as unknown),
-          can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
-            if (!_checkPermission || !resolvedAuth) return false
-            return _checkPermission(resolvedAuth, permission, resource)
-          },
-        }
+      const ctx: ConvexToolMiddlewareCtx<P> = {
+        event,
+        mcpAuth: resolvedAuth,
+        can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
+          if (!_checkPermission || !resolvedAuth) return false
+          return _checkPermission(resolvedAuth, permission, resource)
+        },
       }
 
       // ── Step 2: Auth check ────────────────────────────────────────────
@@ -371,13 +411,10 @@ function _buildToolDefinition<
 
       // ── Step 6: Middleware ────────────────────────────────────────────
       if (middleware) {
-        if (!middlewareCtx) {
-          return wrapError('server', `[${toolLabel}] Internal error: middleware context was not initialized.`)
-        }
         const result = await middleware(
           args as InferSchemaData<S>,
-          middlewareCtx,
-          async () => runHandlerWithConfirmation(args, extra, middlewareCtx),
+          ctx,
+          async () => runHandlerWithConfirmation(args, extra, ctx),
         )
         if (!isValidCallToolResult(result)) {
           return wrapError('server', `[${toolLabel}] Middleware must return a result. Did you forget to \`return next()\`?`)
@@ -386,7 +423,7 @@ function _buildToolDefinition<
       }
 
       // ── Steps 7-9: Preview, confirmation, handler ─────────────────────
-      return await runHandlerWithConfirmation(args, extra, middlewareCtx)
+      return await runHandlerWithConfirmation(args, extra, ctx)
     }
     catch (err) {
       console.error(`[${toolLabel}]`, err)
@@ -402,15 +439,12 @@ function _buildToolDefinition<
   async function runHandlerWithConfirmation(
     args: InferSchemaData<S> & { _confirmed?: boolean },
     extra: McpRequestExtra,
-    ctx: ConvexToolMiddlewareCtx<P> | undefined,
+    ctx: ConvexToolMiddlewareCtx<P>,
   ): Promise<McpToolCallbackResult> {
     const confirmed = args._confirmed === true
 
     // Step 7: Preview routing
     if (destructive && preview && !confirmed) {
-      if (!ctx) {
-        return wrapError('server', `[${toolLabel}] Internal error: preview context was not initialized.`)
-      }
       const raw = await preview(args as InferSchemaData<S>, ctx)
       return wrapPreview(normalizePreview(raw))
     }
@@ -433,7 +467,7 @@ function _buildToolDefinition<
     name,
     description: finalDescription,
     inputSchema,
-    outputSchema,
+    outputSchema: wrappedOutputSchema,
     annotations,
     inputExamples: inputExamples as any,
     group,
