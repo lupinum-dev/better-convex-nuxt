@@ -9,13 +9,14 @@ description: >
   useConvexUpload, useConvexStorageUrl, useConvexConnectionState, createPermissions,
   serverConvexQuery, serverConvexMutation, serverConvexAction, ConvexAuthenticated,
   ConvexUnauthenticated, ConvexAuthLoading, ConvexAuthError, prependTo, appendTo, removeFrom,
-  updateIn. Also use when the user
-  mentions Convex+Nuxt integration, even if they don't name the module explicitly.
+  updateIn, defineConvexTool, createConvexTools, defineConvexSchema, wrapSuccess, wrapError,
+  withSummary. Also use when the user mentions Convex+Nuxt integration or MCP tools,
+  even if they don't name the module explicitly.
 ---
 
 # better-convex-nuxt
 
-Full-featured Nuxt 4+ module for [Convex](https://convex.dev) with SSR, real-time WebSocket subscriptions, Better Auth authentication, file uploads, permissions, and server utilities. All composables and components are **auto-imported**.
+Full-featured Nuxt 4+ module for [Convex](https://convex.dev) with SSR, real-time WebSocket subscriptions, Better Auth authentication, file uploads, permissions, server utilities, and MCP tool framework. All composables and components are **auto-imported**.
 
 Docs: https://better-convex-nuxt.vercel.app
 
@@ -280,6 +281,87 @@ Also available: `serverConvexMutation`, `serverConvexAction`.
 
 Reference: `docs/content/docs/6.server-side/`
 
+### MCP Tools
+
+Build agent-ready MCP tools backed by Convex. Tools live in `server/mcp/tools/*.ts` and are auto-discovered.
+
+#### Minimal Tool
+
+```ts
+// server/mcp/tools/list-notes.ts
+import { defineConvexTool } from 'better-convex-nuxt/mcp'
+import { defineConvexSchema } from 'better-convex-nuxt/schema'
+import { serverConvexQuery } from 'better-convex-nuxt/server'
+import { api } from '~~/convex/_generated/api'
+
+const schema = defineConvexSchema({}, { description: 'List all notes' })
+
+export default defineConvexTool({
+  schema,
+  operation: 'query',
+  handler: async () => serverConvexQuery(api.notes.list, {}),
+})
+```
+
+#### Shared Schema
+
+`defineConvexSchema(args, meta)` — one source of truth for Convex functions, Nuxt forms, and MCP tools. Field metadata (`description`, `examples`, `enum`, `defaultHint`) flows into JSON Schema for agents.
+
+```ts
+// shared/schemas/note.ts
+import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
+import { v } from 'convex/values'
+
+export const createNoteArgs = { title: v.string(), content: v.string() }
+export const createNoteMeta = {
+  description: 'Create a new note',
+  fields: {
+    title: { description: 'The note title', examples: ['Meeting Notes'] },
+    content: { description: 'The note body text' },
+  },
+} satisfies ConvexSchemaMetaFor<typeof createNoteArgs>
+```
+
+#### Auth & Permissions
+
+Three auth modes: `auth: 'none'` (default) | `'optional'` | `'required'`. Identity is `McpAuthIdentity { role, userId }`.
+
+Use `createConvexTools({ checkPermission })` factory for typed `require: 'post.create'` permission checks.
+
+```ts
+// server/mcp/utils/tools.ts
+import { createConvexTools } from 'better-convex-nuxt/mcp'
+import { checkPermission } from '~~/convex/permissions.config'
+export const { defineConvexTool } = createConvexTools({ checkPermission })
+```
+
+#### Destructive Confirmation Flow
+
+`destructive: true` adds `_confirmed` to input and enables two-call flow:
+1. First call → preview or `confirmation_required` error
+2. Second call with `_confirmed: true` → executes handler
+
+Add `preview` handler for rich previews: `{ summary, blocked?, affects?, warn? }`.
+
+#### Result Envelopes
+
+All responses use `{ ok: true, data }` or `{ ok: false, error: { category, message, retryable } }`.
+
+- `withSummary(data, text)` — human summary + structured data
+- `wrapError(category, message)` — categorized error from middleware
+- `outputSchema` — auto-wrapped in `{ ok, data }` envelope (don't double-wrap)
+
+#### MCP-Specific Gotchas
+
+1. **v.id() conversion**: `defineConvexSchema` auto-converts `v.id()` → `z.string()`. Must use shared schema, not raw validators.
+2. **v.union() with v.id()**: Throws at definition time — use `v.string()` instead.
+3. **outputSchema wrapping**: Framework wraps in `{ ok, data }` automatically. Don't add the envelope yourself.
+4. **Preview errors**: Caught and wrapped like handler errors — no special handling needed.
+5. **rateLimit**: In-memory, per-tool-name. Resets on server restart. For production, use an external store.
+6. **auth: 'optional'**: Still resolves identity if present — useful for middleware that enriches responses based on auth.
+
+Reference: `docs/content/docs/13.mcp-tools/`
+
 ### Permissions
 
 Enable in config: `convex: { permissions: true }`.
@@ -386,5 +468,6 @@ Reference: `docs/content/docs/3.mutations/4.error-handling.md`
 | Configuration | `docs/content/docs/9.configuration/` |
 | Deployment | `docs/content/docs/10.deployment/` |
 | API reference | `docs/content/docs/12.api-reference/` |
+| MCP tools | `docs/content/docs/13.mcp-tools/` |
 
 Read these files for deeper context when working on specific features.
