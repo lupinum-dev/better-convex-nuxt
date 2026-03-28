@@ -122,7 +122,7 @@ export interface DefineConvexToolOptions<
   maxItems?: { field: keyof InferSchemaData<S> & string; limit: number }
   /** In-memory rate limit per tool name. Requires explicit `name`. */
   rateLimit?: { max: number; window: string }
-  /** Preview function for destructive tools. Receives same args as handler. */
+  /** Preview function for destructive tools. Receives the same args as handler, plus the middleware context. */
   preview?: (
     args: InferSchemaData<S>,
     ctx: ConvexToolMiddlewareCtx<P>,
@@ -145,20 +145,6 @@ export interface DefineConvexToolOptions<
   enabled?: (event: H3Event) => boolean | Promise<boolean>
   /** Cache configuration (passed through to mcp-toolkit). */
   cache?: McpToolCache
-}
-
-// ============================================================================
-// Internal options (adds factory-injected fields)
-// ============================================================================
-
-export interface DefineConvexToolFullOptions<
-  S extends AnyConvexSchema,
-  P extends string = string,
-> extends DefineConvexToolOptions<S, P> {
-  /** @internal Permission check function, injected by createConvexTools. */
-  _checkPermission?: CheckPermissionFn<P>
-  /** @internal Auth resolver, injected by createConvexTools. */
-  _resolveAuth?: (event: H3Event) => { role: string; userId: string } | null | Promise<{ role: string; userId: string } | null>
 }
 
 // ============================================================================

@@ -422,6 +422,24 @@ describe('defineConvexTool', () => {
         data: { created: true },
       })
     })
+
+    it('denies when auth: optional + require and mcpAuth is null', async () => {
+      mockAuth(null)
+      const { defineConvexTool: typedDefine } = createConvexTools({ checkPermission })
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = typedDefine({
+        schema,
+        auth: 'optional',
+        require: 'post.create',
+        handler: () => ({ ok: true }),
+      })
+
+      const result = await tool.handler!({ title: 'test' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({
+        ok: false,
+        error: { category: 'auth', message: 'Authentication required.' },
+      })
+    })
   })
 
   // ── Destructive confirmation ────────────────────────────────────────────
@@ -676,6 +694,57 @@ describe('defineConvexTool', () => {
       const result = await tool.handler!({ id: 'abc' }, mockExtra)
       expect(getStructured(result)).toEqual({ ok: true, data: { done: true } })
     })
+
+    it('returns server error when middleware forgets to return next()', async () => {
+      const schema = defineConvexSchema({ id: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        auth: 'optional',
+        middleware: async (_args, _ctx, next) => {
+          await next()
+          // Forgot to return!
+        },
+        handler: () => ({ done: true }),
+      })
+
+      const result = await tool.handler!({ id: 'abc' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({
+        ok: false,
+        error: {
+          category: 'server',
+          message: expect.stringContaining('Middleware must return a result'),
+        },
+      })
+    })
+
+    it('ctx.can() returns correct permission results', async () => {
+      mockAuth({ role: 'editor', userId: 'user-1' })
+      const checkPermission = (
+        ctx: { role: string; userId: string } | null,
+        permission: string,
+      ): boolean => {
+        if (!ctx) return false
+        return permission === 'post.create' && (ctx.role === 'editor' || ctx.role === 'admin')
+      }
+      const { defineConvexTool: typedDefine } = createConvexTools({ checkPermission })
+      const schema = defineConvexSchema({ id: v.string() })
+      let canCreate = false
+      let canDelete = false
+      const tool = typedDefine({
+        schema,
+        auth: 'required',
+        middleware: async (_args, ctx, next) => {
+          canCreate = ctx.can('post.create')
+          canDelete = ctx.can('post.delete')
+          return next()
+        },
+        handler: () => ({ ok: true }),
+      })
+
+      await tool.handler!({ id: 'abc' }, mockExtra)
+      expect(canCreate).toBe(true)
+      expect(canDelete).toBe(false)
+    })
   })
 
   // ── Definition-time validations ─────────────────────────────────────────
@@ -737,6 +806,63 @@ describe('defineConvexTool', () => {
           handler: () => ({}),
         }),
       ).toThrow('maxItems.field')
+    })
+  })
+
+  // ── Custom resolveAuth ──────────────────────────────────────────────────
+
+  describe('custom resolveAuth', () => {
+    it('uses custom resolveAuth from factory', async () => {
+      // Mock useEvent to return a bare event — resolveAuth will override
+      vi.mocked(useEvent).mockReturnValue({
+        context: { customSession: { id: 'custom-user', level: 'superadmin' } },
+      } as any)
+
+      const checkPermission = () => true
+      const { defineConvexTool: typedDefine } = createConvexTools({
+        checkPermission,
+        resolveAuth: (event) => {
+          const session = (event as any).context.customSession
+          if (!session) return null
+          return { role: session.level, userId: session.id }
+        },
+      })
+
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = typedDefine({
+        schema,
+        auth: 'required',
+        handler: () => ({ ok: true }),
+      })
+
+      const result = await tool.handler!({ title: 'test' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({ ok: true })
+    })
+  })
+
+  // ── Preview without auth ──────────────────────────────────────────────
+
+  describe('preview without auth', () => {
+    it('returns preview when auth: none + destructive + preview', async () => {
+      // needsEvent should be true due to destructive + preview, even without auth
+      vi.mocked(useEvent).mockReturnValue({
+        context: {},
+      } as any)
+
+      const schema = defineConvexSchema({ id: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        destructive: true,
+        preview: () => 'Will delete item',
+        handler: () => ({ deleted: true }),
+      })
+
+      const result = await tool.handler!({ id: 'abc' }, mockExtra)
+      expect(getStructured(result)).toEqual({
+        ok: true,
+        preview: { summary: 'Will delete item' },
+        awaitingConfirmation: true,
+      })
     })
   })
 

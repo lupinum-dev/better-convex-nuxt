@@ -81,4 +81,23 @@ describe('ToolRateLimiter', () => {
     limiter.reset()
     expect(limiter.check('tool-a', config)).toEqual({ allowed: true })
   })
+
+  it('evicts oldest key when exceeding MAX_KEYS (1000)', () => {
+    const config = { max: 10, windowMs: 60_000 }
+
+    // Fill with 1001 unique keys — first key should be evicted
+    for (let i = 0; i <= 1000; i++) {
+      limiter.check(`tool-${i}`, config)
+    }
+
+    // tool-0 was the oldest, should have been evicted — its limit resets
+    limiter.check(`tool-0`, config)
+    // If eviction didn't happen, tool-0 would have 2 entries.
+    // After eviction + re-add, it should have 1 entry and still be allowed.
+    expect(limiter.check(`tool-0`, config)).toEqual({ allowed: true })
+
+    // tool-1 (second oldest, NOT evicted) should still have its entry
+    // It should still be allowed since max is 10
+    expect(limiter.check(`tool-1`, config)).toEqual({ allowed: true })
+  })
 })

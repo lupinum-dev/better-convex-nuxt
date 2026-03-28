@@ -21,14 +21,18 @@ function isRetryable(category: ConvexErrorCategory): boolean {
 
 function safeJsonText(value: unknown): string {
   if (value === undefined) return 'undefined'
-  return JSON.stringify(value) ?? String(value)
+  const json = JSON.stringify(value)
+  // JSON.stringify returns undefined for functions/symbols — flag as non-serializable
+  if (json === undefined) return `[non-serializable ${typeof value}]`
+  return json
 }
 
 // ============================================================================
 // withSummary — branded helper to avoid duck-typing collisions
 // ============================================================================
 
-const TOOL_SUMMARY: unique symbol = Symbol.for('convex-tool-summary')
+// Module-scoped symbol — only code with a direct reference can match
+const TOOL_SUMMARY: unique symbol = Symbol('convex-tool-summary')
 
 interface DataWithSummary<T = unknown> {
   data: T

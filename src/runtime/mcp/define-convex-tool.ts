@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 import type {
   McpRequestExtra,
   McpToolAnnotations,
@@ -10,6 +11,7 @@ import type { PropertyValidators } from 'convex/values'
 import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
+import type { CheckPermissionFn } from '../composables/usePermissions'
 import { toConvexError } from '../utils/call-result'
 import type { ConvexSchemaFieldMeta } from '../utils/define-convex-schema'
 import type { ConvexToolOperation } from '../utils/types'
@@ -21,12 +23,23 @@ import type {
   AnyConvexSchema,
   ConvexToolMiddlewareCtx,
   CreateConvexToolsOptions,
-  DefineConvexToolFullOptions,
   DefineConvexToolOptions,
   InferSchemaData,
   InferSchemaValidators,
   PreviewResult,
 } from './types'
+
+// ============================================================================
+// Internal options (adds factory-injected fields — not part of public API)
+// ============================================================================
+
+interface DefineConvexToolFullOptions<
+  S extends AnyConvexSchema,
+  P extends string = string,
+> extends DefineConvexToolOptions<S, P> {
+  _checkPermission?: CheckPermissionFn<P>
+  _resolveAuth?: (event: H3Event) => { role: string; userId: string } | null | Promise<{ role: string; userId: string } | null>
+}
 
 // ============================================================================
 // Input schema types
@@ -147,6 +160,15 @@ function normalizePreview(raw: string | PreviewResult): PreviewResult {
 }
 
 // ============================================================================
+// Middleware validation
+// ============================================================================
+
+function isValidCallToolResult(value: unknown): value is McpToolCallbackResult {
+  if (!value || typeof value !== 'object') return false
+  return 'content' in value || 'structuredContent' in value
+}
+
+// ============================================================================
 // Core builder
 // ============================================================================
 
@@ -179,6 +201,8 @@ function _buildToolDefinition<
     _checkPermission,
     _resolveAuth,
   } = options
+
+  const toolLabel = name ? `defineConvexTool:${name}` : 'defineConvexTool'
 
   // ── Fail-fast definition-time validations ──────────────────────────────
 
@@ -303,7 +327,7 @@ function _buildToolDefinition<
         }
       }
 
-      // ── Step 4: Rate limit (after auth — only authed requests consume tokens) ──
+      // ── Step 4: Rate limit (after auth so failed-auth requests don't consume tokens) ──
       if (rateLimitConfig) {
         const check = globalRateLimiter.check(name!, rateLimitConfig)
         if (!check.allowed) {
@@ -327,17 +351,25 @@ function _buildToolDefinition<
 
       // ── Step 6: Middleware ────────────────────────────────────────────
       if (middleware) {
-        return await middleware(
+        if (!middlewareCtx) {
+          return wrapError('server', `[${toolLabel}] Internal error: middleware context was not initialized.`)
+        }
+        const result = await middleware(
           args as InferSchemaData<S>,
-          middlewareCtx!,
+          middlewareCtx,
           async () => runHandlerWithConfirmation(args, extra, middlewareCtx),
         )
+        if (!isValidCallToolResult(result)) {
+          return wrapError('server', `[${toolLabel}] Middleware must return a result. Did you forget to \`return next()\`?`)
+        }
+        return result
       }
 
       // ── Steps 7-9: Preview, confirmation, handler ─────────────────────
       return await runHandlerWithConfirmation(args, extra, middlewareCtx)
     }
     catch (err) {
+      console.error(`[${toolLabel}]`, err)
       const convexError = toConvexError(err)
       const message = cleanErrorMessage(convexError.message)
       const category = convexError.category !== 'unknown'
@@ -356,7 +388,10 @@ function _buildToolDefinition<
 
     // Step 7: Preview routing
     if (destructive && preview && !confirmed) {
-      const raw = await preview(args as InferSchemaData<S>, ctx!)
+      if (!ctx) {
+        return wrapError('server', `[${toolLabel}] Internal error: preview context was not initialized.`)
+      }
+      const raw = await preview(args as InferSchemaData<S>, ctx)
       return wrapPreview(normalizePreview(raw))
     }
 
