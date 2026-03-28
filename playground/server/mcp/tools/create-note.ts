@@ -1,24 +1,24 @@
 /**
  * MCP Tool: Create Note
  *
- * Demonstrates the "define once, use everywhere" pattern:
- * - Same validators used in convex/notes.ts mutation
- * - Same metadata drives the MCP tool description + field descriptions
- * - defineConvexSchema().toMcpInput() converts to Zod for MCP
+ * Uses the shared Convex schema directly so validators and metadata
+ * stay aligned with the Convex mutation.
  */
+import { z } from 'zod'
+
 import { defineConvexSchema } from '../../../../src/runtime/utils/define-convex-schema'
 import { serverConvexMutation } from '../../../../src/runtime/server/utils/convex'
 import { api } from '../../../convex/_generated/api'
 import { createNoteArgs, createNoteMeta } from '../../../shared/schemas/note'
 
 const schema = defineConvexSchema(createNoteArgs, createNoteMeta)
-const inputSchema = await schema.toMcpInput()
+const inputSchema = schema.toMcpInput(z)
 
 export default defineMcpTool({
   description: createNoteMeta.description,
   inputSchema,
-  handler: async (args: any, extra: any) => {
-    const noteId = await serverConvexMutation(extra.event, api.notes.add, {
+  handler: async (args: any) => {
+    const noteId = await serverConvexMutation(api.notes.add, {
       title: args.title,
       content: args.content,
     })

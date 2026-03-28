@@ -18,13 +18,19 @@ const { useRuntimeConfigMock } = vi.hoisted(() => ({
   })),
 }))
 
-const { useRequestEventMock } = vi.hoisted(() => ({
-  useRequestEventMock: vi.fn(() => undefined),
+const { useEventMock } = vi.hoisted(() => ({
+  useEventMock: vi.fn(() => {
+    throw new Error('Nitro request context is not available')
+  }),
+}))
+
+vi.mock('nitropack/runtime', () => ({
+  useRuntimeConfig: useRuntimeConfigMock,
+  useEvent: useEventMock,
 }))
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: useRuntimeConfigMock,
-  useRequestEvent: useRequestEventMock,
 }))
 
 function createEvent(cookie?: string): H3Event {
@@ -44,7 +50,9 @@ function createEvent(cookie?: string): H3Event {
 describe('server Convex fetch helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    useRequestEventMock.mockReturnValue(undefined)
+    useEventMock.mockImplementation(() => {
+      throw new Error('Nitro request context is not available')
+    })
     useRuntimeConfigMock.mockReturnValue({
       public: {
         convex: {
@@ -95,7 +103,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    useRequestEventMock.mockReturnValue(createEvent() as never)
+    useEventMock.mockReturnValue(createEvent() as never)
 
     const result = await serverConvexQuery({ _path: 'notes:list' } as never, { limit: 2 } as never)
 
@@ -208,7 +216,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    useRequestEventMock.mockReturnValue(createEvent() as never)
+    useEventMock.mockReturnValue(createEvent() as never)
 
     // Args with 'headers' or 'node' should NOT be mistaken for an H3 event
     await serverConvexQuery(

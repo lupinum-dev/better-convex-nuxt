@@ -47,8 +47,23 @@ export interface ConvexSchemaDefinition<T> extends StandardSchemaV1<T> {
   readonly validate: (data: unknown) => T
   /** Optional metadata (labels, descriptions) */
   readonly meta: ConvexSchemaMeta | undefined
-  /** Generate a Zod schema with .describe() from metadata. Requires `zod` installed. */
-  readonly toMcpInput: () => Promise<Record<string, unknown>>
+  /** Generate a Zod schema shape with .describe() from metadata. */
+  readonly toMcpInput: (zodNamespace: ZodNamespaceLike) => Record<string, unknown>
+}
+
+interface ZodNamespaceLike {
+  string: () => unknown
+  number: () => unknown
+  bigint: () => unknown
+  boolean: () => unknown
+  null: () => unknown
+  instanceof: (value: unknown) => unknown
+  any: () => unknown
+  literal: (value: unknown) => unknown
+  array: (schema: unknown) => unknown
+  object: (shape: Record<string, unknown>) => unknown
+  record: (key: unknown, value: unknown) => unknown
+  union: (members: unknown[]) => unknown
 }
 
 // ============================================================================
@@ -74,7 +89,7 @@ export interface ConvexSchemaDefinition<T> extends StandardSchemaV1<T> {
  * // Form:            <UForm :schema="createPostSchema" />
  * // Mutation:        useConvexMutation(api.x, { validate: createPostSchema })
  * // Server route:    readValidatedBody(event, createPostSchema.validate)
- * // MCP tool:        defineMcpTool({ inputSchema: await createPostSchema.toMcpInput() })
+ * // MCP tool:        defineMcpTool({ inputSchema: createPostSchema.toMcpInput(z) })
  * ```
  */
 export function defineConvexSchema<V extends PropertyValidators>(
@@ -118,27 +133,19 @@ export function defineConvexSchema<V extends PropertyValidators>(
     '~standard': standardProps,
     validate,
     meta: options,
-    toMcpInput: () => convexToZod(validators, options),
+    toMcpInput: (zodNamespace) => convexToZod(validators, options, zodNamespace),
   }
 }
 
 // ============================================================================
-// Convex → Zod converter (Zod is optional, loaded via dynamic import)
+// Convex → Zod converter
 // ============================================================================
 
-async function convexToZod(
+function convexToZod(
   validators: Record<string, GenericValidator>,
-  meta?: ConvexSchemaMeta,
-): Promise<Record<string, unknown>> {
-  let z: typeof import('zod')
-  try {
-    z = await import('zod')
-  } catch {
-    throw new Error(
-      'defineConvexSchema().toMcpInput() requires "zod" as a dependency. Install it with: npm install zod',
-    )
-  }
-
+  meta: ConvexSchemaMeta | undefined,
+  z: ZodNamespaceLike,
+): Record<string, unknown> {
   function walk(validator: GenericValidator): unknown {
     const val = validator as any
     const kind: string = val.kind

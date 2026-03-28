@@ -1,7 +1,6 @@
 import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
-
-import { useRequestEvent, useRuntimeConfig } from '#imports'
+import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 
 import { ConvexCallError, toConvexError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
@@ -65,7 +64,7 @@ async function resolveAuthToken(
   event: H3Event,
   options: ServerConvexOptions | undefined,
 ): Promise<string | undefined> {
-  const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
+  const config = normalizeConvexRuntimeConfig(useRuntimeConfig(event).public.convex)
   return await resolveRequestAuthToken(event, config, options)
 }
 
@@ -76,7 +75,7 @@ async function executeConvexOperation<T>(
   args: Record<string, unknown> | undefined,
   options?: ServerConvexOptions,
 ): Promise<T> {
-  const runtimeConfig = useRuntimeConfig()
+  const runtimeConfig = useRuntimeConfig(event)
   const convexConfig = normalizeConvexRuntimeConfig(runtimeConfig.public.convex)
   const convexUrl = convexConfig.url
   const authMode = options?.auth ?? 'auto'
@@ -179,10 +178,12 @@ function resolveServerEvent(
 ): H3Event {
   if (event) return event
   try {
-    const currentEvent = useRequestEvent()
-    if (currentEvent) return currentEvent
+    const currentEvent = useEvent()
+    if (currentEvent) {
+      return currentEvent
+    }
   } catch (resolveError) {
-    // useRequestEvent() can throw when called outside a Nitro request context.
+    // useEvent() throws when Nitro async request context is unavailable.
     // Preserve the original error as cause for debugging unexpected failures.
     throw new ConvexCallError(
       `[${helper}] No H3 event available for ${functionPath}. Pass the event explicitly or call this helper inside a Nitro request context.`,

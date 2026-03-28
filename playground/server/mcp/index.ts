@@ -5,6 +5,4 @@
  * LLMs write JavaScript to orchestrate multiple tool calls in one execution.
  * This reduces round-trips and token usage significantly.
  */
-export default defineMcpHandler({
-  experimental_codeMode: true,
-})
+export default defineMcpHandler({})

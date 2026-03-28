@@ -10,8 +10,8 @@ import { api } from '../../../convex/_generated/api'
 export default defineMcpTool({
   description: 'List all notes (most recent first)',
   annotations: { readOnlyHint: true, destructiveHint: false },
-  handler: async (_args: any, extra: any) => {
-    const notes = await serverConvexQuery(extra.event, api.notes.list, {})
+  handler: async () => {
+    const notes = await serverConvexQuery(api.notes.list, {})
     return notes
   },
 })

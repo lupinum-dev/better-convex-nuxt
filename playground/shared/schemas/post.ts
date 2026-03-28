@@ -8,7 +8,7 @@
  *   convex/posts.ts  → mutation({ args: createPostArgs, handler: ... })
  *   app composable   → defineConvexSchema(createPostArgs, createPostMeta)
  *   server route     → readValidatedBody(event, schema.validate)
- *   MCP tool         → defineMcpTool({ inputSchema: await schema.toMcpInput() })
+ *   MCP tool         → defineMcpTool({ inputSchema: schema.toMcpInput(z) })
  */
 import { v } from 'convex/values'
 import type { PropertyValidators } from 'convex/values'
@@ -20,7 +20,6 @@ import type { PropertyValidators } from 'convex/values'
 export const createPostArgs = {
   title: v.string(),
   content: v.string(),
-  status: v.optional(v.union(v.literal('draft'), v.literal('published'))),
 } satisfies PropertyValidators
 
 export const updatePostArgs = {
@@ -39,7 +38,6 @@ export const createPostMeta = {
   fields: {
     title: { label: 'Title', description: 'The post title' },
     content: { label: 'Content', description: 'Post body in markdown' },
-    status: { label: 'Status', description: 'Draft or published' },
   },
 }
 

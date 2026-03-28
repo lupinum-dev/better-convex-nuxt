@@ -1,28 +1,26 @@
 /**
- * MCP Tool: Create Post (flagship demo)
+ * MCP Tool: Create Post
  *
- * The "define once, use everywhere" showcase:
- * - createPostArgs + createPostMeta defined in shared/schemas/post.ts
- * - convex/posts.ts uses: mutation({ args: createPostArgs })
- * - This MCP tool uses: defineMcpTool({ inputSchema: await schema.toMcpInput() })
- * - Forms use: <UForm :schema="schema"> (via ~standard)
- * - Server routes use: readValidatedBody(event, schema.validate)
+ * Uses the shared Convex schema directly so validators and metadata
+ * stay aligned with the Convex mutation.
  *
- * Note: Requires authentication — posts.create checks permissions.
+ * Requires authentication — posts.create checks permissions.
  */
+import { z } from 'zod'
+
 import { defineConvexSchema } from '../../../../src/runtime/utils/define-convex-schema'
 import { serverConvexMutation } from '../../../../src/runtime/server/utils/convex'
 import { api } from '../../../convex/_generated/api'
 import { createPostArgs, createPostMeta } from '../../../shared/schemas/post'
 
 const schema = defineConvexSchema(createPostArgs, createPostMeta)
-const inputSchema = await schema.toMcpInput()
+const inputSchema = schema.toMcpInput(z)
 
 export default defineMcpTool({
   description: createPostMeta.description,
   inputSchema,
-  handler: async (args: any, extra: any) => {
-    const result = await serverConvexMutation(extra.event, api.posts.create, {
+  handler: async (args: any) => {
+    const result = await serverConvexMutation(api.posts.create, {
       title: args.title,
       content: args.content,
     })

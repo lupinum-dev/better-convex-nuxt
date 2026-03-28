@@ -41,6 +41,10 @@ export default defineNuxtConfig({
 
   pages: true,
 
+  nitro: {
+    experimental: { asyncContext: true },
+  },
+
   devtools: { enabled: true },
 
   compatibilityDate: '2026-02-26',

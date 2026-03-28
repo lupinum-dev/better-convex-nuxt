@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { v } from 'convex/values'
+import { z } from 'zod'
 
 import { defineConvexSchema } from '../../src/runtime/utils/define-convex-schema'
 
@@ -122,28 +123,28 @@ describe('defineConvexSchema', () => {
   // .toMcpInput (Zod conversion)
   // -----------------------------------------------------------------------
   describe('.toMcpInput', () => {
-    it('returns a Zod schema shape (requires zod installed)', async () => {
-      const shape = await schema.toMcpInput()
+    it('returns a Zod schema shape', () => {
+      const shape = schema.toMcpInput(z)
       // Should be an object with Zod schemas as values
       expect(shape.title).toBeDefined()
       expect(shape.body).toBeDefined()
       expect(shape.priority).toBeDefined()
     })
 
-    it('generated Zod fields have correct types', async () => {
-      const shape = await schema.toMcpInput()
+    it('generated Zod fields have correct types', () => {
+      const shape = schema.toMcpInput(z)
       // Zod schemas have _def.type
       expect((shape.title as any)._def.type).toBe('string')
     })
 
-    it('applies descriptions from metadata', async () => {
-      const shape = await schema.toMcpInput()
+    it('applies descriptions from metadata', () => {
+      const shape = schema.toMcpInput(z)
       expect((shape.title as any).description).toBe('The task title')
       expect((shape.body as any).description).toBe('Task description')
     })
 
-    it('handles optional fields', async () => {
-      const shape = await schema.toMcpInput()
+    it('handles optional fields', () => {
+      const shape = schema.toMcpInput(z)
       // Optional fields should be wrapped in ZodOptional
       expect((shape.priority as any)._def.type).toBe('optional')
     })
@@ -153,50 +154,50 @@ describe('defineConvexSchema', () => {
   // Zod conversion of various Convex kinds
   // -----------------------------------------------------------------------
   describe('toMcpInput — kind mapping', () => {
-    it('converts float64 to z.number()', async () => {
+    it('converts float64 to z.number()', () => {
       const s = defineConvexSchema({ age: v.float64() })
-      const shape = await s.toMcpInput()
+      const shape = s.toMcpInput(z)
       expect((shape.age as any)._def.type).toBe('number')
     })
 
-    it('converts boolean to z.boolean()', async () => {
+    it('converts boolean to z.boolean()', () => {
       const s = defineConvexSchema({ active: v.boolean() })
-      const shape = await s.toMcpInput()
+      const shape = s.toMcpInput(z)
       expect((shape.active as any)._def.type).toBe('boolean')
     })
 
-    it('converts literal to z.literal()', async () => {
+    it('converts literal to z.literal()', () => {
       const s = defineConvexSchema({ role: v.literal('admin') })
-      const shape = await s.toMcpInput()
+      const shape = s.toMcpInput(z)
       expect((shape.role as any)._def.type).toBe('literal')
       expect((shape.role as any)._def.values).toContain('admin')
     })
 
-    it('converts array to z.array()', async () => {
+    it('converts array to z.array()', () => {
       const s = defineConvexSchema({ tags: v.array(v.string()) })
-      const shape = await s.toMcpInput()
+      const shape = s.toMcpInput(z)
       expect((shape.tags as any)._def.type).toBe('array')
     })
 
-    it('converts nested object', async () => {
+    it('converts nested object', () => {
       const s = defineConvexSchema({
         address: v.object({ street: v.string(), city: v.string() }),
       })
-      const shape = await s.toMcpInput()
+      const shape = s.toMcpInput(z)
       expect((shape.address as any)._def.type).toBe('object')
     })
 
-    it('converts id to z.string()', async () => {
+    it('converts id to z.string()', () => {
       const s = defineConvexSchema({ userId: v.id('users') })
-      const shape = await s.toMcpInput()
+      const shape = s.toMcpInput(z)
       expect((shape.userId as any)._def.type).toBe('string')
     })
 
-    it('converts union to z.union()', async () => {
+    it('converts union to z.union()', () => {
       const s = defineConvexSchema({
         status: v.union(v.literal('active'), v.literal('archived')),
       })
-      const shape = await s.toMcpInput()
+      const shape = s.toMcpInput(z)
       expect((shape.status as any)._def.type).toBe('union')
     })
   })
