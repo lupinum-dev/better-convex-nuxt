@@ -87,7 +87,15 @@ export type ConvexErrorCategory =
   | 'network'
   | 'server'
   | 'conflict'
+  | 'scope_exceeded'
+  | 'confirmation_required'
+  | 'cooldown'
   | 'unknown'
+
+/**
+ * Operation type for MCP tool annotation derivation.
+ */
+export type ConvexToolOperation = 'query' | 'mutation' | 'action'
 
 /**
  * A single field-level validation issue.

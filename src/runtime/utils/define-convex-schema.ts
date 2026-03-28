@@ -21,6 +21,12 @@ export interface ConvexSchemaFieldMeta {
   label?: string
   /** Description (for MCP tool .describe(), docs) */
   description?: string
+  /** Example values shown to MCP agents */
+  examples?: unknown[]
+  /** Valid string values (when not using v.literal) */
+  enum?: string[]
+  /** Default value hint shown in description, not enforced at runtime */
+  defaultHint?: unknown
 }
 
 export interface ConvexSchemaMetaBase {

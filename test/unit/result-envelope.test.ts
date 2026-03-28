@@ -1,0 +1,123 @@
+import { describe, expect, it } from 'vitest'
+
+import { wrapError, wrapPreview, wrapSuccess } from '../../src/runtime/mcp/result-envelope'
+
+describe('wrapSuccess', () => {
+  it('wraps plain data with ok: true envelope', () => {
+    const result = wrapSuccess({ id: 'abc', title: 'Hello' })
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      data: { id: 'abc', title: 'Hello' },
+    })
+    expect(result.content).toEqual([
+      { type: 'text', text: JSON.stringify({ id: 'abc', title: 'Hello' }) },
+    ])
+    expect(result.isError).toBeUndefined()
+  })
+
+  it('uses summary as text when { data, summary } shape is returned', () => {
+    const result = wrapSuccess({ data: { id: 'abc' }, summary: 'Created post abc' })
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      data: { id: 'abc' },
+    })
+    expect(result.content).toEqual([
+      { type: 'text', text: 'Created post abc' },
+    ])
+  })
+
+  it('wraps primitive values', () => {
+    expect(wrapSuccess(42).structuredContent).toEqual({ ok: true, data: 42 })
+    expect(wrapSuccess('hello').structuredContent).toEqual({ ok: true, data: 'hello' })
+    expect(wrapSuccess(null).structuredContent).toEqual({ ok: true, data: null })
+  })
+
+  it('wraps arrays', () => {
+    const result = wrapSuccess([1, 2, 3])
+    expect(result.structuredContent).toEqual({ ok: true, data: [1, 2, 3] })
+  })
+})
+
+describe('wrapError', () => {
+  it('wraps error with category and retryable flag', () => {
+    const result = wrapError('auth', 'Authentication required')
+
+    expect(result.structuredContent).toEqual({
+      ok: false,
+      error: {
+        category: 'auth',
+        message: 'Authentication required',
+        retryable: true,
+      },
+    })
+    expect(result.content).toEqual([
+      { type: 'text', text: 'Authentication required' },
+    ])
+    expect(result.isError).toBe(true)
+  })
+
+  it('marks not_found as non-retryable', () => {
+    const result = wrapError('not_found', 'Post not found')
+    expect((result.structuredContent as any).error.retryable).toBe(false)
+  })
+
+  it('marks unknown as non-retryable', () => {
+    const result = wrapError('unknown', 'Something went wrong')
+    expect((result.structuredContent as any).error.retryable).toBe(false)
+  })
+
+  it('includes validation issues when provided', () => {
+    const result = wrapError('validation', 'Validation failed', [
+      { path: 'title', message: 'Required' },
+      { path: 'content', message: 'Expected string' },
+    ])
+
+    expect((result.structuredContent as any).error.issues).toEqual([
+      { path: 'title', message: 'Required' },
+      { path: 'content', message: 'Expected string' },
+    ])
+  })
+
+  it('marks all expected categories as retryable', () => {
+    const retryable = ['auth', 'validation', 'rate_limit', 'scope_exceeded', 'confirmation_required', 'cooldown', 'network', 'server', 'conflict'] as const
+    for (const cat of retryable) {
+      const result = wrapError(cat, 'test')
+      expect((result.structuredContent as any).error.retryable, `${cat} should be retryable`).toBe(true)
+    }
+  })
+})
+
+describe('wrapPreview', () => {
+  it('wraps preview with awaitingConfirmation', () => {
+    const result = wrapPreview({
+      summary: 'Will delete "My Post"',
+      affects: { posts: 1 },
+    })
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      preview: {
+        summary: 'Will delete "My Post"',
+        affects: { posts: 1 },
+      },
+      awaitingConfirmation: true,
+    })
+    expect(result.content).toEqual([
+      { type: 'text', text: 'Will delete "My Post"' },
+    ])
+    expect(result.isError).toBeUndefined()
+  })
+
+  it('includes warn and blocked fields', () => {
+    const result = wrapPreview({
+      summary: 'Cannot delete',
+      warn: 'Permission denied',
+      blocked: true,
+    })
+
+    expect((result.structuredContent as any).preview.warn).toBe('Permission denied')
+    expect((result.structuredContent as any).preview.blocked).toBe(true)
+  })
+})
