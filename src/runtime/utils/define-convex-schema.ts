@@ -9,8 +9,8 @@
 import { v } from 'convex/values'
 import type { PropertyValidators, ObjectType } from 'convex/values'
 
-import type { StandardSchemaV1 } from './standard-schema'
 import { validateConvex } from './convex-schema'
+import type { StandardSchemaV1 } from './standard-schema'
 
 // ============================================================================
 // Types
@@ -44,8 +44,10 @@ export type ConvexSchemaMetaFor<V extends PropertyValidators> = ConvexSchemaMeta
  * - `<UForm :schema="schema">`
  * - Any Standard Schema consumer
  */
-export interface ConvexSchemaDefinition<T, V extends PropertyValidators = PropertyValidators>
-  extends StandardSchemaV1<T> {
+export interface ConvexSchemaDefinition<
+  T,
+  V extends PropertyValidators = PropertyValidators,
+> extends StandardSchemaV1<T> {
   /** Raw Convex validators — spread into `mutation({ args: schema.args })` */
   readonly args: V
   /** Standard Schema v1 object for form libraries */
@@ -96,7 +98,7 @@ export function defineConvexSchema<V extends PropertyValidators>(
     validate: (value: unknown) => {
       const issues = validateConvex(objectValidator, value)
       if (issues.length > 0) {
-        return { issues: issues.map(i => ({ message: i.message, path: i.path })) }
+        return { issues: issues.map((i) => ({ message: i.message, path: i.path })) }
       }
       return { value: value as T }
     },

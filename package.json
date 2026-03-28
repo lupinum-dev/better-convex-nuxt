@@ -39,6 +39,9 @@
       "composables": [
         "./dist/runtime/composables/index.d.ts"
       ],
+      "schema": [
+        "./dist/runtime/schema/index.d.ts"
+      ],
       "mcp": [
         "./dist/runtime/mcp/index.d.ts"
       ],
@@ -55,6 +58,10 @@
     "./composables": {
       "types": "./dist/runtime/composables/index.d.ts",
       "import": "./dist/runtime/composables/index.js"
+    },
+    "./schema": {
+      "types": "./dist/runtime/schema/index.d.ts",
+      "import": "./dist/runtime/schema/index.js"
     },
     "./mcp": {
       "types": "./dist/runtime/mcp/index.d.ts",
@@ -102,28 +109,8 @@
     "consola": "^3.4.0",
     "convex": "^1.34.0",
     "defu": "^6.1.4",
-    "h3": "1.15.5",
+    "h3": "1.15.10",
     "ohash": "^2.0.11"
-  },
-  "peerDependencies": {
-    "@nuxtjs/mcp-toolkit": "^0.12.0",
-    "convex": "^1.32.0",
-    "convex-helpers": "^0.1.114",
-    "zod": "^4.3.0"
-  },
-  "peerDependenciesMeta": {
-    "@nuxtjs/mcp-toolkit": {
-      "optional": true
-    },
-    "convex": {
-      "optional": true
-    },
-    "convex-helpers": {
-      "optional": true
-    },
-    "zod": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
@@ -155,8 +142,33 @@
     "vue-tsc": "^3.2.5",
     "zod": "^4.3.0"
   },
+  "peerDependencies": {
+    "@nuxtjs/mcp-toolkit": "^0.12.0",
+    "convex": "^1.32.0",
+    "convex-helpers": "^0.1.114",
+    "zod": "^4.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@nuxtjs/mcp-toolkit": {
+      "optional": true
+    },
+    "convex": {
+      "optional": true
+    },
+    "convex-helpers": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
+  },
   "lint-staged": {
     "!(**/_generated/**/*)": "oxfmt --no-error-on-unmatched-pattern"
   },
-  "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017"
+  "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017",
+  "pnpm": {
+    "overrides": {
+      "h3": "1.15.10"
+    }
+  }
 }

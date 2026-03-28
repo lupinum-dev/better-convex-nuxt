@@ -1,9 +1,11 @@
 import { fileURLToPath } from 'node:url'
+
 import { convexLocal } from 'convex-vite-plugin'
 
 const runtimeComposablesEntry = fileURLToPath(
   new URL('../src/runtime/composables/index.ts', import.meta.url),
 )
+const runtimeSchemaEntry = fileURLToPath(new URL('../src/runtime/schema/index.ts', import.meta.url))
 const runtimeMcpEntry = fileURLToPath(new URL('../src/runtime/mcp/index.ts', import.meta.url))
 const runtimeServerEntry = fileURLToPath(new URL('../src/runtime/server/index.ts', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('./', import.meta.url))
@@ -37,6 +39,7 @@ export default defineNuxtConfig({
     // The playground runs against the local module source, not an installed package.
     // Mirror the published subpath imports so examples stay copy-pastable for consumers.
     'better-convex-nuxt/composables': runtimeComposablesEntry,
+    'better-convex-nuxt/schema': runtimeSchemaEntry,
     'better-convex-nuxt/mcp': runtimeMcpEntry,
     'better-convex-nuxt/server': runtimeServerEntry,
   },
@@ -89,12 +92,11 @@ export default defineNuxtConfig({
             AUTH_BASE_URL: process.env.AUTH_BASE_URL || playgroundUrl,
             AUTH_TRUSTED_ORIGINS: appendOrigin(process.env.AUTH_TRUSTED_ORIGINS, playgroundUrl),
             BETTER_AUTH_SECRET:
-              process.env.BETTER_AUTH_SECRET ||
-              'local-dev-better-auth-secret-not-for-production',
+              process.env.BETTER_AUTH_SECRET || 'local-dev-better-auth-secret-not-for-production',
             CONVEX_PRIVATE_BRIDGE_KEY: localPrivateBridgeKey,
-          }
-        })
+          },
+        }),
       ]
-    }
+    },
   },
 })

@@ -1,3 +1,4 @@
+import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
 /**
  * Shared note schema — define once, use everywhere.
  *
@@ -6,7 +7,6 @@
  */
 import { v } from 'convex/values'
 import type { PropertyValidators } from 'convex/values'
-import type { ConvexSchemaMetaFor } from '../../../src/runtime/utils/define-convex-schema'
 
 export const createNoteArgs = {
   title: v.string(),

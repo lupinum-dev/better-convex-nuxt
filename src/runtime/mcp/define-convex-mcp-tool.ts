@@ -1,17 +1,14 @@
-import { convexToZodFields } from 'convex-helpers/server/zod4'
-import type { ZodValidatorFromConvex } from 'convex-helpers/server/zod4'
-import type { PropertyValidators } from 'convex/values'
 import type {
   McpToolExtra,
   McpToolCallbackResult,
   McpToolDefinition,
 } from '@nuxtjs/mcp-toolkit/server'
+import { convexToZodFields } from 'convex-helpers/server/zod4'
+import type { ZodValidatorFromConvex } from 'convex-helpers/server/zod4'
+import type { PropertyValidators } from 'convex/values'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
-import type {
-  ConvexSchemaDefinition,
-  ConvexSchemaFieldMeta,
-} from '../../utils/define-convex-schema'
+import type { ConvexSchemaDefinition, ConvexSchemaFieldMeta } from '../utils/define-convex-schema'
 
 type AnyConvexSchema = ConvexSchemaDefinition<any, PropertyValidators>
 
@@ -31,9 +28,15 @@ export interface ConvexMcpToolDefinition<
   S extends AnyConvexSchema,
   OutputSchema extends ZodRawShape = ZodRawShape,
   Extra extends ConvexMcpToolExtra = ConvexMcpToolExtra,
-> extends Omit<McpToolDefinition<ConvexMcpInputSchema<InferSchemaValidators<S>>, OutputSchema>, 'handler' | 'inputSchema'> {
+> extends Omit<
+  McpToolDefinition<ConvexMcpInputSchema<InferSchemaValidators<S>>, OutputSchema>,
+  'handler' | 'inputSchema'
+> {
   inputSchema: ConvexMcpInputSchema<InferSchemaValidators<S>>
-  handler: (args: InferSchemaData<S>, extra: Extra) => McpToolCallbackResult | Promise<McpToolCallbackResult>
+  handler: (
+    args: InferSchemaData<S>,
+    extra: Extra,
+  ) => McpToolCallbackResult | Promise<McpToolCallbackResult>
 }
 
 export interface ConvexMcpToolOptions<
@@ -56,7 +59,9 @@ function applyFieldDescriptions<V extends PropertyValidators>(
   for (const [fieldName, fieldSchema] of Object.entries(shape) as [keyof V, ZodTypeAny][]) {
     const description = fields[fieldName]?.description
     if (description) {
-      describedShape[fieldName] = fieldSchema.describe(description) as ConvexMcpInputSchema<V>[keyof V]
+      describedShape[fieldName] = fieldSchema.describe(
+        description,
+      ) as ConvexMcpInputSchema<V>[keyof V]
     }
   }
 

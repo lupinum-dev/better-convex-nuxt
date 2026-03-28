@@ -6,10 +6,21 @@
 
 - `useConvexQuery()` and `useConvexPaginatedQuery()` now expose `isStale`, making it possible to distinguish "showing previous args while refreshing" from initial loading, skipped queries, and steady-state data.
 - Server auth resolution is now shared per request across SSR hydration and `serverConvexQuery()` / `serverConvexMutation()` / `serverConvexAction()`, avoiding repeated cookie parsing and token exchange within the same Nitro request.
+- Shared Convex validators now support a finished multi-runtime DX story:
+  - `better-convex-nuxt/schema` is the server-safe shared-schema entrypoint
+  - `better-convex-nuxt/mcp` is the MCP-only entrypoint
+  - `defineConvexMcpTool()` now derives MCP input schemas from the same shared Convex validators used by forms, H3 validation, and Convex mutation args
+- MCP-only packages are now optional peers instead of unconditional runtime dependencies.
+
+### ⚠️ Breaking Changes
+
+- `schema.toMcpInput(...)` was removed. MCP tools should use `defineConvexMcpTool({ schema, ... })`.
+- `defineConvexMcpTool` moved from `better-convex-nuxt/server` to `better-convex-nuxt/mcp`.
+- Server-side shared-schema imports should use `better-convex-nuxt/schema` instead of `better-convex-nuxt/composables`.
 
 ### 📖 Documentation
 
-- Added docs and API reference coverage for `isStale` and request-scoped server auth reuse.
+- Added docs and API reference coverage for `isStale`, request-scoped server auth reuse, and the new shared-schema `schema` / `server` / `mcp` import split.
 
 ### Scope
 

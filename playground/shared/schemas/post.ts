@@ -1,3 +1,4 @@
+import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
 /**
  * Shared post schema — define once, use everywhere.
  *
@@ -12,7 +13,6 @@
  */
 import { v } from 'convex/values'
 import type { PropertyValidators } from 'convex/values'
-import type { ConvexSchemaMetaFor } from '../../../src/runtime/utils/define-convex-schema'
 
 // ---------------------------------------------------------------------------
 // Validators — the single source of truth

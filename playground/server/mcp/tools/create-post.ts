@@ -1,3 +1,4 @@
+import { defineConvexMcpTool } from 'better-convex-nuxt/mcp'
 /**
  * MCP Tool: Create Post
  *
@@ -6,8 +7,7 @@
  *
  * Requires authentication — posts.create checks permissions.
  */
-import { defineConvexSchema } from 'better-convex-nuxt/composables'
-import { defineConvexMcpTool } from 'better-convex-nuxt/mcp'
+import { defineConvexSchema } from 'better-convex-nuxt/schema'
 import { serverConvexMutation } from 'better-convex-nuxt/server'
 
 import { api } from '../../../convex/_generated/api'

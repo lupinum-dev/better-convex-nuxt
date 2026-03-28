@@ -4,4 +4,4 @@ export {
   type ConvexMcpToolOptions,
   type ConvexMcpToolExtra,
   type ConvexMcpInputSchema,
-} from '../server/utils/define-convex-mcp-tool'
+} from './define-convex-mcp-tool'

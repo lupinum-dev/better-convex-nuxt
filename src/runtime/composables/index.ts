@@ -1,8 +1,5 @@
 export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
-export {
-  useConvexAuthInternal,
-  type UseConvexAuthInternalReturn,
-} from './useConvexAuthInternal'
+export { useConvexAuthInternal, type UseConvexAuthInternalReturn } from './useConvexAuthInternal'
 export { useConvex } from './useConvex'
 export { ConvexCallError } from '../utils/call-result'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'

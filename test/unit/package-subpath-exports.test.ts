@@ -8,6 +8,8 @@ describe('package subpath exports', () => {
     const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'))
 
     expect(packageJson.exports).toHaveProperty('./mcp')
+    expect(packageJson.exports).toHaveProperty('./schema')
     expect(packageJson.typesVersions['*']).toHaveProperty('mcp')
+    expect(packageJson.typesVersions['*']).toHaveProperty('schema')
   })
 })
