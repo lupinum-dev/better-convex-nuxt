@@ -215,6 +215,40 @@ describe('defineConvexMcpTool', () => {
     })
   })
 
+  it('infers auth category from message when code/status are absent', async () => {
+    const schema = defineConvexSchema({ title: v.string() })
+    const tool = defineConvexMcpTool({
+      schema,
+      handler: async () => {
+        // Simulates what Convex throws for `throw new Error("Unauthorized")` in a handler
+        // — no code, no status, category falls back to 'unknown'
+        throw new Error('Server Error\nUncaught Error: Unauthorized')
+      },
+    })
+
+    const result = await tool.handler({ title: 'test' }, {} as McpToolExtra)
+    expect(result).toEqual({
+      content: [{ type: 'text', text: '[auth] Unauthorized' }],
+      isError: true,
+    })
+  })
+
+  it('infers rate_limit category from message', async () => {
+    const schema = defineConvexSchema({ title: v.string() })
+    const tool = defineConvexMcpTool({
+      schema,
+      handler: async () => {
+        throw new Error('Too many requests, please slow down')
+      },
+    })
+
+    const result = await tool.handler({ title: 'test' }, {} as McpToolExtra)
+    expect(result).toEqual({
+      content: [{ type: 'text', text: '[rate_limit] Too many requests, please slow down' }],
+      isError: true,
+    })
+  })
+
   it('returns success results unchanged', async () => {
     const schema = defineConvexSchema({ title: v.string() })
     const tool = defineConvexMcpTool({

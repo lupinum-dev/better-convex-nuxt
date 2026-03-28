@@ -10,6 +10,7 @@ import type { ZodRawShape, ZodTypeAny } from 'zod'
 
 import { toConvexError } from '../utils/call-result'
 import type { ConvexSchemaDefinition, ConvexSchemaFieldMeta } from '../utils/define-convex-schema'
+import type { ConvexErrorCategory } from '../utils/types'
 
 type AnyConvexSchema = ConvexSchemaDefinition<any, PropertyValidators>
 
@@ -93,6 +94,19 @@ function cleanErrorMessage(message: string): string {
 }
 
 /**
+ * Last-resort category inference from the cleaned error message.
+ * Only used when `categorizeError` couldn't determine a category from code/status.
+ */
+function inferCategoryFromMessage(message: string): ConvexErrorCategory | undefined {
+  const lower = message.toLowerCase()
+  if (lower.includes('unauthorized') || lower.includes('unauthenticated') || lower.includes('forbidden')) return 'auth'
+  if (lower.includes('not found')) return 'not_found'
+  if (lower.includes('rate limit') || lower.includes('too many')) return 'rate_limit'
+  if (lower.includes('validation') || lower.includes('invalid arg')) return 'validation'
+  return undefined
+}
+
+/**
  * Build an MCP tool definition directly from a shared Convex schema.
  *
  * This keeps MCP tool input validation aligned with the same validators used by
@@ -120,9 +134,13 @@ export function defineConvexMcpTool<
     }
     catch (err) {
       const convexError = toConvexError(err)
-      const prefix = convexError.category !== 'unknown' ? `[${convexError.category}] ` : ''
+      const message = cleanErrorMessage(convexError.message)
+      const category = convexError.category !== 'unknown'
+        ? convexError.category
+        : inferCategoryFromMessage(message)
+      const prefix = category ? `[${category}] ` : ''
       return {
-        content: [{ type: 'text' as const, text: `${prefix}${cleanErrorMessage(convexError.message)}` }],
+        content: [{ type: 'text' as const, text: `${prefix}${message}` }],
         isError: true,
       }
     }
