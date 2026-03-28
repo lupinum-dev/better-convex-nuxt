@@ -26,6 +26,9 @@ importers:
       convex:
         specifier: ^1.34.0
         version: 1.34.1(react@19.2.3)
+      convex-helpers:
+        specifier: ^0.1.114
+        version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.34.1(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(zod@4.3.6)
       defu:
         specifier: ^6.1.4
         version: 6.1.4
@@ -35,6 +38,9 @@ importers:
       ohash:
         specifier: ^2.0.11
         version: 2.0.11
+      zod:
+        specifier: ^4.3.0
+        version: 4.3.6
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^5.0.0

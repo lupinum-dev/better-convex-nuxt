@@ -80,7 +80,8 @@ export { toConvexSchema, useConvexSchema } from '../utils/convex-schema'
 export {
   defineConvexSchema,
   type ConvexSchemaDefinition,
-  type ConvexSchemaMeta,
+  type ConvexSchemaMetaBase,
+  type ConvexSchemaMetaFor,
   type ConvexSchemaFieldMeta,
 } from '../utils/define-convex-schema'
 export type { ValidateOption } from '../utils/resolve-validator'

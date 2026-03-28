@@ -19,6 +19,7 @@ describe('server entrypoint exports', () => {
     expect(serverApi).toHaveProperty('serverConvexQuery')
     expect(serverApi).toHaveProperty('serverConvexMutation')
     expect(serverApi).toHaveProperty('serverConvexAction')
+    expect(serverApi).toHaveProperty('defineConvexMcpTool')
   })
 
   it('does not expose legacy helper names', () => {

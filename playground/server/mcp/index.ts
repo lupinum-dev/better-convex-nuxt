@@ -1,8 +1,2 @@
-/**
- * MCP Handler with Code Mode enabled.
- *
- * Code Mode replaces individual tools with a single `code` tool that lets
- * LLMs write JavaScript to orchestrate multiple tool calls in one execution.
- * This reduces round-trips and token usage significantly.
- */
+/** Default MCP handler for the playground demo. */
 export default defineMcpHandler({})

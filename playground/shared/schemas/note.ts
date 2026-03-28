@@ -6,6 +6,7 @@
  */
 import { v } from 'convex/values'
 import type { PropertyValidators } from 'convex/values'
+import type { ConvexSchemaMetaFor } from '../../../src/runtime/utils/define-convex-schema'
 
 export const createNoteArgs = {
   title: v.string(),
@@ -18,4 +19,4 @@ export const createNoteMeta = {
     title: { label: 'Title', description: 'The note title' },
     content: { label: 'Content', description: 'The note body text' },
   },
-}
+} satisfies ConvexSchemaMetaFor<typeof createNoteArgs>

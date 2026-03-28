@@ -8,10 +8,11 @@
  *   convex/posts.ts  → mutation({ args: createPostArgs, handler: ... })
  *   app composable   → defineConvexSchema(createPostArgs, createPostMeta)
  *   server route     → readValidatedBody(event, schema.validate)
- *   MCP tool         → defineMcpTool({ inputSchema: schema.toMcpInput(z) })
+ *   MCP tool         → defineConvexMcpTool({ schema, handler: ... })
  */
 import { v } from 'convex/values'
 import type { PropertyValidators } from 'convex/values'
+import type { ConvexSchemaMetaFor } from '../../../src/runtime/utils/define-convex-schema'
 
 // ---------------------------------------------------------------------------
 // Validators — the single source of truth
@@ -39,7 +40,7 @@ export const createPostMeta = {
     title: { label: 'Title', description: 'The post title' },
     content: { label: 'Content', description: 'Post body in markdown' },
   },
-}
+} satisfies ConvexSchemaMetaFor<typeof createPostArgs>
 
 export const updatePostMeta = {
   description: 'Update an existing blog post',
@@ -48,4 +49,4 @@ export const updatePostMeta = {
     title: { label: 'Title', description: 'New title (optional)' },
     content: { label: 'Content', description: 'New content (optional)' },
   },
-}
+} satisfies ConvexSchemaMetaFor<typeof updatePostArgs>

@@ -94,9 +94,11 @@
     "better-auth": ">=1.5.0 <1.6.0",
     "consola": "^3.4.0",
     "convex": "^1.34.0",
+    "convex-helpers": "^0.1.114",
     "defu": "^6.1.4",
     "h3": "1.15.5",
-    "ohash": "^2.0.11"
+    "ohash": "^2.0.11",
+    "zod": "^4.3.0"
   },
   "peerDependencies": {
     "convex": "^1.32.0"
