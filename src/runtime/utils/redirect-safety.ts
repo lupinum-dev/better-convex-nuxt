@@ -17,11 +17,15 @@ export function validateRedirectPath(raw: string | null | undefined): string | n
   // Reject any path containing // (path traversal tricks like /foo//evil.com)
   if (trimmed.includes('//')) return null
 
+  // Reject backslashes — browsers normalize \ to /, so /\evil.com becomes //evil.com
+  if (trimmed.includes('\\')) return null
+
   // Reject non-http protocols (javascript:, data:, etc.)
   try {
     const url = new URL(trimmed, 'http://localhost')
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-  } catch {
+  } catch (_parseError) {
+    // Unparseable URL — reject as unsafe redirect
     return null
   }
 
@@ -46,7 +50,7 @@ export function resolveRedirectTarget(
   fallbackPath: string,
   loginPath?: string,
 ): string {
-  const target = validateRedirectPath(raw) ?? fallbackPath
+  const target = validateRedirectPath(raw) ?? validateRedirectPath(fallbackPath) ?? '/'
 
   // Login-loop prevention: if target resolves to the login page, go to root
   if (loginPath && stripQuery(target) === stripQuery(loginPath)) {

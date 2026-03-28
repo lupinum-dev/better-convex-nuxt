@@ -4,6 +4,7 @@ import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
+import type { ValidateOption } from '../utils/resolve-validator'
 import { getRequiredConvexClient } from './useConvex'
 import { createConvexCallState, type UseConvexMutationReturn } from './useConvexMutation'
 
@@ -17,6 +18,11 @@ export type UseConvexActionReturn<Args, Result> = UseConvexMutationReturn<Args, 
  * Options for useConvexAction
  */
 export interface UseConvexActionOptions<Args, Result> {
+  /**
+   * Pre-validate args before sending to the server.
+   * Accepts a Convex validator or any Standard Schema v1 producer.
+   */
+  validate?: ValidateOption
   /**
    * Called after a successful action.
    * Errors thrown here are logged and ignored.
@@ -86,5 +92,6 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     callFn: (args) => getRequiredConvexClient(nuxtApp).action(action, args),
     onSuccess: options?.onSuccess,
     onError: options?.onError,
+    validate: options?.validate,
   })
 }

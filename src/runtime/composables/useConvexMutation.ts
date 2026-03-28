@@ -13,7 +13,8 @@ import {
   updateDevtoolsEntryError,
 } from '../devtools/runtime'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
-import { toConvexError } from '../utils/call-result'
+import { ConvexCallError, toConvexError } from '../utils/call-result'
+import { resolveSchema, runValidation, type ValidateOption } from '../utils/resolve-validator'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
 import type { MutationStatus } from '../utils/types'
@@ -83,6 +84,20 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
    * Errors thrown here are logged and ignored.
    */
   onError?: (error: Error, args: Args) => void
+  /**
+   * Pre-validate args before sending to the server.
+   * Accepts a Convex validator or any Standard Schema v1 producer (Zod, Valibot, ArkType).
+   * On failure: error is set instantly with `category: 'validation'` and `issues` array,
+   * no network request is made.
+   *
+   * @example
+   * ```ts
+   * const createPost = useConvexMutation(api.posts.create, {
+   *   validate: v.object({ title: v.string(), body: v.string() }),
+   * })
+   * ```
+   */
+  validate?: ValidateOption
 }
 
 // ============================================================================
@@ -101,8 +116,9 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
   callFn: (args: Args) => Promise<Result>
   onSuccess?: (result: Result, args: Args) => void
   onError?: (error: Error, args: Args) => void
+  validate?: ValidateOption
 }): UseConvexMutationReturn<Args, Result> {
-  const { fnName, callType, logger, nuxtApp, hasOptimisticUpdate, callFn, onSuccess, onError } = config
+  const { fnName, callType, logger, nuxtApp, hasOptimisticUpdate, callFn, onSuccess, onError, validate: validateOption } = config
 
   let activeRequestId = 0
   const _status = ref<MutationStatus>('idle')
@@ -130,6 +146,87 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
 
     if (hasOptimisticUpdate) {
       logger.mutation({ name: fnName, event: 'optimistic', args })
+    }
+
+    // Pre-validation: check args before network call
+    if (validateOption) {
+      try {
+        const schema = resolveSchema(validateOption)
+        const check = await runValidation(schema, args)
+        if (!check.valid) {
+          const err = new ConvexCallError('Validation failed', {
+            code: 'VALIDATION_ERROR',
+            category: 'validation',
+            operation: callType,
+            functionPath: fnName,
+            issues: check.issues,
+          })
+          if (currentRequestId === activeRequestId) {
+            _status.value = 'error'
+            error.value = err
+          }
+          try {
+            onError?.(err, args)
+          } catch (callbackError) {
+            if (import.meta.dev) {
+              console.warn(`[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`, callbackError)
+            }
+          }
+          updateDevtoolsEntryError(callId, startTime, err.message)
+          const duration = Date.now() - startTime
+          if (callType === 'mutation') {
+            logger.mutation({ name: fnName, event: 'error', args, duration, error: err })
+          } else {
+            logger.action({ name: fnName, event: 'error', duration, error: err })
+          }
+          void nuxtApp.callHook(`convex:${callType}:error` as any, {
+            functionPath: fnName,
+            operation: callType,
+            args: args as Record<string, unknown>,
+            error: err,
+            duration,
+          })
+          throw err
+        }
+      } catch (e) {
+        if (e instanceof ConvexCallError) throw e
+        const err = new ConvexCallError(
+          e instanceof Error ? e.message : 'Pre-validation failed unexpectedly',
+          {
+            code: 'VALIDATION_ERROR',
+            category: 'validation',
+            operation: callType,
+            functionPath: fnName,
+            cause: e,
+          },
+        )
+        if (currentRequestId === activeRequestId) {
+          _status.value = 'error'
+          error.value = err
+        }
+        try {
+          onError?.(err, args)
+        } catch (callbackError) {
+          if (import.meta.dev) {
+            console.warn(`[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`, callbackError)
+          }
+        }
+        updateDevtoolsEntryError(callId, startTime, err.message)
+        const duration = Date.now() - startTime
+        if (callType === 'mutation') {
+          logger.mutation({ name: fnName, event: 'error', args, duration, error: err })
+        } else {
+          logger.action({ name: fnName, event: 'error', duration, error: err })
+        }
+        void nuxtApp.callHook(`convex:${callType}:error` as any, {
+          functionPath: fnName,
+          operation: callType,
+          args: args as Record<string, unknown>,
+          error: err,
+          duration,
+        })
+        throw err
+      }
     }
 
     try {
@@ -299,5 +396,6 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       }),
     onSuccess: options?.onSuccess,
     onError: options?.onError,
+    validate: options?.validate,
   })
 }

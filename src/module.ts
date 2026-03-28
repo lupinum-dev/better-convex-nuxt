@@ -450,6 +450,10 @@ export {}
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
+        name: 'executeConvexQuery',
+        from: resolver.resolve('./runtime/composables/useConvexQuery'),
+      },
+      {
         name: 'useConvexPaginatedQuery',
         from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
       },
@@ -465,6 +469,9 @@ export {}
         name: 'useConvexStorageUrl',
         from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
       },
+      // Validation — Convex validator → Standard Schema
+      { name: 'useConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
+      { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
       // Optimistic update standalone helpers
       { name: 'prependTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
       { name: 'appendTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
@@ -516,6 +523,11 @@ export {}
         name: 'serverConvexClearAuthCache',
         from: resolver.resolve('./runtime/server/utils/auth-cache'),
       },
+      {
+        name: 'validateConvexArgs',
+        from: resolver.resolve('./runtime/server/utils/validate'),
+      },
+      { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
     ])
 
     // 9. Add types to tsconfig references

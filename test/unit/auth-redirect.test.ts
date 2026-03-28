@@ -77,6 +77,12 @@ describe('validateRedirectPath', () => {
       expect(validateRedirectPath('data:text/html,<h1>hi</h1>')).toBeNull()
     })
 
+    it('rejects backslash open redirect vectors', () => {
+      expect(validateRedirectPath('/\\evil.com')).toBeNull()
+      expect(validateRedirectPath('/foo\\bar')).toBeNull()
+      expect(validateRedirectPath('/\\\\evil.com')).toBeNull()
+    })
+
     it('rejects relative paths without leading slash', () => {
       expect(validateRedirectPath('dashboard')).toBeNull()
     })

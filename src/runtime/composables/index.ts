@@ -75,6 +75,11 @@ export {
   type UseAuthRedirectReturn,
 } from './useAuthRedirect'
 
+// Validation — Convex validator → Standard Schema conversion
+export { toConvexSchema, useConvexSchema } from '../utils/convex-schema'
+export type { ValidateOption } from '../utils/resolve-validator'
+export type { StandardSchemaV1 } from '../utils/standard-schema'
+
 // Permission composables (opt-in via module config)
 export {
   createPermissions,
