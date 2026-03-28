@@ -1,12 +1,22 @@
 import type { McpRequestExtra } from '@nuxtjs/mcp-toolkit/server'
 import { v } from 'convex/values'
+import { useEvent } from 'h3'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 
 import { createConvexTools, defineConvexTool } from '../../src/runtime/mcp/define-convex-tool'
 import { globalRateLimiter } from '../../src/runtime/mcp/rate-limiter'
+import { wrapError } from '../../src/runtime/mcp/result-envelope'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { defineConvexSchema } from '../../src/runtime/utils/define-convex-schema'
+
+// ============================================================================
+// Mock h3 at top level (Vitest hoists vi.mock calls)
+// ============================================================================
+
+vi.mock('h3', () => ({
+  useEvent: vi.fn(),
+}))
 
 const mockExtra = {} as McpRequestExtra
 
@@ -22,6 +32,12 @@ function getContent(result: unknown): string {
   return (result as any).content?.[0]?.text
 }
 
+function mockAuth(auth: { role: string; userId: string } | null) {
+  vi.mocked(useEvent).mockReturnValue({
+    context: { mcpAuth: auth },
+  } as any)
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -29,6 +45,7 @@ function getContent(result: unknown): string {
 describe('defineConvexTool', () => {
   beforeEach(() => {
     globalRateLimiter.reset()
+    vi.mocked(useEvent).mockReset()
   })
 
   // ── Structured envelope ─────────────────────────────────────────────────
@@ -50,11 +67,12 @@ describe('defineConvexTool', () => {
       })
     })
 
-    it('uses summary as text when handler returns { data, summary }', async () => {
+    it('uses withSummary for explicit text content', async () => {
+      const { withSummary } = await import('../../src/runtime/mcp/result-envelope')
       const schema = defineConvexSchema({ title: v.string() })
       const tool = defineConvexTool({
         schema,
-        handler: (args) => ({ data: { id: 'abc' }, summary: `Created: ${args.title}` }),
+        handler: (args) => withSummary({ id: 'abc' }, `Created: ${args.title}`),
       })
 
       const result = await tool.handler!({ title: 'Hello' }, mockExtra)
@@ -63,6 +81,22 @@ describe('defineConvexTool', () => {
       expect(getStructured(result)).toEqual({
         ok: true,
         data: { id: 'abc' },
+      })
+    })
+
+    it('does not split domain objects with data+summary fields', async () => {
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        handler: () => ({ data: [1, 2], summary: 'report', total: 5 }),
+      })
+
+      const result = await tool.handler!({ title: 'test' }, mockExtra)
+
+      // Should NOT split — domain object stays intact as data
+      expect(getStructured(result)).toEqual({
+        ok: true,
+        data: { data: [1, 2], summary: 'report', total: 5 },
       })
     })
   })
@@ -289,6 +323,107 @@ describe('defineConvexTool', () => {
     })
   })
 
+  // ── Auth pipeline ──────────────────────────────────────────────────────
+
+  describe('auth pipeline', () => {
+    it('returns auth error when auth: required and no mcpAuth', async () => {
+      mockAuth(null)
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        auth: 'required',
+        handler: () => ({ ok: true }),
+      })
+
+      const result = await tool.handler!({ title: 'test' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({
+        ok: false,
+        error: { category: 'auth', message: 'Authentication required.' },
+      })
+    })
+
+    it('runs handler when auth: required and mcpAuth is present', async () => {
+      mockAuth({ role: 'admin', userId: 'user-1' })
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        auth: 'required',
+        handler: (args) => ({ title: args.title }),
+      })
+
+      const result = await tool.handler!({ title: 'test' }, mockExtra)
+      expect(getStructured(result)).toEqual({
+        ok: true,
+        data: { title: 'test' },
+      })
+    })
+
+    it('runs handler when auth: optional and no mcpAuth', async () => {
+      mockAuth(null)
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        auth: 'optional',
+        handler: () => ({ ok: true }),
+      })
+
+      const result = await tool.handler!({ title: 'test' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({ ok: true })
+    })
+  })
+
+  // ── Permission pipeline ─────────────────────────────────────────────────
+
+  describe('permission pipeline', () => {
+    const checkPermission = (
+      ctx: { role: string; userId: string } | null,
+      permission: string,
+    ): boolean => {
+      if (!ctx) return false
+      if (permission === 'post.create') return ctx.role === 'editor' || ctx.role === 'admin'
+      return ctx.role === 'admin'
+    }
+
+    it('denies when permission check fails', async () => {
+      mockAuth({ role: 'viewer', userId: 'user-1' })
+      const { defineConvexTool: typedDefine } = createConvexTools({ checkPermission })
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = typedDefine({
+        schema,
+        auth: 'required',
+        require: 'post.create',
+        handler: () => ({ ok: true }),
+      })
+
+      const result = await tool.handler!({ title: 'test' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({
+        ok: false,
+        error: {
+          category: 'auth',
+          message: expect.stringContaining('Permission denied'),
+        },
+      })
+    })
+
+    it('allows when permission check passes', async () => {
+      mockAuth({ role: 'editor', userId: 'user-1' })
+      const { defineConvexTool: typedDefine } = createConvexTools({ checkPermission })
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = typedDefine({
+        schema,
+        auth: 'required',
+        require: 'post.create',
+        handler: () => ({ created: true }),
+      })
+
+      const result = await tool.handler!({ title: 'test' }, mockExtra)
+      expect(getStructured(result)).toEqual({
+        ok: true,
+        data: { created: true },
+      })
+    })
+  })
+
   // ── Destructive confirmation ────────────────────────────────────────────
 
   describe('destructive confirmation', () => {
@@ -361,13 +496,8 @@ describe('defineConvexTool', () => {
   // ── Preview flow ────────────────────────────────────────────────────────
 
   describe('preview', () => {
-    // Mock useEvent for preview/auth tests
     beforeEach(() => {
-      vi.mock('h3', () => ({
-        useEvent: () => ({
-          context: { mcpAuth: { role: 'admin', userId: 'user-1' } },
-        }),
-      }))
+      mockAuth({ role: 'admin', userId: 'user-1' })
     })
 
     it('returns preview on first call, handler on confirmed call', async () => {
@@ -418,6 +548,23 @@ describe('defineConvexTool', () => {
         },
         awaitingConfirmation: true,
       })
+    })
+
+    it('wraps preview errors in structured envelope', async () => {
+      const schema = defineConvexSchema({ id: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        destructive: true,
+        preview: () => { throw new Error('Preview failed') },
+        handler: () => ({ deleted: true }),
+      })
+
+      const result = await tool.handler!({ id: 'abc' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({
+        ok: false,
+        error: { message: 'Preview failed' },
+      })
+      expect((result as any).isError).toBe(true)
     })
   })
 
@@ -492,18 +639,17 @@ describe('defineConvexTool', () => {
   // ── Middleware ───────────────────────────────────────────────────────────
 
   describe('middleware', () => {
-    it('can block execution with a reason', async () => {
-      vi.mock('h3', () => ({
-        useEvent: () => ({
-          context: { mcpAuth: { role: 'viewer', userId: 'user-1' } },
-        }),
-      }))
+    beforeEach(() => {
+      mockAuth({ role: 'viewer', userId: 'user-1' })
+    })
 
+    it('can block execution using wrapError', async () => {
       const schema = defineConvexSchema({ id: v.string() })
       const tool = defineConvexTool({
         schema,
+        auth: 'optional',
         middleware: async (_args, _ctx, _next) => {
-          return { blocked: true, reason: 'Custom check failed' }
+          return wrapError('auth', 'Custom check failed')
         },
         handler: () => ({ ok: true }),
       })
@@ -519,21 +665,78 @@ describe('defineConvexTool', () => {
     })
 
     it('passes through to handler via next()', async () => {
-      vi.mock('h3', () => ({
-        useEvent: () => ({
-          context: { mcpAuth: { role: 'admin', userId: 'user-1' } },
-        }),
-      }))
-
       const schema = defineConvexSchema({ id: v.string() })
       const tool = defineConvexTool({
         schema,
+        auth: 'optional',
         middleware: async (_args, _ctx, next) => next(),
         handler: () => ({ done: true }),
       })
 
       const result = await tool.handler!({ id: 'abc' }, mockExtra)
       expect(getStructured(result)).toEqual({ ok: true, data: { done: true } })
+    })
+  })
+
+  // ── Definition-time validations ─────────────────────────────────────────
+
+  describe('definition-time validations', () => {
+    it('throws when require is used without factory or _checkPermission', () => {
+      const schema = defineConvexSchema({ title: v.string() })
+      expect(() =>
+        defineConvexTool({
+          schema,
+          require: 'post.create',
+          handler: () => ({}),
+        }),
+      ).toThrow('require')
+    })
+
+    it('throws when require is used with auth: none', () => {
+      const checkPermission = () => true
+      const { defineConvexTool: typedDefine } = createConvexTools({ checkPermission })
+      const schema = defineConvexSchema({ title: v.string() })
+      expect(() =>
+        typedDefine({
+          schema,
+          auth: 'none',
+          require: 'post.create',
+          handler: () => ({}),
+        }),
+      ).toThrow('require')
+    })
+
+    it('throws when preview is used without destructive', () => {
+      const schema = defineConvexSchema({ id: v.string() })
+      expect(() =>
+        defineConvexTool({
+          schema,
+          preview: () => 'test',
+          handler: () => ({}),
+        }),
+      ).toThrow('preview')
+    })
+
+    it('throws when rateLimit is used without name', () => {
+      const schema = defineConvexSchema({ title: v.string() })
+      expect(() =>
+        defineConvexTool({
+          schema,
+          rateLimit: { max: 5, window: '1m' },
+          handler: () => ({}),
+        }),
+      ).toThrow('rateLimit')
+    })
+
+    it('throws when maxItems.field is not in schema', () => {
+      const schema = defineConvexSchema({ ids: v.array(v.string()) })
+      expect(() =>
+        defineConvexTool({
+          schema,
+          maxItems: { field: 'nonexistent' as any, limit: 5 },
+          handler: () => ({}),
+        }),
+      ).toThrow('maxItems.field')
     })
   })
 
@@ -566,17 +769,6 @@ describe('defineConvexTool', () => {
       })
 
       expect(tool.description).toBe('Create post\n\nRequires authentication.')
-    })
-
-    it('throws when require is used without factory or _checkPermission', () => {
-      const schema = defineConvexSchema({ title: v.string() })
-      expect(() =>
-        defineConvexTool({
-          schema,
-          require: 'post.create',
-          handler: () => ({}),
-        }),
-      ).toThrow('require')
     })
   })
 

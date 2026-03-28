@@ -25,7 +25,7 @@ export function cleanErrorMessage(message: string): string {
 
 /**
  * Last-resort category inference from the cleaned error message.
- * Only used when `categorizeError` couldn't determine a category from code/status.
+ * Only used when `toConvexError` returned category 'unknown'.
  */
 export function inferCategoryFromMessage(message: string): ConvexErrorCategory | undefined {
   const lower = message.toLowerCase()

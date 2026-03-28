@@ -21,6 +21,7 @@ import type {
   AnyConvexSchema,
   ConvexToolMiddlewareCtx,
   CreateConvexToolsOptions,
+  DefineConvexToolFullOptions,
   DefineConvexToolOptions,
   InferSchemaData,
   InferSchemaValidators,
@@ -132,7 +133,7 @@ function buildInputExamples<V extends PropertyValidators>(
 }
 
 // ============================================================================
-// Safety pipeline
+// Auth helpers
 // ============================================================================
 
 function resolveDefaultAuth(event: { context: Record<string, unknown> }): { role: string; userId: string } | null {
@@ -153,7 +154,7 @@ function _buildToolDefinition<
   S extends AnyConvexSchema,
   P extends string = string,
 >(
-  options: DefineConvexToolOptions<S, P>,
+  options: DefineConvexToolFullOptions<S, P>,
 ): McpToolDefinition<ConvexMcpInputSchema<InferSchemaValidators<S>> & { _confirmed?: ZodTypeAny }, ZodRawShape> {
   const {
     schema,
@@ -179,21 +180,47 @@ function _buildToolDefinition<
     _resolveAuth,
   } = options
 
-  // Fail fast: require without checkPermission
+  // ── Fail-fast definition-time validations ──────────────────────────────
+
   if (requiredPermission && !_checkPermission) {
     throw new Error(
-      `defineConvexTool: "require" needs a checkPermission function. ` +
-      `Use createConvexTools({ checkPermission }) or pass _checkPermission directly.`,
+      `defineConvexTool: "require" needs a checkPermission function. `
+      + `Use createConvexTools({ checkPermission }) or pass _checkPermission directly.`,
     )
   }
 
-  // Build input schema
+  if (requiredPermission && auth === 'none') {
+    throw new Error(
+      `defineConvexTool: "require" needs auth. Set auth to "required" or "optional".`,
+    )
+  }
+
+  if (preview && !destructive) {
+    throw new Error(
+      `defineConvexTool: "preview" only applies to destructive tools. Set destructive: true.`,
+    )
+  }
+
+  if (rateLimit && !name) {
+    throw new Error(
+      `defineConvexTool: "rateLimit" requires an explicit "name" so tools have distinct rate-limit buckets.`,
+    )
+  }
+
+  if (maxItems && !(maxItems.field in schema.args)) {
+    throw new Error(
+      `defineConvexTool: maxItems.field "${maxItems.field}" not found in schema args. `
+      + `Available: ${Object.keys(schema.args).join(', ')}`,
+    )
+  }
+
+  // ── Build input schema ─────────────────────────────────────────────────
+
   let inputSchema = applyEnhancedFieldDescriptions(
     convexToZodFields(schema.args),
     schema.meta?.fields,
   ) as ConvexMcpInputSchema<InferSchemaValidators<S>> & { _confirmed?: ZodTypeAny }
 
-  // Inject _confirmed for destructive tools
   if (destructive) {
     inputSchema = {
       ...inputSchema,
@@ -201,70 +228,68 @@ function _buildToolDefinition<
     }
   }
 
-  // Derive annotations
+  // ── Derive annotations ─────────────────────────────────────────────────
+
   const annotations = deriveAnnotations(operation, destructive, annotationOverrides)
 
-  // Build description
+  // ── Build description ──────────────────────────────────────────────────
+
   let finalDescription = description
   if (auth === 'required' && finalDescription) {
     finalDescription += '\n\nRequires authentication.'
   }
 
-  // Auto-generate input examples
+  // ── Auto-generate input examples ───────────────────────────────────────
+
   const inputExamples = explicitInputExamples ?? buildInputExamples(schema.meta?.fields)
 
-  // Rate limit config
+  // ── Rate limit config ──────────────────────────────────────────────────
+
   const rateLimitConfig = rateLimit
     ? { max: rateLimit.max, windowMs: parseWindowString(rateLimit.window) }
     : undefined
 
-  // Resolve tool name for rate limiting
-  const toolNameForRateLimit = name ?? 'unknown-tool'
+  // ── Determine if pipeline needs event access ───────────────────────────
 
-  // The wrapped handler with safety pipeline
+  const needsEvent = auth !== 'none' || !!middleware || (destructive && !!preview)
+
+  // ── The wrapped handler with safety pipeline ───────────────────────────
+
   const wrappedHandler = async (
     args: InferSchemaData<S> & { _confirmed?: boolean },
     extra: McpRequestExtra,
   ): Promise<McpToolCallbackResult> => {
     try {
-      // 1. Rate limit
-      if (rateLimitConfig) {
-        const check = globalRateLimiter.check(toolNameForRateLimit, rateLimitConfig)
-        if (!check.allowed) {
-          return wrapError(
-            'cooldown',
-            `Rate limit exceeded (${rateLimit!.max} per ${rateLimit!.window}). Try again in ${check.retryAfterSeconds} seconds.`,
-          )
-        }
-      }
-
-      // 2. Max items
-      if (maxItems) {
-        const arr = (args as Record<string, unknown>)[maxItems.field]
-        if (Array.isArray(arr) && arr.length > maxItems.limit) {
-          return wrapError(
-            'scope_exceeded',
-            `Cannot process more than ${maxItems.limit} items at once. Received ${arr.length}.`,
-          )
-        }
-      }
-
-      // 3. Auth check (uses useEvent from Nitro)
+      // ── Step 1: Resolve event + auth once ─────────────────────────────
       let resolvedAuth: { role: string; userId: string } | null = null
-      if (auth !== 'none') {
-        // Dynamic import to avoid bundling h3 when not needed
+      let middlewareCtx: ConvexToolMiddlewareCtx<P> | undefined
+
+      if (needsEvent) {
         const { useEvent } = await import('h3')
         const event = useEvent()
-        resolvedAuth = _resolveAuth
-          ? await _resolveAuth(event)
-          : resolveDefaultAuth(event)
 
-        if (auth === 'required' && !resolvedAuth) {
-          return wrapError('auth', 'Authentication required.')
+        if (auth !== 'none') {
+          resolvedAuth = _resolveAuth
+            ? await _resolveAuth(event)
+            : resolveDefaultAuth(event)
+        }
+
+        middlewareCtx = {
+          event,
+          mcpAuth: resolvedAuth ?? (event.context.mcpAuth as unknown),
+          can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
+            if (!_checkPermission || !resolvedAuth) return false
+            return _checkPermission(resolvedAuth, permission, resource)
+          },
         }
       }
 
-      // 4. Permission check
+      // ── Step 2: Auth check ────────────────────────────────────────────
+      if (auth === 'required' && !resolvedAuth) {
+        return wrapError('auth', 'Authentication required.')
+      }
+
+      // ── Step 3: Permission check ──────────────────────────────────────
       if (requiredPermission && _checkPermission) {
         if (!resolvedAuth) {
           return wrapError('auth', 'Authentication required.')
@@ -278,46 +303,39 @@ function _buildToolDefinition<
         }
       }
 
-      // Build middleware context
-      const buildCtx = async (): Promise<ConvexToolMiddlewareCtx<P>> => {
-        const { useEvent } = await import('h3')
-        const event = useEvent()
-        return {
-          event,
-          mcpAuth: resolvedAuth ?? (event.context.mcpAuth as unknown),
-          can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
-            if (!_checkPermission || !resolvedAuth) return false
-            return _checkPermission(resolvedAuth, permission, resource)
-          },
+      // ── Step 4: Rate limit (after auth — only authed requests consume tokens) ──
+      if (rateLimitConfig) {
+        const check = globalRateLimiter.check(name!, rateLimitConfig)
+        if (!check.allowed) {
+          return wrapError(
+            'cooldown',
+            `Rate limit exceeded (${rateLimit!.max} per ${rateLimit!.window}). Try again in ${check.retryAfterSeconds} seconds.`,
+          )
         }
       }
 
-      // 5. Middleware
+      // ── Step 5: Max items ─────────────────────────────────────────────
+      if (maxItems) {
+        const arr = (args as Record<string, unknown>)[maxItems.field]
+        if (Array.isArray(arr) && arr.length > maxItems.limit) {
+          return wrapError(
+            'scope_exceeded',
+            `Cannot process more than ${maxItems.limit} items at once. Received ${arr.length}.`,
+          )
+        }
+      }
+
+      // ── Step 6: Middleware ────────────────────────────────────────────
       if (middleware) {
-        const ctx = await buildCtx()
-        const middlewareResult = await middleware(
+        return await middleware(
           args as InferSchemaData<S>,
-          ctx,
-          async () => {
-            // Steps 6-8 run inside next()
-            return await runHandlerWithConfirmation(args, extra)
-          },
+          middlewareCtx!,
+          async () => runHandlerWithConfirmation(args, extra, middlewareCtx),
         )
-
-        // If middleware returned a blocked result
-        if (middlewareResult && typeof middlewareResult === 'object' && 'blocked' in (middlewareResult as Record<string, unknown>)) {
-          const blocked = middlewareResult as { blocked: boolean; reason?: string }
-          if (blocked.blocked) {
-            return wrapError('auth', blocked.reason ?? 'Access denied by middleware.')
-          }
-        }
-
-        // If middleware returned via next(), result is the handler result
-        return middlewareResult as McpToolCallbackResult
       }
 
-      // 6-8. Preview, confirmation, handler
-      return await runHandlerWithConfirmation(args, extra)
+      // ── Steps 7-9: Preview, confirmation, handler ─────────────────────
+      return await runHandlerWithConfirmation(args, extra, middlewareCtx)
     }
     catch (err) {
       const convexError = toConvexError(err)
@@ -332,31 +350,17 @@ function _buildToolDefinition<
   async function runHandlerWithConfirmation(
     args: InferSchemaData<S> & { _confirmed?: boolean },
     extra: McpRequestExtra,
+    ctx: ConvexToolMiddlewareCtx<P> | undefined,
   ): Promise<McpToolCallbackResult> {
     const confirmed = args._confirmed === true
 
-    // 6. Preview routing
+    // Step 7: Preview routing
     if (destructive && preview && !confirmed) {
-      const ctx = await (async () => {
-        const { useEvent } = await import('h3')
-        const event = useEvent()
-        const auth = _resolveAuth
-          ? await _resolveAuth(event)
-          : resolveDefaultAuth(event)
-        return {
-          event,
-          mcpAuth: auth ?? (event.context.mcpAuth as unknown),
-          can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
-            if (!_checkPermission || !auth) return false
-            return _checkPermission(auth, permission, resource)
-          },
-        } satisfies ConvexToolMiddlewareCtx<P>
-      })()
-      const raw = await preview(args as InferSchemaData<S>, ctx)
+      const raw = await preview(args as InferSchemaData<S>, ctx!)
       return wrapPreview(normalizePreview(raw))
     }
 
-    // 7. Confirmation gate
+    // Step 8: Confirmation gate
     if (destructive && !confirmed) {
       return wrapError(
         'confirmation_required',
@@ -364,7 +368,7 @@ function _buildToolDefinition<
       )
     }
 
-    // 8. Handler — strip _confirmed before passing to user handler
+    // Step 9: Handler — strip _confirmed before passing to user handler
     const { _confirmed: _, ...cleanArgs } = args as InferSchemaData<S> & { _confirmed?: boolean }
     const result = await handler(cleanArgs as InferSchemaData<S>, extra)
     return wrapSuccess(result)
@@ -429,7 +433,7 @@ export function defineConvexTool<
 >(
   options: DefineConvexToolOptions<S, P>,
 ): McpToolDefinition {
-  return _buildToolDefinition(options) as McpToolDefinition
+  return _buildToolDefinition(options as DefineConvexToolFullOptions<S, P>) as McpToolDefinition
 }
 
 /**
@@ -470,7 +474,7 @@ export function createConvexTools<P extends string = string>(
         ...toolOptions,
         _checkPermission: factoryOptions.checkPermission,
         _resolveAuth: factoryOptions.resolveAuth,
-      }) as McpToolDefinition
+      } as DefineConvexToolFullOptions<S, P>) as McpToolDefinition
     },
   }
 }

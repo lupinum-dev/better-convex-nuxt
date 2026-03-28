@@ -12,6 +12,13 @@ describe('mcp entrypoint exports', () => {
     expect(mcpApi).toHaveProperty('createConvexTools')
   })
 
+  it('exports envelope helpers', () => {
+    expect(mcpApi).toHaveProperty('wrapError')
+    expect(mcpApi).toHaveProperty('wrapSuccess')
+    expect(mcpApi).toHaveProperty('wrapPreview')
+    expect(mcpApi).toHaveProperty('withSummary')
+  })
+
   it('exports deprecated defineConvexMcpTool', () => {
     expect(mcpApi).toHaveProperty('defineConvexMcpTool')
   })

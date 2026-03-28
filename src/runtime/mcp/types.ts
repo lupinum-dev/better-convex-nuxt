@@ -3,6 +3,7 @@ import type {
   McpRequestExtra,
   McpToolAnnotations,
   McpToolCache,
+  McpToolCallbackResult,
 } from '@nuxtjs/mcp-toolkit/server'
 import type { PropertyValidators } from 'convex/values'
 import type { ZodRawShape } from 'zod'
@@ -80,11 +81,11 @@ export type ConvexToolMiddleware<
 > = (
   args: InferSchemaData<S>,
   ctx: ConvexToolMiddlewareCtx<P>,
-  next: () => Promise<unknown>,
-) => unknown | Promise<unknown>
+  next: () => Promise<McpToolCallbackResult>,
+) => McpToolCallbackResult | Promise<McpToolCallbackResult>
 
 // ============================================================================
-// Tool options
+// Tool options (public — what users type)
 // ============================================================================
 
 export interface DefineConvexToolOptions<
@@ -117,9 +118,9 @@ export interface DefineConvexToolOptions<
   // ── Safety ────────────────────────────────────────────────
   /** Mark as destructive. Enables two-call confirmation flow. */
   destructive?: boolean
-  /** Limit array field size for bulk operations. */
-  maxItems?: { field: string; limit: number }
-  /** In-memory rate limit per tool name. */
+  /** Limit array field size for bulk operations. Field must exist in schema. */
+  maxItems?: { field: keyof InferSchemaData<S> & string; limit: number }
+  /** In-memory rate limit per tool name. Requires explicit `name`. */
   rateLimit?: { max: number; window: string }
   /** Preview function for destructive tools. Receives same args as handler. */
   preview?: (
@@ -144,8 +145,16 @@ export interface DefineConvexToolOptions<
   enabled?: (event: H3Event) => boolean | Promise<boolean>
   /** Cache configuration (passed through to mcp-toolkit). */
   cache?: McpToolCache
+}
 
-  // ── Internal (set by factory) ─────────────────────────────
+// ============================================================================
+// Internal options (adds factory-injected fields)
+// ============================================================================
+
+export interface DefineConvexToolFullOptions<
+  S extends AnyConvexSchema,
+  P extends string = string,
+> extends DefineConvexToolOptions<S, P> {
   /** @internal Permission check function, injected by createConvexTools. */
   _checkPermission?: CheckPermissionFn<P>
   /** @internal Auth resolver, injected by createConvexTools. */

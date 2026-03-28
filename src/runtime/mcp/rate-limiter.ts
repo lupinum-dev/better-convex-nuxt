@@ -13,6 +13,8 @@ export function parseWindowString(window: string): number {
   return Number(match[1]) * UNIT_MS[match[2]!]!
 }
 
+const MAX_KEYS = 1000
+
 /**
  * Simple in-memory sliding-window rate limiter keyed by tool name.
  */
@@ -47,12 +49,35 @@ export class ToolRateLimiter {
     }
 
     timestamps.push(now)
+
+    // Evict oldest key if we exceed the safety cap
+    if (this.windows.size > MAX_KEYS) {
+      this.evictOldest()
+    }
+
     return { allowed: true }
   }
 
   /** Reset all state (for testing). */
   reset(): void {
     this.windows.clear()
+  }
+
+  private evictOldest(): void {
+    let oldestKey: string | undefined
+    let oldestTime = Infinity
+
+    for (const [key, timestamps] of this.windows) {
+      const latest = timestamps.length > 0 ? timestamps[timestamps.length - 1]! : 0
+      if (latest < oldestTime) {
+        oldestTime = latest
+        oldestKey = key
+      }
+    }
+
+    if (oldestKey) {
+      this.windows.delete(oldestKey)
+    }
   }
 }
 

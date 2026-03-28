@@ -4,6 +4,13 @@ export {
   createConvexTools,
 } from './define-convex-tool'
 
+export {
+  wrapError,
+  wrapSuccess,
+  wrapPreview,
+  withSummary,
+} from './result-envelope'
+
 export type {
   DefineConvexToolOptions,
   CreateConvexToolsOptions,

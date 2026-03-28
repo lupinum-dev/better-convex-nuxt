@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { wrapError, wrapPreview, wrapSuccess } from '../../src/runtime/mcp/result-envelope'
+import { withSummary, wrapError, wrapPreview, wrapSuccess } from '../../src/runtime/mcp/result-envelope'
 
 describe('wrapSuccess', () => {
   it('wraps plain data with ok: true envelope', () => {
@@ -16,8 +16,8 @@ describe('wrapSuccess', () => {
     expect(result.isError).toBeUndefined()
   })
 
-  it('uses summary as text when { data, summary } shape is returned', () => {
-    const result = wrapSuccess({ data: { id: 'abc' }, summary: 'Created post abc' })
+  it('uses summary as text when withSummary is used', () => {
+    const result = wrapSuccess(withSummary({ id: 'abc' }, 'Created post abc'))
 
     expect(result.structuredContent).toEqual({
       ok: true,
@@ -28,10 +28,27 @@ describe('wrapSuccess', () => {
     ])
   })
 
+  it('does not split plain objects with data+summary fields', () => {
+    const result = wrapSuccess({ data: [1, 2], summary: 'report' })
+
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      data: { data: [1, 2], summary: 'report' },
+    })
+  })
+
   it('wraps primitive values', () => {
     expect(wrapSuccess(42).structuredContent).toEqual({ ok: true, data: 42 })
     expect(wrapSuccess('hello').structuredContent).toEqual({ ok: true, data: 'hello' })
     expect(wrapSuccess(null).structuredContent).toEqual({ ok: true, data: null })
+  })
+
+  it('wraps undefined safely', () => {
+    const result = wrapSuccess(undefined)
+    expect(result.structuredContent).toEqual({ ok: true, data: undefined })
+    expect(result.content).toEqual([
+      { type: 'text', text: 'undefined' },
+    ])
   })
 
   it('wraps arrays', () => {
@@ -119,5 +136,22 @@ describe('wrapPreview', () => {
 
     expect((result.structuredContent as any).preview.warn).toBe('Permission denied')
     expect((result.structuredContent as any).preview.blocked).toBe(true)
+  })
+})
+
+describe('withSummary', () => {
+  it('creates a branded object recognized by wrapSuccess', () => {
+    const value = withSummary({ id: 'abc' }, 'Created post')
+    expect(value.data).toEqual({ id: 'abc' })
+    expect(value.summary).toBe('Created post')
+
+    const result = wrapSuccess(value)
+    expect(result.structuredContent).toEqual({
+      ok: true,
+      data: { id: 'abc' },
+    })
+    expect(result.content).toEqual([
+      { type: 'text', text: 'Created post' },
+    ])
   })
 })

@@ -19,27 +19,53 @@ function isRetryable(category: ConvexErrorCategory): boolean {
   return RETRYABLE_CATEGORIES.has(category)
 }
 
-function jsonText(value: unknown): string {
-  return JSON.stringify(value)
+function safeJsonText(value: unknown): string {
+  if (value === undefined) return 'undefined'
+  return JSON.stringify(value) ?? String(value)
 }
 
-interface DataWithSummary {
-  data: unknown
+// ============================================================================
+// withSummary — branded helper to avoid duck-typing collisions
+// ============================================================================
+
+const TOOL_SUMMARY: unique symbol = Symbol.for('convex-tool-summary')
+
+interface DataWithSummary<T = unknown> {
+  data: T
   summary: string
+  [TOOL_SUMMARY]: true
 }
 
 function isDataWithSummary(value: unknown): value is DataWithSummary {
   if (!value || typeof value !== 'object') return false
-  const record = value as Record<string, unknown>
-  return 'data' in record && 'summary' in record && typeof record.summary === 'string'
+  return TOOL_SUMMARY in (value as Record<symbol, unknown>)
+}
+
+/**
+ * Mark a handler return value with an explicit text summary for MCP agents.
+ *
+ * Without this, `wrapSuccess` JSON-stringifies the data for the text fallback.
+ * With `withSummary`, the summary becomes the text content and data goes into
+ * `structuredContent`.
+ *
+ * @example
+ * ```ts
+ * handler: async (args) => {
+ *   const post = await serverConvexMutation(api.posts.create, args)
+ *   return withSummary(post, `Created post "${post.title}"`)
+ * }
+ * ```
+ */
+export function withSummary<T>(data: T, summary: string): DataWithSummary<T> {
+  return { data, summary, [TOOL_SUMMARY]: true }
 }
 
 /**
  * Wrap a successful handler return value into a structured CallToolResult.
  *
- * If the value is `{ data, summary }`, the summary becomes the text content
- * and data goes into structuredContent. Otherwise, the value is used as data
- * and JSON-stringified for the text fallback.
+ * If the value was created with `withSummary()`, the summary becomes the text
+ * content and data goes into structuredContent. Otherwise, the value is used
+ * as data and JSON-stringified for the text fallback.
  */
 export function wrapSuccess(value: unknown): CallToolResult {
   if (isDataWithSummary(value)) {
@@ -53,7 +79,7 @@ export function wrapSuccess(value: unknown): CallToolResult {
   }
 
   return {
-    content: [{ type: 'text', text: jsonText(value) }],
+    content: [{ type: 'text', text: safeJsonText(value) }],
     structuredContent: {
       ok: true,
       data: value,
