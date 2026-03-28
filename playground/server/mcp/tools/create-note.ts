@@ -1,10 +1,10 @@
-import { defineConvexMcpTool } from 'better-convex-nuxt/mcp'
 /**
- * MCP Tool: Create Note
+ * MCP Tool: Create Note (Level 1 — just make it work)
  *
- * Uses the shared Convex schema directly so validators, metadata,
- * and handler args stay aligned with the Convex mutation.
+ * Uses defineConvexTool with shared schema. No auth needed.
+ * Demonstrates: structured envelope, withSummary, field examples.
  */
+import { defineConvexTool, withSummary } from 'better-convex-nuxt/mcp'
 import { defineConvexSchema } from 'better-convex-nuxt/schema'
 import { serverConvexMutation } from 'better-convex-nuxt/server'
 
@@ -13,10 +13,11 @@ import { createNoteArgs, createNoteMeta } from '../../../shared/schemas/note'
 
 const schema = defineConvexSchema(createNoteArgs, createNoteMeta)
 
-export default defineConvexMcpTool({
+export default defineConvexTool({
   schema,
+  name: 'create-note',
   handler: async (args) => {
     const noteId = await serverConvexMutation(api.notes.add, args)
-    return `Note created with ID: ${noteId}`
+    return withSummary({ id: noteId, title: args.title }, `Created note "${args.title}"`)
   },
 })

@@ -50,6 +50,26 @@ type ConvexMcpInputSchema<V extends PropertyValidators> = {
 }
 
 // ============================================================================
+// Convex → Zod for MCP (JSON-Schema-safe)
+//
+// convex-helpers converts v.id() to z.custom(), which can't serialize to
+// JSON Schema. We patch those fields to z.string() in a single pass.
+// ============================================================================
+
+function convexToMcpZodFields<V extends PropertyValidators>(
+  validators: V,
+): ConvexMcpInputSchema<V> {
+  const shape = convexToZodFields(validators)
+  for (const key of Object.keys(validators) as (keyof V & string)[]) {
+    const cv = validators[key] as unknown as { kind?: string; tableName?: string }
+    if (cv.kind === 'id' && cv.tableName) {
+      shape[key] = z.string().describe(`Convex ID for "${cv.tableName}" table`) as ConvexMcpInputSchema<V>[keyof V]
+    }
+  }
+  return shape
+}
+
+// ============================================================================
 // Annotation derivation
 // ============================================================================
 
@@ -241,7 +261,7 @@ function _buildToolDefinition<
   // ── Build input schema ─────────────────────────────────────────────────
 
   let inputSchema = applyEnhancedFieldDescriptions(
-    convexToZodFields(schema.args),
+    convexToMcpZodFields(schema.args),
     schema.meta?.fields,
   ) as ConvexMcpInputSchema<InferSchemaValidators<S>> & { _confirmed?: ZodTypeAny }
 
@@ -289,7 +309,7 @@ function _buildToolDefinition<
       let middlewareCtx: ConvexToolMiddlewareCtx<P> | undefined
 
       if (needsEvent) {
-        const { useEvent } = await import('h3')
+        const { useEvent } = await import('nitropack/runtime')
         const event = useEvent()
 
         if (auth !== 'none') {

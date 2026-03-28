@@ -1,17 +1,20 @@
 /**
- * MCP Tool: List Notes
+ * MCP Tool: List Notes (Level 1 — query, read-only)
  *
- * Read-only tool — no input schema needed.
- * Returns all notes from Convex (most recent first).
+ * Demonstrates: operation: 'query' auto-derives readOnlyHint annotations.
  */
-import { serverConvexQuery } from '../../../../src/runtime/server/utils/convex'
+import { defineConvexTool } from 'better-convex-nuxt/mcp'
+import { defineConvexSchema } from 'better-convex-nuxt/schema'
+import { serverConvexQuery } from 'better-convex-nuxt/server'
+
 import { api } from '../../../convex/_generated/api'
 
-export default defineMcpTool({
-  description: 'List all notes (most recent first)',
-  annotations: { readOnlyHint: true, destructiveHint: false },
+const schema = defineConvexSchema({}, { description: 'List all notes (most recent first)' })
+
+export default defineConvexTool({
+  schema,
+  operation: 'query',
   handler: async () => {
-    const notes = await serverConvexQuery(api.notes.list, {})
-    return notes
+    return await serverConvexQuery(api.notes.list, {})
   },
 })

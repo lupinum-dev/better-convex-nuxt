@@ -1,6 +1,6 @@
 import type { McpRequestExtra } from '@nuxtjs/mcp-toolkit/server'
 import { v } from 'convex/values'
-import { useEvent } from 'h3'
+import { useEvent } from 'nitropack/runtime'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 
@@ -14,7 +14,7 @@ import { defineConvexSchema } from '../../src/runtime/utils/define-convex-schema
 // Mock h3 at top level (Vitest hoists vi.mock calls)
 // ============================================================================
 
-vi.mock('h3', () => ({
+vi.mock('nitropack/runtime', () => ({
   useEvent: vi.fn(),
 }))
 

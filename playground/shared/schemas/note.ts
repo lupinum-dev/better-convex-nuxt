@@ -16,7 +16,18 @@ export const createNoteArgs = {
 export const createNoteMeta = {
   description: 'Create a new note',
   fields: {
-    title: { label: 'Title', description: 'The note title' },
-    content: { label: 'Content', description: 'The note body text' },
+    title: { label: 'Title', description: 'The note title', examples: ['Meeting Notes', 'Quick Idea'] },
+    content: { label: 'Content', description: 'The note body text', examples: ['# My Note\nSome content here'] },
   },
 } satisfies ConvexSchemaMetaFor<typeof createNoteArgs>
+
+export const deleteNoteArgs = {
+  id: v.id('notes'),
+} satisfies PropertyValidators
+
+export const deleteNoteMeta = {
+  description: 'Permanently delete a note',
+  fields: {
+    id: { label: 'Note ID', description: 'The ID of the note to delete' },
+  },
+} satisfies ConvexSchemaMetaFor<typeof deleteNoteArgs>
