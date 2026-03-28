@@ -4,6 +4,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 
 import { defineConvexMcpTool } from '../../src/runtime/mcp/index'
+import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { defineConvexSchema } from '../../src/runtime/utils/define-convex-schema'
 
 describe('defineConvexMcpTool', () => {
@@ -144,5 +145,84 @@ describe('defineConvexMcpTool', () => {
         handler: async (args) => args,
       }),
     ).toThrow()
+  })
+
+  it('wraps handler errors with category prefix', async () => {
+    const schema = defineConvexSchema({ title: v.string() })
+    const tool = defineConvexMcpTool({
+      schema,
+      handler: async () => {
+        throw new ConvexCallError('Unauthorized', { category: 'auth' })
+      },
+    })
+
+    const result = await tool.handler({ title: 'test' }, {} as McpToolExtra)
+    expect(result).toEqual({
+      content: [{ type: 'text', text: '[auth] Unauthorized' }],
+      isError: true,
+    })
+  })
+
+  it('wraps unknown errors without category prefix', async () => {
+    const schema = defineConvexSchema({ title: v.string() })
+    const tool = defineConvexMcpTool({
+      schema,
+      handler: async () => {
+        throw new Error('Something broke')
+      },
+    })
+
+    const result = await tool.handler({ title: 'test' }, {} as McpToolExtra)
+    expect(result).toEqual({
+      content: [{ type: 'text', text: 'Something broke' }],
+      isError: true,
+    })
+  })
+
+  it('categorizes Convex-style errors from raw strings', async () => {
+    const schema = defineConvexSchema({ title: v.string() })
+    const tool = defineConvexMcpTool({
+      schema,
+      handler: async () => {
+        const err = new Error('LIMIT_CALLS: Too many requests')
+        throw err
+      },
+    })
+
+    const result = await tool.handler({ title: 'test' }, {} as McpToolExtra)
+    expect(result).toEqual({
+      content: [{ type: 'text', text: '[rate_limit] Too many requests' }],
+      isError: true,
+    })
+  })
+
+  it('cleans verbose serverConvex error messages for agents', async () => {
+    const schema = defineConvexSchema({ title: v.string() })
+    const tool = defineConvexMcpTool({
+      schema,
+      handler: async () => {
+        throw new ConvexCallError(
+          '[serverConvexMutation] Request failed for posts:create via http://127.0.0.1:3210/api/mutation. [Request ID: abc123] Server Error\nUncaught Error: Unauthorized\n    at requireUser (../../convex/lib/permissions.ts:82:9)',
+          { category: 'auth' },
+        )
+      },
+    })
+
+    const result = await tool.handler({ title: 'test' }, {} as McpToolExtra)
+    expect(result).toEqual({
+      content: [{ type: 'text', text: '[auth] Unauthorized' }],
+      isError: true,
+    })
+  })
+
+  it('returns success results unchanged', async () => {
+    const schema = defineConvexSchema({ title: v.string() })
+    const tool = defineConvexMcpTool({
+      schema,
+      handler: async (args) => `Created: ${args.title}`,
+    })
+
+    const result = await tool.handler({ title: 'test' }, {} as McpToolExtra)
+    expect(result).toBe('Created: test')
   })
 })

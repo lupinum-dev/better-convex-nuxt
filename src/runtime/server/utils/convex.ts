@@ -52,6 +52,10 @@ function toServerConvexError(
       : `Request failed for ${context.functionPath} via ${context.convexUrl}/api/${context.operation}.`
   return new ConvexCallError(`[${context.helper}] ${prefix} ${base.message}`, {
     ...context,
+    code: base.code,
+    status: base.status,
+    category: base.category !== 'unknown' ? base.category : undefined,
+    issues: base.issues,
     cause: base,
   })
 }

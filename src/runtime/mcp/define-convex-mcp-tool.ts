@@ -8,6 +8,7 @@ import type { ZodValidatorFromConvex } from 'convex-helpers/server/zod4'
 import type { PropertyValidators } from 'convex/values'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
+import { toConvexError } from '../utils/call-result'
 import type { ConvexSchemaDefinition, ConvexSchemaFieldMeta } from '../utils/define-convex-schema'
 
 type AnyConvexSchema = ConvexSchemaDefinition<any, PropertyValidators>
@@ -69,6 +70,29 @@ function applyFieldDescriptions<V extends PropertyValidators>(
 }
 
 /**
+ * Strip internal noise from error messages so MCP agents see clean output.
+ * Removes helper prefixes like `[serverConvexMutation]`, request IDs, and stack traces.
+ */
+function cleanErrorMessage(message: string): string {
+  let cleaned = message
+    // Strip "[serverConvexMutation] Request failed for x:y via url." prefix
+    .replace(/^\[server\w+\]\s*(?:Request failed for \S+ via \S+\.\s*)?/, '')
+    // Strip "[Request ID: ...]" markers
+    .replace(/\[Request ID: [^\]]+\]\s*/g, '')
+    // Strip stack traces (lines starting with whitespace + "at ")
+    .replace(/\n\s+at .+/g, '')
+    .trim()
+
+  // Pull the meaningful error from "Server Error\nUncaught Error: Actual message"
+  const uncaughtMatch = cleaned.match(/(?:Uncaught )?Error:\s*(.+)/)
+  if (uncaughtMatch) {
+    cleaned = uncaughtMatch[1]!.trim()
+  }
+
+  return cleaned || message
+}
+
+/**
  * Build an MCP tool definition directly from a shared Convex schema.
  *
  * This keeps MCP tool input validation aligned with the same validators used by
@@ -87,9 +111,27 @@ export function defineConvexMcpTool<
     schema.meta?.fields,
   ) as ConvexMcpInputSchema<InferSchemaValidators<S>>
 
+  const wrappedHandler: ConvexMcpToolDefinition<S, OutputSchema, Extra>['handler'] = async (
+    args,
+    extra,
+  ) => {
+    try {
+      return await tool.handler(args, extra)
+    }
+    catch (err) {
+      const convexError = toConvexError(err)
+      const prefix = convexError.category !== 'unknown' ? `[${convexError.category}] ` : ''
+      return {
+        content: [{ type: 'text' as const, text: `${prefix}${cleanErrorMessage(convexError.message)}` }],
+        isError: true,
+      }
+    }
+  }
+
   return {
     ...tool,
     description,
     inputSchema,
+    handler: wrappedHandler,
   }
 }
