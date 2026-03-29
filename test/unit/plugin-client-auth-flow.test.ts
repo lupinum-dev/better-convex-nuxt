@@ -407,4 +407,56 @@ describe('plugin.client auth flow', () => {
     expect(stateStore.get('convex:authError')?.value).toBeNull()
     await expect(clientState.fetchToken?.({ forceRefreshToken: false }) ?? Promise.resolve(null)).resolves.toBeNull()
   })
+
+  describe('normalizeHydratedUser edge cases', () => {
+    async function initPluginWithHydratedUser(hydratedToken: string, hydratedUser: unknown) {
+      stateStore.set('convex:token', { value: hydratedToken })
+      stateStore.set('convex:user', { value: hydratedUser })
+
+      const plugin = (await import('../../src/runtime/plugin.client')).default
+      await plugin({
+        payload: { serverRendered: true },
+        hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+          hookRegistry.set(event, handler)
+        }),
+        provide: vi.fn(),
+      } as never)
+    }
+
+    it('rejects a truthy object without a string id and decodes user from JWT', async () => {
+      const hydratedToken = mintJwt({ sub: 'u-edge', email: 'edge@test.com' })
+      await initPluginWithHydratedUser(hydratedToken, { name: 'No ID' })
+
+      const result = await clientState.fetchToken?.({ forceRefreshToken: false })
+      expect(result).toBe(hydratedToken)
+      expect(stateStore.get('convex:user')?.value).toMatchObject({ id: 'u-edge' })
+    })
+
+    it('rejects a user with a non-string id', async () => {
+      const hydratedToken = mintJwt({ sub: 'u-num', email: 'num@test.com' })
+      await initPluginWithHydratedUser(hydratedToken, { id: 42 })
+
+      const result = await clientState.fetchToken?.({ forceRefreshToken: false })
+      expect(result).toBe(hydratedToken)
+      expect(stateStore.get('convex:user')?.value).toMatchObject({ id: 'u-num' })
+    })
+
+    it('rejects an array as not a valid user', async () => {
+      const hydratedToken = mintJwt({ sub: 'u-arr', email: 'arr@test.com' })
+      await initPluginWithHydratedUser(hydratedToken, ['not', 'a', 'user'])
+
+      const result = await clientState.fetchToken?.({ forceRefreshToken: false })
+      expect(result).toBe(hydratedToken)
+      expect(stateStore.get('convex:user')?.value).toMatchObject({ id: 'u-arr' })
+    })
+
+    it('rejects a string primitive as not a valid user', async () => {
+      const hydratedToken = mintJwt({ sub: 'u-str', email: 'str@test.com' })
+      await initPluginWithHydratedUser(hydratedToken, 'just-a-string')
+
+      const result = await clientState.fetchToken?.({ forceRefreshToken: false })
+      expect(result).toBe(hydratedToken)
+      expect(stateStore.get('convex:user')?.value).toMatchObject({ id: 'u-str' })
+    })
+  })
 })

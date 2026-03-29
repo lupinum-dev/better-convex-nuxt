@@ -1,7 +1,18 @@
+/**
+ * Lightweight mock auth engine installer for Nuxt-runtime tests.
+ *
+ * Use this when a test needs a working auth engine but doesn't focus on
+ * auth behavior itself (e.g., testing composables that depend on auth state).
+ * For auth-focused tests with full assertion helpers, use `auth-harness.ts`.
+ *
+ * Installs a real `SharedAuthEngine` with a mock transport. The transport's
+ * `install()` is a no-op and `refresh()` delegates to `fetchToken`, mirroring
+ * how the real transport drives re-authentication through `ConvexClient.setAuth`.
+ */
 import { useNuxtApp, useState } from '#imports'
 
 import {
-  getOrCreateSharedAuthEngine,
+  createSharedAuthEngine,
   type AuthTransport,
   type ClientAuthStateResult,
 } from '../../src/runtime/client/auth-engine'
@@ -62,7 +73,7 @@ export function installMockAuthEngine(
     },
   }
 
-  const engine = getOrCreateSharedAuthEngine({
+  const engine = createSharedAuthEngine({
     nuxtApp,
     token,
     user,

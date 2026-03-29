@@ -1,3 +1,10 @@
+/**
+ * Shared fixtures for server-side auth tests.
+ *
+ * Provides mock implementations for Nuxt server utilities (`useStorage`,
+ * `useRuntimeConfig`, `useEvent`), a realistic `mockConvexConfig` factory,
+ * and an in-memory storage backend for testing cache behavior.
+ */
 import type { H3Event } from 'h3'
 import { vi } from 'vitest'
 
@@ -28,6 +35,15 @@ export function mockConvexConfig(overrides?: Record<string, unknown>) {
       route: '/api/auth',
       trustedOrigins: [],
       skipAuthRoutes: [],
+      routeProtection: {
+        redirectTo: '/auth/signin',
+        preserveReturnTo: true,
+      },
+      unauthorized: {
+        enabled: false,
+        redirectTo: '/auth/signin',
+        includeQueries: false,
+      },
       cache: {
         enabled: true,
         ttl: 60,

@@ -1,3 +1,16 @@
+/**
+ * Connection state hooks for the Convex WebSocket client.
+ *
+ * Manages a shared, ref-counted subscription to `ConvexClient.subscribeToConnectionState`.
+ * One subscription per NuxtApp (stored in a WeakMap, auto-GC on app teardown).
+ * Emits `convex:connection:changed` Nuxt hooks when the connection phase transitions
+ * between connecting → connected → reconnecting.
+ *
+ * Auth-related hooks (`convex:auth:changed`) are emitted by the auth engine,
+ * not this module.
+ *
+ * @module runtime-hooks
+ */
 import type { ConvexClient } from 'convex/browser'
 import { getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
 
@@ -113,7 +126,11 @@ function handleConnectionStateChange(
     connection,
     previousConnection,
   }
-  void nuxtApp.callHook('convex:connection:changed', payload)
+  nuxtApp.callHook('convex:connection:changed', payload)?.catch((error: unknown) => {
+    if (import.meta.dev) {
+      console.error('[better-convex-nuxt] Error in convex:connection:changed hook handler:', error)
+    }
+  })
 }
 
 function ensureConnectionSubscription(

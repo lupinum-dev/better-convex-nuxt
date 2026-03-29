@@ -1,3 +1,17 @@
+/**
+ * Structured error message builders for auth failures.
+ *
+ * Each builder produces a user-facing error string prefixed with
+ * `NuxtConvexError:`. Messages include actionable hints about
+ * configuration (siteUrl, proxy routes, Convex HTTP router) so that
+ * developers can diagnose issues without reading source code.
+ *
+ * `sanitizeAuthErrorMessage` strips the prefix and normalizes whitespace
+ * before re-wrapping — this prevents double-prefixing when an upstream
+ * error already includes the prefix.
+ *
+ * @module auth-errors
+ */
 import { ConvexCallError } from './call-result'
 import { getSiteUrlResolutionHint } from './convex-config'
 
@@ -7,12 +21,14 @@ function prefix(message: string): string {
   return `${PREFIX}: ${message}`
 }
 
+/** Missing `convex.siteUrl` — needed for the auth proxy to reach Convex HTTP Actions. */
 export function buildMissingSiteUrlMessage(url?: string | null): string {
   return prefix(
     `Auth proxy requires a Convex HTTP Actions host (\`convex.siteUrl\`). ${getSiteUrlResolutionHint(url)}`,
   )
 }
 
+/** Cross-origin request blocked — origin not in `convex.trustedOrigins`. */
 export function buildBlockedOriginMessage(origin: string | null, requestHost: string): string {
   const originLabel = origin || '(missing origin header)'
   return prefix(
@@ -20,6 +36,7 @@ export function buildBlockedOriginMessage(origin: string | null, requestHost: st
   )
 }
 
+/** Auth proxy could not reach the Convex HTTP Actions backend. */
 export function buildAuthProxyUnreachableMessage(siteUrl: string, error?: unknown): string {
   const detail = error instanceof Error ? ` (${error.message})` : ''
   return prefix(
@@ -27,6 +44,7 @@ export function buildAuthProxyUnreachableMessage(siteUrl: string, error?: unknow
   )
 }
 
+/** Auth proxy received a non-2xx response from the Convex upstream. */
 export function buildAuthProxyUpstreamStatusMessage(
   siteUrl: string,
   path: string,
@@ -39,6 +57,7 @@ export function buildAuthProxyUpstreamStatusMessage(
   return prefix(`Auth proxy upstream returned ${status} for ${siteUrl}/api/auth${path}. ${hint}`)
 }
 
+/** Server-side token exchange via `/api/auth/convex/token` failed. */
 export function buildTokenExchangeFailureMessage(options: {
   siteUrl: string
   status?: number
@@ -51,6 +70,7 @@ export function buildTokenExchangeFailureMessage(options: {
   )
 }
 
+/** Client-side auth request failed (network error or unexpected exception). */
 export function buildClientAuthRequestFailureMessage(error: unknown): string {
   if (error instanceof Error) {
     const lower = error.message.toLowerCase()
@@ -66,6 +86,11 @@ export function buildClientAuthRequestFailureMessage(error: unknown): string {
   )
 }
 
+/**
+ * Normalize an error message from the auth response.
+ * Maps common patterns ("unauthorized", "invalid session") to a clean
+ * "Not signed in" message; otherwise wraps with the standard prefix.
+ */
 export function buildClientAuthResponseErrorMessage(rawMessage: string): string {
   const message = sanitizeAuthErrorMessage(rawMessage)
   const lower = message.toLowerCase()
@@ -83,12 +108,17 @@ export function buildClientAuthResponseErrorMessage(rawMessage: string): string 
   )
 }
 
+/** JWT token received but could not be decoded — fail-closed to unauthenticated. */
 export function buildAuthTokenDecodeFailureMessage(): string {
   return prefix(
     'Authentication failed. Received an invalid auth token.',
   )
 }
 
+/**
+ * Strip the `NuxtConvexError:` prefix and normalize whitespace.
+ * Prevents double-prefixing when an upstream error already includes it.
+ */
 function sanitizeAuthErrorMessage(rawMessage: string): string {
   return rawMessage
     .replace(/^NuxtConvexError:\s*/i, '')

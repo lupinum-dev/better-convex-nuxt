@@ -5,7 +5,7 @@
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
 import { initAuthClient } from './client/auth-client'
-import { getOrCreateSharedAuthEngine } from './client/auth-engine'
+import { createSharedAuthEngine } from './client/auth-engine'
 import { initConvexClient } from './client/convex-client'
 import { setupDevtoolsBridgeIfDev } from './client/devtools'
 import { initRuntimeConnectionHooks } from './client/runtime-hooks'
@@ -77,7 +77,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   })
 
   const client = initConvexClient(convexUrl)
-  const authEngine = getOrCreateSharedAuthEngine({
+  const authEngine = createSharedAuthEngine({
     nuxtApp,
     token: hydration.convexToken,
     user: hydration.convexUser as typeof hydration.convexUser & { value: ConvexUser | null },

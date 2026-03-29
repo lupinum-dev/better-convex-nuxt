@@ -1,3 +1,20 @@
+/**
+ * Auth test harness — drives the real auth engine with controllable inputs.
+ *
+ * Creates a full Nuxt-runtime environment (`captureInNuxt`) with a real
+ * `SharedAuthEngine`, real composables (`useConvexAuth`, `useConvexAuthController`),
+ * and a mock transport that delegates token fetching to a `MockTokenExchange`.
+ *
+ * The harness provides:
+ * - Direct access to reactive refs (token, user, pending, rawAuthError)
+ * - Trigger methods (`triggerRefresh`, `triggerInvalidate`, `triggerSignOut`)
+ * - Assertion helpers (`assertAuthenticated`, `assertUnauthenticated`, etc.)
+ * - Spy access for hooks and transport calls
+ *
+ * The mock transport's `install()` is a no-op — the harness drives the engine
+ * directly via composable methods, so the initial `setAuth` flow that would
+ * normally be triggered by `ConvexClient` is out of scope for these unit tests.
+ */
 import type { Mock } from 'vitest'
 import { expect, vi } from 'vitest'
 import type { Ref } from 'vue'
@@ -5,7 +22,7 @@ import type { Ref } from 'vue'
 import { useNuxtApp, useState } from '#imports'
 
 import {
-  getOrCreateSharedAuthEngine,
+  createSharedAuthEngine,
   type SharedAuthEngine,
   type AuthTransport,
   type ClientAuthStateResult,
@@ -145,6 +162,8 @@ export async function createAuthHarness(
         const response = await tokenExchange.getNextResponse()
         return buildTransportResult(response)
       },
+      // No-op: the harness drives the engine directly via composable methods.
+      // The initial setAuth flow triggered by ConvexClient is out of scope.
       install(_fetchToken, _onChange) {
       },
       async refresh(fetchToken, onChange) {
@@ -156,7 +175,7 @@ export async function createAuthHarness(
       },
     }
 
-    getOrCreateSharedAuthEngine({
+    createSharedAuthEngine({
       nuxtApp,
       token,
       user,
@@ -169,7 +188,7 @@ export async function createAuthHarness(
     return {
       auth: useConvexAuth(),
       controller: useConvexAuthController(),
-      engine: getOrCreateSharedAuthEngine({
+      engine: createSharedAuthEngine({
         nuxtApp,
         token,
         user,

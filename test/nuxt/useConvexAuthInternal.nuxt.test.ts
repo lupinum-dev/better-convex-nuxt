@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { useState } from '#imports'
+import { useNuxtApp, useState } from '#imports'
 
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
@@ -61,6 +61,54 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     })
 
     await expect(result.awaitAuthReady({ timeoutMs: 5 })).resolves.toBe(false)
+  })
+
+  it('emits convex:auth:changed through the real Nuxt hook system on refresh', async () => {
+    const hookPayloads: unknown[] = []
+
+    const { result } = await captureInNuxt(() => {
+      const nuxtApp = useNuxtApp()
+      installMockAuthEngine({
+        fetchAuthState: async () => ({
+          token: 'hook-test.jwt.token',
+          user: { id: 'u-hook' },
+          error: null,
+          source: 'exchange',
+        }),
+      })
+
+      nuxtApp.hook('convex:auth:changed' as never, (payload: unknown) => {
+        hookPayloads.push(payload)
+      })
+
+      return useConvexAuthController()
+    })
+
+    await result.refreshAuth()
+
+    expect(hookPayloads).toHaveLength(1)
+    expect(hookPayloads[0]).toMatchObject({
+      isAuthenticated: true,
+      previousIsAuthenticated: false,
+    })
+  })
+
+  it('signOut fails closed even when transport.invalidate() throws', async () => {
+    const { result } = await captureInNuxt(() => {
+      installMockAuthEngine({
+        initialToken: 'active.jwt.token',
+        initialUser: { id: 'u-active' } as never,
+        invalidate: async () => { throw new Error('invalidate failed') },
+      })
+
+      return useConvexAuthController()
+    })
+
+    expect(result.isAuthenticated.value).toBe(true)
+    await expect(result.signOut()).rejects.toThrow('invalidate failed')
+    expect(result.isAuthenticated.value).toBe(false)
+    expect(result.token.value).toBeNull()
+    expect(result.user.value).toBeNull()
   })
 
   it('exposes token, authError, refreshAuth, and awaitAuthReady without a pre-seeded error', async () => {

@@ -1,3 +1,15 @@
+/**
+ * Test JWT minting utilities.
+ *
+ * Produces structurally valid but unsigned JWTs (`alg: "none"`) for unit
+ * tests. The `decodeUserFromJwt` function in production code parses the
+ * payload but does not verify signatures, so these tokens work in tests.
+ *
+ * `TEST_USERS` provides pre-built alice/bob test identities with lazy
+ * getters — each access to `.token` mints a fresh JWT with current `iat`/`exp`.
+ *
+ * @module jwt-factory
+ */
 export interface JwtPayload {
   sub?: string
   userId?: string
@@ -23,6 +35,7 @@ function toBase64Url(input: string): string {
 const HEADER = toBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' }))
 const SIGNATURE = 'test-signature'
 
+/** Mint a test JWT with default `iat` (now) and `exp` (now + 1h). */
 export function mintJwt(payload: JwtPayload): string {
   const now = Math.floor(Date.now() / 1000)
   const fullPayload: JwtPayload = {
@@ -34,6 +47,7 @@ export function mintJwt(payload: JwtPayload): string {
   return `${HEADER}.${toBase64Url(JSON.stringify(fullPayload))}.${SIGNATURE}`
 }
 
+/** Mint a JWT that expired `agoMs` milliseconds ago (default: 60s). */
 export function mintExpiredJwt(payload: JwtPayload, agoMs = 60_000): string {
   const now = Math.floor(Date.now() / 1000)
   const offset = Math.floor(agoMs / 1000)
@@ -44,6 +58,7 @@ export function mintExpiredJwt(payload: JwtPayload, agoMs = 60_000): string {
   })
 }
 
+/** Mint a JWT that expires in `ms` milliseconds from now. */
 export function mintJwtExpiringIn(payload: JwtPayload, ms: number): string {
   const now = Math.floor(Date.now() / 1000)
   return mintJwt({
@@ -53,6 +68,7 @@ export function mintJwtExpiringIn(payload: JwtPayload, ms: number): string {
   })
 }
 
+/** Extract a ConvexUser-shaped object from a JWT payload, or null if no valid id. */
 export function userFromPayload(payload: JwtPayload) {
   const id = payload.sub || payload.userId
   if (typeof id !== 'string' || id.length === 0) {

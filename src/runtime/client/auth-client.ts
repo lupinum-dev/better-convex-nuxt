@@ -1,3 +1,26 @@
+/**
+ * Auth transport layer for better-convex-nuxt.
+ *
+ * This module creates the Better Auth client and wraps it in an `AuthTransport`
+ * that the auth engine can call to resolve tokens. The transport is a pure data
+ * layer — it fetches tokens and returns `ClientAuthStateResult` objects but
+ * never mutates Nuxt reactive state directly. All state commits happen in the
+ * engine (`auth-engine.ts`).
+ *
+ * Token resolution follows a priority waterfall:
+ * 1. Skip (route excluded from auth, signal aborted, SSR with no session)
+ * 2. Hydrated token (SSR-rendered token still in state, non-forced request)
+ * 3. Recent token cache (forced request but token validated recently & not expiring)
+ * 4. Token exchange (HTTP call to Better Auth `/api/auth/convex/token`)
+ *
+ * The `onCommit` callback on results defers cache timestamp updates until the
+ * engine confirms the result is not stale (operationId still matches).
+ *
+ * Request deduplication: concurrent `fetchAuthState` calls share one in-flight
+ * promise. A forced request never reuses a non-forced in-flight (`inflightIsForced`).
+ *
+ * @module auth-client
+ */
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
@@ -50,6 +73,13 @@ interface AuthClientOptions {
   traceId: string
 }
 
+/**
+ * Validate and narrow a hydrated user value from Nuxt state.
+ *
+ * During SSR hydration, `convexUser` may contain any shape — including
+ * arrays, strings, or objects without an `id`. This function ensures
+ * we only return a ConvexUser when the value is structurally valid.
+ */
 function normalizeHydratedUser(user: unknown): ConvexUser | null {
   if (!user || typeof user !== 'object') {
     return null
@@ -73,8 +103,15 @@ function buildAuthenticatedResult(
 }
 
 /**
- * Creates the Better Auth client plus a transport that can resolve auth state
- * without mutating Nuxt auth refs directly.
+ * Create the Better Auth client and its transport interface.
+ *
+ * Returns an `AuthTransport` the engine wires via `configureTransport()`.
+ * The transport captures closed-over mutable state (`lastTokenValidation`,
+ * `inflightFetch`) — these are scoped to one NuxtApp instance via the
+ * engine's WeakMap lifecycle.
+ *
+ * @param convexClientInstance - The ConvexClient to wire `setAuth()` calls into.
+ * @param options - Auth configuration including routes, logger, and hydrated refs.
  */
 export function initAuthClient(
   convexClientInstance: ConvexClient,
@@ -100,6 +137,7 @@ export function initAuthClient(
 
   let lastTokenValidation = Date.now()
   let inflightFetch: Promise<ClientAuthStateResult> | null = null
+  let inflightIsForced = false
 
   const syncHydratedAuthFromToken = (
     source: 'hydrated-token' | 'recent-token-cache',
@@ -145,6 +183,14 @@ export function initAuthClient(
     return buildAuthenticatedResult(source, token, decodedUser)
   }
 
+  /**
+   * Core token resolution logic — walks the priority waterfall:
+   * skip → hydrated → cache → exchange.
+   *
+   * Returns a `ClientAuthStateResult` with an optional `onCommit` callback.
+   * The engine calls `onCommit` only when the result is committed (not stale),
+   * so cache timestamps are never prematurely updated.
+   */
   const doFetchAuthState = async ({
     forceRefreshToken,
     signal,
@@ -194,16 +240,22 @@ export function initAuthClient(
       return { token: null, user: null, error: null, source: 'skip' }
     }
 
+    // Priority 2: Use hydrated token if present and not forced to refresh
     if (convexToken.value && !forceRefreshToken) {
-      lastTokenValidation = Date.now()
       logger.auth({
         phase: 'client-fetchToken:cache',
         outcome: 'success',
         details: { traceId, source: 'hydrated-token', path: routePath },
       })
-      return syncHydratedAuthFromToken('hydrated-token', routePath)
+      const result = syncHydratedAuthFromToken('hydrated-token', routePath)
+      if (result.token !== null) {
+        result.onCommit = () => { lastTokenValidation = Date.now() }
+      }
+      return result
     }
 
+    // Priority 3: Reuse recently-validated token even on forced refresh,
+    // but only if it won't expire before the safety buffer elapses.
     const timeSinceValidation = Date.now() - lastTokenValidation
     if (convexToken.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
       const tokenTimeUntilExpiryMs = getJwtTimeUntilExpiryMs(convexToken.value)
@@ -230,6 +282,8 @@ export function initAuthClient(
       }
     }
 
+    // SSR rendered without a session — skip the exchange to avoid an
+    // unnecessary network round-trip for a definitely-unauthenticated user.
     const wasServerRendered = Boolean(nuxtApp.payload?.serverRendered)
     if (wasServerRendered && !convexToken.value && !normalizeHydratedUser(convexUser.value) && !forceRefreshToken) {
       logger.auth({
@@ -317,7 +371,6 @@ export function initAuthClient(
         }
       }
 
-      lastTokenValidation = Date.now()
       logger.auth({
         phase: 'client-fetchToken:response',
         outcome: 'success',
@@ -328,7 +381,10 @@ export function initAuthClient(
         },
       })
 
-      return buildAuthenticatedResult('exchange', token, decodedUser)
+      return {
+        ...buildAuthenticatedResult('exchange', token, decodedUser),
+        onCommit: () => { lastTokenValidation = Date.now() },
+      }
     } catch (error) {
       if (signal?.aborted) {
         logger.auth({
@@ -355,19 +411,32 @@ export function initAuthClient(
     }
   }
 
+  /**
+   * Deduplicating wrapper around `doFetchAuthState`.
+   *
+   * A non-forced request can reuse any in-flight fetch. A forced request
+   * can only reuse an in-flight that is itself forced — this prevents a
+   * forced refresh from returning a stale cached result.
+   */
   const fetchAuthState: AuthTransport['fetchAuthState'] = async (input) => {
-    if (inflightFetch) {
+    if (inflightFetch && (inflightIsForced || !input.forceRefreshToken)) {
       return await inflightFetch
     }
 
+    inflightIsForced = input.forceRefreshToken
     inflightFetch = doFetchAuthState(input)
     try {
       return await inflightFetch
     } finally {
       inflightFetch = null
+      inflightIsForced = false
     }
   }
 
+  // --- Transport interface ---
+  // install: wire initial auth into ConvexClient (called once at startup)
+  // refresh: force a full re-auth cycle through ConvexClient.setAuth
+  // invalidate: clear ConvexClient's auth and reset local cache state
   return {
     client: authClient,
     fetchAuthState,
@@ -375,6 +444,7 @@ export function initAuthClient(
       convexClientInstance.setAuth(fetchToken, onChange)
     },
     async refresh(fetchToken, onChange) {
+      // Reset cache so the next fetch always hits the exchange
       lastTokenValidation = 0
       await new Promise<void>((resolve) => {
         convexClientInstance.setAuth(
@@ -387,8 +457,10 @@ export function initAuthClient(
       })
     },
     async invalidate() {
+      // Reset all local state — no stale cache or in-flight fetch survives
       lastTokenValidation = 0
       inflightFetch = null
+      inflightIsForced = false
       await new Promise<void>((resolve) => {
         convexClientInstance.setAuth(async () => null, () => resolve())
       })

@@ -1,19 +1,29 @@
+/**
+ * Internal composable that exposes the full auth engine surface to
+ * other composables and internal code.
+ *
+ * This is a thin facade over `SharedAuthEngine` — it exists so that
+ * composables don't import the engine factory directly. The engine
+ * must already be created by `plugin.client.ts` before this composable
+ * is called; if not, `getSharedAuthEngine` throws.
+ *
+ * Public consumers use `useConvexAuth()` which exposes a smaller surface.
+ * This controller adds `token`, `rawAuthError`, `wasAuthenticated`, and
+ * mutation methods (`refreshAuth`, `signOut`, `awaitAuthReady`).
+ *
+ * @module useConvexAuthController
+ */
 import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
 
-import { useNuxtApp, useState } from '#imports'
+import { useNuxtApp } from '#imports'
 
-import { getOrCreateSharedAuthEngine } from '../../client/auth-engine'
-import {
-  STATE_KEY_AUTH_ERROR,
-  STATE_KEY_PENDING,
-  STATE_KEY_TOKEN,
-  STATE_KEY_USER,
-} from '../../utils/constants'
+import { getSharedAuthEngine } from '../../client/auth-engine'
 import type { ConvexUser } from '../../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
+/** Full auth controller surface for internal composables. */
 export interface ConvexAuthController {
   token: Ref<string | null>
   user: Ref<ConvexUser | null>
@@ -31,31 +41,14 @@ export interface ConvexAuthController {
 }
 
 export function useConvexAuthController(): ConvexAuthController {
-  const nuxtApp = useNuxtApp()
-  const token = useState<string | null>(STATE_KEY_TOKEN, () => null)
-  const user = useState<ConvexUser | null>(STATE_KEY_USER, () => null)
-  const pending = useState<boolean>(STATE_KEY_PENDING, () => import.meta.client)
-  const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
-  const wasAuthenticated = useState<boolean>(
-    'better-convex:was-authenticated',
-    () => Boolean(token.value && user.value),
-  )
-
-  const engine = getOrCreateSharedAuthEngine({
-    nuxtApp,
-    token,
-    user,
-    pending,
-    rawAuthError,
-    wasAuthenticated,
-  })
+  const engine = getSharedAuthEngine(useNuxtApp())
 
   return {
-    token,
-    user,
-    pending,
-    rawAuthError,
-    wasAuthenticated,
+    token: engine.token,
+    user: engine.user,
+    pending: engine.pending,
+    rawAuthError: engine.rawAuthError,
+    wasAuthenticated: engine.wasAuthenticated,
     authError: engine.authError,
     isAuthenticated: engine.isAuthenticated,
     isAnonymous: engine.isAnonymous,

@@ -1,3 +1,13 @@
+/**
+ * Queue-based mock for the Better Auth token exchange endpoint.
+ *
+ * Tests enqueue responses (token, miss, or error) and the mock delivers
+ * them in FIFO order via `getNextResponse()`. When the queue is empty,
+ * the current `defaultResponse` is returned. This allows tests to script
+ * multi-step auth flows (e.g., succeed → expire → re-authenticate).
+ *
+ * Responses can include an optional `delayMs` to simulate slow exchanges.
+ */
 import { mintJwt, type JwtPayload } from './jwt-factory'
 
 export interface TokenExchangeResponse {
