@@ -1,17 +1,16 @@
 /**
- * Simple API-key auth middleware for the MCP endpoint.
+ * MCP auth middleware — validates bearer tokens against the mcpKeys table.
  *
- * Reads `Authorization: Bearer <role>:<userId>` or `Bearer <role>:<userId>:<orgId>`
- * and sets event.context.mcpAuth.
+ * Reads `Authorization: Bearer <mcp_key>` and looks up the key in Convex.
+ * If valid, sets event.context.mcpAuth with { role, userId, orgId }.
  *
- * This is a playground-only demo — real apps would validate JWTs or session tokens.
- *
- * Example keys:
- *   Bearer admin:user-1           → { role: 'admin', userId: 'user-1' }
- *   Bearer member:user-42         → { role: 'member', userId: 'user-42' }
- *   Bearer admin:user-1:j57abc123 → { role: 'admin', userId: 'user-1', orgId: 'j57abc123' }
+ * Also supports the legacy format `Bearer <role>:<userId>:<orgId?>` for
+ * quick testing without creating a key in the database.
  */
-export default defineEventHandler((event) => {
+import { serverConvexQuery, serverConvexMutation } from '../../../src/runtime/server/utils/convex'
+import { api } from '../../convex/_generated/api'
+
+export default defineEventHandler(async (event) => {
   // Only apply to the MCP route
   if (!event.path?.startsWith('/mcp')) return
 
@@ -19,6 +18,28 @@ export default defineEventHandler((event) => {
   if (!header?.startsWith('Bearer ')) return
 
   const token = header.slice(7)
+
+  // ── Database key lookup (mcp_* prefix) ──────────────────────────────
+  if (token.startsWith('mcp_')) {
+    try {
+      const result = await serverConvexQuery(event, api.mcpKeys.validate, { key: token })
+      if (result) {
+        event.context.mcpAuth = {
+          role: result.role,
+          userId: result.userId,
+          ...(result.orgId && { orgId: result.orgId }),
+        }
+        // Fire-and-forget: update lastUsedAt
+        serverConvexMutation(event, api.mcpKeys.touch, { key: token }).catch(() => {})
+      }
+    }
+    catch (e) {
+      console.error('[mcp-auth] Key validation failed:', e)
+    }
+    return
+  }
+
+  // ── Legacy format: role:userId:orgId? ───────────────────────────────
   const parts = token.split(':')
   if (parts.length < 2 || !parts[0] || !parts[1]) return
 
@@ -27,7 +48,6 @@ export default defineEventHandler((event) => {
     userId: parts[1],
   }
 
-  // Optional orgId for team-scoped MCP keys
   if (parts[2]) {
     mcpAuth.orgId = parts[2]
   }

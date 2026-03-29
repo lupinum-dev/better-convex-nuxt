@@ -143,4 +143,32 @@ export default defineSchema({
     createdAt: v.number(),
     userId: v.optional(v.string()),
   }),
+
+  // ============================================
+  // MCP KEYS (API key management)
+  // ============================================
+  mcpKeys: defineTable({
+    // Human-readable name for the key
+    name: v.string(),
+
+    // The secret key (hashed prefix + full for lookup)
+    key: v.string(),
+    prefix: v.string(), // First 8 chars for display: "mcp_abc1..."
+
+    // Identity bound to this key
+    role: roleValidator,
+    userId: v.string(), // authId of the user who created the key
+    organizationId: v.optional(v.id('organizations')),
+
+    // Status
+    status: v.union(v.literal('active'), v.literal('revoked')),
+    lastUsedAt: v.optional(v.number()),
+
+    // Timestamps
+    createdAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  })
+    .index('by_key', ['key'])
+    .index('by_user', ['userId'])
+    .index('by_organization', ['organizationId']),
 })
