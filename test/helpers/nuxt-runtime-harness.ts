@@ -2,6 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { defineComponent, h, nextTick, type ComponentPublicInstance } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
+import { resetRuntimeAuthHookStore } from '../../src/runtime/client/runtime-hooks'
 
 let currentConvexTarget: Record<PropertyKey, unknown> | null = null
 let currentAuthTarget: Record<PropertyKey, unknown> | null = null
@@ -106,10 +107,18 @@ export async function captureInNuxt<T>(
     throw new Error('Failed to capture Nuxt composable result')
   }
 
+  const wrappedComponent = wrapper as unknown as ComponentPublicInstance & { unmount: () => void }
+  const originalUnmount = wrappedComponent.unmount.bind(wrappedComponent)
+  const wrappedUnmount = () => {
+    resetRuntimeAuthHookStore(nuxtAppRef as object)
+    originalUnmount()
+  }
+  wrappedComponent.unmount = wrappedUnmount
+
   return {
     result,
     nuxtApp: nuxtAppRef,
-    wrapper: wrapper as unknown as ComponentPublicInstance & { unmount: () => void },
+    wrapper: wrappedComponent,
     flush,
   }
 }

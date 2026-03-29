@@ -67,11 +67,15 @@ export function buildClientAuthRequestFailureMessage(error: unknown): string {
 }
 
 export function buildClientAuthResponseErrorMessage(rawMessage: string): string {
-  const message = rawMessage.trim()
+  const message = sanitizeAuthErrorMessage(rawMessage)
   const lower = message.toLowerCase()
 
   if (lower.includes('unauthorized') || lower.includes('invalid session')) {
     return 'Not signed in'
+  }
+
+  if (message.length > 0) {
+    return prefix(`Authentication failed. ${message}`)
   }
 
   return prefix(
@@ -81,8 +85,16 @@ export function buildClientAuthResponseErrorMessage(rawMessage: string): string 
 
 export function buildClientAuthDecodeFailureMessage(): string {
   return prefix(
-    'Authentication failed. Received an invalid auth token from the auth exchange.',
+    'Authentication failed. Received an invalid auth token.',
   )
+}
+
+function sanitizeAuthErrorMessage(rawMessage: string): string {
+  return rawMessage
+    .replace(/^NuxtConvexError:\s*/i, '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 /**

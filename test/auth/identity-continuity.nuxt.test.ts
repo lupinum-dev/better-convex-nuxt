@@ -35,12 +35,12 @@ describe('Auth Identity Continuity', () => {
     await h.triggerRefresh()
 
     h.assertAuthenticated('user-bob')
-    expect(h.authChangedSpy.mock.calls.length).toBeGreaterThan(0)
-    expect(h.authChangedSpy.mock.calls.at(-1)?.[0]).toEqual({
+    expect(h.authChangedSpy).toHaveBeenCalledTimes(1)
+    expect(h.authChangedSpy).toHaveBeenCalledWith({
       isAuthenticated: true,
-      previousIsAuthenticated: false,
+      previousIsAuthenticated: true,
       user: expect.objectContaining({ id: 'user-bob' }),
-      previousUser: null,
+      previousUser: expect.objectContaining({ id: 'user-alice' }),
     })
   })
 
@@ -111,5 +111,20 @@ describe('Auth Identity Continuity', () => {
       user: null,
       previousUser: expect.objectContaining({ id: 'user-alice' }),
     })
+  })
+
+  it('signOut still fails closed before surfacing the upstream error', async () => {
+    h = await createAuthHarness({
+      initialToken: TEST_USERS.alice.token,
+      initialUser: TEST_USERS.alice.user,
+      signOutBehavior: 'fail',
+    })
+
+    await expect(h.triggerSignOut()).rejects.toThrow('Upstream signOut failed')
+
+    h.assertUnauthenticated()
+    h.assertAuthError(/Upstream signOut failed/)
+    expect(h.invalidateHandlerSpy).toHaveBeenCalledTimes(1)
+    expect(h.signOutSpy).toHaveBeenCalledTimes(1)
   })
 })

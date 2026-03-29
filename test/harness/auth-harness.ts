@@ -6,6 +6,10 @@ import { useNuxtApp, useState } from '#imports'
 
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
+import {
+  bumpAuthTransitionId,
+  getAuthTransitionId,
+} from '../../src/runtime/utils/auth-transition'
 import { decodeUserFromJwt } from '../../src/runtime/utils/convex-shared'
 import {
   STATE_KEY_AUTH_ERROR,
@@ -85,9 +89,16 @@ export async function createAuthHarness(
 
     nuxtApp.hook('convex:auth:changed', authChangedSpy)
     nuxtApp.hook('convex:unauthorized', unauthorizedSpy)
-    nuxtApp.hook('better-convex:auth:refresh', async () => {
+    const originalCallHook = nuxtApp.callHook.bind(nuxtApp)
+
+    const runHarnessRefresh = async () => {
       refreshHandlerSpy()
+      const transitionId = getAuthTransitionId(nuxtApp)
       const response = await tokenExchange.getNextResponse()
+
+      if (getAuthTransitionId(nuxtApp) !== transitionId) {
+        return
+      }
 
       if (response.error) {
         token.value = null
@@ -115,15 +126,27 @@ export async function createAuthHarness(
       user.value = decodedUser
       token.value = nextToken
       rawAuthError.value = null
-    })
-    nuxtApp.hook('better-convex:auth:invalidate', async () => {
-      ;(nuxtApp as typeof nuxtApp & { _convexAuthTransitionId?: number })._convexAuthTransitionId =
-        ((nuxtApp as typeof nuxtApp & { _convexAuthTransitionId?: number })._convexAuthTransitionId ?? 0) + 1
+    }
+
+    const runHarnessInvalidate = async () => {
+      bumpAuthTransitionId(nuxtApp)
       invalidateHandlerSpy()
       token.value = null
       user.value = null
       rawAuthError.value = null
-    })
+    }
+
+    nuxtApp.callHook = (async (event: string, ...args: unknown[]) => {
+      if (event === 'better-convex:auth:refresh') {
+        await runHarnessRefresh()
+        return
+      }
+      if (event === 'better-convex:auth:invalidate') {
+        await runHarnessInvalidate()
+        return
+      }
+      return await originalCallHook(event as never, ...(args as never[]))
+    }) as typeof nuxtApp.callHook
 
     return {
       auth: useConvexAuth(),
@@ -136,6 +159,11 @@ export async function createAuthHarness(
     }
   }, {
     auth: { signOut: signOutSpy },
+    convexConfig: {
+      auth: {
+        enabled: false,
+      },
+    },
   })
 
   const flush = async () => {

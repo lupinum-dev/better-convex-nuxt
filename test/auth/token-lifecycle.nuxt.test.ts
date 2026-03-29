@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createAuthHarness,
@@ -7,11 +7,21 @@ import {
   TEST_USERS,
 } from '../harness'
 import { getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
-import { TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../../src/runtime/utils/constants'
+import {
+  AUTH_REFRESH_TIMEOUT_MS,
+  TOKEN_EXPIRY_SAFETY_BUFFER_MS,
+} from '../../src/runtime/utils/constants'
 
 let h: Awaited<ReturnType<typeof createAuthHarness>>
 
-afterEach(() => h?.dispose())
+beforeEach(() => {
+  vi.useRealTimers()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  h?.dispose()
+})
 
 describe('Auth Token Lifecycle', () => {
   it('treats tokens inside the safety buffer as no longer safe to reuse', () => {
@@ -83,5 +93,67 @@ describe('Auth Token Lifecycle', () => {
     await expect(h.triggerRefresh()).rejects.toThrow(/decode authenticated user/i)
     h.assertUnauthenticated()
     h.assertAuthError(/decode authenticated user/i)
+  })
+
+  it('times out a hung refresh without leaving a stray warning after a later success', async () => {
+    vi.useFakeTimers()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const exchange = createMockTokenExchange()
+    exchange.enqueue(
+      {
+        data: { token: TEST_USERS.alice.token },
+        error: null,
+        delayMs: AUTH_REFRESH_TIMEOUT_MS + 100,
+      },
+      {
+        data: { token: TEST_USERS.bob.token },
+        error: null,
+      },
+    )
+
+    h = await createAuthHarness({ tokenExchange: exchange })
+
+    const timedOutRefresh = expect(h.triggerRefresh()).rejects.toThrow(/timed out/i)
+    await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS)
+    await timedOutRefresh
+
+    h.assertUnauthenticated()
+
+    warnSpy.mockClear()
+
+    const successfulRefresh = h.triggerRefresh()
+    await vi.advanceTimersByTimeAsync(200)
+    await expect(successfulRefresh).resolves.toBeUndefined()
+
+    h.assertAuthenticated('user-bob')
+
+    await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS + 100)
+    expect(warnSpy).toHaveBeenCalledTimes(0)
+  })
+
+  it('marks a lost authenticated session as expired but keeps explicit sign-out non-expired', async () => {
+    const exchange = createMockTokenExchange()
+    exchange.respondWithMiss()
+
+    h = await createAuthHarness({
+      initialToken: TEST_USERS.alice.token,
+      initialUser: TEST_USERS.alice.user,
+      tokenExchange: exchange,
+    })
+
+    expect(h.isSessionExpired.value).toBe(false)
+
+    await expect(h.triggerRefresh()).rejects.toThrow(/without a token/)
+    expect(h.isSessionExpired.value).toBe(true)
+
+    h.dispose()
+
+    h = await createAuthHarness({
+      initialToken: TEST_USERS.alice.token,
+      initialUser: TEST_USERS.alice.user,
+    })
+
+    await h.triggerSignOut()
+    expect(h.isSessionExpired.value).toBe(false)
   })
 })

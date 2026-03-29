@@ -12,6 +12,10 @@ import {
   STATE_KEY_USER,
 } from '../../utils/constants'
 import { waitForPendingClear } from '../../utils/auth-pending'
+import {
+  bumpAuthTransitionId,
+  getAuthTransitionId,
+} from '../../utils/auth-transition'
 import type { ConvexUser } from '../../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
@@ -60,22 +64,22 @@ export function useConvexAuthController(): ConvexAuthController {
   const refreshAuth = async (): Promise<void> => {
     const appState = nuxtApp as typeof nuxtApp & {
       _convexRefreshAuthPromise?: Promise<void> | null
-      _convexAuthTransitionId?: number
     }
     if (appState._convexRefreshAuthPromise) {
       return appState._convexRefreshAuthPromise
     }
 
     appState._convexRefreshAuthPromise = (async () => {
-      const transitionId = appState._convexAuthTransitionId ?? 0
+      const transitionId = getAuthTransitionId(nuxtApp)
       pending.value = true
       rawAuthError.value = null
+      let timeoutId: ReturnType<typeof setTimeout> | null = null
 
       try {
         await Promise.race([
           nuxtApp.callHook('better-convex:auth:refresh'),
           new Promise<never>((_resolve, reject) => {
-            setTimeout(() => {
+            timeoutId = setTimeout(() => {
               if (import.meta.dev) {
                 console.warn(
                   `[better-convex-nuxt] Auth refresh timed out after ${AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
@@ -86,7 +90,7 @@ export function useConvexAuthController(): ConvexAuthController {
           }),
         ])
 
-        if ((appState._convexAuthTransitionId ?? 0) !== transitionId) {
+        if (getAuthTransitionId(nuxtApp) !== transitionId) {
           token.value = null
           user.value = null
           rawAuthError.value = null
@@ -104,19 +108,23 @@ export function useConvexAuthController(): ConvexAuthController {
         throw new Error(rawAuthError.value)
       }
       catch (error) {
-        if ((appState._convexAuthTransitionId ?? 0) !== transitionId) {
+        if (getAuthTransitionId(nuxtApp) !== transitionId) {
           token.value = null
           user.value = null
           rawAuthError.value = null
           return
         }
 
+        bumpAuthTransitionId(nuxtApp)
         token.value = null
         user.value = null
         rawAuthError.value = error instanceof Error ? error.message : String(error)
         throw error
       }
       finally {
+        if (timeoutId !== null) {
+          clearTimeout(timeoutId)
+        }
         pending.value = false
         appState._convexRefreshAuthPromise = null
       }
@@ -128,29 +136,43 @@ export function useConvexAuthController(): ConvexAuthController {
   const signOut = async (): Promise<void> => {
     const appState = nuxtApp as typeof nuxtApp & {
       _convexSignOutPromise?: Promise<void> | null
-      _convexAuthTransitionId?: number
     }
     if (appState._convexSignOutPromise) {
       return appState._convexSignOutPromise
     }
 
     appState._convexSignOutPromise = (async () => {
-      appState._convexAuthTransitionId = (appState._convexAuthTransitionId ?? 0) + 1
+      bumpAuthTransitionId(nuxtApp)
       pending.value = true
       rawAuthError.value = null
+      token.value = null
+      user.value = null
+      wasAuthenticated.value = false
+
+      let firstError: unknown = null
 
       try {
         if (import.meta.client) {
-          await nuxtApp.callHook('better-convex:auth:invalidate')
+          try {
+            await nuxtApp.callHook('better-convex:auth:invalidate')
+          }
+          catch (error) {
+            firstError ??= error
+          }
         }
 
-        token.value = null
-        user.value = null
-        rawAuthError.value = null
-        wasAuthenticated.value = false
-
         if (client) {
-          await client.signOut()
+          try {
+            await client.signOut()
+          }
+          catch (error) {
+            firstError ??= error
+          }
+        }
+
+        if (firstError) {
+          rawAuthError.value = firstError instanceof Error ? firstError.message : String(firstError)
+          throw firstError
         }
       } catch (error) {
         rawAuthError.value = error instanceof Error ? error.message : String(error)

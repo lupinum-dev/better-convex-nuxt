@@ -6,6 +6,17 @@ import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
+function withAuthRuntimeDisabled(options: Record<string, unknown> = {}) {
+  return {
+    convexConfig: {
+      auth: {
+        enabled: false,
+      },
+    },
+    ...options,
+  }
+}
+
 describe('useConvexAuthController (Nuxt runtime)', () => {
   it('refreshAuth resolves after refresh hook updates token', async () => {
     const { result } = await captureInNuxt(() => {
@@ -24,7 +35,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
       })
 
       return { auth: useConvexAuth(), internal: useConvexAuthController() }
-    })
+    }, withAuthRuntimeDisabled())
 
     await result.internal.refreshAuth()
     expect(result.internal.token.value).toBe('new.jwt.token')
@@ -49,7 +60,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
       }, 10)
 
       return { auth: useConvexAuth(), internal: useConvexAuthController() }
-    })
+    }, withAuthRuntimeDisabled())
 
     await expect(result.internal.awaitAuthReady({ timeoutMs: 200 })).resolves.toBe(true)
     expect(result.auth.isAuthenticated.value).toBe(true)
@@ -64,13 +75,13 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
       token.value = null
       user.value = null
       return useConvexAuthController()
-    })
+    }, withAuthRuntimeDisabled())
 
     await expect(result.awaitAuthReady({ timeoutMs: 5 })).resolves.toBe(false)
   })
 
   it('exposes token, authError, refreshAuth, and awaitAuthReady', async () => {
-    const { result } = await captureInNuxt(() => useConvexAuthController())
+    const { result } = await captureInNuxt(() => useConvexAuthController(), withAuthRuntimeDisabled())
 
     expect('token' in result).toBe(true)
     expect('authError' in result).toBe(true)

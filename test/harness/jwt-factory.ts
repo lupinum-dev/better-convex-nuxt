@@ -54,8 +54,13 @@ export function mintJwtExpiringIn(payload: JwtPayload, ms: number): string {
 }
 
 export function userFromPayload(payload: JwtPayload) {
+  const id = payload.sub || payload.userId
+  if (typeof id !== 'string' || id.length === 0) {
+    return null
+  }
+
   return {
-    id: String(payload.sub || payload.userId || ''),
+    id,
     name: String(payload.name || ''),
     email: String(payload.email || ''),
     emailVerified: typeof payload.emailVerified === 'boolean' ? payload.emailVerified : undefined,
@@ -70,7 +75,7 @@ export const TEST_USERS = {
       return mintJwt(this.payload)
     },
     get user() {
-      return userFromPayload(this.payload)
+      return userFromPayload(this.payload)!
     },
   },
   bob: {
@@ -79,7 +84,7 @@ export const TEST_USERS = {
       return mintJwt(this.payload)
     },
     get user() {
-      return userFromPayload(this.payload)
+      return userFromPayload(this.payload)!
     },
   },
 } as const

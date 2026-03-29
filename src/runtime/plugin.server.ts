@@ -23,6 +23,7 @@ import {
   STATE_KEY_USER,
 } from './utils/constants'
 import {
+  buildClientAuthDecodeFailureMessage,
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
 } from './utils/auth-errors'
@@ -149,19 +150,26 @@ export default defineNuxtPlugin(async () => {
     : { value: null as AuthWaterfall | null }
 
   const resolvedAuth = await resolveRequestAuth(event, convexConfig)
+  const hydratedAuthDecodeFailed = Boolean(resolvedAuth.token && resolvedAuth.jwtDecodeFailed)
   logAuth('server-init', 'success', {
     hasCookieHeader: Boolean(event.headers.get('cookie')),
     hasSessionToken: resolvedAuth.hasSessionCookie,
     cacheEnabled: Boolean(convexConfig.auth.cache.enabled),
   })
 
-  convexToken.value = resolvedAuth.token
-  convexUser.value = resolvedAuth.user
-  convexAuthError.value = resolvedAuth.error
+  if (hydratedAuthDecodeFailed) {
+    convexToken.value = null
+    convexUser.value = null
+    convexAuthError.value = buildClientAuthDecodeFailureMessage()
+  } else {
+    convexToken.value = resolvedAuth.token
+    convexUser.value = resolvedAuth.user
+    convexAuthError.value = resolvedAuth.error
+  }
 
-  if (import.meta.dev && resolvedAuth.token && resolvedAuth.jwtDecodeFailed) {
+  if (import.meta.dev && hydratedAuthDecodeFailed) {
     console.warn(
-      '[better-convex-nuxt] JWT decode failed — user info unavailable for this SSR render. Configure Better Auth to include user claims in the JWT.',
+      '[better-convex-nuxt] JWT decode failed during SSR hydration. Auth state was cleared to unauthenticated because the token is invalid for client use. Configure Better Auth to include user claims in the JWT.',
     )
   }
 
@@ -183,15 +191,26 @@ export default defineNuxtPlugin(async () => {
     return
   }
 
-  if (resolvedAuth.source === 'cache' && resolvedAuth.token) {
+  if (resolvedAuth.source === 'cache' && resolvedAuth.token && !hydratedAuthDecodeFailed) {
     endInit()
     logAuth('cache', 'success', { source: 'cache' })
     return
   }
 
-  if (resolvedAuth.token) {
+  if (resolvedAuth.token && !hydratedAuthDecodeFailed) {
     endInit()
     logAuth('exchange', 'success', { user: resolvedAuth.user?.email })
+    return
+  }
+
+  if (hydratedAuthDecodeFailed) {
+    endInit()
+    logAuth(
+      resolvedAuth.source === 'cache' ? 'cache' : 'exchange',
+      'error',
+      { source: resolvedAuth.source, decodeFailure: true },
+      new Error(convexAuthError.value ?? buildClientAuthDecodeFailureMessage()),
+    )
     return
   }
 

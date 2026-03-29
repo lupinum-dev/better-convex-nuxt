@@ -149,4 +149,24 @@ describe('plugin.server token exchange failure policy', () => {
     expect(stateStore.get('convex:token')?.value).toBeNull()
     expect(stateStore.get('convex:user')?.value).toBeNull()
   })
+
+  it('fails closed during SSR when a token exchanges successfully but cannot be decoded', async () => {
+    decodeUserFromJwtMock.mockReturnValue(null)
+    fetchWithTimeoutMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/api/auth/get-session')) {
+        return createResponse(200, { user: null })
+      }
+      if (url.endsWith('/api/auth/convex/token')) {
+        return createResponse(200, { token: 'invalid.jwt.token' })
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
+    await expect(plugin()).resolves.toBeUndefined()
+
+    expect(stateStore.get('convex:token')?.value).toBeNull()
+    expect(stateStore.get('convex:user')?.value).toBeNull()
+    expect(String(stateStore.get('convex:authError')?.value ?? '')).toMatch(/invalid auth token/i)
+  })
 })

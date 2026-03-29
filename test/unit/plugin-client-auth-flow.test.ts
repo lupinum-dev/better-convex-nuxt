@@ -1,22 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  TOKEN_CACHE_MS,
+  TOKEN_EXPIRY_SAFETY_BUFFER_MS,
+} from '../../src/runtime/utils/constants'
+import {
+  mintJwt,
+  mintJwtExpiringIn,
+} from '../harness/jwt-factory'
 
 const stateStore = new Map<string, { value: unknown }>()
-
-function toBase64Url(value: string): string {
-  return Buffer.from(value, 'utf8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '')
-}
-
-function makeJwt(payload: Record<string, unknown>): string {
-  return [
-    toBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' })),
-    toBase64Url(JSON.stringify(payload)),
-    'test-signature',
-  ].join('.')
-}
 
 const {
   defineNuxtPluginMock,
@@ -26,6 +18,8 @@ const {
   getConvexRuntimeConfigMock,
   createAuthClientMock,
   tokenMock,
+  authLogMock,
+  debugLogMock,
   clientState,
   MockConvexClient,
   hookRegistry,
@@ -53,6 +47,8 @@ const {
     getConvexRuntimeConfigMock: vi.fn(),
     createAuthClientMock: vi.fn(),
     tokenMock: vi.fn(),
+    authLogMock: vi.fn(),
+    debugLogMock: vi.fn(),
     clientState,
     MockConvexClient,
     hookRegistry,
@@ -84,8 +80,8 @@ vi.mock('../../src/runtime/utils/runtime-config', () => ({
 
 vi.mock('../../src/runtime/utils/logger', () => ({
   createLogger: () => ({
-    auth: vi.fn(),
-    debug: vi.fn(),
+    auth: authLogMock,
+    debug: debugLogMock,
     time: () => vi.fn(),
   }),
   getLogLevel: () => 'silent',
@@ -94,6 +90,7 @@ vi.mock('../../src/runtime/utils/logger', () => ({
 describe('plugin.client auth flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useRealTimers()
     stateStore.clear()
     clientState.fetchToken = null
     hookRegistry.clear()
@@ -139,8 +136,9 @@ describe('plugin.client auth flow', () => {
   })
 
   it('uses only the token exchange request on client cold boot', async () => {
+    const exchangedToken = mintJwt({ sub: 'u1', email: 'alice@test.com' })
     tokenMock.mockResolvedValue({
-      data: { token: makeJwt({ sub: 'u1', email: 'alice@test.com' }) },
+      data: { token: exchangedToken },
       error: null,
     })
     vi.stubGlobal('fetch', vi.fn())
@@ -159,19 +157,20 @@ describe('plugin.client auth flow', () => {
 
     const token = await fetchToken!({ forceRefreshToken: false })
 
-    expect(token).toBe(makeJwt({ sub: 'u1', email: 'alice@test.com' }))
+    expect(token).toBe(exchangedToken)
     expect(tokenMock).toHaveBeenCalledTimes(1)
     expect(fetch).not.toHaveBeenCalled()
   })
 
   it('retries immediately after a signed-out miss and can pick up a fresh login', async () => {
+    const freshToken = mintJwt({ sub: 'u2', email: 'bob@test.com' })
     tokenMock
       .mockResolvedValueOnce({
         data: null,
         error: null,
       })
       .mockResolvedValueOnce({
-        data: { token: makeJwt({ sub: 'u2', email: 'bob@test.com' }) },
+        data: { token: freshToken },
         error: null,
       })
     vi.stubGlobal('fetch', vi.fn())
@@ -192,13 +191,187 @@ describe('plugin.client auth flow', () => {
     const second = await fetchToken!({ forceRefreshToken: false })
 
     expect(first).toBeNull()
-    expect(second).toBe(makeJwt({ sub: 'u2', email: 'bob@test.com' }))
+    expect(second).toBe(freshToken)
     expect(tokenMock).toHaveBeenCalledTimes(2)
     expect(stateStore.get('convex:authError')?.value).toBeNull()
-    expect(stateStore.get('convex:token')?.value).toBe(
-      makeJwt({ sub: 'u2', email: 'bob@test.com' }),
-    )
+    expect(stateStore.get('convex:token')?.value).toBe(freshToken)
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('hydrates a missing user directly from a valid SSR token without exchanging again', async () => {
+    const hydratedToken = mintJwt({ sub: 'u-hydrated', email: 'hydrated@test.com' })
+    stateStore.set('convex:token', { value: hydratedToken })
+    stateStore.set('convex:user', { value: null })
+    stateStore.set('convex:authError', { value: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin({
+      payload: { serverRendered: true },
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
+      provide: vi.fn(),
+    } as never)
+
+    const fetchToken = clientState.fetchToken
+    const token = await fetchToken!({ forceRefreshToken: false })
+
+    expect(token).toBe(hydratedToken)
+    expect(tokenMock).not.toHaveBeenCalled()
+    expect(stateStore.get('convex:user')?.value).toEqual(
+      expect.objectContaining({ id: 'u-hydrated', email: 'hydrated@test.com' }),
+    )
+    expect(stateStore.get('convex:authError')?.value).toBeNull()
+  })
+
+  it('fails closed and logs when a hydrated SSR token cannot be decoded', async () => {
+    stateStore.set('convex:token', { value: 'not-a-valid.jwt' })
+    stateStore.set('convex:user', { value: null })
+    stateStore.set('convex:authError', { value: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin({
+      payload: { serverRendered: true },
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
+      provide: vi.fn(),
+    } as never)
+
+    const fetchToken = clientState.fetchToken
+    await expect(fetchToken!({ forceRefreshToken: false })).resolves.toBeNull()
+
+    expect(tokenMock).not.toHaveBeenCalled()
+    expect(stateStore.get('convex:token')?.value).toBeNull()
+    expect(stateStore.get('convex:user')?.value).toBeNull()
+    expect(String(stateStore.get('convex:authError')?.value ?? '')).toMatch(/invalid auth token/i)
+    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'client-fetchToken:cache',
+      outcome: 'error',
+      details: expect.objectContaining({
+        source: 'hydrated-token',
+      }),
+    }))
+  })
+
+  it('reuses the recent token cache without another exchange and can decode the user again', async () => {
+    const hydratedToken = mintJwt({ sub: 'u-cache', email: 'cache@test.com' })
+    stateStore.set('convex:token', { value: hydratedToken })
+    stateStore.set('convex:user', { value: null })
+    stateStore.set('convex:authError', { value: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin({
+      payload: { serverRendered: true },
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
+      provide: vi.fn(),
+    } as never)
+
+    const fetchToken = clientState.fetchToken
+    await fetchToken!({ forceRefreshToken: false })
+
+    stateStore.get('convex:user')!.value = null
+
+    await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBe(hydratedToken)
+    expect(tokenMock).not.toHaveBeenCalled()
+    expect(stateStore.get('convex:user')?.value).toEqual(
+      expect.objectContaining({ id: 'u-cache', email: 'cache@test.com' }),
+    )
+  })
+
+  it('fails closed and logs when the recent token cache holds a token that can no longer be decoded', async () => {
+    const hydratedToken = mintJwt({ sub: 'u-cache-bad', email: 'cache-bad@test.com' })
+    stateStore.set('convex:token', { value: hydratedToken })
+    stateStore.set('convex:user', { value: null })
+    stateStore.set('convex:authError', { value: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin({
+      payload: { serverRendered: true },
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
+      provide: vi.fn(),
+    } as never)
+
+    const fetchToken = clientState.fetchToken
+    await fetchToken!({ forceRefreshToken: false })
+
+    stateStore.get('convex:token')!.value = 'not-a-valid.jwt'
+    stateStore.get('convex:user')!.value = null
+
+    await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBeNull()
+    expect(tokenMock).not.toHaveBeenCalled()
+    expect(stateStore.get('convex:token')?.value).toBeNull()
+    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'client-fetchToken:cache',
+      outcome: 'error',
+      details: expect.objectContaining({
+        source: 'recent-token-cache',
+      }),
+    }))
+  })
+
+  it('forces a fresh exchange after the recent token cache window expires', async () => {
+    vi.useFakeTimers()
+    const hydratedToken = mintJwt({ sub: 'u-window', email: 'window@test.com' })
+    const freshToken = mintJwt({ sub: 'u-window-fresh', email: 'fresh@test.com' })
+    stateStore.set('convex:token', { value: hydratedToken })
+    stateStore.set('convex:user', { value: null })
+    stateStore.set('convex:authError', { value: null })
+    tokenMock.mockResolvedValue({ data: { token: freshToken }, error: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin({
+      payload: { serverRendered: true },
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
+      provide: vi.fn(),
+    } as never)
+
+    const fetchToken = clientState.fetchToken
+    await fetchToken!({ forceRefreshToken: false })
+
+    vi.advanceTimersByTime(TOKEN_CACHE_MS + 1)
+
+    await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBe(freshToken)
+    expect(tokenMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('forces a fresh exchange when the cached token is inside the expiry safety buffer', async () => {
+    const nearlyExpiredToken = mintJwtExpiringIn(
+      { sub: 'u-expiring', email: 'expiring@test.com' },
+      TOKEN_EXPIRY_SAFETY_BUFFER_MS - 1_000,
+    )
+    const freshToken = mintJwt({ sub: 'u-expiring-fresh', email: 'fresh@test.com' })
+    stateStore.set('convex:token', { value: nearlyExpiredToken })
+    stateStore.set('convex:user', { value: null })
+    stateStore.set('convex:authError', { value: null })
+    tokenMock.mockResolvedValue({ data: { token: freshToken }, error: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin({
+      payload: { serverRendered: true },
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
+      provide: vi.fn(),
+    } as never)
+
+    const fetchToken = clientState.fetchToken
+    await fetchToken!({ forceRefreshToken: false })
+
+    await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBe(freshToken)
+    expect(tokenMock).toHaveBeenCalledTimes(1)
   })
 
   it('invalidates the live auth transport and clears local auth state', async () => {

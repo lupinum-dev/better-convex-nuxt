@@ -8,6 +8,10 @@ import {
   buildClientAuthRequestFailureMessage,
   buildClientAuthResponseErrorMessage,
 } from '../utils/auth-errors'
+import {
+  bumpAuthTransitionId,
+  getAuthTransitionId,
+} from '../utils/auth-transition'
 import { TOKEN_CACHE_MS, TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../utils/constants'
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
 import type { Logger } from '../utils/logger'
@@ -72,7 +76,10 @@ export function initAuthClient(
   let lastTokenValidation = Date.now()
   let inflightFetch: Promise<string | null> | null = null
 
-  const syncHydratedUserFromToken = (): string | null => {
+  const syncHydratedUserFromToken = (
+    source: 'hydrated-token' | 'recent-token-cache',
+    routePath: string,
+  ): string | null => {
     if (!convexToken.value) {
       return null
     }
@@ -86,6 +93,17 @@ export function initAuthClient(
       convexToken.value = null
       convexUser.value = null
       convexAuthError.value = buildClientAuthDecodeFailureMessage()
+      logger.auth({
+        phase: 'client-fetchToken:cache',
+        outcome: 'error',
+        details: {
+          traceId,
+          path: routePath,
+          source,
+          userHydrated: false,
+        },
+        error: new Error(convexAuthError.value),
+      })
       return null
     }
 
@@ -101,8 +119,10 @@ export function initAuthClient(
     forceRefreshToken: boolean
     signal?: AbortSignal
   }): Promise<string | null> => {
+    const transitionId = getAuthTransitionId(nuxtApp)
     const route = router.currentRoute.value
     const routePath = route?.path ?? '/'
+    const isStaleTransition = () => getAuthTransitionId(nuxtApp) !== transitionId
 
     logger.auth({
       phase: 'client-fetchToken:start',
@@ -138,7 +158,7 @@ export function initAuthClient(
       lastTokenValidation = Date.now()
       logger.auth({ phase: 'client-fetchToken:cache', outcome: 'success', details: { traceId, source: 'hydrated-token', path: routePath } })
       resolveInitialAuth()
-      return syncHydratedUserFromToken()
+      return syncHydratedUserFromToken('hydrated-token', routePath)
     }
 
     const timeSinceValidation = Date.now() - lastTokenValidation
@@ -152,7 +172,7 @@ export function initAuthClient(
       if (canReuseToken) {
         logger.auth({ phase: 'client-fetchToken:cache', outcome: 'success', details: { traceId, source: 'recent-token-cache', ageMs: timeSinceValidation, path: routePath } })
         resolveInitialAuth()
-        return syncHydratedUserFromToken()
+        return syncHydratedUserFromToken('recent-token-cache', routePath)
       }
     }
 
@@ -169,6 +189,11 @@ export function initAuthClient(
 
       if (signal?.aborted) {
         logger.auth({ phase: 'client-fetchToken:abort', outcome: 'skip', details: { traceId, reason: 'signal-aborted-after-request', path: routePath } })
+        resolveInitialAuth()
+        return null
+      }
+      if (isStaleTransition()) {
+        logger.auth({ phase: 'client-fetchToken:abort', outcome: 'skip', details: { traceId, reason: 'stale-transition-after-request', path: routePath } })
         resolveInitialAuth()
         return null
       }
@@ -208,6 +233,12 @@ export function initAuthClient(
         return null
       }
 
+      if (isStaleTransition()) {
+        logger.auth({ phase: 'client-fetchToken:abort', outcome: 'skip', details: { traceId, reason: 'stale-transition-before-commit', path: routePath } })
+        resolveInitialAuth()
+        return null
+      }
+
       convexUser.value = decodedUser
       convexToken.value = token
       convexAuthError.value = null
@@ -219,6 +250,11 @@ export function initAuthClient(
     } catch (e) {
       if (signal?.aborted) {
         logger.auth({ phase: 'client-fetchToken:abort', outcome: 'skip', details: { traceId, reason: 'signal-aborted-after-error', path: routePath } })
+        resolveInitialAuth()
+        return null
+      }
+      if (isStaleTransition()) {
+        logger.auth({ phase: 'client-fetchToken:abort', outcome: 'skip', details: { traceId, reason: 'stale-transition-after-error', path: routePath } })
         resolveInitialAuth()
         return null
       }
@@ -272,8 +308,7 @@ export function initAuthClient(
   })
 
   nuxtApp.hook('better-convex:auth:invalidate', async () => {
-    const appState = nuxtApp as typeof nuxtApp & { _convexAuthTransitionId?: number }
-    appState._convexAuthTransitionId = (appState._convexAuthTransitionId ?? 0) + 1
+    bumpAuthTransitionId(nuxtApp)
     logger.auth({ phase: 'client-invalidate', outcome: 'success', details: { traceId } })
     lastTokenValidation = 0
     inflightFetch = null

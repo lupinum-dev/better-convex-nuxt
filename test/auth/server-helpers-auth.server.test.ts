@@ -1,4 +1,3 @@
-import type { H3Event } from 'h3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -13,6 +12,12 @@ import {
   decodeUserFromJwt,
   getJwtTimeUntilExpiryMs,
 } from '../../src/runtime/utils/convex-shared'
+import {
+  createEvent,
+  installServerAuthStorageMock,
+  mockConvexConfig,
+  resetServerAuthFixtureState,
+} from '../harness/server-auth-fixtures'
 
 const { useStorageMock } = vi.hoisted(() => ({
   useStorageMock: vi.fn(),
@@ -33,59 +38,10 @@ vi.mock('#imports', () => ({
   useRuntimeConfig: useRuntimeConfigMock,
 }))
 
-const backingStore = new Map<string, unknown>()
-
-function createEvent(cookie?: string): H3Event {
-  return {
-    __is_event__: true,
-    context: {},
-    node: {
-      req: { headers: cookie ? { cookie } : {} },
-      res: {},
-    },
-  } as unknown as H3Event
-}
-
-function mockConvexConfig(overrides?: Record<string, unknown>) {
-  return {
-    url: 'http://127.0.0.1:3210',
-    siteUrl: 'http://127.0.0.1:3211',
-    auth: {
-      enabled: true,
-      route: '/api/auth',
-      trustedOrigins: [],
-      skipAuthRoutes: [],
-      cache: {
-        enabled: true,
-        ttl: 60,
-      },
-      proxy: {
-        maxRequestBodyBytes: 1_048_576,
-        maxResponseBodyBytes: 1_048_576,
-      },
-    },
-    query: {
-      server: true,
-      subscribe: true,
-    },
-    upload: {
-      maxConcurrent: 3,
-    },
-    permissions: false,
-    logging: false,
-    debug: {
-      authFlow: false,
-      clientAuthFlow: false,
-      serverAuthFlow: false,
-    },
-    ...overrides,
-  }
-}
-
 describe('server auth helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    backingStore.clear()
+    resetServerAuthFixtureState()
 
     useRuntimeConfigMock.mockReturnValue({
       public: {
@@ -95,18 +51,7 @@ describe('server auth helpers', () => {
     useEventMock.mockImplementation(() => {
       throw new Error('Nitro request context is not available')
     })
-
-    useStorageMock.mockImplementation(() => ({
-      async getItem<T>(key: string): Promise<T | null> {
-        return (backingStore.get(key) as T) ?? null
-      },
-      async setItem(key: string, value: unknown, _opts?: { ttl: number }) {
-        backingStore.set(key, value)
-      },
-      async removeItem(key: string) {
-        backingStore.delete(key)
-      },
-    }))
+    installServerAuthStorageMock(useStorageMock)
   })
 
   it('auth:auto exchanges the Better Auth session cookie for a Convex bearer token', async () => {

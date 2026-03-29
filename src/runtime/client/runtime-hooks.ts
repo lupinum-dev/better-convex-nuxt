@@ -44,6 +44,9 @@ interface AuthHookStore {
   initialized: boolean
   persistent: boolean
   snapshot: AuthSnapshot | null
+  pendingPreviousSnapshot: AuthSnapshot | null
+  pendingNextSnapshot: AuthSnapshot | null
+  flushScheduled: boolean
   stop: (() => void) | null
   subscriberCount: number
 }
@@ -74,6 +77,9 @@ function getAuthHookStore(app: object): AuthHookStore {
     initialized: false,
     persistent: false,
     snapshot: null,
+    pendingPreviousSnapshot: null,
+    pendingNextSnapshot: null,
+    flushScheduled: false,
     stop: null,
     subscriberCount: 0,
   }
@@ -118,6 +124,58 @@ function buildAuthSnapshot(token: string | null, user: unknown): AuthSnapshot {
     user: isAuthenticated ? normalizedUser : null,
     userId: isAuthenticated ? normalizedUser!.id : null,
   }
+}
+
+function flushAuthChange(
+  nuxtApp: RuntimeHookApp,
+  store: AuthHookStore,
+) {
+  store.flushScheduled = false
+
+  const previousSnapshot = store.pendingPreviousSnapshot
+  const nextSnapshot = store.pendingNextSnapshot
+
+  store.pendingPreviousSnapshot = null
+  store.pendingNextSnapshot = null
+
+  if (!previousSnapshot || !nextSnapshot) {
+    return
+  }
+
+  const identityChanged =
+    nextSnapshot.isAuthenticated !== previousSnapshot.isAuthenticated
+    || nextSnapshot.userId !== previousSnapshot.userId
+
+  if (!identityChanged) {
+    return
+  }
+
+  const payload: ConvexAuthChangedPayload = {
+    isAuthenticated: nextSnapshot.isAuthenticated,
+    previousIsAuthenticated: previousSnapshot.isAuthenticated,
+    user: nextSnapshot.user,
+    previousUser: previousSnapshot.user,
+  }
+  void nuxtApp.callHook('convex:auth:changed', payload)
+}
+
+function queueAuthChange(
+  nuxtApp: RuntimeHookApp,
+  store: AuthHookStore,
+  previousSnapshot: AuthSnapshot,
+  nextSnapshot: AuthSnapshot,
+) {
+  if (!store.flushScheduled) {
+    store.pendingPreviousSnapshot = previousSnapshot
+    store.pendingNextSnapshot = nextSnapshot
+    store.flushScheduled = true
+    queueMicrotask(() => {
+      flushAuthChange(nuxtApp, store)
+    })
+    return
+  }
+
+  store.pendingNextSnapshot = nextSnapshot
 }
 
 export function getConnectionPhase(state: ConnectionState): ConvexConnectionPhase {
@@ -220,6 +278,23 @@ export function syncConnectionStateSnapshot(
   store.state.value = cloneConnectionState(client.connectionState())
 }
 
+export function resetRuntimeAuthHookStore(nuxtApp: object) {
+  const store = authHookStores.get(nuxtApp)
+  if (!store) return
+
+  store.stop?.()
+  store.stop = null
+  store.initialized = false
+  store.persistent = false
+  store.snapshot = null
+  store.pendingPreviousSnapshot = null
+  store.pendingNextSnapshot = null
+  store.flushScheduled = false
+  store.subscriberCount = 0
+
+  authHookStores.delete(nuxtApp)
+}
+
 export function initRuntimeAuthHooks(
   nuxtApp: RuntimeHookApp,
   token: Ref<string | null>,
@@ -241,6 +316,9 @@ export function initRuntimeAuthHooks(
       store.stop = null
       store.persistent = false
       store.snapshot = null
+      store.pendingPreviousSnapshot = null
+      store.pendingNextSnapshot = null
+      store.flushScheduled = false
       store.initialized = false
     })
   }
@@ -251,6 +329,9 @@ export function initRuntimeAuthHooks(
       store.stop = null
       store.persistent = false
       store.snapshot = null
+      store.pendingPreviousSnapshot = null
+      store.pendingNextSnapshot = null
+      store.flushScheduled = false
       store.initialized = false
     } else {
       return
@@ -266,25 +347,14 @@ export function initRuntimeAuthHooks(
     ([nextToken, nextUser]) => {
       const previousSnapshot = store.snapshot ?? buildAuthSnapshot(null, null)
       const nextSnapshot = buildAuthSnapshot(nextToken, nextUser)
-
-      const identityChanged =
-        nextSnapshot.isAuthenticated !== previousSnapshot.isAuthenticated
-        || nextSnapshot.userId !== previousSnapshot.userId
-
-      if (!identityChanged) {
-        store.snapshot = nextSnapshot
+      store.snapshot = nextSnapshot
+      if (
+        nextSnapshot.isAuthenticated === previousSnapshot.isAuthenticated
+        && nextSnapshot.userId === previousSnapshot.userId
+      ) {
         return
       }
-
-      store.snapshot = nextSnapshot
-
-      const payload: ConvexAuthChangedPayload = {
-        isAuthenticated: nextSnapshot.isAuthenticated,
-        previousIsAuthenticated: previousSnapshot.isAuthenticated,
-        user: nextSnapshot.user,
-        previousUser: previousSnapshot.user,
-      }
-      void nuxtApp.callHook('convex:auth:changed', payload)
+      queueAuthChange(nuxtApp, store, previousSnapshot, nextSnapshot)
     },
     { flush: 'sync' },
   )

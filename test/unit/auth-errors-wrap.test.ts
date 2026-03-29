@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
-import { wrapBetterAuthError } from '../../src/runtime/utils/auth-errors'
+import {
+  buildClientAuthResponseErrorMessage,
+  wrapBetterAuthError,
+} from '../../src/runtime/utils/auth-errors'
 
 describe('wrapBetterAuthError', () => {
   it('wraps a Better Auth error object with message and status', () => {
@@ -63,5 +66,24 @@ describe('wrapBetterAuthError', () => {
       'signIn',
     )
     expect(error.status).toBeUndefined()
+  })
+})
+
+describe('buildClientAuthResponseErrorMessage', () => {
+  it('normalizes ordinary unauthenticated responses to a simple signed-out message', () => {
+    expect(buildClientAuthResponseErrorMessage('Unauthorized')).toBe('Not signed in')
+    expect(buildClientAuthResponseErrorMessage('invalid session')).toBe('Not signed in')
+  })
+
+  it('preserves actionable upstream diagnostics after sanitizing them', () => {
+    expect(buildClientAuthResponseErrorMessage('BETTER_AUTH_SECRET mismatch')).toBe(
+      'NuxtConvexError: Authentication failed. BETTER_AUTH_SECRET mismatch',
+    )
+  })
+
+  it('strips duplicate prefixes and control characters from upstream messages', () => {
+    expect(
+      buildClientAuthResponseErrorMessage('NuxtConvexError: upstream failed\r\ncheck config'),
+    ).toBe('NuxtConvexError: Authentication failed. upstream failed check config')
   })
 })

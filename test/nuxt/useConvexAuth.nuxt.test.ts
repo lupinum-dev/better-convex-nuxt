@@ -1,9 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
+import { onScopeDispose } from 'vue'
 
 import { useNuxtApp, useState } from '#imports'
 
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+
+function withAuthRuntimeDisabled(options: Record<string, unknown> = {}) {
+  return {
+    convexConfig: {
+      auth: {
+        enabled: false,
+      },
+    },
+    ...options,
+  }
+}
 
 describe('useConvexAuth (Nuxt runtime)', () => {
   it('does not emit convex:auth:changed for the initial hydrated auth state', async () => {
@@ -17,9 +29,9 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       user.value = { id: 'u1' }
       nuxtApp.hook('convex:auth:changed', hookSpy)
       return useConvexAuth()
-    }, {
+    }, withAuthRuntimeDisabled({
       auth: { signOut: vi.fn() },
-    })
+    }))
 
     expect(hookSpy).not.toHaveBeenCalled()
     wrapper.unmount()
@@ -45,7 +57,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       })
 
       return useConvexAuth()
-    })
+    }, withAuthRuntimeDisabled())
 
     await result.refreshAuth()
     await Promise.resolve()
@@ -78,9 +90,9 @@ describe('useConvexAuth (Nuxt runtime)', () => {
         })
         return useConvexAuth()
       },
-      {
+      withAuthRuntimeDisabled({
         auth: { signOut },
-      },
+      }),
     )
 
     expect(result.isAuthenticated.value).toBe(true)
@@ -120,9 +132,9 @@ describe('useConvexAuth (Nuxt runtime)', () => {
         })
         return useConvexAuth()
       },
-      {
+      withAuthRuntimeDisabled({
         auth: { signOut },
-      },
+      }),
     )
 
     await expect(result.signOut()).rejects.toThrow('logout failed')
@@ -134,6 +146,39 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(result.isSessionExpired.value).toBe(false)
     expect(result.authError.value).toBeInstanceOf(Error)
     expect(result.authError.value?.message).toBe('logout failed')
+    wrapper.unmount()
+  })
+
+  it('signOut keeps local auth state deauthed even when the invalidate hook throws', async () => {
+    const signOut = vi.fn(async () => undefined)
+
+    const { result, wrapper } = await captureInNuxt(
+      () => {
+        const nuxtApp = useNuxtApp()
+        const token = useState<string | null>('convex:token')
+        const user = useState<unknown>('convex:user')
+        token.value = 'jwt.token'
+        user.value = { id: 'u1' }
+        const removeInvalidateHook = nuxtApp.hook('better-convex:auth:invalidate', async () => {
+          throw new Error('invalidate failed')
+        })
+        onScopeDispose(() => {
+          removeInvalidateHook()
+        })
+        return useConvexAuth()
+      },
+      withAuthRuntimeDisabled({
+        auth: { signOut },
+      }),
+    )
+
+    await expect(result.signOut()).rejects.toThrow('invalidate failed')
+
+    expect(signOut).toHaveBeenCalledTimes(1)
+    expect(result.user.value).toBeNull()
+    expect(result.isAuthenticated.value).toBe(false)
+    expect(result.authError.value).toBeInstanceOf(Error)
+    expect(result.authError.value?.message).toBe('invalidate failed')
     wrapper.unmount()
   })
 
@@ -155,9 +200,9 @@ describe('useConvexAuth (Nuxt runtime)', () => {
         nuxtApp.hook('better-convex:auth:invalidate', async () => {})
         return useConvexAuth()
       },
-      {
+      withAuthRuntimeDisabled({
         auth: { signOut },
-      },
+      }),
     )
 
     const first = result.signOut()
@@ -170,9 +215,9 @@ describe('useConvexAuth (Nuxt runtime)', () => {
   })
 
   it('exposes client, refreshAuth, and authError on the public surface', async () => {
-    const { result, wrapper } = await captureInNuxt(() => useConvexAuth(), {
+    const { result, wrapper } = await captureInNuxt(() => useConvexAuth(), withAuthRuntimeDisabled({
       auth: { signOut: vi.fn() },
-    })
+    }))
 
     expect('user' in result).toBe(true)
     expect('isAuthenticated' in result).toBe(true)
@@ -206,7 +251,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       })
 
       return useConvexAuth()
-    })
+    }, withAuthRuntimeDisabled())
 
     await result.refreshAuth()
     expect(result.user.value).toEqual({ id: 'u2' })
@@ -220,74 +265,11 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       const authError = useState<string | null>('convex:authError')
       authError.value = 'Unauthorized'
       return useConvexAuth()
-    })
+    }, withAuthRuntimeDisabled())
 
     expect(result.authError.value).toBeInstanceOf(Error)
     expect(result.authError.value?.message).toBe('Unauthorized')
     wrapper.unmount()
   })
 
-  it('emits when the authenticated user identity changes', async () => {
-    const hookSpy = vi.fn()
-
-    const { result, wrapper, flush } = await captureInNuxt(() => {
-      const nuxtApp = useNuxtApp()
-      const token = useState<string | null>('convex:token')
-      const user = useState<Record<string, unknown> | null>('convex:user')
-
-      token.value = 'jwt.token'
-      user.value = { id: 'u1' }
-      nuxtApp.hook('convex:auth:changed', hookSpy)
-
-      return {
-        auth: useConvexAuth(),
-        user,
-      }
-    }, {
-      auth: { signOut: vi.fn() },
-    })
-
-    result.user.value = { id: 'u2' }
-    await flush()
-
-    expect(result.auth.isAuthenticated.value).toBe(true)
-    expect(hookSpy).toHaveBeenCalledTimes(1)
-    expect(hookSpy).toHaveBeenCalledWith({
-      isAuthenticated: true,
-      previousIsAuthenticated: true,
-      user: { id: 'u2' },
-      previousUser: { id: 'u1' },
-    })
-    wrapper.unmount()
-  })
-
-  it('does not emit when a token refresh keeps the same authenticated user', async () => {
-    const hookSpy = vi.fn()
-
-    const { result, wrapper, flush } = await captureInNuxt(() => {
-      const nuxtApp = useNuxtApp()
-      const token = useState<string | null>('convex:token')
-      const user = useState<Record<string, unknown> | null>('convex:user')
-
-      token.value = 'jwt.token'
-      user.value = { id: 'u1' }
-      nuxtApp.hook('convex:auth:changed', hookSpy)
-
-      return {
-        auth: useConvexAuth(),
-        token,
-        user,
-      }
-    }, {
-      auth: { signOut: vi.fn() },
-    })
-
-    result.token.value = 'jwt.token.updated'
-    result.user.value = { id: 'u1' }
-    await flush()
-
-    expect(result.auth.isAuthenticated.value).toBe(true)
-    expect(hookSpy).not.toHaveBeenCalled()
-    wrapper.unmount()
-  })
 })

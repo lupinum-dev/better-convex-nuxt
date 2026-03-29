@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { decodeUserFromJwt } from '../../src/runtime/utils/convex-shared'
-
-const { useStorageMock } = vi.hoisted(() => ({
-  useStorageMock: vi.fn(),
-}))
-
-const { useRuntimeConfigMock, useEventMock } = vi.hoisted(() => ({
-  useRuntimeConfigMock: vi.fn(),
-  useEventMock: vi.fn(),
-}))
+import {
+  backingStore,
+  createEvent,
+  installServerAuthStorageMock,
+  mockConvexConfig,
+  resetServerAuthFixtureState,
+  storageSetCalls,
+  useEventMock,
+  useRuntimeConfigMock,
+  useStorageMock,
+} from '../harness/server-auth-fixtures'
 
 vi.mock('nitropack/runtime', () => ({
   useStorage: useStorageMock,
@@ -21,59 +23,10 @@ vi.mock('#imports', () => ({
   useRuntimeConfig: useRuntimeConfigMock,
 }))
 
-const backingStore = new Map<string, unknown>()
-
-function mockConvexConfig(overrides?: Record<string, unknown>) {
-  return {
-    url: 'http://127.0.0.1:3210',
-    siteUrl: 'http://127.0.0.1:3211',
-    auth: {
-      enabled: true,
-      route: '/api/auth',
-      trustedOrigins: [],
-      skipAuthRoutes: [],
-      cache: {
-        enabled: true,
-        ttl: 60,
-      },
-      proxy: {
-        maxRequestBodyBytes: 1_048_576,
-        maxResponseBodyBytes: 1_048_576,
-      },
-    },
-    query: {
-      server: true,
-      subscribe: true,
-    },
-    upload: {
-      maxConcurrent: 3,
-    },
-    permissions: false,
-    logging: false,
-    debug: {
-      authFlow: false,
-      clientAuthFlow: false,
-      serverAuthFlow: false,
-    },
-    ...overrides,
-  }
-}
-
-function createEvent(cookie?: string) {
-  return {
-    __is_event__: true,
-    context: {},
-    node: {
-      req: { headers: cookie ? { cookie } : {} },
-      res: {},
-    },
-  }
-}
-
 describe('server SSR auth cache', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    backingStore.clear()
+    resetServerAuthFixtureState()
 
     useRuntimeConfigMock.mockReturnValue({
       public: {
@@ -83,18 +36,7 @@ describe('server SSR auth cache', () => {
     useEventMock.mockImplementation(() => {
       throw new Error('Nitro request context is not available')
     })
-
-    useStorageMock.mockImplementation(() => ({
-      async getItem<T>(key: string): Promise<T | null> {
-        return (backingStore.get(key) as T) ?? null
-      },
-      async setItem(key: string, value: unknown, _opts?: { ttl: number }) {
-        backingStore.set(key, value)
-      },
-      async removeItem(key: string) {
-        backingStore.delete(key)
-      },
-    }))
+    installServerAuthStorageMock()
   })
 
   it('stores cached auth tokens under a hashed session key and reads them back', async () => {
@@ -105,6 +47,9 @@ describe('server SSR auth cache', () => {
 
     expect(Array.from(backingStore.keys())).toHaveLength(1)
     expect(Array.from(backingStore.keys())[0]).not.toContain('session-abc')
+    expect(storageSetCalls.at(-1)).toEqual(
+      expect.objectContaining({ ttl: 60, value: 'jwt-for-abc' }),
+    )
     expect(await getCachedAuthToken('session-abc')).toBe('jwt-for-abc')
   })
 
@@ -143,6 +88,44 @@ describe('server SSR auth cache', () => {
     expect(resolved.token).toBe(token)
     expect(resolved.user).toEqual(decodeUserFromJwt(token))
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('resolver caches exchanged tokens with the configured TTL', async () => {
+    const { resolveRequestAuth } = await import('../../src/runtime/server/utils/auth-resolver')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/api/auth/convex/token')) {
+        return new Response(JSON.stringify({ token: 'fresh.jwt.token' }), {
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      throw new Error(`Unexpected fetch target: ${String(input)}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const resolved = await resolveRequestAuth(
+      createEvent('better-auth.session_token=session-ttl'),
+      mockConvexConfig({
+        auth: {
+          enabled: true,
+          route: '/api/auth',
+          trustedOrigins: [],
+          skipAuthRoutes: [],
+          cache: {
+            enabled: true,
+            ttl: 17,
+          },
+          proxy: {
+            maxRequestBodyBytes: 1_048_576,
+            maxResponseBodyBytes: 1_048_576,
+          },
+        },
+      }),
+    )
+
+    expect(resolved.source).toBe('exchange')
+    expect(storageSetCalls.at(-1)).toEqual(
+      expect.objectContaining({ ttl: 17, value: 'fresh.jwt.token' }),
+    )
   })
 
   it('resolver cache can be disabled without changing raw cache utility behavior', async () => {

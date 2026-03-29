@@ -55,6 +55,7 @@ export default defineConfig({
         test: {
           name: 'nuxt',
           include: ['test/nuxt/**/*.test.ts', 'test/auth/**/*.nuxt.test.ts'],
+          fileParallelism: false,
           environment: 'nuxt',
           environmentOptions: {
             nuxt: {
