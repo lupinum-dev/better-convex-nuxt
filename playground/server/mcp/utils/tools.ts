@@ -1,23 +1,37 @@
 /**
- * Typed MCP tool factory with permission system and tenant scoping baked in.
+ * Typed MCP tool factory with permission checks and org scoping baked in.
  *
- * All tools that need auth/permissions import `defineConvexTool` from here
- * instead of from the module directly. This gives typed `require` autocomplete
- * and org-scoped tools via `scoped: true`.
+ * Auth-required tools are hidden from anonymous `tools/list` responses by
+ * default so the playground can demonstrate public vs authenticated discovery
+ * over the real MCP route.
  */
 import { createConvexTools } from 'better-convex-nuxt/mcp'
 
 import { checkPermission } from '../../../convex/permissions.config'
 
-export const { defineConvexTool } = createConvexTools({
+const { defineConvexTool: baseDefineConvexTool } = createConvexTools({
   checkPermission,
   tenant: {
     orgField: 'organizationId',
-    resolveOrgId: (mcpAuth) => {
-      // The MCP auth identity carries orgId when the API key is team-scoped.
-      // This is set by the auth resolver from the key's metadata.
-      const auth = mcpAuth as { orgId?: string }
+    resolveOrgId: (actor) => {
+      const auth = actor as { orgId?: string }
       return auth.orgId ?? null
     },
   },
 })
+
+export const defineConvexTool: typeof baseDefineConvexTool = ((options: Parameters<
+  typeof baseDefineConvexTool
+>[0]) => {
+  const enabled = options.auth === 'required'
+    ? async (event: Parameters<NonNullable<typeof options.enabled>>[0]) => {
+        const baseVisible = await options.enabled?.(event)
+        return baseVisible !== false && Boolean(event.context.mcpAuth)
+      }
+    : options.enabled
+
+  return baseDefineConvexTool({
+    ...options,
+    enabled,
+  } as Parameters<typeof baseDefineConvexTool>[0])
+}) as typeof baseDefineConvexTool

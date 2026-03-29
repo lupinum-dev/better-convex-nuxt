@@ -270,6 +270,7 @@ export async function ensureLocalConvex(
           cwd,
           env: {
             ...process.env,
+            ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
           },
           stdio: 'pipe',
         })
@@ -336,6 +337,7 @@ export async function ensureLocalConvex(
       cwd,
       env: {
         ...process.env,
+        ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
         CONVEX_LOCAL_BACKEND_PORT: String(port),
       },
       stdio: 'pipe',

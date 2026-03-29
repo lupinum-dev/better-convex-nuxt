@@ -19,6 +19,7 @@ const ALL_TABLES = [
   'comments',
   'tasks',
   'notes',
+  'mcpKeys',
 ] as const
 
 // Better Auth component tables
@@ -36,6 +37,23 @@ const BETTER_AUTH_TABLES = [
   'rateLimit',
 ] as const
 
+function assertTestResetEnabled(confirmationCode: string, expectedCode: string, label: string) {
+  const allowReset = process.env.ALLOW_TEST_RESET
+  if (allowReset !== 'true') {
+    throw new Error(
+      `[testing.${label}] ALLOW_TEST_RESET environment variable is not set to "true". `
+      + 'This function is only available in test environments.',
+    )
+  }
+
+  if (confirmationCode !== expectedCode) {
+    throw new Error(
+      `[testing.${label}] Invalid confirmation code. `
+      + `Pass confirmationCode: "${expectedCode}"`,
+    )
+  }
+}
+
 /**
  * Clear all data from the database
  *
@@ -48,22 +66,7 @@ export const clearAllData = mutation({
     confirmationCode: v.string(),
   },
   handler: async (ctx, args) => {
-    // Safety check 1: Environment variable
-    const allowReset = process.env.ALLOW_TEST_RESET
-    if (allowReset !== 'true') {
-      throw new Error(
-        '[testing.clearAllData] ALLOW_TEST_RESET environment variable is not set to "true". ' +
-          'This mutation is only available in test environments.',
-      )
-    }
-
-    // Safety check 2: Confirmation code
-    if (args.confirmationCode !== 'RESET_DB_FOR_TESTS') {
-      throw new Error(
-        '[testing.clearAllData] Invalid confirmation code. ' +
-          'Pass confirmationCode: "RESET_DB_FOR_TESTS"',
-      )
-    }
+    assertTestResetEnabled(args.confirmationCode, 'RESET_DB_FOR_TESTS', 'clearAllData')
 
     // Clear all app tables
     const stats: Record<string, number> = {}
@@ -109,6 +112,227 @@ export const clearAllData = mutation({
       success: true,
       deleted: allStats,
       totalDeleted: Object.values(allStats).reduce((a, b) => a + b, 0),
+    }
+  },
+})
+
+export const seedMcpVerification = mutation({
+  args: {
+    confirmationCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertTestResetEnabled(
+      args.confirmationCode,
+      'SEED_MCP_VERIFICATION',
+      'seedMcpVerification',
+    )
+
+    const now = Date.now()
+    const organizationId = await ctx.db.insert('organizations', {
+      name: 'MCP Verification Org',
+      slug: `mcp-verify-${now}`,
+      ownerId: 'mcp-admin-user',
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    const userRecords = {
+      admin: {
+        authId: 'mcp-admin-user',
+        role: 'admin' as const,
+        displayName: 'MCP Admin',
+        email: 'admin+mcp@test.local',
+        organizationId,
+      },
+      member: {
+        authId: 'mcp-member-user',
+        role: 'member' as const,
+        displayName: 'MCP Member',
+        email: 'member+mcp@test.local',
+        organizationId,
+      },
+      viewer: {
+        authId: 'mcp-viewer-user',
+        role: 'viewer' as const,
+        displayName: 'MCP Viewer',
+        email: 'viewer+mcp@test.local',
+        organizationId,
+      },
+      noOrg: {
+        authId: 'mcp-no-org-user',
+        role: 'member' as const,
+        displayName: 'MCP No Org',
+        email: 'no-org+mcp@test.local',
+      },
+    }
+
+    const userIds = {
+      admin: await ctx.db.insert('users', {
+        ...userRecords.admin,
+        createdAt: now,
+        updatedAt: now,
+      }),
+      member: await ctx.db.insert('users', {
+        ...userRecords.member,
+        createdAt: now,
+        updatedAt: now,
+      }),
+      viewer: await ctx.db.insert('users', {
+        ...userRecords.viewer,
+        createdAt: now,
+        updatedAt: now,
+      }),
+      noOrg: await ctx.db.insert('users', {
+        ...userRecords.noOrg,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    }
+
+    const noteId = await ctx.db.insert('notes', {
+      title: 'Seed note',
+      content: 'Created by testing.seedMcpVerification',
+      createdAt: now,
+      userId: userRecords.member.authId,
+    })
+
+    const taskId = await ctx.db.insert('tasks', {
+      userId: userRecords.member.authId,
+      title: 'Seed task',
+      completed: false,
+      createdAt: now,
+    })
+
+    const postId = await ctx.db.insert('posts', {
+      title: 'Seed post',
+      content: 'Created by testing.seedMcpVerification',
+      status: 'draft',
+      ownerId: userRecords.member.authId,
+      organizationId,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    const commentId = await ctx.db.insert('comments', {
+      postId,
+      content: 'Seed comment',
+      ownerId: userRecords.member.authId,
+      organizationId,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    const keyDocs = {
+      admin: {
+        name: 'Admin verification key',
+        key: 'mcp_admin_verify_key_0000000000000001',
+        prefix: 'mcp_admin_ve...',
+        role: 'admin' as const,
+        userId: userRecords.admin.authId,
+        organizationId,
+        status: 'active' as const,
+        createdAt: now,
+      },
+      member: {
+        name: 'Member verification key',
+        key: 'mcp_member_verify_key_0000000000000001',
+        prefix: 'mcp_member_v...',
+        role: 'member' as const,
+        userId: userRecords.member.authId,
+        organizationId,
+        status: 'active' as const,
+        createdAt: now,
+      },
+      viewer: {
+        name: 'Viewer verification key',
+        key: 'mcp_viewer_verify_key_0000000000000001',
+        prefix: 'mcp_viewer_v...',
+        role: 'viewer' as const,
+        userId: userRecords.viewer.authId,
+        organizationId,
+        status: 'active' as const,
+        createdAt: now,
+      },
+      noOrg: {
+        name: 'No-org verification key',
+        key: 'mcp_noorg_verify_key_00000000000000001',
+        prefix: 'mcp_noorg_ve...',
+        role: 'member' as const,
+        userId: userRecords.noOrg.authId,
+        status: 'active' as const,
+        createdAt: now,
+      },
+      revoked: {
+        name: 'Revoked verification key',
+        key: 'mcp_revoked_verify_key_0000000000000001',
+        prefix: 'mcp_revoked_...',
+        role: 'member' as const,
+        userId: userRecords.member.authId,
+        organizationId,
+        status: 'revoked' as const,
+        createdAt: now,
+        revokedAt: now,
+      },
+    }
+
+    const keyIds = {
+      admin: await ctx.db.insert('mcpKeys', keyDocs.admin),
+      member: await ctx.db.insert('mcpKeys', keyDocs.member),
+      viewer: await ctx.db.insert('mcpKeys', keyDocs.viewer),
+      noOrg: await ctx.db.insert('mcpKeys', keyDocs.noOrg),
+      revoked: await ctx.db.insert('mcpKeys', keyDocs.revoked),
+    }
+
+    return {
+      organizationId,
+      users: {
+        admin: { id: userIds.admin, authId: userRecords.admin.authId },
+        member: { id: userIds.member, authId: userRecords.member.authId },
+        viewer: { id: userIds.viewer, authId: userRecords.viewer.authId },
+        noOrg: { id: userIds.noOrg, authId: userRecords.noOrg.authId },
+      },
+      resources: {
+        noteId,
+        taskId,
+        postId,
+        commentId,
+      },
+      keys: {
+        admin: { id: keyIds.admin, key: keyDocs.admin.key },
+        member: { id: keyIds.member, key: keyDocs.member.key },
+        viewer: { id: keyIds.viewer, key: keyDocs.viewer.key },
+        noOrg: { id: keyIds.noOrg, key: keyDocs.noOrg.key },
+        revoked: { id: keyIds.revoked, key: keyDocs.revoked.key },
+      },
+    }
+  },
+})
+
+export const getMcpVerificationState = query({
+  args: {
+    confirmationCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertTestResetEnabled(
+      args.confirmationCode,
+      'READ_MCP_VERIFICATION',
+      'getMcpVerificationState',
+    )
+
+    const keys = await ctx.db.query('mcpKeys').collect()
+    const posts = await ctx.db.query('posts').collect()
+    const comments = await ctx.db.query('comments').collect()
+    const notes = await ctx.db.query('notes').collect()
+    const tasks = await ctx.db.query('tasks').collect()
+
+    return {
+      keys,
+      counts: {
+        notes: notes.length,
+        tasks: tasks.length,
+        posts: posts.length,
+        comments: comments.length,
+      },
     }
   },
 })

@@ -17,6 +17,7 @@ import type * as invites from "../invites.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_actor from "../lib/actor.js";
 import type * as lib_scoped from "../lib/scoped.js";
+import type * as lib_user_row from "../lib/user_row.js";
 import type * as mcpKeys from "../mcpKeys.js";
 import type * as notes from "../notes.js";
 import type * as organizations from "../organizations.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   "lib/access": typeof lib_access;
   "lib/actor": typeof lib_actor;
   "lib/scoped": typeof lib_scoped;
+  "lib/user_row": typeof lib_user_row;
   mcpKeys: typeof mcpKeys;
   notes: typeof notes;
   organizations: typeof organizations;

@@ -8,7 +8,7 @@ import {
   tryResolveActor,
 } from './lib/actor'
 import { assertPermission } from './lib/access'
-import { getUserRowFromActor } from './lib/user-row'
+import { getUserRowFromActor } from './lib/user_row'
 import { checkPermission, type Role } from './permissions.config'
 
 export const listPending = query({
