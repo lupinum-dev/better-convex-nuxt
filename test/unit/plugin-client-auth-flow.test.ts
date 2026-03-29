@@ -19,6 +19,17 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
+function createNuxtAppMock(options?: { serverRendered?: boolean }) {
+  return {
+    payload: { serverRendered: options?.serverRendered ?? false },
+    hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+      hookRegistry.set(event, handler)
+      return vi.fn()
+    }),
+    provide: vi.fn(),
+  }
+}
+
 const stateStore = new Map<string, { value: unknown }>()
 
 const {
@@ -457,6 +468,24 @@ describe('plugin.client auth flow', () => {
     expect(stateStore.get('convex:user')?.value).toBeNull()
     expect(stateStore.get('convex:authError')?.value).toBeNull()
     await expect(clientState.fetchToken?.({ forceRefreshToken: false }) ?? Promise.resolve(null)).resolves.toBeNull()
+  })
+
+  it('initializes the shared auth engine even when convex.url is missing', async () => {
+    getConvexRuntimeConfigMock.mockReturnValue({
+      url: undefined,
+      siteUrl: undefined,
+      auth: { enabled: true, route: '/api/auth', skipAuthRoutes: [] },
+    })
+
+    const { getSharedAuthEngine } = await import('../../src/runtime/client/auth-engine')
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    const nuxtApp = createNuxtAppMock()
+
+    expect(plugin(nuxtApp as never)).toBeUndefined()
+
+    const engine = getSharedAuthEngine(nuxtApp)
+    expect(engine.isAuthenticated.value).toBe(false)
+    expect(engine.rawAuthError.value).toMatch(/convex url not configured/i)
   })
 
   describe('normalizeHydratedUser edge cases', () => {

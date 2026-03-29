@@ -60,6 +60,13 @@ function createResponse(status: number, body: unknown): MockResponse {
   }
 }
 
+function createNuxtAppMock() {
+  return {
+    hook: vi.fn(() => vi.fn()),
+    callHook: vi.fn(),
+  }
+}
+
 describe('plugin.server token exchange failure policy', () => {
   const stateStore = new Map<string, { value: unknown }>()
 
@@ -117,8 +124,8 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
-    const run = plugin()
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (nuxtApp: unknown) => Promise<void>
+    const run = plugin(createNuxtAppMock())
 
     if (import.meta.dev) {
       await expect(run).rejects.toThrow(/token exchange/i)
@@ -142,12 +149,15 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
-    await expect(plugin()).resolves.toBeUndefined()
+    const { getSharedAuthEngine } = await import('../../src/runtime/client/auth-engine')
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (nuxtApp: unknown) => Promise<void>
+    const nuxtApp = createNuxtAppMock()
+    await expect(plugin(nuxtApp)).resolves.toBeUndefined()
 
     expect(stateStore.get('convex:authError')?.value).toBeNull()
     expect(stateStore.get('convex:token')?.value).toBeNull()
     expect(stateStore.get('convex:user')?.value).toBeNull()
+    expect(getSharedAuthEngine(nuxtApp).rawAuthError.value).toBeNull()
   })
 
   it('fails closed during SSR when a token exchanges successfully but cannot be decoded', async () => {
@@ -162,8 +172,8 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
-    await expect(plugin()).resolves.toBeUndefined()
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (nuxtApp: unknown) => Promise<void>
+    await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
 
     expect(stateStore.get('convex:token')?.value).toBeNull()
     expect(stateStore.get('convex:user')?.value).toBeNull()

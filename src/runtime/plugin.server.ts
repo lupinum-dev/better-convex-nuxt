@@ -11,7 +11,9 @@
  */
 
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
+import type { Ref } from 'vue'
 
+import { createSharedAuthEngine } from './client/auth-engine'
 import type { AuthWaterfall } from './utils/auth-debug'
 import { resolveRequestAuth } from './server/utils/auth-resolver'
 import { projectResolvedAuthForHydration } from './server/utils/auth-hydration'
@@ -20,6 +22,7 @@ import {
   SERVER_FETCH_TIMEOUT_MS,
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_AUTH_WATERFALL,
+  STATE_KEY_PENDING,
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from './utils/constants'
@@ -67,7 +70,7 @@ async function runAuthHealthcheckOnce(siteUrl: string): Promise<void> {
     console.warn(buildAuthProxyUnreachableMessage(siteUrl, error))
   }
 }
-export default defineNuxtPlugin(async () => {
+export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
   const publicConvex = config.public.convex as Record<string, unknown> | undefined
@@ -145,10 +148,20 @@ export default defineNuxtPlugin(async () => {
   const convexToken = useState<string | null>(STATE_KEY_TOKEN, () => null)
   const convexUser = useState<ConvexUser | null>(STATE_KEY_USER, () => null)
   const convexAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
+  const convexPending = useState<boolean>(STATE_KEY_PENDING, () => true)
+  const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () => false)
   // authWaterfall is dev-only — skip allocation in production to avoid serializing dead state
   const convexAuthWaterfall = import.meta.dev
     ? useState<AuthWaterfall | null>(STATE_KEY_AUTH_WATERFALL, () => null)
     : { value: null as AuthWaterfall | null }
+  const authEngine = createSharedAuthEngine({
+    nuxtApp,
+    token: convexToken,
+    user: convexUser as Ref<ConvexUser | null>,
+    pending: convexPending,
+    rawAuthError: convexAuthError,
+    wasAuthenticated,
+  })
 
   const resolvedAuth = await resolveRequestAuth(event, convexConfig)
   const hydratedAuth = projectResolvedAuthForHydration(resolvedAuth)
@@ -161,6 +174,11 @@ export default defineNuxtPlugin(async () => {
   convexToken.value = hydratedAuth.token
   convexUser.value = hydratedAuth.user
   convexAuthError.value = hydratedAuth.error
+  wasAuthenticated.value = Boolean(hydratedAuth.token && hydratedAuth.user)
+  authEngine.initialize({
+    error: hydratedAuth.error,
+    resolveInitialAuth: true,
+  })
 
   if (import.meta.dev && hydratedAuth.decodeFailed) {
     console.warn(

@@ -50,13 +50,6 @@ export default defineNuxtPlugin((nuxtApp) => {
   const authConfig = convexConfig.auth
   const isAuthEnabled = authConfig.enabled
   const resolvedSiteUrl = convexConfig.siteUrl
-
-  if (!convexUrl) {
-    logger.auth({ phase: 'init', outcome: 'error', error: new Error('No Convex URL configured') })
-    endInit()
-    return
-  }
-
   const hydration = initHydrationState()
   const wasAuthenticated = useState<boolean>(
     'better-convex:was-authenticated',
@@ -65,18 +58,6 @@ export default defineNuxtPlugin((nuxtApp) => {
   const traceId = import.meta.dev
     ? (useState<string>(STATE_KEY_AUTH_TRACE_ID).value ?? 'unknown')
     : 'prod'
-
-  logger.auth({
-    phase: 'client-init',
-    outcome: 'success',
-    details: {
-      traceId,
-      serverRendered: Boolean(nuxtApp.payload?.serverRendered),
-      authEnabled: Boolean(isAuthEnabled),
-    },
-  })
-
-  const client = initConvexClient(convexUrl)
   const authEngine = createSharedAuthEngine({
     nuxtApp,
     token: hydration.convexToken,
@@ -98,6 +79,30 @@ export default defineNuxtPlugin((nuxtApp) => {
     },
     resolveInitialAuth: hydration.resolveInitialAuth,
   })
+
+  if (!convexUrl) {
+    const missingUrlMessage
+      = 'Convex URL not configured. Set `convex.url` or provide `CONVEX_URL` / `NUXT_PUBLIC_CONVEX_URL`.'
+    authEngine.initialize({
+      error: missingUrlMessage,
+      resolveInitialAuth: true,
+    })
+    logger.auth({ phase: 'init', outcome: 'error', error: new Error(missingUrlMessage) })
+    endInit()
+    return
+  }
+
+  logger.auth({
+    phase: 'client-init',
+    outcome: 'success',
+    details: {
+      traceId,
+      serverRendered: Boolean(nuxtApp.payload?.serverRendered),
+      authEnabled: Boolean(isAuthEnabled),
+    },
+  })
+
+  const client = initConvexClient(convexUrl)
 
   if (isAuthEnabled && resolvedSiteUrl) {
     const authRoute = authConfig.route

@@ -299,7 +299,16 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error.
     // Runtime validation happens in the plugins when the actual values are available.
-    if (isAuthEnabled && !resolvedSiteUrl) {
+    const hasConfiguredConvexLocation
+      = Boolean(options.url || options.siteUrl)
+        || Boolean(
+          process.env.NUXT_PUBLIC_CONVEX_URL
+          || process.env.CONVEX_URL
+          || process.env.NUXT_PUBLIC_CONVEX_SITE_URL
+          || process.env.CONVEX_SITE_URL,
+        )
+
+    if (isAuthEnabled && !resolvedSiteUrl && hasConfiguredConvexLocation) {
       logger.warn(
         `auth.enabled = true but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(options.url)}`,
       )
