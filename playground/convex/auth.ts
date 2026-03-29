@@ -7,7 +7,6 @@ import { components, internal } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
 import { internalAction, mutation, query } from './_generated/server'
 import authConfig from './auth.config'
-// Note: getUser and buildPermissionContext are available from './lib/permissions' if needed
 
 // Get site URL from environment
 const siteUrl = process.env.SITE_URL!

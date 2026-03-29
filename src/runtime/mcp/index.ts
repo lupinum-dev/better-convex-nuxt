@@ -23,6 +23,7 @@ export type {
   ConvexToolPreviewResult,
   ConvexToolErrorResult,
   ConvexToolMiddleware,
+  ConvexToolHandlerCtx,
   ConvexToolMiddlewareCtx,
 } from './types'
 

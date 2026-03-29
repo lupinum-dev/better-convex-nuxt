@@ -1,16 +1,4 @@
-/**
- * MCP Tool: Bulk Delete Notes (Level 4 — full feature stack)
- *
- * Demonstrates:
- * - maxItems — caps array at 10 items
- * - middleware — audit logging before execution
- * - tags — for tool filtering/categorization
- * - destructive + preview — shows what will be deleted
- * - auth + permissions — requires post.delete permission
- * - rateLimit — 5 bulk deletes per minute
- */
 import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { serverConvexMutation, serverConvexQuery } from 'better-convex-nuxt/server'
 
 import { api } from '../../../convex/_generated/api'
 import { bulkDeleteNotesArgs, bulkDeleteNotesMeta } from '../../../shared/schemas/note'
@@ -26,23 +14,16 @@ export default defineConvexTool({
   destructive: true,
   tags: ['bulk', 'dangerous'],
   rateLimit: { max: 5, window: '1m' },
-
-  // Cap at 10 items per call
   maxItems: { field: 'ids', limit: 10 },
-
-  // Middleware: audit log before proceeding
   middleware: async (args, ctx, next) => {
     console.log(
-      `[audit] bulk-delete-notes: user=${ctx.mcpAuth?.userId} `
-      + `deleting ${args.ids.length} notes`,
+      `[audit] bulk-delete-notes: user=${ctx.actor?.userId} deleting ${args.ids.length} notes`,
     )
     return next()
   },
-
-  // Preview: resolve titles so the agent knows what it's deleting
-  preview: async (args) => {
+  preview: async (args, ctx) => {
     const notes = await Promise.all(
-      args.ids.map(id => serverConvexQuery(api.notes.get, { id })),
+      args.ids.map(id => ctx.query(api.notes.get, { id })),
     )
     const found = notes.filter(Boolean)
     const missing = args.ids.length - found.length
@@ -51,27 +32,26 @@ export default defineConvexTool({
       return { summary: 'None of the specified notes exist', blocked: true }
     }
 
-    const titles = found.map(n => `"${n!.title}"`).join(', ')
     return {
-      summary: `Will permanently delete ${found.length} note${found.length === 1 ? '' : 's'}: ${titles}`,
+      summary: `Will permanently delete ${found.length} note${found.length === 1 ? '' : 's'}: ${found.map(note => `"${note!.title}"`).join(', ')}`,
       warn: missing > 0 ? `${missing} ID(s) not found and will be skipped` : undefined,
       affects: { notes: found.length },
     }
   },
-
-  handler: async (args) => {
+  handler: async (args, _extra, ctx) => {
     let deleted = 0
     const skipped: { id: string; reason: string }[] = []
 
     for (const id of args.ids) {
       try {
-        await serverConvexMutation(api.notes.remove, { id })
+        await ctx.mutation(api.notes.remove, { id })
         deleted++
       }
-      catch (err) {
-        const reason = err instanceof Error ? err.message : String(err)
-        console.warn(`[bulk-delete-notes] Failed to delete ${id}: ${reason}`)
-        skipped.push({ id, reason })
+      catch (error) {
+        skipped.push({
+          id,
+          reason: error instanceof Error ? error.message : String(error),
+        })
       }
     }
 

@@ -156,7 +156,7 @@ Based on all experiments, implement the permission system as designed:
 ### Implementation Files
 
 - `convex/permissions.config.ts` - Shared permission definitions
-- `convex/lib/permissions.ts` - Backend `authorize()` helper
+- `convex/lib/actor.ts` - Actor resolution helper
 - `composables/usePermissions.ts` - Frontend `can()` composable
 
 See the main spec for implementation details.

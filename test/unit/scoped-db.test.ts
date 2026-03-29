@@ -3,8 +3,8 @@ import type { GenericId } from 'convex/values'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { TenantError } from '../../src/runtime/tenant/errors'
-import { createScopedReader, createScopedWriter } from '../../src/runtime/tenant/scoped-db'
+import { ScopingError } from '../../src/runtime/scoping/errors'
+import { createScopedReader, createScopedWriter } from '../../src/runtime/scoping/scoped-db'
 
 // ============================================================================
 // Mock Convex db
@@ -69,12 +69,14 @@ describe('createScopedReader', () => {
       )
     })
 
-    it('throws TABLE_NOT_SCOPED for unscoped tables', () => {
+    it('passes through unscoped tables', () => {
       const db = createMockDb()
       const reader = createScopedReader(asReaderDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
 
-      expect(() => reader.query('notes')).toThrow(TenantError)
-      expect(() => reader.query('notes')).toThrow('not in scopedTables')
+      reader.query('notes')
+
+      expect(db.query).toHaveBeenCalledWith('notes')
+      expect(db._mockQuery.withIndex).not.toHaveBeenCalled()
     })
 
     it('wraps index errors as MISSING_ORG_INDEX', () => {
@@ -84,12 +86,12 @@ describe('createScopedReader', () => {
       })
       const reader = createScopedReader(asReaderDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
 
-      expect(() => reader.query('posts')).toThrow(TenantError)
+      expect(() => reader.query('posts')).toThrow(ScopingError)
       try {
         reader.query('posts')
       }
       catch (e) {
-        expect((e as TenantError).code).toBe('MISSING_ORG_INDEX')
+        expect((e as ScopingError).code).toBe('MISSING_ORG_INDEX')
       }
     })
   })
@@ -174,16 +176,17 @@ describe('createScopedWriter', () => {
 
       await expect(
         writer.insert('posts', { title: 'Post', organizationId: OTHER_ORG }),
-      ).rejects.toThrow(TenantError)
+      ).rejects.toThrow(ScopingError)
     })
 
-    it('throws TABLE_NOT_SCOPED for unscoped tables', async () => {
+    it('passes through inserts for unscoped tables', async () => {
       const db = createMockDb()
+      db.insert.mockResolvedValue('note_1')
       const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
 
-      await expect(
-        writer.insert('notes', { title: 'Note' }),
-      ).rejects.toThrow('not in scopedTables')
+      await writer.insert('notes', { title: 'Note' })
+
+      expect(db.insert).toHaveBeenCalledWith('notes', { title: 'Note' })
     })
   })
 
@@ -207,7 +210,7 @@ describe('createScopedWriter', () => {
 
       await expect(
         writer.patch(asId('doc1'), { title: 'Hacked' }),
-      ).rejects.toThrow(TenantError)
+      ).rejects.toThrow(ScopingError)
     })
 
     it('throws RESOURCE_NOT_FOUND for missing document', async () => {
@@ -229,7 +232,7 @@ describe('createScopedWriter', () => {
 
       await expect(
         writer.patch(asId('doc1'), { organizationId: OTHER_ORG }),
-      ).rejects.toThrow(TenantError)
+      ).rejects.toThrow(ScopingError)
     })
   })
 
@@ -255,7 +258,7 @@ describe('createScopedWriter', () => {
 
       await expect(
         writer.replace(asId('doc1'), { title: 'Hacked' }),
-      ).rejects.toThrow(TenantError)
+      ).rejects.toThrow(ScopingError)
     })
   })
 
@@ -279,7 +282,7 @@ describe('createScopedWriter', () => {
 
       await expect(
         writer.delete(asId('doc1')),
-      ).rejects.toThrow(TenantError)
+      ).rejects.toThrow(ScopingError)
     })
 
     it('throws RESOURCE_NOT_FOUND for missing document', async () => {

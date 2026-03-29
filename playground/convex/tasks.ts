@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
+import { resolveActor, serviceAuthArgs, tryResolveActor } from './lib/actor'
 
 // Public stats - no auth required
 // Used to test the `public` option in useConvexQuery
@@ -22,18 +23,16 @@ export const publicStats = query({
 
 // Get all tasks for the current user
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
+  args: { ...serviceAuthArgs },
+  handler: async (ctx, args) => {
+    const actor = await tryResolveActor(ctx, args)
+    if (!actor) {
       return []
     }
 
-    const userId = identity.subject
-
     const tasks = await ctx.db
       .query('tasks')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .withIndex('by_user', (q) => q.eq('userId', actor.userId))
       .order('desc')
       .collect()
 
@@ -43,17 +42,12 @@ export const list = query({
 
 // Add a new task
 export const add = mutation({
-  args: { title: v.string() },
+  args: { title: v.string(), ...serviceAuthArgs },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
-
-    const userId = identity.subject
+    const actor = await resolveActor(ctx, args)
 
     const taskId = await ctx.db.insert('tasks', {
-      userId,
+      userId: actor.userId,
       title: args.title,
       completed: false,
       createdAt: Date.now(),
@@ -65,12 +59,9 @@ export const add = mutation({
 
 // Toggle task completion
 export const toggle = mutation({
-  args: { id: v.id('tasks') },
+  args: { id: v.id('tasks'), ...serviceAuthArgs },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
+    const actor = await resolveActor(ctx, args)
 
     const task = await ctx.db.get(args.id)
     if (!task) {
@@ -78,7 +69,7 @@ export const toggle = mutation({
     }
 
     // Ensure user owns the task
-    if (task.userId !== identity.subject) {
+    if (task.userId !== actor.userId) {
       throw new Error('Not authorized')
     }
 
@@ -90,12 +81,9 @@ export const toggle = mutation({
 
 // Delete a task
 export const remove = mutation({
-  args: { id: v.id('tasks') },
+  args: { id: v.id('tasks'), ...serviceAuthArgs },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
+    const actor = await resolveActor(ctx, args)
 
     const task = await ctx.db.get(args.id)
     if (!task) {
@@ -103,7 +91,7 @@ export const remove = mutation({
     }
 
     // Ensure user owns the task
-    if (task.userId !== identity.subject) {
+    if (task.userId !== actor.userId) {
       throw new Error('Not authorized')
     }
 

@@ -1,63 +1,56 @@
-/**
- * Invites Module
- *
- * Invitation system with permission checks.
- */
-
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
-import { getUser, authorize } from './lib/permissions'
-import { checkPermission } from './permissions.config'
-
-// ============================================
-// LIST PENDING INVITES
-// ============================================
+import {
+  requireActor,
+  resolveActor,
+  serviceAuthArgs,
+  tryResolveActor,
+} from './lib/actor'
+import { assertPermission } from './lib/access'
+import { checkPermission, type Role } from './permissions.config'
 
 export const listPending = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getUser(ctx)
-    if (!user) return []
+  args: { ...serviceAuthArgs },
+  handler: async (ctx, args) => {
+    const actor = await tryResolveActor(ctx, args)
+    if (!actor?.orgId) return []
 
-    // Check permission inline (return [] not throw)
-    if (!checkPermission({ role: user.role, userId: user.authId }, 'org.invite')) {
-      return []
-    }
+    const allowed = checkPermission(
+      { role: actor.role as Role, userId: actor.userId },
+      'org.invite',
+    )
+    if (!allowed) return []
 
     return await ctx.db
       .query('invites')
-      .withIndex('by_organization', (q) => q.eq('organizationId', user.organizationId))
+      .withIndex('by_organization', (q) => q.eq('organizationId', actor.orgId as any))
       .filter((q) => q.eq(q.field('status'), 'pending'))
       .order('desc')
       .collect()
   },
 })
 
-// ============================================
-// CREATE INVITE
-// ============================================
-
 export const create = mutation({
   args: {
     email: v.string(),
     role: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
+    ...serviceAuthArgs,
   },
   handler: async (ctx, args) => {
-    const user = await authorize(ctx, 'org.invite')
+    const actor = await requireActor(ctx, args)
+    assertPermission(actor, 'org.invite')
 
-    // Business rule: only owner can invite admins
-    if (args.role === 'admin' && user.role !== 'owner') {
+    if (args.role === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can invite admins')
     }
 
-    // Check not already invited
     const existing = await ctx.db
       .query('invites')
       .withIndex('by_email', (q) => q.eq('email', args.email))
       .filter((q) =>
         q.and(
-          q.eq(q.field('organizationId'), user.organizationId),
+          q.eq(q.field('organizationId'), actor.orgId as any),
           q.eq(q.field('status'), 'pending'),
         ),
       )
@@ -67,11 +60,10 @@ export const create = mutation({
       throw new Error('Already invited')
     }
 
-    // Check not already a member
     const existingUser = await ctx.db
       .query('users')
       .withIndex('by_email', (q) => q.eq('email', args.email))
-      .filter((q) => q.eq(q.field('organizationId'), user.organizationId))
+      .filter((q) => q.eq(q.field('organizationId'), actor.orgId as any))
       .first()
 
     if (existingUser) {
@@ -81,31 +73,26 @@ export const create = mutation({
     return await ctx.db.insert('invites', {
       email: args.email,
       role: args.role,
-      organizationId: user.organizationId,
-      invitedBy: user.authId,
+      organizationId: actor.orgId as any,
+      invitedBy: actor.userId,
       status: 'pending',
       createdAt: Date.now(),
-      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     })
   },
 })
 
-// ============================================
-// REVOKE INVITE
-// ============================================
-
 export const revoke = mutation({
-  args: { id: v.id('invites') },
+  args: { id: v.id('invites'), ...serviceAuthArgs },
   handler: async (ctx, args) => {
-    const user = await authorize(ctx, 'org.invite')
+    const actor = await requireActor(ctx, args)
+    assertPermission(actor, 'org.invite')
 
     const invite = await ctx.db.get(args.id)
     if (!invite) throw new Error('Invite not found')
-
-    if (invite.organizationId !== user.organizationId) {
+    if (invite.organizationId !== actor.orgId) {
       throw new Error('Invite not in your organization')
     }
-
     if (invite.status !== 'pending') {
       throw new Error('Invite is not pending')
     }
@@ -114,47 +101,35 @@ export const revoke = mutation({
   },
 })
 
-// ============================================
-// ACCEPT INVITE (called by invited user)
-// ============================================
-
 export const accept = mutation({
-  args: { id: v.id('invites') },
+  args: { id: v.id('invites'), ...serviceAuthArgs },
   handler: async (ctx, args) => {
-    // Get current user (must be logged in)
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Unauthorized')
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
+    const actor = await resolveActor(ctx, args)
+    const user = actor._id
+      ? await ctx.db.get(actor._id)
+      : await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .first()
 
     if (!user) throw new Error('User not found')
 
     const invite = await ctx.db.get(args.id)
     if (!invite) throw new Error('Invite not found')
-
-    // Must be for this user's email
     if (invite.email !== user.email) {
       throw new Error('Invite is for a different email')
     }
-
     if (invite.status !== 'pending') {
       throw new Error('Invite is no longer valid')
     }
-
     if (invite.expiresAt < Date.now()) {
       await ctx.db.patch(args.id, { status: 'expired' })
       throw new Error('Invite has expired')
     }
-
-    // User already in an org? (shouldn't happen, but check)
     if (user.organizationId) {
       throw new Error('You are already in an organization')
     }
 
-    // Accept!
     await ctx.db.patch(args.id, { status: 'accepted' })
     await ctx.db.patch(user._id, {
       organizationId: invite.organizationId,
@@ -164,28 +139,24 @@ export const accept = mutation({
   },
 })
 
-// ============================================
-// GET MY INVITES
-// ============================================
-// Get pending invites for the current user's email
-
 export const getMyInvites = query({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return []
+  args: { ...serviceAuthArgs },
+  handler: async (ctx, args) => {
+    const actor = await tryResolveActor(ctx, args)
+    if (!actor) return []
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
+    const user = actor._id
+      ? await ctx.db.get(actor._id)
+      : await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .first()
 
-    if (!user || !user.email) return []
+    if (!user?.email) return []
 
-    const userEmail = user.email
     return await ctx.db
       .query('invites')
-      .withIndex('by_email', (q) => q.eq('email', userEmail))
+      .withIndex('by_email', (q) => q.eq('email', user.email))
       .filter((q) => q.eq(q.field('status'), 'pending'))
       .collect()
   },

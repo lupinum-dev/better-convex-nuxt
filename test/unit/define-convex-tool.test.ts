@@ -8,6 +8,11 @@ import { createConvexTools, defineConvexTool } from '../../src/runtime/mcp/defin
 import type { DefineConvexToolOptions } from '../../src/runtime/mcp/types'
 import { globalRateLimiter } from '../../src/runtime/mcp/rate-limiter'
 import { wrapError } from '../../src/runtime/mcp/result-envelope'
+import {
+  serverConvexAction,
+  serverConvexMutation,
+  serverConvexQuery,
+} from '../../src/runtime/server/utils/convex'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { defineConvexSchema } from '../../src/runtime/utils/define-convex-schema'
 
@@ -19,6 +24,12 @@ vi.mock('nitropack/runtime', () => ({
   useEvent: vi.fn(),
 }))
 
+vi.mock('../../src/runtime/server/utils/convex', () => ({
+  serverConvexQuery: vi.fn(),
+  serverConvexMutation: vi.fn(),
+  serverConvexAction: vi.fn(),
+}))
+
 const mockExtra = {} as McpToolExtra
 
 interface ToolResultLike {
@@ -28,7 +39,7 @@ interface ToolResultLike {
 }
 
 interface MockEventContext {
-  mcpAuth?: { role: string; userId: string } | null
+  mcpAuth?: { role: string; userId: string; orgId?: string } | null
   customSession?: { id: string; level: string }
 }
 
@@ -71,7 +82,7 @@ function asZodRawShape(shape: unknown): z.ZodRawShape {
   return shape as z.ZodRawShape
 }
 
-function mockAuth(auth: { role: string; userId: string } | null) {
+function mockAuth(auth: { role: string; userId: string; orgId?: string } | null) {
   vi.mocked(useEvent).mockReturnValue(getMockEvent({ mcpAuth: auth }))
 }
 
@@ -83,6 +94,10 @@ describe('defineConvexTool', () => {
   beforeEach(() => {
     globalRateLimiter.reset()
     vi.mocked(useEvent).mockReset()
+    vi.mocked(serverConvexQuery).mockReset()
+    vi.mocked(serverConvexMutation).mockReset()
+    vi.mocked(serverConvexAction).mockReset()
+    process.env.CONVEX_SERVICE_KEY = 'test-service-key'
   })
 
   // ── Structured envelope ─────────────────────────────────────────────────
@@ -810,6 +825,118 @@ describe('defineConvexTool', () => {
       await tool.handler!({ id: 'abc' }, mockExtra)
       expect(canCreate).toBe(true)
       expect(canDelete).toBe(false)
+    })
+  })
+
+  // ── Tool context ────────────────────────────────────────────────────────
+
+  describe('tool context', () => {
+    it('passes actor and org into handler context', async () => {
+      mockAuth({ role: 'admin', userId: 'user-1', orgId: 'org-1' })
+      const { defineConvexTool: typedDefine } = createConvexTools({
+        checkPermission: () => true,
+        tenant: {
+          orgField: 'organizationId',
+          resolveOrgId: (actor) => actor.orgId ?? null,
+        },
+      })
+
+      const schema = defineConvexSchema({ id: v.string() })
+      let actorUserId: string | null = null
+      let orgId: string | undefined
+      const tool = typedDefine({
+        schema,
+        auth: 'required',
+        scoped: true,
+        handler: (_args, _extra, ctx) => {
+          actorUserId = ctx.actor?.userId ?? null
+          orgId = ctx.org?.id
+          return { ok: true }
+        },
+      })
+
+      await tool.handler!({ id: 'abc' }, mockExtra)
+
+      expect(actorUserId).toBe('user-1')
+      expect(orgId).toBe('org-1')
+    })
+
+    it('injects service identity for authenticated ctx.query calls', async () => {
+      mockAuth({ role: 'admin', userId: 'user-1', orgId: 'org-1' })
+      vi.mocked(serverConvexQuery).mockResolvedValue([] as never)
+
+      const schema = defineConvexSchema({})
+      const tool = defineConvexTool({
+        schema,
+        auth: 'required',
+        handler: async (_args, _extra, ctx) => {
+          await ctx.query({ _path: 'posts:list' } as never, { limit: 10 } as never)
+          return { ok: true }
+        },
+      })
+
+      await tool.handler!({}, mockExtra)
+
+      expect(serverConvexQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ context: expect.any(Object) }),
+        { _path: 'posts:list' },
+        {
+          limit: 10,
+          _serviceKey: 'test-service-key',
+          _serviceActor: {
+            userId: 'user-1',
+            role: 'admin',
+            orgId: 'org-1',
+          },
+        },
+        { auth: 'none' },
+      )
+    })
+
+    it('does not inject service identity for public ctx.query calls', async () => {
+      vi.mocked(useEvent).mockReturnValue(getMockEvent({}))
+      vi.mocked(serverConvexQuery).mockResolvedValue([] as never)
+
+      const schema = defineConvexSchema({})
+      const tool = defineConvexTool({
+        schema,
+        handler: async (_args, _extra, ctx) => {
+          await ctx.query({ _path: 'notes:list' } as never, { limit: 10 } as never)
+          return { ok: true }
+        },
+      })
+
+      await tool.handler!({}, mockExtra)
+
+      expect(serverConvexQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ context: expect.any(Object) }),
+        { _path: 'notes:list' },
+        { limit: 10 },
+        { auth: 'none' },
+      )
+    })
+
+    it('returns a clear error when authenticated ctx.query is used without CONVEX_SERVICE_KEY', async () => {
+      mockAuth({ role: 'admin', userId: 'user-1', orgId: 'org-1' })
+      delete process.env.CONVEX_SERVICE_KEY
+
+      const schema = defineConvexSchema({})
+      const tool = defineConvexTool({
+        schema,
+        auth: 'required',
+        handler: async (_args, _extra, ctx) => {
+          await ctx.query({ _path: 'posts:list' } as never)
+          return { ok: true }
+        },
+      })
+
+      const result = await tool.handler!({}, mockExtra)
+      expect(getStructured(result)).toMatchObject({
+        ok: false,
+        error: {
+          message: expect.stringContaining('CONVEX_SERVICE_KEY'),
+        },
+      })
     })
   })
 

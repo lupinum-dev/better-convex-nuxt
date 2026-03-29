@@ -6,7 +6,3 @@ export { serviceAuthArgs, cleanArgs } from './service-auth-args'
 
 // Actor resolution factories
 export { createTryResolveActor, createResolveActor, createRequireActor } from './resolve-actor'
-
-// Scoped DB factory
-export { createScoped } from './create-scoped'
-export type { ScopedConfig, ScopedFn, ScopedResult, ScopedQueryResult, ScopedMutationResult } from './create-scoped'

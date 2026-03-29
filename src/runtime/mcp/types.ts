@@ -5,6 +5,7 @@ import type {
   McpToolExtra,
   McpToolCallbackResult,
 } from '@nuxtjs/mcp-toolkit/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { PropertyValidators } from 'convex/values'
 import type { ZodRawShape } from 'zod'
 
@@ -72,18 +73,35 @@ export interface PreviewResult {
 export interface McpAuthIdentity {
   readonly role: string
   readonly userId: string
+  readonly orgId?: string
 }
 
 // ============================================================================
 // Middleware context
 // ============================================================================
 
-export interface ConvexToolMiddlewareCtx<P extends string = string> {
+export interface ConvexToolHandlerCtx<P extends string = string> {
   event: H3Event
-  /** Resolved auth data, or null if auth is 'none' or no credentials provided. */
-  mcpAuth: McpAuthIdentity | null
+  /** Resolved actor, or null if auth is 'none' or no credentials were provided. */
+  actor: McpAuthIdentity | null
+  /** Resolved org context for `scoped: true` tools. */
+  org?: McpOrgContext
   can: (permission: P, resource?: Resource) => boolean
+  query: <Query extends FunctionReference<'query'>>(
+    fn: Query,
+    args?: FunctionArgs<Query>,
+  ) => Promise<FunctionReturnType<Query>>
+  mutation: <Mutation extends FunctionReference<'mutation'>>(
+    fn: Mutation,
+    args?: FunctionArgs<Mutation>,
+  ) => Promise<FunctionReturnType<Mutation>>
+  action: <Action extends FunctionReference<'action'>>(
+    fn: Action,
+    args?: FunctionArgs<Action>,
+  ) => Promise<FunctionReturnType<Action>>
 }
+
+export type ConvexToolMiddlewareCtx<P extends string = string> = ConvexToolHandlerCtx<P>
 
 export type ConvexToolMiddleware<
   S extends AnyConvexSchema,
@@ -104,8 +122,12 @@ export interface DefineConvexToolOptions<
 > {
   /** Shared Convex schema — provides input validation and metadata. */
   schema: S
-  /** Tool handler. Return plain data — the framework wraps it. When `scoped: true`, receives `{ org }` as third argument. */
-  handler: (args: InferSchemaData<S>, extra: McpToolExtra, ctx?: { org: McpOrgContext }) => unknown | Promise<unknown>
+  /** Tool handler. Return plain data — the framework wraps it. */
+  handler: (
+    args: InferSchemaData<S>,
+    extra: McpToolExtra,
+    ctx: ConvexToolHandlerCtx<P>,
+  ) => unknown | Promise<unknown>
 
   // ── Identity ──────────────────────────────────────────────
   /** Tool name. Default: derived from filename by mcp-toolkit. */
@@ -174,7 +196,7 @@ export interface McpTenantConfig {
   /** The field name used for org scoping (e.g. 'organizationId') */
   orgField: string
   /** Resolve orgId from the authenticated MCP identity. Return null if no org. */
-  resolveOrgId: (mcpAuth: McpAuthIdentity) => string | null
+  resolveOrgId: (actor: McpAuthIdentity) => string | null
 }
 
 export interface McpOrgContext {

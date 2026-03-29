@@ -56,7 +56,7 @@ describe('posts', () => {
           title: 'Test',
           content: 'Content',
         }),
-      ).rejects.toThrow('Unauthorized')
+      ).rejects.toThrow('Authentication required.')
     })
   })
 

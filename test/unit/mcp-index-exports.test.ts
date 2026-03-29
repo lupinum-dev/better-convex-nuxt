@@ -1,4 +1,10 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+
+vi.mock('../../src/runtime/server/utils/convex', () => ({
+  serverConvexQuery: vi.fn(),
+  serverConvexMutation: vi.fn(),
+  serverConvexAction: vi.fn(),
+}))
 
 describe('mcp entrypoint exports', () => {
   let mcpApi: typeof import('../../src/runtime/mcp/index')

@@ -2,7 +2,7 @@ import type { ConvexSchemaMetaBase } from 'better-convex-nuxt/schema'
 
 import { describe, expect, it } from 'vitest'
 
-import { extractScopedTables } from '../../src/runtime/tenant/extract-scoped-tables'
+import { extractScopedTables } from '../../src/runtime/scoping/extract-scoped-tables'
 
 describe('extractScopedTables', () => {
   it('returns table names where tenant.scoped is true', () => {

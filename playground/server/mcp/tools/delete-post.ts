@@ -1,11 +1,4 @@
-/**
- * MCP Tool: Delete Post (Level 3 — full safety stack)
- *
- * Demonstrates: destructive + auth + typed permissions + preview.
- * The most complete example — shows all safety features working together.
- */
 import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { serverConvexMutation, serverConvexQuery } from 'better-convex-nuxt/server'
 import { v } from 'convex/values'
 
 import { api } from '../../../convex/_generated/api'
@@ -26,20 +19,19 @@ export default defineConvexTool({
   name: 'delete-post',
   auth: 'required',
   require: 'post.delete',
+  scoped: true,
   destructive: true,
-  preview: async (args) => {
-    const post = await serverConvexQuery(api.posts.get, { id: args.id })
-    if (!post) {
-      return { summary: 'Post not found', blocked: true }
-    }
+  preview: async (args, ctx) => {
+    const post = await ctx.query(api.posts.get, { id: args.id })
+    if (!post) return { summary: 'Post not found', blocked: true }
     return {
       summary: `Will permanently delete "${post.title}"`,
       warn: 'This cannot be undone',
       affects: { posts: 1 },
     }
   },
-  handler: async (args) => {
-    await serverConvexMutation(api.posts.remove, args)
+  handler: async (args, _extra, ctx) => {
+    await ctx.mutation(api.posts.remove, args)
     return { deleted: true, id: args.id }
   },
 })

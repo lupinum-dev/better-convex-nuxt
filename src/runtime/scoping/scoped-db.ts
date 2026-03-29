@@ -7,7 +7,7 @@ import type {
 } from 'convex/server'
 import type { GenericId } from 'convex/values'
 
-import { TenantError } from './errors'
+import { ScopingError } from './errors'
 import type { ScopedReader, ScopedWriter } from './types'
 
 type IndexRangeBuilder = {
@@ -32,17 +32,8 @@ type UncheckedWriter = UncheckedReader & {
   delete: (id: GenericId<string>) => Promise<void>
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function assertScoped(table: string, scopedTables: readonly string[]): void {
-  if (!scopedTables.includes(table)) {
-    throw new TenantError(
-      `Table "${table}" is not in scopedTables. Either add it to your tenant config or use tenant.raw.db for unscoped access.`,
-      'TABLE_NOT_SCOPED',
-    )
-  }
+function isScopedTable(table: string, scopedTables: readonly string[]): boolean {
+  return scopedTables.includes(table)
 }
 
 function assertOrgOwnership(
@@ -51,10 +42,7 @@ function assertOrgOwnership(
   orgId: string,
 ): void {
   if (orgField in doc && doc[orgField] !== orgId) {
-    throw new TenantError(
-      `Document belongs to a different organization.`,
-      'CROSS_ORG_ACCESS',
-    )
+    throw new ScopingError('Document belongs to a different organization.', 'CROSS_ORG_ACCESS')
   }
 }
 
@@ -66,15 +54,11 @@ async function getAndValidate(
 ): Promise<Record<string, unknown>> {
   const doc = await db.get(id)
   if (!doc) {
-    throw new TenantError('Document not found.', 'RESOURCE_NOT_FOUND')
+    throw new ScopingError('Document not found.', 'RESOURCE_NOT_FOUND')
   }
   assertOrgOwnership(doc, orgField, orgId)
   return doc
 }
-
-// ============================================================================
-// createScopedReader
-// ============================================================================
 
 export function createScopedReader(
   db: GenericDatabaseReader<GenericDataModel>,
@@ -86,43 +70,37 @@ export function createScopedReader(
 
   return {
     query(table: string) {
-      assertScoped(table, scopedTables)
-      try {
-        return uncheckedDb
-          .query(table)
-          .withIndex('by_organization', (q) => q.eq(orgField, orgId))
+      const query = uncheckedDb.query(table)
+      if (!isScopedTable(table, scopedTables)) {
+        return query as unknown as Query<GenericTableInfo>
       }
-      catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e)
-        if (msg.includes('index') || msg.includes('Index')) {
-          throw new TenantError(
-            `Table "${table}" is in scopedTables but has no index named "by_organization" on field "${orgField}". Add this to your schema:\n\n  ${table}: defineTable({ ... })\n    .index('by_organization', ['${orgField}'])`,
+
+      try {
+        return query.withIndex('by_organization', (q) => q.eq(orgField, orgId))
+      }
+      catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (message.includes('index') || message.includes('Index')) {
+          throw new ScopingError(
+            `Table "${table}" is scoped but is missing a "by_organization" index on "${orgField}".`,
             'MISSING_ORG_INDEX',
-            { cause: e },
+            { cause: error },
           )
         }
-        throw e
+        throw error
       }
     },
 
     async get(id: GenericId<string>) {
       const doc = await db.get(id)
       if (!doc) return null
-
-      // If the document has the orgField, validate ownership.
-      // Documents from unscoped tables pass through.
       if (orgField in doc && doc[orgField] !== orgId) {
         return null
       }
-
       return doc
     },
   }
 }
-
-// ============================================================================
-// createScopedWriter
-// ============================================================================
 
 export function createScopedWriter(
   db: GenericDatabaseWriter<GenericDataModel>,
@@ -137,29 +115,26 @@ export function createScopedWriter(
     ...reader,
 
     async insert(table: string, doc: Record<string, unknown>) {
-      assertScoped(table, scopedTables)
+      if (!isScopedTable(table, scopedTables)) {
+        return await uncheckedDb.insert(table, doc)
+      }
 
-      // Reject conflicting orgField values
       if (orgField in doc && doc[orgField] !== orgId) {
-        throw new TenantError(
-          `Cannot insert document with ${orgField} "${doc[orgField]}" — current org is "${orgId}".`,
+        throw new ScopingError(
+          `Cannot insert document with ${orgField} "${doc[orgField]}" for org "${orgId}".`,
           'ORG_FIELD_CONFLICT',
         )
       }
 
-      // Auto-inject orgField
-      const scopedDoc = { ...doc, [orgField]: orgId }
-      return await uncheckedDb.insert(table, scopedDoc)
+      return await uncheckedDb.insert(table, { ...doc, [orgField]: orgId })
     },
 
     async patch(id: GenericId<string>, fields: Record<string, unknown>) {
-      // Pre-read to validate org ownership
       await getAndValidate(db, id, orgField, orgId)
 
-      // Reject orgField changes to a different org
       if (orgField in fields && fields[orgField] !== orgId) {
-        throw new TenantError(
-          `Cannot change ${orgField} to "${fields[orgField]}" — use tenant.raw.db for cross-org transfers.`,
+        throw new ScopingError(
+          `Cannot change ${orgField} to "${fields[orgField]}" for org "${orgId}".`,
           'ORG_FIELD_CONFLICT',
         )
       }
@@ -168,24 +143,20 @@ export function createScopedWriter(
     },
 
     async replace(id: GenericId<string>, doc: Record<string, unknown>) {
-      // Pre-read to validate org ownership
       await getAndValidate(db, id, orgField, orgId)
 
-      // Reject conflicting orgField
       if (orgField in doc && doc[orgField] !== orgId) {
-        throw new TenantError(
-          `Cannot replace document with ${orgField} "${doc[orgField]}" — current org is "${orgId}".`,
+        throw new ScopingError(
+          `Cannot replace document with ${orgField} "${doc[orgField]}" for org "${orgId}".`,
           'ORG_FIELD_CONFLICT',
         )
       }
 
-      // Auto-inject orgField
-      const scopedDoc = { ...doc, [orgField]: orgId }
+      const scopedDoc = orgField in doc ? doc : { ...doc, [orgField]: orgId }
       await uncheckedDb.replace(id, scopedDoc)
     },
 
     async delete(id: GenericId<string>) {
-      // Pre-read to validate org ownership
       await getAndValidate(db, id, orgField, orgId)
       await uncheckedDb.delete(id)
     },

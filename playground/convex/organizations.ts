@@ -1,59 +1,40 @@
-/**
- * Organizations Module
- *
- * Organization management with permission checks.
- */
-
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
-import { getUser, authorize, requireUser } from './lib/permissions'
-import { checkPermission } from './permissions.config'
-
-// ============================================
-// GET CURRENT ORG
-// ============================================
+import {
+  requireActor,
+  resolveActor,
+  serviceAuthArgs,
+  tryResolveActor,
+} from './lib/actor'
+import { assertPermission } from './lib/access'
+import { checkPermission, type Role } from './permissions.config'
 
 export const getCurrent = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getUser(ctx)
-    if (!user) return null
-
-    return await ctx.db.get(user.organizationId)
+  args: { ...serviceAuthArgs },
+  handler: async (ctx, args) => {
+    const actor = await tryResolveActor(ctx, args)
+    if (!actor?.orgId) return null
+    return await ctx.db.get(actor.orgId as any)
   },
 })
-
-// ============================================
-// LIST ALL ORGANIZATIONS
-// ============================================
-// Get all organizations (for browsing/joining)
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    // Anyone can see the list of organizations
     return await ctx.db.query('organizations').order('desc').collect()
   },
 })
-
-// ============================================
-// CREATE ORGANIZATION
-// ============================================
-// Creates a new organization and makes the user the owner.
-// Used during onboarding.
 
 export const create = mutation({
   args: {
     name: v.string(),
     slug: v.string(),
+    ...serviceAuthArgs,
   },
   handler: async (ctx, args) => {
-    // Must be authenticated (no org required yet)
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error('Unauthorized')
+    const actor = await resolveActor(ctx, args)
 
-    // Check slug is unique
     const existing = await ctx.db
       .query('organizations')
       .withIndex('by_slug', (q) => q.eq('slug', args.slug))
@@ -63,23 +44,16 @@ export const create = mutation({
       throw new Error('Organization slug already exists')
     }
 
-    // Create org
     const orgId = await ctx.db.insert('organizations', {
       name: args.name,
       slug: args.slug,
-      ownerId: identity.subject,
+      ownerId: actor.userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
 
-    // Update user to be owner of new org
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (user) {
-      await ctx.db.patch(user._id, {
+    if (actor._id) {
+      await ctx.db.patch(actor._id, {
         organizationId: orgId,
         role: 'owner',
         updatedAt: Date.now(),
@@ -90,31 +64,23 @@ export const create = mutation({
   },
 })
 
-// ============================================
-// UPDATE SETTINGS (owner only)
-// ============================================
-
 export const updateSettings = mutation({
   args: {
     name: v.optional(v.string()),
     billingEmail: v.optional(v.string()),
+    ...serviceAuthArgs,
   },
   handler: async (ctx, args) => {
-    // Global permission - no resource needed
-    const user = await authorize(ctx, 'org.settings')
+    const actor = await requireActor(ctx, args)
+    assertPermission(actor, 'org.settings')
 
-    await ctx.db.patch(user.organizationId, {
-      ...(args.name && { name: args.name }),
-      ...(args.billingEmail && { billingEmail: args.billingEmail }),
+    await ctx.db.patch(actor.orgId as any, {
+      ...(args.name !== undefined && { name: args.name }),
+      ...(args.billingEmail !== undefined && { billingEmail: args.billingEmail }),
       updatedAt: Date.now(),
     })
   },
 })
-
-// ============================================
-// GET BY IDS
-// ============================================
-// Get organizations by their IDs (for invite display)
 
 export const getByIds = query({
   args: {
@@ -126,56 +92,44 @@ export const getByIds = query({
   },
 })
 
-// ============================================
-// GET MEMBERS (admin+)
-// ============================================
-
 export const getMembers = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getUser(ctx)
-    if (!user) return []
+  args: { ...serviceAuthArgs },
+  handler: async (ctx, args) => {
+    const actor = await tryResolveActor(ctx, args)
+    if (!actor?.orgId) return []
 
-    // Check permission inline (return [] instead of throwing)
-    const canView = checkPermission({ role: user.role, userId: user.authId }, 'org.members')
+    const canView = checkPermission(
+      { role: actor.role as Role, userId: actor.userId },
+      'org.members',
+    )
     if (!canView) return []
 
     return await ctx.db
       .query('users')
-      .withIndex('by_organization', (q) => q.eq('organizationId', user.organizationId))
+      .withIndex('by_organization', (q) => q.eq('organizationId', actor.orgId as any))
       .collect()
   },
 })
-
-// ============================================
-// CHANGE MEMBER ROLE (owner only for admin promotions)
-// ============================================
 
 export const changeMemberRole = mutation({
   args: {
     userId: v.id('users'),
     newRole: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
+    ...serviceAuthArgs,
   },
   handler: async (ctx, args) => {
-    // Must have org.members permission
-    const currentUser = await authorize(ctx, 'org.members')
+    const actor = await requireActor(ctx, args)
+    assertPermission(actor, 'org.members')
 
-    // Get target user
     const targetUser = await ctx.db.get(args.userId)
     if (!targetUser) throw new Error('User not found')
-
-    // Must be same org
-    if (targetUser.organizationId !== currentUser.organizationId) {
+    if (targetUser.organizationId !== actor.orgId) {
       throw new Error('User not in your organization')
     }
-
-    // Can't change owner's role
     if (targetUser.role === 'owner') {
       throw new Error("Cannot change owner's role")
     }
-
-    // Only owner can promote to admin
-    if (args.newRole === 'admin' && currentUser.role !== 'owner') {
+    if (args.newRole === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can promote to admin')
     }
 
@@ -186,66 +140,55 @@ export const changeMemberRole = mutation({
   },
 })
 
-// ============================================
-// REMOVE MEMBER
-// ============================================
-
 export const removeMember = mutation({
-  args: { userId: v.id('users') },
+  args: { userId: v.id('users'), ...serviceAuthArgs },
   handler: async (ctx, args) => {
-    const currentUser = await authorize(ctx, 'org.members')
+    const actor = await requireActor(ctx, args)
+    assertPermission(actor, 'org.members')
 
     const targetUser = await ctx.db.get(args.userId)
     if (!targetUser) throw new Error('User not found')
-
-    if (targetUser.organizationId !== currentUser.organizationId) {
+    if (targetUser.organizationId !== actor.orgId) {
       throw new Error('User not in your organization')
     }
-
-    // Can't remove yourself (use leaveOrganization instead)
-    if (targetUser._id === currentUser._id) {
+    if (targetUser.authId === actor.userId) {
       throw new Error('Cannot remove yourself - use Leave Organization instead')
     }
-
-    // Can't remove owner
     if (targetUser.role === 'owner') {
       throw new Error('Cannot remove owner')
     }
-
-    // Admins can't remove other admins (only owner can)
-    if (targetUser.role === 'admin' && currentUser.role !== 'owner') {
+    if (targetUser.role === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can remove admins')
     }
 
-    // Remove from org (don't delete user)
     await ctx.db.patch(args.userId, {
       organizationId: undefined,
-      role: 'member', // Reset to default role
+      role: 'member',
       updatedAt: Date.now(),
     })
   },
 })
 
-// ============================================
-// LEAVE ORGANIZATION
-// ============================================
-// Allows a user to leave their current organization.
-// Owner cannot leave (must transfer ownership first).
-
 export const leave = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const user = await requireUser(ctx)
-
-    // Owner cannot leave - must transfer ownership first
-    if (user.role === 'owner') {
+  args: { ...serviceAuthArgs },
+  handler: async (ctx, args) => {
+    const actor = await requireActor(ctx, args)
+    if (actor.role === 'owner') {
       throw new Error('Owner cannot leave organization. Transfer ownership first.')
     }
 
-    // Remove from org
+    const user = actor._id
+      ? await ctx.db.get(actor._id)
+      : await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .first()
+
+    if (!user) throw new Error('User not found')
+
     await ctx.db.patch(user._id, {
       organizationId: undefined,
-      role: 'member', // Reset to default role
+      role: 'member',
       updatedAt: Date.now(),
     })
   },

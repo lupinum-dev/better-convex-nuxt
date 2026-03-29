@@ -1,18 +1,11 @@
-/**
- * MCP Keys — API key management for MCP integrations.
- *
- * Keys are scoped to an organization and carry a role + userId identity.
- * The MCP auth middleware looks up the bearer token via the `validate` query.
- */
-
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
-import { getUser } from './lib/permissions'
-
-// ============================================
-// Helpers
-// ============================================
+import {
+  requireActor,
+  serviceAuthArgs,
+  tryResolveActor,
+} from './lib/actor'
 
 function generateKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -23,27 +16,19 @@ function generateKey(): string {
   return result
 }
 
-// ============================================
-// LIST — all keys for the user's org
-// ============================================
-
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getUser(ctx)
-    if (!user || !user.organizationId) return []
+  args: { ...serviceAuthArgs },
+  handler: async (ctx, args) => {
+    const actor = await tryResolveActor(ctx, args)
+    if (!actor?.orgId) return []
 
     return await ctx.db
       .query('mcpKeys')
-      .withIndex('by_organization', (q) => q.eq('organizationId', user.organizationId))
+      .withIndex('by_organization', (q) => q.eq('organizationId', actor.orgId as any))
       .order('desc')
       .collect()
   },
 })
-
-// ============================================
-// CREATE — generate a new MCP key
-// ============================================
 
 export const create = mutation({
   args: {
@@ -54,12 +39,10 @@ export const create = mutation({
       v.literal('member'),
       v.literal('viewer'),
     ),
+    ...serviceAuthArgs,
   },
   handler: async (ctx, args) => {
-    const user = await getUser(ctx)
-    if (!user) throw new Error('Authentication required')
-    if (!user.organizationId) throw new Error('No organization')
-
+    const actor = await requireActor(ctx, args)
     const key = generateKey()
     const prefix = key.slice(0, 12) + '...'
 
@@ -68,30 +51,23 @@ export const create = mutation({
       key,
       prefix,
       role: args.role,
-      userId: user.authId,
-      organizationId: user.organizationId,
+      userId: actor.userId,
+      organizationId: actor.orgId as any,
       status: 'active',
       createdAt: Date.now(),
     })
 
-    // Return the full key only on creation — it won't be shown again
     return { id, key }
   },
 })
 
-// ============================================
-// REVOKE — disable a key
-// ============================================
-
 export const revoke = mutation({
-  args: { id: v.id('mcpKeys') },
+  args: { id: v.id('mcpKeys'), ...serviceAuthArgs },
   handler: async (ctx, args) => {
-    const user = await getUser(ctx)
-    if (!user) throw new Error('Authentication required')
-
+    const actor = await requireActor(ctx, args)
     const mcpKey = await ctx.db.get(args.id)
     if (!mcpKey) throw new Error('Key not found')
-    if (mcpKey.organizationId !== user.organizationId) throw new Error('Not your key')
+    if (mcpKey.organizationId !== actor.orgId) throw new Error('Not your key')
 
     await ctx.db.patch(args.id, {
       status: 'revoked',
@@ -99,10 +75,6 @@ export const revoke = mutation({
     })
   },
 })
-
-// ============================================
-// VALIDATE — called by the MCP auth middleware
-// ============================================
 
 export const validate = query({
   args: { key: v.string() },
@@ -121,10 +93,6 @@ export const validate = query({
     }
   },
 })
-
-// ============================================
-// TOUCH — update lastUsedAt (called from middleware)
-// ============================================
 
 export const touch = mutation({
   args: { key: v.string() },

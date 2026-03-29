@@ -8,11 +8,17 @@ import type {
 import type { ShapeOutput } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 import { convexToZodFields } from 'convex-helpers/server/zod4'
 import type { ZodValidatorFromConvex } from 'convex-helpers/server/zod4'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { PropertyValidators } from 'convex/values'
 import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
 import type { CheckPermissionFn } from '../composables/usePermissions'
+import {
+  serverConvexAction,
+  serverConvexMutation,
+  serverConvexQuery,
+} from '../server/utils/convex'
 import { toConvexError } from '../utils/call-result'
 import type { ConvexSchemaFieldMeta } from '../utils/define-convex-schema'
 import type { ConvexToolOperation } from '../utils/types'
@@ -22,6 +28,7 @@ import { globalRateLimiter, parseWindowString } from './rate-limiter'
 import { wrapError, wrapPreview, wrapSuccess } from './result-envelope'
 import type {
   AnyConvexSchema,
+  ConvexToolHandlerCtx,
   ConvexToolMiddlewareCtx,
   CreateConvexToolsOptions,
   DefineConvexToolOptions,
@@ -258,18 +265,102 @@ function normalizeToolArgs<S extends AnyConvexSchema>(
   }
 }
 
+function injectServiceActorArgs(
+  args: Record<string, unknown> | undefined,
+  actor: McpAuthIdentity | null,
+): Record<string, unknown> {
+  if (!actor) {
+    return args ?? {}
+  }
+
+  const serviceKey = process.env.CONVEX_SERVICE_KEY?.trim()
+  if (!serviceKey) {
+    throw new Error(
+      'CONVEX_SERVICE_KEY is required for authenticated MCP ctx.query()/mutation()/action() calls.',
+    )
+  }
+
+  return {
+    ...(args ?? {}),
+    _serviceKey: serviceKey,
+    _serviceActor: {
+      userId: actor.userId,
+      role: actor.role,
+      ...(actor.orgId ? { orgId: actor.orgId } : {}),
+    },
+  }
+}
+
 // ============================================================================
 // Auth helpers
 // ============================================================================
 
 function resolveDefaultAuth(event: { context: Record<string, unknown> }): McpAuthIdentity | null {
-  const auth = event.context.mcpAuth as { role?: string; userId?: string } | undefined
+  const auth = event.context.mcpAuth as {
+    role?: string
+    userId?: string
+    orgId?: string
+  } | undefined
   if (!auth?.role || !auth?.userId) return null
-  return { role: auth.role, userId: auth.userId }
+  return {
+    role: auth.role,
+    userId: auth.userId,
+    ...(auth.orgId ? { orgId: auth.orgId } : {}),
+  }
 }
 
 function normalizePreview(raw: string | PreviewResult): PreviewResult {
   return typeof raw === 'string' ? { summary: raw } : raw
+}
+
+function createToolContext<P extends string>(
+  event: H3Event,
+  actor: McpAuthIdentity | null,
+  org: McpOrgContext | undefined,
+  checkPermission: CheckPermissionFn<P> | undefined,
+): ConvexToolHandlerCtx<P> {
+  return {
+    event,
+    actor,
+    org,
+    can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
+      if (!checkPermission || !actor) return false
+      return checkPermission(actor, permission, resource)
+    },
+    query: async <Query extends FunctionReference<'query'>>(
+      fn: Query,
+      args?: FunctionArgs<Query>,
+    ): Promise<FunctionReturnType<Query>> => {
+      return await serverConvexQuery(
+        event,
+        fn,
+        injectServiceActorArgs(args as Record<string, unknown> | undefined, actor) as FunctionArgs<Query>,
+        { auth: 'none' },
+      )
+    },
+    mutation: async <Mutation extends FunctionReference<'mutation'>>(
+      fn: Mutation,
+      args?: FunctionArgs<Mutation>,
+    ): Promise<FunctionReturnType<Mutation>> => {
+      return await serverConvexMutation(
+        event,
+        fn,
+        injectServiceActorArgs(args as Record<string, unknown> | undefined, actor) as FunctionArgs<Mutation>,
+        { auth: 'none' },
+      )
+    },
+    action: async <Action extends FunctionReference<'action'>>(
+      fn: Action,
+      args?: FunctionArgs<Action>,
+    ): Promise<FunctionReturnType<Action>> => {
+      return await serverConvexAction(
+        event,
+        fn,
+        injectServiceActorArgs(args as Record<string, unknown> | undefined, actor) as FunctionArgs<Action>,
+        { auth: 'none' },
+      )
+    },
+  }
 }
 
 // ============================================================================
@@ -429,15 +520,6 @@ function _buildToolDefinition<
           : resolveDefaultAuth(event)
       }
 
-      const ctx: ConvexToolMiddlewareCtx<P> = {
-        event,
-        mcpAuth: resolvedAuth,
-        can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
-          if (!_checkPermission || !resolvedAuth) return false
-          return _checkPermission(resolvedAuth, permission, resource)
-        },
-      }
-
       // ── Step 2: Auth check ────────────────────────────────────────────
       if (auth === 'required' && !resolvedAuth) {
         return wrapError('auth', 'Authentication required.')
@@ -476,6 +558,8 @@ function _buildToolDefinition<
         }
       }
 
+      const ctx = createToolContext(event, resolvedAuth, orgContext, _checkPermission)
+
       const normalizedArgs = normalizeToolArgs(args)
 
       // ── Step 4: Rate limit (after auth so failed-auth requests don't consume tokens) ──
@@ -506,7 +590,7 @@ function _buildToolDefinition<
         const result = await middleware(
           normalizedArgs.clean,
           ctx,
-          async () => runHandlerWithConfirmation(normalizedArgs, extra, ctx, orgContext),
+          async () => runHandlerWithConfirmation(normalizedArgs, extra, ctx),
         )
         if (!isValidCallToolResult(result)) {
           return wrapError('server', `[${toolLabel}] Middleware must return a result. Did you forget to \`return next()\`?`)
@@ -515,7 +599,7 @@ function _buildToolDefinition<
       }
 
       // ── Steps 7-9: Preview, confirmation, handler ─────────────────────
-      return await runHandlerWithConfirmation(normalizedArgs, extra, ctx, orgContext)
+      return await runHandlerWithConfirmation(normalizedArgs, extra, ctx)
     }
     catch (err) {
       console.error(`[${toolLabel}]`, err)
@@ -532,7 +616,6 @@ function _buildToolDefinition<
     args: NormalizedToolArgs<S>,
     extra: McpToolExtra,
     ctx: ConvexToolMiddlewareCtx<P>,
-    orgContext?: McpOrgContext,
   ): Promise<McpToolCallbackResult> {
     // Step 7: Preview routing
     if (destructive && preview && !args.confirmed) {
@@ -549,8 +632,7 @@ function _buildToolDefinition<
     }
 
     // Step 9: Handler — strip _confirmed before passing to user handler
-    const handlerCtx = orgContext ? { org: orgContext } : undefined
-    const result = await handler(args.clean, extra, handlerCtx)
+    const result = await handler(args.clean, extra, ctx)
     return wrapSuccess(result)
   }
 

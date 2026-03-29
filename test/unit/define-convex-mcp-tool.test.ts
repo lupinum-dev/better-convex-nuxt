@@ -1,7 +1,13 @@
 import type { McpToolExtra } from '@nuxtjs/mcp-toolkit/server'
 import { v } from 'convex/values'
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { z } from 'zod'
+
+vi.mock('../../src/runtime/server/utils/convex', () => ({
+  serverConvexQuery: vi.fn(),
+  serverConvexMutation: vi.fn(),
+  serverConvexAction: vi.fn(),
+}))
 
 import { defineConvexMcpTool } from '../../src/runtime/mcp/index'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
@@ -202,7 +208,7 @@ describe('defineConvexMcpTool', () => {
       schema,
       handler: async () => {
         throw new ConvexCallError(
-          '[serverConvexMutation] Request failed for posts:create via http://127.0.0.1:3210/api/mutation. [Request ID: abc123] Server Error\nUncaught Error: Unauthorized\n    at requireUser (../../convex/lib/permissions.ts:82:9)',
+          '[serverConvexMutation] Request failed for posts:create via http://127.0.0.1:3210/api/mutation. [Request ID: abc123] Server Error\nUncaught Error: Authentication required.\n    at resolveActor (../../convex/lib/actor.ts:1:1)',
           { category: 'auth' },
         )
       },
@@ -210,7 +216,7 @@ describe('defineConvexMcpTool', () => {
 
     const result = await tool.handler({ title: 'test' }, {} as McpToolExtra)
     expect(result).toEqual({
-      content: [{ type: 'text', text: '[auth] Unauthorized' }],
+      content: [{ type: 'text', text: '[auth] Authentication required.' }],
       isError: true,
     })
   })

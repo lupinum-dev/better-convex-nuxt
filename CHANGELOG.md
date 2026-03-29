@@ -65,11 +65,8 @@ The bridge is secured with a `PRIVATE_BRIDGE_KEY` environment variable shared be
 
 ```ts
 // server/api/admin/report.get.ts
-import { privateConvexQuery } from '~/server/utils/private-convex'
-import { privateFunctions } from '~/private-function-references'
-
 export default defineEventHandler(async () => {
-  return privateConvexQuery(privateFunctions.admin.generateReport, {})
+  return callYourPrivilegedServerHelper()
 })
 ```
 

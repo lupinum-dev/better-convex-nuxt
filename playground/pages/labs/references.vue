@@ -79,31 +79,7 @@
     <section class="section">
       <div class="section-head">
         <div>
-          <h2>4. Privileged backend-only query</h2>
-          <p>
-            Calls an app-local helper that injects `CONVEX_PRIVATE_BRIDGE_KEY` before querying
-            `private/demo:systemOverview`. This demo lane is opt-in and stays disabled in plain
-            `pnpm dev` unless you configure it intentionally.
-          </p>
-        </div>
-        <button class="button" :disabled="privateQueryPending || !privateLaneReady" @click="runPrivateQuery">
-          {{ privateQueryPending ? 'Running…' : 'Run privileged server query' }}
-        </button>
-      </div>
-
-      <div class="panel">
-        <div class="panel-meta">
-          <span>Status: {{ privateLaneReady ? 'configured' : 'not configured' }}</span>
-        </div>
-        <p class="muted">{{ privateLaneMessage }}</p>
-        <pre>{{ privateQueryPreview }}</pre>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <h2>5. Auth-required server failure</h2>
+          <h2>4. Auth-required server failure</h2>
           <p>
             Calls a Nitro route that uses `serverConvexQuery(..., { auth: 'required' })` so you
             can see the auth error surface when the request is unauthenticated.
@@ -135,21 +111,6 @@ const {
   error: notesError,
   refresh: refreshNotes,
 } = useConvexQuery(api.notes.list, {}, { default: () => [] })
-const { data: privateLaneStatus } = await useFetch<{
-  demoEnabled: boolean
-  hasServerBridgeKey: boolean
-  hasConvexUrl: boolean
-  isConfigured: boolean
-  message: string
-}>('/api/references/private-system-readiness', {
-  default: () => ({
-    demoEnabled: false,
-    hasServerBridgeKey: false,
-    hasConvexUrl: false,
-    isConfigured: false,
-    message: 'Loading privileged reference lane status.',
-  }),
-})
 
 const addTask = useConvexMutation(api.tasks.add)
 
@@ -157,8 +118,6 @@ const taskTitle = ref('')
 const taskResult = ref<Record<string, unknown> | null>(null)
 const serverQueryPending = ref(false)
 const serverQueryResult = ref<Record<string, unknown> | null>(null)
-const privateQueryPending = ref(false)
-const privateQueryResult = ref<Record<string, unknown> | null>(null)
 const serverAuthPending = ref(false)
 const serverAuthResult = ref<Record<string, unknown> | null>(null)
 
@@ -181,22 +140,6 @@ const serverQueryPreview = computed(() =>
     null,
     2,
   ),
-)
-const privateQueryPreview = computed(() =>
-  JSON.stringify(
-    privateQueryResult.value ?? {
-      ok: null,
-      demoEnabled: privateLaneStatus.value?.demoEnabled ?? false,
-      isConfigured: privateLaneStatus.value?.isConfigured ?? false,
-      message: privateLaneStatus.value?.message ?? 'Loading privileged reference lane status.',
-    },
-    null,
-    2,
-  ),
-)
-const privateLaneReady = computed(() => privateLaneStatus.value?.isConfigured === true)
-const privateLaneMessage = computed(
-  () => privateLaneStatus.value?.message ?? 'Loading privileged reference lane status.',
 )
 const serverAuthPreview = computed(() =>
   JSON.stringify(
@@ -244,33 +187,6 @@ async function runServerQuery() {
     }
   } finally {
     serverQueryPending.value = false
-  }
-}
-
-async function runPrivateQuery() {
-  if (!privateLaneReady.value) {
-    privateQueryResult.value = {
-      ok: false,
-      demoEnabled: privateLaneStatus.value?.demoEnabled ?? false,
-      isConfigured: false,
-      message: privateLaneMessage.value,
-    }
-    return
-  }
-
-  privateQueryPending.value = true
-  try {
-    privateQueryResult.value = (await $fetch('/api/references/private-system')) as Record<
-      string,
-      unknown
-    >
-  } catch (error) {
-    privateQueryResult.value = {
-      ok: false,
-      message: error instanceof Error ? error.message : String(error),
-    }
-  } finally {
-    privateQueryPending.value = false
   }
 }
 

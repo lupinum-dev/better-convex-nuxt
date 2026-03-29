@@ -48,11 +48,11 @@
       "mcp": [
         "./dist/runtime/mcp/index.d.ts"
       ],
+      "scoping": [
+        "./dist/runtime/scoping/index.d.ts"
+      ],
       "server": [
         "./dist/runtime/server/index.d.ts"
-      ],
-      "tenant": [
-        "./dist/runtime/tenant/index.d.ts"
       ],
       "actor": [
         "./dist/runtime/actor/index.d.ts"
@@ -76,13 +76,13 @@
       "types": "./dist/runtime/mcp/index.d.ts",
       "import": "./dist/runtime/mcp/index.js"
     },
+    "./scoping": {
+      "types": "./dist/runtime/scoping/index.d.ts",
+      "import": "./dist/runtime/scoping/index.js"
+    },
     "./server": {
       "types": "./dist/runtime/server/index.d.ts",
       "import": "./dist/runtime/server/index.js"
-    },
-    "./tenant": {
-      "types": "./dist/runtime/tenant/index.d.ts",
-      "import": "./dist/runtime/tenant/index.js"
     },
     "./actor": {
       "types": "./dist/runtime/actor/index.d.ts",
