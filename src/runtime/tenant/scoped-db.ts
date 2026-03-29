@@ -1,4 +1,5 @@
-import type { GenericDatabaseReader, GenericDatabaseWriter, GenericId } from 'convex/server'
+import type { GenericDatabaseReader, GenericDatabaseWriter } from 'convex/server'
+import type { GenericId } from 'convex/values'
 
 import { TenantError } from './errors'
 import type { ScopedReader, ScopedWriter } from './types'

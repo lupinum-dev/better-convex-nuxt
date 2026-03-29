@@ -126,7 +126,7 @@ describe('createTenantHelpers', () => {
       await registered._handler(ctx, {})
 
       expect(handler).toHaveBeenCalledTimes(1)
-      const [db, args, tenant] = handler.mock.calls[0]
+      const [db, args, tenant] = handler.mock.calls[0]!
 
       // db should have query and get methods
       expect(db.query).toBeTypeOf('function')
@@ -248,7 +248,7 @@ describe('createTenantHelpers', () => {
         post,
       )
       // Handler should receive the resource via tenant context
-      const [, , tenant] = handler.mock.calls[0]
+      const [, , tenant] = handler.mock.calls[0]!
       expect(tenant.resource).toEqual(post)
     })
 
@@ -291,7 +291,7 @@ describe('createTenantHelpers', () => {
       const ctx = createMockCtx()
       await registered._handler(ctx, {})
 
-      const tenant = handler.mock.calls[0][2]
+      const tenant = handler.mock.calls[0]![2]
       expect(tenant.can('anything')).toBe(true)
     })
 
@@ -311,7 +311,7 @@ describe('createTenantHelpers', () => {
       const ctx = createMockCtx()
       await registered._handler(ctx, {})
 
-      const tenant = handler.mock.calls[0][2]
+      const tenant = handler.mock.calls[0]![2]
       expect(tenant.owns({ ownerId: 'auth_1' })).toBe(true)
       expect(tenant.owns({ ownerId: 'auth_other' })).toBe(false)
       expect(tenant.owns(null)).toBe(false)

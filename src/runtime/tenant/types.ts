@@ -1,13 +1,11 @@
 import type {
-  GenericDataModel,
   GenericDatabaseReader,
   GenericDatabaseWriter,
   GenericQueryCtx,
   GenericMutationCtx,
-  GenericId,
   Query,
 } from 'convex/server'
-import type { PropertyValidators, Infer, GenericValidator } from 'convex/values'
+import type { PropertyValidators, ObjectType, GenericId } from 'convex/values'
 
 import type { CheckPermissionFn, Resource } from '../composables/usePermissions'
 
@@ -43,6 +41,10 @@ export interface TenantConfig<
 export interface TenantContext<
   TPermission extends string = string,
   TResource = unknown,
+  TRawCtx extends GenericQueryCtx<any> | GenericMutationCtx<any> =
+    GenericQueryCtx<any> | GenericMutationCtx<any>,
+  TRawDb extends GenericDatabaseReader<any> | GenericDatabaseWriter<any> =
+    GenericDatabaseReader<any> | GenericDatabaseWriter<any>,
 > {
   user: TenantUser
   orgId: GenericId<string>
@@ -50,8 +52,8 @@ export interface TenantContext<
   owns: (doc: Record<string, unknown> | null) => boolean
   resource: TResource
   raw: {
-    ctx: GenericQueryCtx<any> | GenericMutationCtx<any>
-    db: GenericDatabaseReader<any> | GenericDatabaseWriter<any>
+    ctx: TRawCtx
+    db: TRawDb
   }
 }
 
@@ -83,7 +85,12 @@ export type ScopedQueryHandler<
 > = (
   db: ScopedReader<TScopedTables>,
   args: TArgs,
-  tenant: TenantContext<TPermission, undefined>,
+  tenant: TenantContext<
+    TPermission,
+    undefined,
+    GenericQueryCtx<any>,
+    GenericDatabaseReader<any>
+  >,
 ) => TReturn | Promise<TReturn>
 
 export type ScopedMutationHandler<
@@ -95,7 +102,12 @@ export type ScopedMutationHandler<
 > = (
   db: ScopedWriter<TScopedTables>,
   args: TArgs,
-  tenant: TenantContext<TPermission, TResource>,
+  tenant: TenantContext<
+    TPermission,
+    TResource,
+    GenericMutationCtx<any>,
+    GenericDatabaseWriter<any>
+  >,
 ) => TReturn | Promise<TReturn>
 
 // ============================================================================
@@ -109,7 +121,7 @@ export interface ScopedQueryDef<
 > {
   args: TArgs
   handler: ScopedQueryHandler<
-    Infer<GenericValidator<'required', TArgs>>,
+    ObjectType<TArgs>,
     any,
     TScopedTables,
     TPermission
@@ -126,10 +138,10 @@ export interface ScopedMutationDef<
   permission?: TPermission
   resource?: (
     db: ScopedReader<TScopedTables>,
-    args: Infer<GenericValidator<'required', TArgs>>,
+    args: ObjectType<TArgs>,
   ) => Promise<(Record<string, unknown> & Resource) | null>
   handler: ScopedMutationHandler<
-    Infer<GenericValidator<'required', TArgs>>,
+    ObjectType<TArgs>,
     any,
     TScopedTables,
     TPermission,

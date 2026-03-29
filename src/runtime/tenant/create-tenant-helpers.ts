@@ -1,4 +1,10 @@
 import type { PropertyValidators } from 'convex/values'
+import type {
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
+  GenericMutationCtx,
+  GenericQueryCtx,
+} from 'convex/server'
 
 import type { CheckPermissionFn, Resource } from '../composables/usePermissions'
 
@@ -33,12 +39,18 @@ export function createTenantHelpers<
   // Build tenant context shared by both scopedQuery and scopedMutation
   // ────────────────────────────────────────────────────────────
 
-  function buildTenantContext(
+  function buildTenantContext<
+    TResource = undefined,
+    TRawCtx extends GenericQueryCtx<any> | GenericMutationCtx<any> =
+      GenericQueryCtx<any> | GenericMutationCtx<any>,
+    TRawDb extends GenericDatabaseReader<any> | GenericDatabaseWriter<any> =
+      GenericDatabaseReader<any> | GenericDatabaseWriter<any>,
+  >(
     user: TenantUser,
-    ctx: any,
-    db: any,
-    resource?: unknown,
-  ): TenantContext<TPermission, any> {
+    ctx: TRawCtx,
+    db: TRawDb,
+    resource?: TResource,
+  ): TenantContext<TPermission, TResource, TRawCtx, TRawDb> {
     return {
       user,
       orgId: user.orgId,
@@ -54,7 +66,7 @@ export function createTenantHelpers<
         if (!doc) return false
         return doc.ownerId === user.userId
       },
-      resource: resource as any,
+      resource: resource as TResource,
       raw: { ctx, db },
     }
   }
@@ -68,7 +80,7 @@ export function createTenantHelpers<
   ) {
     return queryBuilder({
       args: def.args,
-      handler: async (ctx: any, args: any) => {
+      handler: async (ctx: GenericQueryCtx<any>, args: any) => {
         const user = await resolveUser(ctx)
         if (!user) return []
 
@@ -94,7 +106,7 @@ export function createTenantHelpers<
   ) {
     return mutationBuilder({
       args: def.args,
-      handler: async (ctx: any, args: any) => {
+      handler: async (ctx: GenericMutationCtx<any>, args: any) => {
         // 1. Resolve user — mutations require auth
         const user = await resolveUser(ctx)
         if (!user) {
@@ -110,12 +122,12 @@ export function createTenantHelpers<
         )
 
         // 3. Fetch resource if provided (uses scoped db for org safety)
-        let resource: any = undefined
+        let resource: TResource | undefined = undefined
         if (def.resource) {
           resource = await def.resource(
             scopedDb as ScopedReader<TScopedTables>,
             args,
-          )
+          ) as TResource
           if (resource === null) {
             throw new TenantError('Document not found.', 'RESOURCE_NOT_FOUND')
           }
