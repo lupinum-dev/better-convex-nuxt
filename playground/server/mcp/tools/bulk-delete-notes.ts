@@ -23,7 +23,7 @@ export default defineConvexTool({
   },
   preview: async (args, ctx) => {
     const notes = await Promise.all(
-      args.ids.map(id => ctx.query(api.notes.get, { id })),
+      args.ids.map(id => ctx.public.query(api.notes.get, { id })),
     )
     const found = notes.filter(Boolean)
     const missing = args.ids.length - found.length
@@ -44,7 +44,7 @@ export default defineConvexTool({
 
     for (const id of args.ids) {
       try {
-        await ctx.mutation(api.notes.remove, { id })
+        await ctx.public.mutation(api.notes.remove, { id })
         deleted++
       }
       catch (error) {

@@ -17,7 +17,7 @@ export default defineConvexTool({
     { query: 'project update' },
   ],
   handler: async (args, _extra, ctx) => {
-    const results = await ctx.query(api.notes.search, { query: args.query })
+    const results = await ctx.public.query(api.notes.search, { query: args.query })
 
     return withSummary(
       { results, total: results.length },

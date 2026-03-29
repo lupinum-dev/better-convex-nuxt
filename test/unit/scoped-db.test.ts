@@ -23,6 +23,10 @@ function createMockDb() {
   const db = {
     query: vi.fn().mockReturnValue(mockQuery),
     get: vi.fn(),
+    normalizeId: vi.fn((table: string, id: string) => {
+      if (id.startsWith(`${table}:`)) return id as GenericId<string>
+      return null
+    }),
     insert: vi.fn(),
     patch: vi.fn(),
     replace: vi.fn(),
@@ -99,21 +103,21 @@ describe('createScopedReader', () => {
   describe('get()', () => {
     it('returns documents from the same org', async () => {
       const db = createMockDb()
-      const doc = { _id: 'doc1', organizationId: ORG_ID, title: 'Hello' }
+      const doc = { _id: 'posts:doc1', organizationId: ORG_ID, title: 'Hello' }
       db.get.mockResolvedValue(doc)
 
       const reader = createScopedReader(asReaderDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
-      const result = await reader.get(asId('doc1'))
+      const result = await reader.get(asId('posts:doc1'))
 
       expect(result).toEqual(doc)
     })
 
     it('returns null for documents from different org', async () => {
       const db = createMockDb()
-      db.get.mockResolvedValue({ _id: 'doc1', organizationId: OTHER_ORG, title: 'Secret' })
+      db.get.mockResolvedValue({ _id: 'posts:doc1', organizationId: OTHER_ORG, title: 'Secret' })
 
       const reader = createScopedReader(asReaderDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
-      const result = await reader.get(asId('doc1'))
+      const result = await reader.get(asId('posts:doc1'))
 
       expect(result).toBeNull()
     })
@@ -128,13 +132,25 @@ describe('createScopedReader', () => {
       expect(result).toBeNull()
     })
 
-    it('passes through documents without orgField (unscoped tables)', async () => {
+    it('passes through unscoped table documents even if they have an orgField', async () => {
       const db = createMockDb()
-      const doc = { _id: 'note1', title: 'Public note' }
+      const doc = { _id: 'users:1', title: 'Public note', organizationId: OTHER_ORG }
       db.get.mockResolvedValue(doc)
 
       const reader = createScopedReader(asReaderDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
-      const result = await reader.get(asId('note1'))
+      const result = await reader.get(asId('users:1'))
+
+      expect(result).toEqual(doc)
+    })
+
+    it('passes through when normalizeId does not match a scoped table', async () => {
+      const db = createMockDb()
+      db.normalizeId.mockReturnValue(null)
+      const doc = { _id: 'mystery:1', organizationId: OTHER_ORG }
+      db.get.mockResolvedValue(doc)
+
+      const reader = createScopedReader(asReaderDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
+      const result = await reader.get(asId('mystery:1'))
 
       expect(result).toEqual(doc)
     })
@@ -193,23 +209,23 @@ describe('createScopedWriter', () => {
   describe('patch()', () => {
     it('validates org ownership before patching', async () => {
       const db = createMockDb()
-      db.get.mockResolvedValue({ _id: 'doc1', organizationId: ORG_ID, title: 'Old' })
+      db.get.mockResolvedValue({ _id: 'posts:doc1', organizationId: ORG_ID, title: 'Old' })
 
       const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
-      await writer.patch(asId('doc1'), { title: 'New' })
+      await writer.patch(asId('posts:doc1'), { title: 'New' })
 
-      expect(db.get).toHaveBeenCalledWith('doc1')
-      expect(db.patch).toHaveBeenCalledWith('doc1', { title: 'New' })
+      expect(db.get).toHaveBeenCalledWith('posts:doc1')
+      expect(db.patch).toHaveBeenCalledWith('posts:doc1', { title: 'New' })
     })
 
     it('throws CROSS_ORG_ACCESS for wrong org', async () => {
       const db = createMockDb()
-      db.get.mockResolvedValue({ _id: 'doc1', organizationId: OTHER_ORG })
+      db.get.mockResolvedValue({ _id: 'posts:doc1', organizationId: OTHER_ORG })
 
       const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
 
       await expect(
-        writer.patch(asId('doc1'), { title: 'Hacked' }),
+        writer.patch(asId('posts:doc1'), { title: 'Hacked' }),
       ).rejects.toThrow(ScopingError)
     })
 
@@ -231,20 +247,30 @@ describe('createScopedWriter', () => {
       const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
 
       await expect(
-        writer.patch(asId('doc1'), { organizationId: OTHER_ORG }),
+        writer.patch(asId('posts:doc1'), { organizationId: OTHER_ORG }),
       ).rejects.toThrow(ScopingError)
+    })
+
+    it('passes through patches for unscoped table ids', async () => {
+      const db = createMockDb()
+      db.get.mockResolvedValue({ _id: 'users:1', organizationId: OTHER_ORG, role: 'member' })
+
+      const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
+      await writer.patch(asId('users:1'), { role: 'admin' })
+
+      expect(db.patch).toHaveBeenCalledWith('users:1', { role: 'admin' })
     })
   })
 
   describe('replace()', () => {
     it('validates org ownership and auto-injects orgField', async () => {
       const db = createMockDb()
-      db.get.mockResolvedValue({ _id: 'doc1', organizationId: ORG_ID })
+      db.get.mockResolvedValue({ _id: 'posts:doc1', organizationId: ORG_ID })
 
       const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
-      await writer.replace(asId('doc1'), { title: 'Replaced' })
+      await writer.replace(asId('posts:doc1'), { title: 'Replaced' })
 
-      expect(db.replace).toHaveBeenCalledWith('doc1', {
+      expect(db.replace).toHaveBeenCalledWith('posts:doc1', {
         title: 'Replaced',
         organizationId: ORG_ID,
       })
@@ -252,36 +278,49 @@ describe('createScopedWriter', () => {
 
     it('throws CROSS_ORG_ACCESS for wrong org', async () => {
       const db = createMockDb()
-      db.get.mockResolvedValue({ _id: 'doc1', organizationId: OTHER_ORG })
+      db.get.mockResolvedValue({ _id: 'posts:doc1', organizationId: OTHER_ORG })
 
       const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
 
       await expect(
-        writer.replace(asId('doc1'), { title: 'Hacked' }),
+        writer.replace(asId('posts:doc1'), { title: 'Hacked' }),
       ).rejects.toThrow(ScopingError)
+    })
+
+    it('passes through replaces for unscoped table ids', async () => {
+      const db = createMockDb()
+      db.get.mockResolvedValue({ _id: 'users:1', organizationId: OTHER_ORG, role: 'member' })
+
+      const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
+      await writer.replace(asId('users:1'), { role: 'admin', organizationId: OTHER_ORG })
+
+      expect(db.replace).toHaveBeenCalledWith('users:1', {
+        role: 'admin',
+        organizationId: OTHER_ORG,
+      })
     })
   })
 
   describe('delete()', () => {
     it('validates org ownership before deleting', async () => {
       const db = createMockDb()
-      db.get.mockResolvedValue({ _id: 'doc1', organizationId: ORG_ID })
+      db.get.mockResolvedValue({ _id: 'posts:doc1', organizationId: ORG_ID })
 
       const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
-      await writer.delete(asId('doc1'))
+      await writer.delete(asId('posts:doc1'))
 
-      expect(db.get).toHaveBeenCalledWith('doc1')
-      expect(db.delete).toHaveBeenCalledWith('doc1')
+      expect(db.get).toHaveBeenCalledWith('posts:doc1')
+      expect(db.delete).toHaveBeenCalledWith('posts:doc1')
     })
 
     it('throws CROSS_ORG_ACCESS for wrong org', async () => {
       const db = createMockDb()
-      db.get.mockResolvedValue({ _id: 'doc1', organizationId: OTHER_ORG })
+      db.get.mockResolvedValue({ _id: 'posts:doc1', organizationId: OTHER_ORG })
 
       const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
 
       await expect(
-        writer.delete(asId('doc1')),
+        writer.delete(asId('posts:doc1')),
       ).rejects.toThrow(ScopingError)
     })
 
@@ -294,6 +333,16 @@ describe('createScopedWriter', () => {
       await expect(
         writer.delete(asId('nonexistent')),
       ).rejects.toThrow('Document not found')
+    })
+
+    it('passes through deletes for unscoped table ids', async () => {
+      const db = createMockDb()
+      db.get.mockResolvedValue({ _id: 'users:1', organizationId: OTHER_ORG })
+
+      const writer = createScopedWriter(asWriterDb(db), ORG_ID, ORG_FIELD, SCOPED_TABLES)
+      await writer.delete(asId('users:1'))
+
+      expect(db.delete).toHaveBeenCalledWith('users:1')
     })
   })
 })

@@ -80,13 +80,7 @@ export interface McpAuthIdentity {
 // Middleware context
 // ============================================================================
 
-export interface ConvexToolHandlerCtx<P extends string = string> {
-  event: H3Event
-  /** Resolved actor, or null if auth is 'none' or no credentials were provided. */
-  actor: McpAuthIdentity | null
-  /** Resolved org context for `scoped: true` tools. */
-  org?: McpOrgContext
-  can: (permission: P, resource?: Resource) => boolean
+export interface ConvexToolCallFns {
   query: <Query extends FunctionReference<'query'>>(
     fn: Query,
     args?: FunctionArgs<Query>,
@@ -99,6 +93,17 @@ export interface ConvexToolHandlerCtx<P extends string = string> {
     fn: Action,
     args?: FunctionArgs<Action>,
   ) => Promise<FunctionReturnType<Action>>
+}
+
+export interface ConvexToolHandlerCtx<P extends string = string> extends ConvexToolCallFns {
+  event: H3Event
+  /** Resolved actor, or null if auth is 'none' or no credentials were provided. */
+  actor: McpAuthIdentity | null
+  /** Resolved org context for `scoped: true` tools. */
+  org?: McpOrgContext
+  can: (permission: P, resource?: Resource) => boolean
+  /** Explicit raw Convex call lane for functions that do not accept service auth args. */
+  public: ConvexToolCallFns
 }
 
 export type ConvexToolMiddlewareCtx<P extends string = string> = ConvexToolHandlerCtx<P>

@@ -8,6 +8,7 @@ import {
   tryResolveActor,
 } from './lib/actor'
 import { assertPermission } from './lib/access'
+import { getUserRowFromActor } from './lib/user-row'
 import { checkPermission, type Role } from './permissions.config'
 
 export const getCurrent = query({
@@ -34,6 +35,8 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await resolveActor(ctx, args)
+    const user = await getUserRowFromActor(ctx, actor)
+    if (!user) throw new Error('User not found')
 
     const existing = await ctx.db
       .query('organizations')
@@ -52,13 +55,11 @@ export const create = mutation({
       updatedAt: Date.now(),
     })
 
-    if (actor._id) {
-      await ctx.db.patch(actor._id, {
-        organizationId: orgId,
-        role: 'owner',
-        updatedAt: Date.now(),
-      })
-    }
+    await ctx.db.patch(user._id, {
+      organizationId: orgId,
+      role: 'owner',
+      updatedAt: Date.now(),
+    })
 
     return orgId
   },
@@ -177,13 +178,7 @@ export const leave = mutation({
       throw new Error('Owner cannot leave organization. Transfer ownership first.')
     }
 
-    const user = actor._id
-      ? await ctx.db.get(actor._id)
-      : await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
-        .first()
-
+    const user = await getUserRowFromActor(ctx, actor)
     if (!user) throw new Error('User not found')
 
     await ctx.db.patch(user._id, {

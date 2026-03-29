@@ -12,7 +12,7 @@ export default defineConvexTool({
   name: 'update-note',
   auth: 'required',
   middleware: async (args, ctx, next) => {
-    const note = await ctx.query(api.notes.get, { id: args.id })
+    const note = await ctx.public.query(api.notes.get, { id: args.id })
     if (!note) {
       return wrapError('not_found', `Note "${args.id}" not found.`)
     }
@@ -25,7 +25,7 @@ export default defineConvexTool({
     return next()
   },
   handler: async (args, _extra, ctx) => {
-    await ctx.mutation(api.notes.update, args)
+    await ctx.public.mutation(api.notes.update, args)
     return { updated: true, id: args.id }
   },
 })

@@ -11,7 +11,7 @@ export default defineConvexTool({
   name: 'delete-note',
   destructive: true,
   preview: async (args, ctx) => {
-    const note = await ctx.query(api.notes.get, { id: args.id })
+    const note = await ctx.public.query(api.notes.get, { id: args.id })
     if (!note) return { summary: 'Note not found', blocked: true }
     return {
       summary: `Will permanently delete "${note.title}"`,
@@ -19,7 +19,7 @@ export default defineConvexTool({
     }
   },
   handler: async (args, _extra, ctx) => {
-    await ctx.mutation(api.notes.remove, args)
+    await ctx.public.mutation(api.notes.remove, args)
     return { deleted: true, id: args.id }
   },
 })

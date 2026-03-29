@@ -28,6 +28,7 @@ import { globalRateLimiter, parseWindowString } from './rate-limiter'
 import { wrapError, wrapPreview, wrapSuccess } from './result-envelope'
 import type {
   AnyConvexSchema,
+  ConvexToolCallFns,
   ConvexToolHandlerCtx,
   ConvexToolMiddlewareCtx,
   CreateConvexToolsOptions,
@@ -313,20 +314,12 @@ function normalizePreview(raw: string | PreviewResult): PreviewResult {
   return typeof raw === 'string' ? { summary: raw } : raw
 }
 
-function createToolContext<P extends string>(
+function createToolCallFns(
   event: H3Event,
   actor: McpAuthIdentity | null,
-  org: McpOrgContext | undefined,
-  checkPermission: CheckPermissionFn<P> | undefined,
-): ConvexToolHandlerCtx<P> {
+  injectIdentity: boolean,
+): ConvexToolCallFns {
   return {
-    event,
-    actor,
-    org,
-    can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
-      if (!checkPermission || !actor) return false
-      return checkPermission(actor, permission, resource)
-    },
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       args?: FunctionArgs<Query>,
@@ -334,7 +327,11 @@ function createToolContext<P extends string>(
       return await serverConvexQuery(
         event,
         fn,
-        injectServiceActorArgs(args as Record<string, unknown> | undefined, actor) as FunctionArgs<Query>,
+        (
+          injectIdentity
+            ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
+            : (args ?? {})
+        ) as FunctionArgs<Query>,
         { auth: 'none' },
       )
     },
@@ -345,7 +342,11 @@ function createToolContext<P extends string>(
       return await serverConvexMutation(
         event,
         fn,
-        injectServiceActorArgs(args as Record<string, unknown> | undefined, actor) as FunctionArgs<Mutation>,
+        (
+          injectIdentity
+            ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
+            : (args ?? {})
+        ) as FunctionArgs<Mutation>,
         { auth: 'none' },
       )
     },
@@ -356,10 +357,36 @@ function createToolContext<P extends string>(
       return await serverConvexAction(
         event,
         fn,
-        injectServiceActorArgs(args as Record<string, unknown> | undefined, actor) as FunctionArgs<Action>,
+        (
+          injectIdentity
+            ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
+            : (args ?? {})
+        ) as FunctionArgs<Action>,
         { auth: 'none' },
       )
     },
+  }
+}
+
+function createToolContext<P extends string>(
+  event: H3Event,
+  actor: McpAuthIdentity | null,
+  org: McpOrgContext | undefined,
+  checkPermission: CheckPermissionFn<P> | undefined,
+): ConvexToolHandlerCtx<P> {
+  const actorCalls = createToolCallFns(event, actor, true)
+  const publicCalls = createToolCallFns(event, actor, false)
+
+  return {
+    event,
+    actor,
+    org,
+    can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
+      if (!checkPermission || !actor) return false
+      return checkPermission(actor, permission, resource)
+    },
+    ...actorCalls,
+    public: publicCalls,
   }
 }
 

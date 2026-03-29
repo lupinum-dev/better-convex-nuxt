@@ -8,6 +8,7 @@ import {
   tryResolveActor,
 } from './lib/actor'
 import { assertPermission } from './lib/access'
+import { getUserRowFromActor } from './lib/user-row'
 import { checkPermission, type Role } from './permissions.config'
 
 export const listPending = query({
@@ -105,13 +106,7 @@ export const accept = mutation({
   args: { id: v.id('invites'), ...serviceAuthArgs },
   handler: async (ctx, args) => {
     const actor = await resolveActor(ctx, args)
-    const user = actor._id
-      ? await ctx.db.get(actor._id)
-      : await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
-        .first()
-
+    const user = await getUserRowFromActor(ctx, actor)
     if (!user) throw new Error('User not found')
 
     const invite = await ctx.db.get(args.id)
@@ -145,13 +140,7 @@ export const getMyInvites = query({
     const actor = await tryResolveActor(ctx, args)
     if (!actor) return []
 
-    const user = actor._id
-      ? await ctx.db.get(actor._id)
-      : await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
-        .first()
-
+    const user = await getUserRowFromActor(ctx, actor)
     if (!user?.email) return []
 
     return await ctx.db

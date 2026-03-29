@@ -916,6 +916,30 @@ describe('defineConvexTool', () => {
       )
     })
 
+    it('does not inject service identity for authenticated ctx.public.query calls', async () => {
+      mockAuth({ role: 'admin', userId: 'user-1', orgId: 'org-1' })
+      vi.mocked(serverConvexQuery).mockResolvedValue([] as never)
+
+      const schema = defineConvexSchema({})
+      const tool = defineConvexTool({
+        schema,
+        auth: 'required',
+        handler: async (_args, _extra, ctx) => {
+          await ctx.public.query({ _path: 'notes:list' } as never, { limit: 10 } as never)
+          return { ok: true }
+        },
+      })
+
+      await tool.handler!({}, mockExtra)
+
+      expect(serverConvexQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ context: expect.any(Object) }),
+        { _path: 'notes:list' },
+        { limit: 10 },
+        { auth: 'none' },
+      )
+    })
+
     it('returns a clear error when authenticated ctx.query is used without CONVEX_SERVICE_KEY', async () => {
       mockAuth({ role: 'admin', userId: 'user-1', orgId: 'org-1' })
       delete process.env.CONVEX_SERVICE_KEY
@@ -937,6 +961,35 @@ describe('defineConvexTool', () => {
           message: expect.stringContaining('CONVEX_SERVICE_KEY'),
         },
       })
+    })
+
+    it('allows authenticated ctx.public.query without CONVEX_SERVICE_KEY', async () => {
+      mockAuth({ role: 'admin', userId: 'user-1', orgId: 'org-1' })
+      delete process.env.CONVEX_SERVICE_KEY
+      vi.mocked(serverConvexQuery).mockResolvedValue([] as never)
+
+      const schema = defineConvexSchema({})
+      const tool = defineConvexTool({
+        schema,
+        auth: 'required',
+        handler: async (_args, _extra, ctx) => {
+          await ctx.public.query({ _path: 'notes:list' } as never)
+          return { ok: true }
+        },
+      })
+
+      const result = await tool.handler!({}, mockExtra)
+
+      expect(getStructured(result)).toEqual({
+        ok: true,
+        data: { ok: true },
+      })
+      expect(serverConvexQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ context: expect.any(Object) }),
+        { _path: 'notes:list' },
+        {},
+        { auth: 'none' },
+      )
     })
   })
 

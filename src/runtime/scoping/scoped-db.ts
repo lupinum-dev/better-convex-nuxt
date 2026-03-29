@@ -36,6 +36,22 @@ function isScopedTable(table: string, scopedTables: readonly string[]): boolean 
   return scopedTables.includes(table)
 }
 
+function resolveScopedTableForId(
+  db: GenericDatabaseReader<GenericDataModel>,
+  id: GenericId<string>,
+  scopedTables: readonly string[],
+): string | null {
+  const idValue = String(id)
+
+  for (const table of scopedTables) {
+    if (db.normalizeId(table as never, idValue) !== null) {
+      return table
+    }
+  }
+
+  return null
+}
+
 function assertOrgOwnership(
   doc: Record<string, unknown>,
   orgField: string,
@@ -49,15 +65,19 @@ function assertOrgOwnership(
 async function getAndValidate(
   db: GenericDatabaseReader<GenericDataModel>,
   id: GenericId<string>,
+  scopedTables: readonly string[],
   orgField: string,
   orgId: string,
-): Promise<Record<string, unknown>> {
+): Promise<{ doc: Record<string, unknown>; scopedTable: string | null }> {
+  const scopedTable = resolveScopedTableForId(db, id, scopedTables)
   const doc = await db.get(id)
   if (!doc) {
     throw new ScopingError('Document not found.', 'RESOURCE_NOT_FOUND')
   }
-  assertOrgOwnership(doc, orgField, orgId)
-  return doc
+  if (scopedTable) {
+    assertOrgOwnership(doc, orgField, orgId)
+  }
+  return { doc, scopedTable }
 }
 
 export function createScopedReader(
@@ -94,7 +114,8 @@ export function createScopedReader(
     async get(id: GenericId<string>) {
       const doc = await db.get(id)
       if (!doc) return null
-      if (orgField in doc && doc[orgField] !== orgId) {
+      const scopedTable = resolveScopedTableForId(db, id, scopedTables)
+      if (scopedTable && orgField in doc && doc[orgField] !== orgId) {
         return null
       }
       return doc
@@ -130,9 +151,9 @@ export function createScopedWriter(
     },
 
     async patch(id: GenericId<string>, fields: Record<string, unknown>) {
-      await getAndValidate(db, id, orgField, orgId)
+      const { scopedTable } = await getAndValidate(db, id, scopedTables, orgField, orgId)
 
-      if (orgField in fields && fields[orgField] !== orgId) {
+      if (scopedTable && orgField in fields && fields[orgField] !== orgId) {
         throw new ScopingError(
           `Cannot change ${orgField} to "${fields[orgField]}" for org "${orgId}".`,
           'ORG_FIELD_CONFLICT',
@@ -143,21 +164,23 @@ export function createScopedWriter(
     },
 
     async replace(id: GenericId<string>, doc: Record<string, unknown>) {
-      await getAndValidate(db, id, orgField, orgId)
+      const { scopedTable } = await getAndValidate(db, id, scopedTables, orgField, orgId)
 
-      if (orgField in doc && doc[orgField] !== orgId) {
+      if (scopedTable && orgField in doc && doc[orgField] !== orgId) {
         throw new ScopingError(
           `Cannot replace document with ${orgField} "${doc[orgField]}" for org "${orgId}".`,
           'ORG_FIELD_CONFLICT',
         )
       }
 
-      const scopedDoc = orgField in doc ? doc : { ...doc, [orgField]: orgId }
-      await uncheckedDb.replace(id, scopedDoc)
+      await uncheckedDb.replace(
+        id,
+        scopedTable && !(orgField in doc) ? { ...doc, [orgField]: orgId } : doc,
+      )
     },
 
     async delete(id: GenericId<string>) {
-      await getAndValidate(db, id, orgField, orgId)
+      await getAndValidate(db, id, scopedTables, orgField, orgId)
       await uncheckedDb.delete(id)
     },
   }

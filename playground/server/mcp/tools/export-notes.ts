@@ -23,7 +23,7 @@ export default defineConvexTool({
     exportedAt: z.string(),
   },
   handler: async (args, _extra, ctx) => {
-    const notes = await ctx.query(api.notes.list)
+    const notes = await ctx.public.query(api.notes.list)
     const exportedAt = new Date().toISOString()
 
     const content = args.format === 'csv'
