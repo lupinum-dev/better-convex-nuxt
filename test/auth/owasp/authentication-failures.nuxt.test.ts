@@ -26,7 +26,9 @@ describe('OWASP A07: Authentication Failures (Runtime)', () => {
 
     expect(h.token.value).not.toBe(previousToken)
     expect(h.token.value).not.toContain(previousToken ?? '')
-    h.assertAuthenticated('user-bob')
+    expect(h.isAuthenticated.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.user.value?.id).toBe('user-bob')
   })
 
   it('does not restore the previous identity after signOut when the exchange misses', async () => {
@@ -42,6 +44,9 @@ describe('OWASP A07: Authentication Failures (Runtime)', () => {
     exchange.respondWithMiss()
 
     await expect(h.triggerRefresh()).rejects.toThrow(/without a token/)
-    h.assertUnauthenticated()
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.pending.value).toBe(false)
+    expect(h.token.value).toBeNull()
+    expect(h.user.value).toBeNull()
   })
 })

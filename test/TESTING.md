@@ -49,12 +49,15 @@ pnpm test:full
 ## Design Rules
 
 1. Runtime/composable behavior goes in `test/nuxt`.
-2. New auth runtime and security coverage goes in `test/auth`.
-3. Shared auth test utilities live in `test/harness`.
-4. Pure browser rendering behavior goes in `test/browser`.
-5. Full-stack tests stay thin and intentional in `test/e2e`.
-6. Convex/backend behavior belongs in `playground/convex/*.test.ts`.
-7. Prefer deterministic assertions over sleeps.
+2. Canonical auth flow and lifecycle coverage goes in `test/auth/*.nuxt.test.ts`.
+3. OWASP-mapped auth coverage goes in `test/auth/owasp/*.nuxt.test.ts`, and each file should own a unique security invariant instead of duplicating a behavior suite.
+4. Shared auth test utilities live in `test/harness` and should stay focused on setup, state, and triggers rather than custom assertion DSLs.
+5. Pure browser rendering behavior goes in `test/browser`.
+6. Full-stack tests stay thin and intentional in `test/e2e`.
+7. Convex/backend behavior belongs in `playground/convex/*.test.ts`.
+8. Prefer deterministic assertions over sleeps.
+
+Before adding a new auth test, place it in the single suite that owns that behavior; do not duplicate the same invariant in both behavior and OWASP suites.
 
 ## E2E Auth Setup
 

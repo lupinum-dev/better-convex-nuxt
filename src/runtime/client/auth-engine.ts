@@ -1,25 +1,16 @@
 /**
  * Centralized auth state machine for better-convex-nuxt.
  *
- * All auth state mutations flow through this engine via two atomic commit
- * functions: `commitAuthenticated` and `commitUnauthenticated`. This ensures
- * token and user are always set together — there is no intermediate state
- * where token is set but user is null, or vice versa.
+ * The engine owns reactive auth state and commits it atomically, while the
+ * transport owns token fetching. That split keeps token/user/error writes in
+ * one place and lets the engine discard stale transport results safely.
  *
- * Architecture:
- * - One engine per NuxtApp, stored in a WeakMap (auto-GC on app teardown)
- * - The engine owns reactive state (token, user, pending, error) but does
- *   NOT own how tokens are fetched — that is the transport's job
- * - The transport (auth-client.ts) returns pure `ClientAuthStateResult` values;
- *   the engine decides whether to commit them based on operation staleness
- * - Race protection uses a monotonic `operationId` counter: each signOut,
- *   invalidate, or refresh bumps the ID, and any in-flight operation whose
- *   captured ID no longer matches is silently discarded
- *
- * Lifecycle:
- * 1. `createSharedAuthEngine()` — called once from plugin.client.ts
- * 2. `configureTransport()` — wires the auth client as the token source
- * 3. `getSharedAuthEngine()` — called from composables to access the engine
+ * Reading order for the client auth flow:
+ * 1. `plugin.client.ts` creates the engine
+ * 2. the plugin configures the transport
+ * 3. Convex pulls tokens through `fetchTokenForConvex`
+ * 4. the transport returns a `ClientAuthStateResult`
+ * 5. the engine commits or discards it based on `operationId`
  *
  * @module auth-engine
  */
@@ -89,28 +80,21 @@ export interface AuthTransport {
   invalidate: () => Promise<void>
 }
 
-/** Snapshot of auth state used for change detection in hook emission. */
 interface AuthSnapshot {
   isAuthenticated: boolean
   user: ConvexUser | null
   userId: string | null
 }
 
-/**
- * Internal mutable state for the auth engine.
- * Stored in a WeakMap keyed by NuxtApp — never exposed publicly.
- */
 interface AuthEngineState {
   transport: AuthTransport | null
   refreshPromise: Promise<void> | null
   signOutPromise: Promise<void> | null
-  /** Monotonic counter for stale-operation detection. See module doc. */
   operationId: number
   snapshot: AuthSnapshot
   hooksRegistered: boolean
 }
 
-/** Public interface of the shared auth engine. */
 export interface SharedAuthEngine {
   token: Readonly<Ref<string | null>>
   user: Readonly<Ref<ConvexUser | null>>
@@ -123,7 +107,6 @@ export interface SharedAuthEngine {
   isSessionExpired: ComputedRef<boolean>
   readonly client: AuthClient | null
   configureTransport: (transport: AuthTransport | null) => void
-  syncSnapshot: () => void
   refreshAuth: () => Promise<void>
   invalidateAuth: (options?: {
     clearWasAuthenticated?: boolean
@@ -196,10 +179,6 @@ function getEngineState(nuxtApp: object, token: Ref<string | null>, user: Ref<Co
   return created
 }
 
-/**
- * Retrieve the shared auth engine for a NuxtApp instance.
- * Called from composables — the engine must already be created by the plugin.
- */
 export function getSharedAuthEngine(nuxtApp: object): SharedAuthEngine {
   const engine = authEngines.get(nuxtApp)
   if (!engine) {
@@ -211,11 +190,6 @@ export function getSharedAuthEngine(nuxtApp: object): SharedAuthEngine {
   return engine
 }
 
-/**
- * Create and register the shared auth engine for a NuxtApp instance.
- * Called once from plugin.client.ts during app initialization.
- * Subsequent access uses `getSharedAuthEngine()`.
- */
 export function createSharedAuthEngine(
   options: CreateSharedAuthEngineOptions,
 ): SharedAuthEngine {
@@ -248,11 +222,7 @@ export function createSharedAuthEngine(
     () => !pending.value && !isAuthenticated.value && wasAuthenticated.value,
   )
 
-  // --- Emit & Commit helpers ---
-  // These are the ONLY paths that mutate token/user/error refs.
-  // Keeping them centralized prevents split-brain auth state.
-
-  /** Emit convex:auth:changed only when authentication or identity actually changed. */
+  // These helpers are the only paths that mutate token/user/error refs.
   const emitIfChanged = (nextSnapshot: AuthSnapshot) => {
     const previousSnapshot = state.snapshot
     state.snapshot = nextSnapshot
@@ -308,13 +278,7 @@ export function createSharedAuthEngine(
     pending.value = false
   }
 
-  /**
-   * Token provider wired into ConvexClient.setAuth().
-   *
-   * Delegates to the transport for the actual fetch, then checks whether
-   * the operation is still current before committing. This is the bridge
-   * between the Convex SDK's pull-based auth and our push-based engine.
-   */
+  // Convex calls this whenever it needs the current auth token.
   const fetchTokenForConvex: ConvexFetchToken = async (input) => {
     if (!state.transport) {
       settleInitialAuth()
@@ -324,9 +288,7 @@ export function createSharedAuthEngine(
     const operationId = state.operationId
     const result = await state.transport.fetchAuthState(input)
     if (operationId !== state.operationId) {
-      // Safe to discard: the operation that bumped operationId will commit
-      // its own state. Any error in this result is irrelevant — the newer
-      // operation will overwrite it via commitAuthenticated or commitUnauthenticated.
+      // A newer refresh, invalidate, signOut, or transport swap already won.
       settleInitialAuth()
       return null
     }
@@ -361,15 +323,8 @@ export function createSharedAuthEngine(
     }
   }
 
-  /**
-   * Refresh auth state by re-running the full token fetch cycle.
-   *
-   * Deduplication: concurrent callers share one in-flight promise.
-   * Race protection: bumps operationId so any concurrent signOut or
-   * invalidate will cause this refresh's result to be discarded.
-   */
+  // Refresh re-runs the full transport flow and invalidates older results.
   const refreshAuth = async (): Promise<void> => {
-    // Dedup: return the existing in-flight refresh if one is running
     if (state.refreshPromise) {
       return state.refreshPromise
     }
@@ -381,12 +336,10 @@ export function createSharedAuthEngine(
       throw new Error(message)
     }
 
-    // Capture transport before the IIFE — TS can't narrow across async closures
     const transport = state.transport
     state.refreshPromise = (async () => {
       pending.value = true
       rawAuthError.value = null
-      // Bump operationId: any older in-flight fetch becomes stale
       const operationId = ++state.operationId
 
       try {
@@ -452,32 +405,18 @@ export function createSharedAuthEngine(
     await state.transport.invalidate()
   }
 
-  /**
-   * Sign out: clear local state, then clean up transport and upstream session.
-   *
-   * Fail-closed design: local state is cleared BEFORE any async cleanup.
-   * If transport.invalidate() or client.signOut() throws, the user is already
-   * deauthenticated locally — we surface the error but never restore the session.
-   *
-   * Dual cleanup: transport.invalidate() clears the ConvexClient's auth;
-   * client.signOut() clears the Better Auth session cookie. Both run even
-   * if one fails — the first error is captured and re-thrown after both complete.
-   */
+  // Sign-out is fail-closed: clear local auth first, then clean up upstream state.
   const signOut = async (): Promise<void> => {
-    // Dedup: return existing in-flight sign-out
     if (state.signOutPromise) {
       return state.signOutPromise
     }
 
-    // Capture before IIFE — TS can't narrow across async closures
     const transport = state.transport
     const client = transport?.client ?? null
     state.signOutPromise = (async () => {
       pending.value = true
       rawAuthError.value = null
-      // Bump operationId FIRST so any in-flight refresh sees it's stale
       ++state.operationId
-      // Commit unauthenticated immediately (fail-closed)
       commitUnauthenticated(null, { clearWasAuthenticated: true })
 
       let firstError: unknown = null
@@ -491,7 +430,6 @@ export function createSharedAuthEngine(
       }
 
       try {
-        // Step 1: Clear ConvexClient's auth state
         if (transport) {
           try {
             await transport.invalidate()
@@ -500,7 +438,6 @@ export function createSharedAuthEngine(
           }
         }
 
-        // Step 2: Clear Better Auth session (runs even if step 1 failed)
         if (client) {
           try {
             await client.signOut()
@@ -523,10 +460,6 @@ export function createSharedAuthEngine(
     return state.signOutPromise
   }
 
-  /**
-   * Wait for auth to settle (pending becomes false), then return final state.
-   * On SSR, returns synchronously — there's no pending auth on the server.
-   */
   const awaitAuthReady = async (options?: { timeoutMs?: number }): Promise<boolean> => {
     if (!import.meta.client) {
       return isAuthenticated.value
@@ -558,14 +491,10 @@ export function createSharedAuthEngine(
     }
   }
 
-  const syncSnapshot = () => {
-    state.snapshot = buildSnapshot(token.value, user.value)
-  }
-
   if (options.transport) {
     configureTransport(options.transport)
   }
-  syncSnapshot()
+  state.snapshot = buildSnapshot(token.value, user.value)
 
   if (!state.hooksRegistered) {
     state.hooksRegistered = true
@@ -591,7 +520,6 @@ export function createSharedAuthEngine(
       return state.transport?.client ?? null
     },
     configureTransport,
-    syncSnapshot,
     refreshAuth,
     invalidateAuth,
     signOut,

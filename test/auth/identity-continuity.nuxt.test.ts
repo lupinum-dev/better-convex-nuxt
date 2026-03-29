@@ -18,7 +18,9 @@ describe('Auth Identity Continuity', () => {
       initialUser: TEST_USERS.alice.user,
     })
 
-    h.assertAuthenticated('user-alice')
+    expect(h.isAuthenticated.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.user.value?.id).toBe('user-alice')
     expect(h.authChangedSpy).not.toHaveBeenCalled()
   })
 
@@ -34,7 +36,9 @@ describe('Auth Identity Continuity', () => {
 
     await h.triggerRefresh()
 
-    h.assertAuthenticated('user-bob')
+    expect(h.isAuthenticated.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.user.value?.id).toBe('user-bob')
     expect(h.authChangedSpy).toHaveBeenCalledTimes(1)
     expect(h.authChangedSpy).toHaveBeenCalledWith({
       isAuthenticated: true,
@@ -56,7 +60,9 @@ describe('Auth Identity Continuity', () => {
 
     await h.triggerRefresh()
 
-    h.assertAuthenticated('user-alice')
+    expect(h.isAuthenticated.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.user.value?.id).toBe('user-alice')
     expect(exchange.callCount).toBe(1)
   })
 
@@ -83,8 +89,10 @@ describe('Auth Identity Continuity', () => {
 
     await h.triggerRefresh()
 
-    h.assertAuthenticated('user-alice')
-    h.assertNoAuthError()
+    expect(h.isAuthenticated.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.user.value?.id).toBe('user-alice')
+    expect(h.rawAuthError.value).toBeNull()
     expect(h.authChangedSpy).toHaveBeenCalledWith({
       isAuthenticated: true,
       previousIsAuthenticated: false,
@@ -101,8 +109,11 @@ describe('Auth Identity Continuity', () => {
 
     await h.triggerSignOut()
 
-    h.assertUnauthenticated()
-    h.assertNoAuthError()
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.pending.value).toBe(false)
+    expect(h.token.value).toBeNull()
+    expect(h.user.value).toBeNull()
+    expect(h.rawAuthError.value).toBeNull()
     expect(h.invalidateHandlerSpy).toHaveBeenCalledTimes(1)
     expect(h.signOutSpy).toHaveBeenCalledTimes(1)
     expect(h.authChangedSpy).toHaveBeenCalledWith({
@@ -122,8 +133,11 @@ describe('Auth Identity Continuity', () => {
 
     await expect(h.triggerSignOut()).rejects.toThrow('Upstream signOut failed')
 
-    h.assertUnauthenticated()
-    h.assertAuthError(/Upstream signOut failed/)
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.pending.value).toBe(false)
+    expect(h.token.value).toBeNull()
+    expect(h.user.value).toBeNull()
+    expect(h.rawAuthError.value).toMatch(/Upstream signOut failed/)
     expect(h.invalidateHandlerSpy).toHaveBeenCalledTimes(1)
     expect(h.signOutSpy).toHaveBeenCalledTimes(1)
   })

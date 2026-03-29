@@ -52,7 +52,9 @@ describe('Auth Token Lifecycle', () => {
 
     await h.triggerRefresh()
 
-    h.assertAuthenticated('user-bob')
+    expect(h.isAuthenticated.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.user.value?.id).toBe('user-bob')
     expect(exchange.callCount).toBe(1)
   })
 
@@ -65,8 +67,11 @@ describe('Auth Token Lifecycle', () => {
 
     await h.triggerInvalidate()
 
-    h.assertUnauthenticated()
-    h.assertNoAuthError()
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.pending.value).toBe(false)
+    expect(h.token.value).toBeNull()
+    expect(h.user.value).toBeNull()
+    expect(h.rawAuthError.value).toBeNull()
   })
 
   it('fails closed when refresh completes without a token', async () => {
@@ -80,8 +85,11 @@ describe('Auth Token Lifecycle', () => {
     })
 
     await expect(h.triggerRefresh()).rejects.toThrow(/without a token/)
-    h.assertUnauthenticated()
-    h.assertAuthError(/without a token/)
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.pending.value).toBe(false)
+    expect(h.token.value).toBeNull()
+    expect(h.user.value).toBeNull()
+    expect(h.rawAuthError.value).toMatch(/without a token/)
   })
 
   it('fails closed when refresh returns an invalid JWT that cannot be decoded', async () => {
@@ -91,8 +99,11 @@ describe('Auth Token Lifecycle', () => {
     h = await createAuthHarness({ tokenExchange: exchange })
 
     await expect(h.triggerRefresh()).rejects.toThrow(/invalid auth token/i)
-    h.assertUnauthenticated()
-    h.assertAuthError(/invalid auth token/i)
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.pending.value).toBe(false)
+    expect(h.token.value).toBeNull()
+    expect(h.user.value).toBeNull()
+    expect(h.rawAuthError.value).toMatch(/invalid auth token/i)
   })
 
   it('times out a hung refresh without leaving a stray warning after a later success', async () => {
@@ -117,7 +128,10 @@ describe('Auth Token Lifecycle', () => {
     await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS)
     await timedOutRefresh
 
-    h.assertUnauthenticated()
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.pending.value).toBe(false)
+    expect(h.token.value).toBeNull()
+    expect(h.user.value).toBeNull()
 
     warnSpy.mockClear()
 
@@ -125,7 +139,9 @@ describe('Auth Token Lifecycle', () => {
     await vi.advanceTimersByTimeAsync(200)
     await expect(successfulRefresh).resolves.toBeUndefined()
 
-    h.assertAuthenticated('user-bob')
+    expect(h.isAuthenticated.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.user.value?.id).toBe('user-bob')
 
     await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS + 100)
     expect(warnSpy).toHaveBeenCalledTimes(0)

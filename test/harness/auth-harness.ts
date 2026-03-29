@@ -2,33 +2,30 @@
  * Auth test harness — drives the real auth engine with controllable inputs.
  *
  * Creates a full Nuxt-runtime environment (`captureInNuxt`) with a real
- * `SharedAuthEngine`, real composables (`useConvexAuth`, `useConvexAuthController`),
+ * `SharedAuthEngine` and the real `useConvexAuth()` composable,
  * and a mock transport that delegates token fetching to a `MockTokenExchange`.
  *
- * The harness provides:
- * - Direct access to reactive refs (token, user, pending, rawAuthError)
- * - Trigger methods (`triggerRefresh`, `triggerInvalidate`, `triggerSignOut`)
- * - Assertion helpers (`assertAuthenticated`, `assertUnauthenticated`, etc.)
- * - Spy access for hooks and transport calls
+ * The harness provides reactive state, trigger helpers, and spies. Tests assert
+ * directly on those refs so the harness stays close to the real runtime surface.
  *
  * The mock transport's `install()` is a no-op — the harness drives the engine
  * directly via composable methods, so the initial `setAuth` flow that would
  * normally be triggered by `ConvexClient` is out of scope for these unit tests.
  */
 import type { Mock } from 'vitest'
-import { expect, vi } from 'vitest'
+import { vi } from 'vitest'
 import type { Ref } from 'vue'
 
 import { useNuxtApp, useState } from '#imports'
 
 import {
   createSharedAuthEngine,
+  getSharedAuthEngine,
   type SharedAuthEngine,
   type AuthTransport,
   type ClientAuthStateResult,
 } from '../../src/runtime/client/auth-engine'
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
-import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
 import { buildAuthTokenDecodeFailureMessage } from '../../src/runtime/utils/auth-errors'
 import { decodeUserFromJwt } from '../../src/runtime/utils/convex-shared'
 import {
@@ -68,12 +65,6 @@ export interface AuthHarness {
   triggerInvalidate(): Promise<void>
   triggerSignOut(): Promise<void>
   flush(): Promise<void>
-  assertAuthenticated(userId?: string): void
-  assertUnauthenticated(): void
-  assertPending(): void
-  assertNotPending(): void
-  assertAuthError(pattern?: RegExp): void
-  assertNoAuthError(): void
   dispose(): void
 }
 
@@ -175,20 +166,25 @@ export async function createAuthHarness(
       },
     }
 
-    const engine = createSharedAuthEngine({
-      nuxtApp,
-      token,
-      user,
-      pending,
-      rawAuthError,
-      wasAuthenticated,
-      transport,
-    })
+    let engine: SharedAuthEngine
+    try {
+      engine = getSharedAuthEngine(nuxtApp)
+      engine.configureTransport(transport)
+    } catch {
+      engine = createSharedAuthEngine({
+        nuxtApp,
+        token,
+        user,
+        pending,
+        rawAuthError,
+        wasAuthenticated,
+        transport,
+      })
+    }
     engine.initialize()
 
     return {
       auth: useConvexAuth(),
-      controller: useConvexAuthController(),
       engine,
       token,
       user,
@@ -238,37 +234,6 @@ export async function createAuthHarness(
       await flush()
     },
     flush,
-    assertAuthenticated(userId) {
-      expect(harness.isAuthenticated.value).toBe(true)
-      expect(harness.pending.value).toBe(false)
-      expect(harness.token.value).not.toBeNull()
-      expect(harness.user.value).not.toBeNull()
-      if (userId) {
-        expect(harness.user.value?.id).toBe(userId)
-      }
-    },
-    assertUnauthenticated() {
-      expect(harness.isAuthenticated.value).toBe(false)
-      expect(harness.pending.value).toBe(false)
-      expect(harness.token.value).toBeNull()
-      expect(harness.user.value).toBeNull()
-    },
-    assertPending() {
-      expect(harness.pending.value).toBe(true)
-    },
-    assertNotPending() {
-      expect(harness.pending.value).toBe(false)
-    },
-    assertAuthError(pattern) {
-      const error = captured.result.auth.authError.value
-      expect(error).toBeInstanceOf(Error)
-      if (pattern) {
-        expect(error?.message).toMatch(pattern)
-      }
-    },
-    assertNoAuthError() {
-      expect(captured.result.auth.authError.value).toBeNull()
-    },
     dispose() {
       captured.wrapper.unmount()
     },
