@@ -1,36 +1,53 @@
+import type { GenericId, ObjectType, PropertyValidators } from 'convex/values'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { createTenantHelpers } from '../../src/runtime/tenant/create-tenant-helpers'
 import { defineTenant } from '../../src/runtime/tenant/define-tenant'
 import { TenantError } from '../../src/runtime/tenant/errors'
+import type { CreateTenantHelpersOptions } from '../../src/runtime/tenant/types'
 
 // ============================================================================
 // Test Fixtures
 // ============================================================================
 
 const TEST_USER = {
-  _id: 'user_1' as any,
+  _id: 'user_1' as GenericId<'users'>,
   userId: 'auth_1',
-  orgId: 'org_abc' as any,
+  orgId: 'org_abc' as GenericId<'organizations'>,
   role: 'member',
+}
+
+interface RegisteredMock<TArgs extends Record<string, unknown>> {
+  _handler: (ctx: unknown, args: TArgs) => Promise<unknown> | unknown
+  _args: PropertyValidators
+}
+
+type MockBuilderDef<TArgs extends PropertyValidators> = {
+  args: TArgs
+  handler: (ctx: unknown, args: ObjectType<TArgs>) => Promise<unknown> | unknown
 }
 
 function createMockBuilders() {
   // These mock Convex's query() and mutation() builders.
   // They capture the handler and call it with a mock ctx.
-  const queryBuilder = vi.fn((def: any) => {
+  const queryBuilder = vi.fn(<TArgs extends PropertyValidators>(
+    def: MockBuilderDef<TArgs>,
+  ): RegisteredMock<ObjectType<TArgs>> => {
     // Return the handler wrapped so tests can call it
     return { _handler: def.handler, _args: def.args }
   })
 
-  const mutationBuilder = vi.fn((def: any) => {
+  const mutationBuilder = vi.fn(<TArgs extends PropertyValidators>(
+    def: MockBuilderDef<TArgs>,
+  ): RegisteredMock<ObjectType<TArgs>> => {
     return { _handler: def.handler, _args: def.args }
   })
 
   return { queryBuilder, mutationBuilder }
 }
 
-function createMockCtx(overrides: Record<string, any> = {}) {
+function createMockCtx(overrides: Record<string, unknown> = {}) {
   const mockQuery = {
     withIndex: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
@@ -66,8 +83,8 @@ describe('createTenantHelpers', () => {
     })
 
     const helpers = createTenantHelpers(config, {
-      query: queryBuilder,
-      mutation: mutationBuilder,
+      query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+      mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
     })
 
     expect(helpers.scopedQuery).toBeTypeOf('function')
@@ -82,8 +99,8 @@ describe('createTenantHelpers', () => {
         resolveUser: async () => TEST_USER,
       })
       const { scopedQuery } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
       })
 
       scopedQuery({ args: {}, handler: async () => [] })
@@ -98,11 +115,14 @@ describe('createTenantHelpers', () => {
         resolveUser: async () => null,
       })
       const { scopedQuery } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
       })
 
-      const registered = scopedQuery({ args: {}, handler: async () => ['should not reach'] })
+      const registered = scopedQuery({
+        args: {},
+        handler: async () => ['should not reach'],
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
       const result = await registered._handler(ctx, {})
 
@@ -117,16 +137,19 @@ describe('createTenantHelpers', () => {
       })
       const handler = vi.fn().mockResolvedValue([])
       const { scopedQuery } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
       })
 
-      const registered = scopedQuery({ args: {}, handler })
+      const registered = scopedQuery({
+        args: {},
+        handler,
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
       await registered._handler(ctx, {})
 
       expect(handler).toHaveBeenCalledTimes(1)
-      const [db, args, tenant] = handler.mock.calls[0]!
+      const [db, _args, tenant] = handler.mock.calls[0]!
 
       // db should have query and get methods
       expect(db.query).toBeTypeOf('function')
@@ -150,11 +173,14 @@ describe('createTenantHelpers', () => {
         resolveUser: async () => null,
       })
       const { scopedMutation } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
       })
 
-      const registered = scopedMutation({ args: {}, handler: async () => {} })
+      const registered = scopedMutation({
+        args: {},
+        handler: async () => {},
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
 
       await expect(registered._handler(ctx, {})).rejects.toThrow(TenantError)
@@ -169,8 +195,8 @@ describe('createTenantHelpers', () => {
         resolveUser: async () => TEST_USER,
       })
       const { scopedMutation } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
         checkPermission,
       })
 
@@ -178,7 +204,7 @@ describe('createTenantHelpers', () => {
         args: {},
         permission: 'post.create',
         handler: async () => {},
-      })
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
 
       await expect(registered._handler(ctx, {})).rejects.toThrow('Permission denied')
@@ -198,8 +224,8 @@ describe('createTenantHelpers', () => {
       })
       const handler = vi.fn().mockResolvedValue('ok')
       const { scopedMutation } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
         checkPermission,
       })
 
@@ -207,7 +233,7 @@ describe('createTenantHelpers', () => {
         args: {},
         permission: 'post.create',
         handler,
-      })
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
       const result = await registered._handler(ctx, {})
 
@@ -227,8 +253,8 @@ describe('createTenantHelpers', () => {
       const handler = vi.fn().mockResolvedValue('ok')
 
       const { scopedMutation } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
         checkPermission,
       })
 
@@ -237,7 +263,7 @@ describe('createTenantHelpers', () => {
         permission: 'post.update',
         resource,
         handler,
-      })
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
       await registered._handler(ctx, { id: 'post1' })
 
@@ -259,15 +285,15 @@ describe('createTenantHelpers', () => {
         resolveUser: async () => TEST_USER,
       })
       const { scopedMutation } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
       })
 
       const registered = scopedMutation({
         args: {},
         resource: async () => null,
         handler: async () => {},
-      })
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
 
       await expect(registered._handler(ctx, {})).rejects.toThrow('Document not found')
@@ -283,11 +309,14 @@ describe('createTenantHelpers', () => {
       })
       const handler = vi.fn().mockResolvedValue('ok')
       const { scopedQuery } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
       })
 
-      const registered = scopedQuery({ args: {}, handler })
+      const registered = scopedQuery({
+        args: {},
+        handler,
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
       await registered._handler(ctx, {})
 
@@ -303,11 +332,14 @@ describe('createTenantHelpers', () => {
       })
       const handler = vi.fn().mockResolvedValue('ok')
       const { scopedQuery } = createTenantHelpers(config, {
-        query: queryBuilder,
-        mutation: mutationBuilder,
+        query: queryBuilder as unknown as CreateTenantHelpersOptions['query'],
+        mutation: mutationBuilder as unknown as CreateTenantHelpersOptions['mutation'],
       })
 
-      const registered = scopedQuery({ args: {}, handler })
+      const registered = scopedQuery({
+        args: {},
+        handler,
+      }) as RegisteredMock<Record<string, unknown>>
       const ctx = createMockCtx()
       await registered._handler(ctx, {})
 

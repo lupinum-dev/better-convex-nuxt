@@ -1,3 +1,5 @@
+import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+
 import type { TenantConfig, TenantUser } from './types'
 
 // ============================================================================
@@ -10,7 +12,9 @@ export interface DefineTenantInput<
 > {
   orgField?: TOrgField
   scopedTables: readonly TScopedTables[]
-  resolveUser: (ctx: any) => Promise<TenantUser | null>
+  resolveUser: (
+    ctx: GenericQueryCtx<GenericDataModel> | GenericMutationCtx<GenericDataModel>,
+  ) => Promise<TenantUser | null>
 }
 
 export function defineTenant<

@@ -1,8 +1,36 @@
-import type { GenericDatabaseReader, GenericDatabaseWriter } from 'convex/server'
+import type {
+  GenericDataModel,
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
+  GenericTableInfo,
+  Query,
+} from 'convex/server'
 import type { GenericId } from 'convex/values'
 
 import { TenantError } from './errors'
 import type { ScopedReader, ScopedWriter } from './types'
+
+type IndexRangeBuilder = {
+  eq: (field: string, value: string) => unknown
+}
+
+type UncheckedIndexedQuery = {
+  withIndex: (
+    indexName: string,
+    indexRange: (builder: IndexRangeBuilder) => unknown,
+  ) => Query<GenericTableInfo>
+}
+
+type UncheckedReader = {
+  query: (table: string) => UncheckedIndexedQuery
+}
+
+type UncheckedWriter = UncheckedReader & {
+  insert: (table: string, doc: Record<string, unknown>) => Promise<GenericId<string>>
+  patch: (id: GenericId<string>, fields: Record<string, unknown>) => Promise<void>
+  replace: (id: GenericId<string>, doc: Record<string, unknown>) => Promise<void>
+  delete: (id: GenericId<string>) => Promise<void>
+}
 
 // ============================================================================
 // Helpers
@@ -31,7 +59,7 @@ function assertOrgOwnership(
 }
 
 async function getAndValidate(
-  db: GenericDatabaseReader<any>,
+  db: GenericDatabaseReader<GenericDataModel>,
   id: GenericId<string>,
   orgField: string,
   orgId: string,
@@ -49,18 +77,20 @@ async function getAndValidate(
 // ============================================================================
 
 export function createScopedReader(
-  db: GenericDatabaseReader<any>,
+  db: GenericDatabaseReader<GenericDataModel>,
   orgId: string,
   orgField: string,
   scopedTables: readonly string[],
 ): ScopedReader {
+  const uncheckedDb = db as unknown as UncheckedReader
+
   return {
     query(table: string) {
       assertScoped(table, scopedTables)
       try {
-        return (db as any)
+        return uncheckedDb
           .query(table)
-          .withIndex('by_organization', (q: any) => q.eq(orgField, orgId))
+          .withIndex('by_organization', (q) => q.eq(orgField, orgId))
       }
       catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -95,12 +125,13 @@ export function createScopedReader(
 // ============================================================================
 
 export function createScopedWriter(
-  db: GenericDatabaseWriter<any>,
+  db: GenericDatabaseWriter<GenericDataModel>,
   orgId: string,
   orgField: string,
   scopedTables: readonly string[],
 ): ScopedWriter {
   const reader = createScopedReader(db, orgId, orgField, scopedTables)
+  const uncheckedDb = db as unknown as UncheckedWriter
 
   return {
     ...reader,
@@ -118,7 +149,7 @@ export function createScopedWriter(
 
       // Auto-inject orgField
       const scopedDoc = { ...doc, [orgField]: orgId }
-      return await (db as any).insert(table, scopedDoc)
+      return await uncheckedDb.insert(table, scopedDoc)
     },
 
     async patch(id: GenericId<string>, fields: Record<string, unknown>) {
@@ -133,7 +164,7 @@ export function createScopedWriter(
         )
       }
 
-      await (db as any).patch(id, fields)
+      await uncheckedDb.patch(id, fields)
     },
 
     async replace(id: GenericId<string>, doc: Record<string, unknown>) {
@@ -150,13 +181,13 @@ export function createScopedWriter(
 
       // Auto-inject orgField
       const scopedDoc = { ...doc, [orgField]: orgId }
-      await (db as any).replace(id, scopedDoc)
+      await uncheckedDb.replace(id, scopedDoc)
     },
 
     async delete(id: GenericId<string>) {
       // Pre-read to validate org ownership
       await getAndValidate(db, id, orgField, orgId)
-      await (db as any).delete(id)
+      await uncheckedDb.delete(id)
     },
   }
 }

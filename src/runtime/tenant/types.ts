@@ -1,8 +1,10 @@
 import type {
+  GenericDataModel,
   GenericDatabaseReader,
   GenericDatabaseWriter,
   GenericQueryCtx,
   GenericMutationCtx,
+  GenericTableInfo,
   Query,
 } from 'convex/server'
 import type { PropertyValidators, ObjectType, GenericId } from 'convex/values'
@@ -31,7 +33,9 @@ export interface TenantConfig<
 > {
   readonly orgField: TOrgField
   readonly scopedTables: readonly TScopedTables[]
-  readonly resolveUser: (ctx: GenericQueryCtx<any> | GenericMutationCtx<any>) => Promise<TenantUser | null>
+  readonly resolveUser: (
+    ctx: GenericQueryCtx<GenericDataModel> | GenericMutationCtx<GenericDataModel>,
+  ) => Promise<TenantUser | null>
 }
 
 // ============================================================================
@@ -41,10 +45,10 @@ export interface TenantConfig<
 export interface TenantContext<
   TPermission extends string = string,
   TResource = unknown,
-  TRawCtx extends GenericQueryCtx<any> | GenericMutationCtx<any> =
-    GenericQueryCtx<any> | GenericMutationCtx<any>,
-  TRawDb extends GenericDatabaseReader<any> | GenericDatabaseWriter<any> =
-    GenericDatabaseReader<any> | GenericDatabaseWriter<any>,
+  TRawCtx extends GenericQueryCtx<GenericDataModel> | GenericMutationCtx<GenericDataModel> =
+    GenericQueryCtx<GenericDataModel> | GenericMutationCtx<GenericDataModel>,
+  TRawDb extends GenericDatabaseReader<GenericDataModel> | GenericDatabaseWriter<GenericDataModel> =
+    GenericDatabaseReader<GenericDataModel> | GenericDatabaseWriter<GenericDataModel>,
 > {
   user: TenantUser
   orgId: GenericId<string>
@@ -62,8 +66,8 @@ export interface TenantContext<
 // ============================================================================
 
 export interface ScopedReader<TScopedTables extends string = string> {
-  query: (table: TScopedTables) => Query<any>
-  get: <T extends string>(id: GenericId<T>) => Promise<any | null>
+  query: (table: TScopedTables) => Query<GenericTableInfo>
+  get: <T extends string>(id: GenericId<T>) => Promise<Record<string, unknown> | null>
 }
 
 export interface ScopedWriter<TScopedTables extends string = string> extends ScopedReader<TScopedTables> {
@@ -88,8 +92,8 @@ export type ScopedQueryHandler<
   tenant: TenantContext<
     TPermission,
     undefined,
-    GenericQueryCtx<any>,
-    GenericDatabaseReader<any>
+    GenericQueryCtx<GenericDataModel>,
+    GenericDatabaseReader<GenericDataModel>
   >,
 ) => TReturn | Promise<TReturn>
 
@@ -105,8 +109,8 @@ export type ScopedMutationHandler<
   tenant: TenantContext<
     TPermission,
     TResource,
-    GenericMutationCtx<any>,
-    GenericDatabaseWriter<any>
+    GenericMutationCtx<GenericDataModel>,
+    GenericDatabaseWriter<GenericDataModel>
   >,
 ) => TReturn | Promise<TReturn>
 
@@ -122,7 +126,7 @@ export interface ScopedQueryDef<
   args: TArgs
   handler: ScopedQueryHandler<
     ObjectType<TArgs>,
-    any,
+    unknown,
     TScopedTables,
     TPermission
   >
@@ -142,7 +146,7 @@ export interface ScopedMutationDef<
   ) => Promise<(Record<string, unknown> & Resource) | null>
   handler: ScopedMutationHandler<
     ObjectType<TArgs>,
-    any,
+    unknown,
     TScopedTables,
     TPermission,
     TResource
@@ -155,6 +159,18 @@ export interface ScopedMutationDef<
 
 export interface CreateTenantHelpersOptions<TPermission extends string = string> {
   checkPermission?: CheckPermissionFn<TPermission>
-  query: (...args: any[]) => any
-  mutation: (...args: any[]) => any
+  query: <TArgs extends PropertyValidators>(definition: {
+    args: TArgs
+    handler: (
+      ctx: GenericQueryCtx<GenericDataModel>,
+      args: ObjectType<TArgs>,
+    ) => Promise<unknown> | unknown
+  }) => unknown
+  mutation: <TArgs extends PropertyValidators>(definition: {
+    args: TArgs
+    handler: (
+      ctx: GenericMutationCtx<GenericDataModel>,
+      args: ObjectType<TArgs>,
+    ) => Promise<unknown> | unknown
+  }) => unknown
 }

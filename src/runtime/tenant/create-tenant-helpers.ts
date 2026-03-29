@@ -1,12 +1,13 @@
-import type { PropertyValidators } from 'convex/values'
+import type { ObjectType, PropertyValidators } from 'convex/values'
 import type {
+  GenericDataModel,
   GenericDatabaseReader,
   GenericDatabaseWriter,
   GenericMutationCtx,
   GenericQueryCtx,
 } from 'convex/server'
 
-import type { CheckPermissionFn, Resource } from '../composables/usePermissions'
+import type { Resource } from '../composables/usePermissions'
 
 import { TenantError } from './errors'
 import { createScopedReader, createScopedWriter } from './scoped-db'
@@ -41,10 +42,10 @@ export function createTenantHelpers<
 
   function buildTenantContext<
     TResource = undefined,
-    TRawCtx extends GenericQueryCtx<any> | GenericMutationCtx<any> =
-      GenericQueryCtx<any> | GenericMutationCtx<any>,
-    TRawDb extends GenericDatabaseReader<any> | GenericDatabaseWriter<any> =
-      GenericDatabaseReader<any> | GenericDatabaseWriter<any>,
+    TRawCtx extends GenericQueryCtx<GenericDataModel> | GenericMutationCtx<GenericDataModel> =
+      GenericQueryCtx<GenericDataModel> | GenericMutationCtx<GenericDataModel>,
+    TRawDb extends GenericDatabaseReader<GenericDataModel> | GenericDatabaseWriter<GenericDataModel> =
+      GenericDatabaseReader<GenericDataModel> | GenericDatabaseWriter<GenericDataModel>,
   >(
     user: TenantUser,
     ctx: TRawCtx,
@@ -80,7 +81,10 @@ export function createTenantHelpers<
   ) {
     return queryBuilder({
       args: def.args,
-      handler: async (ctx: GenericQueryCtx<any>, args: any) => {
+      handler: async (
+        ctx: GenericQueryCtx<GenericDataModel>,
+        args: ObjectType<TArgs>,
+      ) => {
         const user = await resolveUser(ctx)
         if (!user) return []
 
@@ -106,7 +110,10 @@ export function createTenantHelpers<
   ) {
     return mutationBuilder({
       args: def.args,
-      handler: async (ctx: GenericMutationCtx<any>, args: any) => {
+      handler: async (
+        ctx: GenericMutationCtx<GenericDataModel>,
+        args: ObjectType<TArgs>,
+      ) => {
         // 1. Resolve user — mutations require auth
         const user = await resolveUser(ctx)
         if (!user) {
