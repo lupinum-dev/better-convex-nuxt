@@ -83,6 +83,13 @@ describe('validateRedirectPath', () => {
       expect(validateRedirectPath('/\\\\evil.com')).toBeNull()
     })
 
+    it('rejects encoded slash and backslash redirect vectors', () => {
+      expect(validateRedirectPath('/%2Fevil.com')).toBeNull()
+      expect(validateRedirectPath('/%5Cevil.com')).toBeNull()
+      expect(validateRedirectPath('/%252Fevil.com')).toBeNull()
+      expect(validateRedirectPath('/%255Cevil.com')).toBeNull()
+    })
+
     it('rejects relative paths without leading slash', () => {
       expect(validateRedirectPath('dashboard')).toBeNull()
     })

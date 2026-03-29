@@ -52,7 +52,18 @@ function isMalformedAuthSubpath(path: string): boolean {
     return true
   }
 
+  const lowerDecodedPath = decodedPath.toLowerCase()
+
   if (decodedPath.includes('\\')) {
+    return true
+  }
+
+  // Reject traversal separators/dot segments that only appear after a second decode pass.
+  if (
+    lowerDecodedPath.includes('%2e')
+    || lowerDecodedPath.includes('%2f')
+    || lowerDecodedPath.includes('%5c')
+  ) {
     return true
   }
 

@@ -137,7 +137,7 @@ export interface DefineConvexToolOptions<
   destructive?: boolean
   /** Limit array field size for bulk operations. Field must exist in schema. */
   maxItems?: { field: keyof InferSchemaData<S> & string; limit: number }
-  /** In-memory rate limit per tool name. Requires explicit `name`. */
+  /** In-memory rate limit per tool name, isolated per authenticated caller when auth is enabled. Requires explicit `name`. */
   rateLimit?: { max: number; window: string }
   /** Preview function for destructive tools. Receives the same args as handler, plus the middleware context. */
   preview?: (

@@ -689,6 +689,31 @@ describe('defineConvexTool', () => {
       })
       expect(getContent(result)).toMatch(/Rate limit exceeded/)
     })
+
+    it('isolates rate limits per authenticated caller', async () => {
+      const schema = defineConvexSchema({ title: v.string() })
+      const tool = defineConvexTool({
+        schema,
+        name: 'rate-test-tool-per-user',
+        auth: 'required',
+        rateLimit: { max: 1, window: '1m' },
+        handler: () => ({ ok: true }),
+      })
+
+      mockAuth({ role: 'admin', userId: 'user-1' })
+      let result = await tool.handler!({ title: 'a' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({ ok: true })
+
+      result = await tool.handler!({ title: 'b' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({
+        ok: false,
+        error: { category: 'cooldown' },
+      })
+
+      mockAuth({ role: 'admin', userId: 'user-2' })
+      result = await tool.handler!({ title: 'c' }, mockExtra)
+      expect(getStructured(result)).toMatchObject({ ok: true })
+    })
   })
 
   // ── Middleware ───────────────────────────────────────────────────────────

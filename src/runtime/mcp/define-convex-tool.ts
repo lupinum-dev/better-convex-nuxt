@@ -443,7 +443,8 @@ function _buildToolDefinition<
 
       // ── Step 4: Rate limit (after auth so failed-auth requests don't consume tokens) ──
       if (rateLimitConfig) {
-        const check = globalRateLimiter.check(name!, rateLimitConfig)
+        const rateLimitBucket = resolvedAuth ? `${name!}:${resolvedAuth.userId}` : name!
+        const check = globalRateLimiter.check(rateLimitBucket, rateLimitConfig)
         if (!check.allowed) {
           return wrapError(
             'cooldown',

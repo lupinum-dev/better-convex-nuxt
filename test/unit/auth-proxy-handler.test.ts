@@ -254,10 +254,52 @@ describe('auth proxy handler hardening', () => {
     },
   )
 
+  it('rejects untrusted preflight origins with 403', async () => {
+    isOriginAllowedMock.mockReturnValue(false)
+
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent('/api/auth/get-session', {
+      method: 'OPTIONS',
+      origin: 'https://evil.example.com',
+    })
+
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 403,
+      data: {
+        code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED',
+        origin: 'https://evil.example.com',
+      },
+    })
+
+    expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects untrusted cross-origin non-preflight requests with 403', async () => {
+    isOriginAllowedMock.mockReturnValue(false)
+
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent('/api/auth/sign-in', {
+      method: 'POST',
+      origin: 'https://evil.example.com',
+    })
+
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 403,
+      data: {
+        code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED',
+        origin: 'https://evil.example.com',
+      },
+    })
+
+    expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
+  })
+
   it.each([
     '/api/auth/../convex/token',
     '/api/auth/%2e%2e/convex/token',
     '/api/auth/%2e%2e%5Cconvex/token',
+    '/api/auth/%252e%252e/convex/token',
+    '/api/auth/%255cconvex/token',
   ])(
     'rejects malformed traversal-like auth proxy paths for %s',
     async (pathname) => {
@@ -279,4 +321,77 @@ describe('auth proxy handler hardening', () => {
       expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
     },
   )
+
+  it('returns 413 before proxying oversized request bodies', async () => {
+    getRequestBodySizeErrorMock.mockReturnValue({
+      statusCode: 413,
+      code: 'BCN_AUTH_PROXY_REQUEST_BODY_TOO_LARGE',
+      message: 'too large',
+      contentLengthBytes: 2048,
+      maxBytes: 1024,
+    })
+
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent('/api/auth/sign-in', {
+      method: 'POST',
+      origin: 'https://app.example.com',
+    })
+
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 413,
+      data: {
+        code: 'BCN_AUTH_PROXY_REQUEST_BODY_TOO_LARGE',
+        contentLengthBytes: 2048,
+        maxBytes: 1024,
+      },
+    })
+
+    expect(readRequestBodyWithLimitMock).not.toHaveBeenCalled()
+    expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
+  })
+
+  it('returns 502 before forwarding oversized upstream response bodies', async () => {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue(
+      createResponseWithCookies(200, [], '{"ok":true}'),
+    )
+    getResponseBodySizeErrorMock.mockReturnValue({
+      statusCode: 502,
+      code: 'BCN_AUTH_PROXY_UPSTREAM_BODY_TOO_LARGE',
+      message: 'too large',
+      contentLengthBytes: 4096,
+      maxBytes: 1024,
+    })
+
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent('/api/auth/get-session', {
+      method: 'GET',
+      origin: 'https://app.example.com',
+    })
+
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 502,
+      data: {
+        code: 'BCN_AUTH_PROXY_UPSTREAM_BODY_TOO_LARGE',
+        contentLengthBytes: 4096,
+        maxBytes: 1024,
+      },
+    })
+
+    expect(readResponseBodyWithLimitMock).not.toHaveBeenCalled()
+  })
+
+  it('does not clear cached auth state for unrelated upstream cookies', async () => {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue(
+      createResponseWithCookies(200, ['theme=dark; Path=/']),
+    )
+
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent('/api/auth/sign-out', {
+      cookie: 'better-auth.session_token=session123',
+    })
+
+    await expect(handler(event)).resolves.toBe('{"ok":true}')
+
+    expect(serverConvexClearAuthCacheMock).not.toHaveBeenCalled()
+  })
 })

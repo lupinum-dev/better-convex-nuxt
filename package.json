@@ -110,7 +110,6 @@
   "dependencies": {
     "@clack/prompts": "^1.1.0",
     "@convex-dev/better-auth": "^0.11.3",
-    "@nuxt/devtools-kit": "^3.2.2",
     "@nuxt/kit": "^4.3.1",
     "better-auth": ">=1.5.0 <1.6.0",
     "citty": "^0.1.6",

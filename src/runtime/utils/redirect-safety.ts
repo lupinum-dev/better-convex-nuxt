@@ -20,6 +20,20 @@ export function validateRedirectPath(raw: string | null | undefined): string | n
   // Reject backslashes — browsers normalize \ to /, so /\evil.com becomes //evil.com
   if (trimmed.includes('\\')) return null
 
+  const decodedOnce = safeDecodeOnce(trimmed)
+  if (decodedOnce === null) return null
+
+  // Reject encoded slash/backslash variants after one decode pass, including
+  // double-encoded inputs that still contain %2f/%5c after decode.
+  if (
+    decodedOnce.startsWith('//')
+    || decodedOnce.includes('//')
+    || decodedOnce.includes('\\')
+    || hasEncodedSlashOrBackslash(decodedOnce)
+  ) {
+    return null
+  }
+
   // Reject non-http protocols (javascript:, data:, etc.)
   try {
     const url = new URL(trimmed, 'http://localhost')
@@ -30,6 +44,19 @@ export function validateRedirectPath(raw: string | null | undefined): string | n
   }
 
   return trimmed
+}
+
+function safeDecodeOnce(value: string): string | null {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return null
+  }
+}
+
+function hasEncodedSlashOrBackslash(value: string): boolean {
+  const lower = value.toLowerCase()
+  return lower.includes('%2f') || lower.includes('%5c')
 }
 
 function stripQuery(path: string): string {
