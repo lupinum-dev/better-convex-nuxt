@@ -5,6 +5,7 @@ import type {
   McpToolDefinition,
   McpToolExtra,
 } from '@nuxtjs/mcp-toolkit/server'
+import type { ShapeOutput } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 import { convexToZodFields } from 'convex-helpers/server/zod4'
 import type { ZodValidatorFromConvex } from 'convex-helpers/server/zod4'
 import type { PropertyValidators } from 'convex/values'
@@ -48,6 +49,20 @@ interface DefineConvexToolFullOptions<
 
 type ConvexMcpInputSchema<V extends PropertyValidators> = {
   [K in keyof V]: ZodValidatorFromConvex<V[K]>
+}
+
+type ConvexToolInputSchema<S extends AnyConvexSchema> =
+  ConvexMcpInputSchema<InferSchemaValidators<S>> & { _confirmed?: ZodTypeAny }
+
+type ConvexToolHandlerArgs<S extends AnyConvexSchema> =
+  ShapeOutput<ConvexToolInputSchema<S>>
+
+type ConvexToolGeneratedExamples<V extends PropertyValidators> =
+  Partial<ShapeOutput<ConvexMcpInputSchema<V>>>[]
+
+interface NormalizedToolArgs<S extends AnyConvexSchema> {
+  clean: InferSchemaData<S>
+  confirmed: boolean
 }
 
 // ============================================================================
@@ -195,20 +210,49 @@ function applyEnhancedFieldDescriptions<V extends PropertyValidators>(
 
 function buildInputExamples<V extends PropertyValidators>(
   fields: { [K in keyof V]: ConvexSchemaFieldMeta } | undefined,
-): Record<string, unknown>[] | undefined {
+): ConvexToolGeneratedExamples<V> | undefined {
   if (!fields) return undefined
 
-  const example: Record<string, unknown> = {}
+  const example: Partial<ShapeOutput<ConvexMcpInputSchema<V>>> = {}
   let hasAny = false
 
   for (const [key, meta] of Object.entries(fields) as [string, ConvexSchemaFieldMeta][]) {
     if (meta.examples?.length) {
-      example[key] = meta.examples[0]
+      example[key as keyof typeof example] = meta.examples[0] as typeof example[keyof typeof example]
       hasAny = true
     }
   }
 
   return hasAny ? [example] : undefined
+}
+
+function toToolInputExamples<S extends AnyConvexSchema>(
+  examples:
+    | Partial<InferSchemaData<S>>[]
+    | Partial<Record<string, unknown>>[]
+    | undefined,
+): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['inputExamples'] {
+  return examples as McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['inputExamples']
+}
+
+function toToolHandler<S extends AnyConvexSchema>(
+  handler: (
+    args: ConvexToolHandlerArgs<S>,
+    extra: McpToolExtra,
+  ) => Promise<McpToolCallbackResult>,
+): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['handler'] {
+  return handler as McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['handler']
+}
+
+function normalizeToolArgs<S extends AnyConvexSchema>(
+  args: ConvexToolHandlerArgs<S>,
+): NormalizedToolArgs<S> {
+  const { _confirmed, ...cleanArgs } = args
+
+  return {
+    clean: cleanArgs as InferSchemaData<S>,
+    confirmed: _confirmed === true,
+  }
 }
 
 // ============================================================================
@@ -243,7 +287,9 @@ function _buildToolDefinition<
   P extends string = string,
 >(
   options: DefineConvexToolFullOptions<S, P>,
-): McpToolDefinition<ConvexMcpInputSchema<InferSchemaValidators<S>> & { _confirmed?: ZodTypeAny }, ZodRawShape> {
+): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape> {
+  type BuiltToolDefinition = McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>
+
   const {
     schema,
     handler,
@@ -309,7 +355,7 @@ function _buildToolDefinition<
   let inputSchema = applyEnhancedFieldDescriptions(
     convexToMcpZodFields(schema.args),
     schema.meta?.fields,
-  ) as ConvexMcpInputSchema<InferSchemaValidators<S>> & { _confirmed?: ZodTypeAny }
+  ) as ConvexToolInputSchema<S>
 
   if (destructive) {
     inputSchema = {
@@ -331,7 +377,9 @@ function _buildToolDefinition<
 
   // ── Auto-generate input examples ───────────────────────────────────────
 
-  const inputExamples = explicitInputExamples ?? buildInputExamples(schema.meta?.fields)
+  const inputExamples = toToolInputExamples<S>(
+    explicitInputExamples ?? buildInputExamples(schema.meta?.fields),
+  )
 
   // ── Rate limit config ──────────────────────────────────────────────────
 
@@ -347,8 +395,8 @@ function _buildToolDefinition<
 
   // ── The wrapped handler with safety pipeline ───────────────────────────
 
-  const wrappedHandler = async (
-    args: InferSchemaData<S> & { _confirmed?: boolean },
+  const wrappedHandler = toToolHandler<S>(async (
+    args: ConvexToolHandlerArgs<S>,
     extra: McpToolExtra,
   ): Promise<McpToolCallbackResult> => {
     try {
@@ -391,6 +439,8 @@ function _buildToolDefinition<
         }
       }
 
+      const normalizedArgs = normalizeToolArgs(args)
+
       // ── Step 4: Rate limit (after auth so failed-auth requests don't consume tokens) ──
       if (rateLimitConfig) {
         const check = globalRateLimiter.check(name!, rateLimitConfig)
@@ -404,7 +454,7 @@ function _buildToolDefinition<
 
       // ── Step 5: Max items ─────────────────────────────────────────────
       if (maxItems) {
-        const arr = (args as Record<string, unknown>)[maxItems.field]
+        const arr = normalizedArgs.clean[maxItems.field]
         if (Array.isArray(arr) && arr.length > maxItems.limit) {
           return wrapError(
             'scope_exceeded',
@@ -416,9 +466,9 @@ function _buildToolDefinition<
       // ── Step 6: Middleware ────────────────────────────────────────────
       if (middleware) {
         const result = await middleware(
-          args as InferSchemaData<S>,
+          normalizedArgs.clean,
           ctx,
-          async () => runHandlerWithConfirmation(args, extra, ctx),
+          async () => runHandlerWithConfirmation(normalizedArgs, extra, ctx),
         )
         if (!isValidCallToolResult(result)) {
           return wrapError('server', `[${toolLabel}] Middleware must return a result. Did you forget to \`return next()\`?`)
@@ -427,7 +477,7 @@ function _buildToolDefinition<
       }
 
       // ── Steps 7-9: Preview, confirmation, handler ─────────────────────
-      return await runHandlerWithConfirmation(args, extra, ctx)
+      return await runHandlerWithConfirmation(normalizedArgs, extra, ctx)
     }
     catch (err) {
       console.error(`[${toolLabel}]`, err)
@@ -438,23 +488,21 @@ function _buildToolDefinition<
         : inferCategoryFromMessage(message) ?? 'unknown'
       return wrapError(category, message, convexError.issues)
     }
-  }
+  })
 
   async function runHandlerWithConfirmation(
-    args: InferSchemaData<S> & { _confirmed?: boolean },
+    args: NormalizedToolArgs<S>,
     extra: McpToolExtra,
     ctx: ConvexToolMiddlewareCtx<P>,
   ): Promise<McpToolCallbackResult> {
-    const confirmed = args._confirmed === true
-
     // Step 7: Preview routing
-    if (destructive && preview && !confirmed) {
-      const raw = await preview(args as InferSchemaData<S>, ctx)
+    if (destructive && preview && !args.confirmed) {
+      const raw = await preview(args.clean, ctx)
       return wrapPreview(normalizePreview(raw))
     }
 
     // Step 8: Confirmation gate
-    if (destructive && !confirmed) {
+    if (destructive && !args.confirmed) {
       return wrapError(
         'confirmation_required',
         'This action is destructive. Call again with _confirmed: true to proceed.',
@@ -462,24 +510,25 @@ function _buildToolDefinition<
     }
 
     // Step 9: Handler — strip _confirmed before passing to user handler
-    const { _confirmed: _, ...cleanArgs } = args as InferSchemaData<S> & { _confirmed?: boolean }
-    const result = await handler(cleanArgs as InferSchemaData<S>, extra)
+    const result = await handler(args.clean, extra)
     return wrapSuccess(result)
   }
 
-  return {
+  const definition: BuiltToolDefinition = {
     name,
     description: finalDescription,
     inputSchema,
     outputSchema: wrappedOutputSchema,
     annotations,
-    inputExamples: inputExamples as any,
+    inputExamples,
     group,
     tags,
     enabled,
     cache,
-    handler: wrappedHandler as any,
+    handler: wrappedHandler,
   }
+
+  return definition
 }
 
 // ============================================================================

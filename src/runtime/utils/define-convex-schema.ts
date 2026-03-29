@@ -10,7 +10,12 @@ import { v } from 'convex/values'
 import type { PropertyValidators, ObjectType } from 'convex/values'
 
 import { validateConvex } from './convex-schema'
-import type { StandardSchemaV1 } from './standard-schema'
+import type {
+  StandardSchemaV1,
+  StandardSchemaV1Props,
+  StandardSchemaV1Result,
+  StandardSchemaV1SuccessResult,
+} from './standard-schema'
 
 // ============================================================================
 // Types
@@ -98,7 +103,7 @@ export function defineConvexSchema<V extends PropertyValidators>(
   const objectValidator = v.object(validators)
 
   // Multi-error Standard Schema using our walker
-  const standardProps: StandardSchemaV1.Props<T> = {
+  const standardProps: StandardSchemaV1Props<T> = {
     version: 1,
     vendor: 'better-convex-nuxt',
     validate: (value: unknown) => {
@@ -114,14 +119,14 @@ export function defineConvexSchema<V extends PropertyValidators>(
 
   // H3-compatible validate: returns typed data or throws with statusCode 422
   const validate = (data: unknown): T => {
-    const result = standardProps.validate(data) as StandardSchemaV1.Result<T>
+    const result = standardProps.validate(data) as StandardSchemaV1Result<T>
     if ('issues' in result && result.issues && result.issues.length > 0) {
       const err = new Error('Validation Error') as Error & { statusCode: number; data: unknown }
       err.statusCode = 422
       err.data = { issues: result.issues }
       throw err
     }
-    return (result as StandardSchemaV1.SuccessResult<T>).value
+    return (result as StandardSchemaV1SuccessResult<T>).value
   }
 
   return {

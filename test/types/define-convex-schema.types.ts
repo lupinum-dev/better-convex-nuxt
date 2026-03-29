@@ -7,6 +7,7 @@ const createPostArgs = {
   title: v.string(),
   content: v.string(),
 }
+void createPostArgs
 
 const validMeta = {
   description: 'Create a post',

@@ -8,7 +8,12 @@
 
 import type { GenericValidator } from 'convex/values'
 
-import type { StandardSchemaV1 } from './standard-schema'
+import type {
+  StandardSchemaV1,
+  StandardSchemaV1PathSegment,
+  StandardSchemaV1Result,
+  StandardSchemaV1SuccessResult,
+} from './standard-schema'
 import type { ConvexErrorIssue } from './types'
 import { toConvexSchema } from './convex-schema'
 
@@ -24,11 +29,13 @@ export type ValidateOption = GenericValidator | StandardSchemaV1
 // ============================================================================
 
 export function isConvexValidator(value: unknown): value is GenericValidator {
-  return !!value && typeof value === 'object' && (value as any).isConvexValidator === true
+  return !!value
+    && typeof value === 'object'
+    && (value as { isConvexValidator?: unknown }).isConvexValidator === true
 }
 
 export function isStandardSchema(value: unknown): value is StandardSchemaV1 {
-  return !!value && typeof value === 'object' && '~standard' in (value as any)
+  return !!value && typeof value === 'object' && '~standard' in value
 }
 
 // ============================================================================
@@ -49,7 +56,7 @@ export function resolveSchema(input: ValidateOption): StandardSchemaV1 {
 // ============================================================================
 
 /** Convert a Standard Schema path array to a dot-notation string for ConvexErrorIssue. */
-function pathToString(path: ReadonlyArray<PropertyKey | StandardSchemaV1.PathSegment>): string {
+function pathToString(path: ReadonlyArray<PropertyKey | StandardSchemaV1PathSegment>): string {
   return path
     .map(segment =>
       typeof segment === 'object' && segment !== null && 'key' in segment
@@ -71,7 +78,7 @@ export async function runValidation(
   schema: StandardSchemaV1,
   args: unknown,
 ): Promise<ValidationResult> {
-  let result: StandardSchemaV1.Result<unknown>
+  let result: StandardSchemaV1Result<unknown>
   try {
     result = await schema['~standard'].validate(args)
   } catch (e) {
@@ -90,5 +97,5 @@ export async function runValidation(
     }
   }
 
-  return { valid: true, value: (result as StandardSchemaV1.SuccessResult<unknown>).value }
+  return { valid: true, value: (result as StandardSchemaV1SuccessResult<unknown>).value }
 }

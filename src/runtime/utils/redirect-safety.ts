@@ -24,7 +24,7 @@ export function validateRedirectPath(raw: string | null | undefined): string | n
   try {
     const url = new URL(trimmed, 'http://localhost')
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
-  } catch (_parseError) {
+  } catch {
     // Unparseable URL — reject as unsafe redirect
     return null
   }

@@ -1,4 +1,4 @@
-import type { ConvexClientAuthMode, ConvexServerAuthMode } from './types'
+import type { ConvexClientAuthMode } from './types'
 import {
   BETTER_AUTH_SECURE_SESSION_COOKIE_NAME,
   BETTER_AUTH_SESSION_COOKIE_NAME,

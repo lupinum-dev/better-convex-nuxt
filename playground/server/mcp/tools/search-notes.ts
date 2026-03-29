@@ -7,8 +7,7 @@
  * - explicit inputExamples (instead of auto-generated from schema)
  * - withSummary for human-readable responses
  */
-import { defineConvexTool } from 'better-convex-nuxt/mcp'
-import { withSummary } from 'better-convex-nuxt/mcp'
+import { defineConvexTool, withSummary } from 'better-convex-nuxt/mcp'
 import { defineConvexSchema } from 'better-convex-nuxt/schema'
 import { serverConvexQuery } from 'better-convex-nuxt/server'
 

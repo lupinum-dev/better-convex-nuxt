@@ -16,13 +16,13 @@ import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from 
 // Schema helpers (re-exported for convenience)
 // ============================================================================
 
-export type AnyConvexSchema = ConvexSchemaDefinition<any, PropertyValidators>
+export type AnyConvexSchema = ConvexSchemaDefinition<unknown, PropertyValidators>
 
 export type InferSchemaData<S extends AnyConvexSchema> =
   S extends ConvexSchemaDefinition<infer T, infer _V> ? T : never
 
 export type InferSchemaValidators<S extends AnyConvexSchema> =
-  S extends ConvexSchemaDefinition<any, infer V> ? V : never
+  S extends ConvexSchemaDefinition<unknown, infer V> ? V : never
 
 // ============================================================================
 // Structured response envelope

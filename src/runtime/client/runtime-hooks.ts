@@ -2,16 +2,17 @@ import type { ConvexClient } from 'convex/browser'
 import { getCurrentScope, onScopeDispose, ref, watch, type Ref } from 'vue'
 
 import type {
-  ConnectionState,
   ConvexAuthChangedPayload,
   ConvexConnectionChangedPayload,
   ConvexConnectionPhase,
   ConvexUser,
+  ConnectionState,
 } from '../utils/types'
 import type { Logger } from '../utils/logger'
 
 type RuntimeHookApp = object & {
-  callHook: (...args: any[]) => Promise<unknown>
+  callHook(event: 'convex:connection:changed', payload: ConvexConnectionChangedPayload): Promise<unknown>
+  callHook(event: 'convex:auth:changed', payload: ConvexAuthChangedPayload): Promise<unknown>
 }
 
 const DEFAULT_CONNECTION_STATE: ConnectionState = {

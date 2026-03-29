@@ -13,13 +13,13 @@ import type { ConvexSchemaDefinition, ConvexSchemaFieldMeta } from '../utils/def
 
 import { cleanErrorMessage, inferCategoryFromMessage } from './error-helpers'
 
-type AnyConvexSchema = ConvexSchemaDefinition<any, PropertyValidators>
+type AnyConvexSchema = ConvexSchemaDefinition<unknown, PropertyValidators>
 
 type InferSchemaData<S extends AnyConvexSchema> =
   S extends ConvexSchemaDefinition<infer T, infer _V> ? T : never
 
 type InferSchemaValidators<S extends AnyConvexSchema> =
-  S extends ConvexSchemaDefinition<any, infer V> ? V : never
+  S extends ConvexSchemaDefinition<unknown, infer V> ? V : never
 
 export type ConvexMcpInputSchema<V extends PropertyValidators> = {
   [K in keyof V]: ZodValidatorFromConvex<V[K]>

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { NuxtApp } from '#app'
 
 import { createConvexCallState } from '../../src/runtime/composables/useConvexMutation'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
@@ -40,12 +41,12 @@ function noopLogger() {
 
 describe('global hooks (unit)', () => {
   let callHookMock: ReturnType<typeof vi.fn>
-  let nuxtApp: { callHook: ReturnType<typeof vi.fn> }
+  let nuxtApp: NuxtApp
 
   beforeEach(() => {
     vi.clearAllMocks()
     callHookMock = vi.fn(async () => {})
-    nuxtApp = { callHook: callHookMock }
+    nuxtApp = { callHook: callHookMock } as unknown as NuxtApp
   })
 
   // -----------------------------------------------------------------------
@@ -57,7 +58,7 @@ describe('global hooks (unit)', () => {
         fnName: 'posts:create',
         callType: 'mutation',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async (args) => ({ id: '1', ...args }),
       })
@@ -75,7 +76,7 @@ describe('global hooks (unit)', () => {
       )
       // Duration is a number >= 0
       const payload = callHookMock.mock.calls.find(
-        (c: unknown[]) => c[0] === 'convex:mutation:success',
+        ([name]) => name === 'convex:mutation:success',
       )?.[1]
       expect(payload.duration).toBeGreaterThanOrEqual(0)
     })
@@ -87,7 +88,7 @@ describe('global hooks (unit)', () => {
         fnName: 'posts:create',
         callType: 'mutation',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async () => 'ok',
         onSuccess: () => callOrder.push('onSuccess'),
@@ -111,7 +112,7 @@ describe('global hooks (unit)', () => {
         fnName: 'posts:create',
         callType: 'mutation',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async () => {
           throw new Error('mutation failed')
@@ -129,7 +130,7 @@ describe('global hooks (unit)', () => {
         }),
       )
       const payload = callHookMock.mock.calls.find(
-        (c: unknown[]) => c[0] === 'convex:mutation:error',
+        ([name]) => name === 'convex:mutation:error',
       )?.[1]
       expect(payload.error).toBeInstanceOf(ConvexCallError)
       expect(payload.duration).toBeGreaterThanOrEqual(0)
@@ -142,7 +143,7 @@ describe('global hooks (unit)', () => {
         fnName: 'posts:create',
         callType: 'mutation',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async () => {
           throw new Error('fail')
@@ -168,7 +169,7 @@ describe('global hooks (unit)', () => {
         fnName: 'emails:send',
         callType: 'action',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async () => ({ sent: true }),
       })
@@ -196,7 +197,7 @@ describe('global hooks (unit)', () => {
         fnName: 'emails:send',
         callType: 'action',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async () => {
           throw new Error('action failed')
@@ -213,7 +214,7 @@ describe('global hooks (unit)', () => {
         }),
       )
       const payload = callHookMock.mock.calls.find(
-        (c: unknown[]) => c[0] === 'convex:action:error',
+        ([name]) => name === 'convex:action:error',
       )?.[1]
       expect(payload.error).toBeInstanceOf(ConvexCallError)
     })
@@ -228,7 +229,7 @@ describe('global hooks (unit)', () => {
         fnName: 'notes:list',
         callType: 'mutation',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async () => {
           const err = new Error('Unauthorized') as Error & { data?: unknown }
@@ -240,7 +241,7 @@ describe('global hooks (unit)', () => {
       await expect(callable({} as never)).rejects.toThrow()
 
       const payload = callHookMock.mock.calls.find(
-        (c: unknown[]) => c[0] === 'convex:mutation:error',
+        ([name]) => name === 'convex:mutation:error',
       )?.[1]
       expect(payload.error.category).toBe('auth')
       expect(payload.error.isRecoverable).toBe(true)
@@ -260,7 +261,7 @@ describe('global hooks (unit)', () => {
         fnName: 'posts:create',
         callType: 'mutation',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async () => ({ id: '1' }),
       })
@@ -279,7 +280,7 @@ describe('global hooks (unit)', () => {
         fnName: 'posts:create',
         callType: 'mutation',
         logger: noopLogger(),
-        nuxtApp: nuxtApp as any,
+        nuxtApp,
         hasOptimisticUpdate: false,
         callFn: async () => {
           throw new Error('original error')

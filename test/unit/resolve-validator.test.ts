@@ -65,7 +65,7 @@ describe('resolveSchema', () => {
   })
 
   it('throws for unknown input', () => {
-    expect(() => resolveSchema({ foo: 'bar' } as any)).toThrow(/Expected a Convex validator/)
+    expect(() => resolveSchema({ foo: 'bar' } as unknown as Parameters<typeof resolveSchema>[0])).toThrow(/Expected a Convex validator/)
   })
 })
 

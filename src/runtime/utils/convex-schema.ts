@@ -20,6 +20,11 @@ export interface ValidationIssue {
   path: PropertyKey[]
 }
 
+interface ConvexValidatorNode {
+  kind?: string
+  isOptional?: string
+}
+
 // ============================================================================
 // Multi-error walker
 // ============================================================================
@@ -39,6 +44,64 @@ function kindLabel(kind: string): string {
   }
 }
 
+function isConvexValidatorNode(value: unknown): value is GenericValidator & ConvexValidatorNode {
+  return Boolean(
+    value
+      && typeof value === 'object'
+      && typeof (value as ConvexValidatorNode).kind === 'string',
+  )
+}
+
+function isValidatorFieldMap(value: unknown): value is Record<string, GenericValidator> {
+  return Boolean(
+    value
+      && typeof value === 'object'
+      && !Array.isArray(value)
+      && Object.values(value).every(isConvexValidatorNode),
+  )
+}
+
+function getValidatorKind(validator: GenericValidator): string {
+  return isConvexValidatorNode(validator) ? validator.kind : 'unknown'
+}
+
+function isOptionalValidator(validator: GenericValidator): boolean {
+  return Boolean(
+    validator
+      && typeof validator === 'object'
+      && (validator as ConvexValidatorNode).isOptional === 'optional',
+  )
+}
+
+function getLiteralValue(validator: GenericValidator): unknown {
+  return (validator as { value?: unknown }).value
+}
+
+function getArrayElementValidator(validator: GenericValidator): GenericValidator | null {
+  const element = (validator as { element?: unknown }).element
+  return isConvexValidatorNode(element) ? element : null
+}
+
+function getObjectFields(validator: GenericValidator): Record<string, GenericValidator> | null {
+  const fields = (validator as { fields?: unknown }).fields
+  return isValidatorFieldMap(fields) ? fields : null
+}
+
+function getRecordKeyValidator(validator: GenericValidator): GenericValidator | null {
+  const key = (validator as { key?: unknown }).key
+  return isConvexValidatorNode(key) ? key : null
+}
+
+function getRecordValueValidator(validator: GenericValidator): GenericValidator | null {
+  const valueValidator = (validator as { value?: unknown }).value
+  return isConvexValidatorNode(valueValidator) ? valueValidator : null
+}
+
+function getUnionMembers(validator: GenericValidator): GenericValidator[] | null {
+  const members = (validator as { members?: unknown }).members
+  return Array.isArray(members) && members.every(isConvexValidatorNode) ? members : null
+}
+
 /**
  * Recursively validate a value against a Convex validator, collecting
  * all issues into the `issues` array. Does NOT return early on first error.
@@ -53,12 +116,12 @@ export function validateConvex(
 ): ValidationIssue[] {
   // Handle optional: undefined is valid for optional validators
   if (value === undefined) {
-    if ((validator as any).isOptional === 'optional') return issues
+    if (isOptionalValidator(validator)) return issues
     issues.push({ message: 'Required', path })
     return issues
   }
 
-  const kind: string = (validator as any).kind
+  const kind = getValidatorKind(validator)
 
   switch (kind) {
     case 'string':
@@ -102,7 +165,7 @@ export function validateConvex(
       break
 
     case 'literal': {
-      const expected = (validator as any).value
+      const expected = getLiteralValue(validator)
       if (value !== expected) {
         issues.push({
           message: `Expected literal ${JSON.stringify(expected)}, got ${JSON.stringify(value)}`,
@@ -127,7 +190,11 @@ export function validateConvex(
         issues.push({ message: `Expected array, got ${typeOf(value)}`, path })
         break
       }
-      const element: GenericValidator = (validator as any).element
+      const element = getArrayElementValidator(validator)
+      if (!element) {
+        issues.push({ message: 'Array validator is missing an element validator', path })
+        break
+      }
       for (let i = 0; i < value.length; i++) {
         validateConvex(element, value[i], [...path, i], issues)
       }
@@ -139,7 +206,11 @@ export function validateConvex(
         issues.push({ message: `Expected object, got ${typeOf(value)}`, path })
         break
       }
-      const fields: Record<string, GenericValidator> = (validator as any).fields
+      const fields = getObjectFields(validator)
+      if (!fields) {
+        issues.push({ message: 'Object validator is missing field definitions', path })
+        break
+      }
       const record = value as Record<string, unknown>
 
       // Check every declared field (collects all missing/invalid, not just first)
@@ -164,8 +235,12 @@ export function validateConvex(
         issues.push({ message: `Expected object (record), got ${typeOf(value)}`, path })
         break
       }
-      const keyValidator: GenericValidator = (validator as any).key
-      const valueValidator: GenericValidator = (validator as any).value
+      const keyValidator = getRecordKeyValidator(validator)
+      const valueValidator = getRecordValueValidator(validator)
+      if (!keyValidator || !valueValidator) {
+        issues.push({ message: 'Record validator is missing key/value validators', path })
+        break
+      }
       const record = value as Record<string, unknown>
 
       for (const [k, v] of Object.entries(record)) {
@@ -176,7 +251,11 @@ export function validateConvex(
     }
 
     case 'union': {
-      const members: GenericValidator[] = (validator as any).members
+      const members = getUnionMembers(validator)
+      if (!members || members.length === 0) {
+        issues.push({ message: 'Union validator is missing member validators', path })
+        break
+      }
       // Try each member — pass if any matches (zero issues)
       let matched = false
       for (const member of members) {
@@ -189,7 +268,7 @@ export function validateConvex(
       }
       if (!matched) {
         const expected = members
-          .map((m: any) => kindLabel(m.kind))
+          .map(member => kindLabel(getValidatorKind(member)))
           .join(', ')
         issues.push({
           message: `Expected one of: ${expected}`,

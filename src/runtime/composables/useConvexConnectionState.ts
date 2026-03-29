@@ -9,7 +9,6 @@ import {
   useSharedConnectionStateStore,
 } from '../client/runtime-hooks'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
-import type { ConnectionState } from '../utils/types'
 
 export type { ConnectionState } from '../utils/types'
 

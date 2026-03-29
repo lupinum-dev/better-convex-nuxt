@@ -7,6 +7,13 @@ import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
+function hasStringName(value: unknown): value is { name: string } {
+  return typeof value === 'object'
+    && value !== null
+    && 'name' in value
+    && typeof (value as { name?: unknown }).name === 'string'
+}
+
 describe('mutation pre-validation (Nuxt runtime)', () => {
   it('passes validation and executes mutation normally', async () => {
     const convex = new MockConvexClient()
@@ -136,7 +143,7 @@ describe('mutation pre-validation (Nuxt runtime)', () => {
         version: 1 as const,
         vendor: 'test',
         validate: (value: unknown) => {
-          if (typeof value === 'object' && value !== null && 'name' in value && typeof (value as any).name === 'string') {
+          if (hasStringName(value)) {
             return { value }
           }
           return { issues: [{ message: 'Expected object with string name', path: ['name'] }] }

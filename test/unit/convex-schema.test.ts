@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { GenericValidator } from 'convex/values'
 import { v } from 'convex/values'
 
 import { validateConvex, toConvexSchema } from '../../src/runtime/utils/convex-schema'
@@ -326,6 +327,19 @@ describe('validateConvex', () => {
       expect(issues).toHaveLength(1)
       expect(issues[0]!.message).toMatch(/Expected object/)
     })
+
+    it('reports malformed record value validators instead of crashing', () => {
+      const malformedRecord = {
+        kind: 'record',
+        key: v.string(),
+        value: 'not-a-validator',
+      } as unknown as GenericValidator
+
+      const issues = validateConvex(malformedRecord, { a: 1 })
+      expect(issues).toEqual([
+        { message: 'Record validator is missing key/value validators', path: [] },
+      ])
+    })
   })
 
   // -----------------------------------------------------------------------
@@ -352,6 +366,18 @@ describe('validateConvex', () => {
       )
       expect(validateConvex(schema, { type: 'text', content: 'hello' })).toEqual([])
       expect(validateConvex(schema, { type: 'image', url: 'http://...' })).toEqual([])
+    })
+
+    it('reports malformed union member lists instead of crashing', () => {
+      const malformedUnion = {
+        kind: 'union',
+        members: [v.string(), 'bad-member'],
+      } as unknown as GenericValidator
+
+      const issues = validateConvex(malformedUnion, 42)
+      expect(issues).toEqual([
+        { message: 'Union validator is missing member validators', path: [] },
+      ])
     })
   })
 

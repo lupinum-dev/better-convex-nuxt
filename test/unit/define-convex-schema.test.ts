@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { v } from 'convex/values'
 
 import { defineConvexSchema } from '../../src/runtime/utils/define-convex-schema'
+import { expectValidationError } from '../helpers/validation-error'
+
+function getValidatorKind(value: unknown): string | undefined {
+  return (value as { kind?: string }).kind
+}
+
+function hasValue<T>(value: unknown): value is { value: T } {
+  return typeof value === 'object' && value !== null && 'value' in value
+}
 
 describe('defineConvexSchema', () => {
   const schema = defineConvexSchema({
@@ -25,7 +34,7 @@ describe('defineConvexSchema', () => {
       expect(schema.args.title).toBeDefined()
       expect(schema.args.body).toBeDefined()
       expect(schema.args.priority).toBeDefined()
-      expect((schema.args.title as any).kind).toBe('string')
+      expect(getValidatorKind(schema.args.title)).toBe('string')
     })
 
     it('can be spread into a mutation definition', () => {
@@ -56,7 +65,7 @@ describe('defineConvexSchema', () => {
 
     it('validates successfully for correct data', () => {
       const result = schema['~standard'].validate({ title: 'Hello', body: 'World' })
-      expect('value' in (result as any)).toBe(true)
+      expect(hasValue(result)).toBe(true)
     })
 
     it('returns multi-error issues on invalid data', () => {
@@ -68,7 +77,7 @@ describe('defineConvexSchema', () => {
 
     it('accepts optional fields as undefined', () => {
       const result = schema['~standard'].validate({ title: 'Hi', body: 'World' })
-      expect('value' in (result as any)).toBe(true)
+      expect(hasValue(result)).toBe(true)
     })
   })
 
@@ -85,9 +94,10 @@ describe('defineConvexSchema', () => {
       try {
         schema.validate({ title: 42 })
         expect.fail('Should have thrown')
-      } catch (err: any) {
-        expect(err.statusCode).toBe(422)
-        expect(err.message).toBe('Validation Error')
+      } catch (err: unknown) {
+        const validationError = expectValidationError(err)
+        expect(validationError.statusCode).toBe(422)
+        expect(validationError.message).toBe('Validation Error')
       }
     })
 
@@ -95,8 +105,9 @@ describe('defineConvexSchema', () => {
       try {
         schema.validate({})
         expect.fail('Should have thrown')
-      } catch (err: any) {
-        expect(err.data.issues.length).toBeGreaterThanOrEqual(2)
+      } catch (err: unknown) {
+        const validationError = expectValidationError(err)
+        expect(validationError.data?.issues.length).toBeGreaterThanOrEqual(2)
       }
     })
   })

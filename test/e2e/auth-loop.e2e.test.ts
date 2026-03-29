@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
 import { setup, createPage } from '@nuxt/test-utils/e2e'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, it } from 'vitest'
 
 import { assertLocalAuthReady, ensureLocalConvex } from '../helpers/local-convex'
 

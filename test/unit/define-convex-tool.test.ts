@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 
 import { createConvexTools, defineConvexTool } from '../../src/runtime/mcp/define-convex-tool'
+import type { DefineConvexToolOptions } from '../../src/runtime/mcp/types'
 import { globalRateLimiter } from '../../src/runtime/mcp/rate-limiter'
 import { wrapError } from '../../src/runtime/mcp/result-envelope'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
@@ -20,26 +21,58 @@ vi.mock('nitropack/runtime', () => ({
 
 const mockExtra = {} as McpToolExtra
 
+interface ToolResultLike {
+  structuredContent?: unknown
+  content?: Array<{ text?: string }>
+  isError?: boolean
+}
+
+interface MockEventContext {
+  mcpAuth?: { role: string; userId: string } | null
+  customSession?: { id: string; level: string }
+}
+
+function getMockEvent(context: MockEventContext): ReturnType<typeof useEvent> {
+  return { context } as ReturnType<typeof useEvent>
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
 
 function getStructured(result: unknown): Record<string, unknown> {
-  return (result as any).structuredContent
+  const structuredContent = (result as ToolResultLike).structuredContent
+  expect(structuredContent).toBeDefined()
+  expect(structuredContent).toBeTypeOf('object')
+  expect(structuredContent).not.toBeNull()
+  return structuredContent as Record<string, unknown>
 }
 
 function getContent(result: unknown): string {
-  return (result as any).content?.[0]?.text
+  const text = (result as ToolResultLike).content?.[0]?.text
+  expect(text).toBeDefined()
+  expect(text).toEqual(expect.any(String))
+  return text!
 }
 
 function getSchemaDescription(schema: unknown): string | undefined {
   return (schema as { description?: string } | undefined)?.description
 }
 
+function isErrorResult(result: unknown): boolean | undefined {
+  return (result as ToolResultLike).isError
+}
+
+function getInputExamples(tool: { _meta?: Record<string, unknown>; inputExamples?: unknown }): unknown {
+  return tool._meta?.inputExamples ?? tool.inputExamples
+}
+
+function asZodRawShape(shape: unknown): z.ZodRawShape {
+  return shape as z.ZodRawShape
+}
+
 function mockAuth(auth: { role: string; userId: string } | null) {
-  vi.mocked(useEvent).mockReturnValue({
-    context: { mcpAuth: auth },
-  } as any)
+  vi.mocked(useEvent).mockReturnValue(getMockEvent({ mcpAuth: auth }))
 }
 
 // ============================================================================
@@ -128,7 +161,7 @@ describe('defineConvexTool', () => {
           retryable: true,
         },
       })
-      expect((result as any).isError).toBe(true)
+      expect(isErrorResult(result)).toBe(true)
     })
 
     it('cleans verbose error messages', async () => {
@@ -304,7 +337,7 @@ describe('defineConvexTool', () => {
 
       const tool = defineConvexTool({ schema, handler: () => ({}) })
 
-      expect((tool as any)._meta?.inputExamples ?? tool.inputExamples).toEqual([
+      expect(getInputExamples(tool)).toEqual([
         { title: 'My First Post', content: '# Hello' },
       ])
     })
@@ -321,7 +354,7 @@ describe('defineConvexTool', () => {
         handler: () => ({}),
       })
 
-      expect((tool as any)._meta?.inputExamples ?? tool.inputExamples).toEqual([
+      expect(getInputExamples(tool)).toEqual([
         { title: 'Explicit' },
       ])
     })
@@ -457,7 +490,7 @@ describe('defineConvexTool', () => {
         handler: () => ({ deleted: true }),
       })
 
-      const parser = z.object(tool.inputSchema as any)
+      const parser = z.object(asZodRawShape(tool.inputSchema))
       expect(() => parser.parse({ id: 'abc', _confirmed: true })).not.toThrow()
       expect(() => parser.parse({ id: 'abc' })).not.toThrow() // _confirmed is optional
     })
@@ -505,7 +538,7 @@ describe('defineConvexTool', () => {
         schema,
         destructive: true,
         handler: (args) => {
-          receivedArgs = args as any
+          receivedArgs = args
           return { ok: true }
         },
       })
@@ -586,7 +619,7 @@ describe('defineConvexTool', () => {
         ok: false,
         error: { message: 'Preview failed' },
       })
-      expect((result as any).isError).toBe(true)
+      expect(isErrorResult(result)).toBe(true)
     })
   })
 
@@ -711,7 +744,7 @@ describe('defineConvexTool', () => {
         ) => {
           await next()
           // Forgot to return!
-        }) as any,
+        }) as unknown as DefineConvexToolOptions<typeof schema>['middleware'],
         handler: () => ({ done: true }),
       })
 
@@ -831,7 +864,7 @@ describe('defineConvexTool', () => {
       expect(() =>
         defineConvexTool({
           schema,
-          maxItems: { field: 'nonexistent' as any, limit: 5 },
+          maxItems: { field: 'nonexistent' as unknown as 'ids', limit: 5 },
           handler: () => ({}),
         }),
       ).toThrow('maxItems.field')
@@ -843,15 +876,15 @@ describe('defineConvexTool', () => {
   describe('custom resolveAuth', () => {
     it('uses custom resolveAuth from factory', async () => {
       // Mock useEvent to return a bare event — resolveAuth will override
-      vi.mocked(useEvent).mockReturnValue({
-        context: { customSession: { id: 'custom-user', level: 'superadmin' } },
-      } as any)
+      vi.mocked(useEvent).mockReturnValue(
+        getMockEvent({ customSession: { id: 'custom-user', level: 'superadmin' } }),
+      )
 
       const checkPermission = () => true
       const { defineConvexTool: typedDefine } = createConvexTools({
         checkPermission,
         resolveAuth: (event) => {
-          const session = (event as any).context.customSession
+          const session = (event as { context: MockEventContext }).context.customSession
           if (!session) return null
           return { role: session.level, userId: session.id }
         },
@@ -873,9 +906,7 @@ describe('defineConvexTool', () => {
 
   describe('preview without auth', () => {
     it('returns preview when auth: none + destructive + preview', async () => {
-      vi.mocked(useEvent).mockReturnValue({
-        context: {},
-      } as any)
+      vi.mocked(useEvent).mockReturnValue(getMockEvent({}))
 
       const schema = defineConvexSchema({ id: v.string() })
       const tool = defineConvexTool({
@@ -932,21 +963,21 @@ describe('defineConvexTool', () => {
     it('converts v.id() field to z.string()', () => {
       const schema = defineConvexSchema({ noteId: v.id('notes') })
       const tool = defineConvexTool({ schema, handler: () => ({}) })
-      const parser = z.object(tool.inputSchema as any)
+      const parser = z.object(asZodRawShape(tool.inputSchema))
       expect(() => parser.parse({ noteId: 'some-id' })).not.toThrow()
     })
 
     it('converts v.array(v.id()) to z.array(z.string())', () => {
       const schema = defineConvexSchema({ ids: v.array(v.id('notes')) })
       const tool = defineConvexTool({ schema, handler: () => ({}) })
-      const parser = z.object(tool.inputSchema as any)
+      const parser = z.object(asZodRawShape(tool.inputSchema))
       expect(() => parser.parse({ ids: ['id1', 'id2'] })).not.toThrow()
     })
 
     it('converts v.optional(v.id()) to optional z.string()', () => {
       const schema = defineConvexSchema({ ref: v.optional(v.id('notes')) })
       const tool = defineConvexTool({ schema, handler: () => ({}) })
-      const parser = z.object(tool.inputSchema as any)
+      const parser = z.object(asZodRawShape(tool.inputSchema))
       expect(() => parser.parse({})).not.toThrow()
       expect(() => parser.parse({ ref: 'some-id' })).not.toThrow()
     })
@@ -962,7 +993,7 @@ describe('defineConvexTool', () => {
         outputSchema: { count: z.number(), name: z.string() },
         handler: () => ({ count: 1, name: 'test' }),
       })
-      const wrapped = tool.outputSchema as any
+      const wrapped = asZodRawShape(tool.outputSchema)
       expect(wrapped).toBeDefined()
       const parser = z.object(wrapped)
       expect(() => parser.parse({ ok: true, data: { count: 1, name: 'test' } })).not.toThrow()

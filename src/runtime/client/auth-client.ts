@@ -3,12 +3,6 @@ import { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 import type { Ref } from 'vue'
 import type { Router } from 'vue-router'
-
-interface MinimalNuxtApp {
-  payload?: { serverRendered?: boolean }
-  hook(event: string, fn: (...args: unknown[]) => unknown): void
-}
-
 import {
   buildClientAuthRequestFailureMessage,
   buildClientAuthResponseErrorMessage,
@@ -17,6 +11,11 @@ import { TOKEN_CACHE_MS, TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../utils/constant
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
 import type { Logger } from '../utils/logger'
 import { matchesSkipRoute } from '../utils/route-matcher'
+
+interface MinimalNuxtApp {
+  payload?: { serverRendered?: boolean }
+  hook(event: string, fn: (...args: unknown[]) => unknown): void
+}
 
 interface TokenResponse {
   data?: { token: string } | null

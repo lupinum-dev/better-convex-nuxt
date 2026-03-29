@@ -15,7 +15,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       const user = useState<unknown>('convex:user')
       token.value = 'jwt.token'
       user.value = { id: 'u1' }
-      nuxtApp.hook('convex:auth:changed' as any, hookSpy)
+      nuxtApp.hook('convex:auth:changed', hookSpy)
       return useConvexAuth()
     }, {
       auth: { signOut: vi.fn() },
@@ -28,7 +28,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
   it('emits convex:auth:changed when auth becomes authenticated via refresh', async () => {
     const hookSpy = vi.fn()
 
-    const { result, wrapper, flush } = await captureInNuxt(() => {
+    const { result, wrapper } = await captureInNuxt(() => {
       const nuxtApp = useNuxtApp()
       const token = useState<string | null>('convex:token')
       const user = useState<Record<string, unknown> | null>('convex:user')
@@ -38,7 +38,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       user.value = null
       authError.value = null
 
-      nuxtApp.hook('convex:auth:changed' as any, hookSpy)
+      nuxtApp.hook('convex:auth:changed', hookSpy)
       nuxtApp.hook('better-convex:auth:refresh', async () => {
         token.value = 'new.jwt.token'
         user.value = { id: 'u2' }
@@ -72,7 +72,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
         const user = useState<unknown>('convex:user')
         token.value = 'jwt.token'
         user.value = { id: 'u1' }
-        nuxtApp.hook('convex:auth:changed' as any, hookSpy)
+        nuxtApp.hook('convex:auth:changed', hookSpy)
         nuxtApp.hook('better-convex:auth:invalidate', async () => {
           invalidateSpy()
         })
@@ -190,7 +190,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
   })
 
   it('refreshAuth resolves after refresh hook updates token and user', async () => {
-    const { result, wrapper, flush } = await captureInNuxt(() => {
+    const { result, wrapper } = await captureInNuxt(() => {
       const nuxtApp = useNuxtApp()
       const token = useState<string | null>('convex:token')
       const user = useState<Record<string, unknown> | null>('convex:user')
@@ -216,7 +216,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
   })
 
   it('exposes authError as Error instances', async () => {
-    const { result, wrapper, flush } = await captureInNuxt(() => {
+    const { result, wrapper } = await captureInNuxt(() => {
       const authError = useState<string | null>('convex:authError')
       authError.value = 'Unauthorized'
       return useConvexAuth()
@@ -237,7 +237,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
 
       token.value = 'jwt.token'
       user.value = { id: 'u1' }
-      nuxtApp.hook('convex:auth:changed' as any, hookSpy)
+      nuxtApp.hook('convex:auth:changed', hookSpy)
 
       return {
         auth: useConvexAuth(),
@@ -271,7 +271,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
 
       token.value = 'jwt.token'
       user.value = { id: 'u1' }
-      nuxtApp.hook('convex:auth:changed' as any, hookSpy)
+      nuxtApp.hook('convex:auth:changed', hookSpy)
 
       return {
         auth: useConvexAuth(),

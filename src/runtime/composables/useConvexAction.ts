@@ -83,7 +83,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const fnName = getFunctionName(action)
   const nuxtApp = useNuxtApp()
 
-  return createConvexCallState<Args, Result>({
+  return createConvexCallState<Args, Result, 'action'>({
     fnName,
     callType: 'action',
     logger,

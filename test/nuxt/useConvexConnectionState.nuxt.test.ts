@@ -13,7 +13,7 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
 
     const { wrapper } = await captureInNuxt(() => {
       const nuxtApp = useNuxtApp()
-      nuxtApp.hook('convex:connection:changed' as any, hookSpy)
+      nuxtApp.hook('convex:connection:changed', hookSpy)
       return useConvexConnectionState()
     }, { convex })
 

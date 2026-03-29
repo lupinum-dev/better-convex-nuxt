@@ -49,7 +49,7 @@ export function useAuthRedirect(): UseAuthRedirectReturn {
       : undefined
 
     const target = resolveRedirectTarget(rawStr, fallbackPath, loginPath)
-    navigateTo(target)
+    void navigateTo(target)
   }
 
   return { redirectAfterAuth }

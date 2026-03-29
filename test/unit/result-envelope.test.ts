@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
 import { withSummary, wrapError, wrapPreview, wrapSuccess } from '../../src/runtime/mcp/result-envelope'
+import type {
+  ConvexToolErrorResult,
+  ConvexToolPreviewResult,
+} from '../../src/runtime/mcp/types'
+
+function getErrorResult(result: { structuredContent?: unknown }): ConvexToolErrorResult {
+  return result.structuredContent as ConvexToolErrorResult
+}
+
+function getPreviewResult(result: { structuredContent?: unknown }): ConvexToolPreviewResult {
+  return result.structuredContent as ConvexToolPreviewResult
+}
 
 describe('wrapSuccess', () => {
   it('wraps plain data with ok: true envelope', () => {
@@ -77,12 +89,12 @@ describe('wrapError', () => {
 
   it('marks not_found as non-retryable', () => {
     const result = wrapError('not_found', 'Post not found')
-    expect((result.structuredContent as any).error.retryable).toBe(false)
+    expect(getErrorResult(result).error.retryable).toBe(false)
   })
 
   it('marks unknown as non-retryable', () => {
     const result = wrapError('unknown', 'Something went wrong')
-    expect((result.structuredContent as any).error.retryable).toBe(false)
+    expect(getErrorResult(result).error.retryable).toBe(false)
   })
 
   it('includes validation issues when provided', () => {
@@ -91,7 +103,7 @@ describe('wrapError', () => {
       { path: 'content', message: 'Expected string' },
     ])
 
-    expect((result.structuredContent as any).error.issues).toEqual([
+    expect(getErrorResult(result).error.issues).toEqual([
       { path: 'title', message: 'Required' },
       { path: 'content', message: 'Expected string' },
     ])
@@ -101,7 +113,7 @@ describe('wrapError', () => {
     const retryable = ['auth', 'validation', 'rate_limit', 'scope_exceeded', 'confirmation_required', 'cooldown', 'network', 'server', 'conflict'] as const
     for (const cat of retryable) {
       const result = wrapError(cat, 'test')
-      expect((result.structuredContent as any).error.retryable, `${cat} should be retryable`).toBe(true)
+      expect(getErrorResult(result).error.retryable, `${cat} should be retryable`).toBe(true)
     }
   })
 })
@@ -134,8 +146,8 @@ describe('wrapPreview', () => {
       blocked: true,
     })
 
-    expect((result.structuredContent as any).preview.warn).toBe('Permission denied')
-    expect((result.structuredContent as any).preview.blocked).toBe(true)
+    expect(getPreviewResult(result).preview.warn).toBe('Permission denied')
+    expect(getPreviewResult(result).preview.blocked).toBe(true)
   })
 })
 

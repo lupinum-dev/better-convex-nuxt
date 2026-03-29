@@ -17,7 +17,12 @@ import { ConvexCallError, toConvexError } from '../utils/call-result'
 import { resolveSchema, runValidation, type ValidateOption } from '../utils/resolve-validator'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
-import type { MutationStatus } from '../utils/types'
+import type {
+  ConvexCallErrorPayload,
+  ConvexCallOperation,
+  ConvexCallSuccessPayload,
+  MutationStatus,
+} from '../utils/types'
 import { getRequiredConvexClient } from './useConvex'
 
 // Re-export optimistic update builder types
@@ -104,12 +109,46 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
 // Shared execute state for mutations and actions
 // ============================================================================
 
+type ConvexCallHookHandlers<TCallType extends ConvexCallOperation, Result> = {
+  error: (payload: ConvexCallErrorPayload<TCallType>) => void
+  success: (payload: ConvexCallSuccessPayload<TCallType, Result>) => void
+}
+
+function createConvexCallHookHandlers<TCallType extends ConvexCallOperation, Result>(
+  nuxtApp: NuxtApp,
+  callType: TCallType,
+): ConvexCallHookHandlers<TCallType, Result> {
+  if (callType === 'mutation') {
+    return {
+      error: (payload: ConvexCallErrorPayload<'mutation'>) => {
+        void nuxtApp.callHook('convex:mutation:error', payload)
+      },
+      success: (payload: ConvexCallSuccessPayload<'mutation', Result>) => {
+        void nuxtApp.callHook('convex:mutation:success', payload)
+      },
+    } as ConvexCallHookHandlers<TCallType, Result>
+  }
+
+  return {
+    error: (payload: ConvexCallErrorPayload<'action'>) => {
+      void nuxtApp.callHook('convex:action:error', payload)
+    },
+    success: (payload: ConvexCallSuccessPayload<'action', Result>) => {
+      void nuxtApp.callHook('convex:action:success', payload)
+    },
+  } as ConvexCallHookHandlers<TCallType, Result>
+}
+
 /**
  * Internal helper exported only for useConvexAction.
  */
-export function createConvexCallState<Args extends Record<string, unknown>, Result>(config: {
+export function createConvexCallState<
+  Args extends Record<string, unknown>,
+  Result,
+  TCallType extends ConvexCallOperation,
+>(config: {
   fnName: string
-  callType: 'mutation' | 'action'
+  callType: TCallType
   logger: Logger
   nuxtApp: NuxtApp
   hasOptimisticUpdate: boolean
@@ -119,6 +158,7 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
   validate?: ValidateOption
 }): UseConvexMutationReturn<Args, Result> {
   const { fnName, callType, logger, nuxtApp, hasOptimisticUpdate, callFn, onSuccess, onError, validate: validateOption } = config
+  const hookHandlers = createConvexCallHookHandlers<TCallType, Result>(nuxtApp, callType)
 
   let activeRequestId = 0
   const _status = ref<MutationStatus>('idle')
@@ -179,10 +219,10 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
           } else {
             logger.action({ name: fnName, event: 'error', duration, error: err })
           }
-          void nuxtApp.callHook(`convex:${callType}:error` as any, {
+          hookHandlers.error({
             functionPath: fnName,
             operation: callType,
-            args: args as Record<string, unknown>,
+            args,
             error: err,
             duration,
           })
@@ -218,10 +258,10 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
         } else {
           logger.action({ name: fnName, event: 'error', duration, error: err })
         }
-        void nuxtApp.callHook(`convex:${callType}:error` as any, {
+        hookHandlers.error({
           functionPath: fnName,
           operation: callType,
-          args: args as Record<string, unknown>,
+          args,
           error: err,
           duration,
         })
@@ -252,10 +292,10 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
         logger.action({ name: fnName, event: 'success', duration })
       }
 
-      void nuxtApp.callHook(`convex:${callType}:success` as any, {
+      hookHandlers.success({
         functionPath: fnName,
         operation: callType,
-        args: args as Record<string, unknown>,
+        args,
         result,
         duration,
       })
@@ -283,10 +323,10 @@ export function createConvexCallState<Args extends Record<string, unknown>, Resu
       } else {
         logger.action({ name: fnName, event: 'error', duration, error: err })
       }
-      void nuxtApp.callHook(`convex:${callType}:error` as any, {
+      hookHandlers.error({
         functionPath: fnName,
         operation: callType,
-        args: args as Record<string, unknown>,
+        args,
         error: err,
         duration,
       })
@@ -381,7 +421,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const fnName = getFunctionName(mutation)
   const nuxtApp = useNuxtApp()
 
-  return createConvexCallState<Args, Result>({
+  return createConvexCallState<Args, Result, 'mutation'>({
     fnName,
     callType: 'mutation',
     logger,

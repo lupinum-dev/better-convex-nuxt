@@ -30,7 +30,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:mutation:success' as any, hookSpy)
+      nuxtApp.hook('convex:mutation:success', hookSpy)
 
       await result({ title: 'Test' } as never)
 
@@ -57,7 +57,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:mutation:error' as any, hookSpy)
+      nuxtApp.hook('convex:mutation:error', hookSpy)
 
       await expect(result({} as never)).rejects.toThrow('boom')
 
@@ -86,7 +86,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:mutation:error' as any, hookSpy)
+      nuxtApp.hook('convex:mutation:error', hookSpy)
 
       await expect(result({} as never)).rejects.toThrow()
 
@@ -115,7 +115,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:action:success' as any, hookSpy)
+      nuxtApp.hook('convex:action:success', hookSpy)
 
       await result({ to: 'user@test.com' } as never)
 
@@ -141,7 +141,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:action:error' as any, hookSpy)
+      nuxtApp.hook('convex:action:error', hookSpy)
 
       await expect(result({} as never)).rejects.toThrow('action boom')
 
@@ -166,11 +166,11 @@ describe('global hooks (Nuxt runtime)', () => {
       const listener1 = vi.fn()
       const listener2 = vi.fn()
 
-      const { result, nuxtApp } = await captureInNuxt(
+      const { result } = await captureInNuxt(
         () => {
           const nuxt = useNuxtApp()
-          nuxt.hook('convex:mutation:success' as any, listener1)
-          nuxt.hook('convex:mutation:success' as any, listener2)
+          nuxt.hook('convex:mutation:success', listener1)
+          nuxt.hook('convex:mutation:success', listener2)
           return useConvexMutation(mutation)
         },
         { convex },
@@ -203,7 +203,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:mutation:success' as any, hookSpy)
+      nuxtApp.hook('convex:mutation:success', hookSpy)
 
       await result({} as never)
       // Success hooks are fire-and-forget (void callHook) — wait for the floating promise
@@ -228,7 +228,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:mutation:error' as any, hookSpy)
+      nuxtApp.hook('convex:mutation:error', hookSpy)
 
       await expect(result({} as never)).rejects.toThrow('dual fail')
 
@@ -244,7 +244,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const { wrapper } = await captureInNuxt(() => {
         const nuxtApp = useNuxtApp()
-        nuxtApp.hook('convex:connection:changed' as any, hookSpy)
+        nuxtApp.hook('convex:connection:changed', hookSpy)
         return useConvexConnectionState()
       }, { convex })
 
@@ -283,7 +283,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
         token.value = 'jwt.token'
         user.value = { id: 'u1' }
-        nuxtApp.hook('convex:auth:changed' as any, hookSpy)
+        nuxtApp.hook('convex:auth:changed', hookSpy)
 
         return {
           auth: useConvexAuth(),
