@@ -1,4 +1,4 @@
-import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
+import type { ConvexSchemaMetaBase, ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
 /**
  * Shared post schema — define once, use everywhere.
  *
@@ -50,3 +50,13 @@ export const updatePostMeta = {
     content: { label: 'Content', description: 'New content (optional)' },
   },
 } satisfies ConvexSchemaMetaFor<typeof updatePostArgs>
+
+// ---------------------------------------------------------------------------
+// Table-level metadata — declares tenant scoping intent.
+// Used by extractScopedTables() to derive the scopedTables list.
+// ---------------------------------------------------------------------------
+
+export const postTableMeta = {
+  description: 'Blog posts table',
+  tenant: { scoped: true, ownerField: 'ownerId' },
+} satisfies ConvexSchemaMetaBase

@@ -34,9 +34,18 @@ export interface ConvexSchemaFieldMeta {
   defaultHint?: unknown
 }
 
+export interface ConvexSchemaTenantMeta {
+  /** Whether this table is org-scoped */
+  scoped: true
+  /** Field that identifies the document owner (for ownership-based permissions) */
+  ownerField?: string
+}
+
 export interface ConvexSchemaMetaBase {
   /** Schema-level description (for MCP tool description) */
   description?: string
+  /** Tenant scoping metadata. Omit for unscoped tables/schemas. */
+  tenant?: ConvexSchemaTenantMeta
 }
 
 /** Back-compat alias for earlier experimental type name. */

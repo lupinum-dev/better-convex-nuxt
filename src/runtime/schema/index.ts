@@ -6,4 +6,5 @@ export {
   type ConvexSchemaMetaBase,
   type ConvexSchemaMetaFor,
   type ConvexSchemaFieldMeta,
+  type ConvexSchemaTenantMeta,
 } from '../utils/define-convex-schema'

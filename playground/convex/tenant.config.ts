@@ -1,9 +1,16 @@
-import { defineTenant, type TenantUser } from '../../src/runtime/tenant'
+import { defineTenant, extractScopedTables, type TenantUser } from '../../src/runtime/tenant'
+import { postTableMeta } from '../shared/schemas/post'
+
+const tableMetas = {
+  posts: postTableMeta,
+  comments: { tenant: { scoped: true } },
+  invites: { tenant: { scoped: true } },
+} as const
 
 export default defineTenant({
   orgField: 'organizationId',
 
-  scopedTables: ['posts', 'comments', 'invites'] as const,
+  scopedTables: extractScopedTables(tableMetas),
 
   resolveUser: async (ctx: any): Promise<TenantUser | null> => {
     const identity = await ctx.auth.getUserIdentity()
