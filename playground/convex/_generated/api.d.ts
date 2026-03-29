@@ -9,15 +9,20 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as experiments_wrapped from "../experiments/wrapped.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
 import type * as lib_permissions from "../lib/permissions.js";
+import type * as lib_tenant from "../lib/tenant.js";
+import type * as mcpKeys from "../mcpKeys.js";
 import type * as notes from "../notes.js";
 import type * as organizations from "../organizations.js";
 import type * as posts from "../posts.js";
 import type * as private_demo from "../private/demo.js";
 import type * as tasks from "../tasks.js";
+import type * as tenantComments from "../tenantComments.js";
+import type * as tenantPosts from "../tenantPosts.js";
 import type * as testing from "../testing.js";
 import type * as users from "../users.js";
 
@@ -29,15 +34,20 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "experiments/wrapped": typeof experiments_wrapped;
   files: typeof files;
   http: typeof http;
   invites: typeof invites;
   "lib/permissions": typeof lib_permissions;
+  "lib/tenant": typeof lib_tenant;
+  mcpKeys: typeof mcpKeys;
   notes: typeof notes;
   organizations: typeof organizations;
   posts: typeof posts;
   "private/demo": typeof private_demo;
   tasks: typeof tasks;
+  tenantComments: typeof tenantComments;
+  tenantPosts: typeof tenantPosts;
   testing: typeof testing;
   users: typeof users;
 }>;

@@ -5,15 +5,14 @@
  * with convex-test and real schema.
  */
 
-import { anyApi } from 'convex/server'
 import { convexTest } from 'convex-test'
 import { describe, it, expect } from 'vitest'
 
+import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 
-// Module references for tenant-posts (not in generated API yet)
-const tenantPosts = anyApi['tenant-posts']
+const tenantPosts = api.tenantPosts
 
 // ============================================================================
 // Helpers

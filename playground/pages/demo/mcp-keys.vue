@@ -13,8 +13,7 @@
         Keys are scoped to your organization and carry a role identity.
       </p>
 
-      <!-- Loading -->
-      <div v-if="pending && isAuthenticated" class="loading">Loading keys...</div>
+      <div v-if="isPending || (pending && isAuthenticated)" class="loading">Loading keys...</div>
 
       <!-- Not authenticated -->
       <div v-else-if="!isAuthenticated" class="not-auth">
@@ -24,6 +23,10 @@
 
       <!-- Main content -->
       <template v-else>
+        <div v-if="errorMessage" class="error-box">
+          {{ errorMessage }}
+        </div>
+
         <!-- Created key banner -->
         <div v-if="createdKey" class="created-key-banner">
           <div class="created-key-header">
@@ -146,19 +149,19 @@
 </template>
 
 <script setup lang="ts">
-import type { Id } from '../convex/_generated/dataModel'
-import { api } from '../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
+import { api } from '../../convex/_generated/api'
 
 definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated } = useConvexAuth()
+const { isAuthenticated, isPending } = useConvexAuth()
 const nuxtApp = useNuxtApp()
 
 // Query keys
-const queryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
-const { data: keys, pending } = await useConvexQuery(api.mcpKeys.list, queryArgs)
+const queryArgs = computed(() => (isPending.value || !isAuthenticated.value ? undefined : {}))
+const { data: keys, pending, error } = await useConvexQuery(api.mcpKeys.list, queryArgs)
 
 const activeKeys = computed(() =>
   (keys.value ?? []).filter((k: { status: string }) => k.status === 'active'),
@@ -169,6 +172,7 @@ const newKey = ref({ name: '', role: 'member' as string })
 const isCreating = ref(false)
 const createdKey = ref<string | null>(null)
 const copied = ref(false)
+const actionError = ref<string | null>(null)
 
 // Revoke state
 const isRevoking = ref<Id<'mcpKeys'> | null>(null)
@@ -187,10 +191,13 @@ function getConvexClient() {
   return client
 }
 
+const errorMessage = computed(() => actionError.value ?? error.value?.message ?? null)
+
 async function handleCreate() {
   if (!newKey.value.name.trim()) return
 
   isCreating.value = true
+  actionError.value = null
   try {
     const client = getConvexClient()
     const result = await client.mutation(api.mcpKeys.create, {
@@ -203,6 +210,7 @@ async function handleCreate() {
   }
   catch (e) {
     console.error('Failed to create key:', e)
+    actionError.value = toErrorMessage(e, 'Failed to create key.')
   }
   finally {
     isCreating.value = false
@@ -211,12 +219,14 @@ async function handleCreate() {
 
 async function handleRevoke(id: Id<'mcpKeys'>) {
   isRevoking.value = id
+  actionError.value = null
   try {
     const client = getConvexClient()
     await client.mutation(api.mcpKeys.revoke, { id })
   }
   catch (e) {
     console.error('Failed to revoke key:', e)
+    actionError.value = toErrorMessage(e, 'Failed to revoke key.')
   }
   finally {
     isRevoking.value = null
@@ -256,6 +266,10 @@ function formatDate(timestamp: number): string {
   if (diffDays < 7) return `${diffDays}d ago`
 
   return date.toLocaleDateString()
+}
+
+function toErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
 }
 </script>
 
@@ -300,6 +314,15 @@ function formatDate(timestamp: number): string {
   text-align: center;
   padding: 40px;
   color: #6b7280;
+}
+
+.error-box {
+  margin-bottom: 24px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
 }
 
 .not-auth {

@@ -2,7 +2,7 @@
  * MCP Tool: List Posts (Scoped — tenant isolation)
  *
  * Uses scoped: true to enforce org isolation at the MCP layer.
- * The Convex function (tenant-posts.list) also enforces isolation server-side,
+ * The Convex function (`tenantPosts.list`) also enforces isolation server-side,
  * making this defense-in-depth.
  */
 import { defineConvexSchema } from 'better-convex-nuxt/schema'
