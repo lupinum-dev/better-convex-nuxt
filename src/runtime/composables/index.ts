@@ -87,6 +87,13 @@ export {
 export type { ValidateOption } from '../utils/resolve-validator'
 export type { StandardSchemaV1 } from '../utils/standard-schema'
 
+// Tenant composables (opt-in via createTenantComposables factory)
+export {
+  createTenantComposables,
+  type CreateTenantComposablesOptions,
+  type UseTenantContextReturn,
+} from './useTenant'
+
 // Permission composables (opt-in via module config)
 export {
   createPermissions,

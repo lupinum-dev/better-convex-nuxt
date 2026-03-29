@@ -104,8 +104,8 @@ export interface DefineConvexToolOptions<
 > {
   /** Shared Convex schema — provides input validation and metadata. */
   schema: S
-  /** Tool handler. Return plain data — the framework wraps it. */
-  handler: (args: InferSchemaData<S>, extra: McpToolExtra) => unknown | Promise<unknown>
+  /** Tool handler. Return plain data — the framework wraps it. When `scoped: true`, receives `{ org }` as third argument. */
+  handler: (args: InferSchemaData<S>, extra: McpToolExtra, ctx?: { org: McpOrgContext }) => unknown | Promise<unknown>
 
   // ── Identity ──────────────────────────────────────────────
   /** Tool name. Default: derived from filename by mcp-toolkit. */
@@ -124,6 +124,8 @@ export interface DefineConvexToolOptions<
   auth?: 'required' | 'optional' | 'none'
   /** Permission string checked via checkPermission. Requires createConvexTools factory or checkPermission option. */
   require?: P
+  /** Enable org scoping. Requires createConvexTools with tenant config. Handler receives `{ org }` context. */
+  scoped?: boolean
 
   // ── Safety ────────────────────────────────────────────────
   /**
@@ -165,6 +167,24 @@ export interface DefineConvexToolOptions<
 }
 
 // ============================================================================
+// Tenant / Org scoping for MCP tools
+// ============================================================================
+
+export interface McpTenantConfig {
+  /** The field name used for org scoping (e.g. 'organizationId') */
+  orgField: string
+  /** Resolve orgId from the authenticated MCP identity. Return null if no org. */
+  resolveOrgId: (mcpAuth: McpAuthIdentity) => string | null
+}
+
+export interface McpOrgContext {
+  /** The resolved organization ID */
+  id: string
+  /** Whether a document belongs to this org (checks orgField) */
+  owns: (doc: Record<string, unknown> | null) => boolean
+}
+
+// ============================================================================
 // Factory
 // ============================================================================
 
@@ -173,4 +193,6 @@ export interface CreateConvexToolsOptions<P extends string = string> {
   checkPermission: CheckPermissionFn<P>
   /** Custom auth resolver. Default: reads event.context.mcpAuth */
   resolveAuth?: (event: H3Event) => McpAuthIdentity | null | Promise<McpAuthIdentity | null>
+  /** Tenant configuration for org-scoped tools */
+  tenant?: McpTenantConfig
 }

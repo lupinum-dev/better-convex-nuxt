@@ -9,7 +9,9 @@ describe('package subpath exports', () => {
 
     expect(packageJson.exports).toHaveProperty('./mcp')
     expect(packageJson.exports).toHaveProperty('./schema')
+    expect(packageJson.exports).toHaveProperty('./tenant')
     expect(packageJson.typesVersions['*']).toHaveProperty('mcp')
     expect(packageJson.typesVersions['*']).toHaveProperty('schema')
+    expect(packageJson.typesVersions['*']).toHaveProperty('tenant')
   })
 })

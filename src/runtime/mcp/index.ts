@@ -15,6 +15,8 @@ export type {
   DefineConvexToolOptions,
   CreateConvexToolsOptions,
   McpAuthIdentity,
+  McpTenantConfig,
+  McpOrgContext,
   PreviewResult,
   ConvexToolResult,
   ConvexToolSuccessResult,

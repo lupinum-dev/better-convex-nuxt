@@ -8,6 +8,7 @@ const runtimeComposablesEntry = fileURLToPath(
 const runtimeSchemaEntry = fileURLToPath(new URL('../src/runtime/schema/index.ts', import.meta.url))
 const runtimeMcpEntry = fileURLToPath(new URL('../src/runtime/mcp/index.ts', import.meta.url))
 const runtimeServerEntry = fileURLToPath(new URL('../src/runtime/server/index.ts', import.meta.url))
+const runtimeTenantEntry = fileURLToPath(new URL('../src/runtime/tenant/index.ts', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('./', import.meta.url))
 const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
 const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true'
@@ -42,6 +43,7 @@ export default defineNuxtConfig({
     'better-convex-nuxt/schema': runtimeSchemaEntry,
     'better-convex-nuxt/mcp': runtimeMcpEntry,
     'better-convex-nuxt/server': runtimeServerEntry,
+    'better-convex-nuxt/tenant': runtimeTenantEntry,
   },
 
   pages: true,

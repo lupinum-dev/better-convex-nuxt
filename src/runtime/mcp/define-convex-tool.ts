@@ -28,6 +28,8 @@ import type {
   InferSchemaData,
   InferSchemaValidators,
   McpAuthIdentity,
+  McpOrgContext,
+  McpTenantConfig,
   PreviewResult,
 } from './types'
 
@@ -41,6 +43,7 @@ interface DefineConvexToolFullOptions<
 > extends DefineConvexToolOptions<S, P> {
   _checkPermission?: CheckPermissionFn<P>
   _resolveAuth?: (event: H3Event) => McpAuthIdentity | null | Promise<McpAuthIdentity | null>
+  _tenant?: McpTenantConfig
 }
 
 // ============================================================================
@@ -310,8 +313,10 @@ function _buildToolDefinition<
     middleware,
     enabled,
     cache,
+    scoped = false,
     _checkPermission,
     _resolveAuth,
+    _tenant,
   } = options
 
   const toolLabel = name ? `defineConvexTool:${name}` : 'defineConvexTool'
@@ -340,6 +345,19 @@ function _buildToolDefinition<
   if (rateLimit && !name) {
     throw new Error(
       `defineConvexTool: "rateLimit" requires an explicit "name" so tools have distinct rate-limit buckets.`,
+    )
+  }
+
+  if (scoped && !_tenant) {
+    throw new Error(
+      `defineConvexTool: "scoped: true" requires a tenant config. `
+      + `Use createConvexTools({ checkPermission, tenant: { orgField, resolveOrgId } }).`,
+    )
+  }
+
+  if (scoped && auth === 'none') {
+    throw new Error(
+      `defineConvexTool: "scoped: true" requires auth. Set auth to "required" or "optional".`,
     )
   }
 
@@ -439,6 +457,25 @@ function _buildToolDefinition<
         }
       }
 
+      // ── Step 3b: Resolve org context for scoped tools ────────────────
+      let orgContext: McpOrgContext | undefined
+      if (scoped && _tenant) {
+        if (!resolvedAuth) {
+          return wrapError('auth', 'Authentication required for scoped tools.')
+        }
+        const orgId = _tenant.resolveOrgId(resolvedAuth)
+        if (!orgId) {
+          return wrapError('auth', 'MCP token must include orgId for scoped tools.')
+        }
+        orgContext = {
+          id: orgId,
+          owns(doc: Record<string, unknown> | null) {
+            if (!doc) return false
+            return doc[_tenant!.orgField] === orgId
+          },
+        }
+      }
+
       const normalizedArgs = normalizeToolArgs(args)
 
       // ── Step 4: Rate limit (after auth so failed-auth requests don't consume tokens) ──
@@ -469,7 +506,7 @@ function _buildToolDefinition<
         const result = await middleware(
           normalizedArgs.clean,
           ctx,
-          async () => runHandlerWithConfirmation(normalizedArgs, extra, ctx),
+          async () => runHandlerWithConfirmation(normalizedArgs, extra, ctx, orgContext),
         )
         if (!isValidCallToolResult(result)) {
           return wrapError('server', `[${toolLabel}] Middleware must return a result. Did you forget to \`return next()\`?`)
@@ -478,7 +515,7 @@ function _buildToolDefinition<
       }
 
       // ── Steps 7-9: Preview, confirmation, handler ─────────────────────
-      return await runHandlerWithConfirmation(normalizedArgs, extra, ctx)
+      return await runHandlerWithConfirmation(normalizedArgs, extra, ctx, orgContext)
     }
     catch (err) {
       console.error(`[${toolLabel}]`, err)
@@ -495,6 +532,7 @@ function _buildToolDefinition<
     args: NormalizedToolArgs<S>,
     extra: McpToolExtra,
     ctx: ConvexToolMiddlewareCtx<P>,
+    orgContext?: McpOrgContext,
   ): Promise<McpToolCallbackResult> {
     // Step 7: Preview routing
     if (destructive && preview && !args.confirmed) {
@@ -511,7 +549,8 @@ function _buildToolDefinition<
     }
 
     // Step 9: Handler — strip _confirmed before passing to user handler
-    const result = await handler(args.clean, extra)
+    const handlerCtx = orgContext ? { org: orgContext } : undefined
+    const result = await handler(args.clean, extra, handlerCtx)
     return wrapSuccess(result)
   }
 
@@ -617,6 +656,7 @@ export function createConvexTools<P extends string = string>(
         ...toolOptions,
         _checkPermission: factoryOptions.checkPermission,
         _resolveAuth: factoryOptions.resolveAuth,
+        _tenant: factoryOptions.tenant,
       } as DefineConvexToolFullOptions<S, P>) as McpToolDefinition
     },
   }

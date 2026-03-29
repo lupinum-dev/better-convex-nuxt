@@ -50,6 +50,9 @@
       ],
       "server": [
         "./dist/runtime/server/index.d.ts"
+      ],
+      "tenant": [
+        "./dist/runtime/tenant/index.d.ts"
       ]
     }
   },
@@ -73,6 +76,10 @@
     "./server": {
       "types": "./dist/runtime/server/index.d.ts",
       "import": "./dist/runtime/server/index.js"
+    },
+    "./tenant": {
+      "types": "./dist/runtime/tenant/index.d.ts",
+      "import": "./dist/runtime/tenant/index.js"
     }
   },
   "scripts": {
