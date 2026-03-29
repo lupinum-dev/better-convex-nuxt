@@ -11,6 +11,9 @@ importers:
 
   .:
     dependencies:
+      '@clack/prompts':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@convex-dev/better-auth':
         specifier: ^0.11.3
         version: 0.11.3(@standard-schema/spec@1.1.0)(better-auth@1.5.6(@opentelemetry/api@1.9.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.0.18)(vue@3.5.29(typescript@5.9.3)))(convex@1.34.1(react@19.2.3))(hono@4.12.9)(react@19.2.3)(typescript@5.9.3)
@@ -23,6 +26,9 @@ importers:
       better-auth:
         specifier: '>=1.5.0 <1.6.0'
         version: 1.5.6(@opentelemetry/api@1.9.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.0.18)(vue@3.5.29(typescript@5.9.3))
+      citty:
+        specifier: ^0.1.6
+        version: 0.1.6
       consola:
         specifier: ^3.4.0
         version: 3.4.2

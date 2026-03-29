@@ -148,3 +148,61 @@ That's the Convex way to do email. The action runs server-side, has access to yo
 If someone wants to send email from a Nitro route instead, they use Resend's SDK directly. 4 lines. No module sugar needed.
 
 **Stay in your lane. Own the seam. Let email be someone else's problem.**
+
+---
+
+Tests:
+
+Alright, I've spent a good while going through your test suite, and honestly? It's pretty impressive overall. But let me give you the real talk — the good, the rough edges, and where I think you're spending effort that isn't paying off.
+
+**What's genuinely strong here**
+
+Your test architecture is well-thought-out. The four-tier split (unit → nuxt runtime → browser → e2e) makes sense for this kind of module, and you're mostly putting tests in the right tier. The `captureInNuxt` harness is clever — it lets you test composables in a real-ish Nuxt context without spinning up a full app for every test. That's hard to get right and you nailed it.
+
+The `MockConvexClient` is solid. It supports targeted emission by path, by args, or by predicate, which means your tests can be precise about what they're verifying. The `emitQueryResultWhere` pattern is especially nice for paginated query tests where you need to match on cursor values.
+
+Your error handling tests are genuinely thorough. The `call-result-categories.test.ts` file covers the full categorization matrix — code-based, status-based, precedence, edge cases. The `ConvexCallError` integration tests verify that auto-derivation actually works end-to-end. This is the kind of testing that prevents real bugs.
+
+The paginated query test suite is probably the crown jewel. Walking the full status machine (`loading-first-page → ready → loading-more → exhausted`), testing refresh recovery from errors, reset with new pagination IDs, `keepPreviousData` stale detection... that's covering real user scenarios that would be painful to debug in production.
+
+**Where things get bloated**
+
+The `define-convex-tool.test.ts` file is 450+ lines and it's testing... basically the entire MCP tool pipeline in one file. Auth, permissions, destructive confirmation, preview, rate limiting, middleware, input schema conversion, annotations — all in one place. Each of those is a distinct concern. The file reads like integration test soup. You'd get more signal by splitting this into focused files per feature.
+
+The `useConvexUploadQueue.nuxt.test.ts` with its `FakeQueueXhr` class is doing a lot of heavy lifting. You're essentially reimplementing XHR behavior to test upload queue semantics. That fake is complex enough to have bugs of its own. I'd consider whether the queue scheduling logic could be extracted and tested without the XHR simulation layer.
+
+**Tests that feel like they're testing the test infrastructure**
+
+`module-auto-imports.test.ts` is reading the module source file as a string and regex-matching for import names. If you rename an import, this test tells you... that you renamed an import. The module itself would fail to build if imports were wrong. This is testing the build system's job.
+
+`package-subpath-exports.test.ts` — same energy. Reading `package.json` and checking that keys exist. Your CI build would catch a broken subpath export instantly.
+
+`server-index-exports.test.ts` and `mcp-index-exports.test.ts` — importing a module and checking `toHaveProperty` on every export. These are basically snapshot tests of your public API surface, but without the benefit of actually _using_ those exports. They'll pass even if the exports are completely broken internally.
+
+**Duplication I noticed**
+
+The `global-hooks.test.ts` (unit) and `global-hooks.nuxt.test.ts` (nuxt runtime) overlap significantly. The unit tests mock everything and verify hook payloads. The nuxt tests do the same thing but with a real-ish Nuxt context. The unit versions are faster but the nuxt versions are more trustworthy. Pick one — I'd keep the nuxt versions and drop the unit mocks.
+
+`optimistic-updates.test.ts` tests the builder API exhaustively with a `FakeOptimisticLocalStore`, which is great. But then `useConvexMutation.nuxt.test.ts` also tests optimistic updates implicitly through the mutation flow. The overlap isn't terrible, but it's worth being aware of.
+
+**Tests that are genuinely catching real bugs**
+
+`query-status.test.ts` — the comment says this was added after bug #7 (`undefined !== null` causing false error status). This is exactly the kind of regression test that earns its keep. Short, targeted, documents the bug it prevents.
+
+`auth-pending.test.ts` — testing timeout behavior with fake timers. Simple, focused, tests a real race condition.
+
+The `devtools-useBridge-instance.test.ts` testing that responses from non-bound instances are ignored — that's preventing cross-tab interference bugs that would be miserable to debug in production.
+
+**What I'd actually change**
+
+Drop the "does this export exist" tests. They're noise. If you want API surface protection, use a `.d.ts` snapshot or TypeScript's own `--declaration` output.
+
+Merge the unit and nuxt runtime versions of global hooks — keep the nuxt ones, they're more trustworthy.
+
+Split `define-convex-tool.test.ts` into per-feature files (auth, permissions, destructive flow, rate limiting, middleware).
+
+Consider whether the e2e tests are worth their CI cost. The `auth-loop.e2e.test.ts` requires a running Convex backend, Better Auth setup, correct env vars... that's a lot of moving parts for what amounts to "can I click between signin and signup." If this breaks, you'd notice in manual testing within 30 seconds.
+
+**The bottom line**
+
+Your test suite is above average — probably top 20% of open source Nuxt modules I've seen. The core composable tests are strong, error handling coverage is excellent, and the paginated query tests are genuinely impressive. The main issue isn't quality, it's density — there's probably 15-20% of test code that's either duplicated across tiers or testing things the build system already guarantees. Trimming that would make the suite faster and easier to maintain without losing any real coverage.

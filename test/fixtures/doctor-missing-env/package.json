@@ -1,0 +1,10 @@
+{
+  "name": "doctor-missing-env",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "better-convex-nuxt": "workspace:*",
+    "convex": "^1.34.0",
+    "nuxt": "^4.3.1"
+  }
+}

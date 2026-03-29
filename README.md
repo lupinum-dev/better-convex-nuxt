@@ -24,6 +24,23 @@ If you use MCP tools with shared Convex schemas, install the MCP-only peers as w
 pnpm add @nuxtjs/mcp-toolkit convex-helpers zod
 ```
 
+## CLI
+
+A read-only CLI proof of concept is included for consumer app checks:
+
+```bash
+npx better-convex-nuxt doctor
+npx better-convex-nuxt doctor --cwd ./my-app
+npx better-convex-nuxt doctor --json
+```
+
+The `doctor` command checks:
+
+- Nuxt app structure (`package.json` + `nuxt.config.*`)
+- `nuxt`, `better-convex-nuxt`, and `convex` dependencies
+- Nuxt module registration in `modules`
+- Convex URL presence via `CONVEX_URL`, `NUXT_PUBLIC_CONVEX_URL`, `.env.local`, or `.env`
+
 ## Quick Start
 
 1. Add the module to `nuxt.config.ts`.

@@ -29,6 +29,9 @@
   "files": [
     "dist"
   ],
+  "bin": {
+    "better-convex-nuxt": "./dist/cli.mjs"
+  },
   "type": "module",
   "main": "./dist/module.mjs",
   "typesVersions": {
@@ -73,8 +76,9 @@
     }
   },
   "scripts": {
+    "build:cli": "tsc -p tsconfig.cli.json && node -e \"require('node:fs').chmodSync('dist/cli.mjs', 0o755)\"",
     "build:devtools": "nuxi build src/runtime/devtools/ui --preset static",
-    "prepack": "npm run build:devtools && nuxt-module-build build",
+    "prepack": "npm run build:devtools && nuxt-module-build build && npm run build:cli",
     "dev": "npm run dev:prepare && nuxi dev --cwd playground --dotenv .env.local",
     "dev:local": "PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=playground-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true npm run dev:prepare && PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=playground-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true nuxi dev --cwd playground --dotenv .env.local",
     "dev:local:reset": "PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=playground-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true RESET_LOCAL_BACKEND=true npm run dev:prepare && PLAYGROUND_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=playground-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true RESET_LOCAL_BACKEND=true nuxi dev --cwd playground --dotenv .env.local",
@@ -102,10 +106,12 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@clack/prompts": "^1.1.0",
     "@convex-dev/better-auth": "^0.11.3",
     "@nuxt/devtools-kit": "^3.2.2",
     "@nuxt/kit": "^4.3.1",
     "better-auth": ">=1.5.0 <1.6.0",
+    "citty": "^0.1.6",
     "consola": "^3.4.0",
     "convex": "^1.34.0",
     "defu": "^6.1.4",
