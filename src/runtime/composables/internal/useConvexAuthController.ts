@@ -60,12 +60,14 @@ export function useConvexAuthController(): ConvexAuthController {
   const refreshAuth = async (): Promise<void> => {
     const appState = nuxtApp as typeof nuxtApp & {
       _convexRefreshAuthPromise?: Promise<void> | null
+      _convexAuthTransitionId?: number
     }
     if (appState._convexRefreshAuthPromise) {
       return appState._convexRefreshAuthPromise
     }
 
     appState._convexRefreshAuthPromise = (async () => {
+      const transitionId = appState._convexAuthTransitionId ?? 0
       pending.value = true
       rawAuthError.value = null
 
@@ -84,15 +86,33 @@ export function useConvexAuthController(): ConvexAuthController {
           }),
         ])
 
+        if ((appState._convexAuthTransitionId ?? 0) !== transitionId) {
+          token.value = null
+          user.value = null
+          rawAuthError.value = null
+          return
+        }
+
         if (token.value)
           return
         if (rawAuthError.value)
           throw new Error(rawAuthError.value)
 
+        token.value = null
+        user.value = null
         rawAuthError.value = 'Authentication refresh completed without a token'
         throw new Error(rawAuthError.value)
       }
       catch (error) {
+        if ((appState._convexAuthTransitionId ?? 0) !== transitionId) {
+          token.value = null
+          user.value = null
+          rawAuthError.value = null
+          return
+        }
+
+        token.value = null
+        user.value = null
         rawAuthError.value = error instanceof Error ? error.message : String(error)
         throw error
       }
@@ -108,12 +128,14 @@ export function useConvexAuthController(): ConvexAuthController {
   const signOut = async (): Promise<void> => {
     const appState = nuxtApp as typeof nuxtApp & {
       _convexSignOutPromise?: Promise<void> | null
+      _convexAuthTransitionId?: number
     }
     if (appState._convexSignOutPromise) {
       return appState._convexSignOutPromise
     }
 
     appState._convexSignOutPromise = (async () => {
+      appState._convexAuthTransitionId = (appState._convexAuthTransitionId ?? 0) + 1
       pending.value = true
       rawAuthError.value = null
 

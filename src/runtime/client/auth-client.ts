@@ -4,6 +4,7 @@ import type { ConvexClient } from 'convex/browser'
 import type { Ref } from 'vue'
 import type { Router } from 'vue-router'
 import {
+  buildClientAuthDecodeFailureMessage,
   buildClientAuthRequestFailureMessage,
   buildClientAuthResponseErrorMessage,
 } from '../utils/auth-errors'
@@ -71,6 +72,28 @@ export function initAuthClient(
   let lastTokenValidation = Date.now()
   let inflightFetch: Promise<string | null> | null = null
 
+  const syncHydratedUserFromToken = (): string | null => {
+    if (!convexToken.value) {
+      return null
+    }
+
+    if (convexUser.value) {
+      return convexToken.value
+    }
+
+    const decodedUser = decodeUserFromJwt(convexToken.value)
+    if (!decodedUser) {
+      convexToken.value = null
+      convexUser.value = null
+      convexAuthError.value = buildClientAuthDecodeFailureMessage()
+      return null
+    }
+
+    convexUser.value = decodedUser
+    convexAuthError.value = null
+    return convexToken.value
+  }
+
   const doFetchToken = async ({
     forceRefreshToken,
     signal,
@@ -115,7 +138,7 @@ export function initAuthClient(
       lastTokenValidation = Date.now()
       logger.auth({ phase: 'client-fetchToken:cache', outcome: 'success', details: { traceId, source: 'hydrated-token', path: routePath } })
       resolveInitialAuth()
-      return convexToken.value
+      return syncHydratedUserFromToken()
     }
 
     const timeSinceValidation = Date.now() - lastTokenValidation
@@ -129,7 +152,7 @@ export function initAuthClient(
       if (canReuseToken) {
         logger.auth({ phase: 'client-fetchToken:cache', outcome: 'success', details: { traceId, source: 'recent-token-cache', ageMs: timeSinceValidation, path: routePath } })
         resolveInitialAuth()
-        return convexToken.value
+        return syncHydratedUserFromToken()
       }
     }
 
@@ -170,13 +193,25 @@ export function initAuthClient(
       }
 
       const token = response.data.token
+      const decodedUser = decodeUserFromJwt(token)
+      if (!decodedUser) {
+        convexToken.value = null
+        convexUser.value = null
+        convexAuthError.value = buildClientAuthDecodeFailureMessage()
+        logger.auth({
+          phase: 'client-fetchToken:response',
+          outcome: 'error',
+          details: { traceId, path: routePath, userHydrated: false },
+          error: new Error(convexAuthError.value),
+        })
+        resolveInitialAuth()
+        return null
+      }
+
+      convexUser.value = decodedUser
       convexToken.value = token
       convexAuthError.value = null
       lastTokenValidation = Date.now()
-
-      if (!convexUser.value) {
-        convexUser.value = decodeUserFromJwt(token)
-      }
 
       logger.auth({ phase: 'client-fetchToken:response', outcome: 'success', details: { traceId, path: routePath, userHydrated: Boolean(convexUser.value) } })
       resolveInitialAuth()
@@ -237,6 +272,8 @@ export function initAuthClient(
   })
 
   nuxtApp.hook('better-convex:auth:invalidate', async () => {
+    const appState = nuxtApp as typeof nuxtApp & { _convexAuthTransitionId?: number }
+    appState._convexAuthTransitionId = (appState._convexAuthTransitionId ?? 0) + 1
     logger.auth({ phase: 'client-invalidate', outcome: 'success', details: { traceId } })
     lastTokenValidation = 0
     inflightFetch = null

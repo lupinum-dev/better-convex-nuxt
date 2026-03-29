@@ -79,6 +79,12 @@ export function buildClientAuthResponseErrorMessage(rawMessage: string): string 
   )
 }
 
+export function buildClientAuthDecodeFailureMessage(): string {
+  return prefix(
+    'Authentication failed. Received an invalid auth token from the auth exchange.',
+  )
+}
+
 /**
  * Wrap a Better Auth error response into a ConvexCallError.
  *

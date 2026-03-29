@@ -1,0 +1,85 @@
+export interface JwtPayload {
+  sub?: string
+  userId?: string
+  name?: string
+  email?: string
+  emailVerified?: boolean
+  image?: string
+  iat?: number
+  exp?: number
+  iss?: string
+  aud?: string | string[]
+  [key: string]: unknown
+}
+
+function toBase64Url(input: string): string {
+  return Buffer.from(input, 'utf-8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+
+const HEADER = toBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' }))
+const SIGNATURE = 'test-signature'
+
+export function mintJwt(payload: JwtPayload): string {
+  const now = Math.floor(Date.now() / 1000)
+  const fullPayload: JwtPayload = {
+    iat: now,
+    exp: now + 3600,
+    ...payload,
+  }
+
+  return `${HEADER}.${toBase64Url(JSON.stringify(fullPayload))}.${SIGNATURE}`
+}
+
+export function mintExpiredJwt(payload: JwtPayload, agoMs = 60_000): string {
+  const now = Math.floor(Date.now() / 1000)
+  const offset = Math.floor(agoMs / 1000)
+  return mintJwt({
+    ...payload,
+    iat: now - offset - 3600,
+    exp: now - offset,
+  })
+}
+
+export function mintJwtExpiringIn(payload: JwtPayload, ms: number): string {
+  const now = Math.floor(Date.now() / 1000)
+  return mintJwt({
+    ...payload,
+    iat: now,
+    exp: now + Math.floor(ms / 1000),
+  })
+}
+
+export function userFromPayload(payload: JwtPayload) {
+  return {
+    id: String(payload.sub || payload.userId || ''),
+    name: String(payload.name || ''),
+    email: String(payload.email || ''),
+    emailVerified: typeof payload.emailVerified === 'boolean' ? payload.emailVerified : undefined,
+    image: typeof payload.image === 'string' ? payload.image : undefined,
+  }
+}
+
+export const TEST_USERS = {
+  alice: {
+    payload: { sub: 'user-alice', name: 'Alice', email: 'alice@test.com' },
+    get token() {
+      return mintJwt(this.payload)
+    },
+    get user() {
+      return userFromPayload(this.payload)
+    },
+  },
+  bob: {
+    payload: { sub: 'user-bob', name: 'Bob', email: 'bob@test.com' },
+    get token() {
+      return mintJwt(this.payload)
+    },
+    get user() {
+      return userFromPayload(this.payload)
+    },
+  },
+} as const

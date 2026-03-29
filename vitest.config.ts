@@ -16,6 +16,7 @@ import { defineConfig } from 'vitest/config'
  * Run specific project:
  *   pnpm vitest --project=convex
  *   pnpm vitest --project=nuxt
+ *   pnpm vitest --project=server
  *   pnpm vitest --project=e2e
  */
 export default defineConfig({
@@ -30,7 +31,8 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['test/unit/**/*.test.ts'],
+          include: ['test/unit/**/*.test.ts', 'test/auth/**/*.test.ts'],
+          exclude: ['test/auth/**/*.server.test.ts', 'test/auth/**/*.nuxt.test.ts'],
           environment: 'node',
         },
       },
@@ -52,7 +54,7 @@ export default defineConfig({
       await defineVitestProject({
         test: {
           name: 'nuxt',
-          include: ['test/nuxt/**/*.test.ts'],
+          include: ['test/nuxt/**/*.test.ts', 'test/auth/**/*.nuxt.test.ts'],
           environment: 'nuxt',
           environmentOptions: {
             nuxt: {
@@ -61,6 +63,16 @@ export default defineConfig({
           },
         },
       }),
+
+      // Server Auth Tests: server-side auth helpers and cache behavior
+      // Fast (<1s) - run with `pnpm vitest --project=server`
+      {
+        test: {
+          name: 'server',
+          include: ['test/auth/**/*.server.test.ts'],
+          environment: 'node',
+        },
+      },
 
       // Browser Component Tests: native browser rendering for Vue components
       {

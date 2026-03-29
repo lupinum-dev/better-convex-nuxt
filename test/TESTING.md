@@ -8,8 +8,10 @@ This file only covers test strategy and test-specific setup. For shared local en
 test/
 ├── unit/
 ├── nuxt/
+├── auth/
 ├── browser/
 ├── e2e/
+├── harness/
 ├── helpers/
 └── fixtures/
 ```
@@ -26,6 +28,8 @@ playground/convex/
 
 ```bash
 pnpm test
+pnpm test:auth
+pnpm test:server
 pnpm test:watch
 pnpm test:nuxt
 pnpm test:browser
@@ -33,13 +37,24 @@ pnpm test:e2e
 pnpm test:full
 ```
 
+## Vitest Projects
+
+- `unit`: pure helpers under `test/unit/**` and auth helper/security suites under `test/auth/**/*.test.ts`
+- `nuxt`: Nuxt runtime suites under `test/nuxt/**` and `test/auth/**/*.nuxt.test.ts`
+- `server`: server-side auth/cache suites under `test/auth/**/*.server.test.ts`
+- `convex`: backend tests in `playground/convex/**`
+- `browser`: browser component tests in `test/browser/**`
+- `e2e`: full-stack suites in `test/e2e/**`
+
 ## Design Rules
 
 1. Runtime/composable behavior goes in `test/nuxt`.
-2. Pure browser rendering behavior goes in `test/browser`.
-3. Full-stack tests stay thin and intentional in `test/e2e`.
-4. Convex/backend behavior belongs in `playground/convex/*.test.ts`.
-5. Prefer deterministic assertions over sleeps.
+2. New auth runtime and security coverage goes in `test/auth`.
+3. Shared auth test utilities live in `test/harness`.
+4. Pure browser rendering behavior goes in `test/browser`.
+5. Full-stack tests stay thin and intentional in `test/e2e`.
+6. Convex/backend behavior belongs in `playground/convex/*.test.ts`.
+7. Prefer deterministic assertions over sleeps.
 
 ## E2E Auth Setup
 

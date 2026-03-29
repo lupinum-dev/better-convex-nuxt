@@ -2,6 +2,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const stateStore = new Map<string, { value: unknown }>()
 
+function toBase64Url(value: string): string {
+  return Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+
+function makeJwt(payload: Record<string, unknown>): string {
+  return [
+    toBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' })),
+    toBase64Url(JSON.stringify(payload)),
+    'test-signature',
+  ].join('.')
+}
+
 const {
   defineNuxtPluginMock,
   useRuntimeConfigMock,
@@ -124,7 +140,7 @@ describe('plugin.client auth flow', () => {
 
   it('uses only the token exchange request on client cold boot', async () => {
     tokenMock.mockResolvedValue({
-      data: { token: 'jwt-from-token-exchange' },
+      data: { token: makeJwt({ sub: 'u1', email: 'alice@test.com' }) },
       error: null,
     })
     vi.stubGlobal('fetch', vi.fn())
@@ -143,7 +159,7 @@ describe('plugin.client auth flow', () => {
 
     const token = await fetchToken!({ forceRefreshToken: false })
 
-    expect(token).toBe('jwt-from-token-exchange')
+    expect(token).toBe(makeJwt({ sub: 'u1', email: 'alice@test.com' }))
     expect(tokenMock).toHaveBeenCalledTimes(1)
     expect(fetch).not.toHaveBeenCalled()
   })
@@ -155,7 +171,7 @@ describe('plugin.client auth flow', () => {
         error: null,
       })
       .mockResolvedValueOnce({
-        data: { token: 'jwt-after-login' },
+        data: { token: makeJwt({ sub: 'u2', email: 'bob@test.com' }) },
         error: null,
       })
     vi.stubGlobal('fetch', vi.fn())
@@ -176,10 +192,12 @@ describe('plugin.client auth flow', () => {
     const second = await fetchToken!({ forceRefreshToken: false })
 
     expect(first).toBeNull()
-    expect(second).toBe('jwt-after-login')
+    expect(second).toBe(makeJwt({ sub: 'u2', email: 'bob@test.com' }))
     expect(tokenMock).toHaveBeenCalledTimes(2)
     expect(stateStore.get('convex:authError')?.value).toBeNull()
-    expect(stateStore.get('convex:token')?.value).toBe('jwt-after-login')
+    expect(stateStore.get('convex:token')?.value).toBe(
+      makeJwt({ sub: 'u2', email: 'bob@test.com' }),
+    )
     expect(fetch).not.toHaveBeenCalled()
   })
 
