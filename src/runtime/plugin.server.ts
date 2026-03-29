@@ -14,6 +14,7 @@ import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#
 
 import type { AuthWaterfall } from './utils/auth-debug'
 import { resolveRequestAuth } from './server/utils/auth-resolver'
+import { projectResolvedAuthForHydration } from './server/utils/auth-hydration'
 import { fetchWithTimeout } from './server/utils/http'
 import {
   SERVER_FETCH_TIMEOUT_MS,
@@ -23,7 +24,7 @@ import {
   STATE_KEY_USER,
 } from './utils/constants'
 import {
-  buildClientAuthDecodeFailureMessage,
+  buildAuthTokenDecodeFailureMessage,
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
 } from './utils/auth-errors'
@@ -150,24 +151,18 @@ export default defineNuxtPlugin(async () => {
     : { value: null as AuthWaterfall | null }
 
   const resolvedAuth = await resolveRequestAuth(event, convexConfig)
-  const hydratedAuthDecodeFailed = Boolean(resolvedAuth.token && resolvedAuth.jwtDecodeFailed)
+  const hydratedAuth = projectResolvedAuthForHydration(resolvedAuth)
   logAuth('server-init', 'success', {
     hasCookieHeader: Boolean(event.headers.get('cookie')),
     hasSessionToken: resolvedAuth.hasSessionCookie,
     cacheEnabled: Boolean(convexConfig.auth.cache.enabled),
   })
 
-  if (hydratedAuthDecodeFailed) {
-    convexToken.value = null
-    convexUser.value = null
-    convexAuthError.value = buildClientAuthDecodeFailureMessage()
-  } else {
-    convexToken.value = resolvedAuth.token
-    convexUser.value = resolvedAuth.user
-    convexAuthError.value = resolvedAuth.error
-  }
+  convexToken.value = hydratedAuth.token
+  convexUser.value = hydratedAuth.user
+  convexAuthError.value = hydratedAuth.error
 
-  if (import.meta.dev && hydratedAuthDecodeFailed) {
+  if (import.meta.dev && hydratedAuth.decodeFailed) {
     console.warn(
       '[better-convex-nuxt] JWT decode failed during SSR hydration. Auth state was cleared to unauthenticated because the token is invalid for client use. Configure Better Auth to include user claims in the JWT.',
     )
@@ -191,25 +186,25 @@ export default defineNuxtPlugin(async () => {
     return
   }
 
-  if (resolvedAuth.source === 'cache' && resolvedAuth.token && !hydratedAuthDecodeFailed) {
+  if (resolvedAuth.source === 'cache' && hydratedAuth.token) {
     endInit()
     logAuth('cache', 'success', { source: 'cache' })
     return
   }
 
-  if (resolvedAuth.token && !hydratedAuthDecodeFailed) {
+  if (hydratedAuth.token) {
     endInit()
     logAuth('exchange', 'success', { user: resolvedAuth.user?.email })
     return
   }
 
-  if (hydratedAuthDecodeFailed) {
+  if (hydratedAuth.decodeFailed) {
     endInit()
     logAuth(
       resolvedAuth.source === 'cache' ? 'cache' : 'exchange',
       'error',
       { source: resolvedAuth.source, decodeFailure: true },
-      new Error(convexAuthError.value ?? buildClientAuthDecodeFailureMessage()),
+      new Error(convexAuthError.value ?? buildAuthTokenDecodeFailureMessage()),
     )
     return
   }

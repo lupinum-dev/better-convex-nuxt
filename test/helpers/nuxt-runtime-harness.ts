@@ -1,8 +1,14 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { defineComponent, h, nextTick, type ComponentPublicInstance } from 'vue'
+import {
+  defineComponent,
+  getCurrentScope,
+  h,
+  nextTick,
+  onScopeDispose,
+  type ComponentPublicInstance,
+} from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
-import { resetRuntimeAuthHookStore } from '../../src/runtime/client/runtime-hooks'
 
 let currentConvexTarget: Record<PropertyKey, unknown> | null = null
 let currentAuthTarget: Record<PropertyKey, unknown> | null = null
@@ -49,14 +55,29 @@ export async function captureInNuxt<T>(
 }> {
   let result: T | undefined
   let nuxtAppRef: ReturnType<typeof useNuxtApp> | undefined
+  const registeredHookRemovers: Array<() => void> = []
 
   const wrapper = await mountSuspended(
     defineComponent({
       setup() {
         const nuxtApp = useNuxtApp()
         const runtimeConfig = useRuntimeConfig()
+        const originalHook = nuxtApp.hook.bind(nuxtApp)
 
         nuxtAppRef = nuxtApp
+
+        nuxtApp.hook = ((event, callback) => {
+          const removeHook = originalHook(event, callback)
+          registeredHookRemovers.push(removeHook)
+
+          if (getCurrentScope()) {
+            onScopeDispose(() => {
+              removeHook()
+            })
+          }
+
+          return removeHook
+        }) as typeof nuxtApp.hook
 
         if (options.convex === undefined) {
           currentConvexTarget = null
@@ -109,11 +130,13 @@ export async function captureInNuxt<T>(
 
   const wrappedComponent = wrapper as unknown as ComponentPublicInstance & { unmount: () => void }
   const originalUnmount = wrappedComponent.unmount.bind(wrappedComponent)
-  const wrappedUnmount = () => {
-    resetRuntimeAuthHookStore(nuxtAppRef as object)
+  wrappedComponent.unmount = () => {
+    while (registeredHookRemovers.length > 0) {
+      const removeHook = registeredHookRemovers.pop()
+      removeHook?.()
+    }
     originalUnmount()
   }
-  wrappedComponent.unmount = wrappedUnmount
 
   return {
     result,

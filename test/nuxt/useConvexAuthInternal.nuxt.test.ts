@@ -1,41 +1,26 @@
 import { describe, expect, it } from 'vitest'
 
-import { useNuxtApp, useState } from '#imports'
+import { useState } from '#imports'
 
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
-
-function withAuthRuntimeDisabled(options: Record<string, unknown> = {}) {
-  return {
-    convexConfig: {
-      auth: {
-        enabled: false,
-      },
-    },
-    ...options,
-  }
-}
+import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 
 describe('useConvexAuthController (Nuxt runtime)', () => {
-  it('refreshAuth resolves after refresh hook updates token', async () => {
+  it('refreshAuth resolves after the shared auth engine commits the refreshed token', async () => {
     const { result } = await captureInNuxt(() => {
-      const nuxtApp = useNuxtApp()
-      const token = useState<string | null>('convex:token')
-      const user = useState<Record<string, unknown> | null>('convex:user')
-      const authError = useState<string | null>('convex:authError')
-
-      token.value = null
-      user.value = null
-      authError.value = null
-
-      nuxtApp.hook('better-convex:auth:refresh', async () => {
-        token.value = 'new.jwt.token'
-        user.value = { id: 'u2' }
+      installMockAuthEngine({
+        fetchAuthState: async () => ({
+          token: 'new.jwt.token',
+          user: { id: 'u2' },
+          error: null,
+          source: 'exchange',
+        }),
       })
 
       return { auth: useConvexAuth(), internal: useConvexAuthController() }
-    }, withAuthRuntimeDisabled())
+    })
 
     await result.internal.refreshAuth()
     expect(result.internal.token.value).toBe('new.jwt.token')
@@ -46,12 +31,13 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
   it('awaitAuthReady resolves final auth state without throwing', async () => {
     const { result } = await captureInNuxt(() => {
+      installMockAuthEngine({
+        initialPending: true,
+      })
+
       const pending = useState<boolean>('convex:pending')
       const token = useState<string | null>('convex:token')
-      const user = useState<Record<string, unknown> | null>('convex:user')
-      pending.value = true
-      token.value = null
-      user.value = null
+      const user = useState<{ id: string } | null>('convex:user')
 
       setTimeout(() => {
         token.value = 'ready.jwt.token'
@@ -60,7 +46,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
       }, 10)
 
       return { auth: useConvexAuth(), internal: useConvexAuthController() }
-    }, withAuthRuntimeDisabled())
+    })
 
     await expect(result.internal.awaitAuthReady({ timeoutMs: 200 })).resolves.toBe(true)
     expect(result.auth.isAuthenticated.value).toBe(true)
@@ -68,20 +54,20 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
   it('awaitAuthReady returns false when pending does not settle before timeout', async () => {
     const { result } = await captureInNuxt(() => {
-      const pending = useState<boolean>('convex:pending')
-      const token = useState<string | null>('convex:token')
-      const user = useState<Record<string, unknown> | null>('convex:user')
-      pending.value = true
-      token.value = null
-      user.value = null
+      installMockAuthEngine({
+        initialPending: true,
+      })
       return useConvexAuthController()
-    }, withAuthRuntimeDisabled())
+    })
 
     await expect(result.awaitAuthReady({ timeoutMs: 5 })).resolves.toBe(false)
   })
 
-  it('exposes token, authError, refreshAuth, and awaitAuthReady', async () => {
-    const { result } = await captureInNuxt(() => useConvexAuthController(), withAuthRuntimeDisabled())
+  it('exposes token, authError, refreshAuth, and awaitAuthReady without a pre-seeded error', async () => {
+    const { result } = await captureInNuxt(() => {
+      installMockAuthEngine()
+      return useConvexAuthController()
+    })
 
     expect('token' in result).toBe(true)
     expect('authError' in result).toBe(true)

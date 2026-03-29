@@ -83,7 +83,7 @@ export function buildClientAuthResponseErrorMessage(rawMessage: string): string 
   )
 }
 
-export function buildClientAuthDecodeFailureMessage(): string {
+export function buildAuthTokenDecodeFailureMessage(): string {
   return prefix(
     'Authentication failed. Received an invalid auth token.',
   )

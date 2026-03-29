@@ -5,14 +5,16 @@
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
 import { initAuthClient } from './client/auth-client'
+import { getOrCreateSharedAuthEngine } from './client/auth-engine'
 import { initConvexClient } from './client/convex-client'
 import { setupDevtoolsBridgeIfDev } from './client/devtools'
-import { initRuntimeAuthHooks, initRuntimeConnectionHooks } from './client/runtime-hooks'
+import { initRuntimeConnectionHooks } from './client/runtime-hooks'
 import { initHydrationState } from './client/auth-hydration'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors'
 import { STATE_KEY_AUTH_TRACE_ID, STATE_KEY_DEVTOOLS_INSTANCE_ID } from './utils/constants'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
+import type { ConvexUser } from './utils/types'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
@@ -56,6 +58,10 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   const hydration = initHydrationState()
+  const wasAuthenticated = useState<boolean>(
+    'better-convex:was-authenticated',
+    () => Boolean(hydration.convexToken.value && hydration.convexUser.value),
+  )
   const traceId = import.meta.dev
     ? (useState<string>(STATE_KEY_AUTH_TRACE_ID).value ?? 'unknown')
     : 'prod'
@@ -70,45 +76,65 @@ export default defineNuxtPlugin((nuxtApp) => {
     },
   })
 
-  if (isAuthEnabled && !resolvedSiteUrl) {
-    hydration.convexAuthError.value = buildMissingSiteUrlMessage(convexUrl)
-    hydration.convexPending.value = false
-    nuxtApp.hook('better-convex:auth:refresh', async () => {
-      throw new Error(hydration.convexAuthError.value ?? buildMissingSiteUrlMessage(convexUrl))
-    })
-    logger.auth({ phase: 'client-init', outcome: 'error', error: new Error(hydration.convexAuthError.value ?? ''), details: { traceId } })
-  }
-
   const client = initConvexClient(convexUrl)
-  let authClient = null
+  const authEngine = getOrCreateSharedAuthEngine({
+    nuxtApp,
+    token: hydration.convexToken,
+    user: hydration.convexUser as typeof hydration.convexUser & { value: ConvexUser | null },
+    pending: hydration.convexPending,
+    rawAuthError: hydration.convexAuthError,
+    wasAuthenticated,
+    onSetAuthState: (isAuthenticated) => {
+      logger.auth({
+        phase: 'client-setAuth',
+        outcome: 'success',
+        details: {
+          traceId,
+          state: isAuthenticated ? 'authenticated' : 'unauthenticated',
+          hasToken: Boolean(hydration.convexToken.value),
+          hasUser: Boolean(hydration.convexUser.value),
+        },
+      })
+    },
+    resolveInitialAuth: hydration.resolveInitialAuth,
+  })
 
   if (isAuthEnabled && resolvedSiteUrl) {
     const authRoute = authConfig.route
     const authBaseURL = typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
     const router = useRouter()
 
-    authClient = initAuthClient(client, {
+    authEngine.configureTransport(initAuthClient(client, {
       baseURL: authBaseURL,
       authRoute,
       skipRoutes: authConfig.skipAuthRoutes,
       convexToken: hydration.convexToken,
       convexUser: hydration.convexUser,
-      convexAuthError: hydration.convexAuthError,
-      resolveInitialAuth: hydration.resolveInitialAuth,
       logger,
       nuxtApp,
       router,
       traceId,
+    }))
+  } else if (isAuthEnabled) {
+    const missingSiteUrlMessage = buildMissingSiteUrlMessage(convexUrl)
+    authEngine.initialize({
+      error: missingSiteUrlMessage,
+      resolveInitialAuth: true,
+    })
+    logger.auth({
+      phase: 'client-init',
+      outcome: 'error',
+      error: new Error(missingSiteUrlMessage),
+      details: { traceId },
     })
   } else {
-    hydration.convexPending.value = false
+    authEngine.initialize({ resolveInitialAuth: true })
   }
 
   nuxtApp.provide('convex', client)
   initRuntimeConnectionHooks(nuxtApp, client, logger)
-  initRuntimeAuthHooks(nuxtApp, hydration.convexToken, hydration.convexUser)
-  if (authClient) {
-    nuxtApp.provide('auth', authClient)
+  if (authEngine.client) {
+    nuxtApp.provide('auth', authEngine.client)
   }
 
   if (import.meta.dev) {

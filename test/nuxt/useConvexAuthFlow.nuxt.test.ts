@@ -1,50 +1,28 @@
 import { describe, expect, it } from 'vitest'
 
-import { useNuxtApp, useState } from '#imports'
-
 import { useConvexAuthActions } from '../../src/runtime/composables/useConvexAuthActions'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 
-const AUTH_CONFIG = {
-  auth: { routeProtection: { redirectTo: '/auth/signin' } },
-}
-
-/**
- * Set up auth state and a succeeding refresh hook inside captureInNuxt.
- * Must be called inside the factory passed to captureInNuxt.
- */
-function initAuthState() {
-  const nuxtApp = useNuxtApp()
-  const token = useState<string | null>('convex:token')
-  const user = useState<Record<string, unknown> | null>('convex:user')
-  const authError = useState<string | null>('convex:authError')
-  const pending = useState<boolean>('convex:pending')
-
-  token.value = null
-  user.value = null
-  authError.value = null
-  pending.value = false
-
-  nuxtApp.hook('better-convex:auth:refresh', async () => {
-    token.value = 'refreshed.jwt.token'
-    user.value = { id: 'u-auth' }
+function initAuthEngine(options?: Parameters<typeof installMockAuthEngine>[0]) {
+  installMockAuthEngine({
+    fetchAuthState: async () => ({
+      token: 'refreshed.jwt.token',
+      user: { id: 'u-auth' },
+      error: null,
+      source: 'exchange',
+    }),
+    ...options,
   })
 }
 
 describe('useConvexAuthActions (Nuxt runtime)', () => {
-  // Tests with success-only refresh hooks come first.
-  // Tests that register failing hooks come last, since the shared nuxtApp
-  // accumulates hook listeners across tests within the same describe block.
-
   it('happy path: execute calls fn, refreshAuth, and returns result', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        initAuthState()
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine()
+      return useConvexAuthActions()
+    })
 
     const fnResult = await result.execute(
       async () => ({ data: { user: { id: 'u1' } }, error: null }),
@@ -58,13 +36,10 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   })
 
   it('sets pending=true during execution', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        initAuthState()
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine()
+      return useConvexAuthActions()
+    })
 
     const pendingStates: boolean[] = []
 
@@ -81,13 +56,10 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   })
 
   it('returns the raw result from fn for data access', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        initAuthState()
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine()
+      return useConvexAuthActions()
+    })
 
     const authResponse = await result.execute(async () => ({
       data: { session: { token: 'abc' }, user: { id: 'u1', name: 'Test' } },
@@ -99,15 +71,11 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   })
 
   it('clears previous error on new execute call', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        initAuthState()
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine()
+      return useConvexAuthActions()
+    })
 
-    // First call fails (fn throws, so refreshAuth is never reached)
     await expect(
       result.execute(async () => {
         throw new Error('first failure')
@@ -115,20 +83,16 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     ).rejects.toThrow()
     expect(result.error.value).not.toBeNull()
 
-    // Second call succeeds — error should be cleared
     await result.execute(async () => ({ data: 'ok', error: null }))
     expect(result.error.value).toBeNull()
     expect(result.data.value).toEqual({ data: 'ok', error: null })
   })
 
   it('detects Better Auth { error } response and throws ConvexCallError', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        initAuthState()
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine()
+      return useConvexAuthActions()
+    })
 
     await expect(
       result.execute(async () => ({
@@ -146,13 +110,10 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   })
 
   it('wraps non-ConvexCallError thrown by fn', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        initAuthState()
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine()
+      return useConvexAuthActions()
+    })
 
     await expect(
       result.execute(async () => {
@@ -165,13 +126,10 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   })
 
   it('sets pending=false even when execute throws', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        initAuthState()
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine()
+      return useConvexAuthActions()
+    })
 
     await expect(
       result.execute(async () => {
@@ -183,30 +141,22 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   })
 
   it('does not call refreshAuth when Better Auth error is detected', async () => {
-    const refreshCalled = { value: false }
+    let refreshCallCount = 0
 
-    const { result } = await captureInNuxt(
-      () => {
-        const nuxtApp = useNuxtApp()
-        const token = useState<string | null>('convex:token')
-        const user = useState<Record<string, unknown> | null>('convex:user')
-        const authError = useState<string | null>('convex:authError')
-        const pending = useState<boolean>('convex:pending')
-
-        token.value = null
-        user.value = null
-        authError.value = null
-        pending.value = false
-
-        nuxtApp.hook('better-convex:auth:refresh', async () => {
-          refreshCalled.value = true
-          token.value = 'should-not-be-set'
-        })
-
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine({
+        fetchAuthState: async () => {
+          refreshCallCount++
+          return {
+            token: 'should-not-be-set',
+            user: { id: 'unexpected' },
+            error: null,
+            source: 'exchange',
+          }
+        },
+      })
+      return useConvexAuthActions()
+    })
 
     await expect(
       result.execute(async () => ({
@@ -215,17 +165,14 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       })),
     ).rejects.toThrow()
 
-    expect(refreshCalled.value).toBe(false)
+    expect(refreshCallCount).toBe(0)
   })
 
   it('reset clears data and error and returns to idle', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        initAuthState()
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine()
+      return useConvexAuthActions()
+    })
 
     await result.execute(async () => ({ data: 'ok', error: null }))
     expect(result.status.value).toBe('success')
@@ -237,30 +184,18 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     expect(result.data.value).toBeUndefined()
   })
 
-  // This test registers a FAILING refresh hook on the shared nuxtApp.
-  // It must come last since the hook persists across subsequent tests.
   it('wraps refreshAuth failure as ConvexCallError', async () => {
-    const { result } = await captureInNuxt(
-      () => {
-        const nuxtApp = useNuxtApp()
-        const token = useState<string | null>('convex:token')
-        const user = useState<Record<string, unknown> | null>('convex:user')
-        const authError = useState<string | null>('convex:authError')
-        const pending = useState<boolean>('convex:pending')
-
-        token.value = null
-        user.value = null
-        authError.value = null
-        pending.value = false
-
-        nuxtApp.hook('better-convex:auth:refresh', async () => {
-          throw new Error('Token refresh failed')
-        })
-
-        return useConvexAuthActions()
-      },
-      { convexConfig: AUTH_CONFIG },
-    )
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine({
+        fetchAuthState: async () => ({
+          token: null,
+          user: null,
+          error: 'Token refresh failed',
+          source: 'exchange',
+        }),
+      })
+      return useConvexAuthActions()
+    })
 
     await expect(
       result.execute(async () => ({ data: { user: { id: 'u1' } }, error: null })),

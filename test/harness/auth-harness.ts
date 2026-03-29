@@ -4,12 +4,15 @@ import type { Ref } from 'vue'
 
 import { useNuxtApp, useState } from '#imports'
 
+import {
+  getOrCreateSharedAuthEngine,
+  type SharedAuthEngine,
+  type AuthTransport,
+  type ClientAuthStateResult,
+} from '../../src/runtime/client/auth-engine'
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
-import {
-  bumpAuthTransitionId,
-  getAuthTransitionId,
-} from '../../src/runtime/utils/auth-transition'
+import { buildAuthTokenDecodeFailureMessage } from '../../src/runtime/utils/auth-errors'
 import { decodeUserFromJwt } from '../../src/runtime/utils/convex-shared'
 import {
   STATE_KEY_AUTH_ERROR,
@@ -57,6 +60,46 @@ export interface AuthHarness {
   dispose(): void
 }
 
+function buildTransportResult(
+  response: Awaited<ReturnType<MockTokenExchange['getNextResponse']>>,
+): ClientAuthStateResult {
+  if (response.error) {
+    return {
+      token: null,
+      user: null,
+      error: response.error.message,
+      source: 'exchange',
+    }
+  }
+
+  const token = response.data?.token ?? null
+  if (!token) {
+    return {
+      token: null,
+      user: null,
+      error: null,
+      source: 'exchange',
+    }
+  }
+
+  const user = decodeUserFromJwt(token)
+  if (!user) {
+    return {
+      token: null,
+      user: null,
+      error: buildAuthTokenDecodeFailureMessage(),
+      source: 'exchange',
+    }
+  }
+
+  return {
+    token,
+    user,
+    error: null,
+    source: 'exchange',
+  }
+}
+
 export async function createAuthHarness(
   options: AuthHarnessOptions = {},
 ): Promise<AuthHarness> {
@@ -81,76 +124,59 @@ export async function createAuthHarness(
     const user = useState<ConvexUser | null>(STATE_KEY_USER)
     const pending = useState<boolean>(STATE_KEY_PENDING)
     const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR)
+    const wasAuthenticated = useState<boolean>(
+      'better-convex:was-authenticated',
+      () => Boolean(initialToken && initialUser),
+    )
 
     token.value = initialToken
     user.value = initialUser
     pending.value = initialPending
     rawAuthError.value = initialAuthError
+    wasAuthenticated.value = Boolean(initialToken && initialUser)
 
     nuxtApp.hook('convex:auth:changed', authChangedSpy)
     nuxtApp.hook('convex:unauthorized', unauthorizedSpy)
-    const originalCallHook = nuxtApp.callHook.bind(nuxtApp)
 
-    const runHarnessRefresh = async () => {
-      refreshHandlerSpy()
-      const transitionId = getAuthTransitionId(nuxtApp)
-      const response = await tokenExchange.getNextResponse()
-
-      if (getAuthTransitionId(nuxtApp) !== transitionId) {
-        return
-      }
-
-      if (response.error) {
-        token.value = null
-        user.value = null
-        rawAuthError.value = response.error.message
-        throw response.error
-      }
-
-      const nextToken = response.data?.token ?? null
-      if (!nextToken) {
-        token.value = null
-        user.value = null
-        rawAuthError.value = null
-        return
-      }
-
-      const decodedUser = decodeUserFromJwt(nextToken)
-      if (!decodedUser) {
-        token.value = null
-        user.value = null
-        rawAuthError.value = 'Failed to decode authenticated user from JWT'
-        throw new Error(rawAuthError.value)
-      }
-
-      user.value = decodedUser
-      token.value = nextToken
-      rawAuthError.value = null
+    const transport: AuthTransport = {
+      client: { signOut: signOutSpy } as never,
+      async fetchAuthState() {
+        refreshHandlerSpy()
+        const response = await tokenExchange.getNextResponse()
+        return buildTransportResult(response)
+      },
+      install(_fetchToken, _onChange) {
+      },
+      async refresh(fetchToken, onChange) {
+        const nextToken = await fetchToken({ forceRefreshToken: true })
+        onChange(Boolean(nextToken))
+      },
+      async invalidate() {
+        invalidateHandlerSpy()
+      },
     }
 
-    const runHarnessInvalidate = async () => {
-      bumpAuthTransitionId(nuxtApp)
-      invalidateHandlerSpy()
-      token.value = null
-      user.value = null
-      rawAuthError.value = null
-    }
-
-    nuxtApp.callHook = (async (event: string, ...args: unknown[]) => {
-      if (event === 'better-convex:auth:refresh') {
-        await runHarnessRefresh()
-        return
-      }
-      if (event === 'better-convex:auth:invalidate') {
-        await runHarnessInvalidate()
-        return
-      }
-      return await originalCallHook(event as never, ...(args as never[]))
-    }) as typeof nuxtApp.callHook
+    getOrCreateSharedAuthEngine({
+      nuxtApp,
+      token,
+      user,
+      pending,
+      rawAuthError,
+      wasAuthenticated,
+      transport,
+    }).initialize()
 
     return {
       auth: useConvexAuth(),
       controller: useConvexAuthController(),
+      engine: getOrCreateSharedAuthEngine({
+        nuxtApp,
+        token,
+        user,
+        pending,
+        rawAuthError,
+        wasAuthenticated,
+      }),
       token,
       user,
       pending,
@@ -191,7 +217,7 @@ export async function createAuthHarness(
       await flush()
     },
     async triggerInvalidate() {
-      await captured.result.nuxtApp.callHook('better-convex:auth:invalidate')
+      await (captured.result.engine as SharedAuthEngine).invalidateAuth({ clearWasAuthenticated: true })
       await flush()
     },
     async triggerSignOut() {

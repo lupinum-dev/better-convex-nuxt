@@ -405,8 +405,6 @@ declare module '#app' {
   interface NuxtApp {
     $convex?: ConvexClient
     $auth?: AuthClient
-    _convexRefreshAuthPromise?: Promise<void> | null
-    _convexSignOutPromise?: Promise<void> | null
   }
 
   interface RuntimeNuxtHooks {

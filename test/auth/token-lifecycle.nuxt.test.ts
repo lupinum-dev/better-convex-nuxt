@@ -90,9 +90,9 @@ describe('Auth Token Lifecycle', () => {
 
     h = await createAuthHarness({ tokenExchange: exchange })
 
-    await expect(h.triggerRefresh()).rejects.toThrow(/decode authenticated user/i)
+    await expect(h.triggerRefresh()).rejects.toThrow(/invalid auth token/i)
     h.assertUnauthenticated()
-    h.assertAuthError(/decode authenticated user/i)
+    h.assertAuthError(/invalid auth token/i)
   })
 
   it('times out a hung refresh without leaving a stray warning after a later success', async () => {

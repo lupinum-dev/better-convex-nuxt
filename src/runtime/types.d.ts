@@ -57,10 +57,6 @@ declare module '#app' {
       lastRedirectKey: string | null
       lastRedirectAt: number
     }
-    /** Internal in-flight promise for useConvexAuth().refreshAuth() dedupe */
-    _convexRefreshAuthPromise?: Promise<void> | null
-    /** Internal in-flight promise for useConvexAuth().signOut() dedupe */
-    _convexSignOutPromise?: Promise<void> | null
   }
   interface RuntimeNuxtHooks {
     'better-convex:auth:refresh': () => void | Promise<void>
