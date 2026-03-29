@@ -53,6 +53,9 @@
       ],
       "tenant": [
         "./dist/runtime/tenant/index.d.ts"
+      ],
+      "actor": [
+        "./dist/runtime/actor/index.d.ts"
       ]
     }
   },
@@ -80,6 +83,10 @@
     "./tenant": {
       "types": "./dist/runtime/tenant/index.d.ts",
       "import": "./dist/runtime/tenant/index.js"
+    },
+    "./actor": {
+      "types": "./dist/runtime/actor/index.d.ts",
+      "import": "./dist/runtime/actor/index.js"
     }
   },
   "scripts": {

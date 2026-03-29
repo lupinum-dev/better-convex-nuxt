@@ -8,11 +8,13 @@
  * @module
  */
 
+import type * as actorPosts from "../actorPosts.js";
 import type * as auth from "../auth.js";
 import type * as experiments_wrapped from "../experiments/wrapped.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 import type * as invites from "../invites.js";
+import type * as lib_actor from "../lib/actor.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_tenant from "../lib/tenant.js";
 import type * as mcpKeys from "../mcpKeys.js";
@@ -33,11 +35,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  actorPosts: typeof actorPosts;
   auth: typeof auth;
   "experiments/wrapped": typeof experiments_wrapped;
   files: typeof files;
   http: typeof http;
   invites: typeof invites;
+  "lib/actor": typeof lib_actor;
   "lib/permissions": typeof lib_permissions;
   "lib/tenant": typeof lib_tenant;
   mcpKeys: typeof mcpKeys;
