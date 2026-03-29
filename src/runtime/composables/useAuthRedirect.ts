@@ -13,7 +13,7 @@ export interface UseAuthRedirectReturn {
    * Reads `?redirect=` from the current URL (set by route protection middleware).
    * Falls back to `fallbackPath`. Rejects unsafe redirects and prevents login loops.
    */
-  redirectAfterAuth: (fallbackPath?: string) => void
+  redirectAfterAuth: (fallbackPath?: string) => Promise<void>
 }
 
 /**
@@ -36,7 +36,7 @@ export function useAuthRedirect(): UseAuthRedirectReturn {
   const route = useRoute()
   const runtimeConfig = useRuntimeConfig()
 
-  const redirectAfterAuth = (fallbackPath: string = '/') => {
+  const redirectAfterAuth = async (fallbackPath: string = '/') => {
     const raw = route.query.redirect
     const rawStr = typeof raw === 'string' ? raw : null
 
@@ -49,7 +49,7 @@ export function useAuthRedirect(): UseAuthRedirectReturn {
       : undefined
 
     const target = resolveRedirectTarget(rawStr, fallbackPath, loginPath)
-    void navigateTo(target)
+    await navigateTo(target)
   }
 
   return { redirectAfterAuth }

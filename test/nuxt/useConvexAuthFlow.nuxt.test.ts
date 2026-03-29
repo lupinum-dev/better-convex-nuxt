@@ -214,6 +214,44 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     expect(result.pending.value).toBe(false)
   })
 
+  it('retries a transient missing-token refresh after a successful auth action', async () => {
+    let refreshCallCount = 0
+
+    const { result } = await captureInNuxt(() => {
+      initAuthEngine({
+        fetchAuthState: async (_input) => {
+          refreshCallCount++
+
+          if (refreshCallCount === 1) {
+            return {
+              token: null,
+              user: null,
+              error: null,
+              source: 'exchange',
+            }
+          }
+
+          return {
+            token: 'refreshed.jwt.token',
+            user: AUTH_USER,
+            error: null,
+            source: 'exchange',
+          }
+        },
+      })
+      return useConvexAuthActions()
+    })
+
+    await expect(
+      result.execute(async () => ({ data: { user: { id: 'u1' } }, error: null })),
+    ).resolves.toEqual({ data: { user: { id: 'u1' } }, error: null })
+
+    expect(refreshCallCount).toBe(2)
+    expect(result.error.value).toBeNull()
+    expect(result.pending.value).toBe(false)
+    expect(result.status.value).toBe('success')
+  })
+
   it.each([
     'https://evil.example.com',
     '//evil.example.com',
