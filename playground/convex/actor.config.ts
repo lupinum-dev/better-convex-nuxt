@@ -1,4 +1,9 @@
 import type { ActorConfig } from '../../src/runtime/actor'
+import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../shared/dev-service-key'
+
+function resolveExpectedServiceKey(): string {
+  return process.env.CONVEX_SERVICE_KEY?.trim() || PLAYGROUND_LOCAL_SERVICE_KEY
+}
 
 export default {
   resolveFromAuth: async (ctx: any) => {
@@ -20,5 +25,5 @@ export default {
     }
   },
 
-  serviceKey: 'CONVEX_SERVICE_KEY',
+  serviceKey: (key: string) => key === resolveExpectedServiceKey(),
 } satisfies ActorConfig

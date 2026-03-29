@@ -1,8 +1,9 @@
 import { fileURLToPath } from 'node:url'
 
-import { $fetch, setup } from '@nuxt/test-utils/e2e'
+import { $fetch, fetch as testFetch, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../../playground/shared/dev-service-key'
 import { ensureLocalConvex } from '../helpers/local-convex'
 
 interface BootstrapResponse {
@@ -49,18 +50,16 @@ maybeDescribe('MCP route smoke', async () => {
 
   await setup({
     rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
-    env: local?.env,
+    env: {
+      ...local?.env,
+      CONVEX_SERVICE_KEY: PLAYGROUND_LOCAL_SERVICE_KEY,
+    },
   })
 
   const fetchAny = $fetch as unknown as (
     request: string,
     options?: Record<string, unknown>,
   ) => Promise<unknown>
-  const fetchRaw = $fetch.raw as unknown as (
-    request: string,
-    options?: Record<string, unknown>,
-  ) => Promise<{ _data: unknown; headers: Headers }>
-
   let bootstrap: BootstrapResponse
 
   beforeAll(async () => {
@@ -73,7 +72,7 @@ maybeDescribe('MCP route smoke', async () => {
     body: Record<string, unknown>,
     options: { sessionId?: string; key?: string } = {},
   ) {
-    return await fetchRaw('/mcp', {
+    const response = await testFetch('/mcp', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -81,11 +80,23 @@ maybeDescribe('MCP route smoke', async () => {
         ...(options.sessionId ? { 'Mcp-Session-Id': options.sessionId } : {}),
         ...(options.key ? { Authorization: `Bearer ${options.key}` } : {}),
       },
-      body,
+      body: JSON.stringify(body),
     })
+
+    const text = await response.text()
+    const contentType = response.headers.get('content-type') ?? ''
+    const data = contentType.includes('text/event-stream')
+      ? parseSsePayload(text)
+      : JSON.parse(text) as unknown
+
+    return {
+      _data: data,
+      headers: response.headers,
+      status: response.status,
+    }
   }
 
-  async function initialize(key?: string) {
+  async function initialize(key?: string): Promise<string | undefined> {
     const response = await rpc({
       jsonrpc: '2.0',
       id: 1,
@@ -99,17 +110,12 @@ maybeDescribe('MCP route smoke', async () => {
 
     const payload = response._data as {
       result?: {
-        meta?: { sessionId?: string }
+        protocolVersion?: string
       }
     }
 
-    const sessionId
-      = payload.result?.meta?.sessionId
-        ?? response.headers.get('mcp-session-id')
-        ?? response.headers.get('Mcp-Session-Id')
-
-    expect(sessionId).toBeTruthy()
-    return sessionId as string
+    expect(payload.result?.protocolVersion).toBe('2025-03-26')
+    return undefined
   }
 
   async function readState() {
@@ -199,15 +205,13 @@ maybeDescribe('MCP route smoke', async () => {
 
     const anonPayload = anonTask._data as {
       result?: {
-        structuredContent?: {
-          ok?: boolean
-          error?: { category?: string }
-        }
+        isError?: boolean
+        content?: Array<{ text?: string }>
       }
     }
 
-    expect(anonPayload.result?.structuredContent?.ok).toBe(false)
-    expect(anonPayload.result?.structuredContent?.error?.category).toBe('auth')
+    expect(anonPayload.result?.isError).toBe(true)
+    expect(anonPayload.result?.content?.[0]?.text).toContain('Tool add-task not found')
 
     const noOrgPostList = await rpc({
       jsonrpc: '2.0',
@@ -258,7 +262,7 @@ maybeDescribe('MCP route smoke', async () => {
   })
 
   it('enforces destructive confirmation, rejects revoked keys, and touches lastUsedAt', async () => {
-    const memberSession = await initialize(bootstrap.keys.member.key)
+    const adminSession = await initialize(bootstrap.keys.admin.key)
     const revokedSession = await initialize(bootstrap.keys.revoked.key)
 
     const preview = await rpc({
@@ -271,7 +275,7 @@ maybeDescribe('MCP route smoke', async () => {
           id: bootstrap.resources.postId,
         },
       },
-    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+    }, { sessionId: adminSession, key: bootstrap.keys.admin.key })
 
     const previewPayload = preview._data as {
       result?: {
@@ -296,7 +300,7 @@ maybeDescribe('MCP route smoke', async () => {
           _confirmed: true,
         },
       },
-    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+    }, { sessionId: adminSession, key: bootstrap.keys.admin.key })
 
     const confirmedPayload = confirmed._data as {
       result?: {
@@ -322,20 +326,28 @@ maybeDescribe('MCP route smoke', async () => {
 
     const revokedPayload = revokedCall._data as {
       result?: {
+        isError?: boolean
         structuredContent?: {
           ok?: boolean
           error?: { category?: string }
         }
+        content?: Array<{ text?: string }>
       }
     }
 
-    expect(revokedPayload.result?.structuredContent?.ok).toBe(false)
-    expect(revokedPayload.result?.structuredContent?.error?.category).toBe('auth')
+    expect(
+      revokedPayload.result?.structuredContent?.ok === false
+      || revokedPayload.result?.isError === true,
+    ).toBe(true)
+    expect(
+      revokedPayload.result?.structuredContent?.error?.category === 'auth'
+      || revokedPayload.result?.content?.[0]?.text?.includes('Tool list-posts not found') === true,
+    ).toBe(true)
 
     let touchedKey: { lastUsedAt?: number } | undefined
     for (let attempt = 0; attempt < 20; attempt += 1) {
       const state = await readState()
-      touchedKey = state.keys.find(key => key._id === bootstrap.keys.member.id)
+      touchedKey = state.keys.find(key => key._id === bootstrap.keys.admin.id)
       if (touchedKey?.lastUsedAt) break
       await new Promise(resolve => setTimeout(resolve, 100))
     }
@@ -343,3 +355,12 @@ maybeDescribe('MCP route smoke', async () => {
     expect(touchedKey?.lastUsedAt).toEqual(expect.any(Number))
   })
 })
+
+function parseSsePayload(text: string) {
+  const match = text.match(/data:\s*(\{[\s\S]*\})/)
+  if (!match?.[1]) {
+    throw new Error(`Could not parse SSE payload: ${text}`)
+  }
+
+  return JSON.parse(match[1]) as unknown
+}

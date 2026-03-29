@@ -77,3 +77,54 @@ It bootstraps real `mcp_*` keys through test-only routes, then verifies:
 - destructive preview + confirm
 - revoked-key failure
 - `mcpKeys.touch` side effect
+
+## Before production
+
+The playground is now good for local verification, but a few deliberate shortcuts
+still need to be removed before this pattern is production-ready.
+
+### Security and secrets
+
+- Replace the hardcoded local fallback service key in `playground/shared/dev-service-key.ts`
+  with real environment-only secret management.
+- Remove the playground fallback validator in `playground/convex/actor.config.ts`
+  so service auth only succeeds through the real configured secret.
+- Rotate any local demo keys and service keys used during development.
+- Make sure production MCP keys are created, stored, and revoked only through the
+  real key lifecycle flow. Do not rely on browser-local copies of full secrets.
+
+### Test-only and local-only code
+
+- Restore a real environment gate for `playground/convex/testing.ts`.
+  Right now reset/seed helpers are intentionally hard-enabled for local work.
+- Ensure `playground/server/api/test-mcp-bootstrap.post.ts` and
+  `playground/server/api/test-mcp-state.get.ts` stay unavailable outside test/dev.
+- Review `playground/pages/demo/mcp-verify.vue` and related demo pages so they are
+  either removed from production or explicitly guarded behind a non-production flag.
+
+### Runtime and deployment hardening
+
+- Fix or remove the broken `pnpm dev:local` / `convexLocal(...)` path. It is still a trap.
+- Confirm the real deployment has the required env vars wired on both sides:
+  `CONVEX_SERVICE_KEY`, Better Auth secrets, site URL, and any MCP auth config.
+- Verify service actor injection works in the real hosted Convex environment without
+  any playground-only fallback behavior.
+- Re-run the full MCP audit against staging with real hosted URLs and real `mcp_*` keys.
+
+### Behavior and contract cleanup
+
+- Decide whether the production MCP endpoint is intentionally stateless/SSE-only or
+  whether it should expose a session id. The tests now follow the current stateless behavior.
+- Review auth-only tool visibility rules. Today anonymous or revoked callers can see
+  `tool not found` because those tools are hidden from discovery.
+- Confirm destructive preview semantics and permission boundaries for each role in staging,
+  especially admin-only operations like `delete-post`.
+
+### Release checks
+
+- Run:
+  `pnpm vitest run --project=e2e test/e2e/mcp-smoke.e2e.test.ts`
+- Run:
+  `pnpm test:types`
+- Run the generated `curl` worksheet on `/demo/mcp-verify` against the target environment.
+- Do one manual revoke-key check and verify `lastUsedAt` updates on successful calls.
