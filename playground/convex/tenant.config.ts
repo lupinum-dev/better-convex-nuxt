@@ -1,9 +1,10 @@
 import { defineTenant, extractScopedTables, type TenantUser } from '../../src/runtime/tenant'
+import { commentTableMeta } from '../shared/schemas/comment'
 import { postTableMeta } from '../shared/schemas/post'
 
 const tableMetas = {
   posts: postTableMeta,
-  comments: { tenant: { scoped: true } },
+  comments: commentTableMeta,
   invites: { tenant: { scoped: true } },
 } as const
 
