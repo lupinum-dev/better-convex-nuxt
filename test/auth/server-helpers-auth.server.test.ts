@@ -55,7 +55,7 @@ describe('server auth helpers', () => {
   })
 
   it('auth:auto exchanges the Better Auth session cookie for a Convex bearer token', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/auth/convex/token')) {
         return new Response(JSON.stringify({ token: 'auto.jwt.token' }), {
@@ -84,12 +84,15 @@ describe('server auth helpers', () => {
       String(call[0]).endsWith('/api/query'),
     )
     expect(queryCall).toBeDefined()
-    const headers = (queryCall?.[1] as RequestInit).headers as Record<string, string>
+    if (!queryCall) {
+      throw new Error('Expected query fetch call')
+    }
+    const headers = ((queryCall[1] ?? {}) as RequestInit).headers as Record<string, string>
     expect(headers.Authorization).toBe('Bearer auto.jwt.token')
   })
 
   it('auth:auto skips token exchange when no Better Auth cookie exists', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ value: [] }), {
         headers: { 'content-type': 'application/json' },
       }),
@@ -107,7 +110,11 @@ describe('server auth helpers', () => {
     const queryCall = fetchMock.mock.calls.find(call =>
       String(call[0]).endsWith('/api/query'),
     )
-    const headers = (queryCall?.[1] as RequestInit).headers as Record<string, string>
+    expect(queryCall).toBeDefined()
+    if (!queryCall) {
+      throw new Error('Expected query fetch call')
+    }
+    const headers = ((queryCall[1] ?? {}) as RequestInit).headers as Record<string, string>
     expect(headers.Authorization).toBeUndefined()
   })
 
@@ -125,7 +132,7 @@ describe('server auth helpers', () => {
   })
 
   it('auth:none never exchanges the cookie and never forwards a bearer token', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ value: { ok: true } }), {
         headers: { 'content-type': 'application/json' },
       }),
@@ -143,12 +150,16 @@ describe('server auth helpers', () => {
     const mutationCall = fetchMock.mock.calls.find(call =>
       String(call[0]).endsWith('/api/mutation'),
     )
-    const headers = (mutationCall?.[1] as RequestInit).headers as Record<string, string>
+    expect(mutationCall).toBeDefined()
+    if (!mutationCall) {
+      throw new Error('Expected mutation fetch call')
+    }
+    const headers = ((mutationCall[1] ?? {}) as RequestInit).headers as Record<string, string>
     expect(headers.Authorization).toBeUndefined()
   })
 
   it('dedupes request-scoped auth resolution across server helpers on the same event', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/auth/convex/token')) {
         return new Response(JSON.stringify({ token: 'shared.jwt.token' }), {
@@ -182,7 +193,7 @@ describe('server auth helpers', () => {
   })
 
   it('resolveRequestAuth caches a validated token in the request context and returns the same resolved object', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       if (String(input).endsWith('/api/auth/convex/token')) {
         return new Response(JSON.stringify({ token: 'cached.jwt.token' }), {
           headers: { 'content-type': 'application/json' },
@@ -216,7 +227,7 @@ describe('server auth helpers', () => {
 
     const { resolveRequestAuth: resolveRequestAuthWithMocks } = await import('../../src/runtime/server/utils/auth-resolver')
 
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       if (String(input).endsWith('/api/auth/convex/token')) {
         return new Response(JSON.stringify({ token: 'uncached.jwt.token' }), {
           headers: { 'content-type': 'application/json' },
@@ -252,7 +263,7 @@ describe('server auth helpers', () => {
   })
 
   it('returns a concrete error when auth is required but the token exchange yields no token', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ value: { ok: true } }), {
         headers: { 'content-type': 'application/json' },
       }),
@@ -269,7 +280,7 @@ describe('server auth helpers', () => {
   })
 
   it('rejects an invalid but present session by surfacing the resolver error in required mode', async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ token: undefined }), {
         headers: { 'content-type': 'application/json' },
       }),

@@ -102,6 +102,18 @@ function buildAuthenticatedResult(
   }
 }
 
+function buildUnauthenticatedResult(
+  source: ClientAuthStateResult['source'],
+  error: string | null = null,
+): ClientAuthStateResult {
+  return {
+    token: null,
+    user: null,
+    error,
+    source,
+  }
+}
+
 /**
  * Create the Better Auth client and its transport interface.
  *
@@ -145,12 +157,7 @@ export function initAuthClient(
   ): ClientAuthStateResult => {
     const token = convexToken.value
     if (!token) {
-      return {
-        token: null,
-        user: null,
-        error: null,
-        source,
-      }
+      return buildUnauthenticatedResult(source)
     }
 
     const hydratedUser = normalizeHydratedUser(convexUser.value)
@@ -172,12 +179,7 @@ export function initAuthClient(
         },
         error: new Error(error),
       })
-      return {
-        token: null,
-        user: null,
-        error,
-        source,
-      }
+      return buildUnauthenticatedResult(source, error)
     }
 
     return buildAuthenticatedResult(source, token, decodedUser)
@@ -219,7 +221,7 @@ export function initAuthClient(
         outcome: 'skip',
         details: { traceId, reason: 'signal-aborted-before-start', path: routePath },
       })
-      return { token: null, user: null, error: null, source: 'skip' }
+      return buildUnauthenticatedResult('skip')
     }
 
     if (route?.meta?.skipConvexAuth === true) {
@@ -228,7 +230,7 @@ export function initAuthClient(
         outcome: 'skip',
         details: { traceId, reason: 'page-meta-skip', path: routePath },
       })
-      return { token: null, user: null, error: null, source: 'skip' }
+      return buildUnauthenticatedResult('skip')
     }
 
     if (matchesSkipRoute(routePath, skipRoutes)) {
@@ -237,7 +239,7 @@ export function initAuthClient(
         outcome: 'skip',
         details: { traceId, reason: 'skip-auth-route', path: routePath },
       })
-      return { token: null, user: null, error: null, source: 'skip' }
+      return buildUnauthenticatedResult('skip')
     }
 
     // Priority 2: Use hydrated token if present and not forced to refresh
@@ -278,7 +280,11 @@ export function initAuthClient(
             path: routePath,
           },
         })
-        return syncHydratedAuthFromToken('recent-token-cache', routePath)
+        const result = syncHydratedAuthFromToken('recent-token-cache', routePath)
+        if (result.token !== null) {
+          result.onCommit = () => { lastTokenValidation = Date.now() }
+        }
+        return result
       }
     }
 
@@ -295,7 +301,7 @@ export function initAuthClient(
           path: routePath,
         },
       })
-      return { token: null, user: null, error: null, source: 'skip' }
+      return buildUnauthenticatedResult('skip')
     }
 
     try {
@@ -316,7 +322,7 @@ export function initAuthClient(
           outcome: 'skip',
           details: { traceId, reason: 'signal-aborted-after-request', path: routePath },
         })
-        return { token: null, user: null, error: null, source: 'skip' }
+        return buildUnauthenticatedResult('skip')
       }
 
       if (response.error || !response.data?.token) {
@@ -340,12 +346,7 @@ export function initAuthClient(
           },
         })
 
-        return {
-          token: null,
-          user: null,
-          error,
-          source: 'exchange',
-        }
+        return buildUnauthenticatedResult('exchange', error)
       }
 
       const token = response.data.token
@@ -363,12 +364,7 @@ export function initAuthClient(
           },
           error: new Error(error),
         })
-        return {
-          token: null,
-          user: null,
-          error,
-          source: 'exchange',
-        }
+        return buildUnauthenticatedResult('exchange', error)
       }
 
       logger.auth({
@@ -392,7 +388,7 @@ export function initAuthClient(
           outcome: 'skip',
           details: { traceId, reason: 'signal-aborted-after-error', path: routePath },
         })
-        return { token: null, user: null, error: null, source: 'skip' }
+        return buildUnauthenticatedResult('skip')
       }
 
       const message = buildClientAuthRequestFailureMessage(error)
@@ -402,12 +398,7 @@ export function initAuthClient(
         details: { traceId, path: routePath },
         error: error instanceof Error ? error : new Error('Authentication request failed'),
       })
-      return {
-        token: null,
-        user: null,
-        error: message,
-        source: 'exchange',
-      }
+      return buildUnauthenticatedResult('exchange', message)
     }
   }
 
@@ -423,13 +414,16 @@ export function initAuthClient(
       return await inflightFetch
     }
 
+    const thisFetch = doFetchAuthState(input)
     inflightIsForced = input.forceRefreshToken
-    inflightFetch = doFetchAuthState(input)
+    inflightFetch = thisFetch
     try {
-      return await inflightFetch
+      return await thisFetch
     } finally {
-      inflightFetch = null
-      inflightIsForced = false
+      if (inflightFetch === thisFetch) {
+        inflightFetch = null
+        inflightIsForced = false
+      }
     }
   }
 

@@ -2,18 +2,70 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useNuxtApp, useState } from '#imports'
 
+import type {
+  AuthTransport,
+  ClientAuthStateResult,
+} from '../../src/runtime/client/auth-engine'
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 
+const AUTH_USER = {
+  id: 'u-auth',
+  name: 'Auth User',
+  email: 'auth@test.com',
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
+
+function buildMockTransport(options?: {
+  fetchAuthState?: (input: {
+    forceRefreshToken: boolean
+    signal?: AbortSignal
+  }) => Promise<ClientAuthStateResult>
+  invalidate?: () => Promise<void>
+}) {
+  const transport: AuthTransport = {
+    client: {
+      signOut: async () => {},
+    } as never,
+    fetchAuthState: options?.fetchAuthState ?? (async (_input) => ({
+      token: 'refreshed.jwt.token',
+      user: AUTH_USER,
+      error: null,
+      source: 'exchange',
+    })),
+    install() {
+    },
+    async refresh(fetchToken, onChange) {
+      const nextToken = await fetchToken({ forceRefreshToken: true })
+      onChange(Boolean(nextToken))
+    },
+    async invalidate() {
+      await options?.invalidate?.()
+    },
+  }
+
+  return transport
+}
+
 describe('useConvexAuthController (Nuxt runtime)', () => {
   it('refreshAuth resolves after the shared auth engine commits the refreshed token', async () => {
     const { result } = await captureInNuxt(() => {
       installMockAuthEngine({
-        fetchAuthState: async () => ({
+        fetchAuthState: async (_input) => ({
           token: 'new.jwt.token',
-          user: { id: 'u2' },
+          user: { id: 'u2', name: 'User Two', email: 'u2@test.com' },
           error: null,
           source: 'exchange',
         }),
@@ -24,7 +76,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
     await result.internal.refreshAuth()
     expect(result.internal.token.value).toBe('new.jwt.token')
-    expect(result.auth.user.value).toEqual({ id: 'u2' })
+    expect(result.auth.user.value).toEqual({ id: 'u2', name: 'User Two', email: 'u2@test.com' })
     expect(result.auth.isAuthenticated.value).toBe(true)
     expect(result.auth.isPending.value).toBe(false)
   })
@@ -69,17 +121,17 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => {
       const nuxtApp = useNuxtApp()
       installMockAuthEngine({
-        fetchAuthState: async () => ({
+        fetchAuthState: async (_input) => ({
           token: 'hook-test.jwt.token',
-          user: { id: 'u-hook' },
+          user: { id: 'u-hook', name: 'Hook User', email: 'hook@test.com' },
           error: null,
           source: 'exchange',
         }),
       })
 
-      nuxtApp.hook('convex:auth:changed' as never, (payload: unknown) => {
+      nuxtApp.hook('convex:auth:changed' as never, ((payload: unknown) => {
         hookPayloads.push(payload)
-      })
+      }) as never)
 
       return useConvexAuthController()
     })
@@ -97,7 +149,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => {
       installMockAuthEngine({
         initialToken: 'active.jwt.token',
-        initialUser: { id: 'u-active' } as never,
+        initialUser: { id: 'u-active', name: 'Active User', email: 'active@test.com' },
         invalidate: async () => { throw new Error('invalidate failed') },
       })
 
@@ -109,6 +161,88 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     expect(result.isAuthenticated.value).toBe(false)
     expect(result.token.value).toBeNull()
     expect(result.user.value).toBeNull()
+  })
+
+  it('does not call onCommit for a stale refresh result', async () => {
+    const onCommit = vi.fn()
+    const deferredResult = createDeferred<ClientAuthStateResult>()
+
+    const { result, flush } = await captureInNuxt(() => {
+      const installed = installMockAuthEngine({
+        fetchAuthState: async () => await deferredResult.promise,
+      })
+
+      return installed
+    })
+
+    const refreshPromise = result.engine.refreshAuth()
+    await Promise.resolve()
+
+    const invalidatePromise = result.engine.invalidateAuth({ clearWasAuthenticated: true })
+
+    deferredResult.resolve({
+      token: 'stale.jwt.token',
+      user: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+      error: null,
+      source: 'exchange',
+      onCommit,
+    })
+
+    await Promise.allSettled([refreshPromise, invalidatePromise])
+    await flush()
+
+    expect(onCommit).not.toHaveBeenCalled()
+    expect(result.engine.isAuthenticated.value).toBe(false)
+    expect(result.token.value).toBeNull()
+    expect(result.user.value).toBeNull()
+  })
+
+  it('configureTransport invalidates an in-flight refresh from the previous transport', async () => {
+    const oldOnCommit = vi.fn()
+    const deferredResult = createDeferred<ClientAuthStateResult>()
+
+    const { result, flush } = await captureInNuxt(() => {
+      const installed = installMockAuthEngine({
+        fetchAuthState: async () => await deferredResult.promise,
+      })
+
+      return installed
+    })
+
+    const nextTransport = buildMockTransport({
+      fetchAuthState: async (_input) => ({
+        token: 'fresh.jwt.token',
+        user: { id: 'u-fresh', name: 'Fresh User', email: 'fresh@test.com' },
+        error: null,
+        source: 'exchange',
+      }),
+    })
+
+    const refreshPromise = result.engine.refreshAuth()
+    await Promise.resolve()
+
+    result.engine.configureTransport(nextTransport)
+
+    deferredResult.resolve({
+      token: 'stale.jwt.token',
+      user: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+      error: null,
+      source: 'exchange',
+      onCommit: oldOnCommit,
+    })
+
+    await refreshPromise
+    await flush()
+
+    expect(oldOnCommit).not.toHaveBeenCalled()
+    expect(result.engine.isAuthenticated.value).toBe(false)
+    expect(result.token.value).toBeNull()
+
+    await result.engine.refreshAuth()
+    await flush()
+
+    expect(result.token.value).toBe('fresh.jwt.token')
+    expect(result.user.value).toEqual({ id: 'u-fresh', name: 'Fresh User', email: 'fresh@test.com' })
   })
 
   it('exposes token, authError, refreshAuth, and awaitAuthReady without a pre-seeded error', async () => {

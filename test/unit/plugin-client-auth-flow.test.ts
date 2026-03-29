@@ -8,6 +8,17 @@ import {
   mintJwtExpiringIn,
 } from '../harness/jwt-factory'
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
+
 const stateStore = new Map<string, { value: unknown }>()
 
 const {
@@ -372,6 +383,46 @@ describe('plugin.client auth flow', () => {
 
     await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBe(freshToken)
     expect(tokenMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps a replacement forced in-flight request alive when an older non-forced request settles', async () => {
+    const replacementToken = mintJwt({ sub: 'u-replacement', email: 'replacement@test.com' })
+    const fallbackToken = mintJwt({ sub: 'u-fallback', email: 'fallback@test.com' })
+    const firstResponse = createDeferred<{ data: null, error: null }>()
+    const secondResponse = createDeferred<{ data: { token: string }, error: null }>()
+
+    tokenMock
+      .mockImplementationOnce(() => firstResponse.promise)
+      .mockImplementationOnce(() => secondResponse.promise)
+      .mockResolvedValueOnce({ data: { token: fallbackToken }, error: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin({
+      payload: { serverRendered: false },
+      hook: vi.fn((event: string, handler: (...args: unknown[]) => unknown) => {
+        hookRegistry.set(event, handler)
+      }),
+      provide: vi.fn(),
+    } as never)
+
+    const fetchToken = clientState.fetchToken
+    expect(fetchToken).toBeTypeOf('function')
+
+    const first = fetchToken!({ forceRefreshToken: false })
+    const second = fetchToken!({ forceRefreshToken: true })
+
+    firstResponse.resolve({ data: null, error: null })
+    await Promise.resolve()
+
+    const third = fetchToken!({ forceRefreshToken: false })
+
+    secondResponse.resolve({ data: { token: replacementToken }, error: null })
+
+    await expect(first).resolves.toBeNull()
+    await expect(second).resolves.toBe(replacementToken)
+    await expect(third).resolves.toBe(replacementToken)
+    expect(tokenMock).toHaveBeenCalledTimes(2)
   })
 
   it('invalidates the live auth transport and clears local auth state', async () => {

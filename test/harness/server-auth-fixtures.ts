@@ -8,6 +8,8 @@
 import type { H3Event } from 'h3'
 import { vi } from 'vitest'
 
+import type { NormalizedConvexRuntimeConfig } from '../../src/runtime/utils/runtime-config'
+
 export const useStorageMock = vi.fn()
 export const useRuntimeConfigMock = vi.fn()
 export const useEventMock = vi.fn()
@@ -26,10 +28,15 @@ export function createEvent(cookie?: string): H3Event {
   } as unknown as H3Event
 }
 
-export function mockConvexConfig(overrides?: Record<string, unknown>) {
+export function mockConvexConfig(overrides?: Record<string, unknown>): NormalizedConvexRuntimeConfig {
+  const authOverrides = (overrides?.auth ?? {}) as Partial<NormalizedConvexRuntimeConfig['auth']>
+  const queryOverrides = (overrides?.query ?? {}) as Partial<NormalizedConvexRuntimeConfig['query']>
+  const uploadOverrides = (overrides?.upload ?? {}) as Partial<NormalizedConvexRuntimeConfig['upload']>
+  const debugOverrides = (overrides?.debug ?? {}) as Partial<NormalizedConvexRuntimeConfig['debug']>
+
   return {
-    url: 'http://127.0.0.1:3210',
-    siteUrl: 'http://127.0.0.1:3211',
+    url: typeof overrides?.url === 'string' ? overrides.url : 'http://127.0.0.1:3210',
+    siteUrl: typeof overrides?.siteUrl === 'string' ? overrides.siteUrl : 'http://127.0.0.1:3211',
     auth: {
       enabled: true,
       route: '/api/auth',
@@ -52,22 +59,28 @@ export function mockConvexConfig(overrides?: Record<string, unknown>) {
         maxRequestBodyBytes: 1_048_576,
         maxResponseBodyBytes: 1_048_576,
       },
+      ...authOverrides,
     },
     query: {
       server: true,
       subscribe: true,
+      ...queryOverrides,
     },
     upload: {
       maxConcurrent: 3,
+      ...uploadOverrides,
     },
-    permissions: false,
-    logging: false,
+    permissions: overrides?.permissions === true,
+    logging:
+      overrides?.logging === false || overrides?.logging === 'info' || overrides?.logging === 'debug'
+        ? overrides.logging
+        : false,
     debug: {
       authFlow: false,
       clientAuthFlow: false,
       serverAuthFlow: false,
+      ...debugOverrides,
     },
-    ...overrides,
   }
 }
 

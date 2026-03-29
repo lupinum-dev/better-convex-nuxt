@@ -76,7 +76,7 @@ type ConvexFetchToken = (input: {
 export interface AuthTransport {
   /** The Better Auth client instance, used by the engine for signOut(). */
   client: AuthClient | null
-  /** Pure token resolution — returns result without side effects. */
+  /** Token resolution with deferred side effects via `onCommit`. */
   fetchAuthState: (input: {
     forceRefreshToken: boolean
     signal?: AbortSignal
@@ -112,11 +112,11 @@ interface AuthEngineState {
 
 /** Public interface of the shared auth engine. */
 export interface SharedAuthEngine {
-  token: Ref<string | null>
-  user: Ref<ConvexUser | null>
-  pending: Ref<boolean>
-  rawAuthError: Ref<string | null>
-  wasAuthenticated: Ref<boolean>
+  token: Readonly<Ref<string | null>>
+  user: Readonly<Ref<ConvexUser | null>>
+  pending: Readonly<Ref<boolean>>
+  rawAuthError: Readonly<Ref<string | null>>
+  wasAuthenticated: Readonly<Ref<boolean>>
   authError: ComputedRef<Error | null>
   isAuthenticated: ComputedRef<boolean>
   isAnonymous: ComputedRef<boolean>
@@ -230,6 +230,16 @@ export function createSharedAuthEngine(
     resolveInitialAuth,
   } = options
 
+  const existingEngine = authEngines.get(nuxtApp)
+  if (existingEngine) {
+    if (import.meta.dev) {
+      console.warn(
+        '[better-convex-nuxt] createSharedAuthEngine() called more than once for the same Nuxt app. Reusing the existing engine.',
+      )
+    }
+    return existingEngine
+  }
+
   const state = getEngineState(nuxtApp, token, user)
   const authError = computed(() => (rawAuthError.value ? new Error(rawAuthError.value) : null))
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
@@ -262,9 +272,7 @@ export function createSharedAuthEngine(
       previousUser: previousSnapshot.user,
     }
     nuxtApp.callHook?.('convex:auth:changed', payload)?.catch((error: unknown) => {
-      if (import.meta.dev) {
-        console.error('[better-convex-nuxt] Error in convex:auth:changed hook handler:', error)
-      }
+      console.error('[better-convex-nuxt] Error in convex:auth:changed hook handler:', error)
     })
   }
 
@@ -325,8 +333,12 @@ export function createSharedAuthEngine(
 
     if (result.token !== null) {
       commitAuthenticated(result.token, result.user)
-      result.onCommit?.()
       settleInitialAuth()
+      try {
+        result.onCommit?.()
+      } catch (error) {
+        console.error('[better-convex-nuxt] Error in auth transport onCommit callback:', error)
+      }
       return result.token
     }
 
@@ -469,6 +481,14 @@ export function createSharedAuthEngine(
       commitUnauthenticated(null, { clearWasAuthenticated: true })
 
       let firstError: unknown = null
+      const captureCleanupError = (error: unknown, phase: 'invalidate' | 'signOut') => {
+        if (firstError === null) {
+          firstError = error
+          return
+        }
+
+        console.error(`[better-convex-nuxt] Additional auth signOut ${phase} error:`, error)
+      }
 
       try {
         // Step 1: Clear ConvexClient's auth state
@@ -476,7 +496,7 @@ export function createSharedAuthEngine(
           try {
             await transport.invalidate()
           } catch (error) {
-            firstError ??= error
+            captureCleanupError(error, 'invalidate')
           }
         }
 
@@ -485,7 +505,7 @@ export function createSharedAuthEngine(
           try {
             await client.signOut()
           } catch (error) {
-            firstError ??= error
+            captureCleanupError(error, 'signOut')
           }
         }
 

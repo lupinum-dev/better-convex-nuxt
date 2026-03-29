@@ -127,9 +127,7 @@ function handleConnectionStateChange(
     previousConnection,
   }
   nuxtApp.callHook('convex:connection:changed', payload)?.catch((error: unknown) => {
-    if (import.meta.dev) {
-      console.error('[better-convex-nuxt] Error in convex:connection:changed hook handler:', error)
-    }
+    console.error('[better-convex-nuxt] Error in convex:connection:changed hook handler:', error)
   })
 }
 

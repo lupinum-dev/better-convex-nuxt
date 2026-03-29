@@ -5,11 +5,17 @@ import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 
+const AUTH_USER = {
+  id: 'u-auth',
+  name: 'Auth User',
+  email: 'auth@test.com',
+}
+
 function initAuthEngine(options?: Parameters<typeof installMockAuthEngine>[0]) {
   installMockAuthEngine({
-    fetchAuthState: async () => ({
+    fetchAuthState: async (_input) => ({
       token: 'refreshed.jwt.token',
-      user: { id: 'u-auth' },
+      user: AUTH_USER,
       error: null,
       source: 'exchange',
     }),
@@ -145,11 +151,11 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => {
       initAuthEngine({
-        fetchAuthState: async () => {
+        fetchAuthState: async (_input) => {
           refreshCallCount++
           return {
             token: 'should-not-be-set',
-            user: { id: 'unexpected' },
+            user: { id: 'unexpected', name: 'Unexpected User', email: 'unexpected@test.com' },
             error: null,
             source: 'exchange',
           }
@@ -187,7 +193,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   it('wraps refreshAuth failure as ConvexCallError', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine({
-        fetchAuthState: async () => ({
+        fetchAuthState: async (_input) => ({
           token: null,
           user: null,
           error: 'Token refresh failed',

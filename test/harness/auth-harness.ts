@@ -175,7 +175,7 @@ export async function createAuthHarness(
       },
     }
 
-    createSharedAuthEngine({
+    const engine = createSharedAuthEngine({
       nuxtApp,
       token,
       user,
@@ -183,19 +183,13 @@ export async function createAuthHarness(
       rawAuthError,
       wasAuthenticated,
       transport,
-    }).initialize()
+    })
+    engine.initialize()
 
     return {
       auth: useConvexAuth(),
       controller: useConvexAuthController(),
-      engine: createSharedAuthEngine({
-        nuxtApp,
-        token,
-        user,
-        pending,
-        rawAuthError,
-        wasAuthenticated,
-      }),
+      engine,
       token,
       user,
       pending,

@@ -13,6 +13,7 @@ import { useNuxtApp, useState } from '#imports'
 
 import {
   createSharedAuthEngine,
+  getSharedAuthEngine,
   type AuthTransport,
   type ClientAuthStateResult,
 } from '../../src/runtime/client/auth-engine'
@@ -56,9 +57,9 @@ export function installMockAuthEngine(
     client: {
       signOut: options.signOut ?? (async () => {}),
     } as never,
-    fetchAuthState: options.fetchAuthState ?? (async () => ({
+    fetchAuthState: options.fetchAuthState ?? (async (_input) => ({
       token: 'refreshed.jwt.token',
-      user: { id: 'u-auth' },
+      user: { id: 'u-auth', name: 'Auth User', email: 'auth@test.com' },
       error: null,
       source: 'exchange',
     })),
@@ -73,15 +74,21 @@ export function installMockAuthEngine(
     },
   }
 
-  const engine = createSharedAuthEngine({
-    nuxtApp,
-    token,
-    user,
-    pending,
-    rawAuthError,
-    wasAuthenticated,
-    transport,
-  })
+  let engine: ReturnType<typeof createSharedAuthEngine>
+  try {
+    engine = getSharedAuthEngine(nuxtApp)
+    engine.configureTransport(transport)
+  } catch {
+    engine = createSharedAuthEngine({
+      nuxtApp,
+      token,
+      user,
+      pending,
+      rawAuthError,
+      wasAuthenticated,
+      transport,
+    })
+  }
 
   engine.initialize()
 

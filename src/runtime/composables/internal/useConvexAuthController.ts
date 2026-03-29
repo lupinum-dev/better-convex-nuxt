@@ -8,8 +8,8 @@
  * is called; if not, `getSharedAuthEngine` throws.
  *
  * Public consumers use `useConvexAuth()` which exposes a smaller surface.
- * This controller adds `token`, `rawAuthError`, `wasAuthenticated`, and
- * mutation methods (`refreshAuth`, `signOut`, `awaitAuthReady`).
+ * This controller uniquely exposes the internal refs (`token`,
+ * `rawAuthError`, `wasAuthenticated`) plus `awaitAuthReady()`.
  *
  * @module useConvexAuthController
  */
@@ -25,11 +25,11 @@ type AuthClient = ReturnType<typeof createAuthClient>
 
 /** Full auth controller surface for internal composables. */
 export interface ConvexAuthController {
-  token: Ref<string | null>
-  user: Ref<ConvexUser | null>
-  pending: Ref<boolean>
-  rawAuthError: Ref<string | null>
-  wasAuthenticated: Ref<boolean>
+  token: Readonly<Ref<string | null>>
+  user: Readonly<Ref<ConvexUser | null>>
+  pending: Readonly<Ref<boolean>>
+  rawAuthError: Readonly<Ref<string | null>>
+  wasAuthenticated: Readonly<Ref<boolean>>
   authError: ComputedRef<Error | null>
   isAuthenticated: ComputedRef<boolean>
   isAnonymous: ComputedRef<boolean>

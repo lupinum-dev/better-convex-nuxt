@@ -17,16 +17,29 @@ import type { ResolvedRequestAuth } from './auth-resolver'
 /**
  * Hydration-safe auth snapshot sent from server to client.
  *
- * `decodeFailed` indicates the server had a valid token but could not
- * decode the JWT — the client should treat this as unauthenticated and
- * may attempt a fresh token exchange.
+ * `decodeFailed` discriminates the fail-closed branch where the server had a
+ * token but could not decode its user claims. In that case the client only
+ * receives an unauthenticated payload plus a non-null decode error.
  */
-export interface HydratedRequestAuth {
-  token: string | null
-  user: ConvexUser | null
-  error: string | null
-  decodeFailed: boolean
-}
+export type HydratedRequestAuth =
+  | {
+    decodeFailed: true
+    token: null
+    user: null
+    error: string
+  }
+  | {
+    decodeFailed: false
+    token: string
+    user: ConvexUser
+    error: null
+  }
+  | {
+    decodeFailed: false
+    token: null
+    user: null
+    error: string | null
+  }
 
 /**
  * Project server auth into a client-safe snapshot.
@@ -46,9 +59,18 @@ export function projectResolvedAuthForHydration(
     }
   }
 
+  if (resolvedAuth.token && resolvedAuth.user) {
+    return {
+      token: resolvedAuth.token,
+      user: resolvedAuth.user,
+      error: null,
+      decodeFailed: false,
+    }
+  }
+
   return {
-    token: resolvedAuth.token,
-    user: resolvedAuth.user,
+    token: null,
+    user: null,
     error: resolvedAuth.error,
     decodeFailed: false,
   }
