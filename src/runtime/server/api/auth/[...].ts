@@ -33,6 +33,33 @@ import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './h
 import { fetchWithCanonicalRedirects } from './redirect-utils'
 import { getAuthRoutePattern, isOriginAllowed } from './security'
 
+const GENERIC_CORS_ALLOW_METHODS = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+const CRITICAL_AUTH_ENDPOINT_ALLOW_METHODS = ['GET', 'OPTIONS'] as const
+
+function getCriticalEndpointAllowMethods(path: string): ReadonlyArray<string> | null {
+  if (path === '/convex/token' || path === '/get-session') {
+    return CRITICAL_AUTH_ENDPOINT_ALLOW_METHODS
+  }
+
+  return null
+}
+
+function isMalformedAuthSubpath(path: string): boolean {
+  let decodedPath: string
+  try {
+    decodedPath = decodeURIComponent(path)
+  } catch {
+    return true
+  }
+
+  if (decodedPath.includes('\\')) {
+    return true
+  }
+
+  const normalizedPath = decodedPath.startsWith('/') ? decodedPath : `/${decodedPath}`
+  return normalizedPath.split('/').some(segment => segment === '..')
+}
+
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
   const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry')
@@ -72,9 +99,20 @@ export default defineEventHandler(async (event: H3Event) => {
   const path = requestUrl.pathname.replace(authRoutePattern, '') || '/'
   // Ensure path starts with / to avoid malformed URLs like /api/authtoken
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  // Sanitize path traversal sequences before forwarding to upstream
-  const sanitizedPath = normalizedPath.replace(/\.\.[/\\]/g, '').replace(/\.\.$/, '')
-  const target = `${siteUrl}/api/auth${sanitizedPath}${requestUrl.search}`
+  if (isMalformedAuthSubpath(normalizedPath)) {
+    setHeaders(event, {
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    })
+    throw createError({
+      statusCode: 404,
+      message: 'Not Found',
+      data: { code: 'BCN_AUTH_PROXY_INVALID_PATH' },
+    })
+  }
+
+  const criticalEndpointAllowMethods = getCriticalEndpointAllowMethods(normalizedPath)
+  const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
 
   // Handle CORS preflight
   // Security: Only allow CORS for validated origins (same-origin or trustedOrigins)
@@ -89,7 +127,7 @@ export default defineEventHandler(async (event: H3Event) => {
     }
     setHeaders(event, {
       'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+      'Access-Control-Allow-Methods': criticalEndpointAllowMethods?.join(', ') ?? GENERIC_CORS_ALLOW_METHODS,
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Max-Age': '86400',
@@ -115,6 +153,19 @@ export default defineEventHandler(async (event: H3Event) => {
       statusCode: 403,
       message: buildBlockedOriginMessage(origin, requestUrl.host),
       data: { code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED', origin },
+    })
+  }
+
+  if (criticalEndpointAllowMethods && !criticalEndpointAllowMethods.includes(event.method)) {
+    setHeaders(event, {
+      Allow: criticalEndpointAllowMethods.join(', '),
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    })
+    throw createError({
+      statusCode: 405,
+      message: 'Method Not Allowed',
+      data: { code: 'BCN_AUTH_PROXY_METHOD_NOT_ALLOWED' },
     })
   }
 
@@ -165,7 +216,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Common misconfig path: Convex site URL reachable, but Better Auth routes are missing.
     const isCriticalAuthEndpoint =
-      sanitizedPath === '/convex/token' || sanitizedPath === '/get-session'
+      normalizedPath === '/convex/token' || normalizedPath === '/get-session'
     const redirectLocation = response.headers.get('location')
     if (isCriticalAuthEndpoint && (response.status === 404 || response.status >= 500)) {
       throw createError({

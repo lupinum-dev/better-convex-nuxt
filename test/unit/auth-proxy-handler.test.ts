@@ -82,11 +82,32 @@ vi.mock('../../src/runtime/server/api/auth/body-size', () => ({
   readResponseBodyWithLimit: readResponseBodyWithLimitMock,
 }))
 
-function createEvent(pathname: string, cookie?: string) {
+interface CreateEventOptions {
+  cookie?: string
+  method?: string
+  origin?: string
+  rawPathname?: string
+}
+
+function createEvent(pathname: string, options: CreateEventOptions = {}) {
+  const url = new URL(`https://app.example.com${pathname}`)
+  const headers = new Headers()
+  if (options.cookie) {
+    headers.set('cookie', options.cookie)
+  }
+  if (options.origin) {
+    headers.set('origin', options.origin)
+  }
+
   return {
-    method: 'POST',
-    headers: new Headers(cookie ? { cookie } : {}),
-    __url: new URL(`https://app.example.com${pathname}`),
+    method: options.method ?? 'POST',
+    headers,
+    __url: {
+      origin: url.origin,
+      host: url.host,
+      search: url.search,
+      pathname: options.rawPathname ?? url.pathname,
+    },
     __headers: {},
     __appendedHeaders: [],
     __status: null,
@@ -143,7 +164,9 @@ describe('auth proxy handler hardening', () => {
     )
 
     const handler = await loadAuthProxyHandler()
-    const event = createEvent('/api/auth/sign-out', 'better-auth.session_token=session123')
+    const event = createEvent('/api/auth/sign-out', {
+      cookie: 'better-auth.session_token=session123',
+    })
 
     await expect(handler(event)).resolves.toBe('{"ok":true}')
 
@@ -155,7 +178,10 @@ describe('auth proxy handler hardening', () => {
     'fails closed when %s redirects to a different origin',
     async (pathname) => {
       const handler = await loadAuthProxyHandler()
-      const event = createEvent(pathname, 'better-auth.session_token=session123')
+      const event = createEvent(pathname, {
+        method: 'GET',
+        cookie: 'better-auth.session_token=session123',
+      })
 
       fetchWithCanonicalRedirectsMock.mockResolvedValueOnce(
         new Response('', {
@@ -180,6 +206,77 @@ describe('auth proxy handler hardening', () => {
           allowedOrigin: 'https://demo.convex.site',
         }),
       )
+    },
+  )
+
+  it.each(['/api/auth/convex/token', '/api/auth/get-session'])(
+    'returns 405 with Allow header for unsupported critical endpoint methods on %s',
+    async (pathname) => {
+      const handler = await loadAuthProxyHandler()
+
+      for (const method of ['POST', 'PUT', 'DELETE', 'HEAD']) {
+        const event = createEvent(pathname, { method })
+
+        await expect(handler(event)).rejects.toMatchObject({
+          statusCode: 405,
+          data: { code: 'BCN_AUTH_PROXY_METHOD_NOT_ALLOWED' },
+        })
+
+        expect(event.__headers).toMatchObject({
+          Allow: 'GET, OPTIONS',
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+        })
+      }
+
+      expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['/api/auth/convex/token', '/api/auth/get-session'])(
+    'returns endpoint-specific preflight allow methods for %s',
+    async (pathname) => {
+      const handler = await loadAuthProxyHandler()
+      const event = createEvent(pathname, {
+        method: 'OPTIONS',
+        origin: 'https://app.example.com',
+      })
+
+      await expect(handler(event)).resolves.toBeNull()
+
+      expect(event.__status).toEqual({ statusCode: 204, statusText: undefined })
+      expect(event.__headers).toMatchObject({
+        'Access-Control-Allow-Origin': 'https://app.example.com',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Credentials': 'true',
+      })
+      expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([
+    '/api/auth/../convex/token',
+    '/api/auth/%2e%2e/convex/token',
+    '/api/auth/%2e%2e%5Cconvex/token',
+  ])(
+    'rejects malformed traversal-like auth proxy paths for %s',
+    async (pathname) => {
+      const handler = await loadAuthProxyHandler()
+      const event = createEvent(pathname, {
+        method: 'GET',
+        rawPathname: pathname,
+      })
+
+      await expect(handler(event)).rejects.toMatchObject({
+        statusCode: 404,
+        data: { code: 'BCN_AUTH_PROXY_INVALID_PATH' },
+      })
+
+      expect(event.__headers).toMatchObject({
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+      })
+      expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
     },
   )
 })

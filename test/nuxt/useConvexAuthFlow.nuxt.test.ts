@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { useRouter } from '#imports'
+
 import { useConvexAuthActions } from '../../src/runtime/composables/useConvexAuthActions'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -210,5 +212,107 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     expect(result.error.value).toBeInstanceOf(ConvexCallError)
     expect(result.error.value!.message).toBe('Token refresh failed')
     expect(result.pending.value).toBe(false)
+  })
+
+  it.each([
+    'https://evil.example.com',
+    '//evil.example.com',
+    '/\\\\evil.example.com',
+    'javascript:alert(1)',
+    'data:text/html,<h1>evil</h1>',
+  ])('falls back to the safe redirect target for unsafe redirect query %s', async (redirect) => {
+    const { result, flush } = await captureInNuxt(
+      () => {
+        initAuthEngine()
+        const router = useRouter()
+        return {
+          router,
+          actions: useConvexAuthActions(),
+        }
+      },
+      {
+        convexConfig: {
+          auth: {
+            routeProtection: {
+              redirectTo: '/auth/signin',
+            },
+          },
+        },
+      },
+    )
+
+    await result.router.push(`/auth/signin?redirect=${encodeURIComponent(redirect)}`)
+    await flush()
+
+    await result.actions.execute(async () => ({ data: 'ok', error: null }), {
+      redirectTo: '/dashboard',
+    })
+    await flush()
+
+    expect(result.router.currentRoute.value.fullPath).toBe('/dashboard')
+  })
+
+  it('falls back to the safe redirect target for nested hostile redirect values', async () => {
+    const { result, flush } = await captureInNuxt(
+      () => {
+        initAuthEngine()
+        const router = useRouter()
+        return {
+          router,
+          actions: useConvexAuthActions(),
+        }
+      },
+      {
+        convexConfig: {
+          auth: {
+            routeProtection: {
+              redirectTo: '/auth/signin',
+            },
+          },
+        },
+      },
+    )
+
+    await result.router.push('/auth/signin?redirect=%2Fauth%2Fsignin%3Fredirect%3Dhttps%3A%2F%2Fevil.example.com')
+    await flush()
+
+    await result.actions.execute(async () => ({ data: 'ok', error: null }), {
+      redirectTo: '/dashboard',
+    })
+    await flush()
+
+    expect(result.router.currentRoute.value.fullPath).toBe('/dashboard')
+  })
+
+  it('preserves a valid internal redirect query after a successful auth action', async () => {
+    const { result, flush } = await captureInNuxt(
+      () => {
+        initAuthEngine()
+        const router = useRouter()
+        return {
+          router,
+          actions: useConvexAuthActions(),
+        }
+      },
+      {
+        convexConfig: {
+          auth: {
+            routeProtection: {
+              redirectTo: '/auth/signin',
+            },
+          },
+        },
+      },
+    )
+
+    await result.router.push('/auth/signin?redirect=%2Fdashboard%3Ftab%3Dteam')
+    await flush()
+
+    await result.actions.execute(async () => ({ data: 'ok', error: null }), {
+      redirectTo: '/fallback',
+    })
+    await flush()
+
+    expect(result.router.currentRoute.value.fullPath).toBe('/dashboard?tab=team')
   })
 })
