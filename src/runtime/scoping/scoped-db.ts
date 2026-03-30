@@ -14,7 +14,7 @@ type IndexRangeBuilder = {
   eq: (field: string, value: string) => unknown
 }
 
-type UncheckedIndexedQuery = {
+type UncheckedQuery = Query<GenericTableInfo> & {
   withIndex: (
     indexName: string,
     indexRange: (builder: IndexRangeBuilder) => unknown,
@@ -22,7 +22,7 @@ type UncheckedIndexedQuery = {
 }
 
 type UncheckedReader = {
-  query: (table: string) => UncheckedIndexedQuery
+  query: (table: string) => UncheckedQuery
 }
 
 type UncheckedWriter = UncheckedReader & {
@@ -92,7 +92,7 @@ export function createScopedReader(
     query(table: string) {
       const query = uncheckedDb.query(table)
       if (!isScopedTable(table, scopedTables)) {
-        return query as unknown as Query<GenericTableInfo>
+        return query
       }
 
       try {
