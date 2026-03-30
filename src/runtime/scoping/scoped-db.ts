@@ -86,7 +86,7 @@ export function createScopedReader(
   orgField: string,
   scopedTables: readonly string[],
 ): ScopedReader {
-  const uncheckedDb = db as unknown as UncheckedReader
+  const uncheckedDb = db as UncheckedReader
 
   return {
     query(table: string) {
@@ -130,7 +130,7 @@ export function createScopedWriter(
   scopedTables: readonly string[],
 ): ScopedWriter {
   const reader = createScopedReader(db, orgId, orgField, scopedTables)
-  const uncheckedDb = db as unknown as UncheckedWriter
+  const uncheckedDb = db as UncheckedWriter
 
   return {
     ...reader,

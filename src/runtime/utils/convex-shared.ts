@@ -181,8 +181,7 @@ export function getFunctionName(
   if (!fn) return 'unknown'
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const q = fn as any
+    const q = fn as Record<string | symbol, unknown>
 
     // Convex uses Symbol.for('functionName') to store the path
     const symbolName = q[functionNameSymbol]
@@ -195,7 +194,7 @@ export function getFunctionName(
     if (typeof q.functionPath === 'string') return q.functionPath
 
     // Fallback: if it's already a string
-    if (typeof q === 'string') return q
+    if (typeof fn === 'string') return fn
 
     return 'unknown'
   } catch {

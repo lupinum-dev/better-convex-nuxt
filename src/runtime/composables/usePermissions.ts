@@ -157,9 +157,11 @@ export function createPermissions<
     } = createConvexQueryState(query, {}, undefined, true).resultData
     const runtimeConfig = useRuntimeConfig()
 
+    const typedContext = computed(() => permissionContext.value as TContext | null)
+
     // Build context object for checkPermission
     const ctx = computed(() => {
-      const context = permissionContext.value as TContext | null
+      const context = typedContext.value
       if (!context?.role) return null
       return {
         role: context.role,
@@ -174,9 +176,9 @@ export function createPermissions<
 
     // Convenience getters
     const isAuthenticated = computed(() => !!ctx.value)
-    const user = computed(() => permissionContext.value as TContext | null)
-    const role = computed(() => (permissionContext.value as TContext | null)?.role ?? null)
-    const orgId = computed(() => (permissionContext.value as TContext | null)?.orgId ?? null)
+    const user = typedContext
+    const role = computed(() => typedContext.value?.role ?? null)
+    const orgId = computed(() => typedContext.value?.orgId ?? null)
 
     if (import.meta.dev) {
       let warnedPermissionSetupError = false

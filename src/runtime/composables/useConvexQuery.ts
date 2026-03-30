@@ -350,7 +350,7 @@ export function createConvexQueryState<
   }
 
   const applyTransform = (raw: RawT): DataT => {
-    return options?.transform ? options.transform(raw) : (raw as unknown as DataT)
+    return options?.transform ? options.transform(raw) : (raw as DataT)
   }
 
   const data = computed<DataT | null>(() =>

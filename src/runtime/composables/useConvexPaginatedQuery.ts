@@ -358,7 +358,7 @@ export function createConvexPaginatedQueryState<
   })
 
   const applyTransform = (items: Item[]): TransformedItem[] =>
-    options?.transform ? options.transform(items) : (items as unknown as TransformedItem[])
+    options?.transform ? options.transform(items) : (items as TransformedItem[])
 
   const transformedResults = computed((): TransformedItem[] => {
     if (rawResults.value.length > 0) {
