@@ -39,13 +39,13 @@ export async function getActor(ctx: TeamTodoCtx, args?: ServiceAuthArgs): Promis
     .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
     .first()
 
-  if (!user?.organizationId) return null
+  if (!user?.workspaceId) return null
 
   return {
     kind: 'user',
     userId: user.authId,
     role: user.role,
-    tenantId: user.organizationId,
+    tenantId: user.workspaceId,
   }
 }
 

@@ -15,7 +15,7 @@ export const list = query({
 
     const todos = await ctx.db
       .query('todos')
-      .withIndex('by_organization', (q) => q.eq('organizationId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
 
@@ -54,7 +54,7 @@ export const create = mutation({
       title: args.title,
       completed: false,
       ownerId: actor.userId,
-      organizationId: actor.tenantId,
+      workspaceId: actor.tenantId,
       createdAt: Date.now(),
     })
   },

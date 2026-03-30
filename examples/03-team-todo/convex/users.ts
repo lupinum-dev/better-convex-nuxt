@@ -16,14 +16,14 @@ export const resolveMcpActorByEmail = query({
       .withIndex('by_email', q => q.eq('email', args.email))
       .first()
 
-    if (!user || !user.organizationId) {
+    if (!user || !user.workspaceId) {
       return null
     }
 
     return {
       role: user.role,
       userId: user.authId,
-      tenantId: user.organizationId,
+      tenantId: user.workspaceId,
     }
   },
 })

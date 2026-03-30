@@ -25,8 +25,8 @@ export default defineNuxtConfig({
     siteUrl: process.env.CONVEX_SITE_URL,
     auth: true,
     tenant: {
-      field: 'organizationId',
-      index: 'by_organization',
+      field: 'workspaceId',
+      index: 'by_workspace',
     },
   },
 })

@@ -15,8 +15,8 @@ export const listWorkspaces = query({
   args: {},
   handler: async (ctx) => {
     // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
-    const organizations = await ctx.db.query('organizations').order('desc').collect()
-    return organizations.map(({ _id, name, slug }) => ({ _id, name, slug }))
+    const workspaces = await ctx.db.query('workspaces').order('desc').collect()
+    return workspaces.map(({ _id, name, slug }) => ({ _id, name, slug }))
   },
 })
 
@@ -36,7 +36,7 @@ export const getPermissionContext = query({
     return {
       role: user.role,
       userId: user.authId,
-      tenantId: user.organizationId,
+      tenantId: user.workspaceId,
       email: user.email,
       displayName: user.displayName,
       can: {
@@ -57,7 +57,7 @@ export const createWorkspace = mutation({
     if (!identity) throw deny('Not authenticated.')
 
     const existing = await ctx.db
-      .query('organizations')
+      .query('workspaces')
       .withIndex('by_slug', q => q.eq('slug', args.slug))
       .first()
 
@@ -71,7 +71,7 @@ export const createWorkspace = mutation({
     if (!user) throw new Error('Current user row not found.')
 
     const now = Date.now()
-    const tenantId = await ctx.db.insert('organizations', {
+    const tenantId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
       ownerId: identity.subject,
@@ -80,7 +80,7 @@ export const createWorkspace = mutation({
     })
 
     await ctx.db.patch(user._id, {
-      organizationId: tenantId,
+      workspaceId: tenantId,
       role: 'owner',
       updatedAt: now,
     })
@@ -98,12 +98,12 @@ export const joinWorkspace = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
 
-    const organization = await ctx.db
-      .query('organizations')
+    const workspace = await ctx.db
+      .query('workspaces')
       .withIndex('by_slug', q => q.eq('slug', args.slug))
       .first()
 
-    if (!organization) throw new Error('Workspace not found.')
+    if (!workspace) throw new Error('Workspace not found.')
 
     const user = await ctx.db
       .query('users')
@@ -113,11 +113,11 @@ export const joinWorkspace = mutation({
     if (!user) throw new Error('Current user row not found.')
 
     await ctx.db.patch(user._id, {
-      organizationId: organization._id,
+      workspaceId: workspace._id,
       role: args.role,
       updatedAt: Date.now(),
     })
 
-    return organization._id
+    return workspace._id
   },
 })

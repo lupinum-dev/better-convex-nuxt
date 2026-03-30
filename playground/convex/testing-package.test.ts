@@ -8,7 +8,11 @@ import { modules } from './test.setup'
 
 describe('better-convex-nuxt/testing', () => {
   it('seeds a tenant and returns authenticated user callers', async () => {
-    const ctx = createTestContext({ schema, modules })
+    const ctx = createTestContext({
+    schema,
+    modules,
+    tenant: { table: 'organizations', field: 'organizationId' },
+  })
 
     const team = await ctx.seedTenant({
       name: 'Acme',
@@ -36,7 +40,11 @@ describe('better-convex-nuxt/testing', () => {
   })
 
   it('injects service auth with the same permission rules as browser callers', async () => {
-    const ctx = createTestContext({ schema, modules })
+    const ctx = createTestContext({
+    schema,
+    modules,
+    tenant: { table: 'organizations', field: 'organizationId' },
+  })
     const team = await ctx.seedTenant({
       name: 'Globex',
       users: {

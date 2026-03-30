@@ -41,10 +41,14 @@ describe('auth primitives', () => {
     expect(() => requirePrincipal(null)).toThrow(/Not authenticated\./)
   })
 
-  it('fails closed in can() when checks throw', () => {
+  it('fails closed in can() for ConvexError but rethrows programming bugs', () => {
     expect(can({}, () => {
-      throw new Error('boom')
+      deny('forbidden')
     })).toBe(false)
+
+    expect(() => can({}, () => {
+      throw new Error('boom')
+    })).toThrow('boom')
   })
 
   it('verifies keys in constant-time-compatible shape', () => {

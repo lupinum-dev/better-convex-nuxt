@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
  * The full example needs three tables:
- * - organizations: the tenant boundary
+ * - workspaces: the tenant boundary
  * - users: the source of actor role + tenant membership
  * - todos: the tenant-scoped resource protected by permissions
  */
@@ -16,7 +16,7 @@ const roleValidator = v.union(
 )
 
 export default defineSchema({
-  organizations: defineTable({
+  workspaces: defineTable({
     name: v.string(),
     slug: v.string(),
     ownerId: v.string(),
@@ -29,21 +29,21 @@ export default defineSchema({
     email: v.optional(v.string()),
     displayName: v.optional(v.string()),
     role: roleValidator,
-    organizationId: v.optional(v.id('organizations')),
+    workspaceId: v.optional(v.id('workspaces')),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('by_auth_id', ['authId'])
     .index('by_email', ['email'])
-    .index('by_organization', ['organizationId']),
+    .index('by_workspace', ['workspaceId']),
 
   todos: defineTable({
     title: v.string(),
     completed: v.boolean(),
     ownerId: v.string(),
-    organizationId: v.id('organizations'),
+    workspaceId: v.id('workspaces'),
     createdAt: v.number(),
   })
-    .index('by_organization', ['organizationId'])
+    .index('by_workspace', ['workspaceId'])
     .index('by_owner', ['ownerId']),
 })

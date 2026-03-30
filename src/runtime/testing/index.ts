@@ -216,8 +216,8 @@ export function createTestContext<
   const serviceKey = options.serviceKey ?? process.env.CONVEX_SERVICE_KEY ?? 'test-service-key'
   process.env.CONVEX_SERVICE_KEY = serviceKey
 
-  const tenantTable = options.tenant?.table ?? 'organizations'
-  const tenantField = options.tenant?.field ?? 'organizationId'
+  const tenantTable = options.tenant?.table ?? 'workspaces'
+  const tenantField = options.tenant?.field ?? 'workspaceId'
   const userTable = options.users?.table ?? 'users'
   const authField = options.users?.authField ?? 'authId'
   const roleField = options.users?.roleField ?? 'role'

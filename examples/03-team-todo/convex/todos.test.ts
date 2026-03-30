@@ -16,7 +16,14 @@ import { modules } from './test.setup'
 const api = anyApi
 
 function createCtx() {
-  return createTestContext({ schema, modules })
+  return createTestContext({
+    schema,
+    modules,
+    tenant: {
+      table: 'workspaces',
+      field: 'workspaceId',
+    },
+  })
 }
 
 describe('team todo example', () => {
@@ -128,8 +135,8 @@ describe('team todo example', () => {
       },
     })
 
-    const ownerCtx = await team.users.owner.query(api.organizations.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(api.organizations.getPermissionContext, {})
+    const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
 
     expect(ownerCtx?.can['todo.create']).toBe(true)
     expect(viewerCtx?.can['todo.create']).toBe(false)
@@ -139,7 +146,7 @@ describe('team todo example', () => {
   it('returns null context and denies protected todo queries for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(ctx.raw.query(api.organizations.getPermissionContext, {})).resolves.toBeNull()
+    await expect(ctx.raw.query(api.workspaces.getPermissionContext, {})).resolves.toBeNull()
     await expect(ctx.raw.query(api.todos.list, {})).rejects.toThrow('Forbidden: Read todos')
   })
 })

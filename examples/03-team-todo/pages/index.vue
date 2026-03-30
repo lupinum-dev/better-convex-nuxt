@@ -241,13 +241,13 @@ const joinWorkspaceForm = reactive({
 const title = ref('')
 
 const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
-const createWorkspace = useConvexMutation(api.organizations.createWorkspace)
-const joinWorkspace = useConvexMutation(api.organizations.joinWorkspace)
+const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
+const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const createTodo = useConvexMutation(api.todos.create)
 const updateTodo = useConvexMutation(api.todos.setCompleted)
 const removeTodo = useConvexMutation(api.todos.remove)
 
-const { data: workspaceOptions } = await useConvexQuery(api.organizations.listWorkspaces, {})
+const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
 
 // The permission context query can run anonymously. It returns null until the user is signed in.
 // The todo list query only runs once the user actually belongs to a workspace.

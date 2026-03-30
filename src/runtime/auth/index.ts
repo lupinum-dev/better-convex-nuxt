@@ -71,8 +71,9 @@ export function guard<P = unknown>(principal: P, label: string, check: AnyCheck<
 export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
   try {
     return !!runCheck(principal, check)
-  } catch {
-    return false
+  } catch (error) {
+    if (error instanceof ConvexError) return false
+    throw error
   }
 }
 
