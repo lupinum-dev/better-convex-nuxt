@@ -1,9 +1,17 @@
+/**
+ * Why this file exists:
+ * LMS authorization depends on the enrollment relationship, not just the user's role.
+ */
 import { deny } from 'better-convex-nuxt/auth'
 
 import type { DatabaseReader } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { Actor } from './actor'
-import { canReadLesson, hasRole } from './checks'
+import { hasRole } from './checks'
+
+export function isStaffActor(actor: Actor): actor is Exclude<Actor, null> {
+  return !!actor && hasRole('owner', 'admin', 'instructor')(actor)
+}
 
 export async function requireEnrollment(
   db: DatabaseReader,
@@ -11,16 +19,6 @@ export async function requireEnrollment(
   courseId: Id<'courses'>,
 ): Promise<Doc<'enrollments'>> {
   if (!actor) throw deny('Not authenticated.')
-
-  if (hasRole('owner', 'admin', 'instructor')(actor) && canReadLesson(actor)) {
-    return {
-      userId: actor.userId,
-      courseId,
-      status: 'active',
-      createdAt: 0,
-      workspaceId: actor.tenantId,
-    } as Doc<'enrollments'>
-  }
 
   const enrollment = await db
     .query('enrollments')

@@ -1,13 +1,21 @@
+/**
+ * Why this file exists:
+ * Human refund flows and service refund flows should hit the same business-state rules.
+ */
+import type { GenericMutationCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import { deny, guard } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
+import type { DataModel } from './_generated/dataModel'
 import { getActor, type Actor } from './auth/actor'
 import { canReadOrders, canRefundOrders } from './auth/checks'
 import { loadResource } from './auth/scope'
 
-async function validateRefund(ctx: any, actor: Actor, orderId: string) {
+type MutationCtx = GenericMutationCtx<DataModel>
+
+async function validateRefund(ctx: MutationCtx, actor: Actor, orderId: string) {
   const order = loadResource(actor, await ctx.db.get(orderId), 'Order')
 
   if (order.status === 'refunded') throw deny('Already refunded.')

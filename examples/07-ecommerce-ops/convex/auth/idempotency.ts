@@ -1,15 +1,25 @@
+/**
+ * Why this file exists:
+ * External systems retry, so webhook-side authorization also needs replay protection.
+ */
 import { deny } from 'better-convex-nuxt/auth'
 
-export async function ensureNotProcessed(db: any, eventId: string): Promise<void> {
+import type { GenericMutationCtx } from 'convex/server'
+
+import type { DataModel } from '../_generated/dataModel'
+
+type Db = GenericMutationCtx<DataModel>['db']
+
+export async function ensureNotProcessed(db: Db, eventId: string): Promise<void> {
   const existing = await db
     .query('processedEvents')
-    .withIndex('by_event_id', (q: any) => q.eq('eventId', eventId))
+    .withIndex('by_event_id', q => q.eq('eventId', eventId))
     .first()
 
   if (existing) throw deny('Event already processed.')
 }
 
-export async function markProcessed(db: any, eventId: string, source: string): Promise<void> {
+export async function markProcessed(db: Db, eventId: string, source: string): Promise<void> {
   await db.insert('processedEvents', {
     eventId,
     source,

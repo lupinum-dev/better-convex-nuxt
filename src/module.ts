@@ -529,6 +529,10 @@ export { defineTool } from '${defineToolPath}'
           name: 'useConvexAuthActions',
           from: resolver.resolve('./runtime/composables/useConvexAuthActions'),
         },
+        {
+          name: 'useEnsureConvexUser',
+          from: resolver.resolve('./runtime/composables/useEnsureConvexUser'),
+        },
       ])
 
       // Register auth components

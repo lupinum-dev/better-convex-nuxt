@@ -9,14 +9,18 @@ import { getMemberships, requireWorkspaceMembership } from './auth/agency'
 
 export const listWorkspaces = query({
   args: {},
-  handler: async (ctx) => ctx.db.query('workspaces').order('desc').collect(),
+  handler: async (ctx) => {
+    // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
+    const workspaces = await ctx.db.query('workspaces').order('desc').collect()
+    return workspaces.map(({ _id, name, slug }) => ({ _id, name, slug }))
+  },
 })
 
 export const listAccessibleWorkspaces = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    if (!actor) return []
+    if (!actor) throw deny('Not authenticated.')
 
     const memberships = await getMemberships(ctx.db, actor.userId)
     return Promise.all(
@@ -123,6 +127,18 @@ export const joinWorkspace = mutation({
       .withIndex('by_slug', q => q.eq('slug', args.slug))
       .first()
     if (!workspace) throw new Error('Workspace not found.')
+
+    const existingMembership = await ctx.db
+      .query('memberships')
+      .withIndex('by_user_workspace', q => q.eq('userId', user.authId).eq('workspaceId', workspace._id))
+      .first()
+    if (existingMembership) {
+      await ctx.db.patch(user._id, {
+        workspaceId: workspace._id,
+        updatedAt: Date.now(),
+      })
+      return workspace._id
+    }
 
     await ctx.db.insert('memberships', {
       userId: user.authId,

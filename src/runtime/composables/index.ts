@@ -78,6 +78,10 @@ export {
   type UseConvexAuthActionsOptions,
   type UseConvexAuthActionsReturn,
 } from './useConvexAuthActions'
+export {
+  useEnsureConvexUser,
+  type UseEnsureConvexUserReturn,
+} from './useEnsureConvexUser'
 
 // Validation — Convex validator → Standard Schema conversion
 export { toConvexSchema, useConvexSchema } from '../utils/convex-schema'

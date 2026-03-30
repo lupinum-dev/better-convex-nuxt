@@ -1,3 +1,8 @@
+/**
+ * Why this file exists:
+ * Learning products are where role checks stop being enough. Lesson access depends on
+ * enrollment, prerequisite progress, and publication state.
+ */
 import { v } from 'convex/values'
 
 import { can, deny, guard } from 'better-convex-nuxt/auth'
@@ -5,7 +10,7 @@ import { can, deny, guard } from 'better-convex-nuxt/auth'
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canReadLesson, hasRole, isAuthenticated } from './auth/checks'
-import { requireEnrollment } from './auth/enrollment'
+import { isStaffActor, requireEnrollment } from './auth/enrollment'
 import { ensurePrerequisites } from './auth/prerequisites'
 import { ensureFound, loadResource } from './auth/scope'
 
@@ -15,13 +20,20 @@ export const listLessonsByCourse = query({
     const actor = await getActor(ctx)
     guard(actor, 'Read lesson', isAuthenticated)
 
-    loadResource(actor, await ctx.db.get(args.courseId), 'Course')
-
-    return ctx.db
+    const course = loadResource(actor, await ctx.db.get(args.courseId), 'Course')
+    const lessons = await ctx.db
       .query('lessons')
       .withIndex('by_course', q => q.eq('courseId', args.courseId))
       .order('asc')
       .collect()
+
+    if (isStaffActor(actor)) return lessons
+    if (course.status !== 'published') throw deny('Course not available.')
+
+    await requireEnrollment(ctx.db, actor, course._id)
+    return lessons
+      .filter(lesson => lesson.status === 'published')
+      .map(({ _id, title, status }) => ({ _id, title, status }))
   },
 })
 
@@ -35,7 +47,7 @@ export const getLesson = query({
     const course = await ctx.db.get(lesson.courseId)
     ensureFound(course, 'Course')
 
-    if (can(actor, hasRole('owner', 'admin', 'instructor'))) return lesson
+    if (isStaffActor(actor)) return lesson
 
     if (course.status !== 'published') throw deny('Course not available.')
     if (lesson.status !== 'published') throw deny('Lesson not available.')

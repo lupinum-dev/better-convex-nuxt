@@ -1,7 +1,11 @@
+/**
+ * Why this file exists:
+ * Cross-client reporting must be explicit. This query is the intentional tenant-bypass path.
+ */
 import { deny } from 'better-convex-nuxt/auth'
 
 import { query } from './_generated/server'
-import { getAgencyActor, getMemberships, requireAgencyRole } from './auth/agency'
+import { getAgencyActor, getMemberships, requireAnyAgencyRole } from './auth/agency'
 
 export const portfolio = query({
   args: {},
@@ -9,7 +13,7 @@ export const portfolio = query({
     const actor = await getAgencyActor(ctx)
     if (!actor) throw deny('Not authenticated.')
 
-    await requireAgencyRole(ctx.db, actor.userId, 'agency_admin', 'agency_manager')
+    await requireAnyAgencyRole(ctx.db, actor.userId, 'agency_admin', 'agency_manager')
 
     const memberships = await getMemberships(ctx.db, actor.userId)
     const clientIds = memberships

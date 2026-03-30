@@ -1,6 +1,10 @@
+/**
+ * Why this file exists:
+ * Course-level handlers stay small so the auth story remains centered on relationships.
+ */
 import { mutation, query } from './_generated/server'
 
-import { guard } from 'better-convex-nuxt/auth'
+import { deny, guard } from 'better-convex-nuxt/auth'
 
 import { getActor } from './auth/actor'
 import { hasRole } from './auth/checks'
@@ -61,7 +65,7 @@ export const listCourses = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    if (!actor) return []
+    if (!actor) throw deny('Not authenticated.')
 
     return ctx.db
       .query('courses')

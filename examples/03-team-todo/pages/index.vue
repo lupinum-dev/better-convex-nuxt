@@ -240,7 +240,7 @@ const joinWorkspaceForm = reactive({
 
 const title = ref('')
 
-const ensureUserRow = useEnsureUserRow()
+const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.organizations.createWorkspace)
 const joinWorkspace = useConvexMutation(api.organizations.joinWorkspace)
 const createTodo = useConvexMutation(api.todos.create)

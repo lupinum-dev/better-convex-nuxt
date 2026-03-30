@@ -111,7 +111,7 @@ const joinWorkspaceForm = reactive({
   role: 'student' as 'admin' | 'instructor' | 'student',
 })
 
-const ensureUserRow = useEnsureUserRow()
+const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const seedDemoCourse = useConvexMutation(api.courses.seedDemoCourse)

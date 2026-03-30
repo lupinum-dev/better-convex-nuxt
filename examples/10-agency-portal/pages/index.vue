@@ -114,7 +114,7 @@ const joinWorkspaceForm = reactive({
 })
 const projectForm = reactive({ name: '' })
 
-const ensureUserRow = useEnsureUserRow()
+const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const switchWorkspace = useConvexMutation(api.workspaces.switchWorkspace)

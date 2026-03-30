@@ -10,7 +10,11 @@ import { planValidator } from './schema'
 
 export const listWorkspaces = query({
   args: {},
-  handler: async (ctx) => ctx.db.query('workspaces').order('desc').collect(),
+  handler: async (ctx) => {
+    // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
+    const workspaces = await ctx.db.query('workspaces').order('desc').collect()
+    return workspaces.map(({ _id, name, slug }) => ({ _id, name, slug }))
+  },
 })
 
 export const getPermissionContext = query({

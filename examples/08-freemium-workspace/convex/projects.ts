@@ -1,6 +1,10 @@
+/**
+ * Why this file exists:
+ * The freemium example keeps entitlements and count-based limits separate on purpose.
+ */
 import { v } from 'convex/values'
 
-import { guard } from 'better-convex-nuxt/auth'
+import { deny, guard } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -11,7 +15,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    if (!actor) return []
+    if (!actor) throw deny('Not authenticated.')
 
     return ctx.db
       .query('projects')

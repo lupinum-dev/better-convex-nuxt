@@ -1,12 +1,18 @@
+/**
+ * Why this file exists:
+ * Public links are a second auth path. They need their own validation and must stay typed.
+ */
 import { deny } from 'better-convex-nuxt/auth'
 
 import type { DatabaseReader } from '../_generated/server'
+import type { Id } from '../_generated/dataModel'
 import type { AccessLevel } from './page-access'
 
 export type ShareGrant = {
   kind: 'share_token'
-  tokenId: string
-  pageId: string
+  tokenId: Id<'shareTokens'>
+  pageId: Id<'pages'>
+  workspaceId: Id<'workspaces'>
   level: AccessLevel
 }
 
@@ -24,6 +30,7 @@ export async function resolveShareToken(db: DatabaseReader, token: string): Prom
     kind: 'share_token',
     tokenId: record._id,
     pageId: record.pageId,
+    workspaceId: record.workspaceId,
     level: record.level as AccessLevel,
   }
 }

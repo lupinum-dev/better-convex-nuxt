@@ -39,7 +39,8 @@ export function getServiceActor(
   key: string,
   actor: { serviceId: string; role: string; tenantId: string },
 ): Actor {
-  const expected = process.env.CONVEX_SERVICE_KEY?.trim() || 'example-service-key'
+  const expected = process.env.CONVEX_SERVICE_KEY?.trim()
+  if (!expected) return null
   if (!verifyKey(key, expected)) return null
   return {
     kind: 'service',

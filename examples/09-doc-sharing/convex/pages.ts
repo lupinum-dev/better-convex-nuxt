@@ -1,3 +1,7 @@
+/**
+ * Why this file exists:
+ * Collaboration apps usually have two auth paths at once: signed-in workspace access and token access.
+ */
 import { v } from 'convex/values'
 
 import { deny, guard } from 'better-convex-nuxt/auth'
@@ -8,6 +12,11 @@ import { canCreatePage, isAuthenticated } from './auth/checks'
 import { type AccessLevel, requirePageAccess } from './auth/page-access'
 import { ensureFound, loadResource } from './auth/scope'
 import { requireTokenLevel, resolveShareToken } from './auth/share-tokens'
+
+function createShareTokenValue(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(18))
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
 
 export const list = query({
   args: {},
@@ -73,7 +82,7 @@ export const createShareToken = mutation({
     const page = loadResource(actor, await ctx.db.get(args.pageId), 'Page')
     await requirePageAccess(ctx.db, actor, page._id, 'edit')
 
-    const token = `share_${page._id}_${Date.now()}`
+    const token = createShareTokenValue()
     await ctx.db.insert('shareTokens', {
       workspaceId: actor!.tenantId,
       pageId: page._id,
@@ -97,6 +106,7 @@ export const viewPage = query({
       if (grant.pageId !== args.id) throw deny('Token does not match this page.')
       const page = await ctx.db.get(args.id)
       ensureFound(page, 'Page')
+      if (page.workspaceId !== grant.workspaceId) throw deny('Token does not match this page.')
       return {
         ...page,
         _access: grant.level,
@@ -126,6 +136,9 @@ export const commentWithToken = mutation({
     const grant = await resolveShareToken(ctx.db, args.shareToken)
     if (grant.pageId !== args.pageId) throw deny('Token does not match this page.')
     requireTokenLevel(grant, 'comment')
+    const page = await ctx.db.get(args.pageId)
+    ensureFound(page, 'Page')
+    if (page.workspaceId !== grant.workspaceId) throw deny('Token does not match this page.')
     return { body: args.body, via: 'share_link' }
   },
 })

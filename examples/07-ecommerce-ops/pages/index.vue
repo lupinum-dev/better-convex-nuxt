@@ -97,7 +97,7 @@ const joinWorkspaceForm = reactive({
   role: 'support' as 'admin' | 'support' | 'viewer',
 })
 
-const ensureUserRow = useEnsureUserRow()
+const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const seedDemoOrders = useConvexMutation(api.orders.seedDemoOrders)

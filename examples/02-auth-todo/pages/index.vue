@@ -141,7 +141,7 @@ const signInForm = reactive({
 })
 
 const title = ref('')
-const ensureUserRow = useEnsureUserRow()
+const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createTodo = useConvexMutation(api.todos.create)
 const toggleTodo = useConvexMutation(api.todos.toggle)
 const removeTodo = useConvexMutation(api.todos.remove)
