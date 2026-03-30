@@ -46,7 +46,8 @@ export const create = scopedMutation({
 export const setCompleted = scopedMutation({
   args: setTodoCompleted.validators,
   require: 'todo.update',
-  // `resource` lets the framework load the todo before the handler and run ownership checks.
+  // `resource` lets the framework load the todo before the handler, enforce tenant ownership,
+  // and in dev it will explain permission denials with actor/rule/resource context.
   resource: args => args.id,
   handler: async ({ db }, args) => {
     await db.patch(args.id, {

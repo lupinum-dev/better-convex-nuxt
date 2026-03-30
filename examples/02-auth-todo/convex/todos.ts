@@ -47,6 +47,7 @@ export const toggle = authedMutation({
 
 export const remove = authedMutation({
   args: { id: v.id('todos') },
+  // Same ownership pipeline as `toggle`, but the handler itself stays tiny.
   resource: args => args.id,
   ownerField: 'userId',
   handler: async ({ db }, args) => {

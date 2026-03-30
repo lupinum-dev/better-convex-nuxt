@@ -70,7 +70,9 @@ export const createWorkspace = authedMutation({
     const tenantId = await db.insert('organizations', {
       name: args.name,
       slug: args.slug,
+      ownerId: actor.userId,
       createdAt: now,
+      updatedAt: now,
     })
 
     // The creator becomes the owner. That keeps the example easy to reason about.

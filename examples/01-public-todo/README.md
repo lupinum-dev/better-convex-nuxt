@@ -4,6 +4,7 @@ This is the smallest useful V2 app.
 
 It shows:
 
+- `convex: { url }` and nothing else
 - `createFunctions()` with no actor config at all
 - `publicQuery` and `publicMutation`
 - one `defineArgs()` object reused by Convex handlers
@@ -23,3 +24,4 @@ It shows:
 3. Delete it.
 
 This app has no auth and no tenant scoping, so the builder context stays intentionally minimal.
+That is the point: one page, one shared args definition, and almost no ceremony.

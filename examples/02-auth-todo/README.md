@@ -1,12 +1,14 @@
 # Auth Todo Example
 
 This example adds real email/password auth on top of the public todo app.
+It is the “personal app” stopping point: authenticated users, guaranteed actors, no tenant model.
 
 It shows:
 
 - Better Auth wired through Convex
 - `defineActorConfig()` resolving the signed-in user into an `actor`
 - `authedQuery` and `authedMutation`
+- declarative ownership checks through `resource` + `ownerField`
 - auth-aware page rendering with `ConvexAuthenticated`, `ConvexUnauthenticated`, and `ConvexAuthLoading`
 
 ## Files To Read First

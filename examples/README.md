@@ -4,11 +4,11 @@ This folder contains three standalone todo apps that show the V2 API at three di
 
 ## Which One To Open First?
 
-| Example | Best for | Shows |
-| --- | --- | --- |
-| `01-public-todo` | First look | `publicQuery`, `publicMutation`, `defineArgs` |
-| `02-auth-todo` | Auth-only apps | `authedQuery`, `authedMutation`, `defineActorConfig`, Better Auth wiring |
-| `03-team-todo` | Full-stack multi-tenant apps | `scopedQuery`, `scopedMutation`, `definePermissions`, `#convex/mcp` |
+| Example          | Best for                     | Shows                                                                                                        |
+| ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `01-public-todo` | First look                   | `publicQuery`, `publicMutation`, `defineArgs`                                                                |
+| `02-auth-todo`   | Auth-only apps               | `authedQuery`, `authedMutation`, `defineActorConfig`, Better Auth wiring                                     |
+| `03-team-todo`   | Full-stack multi-tenant apps | `scopedQuery`, `scopedMutation`, `definePermissions({ rules })`, `#convex/mcp`, `better-convex-nuxt/testing` |
 
 ## Important Repo Note
 
@@ -30,11 +30,11 @@ If you are running these examples from inside this repository and the local pack
 
 ## Environment Variables
 
-| Example | Nuxt env vars | Extra Convex/auth env vars |
-| --- | --- | --- |
-| `01-public-todo` | `CONVEX_URL` | none |
-| `02-auth-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `03-team-todo` | `CONVEX_URL`, `CONVEX_SITE_URL`, `CONVEX_SERVICE_KEY` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
+| Example          | Nuxt env vars                                         | Extra Convex/auth env vars                             |
+| ---------------- | ----------------------------------------------------- | ------------------------------------------------------ |
+| `01-public-todo` | `CONVEX_URL`                                          | none                                                   |
+| `02-auth-todo`   | `CONVEX_URL`, `CONVEX_SITE_URL`                       | `SITE_URL`, `BETTER_AUTH_SECRET`                       |
+| `03-team-todo`   | `CONVEX_URL`, `CONVEX_SITE_URL`, `CONVEX_SERVICE_KEY` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
 
 ## Why The Code Is Comment-Heavy
 
