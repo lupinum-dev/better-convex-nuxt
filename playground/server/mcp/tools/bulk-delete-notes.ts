@@ -35,7 +35,7 @@ export default defineTool({
       affects: { notes: found.length },
     })
   },
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     let deleted = 0
     const skipped: { id: string; reason: string }[] = []
 

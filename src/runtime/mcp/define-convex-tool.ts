@@ -118,7 +118,7 @@ function convexIdToZod(cv: unknown): ZodTypeAny | null {
     const hasId = v.members.some(m => convexIdToZod(m) !== null)
     if (hasId) {
       throw new Error(
-        `defineConvexTool: v.union() containing v.id() cannot be auto-converted to JSON Schema. `
+        `defineTool: v.union() containing v.id() cannot be auto-converted to JSON Schema. `
         + `Use a plain v.string() instead, or provide the field description via schema metadata.`,
       )
     }
@@ -451,51 +451,51 @@ function _buildToolDefinition<
     _tenant,
   } = options
 
-  const toolLabel = name ? `defineConvexTool:${name}` : 'defineConvexTool'
+  const toolLabel = name ? `defineTool:${name}` : 'defineTool'
 
   // ── Fail-fast definition-time validations ──────────────────────────────
 
   if (requiredPermission && !_checkPermission) {
     throw new Error(
-      `defineConvexTool: "require" needs a checkPermission function. `
+      `defineTool: "require" needs a checkPermission function. `
       + `Use createConvexTools({ checkPermission }) or pass _checkPermission directly.`,
     )
   }
 
   if (requiredPermission && auth === 'none') {
     throw new Error(
-      `defineConvexTool: "require" needs auth. Set auth to "required" or "optional".`,
+      `defineTool: "require" needs auth. Set auth to "required" or "optional".`,
     )
   }
 
   if (preview && !destructive) {
     throw new Error(
-      `defineConvexTool: "preview" only applies to destructive tools. Set destructive: true.`,
+      `defineTool: "preview" only applies to destructive tools. Set destructive: true.`,
     )
   }
 
   if (rateLimit && !name) {
     throw new Error(
-      `defineConvexTool: "rateLimit" requires an explicit "name" so tools have distinct rate-limit buckets.`,
+      `defineTool: "rateLimit" requires an explicit "name" so tools have distinct rate-limit buckets.`,
     )
   }
 
   if (scoped && !_tenant) {
     throw new Error(
-      `defineConvexTool: "scoped: true" requires a tenant config. `
+      `defineTool: "scoped: true" requires a tenant config. `
       + `Use createConvexTools({ checkPermission, tenant: { field, index, resolveTenantId } }).`,
     )
   }
 
   if (scoped && auth === 'none') {
     throw new Error(
-      `defineConvexTool: "scoped: true" requires auth. Set auth to "required" or "optional".`,
+      `defineTool: "scoped: true" requires auth. Set auth to "required" or "optional".`,
     )
   }
 
   if (maxItems && !(maxItems.field in schema.validators)) {
     throw new Error(
-      `defineConvexTool: maxItems.field "${maxItems.field}" not found in schema validators. `
+      `defineTool: maxItems.field "${maxItems.field}" not found in schema validators. `
       + `Available: ${Object.keys(schema.validators).join(', ')}`,
     )
   }
@@ -725,20 +725,20 @@ function _buildToolDefinition<
  * @example
  * ```ts
  * // Level 1 — just make it work
- * export default defineConvexTool({
- *   schema: defineConvexSchema({}, { description: 'List all notes' }),
+ * export default defineTool({
+ *   schema: defineArgs({ description: 'List all notes', args: {} }),
  *   handler: () => serverConvexQuery(api.notes.list, {}),
  * })
  *
  * // Level 2 — add auth
- * export default defineConvexTool({
+ * export default defineTool({
  *   schema: createPostSchema,
  *   auth: 'required',
  *   handler: (args) => serverConvexMutation(api.posts.create, args),
  * })
  *
  * // Level 3 — destructive with preview
- * export default defineConvexTool({
+ * export default defineTool({
  *   schema: deletePostSchema,
  *   auth: 'required',
  *   destructive: true,
@@ -760,8 +760,6 @@ export function defineTool<
   return _buildToolDefinition(options as DefineConvexToolFullOptions<S, P, TRole>) as McpToolDefinition
 }
 
-export const defineConvexTool = defineTool
-
 /**
  * Create a typed tool factory with your permission system baked in.
  *
@@ -774,14 +772,14 @@ export const defineConvexTool = defineTool
  * import { createConvexTools } from 'better-convex-nuxt/mcp'
  * import { checkPermission } from '~~/convex/permissions.config'
  *
- * export const { defineConvexTool } = createConvexTools({
+ * export const { defineTool } = createConvexTools({
  *   checkPermission,
  * })
  *
  * // server/mcp/tools/create-post.ts
- * import { defineConvexTool } from '../utils/tools'
+ * import { defineTool } from '../utils/tools'
  *
- * export default defineConvexTool({
+ * export default defineTool({
  *   schema: createPostSchema,
  *   auth: 'required',
  *   require: 'post.create',  // ← autocomplete + type error on typos

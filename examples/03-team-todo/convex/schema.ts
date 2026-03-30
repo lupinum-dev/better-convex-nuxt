@@ -8,8 +8,6 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { defineTableMeta } from 'better-convex-nuxt/schema'
-
 const roleValidator = v.union(
   v.literal('owner'),
   v.literal('admin'),
@@ -37,22 +35,13 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_organization', ['organizationId']),
 
-  todos: defineTableMeta(
-    defineTable({
-      title: v.string(),
-      completed: v.boolean(),
-      ownerId: v.string(),
-      organizationId: v.id('organizations'),
-      createdAt: v.number(),
-    })
-      .index('by_organization', ['organizationId'])
-      .index('by_owner', ['ownerId']),
-    {
-      description: 'Tenant-scoped todo items',
-      tenant: {
-        scoped: true,
-        ownerField: 'ownerId',
-      },
-    },
-  ),
+  todos: defineTable({
+    title: v.string(),
+    completed: v.boolean(),
+    ownerId: v.string(),
+    organizationId: v.id('organizations'),
+    createdAt: v.number(),
+  })
+    .index('by_organization', ['organizationId'])
+    .index('by_owner', ['ownerId']),
 })

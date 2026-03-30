@@ -15,7 +15,7 @@ export default defineTool({
       affects: { notes: 1 },
     })
   },
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     await ctx.mutation(api.notes.remove, args)
     return ctx.ok({ deleted: true, id: args.id })
   },

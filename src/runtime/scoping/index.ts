@@ -1,4 +1,3 @@
-export { extractScopedTables } from './extract-scoped-tables'
 export { createScopedReader, createScopedWriter, resolveSchemaTableForId } from './scoped-db'
 export { ScopingError, type ScopingErrorCode } from './errors'
 export type {

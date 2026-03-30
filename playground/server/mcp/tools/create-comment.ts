@@ -9,7 +9,7 @@ export default defineTool({
   auth: 'required',
   require: 'comment.create',
   scoped: true,
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     const commentId = await ctx.mutation(api.comments.create, args)
     return ctx.ok(
       { id: commentId, postId: args.postId },

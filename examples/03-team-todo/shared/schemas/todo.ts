@@ -1,13 +1,13 @@
 /**
  * Why this file exists:
- * The full example uses one source of truth for todo input shapes and table metadata.
- * The same schema objects feed Convex handlers and MCP tool definitions.
+ * These args definitions are shared across Convex handlers and MCP tools.
+ * The folder lives at `shared/` because both runtimes need to import the same plain data contracts.
  */
 import { v } from 'convex/values'
 
-import { defineSchema, defineTableMeta } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/schema'
 
-export const createTodo = defineSchema({
+export const createTodo = defineArgs({
   description: 'Create a team todo',
   args: {
     title: v.string(),
@@ -21,7 +21,7 @@ export const createTodo = defineSchema({
   },
 })
 
-export const setTodoCompleted = defineSchema({
+export const setTodoCompleted = defineArgs({
   description: 'Update a todo completion flag',
   args: {
     id: v.id('todos'),
@@ -40,7 +40,7 @@ export const setTodoCompleted = defineSchema({
   },
 })
 
-export const deleteTodo = defineSchema({
+export const deleteTodo = defineArgs({
   description: 'Delete a team todo',
   args: {
     id: v.id('todos'),
@@ -53,7 +53,7 @@ export const deleteTodo = defineSchema({
   },
 })
 
-export const listTodos = defineSchema({
+export const listTodos = defineArgs({
   description: 'List all todos in the current tenant',
   args: {},
 })

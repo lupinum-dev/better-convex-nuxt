@@ -4,9 +4,9 @@ This is the smallest useful V2 app.
 
 It shows:
 
-- `createFunctions()` with a no-op actor config
+- `createFunctions()` with no actor config at all
 - `publicQuery` and `publicMutation`
-- one `defineSchema()` object reused by Convex handlers
+- one `defineArgs()` object reused by Convex handlers
 - `useConvexQuery()` and `useConvexMutation()` in the page
 
 ## Files To Read First

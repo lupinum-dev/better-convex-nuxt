@@ -7,7 +7,7 @@ export default defineTool({
   schema: addTask,
   name: 'add-task',
   auth: 'required',
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     const taskId = await ctx.mutation(api.tasks.add, args)
     return ctx.ok({ id: taskId }, `Added task "${args.title}"`)
   },

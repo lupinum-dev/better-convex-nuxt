@@ -1,7 +1,8 @@
 /**
  * Why this file exists:
  * Frontend permission checks should read from the exact same permission config the backend uses.
- * This gives autocomplete for `can('todo.update', todo)` and keeps role logic out of components.
+ * This tiny app-local file exists so Nuxt can auto-import `usePermissions()` everywhere else.
+ * The factory stays here; the rest of the app only sees the finished composable.
  */
 import { createPermissions } from 'better-convex-nuxt/composables'
 

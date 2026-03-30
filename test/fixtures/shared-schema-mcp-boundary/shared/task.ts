@@ -1,7 +1,7 @@
-import { defineSchema } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/schema'
 import { v } from 'convex/values'
 
-export const createTask = defineSchema({
+export const createTask = defineArgs({
   description: 'Create a task',
   args: {
     title: v.string(),

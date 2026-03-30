@@ -1,7 +1,8 @@
 /**
  * Why this file exists:
- * This file defines the project's builder family once.
- * The rest of the backend only imports the specific builders it needs, and the safe defaults stay centralized.
+ * Convex functions run on Convex's infrastructure, not inside Nuxt's module runtime.
+ * That means Nuxt can't auto-generate builders for files in `convex/`, so this file is the app-local bridge:
+ * create the builder family once here, then import the specific builders from every Convex handler.
  */
 import { createFunctions } from 'better-convex-nuxt/convex'
 

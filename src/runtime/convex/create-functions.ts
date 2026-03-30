@@ -26,8 +26,6 @@ import type {
   ActorConfig,
   ArgsWithServiceAuth,
 } from '../actor/types'
-import type { TableMeta } from '../utils/define-convex-schema'
-import { getAttachedTableMeta } from '../utils/define-convex-schema'
 import type { CheckPermissionFn } from './define-permissions'
 import {
   createScopedReader,
@@ -56,6 +54,9 @@ type SchemaLike = {
 }
 
 type TableName<TSchema extends SchemaLike> = keyof TSchema['tables'] & string
+type TableOverrides<KnownTableName extends string> = Partial<Record<KnownTableName, {
+  ownerField?: string
+}>>
 
 type ResourceRef<KnownTableName extends string> =
   | GenericId<string>
@@ -88,15 +89,9 @@ const defaultActorConfig: ActorConfig<AnyCtx, string> = {
   resolveFromAuth: async () => null,
 }
 
-type ScopedTableInfo<KnownTableName extends string> = {
-  table: KnownTableName
-  meta?: TableMeta
-}
-
 type LoadedResource<KnownTableName extends string> = {
   doc: Record<string, unknown>
   table: KnownTableName | null
-  meta?: TableMeta
 }
 
 function stripServiceArgs<TArgs extends Record<string, unknown>>(
@@ -127,13 +122,6 @@ function getSchemaTable<TSchema extends SchemaLike>(
   return schema.tables[tableName]
 }
 
-function getTableMeta<TSchema extends SchemaLike>(
-  schema: TSchema | undefined,
-  tableName: TableName<TSchema> | null,
-): TableMeta | undefined {
-  return getAttachedTableMeta(getSchemaTable(schema, tableName))
-}
-
 function hasTenantField(
   table: SchemaTableLike | undefined,
   field: string,
@@ -162,17 +150,13 @@ function hasTenantIndex(
 function extractScopedTables<TSchema extends SchemaLike>(
   schema: TSchema | undefined,
   tenant: { field: string; index: string },
-): ScopedTableInfo<TableName<TSchema>>[] {
+): TableName<TSchema>[] {
   const tableNames = getSchemaTableNames(schema)
   return tableNames
     .filter((tableName) => {
       const table = getSchemaTable(schema, tableName)
       return hasTenantField(table, tenant.field) && hasTenantIndex(table, tenant.field, tenant.index)
     })
-    .map(table => ({
-      table,
-      meta: getTableMeta(schema, table),
-    }))
 }
 
 function isMutationContext(ctx: AnyCtx): ctx is MutationCtx {
@@ -181,9 +165,9 @@ function isMutationContext(ctx: AnyCtx): ctx is MutationCtx {
 
 function normalizePermissionResource(
   doc: Record<string, unknown>,
-  ownerField: string | undefined,
+  ownerField: string,
 ): Record<string, unknown> {
-  if (!ownerField || ownerField === 'ownerId') return doc
+  if (ownerField === 'ownerId') return doc
   if (!(ownerField in doc)) return doc
   return {
     ...doc,
@@ -194,15 +178,20 @@ function normalizePermissionResource(
 function checkAuthedOwnership<Role extends string>(
   actor: Actor<Role>,
   resource: Record<string, unknown> | undefined,
-  ownerField: string | undefined,
+  ownerField: string,
 ) {
   if (!resource) return
-  if (!ownerField) {
-    throw new Error('authed resource loading requires ownerField or table metadata with tenant.ownerField.')
-  }
   if (resource[ownerField] !== actor.userId) {
     throw new Error('Forbidden.')
   }
+}
+
+function getOwnerField<KnownTableName extends string>(
+  tables: TableOverrides<KnownTableName> | undefined,
+  tableName: KnownTableName | null,
+): string {
+  if (!tableName) return 'ownerId'
+  return tables?.[tableName]?.ownerField ?? 'ownerId'
 }
 
 async function loadResource<TSchema extends SchemaLike>(
@@ -210,7 +199,7 @@ async function loadResource<TSchema extends SchemaLike>(
   options: {
     schema: TSchema | undefined
     tableNames: readonly TableName<TSchema>[]
-    scopedTables: readonly ScopedTableInfo<TableName<TSchema>>[]
+    scopedTables: readonly TableName<TSchema>[]
     tenant: { field: string; index: string }
     tenantId?: string
     resolver: (args: Record<string, unknown>) => ResourceRef<TableName<TSchema>>
@@ -229,15 +218,14 @@ async function loadResource<TSchema extends SchemaLike>(
     throw new Error('Resource not found.')
   }
 
-  const scopedInfo = options.scopedTables.find(entry => entry.table === detectedTable)
-  if (scopedInfo && options.tenantId && doc[options.tenant.field] !== options.tenantId) {
+  const isScopedTable = detectedTable ? options.scopedTables.includes(detectedTable) : false
+  if (isScopedTable && options.tenantId && doc[options.tenant.field] !== options.tenantId) {
     throw new Error('Document belongs to a different tenant.')
   }
 
   return {
     doc: doc as Record<string, unknown>,
     table: detectedTable,
-    meta: scopedInfo?.meta ?? getTableMeta(options.schema, detectedTable),
   }
 }
 
@@ -282,6 +270,7 @@ export interface CreateFunctionsOptions<
   TActorCtx = AnyCtx,
 > {
   schema?: TSchema
+  tables?: TableOverrides<TableName<TSchema>>
   permissions?: PermissionsConfig<Permission, Role>
   actor?: ActorConfig<TActorCtx, Role>
   tenant?: {
@@ -361,7 +350,6 @@ export function createFunctions<
   const tenant = options?.tenant ?? DEFAULT_TENANT
   const tableNames = getSchemaTableNames(options?.schema)
   const scopedTables = extractScopedTables(options?.schema, tenant)
-  const scopedTableNames = scopedTables.map(entry => entry.table)
 
   function checkPermission(
     actor: Actor<Role>,
@@ -443,7 +431,7 @@ export function createFunctions<
             })
           : undefined
 
-        const ownerField = config.ownerField ?? loadedResource?.meta?.tenant?.ownerField
+        const ownerField = config.ownerField ?? getOwnerField(options?.tables, loadedResource?.table ?? null)
         const permissionResource = loadedResource
           ? normalizePermissionResource(loadedResource.doc, ownerField)
           : undefined
@@ -492,7 +480,7 @@ export function createFunctions<
             })
           : undefined
 
-        const ownerField = loadedResource?.meta?.tenant?.ownerField
+        const ownerField = getOwnerField(options?.tables, loadedResource?.table ?? null)
         const permissionResource = loadedResource
           ? normalizePermissionResource(loadedResource.doc, ownerField)
           : undefined
@@ -505,14 +493,14 @@ export function createFunctions<
               actor.tenantId,
               tenant.field,
               tenant.index,
-              scopedTableNames,
+              scopedTables,
             )
           : createScopedReader(
               ctx.db,
               actor.tenantId,
               tenant.field,
               tenant.index,
-              scopedTableNames,
+              scopedTables,
             )
 
         return await config.handler(
@@ -553,5 +541,4 @@ export function createFunctions<
 
 export {
   defineActorConfig,
-  type TableMeta,
 }

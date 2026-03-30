@@ -1,13 +1,13 @@
 /**
  * Why this file exists:
- * V2 schemas are defined once, then reused by handlers, forms, and MCP tools.
- * This example only uses the schema in Convex functions, but the shape is the same everywhere.
+ * This args definition lives in `shared/` because both Convex code and Nuxt server code can import it.
+ * Keeping it runtime-neutral makes it safe to reuse across those two build targets.
  */
 import { v } from 'convex/values'
 
-import { defineSchema } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/schema'
 
-export const createTodo = defineSchema({
+export const createTodo = defineArgs({
   description: 'Create a public todo item',
   args: {
     title: v.string(),

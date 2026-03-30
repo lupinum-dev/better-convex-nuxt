@@ -1,8 +1,8 @@
 import { v } from 'convex/values'
 
-import { defineSchema } from '../helpers/v2-schema-experiment'
+import { defineArgs } from '../helpers/v2-schema-experiment'
 
-defineSchema({
+defineArgs({
   args: {
     title: v.string(),
     content: v.string(),
@@ -13,7 +13,7 @@ defineSchema({
   },
 })
 
-defineSchema({
+defineArgs({
   args: {
     title: v.string(),
     content: v.string(),

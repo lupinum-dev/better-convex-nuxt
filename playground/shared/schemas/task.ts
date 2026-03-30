@@ -1,8 +1,8 @@
 import { v } from 'convex/values'
 
-import { defineSchema } from '../../../src/runtime/schema'
+import { defineArgs } from '../../../src/runtime/schema'
 
-export const addTask = defineSchema({
+export const addTask = defineArgs({
   description: 'Add a task to your personal list',
   args: {
     title: v.string(),
@@ -19,7 +19,7 @@ export const addTask = defineSchema({
   },
 })
 
-export const listTasks = defineSchema({
+export const listTasks = defineArgs({
   description: 'List your tasks',
   args: {},
 })

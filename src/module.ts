@@ -559,8 +559,7 @@ export const { defineTool } = createConvexTools({
       // Validation — Convex validator → Standard Schema
       { name: 'useConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
       { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
-      { name: 'defineSchema', from: resolver.resolve('./runtime/utils/define-convex-schema') },
-      { name: 'defineTableMeta', from: resolver.resolve('./runtime/utils/define-convex-schema') },
+      { name: 'defineArgs', from: resolver.resolve('./runtime/utils/define-convex-schema') },
       // Optimistic update standalone helpers
       { name: 'prependTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
       { name: 'appendTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
@@ -609,8 +608,7 @@ export const { defineTool } = createConvexTools({
         from: resolver.resolve('./runtime/server/utils/validate'),
       },
       { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
-      { name: 'defineSchema', from: resolver.resolve('./runtime/utils/define-convex-schema') },
-      { name: 'defineTableMeta', from: resolver.resolve('./runtime/utils/define-convex-schema') },
+      { name: 'defineArgs', from: resolver.resolve('./runtime/utils/define-convex-schema') },
     ])
 
     // 9. Add types to tsconfig references

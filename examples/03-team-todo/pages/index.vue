@@ -178,7 +178,7 @@
                   <input
                     type="checkbox"
                     :checked="todo.completed"
-                    :disabled="!canUpdate(todo)"
+                    :disabled="!can('todo.update', todo)"
                     @change="handleToggle(todo._id, !todo.completed)"
                   />
                   <span :class="{ done: todo.completed }">{{ todo.title }}</span>
@@ -188,7 +188,7 @@
               <button
                 class="ghost"
                 type="button"
-                :disabled="!canDelete(todo)"
+                :disabled="!can('todo.delete', todo)"
                 @click="removeTodo({ id: todo._id })"
               >
                 Delete
@@ -286,15 +286,6 @@ watch(
   },
   { immediate: true },
 )
-
-// `can()` returns a ComputedRef so components can stay reactive when the permission context changes.
-function canUpdate(todo: Record<string, unknown>) {
-  return can('todo.update', todo).value
-}
-
-function canDelete(todo: Record<string, unknown>) {
-  return can('todo.delete', todo).value
-}
 
 async function handleSignUp() {
   if (!client) throw new Error('Auth client unavailable.')

@@ -8,8 +8,7 @@ describe('schema entrypoint exports', () => {
   })
 
   it('exports the server-safe shared-schema helpers', () => {
-    expect(schemaApi).toHaveProperty('defineSchema')
-    expect(schemaApi).toHaveProperty('defineTableMeta')
+    expect(schemaApi).toHaveProperty('defineArgs')
     expect(schemaApi).toHaveProperty('toConvexSchema')
     expect(schemaApi).toHaveProperty('useConvexSchema')
   })

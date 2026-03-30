@@ -8,7 +8,7 @@ import {
   serverConvexMutation,
   serverConvexQuery,
 } from '../../src/runtime/server/utils/convex'
-import { defineSchema } from '../helpers/v2-schema-experiment'
+import { defineArgs } from '../helpers/v2-schema-experiment'
 
 vi.mock('../../src/runtime/server/utils/convex', () => ({
   serverConvexQuery: vi.fn(),
@@ -91,7 +91,7 @@ function createToolFactory() {
 
   return function defineTool(options: {
     name: string
-    schema: ReturnType<typeof defineSchema>
+    schema: ReturnType<typeof defineArgs>
     auth?: 'required' | 'optional' | 'none'
     require?: Permission
     scoped?: boolean
@@ -201,7 +201,7 @@ describe('v2 MCP tool experiment', () => {
     const defineTool = createToolFactory()
     const tool = defineTool({
       name: 'create-post',
-      schema: defineSchema({ args: { title: v.string() } }),
+      schema: defineArgs({ args: { title: v.string() } }),
       auth: 'required',
       handler: async (_args, ctx) => ctx.ok({ ok: true }),
     })
@@ -219,7 +219,7 @@ describe('v2 MCP tool experiment', () => {
     )
     const tool = defineTool({
       name: 'create-post',
-      schema: defineSchema({ args: { title: v.string() } }),
+      schema: defineArgs({ args: { title: v.string() } }),
       auth: 'required',
       require: 'post.create',
       handler,
@@ -249,7 +249,7 @@ describe('v2 MCP tool experiment', () => {
     const defineTool = createToolFactory()
     const scopedTool = defineTool({
       name: 'create-post',
-      schema: defineSchema({ args: { title: v.string() } }),
+      schema: defineArgs({ args: { title: v.string() } }),
       auth: 'required',
       scoped: true,
       handler: async (args, ctx) => {
@@ -282,7 +282,7 @@ describe('v2 MCP tool experiment', () => {
 
     const publicTool = defineTool({
       name: 'list-posts',
-      schema: defineSchema({ args: { limit: v.optional(v.float64()) } }),
+      schema: defineArgs({ args: { limit: v.optional(v.float64()) } }),
       auth: 'none',
       handler: async (args, ctx) => {
         await ctx.mutation('posts.list', args)
@@ -308,7 +308,7 @@ describe('v2 MCP tool experiment', () => {
 
     const tool = defineTool({
       name: 'delete-post',
-      schema: defineSchema({ args: { id: v.string() } }),
+      schema: defineArgs({ args: { id: v.string() } }),
       auth: 'required',
       destructive: true,
       preview: async (args, ctx) =>
@@ -342,7 +342,7 @@ describe('v2 MCP tool experiment', () => {
     const defineTool = createToolFactory()
     const tool = defineTool({
       name: 'update-post',
-      schema: defineSchema({ args: { id: v.string() } }),
+      schema: defineArgs({ args: { id: v.string() } }),
       auth: 'required',
       handler: async (_args, ctx) => {
         if (!ctx.can('post.update', { ownerId: 'user_2' })) {

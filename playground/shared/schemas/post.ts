@@ -1,11 +1,8 @@
 import { v } from 'convex/values'
 
-import {
-  defineSchema,
-  defineTableMeta,
-} from '../../../src/runtime/schema'
+import { defineArgs } from '../../../src/runtime/schema'
 
-export const createPost = defineSchema({
+export const createPost = defineArgs({
   description: 'Create a new blog post',
   args: {
     title: v.string(),
@@ -17,7 +14,7 @@ export const createPost = defineSchema({
   },
 })
 
-export const updatePost = defineSchema({
+export const updatePost = defineArgs({
   description: 'Update an existing blog post',
   args: {
     id: v.id('posts'),
@@ -31,7 +28,7 @@ export const updatePost = defineSchema({
   },
 })
 
-export const deletePost = defineSchema({
+export const deletePost = defineArgs({
   description: 'Permanently delete a post',
   args: {
     id: v.id('posts'),
@@ -39,9 +36,4 @@ export const deletePost = defineSchema({
   meta: {
     id: { label: 'Post ID', description: 'The post to delete' },
   },
-})
-
-export const postTable = defineTableMeta({
-  description: 'Blog posts',
-  tenant: { scoped: true, ownerField: 'ownerId' },
 })

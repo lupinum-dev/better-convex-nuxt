@@ -20,7 +20,7 @@ export default defineTool({
 
     return next()
   },
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     await ctx.mutation(api.notes.update, args)
     return ctx.ok({ updated: true, id: args.id })
   },

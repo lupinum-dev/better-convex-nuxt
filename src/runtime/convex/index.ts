@@ -2,7 +2,6 @@ export {
   createFunctions,
   defineActorConfig,
   type CreateFunctionsOptions,
-  type TableMeta,
 } from './create-functions'
 export { definePermissions } from './define-permissions'
 

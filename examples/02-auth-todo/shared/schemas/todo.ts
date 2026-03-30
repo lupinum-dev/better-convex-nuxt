@@ -1,13 +1,13 @@
 /**
  * Why this file exists:
- * Even in a tiny example, the shared schema object shows the preferred V2 habit:
+ * Even in a tiny example, the shared args definition shows the preferred V2 habit:
  * define the input shape once, then reuse it wherever that input matters.
  */
 import { v } from 'convex/values'
 
-import { defineSchema } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/schema'
 
-export const createTodo = defineSchema({
+export const createTodo = defineArgs({
   description: 'Create a personal todo',
   args: {
     title: v.string(),

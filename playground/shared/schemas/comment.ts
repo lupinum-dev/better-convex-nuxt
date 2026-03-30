@@ -1,11 +1,8 @@
 import { v } from 'convex/values'
 
-import {
-  defineSchema,
-  defineTableMeta,
-} from '../../../src/runtime/schema'
+import { defineArgs } from '../../../src/runtime/schema'
 
-export const createComment = defineSchema({
+export const createComment = defineArgs({
   description: 'Add a comment to a post',
   args: {
     postId: v.id('posts'),
@@ -17,7 +14,7 @@ export const createComment = defineSchema({
   },
 })
 
-export const updateComment = defineSchema({
+export const updateComment = defineArgs({
   description: 'Edit an existing comment',
   args: {
     id: v.id('comments'),
@@ -29,7 +26,7 @@ export const updateComment = defineSchema({
   },
 })
 
-export const deleteComment = defineSchema({
+export const deleteComment = defineArgs({
   description: 'Delete a comment',
   args: {
     id: v.id('comments'),
@@ -39,7 +36,7 @@ export const deleteComment = defineSchema({
   },
 })
 
-export const listCommentsByPost = defineSchema({
+export const listCommentsByPost = defineArgs({
   description: 'List all comments on a post',
   args: {
     postId: v.id('posts'),
@@ -47,9 +44,4 @@ export const listCommentsByPost = defineSchema({
   meta: {
     postId: { label: 'Post', description: 'The post to list comments for' },
   },
-})
-
-export const commentTable = defineTableMeta({
-  description: 'Comments on blog posts',
-  tenant: { scoped: true, ownerField: 'ownerId' },
 })

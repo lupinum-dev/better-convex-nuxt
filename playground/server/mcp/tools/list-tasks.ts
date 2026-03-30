@@ -8,7 +8,7 @@ export default defineTool({
   name: 'list-tasks',
   operation: 'query',
   auth: 'required',
-  handler: async (_args, _extra, ctx) => {
+  handler: async (_args, ctx) => {
     const tasks = await ctx.query(api.tasks.list)
     return ctx.ok(
       { count: tasks.length, tasks },

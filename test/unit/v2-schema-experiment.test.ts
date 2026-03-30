@@ -1,11 +1,11 @@
 import { v } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { defineSchema, defineTableMeta } from '../helpers/v2-schema-experiment'
+import { defineArgs } from '../helpers/v2-schema-experiment'
 
 describe('v2 schema experiment', () => {
   it('produces validators, meta, zod, and parse from one definition', () => {
-    const schema = defineSchema({
+    const schema = defineArgs({
       description: 'Create a new blog post',
       args: {
         title: v.string(),
@@ -59,7 +59,7 @@ describe('v2 schema experiment', () => {
   })
 
   it('rejects invalid input through zod and parse', () => {
-    const schema = defineSchema({
+    const schema = defineArgs({
       args: {
         title: v.string(),
         status: v.union(v.literal('draft'), v.literal('published')),
@@ -71,7 +71,7 @@ describe('v2 schema experiment', () => {
   })
 
   it('handles optional fields', () => {
-    const schema = defineSchema({
+    const schema = defineArgs({
       args: {
         title: v.string(),
         subtitle: v.optional(v.string()),
@@ -85,15 +85,4 @@ describe('v2 schema experiment', () => {
     })
   })
 
-  it('passes through table metadata for scoped tables', () => {
-    const meta = defineTableMeta({
-      description: 'Blog posts',
-      tenant: { scoped: true, ownerField: 'ownerId' as const },
-    })
-
-    expect(meta).toEqual({
-      description: 'Blog posts',
-      tenant: { scoped: true, ownerField: 'ownerId' },
-    })
-  })
 })

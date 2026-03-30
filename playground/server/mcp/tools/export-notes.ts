@@ -18,7 +18,7 @@ export default defineTool({
     noteCount: z.number(),
     exportedAt: z.string(),
   },
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     const notes = await ctx.query(api.notes.list)
     const exportedAt = new Date().toISOString()
 

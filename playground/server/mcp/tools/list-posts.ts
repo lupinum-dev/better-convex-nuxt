@@ -1,9 +1,9 @@
 import { defineTool } from '#convex/mcp'
-import { defineSchema } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/schema'
 
 import { api } from '../../../convex/_generated/api'
 
-const schema = defineSchema({
+const schema = defineArgs({
   description: 'List all posts in the current organization',
   args: {},
 })
@@ -14,7 +14,7 @@ export default defineTool({
   operation: 'query',
   auth: 'required',
   scoped: true,
-  handler: async (_args, _extra, ctx) => {
+  handler: async (_args, ctx) => {
     const posts = await ctx.query(api.posts.list)
     return ctx.ok(
       { count: posts.length, posts },

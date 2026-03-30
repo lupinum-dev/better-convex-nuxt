@@ -13,7 +13,7 @@ export default defineTool({
     { query: 'TODO' },
     { query: 'project update' },
   ],
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     const results = await ctx.query(api.notes.search, { query: args.query })
 
     return ctx.ok(

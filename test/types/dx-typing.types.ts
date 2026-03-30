@@ -13,7 +13,7 @@ import {
 } from '../../src/runtime/convex'
 import { createPermissions } from '../../src/runtime/composables/usePermissions'
 import { createConvexTools } from '../../src/runtime/mcp/define-convex-tool'
-import { defineSchema, defineTableMeta } from '../../src/runtime/schema'
+import { defineArgs } from '../../src/runtime/schema'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -57,19 +57,11 @@ const actorConfig = defineActorConfig({
 })
 
 const convexSchema = defineConvexSchema({
-  posts: defineTableMeta(
-    defineTable({
-      title: v.string(),
-      ownerId: v.string(),
-      organizationId: v.string(),
-    }).index('by_organization', ['organizationId']),
-    {
-      tenant: {
-        scoped: true,
-        ownerField: 'ownerId',
-      },
-    },
-  ),
+  posts: defineTable({
+    title: v.string(),
+    ownerId: v.string(),
+    organizationId: v.string(),
+  }).index('by_organization', ['organizationId']),
   comments: defineTable({
     postId: v.id('posts'),
     organizationId: v.string(),
@@ -78,6 +70,9 @@ const convexSchema = defineConvexSchema({
 
 const { scopedMutation } = createFunctions({
   schema: convexSchema,
+  tables: {
+    posts: { ownerField: 'ownerId' },
+  },
   permissions: permissionConfig,
   actor: actorConfig,
   tenant: {
@@ -134,7 +129,7 @@ const { defineTool } = createConvexTools({
   checkPermission: permissionConfig.checkPermission,
 })
 
-const toolSchema = defineSchema({
+const toolSchema = defineArgs({
   args: { title: v.string() },
 })
 

@@ -80,96 +80,73 @@ It includes three standalone todo apps:
 
 ### Shared Schema DX
 
-Shared Convex validators now have one source of truth and multiple runtime consumers:
+Shared args definitions now have one source of truth and multiple runtime consumers:
 
 - `better-convex-nuxt/composables` for client composables
-- `better-convex-nuxt/schema` for server-safe shared schema helpers
+- `better-convex-nuxt/schema` for server-safe shared args helpers
 - `better-convex-nuxt/server` for Nitro server helpers
 - `better-convex-nuxt/mcp` for MCP-only helpers
 
-This split is intentional. The goal is one validator definition reused across runtimes, not one universal import everywhere. Server files should use `better-convex-nuxt/schema`, not `better-convex-nuxt/composables`, so Nitro never pulls the client-heavy entrypoint into the server graph.
+This split is intentional. The goal is one args definition reused across runtimes, not one universal import everywhere. Server files should use `better-convex-nuxt/schema`, not `better-convex-nuxt/composables`, so Nitro never pulls the client-heavy entrypoint into the server graph.
 
 ```ts
 import { v } from 'convex/values'
-import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { defineConvexMcpTool } from 'better-convex-nuxt/mcp'
-import { serverConvexMutation } from 'better-convex-nuxt/server'
+import { defineArgs } from 'better-convex-nuxt/schema'
 
-export const createPostArgs = {
-  title: v.string(),
-  content: v.string(),
-}
-
-export const createPostMeta = {
+export const createPost = defineArgs({
   description: 'Create a post',
-  fields: {
+  args: {
+    title: v.string(),
+    content: v.string(),
+  },
+  meta: {
     title: { description: 'Post title' },
     content: { description: 'Post body' },
-  },
-} satisfies ConvexSchemaMetaFor<typeof createPostArgs>
-
-const schema = defineConvexSchema(createPostArgs, createPostMeta)
-
-export default defineConvexMcpTool({
-  name: 'create-post',
-  schema,
-  handler: async (args) => {
-    return await serverConvexMutation(api.posts.create, args)
   },
 })
 ```
 
-The same schema object is reused across the stack:
+The same object is reused across the stack:
 
 ```ts
-const schema = defineConvexSchema(createPostArgs, createPostMeta)
-
-schema.args      // raw Convex validators
-schema.validate  // H3/server validation
-schema.meta      // optional metadata
-schema.standard  // explicit StandardSchemaV1 view
-schema           // also directly usable anywhere StandardSchemaV1 is accepted
+createPost.validators   // Convex validators
+createPost.parse        // runtime validation
+createPost.meta         // labels + descriptions for tools/forms
+createPost.zod          // Zod view
+createPost.description  // top-level description
 ```
 
 Typical usage by runtime:
 
 ```ts
-mutation({
-  args: schema.args,
-  handler: async (ctx, args) => {
-    return await ctx.db.insert('posts', args)
+import { defineTool } from '#convex/mcp'
+import { serverConvexMutation } from '#convex/server'
+
+export default defineTool({
+  schema: createPost,
+  auth: 'required',
+  handler: async (args, ctx) => {
+    const id = await serverConvexMutation(api.posts.create, args)
+    return ctx.ok({ id }, `Created post "${args.title}"`)
   },
 })
-
-const body = schema.validate(await readBody(event))
-
-<UForm :schema="schema" />
-// or <UForm :schema="schema.standard" />
 ```
 
-Metadata is optional. MCP tools still work without it, but the generated tool input only carries field names and types, not descriptions:
+Inside Convex functions, use the validator view directly:
 
 ```ts
-const schema = defineConvexSchema(createPostArgs)
-
-export default defineConvexMcpTool({
-  name: 'create-post',
-  schema,
-  handler: async (args) => {
-    return await serverConvexMutation(api.posts.create, args)
+export const create = scopedMutation({
+  args: createPost.validators,
+  require: 'post.create',
+  handler: async ({ db }, args) => {
+    return await db.insert('posts', args)
   },
 })
 ```
 
-That works, but agents have less context for tool selection and argument filling. Add `meta.description` and `meta.fields.*.description` when you want MCP tools to be self-explanatory.
+Metadata is optional. Tools still work without it, but agents get better help when fields have descriptions and examples.
 
-Hard cutovers in this release:
-
-- `schema.toMcpInput(...)` was removed
-- `defineConvexMcpTool` moved from `better-convex-nuxt/server` to `better-convex-nuxt/mcp`
-- server-safe shared schema imports should use `better-convex-nuxt/schema`
-- `ConvexSchemaMeta` remains as a compatibility alias for the base metadata type
+Use a `shared/` directory when both Convex files and Nuxt server files need the same args definitions. That folder is a runtime boundary, not a framework convention.
 
 ### Queries
 

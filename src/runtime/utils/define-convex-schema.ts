@@ -1,4 +1,3 @@
-import type { TableDefinition as ConvexTableDefinition } from 'convex/server'
 import { v } from 'convex/values'
 import type {
   GenericValidator,
@@ -33,18 +32,6 @@ export interface SchemaFieldMeta {
   enum?: string[]
   defaultHint?: unknown
 }
-
-export interface TableTenantMeta {
-  scoped: true
-  ownerField?: string
-}
-
-export interface TableMeta {
-  description?: string
-  tenant?: TableTenantMeta
-}
-
-export const TABLE_META_SYMBOL = Symbol.for('better-convex-nuxt.tableMeta')
 
 export type InputSchemaMeta<V extends PropertyValidators> = {
   [K in keyof V]?: SchemaFieldMeta
@@ -199,7 +186,7 @@ function createResolvedMeta<V extends PropertyValidators>(
   }
 }
 
-export function defineSchema<V extends PropertyValidators>(
+export function defineArgs<V extends PropertyValidators>(
   definition: {
     description?: string
     args: V
@@ -269,28 +256,3 @@ export function defineSchema<V extends PropertyValidators>(
     validate,
   }
 }
-
-export function defineTableMeta<
-  TTable extends ConvexTableDefinition,
-  TMeta extends TableMeta,
->(
-  table: TTable,
-  meta: TMeta,
-): TTable & { [TABLE_META_SYMBOL]: TMeta } {
-  Object.defineProperty(table, TABLE_META_SYMBOL, {
-    value: meta,
-    enumerable: false,
-    configurable: false,
-    writable: false,
-  })
-
-  return table as TTable & { [TABLE_META_SYMBOL]: TMeta }
-}
-
-export function getAttachedTableMeta(table: unknown): TableMeta | undefined {
-  if (!table || typeof table !== 'object') return undefined
-  return (table as { [TABLE_META_SYMBOL]?: TableMeta })[TABLE_META_SYMBOL]
-}
-
-// Internal aliases retained so source-level tests can migrate incrementally.
-export const defineConvexSchema = defineSchema

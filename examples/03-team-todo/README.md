@@ -44,3 +44,6 @@ curl http://localhost:3000/mcp \
   -H 'Authorization: Bearer demo:owner@example.com' \
   -d '{"method":"tools/list","params":{}}'
 ```
+
+`composables/usePermissions.ts` is intentionally tiny. It exists so Nuxt can auto-import
+`usePermissions()` everywhere else in the app while the permission config itself stays in Convex-land.

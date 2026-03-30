@@ -124,7 +124,7 @@ function toZod(validator: GenericValidator): z.ZodTypeAny {
   return node.isOptional === 'optional' ? base.optional() : base
 }
 
-export function defineSchema<V extends PropertyValidators>(definition: {
+export function defineArgs<V extends PropertyValidators>(definition: {
   description?: string
   args: V
   meta?: SchemaInputMeta<V>
@@ -163,13 +163,4 @@ export function defineSchema<V extends PropertyValidators>(definition: {
       return zod.parse(input) as { [K in keyof V]: Infer<V[K]> }
     },
   }
-}
-
-export function defineTableMeta<
-  TMeta extends {
-    description?: string
-    tenant?: { scoped: true; ownerField?: string }
-  },
->(meta: TMeta): TMeta {
-  return meta
 }

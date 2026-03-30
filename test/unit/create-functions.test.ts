@@ -4,7 +4,6 @@ import { v } from 'convex/values'
 
 import { createFunctions, defineActorConfig } from '../../src/runtime/convex/create-functions'
 import { definePermissions } from '../../src/runtime/convex/define-permissions'
-import { defineTableMeta } from '../../src/runtime/schema'
 
 const actorConfig = defineActorConfig({
   resolveFromAuth: async () => ({
@@ -27,17 +26,10 @@ const permissionConfig = definePermissions({
 })
 
 const schema = defineConvexSchema({
-  posts: defineTableMeta(
-    defineTable({
-      title: v.string(),
-      organizationId: v.string(),
-    }).index('by_organization', ['organizationId']),
-    {
-      tenant: {
-        scoped: true,
-      },
-    },
-  ),
+  posts: defineTable({
+    title: v.string(),
+    organizationId: v.string(),
+  }).index('by_organization', ['organizationId']),
   comments: defineTable({
     organizationId: v.string(),
   }).index('by_organization', ['organizationId']),
@@ -90,6 +82,9 @@ describe('createFunctions', () => {
     it('creates functions with schema and scoped tables', () => {
       const fns = createFunctions({
         schema,
+        tables: {
+          posts: { ownerField: 'ownerId' },
+        },
         actor: actorConfig,
         permissions: permissionConfig,
       })

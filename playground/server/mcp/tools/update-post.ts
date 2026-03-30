@@ -9,7 +9,7 @@ export default defineTool({
   auth: 'required',
   require: 'post.update',
   scoped: true,
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     await ctx.mutation(api.posts.update, args)
     return ctx.ok({ id: args.id }, `Updated post ${args.id}`)
   },

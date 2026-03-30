@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
- * All Convex function files import their builders from here.
- * This example only needs the auth-required builders because todos belong to individual users.
+ * Convex functions do not run inside Nuxt's auto-import scope.
+ * This file creates the builders once for the Convex runtime, then every handler imports from here.
  */
 import { createFunctions } from 'better-convex-nuxt/convex'
 

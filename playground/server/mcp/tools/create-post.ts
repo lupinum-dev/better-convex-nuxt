@@ -10,7 +10,7 @@ export default defineTool({
   require: 'post.create',
   scoped: true,
   rateLimit: { max: 10, window: '1m' },
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     const postId = await ctx.mutation(api.posts.create, args)
     return ctx.ok({ id: postId }, `Created post "${args.title}"`)
   },

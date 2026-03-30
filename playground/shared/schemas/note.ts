@@ -1,8 +1,8 @@
 import { v } from 'convex/values'
 
-import { defineSchema } from '../../../src/runtime/schema'
+import { defineArgs } from '../../../src/runtime/schema'
 
-export const createNote = defineSchema({
+export const createNote = defineArgs({
   description: 'Create a new note',
   args: {
     title: v.string(),
@@ -22,7 +22,7 @@ export const createNote = defineSchema({
   },
 })
 
-export const deleteNote = defineSchema({
+export const deleteNote = defineArgs({
   description: 'Permanently delete a note',
   args: {
     id: v.id('notes'),
@@ -32,7 +32,7 @@ export const deleteNote = defineSchema({
   },
 })
 
-export const updateNote = defineSchema({
+export const updateNote = defineArgs({
   description: 'Update an existing note',
   args: {
     id: v.id('notes'),
@@ -50,7 +50,7 @@ export const updateNote = defineSchema({
   },
 })
 
-export const searchNotes = defineSchema({
+export const searchNotes = defineArgs({
   description: 'Search notes by title or content',
   args: {
     query: v.string(),
@@ -64,7 +64,7 @@ export const searchNotes = defineSchema({
   },
 })
 
-export const bulkDeleteNotes = defineSchema({
+export const bulkDeleteNotes = defineArgs({
   description: 'Delete multiple notes at once (max 10)',
   args: {
     ids: v.array(v.id('notes')),
@@ -78,7 +78,7 @@ export const bulkDeleteNotes = defineSchema({
   },
 })
 
-export const exportNotes = defineSchema({
+export const exportNotes = defineArgs({
   description: 'Export all notes in the specified format',
   args: {
     format: v.union(v.literal('json'), v.literal('csv')),
