@@ -28,7 +28,7 @@ describe('createAuth (Nuxt runtime)', () => {
       { convex },
     )
 
-    expect(result.isAuthenticated.value).toBe(false)
+    expect(result.ready.value).toBe(false)
     expect(result.canCreate.value).toBe(false)
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
@@ -46,7 +46,7 @@ describe('createAuth (Nuxt runtime)', () => {
 
     await waitFor(() => result.pending.value === false)
 
-    expect(result.isAuthenticated.value).toBe(true)
+    expect(result.ready.value).toBe(true)
     expect(result.role.value).toBe('member')
     expect(result.plan.value).toBe('pro')
     expect(result.userId.value).toBe('user-1')

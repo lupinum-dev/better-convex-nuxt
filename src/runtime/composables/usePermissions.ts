@@ -44,7 +44,7 @@ export interface UsePermissionsReturn<TContext extends AuthContext = AuthContext
   plan: ComputedRef<TContext['plan'] | null>
   userId: ComputedRef<TContext['userId'] | null>
   tenantId: ComputedRef<TContext['tenantId'] | null>
-  isAuthenticated: ComputedRef<boolean>
+  ready: ComputedRef<boolean>
   pending: Ref<boolean>
   can: (key: PermissionKey<TContext>) => ComputedRef<boolean>
 }
@@ -81,7 +81,7 @@ export function createAuth<
       plan: computed<TContext['plan'] | null>(() => ctx.value?.plan ?? null),
       userId: computed<TContext['userId'] | null>(() => ctx.value?.userId ?? null),
       tenantId: computed<TContext['tenantId'] | null>(() => ctx.value?.tenantId ?? null),
-      isAuthenticated: computed<boolean>(() => !!ctx.value),
+      ready: computed<boolean>(() => !!ctx.value),
       pending,
       can,
     }
@@ -100,7 +100,7 @@ export function createAuth<
       pending,
     } = createConvexQueryState(query, {}, undefined, true).resultData
     const ctx = computed<TContext | null>(() => data.value as TContext | null)
-    const isAuthenticated = computed<boolean>(() => !!ctx.value)
+    const ready = computed<boolean>(() => !!ctx.value)
     const passesGuard = computed<boolean>(() => {
       if (!ctx.value) return false
       if (typeof check === 'function') return check(ctx.value)
@@ -112,7 +112,7 @@ export function createAuth<
     watchEffect(() => {
       if (pending.value || data.value === undefined || redirectPending) return
 
-      if (!isAuthenticated.value) {
+      if (!ready.value) {
         redirectPending = true
         void router.push(loginPath).finally(() => {
           redirectPending = false

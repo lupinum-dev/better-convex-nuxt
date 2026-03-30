@@ -383,7 +383,7 @@ export const { usePermissions, usePermissionGuard } = createPermissions({
 
 ```vue
 <script setup lang="ts">
-const { can, isAuthenticated } = usePermissions()
+const { can, ready } = usePermissions()
 </script>
 <template>
   <button v-if="can('post.create').value">New Post</button>

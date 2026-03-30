@@ -13,7 +13,7 @@
       <div v-if="pending" class="loading">Loading permissions...</div>
 
       <!-- Not authenticated -->
-      <div v-else-if="!isAuthenticated" class="not-auth">
+      <div v-else-if="!ready" class="not-auth">
         <p>You need to sign in to try the permission system.</p>
         <NuxtLink to="/auth/signin" class="btn btn-primary">Sign In</NuxtLink>
       </div>
@@ -468,7 +468,7 @@ definePageMeta({
 })
 
 // Permissions
-const { can, ctx, role, tenantId, pending, isAuthenticated } = usePermissions()
+const { can, ctx, role, tenantId, pending, ready } = usePermissions()
 
 // Queries - use status for explicit state management
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)

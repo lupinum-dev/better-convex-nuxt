@@ -81,7 +81,7 @@
 
         <p v-if="ensureUserRow.pending.value" class="status">Preparing your application user…</p>
 
-        <section v-if="isAuthenticated && !tenantId" class="setup-grid">
+        <section v-if="ready && !tenantId" class="setup-grid">
           <form class="card" @submit.prevent="handleCreateWorkspace">
             <h3>Create workspace</h3>
             <label class="field">
@@ -226,7 +226,7 @@ import { api } from '~/convex/_generated/api'
 
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, isAuthenticated, role, tenantId, ctx } = usePermissions()
+const { can, ready, role, tenantId, ctx } = usePermissions()
 
 const signUpForm = reactive({
   name: '',
