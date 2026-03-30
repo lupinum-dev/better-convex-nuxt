@@ -226,7 +226,7 @@ import { api } from '~/convex/_generated/api'
 
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, role, tenantId, ctx } = usePermissions()
+const { can, isAuthenticated, role, tenantId, ctx } = usePermissions()
 
 const signUpForm = reactive({
   name: '',

@@ -1,4 +1,4 @@
-import { guard } from 'better-convex-nuxt/auth'
+import { deny, guard } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'

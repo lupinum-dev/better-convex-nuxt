@@ -215,7 +215,7 @@ import type { Id } from '~/convex/_generated/dataModel'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, role, tenantId, ctx } = usePermissions()
+const { can, isAuthenticated, role, tenantId, ctx } = usePermissions()
 
 const signUpForm = reactive({
   name: '',
