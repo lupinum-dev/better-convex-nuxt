@@ -172,7 +172,7 @@ interface DebugInfo {
   identitySubject?: string
   hasUser?: boolean
   userId?: string
-  orgId?: string
+  tenantId?: string
   role?: string
   reason?: string
   context?: Record<string, unknown>
@@ -198,7 +198,7 @@ export const getPermissionContext = query({
     // #region agent log
     debugInfo.hasUser = !!user
     debugInfo.userId = user?._id
-    debugInfo.orgId = user?.organizationId
+    debugInfo.tenantId = user?.organizationId
     debugInfo.role = user?.role
     // #endregion
 
@@ -218,7 +218,7 @@ export const getPermissionContext = query({
       userId: string
       displayName?: string
       email?: string
-      orgId?: string
+      tenantId?: string
     } = {
       role: user.role,
       userId: user.authId,
@@ -228,7 +228,7 @@ export const getPermissionContext = query({
 
     // Only include orgId if user has one
     if (user.organizationId) {
-      context.orgId = user.organizationId
+      context.tenantId = user.organizationId
     }
 
     // #region agent log

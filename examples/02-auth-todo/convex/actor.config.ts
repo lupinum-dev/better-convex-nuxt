@@ -16,8 +16,8 @@ type AuthTodoCtx =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
 
-export default defineActorConfig<AuthTodoCtx, 'user'>({
-  resolveFromAuth: async (ctx) => {
+export default defineActorConfig({
+  resolveFromAuth: async (ctx: AuthTodoCtx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
 
@@ -31,7 +31,7 @@ export default defineActorConfig<AuthTodoCtx, 'user'>({
     return {
       _id: user._id,
       userId: user.authId,
-      role: 'user',
+      role: 'user' as const,
     }
   },
 })

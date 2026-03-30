@@ -13,7 +13,7 @@ export default defineTool({
   auth: 'required',
   require: 'todo.read',
   scoped: true,
-  handler: async (_args, _extra, ctx) => {
+  handler: async (_args, ctx) => {
     const todos = await ctx.query(api.todos.list, {})
     return ctx.ok(todos, `Found ${todos.length} todos in the current workspace`)
   },

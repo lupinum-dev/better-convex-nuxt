@@ -4,7 +4,7 @@
       <p class="eyebrow">Example 03</p>
       <h1>Team Todo</h1>
       <p class="lede">
-        This is the full V2 story: auth, org scoping, declarative permissions, frontend
+        This is the full V2 story: auth, tenant scoping, declarative permissions, frontend
         permission guards, and MCP tools using the same backend functions.
       </p>
 
@@ -66,7 +66,7 @@
             <h2>{{ displayName }}</h2>
             <p class="hint">
               Role: <strong>{{ role || 'loading...' }}</strong>
-              <span v-if="orgId"> · Workspace ID: {{ orgId }}</span>
+              <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
             </p>
           </div>
           <button class="ghost" type="button" @click="handleSignOut">
@@ -76,7 +76,7 @@
 
         <p v-if="ensureUser.pending.value" class="status">Preparing your application user...</p>
 
-        <section v-if="isAuthenticated && !orgId" class="setup-grid">
+        <section v-if="isAuthenticated && !tenantId" class="setup-grid">
           <form class="card" @submit.prevent="handleCreateWorkspace">
             <h3>Create workspace</h3>
             <p class="hint">
@@ -118,7 +118,7 @@
           </form>
         </section>
 
-        <section v-if="workspaceOptions?.length && !orgId" class="workspace-list">
+        <section v-if="workspaceOptions?.length && !tenantId" class="workspace-list">
           <h3>Existing workspaces</h3>
           <ul>
             <li v-for="workspace in workspaceOptions" :key="workspace._id">
@@ -128,12 +128,12 @@
           </ul>
         </section>
 
-        <section v-if="orgId" class="todo-shell">
+        <section v-if="tenantId" class="todo-shell">
           <div class="todo-header">
             <div>
               <h3>Workspace todos</h3>
               <p class="hint">
-                The list query is a `scopedQuery`, so it only returns rows from your current org.
+                The list query is a `scopedQuery`, so it only returns rows from your current tenant.
               </p>
             </div>
             <p class="mcp-note">
@@ -195,7 +195,7 @@
               </button>
             </li>
           </ul>
-          <p v-else-if="orgId" class="empty">No team todos yet.</p>
+          <p v-else-if="tenantId" class="empty">No team todos yet.</p>
         </section>
       </ConvexAuthenticated>
     </section>
@@ -215,7 +215,7 @@ import type { Id } from '~/convex/_generated/dataModel'
 
 const { client, isAuthenticated, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, role, orgId, user: permissionContext } = usePermissions()
+const { can, role, tenantId, user: permissionContext } = usePermissions()
 
 const signUpForm = reactive({
   name: '',
@@ -251,7 +251,7 @@ const { data: workspaceOptions } = await useConvexQuery(api.organizations.listWo
 
 // The permission context query can run anonymously. It returns null until the user is signed in.
 // The todo list query only runs once the user actually belongs to a workspace.
-const todoArgs = computed(() => (orgId.value ? {} : undefined))
+const todoArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: todos, pending: todosPending, error: todosError } = await useConvexQuery(
   api.todos.list,
   todoArgs,
@@ -266,7 +266,7 @@ const displayName = computed(
     || 'Signed in user',
 )
 
-const canCreate = computed(() => can('todo.create').value)
+const canCreate = can('todo.create')
 
 const todoError = computed(() =>
   todosError.value?.message

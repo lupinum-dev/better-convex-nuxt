@@ -111,7 +111,7 @@ function createToolFactory() {
           return checkPermission(
             { role: actor.role as never, userId: actor.userId },
             permission,
-            resource,
+            resource as never,
           )
         },
         async query(fn: unknown, args?: Record<string, unknown>) {

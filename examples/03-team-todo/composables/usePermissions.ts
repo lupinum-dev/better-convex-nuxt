@@ -6,9 +6,9 @@
 import { createPermissions } from 'better-convex-nuxt/composables'
 
 import { api } from '~/convex/_generated/api'
-import { checkPermission } from '~/convex/permissions.config'
+import { permissionConfig } from '~/convex/permissions.config'
 
 export const { usePermissions, usePermissionGuard } = createPermissions({
   query: api.organizations.getPermissionContext,
-  checkPermission,
+  checkPermission: permissionConfig.checkPermission,
 })

@@ -1,8 +1,8 @@
 /**
  * Tenant Composables
  *
- * Factory function for creating org-scoped query/mutation composables.
- * Wraps useConvexQuery and useConvexMutation with automatic org-scoping.
+ * Factory function for creating tenant-scoped query/mutation composables.
+ * Wraps useConvexQuery and useConvexMutation with automatic tenant-scoping.
  *
  * @example
  * ```ts
@@ -35,18 +35,18 @@ import { useConvexQuery, type UseConvexQueryOptions, type UseConvexQueryReturn }
 // ============================================================================
 
 export interface CreateTenantComposablesOptions<TPermission extends string = string> {
-  /** Convex query that returns permission context (must include orgId) */
+  /** Convex query that returns permission context (must include tenantId) */
   permissionQuery: FunctionReference<'query'>
   /** Permission checking function from permissions.config.ts */
   checkPermission: CheckPermissionFn<TPermission>
 }
 
 export interface UseTenantContextReturn<TPermission extends string = string> {
-  /** Current organization ID (null when not in an org) */
-  orgId: ComputedRef<string | null>
+  /** Current tenant ID (null when not in a tenant) */
+  tenantId: ComputedRef<string | null>
   /** Current user context */
   user: ComputedRef<{ role: string; userId: string } | null>
-  /** Whether auth + permissions are loaded and orgId is present */
+  /** Whether auth + permissions are loaded and tenantId is present */
   isReady: ComputedRef<boolean>
   /** Whether permission context is still loading */
   pending: Ref<boolean>
@@ -74,11 +74,11 @@ export function createTenantComposables<TPermission extends string = string>(
     const permissions = usePermissions()
 
     const isReady = computed(() => {
-      return permissions.isAuthenticated.value && permissions.orgId.value !== null
+      return permissions.isAuthenticated.value && permissions.tenantId.value !== null
     })
 
     return {
-      orgId: permissions.orgId,
+      tenantId: permissions.tenantId,
       user: computed(() => {
         const u = permissions.user.value
         if (!u) return null
@@ -102,12 +102,12 @@ export function createTenantComposables<TPermission extends string = string>(
     args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
     queryOptions?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
   ): UseConvexQueryReturn<DataT> {
-    const { orgId } = useTenantContext()
+    const { tenantId } = useTenantContext()
 
-    // Merge the org readiness check with user-provided args.
-    // When orgId is null, we pass undefined to skip the query.
+    // Merge the tenant readiness check with user-provided args.
+    // When tenantId is null, we pass undefined to skip the query.
     const scopedArgs = computed<FunctionArgs<Query> | null | undefined>(() => {
-      if (!orgId.value) return undefined
+      if (!tenantId.value) return undefined
       const raw = args ? toValue(args) : {}
       // If user explicitly passed null/undefined to skip, respect that
       if (raw == null) return undefined
@@ -129,16 +129,16 @@ export function createTenantComposables<TPermission extends string = string>(
     mutation: Mutation,
     mutationOptions?: UseConvexMutationOptions<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>,
   ): UseConvexMutationReturn<FunctionArgs<Mutation>, FunctionReturnType<Mutation>> {
-    const { orgId } = useTenantContext()
+    const { tenantId } = useTenantContext()
     const inner = useConvexMutation(mutation, mutationOptions)
     const invokeInner = inner as (args: FunctionArgs<Mutation>) => Promise<FunctionReturnType<Mutation>>
 
-    // Wrap the callable to guard against no-org calls
+    // Wrap the callable to guard against missing tenant context.
     const guarded = (async (args: FunctionArgs<Mutation>) => {
-      if (!orgId.value) {
+      if (!tenantId.value) {
         throw new Error(
-          'Cannot execute mutation: no organization context. ' +
-          'The user must be a member of an organization before calling scoped mutations.',
+          'Cannot execute mutation: no tenant context. ' +
+          'The user must belong to a tenant before calling scoped mutations.',
         )
       }
       return await invokeInner(args)

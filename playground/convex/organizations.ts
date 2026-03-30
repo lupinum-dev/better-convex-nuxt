@@ -13,8 +13,8 @@ import { checkPermission, type Role } from './permissions.config'
 export const getCurrent = openQuery({
   args: {},
   handler: async ({ actor, db }) => {
-    if (!actor?.orgId) return null
-    return await db.get(actor.orgId as Id<'organizations'>)
+    if (!actor?.tenantId) return null
+    return await db.get(actor.tenantId as Id<'organizations'>)
   },
 })
 
@@ -68,7 +68,7 @@ export const updateSettings = scopedMutation({
   },
   require: 'org.settings',
   handler: async ({ db, actor }, args) => {
-    await db.patch(actor.orgId as Id<'organizations'>, {
+    await db.patch(actor.tenantId as Id<'organizations'>, {
       ...(args.name !== undefined ? { name: args.name } : {}),
       ...(args.billingEmail !== undefined ? { billingEmail: args.billingEmail } : {}),
       updatedAt: Date.now(),
@@ -89,8 +89,8 @@ export const getByIds = publicQuery({
 export const getMembers = openQuery({
   args: {},
   handler: async ({ actor, db }) => {
-    if (!actor?.orgId) return []
-    const orgId = actor.orgId as Id<'organizations'>
+    if (!actor?.tenantId) return []
+    const tenantId = actor.tenantId as Id<'organizations'>
 
     const canView = checkPermission(
       { role: actor.role as Role, userId: actor.userId },
@@ -100,7 +100,7 @@ export const getMembers = openQuery({
 
     return await db
       .query('users')
-      .withIndex('by_organization', q => q.eq('organizationId', orgId))
+      .withIndex('by_organization', q => q.eq('organizationId', tenantId))
       .collect()
   },
 })
@@ -114,7 +114,7 @@ export const changeMemberRole = scopedMutation({
   handler: async ({ db, actor }, args) => {
     const targetUser = await db.get(args.userId)
     if (!targetUser) throw new Error('User not found')
-    if (targetUser.organizationId !== actor.orgId) throw new Error('User not in your organization')
+    if (targetUser.organizationId !== actor.tenantId) throw new Error('User not in your organization')
     if (targetUser.role === 'owner') throw new Error("Cannot change owner's role")
     if (args.newRole === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can promote to admin')
@@ -133,7 +133,7 @@ export const removeMember = scopedMutation({
   handler: async ({ db, actor }, args) => {
     const targetUser = await db.get(args.userId)
     if (!targetUser) throw new Error('User not found')
-    if (targetUser.organizationId !== actor.orgId) throw new Error('User not in your organization')
+    if (targetUser.organizationId !== actor.tenantId) throw new Error('User not in your organization')
     if (targetUser.authId === actor.userId) {
       throw new Error('Cannot remove yourself - use Leave Organization instead')
     }

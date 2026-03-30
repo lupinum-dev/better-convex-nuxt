@@ -12,8 +12,8 @@ import { checkPermission, type Role } from './permissions.config'
 export const listPending = openQuery({
   args: {},
   handler: async ({ actor, db }) => {
-    if (!actor?.orgId) return []
-    const orgId = actor.orgId as Id<'organizations'>
+    if (!actor?.tenantId) return []
+    const tenantId = actor.tenantId as Id<'organizations'>
 
     const allowed = checkPermission(
       { role: actor.role as Role, userId: actor.userId },
@@ -23,7 +23,7 @@ export const listPending = openQuery({
 
     return await db
       .query('invites')
-      .withIndex('by_organization', q => q.eq('organizationId', orgId))
+      .withIndex('by_organization', q => q.eq('organizationId', tenantId))
       .filter((q) => q.eq(q.field('status'), 'pending'))
       .order('desc')
       .collect()
@@ -37,7 +37,7 @@ export const create = scopedMutation({
   },
   require: 'org.invite',
   handler: async ({ db, actor }, args) => {
-    const orgId = actor.orgId as Id<'organizations'>
+    const tenantId = actor.tenantId as Id<'organizations'>
     if (args.role === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can invite admins')
     }
@@ -47,7 +47,7 @@ export const create = scopedMutation({
       .withIndex('by_email', (q) => q.eq('email', args.email))
       .filter((q) =>
         q.and(
-          q.eq(q.field('organizationId'), orgId),
+          q.eq(q.field('organizationId'), tenantId),
           q.eq(q.field('status'), 'pending'),
         ),
       )
@@ -60,7 +60,7 @@ export const create = scopedMutation({
     const existingUser = await db
       .query('users')
       .withIndex('by_email', (q) => q.eq('email', args.email))
-      .filter(q => q.eq(q.field('organizationId'), orgId))
+      .filter(q => q.eq(q.field('organizationId'), tenantId))
       .first()
 
     if (existingUser) {

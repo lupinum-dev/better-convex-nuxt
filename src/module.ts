@@ -166,8 +166,10 @@ export interface PermissionsOptions {
 }
 
 export interface TenantOptions {
-  /** Field used for organization scoping on tenant-aware tables */
-  orgField: string
+  /** Field used for tenant scoping on tenant-aware tables */
+  field: string
+  /** Index used for tenant-scoped queries on tenant-aware tables */
+  index: string
 }
 
 export interface ModuleOptions {
@@ -504,8 +506,9 @@ export { defineTool } from '${defineToolPath}'
           : ''
         const tenantConfig = options.tenant
           ? `tenant: {
-  orgField: '${options.tenant.orgField}',
-  resolveOrgId: (actor) => actor.orgId ?? null,
+  field: '${options.tenant.field}',
+  index: '${options.tenant.index}',
+  resolveTenantId: (actor) => actor.tenantId ?? null,
 },`
           : ''
 

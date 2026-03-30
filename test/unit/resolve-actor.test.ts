@@ -21,14 +21,14 @@ describe('actor resolvers', () => {
       resolveFromAuth: async () => ({
         userId: 'user_1',
         role: 'member',
-        orgId: 'org_1',
+        tenantId: 'tenant_1',
       }),
     })
 
     await expect(tryResolveActor(mockCtx as never, {})).resolves.toEqual({
       userId: 'user_1',
       role: 'member',
-      orgId: 'org_1',
+      tenantId: 'tenant_1',
     })
   })
 
@@ -44,13 +44,13 @@ describe('actor resolvers', () => {
         _serviceActor: {
           userId: 'svc_user',
           role: 'admin',
-          orgId: 'org_service',
+          tenantId: 'tenant_service',
         },
       }),
     ).resolves.toEqual({
       userId: 'svc_user',
       role: 'admin',
-      orgId: 'org_service',
+      tenantId: 'tenant_service',
     })
   })
 
@@ -78,7 +78,7 @@ describe('actor resolvers', () => {
     await expect(resolveActor(mockCtx as never, {})).rejects.toThrow('Authentication required.')
   })
 
-  it('requireActor throws when org is missing', async () => {
+  it('requireActor throws when tenant is missing', async () => {
     const requireActor = createRequireActor({
       resolveFromAuth: async () => ({
         userId: 'user_1',
@@ -87,7 +87,7 @@ describe('actor resolvers', () => {
     })
 
     await expect(requireActor(mockCtx as never, {})).rejects.toThrow(
-      'Organization membership required.',
+      'Tenant membership required.',
     )
   })
 })

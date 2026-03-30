@@ -3,7 +3,6 @@ import type {
   McpToolAnnotations,
   McpToolCallbackResult,
   McpToolDefinition,
-  McpToolExtra,
 } from '@nuxtjs/mcp-toolkit/server'
 import type { ShapeOutput } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 import { convexToZodFields } from 'convex-helpers/server/zod4'
@@ -41,8 +40,8 @@ import type {
   InferSchemaData,
   InferSchemaValidators,
   McpAuthIdentity,
-  McpOrgContext,
   McpTenantConfig,
+  McpTenantContext,
   PreviewResult,
 } from './types'
 
@@ -255,10 +254,9 @@ function toToolInputExamples<S extends AnyConvexSchema>(
 function toToolHandler<S extends AnyConvexSchema>(
   handler: (
     args: ConvexToolHandlerArgs<S>,
-    extra: McpToolExtra,
   ) => Promise<McpToolCallbackResult>,
 ): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['handler'] {
-  return handler as McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['handler']
+  return handler as unknown as McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['handler']
 }
 
 function normalizeToolArgs<S extends AnyConvexSchema>(
@@ -293,7 +291,7 @@ function injectServiceActorArgs(
     _serviceActor: {
       userId: actor.userId,
       role: actor.role,
-      ...(actor.orgId ? { orgId: actor.orgId } : {}),
+      ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
     },
   }
 }
@@ -308,13 +306,13 @@ function resolveDefaultAuth<TRole extends string = string>(
   const auth = event.context.mcpAuth as {
     role?: string
     userId?: string
-    orgId?: string
+    tenantId?: string
   } | undefined
   if (!auth?.role || !auth?.userId) return null
   return {
     role: auth.role as TRole,
     userId: auth.userId,
-    ...(auth.orgId ? { orgId: auth.orgId } : {}),
+    ...(auth.tenantId ? { tenantId: auth.tenantId } : {}),
   }
 }
 
@@ -379,16 +377,15 @@ function createToolCallFns(
 function createToolContext<P extends string, TRole extends string>(
   event: H3Event,
   actor: McpAuthIdentity<TRole> | null,
-  org: McpOrgContext | undefined,
+  tenant: McpTenantContext | undefined,
   checkPermission: CheckPermissionFn<P, TRole> | undefined,
-  scoped: boolean,
 ): ConvexToolHandlerCtx<P, TRole> {
-  const calls = createToolCallFns(event, actor, scoped)
+  const calls = createToolCallFns(event, actor, tenant !== undefined)
 
   return {
     event,
     actor,
-    org,
+    tenant,
     can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
       if (!checkPermission || !actor) return false
       return checkPermission(actor, permission, resource)
@@ -486,7 +483,7 @@ function _buildToolDefinition<
   if (scoped && !_tenant) {
     throw new Error(
       `defineConvexTool: "scoped: true" requires a tenant config. `
-      + `Use createConvexTools({ checkPermission, tenant: { orgField, resolveOrgId } }).`,
+      + `Use createConvexTools({ checkPermission, tenant: { field, index, resolveTenantId } }).`,
     )
   }
 
@@ -550,7 +547,6 @@ function _buildToolDefinition<
 
   const wrappedHandler = toToolHandler<S>(async (
     args: ConvexToolHandlerArgs<S>,
-    extra: McpToolExtra,
   ): Promise<McpToolCallbackResult> => {
     try {
       // ── Step 1: Resolve event + auth once ─────────────────────────────
@@ -583,21 +579,21 @@ function _buildToolDefinition<
         }
       }
 
-      // ── Step 3b: Resolve org context for scoped tools ────────────────
-      let orgContext: McpOrgContext | undefined
+      // ── Step 3b: Resolve tenant context for scoped tools ─────────────
+      let tenantContext: McpTenantContext | undefined
       if (scoped && _tenant) {
         if (!resolvedAuth) {
           return wrapError('auth', 'Authentication required for scoped tools.')
         }
-        const orgId = _tenant.resolveOrgId(resolvedAuth)
-        if (!orgId) {
-          return wrapError('auth', 'MCP token must include orgId for scoped tools.')
+        const tenantId = _tenant.resolveTenantId(resolvedAuth)
+        if (!tenantId) {
+          return wrapError('auth', 'MCP token must include tenantId for scoped tools.')
         }
-        orgContext = {
-          id: orgId,
+        tenantContext = {
+          id: tenantId,
           owns(doc: Record<string, unknown> | null) {
             if (!doc) return false
-            return doc[_tenant!.orgField] === orgId
+            return doc[_tenant.field] === tenantId
           },
         }
       }
@@ -605,9 +601,8 @@ function _buildToolDefinition<
       const ctx = createToolContext(
         event,
         resolvedAuth,
-        orgContext,
+        tenantContext,
         _checkPermission,
-        scoped,
       )
 
       const normalizedArgs = normalizeToolArgs(args)
@@ -640,7 +635,7 @@ function _buildToolDefinition<
         const result = await middleware(
           normalizedArgs.clean,
           ctx,
-          async () => runHandlerWithConfirmation(normalizedArgs, extra, ctx),
+          async () => runHandlerWithConfirmation(normalizedArgs, ctx),
         )
         if (!isValidCallToolResult(result)) {
           return wrapError('server', `[${toolLabel}] Middleware must return a result. Did you forget to \`return next()\`?`)
@@ -649,7 +644,7 @@ function _buildToolDefinition<
       }
 
       // ── Steps 7-9: Preview, confirmation, handler ─────────────────────
-      return await runHandlerWithConfirmation(normalizedArgs, extra, ctx)
+      return await runHandlerWithConfirmation(normalizedArgs, ctx)
     }
     catch (err) {
       console.error(`[${toolLabel}]`, err)
@@ -664,7 +659,6 @@ function _buildToolDefinition<
 
   async function runHandlerWithConfirmation(
     args: NormalizedToolArgs<S>,
-    extra: McpToolExtra,
     ctx: ConvexToolMiddlewareCtx<P, TRole>,
   ): Promise<McpToolCallbackResult> {
     // Step 7: Preview routing
@@ -685,7 +679,7 @@ function _buildToolDefinition<
     }
 
     // Step 9: Handler — strip _confirmed before passing to user handler
-    const result = await handler(args.clean, extra, ctx)
+    const result = await handler(args.clean, ctx)
     if (isValidCallToolResult(result)) {
       return result
     }

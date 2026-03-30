@@ -24,7 +24,7 @@ export const resolveMcpActorByEmail = publicQuery({
     return {
       role: user.role,
       userId: user.authId,
-      orgId: user.organizationId,
+      tenantId: user.organizationId,
     }
   },
 })

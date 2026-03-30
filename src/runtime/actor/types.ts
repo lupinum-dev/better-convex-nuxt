@@ -12,7 +12,7 @@ import type { GenericId } from 'convex/values'
 export interface Actor<TRole extends string = string> {
   userId: string
   role: TRole
-  orgId?: string
+  tenantId?: string
   _id?: GenericId<string>
 }
 
@@ -48,7 +48,7 @@ export interface ActorConfig<TCtx = AnyCtx, TRole extends string = string> {
 export interface ServiceActorData<TRole extends string = string> {
   userId: string
   role: TRole
-  orgId?: string
+  tenantId?: string
 }
 
 export interface ArgsWithServiceAuth<TRole extends string = string> {

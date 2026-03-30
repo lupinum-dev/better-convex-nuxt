@@ -13,7 +13,7 @@ export default defineTool({
   auth: 'required',
   require: 'todo.update',
   scoped: true,
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     await ctx.mutation(api.todos.setCompleted, {
       id: args.id,
       completed: args.completed,

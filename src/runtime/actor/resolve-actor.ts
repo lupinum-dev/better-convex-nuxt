@@ -36,7 +36,7 @@ export function createTryResolveActor<TCtx, TRole extends string>(
       return {
         userId: args._serviceActor.userId,
         role: args._serviceActor.role,
-        orgId: args._serviceActor.orgId,
+        tenantId: args._serviceActor.tenantId,
       }
     }
 
@@ -67,7 +67,7 @@ export function createResolveActor<TCtx, TRole extends string>(
 }
 
 // ============================================================================
-// createRequireActor — returns Actor with orgId, throws if no auth or no org
+// createRequireActor — returns Actor with tenantId, throws if no auth or no tenant
 // ============================================================================
 
 export function createRequireActor<TCtx, TRole extends string>(
@@ -78,11 +78,11 @@ export function createRequireActor<TCtx, TRole extends string>(
   return async function requireActor(
     ctx: AnyCtx,
     args: ArgsWithServiceAuth<TRole>,
-  ): Promise<Actor<TRole> & { orgId: string }> {
+  ): Promise<Actor<TRole> & { tenantId: string }> {
     const actor = await resolve(ctx, args)
-    if (!actor.orgId) {
-      throw new Error('Organization membership required.')
+    if (!actor.tenantId) {
+      throw new Error('Tenant membership required.')
     }
-    return actor as Actor<TRole> & { orgId: string }
+    return actor as Actor<TRole> & { tenantId: string }
   }
 }

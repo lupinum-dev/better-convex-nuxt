@@ -5,11 +5,7 @@
  */
 import { createFunctions } from 'better-convex-nuxt/convex'
 
-import actorConfig from './actor.config'
-
 export const {
   publicQuery,
   publicMutation,
-} = createFunctions({
-  actor: actorConfig,
-})
+} = createFunctions()

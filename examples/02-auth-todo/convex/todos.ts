@@ -9,7 +9,7 @@ import { createTodo } from '../shared/schemas/todo'
 export const list = authedQuery({
   args: {},
   handler: async ({ db, actor }) => {
-    // `db` is raw here because this app is user-scoped, not organization-scoped.
+    // `db` is raw here because this app is user-scoped, not tenant-scoped.
     // The handler enforces ownership by filtering with the guaranteed actor.
     return await db
       .query('todos')
@@ -34,24 +34,22 @@ export const create = authedMutation({
 
 export const toggle = authedMutation({
   args: { id: v.id('todos') },
-  handler: async ({ db, actor }, args) => {
-    const todo = await db.get(args.id)
-    if (!todo) throw new Error('Todo not found.')
-    if (todo.userId !== actor.userId) throw new Error('Forbidden.')
-
+  // `resource` + `ownerField` lets auth-only apps use the same ownership pipeline
+  // as tenant-scoped apps, without introducing a permission config.
+  resource: args => args.id,
+  ownerField: 'userId',
+  handler: async ({ db, resource }, args) => {
     await db.patch(args.id, {
-      completed: !todo.completed,
+      completed: !resource!.completed,
     })
   },
 })
 
 export const remove = authedMutation({
   args: { id: v.id('todos') },
-  handler: async ({ db, actor }, args) => {
-    const todo = await db.get(args.id)
-    if (!todo) throw new Error('Todo not found.')
-    if (todo.userId !== actor.userId) throw new Error('Forbidden.')
-
+  resource: args => args.id,
+  ownerField: 'userId',
+  handler: async ({ db }, args) => {
     await db.delete(args.id)
   },
 })

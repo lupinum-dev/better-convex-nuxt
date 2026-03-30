@@ -1,3 +1,4 @@
+import { defineSchema as defineConvexSchema, defineTable } from 'convex/server'
 import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -5,13 +6,14 @@ import {
   createFunctions,
   defineActorConfig,
   definePermissions,
+  type Actor,
   type InferPermission,
   type InferRole,
   type PermissionContext,
 } from '../../src/runtime/convex'
 import { createPermissions } from '../../src/runtime/composables/usePermissions'
 import { createConvexTools } from '../../src/runtime/mcp/define-convex-tool'
-import { defineSchema } from '../../src/runtime/schema'
+import { defineSchema, defineTableMeta } from '../../src/runtime/schema'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -33,13 +35,6 @@ const permissionConfig = definePermissions({
       view: { roles: ['owner', 'admin'] },
     },
   },
-  checkPermission: (ctx, permission, resource) => {
-    if (!ctx) return false
-    if (permission === 'org.settings') return ctx.role === 'owner'
-    if (permission === 'post.create') return ctx.role !== 'member' || ctx.userId.length > 0
-    if (permission === 'post.update') return ctx.role === 'owner' || resource?.ownerId === ctx.userId
-    return permission === 'settings.billing.view' && ctx.role !== 'member'
-  },
 })
 
 type Role = InferRole<typeof permissionConfig>
@@ -54,22 +49,40 @@ type _permissionInference = Assert<
 >
 
 const actorConfig = defineActorConfig({
-  resolveFromAuth: async () => ({
+  resolveFromAuth: async (): Promise<Actor<Role> | null> => ({
     userId: 'user_1',
     role: 'owner' as const,
-    orgId: 'org_1',
+    tenantId: 'tenant_1',
   }),
 })
 
+const convexSchema = defineConvexSchema({
+  posts: defineTableMeta(
+    defineTable({
+      title: v.string(),
+      ownerId: v.string(),
+      organizationId: v.string(),
+    }).index('by_organization', ['organizationId']),
+    {
+      tenant: {
+        scoped: true,
+        ownerField: 'ownerId',
+      },
+    },
+  ),
+  comments: defineTable({
+    postId: v.id('posts'),
+    organizationId: v.string(),
+  }).index('by_organization', ['organizationId']),
+})
+
 const { scopedMutation } = createFunctions({
-  schema: {
-    posts: { tenant: { scoped: true } },
-    comments: { tenant: { scoped: true } },
-  },
+  schema: convexSchema,
   permissions: permissionConfig,
   actor: actorConfig,
   tenant: {
-    orgField: 'organizationId',
+    field: 'organizationId',
+    index: 'by_organization',
   },
 })
 
@@ -129,7 +142,7 @@ defineTool({
   schema: toolSchema,
   require: 'post.create',
   auth: 'required',
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     const maybeRole: Role | undefined = ctx.actor?.role
     void maybeRole
     const allowed = ctx.can('post.update', { ownerId: 'user_1' })
@@ -156,7 +169,6 @@ const _emptyPermConfig = definePermissions({
   permissions: {
     global: {},
   },
-  checkPermission: () => true,
 })
 
 type EmptyPermission = InferPermission<typeof _emptyPermConfig>
@@ -173,7 +185,6 @@ const _ownershipConfig = definePermissions({
       delete: { roles: ['owner'] as const },
     },
   },
-  checkPermission: () => true,
 })
 
 type OwnershipPermission = InferPermission<typeof _ownershipConfig>

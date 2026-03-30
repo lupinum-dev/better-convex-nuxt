@@ -2,11 +2,13 @@
  * Why this file exists:
  * The full example needs three tables:
  * - organizations: the tenant boundary
- * - users: the source of actor role + organization membership
+ * - users: the source of actor role + tenant membership
  * - todos: the tenant-scoped resource protected by permissions
  */
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
+
+import { defineTableMeta } from 'better-convex-nuxt/schema'
 
 const roleValidator = v.union(
   v.literal('owner'),
@@ -35,13 +37,22 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_organization', ['organizationId']),
 
-  todos: defineTable({
-    title: v.string(),
-    completed: v.boolean(),
-    ownerId: v.string(),
-    organizationId: v.id('organizations'),
-    createdAt: v.number(),
-  })
-    .index('by_organization', ['organizationId'])
-    .index('by_owner', ['ownerId']),
+  todos: defineTableMeta(
+    defineTable({
+      title: v.string(),
+      completed: v.boolean(),
+      ownerId: v.string(),
+      organizationId: v.id('organizations'),
+      createdAt: v.number(),
+    })
+      .index('by_organization', ['organizationId'])
+      .index('by_owner', ['ownerId']),
+    {
+      description: 'Tenant-scoped todo items',
+      tenant: {
+        scoped: true,
+        ownerField: 'ownerId',
+      },
+    },
+  ),
 })

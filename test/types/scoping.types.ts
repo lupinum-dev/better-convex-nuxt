@@ -5,13 +5,21 @@ import type {
 } from 'convex/server'
 import type { GenericId } from 'convex/values'
 
-import { createScopedReader, createScopedWriter } from '../../src/runtime/scoping/scoped-db'
+import {
+  createScopedReader as buildScopedReader,
+  createScopedWriter as buildScopedWriter,
+} from '../../src/runtime/scoping/scoped-db'
 
 declare const queryDb: GenericDatabaseReader<GenericDataModel>
 declare const mutationDb: GenericDatabaseWriter<GenericDataModel>
 
-const reader = createScopedReader(queryDb, 'org_1', 'organizationId', ['posts'])
-const writer = createScopedWriter(mutationDb, 'org_1', 'organizationId', ['posts'])
+const createScopedReader = (db: GenericDatabaseReader<GenericDataModel>, tenantId: string, tenantField: string, scopedTables: readonly string[]) =>
+  buildScopedReader(db, tenantId, tenantField, 'by_organization', scopedTables)
+const createScopedWriter = (db: GenericDatabaseWriter<GenericDataModel>, tenantId: string, tenantField: string, scopedTables: readonly string[]) =>
+  buildScopedWriter(db, tenantId, tenantField, 'by_organization', scopedTables)
+
+const reader = createScopedReader(queryDb, 'tenant_1', 'organizationId', ['posts'])
+const writer = createScopedWriter(mutationDb, 'tenant_1', 'organizationId', ['posts'])
 
 async function readerTypes() {
   reader.query('posts')

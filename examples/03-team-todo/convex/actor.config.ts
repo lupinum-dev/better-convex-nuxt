@@ -1,6 +1,6 @@
 /**
  * Why this file exists:
- * The scoped builder family depends on an actor that includes both role and organization membership.
+ * The scoped builder family depends on an actor that includes both role and tenant membership.
  * This resolver turns Better Auth's identity into that app-specific actor.
  */
 import type {
@@ -20,8 +20,8 @@ function resolveExpectedServiceKey(): string {
   return process.env.CONVEX_SERVICE_KEY?.trim() || 'example-service-key'
 }
 
-export default defineActorConfig<TeamTodoCtx, 'owner' | 'admin' | 'member' | 'viewer'>({
-  resolveFromAuth: async (ctx) => {
+export default defineActorConfig({
+  resolveFromAuth: async (ctx: TeamTodoCtx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
 
@@ -36,7 +36,7 @@ export default defineActorConfig<TeamTodoCtx, 'owner' | 'admin' | 'member' | 'vi
       _id: user._id,
       userId: user.authId,
       role: user.role,
-      orgId: user.organizationId,
+      tenantId: user.organizationId,
     }
   },
   // MCP tools use this service key when they call back into scoped Convex functions.

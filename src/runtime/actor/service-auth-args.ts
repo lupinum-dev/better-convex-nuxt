@@ -10,7 +10,7 @@ export const serviceAuthArgs = {
     v.object({
       userId: v.string(),
       role: v.string(),
-      orgId: v.optional(v.string()),
+      tenantId: v.optional(v.string()),
     }),
   ),
 } as const

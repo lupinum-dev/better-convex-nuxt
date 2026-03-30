@@ -28,7 +28,8 @@ export default defineNuxtConfig({
       config: '~/convex/permissions.config',
     },
     tenant: {
-      orgField: 'organizationId',
+      field: 'organizationId',
+      index: 'by_organization',
     },
   },
 })

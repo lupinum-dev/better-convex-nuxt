@@ -7,14 +7,6 @@ import { v } from 'convex/values'
 
 import { defineSchema, defineTableMeta } from 'better-convex-nuxt/schema'
 
-export const todoTable = defineTableMeta({
-  description: 'Organization-scoped todo items',
-  tenant: {
-    scoped: true,
-    ownerField: 'ownerId',
-  },
-})
-
 export const createTodo = defineSchema({
   description: 'Create a team todo',
   args: {
@@ -23,7 +15,7 @@ export const createTodo = defineSchema({
   meta: {
     title: {
       label: 'Title',
-      description: 'A team-visible task stored inside the current organization',
+      description: 'A team-visible task stored inside the current tenant',
       examples: ['Prepare sprint plan', 'Review beta feedback'],
     },
   },
@@ -62,6 +54,6 @@ export const deleteTodo = defineSchema({
 })
 
 export const listTodos = defineSchema({
-  description: 'List all todos in the current organization',
+  description: 'List all todos in the current tenant',
   args: {},
 })

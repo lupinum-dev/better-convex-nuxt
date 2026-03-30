@@ -2,8 +2,7 @@ import { createFunctions } from '../../src/runtime/convex'
 
 import actorConfig from './actor.config'
 import { permissionConfig } from './permissions.config'
-import { commentTable } from '../shared/schemas/comment'
-import { postTable } from '../shared/schemas/post'
+import schema from './schema'
 
 export const {
   publicQuery,
@@ -15,16 +14,11 @@ export const {
   scopedQuery,
   scopedMutation,
 } = createFunctions({
-  schema: {
-    posts: postTable,
-    comments: commentTable,
-    invites: { tenant: { scoped: true } },
-    mcpKeys: { tenant: { scoped: true } },
-  },
+  schema,
   permissions: permissionConfig,
   actor: actorConfig,
   tenant: {
-    orgField: 'organizationId',
-    orgIdFrom: 'actor',
+    field: 'organizationId',
+    index: 'by_organization',
   },
 })

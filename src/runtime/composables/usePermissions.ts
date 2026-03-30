@@ -9,11 +9,11 @@
  * // ~/composables/usePermissions.ts
  * import { createPermissions } from '#imports'
  * import { api } from '~/convex/_generated/api'
- * import { checkPermission, type Permission, type Resource } from '~/convex/permissions.config'
+ * import { permissionConfig, type Permission, type Resource } from '~/convex/permissions.config'
  *
  * export const { usePermissions, usePermissionGuard } = createPermissions({
  *   query: api.auth.getPermissionContext,
- *   checkPermission,
+ *   checkPermission: permissionConfig.checkPermission,
  * })
  * ```
  */
@@ -52,7 +52,7 @@ export interface CreatePermissionsOptions<
       ? FunctionReturnType<Query>
       : PermissionContext<TRole>,
 > {
-  /** Convex query that returns permission context (role, userId, orgId, etc.) */
+  /** Convex query that returns permission context (role, userId, tenantId, etc.) */
   query: Query
   /** Permission checking function from permissions.config.ts */
   checkPermission: CheckPermissionFn<TPermission, TRole>
@@ -72,8 +72,8 @@ export interface UsePermissionsReturn<
   user: ComputedRef<TContext | null>
   /** Current user's role */
   role: ComputedRef<TContext['role'] | null>
-  /** Current user's organization ID */
-  orgId: ComputedRef<string | null>
+  /** Current user's tenant ID */
+  tenantId: ComputedRef<string | null>
   /** Whether user is authenticated with valid permission context */
   isAuthenticated: ComputedRef<boolean>
   /** Whether permission context is still loading */
@@ -106,11 +106,11 @@ export interface UsePermissionGuardOptions<TPermission extends string = string> 
  * // ~/composables/usePermissions.ts
  * import { createPermissions } from '#imports'
  * import { api } from '~/convex/_generated/api'
- * import { checkPermission } from '~/convex/permissions.config'
+ * import { permissionConfig } from '~/convex/permissions.config'
  *
  * export const { usePermissions, usePermissionGuard } = createPermissions({
  *   query: api.auth.getPermissionContext,
- *   checkPermission,
+ *   checkPermission: permissionConfig.checkPermission,
  * })
  * ```
  */
@@ -158,6 +158,7 @@ export function createPermissions<
       return {
         role: context.role,
         userId: context.userId,
+        ...(context.tenantId ? { tenantId: context.tenantId } : {}),
       }
     })
 
@@ -170,7 +171,7 @@ export function createPermissions<
     const isAuthenticated = computed(() => !!ctx.value)
     const user = typedContext
     const role = computed(() => typedContext.value?.role ?? null)
-    const orgId = computed(() => typedContext.value?.orgId ?? null)
+    const tenantId = computed(() => typedContext.value?.tenantId ?? null)
 
     if (import.meta.dev) {
       let warnedPermissionSetupError = false
@@ -194,7 +195,7 @@ export function createPermissions<
       can,
       user,
       role,
-      orgId,
+      tenantId,
       isAuthenticated,
       pending,
     }

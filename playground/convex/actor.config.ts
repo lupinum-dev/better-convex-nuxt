@@ -31,7 +31,7 @@ export const actorConfig = defineActorConfig<PlaygroundActorCtx>({
       _id: user._id,
       userId: user.authId,
       role: user.role,
-      orgId: user.organizationId,
+      tenantId: user.organizationId,
     }
   },
 

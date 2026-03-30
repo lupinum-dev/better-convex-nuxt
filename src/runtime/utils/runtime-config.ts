@@ -24,7 +24,7 @@ export interface NormalizedConvexRuntimeConfig {
   query: ConvexRuntimeQueryDefaults
   upload: { maxConcurrent: number }
   permissions: boolean
-  tenant: { orgField: string } | null
+  tenant: { field: string; index: string } | null
   logging: LogLevel | false
   debug: {
     authFlow: boolean
@@ -112,9 +112,10 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     permissions: raw?.permissions !== null && raw?.permissions !== undefined,
     tenant: (() => {
       const tenantRaw = asRecord(raw?.tenant)
-      const orgField = tenantRaw?.orgField
-      return typeof orgField === 'string' && orgField.length > 0
-        ? { orgField }
+      const field = tenantRaw?.field
+      const index = tenantRaw?.index
+      return typeof field === 'string' && field.length > 0 && typeof index === 'string' && index.length > 0
+        ? { field, index }
         : null
     })(),
     logging:

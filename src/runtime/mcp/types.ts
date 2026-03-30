@@ -2,7 +2,6 @@ import type { H3Event } from 'h3'
 import type {
   McpToolAnnotations,
   McpToolCache,
-  McpToolExtra,
   McpToolCallbackResult,
 } from '@nuxtjs/mcp-toolkit/server'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
@@ -73,7 +72,7 @@ export interface PreviewResult {
 export interface McpAuthIdentity<TRole extends string = string> {
   readonly role: TRole
   readonly userId: string
-  readonly orgId?: string
+  readonly tenantId?: string
 }
 
 // ============================================================================
@@ -102,8 +101,8 @@ export interface ConvexToolHandlerCtx<
   event: H3Event
   /** Resolved actor, or null if auth is 'none' or no credentials were provided. */
   actor: McpAuthIdentity<TRole> | null
-  /** Resolved org context for `scoped: true` tools. */
-  org?: McpOrgContext
+  /** Resolved tenant context for `scoped: true` tools. */
+  tenant?: McpTenantContext
   can: (permission: P, resource?: Record<string, unknown>) => boolean
   ok: <T>(data: T, summary?: string) => McpToolCallbackResult
   error: (
@@ -144,7 +143,6 @@ export interface DefineConvexToolOptions<
   /** Tool handler. Return plain data — the framework wraps it. */
   handler: (
     args: InferSchemaData<S>,
-    extra: McpToolExtra,
     ctx: ConvexToolHandlerCtx<P, TRole>,
   ) => unknown | Promise<unknown>
 
@@ -165,7 +163,7 @@ export interface DefineConvexToolOptions<
   auth?: 'required' | 'optional' | 'none'
   /** Permission string checked via checkPermission. Requires createConvexTools factory or checkPermission option. */
   require?: P
-  /** Enable org scoping. Requires createConvexTools with tenant config. Handler receives `{ org }` context. */
+  /** Enable tenant scoping. Requires createConvexTools with tenant config. Handler receives `{ tenant }` context. */
   scoped?: boolean
 
   // ── Safety ────────────────────────────────────────────────
@@ -208,20 +206,22 @@ export interface DefineConvexToolOptions<
 }
 
 // ============================================================================
-// Tenant / Org scoping for MCP tools
+// Tenant scoping for MCP tools
 // ============================================================================
 
 export interface McpTenantConfig {
-  /** The field name used for org scoping (e.g. 'organizationId') */
-  orgField: string
-  /** Resolve orgId from the authenticated MCP identity. Return null if no org. */
-  resolveOrgId: (actor: McpAuthIdentity) => string | null
+  /** The field name used for tenant scoping (for example 'organizationId'). */
+  field: string
+  /** Index used to scope tenant-aware queries (for example 'by_organization'). */
+  index: string
+  /** Resolve tenantId from the authenticated MCP identity. Return null if no tenant. */
+  resolveTenantId: (actor: McpAuthIdentity) => string | null
 }
 
-export interface McpOrgContext {
-  /** The resolved organization ID */
+export interface McpTenantContext {
+  /** The resolved tenant ID */
   id: string
-  /** Whether a document belongs to this org (checks orgField) */
+  /** Whether a document belongs to this tenant (checks the configured field). */
   owns: (doc: Record<string, unknown> | null) => boolean
 }
 

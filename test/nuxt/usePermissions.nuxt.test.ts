@@ -46,21 +46,21 @@ describe('usePermissions (Nuxt runtime)', () => {
     convex.emitQueryResultByPath('auth:getPermissionContext:reactive', {
       role: 'member',
       userId: 'user-1',
-      orgId: 'org-1',
+      tenantId: 'tenant-1',
     })
 
     await waitFor(() => result.pending.value === false)
 
     expect(result.isAuthenticated.value).toBe(true)
     expect(result.role.value).toBe('member')
-    expect(result.orgId.value).toBe('org-1')
+    expect(result.tenantId.value).toBe('tenant-1')
     expect(result.canEditOwn.value).toBe(true)
     expect(result.canEditOther.value).toBe(false)
 
     convex.emitQueryResultByPath('auth:getPermissionContext:reactive', {
       role: 'admin',
       userId: 'user-1',
-      orgId: 'org-1',
+      tenantId: 'tenant-1',
     })
 
     await waitFor(() => result.canEditOther.value === true)
@@ -140,7 +140,7 @@ describe('usePermissions (Nuxt runtime)', () => {
     convex.emitQueryResultByPath('auth:getPermissionContext:guard-authorized', {
       role: 'admin',
       userId: 'user-1',
-      orgId: 'org-1',
+      tenantId: 'tenant-1',
     })
 
     await waitFor(() => result.permissions.isAuthenticated.value === true)
@@ -152,7 +152,7 @@ describe('usePermissions (Nuxt runtime)', () => {
     convex.emitQueryResultByPath('auth:getPermissionContext:guard-authorized', {
       role: 'admin',
       userId: 'user-1',
-      orgId: 'org-1',
+      tenantId: 'tenant-1',
     })
     await flush()
     await flush()
@@ -207,7 +207,7 @@ describe('usePermissions (Nuxt runtime)', () => {
     convex.emitQueryResultByPath('auth:getPermissionContext:guard-unauthorized', {
       role: 'member',
       userId: 'user-1',
-      orgId: 'org-1',
+      tenantId: 'tenant-1',
     })
 
     await waitFor(() => result.pushSpy.mock.calls.length === 1)

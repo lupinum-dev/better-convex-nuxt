@@ -27,7 +27,7 @@ export default defineTool({
       affects: { todos: 1 },
     })
   },
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     await ctx.mutation(api.todos.remove, args)
     return ctx.ok({ deleted: true, id: args.id }, 'Deleted todo')
   },

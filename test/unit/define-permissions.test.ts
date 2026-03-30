@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { definePermissions } from '../../src/runtime/convex/define-permissions'
 
 describe('definePermissions', () => {
-  it('returns the exact config object (identity)', () => {
+  it('returns the same structure and preserves an explicit override', () => {
     const config = {
       roles: ['owner', 'admin'] as const,
       permissions: {
@@ -18,7 +18,8 @@ describe('definePermissions', () => {
     }
 
     const result = definePermissions(config)
-    expect(result).toBe(config)
+    expect(result).toStrictEqual(config)
+    expect(result.checkPermission).toBe(config.checkPermission)
   })
 
   it('preserves roles and permissions structure', () => {

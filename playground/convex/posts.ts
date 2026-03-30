@@ -14,12 +14,12 @@ import {
 export const list = openQuery({
   args: {},
   handler: async ({ actor, db }) => {
-    if (!actor?.orgId) return []
-    const orgId = actor.orgId as Id<'organizations'>
+    if (!actor?.tenantId) return []
+    const tenantId = actor.tenantId as Id<'organizations'>
 
     return await db
       .query('posts')
-      .withIndex('by_organization', q => q.eq('organizationId', orgId))
+      .withIndex('by_organization', q => q.eq('organizationId', tenantId))
       .order('desc')
       .collect()
   },
@@ -28,18 +28,18 @@ export const list = openQuery({
 export const listPaginated = openQuery({
   args: { paginationOpts: paginationOptsValidator },
   handler: async ({ actor, db }, args) => {
-    if (!actor?.orgId) {
+    if (!actor?.tenantId) {
       return {
         page: [],
         isDone: true,
         continueCursor: '',
       }
     }
-    const orgId = actor.orgId as Id<'organizations'>
+    const tenantId = actor.tenantId as Id<'organizations'>
 
     return await db
       .query('posts')
-      .withIndex('by_organization', q => q.eq('organizationId', orgId))
+      .withIndex('by_organization', q => q.eq('organizationId', tenantId))
       .order('desc')
       .paginate(args.paginationOpts)
   },
@@ -48,10 +48,10 @@ export const listPaginated = openQuery({
 export const get = openQuery({
   args: { id: v.id('posts') },
   handler: async ({ actor, db }, args) => {
-    if (!actor?.orgId) return null
+    if (!actor?.tenantId) return null
 
     const post = await db.get(args.id)
-    if (!post || post.organizationId !== actor.orgId) return null
+    if (!post || post.organizationId !== actor.tenantId) return null
     return post
   },
 })

@@ -210,7 +210,7 @@ describe('posts', () => {
           id: postId,
           title: 'Trying to update',
         }),
-      ).rejects.toThrow('Document belongs to a different organization.')
+      ).rejects.toThrow('Document belongs to a different tenant.')
     })
   })
 

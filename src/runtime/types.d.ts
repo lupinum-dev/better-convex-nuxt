@@ -39,7 +39,8 @@ export interface ConvexPublicRuntimeConfig {
   } | null
   /** Tenant config used for scoped helpers */
   tenant?: {
-    orgField: string
+    field: string
+    index: string
   } | null
   /** Logging level */
   logging?: LogLevel

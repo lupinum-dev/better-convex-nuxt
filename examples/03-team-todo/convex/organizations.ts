@@ -35,7 +35,7 @@ export const getPermissionContext = openQuery({
     return {
       role: user.role,
       userId: user.authId,
-      orgId: user.organizationId,
+      tenantId: user.organizationId,
       email: user.email,
       displayName: user.displayName,
     }
@@ -67,7 +67,7 @@ export const createWorkspace = authedMutation({
     }
 
     const now = Date.now()
-    const orgId = await db.insert('organizations', {
+    const tenantId = await db.insert('organizations', {
       name: args.name,
       slug: args.slug,
       createdAt: now,
@@ -75,12 +75,12 @@ export const createWorkspace = authedMutation({
 
     // The creator becomes the owner. That keeps the example easy to reason about.
     await db.patch(user._id, {
-      organizationId: orgId,
+      organizationId: tenantId,
       role: 'owner',
       updatedAt: now,
     })
 
-    return orgId
+    return tenantId
   },
 })
 

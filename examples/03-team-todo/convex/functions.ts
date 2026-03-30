@@ -7,8 +7,10 @@ import { createFunctions } from 'better-convex-nuxt/convex'
 
 import actorConfig from './actor.config'
 import { permissionConfig } from './permissions.config'
-import { todoTable } from '../shared/schemas/todo'
+import schema from './schema'
 
+// Destructure only the builders this app uses.
+// createFunctions() also provides publicMutation, openMutation, and authedQuery.
 export const {
   publicQuery,
   authedMutation,
@@ -16,13 +18,11 @@ export const {
   scopedQuery,
   scopedMutation,
 } = createFunctions({
-  schema: {
-    todos: todoTable,
-  },
+  schema,
   permissions: permissionConfig,
   actor: actorConfig,
   tenant: {
-    orgField: 'organizationId',
-    orgIdFrom: 'actor',
+    field: 'organizationId',
+    index: 'by_organization',
   },
 })

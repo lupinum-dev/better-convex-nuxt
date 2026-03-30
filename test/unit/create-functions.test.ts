@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { defineSchema as defineConvexSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
 
 import { createFunctions, defineActorConfig } from '../../src/runtime/convex/create-functions'
 import { definePermissions } from '../../src/runtime/convex/define-permissions'
+import { defineTableMeta } from '../../src/runtime/schema'
 
 const actorConfig = defineActorConfig({
   resolveFromAuth: async () => ({
     userId: 'user_1',
     role: 'admin' as const,
-    orgId: 'org_1',
+    tenantId: 'tenant_1',
   }),
 })
 
@@ -21,11 +24,26 @@ const permissionConfig = definePermissions({
       create: { roles: ['admin', 'member'] },
     },
   },
-  checkPermission: (ctx, permission) => {
-    if (!ctx) return false
-    if (permission === 'org.settings') return ctx.role === 'admin'
-    return true
-  },
+})
+
+const schema = defineConvexSchema({
+  posts: defineTableMeta(
+    defineTable({
+      title: v.string(),
+      organizationId: v.string(),
+    }).index('by_organization', ['organizationId']),
+    {
+      tenant: {
+        scoped: true,
+      },
+    },
+  ),
+  comments: defineTable({
+    organizationId: v.string(),
+  }).index('by_organization', ['organizationId']),
+  users: defineTable({
+    name: v.string(),
+  }),
 })
 
 describe('createFunctions', () => {
@@ -38,7 +56,7 @@ describe('createFunctions', () => {
 
   describe('factory return shape', () => {
     it('returns all 8 builder functions', () => {
-      const fns = createFunctions({ actor: actorConfig })
+      const fns = createFunctions()
       expect(Object.keys(fns).sort()).toEqual([
         'authedMutation',
         'authedQuery',
@@ -71,12 +89,7 @@ describe('createFunctions', () => {
   describe('schema table extraction', () => {
     it('creates functions with schema and scoped tables', () => {
       const fns = createFunctions({
-        schema: {
-          posts: { tenant: { scoped: true } },
-          users: undefined,
-          comments: { tenant: { scoped: true } },
-          settings: { description: 'app settings' },
-        },
+        schema,
         actor: actorConfig,
         permissions: permissionConfig,
       })
@@ -93,7 +106,7 @@ describe('createFunctions', () => {
   })
 
   describe('tenant defaults', () => {
-    it('defaults orgField to organizationId and orgIdFrom to actor', () => {
+    it('defaults tenant field/index to organizationId/by_organization', () => {
       // No tenant config provided — should use defaults internally.
       // We verify by ensuring the factory doesn't throw.
       const fns = createFunctions({

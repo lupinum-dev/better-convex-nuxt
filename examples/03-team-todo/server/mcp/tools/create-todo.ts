@@ -14,7 +14,7 @@ export default defineTool({
   auth: 'required',
   require: 'todo.create',
   scoped: true,
-  handler: async (args, _extra, ctx) => {
+  handler: async (args, ctx) => {
     const todoId = await ctx.mutation(api.todos.create, args)
     return ctx.ok({ id: todoId }, `Created todo "${args.title}"`)
   },

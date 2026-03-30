@@ -4,7 +4,10 @@ import type { GenericId } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ScopingError } from '../../src/runtime/scoping/errors'
-import { createScopedReader, createScopedWriter } from '../../src/runtime/scoping/scoped-db'
+import {
+  createScopedReader as buildScopedReader,
+  createScopedWriter as buildScopedWriter,
+} from '../../src/runtime/scoping/scoped-db'
 
 // ============================================================================
 // Mock Convex db
@@ -52,7 +55,26 @@ function asId(tableName: string): GenericId<string> {
 const ORG_ID = 'org_abc123'
 const OTHER_ORG = 'org_other'
 const ORG_FIELD = 'organizationId'
+const TENANT_INDEX = 'by_organization'
 const SCOPED_TABLES = ['posts', 'comments']
+
+function createScopedReader(
+  db: GenericDatabaseReader<GenericDataModel>,
+  tenantId: string,
+  tenantField: string,
+  scopedTables: readonly string[],
+) {
+  return buildScopedReader(db, tenantId, tenantField, TENANT_INDEX, scopedTables)
+}
+
+function createScopedWriter(
+  db: GenericDatabaseWriter<GenericDataModel>,
+  tenantId: string,
+  tenantField: string,
+  scopedTables: readonly string[],
+) {
+  return buildScopedWriter(db, tenantId, tenantField, TENANT_INDEX, scopedTables)
+}
 
 // ============================================================================
 // ScopedReader

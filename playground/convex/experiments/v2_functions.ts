@@ -218,7 +218,13 @@ function createFunctions(config: { orgField: string; tables: ScopedTablesConfig 
 
         return await options.handler(
           {
-            db: createScopedReader(ctx.db, actor.orgId, config.orgField, scopedTables),
+            db: createScopedReader(
+              ctx.db,
+              actor.orgId,
+              config.orgField,
+              'by_organization',
+              scopedTables,
+            ),
             actor: actor as Actor & { orgId: string },
             raw: { ctx },
             ...(resource ? { resource } : {}),
@@ -265,7 +271,13 @@ function createFunctions(config: { orgField: string; tables: ScopedTablesConfig 
 
         return await options.handler(
           {
-            db: createScopedWriter(ctx.db, actor.orgId, config.orgField, scopedTables),
+            db: createScopedWriter(
+              ctx.db,
+              actor.orgId,
+              config.orgField,
+              'by_organization',
+              scopedTables,
+            ),
             actor: actor as Actor & { orgId: string },
             raw: { ctx },
             ...(resource ? { resource } : {}),
