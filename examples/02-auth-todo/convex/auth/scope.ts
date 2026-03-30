@@ -1,9 +1,6 @@
-export function ensureFound<T>(
-  doc: T | null | undefined,
-  label = 'Resource',
-): asserts doc is T {
-  if (!doc) throw new Error(`${label} not found.`)
-}
+import { deny, ensureFound } from 'better-convex-nuxt/auth'
+
+export { ensureFound }
 
 export function loadOwnedResource<T extends { userId: string }>(
   actor: { userId: string },
@@ -12,7 +9,7 @@ export function loadOwnedResource<T extends { userId: string }>(
 ): T {
   ensureFound(doc, label)
   if (doc.userId !== actor.userId) {
-    throw new Error(`${label} not found.`)
+    throw deny(`${label} not found.`)
   }
   return doc
 }

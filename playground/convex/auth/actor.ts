@@ -1,9 +1,7 @@
-import type {
-  GenericMutationCtx,
-  GenericQueryCtx,
-} from 'convex/server'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import { getIdentity, verifyKey } from 'better-convex-nuxt/auth'
+import { resolveUserActor, verifyKey } from 'better-convex-nuxt/auth'
+import type { UserActor } from 'better-convex-nuxt/auth'
 
 import type { DataModel } from '../_generated/dataModel'
 import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../../shared/dev-service-key'
@@ -11,7 +9,7 @@ import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../../shared/dev-service-key'
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: Role; tenantId?: string }
+  | UserActor<Role>
   | { kind: 'service'; serviceId: string; role: Role; tenantId?: string }
   | null
 
@@ -24,22 +22,7 @@ function resolveExpectedServiceKey(): string {
 }
 
 export async function getActor(ctx: PlaygroundCtx): Promise<Actor> {
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
-
-  const user = await ctx.db
-    .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
-    .first()
-
-  if (!user) return null
-
-  return {
-    kind: 'user',
-    userId: user.authId,
-    role: user.role,
-    ...(user.organizationId ? { tenantId: user.organizationId } : {}),
-  }
+  return await resolveUserActor<Role>(ctx, { tenantIdField: 'organizationId' })
 }
 
 export function getServiceActor(

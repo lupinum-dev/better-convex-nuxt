@@ -15,6 +15,26 @@ const defaultModules = typeof import.meta.glob === 'function'
   ? import.meta.glob('/convex/**/*.*s')
   : {}
 
+export function createConvexTestModules(
+  modules?: Record<string, () => Promise<unknown>>,
+): Record<string, () => Promise<unknown>> {
+  return withGeneratedModuleHint(modules ?? defaultModules)
+}
+
+/** The mock factory for `vi.mock('./_generated/server', convexServerMock)` in test setup files. */
+export const convexServerMock = async () => {
+  const server = await import('convex/server')
+  return {
+    query: server.queryGeneric,
+    mutation: server.mutationGeneric,
+    action: server.actionGeneric,
+    internalQuery: server.internalQueryGeneric,
+    internalMutation: server.internalMutationGeneric,
+    internalAction: server.internalActionGeneric,
+    httpAction: server.httpActionGeneric,
+  }
+}
+
 function withGeneratedModuleHint(
   modules: Record<string, () => Promise<unknown>>,
 ): Record<string, () => Promise<unknown>> {

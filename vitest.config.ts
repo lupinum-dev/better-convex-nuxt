@@ -29,6 +29,11 @@ export default defineConfig({
       // Unit Tests: Pure utility function tests
       // Fast (<1s) - run with `pnpm vitest --project=unit`
       {
+        resolve: {
+          alias: {
+            'better-convex-nuxt/auth': fileURLToPath(new URL('./src/runtime/auth/index.ts', import.meta.url)),
+          },
+        },
         test: {
           name: 'unit',
           include: ['test/unit/**/*.test.ts', 'test/auth/**/*.test.ts'],

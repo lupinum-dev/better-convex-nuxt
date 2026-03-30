@@ -34,11 +34,14 @@ export type PermissionKey<TContext extends AuthContext = AuthContext> =
 
 export interface CreateAuthOptions<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
+  TPermissions extends string = PermissionKey<InferredAuthContext<Query>>,
 > {
   query: Query
+  /** Explicit permission keys for type-safe `can()` calls. Use when Convex return types don't preserve literal keys. */
+  permissions?: readonly TPermissions[]
 }
 
-export interface UsePermissionsReturn<TContext extends AuthContext = AuthContext> {
+export interface UsePermissionsReturn<TContext extends AuthContext = AuthContext, TPermissions extends string = PermissionKey<TContext>> {
   ctx: ComputedRef<TContext | null>
   role: ComputedRef<TContext['role'] | null>
   plan: ComputedRef<TContext['plan'] | null>
@@ -46,11 +49,11 @@ export interface UsePermissionsReturn<TContext extends AuthContext = AuthContext
   tenantId: ComputedRef<TContext['tenantId'] | null>
   ready: ComputedRef<boolean>
   pending: Ref<boolean>
-  can: (key: PermissionKey<TContext>) => ComputedRef<boolean>
+  can: (key: TPermissions) => ComputedRef<boolean>
 }
 
-export interface UseAuthGuardOptions<TContext extends AuthContext = AuthContext> {
-  can?: PermissionKey<TContext>
+export interface UseAuthGuardOptions<TContext extends AuthContext = AuthContext, TPermissions extends string = PermissionKey<TContext>> {
+  can?: TPermissions
   check?: (ctx: TContext) => boolean
   redirectTo?: RouteLocationRaw
   loginPath?: RouteLocationRaw
@@ -60,10 +63,11 @@ export interface UseAuthGuardOptions<TContext extends AuthContext = AuthContext>
 export function createAuth<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
->(options: CreateAuthOptions<Query>) {
+  TPermissions extends string = PermissionKey<TContext>,
+>(options: CreateAuthOptions<Query, TPermissions>) {
   const { query } = options
 
-  function usePermissions(): UsePermissionsReturn<TContext> {
+  function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
     const {
       data,
       pending,
@@ -71,7 +75,7 @@ export function createAuth<
 
     const ctx = computed<TContext | null>(() => data.value as TContext | null)
 
-    function can(key: PermissionKey<TContext>): ComputedRef<boolean> {
+    function can(key: TPermissions): ComputedRef<boolean> {
       return computed<boolean>(() => ctx.value?.can?.[key as string] === true)
     }
 
@@ -87,7 +91,7 @@ export function createAuth<
     }
   }
 
-  function useAuthGuard(options: UseAuthGuardOptions<TContext>): void {
+  function useAuthGuard(options: UseAuthGuardOptions<TContext, TPermissions>): void {
     const {
       can: requiredKey,
       check,

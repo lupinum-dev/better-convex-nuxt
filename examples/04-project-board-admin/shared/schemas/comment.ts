@@ -8,6 +8,7 @@ import { v } from 'convex/values'
 import { defineArgs } from 'better-convex-nuxt/schema'
 
 export const createComment = defineArgs({
+  serviceAuth: true,
   description: 'Comment on a task, optionally attaching one uploaded file.',
   args: {
     taskId: v.id('tasks'),

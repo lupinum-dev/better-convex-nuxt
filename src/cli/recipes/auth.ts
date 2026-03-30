@@ -7,39 +7,27 @@ export const authTemplates = {
   actor: `
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import { getIdentity, verifyKey } from 'better-convex-nuxt/auth'
+import { resolveUserActor, verifyKey } from 'better-convex-nuxt/auth'
+import type { UserActor } from 'better-convex-nuxt/auth'
 
 import type { DataModel } from '../_generated/dataModel'
 
+export type Role = 'owner' | 'admin' | 'member' | 'viewer'
+
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string; plan?: string }
-  | { kind: 'service'; serviceId: string; role: string; tenantId: string; plan?: string }
+  | UserActor<Role>
+  | { kind: 'service'; serviceId: string; role: Role; tenantId: string }
   | null
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: Ctx): Promise<Actor> {
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
-
-  const user = await ctx.db
-    .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
-    .first()
-
-  if (!user?.workspaceId) return null
-
-  return {
-    kind: 'user',
-    userId: user.authId,
-    role: user.role,
-    tenantId: user.workspaceId,
-  }
+  return resolveUserActor<Role>(ctx)
 }
 
 export function getServiceActor(
   key: string,
-  actor: { serviceId: string; role: string; tenantId: string; plan?: string },
+  actor: { serviceId: string; role: Role; tenantId: string },
 ): Actor {
   const expected = process.env.CONVEX_SERVICE_KEY ?? ''
   if (!verifyKey(key, expected)) return null
@@ -63,9 +51,11 @@ export const canUpdateOwned = (resource: { ownerId: string }) =>
   or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(resource)))
 `.trimStart(),
   scope: `
-import { deny, requirePrincipal } from 'better-convex-nuxt/auth'
+import { deny, ensureFound, requirePrincipal } from 'better-convex-nuxt/auth'
 
 import type { Actor } from './actor'
+
+export { ensureFound }
 
 export function ensureTenant(
   actor: Actor,
@@ -75,13 +65,6 @@ export function ensureTenant(
   if (actor.tenantId !== resource.workspaceId) {
     throw deny('Resource not found.')
   }
-}
-
-export function ensureFound<T>(
-  doc: T | null | undefined,
-  label = 'Resource',
-): asserts doc is T {
-  if (!doc) throw new Error(\`\${label} not found.\`)
 }
 
 export function loadResource<T extends { workspaceId: string }>(

@@ -5,12 +5,25 @@ import { defineArgs } from '../../src/runtime/schema'
 import { validateConvex } from '../../src/runtime/utils/convex-schema'
 
 describe('defineArgs service-auth compatibility', () => {
-  it('keeps public validators clean while widening convexValidators for hidden service auth', () => {
+  it('convexValidators equals validators by default (no service auth fields)', () => {
     const createThing = defineArgs({
       description: 'Create a thing',
       args: {
         title: v.string(),
       },
+    })
+
+    expect(Object.keys(createThing.validators)).toEqual(['title'])
+    expect(Object.keys(createThing.convexValidators)).toEqual(['title'])
+  })
+
+  it('widens convexValidators with service auth fields when serviceAuth is true', () => {
+    const createThing = defineArgs({
+      description: 'Create a thing',
+      args: {
+        title: v.string(),
+      },
+      serviceAuth: true,
     })
 
     expect(Object.keys(createThing.validators)).toEqual(['title'])

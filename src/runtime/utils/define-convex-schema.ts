@@ -198,14 +198,15 @@ export function defineArgs<V extends PropertyValidators>(definition: {
   description?: string
   args: V
   meta?: InputSchemaMeta<V>
+  serviceAuth?: boolean
 }): SchemaDefinition<ObjectType<V>, V> {
   type T = ObjectType<V>
 
   const objectValidator = v.object(definition.args)
-  const convexValidators = {
-    ...definition.args,
-    ...serviceAuthValidators,
-  } as V & typeof serviceAuthValidators
+  const convexValidators = (definition.serviceAuth
+    ? { ...definition.args, ...serviceAuthValidators }
+    : { ...definition.args }
+  ) as V & typeof serviceAuthValidators
   const standardProps: StandardSchemaV1Props<T> = {
     version: 1,
     vendor: 'better-convex-nuxt',

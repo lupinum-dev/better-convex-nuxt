@@ -14,6 +14,13 @@ export type Identity = {
   name?: string
 }
 
+export type AuthErrorData = {
+  code: 'FORBIDDEN' | 'NOT_FOUND'
+  message: string
+  category?: string
+  source?: string
+}
+
 type Check<P = unknown> = (principal: P) => boolean
 type AnyCheck<P> = Check<P> | boolean
 
@@ -36,10 +43,11 @@ function runCheck<P>(principal: P, check: AnyCheck<P>): boolean {
   return typeof check === 'function' ? (check as Check<P>)(principal) : check
 }
 
-function toForbiddenError(reason: string, source?: string): ConvexError<{ code: 'FORBIDDEN', message: string, source?: string }> {
+function toForbiddenError(reason: string, source?: string, category?: string): ConvexError<AuthErrorData> {
   return new ConvexError({
-    code: 'FORBIDDEN',
+    code: 'FORBIDDEN' as const,
     message: reason,
+    ...(category ? { category } : {}),
     ...(source ? { source } : {}),
   })
 }
@@ -59,13 +67,18 @@ export function not<P = unknown>(check: AnyCheck<P>): Check<P> {
 export const all = and
 export const any = or
 
-export function deny(reason: string, source?: string): never {
-  throw toForbiddenError(reason, source)
+export function deny(reason: string, source?: string): never
+export function deny(reason: string, options: { source?: string, category?: string }): never
+export function deny(reason: string, sourceOrOptions?: string | { source?: string, category?: string }): never {
+  if (typeof sourceOrOptions === 'object') {
+    throw toForbiddenError(reason, sourceOrOptions.source, sourceOrOptions.category)
+  }
+  throw toForbiddenError(reason, sourceOrOptions)
 }
 
-export function guard<P = unknown>(principal: P, label: string, check: AnyCheck<P>): void {
-  if (runCheck(principal, check)) return
-  throw toForbiddenError(`Forbidden: ${label}`)
+export function guard<P>(principal: P, label: string, check: AnyCheck<NonNullable<P>>, category?: string): asserts principal is NonNullable<P> {
+  if (principal == null) throw toForbiddenError(`Forbidden: ${label}`, undefined, category ?? 'auth')
+  if (!runCheck(principal, check)) throw toForbiddenError(`Forbidden: ${label}`, undefined, category)
 }
 
 export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
@@ -83,6 +96,56 @@ export function requirePrincipal<P>(
 ): asserts principal is NonNullable<P> {
   if (principal == null) {
     throw toForbiddenError(reason)
+  }
+}
+
+export function ensureFound<T>(
+  doc: T | null | undefined,
+  label?: string,
+): asserts doc is T {
+  if (doc == null) {
+    throw new ConvexError({ code: 'NOT_FOUND' as const, message: `${label ?? 'Resource'} not found.` })
+  }
+}
+
+export type UserActor<TRole extends string = string> = {
+  kind: 'user'
+  userId: string
+  role: TRole
+  tenantId: string
+}
+
+export async function resolveUserActor<TRole extends string = string>(
+  ctx: AnyCtx,
+  options?: {
+    usersTable?: string
+    authIdField?: string
+    authIdIndex?: string
+    roleField?: string
+    tenantIdField?: string
+  },
+): Promise<UserActor<TRole> | null> {
+  const {
+    usersTable = 'users',
+    authIdField = 'authId',
+    authIdIndex = 'by_auth_id',
+    roleField = 'role',
+    tenantIdField = 'workspaceId',
+  } = options ?? {}
+
+  const identity = await getIdentity(ctx)
+  if (!identity) return null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table/field names require generic db access
+  const user = await (ctx.db as any).query(usersTable).withIndex(authIdIndex, (q: any) => q.eq(authIdField, identity.subject)).first()
+
+  if (!user?.[tenantIdField]) return null
+
+  return {
+    kind: 'user',
+    userId: user[authIdField],
+    role: user[roleField] as TRole,
+    tenantId: user[tenantIdField],
   }
 }
 
@@ -131,4 +194,13 @@ export async function applyVisibility<T, P = unknown>(
     return await result.collect() as T[]
   }
   return []
+}
+
+export async function getVisibilityQuery<T, P = unknown>(
+  visibility: Visibility<T, P>,
+  principal: P,
+  db: GenericDatabaseReader<GenericDataModel>,
+): Promise<QueryLike | T[] | null> {
+  if (!principal) return null
+  return await visibility.resolve(principal, db)
 }

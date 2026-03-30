@@ -8,6 +8,7 @@ import { v } from 'convex/values'
 import { defineArgs } from 'better-convex-nuxt/schema'
 
 export const createTodo = defineArgs({
+  serviceAuth: true,
   description: 'Create a team todo',
   args: {
     title: v.string(),
@@ -22,6 +23,7 @@ export const createTodo = defineArgs({
 })
 
 export const setTodoCompleted = defineArgs({
+  serviceAuth: true,
   description: 'Update a todo completion flag',
   args: {
     id: v.id('todos'),
@@ -41,6 +43,7 @@ export const setTodoCompleted = defineArgs({
 })
 
 export const deleteTodo = defineArgs({
+  serviceAuth: true,
   description: 'Delete a team todo',
   args: {
     id: v.id('todos'),
@@ -54,6 +57,7 @@ export const deleteTodo = defineArgs({
 })
 
 export const listTodos = defineArgs({
+  serviceAuth: true,
   description: 'List all todos in the current tenant',
   args: {},
 })
