@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import type { Id } from './_generated/dataModel'
 
 import {
   authedMutation,
@@ -12,6 +13,7 @@ export const listPending = openQuery({
   args: {},
   handler: async ({ actor, db }) => {
     if (!actor?.orgId) return []
+    const orgId = actor.orgId as Id<'organizations'>
 
     const allowed = checkPermission(
       { role: actor.role as Role, userId: actor.userId },
@@ -21,7 +23,7 @@ export const listPending = openQuery({
 
     return await db
       .query('invites')
-      .withIndex('by_organization', (q) => q.eq('organizationId', actor.orgId as any))
+      .withIndex('by_organization', q => q.eq('organizationId', orgId))
       .filter((q) => q.eq(q.field('status'), 'pending'))
       .order('desc')
       .collect()
@@ -35,6 +37,7 @@ export const create = scopedMutation({
   },
   require: 'org.invite',
   handler: async ({ db, actor }, args) => {
+    const orgId = actor.orgId as Id<'organizations'>
     if (args.role === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can invite admins')
     }
@@ -44,7 +47,7 @@ export const create = scopedMutation({
       .withIndex('by_email', (q) => q.eq('email', args.email))
       .filter((q) =>
         q.and(
-          q.eq(q.field('organizationId'), actor.orgId as any),
+          q.eq(q.field('organizationId'), orgId),
           q.eq(q.field('status'), 'pending'),
         ),
       )
@@ -57,7 +60,7 @@ export const create = scopedMutation({
     const existingUser = await db
       .query('users')
       .withIndex('by_email', (q) => q.eq('email', args.email))
-      .filter((q) => q.eq(q.field('organizationId'), actor.orgId as any))
+      .filter(q => q.eq(q.field('organizationId'), orgId))
       .first()
 
     if (existingUser) {

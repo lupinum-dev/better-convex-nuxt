@@ -28,8 +28,10 @@ type AuthClient = ReturnType<typeof createAuthClient>
 
 /** Minimal app interface for hook registration and emission. */
 interface RuntimeHookApp {
-  hook(event: 'better-convex:auth:refresh', fn: () => void | Promise<void>): () => void
-  hook(event: 'better-convex:auth:invalidate', fn: () => void | Promise<void>): () => void
+  hook(
+    event: 'better-convex:auth:refresh' | 'better-convex:auth:invalidate',
+    fn: () => void | Promise<void>,
+  ): () => void
   callHook?: (event: 'convex:auth:changed', payload: ConvexAuthChangedPayload) => Promise<unknown>
 }
 

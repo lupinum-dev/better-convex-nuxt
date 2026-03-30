@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import type { Id } from './_generated/dataModel'
 
 import {
   authedMutation,
@@ -13,7 +14,7 @@ export const getCurrent = openQuery({
   args: {},
   handler: async ({ actor, db }) => {
     if (!actor?.orgId) return null
-    return await db.get(actor.orgId as any)
+    return await db.get(actor.orgId as Id<'organizations'>)
   },
 })
 
@@ -67,7 +68,7 @@ export const updateSettings = scopedMutation({
   },
   require: 'org.settings',
   handler: async ({ db, actor }, args) => {
-    await db.patch(actor.orgId as any, {
+    await db.patch(actor.orgId as Id<'organizations'>, {
       ...(args.name !== undefined ? { name: args.name } : {}),
       ...(args.billingEmail !== undefined ? { billingEmail: args.billingEmail } : {}),
       updatedAt: Date.now(),
@@ -89,6 +90,7 @@ export const getMembers = openQuery({
   args: {},
   handler: async ({ actor, db }) => {
     if (!actor?.orgId) return []
+    const orgId = actor.orgId as Id<'organizations'>
 
     const canView = checkPermission(
       { role: actor.role as Role, userId: actor.userId },
@@ -98,7 +100,7 @@ export const getMembers = openQuery({
 
     return await db
       .query('users')
-      .withIndex('by_organization', q => q.eq('organizationId', actor.orgId as any))
+      .withIndex('by_organization', q => q.eq('organizationId', orgId))
       .collect()
   },
 })

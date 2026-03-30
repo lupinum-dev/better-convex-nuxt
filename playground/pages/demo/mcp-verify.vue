@@ -154,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Doc, Id } from '../../convex/_generated/dataModel'
+import type { Doc } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
 
 definePageMeta({

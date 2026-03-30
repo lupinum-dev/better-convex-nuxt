@@ -7,7 +7,7 @@
  * @module runtime-hooks
  */
 import type { ConvexClient } from 'convex/browser'
-import { getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 
 import type {
   ConvexConnectionChangedPayload,

@@ -106,7 +106,7 @@ export function createTenantComposables<TPermission extends string = string>(
 
     // Merge the org readiness check with user-provided args.
     // When orgId is null, we pass undefined to skip the query.
-    const scopedArgs = computed(() => {
+    const scopedArgs = computed<FunctionArgs<Query> | null | undefined>(() => {
       if (!orgId.value) return undefined
       const raw = args ? toValue(args) : {}
       // If user explicitly passed null/undefined to skip, respect that
@@ -116,7 +116,7 @@ export function createTenantComposables<TPermission extends string = string>(
 
     return useConvexQuery<Query, FunctionArgs<Query> | null | undefined, DataT>(
       query,
-      scopedArgs as any,
+      scopedArgs,
       queryOptions,
     )
   }
@@ -131,6 +131,7 @@ export function createTenantComposables<TPermission extends string = string>(
   ): UseConvexMutationReturn<FunctionArgs<Mutation>, FunctionReturnType<Mutation>> {
     const { orgId } = useTenantContext()
     const inner = useConvexMutation(mutation, mutationOptions)
+    const invokeInner = inner as (args: FunctionArgs<Mutation>) => Promise<FunctionReturnType<Mutation>>
 
     // Wrap the callable to guard against no-org calls
     const guarded = (async (args: FunctionArgs<Mutation>) => {
@@ -140,7 +141,7 @@ export function createTenantComposables<TPermission extends string = string>(
           'The user must be a member of an organization before calling scoped mutations.',
         )
       }
-      return await (inner as any)(args)
+      return await invokeInner(args)
     }) as UseConvexMutationReturn<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>
 
     // Copy state properties from inner mutation

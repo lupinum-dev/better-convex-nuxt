@@ -1,6 +1,4 @@
 import type {
-  GenericDatabaseReader,
-  GenericDatabaseWriter,
   GenericMutationCtx,
   GenericQueryCtx,
 } from 'convex/server'
@@ -15,7 +13,6 @@ import { checkPermission, type Permission, type Resource, type Role } from '../p
 type QueryCtx = GenericQueryCtx<DataModel>
 type MutationCtx = GenericMutationCtx<DataModel>
 type AnyCtx = QueryCtx | MutationCtx
-type RawDb = GenericDatabaseReader<DataModel> | GenericDatabaseWriter<DataModel>
 
 type Actor = {
   userId: string

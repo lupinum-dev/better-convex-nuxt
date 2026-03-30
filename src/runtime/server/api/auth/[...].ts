@@ -68,7 +68,7 @@ function isMalformedAuthSubpath(path: string): boolean {
   }
 
   const normalizedPath = decodedPath.startsWith('/') ? decodedPath : `/${decodedPath}`
-  return normalizedPath.split('/').some(segment => segment === '..')
+  return normalizedPath.split('/').includes('..')
 }
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {

@@ -139,7 +139,7 @@ describe('experiment 1: wrapped builders', () => {
       t.mutation(createNote, {
         title: 'Missing Content',
         _orgId: 'org_123',
-      } as any),
+      } as never),
     ).rejects.toThrow()
   })
 })
@@ -645,7 +645,7 @@ describe('experiment 4: hidden ctx with type inference', () => {
 
     // Query
     const notes = await t.query(wrapped.listNotes, { _orgId: 'org_crud' })
-    expect(notes.some((n: any) => n._id === id)).toBe(true)
+    expect(notes.some(n => n._id === id)).toBe(true)
 
     // Patch
     await t.mutation(wrapped.updateNote, {
@@ -746,8 +746,8 @@ describe('experiment 5: db.get() document completeness', () => {
       return {
         found: true,
         hasOrgField: 'organizationId' in doc,
-        orgValue: (doc as any).organizationId,
-        orgFieldType: typeof (doc as any).organizationId,
+        orgValue: (doc as { organizationId?: string }).organizationId,
+        orgFieldType: typeof (doc as { organizationId?: string }).organizationId,
       }
     })
 
@@ -775,7 +775,7 @@ describe('experiment 5: db.get() document completeness', () => {
       return {
         found: true,
         hasOrgField: 'organizationId' in doc,
-        orgValue: (doc as any).organizationId,
+        orgValue: (doc as { organizationId?: string }).organizationId,
       }
     })
 
@@ -821,7 +821,10 @@ describe('experiment 5: db.get() document completeness', () => {
     const orgField = 'organizationId'
     const currentOrgId = orgId
 
-    const checkOrgAccess = async (ctx: any, id: any) => {
+    const checkOrgAccess = async (
+      ctx: { db: { get: (id: Id<'notes'> | Id<'posts'>) => Promise<Record<string, unknown> | null> } },
+      id: Id<'notes'> | Id<'posts'>,
+    ) => {
       const doc = await ctx.db.get(id)
       if (!doc) return { allowed: false, reason: 'not found' }
 

@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import type { Id } from './_generated/dataModel'
 
 import {
   openQuery,
@@ -20,10 +21,11 @@ export const list = openQuery({
   args: {},
   handler: async ({ actor, db }) => {
     if (!actor?.orgId) return []
+    const orgId = actor.orgId as Id<'organizations'>
 
     return await db
       .query('mcpKeys')
-      .withIndex('by_organization', (q) => q.eq('organizationId', actor.orgId as any))
+      .withIndex('by_organization', q => q.eq('organizationId', orgId))
       .order('desc')
       .collect()
   },

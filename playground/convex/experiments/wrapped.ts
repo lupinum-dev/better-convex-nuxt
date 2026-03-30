@@ -6,7 +6,7 @@
  */
 
 import { v } from 'convex/values'
-import type { PropertyValidators } from 'convex/values'
+import type { ObjectType, PropertyValidators } from 'convex/values'
 import type { GenericQueryCtx, GenericMutationCtx, GenericDatabaseReader, GenericDatabaseWriter } from 'convex/server'
 
 import { query, mutation } from '../_generated/server'
@@ -25,13 +25,13 @@ type ScopedQueryHandler<Args> = (
   db: GenericDatabaseReader<DataModel>,
   args: Args,
   meta: ScopedMeta,
-) => any
+) => unknown | Promise<unknown>
 
 type ScopedMutationHandler<Args> = (
   db: GenericDatabaseWriter<DataModel>,
   args: Args,
   meta: ScopedMeta,
-) => any
+) => unknown | Promise<unknown>
 
 // ============================================
 // wrappedQuery — wraps query() with custom handler signature
@@ -39,7 +39,7 @@ type ScopedMutationHandler<Args> = (
 
 function wrappedQuery<ArgsValidator extends PropertyValidators>(config: {
   args: ArgsValidator
-  handler: ScopedQueryHandler<any>
+  handler: ScopedQueryHandler<ObjectType<ArgsValidator>>
 }) {
   return query({
     args: {
@@ -64,7 +64,7 @@ function wrappedQuery<ArgsValidator extends PropertyValidators>(config: {
 
 function wrappedMutation<ArgsValidator extends PropertyValidators>(config: {
   args: ArgsValidator
-  handler: ScopedMutationHandler<any>
+  handler: ScopedMutationHandler<ObjectType<ArgsValidator>>
 }) {
   return mutation({
     args: {

@@ -1,4 +1,5 @@
 import { defineActorConfig } from '../../src/runtime/convex'
+import type { AnyCtx } from '../../src/runtime/actor'
 import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../shared/dev-service-key'
 
 function resolveExpectedServiceKey(): string {
@@ -6,13 +7,13 @@ function resolveExpectedServiceKey(): string {
 }
 
 export const actorConfig = defineActorConfig({
-  resolveFromAuth: async (ctx: any) => {
+  resolveFromAuth: async (ctx: AnyCtx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q: any) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
       .first()
 
     if (!user) return null
