@@ -211,8 +211,8 @@ export const getPermissionContext = query({
       // #endregion
     }
 
-    // Return permission context (even if no orgId - frontend will handle that)
-    // If user has no orgId, return partial context so frontend can show create org form
+    // Return permission context even if no tenant is assigned yet.
+    // The frontend uses that partial context to show the "create organization" flow.
     const context: {
       role: string
       userId: string
@@ -226,7 +226,7 @@ export const getPermissionContext = query({
       email: user.email,
     }
 
-    // Only include orgId if user has one
+    // Only include tenantId if user has one
     if (user.organizationId) {
       context.tenantId = user.organizationId
     }

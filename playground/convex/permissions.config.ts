@@ -1,7 +1,7 @@
 /**
  * Permission Configuration
  *
- * The heart of the permission system. Defines roles, permissions,
+ * The heart of the permission system. Defines roles, rules,
  * and the shared checkPermission() function used by both frontend and backend.
  */
 
@@ -31,7 +31,7 @@ export const ROLES = ['owner', 'admin', 'member', 'viewer'] as const
 //   - "own" = can do to resources they created
 //   - "any" = can do to any resource in their org
 
-export const permissions = {
+export const rules = {
   // ------------------------------------------
   // Global permissions (not tied to a resource)
   // ------------------------------------------
@@ -78,7 +78,7 @@ export const permissions = {
 // ============================================
 type PermissionShape = {
   roles: typeof ROLES
-  permissions: typeof permissions
+  rules: typeof rules
 }
 
 export type Role = InferRole<PermissionShape>
@@ -87,7 +87,7 @@ export type { PermissionContext, Resource } from '../../src/runtime/convex'
 
 export const permissionConfig = definePermissions({
   roles: ROLES,
-  permissions,
+  rules,
 })
 
 export const checkPermission = permissionConfig.checkPermission

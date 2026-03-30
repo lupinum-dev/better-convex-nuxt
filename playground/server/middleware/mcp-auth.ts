@@ -2,9 +2,9 @@
  * MCP auth middleware — validates bearer tokens against the mcpKeys table.
  *
  * Reads `Authorization: Bearer <mcp_key>` and looks up the key in Convex.
- * If valid, sets event.context.mcpAuth with { role, userId, orgId }.
+ * If valid, sets event.context.mcpAuth with { role, userId, tenantId }.
  *
- * Also supports the legacy format `Bearer <role>:<userId>:<orgId?>` for
+ * Also supports the legacy format `Bearer <role>:<userId>:<tenantId?>` for
  * quick testing without creating a key in the database.
  */
 import { serverConvexQuery, serverConvexMutation } from '../../../src/runtime/server/utils/convex'
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
         event.context.mcpAuth = {
           role: result.role,
           userId: result.userId,
-          ...(result.orgId && { orgId: result.orgId }),
+          ...(result.orgId && { tenantId: result.orgId }),
         }
         // Fire-and-forget: update lastUsedAt
         serverConvexMutation(event, api.mcpKeys.touch, { key: token }).catch(() => {})
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // ── Legacy format: role:userId:orgId? ───────────────────────────────
+  // ── Legacy format: role:userId:tenantId? ────────────────────────────
   const parts = token.split(':')
   if (parts.length < 2 || !parts[0] || !parts[1]) return
 
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (parts[2]) {
-    mcpAuth.orgId = parts[2]
+    mcpAuth.tenantId = parts[2]
   }
 
   event.context.mcpAuth = mcpAuth

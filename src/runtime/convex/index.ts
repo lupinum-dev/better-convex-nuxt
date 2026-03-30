@@ -13,8 +13,10 @@ export type {
 export type {
   CheckPermissionFn,
   DefinedPermissionsConfig,
+  EvaluatePermissionFn,
   InferPermission,
   InferRole,
+  PermissionEvaluation,
   PermissionContext,
   Resource,
 } from './define-permissions'

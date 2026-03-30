@@ -11,7 +11,7 @@ import {
 
 export const ROLES = ['owner', 'admin', 'member', 'viewer'] as const
 
-export const permissions = {
+export const rules = {
   todo: {
     create: { roles: ['owner', 'admin', 'member'] },
     read: { roles: ['owner', 'admin', 'member', 'viewer'] },
@@ -22,7 +22,7 @@ export const permissions = {
 
 export const permissionConfig = definePermissions({
   roles: ROLES,
-  permissions,
+  rules,
 })
 
 export type Role = InferRole<typeof permissionConfig>

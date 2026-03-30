@@ -53,6 +53,9 @@
       ],
       "server": [
         "./dist/runtime/server/index.d.ts"
+      ],
+      "testing": [
+        "./dist/runtime/testing/index.d.ts"
       ]
     }
   },
@@ -80,6 +83,10 @@
     "./server": {
       "types": "./dist/runtime/server/index.d.ts",
       "import": "./dist/runtime/server/index.js"
+    },
+    "./testing": {
+      "types": "./dist/runtime/testing/index.d.ts",
+      "import": "./dist/runtime/testing/index.js"
     }
   },
   "scripts": {

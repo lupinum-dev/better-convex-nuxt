@@ -14,6 +14,7 @@ import {
 import { createPermissions } from '../../src/runtime/composables/usePermissions'
 import { createConvexTools } from '../../src/runtime/mcp/define-convex-tool'
 import { defineArgs } from '../../src/runtime/schema'
+import { createTestContext } from '../../src/runtime/testing'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -23,7 +24,7 @@ type IsEqual<A, B> =
 
 const permissionConfig = definePermissions({
   roles: ['owner', 'admin', 'member'] as const,
-  permissions: {
+  rules: {
     global: {
       'org.settings': { roles: ['owner'] },
     },
@@ -67,6 +68,9 @@ const convexSchema = defineConvexSchema({
     organizationId: v.string(),
   }).index('by_organization', ['organizationId']),
 })
+
+const testContext = createTestContext({ schema: convexSchema })
+void testContext.asService({ userId: 'user_1', role: 'owner', tenantId: 'tenant_1' })
 
 const { scopedMutation } = createFunctions({
   schema: convexSchema,
@@ -161,7 +165,7 @@ defineTool({
 // Empty permissions config → InferPermission resolves to never
 const _emptyPermConfig = definePermissions({
   roles: ['admin'] as const,
-  permissions: {
+  rules: {
     global: {},
   },
 })
@@ -172,7 +176,7 @@ type _emptyPermissionIsNever = Assert<IsEqual<EmptyPermission, never>>
 // Ownership-based permission rule (own/any) still infers correctly
 const _ownershipConfig = definePermissions({
   roles: ['owner', 'editor', 'viewer'] as const,
-  permissions: {
+  rules: {
     global: {},
     doc: {
       read: { roles: ['owner', 'editor', 'viewer'] as const },

@@ -26,7 +26,11 @@ import type {
   ActorConfig,
   ArgsWithServiceAuth,
 } from '../actor/types'
-import type { CheckPermissionFn } from './define-permissions'
+import type {
+  CheckPermissionFn,
+  EvaluatePermissionFn,
+  PermissionEvaluation,
+} from './define-permissions'
 import {
   createScopedReader,
   createScopedWriter,
@@ -175,15 +179,103 @@ function normalizePermissionResource(
   }
 }
 
-function checkAuthedOwnership<Role extends string>(
-  actor: Actor<Role>,
-  resource: Record<string, unknown> | undefined,
-  ownerField: string,
-) {
-  if (!resource) return
-  if (resource[ownerField] !== actor.userId) {
-    throw new Error('Forbidden.')
+function isDevelopmentEnvironment(): boolean {
+  return process.env.NODE_ENV !== 'production'
+}
+
+function formatDiagnosticValue(value: unknown): string {
+  if (value === undefined) return 'undefined'
+  return JSON.stringify(value)
+}
+
+function formatDiagnosticError(
+  heading: string,
+  details: Array<[label: string, value: string | undefined]>,
+): string {
+  if (!isDevelopmentEnvironment()) return heading
+
+  const lines = [heading, '']
+  for (const [label, value] of details) {
+    if (!value) continue
+    lines.push(`  ${label.padEnd(9, ' ')} ${value}`)
   }
+  return lines.join('\n')
+}
+
+function createOwnershipError<Role extends string>(
+  actor: Actor<Role>,
+  resource: Record<string, unknown>,
+  ownerField: string,
+): Error {
+  return new Error(formatDiagnosticError(
+    'Forbidden: resource ownership',
+    [
+      ['Actor:', formatDiagnosticValue({
+        userId: actor.userId,
+        role: actor.role,
+        ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
+      })],
+      ['Resource:', formatDiagnosticValue(resource)],
+      ['Reason:', `${ownerField} (${formatDiagnosticValue(resource[ownerField])}) !== actor.userId (${formatDiagnosticValue(actor.userId)}).`],
+      ['Hint:', `This authed handler declared a resource, so only the owning user may access it.`],
+    ],
+  ))
+}
+
+function createPermissionError<Role extends string, Permission extends string>(
+  actor: Actor<Role>,
+  permission: Permission,
+  evaluation: PermissionEvaluation<Permission, Role> | undefined,
+  resource?: Record<string, unknown>,
+): Error {
+  const heading = `Forbidden: ${permission}`
+  if (!isDevelopmentEnvironment() || !evaluation) {
+    return new Error(heading)
+  }
+
+  return new Error(formatDiagnosticError(
+    heading,
+    [
+      ['Actor:', formatDiagnosticValue({
+        userId: actor.userId,
+        role: actor.role,
+        ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
+      })],
+      ['Resource:', resource ? formatDiagnosticValue(resource) : undefined],
+      ['Rule:', evaluation.rule ? formatDiagnosticValue(evaluation.rule) : undefined],
+      ['Reason:', evaluation.reason],
+      ['Hint:', evaluation.hint],
+    ],
+  ))
+}
+
+function createResourceNotFoundError(
+  id: GenericId<string>,
+  table: string | null,
+): Error {
+  return new Error(formatDiagnosticError(
+    'Resource not found.',
+    [
+      ['Table:', table ?? undefined],
+      ['Id:', formatDiagnosticValue(id)],
+      ['Hint:', 'Check that the resource exists and that the correct document ID was passed.'],
+    ],
+  ))
+}
+
+function createCrossTenantResourceError(
+  doc: Record<string, unknown>,
+  tenantField: string,
+  tenantId: string,
+): Error {
+  return new Error(formatDiagnosticError(
+    'Document belongs to a different tenant.',
+    [
+      ['Resource:', formatDiagnosticValue(doc)],
+      ['Reason:', `${tenantField} (${formatDiagnosticValue(doc[tenantField])}) !== actor.tenantId (${formatDiagnosticValue(tenantId)}).`],
+      ['Hint:', 'Scoped handlers can only operate on resources owned by the current tenant.'],
+    ],
+  ))
 }
 
 function getOwnerField<KnownTableName extends string>(
@@ -215,12 +307,16 @@ async function loadResource<TSchema extends SchemaLike>(
   const doc = await ctx.db.get(id)
 
   if (!doc) {
-    throw new Error('Resource not found.')
+    throw createResourceNotFoundError(id, detectedTable)
   }
 
   const isScopedTable = detectedTable ? options.scopedTables.includes(detectedTable) : false
   if (isScopedTable && options.tenantId && doc[options.tenant.field] !== options.tenantId) {
-    throw new Error('Document belongs to a different tenant.')
+    throw createCrossTenantResourceError(
+      doc as Record<string, unknown>,
+      options.tenant.field,
+      options.tenantId,
+    )
   }
 
   return {
@@ -261,6 +357,7 @@ export interface PermissionsConfig<
   Role extends string = string,
 > {
   checkPermission: CheckPermissionFn<Permission, Role>
+  evaluatePermission?: EvaluatePermissionFn<Permission, Role>
 }
 
 export interface CreateFunctionsOptions<
@@ -351,7 +448,7 @@ export function createFunctions<
   const tableNames = getSchemaTableNames(options?.schema)
   const scopedTables = extractScopedTables(options?.schema, tenant)
 
-  function checkPermission(
+  function assertPermission(
     actor: Actor<Role>,
     permission: Permission | undefined,
     resource?: Record<string, unknown>,
@@ -360,6 +457,19 @@ export function createFunctions<
     if (!options?.permissions) {
       throw new Error(`Permission "${permission}" required but no permissions config provided.`)
     }
+    const evaluation = options.permissions.evaluatePermission?.(
+      {
+        role: actor.role,
+        userId: actor.userId,
+        ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
+      },
+      permission,
+      resource,
+    )
+    if (evaluation && evaluation.allowed === false) {
+      throw createPermissionError(actor, permission, evaluation, resource)
+    }
+
     const allowed = options.permissions.checkPermission(
       {
         role: actor.role,
@@ -370,7 +480,7 @@ export function createFunctions<
       resource,
     )
     if (allowed === false) {
-      throw new Error(`Forbidden: ${permission}`)
+      throw createPermissionError(actor, permission, evaluation, resource)
     }
   }
 
@@ -436,11 +546,11 @@ export function createFunctions<
           ? normalizePermissionResource(loadedResource.doc, ownerField)
           : undefined
 
-        if (loadedResource) {
-          checkAuthedOwnership(actor, loadedResource.doc, ownerField)
+        if (loadedResource && loadedResource.doc[ownerField] !== actor.userId) {
+          throw createOwnershipError(actor, loadedResource.doc, ownerField)
         }
 
-        checkPermission(actor, config.require, permissionResource)
+        assertPermission(actor, config.require, permissionResource)
 
         return await config.handler(
           {
@@ -485,7 +595,7 @@ export function createFunctions<
           ? normalizePermissionResource(loadedResource.doc, ownerField)
           : undefined
 
-        checkPermission(actor, config.require, permissionResource)
+        assertPermission(actor, config.require, permissionResource)
 
         const scopedDb = isMutationContext(ctx)
           ? createScopedWriter(

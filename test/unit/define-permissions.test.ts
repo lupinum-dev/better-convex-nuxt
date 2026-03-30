@@ -6,7 +6,7 @@ describe('definePermissions', () => {
   it('returns the same structure and preserves an explicit override', () => {
     const config = {
       roles: ['owner', 'admin'] as const,
-      permissions: {
+      rules: {
         global: {
           'org.settings': { roles: ['owner'] as const },
         },
@@ -25,7 +25,7 @@ describe('definePermissions', () => {
   it('preserves roles and permissions structure', () => {
     const result = definePermissions({
       roles: ['viewer', 'editor'] as const,
-      permissions: {
+      rules: {
         global: {
           'app.admin': { roles: ['editor'] as const },
         },
@@ -38,27 +38,27 @@ describe('definePermissions', () => {
     })
 
     expect(result.roles).toEqual(['viewer', 'editor'])
-    expect(result.permissions.global['app.admin']).toEqual({ roles: ['editor'] })
-    expect(result.permissions.doc.write).toEqual({ own: ['viewer'], any: ['editor'] })
+    expect(result.rules.global['app.admin']).toEqual({ roles: ['editor'] })
+    expect(result.rules.doc.write).toEqual({ own: ['viewer'], any: ['editor'] })
   })
 
   it('works with empty permissions groups', () => {
     const result = definePermissions({
       roles: ['admin'] as const,
-      permissions: {
+      rules: {
         global: {},
       },
       checkPermission: () => true,
     })
 
     expect(result.roles).toEqual(['admin'])
-    expect(result.permissions.global).toEqual({})
+    expect(result.rules.global).toEqual({})
   })
 
   it('works with dotted resource names', () => {
     const result = definePermissions({
       roles: ['admin'] as const,
-      permissions: {
+      rules: {
         global: {},
         'settings.billing': {
           view: { roles: ['admin'] as const },
@@ -67,6 +67,30 @@ describe('definePermissions', () => {
       checkPermission: () => true,
     })
 
-    expect(result.permissions['settings.billing'].view).toEqual({ roles: ['admin'] })
+    expect(result.rules['settings.billing'].view).toEqual({ roles: ['admin'] })
+  })
+
+  it('generates structured evaluation details for ownership denials', () => {
+    const result = definePermissions({
+      roles: ['owner', 'member'] as const,
+      rules: {
+        todo: {
+          update: { own: ['member'] as const, any: ['owner'] as const },
+        },
+      },
+    })
+
+    expect(result.evaluatePermission).toBeTypeOf('function')
+    expect(
+      result.evaluatePermission!(
+        { role: 'member', userId: 'alice' },
+        'todo.update',
+        { ownerId: 'bob' },
+      ),
+    ).toMatchObject({
+      allowed: false,
+      mode: 'own',
+      permission: 'todo.update',
+    })
   })
 })

@@ -180,6 +180,51 @@ describe('posts', () => {
       ).rejects.toThrow('Forbidden: post.update')
     })
 
+    it('includes detailed permission diagnostics outside production', async () => {
+      const { asMember, asAdmin } = await setupTestWithMultipleUsers()
+      const postId = await asAdmin.mutation(api.posts.create, {
+        title: 'Admin Post',
+        content: 'Content',
+      })
+
+      await expect(
+        asMember.mutation(api.posts.update, {
+          id: postId,
+          title: 'Still hacked',
+        }),
+      ).rejects.toThrow(/Actor:\s+\{"userId":"user_member"/)
+
+      await expect(
+        asMember.mutation(api.posts.update, {
+          id: postId,
+          title: 'Still hacked',
+        }),
+      ).rejects.toThrow(/Reason:\s+Role "member" has own-only access/)
+    })
+
+    it('falls back to terse permission errors in production', async () => {
+      const originalNodeEnv = process.env.NODE_ENV
+      process.env.NODE_ENV = 'production'
+
+      try {
+        const { asMember, asAdmin } = await setupTestWithMultipleUsers()
+        const postId = await asAdmin.mutation(api.posts.create, {
+          title: 'Admin Post',
+          content: 'Content',
+        })
+
+        await expect(
+          asMember.mutation(api.posts.update, {
+            id: postId,
+            title: 'Hacked again',
+          }),
+        ).rejects.toThrow(/^Forbidden: post\.update$/)
+      }
+      finally {
+        process.env.NODE_ENV = originalNodeEnv
+      }
+    })
+
     it('allows admins to update any post', async () => {
       const { asMember, asAdmin } = await setupTestWithMultipleUsers()
 
@@ -211,6 +256,21 @@ describe('posts', () => {
           title: 'Trying to update',
         }),
       ).rejects.toThrow('Document belongs to a different tenant.')
+    })
+
+    it('includes tenant mismatch details outside production', async () => {
+      const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+      const postId = await asUser1.mutation(api.posts.create, {
+        title: 'Scoped Post',
+        content: 'Content',
+      })
+
+      await expect(
+        asUser2.mutation(api.posts.update, {
+          id: postId,
+          title: 'Trying again',
+        }),
+      ).rejects.toThrow(/Reason:\s+organizationId/)
     })
   })
 

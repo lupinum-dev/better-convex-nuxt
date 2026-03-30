@@ -15,7 +15,7 @@ const actorConfig = defineActorConfig({
 
 const permissionConfig = definePermissions({
   roles: ['admin', 'member'] as const,
-  permissions: {
+  rules: {
     global: {
       'org.settings': { roles: ['admin'] },
     },

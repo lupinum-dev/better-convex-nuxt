@@ -76,6 +76,33 @@ It includes three standalone todo apps:
 - auth only
 - full auth + tenant scoping + permissions + MCP
 
+## Testing
+
+The testing surface is intentionally small. It wraps `convex-test`, seeds tenant-aware fixtures,
+and lets browser, service, and MCP-style calls hit the same Convex functions.
+
+```ts
+import { defineConfig } from 'vitest/config'
+import { convexTestConfig } from 'better-convex-nuxt/testing'
+
+export default defineConfig(convexTestConfig())
+```
+
+```ts
+import { createTestContext } from 'better-convex-nuxt/testing'
+
+const ctx = createTestContext({ schema })
+const team = await ctx.seedTenant({
+  name: 'Acme',
+  users: {
+    alice: { role: 'owner' },
+    bob: { role: 'member' },
+  },
+})
+```
+
+Use `ctx.asService(...)` when you want to verify the hidden service-auth path directly.
+
 ## Usage
 
 ### Shared Schema DX
@@ -147,6 +174,10 @@ export const create = scopedMutation({
 Metadata is optional. Tools still work without it, but agents get better help when fields have descriptions and examples.
 
 Use a `shared/` directory when both Convex files and Nuxt server files need the same args definitions. That folder is a runtime boundary, not a framework convention.
+
+The same idea applies to `composables/usePermissions.ts`: it is intentionally tiny so Nuxt can
+auto-import the finished `usePermissions()` composable while your app keeps control of which
+permission-context query it uses.
 
 ### Queries
 

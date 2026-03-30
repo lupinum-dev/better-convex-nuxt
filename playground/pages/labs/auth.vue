@@ -49,7 +49,7 @@
           <span class="value id">{{ augmentedUserFields?.authId || '(no JWT claim)' }}</span>
         </div>
         <div class="state-item">
-          <span class="label">custom orgId</span>
+          <span class="label">custom tenantId</span>
           <span class="value id">{{
             augmentedUserFields?.organizationId || '(no JWT claim)'
           }}</span>
@@ -77,7 +77,7 @@
             </span>
           </div>
           <div class="state-item">
-            <span class="label">session additional orgId</span>
+            <span class="label">session additional tenantId</span>
             <span class="value id">{{ pluginSessionFields.organizationId }}</span>
           </div>
           <div class="state-item">

@@ -18,8 +18,8 @@
         <NuxtLink to="/auth/signin" class="btn btn-primary">Sign In</NuxtLink>
       </div>
 
-      <!-- No organization - show create org form and pending invites -->
-      <div v-else-if="!orgId" class="content">
+      <!-- No organization yet - show create org form and pending invites -->
+      <div v-else-if="!tenantId" class="content">
         <!-- Pending Invites -->
         <section v-if="myInvites?.length" class="section">
           <h2>Pending Invitations</h2>
@@ -147,7 +147,7 @@
                   style="width: 120px; display: inline-block"
                 />
                 <span v-else-if="currentOrgStatus === 'success'" class="value">{{
-                  currentOrg?.name || orgId
+                  currentOrg?.name || tenantId
                 }}</span>
                 <span v-else-if="currentOrgStatus === 'error'" class="value error"
                   >Failed to load</span
@@ -468,13 +468,13 @@ definePageMeta({
 })
 
 // Permissions
-const { can, user, role, orgId, pending, isAuthenticated } = usePermissions()
+const { can, user, role, tenantId, pending, isAuthenticated } = usePermissions()
 
 // Queries - use status for explicit state management
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)
 const { data: currentOrg, status: currentOrgStatus } = useConvexQuery(
   api.organizations.getCurrent,
-  computed(() => (orgId.value ? {} : undefined)),
+  computed(() => (tenantId.value ? {} : undefined)),
 )
 
 const {
@@ -483,7 +483,7 @@ const {
   error: postsError,
 } = useConvexQuery(
   api.posts.list,
-  computed(() => (orgId.value ? {} : undefined)),
+  computed(() => (tenantId.value ? {} : undefined)),
 )
 
 const {
@@ -492,18 +492,18 @@ const {
   error: membersError,
 } = useConvexQuery(
   api.organizations.getMembers,
-  computed(() => (orgId.value && can('org.members') ? {} : undefined)),
+  computed(() => (tenantId.value && can('org.members') ? {} : undefined)),
 )
 
 const { data: pendingInvites } = useConvexQuery(
   api.invites.listPending,
-  computed(() => (orgId.value && can('org.invite') ? {} : undefined)),
+  computed(() => (tenantId.value && can('org.invite') ? {} : undefined)),
 )
 
-// Get my pending invites (when no orgId)
+// Get my pending invites when the user is not in a tenant yet.
 const myInvitesQuery = useConvexQuery(
   api.invites.getMyInvites,
-  computed(() => (!orgId.value ? {} : undefined)),
+  computed(() => (!tenantId.value ? {} : undefined)),
 )
 const { data: myInvites } = myInvitesQuery
 
@@ -525,7 +525,7 @@ const {
   error: allOrganizationsError,
 } = useConvexQuery(
   api.organizations.list,
-  computed(() => (!orgId.value ? {} : undefined)),
+  computed(() => (!tenantId.value ? {} : undefined)),
 )
 
 // Mutations - use .pending/.error properties from new API

@@ -48,6 +48,7 @@ export default defineConfig({
             'better-convex-nuxt/mcp': fileURLToPath(new URL('./src/runtime/mcp/index.ts', import.meta.url)),
             'better-convex-nuxt/schema': fileURLToPath(new URL('./src/runtime/schema/index.ts', import.meta.url)),
             'better-convex-nuxt/server': fileURLToPath(new URL('./src/runtime/server/index.ts', import.meta.url)),
+            'better-convex-nuxt/testing': fileURLToPath(new URL('./src/runtime/testing/index.ts', import.meta.url)),
           },
         },
         test: {
