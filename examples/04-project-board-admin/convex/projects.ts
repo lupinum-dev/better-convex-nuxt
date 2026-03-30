@@ -1,14 +1,10 @@
-import { mutation, query } from './_generated/server'
+import { guard } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { deny, guard } from 'better-convex-nuxt/auth'
-
-import {
-  canArchiveProject,
-  canCreateProject,
-  canReadProject,
-} from './auth/checks'
+import { archiveProject, createProject } from '../shared/schemas/project'
+import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
+import { canArchiveProject, canCreateProject, canReadProject } from './auth/checks'
 import { loadResource } from './auth/scope'
 
 export const list = query({
@@ -17,8 +13,9 @@ export const list = query({
     const actor = await getActor(ctx)
     guard(actor, 'Read projects', canReadProject)
 
-    return ctx.db.query('projects')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+    return ctx.db
+      .query('projects')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
   },
@@ -36,12 +33,9 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: {
-    name: v.string(),
-    summary: v.string(),
-  },
+  args: createProject.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Create project', canCreateProject)
 
     const now = Date.now()
@@ -49,15 +43,15 @@ export const create = mutation({
       name: args.name,
       summary: args.summary,
       status: 'active',
-      ownerId: actor!.userId,
-      workspaceId: actor!.tenantId,
+      ownerId: actor.userId,
+      workspaceId: actor.tenantId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor!.tenantId,
-      actorId: actor!.userId,
+      workspaceId: actor.tenantId,
+      actorId: actor.userId,
       entityType: 'project',
       entityId: projectId,
       action: 'project.created',
@@ -70,9 +64,9 @@ export const create = mutation({
 })
 
 export const archive = mutation({
-  args: { id: v.id('projects') },
+  args: archiveProject.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Archive project', canArchiveProject)
 
     const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
@@ -86,8 +80,8 @@ export const archive = mutation({
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor!.tenantId,
-      actorId: actor!.userId,
+      workspaceId: actor.tenantId,
+      actorId: actor.userId,
       entityType: 'project',
       entityId: args.id,
       action: 'project.archived',

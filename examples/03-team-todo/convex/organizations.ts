@@ -14,7 +14,9 @@ const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.lit
 export const listWorkspaces = query({
   args: {},
   handler: async (ctx) => {
-    return ctx.db.query('organizations').order('desc').collect()
+    // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
+    const organizations = await ctx.db.query('organizations').order('desc').collect()
+    return organizations.map(({ _id, name, slug }) => ({ _id, name, slug }))
   },
 })
 

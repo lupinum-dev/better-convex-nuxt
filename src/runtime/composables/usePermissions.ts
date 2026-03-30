@@ -15,12 +15,25 @@ export type AuthContext = {
   [key: string]: unknown
 }
 
+export type InferredAuthContext<
+  Query extends FunctionReference<'query'> = FunctionReference<'query'>,
+> =
+  FunctionReturnType<Query> extends AuthContext | null
+    ? NonNullable<FunctionReturnType<Query>>
+    : AuthContext
+
+type PermissionRecord<TContext extends AuthContext> =
+  NonNullable<TContext['can']> extends Record<string, boolean>
+    ? NonNullable<TContext['can']>
+    : Record<string, boolean>
+
+export type PermissionKey<TContext extends AuthContext = AuthContext> =
+  string extends keyof PermissionRecord<TContext>
+    ? string
+    : Extract<keyof PermissionRecord<TContext>, string>
+
 export interface CreateAuthOptions<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
-  TContext extends AuthContext =
-    FunctionReturnType<Query> extends AuthContext | null
-      ? NonNullable<FunctionReturnType<Query>>
-      : AuthContext,
 > {
   query: Query
 }
@@ -33,12 +46,12 @@ export interface UsePermissionsReturn<TContext extends AuthContext = AuthContext
   tenantId: ComputedRef<TContext['tenantId'] | null>
   isAuthenticated: ComputedRef<boolean>
   pending: Ref<boolean>
-  can: (key: string) => ComputedRef<boolean>
+  can: (key: PermissionKey<TContext>) => ComputedRef<boolean>
 }
 
-export interface UseAuthGuardOptions {
-  can?: string
-  check?: (ctx: AuthContext) => boolean
+export interface UseAuthGuardOptions<TContext extends AuthContext = AuthContext> {
+  can?: PermissionKey<TContext>
+  check?: (ctx: TContext) => boolean
   redirectTo?: RouteLocationRaw
   loginPath?: RouteLocationRaw
   message?: string
@@ -46,11 +59,8 @@ export interface UseAuthGuardOptions {
 
 export function createAuth<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
-  TContext extends AuthContext =
-    FunctionReturnType<Query> extends AuthContext | null
-      ? NonNullable<FunctionReturnType<Query>>
-      : AuthContext,
->(options: CreateAuthOptions<Query, TContext>) {
+  TContext extends AuthContext = InferredAuthContext<Query>,
+>(options: CreateAuthOptions<Query>) {
   const { query } = options
 
   function usePermissions(): UsePermissionsReturn<TContext> {
@@ -59,25 +69,25 @@ export function createAuth<
       pending,
     } = createConvexQueryState(query, {}, undefined, true).resultData
 
-    const ctx = computed(() => data.value as TContext | null)
+    const ctx = computed<TContext | null>(() => data.value as TContext | null)
 
-    function can(key: string): ComputedRef<boolean> {
-      return computed(() => ctx.value?.can?.[key] === true)
+    function can(key: PermissionKey<TContext>): ComputedRef<boolean> {
+      return computed<boolean>(() => ctx.value?.can?.[key as string] === true)
     }
 
     return {
       ctx,
-      role: computed(() => ctx.value?.role ?? null),
-      plan: computed(() => ctx.value?.plan ?? null),
-      userId: computed(() => ctx.value?.userId ?? null),
-      tenantId: computed(() => ctx.value?.tenantId ?? null),
-      isAuthenticated: computed(() => !!ctx.value),
+      role: computed<TContext['role'] | null>(() => ctx.value?.role ?? null),
+      plan: computed<TContext['plan'] | null>(() => ctx.value?.plan ?? null),
+      userId: computed<TContext['userId'] | null>(() => ctx.value?.userId ?? null),
+      tenantId: computed<TContext['tenantId'] | null>(() => ctx.value?.tenantId ?? null),
+      isAuthenticated: computed<boolean>(() => !!ctx.value),
       pending,
       can,
     }
   }
 
-  function useAuthGuard(options: UseAuthGuardOptions): void {
+  function useAuthGuard(options: UseAuthGuardOptions<TContext>): void {
     const {
       can: requiredKey,
       check,
@@ -89,12 +99,12 @@ export function createAuth<
       data,
       pending,
     } = createConvexQueryState(query, {}, undefined, true).resultData
-    const ctx = computed(() => data.value as TContext | null)
-    const isAuthenticated = computed(() => !!ctx.value)
-    const passesGuard = computed(() => {
+    const ctx = computed<TContext | null>(() => data.value as TContext | null)
+    const isAuthenticated = computed<boolean>(() => !!ctx.value)
+    const passesGuard = computed<boolean>(() => {
       if (!ctx.value) return false
       if (typeof check === 'function') return check(ctx.value)
-      if (typeof requiredKey === 'string') return ctx.value.can?.[requiredKey] === true
+      if (typeof requiredKey === 'string') return ctx.value.can?.[requiredKey as string] === true
       return false
     })
     let redirectPending = false

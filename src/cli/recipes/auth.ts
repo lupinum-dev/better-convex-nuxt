@@ -63,7 +63,7 @@ export const canUpdateOwned = (resource: { ownerId: string }) =>
   or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(resource)))
 `.trimStart(),
   scope: `
-import { deny } from 'better-convex-nuxt/auth'
+import { deny, requirePrincipal } from 'better-convex-nuxt/auth'
 
 import type { Actor } from './actor'
 
@@ -71,7 +71,7 @@ export function ensureTenant(
   actor: Actor,
   resource: { workspaceId: string },
 ): void {
-  if (!actor) throw deny('Not authenticated.')
+  requirePrincipal(actor)
   if (actor.tenantId !== resource.workspaceId) {
     throw deny('Resource not found.')
   }
@@ -95,10 +95,10 @@ export function loadResource<T extends { workspaceId: string }>(
 }
 `.trimStart(),
   resource: `
-export function withCan<T extends Record<string, unknown>>(
+export function withCan<T extends Record<string, unknown>, C extends Record<string, boolean>>(
   doc: T,
-  checks: Record<string, boolean>,
-): T & { _can: Record<string, boolean> } {
+  checks: C,
+): T & { _can: C } {
   return {
     ...doc,
     _can: checks,

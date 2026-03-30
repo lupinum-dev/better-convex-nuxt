@@ -77,6 +77,16 @@ It includes standalone apps that now demonstrate the raw v4 auth model in two wa
 - a progressive path from public -> auth -> tenant scoping -> project-management product work
 - a SaaS gallery covering project management, CRM, LMS, e-commerce, freemium, collaboration sharing, and agency/multi-client auth shapes
 
+If you're jumping in by product type instead of reading linearly:
+
+- project or task tools: start with `04-project-board-admin`
+- CRM or case-management tools: start with `05-crm-pipeline`
+- learning products: start with `06-course-lms`
+- webhook-heavy back offices: start with `07-ecommerce-ops`
+- plan-gated B2B tools: start with `08-freemium-workspace`
+- doc sharing or public-link products: start with `09-doc-sharing`
+- agency or multi-client portals: start with `10-agency-portal`
+
 ## Testing
 
 The testing surface is intentionally small. It wraps `convex-test`, seeds tenant-aware fixtures,
@@ -137,18 +147,27 @@ export const createPost = defineArgs({
 The same object is reused across the stack:
 
 ```ts
-createPost.validators   // Convex validators
-createPost.parse        // runtime validation
-createPost.meta         // labels + descriptions for tools/forms
-createPost.zod          // Zod view
-createPost.description  // top-level description
+createPost.convexValidators // Convex handler validators (includes hidden service-auth fields)
+createPost.validators // public input fields only
+createPost.parse // runtime validation
+createPost.meta // labels + descriptions for tools/forms
+createPost.zod // Zod view
+createPost.description // top-level description
 ```
 
 Typical usage by runtime:
 
 ```ts
+import { mutation } from './_generated/server'
 import { defineTool } from '#convex/mcp'
 import { serverConvexMutation } from '#convex/server'
+
+export const create = mutation({
+  args: createPost.convexValidators,
+  handler: async (ctx, args) => {
+    return await ctx.db.insert('posts', args)
+  },
+})
 
 export default defineTool({
   schema: createPost,
@@ -169,7 +188,7 @@ import { canCreatePost } from './auth/checks'
 import { getActor } from './auth/actor'
 
 export const create = mutation({
-  args: createPost.validators,
+  args: createPost.convexValidators,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     guard(actor, 'Create post', canCreatePost)
@@ -317,16 +336,16 @@ the Convex backend env.
 The module emits a small set of Nuxt runtime hooks for cross-cutting side effects like analytics,
 global error handling, auth reactions, and connection banners.
 
-| Hook | Fires When |
-| --- | --- |
-| `convex:mutation:success` | A mutation completes successfully |
-| `convex:mutation:error` | A mutation fails |
-| `convex:action:success` | An action completes successfully |
-| `convex:action:error` | An action fails |
-| `convex:unauthorized` | Unauthorized recovery is triggered for a Convex call |
-| `convex:connection:changed` | The derived connection phase changes (`connecting`, `connected`, `reconnecting`) |
-| `convex:auth:changed` | The effective authenticated user changes |
-| `better-convex:auth:refresh` | Internal auth refresh runs |
+| Hook                         | Fires When                                                                       |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| `convex:mutation:success`    | A mutation completes successfully                                                |
+| `convex:mutation:error`      | A mutation fails                                                                 |
+| `convex:action:success`      | An action completes successfully                                                 |
+| `convex:action:error`        | An action fails                                                                  |
+| `convex:unauthorized`        | Unauthorized recovery is triggered for a Convex call                             |
+| `convex:connection:changed`  | The derived connection phase changes (`connecting`, `connected`, `reconnecting`) |
+| `convex:auth:changed`        | The effective authenticated user changes                                         |
+| `better-convex:auth:refresh` | Internal auth refresh runs                                                       |
 
 Full docs: [Runtime Hooks](https://better-convex-nuxt.vercel.app/docs/api-reference/runtime-hooks)
 

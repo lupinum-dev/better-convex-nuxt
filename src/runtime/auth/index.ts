@@ -3,6 +3,7 @@ import type {
   GenericDatabaseReader,
   GenericMutationCtx,
   GenericQueryCtx,
+  GenericTableInfo,
   Query,
 } from 'convex/server'
 import { ConvexError } from 'convex/values'
@@ -16,7 +17,7 @@ export type Identity = {
 type Check<P = unknown> = (principal: P) => boolean
 type AnyCheck<P> = Check<P> | boolean
 
-type QueryLike<T = unknown> = Pick<Query<any>, 'collect'> & T
+type QueryLike<T = unknown> = Pick<Query<GenericTableInfo>, 'collect'> & T
 type VisibilityResolver<T, P> = (
   principal: P,
   db: GenericDatabaseReader<GenericDataModel>,
@@ -72,6 +73,15 @@ export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
     return !!runCheck(principal, check)
   } catch {
     return false
+  }
+}
+
+export function requirePrincipal<P>(
+  principal: P,
+  reason = 'Not authenticated.',
+): asserts principal is NonNullable<P> {
+  if (principal == null) {
+    throw toForbiddenError(reason)
   }
 }
 

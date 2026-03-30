@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { anyApi } from 'convex/server'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { createTestContext } from 'better-convex-nuxt/testing'
 
@@ -9,19 +9,6 @@ import schema from './schema'
 import { modules } from './test.setup'
 
 const api = anyApi
-
-vi.mock('./_generated/server', async () => {
-  const server = await import('convex/server')
-  return {
-    query: server.query,
-    mutation: server.mutation,
-    action: server.action,
-    internalQuery: server.internalQuery,
-    internalMutation: server.internalMutation,
-    internalAction: server.internalAction,
-    httpAction: server.httpAction,
-  }
-})
 
 function createCtx() {
   return createTestContext({
@@ -145,5 +132,74 @@ describe('agency example', () => {
     const portfolio = await agent.query(api.dashboard.portfolio, {})
     expect(portfolio).toHaveLength(2)
     expect(portfolio.map(entry => entry.workspace.name).sort()).toEqual(['Client A', 'Client B'])
+  })
+
+  it('returns permission context booleans for owners and viewers inside a workspace', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        owner: { role: 'owner' },
+        viewer: { role: 'viewer' },
+      },
+    })
+
+    await ctx.seed('memberships', {
+      userId: team.users.owner.authId,
+      workspaceId: team.id,
+      role: 'owner',
+      createdAt: Date.now(),
+    })
+    await ctx.seed('memberships', {
+      userId: team.users.viewer.authId,
+      workspaceId: team.id,
+      role: 'viewer',
+      createdAt: Date.now(),
+    })
+
+    const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
+
+    expect(ownerCtx?.can['project.create']).toBe(true)
+    expect(viewerCtx?.can['project.create']).toBe(false)
+  })
+
+  it('returns null context and denies the agency dashboard for anonymous callers', async () => {
+    const ctx = createCtx()
+
+    await expect(ctx.raw.query(api.workspaces.getPermissionContext, {})).resolves.toBeNull()
+    await expect(ctx.raw.query(api.dashboard.portfolio, {})).rejects.toThrow('Not authenticated.')
+  })
+
+  it('prevents duplicate memberships when joining the same workspace twice', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        owner: { role: 'owner' },
+        member: { role: 'viewer' },
+      },
+    })
+
+    const workspaceId = await team.users.owner.mutation(api.workspaces.createWorkspace, {
+      name: 'Client Workspace',
+      slug: 'client-workspace',
+    })
+
+    await team.users.member.mutation(api.workspaces.joinWorkspace, {
+      slug: 'client-workspace',
+      role: 'member',
+    })
+    await team.users.member.mutation(api.workspaces.joinWorkspace, {
+      slug: 'client-workspace',
+      role: 'member',
+    })
+
+    const memberships = await ctx.readAll('memberships')
+    const joinedMemberships = memberships.filter((membership) => {
+      return membership.userId === team.users.member.authId && membership.workspaceId === workspaceId
+    })
+
+    expect(joinedMemberships).toHaveLength(1)
   })
 })

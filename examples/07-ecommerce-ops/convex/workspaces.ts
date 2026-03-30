@@ -1,3 +1,7 @@
+/**
+ * Why this file exists:
+ * The frontend only gets broad order capabilities here. Refund validity still lives in handlers.
+ */
 import { v } from 'convex/values'
 
 import { can, deny } from 'better-convex-nuxt/auth'

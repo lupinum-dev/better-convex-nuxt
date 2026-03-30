@@ -1,3 +1,7 @@
+/**
+ * Why this file exists:
+ * Current-workspace actions stay normal here. The agency dashboard lives in a separate query on purpose.
+ */
 import { v } from 'convex/values'
 
 import { can, deny } from 'better-convex-nuxt/auth'

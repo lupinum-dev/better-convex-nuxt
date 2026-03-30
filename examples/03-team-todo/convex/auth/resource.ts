@@ -1,7 +1,7 @@
-export function withCan<T extends Record<string, unknown>>(
+export function withCan<T extends Record<string, unknown>, C extends Record<string, boolean>>(
   doc: T,
-  checks: Record<string, boolean>,
-): T & { _can: Record<string, boolean> } {
+  checks: C,
+): T & { _can: C } {
   return {
     ...doc,
     _can: checks,

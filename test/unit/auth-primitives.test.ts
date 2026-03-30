@@ -9,6 +9,7 @@ import {
   deny,
   guard,
   not,
+  requirePrincipal,
   verifyKey,
 } from '../../src/runtime/auth'
 
@@ -29,6 +30,15 @@ describe('auth primitives', () => {
 
   it('throws forbidden errors from deny()', () => {
     expect(() => deny('No dashboard for you.')).toThrow(/No dashboard for you/)
+  })
+
+  it('narrows authenticated principals with requirePrincipal()', () => {
+    const actor: { userId: string } | null = { userId: 'alice' }
+
+    expect(() => requirePrincipal(actor)).not.toThrow()
+    requirePrincipal(actor)
+    expect(actor.userId).toBe('alice')
+    expect(() => requirePrincipal(null)).toThrow(/Not authenticated\./)
   })
 
   it('fails closed in can() when checks throw', () => {

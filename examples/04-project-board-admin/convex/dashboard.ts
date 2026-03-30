@@ -1,10 +1,9 @@
-import { query } from './_generated/server'
+import { guard } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { guard } from 'better-convex-nuxt/auth'
-
-import { canViewAudit } from './auth/checks'
+import { query } from './_generated/server'
 import { getActor } from './auth/actor'
+import { canViewAudit } from './auth/checks'
 
 export const stats = query({
   args: {},
@@ -13,18 +12,20 @@ export const stats = query({
     guard(actor, 'View audit', canViewAudit)
 
     const [projects, tasks] = await Promise.all([
-      ctx.db.query('projects')
-        .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+      ctx.db
+        .query('projects')
+        .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
         .collect(),
-      ctx.db.query('tasks')
-        .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+      ctx.db
+        .query('tasks')
+        .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
         .collect(),
     ])
 
     return {
-      activeProjects: projects.filter(project => project.status === 'active').length,
-      openTasks: tasks.filter(task => task.status !== 'done').length,
-      completedToday: tasks.filter(task => task.status === 'done').length,
+      activeProjects: projects.filter((project) => project.status === 'active').length,
+      openTasks: tasks.filter((task) => task.status !== 'done').length,
+      completedToday: tasks.filter((task) => task.status === 'done').length,
     }
   },
 })
@@ -35,8 +36,9 @@ export const recentActivity = query({
     const actor = await getActor(ctx)
     guard(actor, 'View audit', canViewAudit)
 
-    const events = await ctx.db.query('auditEvents')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+    const events = await ctx.db
+      .query('auditEvents')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
 

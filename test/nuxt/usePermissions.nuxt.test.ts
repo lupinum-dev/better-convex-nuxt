@@ -119,4 +119,41 @@ describe('createAuth (Nuxt runtime)', () => {
     await waitFor(() => result.pushSpy.mock.calls.length > 0)
     expect(result.pushSpy).toHaveBeenCalledWith('/forbidden')
   })
+
+  it('fails closed when the requested capability key is missing', async () => {
+    const convex = new MockConvexClient()
+    const authQuery = mockFnRef<'query'>('auth:getPermissionContext:guard-missing-key')
+    const { useAuthGuard } = createAuth({ query: authQuery })
+
+    const { result } = await captureInNuxt(
+      () => {
+        const router = useRouter()
+        const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
+
+        useAuthGuard({
+          can: 'workspace.audit',
+          redirectTo: '/forbidden',
+        })
+
+        return { pushSpy }
+      },
+      { convex },
+    )
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+    await waitFor(() => result.pushSpy.mock.calls.length > 0)
+    result.pushSpy.mockClear()
+
+    convex.emitQueryResultByPath('auth:getPermissionContext:guard-missing-key', {
+      role: 'member',
+      userId: 'user-1',
+      tenantId: 'tenant-1',
+      can: {
+        'workspace.members': true,
+      },
+    })
+
+    await waitFor(() => result.pushSpy.mock.calls.length > 0)
+    expect(result.pushSpy).toHaveBeenCalledWith('/forbidden')
+  })
 })

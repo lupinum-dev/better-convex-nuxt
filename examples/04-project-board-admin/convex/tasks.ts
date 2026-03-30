@@ -1,8 +1,15 @@
-import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
-
 import { can, deny, guard } from 'better-convex-nuxt/auth'
+import { v } from 'convex/values'
 
+import {
+  assignTask,
+  taskPriorityValidator,
+  taskStatusValidator,
+  createTask,
+  moveTask,
+} from '../shared/schemas/task'
+import { mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
 import {
   canAssignTask,
   canCreateTask,
@@ -11,39 +18,36 @@ import {
   canUpdateTask,
   hasRole,
 } from './auth/checks'
-import { getActor } from './auth/actor'
 import { withCan } from './auth/resource'
 import { loadResource } from './auth/scope'
-import {
-  taskPriorityValidator,
-  taskStatusValidator,
-} from '../shared/schemas/task'
 
 export const listByProject = query({
   args: { projectId: v.id('projects') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
     const tasks = await ctx.db
       .query('tasks')
-      .withIndex('by_project', q => q.eq('projectId', args.projectId))
+      .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
       .order('desc')
       .collect()
 
-    return tasks.map(task => withCan(task, {
-      update: can(actor, canUpdateTask(task)),
-      delete: can(actor, canDeleteTask(task)),
-    }))
+    return tasks.map((task) =>
+      withCan(task, {
+        update: can(actor, canUpdateTask(task)),
+        delete: can(actor, canDeleteTask(task)),
+      }),
+    )
   },
 })
 
 export const get = query({
   args: { id: v.id('tasks') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Read task', canReadTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
@@ -57,13 +61,9 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: {
-    projectId: v.id('projects'),
-    title: v.string(),
-    priority: v.optional(taskPriorityValidator),
-  },
+  args: createTask.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Create task', canCreateTask)
 
     const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
@@ -78,15 +78,15 @@ export const create = mutation({
       title: args.title,
       status: 'backlog',
       priority: args.priority ?? 'medium',
-      ownerId: actor!.userId,
-      workspaceId: actor!.tenantId,
+      ownerId: actor.userId,
+      workspaceId: actor.tenantId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor!.tenantId,
-      actorId: actor!.userId,
+      workspaceId: actor.tenantId,
+      actorId: actor.userId,
       entityType: 'task',
       entityId: taskId,
       action: 'task.created',
@@ -99,12 +99,9 @@ export const create = mutation({
 })
 
 export const moveToColumn = mutation({
-  args: {
-    id: v.id('tasks'),
-    status: taskStatusValidator,
-  },
+  args: moveTask.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
     guard(actor, 'Update task', canUpdateTask(task))
 
@@ -112,8 +109,8 @@ export const moveToColumn = mutation({
     await ctx.db.patch(args.id, { status: args.status, updatedAt: now })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor!.tenantId,
-      actorId: actor!.userId,
+      workspaceId: actor.tenantId,
+      actorId: actor.userId,
       entityType: 'task',
       entityId: args.id,
       action: 'task.moved',
@@ -124,12 +121,9 @@ export const moveToColumn = mutation({
 })
 
 export const assign = mutation({
-  args: {
-    id: v.id('tasks'),
-    assigneeId: v.optional(v.string()),
-  },
+  args: assignTask.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Assign task', canAssignTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
@@ -137,9 +131,9 @@ export const assign = mutation({
     if (args.assigneeId) {
       const assignee = await ctx.db
         .query('users')
-        .withIndex('by_auth_id', q => q.eq('authId', args.assigneeId!))
+        .withIndex('by_auth_id', (q) => q.eq('authId', args.assigneeId!))
         .first()
-      if (!assignee || assignee.workspaceId !== actor!.tenantId) {
+      if (!assignee || assignee.workspaceId !== actor.tenantId) {
         throw deny('Assignee must already belong to this workspace.')
       }
     }
@@ -148,8 +142,8 @@ export const assign = mutation({
     await ctx.db.patch(args.id, { assigneeId: args.assigneeId, updatedAt: now })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor!.tenantId,
-      actorId: actor!.userId,
+      workspaceId: actor.tenantId,
+      actorId: actor.userId,
       entityType: 'task',
       entityId: args.id,
       action: 'task.assigned',
@@ -165,7 +159,7 @@ export const bulkUpdateStatus = mutation({
     status: taskStatusValidator,
   },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
 
     const now = Date.now()
@@ -173,7 +167,7 @@ export const bulkUpdateStatus = mutation({
 
     for (const id of args.ids) {
       const task = await ctx.db.get(id)
-      if (!task || task.workspaceId !== actor!.tenantId) {
+      if (!task || task.workspaceId !== actor.tenantId) {
         results.skipped.push(id)
         continue
       }
@@ -188,8 +182,8 @@ export const bulkUpdateStatus = mutation({
     }
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor!.tenantId,
-      actorId: actor!.userId,
+      workspaceId: actor.tenantId,
+      actorId: actor.userId,
       entityType: 'task',
       entityId: results.skipped.join(',') || 'bulk',
       action: 'task.bulk_status',
@@ -204,14 +198,14 @@ export const bulkUpdateStatus = mutation({
 export const listForExport = query({
   args: { projectId: v.id('projects') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
     return ctx.db
       .query('tasks')
-      .withIndex('by_project', q => q.eq('projectId', args.projectId))
+      .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
       .order('desc')
       .collect()
   },

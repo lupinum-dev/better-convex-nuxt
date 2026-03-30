@@ -4,7 +4,7 @@
  */
 import { v } from 'convex/values'
 
-import { deny, guard } from 'better-convex-nuxt/auth'
+import { deny, guard, requirePrincipal } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -23,10 +23,11 @@ export const list = query({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     guard(actor, 'Read page', isAuthenticated)
+    requirePrincipal(actor)
 
     return ctx.db
       .query('pages')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
   },
@@ -37,33 +38,34 @@ export const seedDemoPages = mutation({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     guard(actor, 'Create page', canCreatePage)
+    requirePrincipal(actor)
 
     const now = Date.now()
     const rootPageId = await ctx.db.insert('pages', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       title: 'Workspace handbook',
       body: 'This page is the root share example.',
       visibility: 'workspace',
-      ownerId: actor!.userId,
+      ownerId: actor.userId,
       createdAt: now,
       updatedAt: now,
     })
 
     const childPageId = await ctx.db.insert('pages', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       title: 'Pricing notes',
       body: 'This child page inherits from the parent.',
       visibility: 'private',
       parentPageId: rootPageId,
-      ownerId: actor!.userId,
+      ownerId: actor.userId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('pageShares', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       pageId: rootPageId,
-      userId: actor!.userId,
+      userId: actor.userId,
       level: 'edit',
       createdAt: now,
     })
@@ -79,12 +81,13 @@ export const createShareToken = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
+    requirePrincipal(actor)
     const page = loadResource(actor, await ctx.db.get(args.pageId), 'Page')
     await requirePageAccess(ctx.db, actor, page._id, 'edit')
 
     const token = createShareTokenValue()
     await ctx.db.insert('shareTokens', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       pageId: page._id,
       token,
       level: args.level,
@@ -116,6 +119,7 @@ export const viewPage = query({
 
     const actor = await getActor(ctx)
     guard(actor, 'View page', isAuthenticated)
+    requirePrincipal(actor)
     const page = loadResource(actor, await ctx.db.get(args.id), 'Page')
     const access = await requirePageAccess(ctx.db, actor, page._id, 'view')
     return {

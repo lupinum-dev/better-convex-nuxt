@@ -1,3 +1,7 @@
+<!--
+Why this file exists:
+This page keeps current-workspace actions and cross-client reporting in the same screen without hiding the boundary between them.
+-->
 <template>
   <main class="page">
     <h1>Example 10: Agency Portal</h1>

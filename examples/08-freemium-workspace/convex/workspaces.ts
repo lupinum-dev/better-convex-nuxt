@@ -1,3 +1,7 @@
+/**
+ * Why this file exists:
+ * Freemium UIs need both static plan flags and current usage, so the context query carries both.
+ */
 import { v } from 'convex/values'
 
 import { can, deny } from 'better-convex-nuxt/auth'

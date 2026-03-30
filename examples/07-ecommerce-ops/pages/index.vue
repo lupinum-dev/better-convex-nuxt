@@ -1,3 +1,7 @@
+<!--
+Why this file exists:
+This page is intentionally simple because the interesting part is shared auth and refund state, not UI depth.
+-->
 <template>
   <main class="page">
     <h1>Example 07: E-Commerce Ops</h1>

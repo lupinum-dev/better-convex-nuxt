@@ -24,8 +24,8 @@ It shows:
 
 ## Module Primitives Used
 
-- `guard`, `deny`
-- `createAuth`
+- `guard`, `can`, `deny`
+- `createAuth` from `better-convex-nuxt/composables`
 - `createTestContext`
 
 ## Files To Read First
@@ -47,4 +47,5 @@ It shows:
 
 - client users stay tenant-scoped
 - agency users only see assigned clients
+- duplicate joins do not create duplicate memberships
 - unassigned clients stay out of the dashboard

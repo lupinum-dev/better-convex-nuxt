@@ -6,32 +6,22 @@
  */
 /// <reference types="vite/client" />
 
- import { describe, expect, it, vi } from 'vitest'
 import { anyApi } from 'convex/server'
+import { describe, expect, it } from 'vitest'
 
 import { createTestContext } from 'better-convex-nuxt/testing'
 
 import schema from './schema'
-
-const modules = import.meta.glob('./**/*.ts')
+import { modules } from './test.setup'
 const api = anyApi
 
-vi.mock('./_generated/server', async () => {
-  const server = await import('convex/server')
-  return {
-    query: server.query,
-    mutation: server.mutation,
-    action: server.action,
-    internalQuery: server.internalQuery,
-    internalMutation: server.internalMutation,
-    internalAction: server.internalAction,
-    httpAction: server.httpAction,
-  }
-})
+function createCtx() {
+  return createTestContext({ schema, modules })
+}
 
 describe('team todo example', () => {
   it('lets a member update their own todo', async () => {
-    const ctx = createTestContext({ schema, modules })
+    const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
@@ -54,7 +44,7 @@ describe('team todo example', () => {
   })
 
   it('blocks a member from updating another member`s todo', async () => {
-    const ctx = createTestContext({ schema, modules })
+    const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
@@ -76,7 +66,7 @@ describe('team todo example', () => {
   })
 
   it('keeps tenants isolated from each other', async () => {
-    const ctx = createTestContext({ schema, modules })
+    const ctx = createCtx()
     const alpha = await ctx.seedTenant({
       name: 'Alpha',
       users: {
@@ -107,7 +97,7 @@ describe('team todo example', () => {
   })
 
   it('applies the same permission rules to service-auth callers', async () => {
-    const ctx = createTestContext({ schema, modules })
+    const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
@@ -126,5 +116,30 @@ describe('team todo example', () => {
         title: 'Should fail',
       }),
     ).rejects.toThrow('Forbidden: Create todo')
+  })
+
+  it('returns permission context booleans for contrasting roles', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        owner: { role: 'owner' },
+        viewer: { role: 'viewer' },
+      },
+    })
+
+    const ownerCtx = await team.users.owner.query(api.organizations.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(api.organizations.getPermissionContext, {})
+
+    expect(ownerCtx?.can['todo.create']).toBe(true)
+    expect(viewerCtx?.can['todo.create']).toBe(false)
+    expect(viewerCtx?.can['todo.read']).toBe(true)
+  })
+
+  it('returns null context and denies protected todo queries for anonymous callers', async () => {
+    const ctx = createCtx()
+
+    await expect(ctx.raw.query(api.organizations.getPermissionContext, {})).resolves.toBeNull()
+    await expect(ctx.raw.query(api.todos.list, {})).rejects.toThrow('Forbidden: Read todos')
   })
 })

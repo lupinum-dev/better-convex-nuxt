@@ -1,3 +1,7 @@
+<!--
+Why this file exists:
+This page puts workspace access and token access side by side so the two auth paths stay easy to compare.
+-->
 <template>
   <main class="page">
     <h1>Example 09: Doc Sharing</h1>

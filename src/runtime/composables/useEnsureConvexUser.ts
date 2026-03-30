@@ -1,4 +1,5 @@
 import type { FunctionReference } from 'convex/server'
+import type { ComputedRef } from 'vue'
 import { computed, ref, watch } from 'vue'
 
 import { useConvexAuth } from './useConvexAuth'
@@ -7,9 +8,14 @@ import { useConvexMutation, type UseConvexMutationReturn } from './useConvexMuta
 type EmptyArgsMutation = FunctionReference<'mutation'>
 
 export interface UseEnsureConvexUserReturn {
-  pending: ReturnType<typeof computed<boolean>>
-  error: ReturnType<typeof computed<Error | null>>
-  ensured: ReturnType<typeof computed<boolean>>
+  pending: ComputedRef<boolean>
+  error: ComputedRef<Error | null>
+  ensured: ComputedRef<boolean>
+}
+
+function isHarmlessBootstrapError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return /already|duplicate|exists/i.test(message)
 }
 
 /**
@@ -45,8 +51,12 @@ export function useEnsureConvexUser<TMutation extends EmptyArgsMutation>(
         await ensureUser({})
         lastEnsuredUserId.value = currentUser.id
       }
-      catch {
-        // Example apps intentionally treat duplicate bootstrap attempts as harmless.
+      catch (error) {
+        if (isHarmlessBootstrapError(error)) {
+          ensureUser.reset()
+          lastEnsuredUserId.value = currentUser.id
+          return
+        }
       }
     },
     { immediate: true },

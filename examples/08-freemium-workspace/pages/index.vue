@@ -1,3 +1,7 @@
+<!--
+Why this file exists:
+This page shows the split between cheap plan context in the UI and real limit checks in handlers.
+-->
 <template>
   <main class="page">
     <h1>Example 08: Freemium Workspace</h1>

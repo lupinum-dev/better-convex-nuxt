@@ -1,10 +1,5 @@
 import { v } from 'convex/values'
-import type {
-  GenericValidator,
-  Infer,
-  ObjectType,
-  PropertyValidators,
-} from 'convex/values'
+import type { GenericValidator, Infer, ObjectType, PropertyValidators } from 'convex/values'
 import { z } from 'zod'
 
 import { validateConvex } from './convex-schema'
@@ -24,6 +19,17 @@ type ValidatorNode = GenericValidator & {
   inner?: GenericValidator
   members?: GenericValidator[]
 }
+
+const serviceAuthValidators = {
+  _serviceKey: v.optional(v.string()),
+  _serviceActor: v.optional(
+    v.object({
+      userId: v.string(),
+      role: v.string(),
+      tenantId: v.optional(v.string()),
+    }),
+  ),
+} satisfies PropertyValidators
 
 export interface SchemaFieldMeta {
   label?: string
@@ -50,6 +56,7 @@ export interface SchemaDefinition<
 > extends StandardSchemaV1<T> {
   readonly description: string | undefined
   readonly validators: V
+  readonly convexValidators: V & typeof serviceAuthValidators
   readonly meta: ResolvedSchemaMeta<V>
   readonly zod: z.ZodObject<{ [K in keyof V]: z.ZodType<Infer<V[K]>> }>
   readonly parse: (input: unknown) => T
@@ -61,7 +68,7 @@ function titleCase(input: string): string {
   return input
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase())
+    .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 function describeValidator(validator: ValidatorNode): string {
@@ -126,9 +133,11 @@ function toZod(validator: GenericValidator): z.ZodTypeAny {
     }
     case 'union': {
       const members = node.members ?? []
-      const literalMembers = members.filter(member => (member as ValidatorNode).kind === 'literal')
+      const literalMembers = members.filter(
+        (member) => (member as ValidatorNode).kind === 'literal',
+      )
       if (literalMembers.length === members.length && literalMembers.length > 0) {
-        const values = literalMembers.map(member => String((member as ValidatorNode).value))
+        const values = literalMembers.map((member) => String((member as ValidatorNode).value))
         base = z.enum([values[0]!, ...values.slice(1)] as [string, ...string[]])
         break
       }
@@ -144,11 +153,7 @@ function toZod(validator: GenericValidator): z.ZodTypeAny {
       }
 
       base = z.union(
-        members.map(member => toZod(member)) as [
-          z.ZodTypeAny,
-          z.ZodTypeAny,
-          ...z.ZodTypeAny[],
-        ],
+        members.map((member) => toZod(member)) as [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]],
       )
       break
     }
@@ -170,13 +175,16 @@ function createResolvedMeta<V extends PropertyValidators>(
       const provided = meta?.[key as keyof V]
       const node = validator as ValidatorNode
 
-      return [key, {
-        label: provided?.label ?? titleCase(key),
-        description: provided?.description ?? describeValidator(node),
-        ...(provided?.examples ? { examples: provided.examples } : {}),
-        ...(provided?.enum ? { enum: provided.enum } : {}),
-        ...(provided?.defaultHint !== undefined ? { defaultHint: provided.defaultHint } : {}),
-      }]
+      return [
+        key,
+        {
+          label: provided?.label ?? titleCase(key),
+          description: provided?.description ?? describeValidator(node),
+          ...(provided?.examples ? { examples: provided.examples } : {}),
+          ...(provided?.enum ? { enum: provided.enum } : {}),
+          ...(provided?.defaultHint !== undefined ? { defaultHint: provided.defaultHint } : {}),
+        },
+      ]
     }),
   ) as ResolvedSchemaMeta<V>['fields']
 
@@ -186,16 +194,18 @@ function createResolvedMeta<V extends PropertyValidators>(
   }
 }
 
-export function defineArgs<V extends PropertyValidators>(
-  definition: {
-    description?: string
-    args: V
-    meta?: InputSchemaMeta<V>
-  },
-): SchemaDefinition<ObjectType<V>, V> {
+export function defineArgs<V extends PropertyValidators>(definition: {
+  description?: string
+  args: V
+  meta?: InputSchemaMeta<V>
+}): SchemaDefinition<ObjectType<V>, V> {
   type T = ObjectType<V>
 
   const objectValidator = v.object(definition.args)
+  const convexValidators = {
+    ...definition.args,
+    ...serviceAuthValidators,
+  } as V & typeof serviceAuthValidators
   const standardProps: StandardSchemaV1Props<T> = {
     version: 1,
     vendor: 'better-convex-nuxt',
@@ -203,7 +213,7 @@ export function defineArgs<V extends PropertyValidators>(
       const issues = validateConvex(objectValidator, value)
       if (issues.length > 0) {
         return {
-          issues: issues.map(issue => ({
+          issues: issues.map((issue) => ({
             message: issue.message,
             path: issue.path,
           })),
@@ -215,11 +225,7 @@ export function defineArgs<V extends PropertyValidators>(
   }
 
   const standard: StandardSchemaV1<T> = { '~standard': standardProps }
-  const resolvedMeta = createResolvedMeta(
-    definition.args,
-    definition.description,
-    definition.meta,
-  )
+  const resolvedMeta = createResolvedMeta(definition.args, definition.description, definition.meta)
 
   const zodShape = Object.fromEntries(
     Object.entries(definition.args).map(([key, validator]) => [key, toZod(validator)]),
@@ -248,6 +254,7 @@ export function defineArgs<V extends PropertyValidators>(
   return {
     description: definition.description,
     validators: definition.args,
+    convexValidators,
     meta: resolvedMeta,
     zod,
     parse,

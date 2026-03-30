@@ -14,6 +14,11 @@ This folder now has two jobs:
 | `03-team-todo` | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#convex/mcp`, `better-convex-nuxt/testing` |
 | `04-project-board-admin` | Month-two product work | Project-management SaaS, pagination, optimistic updates, uploads, Nitro routes, `guard`, `_can`, admin workflows, integration + E2E tests |
 
+If you're here because of shared validators or `shared/` folders rather than auth shape, read:
+
+- [`docs/1.guide/4.shared-schema-dx`](../docs/content/docs/1.guide/4.shared-schema-dx.md)
+- [`docs/13.mcp-tools/2.shared-schema`](../docs/content/docs/13.mcp-tools/2.shared-schema.md)
+
 ## SaaS Coverage Matrix
 
 | Example | SaaS type | Auth shape | Easy problem | Hard problem |

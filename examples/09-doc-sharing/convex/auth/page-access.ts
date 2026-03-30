@@ -1,3 +1,7 @@
+/**
+ * Why this file exists:
+ * Workspace roles are not enough for docs. Page access can be direct, inherited, or both.
+ */
 import { deny } from 'better-convex-nuxt/auth'
 
 import type { DatabaseReader } from '../_generated/server'

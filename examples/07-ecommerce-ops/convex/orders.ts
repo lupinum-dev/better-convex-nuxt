@@ -5,7 +5,7 @@
 import type { GenericMutationCtx } from 'convex/server'
 import { v } from 'convex/values'
 
-import { deny, guard } from 'better-convex-nuxt/auth'
+import { deny, guard, requirePrincipal } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import type { DataModel } from './_generated/dataModel'
@@ -40,10 +40,11 @@ export const list = query({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     guard(actor, 'Read orders', canReadOrders)
+    requirePrincipal(actor)
 
     return ctx.db
       .query('orders')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
   },
@@ -54,10 +55,11 @@ export const seedDemoOrders = mutation({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     guard(actor, 'Refund orders', canRefundOrders)
+    requirePrincipal(actor)
 
     const now = Date.now()
     const fulfilledOrderId = await ctx.db.insert('orders', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       orderNumber: `FUL-${now}`,
       status: 'fulfilled',
       amountCents: 12000,
@@ -67,7 +69,7 @@ export const seedDemoOrders = mutation({
     })
 
     await ctx.db.insert('orders', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       orderNumber: `PEN-${now}`,
       status: 'pending',
       amountCents: 5000,

@@ -4,7 +4,7 @@
  */
 import { mutation, query } from './_generated/server'
 
-import { deny, guard } from 'better-convex-nuxt/auth'
+import { deny, guard, requirePrincipal } from 'better-convex-nuxt/auth'
 
 import { getActor } from './auth/actor'
 import { hasRole } from './auth/checks'
@@ -14,19 +14,20 @@ export const seedDemoCourse = mutation({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     guard(actor, 'Seed course', hasRole('owner', 'admin', 'instructor'))
+    requirePrincipal(actor)
 
     const now = Date.now()
     const courseId = await ctx.db.insert('courses', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       title: 'Nuxt authorization fundamentals',
       status: 'published',
-      ownerId: actor!.userId,
+      ownerId: actor.userId,
       createdAt: now,
       updatedAt: now,
     })
 
     const introLessonId = await ctx.db.insert('lessons', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       courseId,
       title: 'Intro lesson',
       body: 'Start here.',
@@ -36,7 +37,7 @@ export const seedDemoCourse = mutation({
     })
 
     await ctx.db.insert('lessons', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       courseId,
       title: 'Advanced lesson',
       body: 'This lesson is gated.',
@@ -48,7 +49,7 @@ export const seedDemoCourse = mutation({
     })
 
     await ctx.db.insert('lessons', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       courseId,
       title: 'Draft lesson',
       body: 'Still hidden.',
@@ -65,7 +66,7 @@ export const listCourses = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    if (!actor) throw deny('Not authenticated.')
+    requirePrincipal(actor)
 
     return ctx.db
       .query('courses')

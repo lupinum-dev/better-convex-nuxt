@@ -25,12 +25,12 @@ It shows:
 ## Module Primitives Used
 
 - `guard`, `can`, `deny`
-- `createAuth`
+- `createAuth` from `better-convex-nuxt/composables`
 - `createTestContext`
 
 ## Files To Read First
 
-1. `convex/auth/plans.ts`
+1. `convex/auth/checks.ts`
 2. `convex/auth/limits.ts`
 3. `convex/workspaces.ts`
 4. `convex/projects.ts`
@@ -46,5 +46,6 @@ It shows:
 ## Test Focus
 
 - feature flag exposure in permission context
+- feature-gated export denial on free
 - free-tier limit denial
 - upgraded plan passing the same mutation

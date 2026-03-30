@@ -7,7 +7,7 @@ It shows:
 - role checks for staff
 - enrollment-based access for students
 - prerequisite and timed-unlock guards
-- backend-owned permission context via `createAuth()`
+- backend-owned permission context exposed to Nuxt through `createAuth` from `better-convex-nuxt/composables`
 
 ## Auth Shape
 
@@ -27,7 +27,7 @@ It shows:
 ## Module Primitives Used
 
 - `guard`, `can`, `deny`
-- `createAuth`
+- `createAuth` from `better-convex-nuxt/composables`
 - `createTestContext`
 
 ## Files To Read First
@@ -49,5 +49,6 @@ It shows:
 
 - enrolled access
 - missing enrollment denial
+- prerequisite completion unlock
 - prerequisite denial
 - unpublished lesson denial

@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { anyApi } from 'convex/server'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { createTestContext } from 'better-convex-nuxt/testing'
 
@@ -9,19 +9,6 @@ import schema from './schema'
 import { modules } from './test.setup'
 
 const api = anyApi
-
-vi.mock('./_generated/server', async () => {
-  const server = await import('convex/server')
-  return {
-    query: server.query,
-    mutation: server.mutation,
-    action: server.action,
-    internalQuery: server.internalQuery,
-    internalMutation: server.internalMutation,
-    internalAction: server.internalAction,
-    httpAction: server.httpAction,
-  }
-})
 
 function createCtx() {
   return createTestContext({
@@ -119,5 +106,54 @@ describe('lms example', () => {
     await expect(
       team.users.student.query(api.lessons.getLesson, { id: draftLesson!._id }),
     ).rejects.toThrow('Lesson not available.')
+  })
+
+  it('unlocks the advanced lesson after the prerequisite is completed', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Academy',
+      users: {
+        owner: { role: 'owner' },
+        student: { role: 'student' },
+      },
+    })
+
+    const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
+    const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
+    const introLesson = lessons.find(lesson => lesson.title === 'Intro lesson')
+    const advancedLesson = lessons.find(lesson => lesson.title === 'Advanced lesson')
+
+    await team.users.student.mutation(api.lessons.enrollSelf, { courseId })
+    const listedLessons = await team.users.student.query(api.lessons.listLessonsByCourse, { courseId })
+    expect(listedLessons.map(lesson => lesson.title)).toEqual(['Intro lesson', 'Advanced lesson'])
+
+    await team.users.student.mutation(api.lessons.completeLesson, { lessonId: introLesson!._id })
+    const lesson = await team.users.student.query(api.lessons.getLesson, { id: advancedLesson!._id })
+    expect(lesson.title).toBe('Advanced lesson')
+  })
+
+  it('returns permission context booleans for staff and students', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Academy',
+      users: {
+        owner: { role: 'owner' },
+        student: { role: 'student' },
+      },
+    })
+
+    const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
+    const studentCtx = await team.users.student.query(api.workspaces.getPermissionContext, {})
+
+    expect(ownerCtx?.can['course.seed']).toBe(true)
+    expect(studentCtx?.can['course.seed']).toBe(false)
+    expect(studentCtx?.can['lesson.read']).toBe(true)
+  })
+
+  it('returns null context and rejects protected lesson queries for anonymous callers', async () => {
+    const ctx = createCtx()
+
+    await expect(ctx.raw.query(api.workspaces.getPermissionContext, {})).resolves.toBeNull()
+    await expect(ctx.raw.query(api.courses.listCourses, {})).rejects.toThrow('Not authenticated.')
   })
 })

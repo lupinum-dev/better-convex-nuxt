@@ -1,21 +1,11 @@
-import { mutation, query } from './_generated/server'
-
 import { can, guard } from 'better-convex-nuxt/auth'
 
-import {
-  canCreateTodo,
-  canDeleteTodo,
-  canReadTodo,
-  canUpdateTodo,
-} from './auth/checks'
+import { createTodo, deleteTodo, setTodoCompleted } from '../shared/schemas/todo'
+import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
+import { canCreateTodo, canDeleteTodo, canReadTodo, canUpdateTodo } from './auth/checks'
 import { withCan } from './auth/resource'
 import { ensureFound, ensureTenant } from './auth/scope'
-import {
-  createTodo,
-  deleteTodo,
-  setTodoCompleted,
-} from '../shared/schemas/todo'
 
 export const list = query({
   args: {},
@@ -23,22 +13,25 @@ export const list = query({
     const actor = await getActor(ctx)
     guard(actor, 'Read todos', canReadTodo)
 
-    const todos = await ctx.db.query('todos')
-      .withIndex('by_organization', q => q.eq('organizationId', actor!.tenantId))
+    const todos = await ctx.db
+      .query('todos')
+      .withIndex('by_organization', (q) => q.eq('organizationId', actor.tenantId))
       .order('desc')
       .collect()
 
-    return todos.map(todo => withCan(todo, {
-      update: can(actor, canUpdateTodo(todo)),
-      delete: can(actor, canDeleteTodo(todo)),
-    }))
+    return todos.map((todo) =>
+      withCan(todo, {
+        update: can(actor, canUpdateTodo(todo)),
+        delete: can(actor, canDeleteTodo(todo)),
+      }),
+    )
   },
 })
 
 export const get = query({
-  args: deleteTodo.validators,
+  args: deleteTodo.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Read todos', canReadTodo)
 
     const todo = await ctx.db.get(args.id)
@@ -52,25 +45,25 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: createTodo.validators,
+  args: createTodo.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Create todo', canCreateTodo)
 
     return ctx.db.insert('todos', {
       title: args.title,
       completed: false,
-      ownerId: actor!.userId,
-      organizationId: actor!.tenantId,
+      ownerId: actor.userId,
+      organizationId: actor.tenantId,
       createdAt: Date.now(),
     })
   },
 })
 
 export const setCompleted = mutation({
-  args: setTodoCompleted.validators,
+  args: setTodoCompleted.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     const todo = await ctx.db.get(args.id)
     ensureFound(todo, 'Todo')
     ensureTenant(actor, todo)
@@ -83,9 +76,9 @@ export const setCompleted = mutation({
 })
 
 export const remove = mutation({
-  args: deleteTodo.validators,
+  args: deleteTodo.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     const todo = await ctx.db.get(args.id)
     ensureFound(todo, 'Todo')
     ensureTenant(actor, todo)

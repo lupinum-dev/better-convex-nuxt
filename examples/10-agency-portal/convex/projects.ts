@@ -4,7 +4,7 @@
  */
 import { v } from 'convex/values'
 
-import { deny, guard } from 'better-convex-nuxt/auth'
+import { deny, guard, requirePrincipal } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -14,7 +14,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    if (!actor) throw deny('Not authenticated.')
+    requirePrincipal(actor)
 
     return ctx.db
       .query('projects')
@@ -29,9 +29,10 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     guard(actor, 'Create project', hasRole('owner', 'member'))
+    requirePrincipal(actor)
 
     return ctx.db.insert('projects', {
-      workspaceId: actor!.tenantId,
+      workspaceId: actor.tenantId,
       name: args.name,
       status: 'active',
       createdAt: Date.now(),

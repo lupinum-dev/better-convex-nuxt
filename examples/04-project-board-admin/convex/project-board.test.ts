@@ -5,8 +5,8 @@
  */
 /// <reference types="vite/client" />
 
-import { describe, expect, it, vi } from 'vitest'
 import { anyApi } from 'convex/server'
+import { describe, expect, it } from 'vitest'
 
 import { createTestContext } from 'better-convex-nuxt/testing'
 
@@ -14,19 +14,6 @@ import schema from './schema'
 import { modules } from './test.setup'
 
 const api = anyApi
-
-vi.mock('./_generated/server', async () => {
-  const server = await import('convex/server')
-  return {
-    query: server.query,
-    mutation: server.mutation,
-    action: server.action,
-    internalQuery: server.internalQuery,
-    internalMutation: server.internalMutation,
-    internalAction: server.internalAction,
-    httpAction: server.httpAction,
-  }
-})
 
 function createCtx() {
   return createTestContext({
@@ -358,5 +345,36 @@ describe('project board example', () => {
         priority: 'medium',
       }),
     ).rejects.toThrow('Forbidden: Create task')
+  })
+
+  it('returns permission context booleans for owners and viewers', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        owner: { role: 'owner' },
+        viewer: { role: 'viewer' },
+      },
+    })
+
+    const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
+
+    expect(ownerCtx?.can['task.create']).toBe(true)
+    expect(ownerCtx?.can['workspace.members']).toBe(true)
+    expect(viewerCtx?.can['task.create']).toBe(false)
+    expect(viewerCtx?.can['workspace.members']).toBe(false)
+  })
+
+  it('returns null context and rejects protected mutations for anonymous callers', async () => {
+    const ctx = createCtx()
+
+    await expect(ctx.raw.query(api.workspaces.getPermissionContext, {})).resolves.toBeNull()
+    await expect(
+      ctx.raw.mutation(api.projects.create, {
+        name: 'Anonymous project',
+        summary: 'Should fail',
+      }),
+    ).rejects.toThrow('Forbidden: Create project')
   })
 })

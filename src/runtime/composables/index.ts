@@ -99,6 +99,8 @@ export {
   createAuth,
   type AuthContext,
   type CreateAuthOptions,
+  type InferredAuthContext,
+  type PermissionKey,
   type UsePermissionsReturn,
   type UseAuthGuardOptions,
 } from './usePermissions'

@@ -1,36 +1,32 @@
-import { mutation, query } from './_generated/server'
+import { guard } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { deny, guard } from 'better-convex-nuxt/auth'
-
-import { canComment } from './auth/checks'
+import { createComment } from '../shared/schemas/comment'
+import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
+import { canComment } from './auth/checks'
 import { loadResource } from './auth/scope'
 
 export const listByTask = query({
   args: { taskId: v.id('tasks') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Read comments', canComment)
 
     loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 
     return ctx.db
       .query('comments')
-      .withIndex('by_task', q => q.eq('taskId', args.taskId))
+      .withIndex('by_task', (q) => q.eq('taskId', args.taskId))
       .order('asc')
       .collect()
   },
 })
 
 export const create = mutation({
-  args: {
-    taskId: v.id('tasks'),
-    body: v.string(),
-    attachmentStorageId: v.optional(v.id('_storage')),
-  },
+  args: createComment.convexValidators,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     guard(actor, 'Create comment', canComment)
 
     const task = loadResource(actor, await ctx.db.get(args.taskId), 'Task')
@@ -45,15 +41,15 @@ export const create = mutation({
       taskId: args.taskId,
       body: args.body,
       attachmentStorageId: args.attachmentStorageId,
-      ownerId: actor!.userId,
-      workspaceId: actor!.tenantId,
+      ownerId: actor.userId,
+      workspaceId: actor.tenantId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor!.tenantId,
-      actorId: actor!.userId,
+      workspaceId: actor.tenantId,
+      actorId: actor.userId,
       entityType: 'comment',
       entityId: commentId,
       action: 'comment.created',

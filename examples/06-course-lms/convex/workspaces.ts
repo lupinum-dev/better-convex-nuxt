@@ -1,3 +1,8 @@
+/**
+ * Why this file exists:
+ * The permission-context query stays small so the UI can read role-level capabilities without
+ * re-implementing lesson logic in the browser.
+ */
 import { v } from 'convex/values'
 
 import { can, deny } from 'better-convex-nuxt/auth'

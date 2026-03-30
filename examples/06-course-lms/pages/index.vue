@@ -1,3 +1,7 @@
+<!--
+Why this file exists:
+This page keeps the LMS UI small so the lesson-access chain stays visible while you click around.
+-->
 <template>
   <main class="page">
     <h1>Example 06: Course LMS</h1>
