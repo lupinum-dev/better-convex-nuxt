@@ -1,11 +1,8 @@
-export { createScoped, type ScopedFn } from './create-scoped'
 export { extractScopedTables } from './extract-scoped-tables'
+export { createScopedReader, createScopedWriter, resolveScopedTableForId } from './scoped-db'
 export { ScopingError, type ScopingErrorCode } from './errors'
 export type {
-  CreateScopedOptions,
+  AutocompleteString,
   ScopedReader,
   ScopedWriter,
-  ScopedQueryResult,
-  ScopedMutationResult,
-  ScopedResult,
 } from './types'

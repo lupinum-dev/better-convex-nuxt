@@ -18,58 +18,44 @@
  * ```
  */
 
-import type { FunctionReference } from 'convex/server'
+import type { FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter, useRuntimeConfig } from '#imports'
 
+import type {
+  CheckPermissionFn,
+  PermissionContext,
+} from '../convex/define-permissions'
 import { createConvexQueryState } from './useConvexQuery'
+
+export type {
+  CheckPermissionFn,
+  PermissionContext,
+  Resource,
+} from '../convex/define-permissions'
 
 // ============================================
 // TYPES
 // ============================================
 
 /**
- * Permission context returned by user's getPermissionContext query.
- * Must include at least role and userId.
- */
-export interface PermissionContext {
-  role: string
-  userId: string
-  orgId?: string
-  [key: string]: unknown
-}
-
-/**
- * Resource with optional ownership information.
- */
-export interface Resource {
-  ownerId?: string
-  [key: string]: unknown
-}
-
-/**
- * Check permission function signature.
- * User provides this from their permissions.config.ts
- */
-export type CheckPermissionFn<TPermission extends string = string> = (
-  ctx: { role: string; userId: string } | null,
-  permission: TPermission,
-  resource?: Resource,
-) => boolean
-
-/**
  * Options for createPermissions factory.
  */
 export interface CreatePermissionsOptions<
   TPermission extends string = string,
-  _TContext extends PermissionContext = PermissionContext,
+  Query extends FunctionReference<'query'> = FunctionReference<'query'>,
+  TRole extends string = string,
+  _TContext extends PermissionContext<TRole> =
+    FunctionReturnType<Query> extends PermissionContext<TRole>
+      ? FunctionReturnType<Query>
+      : PermissionContext<TRole>,
 > {
   /** Convex query that returns permission context (role, userId, orgId, etc.) */
-  query: FunctionReference<'query'>
+  query: Query
   /** Permission checking function from permissions.config.ts */
-  checkPermission: CheckPermissionFn<TPermission>
+  checkPermission: CheckPermissionFn<TPermission, TRole>
 }
 
 /**
@@ -77,14 +63,15 @@ export interface CreatePermissionsOptions<
  */
 export interface UsePermissionsReturn<
   TPermission extends string = string,
-  TContext extends PermissionContext = PermissionContext,
+  TRole extends string = string,
+  TContext extends PermissionContext<TRole> = PermissionContext<TRole>,
 > {
   /** Check if user has a specific permission (reactive) */
-  can: (permission: TPermission, resource?: Resource) => ComputedRef<boolean>
+  can: (permission: TPermission, resource?: Record<string, unknown>) => ComputedRef<boolean>
   /** Current user's permission context */
   user: ComputedRef<TContext | null>
   /** Current user's role */
-  role: ComputedRef<string | null>
+  role: ComputedRef<TContext['role'] | null>
   /** Current user's organization ID */
   orgId: ComputedRef<string | null>
   /** Whether user is authenticated with valid permission context */
@@ -102,7 +89,7 @@ export interface UsePermissionGuardOptions<TPermission extends string = string> 
   /** Path to redirect if permission denied */
   redirectTo?: RouteLocationRaw
   /** Resource to check ownership against */
-  resource?: Resource
+  resource?: Record<string, unknown>
   /** Path to redirect if not authenticated */
   loginPath?: RouteLocationRaw
 }
@@ -129,8 +116,13 @@ export interface UsePermissionGuardOptions<TPermission extends string = string> 
  */
 export function createPermissions<
   TPermission extends string = string,
-  TContext extends PermissionContext = PermissionContext,
->(options: CreatePermissionsOptions<TPermission, TContext>) {
+  Query extends FunctionReference<'query'> = FunctionReference<'query'>,
+  TRole extends string = string,
+  TContext extends PermissionContext<TRole> =
+    FunctionReturnType<Query> extends PermissionContext<TRole>
+      ? FunctionReturnType<Query>
+      : PermissionContext<TRole>,
+>(options: CreatePermissionsOptions<TPermission, Query, TRole, TContext>) {
   const { query, checkPermission } = options
 
   /**
@@ -148,7 +140,7 @@ export function createPermissions<
    * </template>
    * ```
    */
-  function usePermissions(): UsePermissionsReturn<TPermission, TContext> {
+  function usePermissions(): UsePermissionsReturn<TPermission, TRole, TContext> {
     // Fetch permission context from Convex
     const {
       data: permissionContext,
@@ -170,7 +162,7 @@ export function createPermissions<
     })
 
     // Permission check function (returns reactive ComputedRef)
-    function can(permission: TPermission, resource?: Resource): ComputedRef<boolean> {
+    function can(permission: TPermission, resource?: Record<string, unknown>): ComputedRef<boolean> {
       return computed(() => checkPermission(ctx.value, permission, resource))
     }
 

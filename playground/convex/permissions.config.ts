@@ -5,13 +5,20 @@
  * and the shared checkPermission() function used by both frontend and backend.
  */
 
+import {
+  definePermissions,
+  type InferPermission,
+  type InferRole,
+  type PermissionContext,
+  type Resource,
+} from '../../src/runtime/convex'
+
 // ============================================
 // ROLES
 // ============================================
 // Ordered from most to least privileged
 
 export const ROLES = ['owner', 'admin', 'member', 'viewer'] as const
-export type Role = (typeof ROLES)[number]
 
 // ============================================
 // PERMISSIONS CONFIG
@@ -71,40 +78,15 @@ export const permissions = {
 // ============================================
 // TYPES (auto-generated from config)
 // ============================================
-
-type GlobalPermission = keyof (typeof permissions)['global']
-
-type PostPermission = `post.${keyof (typeof permissions)['post']}`
-type CommentPermission = `comment.${keyof (typeof permissions)['comment']}`
-type SettingsBillingPermission =
-  `settings.billing.${keyof (typeof permissions)['settings.billing']}`
-
-// Add new resource types here as you add them to config
-export type Permission =
-  | GlobalPermission
-  | PostPermission
-  | CommentPermission
-  | SettingsBillingPermission
-
-// ============================================
-// PERMISSION CONTEXT
-// ============================================
-// This is what we need to check permissions.
-// Fetched once and passed around.
-
-export interface PermissionContext {
-  role: Role
-  userId: string // authId from auth provider
+type PermissionShape = {
+  roles: typeof ROLES
+  permissions: typeof permissions
 }
 
-// ============================================
-// RESOURCE INTERFACE
-// ============================================
-// Resources need these fields for ownership checks.
-
-export interface Resource {
-  ownerId?: string
-}
+export type Role = InferRole<PermissionShape>
+export type Permission = InferPermission<PermissionShape>
+export type { PermissionContext, Resource } from '../../src/runtime/convex'
+type GlobalPermission = Extract<keyof (typeof permissions)['global'], string>
 
 // ============================================
 // CHECK PERMISSION
@@ -118,7 +100,7 @@ export interface Resource {
 type PermissionRule = { roles: readonly Role[] } | { own: readonly Role[]; any: readonly Role[] }
 
 export function checkPermission(
-  ctx: PermissionContext | null,
+  ctx: PermissionContext<Role> | null,
   permission: Permission,
   resource?: Resource,
 ): boolean {
@@ -175,8 +157,8 @@ export function checkPermission(
   return false
 }
 
-export const permissionConfig = {
+export const permissionConfig = definePermissions({
   roles: ROLES,
   permissions,
   checkPermission,
-} as const
+})

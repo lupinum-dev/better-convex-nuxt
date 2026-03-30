@@ -20,14 +20,17 @@ import {
   createTryResolveActor,
 } from '../actor/resolve-actor'
 import type { Actor, ActorConfig, ArgsWithServiceAuth } from '../actor/types'
+import type { CheckPermissionFn } from './define-permissions'
 import {
   createScopedReader,
   createScopedWriter,
+  resolveScopedTableForId,
 } from '../scoping/scoped-db'
+import type { ScopedReader, ScopedWriter } from '../scoping/types'
 
-export function defineActorConfig<TCtx = AnyCtx>(
-  config: ActorConfig<TCtx>,
-): ActorConfig<TCtx> {
+export function defineActorConfig<TCtx = AnyCtx, TRole extends string = string>(
+  config: ActorConfig<TCtx, TRole>,
+): ActorConfig<TCtx, TRole> {
   return config
 }
 
@@ -39,21 +42,22 @@ export interface TableMeta {
   }
 }
 
-export interface PermissionsConfig<Permission extends string = string> {
-  checkPermission: (
-    ctx: { role: string, userId: string } | null,
-    permission: Permission,
-    resource?: { ownerId?: string, [key: string]: unknown },
-  ) => boolean
+export interface PermissionsConfig<
+  Permission extends string = string,
+  Role extends string = string,
+> {
+  checkPermission: CheckPermissionFn<Permission, Role>
 }
 
 export interface CreateFunctionsOptions<
+  TSchema extends Record<string, TableMeta | undefined> = Record<never, never>,
   Permission extends string = string,
+  Role extends string = string,
   TActorCtx = unknown,
 > {
-  schema?: Record<string, TableMeta | undefined>
-  permissions?: PermissionsConfig<Permission>
-  actor: ActorConfig<TActorCtx>
+  schema?: TSchema
+  permissions?: PermissionsConfig<Permission, Role>
+  actor: ActorConfig<TActorCtx, Role>
   tenant?: {
     orgField: string
     orgIdFrom?: 'actor' | 'args'
@@ -68,13 +72,18 @@ type QueryDb = GenericDatabaseReader<GenericDataModel>
 type MutationDb = GenericDatabaseWriter<GenericDataModel>
 type AnyDb = QueryDb | MutationDb
 
-type ResourceRef = GenericId<string> | { table: string, id: GenericId<string> }
+type SchemaMap = Record<string, TableMeta | undefined>
+type TableName<TSchema extends SchemaMap> = keyof TSchema & string
 
-type ServiceActorArgs = {
+type ResourceRef<KnownTableName extends string> =
+  | GenericId<string>
+  | { table: KnownTableName, id: GenericId<KnownTableName> }
+
+type ServiceActorArgs<Role extends string> = {
   _serviceKey?: string
   _serviceActor?: {
     userId: string
-    role: string
+    role: Role
     orgId?: string
   }
 }
@@ -95,58 +104,46 @@ function stripServiceArgs<TArgs extends Record<string, unknown>>(
   return clean as Omit<TArgs, '_serviceKey' | '_serviceActor'>
 }
 
-function extractScopedTables(
-  schema: Record<string, TableMeta | undefined> | undefined,
-): string[] {
+function extractScopedTables<TSchema extends SchemaMap>(
+  schema: TSchema | undefined,
+): TableName<TSchema>[] {
   if (!schema) return []
   return Object.entries(schema)
     .filter(([, meta]) => meta?.tenant?.scoped === true)
-    .map(([tableName]) => tableName)
+    .map(([tableName]) => tableName as TableName<TSchema>)
 }
 
-function extractTableMeta(
-  schema: Record<string, TableMeta | undefined> | undefined,
-  tableName: string | null,
+function extractTableMeta<TSchema extends SchemaMap>(
+  schema: TSchema | undefined,
+  tableName: TableName<TSchema> | null,
 ): TableMeta | undefined {
   if (!schema || !tableName) return undefined
   return schema[tableName]
 }
 
-function resolveScopedTableForId(
-  db: GenericDatabaseReader<GenericDataModel>,
-  id: GenericId<string>,
-  scopedTables: readonly string[],
-): string | null {
-  const rawId = String(id)
-  for (const table of scopedTables) {
-    if (db.normalizeId(table as never, rawId) !== null) {
-      return table
-    }
-  }
-  return null
-}
-
-function resolveOrgId(
-  actor: Actor,
+function requireOrgId<Role extends string>(
+  actor: Actor<Role>,
   args: Record<string, unknown>,
   tenant: NonNullable<CreateFunctionsOptions['tenant']>,
-): string | undefined {
-  if (tenant.orgIdFrom === 'args') {
-    const fromArgs = args[tenant.orgField]
-    return typeof fromArgs === 'string' ? fromArgs : undefined
-  }
+): string {
+  const orgId = tenant.orgIdFrom === 'args'
+    ? (typeof args[tenant.orgField] === 'string' ? args[tenant.orgField] as string : undefined)
+    : actor.orgId
 
-  return actor.orgId
+  if (!orgId) {
+    throw new Error('Organization membership required.')
+  }
+  return orgId
 }
 
-async function loadResource(
+async function loadResource<TSchema extends SchemaMap>(
   ctx: AnyCtx,
   options: {
-    schema: Record<string, TableMeta | undefined> | undefined
-    scopedTables: readonly string[]
+    schema: TSchema | undefined
+    scopedTables: readonly TableName<TSchema>[]
     tenant: NonNullable<CreateFunctionsOptions['tenant']>
     orgId: string
-    resolver: (args: Record<string, unknown>) => ResourceRef
+    resolver: (args: Record<string, unknown>) => ResourceRef<TableName<TSchema>>
     args: Record<string, unknown>
   },
 ): Promise<Record<string, unknown>> {
@@ -172,18 +169,22 @@ async function loadResource(
   return doc as Record<string, unknown>
 }
 
+// ---------------------------------------------------------------------------
+// Context shapes
+// ---------------------------------------------------------------------------
+
 type PublicContext<TDb extends AnyDb> = {
   db: TDb
 }
 
-type OpenContext<TDb extends AnyDb> = {
+type OpenContext<TDb extends AnyDb, Role extends string> = {
   db: TDb
-  actor: Actor | null
+  actor: Actor<Role> | null
 }
 
-type AuthedContext<TDb extends AnyDb> = {
+type AuthedContext<TDb extends AnyDb, Role extends string> = {
   db: TDb
-  actor: Actor
+  actor: Actor<Role>
 }
 
 type RawContext<TCtx extends AnyCtx, TDb extends AnyDb> = {
@@ -191,14 +192,18 @@ type RawContext<TCtx extends AnyCtx, TDb extends AnyDb> = {
   db: TDb
 }
 
-type ScopedContext<TCtx extends AnyCtx> = {
+type ScopedContext<TCtx extends AnyCtx, Role extends string, KnownTableName extends string> = {
   db: TCtx extends MutationCtx
-    ? ReturnType<typeof createScopedWriter>
-    : ReturnType<typeof createScopedReader>
-  actor: Actor & { orgId: string }
+    ? ScopedWriter<KnownTableName>
+    : ScopedReader<KnownTableName>
+  actor: Actor<Role> & { orgId: string }
   raw: RawContext<TCtx, TCtx['db']>
   resource?: Record<string, unknown>
 }
+
+// ---------------------------------------------------------------------------
+// Builder option types
+// ---------------------------------------------------------------------------
 
 export interface PublicBuilderOptions<ArgsValidator extends PropertyValidators, TCtx extends AnyCtx> {
   args: ArgsValidator
@@ -208,10 +213,14 @@ export interface PublicBuilderOptions<ArgsValidator extends PropertyValidators, 
   ) => Promise<unknown> | unknown
 }
 
-export interface OpenBuilderOptions<ArgsValidator extends PropertyValidators, TCtx extends AnyCtx> {
+export interface OpenBuilderOptions<
+  ArgsValidator extends PropertyValidators,
+  Role extends string,
+  TCtx extends AnyCtx,
+> {
   args: ArgsValidator
   handler: (
-    ctx: OpenContext<TCtx['db']>,
+    ctx: OpenContext<TCtx['db'], Role>,
     args: ObjectType<ArgsValidator>,
   ) => Promise<unknown> | unknown
 }
@@ -219,12 +228,13 @@ export interface OpenBuilderOptions<ArgsValidator extends PropertyValidators, TC
 export interface AuthedBuilderOptions<
   ArgsValidator extends PropertyValidators,
   Permission extends string,
+  Role extends string,
   TCtx extends AnyCtx,
 > {
   args: ArgsValidator
   require?: Permission
   handler: (
-    ctx: AuthedContext<TCtx['db']>,
+    ctx: AuthedContext<TCtx['db'], Role>,
     args: ObjectType<ArgsValidator>,
   ) => Promise<unknown> | unknown
 }
@@ -232,22 +242,32 @@ export interface AuthedBuilderOptions<
 export interface ScopedBuilderOptions<
   ArgsValidator extends PropertyValidators,
   Permission extends string,
+  Role extends string,
+  KnownTableName extends string,
   TCtx extends AnyCtx,
 > {
   args: ArgsValidator
   require?: Permission
-  resource?: (args: ObjectType<ArgsValidator>) => ResourceRef
+  resource?: (args: ObjectType<ArgsValidator>) => ResourceRef<KnownTableName>
   handler: (
-    ctx: ScopedContext<TCtx>,
+    ctx: ScopedContext<TCtx, Role, KnownTableName>,
     args: ObjectType<ArgsValidator>,
   ) => Promise<unknown> | unknown
 }
 
+// ---------------------------------------------------------------------------
+// Factory
+// ---------------------------------------------------------------------------
+
+type Registrar = typeof queryGeneric | typeof mutationGeneric
+
 export function createFunctions<
+  TSchema extends SchemaMap = Record<never, never>,
   Permission extends string = string,
+  Role extends string = string,
   TActorCtx = unknown,
 >(
-  options: CreateFunctionsOptions<Permission, TActorCtx>,
+  options: CreateFunctionsOptions<TSchema, Permission, Role, TActorCtx>,
 ) {
   const tryResolveActor = createTryResolveActor(options.actor)
   const resolveActor = createResolveActor(options.actor)
@@ -259,12 +279,15 @@ export function createFunctions<
   }
 
   function checkPermission(
-    actor: Actor,
+    actor: Actor<Role>,
     permission: Permission | undefined,
     resource?: Record<string, unknown>,
   ) {
     if (!permission) return
-    const allowed = options.permissions?.checkPermission(
+    if (!options.permissions) {
+      throw new Error(`Permission "${permission}" required but no permissions config provided.`)
+    }
+    const allowed = options.permissions.checkPermission(
       { role: actor.role, userId: actor.userId },
       permission,
       resource,
@@ -274,39 +297,32 @@ export function createFunctions<
     }
   }
 
-  function publicQuery<ArgsValidator extends PropertyValidators>(
-    config: PublicBuilderOptions<ArgsValidator, QueryCtx>,
+  // -- Shared handler builders ------------------------------------------------
+
+  function buildPublic<ArgsValidator extends PropertyValidators>(
+    registrar: Registrar,
+    config: PublicBuilderOptions<ArgsValidator, AnyCtx>,
   ) {
-    return queryGeneric({
+    return registrar({
       args: config.args,
-      handler: async (ctx: QueryCtx, args: ObjectType<ArgsValidator>) => {
+      handler: async (ctx: AnyCtx, args: ObjectType<ArgsValidator>) => {
         return await config.handler({ db: ctx.db }, args)
       },
     })
   }
 
-  function publicMutation<ArgsValidator extends PropertyValidators>(
-    config: PublicBuilderOptions<ArgsValidator, MutationCtx>,
+  function buildOpen<ArgsValidator extends PropertyValidators>(
+    registrar: Registrar,
+    config: OpenBuilderOptions<ArgsValidator, Role, AnyCtx>,
   ) {
-    return mutationGeneric({
-      args: config.args,
-      handler: async (ctx: MutationCtx, args: ObjectType<ArgsValidator>) => {
-        return await config.handler({ db: ctx.db }, args)
-      },
-    })
-  }
-
-  function openQuery<ArgsValidator extends PropertyValidators>(
-    config: OpenBuilderOptions<ArgsValidator, QueryCtx>,
-  ) {
-    return queryGeneric({
+    return registrar({
       args: { ...config.args, ...serviceAuthArgs },
       handler: (async (
-        ctx: QueryCtx,
-        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs]
+        ctx: AnyCtx,
+        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs<Role>]
       ) => {
-        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs
-        const actor = await tryResolveActor(ctx, args as ArgsWithServiceAuth)
+        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs<Role>
+        const actor = await tryResolveActor(ctx, args as ArgsWithServiceAuth<Role>)
         return await config.handler(
           { db: ctx.db, actor },
           stripServiceArgs(args as Record<string, unknown>) as ObjectType<ArgsValidator>,
@@ -315,36 +331,18 @@ export function createFunctions<
     })
   }
 
-  function openMutation<ArgsValidator extends PropertyValidators>(
-    config: OpenBuilderOptions<ArgsValidator, MutationCtx>,
+  function buildAuthed<ArgsValidator extends PropertyValidators>(
+    registrar: Registrar,
+    config: AuthedBuilderOptions<ArgsValidator, Permission, Role, AnyCtx>,
   ) {
-    return mutationGeneric({
+    return registrar({
       args: { ...config.args, ...serviceAuthArgs },
       handler: (async (
-        ctx: MutationCtx,
-        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs]
+        ctx: AnyCtx,
+        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs<Role>]
       ) => {
-        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs
-        const actor = await tryResolveActor(ctx, args as ArgsWithServiceAuth)
-        return await config.handler(
-          { db: ctx.db, actor },
-          stripServiceArgs(args as Record<string, unknown>) as ObjectType<ArgsValidator>,
-        )
-      }) as never,
-    })
-  }
-
-  function authedQuery<ArgsValidator extends PropertyValidators>(
-    config: AuthedBuilderOptions<ArgsValidator, Permission, QueryCtx>,
-  ) {
-    return queryGeneric({
-      args: { ...config.args, ...serviceAuthArgs },
-      handler: (async (
-        ctx: QueryCtx,
-        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs]
-      ) => {
-        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs
-        const actor = await resolveActor(ctx, args as ArgsWithServiceAuth)
+        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs<Role>
+        const actor = await resolveActor(ctx, args as ArgsWithServiceAuth<Role>)
         const cleanArgs = stripServiceArgs(args as Record<string, unknown>) as ObjectType<ArgsValidator>
         checkPermission(actor, config.require)
         return await config.handler({ db: ctx.db, actor }, cleanArgs)
@@ -352,40 +350,20 @@ export function createFunctions<
     })
   }
 
-  function authedMutation<ArgsValidator extends PropertyValidators>(
-    config: AuthedBuilderOptions<ArgsValidator, Permission, MutationCtx>,
+  function buildScoped<ArgsValidator extends PropertyValidators>(
+    registrar: Registrar,
+    config: ScopedBuilderOptions<ArgsValidator, Permission, Role, TableName<TSchema>, AnyCtx>,
   ) {
-    return mutationGeneric({
+    return registrar({
       args: { ...config.args, ...serviceAuthArgs },
       handler: (async (
-        ctx: MutationCtx,
-        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs]
+        ctx: AnyCtx,
+        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs<Role>]
       ) => {
-        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs
-        const actor = await resolveActor(ctx, args as ArgsWithServiceAuth)
+        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs<Role>
+        const actor = await requireActor(ctx, args as ArgsWithServiceAuth<Role>)
         const cleanArgs = stripServiceArgs(args as Record<string, unknown>) as ObjectType<ArgsValidator>
-        checkPermission(actor, config.require)
-        return await config.handler({ db: ctx.db, actor }, cleanArgs)
-      }) as never,
-    })
-  }
-
-  function scopedQuery<ArgsValidator extends PropertyValidators>(
-    config: ScopedBuilderOptions<ArgsValidator, Permission, QueryCtx>,
-  ) {
-    return queryGeneric({
-      args: { ...config.args, ...serviceAuthArgs },
-      handler: (async (
-        ctx: QueryCtx,
-        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs]
-      ) => {
-        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs
-        const actor = await requireActor(ctx, args as ArgsWithServiceAuth)
-        const cleanArgs = stripServiceArgs(args as Record<string, unknown>) as ObjectType<ArgsValidator>
-        const orgId = resolveOrgId(actor, cleanArgs as Record<string, unknown>, tenant)
-        if (!orgId) {
-          throw new Error('Organization membership required.')
-        }
+        const orgId = requireOrgId(actor, cleanArgs as Record<string, unknown>, tenant)
 
         const resource = config.resource
           ? await loadResource(ctx, {
@@ -393,71 +371,53 @@ export function createFunctions<
               scopedTables,
               tenant,
               orgId,
-              resolver: config.resource as (args: Record<string, unknown>) => ResourceRef,
+              resolver: config.resource as (args: Record<string, unknown>) => ResourceRef<TableName<TSchema>>,
               args: cleanArgs as Record<string, unknown>,
             })
           : undefined
 
         checkPermission(actor, config.require, resource)
 
+        const isMutation = typeof (ctx.db as unknown as Record<string, unknown>).insert === 'function'
+        const scopedDb = isMutation
+          ? createScopedWriter(ctx.db as GenericDatabaseWriter<GenericDataModel>, orgId, tenant.orgField, scopedTables)
+          : createScopedReader(ctx.db, orgId, tenant.orgField, scopedTables)
+
         return await config.handler({
-          db: createScopedReader(ctx.db, orgId, tenant.orgField, scopedTables),
+          db: scopedDb,
           actor: { ...actor, orgId },
           raw: { ctx, db: ctx.db },
           ...(resource ? { resource } : {}),
-        }, cleanArgs)
+        } as ScopedContext<AnyCtx, Role, TableName<TSchema>>, cleanArgs)
       }) as never,
     })
   }
 
-  function scopedMutation<ArgsValidator extends PropertyValidators>(
-    config: ScopedBuilderOptions<ArgsValidator, Permission, MutationCtx>,
-  ) {
-    return mutationGeneric({
-      args: { ...config.args, ...serviceAuthArgs },
-      handler: (async (
-        ctx: MutationCtx,
-        ...rawArgs: [args?: ObjectType<ArgsValidator> & ServiceActorArgs]
-      ) => {
-        const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs
-        const actor = await requireActor(ctx, args as ArgsWithServiceAuth)
-        const cleanArgs = stripServiceArgs(args as Record<string, unknown>) as ObjectType<ArgsValidator>
-        const orgId = resolveOrgId(actor, cleanArgs as Record<string, unknown>, tenant)
-        if (!orgId) {
-          throw new Error('Organization membership required.')
-        }
+  // -- Public API (thin wrappers) ---------------------------------------------
 
-        const resource = config.resource
-          ? await loadResource(ctx, {
-              schema: options.schema,
-              scopedTables,
-              tenant,
-              orgId,
-              resolver: config.resource as (args: Record<string, unknown>) => ResourceRef,
-              args: cleanArgs as Record<string, unknown>,
-            })
-          : undefined
-
-        checkPermission(actor, config.require, resource)
-
-        return await config.handler({
-          db: createScopedWriter(ctx.db, orgId, tenant.orgField, scopedTables),
-          actor: { ...actor, orgId },
-          raw: { ctx, db: ctx.db },
-          ...(resource ? { resource } : {}),
-        }, cleanArgs)
-      }) as never,
-    })
-  }
-
+  // The `as never` casts below are safe: the shared build* functions accept
+  // AnyCtx internally, but the public wrappers narrow to QueryCtx or MutationCtx
+  // for correct handler typing. TypeScript can't unify the contravariant handler
+  // parameter, so we cast at the boundary.
   return {
-    publicQuery,
-    publicMutation,
-    openQuery,
-    openMutation,
-    authedQuery,
-    authedMutation,
-    scopedQuery,
-    scopedMutation,
+    publicQuery: <A extends PropertyValidators>(config: PublicBuilderOptions<A, QueryCtx>) =>
+      buildPublic(queryGeneric, config as never),
+    publicMutation: <A extends PropertyValidators>(config: PublicBuilderOptions<A, MutationCtx>) =>
+      buildPublic(mutationGeneric, config as never),
+
+    openQuery: <A extends PropertyValidators>(config: OpenBuilderOptions<A, Role, QueryCtx>) =>
+      buildOpen(queryGeneric, config as never),
+    openMutation: <A extends PropertyValidators>(config: OpenBuilderOptions<A, Role, MutationCtx>) =>
+      buildOpen(mutationGeneric, config as never),
+
+    authedQuery: <A extends PropertyValidators>(config: AuthedBuilderOptions<A, Permission, Role, QueryCtx>) =>
+      buildAuthed(queryGeneric, config as never),
+    authedMutation: <A extends PropertyValidators>(config: AuthedBuilderOptions<A, Permission, Role, MutationCtx>) =>
+      buildAuthed(mutationGeneric, config as never),
+
+    scopedQuery: <A extends PropertyValidators>(config: ScopedBuilderOptions<A, Permission, Role, TableName<TSchema>, QueryCtx>) =>
+      buildScoped(queryGeneric, config as never),
+    scopedMutation: <A extends PropertyValidators>(config: ScopedBuilderOptions<A, Permission, Role, TableName<TSchema>, MutationCtx>) =>
+      buildScoped(mutationGeneric, config as never),
   }
 }

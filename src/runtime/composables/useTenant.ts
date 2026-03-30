@@ -25,7 +25,7 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, type ComputedRef, type MaybeRefOrGetter, type Ref, toValue } from 'vue'
 
-import type { CheckPermissionFn, Resource } from './usePermissions'
+import type { CheckPermissionFn } from './usePermissions'
 import { createPermissions } from './usePermissions'
 import { useConvexMutation, type UseConvexMutationOptions, type UseConvexMutationReturn } from './useConvexMutation'
 import { useConvexQuery, type UseConvexQueryOptions, type UseConvexQueryReturn } from './useConvexQuery'
@@ -51,7 +51,7 @@ export interface UseTenantContextReturn<TPermission extends string = string> {
   /** Whether permission context is still loading */
   pending: Ref<boolean>
   /** Check if user has a specific permission (reactive) */
-  can: (permission: TPermission, resource?: Resource) => ComputedRef<boolean>
+  can: (permission: TPermission, resource?: Record<string, unknown>) => ComputedRef<boolean>
 }
 
 // ============================================================================

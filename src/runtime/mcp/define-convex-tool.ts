@@ -13,7 +13,7 @@ import type { PropertyValidators } from 'convex/values'
 import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
-import type { CheckPermissionFn } from '../composables/usePermissions'
+import type { CheckPermissionFn } from '../convex/define-permissions'
 import {
   serverConvexAction,
   serverConvexMutation,
@@ -53,9 +53,10 @@ import type {
 interface DefineConvexToolFullOptions<
   S extends AnyConvexSchema,
   P extends string = string,
-> extends DefineConvexToolOptions<S, P> {
-  _checkPermission?: CheckPermissionFn<P>
-  _resolveAuth?: (event: H3Event) => McpAuthIdentity | null | Promise<McpAuthIdentity | null>
+  TRole extends string = string,
+> extends DefineConvexToolOptions<S, P, TRole> {
+  _checkPermission?: CheckPermissionFn<P, TRole>
+  _resolveAuth?: (event: H3Event) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
   _tenant?: McpTenantConfig
 }
 
@@ -301,7 +302,9 @@ function injectServiceActorArgs(
 // Auth helpers
 // ============================================================================
 
-function resolveDefaultAuth(event: { context: Record<string, unknown> }): McpAuthIdentity | null {
+function resolveDefaultAuth<TRole extends string = string>(
+  event: { context: Record<string, unknown> },
+): McpAuthIdentity<TRole> | null {
   const auth = event.context.mcpAuth as {
     role?: string
     userId?: string
@@ -309,7 +312,7 @@ function resolveDefaultAuth(event: { context: Record<string, unknown> }): McpAut
   } | undefined
   if (!auth?.role || !auth?.userId) return null
   return {
-    role: auth.role,
+    role: auth.role as TRole,
     userId: auth.userId,
     ...(auth.orgId ? { orgId: auth.orgId } : {}),
   }
@@ -373,13 +376,13 @@ function createToolCallFns(
   }
 }
 
-function createToolContext<P extends string>(
+function createToolContext<P extends string, TRole extends string>(
   event: H3Event,
-  actor: McpAuthIdentity | null,
+  actor: McpAuthIdentity<TRole> | null,
   org: McpOrgContext | undefined,
-  checkPermission: CheckPermissionFn<P> | undefined,
+  checkPermission: CheckPermissionFn<P, TRole> | undefined,
   scoped: boolean,
-): ConvexToolHandlerCtx<P> {
+): ConvexToolHandlerCtx<P, TRole> {
   const calls = createToolCallFns(event, actor, scoped)
 
   return {
@@ -419,8 +422,9 @@ function isValidCallToolResult(value: unknown): value is McpToolCallbackResult {
 function _buildToolDefinition<
   S extends AnyConvexSchema,
   P extends string = string,
+  TRole extends string = string,
 >(
-  options: DefineConvexToolFullOptions<S, P>,
+  options: DefineConvexToolFullOptions<S, P, TRole>,
 ): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape> {
   type BuiltToolDefinition = McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>
 
@@ -553,7 +557,7 @@ function _buildToolDefinition<
       const { useEvent } = await import('nitropack/runtime')
       const event = useEvent()
 
-      let resolvedAuth: McpAuthIdentity | null = null
+      let resolvedAuth: McpAuthIdentity<TRole> | null = null
       if (auth !== 'none') {
         resolvedAuth = _resolveAuth
           ? await _resolveAuth(event)
@@ -661,7 +665,7 @@ function _buildToolDefinition<
   async function runHandlerWithConfirmation(
     args: NormalizedToolArgs<S>,
     extra: McpToolExtra,
-    ctx: ConvexToolMiddlewareCtx<P>,
+    ctx: ConvexToolMiddlewareCtx<P, TRole>,
   ): Promise<McpToolCallbackResult> {
     // Step 7: Preview routing
     if (destructive && preview && !args.confirmed) {
@@ -755,10 +759,11 @@ function _buildToolDefinition<
 export function defineTool<
   S extends AnyConvexSchema,
   P extends string = string,
+  TRole extends string = string,
 >(
-  options: DefineConvexToolOptions<S, P>,
+  options: DefineConvexToolOptions<S, P, TRole>,
 ): McpToolDefinition {
-  return _buildToolDefinition(options as DefineConvexToolFullOptions<S, P>) as McpToolDefinition
+  return _buildToolDefinition(options as DefineConvexToolFullOptions<S, P, TRole>) as McpToolDefinition
 }
 
 export const defineConvexTool = defineTool
@@ -790,19 +795,19 @@ export const defineConvexTool = defineTool
  * })
  * ```
  */
-export function createConvexTools<P extends string = string>(
-  factoryOptions: CreateConvexToolsOptions<P>,
+export function createConvexTools<P extends string = string, TRole extends string = string>(
+  factoryOptions: CreateConvexToolsOptions<P, TRole>,
 ) {
   return {
     defineTool: <S extends AnyConvexSchema>(
-      toolOptions: DefineConvexToolOptions<S, P>,
+      toolOptions: DefineConvexToolOptions<S, P, TRole>,
     ): McpToolDefinition => {
       return _buildToolDefinition({
         ...toolOptions,
         _checkPermission: factoryOptions.checkPermission,
         _resolveAuth: factoryOptions.resolveAuth,
         _tenant: factoryOptions.tenant,
-      } as DefineConvexToolFullOptions<S, P>) as McpToolDefinition
+      } as DefineConvexToolFullOptions<S, P, TRole>) as McpToolDefinition
     },
   }
 }

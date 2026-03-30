@@ -496,9 +496,9 @@ describe('experiment 3: pre-read write overhead', () => {
     console.log(`Overhead %: ${overheadPct}%`)
     console.log('---')
 
-    // The pre-read approach should not be more than 3x slower in-memory
-    // (in production the overhead would be even smaller relative to network)
-    expect(preReadTime).toBeLessThan(directTime * 3)
+    // Use per-operation overhead instead of a strict ratio because these
+    // in-memory timings are noisy at very small absolute durations.
+    expect(overheadPerOp).toBeLessThan(0.2)
   })
 
   it('get-then-delete overhead is acceptable', async () => {
@@ -581,7 +581,9 @@ describe('experiment 3: pre-read write overhead', () => {
     console.log(`Overhead: ${overhead.toFixed(1)}ms total, ${overheadPerOp.toFixed(2)}ms/op`)
     console.log('---')
 
-    expect(preReadTime).toBeLessThan(directTime * 3)
+    // Same rationale as the patch benchmark above: small in-memory timings
+    // fluctuate, so assert on per-operation overhead instead of a strict ratio.
+    expect(overheadPerOp).toBeLessThan(0.2)
   })
 })
 

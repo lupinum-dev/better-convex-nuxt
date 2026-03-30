@@ -97,10 +97,14 @@ export type { StandardSchemaV1 } from '../utils/standard-schema'
 // Tenant composables (opt-in via createTenantComposables factory)
 export {
   createPermissions,
-  type PermissionContext,
-  type Resource,
-  type CheckPermissionFn,
   type CreatePermissionsOptions,
   type UsePermissionsReturn,
   type UsePermissionGuardOptions,
 } from './usePermissions'
+export type {
+  CheckPermissionFn,
+  InferPermission,
+  InferRole,
+  PermissionContext,
+  Resource,
+} from '../convex/define-permissions'

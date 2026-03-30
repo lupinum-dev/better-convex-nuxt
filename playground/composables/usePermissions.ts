@@ -19,7 +19,7 @@ export type { Permission, Resource }
 // ============================================
 
 const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGuard } =
-  createPermissions<Permission>({
+  createPermissions({
     query: api.auth.getPermissionContext,
     checkPermission,
   })

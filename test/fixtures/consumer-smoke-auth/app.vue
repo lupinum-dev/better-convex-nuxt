@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { useConvexAuth } from '#imports'
+import { useConvexAuth } from '../../../src/runtime/composables'
 
 const { isAuthenticated } = useConvexAuth()
 </script>

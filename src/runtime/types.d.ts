@@ -33,8 +33,14 @@ export interface ConvexPublicRuntimeConfig {
   upload?: {
     maxConcurrent?: number
   }
-  /** Whether permissions helper mode is enabled */
-  permissions?: boolean
+  /** Permission config used for generated helpers */
+  permissions?: {
+    config: string
+  } | null
+  /** Tenant config used for scoped helpers */
+  tenant?: {
+    orgField: string
+  } | null
   /** Logging level */
   logging?: LogLevel
   /** Optional debug channels for high-verbosity traces */
