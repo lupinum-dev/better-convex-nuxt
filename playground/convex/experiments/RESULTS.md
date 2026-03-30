@@ -1,162 +1,95 @@
-# Permission System Experiments - Results
+# Experiment Results — better-convex-nuxt v2
 
-**Date:** 2024-12-26
-**Status:** ALL PASSED
+**Date:** 2026-03-30
+**Status:** ALL 5 EXPERIMENTS PASS
 
 ---
 
 ## Summary
 
-| #   | Experiment         | Result | Notes                                                    |
-| --- | ------------------ | ------ | -------------------------------------------------------- |
-| 1   | Shared Import      | PASS   | Frontend + Backend both import `permissionsCore.ts`      |
-| 2   | Auth Integration   | PASS   | `identity.subject` matches `user.authId` correctly       |
-| 3   | Type Safety        | PASS   | TypeScript catches permission typos (verified in editor) |
-| 4   | Reactivity         | PASS   | Role updates automatically without refresh               |
-| 5   | Performance        | PASS   | 0.002μs per check (500M checks/sec)                      |
-| 6   | Edge Cases         | PASS   | Admin button appears/disappears reactively               |
-| 7   | Org Isolation      | PASS   | Posts scoped to organization                             |
-| 8   | Cost & Performance | PASS   | DB lookup overhead: 1.4ms (0.8%), negligible             |
+| #   | Experiment                    | Result | What It Proved                                                                                                                 |
+| --- | ----------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Scoped Builder Wrapping       | PASS   | Test-only `createFunctions()` can hide service auth args and hand handlers `{ db, actor, raw }`                                |
+| 2   | Query Chain Fidelity          | PASS   | `withIndex()` composes correctly with `collect`, `order`, `filter`, `take`, `first`, and `paginate`                            |
+| 3   | Unified Schema                | PASS   | A single `defineSchema()` can produce validators, generated field metadata, Zod validation, and `parse()`                      |
+| 4   | MCP Tool Factory              | PASS   | A single factory can provide one ctx shape, auth gating, permission checks, destructive previews, and scoped service injection |
+| 5   | Resource Loader + Permissions | PASS   | Declarative `resource` loading can enforce existence, org isolation, ownership checks, and cross-table authorization           |
 
 ---
 
-## Detailed Results
+## What Ran
 
-### Experiment 1: Shared Import
-
-- Frontend import works: `true`
-- Backend import works: `true`
-- **Conclusion:** Convex and Vue can share the same `permissionsCore.ts` file
-
-### Experiment 2: Auth Integration
-
-Identity structure from `ctx.auth.getUserIdentity()`:
-
-```json
-{
-  "subject": "k57312wb9nqbc8z9q5pvs4rctx7xyc2x",
-  "email": "matthias@me.com",
-  "name": "Matthias",
-  "emailVerified": true,
-  "sessionId": "...",
-  "allFields": [
-    "tokenIdentifier",
-    "issuer",
-    "subject",
-    "createdAt",
-    "email",
-    "emailVerified",
-    "name",
-    "sessionId",
-    "updatedAt"
-  ]
-}
-```
-
-- User lookup by `authId`: Found, match confirmed
-- **Conclusion:** Better Auth identity maps correctly to users table via `authId = identity.subject`
-
-### Experiment 3: Type Safety
-
-- Verified in editor: `typedCheck("post.upadte")` shows TypeScript error
-- Valid permissions autocomplete correctly
-- **Conclusion:** Permission strings are type-checked at compile time
-
-### Experiment 4: Reactivity
-
-- Changed role from "user" to "admin" via mutation
-- UI updated automatically within ~1 second
-- No manual refresh needed
-- **Conclusion:** Convex WebSocket subscriptions propagate role changes to `useConvexQuery`
-
-### Experiment 5: Performance
-
-```
-Total time (20,000 checks): 1ms
-Per check: 0.0001ms
-Checks per second: 20,000,000
-```
-
-- **Conclusion:** `checkPermission()` is extremely fast, no optimization needed
-
-### Experiment 6: Edge Cases (Mid-Session Role Change)
-
-- Admin button appears when role = "admin" or "owner"
-- Button disappears when role changed to "member" or "user"
-- Reactive update works across the same session
-- **Conclusion:** Permission-gated UI elements update reactively
-
-### Experiment 7: Org Isolation
-
-- Created org "Test Orgasd" -> user became "owner"
-- Created posts -> appeared in list
-- Posts are scoped by `organizationId`
-- **Conclusion:** Org isolation pattern works as designed
+- `pnpm vitest run --project=convex playground/convex/v2-experiments.test.ts`
+- `pnpm vitest run --project=unit test/unit/v2-schema-experiment.test.ts test/unit/v2-mcp-experiment.test.ts`
+- `pnpm test:types`
 
 ---
 
-### Experiment 8: Cost & Performance
+## Details
 
-**Goal:** Measure actual costs and validate that DB lookups in `authorize()` are acceptable.
+### 1. Scoped Builder Wrapping
 
-#### Mutation Round-Trip Test (10x each)
+- Test module: `playground/convex/experiments/v2_functions.ts`
+- Verified `public`, `authed`, and `scoped` builder paths
+- Verified hidden service auth fields are stripped before business inserts
+- Verified scoped handlers default to scoped `db` and require explicit `raw.ctx` to break out
 
-| Metric         | With DB Lookup   | Without DB Lookup |
-| -------------- | ---------------- | ----------------- |
-| Avg Round-Trip | 166.0ms          | 164.6ms           |
-| **Difference** | **1.4ms (0.8%)** | -                 |
+### 2. Query Chain Fidelity
 
-#### Permission Check Volume Test
+- Test file: `playground/convex/v2-experiments.test.ts`
+- Verified a `withIndex('by_organization', ...)` query can be chained with:
+  - `collect()`
+  - `order('desc').collect()`
+  - `filter().collect()`
+  - `order().filter().take()`
+  - `first()`
+  - `paginate()`
+- One important constraint surfaced during the run: Convex query objects are single-use once iteration begins. The experiment now recreates the base query per assertion.
 
-| Metric           | Result              |
-| ---------------- | ------------------- |
-| 1 million checks | 2.0ms               |
-| Per check        | 0.002μs             |
-| **Throughput**   | **500M checks/sec** |
-| API calls        | 0 (pure JS)         |
+### 3. Unified Schema
 
-#### Cost Analysis
+- Helper: `test/helpers/v2-schema-experiment.ts`
+- Runtime tests: `test/unit/v2-schema-experiment.test.ts`
+- Type check: `test/types/v2-schema-experiment.types.ts`
+- Verified:
+  - `schema.validators`
+  - generated `schema.meta.fields`
+  - `schema.zod.parse(...)`
+  - `schema.parse(...)`
+  - optional fields
+  - compile-time rejection of extra meta keys
 
-| Operation                   | Function Calls       | Monthly Cost (at scale) |
-| --------------------------- | -------------------- | ----------------------- |
-| 1M mutations with DB lookup | 1M                   | Free tier / $2          |
-| 1M mutations without lookup | 1M                   | Free tier / $2          |
-| Permission checks           | 0                    | Free (client-side)      |
-| Subscriptions               | 1 per tab per update | Depends on active users |
+### 4. MCP Tool Factory
 
-**Conclusion:**
+- Test file: `test/unit/v2-mcp-experiment.test.ts`
+- Verified:
+  - auth-required tools can be hidden from anonymous callers
+  - permissions run before the handler
+  - one ctx shape supports `query`, `mutation`, `action`, `can`, `ok`, `error`, `preview`, and `blocked`
+  - scoped calls inject `_serviceKey` and `_serviceActor`
+  - unscoped calls stay clean
+  - destructive preview/confirm flow works
 
-- DB lookup overhead is **negligible** (1.4ms on 165ms round-trip)
-- Permission checks are **essentially free** (500M/sec, no API calls)
-- **No optimization needed** - keep using `authorize()` with DB lookup
-- Storing role in JWT claims would add complexity for <1% performance gain
+### 5. Resource Loader + Permissions
+
+- Test module: `playground/convex/experiments/v2_functions.ts`
+- Test file: `playground/convex/v2-experiments.test.ts`
+- Verified:
+  - member can update own post
+  - member cannot update another member's post in the same org
+  - admin can update any post in the org
+  - deleted-but-valid IDs produce `Resource not found.`
+  - cross-org access produces `Document belongs to a different organization.`
+  - explicit cross-table loading (`{ table: 'posts', id: args.postId }`) works for ownership checks
 
 ---
 
-## Key Findings
+## Current Conclusion
 
-1. **Shared code works** - No need to duplicate permission logic
-2. **Auth integration is clean** - `identity.subject` is the reliable user identifier
-3. **Reactivity is automatic** - Convex subscriptions handle role changes
-4. **Performance is excellent** - 500M permission checks per second
-5. **Type safety works** - Invalid permissions caught at compile time
-6. **Cost is acceptable** - DB lookup adds <2ms, not worth optimizing away
+The v2 contract is viable. The repo now has runnable experiments for the critical claims without forcing a public API cutover yet.
 
----
+The remaining work is implementation, not architecture discovery:
 
-## Recommendations
-
-Based on all experiments, implement the permission system as designed:
-
-1. **Keep `authorize()` with DB lookup** - The 1.4ms overhead is negligible
-2. **Use `checkPermission()` freely** - 500M/sec means no batching needed
-3. **Don't store role in JWT** - Adds token refresh complexity for <1% gain
-4. **Monitor Convex dashboard** - Track function calls, not execution time
-
-### Implementation Files
-
-- `convex/permissions.config.ts` - Shared permission definitions
-- `convex/lib/actor.ts` - Actor resolution helper
-- `composables/usePermissions.ts` - Frontend `can()` composable
-
-See the main spec for implementation details.
+1. Move the experimental builder/resource pipeline into the public runtime.
+2. Replace the current shared-schema API with the v2 single-definition shape.
+3. Replace the current MCP factory surface with the v2 one-import, one-ctx API.

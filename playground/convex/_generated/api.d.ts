@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as comments from "../comments.js";
+import type * as experiments_v2_functions from "../experiments/v2_functions.js";
 import type * as experiments_wrapped from "../experiments/wrapped.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
@@ -35,6 +36,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   comments: typeof comments;
+  "experiments/v2_functions": typeof experiments_v2_functions;
   "experiments/wrapped": typeof experiments_wrapped;
   files: typeof files;
   http: typeof http;
