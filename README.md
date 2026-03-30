@@ -72,12 +72,10 @@ export default defineNuxtConfig({
 
 If you want runnable reference apps instead of copy-paste snippets, start in [examples/README.md](./examples/README.md).
 
-It includes standalone apps that now demonstrate the raw v4 auth model:
+It includes standalone apps that now demonstrate the raw v4 auth model in two ways:
 
-- public only
-- auth only
-- full auth + tenant scoping + backend-owned authorization + MCP
-- month-two board/admin patterns with uploads, Nitro routes, `_can`, and E2E coverage
+- a progressive path from public -> auth -> tenant scoping -> project-management product work
+- a SaaS gallery covering project management, CRM, LMS, e-commerce, freemium, collaboration sharing, and agency/multi-client auth shapes
 
 ## Testing
 

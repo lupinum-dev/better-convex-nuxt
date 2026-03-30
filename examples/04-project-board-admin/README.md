@@ -1,6 +1,7 @@
 # Project Board + Admin Example
 
-This is the month-two example: the app you build after auth, tenant scoping, and basic permissions are already in place.
+This is both the month-two example and the gallery's **project-management SaaS** example.
+It is the cleanest role + ownership + business-state case in the repo, then extended into a more realistic product surface.
 
 It adds:
 
@@ -34,6 +35,12 @@ Example 04 keeps the same safety model, then shows the next layer of real produc
 - uploads and attachments
 - admin workflows and recent activity
 - server-side integrations
+
+In the SaaS gallery this example represents:
+
+- SaaS type: project management
+- easy problem: members updating their own work
+- hard problem: nested resource guards plus business-state rules like archived projects
 
 This example intentionally uses `workspaceId` instead of Example 03's `organizationId` to make
 the point that tenant naming is app-owned. The auth helpers stay the same; only your table and
