@@ -9,7 +9,7 @@ import {
   canReadProject,
 } from './auth/checks'
 import { getActor } from './auth/actor'
-import { ensureFound, ensureTenant } from './auth/scope'
+import { loadResource } from './auth/scope'
 
 export const list = query({
   args: {},
@@ -30,9 +30,7 @@ export const get = query({
     const actor = await getActor(ctx)
     guard(actor, 'Read projects', canReadProject)
 
-    const project = await ctx.db.get(args.id)
-    ensureFound(project, 'Project')
-    ensureTenant(actor, project)
+    const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
     return project
   },
 })
@@ -77,9 +75,7 @@ export const archive = mutation({
     const actor = await getActor(ctx)
     guard(actor, 'Archive project', canArchiveProject)
 
-    const project = await ctx.db.get(args.id)
-    ensureFound(project, 'Project')
-    ensureTenant(actor, project)
+    const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
 
     if (project.status === 'archived') throw deny('Project is already archived.')
 

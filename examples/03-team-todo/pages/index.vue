@@ -4,7 +4,7 @@
       <p class="eyebrow">Example 03</p>
       <h1>Team Todo</h1>
       <p class="lede">
-        This is the full V2 story: auth, tenant scoping, declarative permissions, frontend
+        This is the full team app story: auth, tenant scoping, app-owned permissions, frontend
         permission guards, and MCP tools using the same backend functions.
       </p>
 
@@ -74,7 +74,7 @@
           </button>
         </header>
 
-        <p v-if="ensureUser.pending.value" class="status">Preparing your application user...</p>
+        <p v-if="ensureUserRow.pending.value" class="status">Preparing your application user...</p>
 
         <section v-if="isAuthenticated && !tenantId" class="setup-grid">
           <form class="card" @submit.prevent="handleCreateWorkspace">
@@ -138,7 +138,7 @@
             </div>
             <p class="mcp-note">
               MCP demo auth header:
-              <code>Bearer demo:{{ permissionContext?.email || user?.email || 'you@example.com' }}</code>
+              <code>Bearer demo:{{ ctx?.email || user?.email || 'you@example.com' }}</code>
             </p>
           </div>
 
@@ -208,14 +208,14 @@
  * This page intentionally puts the whole "full example" flow in one file so readers can
  * trace auth, onboarding, scoped queries, and frontend permission checks without hunting around.
  */
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
 
-const { client, isAuthenticated, user, signOut } = useConvexAuth()
+const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, role, tenantId, user: permissionContext } = usePermissions()
+const { can, role, tenantId, ctx } = usePermissions()
 
 const signUpForm = reactive({
   name: '',
@@ -240,7 +240,7 @@ const joinWorkspaceForm = reactive({
 
 const title = ref('')
 
-const ensureUser = useConvexMutation(api.auth.createUserIfNeeded)
+const ensureUserRow = useEnsureUserRow()
 const createWorkspace = useConvexMutation(api.organizations.createWorkspace)
 const joinWorkspace = useConvexMutation(api.organizations.joinWorkspace)
 const createTodo = useConvexMutation(api.todos.create)
@@ -259,8 +259,8 @@ const { data: todos, pending: todosPending, error: todosError } = await useConve
 
 const displayName = computed(
   () =>
-    permissionContext.value?.displayName
-    || permissionContext.value?.email
+    ctx.value?.displayName
+    || ctx.value?.email
     || user.value?.name
     || user.value?.email
     || 'Signed in user',
@@ -269,22 +269,14 @@ const displayName = computed(
 const canCreate = can('todo.create')
 
 const todoError = computed(() =>
-  todosError.value?.message
+  ensureUserRow.error.value?.message
+  || todosError.value?.message
   || createTodo.error.value?.message
   || updateTodo.error.value?.message
   || removeTodo.error.value?.message
   || createWorkspace.error.value?.message
   || joinWorkspace.error.value?.message
   || '',
-)
-
-watch(
-  isAuthenticated,
-  async (value) => {
-    if (!value) return
-    await ensureUser({})
-  },
-  { immediate: true },
 )
 
 async function handleSignUp() {

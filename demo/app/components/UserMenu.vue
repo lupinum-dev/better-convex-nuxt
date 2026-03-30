@@ -1,10 +1,10 @@
 <script setup lang="ts">
 const { user, isAuthenticated, isPending, signOut: convexSignOut } = useConvexAuth()
-const { user: permissionUser } = useDemoPermissions()
+const { ctx } = useDemoPermissions()
 const router = useRouter()
 
 // Get avatar URL from permission context (fetched from Convex, includes GitHub avatar)
-const avatarUrl = computed(() => (permissionUser.value as any)?.avatarUrl)
+const avatarUrl = computed(() => (ctx.value as any)?.avatarUrl)
 
 const isSigningOut = ref(false)
 

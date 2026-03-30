@@ -7,6 +7,7 @@ It shows:
 
 - Better Auth wired through Convex
 - app-owned `convex/auth/actor.ts`
+- a tiny `convex/auth/scope.ts` helper for not-found + ownership checks
 - raw Convex `query()` and `mutation()`
 - explicit ownership checks in handlers
 - auth-aware page rendering with `ConvexAuthenticated`, `ConvexUnauthenticated`, and `ConvexAuthLoading`

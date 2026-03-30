@@ -5,6 +5,7 @@ import { v } from 'convex/values'
 import { createTodo } from '../shared/schemas/todo'
 import { getActor } from './auth/actor'
 import { isAuthenticated } from './auth/checks'
+import { loadOwnedResource } from './auth/scope'
 
 export const list = query({
   args: {},
@@ -44,9 +45,7 @@ export const toggle = mutation({
     const actor = await getActor(ctx)
     guard(actor, 'Update todo', isAuthenticated)
 
-    const todo = await ctx.db.get(args.id)
-    if (!todo) throw new Error('Todo not found.')
-    if (todo.userId !== actor.userId) throw new Error('Todo not found.')
+    const todo = loadOwnedResource(actor, await ctx.db.get(args.id), 'Todo')
 
     await ctx.db.patch(args.id, {
       completed: !todo.completed,
@@ -60,9 +59,7 @@ export const remove = mutation({
     const actor = await getActor(ctx)
     guard(actor, 'Delete todo', isAuthenticated)
 
-    const todo = await ctx.db.get(args.id)
-    if (!todo) throw new Error('Todo not found.')
-    if (todo.userId !== actor.userId) throw new Error('Todo not found.')
+    loadOwnedResource(actor, await ctx.db.get(args.id), 'Todo')
 
     await ctx.db.delete(args.id)
   },

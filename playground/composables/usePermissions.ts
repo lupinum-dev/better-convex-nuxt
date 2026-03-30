@@ -1,4 +1,4 @@
-import { computed, watchEffect, type ComputedRef } from 'vue'
+import { computed, type ComputedRef } from 'vue'
 
 import { createAuth } from '#imports'
 import { api } from '~/convex/_generated/api'
@@ -13,22 +13,7 @@ const { usePermissions: useBasePermissions, useAuthGuard: useBaseAuthGuard } = c
 
 export function usePermissions() {
   const base = useBasePermissions()
-  const createUser = useConvexMutation(api.auth.createUserIfNeeded)
-
-  watchEffect(async () => {
-    if (base.pending.value) return
-    const context = base.ctx.value as {
-      _debug?: { hasIdentity?: boolean; hasUser?: boolean; reason?: string }
-    } | null
-    const debugInfo = context?._debug
-    if (
-      debugInfo?.hasIdentity &&
-      !debugInfo?.hasUser &&
-      debugInfo?.reason === 'user not found in DB, needs to be created'
-    ) {
-      await createUser({})
-    }
-  })
+  useEnsureUserRow(base.ctx, base.pending)
 
   function can(permission: string, resource?: ResourceWithCan): ComputedRef<boolean> {
     if (resource) {
@@ -39,7 +24,6 @@ export function usePermissions() {
 
   return {
     ...base,
-    user: computed(() => base.ctx.value),
     can,
   }
 }

@@ -244,7 +244,7 @@ const extendedAuthClient = shallowRef<ExtendedAuthClient | null>(null)
 const extendedSessionStore = shallowRef<unknown>(null)
 
 const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
-const { data: permissionContext } = await useConvexQuery(
+const { data: ctx } = await useConvexQuery(
   api.auth.getPermissionContext,
   permissionQueryArgs,
 )
@@ -257,8 +257,8 @@ const augmentedUserFields = computed(() => ({
   organizationId: user.value?.organizationId,
 }))
 const permissionRole = computed(() =>
-  permissionContext.value && 'role' in permissionContext.value
-    ? permissionContext.value.role
+  ctx.value && 'role' in ctx.value
+    ? ctx.value.role
     : null,
 )
 

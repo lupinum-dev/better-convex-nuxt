@@ -35,6 +35,10 @@ Example 04 keeps the same safety model, then shows the next layer of real produc
 - admin workflows and recent activity
 - server-side integrations
 
+This example intentionally uses `workspaceId` instead of Example 03's `organizationId` to make
+the point that tenant naming is app-owned. The auth helpers stay the same; only your table and
+field names change.
+
 ## Run It
 
 1. `pnpm install`

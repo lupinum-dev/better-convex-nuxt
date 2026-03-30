@@ -3,7 +3,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-const { user, role } = useDemoPermissions()
+const { ctx, role } = useDemoPermissions()
 const roleBadgeColor = computed(() => {
   if (role.value === 'owner') return 'warning'
   if (role.value === 'admin') return 'info'
@@ -63,7 +63,7 @@ const demos = [
     <!-- Welcome Header -->
     <div class="mb-8">
       <h1 class="text-2xl font-bold mb-2">
-        Welcome, {{ (user as any)?.displayName || 'Developer' }}!
+        Welcome, {{ (ctx as any)?.displayName || 'Developer' }}!
       </h1>
       <p class="text-muted">
         You're logged in as <UBadge :color="roleBadgeColor" variant="subtle">{{ role }}</UBadge

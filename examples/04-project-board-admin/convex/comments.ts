@@ -5,7 +5,7 @@ import { deny, guard } from 'better-convex-nuxt/auth'
 
 import { canComment } from './auth/checks'
 import { getActor } from './auth/actor'
-import { ensureFound, ensureTenant } from './auth/scope'
+import { loadResource } from './auth/scope'
 
 export const listByTask = query({
   args: { taskId: v.id('tasks') },
@@ -13,9 +13,7 @@ export const listByTask = query({
     const actor = await getActor(ctx)
     guard(actor, 'Read comments', canComment)
 
-    const task = await ctx.db.get(args.taskId)
-    ensureFound(task, 'Task')
-    ensureTenant(actor, task)
+    loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 
     return ctx.db
       .query('comments')
@@ -35,12 +33,9 @@ export const create = mutation({
     const actor = await getActor(ctx)
     guard(actor, 'Create comment', canComment)
 
-    const task = await ctx.db.get(args.taskId)
-    ensureFound(task, 'Task')
-    ensureTenant(actor, task)
+    const task = loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 
-    const project = await ctx.db.get(task.projectId)
-    ensureFound(project, 'Project')
+    const project = loadResource(actor, await ctx.db.get(task.projectId), 'Project')
     if (project.status === 'archived') {
       throw deny('Cannot comment on tasks in archived projects.')
     }

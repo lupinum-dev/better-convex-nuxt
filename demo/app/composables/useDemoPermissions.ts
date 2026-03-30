@@ -24,7 +24,6 @@ export function useDemoPermissions() {
 
   return {
     ...base,
-    user: computed(() => base.ctx.value),
     can,
   }
 }

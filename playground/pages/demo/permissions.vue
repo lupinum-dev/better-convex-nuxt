@@ -468,7 +468,7 @@ definePageMeta({
 })
 
 // Permissions
-const { can, user, role, tenantId, pending, isAuthenticated } = usePermissions()
+const { can, ctx, role, tenantId, pending, isAuthenticated } = usePermissions()
 
 // Queries - use status for explicit state management
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)

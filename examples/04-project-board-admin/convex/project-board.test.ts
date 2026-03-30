@@ -5,13 +5,28 @@
  */
 /// <reference types="vite/client" />
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { anyApi } from 'convex/server'
 
 import { createTestContext } from 'better-convex-nuxt/testing'
 
-import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
+
+const api = anyApi
+
+vi.mock('./_generated/server', async () => {
+  const server = await import('convex/server')
+  return {
+    query: server.query,
+    mutation: server.mutation,
+    action: server.action,
+    internalQuery: server.internalQuery,
+    internalMutation: server.internalMutation,
+    internalAction: server.internalAction,
+    httpAction: server.httpAction,
+  }
+})
 
 function createCtx() {
   return createTestContext({
@@ -167,6 +182,56 @@ describe('project board example', () => {
     expect(alphaTasks[0]?.title).toBe('Alpha task')
     expect(betaTasks).toHaveLength(1)
     expect(betaTasks[0]?.title).toBe('Beta task')
+  })
+
+  it('returns resource not found when another workspace asks for a project by id', async () => {
+    const ctx = createCtx()
+    const alpha = await ctx.seedTenant({
+      name: 'Alpha',
+      users: { owner: { role: 'owner' } },
+    })
+    const beta = await ctx.seedTenant({
+      name: 'Beta',
+      users: { owner: { role: 'owner' } },
+    })
+
+    const alphaProject = await alpha.users.owner.mutation(api.projects.create, {
+      name: 'Alpha board',
+      summary: 'A',
+    })
+
+    await expect(
+      beta.users.owner.query(api.projects.get, { id: alphaProject }),
+    ).rejects.toThrow('Resource not found.')
+  })
+
+  it('returns resource not found when another workspace tries to comment on a task by id', async () => {
+    const ctx = createCtx()
+    const alpha = await ctx.seedTenant({
+      name: 'Alpha',
+      users: { owner: { role: 'owner' } },
+    })
+    const beta = await ctx.seedTenant({
+      name: 'Beta',
+      users: { owner: { role: 'owner' } },
+    })
+
+    const projectId = await alpha.users.owner.mutation(api.projects.create, {
+      name: 'Alpha board',
+      summary: 'A',
+    })
+    const taskId = await alpha.users.owner.mutation(api.tasks.create, {
+      projectId,
+      title: 'Alpha task',
+      priority: 'medium',
+    })
+
+    await expect(
+      beta.users.owner.mutation(api.comments.create, {
+        taskId,
+        body: 'Cross-tenant comment',
+      }),
+    ).rejects.toThrow('Resource not found.')
   })
 
   it('excludes users without a workspace from the scoped member list', async () => {

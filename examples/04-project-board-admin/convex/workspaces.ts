@@ -10,6 +10,7 @@ import {
   canCreateProject,
   canCreateTask,
   canManageMembers,
+  canReadProject,
   canViewAudit,
 } from './auth/checks'
 import { getActor } from './auth/actor'
@@ -42,7 +43,7 @@ export const getPermissionContext = query({
       displayName: user?.displayName ?? null,
       can: {
         'project.create': can(actor, canCreateProject),
-        'project.read': true,
+        'project.read': can(actor, canReadProject),
         'project.archive': can(actor, canArchiveProject),
         'task.create': can(actor, canCreateTask),
         'task.assign': can(actor, canAssignTask),

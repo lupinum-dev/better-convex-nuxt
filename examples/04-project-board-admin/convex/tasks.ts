@@ -13,7 +13,7 @@ import {
 } from './auth/checks'
 import { getActor } from './auth/actor'
 import { withCan } from './auth/resource'
-import { ensureFound, ensureTenant } from './auth/scope'
+import { loadResource } from './auth/scope'
 import {
   taskPriorityValidator,
   taskStatusValidator,
@@ -25,9 +25,7 @@ export const listByProject = query({
     const actor = await getActor(ctx)
     guard(actor, 'Read tasks', canReadTask)
 
-    const project = await ctx.db.get(args.projectId)
-    ensureFound(project, 'Project')
-    ensureTenant(actor, project)
+    loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
     const tasks = await ctx.db
       .query('tasks')
@@ -48,9 +46,7 @@ export const get = query({
     const actor = await getActor(ctx)
     guard(actor, 'Read task', canReadTask)
 
-    const task = await ctx.db.get(args.id)
-    ensureFound(task, 'Task')
-    ensureTenant(actor, task)
+    const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
     return withCan(task, {
       update: can(actor, canUpdateTask(task)),
@@ -70,9 +66,7 @@ export const create = mutation({
     const actor = await getActor(ctx)
     guard(actor, 'Create task', canCreateTask)
 
-    const project = await ctx.db.get(args.projectId)
-    ensureFound(project, 'Project')
-    ensureTenant(actor, project)
+    const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
     if (project.status === 'archived') {
       throw deny('Cannot add tasks to archived projects.')
@@ -111,9 +105,7 @@ export const moveToColumn = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    const task = await ctx.db.get(args.id)
-    ensureFound(task, 'Task')
-    ensureTenant(actor, task)
+    const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
     guard(actor, 'Update task', canUpdateTask(task))
 
     const now = Date.now()
@@ -140,9 +132,7 @@ export const assign = mutation({
     const actor = await getActor(ctx)
     guard(actor, 'Assign task', canAssignTask)
 
-    const task = await ctx.db.get(args.id)
-    ensureFound(task, 'Task')
-    ensureTenant(actor, task)
+    const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
     if (args.assigneeId) {
       const assignee = await ctx.db
@@ -217,9 +207,7 @@ export const listForExport = query({
     const actor = await getActor(ctx)
     guard(actor, 'Read tasks', canReadTask)
 
-    const project = await ctx.db.get(args.projectId)
-    ensureFound(project, 'Project')
-    ensureTenant(actor, project)
+    loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
     return ctx.db
       .query('tasks')

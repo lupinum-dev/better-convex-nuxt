@@ -74,7 +74,7 @@
           </button>
         </header>
 
-        <p v-if="ensuringUser || todosPending" class="status">Loading your personal todos...</p>
+        <p v-if="ensureUserRow.pending.value || todosPending" class="status">Loading your personal todos...</p>
         <p v-if="todoError" class="error">{{ todoError }}</p>
 
         <form class="composer" @submit.prevent="handleCreateTodo">
@@ -122,7 +122,7 @@
  * The page intentionally shows the whole auth story in one place:
  * signed out -> sign in/up -> actor ready -> user-scoped query and mutations.
  */
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 import { api } from '~/convex/_generated/api'
 
@@ -141,15 +141,13 @@ const signInForm = reactive({
 })
 
 const title = ref('')
-const actorReady = ref(false)
-const ensuringUser = ref(false)
-
-const ensureUserExists = useConvexMutation(api.auth.createUserIfNeeded)
+const ensureUserRow = useEnsureUserRow()
 const createTodo = useConvexMutation(api.todos.create)
 const toggleTodo = useConvexMutation(api.todos.toggle)
 const removeTodo = useConvexMutation(api.todos.remove)
 
 // The authed query only runs once we know the local `users` row exists.
+const actorReady = computed(() => ensureUserRow.ready.value)
 const todoArgs = computed(() => (isAuthenticated.value && actorReady.value ? {} : undefined))
 const { data: todos, pending: todosPending, error: todosError } = await useConvexQuery(
   api.todos.list,
@@ -157,30 +155,12 @@ const { data: todos, pending: todosPending, error: todosError } = await useConve
 )
 
 const todoError = computed(() =>
-  todosError.value?.message
+  ensureUserRow.error.value?.message
+  || todosError.value?.message
   || createTodo.error.value?.message
   || toggleTodo.error.value?.message
   || removeTodo.error.value?.message
   || '',
-)
-
-watch(
-  isAuthenticated,
-  async (value) => {
-    if (!value) {
-      actorReady.value = false
-      return
-    }
-
-    ensuringUser.value = true
-    try {
-      await ensureUserExists({})
-      actorReady.value = true
-    } finally {
-      ensuringUser.value = false
-    }
-  },
-  { immediate: true },
 )
 
 async function handleSignUp() {

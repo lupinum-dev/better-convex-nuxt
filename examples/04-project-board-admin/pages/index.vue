@@ -5,7 +5,7 @@
       <h1>Project Board + Admin</h1>
       <p class="lede">
         This is the month-two app: paginated lists, optimistic board updates, uploads, server
-        routes, and role management on top of the same scoped builders used in Example 03.
+        routes, and role management on top of the same explicit auth pattern used in Example 03.
       </p>
 
       <ConvexAuthLoading>
@@ -79,7 +79,7 @@
           </div>
         </header>
 
-        <p v-if="ensureUser.pending.value" class="status">Preparing your application user…</p>
+        <p v-if="ensureUserRow.pending.value" class="status">Preparing your application user…</p>
 
         <section v-if="isAuthenticated && !tenantId" class="setup-grid">
           <form class="card" @submit.prevent="handleCreateWorkspace">
@@ -220,13 +220,13 @@
  * Example 04 keeps onboarding, project creation, and pagination on one page so the jump into the
  * board stays fast. This is where users see the progression from auth -> workspace -> real feature work.
  */
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 import { api } from '~/convex/_generated/api'
 
-const { client, isAuthenticated, signOut, user } = useConvexAuth()
+const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, role, tenantId, user: permissionContext } = usePermissions()
+const { can, role, tenantId, ctx } = usePermissions()
 
 const signUpForm = reactive({
   name: '',
@@ -254,7 +254,7 @@ const projectForm = reactive({
   summary: '',
 })
 
-const ensureUser = useConvexMutation(api.auth.createUserIfNeeded)
+const ensureUserRow = useEnsureUserRow()
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const createProject = useConvexMutation(api.projects.create)
@@ -271,19 +271,9 @@ const {
 })
 
 const displayName = computed(
-  () => permissionContext.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
+  () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
 const canCreateProject = can('project.create')
-
-watch(isAuthenticated, async (nextValue) => {
-  if (!nextValue) return
-  try {
-    await ensureUser({})
-  }
-  catch {
-    // The example keeps onboarding forgiving; duplicate createUserIfNeeded calls are harmless.
-  }
-}, { immediate: true })
 
 async function handleSignUp() {
   await authAction.execute(

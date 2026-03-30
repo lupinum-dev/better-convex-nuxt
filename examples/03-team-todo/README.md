@@ -80,7 +80,7 @@ The example test file covers:
 - service-auth callers obey the same permission rules as browser and MCP callers
 
 `composables/usePermissions.ts` is intentionally tiny. It exists so Nuxt can auto-import
-`usePermissions()` everywhere else in the app while the permission context query stays in Convex-land.
+`usePermissions()` everywhere else in the app while the raw permission `ctx` query stays in Convex-land.
 
 `shared/` is also intentional. Both Convex code and Nitro/MCP code import the same args definitions,
 so the folder marks a runtime boundary rather than a Nuxt convention.

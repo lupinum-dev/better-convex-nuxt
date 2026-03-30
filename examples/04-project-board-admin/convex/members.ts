@@ -31,6 +31,8 @@ export const changeRole = mutation({
 
     const target = await ctx.db.get(args.userId)
     ensureFound(target, 'User')
+    // Users can exist before they join a workspace, so this edge stays explicit instead of
+    // forcing the generic loadResource() helper onto an optional workspaceId shape.
     ensureTenant(actor, { workspaceId: target.workspaceId })
 
     if (target.role === 'owner') throw deny('Cannot change the owner role.')

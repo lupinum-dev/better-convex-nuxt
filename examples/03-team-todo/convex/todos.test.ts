@@ -2,18 +2,32 @@
  * Why this file exists:
  * Example 03 is meant to prove the safety model, not just describe it.
  * These tests exercise tenant isolation, ownership rules, and service-auth parity against
- * the same scoped builders used by the browser UI and the MCP tools.
+ * the same scoped handlers used by the browser UI and the MCP tools.
  */
 /// <reference types="vite/client" />
 
-import { describe, expect, it } from 'vitest'
+ import { describe, expect, it, vi } from 'vitest'
+import { anyApi } from 'convex/server'
 
 import { createTestContext } from 'better-convex-nuxt/testing'
 
-import { api } from './_generated/api'
 import schema from './schema'
 
 const modules = import.meta.glob('./**/*.ts')
+const api = anyApi
+
+vi.mock('./_generated/server', async () => {
+  const server = await import('convex/server')
+  return {
+    query: server.query,
+    mutation: server.mutation,
+    action: server.action,
+    internalQuery: server.internalQuery,
+    internalMutation: server.internalMutation,
+    internalAction: server.internalAction,
+    httpAction: server.httpAction,
+  }
+})
 
 describe('team todo example', () => {
   it('lets a member update their own todo', async () => {

@@ -11,7 +11,34 @@ import type {
   SchemaDefinition,
 } from 'convex/server'
 
-const defaultModules = import.meta.glob('/convex/**/*.*s')
+const defaultModules = typeof import.meta.glob === 'function'
+  ? import.meta.glob('/convex/**/*.*s')
+  : {}
+
+function withGeneratedModuleHint(
+  modules: Record<string, () => Promise<unknown>>,
+): Record<string, () => Promise<unknown>> {
+  if (Object.keys(modules).some(path => path.includes('/_generated/') || path.includes('./_generated/'))) {
+    return modules
+  }
+
+  const firstPath = Object.keys(modules)[0]
+  if (!firstPath) {
+    return modules
+  }
+
+  const generatedPath = firstPath.startsWith('/convex/')
+    ? '/convex/_generated/api.ts'
+    : './_generated/api.ts'
+
+  return {
+    ...modules,
+    [generatedPath]: async () => ({
+      api: {},
+      internal: {},
+    }),
+  }
+}
 
 type AnySchemaDefinition = SchemaDefinition<GenericSchema, boolean>
 type DataModelFor<TSchema extends AnySchemaDefinition> = DataModelFromSchemaDefinition<TSchema>
@@ -181,9 +208,10 @@ export function createTestContext<
 >(
   options: CreateTestContextOptions<TSchema>,
 ): TestContext<TSchema, TRole> {
+  const modules = withGeneratedModuleHint(options.modules ?? defaultModules)
   const raw = convexTest(
     options.schema,
-    options.modules ?? defaultModules,
+    modules,
   ) as unknown as TestConvex<TSchema>
   const serviceKey = options.serviceKey ?? process.env.CONVEX_SERVICE_KEY ?? 'test-service-key'
   process.env.CONVEX_SERVICE_KEY = serviceKey
