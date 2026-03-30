@@ -15,6 +15,8 @@ export const listByTask = scopedQuery({
   args: { taskId: v.id('tasks') },
   require: 'comment.read',
   resource: args => ({ table: 'tasks', id: args.taskId }),
+  // Loading the parent task here proves it exists and belongs to this workspace before the
+  // handler queries child comments.
   handler: async ({ db }, args) => {
     return await db
       .query('comments')
@@ -29,8 +31,6 @@ export const create = scopedMutation({
   require: 'comment.create',
   resource: args => ({ table: 'tasks', id: args.taskId }),
   guard: async ({ db, resource: task }) => {
-    if (!task) return
-
     const project = await db.get(task.projectId)
     if (!project) {
       return 'Parent project not found.'
@@ -53,7 +53,7 @@ export const create = scopedMutation({
     await db.insert('auditEvents', {
       actorId: actor.userId,
       entityType: 'comment',
-      entityId: String(commentId),
+      entityId: commentId,
       action: 'comment.created',
       description: 'Added a task comment.',
       createdAt: now,

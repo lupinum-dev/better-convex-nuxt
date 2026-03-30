@@ -34,7 +34,7 @@ export const get = scopedQuery({
   require: 'task.read',
   resource: args => args.id,
   handler: async ({ resource }) => {
-    return resource ?? null
+    return resource
   },
 })
 
@@ -45,7 +45,7 @@ export const create = scopedMutation({
   // then let the guard enforce project-specific business rules like "not archived".
   resource: args => ({ table: 'projects', id: args.projectId }),
   guard: ({ resource }) => {
-    if (resource?.status === 'archived') {
+    if (resource.status === 'archived') {
       return 'Cannot add tasks to archived projects.'
     }
   },
@@ -64,7 +64,7 @@ export const create = scopedMutation({
     await db.insert('auditEvents', {
       actorId: actor.userId,
       entityType: 'task',
-      entityId: String(taskId),
+      entityId: taskId,
       action: 'task.created',
       description: `Created task "${args.title}".`,
       createdAt: now,
@@ -88,9 +88,9 @@ export const moveToColumn = scopedMutation({
     await db.insert('auditEvents', {
       actorId: actor.userId,
       entityType: 'task',
-      entityId: String(args.id),
+      entityId: args.id,
       action: 'task.moved',
-      description: `Moved "${resource?.title ?? 'task'}" to ${args.status}.`,
+      description: `Moved "${resource.title}" to ${args.status}.`,
       createdAt: now,
     })
   },
@@ -122,10 +122,9 @@ export const assign = scopedMutation({
     await db.insert('auditEvents', {
       actorId: actor.userId,
       entityType: 'task',
-      entityId: String(args.id),
+      entityId: args.id,
       action: 'task.assigned',
-      description:
-        `Assigned "${resource?.title ?? 'task'}" to ${args.assigneeId ?? 'nobody'}.`,
+      description: `Assigned "${resource.title}" to ${args.assigneeId ?? 'nobody'}.`,
       createdAt: now,
     })
   },
@@ -147,12 +146,14 @@ export const bulkUpdateStatus = scopedMutation({
     for (const id of args.ids) {
       const task = await db.get(id)
       if (!task) {
-        results.skipped.push(String(id))
+        results.skipped.push(id)
         continue
       }
 
+      // This mirrors task.update { own: ['member'] } from permissions.config.ts for each task in
+      // the bulk payload, where one forbidden document should be skipped instead of aborting all.
       if (actor.role === 'member' && task.ownerId !== actor.userId) {
-        results.skipped.push(String(id))
+        results.skipped.push(id)
         continue
       }
 

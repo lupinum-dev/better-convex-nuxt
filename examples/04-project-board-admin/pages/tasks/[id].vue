@@ -25,7 +25,7 @@
             <select
               :value="task?.assigneeId || ''"
               class="input"
-              @change="handleAssign(($event.target as HTMLSelectElement).value || undefined)"
+              @change="handleAssigneeChange"
             >
               <option value="">Unassigned</option>
               <option v-for="member in members" :key="member._id" :value="member.authId">
@@ -89,6 +89,11 @@ async function handleAssign(assigneeId: string | undefined) {
     id: taskId.value,
     assigneeId,
   })
+}
+
+async function handleAssigneeChange(event: Event) {
+  const select = event.target as HTMLSelectElement
+  await handleAssign(select.value || undefined)
 }
 </script>
 

@@ -11,6 +11,8 @@ export const stats = scopedQuery({
   args: {},
   require: 'workspace.audit',
   handler: async ({ db }) => {
+    // This demo intentionally keeps the query easy to read. Production dashboards usually lean on
+    // pre-aggregated documents or narrower indexes instead of collecting every row.
     const [projects, tasks] = await Promise.all([
       db.query('projects').collect(),
       db.query('tasks').collect(),

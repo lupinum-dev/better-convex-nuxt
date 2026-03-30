@@ -32,7 +32,7 @@ export const get = scopedQuery({
   require: 'project.read',
   resource: args => args.id,
   handler: async ({ resource }) => {
-    return resource ?? null
+    return resource
   },
 })
 
@@ -53,7 +53,7 @@ export const create = scopedMutation({
     await db.insert('auditEvents', {
       actorId: actor.userId,
       entityType: 'project',
-      entityId: String(projectId),
+      entityId: projectId,
       action: 'project.created',
       description: `Created project "${args.name}".`,
       createdAt: now,
@@ -77,9 +77,9 @@ export const archive = scopedMutation({
     await db.insert('auditEvents', {
       actorId: actor.userId,
       entityType: 'project',
-      entityId: String(args.id),
+      entityId: args.id,
       action: 'project.archived',
-      description: `Archived project "${resource?.name ?? 'unknown'}".`,
+      description: `Archived project "${resource.name}".`,
       createdAt: now,
     })
   },

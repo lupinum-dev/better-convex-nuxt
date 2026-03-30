@@ -43,8 +43,8 @@ async function handleFile(event: Event) {
       <input data-testid="attachment-input" type="file" @change="handleFile" />
     </label>
 
-    <p v-if="pending.value" class="hint">Uploading… {{ progress.value }}%</p>
-    <p v-if="error.value" class="error">{{ error.value.message }}</p>
+    <p v-if="pending" class="hint">Uploading… {{ progress }}%</p>
+    <p v-if="error" class="error">{{ error.message }}</p>
 
     <div v-if="previewUrl" class="preview">
       <a :href="previewUrl" target="_blank" rel="noreferrer">Open uploaded file</a>

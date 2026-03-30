@@ -169,6 +169,32 @@ describe('project board example', () => {
     expect(betaTasks[0]?.title).toBe('Beta task')
   })
 
+  it('excludes users without a workspace from the scoped member list', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        owner: { role: 'owner' },
+        member: { role: 'member' },
+      },
+    })
+
+    await ctx.seed('users', {
+      authId: 'floating-user',
+      email: 'floating-user@example.test',
+      displayName: 'Floating User',
+      role: 'viewer',
+      workspaceId: undefined,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+
+    const members = await team.users.owner.query(api.members.list, {})
+
+    expect(members).toHaveLength(2)
+    expect(members.find(member => member.authId === 'floating-user')).toBeUndefined()
+  })
+
   it('bulk updates only the member-owned tasks and reports skipped ids', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({

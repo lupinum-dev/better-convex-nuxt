@@ -13,6 +13,14 @@ const props = defineProps<{
 const { can } = usePermissions()
 const changeRole = useConvexMutation(api.members.changeRole)
 const memberKey = computed(() => props.member.email || props.member.authId)
+
+async function handleRoleChange(event: Event) {
+  const select = event.target as HTMLSelectElement
+  await changeRole({
+    userId: props.member._id,
+    newRole: select.value as 'admin' | 'member' | 'viewer',
+  })
+}
 </script>
 
 <template>
@@ -27,10 +35,7 @@ const memberKey = computed(() => props.member.email || props.member.authId)
       :data-testid="`member-role-${memberKey}`"
       :value="props.member.role"
       class="select"
-      @change="changeRole({
-        userId: props.member._id,
-        newRole: ($event.target as HTMLSelectElement).value as 'admin' | 'member' | 'viewer',
-      })"
+      @change="handleRoleChange"
     >
       <option value="admin">admin</option>
       <option value="member">member</option>

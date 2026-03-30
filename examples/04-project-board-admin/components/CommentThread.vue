@@ -15,6 +15,7 @@ const { can } = usePermissions()
 const body = ref('')
 const attachmentStorageId = ref<Id<'_storage'> | null>(null)
 const createComment = useConvexMutation(api.comments.create)
+const canCreateComment = can('comment.create')
 
 const { data: comments, pending, error } = await useConvexQuery(
   api.comments.listByTask,
@@ -52,7 +53,7 @@ async function handleSubmit() {
       </li>
     </ul>
 
-    <form v-if="can('comment.create')" class="composer" @submit.prevent="handleSubmit">
+    <form v-if="canCreateComment" class="composer" @submit.prevent="handleSubmit">
       <label class="field">
         <span>New comment</span>
         <textarea
