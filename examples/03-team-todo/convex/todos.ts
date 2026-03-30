@@ -1,66 +1,95 @@
-/**
- * Why this file exists:
- * This is the core tenant-scoped resource. The handler code is small because the builder pipeline
- * now owns auth resolution, tenant scoping, permission checks, and resource loading.
- */
+import { mutation, query } from './_generated/server'
+
+import { can, guard } from 'better-convex-nuxt/auth'
+
 import {
-  scopedMutation,
-  scopedQuery,
-} from './functions'
+  canCreateTodo,
+  canDeleteTodo,
+  canReadTodo,
+  canUpdateTodo,
+} from './auth/checks'
+import { getActor } from './auth/principal'
+import { withCan } from './auth/resource'
+import { ensureFound, ensureTenant } from './auth/scope'
 import {
   createTodo,
   deleteTodo,
   setTodoCompleted,
 } from '../shared/schemas/todo'
 
-export const list = scopedQuery({
+export const list = query({
   args: {},
-  require: 'todo.read',
-  handler: async ({ db }) => {
-    // In a scoped handler, `db.query('todos')` is already tenant-filtered.
-    return await db.query('todos').order('desc').collect()
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read todos', canReadTodo)
+
+    const todos = await ctx.db.query('todos')
+      .withIndex('by_organization', q => q.eq('organizationId', actor!.tenantId))
+      .order('desc')
+      .collect()
+
+    return todos.map(todo => withCan(todo, {
+      update: can(actor, canUpdateTodo(todo)),
+      delete: can(actor, canDeleteTodo(todo)),
+    }))
   },
 })
 
-export const get = scopedQuery({
+export const get = query({
   args: deleteTodo.validators,
-  require: 'todo.read',
-  handler: async ({ db }, args) => {
-    return await db.get(args.id)
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read todos', canReadTodo)
+
+    const todo = await ctx.db.get(args.id)
+    ensureFound(todo, 'Todo')
+    ensureTenant(actor, todo)
+    return withCan(todo, {
+      update: can(actor, canUpdateTodo(todo)),
+      delete: can(actor, canDeleteTodo(todo)),
+    })
   },
 })
 
-export const create = scopedMutation({
+export const create = mutation({
   args: createTodo.validators,
-  require: 'todo.create',
-  handler: async ({ db, actor }, args) => {
-    return await db.insert('todos', {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create todo', canCreateTodo)
+
+    return ctx.db.insert('todos', {
       title: args.title,
       completed: false,
-      ownerId: actor.userId,
+      ownerId: actor!.userId,
+      organizationId: actor!.tenantId,
       createdAt: Date.now(),
     })
   },
 })
 
-export const setCompleted = scopedMutation({
+export const setCompleted = mutation({
   args: setTodoCompleted.validators,
-  require: 'todo.update',
-  // `resource` lets the framework load the todo before the handler, enforce tenant ownership,
-  // and in dev it will explain permission denials with actor/rule/resource context.
-  resource: args => args.id,
-  handler: async ({ db }, args) => {
-    await db.patch(args.id, {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    const todo = await ctx.db.get(args.id)
+    ensureFound(todo, 'Todo')
+    ensureTenant(actor, todo)
+    guard(actor, 'Update todo', canUpdateTodo(todo))
+
+    await ctx.db.patch(args.id, {
       completed: args.completed,
     })
   },
 })
 
-export const remove = scopedMutation({
+export const remove = mutation({
   args: deleteTodo.validators,
-  require: 'todo.delete',
-  resource: args => args.id,
-  handler: async ({ db }, args) => {
-    await db.delete(args.id)
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    const todo = await ctx.db.get(args.id)
+    ensureFound(todo, 'Todo')
+    ensureTenant(actor, todo)
+    guard(actor, 'Delete todo', canDeleteTodo(todo))
+    await ctx.db.delete(args.id)
   },
 })

@@ -45,9 +45,9 @@ const componentNames = readdirSync(componentsDir)
   .sort((a, b) => a.localeCompare(b))
 
 const composableMeta = {
-  createPermissions: {
+  createAuth: {
     kind: 'Factory',
-    purpose: 'Builds a typed permission API for route/UI guards and capability checks.',
+    purpose: 'Builds a frontend auth API that reads backend-owned capability context.',
     guide: '/docs/auth-security/permissions',
   },
   defineSharedConvexQuery: {

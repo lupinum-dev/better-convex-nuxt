@@ -58,7 +58,7 @@ describe('team todo example', () => {
         id: todoId,
         completed: true,
       }),
-    ).rejects.toThrow('Forbidden: todo.update')
+    ).rejects.toThrow('Forbidden: Update todo')
   })
 
   it('keeps tenants isolated from each other', async () => {
@@ -111,6 +111,6 @@ describe('team todo example', () => {
       service.mutation(api.todos.create, {
         title: 'Should fail',
       }),
-    ).rejects.toThrow('Forbidden: todo.create')
+    ).rejects.toThrow('Forbidden: Create todo')
   })
 })

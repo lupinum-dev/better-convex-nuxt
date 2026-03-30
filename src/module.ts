@@ -584,16 +584,6 @@ export const { defineTool } = createConvexTools({
       })
     }
 
-    // 6c. Conditionally add permission composables
-    if (options.permissions) {
-      addImports([
-        {
-          name: 'createPermissions',
-          from: resolver.resolve('./runtime/composables/usePermissions'),
-        },
-      ])
-    }
-
     // 7. Auto-import server utilities
     addServerImports([
       { name: 'serverConvexQuery', from: resolver.resolve('./runtime/server/utils/convex') },

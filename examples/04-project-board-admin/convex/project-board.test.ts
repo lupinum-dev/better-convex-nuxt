@@ -64,7 +64,7 @@ describe('project board example', () => {
         id: taskId,
         status: 'done',
       }),
-    ).rejects.toThrow('Forbidden: task.update')
+    ).rejects.toThrow('Forbidden: Update task')
   })
 
   it('lets viewers comment but blocks them from creating tasks', async () => {
@@ -98,7 +98,7 @@ describe('project board example', () => {
         title: 'Nope',
         priority: 'medium',
       }),
-    ).rejects.toThrow('Forbidden: task.create')
+    ).rejects.toThrow('Forbidden: Create task')
   })
 
   it('blocks task creation in archived projects through cross-table resource + guard', async () => {
@@ -257,7 +257,7 @@ describe('project board example', () => {
         title: 'Nope',
         priority: 'medium',
       }),
-    ).rejects.toThrow('Forbidden: task.create')
+    ).rejects.toThrow('Forbidden: Create task')
   })
 
   it('role changes update the permission context and block future mutations', async () => {
@@ -292,6 +292,6 @@ describe('project board example', () => {
         title: 'Blocked after downgrade',
         priority: 'medium',
       }),
-    ).rejects.toThrow('Forbidden: task.create')
+    ).rejects.toThrow('Forbidden: Create task')
   })
 })

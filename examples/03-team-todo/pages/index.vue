@@ -133,7 +133,7 @@
             <div>
               <h3>Workspace todos</h3>
               <p class="hint">
-                The list query is a `scopedQuery`, so it only returns rows from your current tenant.
+                The list query is a raw Convex query, and the handler applies the tenant boundary explicitly.
               </p>
             </div>
             <p class="mcp-note">
@@ -178,7 +178,7 @@
                   <input
                     type="checkbox"
                     :checked="todo.completed"
-                    :disabled="!can('todo.update', todo)"
+                    :disabled="!todo._can.update"
                     @change="handleToggle(todo._id, !todo.completed)"
                   />
                   <span :class="{ done: todo.completed }">{{ todo.title }}</span>
@@ -188,7 +188,7 @@
               <button
                 class="ghost"
                 type="button"
-                :disabled="!can('todo.delete', todo)"
+                :disabled="!todo._can.delete"
                 @click="removeTodo({ id: todo._id })"
               >
                 Delete

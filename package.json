@@ -39,11 +39,11 @@
       ".": [
         "./dist/types.d.mts"
       ],
+      "auth": [
+        "./dist/runtime/auth/index.d.ts"
+      ],
       "composables": [
         "./dist/runtime/composables/index.d.ts"
-      ],
-      "convex": [
-        "./dist/runtime/convex/index.d.ts"
       ],
       "schema": [
         "./dist/runtime/schema/index.d.ts"
@@ -64,13 +64,13 @@
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
     },
+    "./auth": {
+      "types": "./dist/runtime/auth/index.d.ts",
+      "import": "./dist/runtime/auth/index.js"
+    },
     "./composables": {
       "types": "./dist/runtime/composables/index.d.ts",
       "import": "./dist/runtime/composables/index.js"
-    },
-    "./convex": {
-      "types": "./dist/runtime/convex/index.d.ts",
-      "import": "./dist/runtime/convex/index.js"
     },
     "./schema": {
       "types": "./dist/runtime/schema/index.d.ts",

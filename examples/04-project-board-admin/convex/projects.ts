@@ -1,57 +1,65 @@
-/**
- * Why this file exists:
- * Projects are the parent resource for the board. This file demonstrates pagination plus the
- * project-level permission layer that later task and comment operations build on.
- */
-import { paginationOptsValidator } from 'convex/server'
+import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-import {
-  scopedMutation,
-  scopedQuery,
-} from './functions'
-import {
-  archiveProject,
-  createProject,
-} from '../shared/schemas/project'
+import { deny, guard } from 'better-convex-nuxt/auth'
 
-export const list = scopedQuery({
-  args: { paginationOpts: paginationOptsValidator },
-  require: 'project.read',
-  handler: async ({ db }, args) => {
-    return await db
-      .query('projects')
-      .filter(q => q.neq(q.field('status'), 'archived'))
+import {
+  canArchiveProject,
+  canCreateProject,
+  canReadProject,
+} from './auth/checks'
+import { getActor } from './auth/principal'
+import { ensureFound, ensureTenant } from './auth/scope'
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read projects', canReadProject)
+
+    return ctx.db.query('projects')
+      .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
       .order('desc')
-      .paginate(args.paginationOpts)
+      .collect()
   },
 })
 
-export const get = scopedQuery({
+export const get = query({
   args: { id: v.id('projects') },
-  require: 'project.read',
-  resource: args => args.id,
-  handler: async ({ resource }) => {
-    return resource
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read projects', canReadProject)
+
+    const project = await ctx.db.get(args.id)
+    ensureFound(project, 'Project')
+    ensureTenant(actor, project)
+    return project
   },
 })
 
-export const create = scopedMutation({
-  args: createProject.validators,
-  require: 'project.create',
-  handler: async ({ db, actor }, args) => {
+export const create = mutation({
+  args: {
+    name: v.string(),
+    summary: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create project', canCreateProject)
+
     const now = Date.now()
-    const projectId = await db.insert('projects', {
+    const projectId = await ctx.db.insert('projects', {
       name: args.name,
       summary: args.summary,
       status: 'active',
-      ownerId: actor.userId,
+      ownerId: actor!.userId,
+      workspaceId: actor!.tenantId,
       createdAt: now,
       updatedAt: now,
     })
 
-    await db.insert('auditEvents', {
-      actorId: actor.userId,
+    await ctx.db.insert('auditEvents', {
+      workspaceId: actor!.tenantId,
+      actorId: actor!.userId,
       entityType: 'project',
       entityId: projectId,
       action: 'project.created',
@@ -63,23 +71,31 @@ export const create = scopedMutation({
   },
 })
 
-export const archive = scopedMutation({
-  args: archiveProject.validators,
-  require: 'project.archive',
-  resource: args => args.id,
-  handler: async ({ db, actor, resource }, args) => {
+export const archive = mutation({
+  args: { id: v.id('projects') },
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Archive project', canArchiveProject)
+
+    const project = await ctx.db.get(args.id)
+    ensureFound(project, 'Project')
+    ensureTenant(actor, project)
+
+    if (project.status === 'archived') throw deny('Project is already archived.')
+
     const now = Date.now()
-    await db.patch(args.id, {
+    await ctx.db.patch(args.id, {
       status: 'archived',
       updatedAt: now,
     })
 
-    await db.insert('auditEvents', {
-      actorId: actor.userId,
+    await ctx.db.insert('auditEvents', {
+      workspaceId: actor!.tenantId,
+      actorId: actor!.userId,
       entityType: 'project',
       entityId: args.id,
       action: 'project.archived',
-      description: `Archived project "${resource.name}".`,
+      description: `Archived "${project.name}".`,
       createdAt: now,
     })
   },

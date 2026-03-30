@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import { stripVTControlCharacters } from 'node:util'
 
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -110,5 +111,31 @@ describe('CLI doctor', () => {
 
     expect(result.status, output).toBe(2)
     expect(output).toContain('Error: Unknown command')
+  })
+
+  it('adds the base auth recipe files', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-add-auth-'))
+    const result = runCli(['add', 'auth', '--cwd', cwd], repoRoot)
+    const principal = readFileSync(resolve(cwd, 'convex/auth/principal.ts'), 'utf8')
+    const composable = readFileSync(resolve(cwd, 'composables/usePermissions.ts'), 'utf8')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(principal).toContain('export type Actor')
+    expect(composable).toContain('createAuth')
+  })
+
+  it('adds a SaaS recipe and an individual block recipe', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-add-recipe-'))
+
+    const crm = runCli(['add', 'auth:crm', '--cwd', cwd], repoRoot)
+    const audit = runCli(['add', 'auth:audit', '--cwd', cwd], repoRoot)
+
+    const filters = readFileSync(resolve(cwd, 'convex/auth/filters.ts'), 'utf8')
+    const auditFile = readFileSync(resolve(cwd, 'convex/auth/audit.ts'), 'utf8')
+
+    expect(crm.status, `${crm.stdout}\n${crm.stderr}`).toBe(0)
+    expect(audit.status, `${audit.stdout}\n${audit.stderr}`).toBe(0)
+    expect(filters).toContain('defineVisibility')
+    expect(auditFile).toContain('writeAuditEvent')
   })
 })

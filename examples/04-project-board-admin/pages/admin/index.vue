@@ -50,8 +50,8 @@ definePageMeta({
   convexAuth: true,
 })
 
-usePermissionGuard({
-  permission: 'workspace.audit',
+useAuthGuard({
+  can: 'workspace.audit',
   redirectTo: '/',
 })
 

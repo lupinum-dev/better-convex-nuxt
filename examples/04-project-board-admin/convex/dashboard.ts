@@ -1,21 +1,24 @@
-/**
- * Why this file exists:
- * The admin page needs several live queries at once. This file demonstrates that scoped queries
- * compose cleanly without the page having to do its own access-control plumbing.
- */
+import { query } from './_generated/server'
 import { v } from 'convex/values'
 
-import { scopedQuery } from './functions'
+import { guard } from 'better-convex-nuxt/auth'
 
-export const stats = scopedQuery({
+import { canViewAudit } from './auth/checks'
+import { getActor } from './auth/principal'
+
+export const stats = query({
   args: {},
-  require: 'workspace.audit',
-  handler: async ({ db }) => {
-    // This demo intentionally keeps the query easy to read. Production dashboards usually lean on
-    // pre-aggregated documents or narrower indexes instead of collecting every row.
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'View audit', canViewAudit)
+
     const [projects, tasks] = await Promise.all([
-      db.query('projects').collect(),
-      db.query('tasks').collect(),
+      ctx.db.query('projects')
+        .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+        .collect(),
+      ctx.db.query('tasks')
+        .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+        .collect(),
     ])
 
     return {
@@ -26,13 +29,17 @@ export const stats = scopedQuery({
   },
 })
 
-export const recentActivity = scopedQuery({
-  args: {
-    limit: v.optional(v.number()),
-  },
-  require: 'workspace.audit',
-  handler: async ({ db }, args) => {
-    const events = await db.query('auditEvents').order('desc').collect()
+export const recentActivity = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'View audit', canViewAudit)
+
+    const events = await ctx.db.query('auditEvents')
+      .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+      .order('desc')
+      .collect()
+
     return events.slice(0, args.limit ?? 20)
   },
 })

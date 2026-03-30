@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
- * This is the "full" example config. It enables auth, tenant-aware generated aliases,
- * and the MCP toolkit so the app can demonstrate the complete V2 surface in one place.
+ * This is the "full" example config. It enables auth and the MCP toolkit so the app can
+ * demonstrate the complete primitives-first surface in one place.
  */
 export default defineNuxtConfig({
   modules: ['better-convex-nuxt', '@nuxtjs/mcp-toolkit'],
@@ -24,9 +24,6 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
     siteUrl: process.env.CONVEX_SITE_URL,
     auth: true,
-    permissions: {
-      config: '~/convex/permissions.config',
-    },
     tenant: {
       field: 'organizationId',
       index: 'by_organization',

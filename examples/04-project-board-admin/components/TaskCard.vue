@@ -7,17 +7,17 @@
 import type { Doc, Id } from '~/convex/_generated/dataModel'
 import { api } from '~/convex/_generated/api'
 
+type TaskWithCan = Doc<'tasks'> & { _can: Record<string, boolean> }
+
 const props = defineProps<{
   projectId: Id<'projects'>
-  task: Doc<'tasks'>
+  task: TaskWithCan
   selected: boolean
 }>()
 
 const emit = defineEmits<{
   toggleSelected: [id: Id<'tasks'>]
 }>()
-
-const { can } = usePermissions()
 
 function nextStatus() {
   if (props.task.status === 'backlog') return 'in_progress'
@@ -59,11 +59,10 @@ const moveTask = useConvexMutation(api.tasks.moveToColumn, {
     </p>
 
     <button
-      v-if="props.task.status !== 'done'"
+      v-if="props.task._can.update && props.task.status !== 'done'"
       :data-testid="`task-move-${props.task._id}`"
       class="ghost"
       type="button"
-      :disabled="!can('task.update', props.task)"
       @click="moveTask({ id: props.task._id, status: nextStatus() })"
     >
       Move to {{ nextStatus().replace('_', ' ') }}

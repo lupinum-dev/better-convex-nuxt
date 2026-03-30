@@ -1,57 +1,64 @@
-/**
- * Why this file exists:
- * Comments prove nested authorization plus uploads. The task is the primary resource, then the
- * guard walks up to the parent project to enforce business state.
- */
+import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-import {
-  scopedMutation,
-  scopedQuery,
-} from './functions'
-import { createComment } from '../shared/schemas/comment'
+import { deny, guard } from 'better-convex-nuxt/auth'
 
-export const listByTask = scopedQuery({
+import { canComment } from './auth/checks'
+import { getActor } from './auth/principal'
+import { ensureFound, ensureTenant } from './auth/scope'
+
+export const listByTask = query({
   args: { taskId: v.id('tasks') },
-  require: 'comment.read',
-  resource: args => ({ table: 'tasks', id: args.taskId }),
-  // Loading the parent task here proves it exists and belongs to this workspace before the
-  // handler queries child comments.
-  handler: async ({ db }, args) => {
-    return await db
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read comments', canComment)
+
+    const task = await ctx.db.get(args.taskId)
+    ensureFound(task, 'Task')
+    ensureTenant(actor, task)
+
+    return ctx.db
       .query('comments')
-      .filter(q => q.eq(q.field('taskId'), args.taskId))
+      .withIndex('by_task', q => q.eq('taskId', args.taskId))
       .order('asc')
       .collect()
   },
 })
 
-export const create = scopedMutation({
-  args: createComment.validators,
-  require: 'comment.create',
-  resource: args => ({ table: 'tasks', id: args.taskId }),
-  guard: async ({ db, resource: task }) => {
-    const project = await db.get(task.projectId)
-    if (!project) {
-      return 'Parent project not found.'
-    }
-    if (project.status === 'archived') {
-      return 'Cannot comment on tasks in archived projects.'
-    }
+export const create = mutation({
+  args: {
+    taskId: v.id('tasks'),
+    body: v.string(),
+    attachmentStorageId: v.optional(v.id('_storage')),
   },
-  handler: async ({ db, actor }, args) => {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create comment', canComment)
+
+    const task = await ctx.db.get(args.taskId)
+    ensureFound(task, 'Task')
+    ensureTenant(actor, task)
+
+    const project = await ctx.db.get(task.projectId)
+    ensureFound(project, 'Project')
+    if (project.status === 'archived') {
+      throw deny('Cannot comment on tasks in archived projects.')
+    }
+
     const now = Date.now()
-    const commentId = await db.insert('comments', {
+    const commentId = await ctx.db.insert('comments', {
       taskId: args.taskId,
       body: args.body,
       attachmentStorageId: args.attachmentStorageId,
-      ownerId: actor.userId,
+      ownerId: actor!.userId,
+      workspaceId: actor!.tenantId,
       createdAt: now,
       updatedAt: now,
     })
 
-    await db.insert('auditEvents', {
-      actorId: actor.userId,
+    await ctx.db.insert('auditEvents', {
+      workspaceId: actor!.tenantId,
+      actorId: actor!.userId,
       entityType: 'comment',
       entityId: commentId,
       action: 'comment.created',

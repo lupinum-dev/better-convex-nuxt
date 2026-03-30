@@ -1,19 +1,16 @@
-import { defineSchema as defineConvexSchema, defineTable } from 'convex/server'
 import type { FunctionReference } from 'convex/server'
-import { v } from 'convex/values'
 
+import type { Check, Denial, Identity, Visibility } from '../../src/runtime/auth'
 import {
-  createFunctions,
-  defineActorConfig,
-  definePermissions,
-  type Actor,
-  type InferPermission,
-  type InferRole,
-  type PermissionContext,
-} from '../../src/runtime/convex'
-import { createPermissions } from '../../src/runtime/composables/usePermissions'
-import { createConvexTools } from '../../src/runtime/mcp/define-convex-tool'
-import { defineArgs } from '../../src/runtime/schema'
+  and,
+  applyVisibility,
+  can,
+  deny,
+  guard,
+  verifyKey,
+  defineVisibility,
+} from '../../src/runtime/auth'
+import { createAuth } from '../../src/runtime/composables/usePermissions'
 import { createTestContext } from '../../src/runtime/testing'
 
 type Assert<T extends true> = T
@@ -22,217 +19,45 @@ type IsEqual<A, B> =
     ? true
     : false
 
-const permissionConfig = definePermissions({
-  roles: ['owner', 'admin', 'member'] as const,
-  rules: {
-    global: {
-      'org.settings': { roles: ['owner'] },
-    },
-    post: {
-      create: { roles: ['owner', 'admin', 'member'] },
-      update: { own: ['member'], any: ['owner', 'admin'] },
-    },
-    'settings.billing': {
-      view: { roles: ['owner', 'admin'] },
-    },
-  },
-})
+type Actor = { role: 'owner' | 'member'; userId: string; tenantId: string } | null
+type _checkType = Assert<IsEqual<Check<Actor>, (principal: Actor) => boolean | Denial>>
 
-type Role = InferRole<typeof permissionConfig>
-type Permission = InferPermission<typeof permissionConfig>
+const isOwner: Check<Actor> = (actor) => !!actor && actor.role === 'owner'
+const isMember: Check<Actor> = (actor) => !!actor && actor.role === 'member'
 
-type _roleInference = Assert<IsEqual<Role, 'owner' | 'admin' | 'member'>>
-type _permissionInference = Assert<
-  IsEqual<
-    Permission,
-    'org.settings' | 'post.create' | 'post.update' | 'settings.billing.view'
-  >
->
+const composed = and(isOwner, isMember)
+const allowed = can({ role: 'owner', userId: 'u1', tenantId: 't1' }, composed)
+void allowed
 
-const actorConfig = defineActorConfig({
-  resolveFromAuth: async (): Promise<Actor<Role> | null> => ({
-    userId: 'user_1',
-    role: 'owner' as const,
-    tenantId: 'tenant_1',
-  }),
-})
+guard(null, 'Admin page', deny('Blocked'))
+verifyKey('a', 'b')
 
-const convexSchema = defineConvexSchema({
-  posts: defineTable({
-    title: v.string(),
-    ownerId: v.string(),
-    organizationId: v.string(),
-  }).index('by_organization', ['organizationId']),
-  comments: defineTable({
-    postId: v.id('posts'),
-    organizationId: v.string(),
-  }).index('by_organization', ['organizationId']),
-})
-
-const testContext = createTestContext({ schema: convexSchema })
-void testContext.asService({ userId: 'user_1', role: 'owner', tenantId: 'tenant_1' })
-
-const { scopedMutation } = createFunctions({
-  schema: convexSchema,
-  tables: {
-    posts: { ownerField: 'ownerId' },
-  },
-  permissions: permissionConfig,
-  actor: actorConfig,
-  tenant: {
-    field: 'organizationId',
-    index: 'by_organization',
-  },
-})
-
-const { publicQuery, authedMutation } = createFunctions({
-  actor: actorConfig,
-  permissions: permissionConfig,
-})
-
-publicQuery({
-  args: {},
-  handler: async ({ raw }) => {
-    void raw.ctx
-    return null
-  },
-})
-
-authedMutation({
-  args: { id: v.id('posts') },
-  resource: args => args.id,
-  guard: ({ raw }) => {
-    void raw.db
-  },
-  handler: async ({ raw }) => {
-    void raw.ctx
-    return null
-  },
-})
-
-scopedMutation({
-  args: { id: v.id('posts') },
-  require: 'post.create',
-  resource: (args) => ({ table: 'posts', id: args.id }),
-  guard: ({ resource }) => {
-    const title = resource?.title
-    void title
-  },
-  handler: async ({ actor, db }) => {
-    const role: Role = actor.role
-    void role
-
-    db.query('posts')
-    db.query('notes')
-    await db.insert('posts', {})
-    await db.insert('notes', {})
-    return null
-  },
-})
-
-scopedMutation({
-  args: { id: v.id('posts') },
-  // @ts-expect-error Invalid permission should be rejected.
-  require: 'post.delete',
-  handler: async () => null,
-})
-
-scopedMutation({
-  args: { id: v.id('posts') },
-  require: 'post.update',
-  resource: (args) => ({ table: 'posts', id: args.id }),
-  guard: ({ actor, resource }) => {
-    if (actor.role === 'member' && resource?.title === 'locked') {
-      return 'Locked posts cannot be edited.'
-    }
-  },
-  handler: async () => null,
-})
-
-scopedMutation({
-  args: { id: v.id('posts') },
-  require: 'post.update',
-  // @ts-expect-error Explicit resource tables should autocomplete known schema keys only.
-  resource: (args) => ({ table: 'missing', id: args.id }),
-  handler: async () => null,
-})
+const visibility = defineVisibility(async () => [{ _id: '1' }])
+void applyVisibility(visibility, { userId: 'u1' }, {} as never)
 
 const permissionQuery =
-  {} as FunctionReference<'query', 'public', Record<string, never>, PermissionContext<Role>>
+  {} as FunctionReference<'query', 'public', Record<string, never>, {
+    role: 'owner' | 'member'
+    plan: 'free' | 'pro'
+    userId: string
+    tenantId: string
+    can: Record<'task.create' | 'workspace.members', boolean>
+  } | null>
 
-const _permissionComposables = createPermissions({
+const auth = createAuth({
   query: permissionQuery,
-  checkPermission: permissionConfig.checkPermission,
 })
 
-type UsePermissionsApi = ReturnType<typeof _permissionComposables.usePermissions>
-type GuardOptions = Parameters<typeof _permissionComposables.usePermissionGuard>[0]
-type _roleFromComposable = Assert<IsEqual<UsePermissionsApi['role']['value'], Role | null>>
-type _guardPermission = Assert<IsEqual<GuardOptions['permission'], Permission>>
+type UsePermissionsApi = ReturnType<typeof auth.usePermissions>
+type GuardOptions = Parameters<typeof auth.useAuthGuard>[0]
+type _roleFromComposable = Assert<IsEqual<UsePermissionsApi['role']['value'], 'owner' | 'member' | null>>
+type _planFromComposable = Assert<IsEqual<UsePermissionsApi['plan']['value'], 'free' | 'pro' | null>>
+type _guardCanKey = Assert<IsEqual<GuardOptions['can'], string>>
 
-const { defineTool } = createConvexTools({
-  checkPermission: permissionConfig.checkPermission,
-})
+const _identity = {} as Identity | null
+void _identity
+const _visibility = {} as Visibility<{ _id: string }, { userId: string }>
+void _visibility
 
-const toolSchema = defineArgs({
-  args: { title: v.string() },
-})
-
-defineTool({
-  schema: toolSchema,
-  require: 'post.create',
-  auth: 'required',
-  handler: async (args, ctx) => {
-    const maybeRole: Role | undefined = ctx.actor?.role
-    void maybeRole
-    const allowed = ctx.can('post.update', { ownerId: 'user_1' })
-    void allowed
-    return args.title
-  },
-})
-
-defineTool({
-  schema: toolSchema,
-  auth: 'required',
-  // @ts-expect-error Tool permissions should reject typos.
-  require: 'post.publish',
-  handler: async () => null,
-})
-
-// ---------------------------------------------------------------------------
-// Edge cases
-// ---------------------------------------------------------------------------
-
-// Empty permissions config → InferPermission resolves to never
-const _emptyPermConfig = definePermissions({
-  roles: ['admin'] as const,
-  rules: {
-    global: {},
-  },
-})
-
-type EmptyPermission = InferPermission<typeof _emptyPermConfig>
-type _emptyPermissionIsNever = Assert<IsEqual<EmptyPermission, never>>
-
-// Ownership-based permission rule (own/any) still infers correctly
-const _ownershipConfig = definePermissions({
-  roles: ['owner', 'editor', 'viewer'] as const,
-  rules: {
-    global: {},
-    doc: {
-      read: { roles: ['owner', 'editor', 'viewer'] as const },
-      write: { own: ['editor'] as const, any: ['owner'] as const },
-      delete: { roles: ['owner'] as const },
-    },
-  },
-})
-
-type OwnershipPermission = InferPermission<typeof _ownershipConfig>
-type _ownershipPermInference = Assert<
-  IsEqual<OwnershipPermission, 'doc.read' | 'doc.write' | 'doc.delete'>
->
-
-type OwnershipRole = InferRole<typeof _ownershipConfig>
-type _ownershipRoleInference = Assert<
-  IsEqual<OwnershipRole, 'owner' | 'editor' | 'viewer'>
->
+const testContext = createTestContext({ schema: {} as never })
+void testContext

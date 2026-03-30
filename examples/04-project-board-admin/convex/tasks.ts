@@ -1,68 +1,98 @@
-/**
- * Why this file exists:
- * This is the heart of Example 04. It demonstrates cross-table `resource` loading, business-state
- * `guard`s, optimistic board moves, bulk operations, and a server-friendly export query.
- */
 import { v } from 'convex/values'
+import { mutation, query } from './_generated/server'
+
+import { can, deny, guard } from 'better-convex-nuxt/auth'
 
 import {
-  scopedMutation,
-  scopedQuery,
-} from './functions'
+  canAssignTask,
+  canCreateTask,
+  canDeleteTask,
+  canReadTask,
+  canUpdateTask,
+  hasRole,
+} from './auth/checks'
+import { getActor } from './auth/principal'
+import { withCan } from './auth/resource'
+import { ensureFound, ensureTenant } from './auth/scope'
 import {
-  assignTask,
-  createTask,
-  moveTask,
+  taskPriorityValidator,
   taskStatusValidator,
 } from '../shared/schemas/task'
 
-export const listByProject = scopedQuery({
+export const listByProject = query({
   args: { projectId: v.id('projects') },
-  require: 'task.read',
-  resource: args => ({ table: 'projects', id: args.projectId }),
-  handler: async ({ db }, args) => {
-    return await db
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read tasks', canReadTask)
+
+    const project = await ctx.db.get(args.projectId)
+    ensureFound(project, 'Project')
+    ensureTenant(actor, project)
+
+    const tasks = await ctx.db
       .query('tasks')
-      .filter(q => q.eq(q.field('projectId'), args.projectId))
+      .withIndex('by_project', q => q.eq('projectId', args.projectId))
       .order('desc')
       .collect()
+
+    return tasks.map(task => withCan(task, {
+      update: can(actor, canUpdateTask(task)),
+      delete: can(actor, canDeleteTask(task)),
+    }))
   },
 })
 
-export const get = scopedQuery({
+export const get = query({
   args: { id: v.id('tasks') },
-  require: 'task.read',
-  resource: args => args.id,
-  handler: async ({ resource }) => {
-    return resource
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read task', canReadTask)
+
+    const task = await ctx.db.get(args.id)
+    ensureFound(task, 'Task')
+    ensureTenant(actor, task)
+
+    return withCan(task, {
+      update: can(actor, canUpdateTask(task)),
+      delete: can(actor, canDeleteTask(task)),
+      assign: can(actor, canAssignTask),
+    })
   },
 })
 
-export const create = scopedMutation({
-  args: createTask.validators,
-  require: 'task.create',
-  // The primary resource is the parent project: load it, prove it belongs to this workspace,
-  // then let the guard enforce project-specific business rules like "not archived".
-  resource: args => ({ table: 'projects', id: args.projectId }),
-  guard: ({ resource }) => {
-    if (resource.status === 'archived') {
-      return 'Cannot add tasks to archived projects.'
-    }
+export const create = mutation({
+  args: {
+    projectId: v.id('projects'),
+    title: v.string(),
+    priority: v.optional(taskPriorityValidator),
   },
-  handler: async ({ db, actor }, args) => {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create task', canCreateTask)
+
+    const project = await ctx.db.get(args.projectId)
+    ensureFound(project, 'Project')
+    ensureTenant(actor, project)
+
+    if (project.status === 'archived') {
+      throw deny('Cannot add tasks to archived projects.')
+    }
+
     const now = Date.now()
-    const taskId = await db.insert('tasks', {
+    const taskId = await ctx.db.insert('tasks', {
       projectId: args.projectId,
       title: args.title,
       status: 'backlog',
       priority: args.priority ?? 'medium',
-      ownerId: actor.userId,
+      ownerId: actor!.userId,
+      workspaceId: actor!.tenantId,
       createdAt: now,
       updatedAt: now,
     })
 
-    await db.insert('auditEvents', {
-      actorId: actor.userId,
+    await ctx.db.insert('auditEvents', {
+      workspaceId: actor!.tenantId,
+      actorId: actor!.userId,
       entityType: 'task',
       entityId: taskId,
       action: 'task.created',
@@ -74,98 +104,102 @@ export const create = scopedMutation({
   },
 })
 
-export const moveToColumn = scopedMutation({
-  args: moveTask.validators,
-  require: 'task.update',
-  resource: args => args.id,
-  handler: async ({ db, actor, resource }, args) => {
-    const now = Date.now()
-    await db.patch(args.id, {
-      status: args.status,
-      updatedAt: now,
-    })
+export const moveToColumn = mutation({
+  args: {
+    id: v.id('tasks'),
+    status: taskStatusValidator,
+  },
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    const task = await ctx.db.get(args.id)
+    ensureFound(task, 'Task')
+    ensureTenant(actor, task)
+    guard(actor, 'Update task', canUpdateTask(task))
 
-    await db.insert('auditEvents', {
-      actorId: actor.userId,
+    const now = Date.now()
+    await ctx.db.patch(args.id, { status: args.status, updatedAt: now })
+
+    await ctx.db.insert('auditEvents', {
+      workspaceId: actor!.tenantId,
+      actorId: actor!.userId,
       entityType: 'task',
       entityId: args.id,
       action: 'task.moved',
-      description: `Moved "${resource.title}" to ${args.status}.`,
+      description: `Moved "${task.title}" to ${args.status}.`,
       createdAt: now,
     })
   },
 })
 
-export const assign = scopedMutation({
-  args: assignTask.validators,
-  require: 'task.assign',
-  resource: args => args.id,
-  guard: async ({ db }, args) => {
-    if (!args.assigneeId) return
-
-    const assignee = await db
-      .query('users')
-      .filter(q => q.eq(q.field('authId'), args.assigneeId))
-      .first()
-
-    if (!assignee) {
-      return 'Assignee must already belong to this workspace.'
-    }
+export const assign = mutation({
+  args: {
+    id: v.id('tasks'),
+    assigneeId: v.optional(v.string()),
   },
-  handler: async ({ db, actor, resource }, args) => {
-    const now = Date.now()
-    await db.patch(args.id, {
-      assigneeId: args.assigneeId,
-      updatedAt: now,
-    })
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Assign task', canAssignTask)
 
-    await db.insert('auditEvents', {
-      actorId: actor.userId,
+    const task = await ctx.db.get(args.id)
+    ensureFound(task, 'Task')
+    ensureTenant(actor, task)
+
+    if (args.assigneeId) {
+      const assignee = await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', q => q.eq('authId', args.assigneeId!))
+        .first()
+      if (!assignee || assignee.workspaceId !== actor!.tenantId) {
+        throw deny('Assignee must already belong to this workspace.')
+      }
+    }
+
+    const now = Date.now()
+    await ctx.db.patch(args.id, { assigneeId: args.assigneeId, updatedAt: now })
+
+    await ctx.db.insert('auditEvents', {
+      workspaceId: actor!.tenantId,
+      actorId: actor!.userId,
       entityType: 'task',
       entityId: args.id,
       action: 'task.assigned',
-      description: `Assigned "${resource.title}" to ${args.assigneeId ?? 'nobody'}.`,
+      description: `Assigned "${task.title}" to ${args.assigneeId ?? 'nobody'}.`,
       createdAt: now,
     })
   },
 })
 
-export const bulkUpdateStatus = scopedMutation({
+export const bulkUpdateStatus = mutation({
   args: {
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
   },
-  require: 'task.update',
-  handler: async ({ db, actor }, args) => {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
+
     const now = Date.now()
-    const results = {
-      updated: 0,
-      skipped: [] as string[],
-    }
+    const results = { updated: 0, skipped: [] as string[] }
 
     for (const id of args.ids) {
-      const task = await db.get(id)
-      if (!task) {
+      const task = await ctx.db.get(id)
+      if (!task || task.workspaceId !== actor!.tenantId) {
         results.skipped.push(id)
         continue
       }
 
-      // This mirrors task.update { own: ['member'] } from permissions.config.ts for each task in
-      // the bulk payload, where one forbidden document should be skipped instead of aborting all.
-      if (actor.role === 'member' && task.ownerId !== actor.userId) {
+      if (!can(actor, canUpdateTask(task))) {
         results.skipped.push(id)
         continue
       }
 
-      await db.patch(id, {
-        status: args.status,
-        updatedAt: now,
-      })
+      await ctx.db.patch(id, { status: args.status, updatedAt: now })
       results.updated++
     }
 
-    await db.insert('auditEvents', {
-      actorId: actor.userId,
+    await ctx.db.insert('auditEvents', {
+      workspaceId: actor!.tenantId,
+      actorId: actor!.userId,
       entityType: 'task',
       entityId: results.skipped.join(',') || 'bulk',
       action: 'task.bulk_status',
@@ -177,14 +211,19 @@ export const bulkUpdateStatus = scopedMutation({
   },
 })
 
-export const listForExport = scopedQuery({
+export const listForExport = query({
   args: { projectId: v.id('projects') },
-  require: 'task.read',
-  resource: args => ({ table: 'projects', id: args.projectId }),
-  handler: async ({ db }, args) => {
-    return await db
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read tasks', canReadTask)
+
+    const project = await ctx.db.get(args.projectId)
+    ensureFound(project, 'Project')
+    ensureTenant(actor, project)
+
+    return ctx.db
       .query('tasks')
-      .filter(q => q.eq(q.field('projectId'), args.projectId))
+      .withIndex('by_project', q => q.eq('projectId', args.projectId))
       .order('desc')
       .collect()
   },

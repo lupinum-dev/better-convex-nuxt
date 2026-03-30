@@ -5,7 +5,7 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, file uploads, and permissions.
+Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, file uploads, and authorization primitives.
 
 - [Documentation](https://better-convex-nuxt.vercel.app)
 
@@ -26,12 +26,14 @@ pnpm add @nuxtjs/mcp-toolkit convex-helpers zod
 
 ## CLI
 
-A read-only CLI proof of concept is included for consumer app checks:
+A CLI is included for consumer app checks and auth recipe scaffolding:
 
 ```bash
 npx better-convex-nuxt doctor
 npx better-convex-nuxt doctor --cwd ./my-app
 npx better-convex-nuxt doctor --json
+npx better-convex-nuxt add auth
+npx better-convex-nuxt add auth:crm
 ```
 
 The `doctor` command checks:
@@ -70,12 +72,12 @@ export default defineNuxtConfig({
 
 If you want runnable reference apps instead of copy-paste snippets, start in [examples/README.md](./examples/README.md).
 
-It includes four standalone apps:
+It includes standalone apps that now demonstrate the raw v4 auth model:
 
 - public only
 - auth only
-- full auth + tenant scoping + permissions + MCP
-- month-two board/admin patterns with uploads, Nitro routes, and E2E coverage
+- full auth + tenant scoping + backend-owned authorization + MCP
+- month-two board/admin patterns with uploads, Nitro routes, `_can`, and E2E coverage
 
 ## Testing
 
@@ -163,11 +165,17 @@ export default defineTool({
 Inside Convex functions, use the validator view directly:
 
 ```ts
-export const create = scopedMutation({
+import { mutation } from './_generated/server'
+import { guard } from 'better-convex-nuxt/auth'
+import { canCreatePost } from './auth/checks'
+import { getActor } from './auth/principal'
+
+export const create = mutation({
   args: createPost.validators,
-  require: 'post.create',
-  handler: async ({ db }, args) => {
-    return await db.insert('posts', args)
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create post', canCreatePost)
+    return await ctx.db.insert('posts', args)
   },
 })
 ```
@@ -178,7 +186,7 @@ Use a `shared/` directory when both Convex files and Nuxt server files need the 
 
 The same idea applies to `composables/usePermissions.ts`: it is intentionally tiny so Nuxt can
 auto-import the finished `usePermissions()` composable while your app keeps control of which
-permission-context query it uses.
+permission-context query it uses through `createAuth()`.
 
 ### Queries
 

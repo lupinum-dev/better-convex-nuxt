@@ -1,51 +1,48 @@
-/**
- * Why this file exists:
- * Member management is the clearest way to prove that frontend permissions react live when roles
- * change in the database. The query stays tiny because the scoped builder already narrowed the data.
- */
+import { query, mutation } from './_generated/server'
 import { v } from 'convex/values'
 
-import {
-  scopedMutation,
-  scopedQuery,
-} from './functions'
+import { deny, guard } from 'better-convex-nuxt/auth'
 
-const editableRole = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
+import { canManageMembers } from './auth/checks'
+import { getActor } from './auth/principal'
+import { ensureFound, ensureTenant } from './auth/scope'
 
-export const list = scopedQuery({
+export const list = query({
   args: {},
-  require: 'workspace.members',
-  handler: async ({ db }) => {
-    return await db.query('users').order('asc').collect()
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Manage members', canManageMembers)
+
+    return ctx.db.query('users')
+      .withIndex('by_workspace', q => q.eq('workspaceId', actor!.tenantId))
+      .order('asc')
+      .collect()
   },
 })
 
-export const changeRole = scopedMutation({
+export const changeRole = mutation({
   args: {
     userId: v.id('users'),
-    newRole: editableRole,
+    newRole: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
-  require: 'workspace.members',
-  handler: async ({ db, actor }, args) => {
-    const target = await db.get(args.userId)
-    if (!target) {
-      throw new Error('User not found.')
-    }
-    if (target.role === 'owner') {
-      throw new Error('Cannot change the owner role.')
-    }
-    if (args.newRole === 'admin' && actor.role !== 'owner') {
-      throw new Error('Only the owner can promote another admin.')
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Manage members', canManageMembers)
+
+    const target = await ctx.db.get(args.userId)
+    ensureFound(target, 'User')
+    ensureTenant(actor, { workspaceId: target.workspaceId })
+
+    if (target.role === 'owner') throw deny('Cannot change the owner role.')
+    if (args.newRole === 'admin' && actor!.role !== 'owner') {
+      throw deny('Only the owner can promote to admin.')
     }
 
     const now = Date.now()
-    await db.patch(args.userId, {
-      role: args.newRole,
-      updatedAt: now,
-    })
-
-    await db.insert('auditEvents', {
-      actorId: actor.userId,
+    await ctx.db.patch(args.userId, { role: args.newRole, updatedAt: now })
+    await ctx.db.insert('auditEvents', {
+      workspaceId: actor!.tenantId,
+      actorId: actor!.userId,
       entityType: 'user',
       entityId: target.authId,
       action: 'workspace.role_changed',

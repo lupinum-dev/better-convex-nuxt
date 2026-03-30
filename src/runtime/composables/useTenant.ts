@@ -9,7 +9,7 @@
  * // ~/composables/useTenant.ts
  * import { createTenantComposables } from 'better-convex-nuxt/composables'
  * import { api } from '~/convex/_generated/api'
- * import { checkPermission } from '~/convex/permissions.config'
+ * import { api } from '~/convex/_generated/api'
  *
  * export const {
  *   useScopedQuery,
@@ -17,7 +17,6 @@
  *   useTenantContext,
  * } = createTenantComposables({
  *   permissionQuery: api.auth.getPermissionContext,
- *   checkPermission,
  * })
  * ```
  */
@@ -25,8 +24,7 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, type ComputedRef, type MaybeRefOrGetter, type Ref, toValue } from 'vue'
 
-import type { CheckPermissionFn } from './usePermissions'
-import { createPermissions } from './usePermissions'
+import { createAuth } from './usePermissions'
 import { useConvexMutation, type UseConvexMutationOptions, type UseConvexMutationReturn } from './useConvexMutation'
 import { useConvexQuery, type UseConvexQueryOptions, type UseConvexQueryReturn } from './useConvexQuery'
 
@@ -37,8 +35,6 @@ import { useConvexQuery, type UseConvexQueryOptions, type UseConvexQueryReturn }
 export interface CreateTenantComposablesOptions<TPermission extends string = string> {
   /** Convex query that returns permission context (must include tenantId) */
   permissionQuery: FunctionReference<'query'>
-  /** Permission checking function from permissions.config.ts */
-  checkPermission: CheckPermissionFn<TPermission>
 }
 
 export interface UseTenantContextReturn<TPermission extends string = string> {
@@ -51,7 +47,7 @@ export interface UseTenantContextReturn<TPermission extends string = string> {
   /** Whether permission context is still loading */
   pending: Ref<boolean>
   /** Check if user has a specific permission (reactive) */
-  can: (permission: TPermission, resource?: Record<string, unknown>) => ComputedRef<boolean>
+  can: (permission: TPermission) => ComputedRef<boolean>
 }
 
 // ============================================================================
@@ -61,9 +57,8 @@ export interface UseTenantContextReturn<TPermission extends string = string> {
 export function createTenantComposables<TPermission extends string = string>(
   options: CreateTenantComposablesOptions<TPermission>,
 ) {
-  const { usePermissions } = createPermissions({
+  const { usePermissions } = createAuth({
     query: options.permissionQuery,
-    checkPermission: options.checkPermission,
   })
 
   // ──────────────────────────────────────────────────────────
@@ -80,7 +75,7 @@ export function createTenantComposables<TPermission extends string = string>(
     return {
       tenantId: permissions.tenantId,
       user: computed(() => {
-        const u = permissions.user.value
+        const u = permissions.ctx.value
         if (!u) return null
         return { role: u.role, userId: u.userId }
       }),

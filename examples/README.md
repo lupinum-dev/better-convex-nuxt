@@ -1,15 +1,15 @@
 # Runnable Examples
 
-This folder contains four standalone apps that show the V2 API at increasing levels of complexity.
+This folder contains standalone apps that show the current primitives-first API at increasing levels of complexity.
 
 ## Which One To Open First?
 
 | Example          | Best for                     | Shows                                                                                                        |
 | ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `01-public-todo` | First look                   | `publicQuery`, `publicMutation`, `defineArgs`                                                                |
-| `02-auth-todo`   | Auth-only apps               | `authedQuery`, `authedMutation`, `defineActorConfig`, Better Auth wiring                                     |
-| `03-team-todo`   | Full-stack multi-tenant apps | `scopedQuery`, `scopedMutation`, `definePermissions({ rules })`, `#convex/mcp`, `better-convex-nuxt/testing` |
-| `04-project-board-admin` | Month-two product work | Pagination, optimistic updates, uploads, Nitro server routes, `guard`, admin workflows, integration + E2E tests |
+| `02-auth-todo`   | Auth-only apps               | Better Auth wiring, raw Convex handlers                                     |
+| `03-team-todo`   | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#convex/mcp`, `better-convex-nuxt/testing` |
+| `04-project-board-admin` | Month-two product work | Pagination, optimistic updates, uploads, Nitro routes, `guard`, `_can`, admin workflows, integration + E2E tests |
 
 ## Important Repo Note
 
@@ -45,5 +45,5 @@ These examples are meant to be read line-by-line by people evaluating the module
 That is why the code includes:
 
 - file header comments explaining why the file exists
-- inline comments at the exact points where auth, scoping, permissions, and MCP behavior become non-obvious
+  - inline comments at the exact points where auth, scoping, authorization, and MCP behavior become non-obvious
 - very small business domains so the framework behavior is the only thing you need to learn

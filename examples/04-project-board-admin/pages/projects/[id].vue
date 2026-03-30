@@ -96,8 +96,8 @@ definePageMeta({
   convexAuth: true,
 })
 
-usePermissionGuard({
-  permission: 'project.read',
+useAuthGuard({
+  can: 'project.read',
   redirectTo: '/',
 })
 
