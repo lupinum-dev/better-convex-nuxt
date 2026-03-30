@@ -13,9 +13,10 @@ describe('mcp entrypoint exports', () => {
     mcpApi = await import('../../src/runtime/mcp/index')
   })
 
-  it('exports new API', () => {
-    expect(mcpApi).toHaveProperty('defineConvexTool')
-    expect(mcpApi).toHaveProperty('createConvexTools')
+  it('exports the V2 MCP API', () => {
+    expect(mcpApi).toHaveProperty('defineTool')
+    expect(mcpApi).not.toHaveProperty('defineConvexTool')
+    expect(mcpApi).not.toHaveProperty('createConvexTools')
   })
 
   it('exports envelope helpers', () => {
@@ -23,9 +24,5 @@ describe('mcp entrypoint exports', () => {
     expect(mcpApi).toHaveProperty('wrapSuccess')
     expect(mcpApi).toHaveProperty('wrapPreview')
     expect(mcpApi).toHaveProperty('withSummary')
-  })
-
-  it('exports deprecated defineConvexMcpTool', () => {
-    expect(mcpApi).toHaveProperty('defineConvexMcpTool')
   })
 })

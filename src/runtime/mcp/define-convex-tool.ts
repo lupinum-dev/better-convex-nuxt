@@ -20,12 +20,17 @@ import {
   serverConvexQuery,
 } from '../server/utils/convex'
 import { toConvexError } from '../utils/call-result'
-import type { ConvexSchemaFieldMeta } from '../utils/define-convex-schema'
+import type { SchemaFieldMeta } from '../utils/define-convex-schema'
 import type { ConvexToolOperation } from '../utils/types'
 
 import { cleanErrorMessage, inferCategoryFromMessage } from './error-helpers'
 import { globalRateLimiter, parseWindowString } from './rate-limiter'
-import { wrapError, wrapPreview, wrapSuccess } from './result-envelope'
+import {
+  withSummary,
+  wrapError,
+  wrapPreview,
+  wrapSuccess,
+} from './result-envelope'
 import type {
   AnyConvexSchema,
   ConvexToolCallFns,
@@ -169,7 +174,7 @@ function deriveAnnotations(
 // Enhanced field descriptions
 // ============================================================================
 
-function buildFieldDescription(meta: ConvexSchemaFieldMeta): string | undefined {
+function buildFieldDescription(meta: SchemaFieldMeta): string | undefined {
   const parts: string[] = []
 
   if (meta.description) parts.push(meta.description)
@@ -195,7 +200,7 @@ function buildFieldDescription(meta: ConvexSchemaFieldMeta): string | undefined 
 
 function applyEnhancedFieldDescriptions<V extends PropertyValidators>(
   shape: ConvexMcpInputSchema<V>,
-  fields: { [K in keyof V]: ConvexSchemaFieldMeta } | undefined,
+  fields: { [K in keyof V]: SchemaFieldMeta } | undefined,
 ): ConvexMcpInputSchema<V> {
   if (!fields) return shape
 
@@ -220,14 +225,14 @@ function applyEnhancedFieldDescriptions<V extends PropertyValidators>(
 // ============================================================================
 
 function buildInputExamples<V extends PropertyValidators>(
-  fields: { [K in keyof V]: ConvexSchemaFieldMeta } | undefined,
+  fields: { [K in keyof V]: SchemaFieldMeta } | undefined,
 ): ConvexToolGeneratedExamples<V> | undefined {
   if (!fields) return undefined
 
   const example: Partial<ShapeOutput<ConvexMcpInputSchema<V>>> = {}
   let hasAny = false
 
-  for (const [key, meta] of Object.entries(fields) as [string, ConvexSchemaFieldMeta][]) {
+  for (const [key, meta] of Object.entries(fields) as [string, SchemaFieldMeta][]) {
     if (meta.examples?.length) {
       example[key as keyof typeof example] = meta.examples[0] as typeof example[keyof typeof example]
       hasAny = true
@@ -373,9 +378,9 @@ function createToolContext<P extends string>(
   actor: McpAuthIdentity | null,
   org: McpOrgContext | undefined,
   checkPermission: CheckPermissionFn<P> | undefined,
+  scoped: boolean,
 ): ConvexToolHandlerCtx<P> {
-  const actorCalls = createToolCallFns(event, actor, true)
-  const publicCalls = createToolCallFns(event, actor, false)
+  const calls = createToolCallFns(event, actor, scoped)
 
   return {
     event,
@@ -385,8 +390,16 @@ function createToolContext<P extends string>(
       if (!checkPermission || !actor) return false
       return checkPermission(actor, permission, resource)
     },
-    ...actorCalls,
-    public: publicCalls,
+    ...calls,
+    ok: (data, summary) => wrapSuccess(
+      summary ? withSummary(data, summary) : data,
+    ),
+    error: (category, message, issues) => wrapError(category, message, issues),
+    preview: (preview) => wrapPreview(normalizePreview(preview)),
+    blocked: (preview) => wrapPreview({
+      ...normalizePreview(preview),
+      blocked: true,
+    }),
   }
 }
 
@@ -415,7 +428,7 @@ function _buildToolDefinition<
     schema,
     handler,
     name,
-    description = schema.meta?.description,
+    description = schema.description,
     operation = 'mutation',
     annotations: annotationOverrides,
     auth = 'none',
@@ -479,18 +492,18 @@ function _buildToolDefinition<
     )
   }
 
-  if (maxItems && !(maxItems.field in schema.args)) {
+  if (maxItems && !(maxItems.field in schema.validators)) {
     throw new Error(
-      `defineConvexTool: maxItems.field "${maxItems.field}" not found in schema args. `
-      + `Available: ${Object.keys(schema.args).join(', ')}`,
+      `defineConvexTool: maxItems.field "${maxItems.field}" not found in schema validators. `
+      + `Available: ${Object.keys(schema.validators).join(', ')}`,
     )
   }
 
   // ── Build input schema ─────────────────────────────────────────────────
 
   let inputSchema = applyEnhancedFieldDescriptions(
-    convexToMcpZodFields(schema.args),
-    schema.meta?.fields,
+    convexToMcpZodFields(schema.validators),
+    schema.meta.fields,
   ) as ConvexToolInputSchema<S>
 
   if (destructive) {
@@ -514,7 +527,7 @@ function _buildToolDefinition<
   // ── Auto-generate input examples ───────────────────────────────────────
 
   const inputExamples = toToolInputExamples<S>(
-    explicitInputExamples ?? buildInputExamples(schema.meta?.fields),
+    explicitInputExamples ?? buildInputExamples(schema.meta.fields),
   )
 
   // ── Rate limit config ──────────────────────────────────────────────────
@@ -585,7 +598,13 @@ function _buildToolDefinition<
         }
       }
 
-      const ctx = createToolContext(event, resolvedAuth, orgContext, _checkPermission)
+      const ctx = createToolContext(
+        event,
+        resolvedAuth,
+        orgContext,
+        _checkPermission,
+        scoped,
+      )
 
       const normalizedArgs = normalizeToolArgs(args)
 
@@ -647,6 +666,9 @@ function _buildToolDefinition<
     // Step 7: Preview routing
     if (destructive && preview && !args.confirmed) {
       const raw = await preview(args.clean, ctx)
+      if (isValidCallToolResult(raw)) {
+        return raw
+      }
       return wrapPreview(normalizePreview(raw))
     }
 
@@ -660,6 +682,9 @@ function _buildToolDefinition<
 
     // Step 9: Handler — strip _confirmed before passing to user handler
     const result = await handler(args.clean, extra, ctx)
+    if (isValidCallToolResult(result)) {
+      return result
+    }
     return wrapSuccess(result)
   }
 
@@ -672,7 +697,16 @@ function _buildToolDefinition<
     inputExamples,
     group,
     tags,
-    enabled,
+    enabled: auth === 'required'
+      ? async (event) => {
+          const baseVisible = await enabled?.(event)
+          if (baseVisible === false) return false
+          const resolved = _resolveAuth
+            ? await _resolveAuth(event)
+            : resolveDefaultAuth(event)
+          return resolved !== null
+        }
+      : enabled,
     cache,
     handler: wrappedHandler,
   }
@@ -718,7 +752,7 @@ function _buildToolDefinition<
  * })
  * ```
  */
-export function defineConvexTool<
+export function defineTool<
   S extends AnyConvexSchema,
   P extends string = string,
 >(
@@ -726,6 +760,8 @@ export function defineConvexTool<
 ): McpToolDefinition {
   return _buildToolDefinition(options as DefineConvexToolFullOptions<S, P>) as McpToolDefinition
 }
+
+export const defineConvexTool = defineTool
 
 /**
  * Create a typed tool factory with your permission system baked in.
@@ -758,7 +794,7 @@ export function createConvexTools<P extends string = string>(
   factoryOptions: CreateConvexToolsOptions<P>,
 ) {
   return {
-    defineConvexTool: <S extends AnyConvexSchema>(
+    defineTool: <S extends AnyConvexSchema>(
       toolOptions: DefineConvexToolOptions<S, P>,
     ): McpToolDefinition => {
       return _buildToolDefinition({

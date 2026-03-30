@@ -160,6 +160,16 @@ export interface ConvexDebugOptions {
   serverAuthFlow?: boolean
 }
 
+export interface PermissionsOptions {
+  /** Path to the app's exported permissionConfig */
+  config: string
+}
+
+export interface TenantOptions {
+  /** Field used for organization scoping on tenant-aware tables */
+  orgField: string
+}
+
 export interface ModuleOptions {
   /** Convex deployment URL (WebSocket) — e.g., https://your-app.convex.cloud */
   url?: string
@@ -198,11 +208,10 @@ export interface ModuleOptions {
   query?: QueryDefaults
   /** Default options for upload composables. */
   upload?: UploadDefaults
-  /**
-   * Enable permission composables (createPermissions factory).
-   * @default false
-   */
-  permissions?: boolean
+  /** Permission config path used for generated `#convex/mcp` helpers. */
+  permissions?: PermissionsOptions
+  /** Tenant configuration used by scoped helpers and generated aliases. */
+  tenant?: TenantOptions
   /**
    * Enable module logging.
    * - false: No logs (production default)
@@ -258,7 +267,8 @@ export default defineNuxtModule<ModuleOptions>({
     upload: {
       maxConcurrent: DEFAULT_UPLOAD_MAX_CONCURRENT,
     },
-    permissions: false,
+    permissions: undefined,
+    tenant: undefined,
     logging: false,
     debug: {
       authFlow: false,
@@ -348,7 +358,8 @@ export default defineNuxtModule<ModuleOptions>({
         upload: {
           maxConcurrent: options.upload?.maxConcurrent ?? 3,
         },
-        permissions: options.permissions ?? false,
+        permissions: options.permissions ?? null,
+        tenant: options.tenant ?? null,
         logging: options.logging ?? false,
         debug: {
           authFlow: options.debug?.authFlow ?? false,
@@ -460,6 +471,58 @@ export {}
 `,
     })
 
+    const serverAliasTemplate = addTemplate({
+      filename: 'convex/server.ts',
+      write: true,
+      getContents: () => `
+export {
+  serverConvexQuery,
+  serverConvexMutation,
+  serverConvexAction,
+} from '${resolver.resolve('./runtime/server/index')}'
+`,
+    })
+
+    nuxt.options.alias['#convex/server'] = serverAliasTemplate.dst
+
+    const mcpAliasTemplate = addTemplate({
+      filename: 'convex/mcp.ts',
+      write: true,
+      getContents: () => {
+        const defineToolPath = resolver.resolve('./runtime/mcp/define-convex-tool')
+        if (!options.permissions && !options.tenant) {
+          return `
+export { defineTool } from '${defineToolPath}'
+`
+        }
+
+        const permissionImport = options.permissions
+          ? `import { permissionConfig } from '${options.permissions.config}'`
+          : ''
+        const checkPermissionConfig = options.permissions
+          ? `checkPermission: permissionConfig.checkPermission,`
+          : ''
+        const tenantConfig = options.tenant
+          ? `tenant: {
+  orgField: '${options.tenant.orgField}',
+  resolveOrgId: (actor) => actor.orgId ?? null,
+},`
+          : ''
+
+        return `
+import { createConvexTools } from '${defineToolPath}'
+${permissionImport}
+
+export const { defineTool } = createConvexTools({
+  ${checkPermissionConfig}
+  ${tenantConfig}
+})
+`
+      },
+    })
+
+    nuxt.options.alias['#convex/mcp'] = mcpAliasTemplate.dst
+
     // 6. Auto-import composables (non-auth, always available)
     addImports([
       { name: 'useConvex', from: resolver.resolve('./runtime/composables/useConvex') },
@@ -469,6 +532,7 @@ export {}
       },
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
+      { name: 'useCachedQuery', from: resolver.resolve('./runtime/composables/useCachedQuery') },
       {
         name: 'executeConvexQuery',
         from: resolver.resolve('./runtime/composables/useConvexQuery'),
@@ -492,7 +556,8 @@ export {}
       // Validation — Convex validator → Standard Schema
       { name: 'useConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
       { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
-      { name: 'defineConvexSchema', from: resolver.resolve('./runtime/utils/define-convex-schema') },
+      { name: 'defineSchema', from: resolver.resolve('./runtime/utils/define-convex-schema') },
+      { name: 'defineTableMeta', from: resolver.resolve('./runtime/utils/define-convex-schema') },
       // Optimistic update standalone helpers
       { name: 'prependTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
       { name: 'appendTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
@@ -541,7 +606,8 @@ export {}
         from: resolver.resolve('./runtime/server/utils/validate'),
       },
       { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
-      { name: 'defineConvexSchema', from: resolver.resolve('./runtime/utils/define-convex-schema') },
+      { name: 'defineSchema', from: resolver.resolve('./runtime/utils/define-convex-schema') },
+      { name: 'defineTableMeta', from: resolver.resolve('./runtime/utils/define-convex-schema') },
     ])
 
     // 9. Add types to tsconfig references

@@ -41,6 +41,15 @@ export default defineConfig({
       // Uses convex-test with edge-runtime
       // Fast (~5s) - run with `pnpm test`
       {
+        resolve: {
+          alias: {
+            'better-convex-nuxt/composables': fileURLToPath(new URL('./src/runtime/composables/index.ts', import.meta.url)),
+            'better-convex-nuxt/convex': fileURLToPath(new URL('./src/runtime/convex/index.ts', import.meta.url)),
+            'better-convex-nuxt/mcp': fileURLToPath(new URL('./src/runtime/mcp/index.ts', import.meta.url)),
+            'better-convex-nuxt/schema': fileURLToPath(new URL('./src/runtime/schema/index.ts', import.meta.url)),
+            'better-convex-nuxt/server': fileURLToPath(new URL('./src/runtime/server/index.ts', import.meta.url)),
+          },
+        },
         test: {
           name: 'convex',
           include: ['playground/convex/**/*.test.ts'],

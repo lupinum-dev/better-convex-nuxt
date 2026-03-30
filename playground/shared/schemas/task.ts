@@ -1,22 +1,25 @@
-import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
 import { v } from 'convex/values'
-import type { PropertyValidators } from 'convex/values'
 
-export const addTaskArgs = {
-  title: v.string(),
-} satisfies PropertyValidators
+import { defineSchema } from '../../../src/runtime/schema'
 
-export const addTaskMeta = {
+export const addTask = defineSchema({
   description: 'Add a task to your personal list',
-  fields: {
+  args: {
+    title: v.string(),
+  },
+  meta: {
     title: {
       label: 'Title',
       description: 'The task title',
-      examples: ['Review MCP verification flow', 'Ship playground smoke tests'],
+      examples: [
+        'Review MCP verification flow',
+        'Ship playground smoke tests',
+      ],
     },
   },
-} satisfies ConvexSchemaMetaFor<typeof addTaskArgs>
+})
 
-export const listTasksMeta = {
+export const listTasks = defineSchema({
   description: 'List your tasks',
-} satisfies ConvexSchemaMetaFor<{}>
+  args: {},
+})

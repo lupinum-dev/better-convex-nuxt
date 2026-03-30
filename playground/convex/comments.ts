@@ -1,80 +1,58 @@
-import { query, mutation } from './_generated/server'
+import { scopedMutation, scopedQuery } from "./functions";
 import {
-  requireActor,
-  serviceAuthArgs,
-} from './lib/actor'
-import { assertPermission } from './lib/access'
-import { scoped } from './lib/scoped'
-import {
-  createCommentArgs,
-  updateCommentArgs,
-  deleteCommentArgs,
-  listCommentsByPostArgs,
-} from '../shared/schemas/comment'
+  createComment,
+  deleteComment,
+  listCommentsByPost,
+  updateComment,
+} from "../shared/schemas/comment";
 
-export const listByPost = query({
-  args: { ...listCommentsByPostArgs, ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const s = await scoped.try(ctx, args)
-    if (!s) return []
+export const listByPost = scopedQuery({
+  args: listCommentsByPost.validators,
+  handler: async ({ db }, args) => {
+    const post = await db.get(args.postId);
+    if (!post) return [];
 
-    const post = await s.db.get(args.postId)
-    if (!post) return []
-
-    return await s.db
-      .query('comments')
-      .filter((q) => q.eq(q.field('postId'), args.postId))
-      .order('desc')
-      .collect()
+    return await db
+      .query("comments")
+      .filter((q) => q.eq(q.field("postId"), args.postId))
+      .order("desc")
+      .collect();
   },
-})
+});
 
-export const create = mutation({
-  args: { ...createCommentArgs, ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const { db, actor } = await scoped(ctx, args)
-    assertPermission(actor, 'comment.create')
-
-    const post = await db.get(args.postId)
-    if (!post) throw new Error('Post not found')
-
-    return await db.insert('comments', {
+export const create = scopedMutation({
+  args: createComment.validators,
+  require: "comment.create",
+  resource: (args) => ({ table: "posts", id: args.postId }),
+  handler: async ({ db, actor }, args) => {
+    return await db.insert("comments", {
       postId: args.postId,
       content: args.content,
       ownerId: actor.userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    })
+    });
   },
-})
+});
 
-export const update = mutation({
-  args: { ...updateCommentArgs, ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const actor = await requireActor(ctx, args)
-    const comment = await ctx.db.get(args.id)
-    if (!comment) throw new Error('Comment not found')
-    if (comment.organizationId !== actor.orgId) throw new Error('Forbidden: comment.update')
-
-    assertPermission(actor, 'comment.update', comment)
-
-    await ctx.db.patch(args.id, {
+export const update = scopedMutation({
+  args: updateComment.validators,
+  require: "comment.update",
+  resource: (args) => args.id,
+  handler: async ({ db }, args) => {
+    await db.patch(args.id, {
       content: args.content,
       editedAt: Date.now(),
       updatedAt: Date.now(),
-    })
+    });
   },
-})
+});
 
-export const remove = mutation({
-  args: { ...deleteCommentArgs, ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const actor = await requireActor(ctx, args)
-    const comment = await ctx.db.get(args.id)
-    if (!comment) throw new Error('Comment not found')
-    if (comment.organizationId !== actor.orgId) throw new Error('Forbidden: comment.delete')
-
-    assertPermission(actor, 'comment.delete', comment)
-    await ctx.db.delete(args.id)
+export const remove = scopedMutation({
+  args: deleteComment.validators,
+  require: "comment.delete",
+  resource: (args) => args.id,
+  handler: async ({ db }, args) => {
+    await db.delete(args.id);
   },
-})
+});

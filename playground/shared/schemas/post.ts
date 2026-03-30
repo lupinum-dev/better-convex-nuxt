@@ -1,62 +1,47 @@
-import type { ConvexSchemaMetaBase, ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
-/**
- * Shared post schema — define once, use everywhere.
- *
- * This file ONLY depends on convex/values, so it can be safely imported
- * from both convex/ functions and Nuxt app code.
- *
- * Usage:
- *   convex/posts.ts  → mutation({ args: createPostArgs, handler: ... })
- *   app composable   → defineConvexSchema(createPostArgs, createPostMeta)
- *   server route     → readValidatedBody(event, schema.validate)
- *   MCP tool         → defineConvexMcpTool({ schema, handler: ... })
- */
 import { v } from 'convex/values'
-import type { PropertyValidators } from 'convex/values'
 
-// ---------------------------------------------------------------------------
-// Validators — the single source of truth
-// ---------------------------------------------------------------------------
+import {
+  defineSchema,
+  defineTableMeta,
+} from '../../../src/runtime/schema'
 
-export const createPostArgs = {
-  title: v.string(),
-  content: v.string(),
-} satisfies PropertyValidators
-
-export const updatePostArgs = {
-  id: v.id('posts'),
-  title: v.optional(v.string()),
-  content: v.optional(v.string()),
-} satisfies PropertyValidators
-
-// ---------------------------------------------------------------------------
-// Metadata — labels and descriptions for forms / MCP tools
-// Keep this alongside validators so both stay in sync.
-// ---------------------------------------------------------------------------
-
-export const createPostMeta = {
+export const createPost = defineSchema({
   description: 'Create a new blog post',
-  fields: {
+  args: {
+    title: v.string(),
+    content: v.string(),
+  },
+  meta: {
     title: { label: 'Title', description: 'The post title' },
     content: { label: 'Content', description: 'Post body in markdown' },
   },
-} satisfies ConvexSchemaMetaFor<typeof createPostArgs>
+})
 
-export const updatePostMeta = {
+export const updatePost = defineSchema({
   description: 'Update an existing blog post',
-  fields: {
+  args: {
+    id: v.id('posts'),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+  },
+  meta: {
     id: { label: 'Post ID', description: 'The post to update' },
     title: { label: 'Title', description: 'New title (optional)' },
     content: { label: 'Content', description: 'New content (optional)' },
   },
-} satisfies ConvexSchemaMetaFor<typeof updatePostArgs>
+})
 
-// ---------------------------------------------------------------------------
-// Table-level metadata — declares tenant scoping intent.
-// Used by extractScopedTables() to derive the scopedTables list.
-// ---------------------------------------------------------------------------
+export const deletePost = defineSchema({
+  description: 'Permanently delete a post',
+  args: {
+    id: v.id('posts'),
+  },
+  meta: {
+    id: { label: 'Post ID', description: 'The post to delete' },
+  },
+})
 
-export const postTableMeta = {
-  description: 'Blog posts table',
+export const postTable = defineTableMeta({
+  description: 'Blog posts',
   tenant: { scoped: true, ownerField: 'ownerId' },
-} satisfies ConvexSchemaMetaBase
+})

@@ -1,14 +1,10 @@
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { withSummary } from 'better-convex-nuxt/mcp'
+import { defineTool } from '#convex/mcp'
 
 import { api } from '../../../convex/_generated/api'
-import { createPostArgs, createPostMeta } from '../../../shared/schemas/post'
-import { defineConvexTool } from '../utils/tools'
+import { createPost } from '../../../shared/schemas/post'
 
-const schema = defineConvexSchema(createPostArgs, createPostMeta)
-
-export default defineConvexTool({
-  schema,
+export default defineTool({
+  schema: createPost,
   name: 'create-post',
   auth: 'required',
   require: 'post.create',
@@ -16,6 +12,6 @@ export default defineConvexTool({
   rateLimit: { max: 10, window: '1m' },
   handler: async (args, _extra, ctx) => {
     const postId = await ctx.mutation(api.posts.create, args)
-    return withSummary({ id: postId }, `Created post "${args.title}"`)
+    return ctx.ok({ id: postId }, `Created post "${args.title}"`)
   },
 })

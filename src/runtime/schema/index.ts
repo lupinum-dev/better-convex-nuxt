@@ -1,10 +1,11 @@
 export { toConvexSchema, useConvexSchema } from '../utils/convex-schema'
 export {
-  defineConvexSchema,
-  type ConvexSchemaDefinition,
-  type ConvexSchemaMeta,
-  type ConvexSchemaMetaBase,
-  type ConvexSchemaMetaFor,
-  type ConvexSchemaFieldMeta,
-  type ConvexSchemaTenantMeta,
+  defineSchema,
+  defineTableMeta,
+  type SchemaDefinition,
+  type SchemaFieldMeta,
+  type InputSchemaMeta,
+  type ResolvedSchemaMeta,
+  type TableMeta,
+  type TableTenantMeta,
 } from '../utils/define-convex-schema'

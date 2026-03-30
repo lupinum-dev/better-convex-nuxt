@@ -1,13 +1,15 @@
-import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
+import { defineSchema } from 'better-convex-nuxt/schema'
 import { v } from 'convex/values'
 
-export const createTaskArgs = {
-  title: v.string(),
-}
-
-export const createTaskMeta = {
+export const createTask = defineSchema({
   description: 'Create a task',
-  fields: {
+  args: {
+    title: v.string(),
+  },
+  meta: {
     title: { description: 'Task title' },
   },
-} satisfies ConvexSchemaMetaFor<typeof createTaskArgs>
+})
+
+export const createTaskArgs = createTask.validators
+export const createTaskMeta = createTask.meta

@@ -174,3 +174,9 @@ export function checkPermission(
 
   return false
 }
+
+export const permissionConfig = {
+  roles: ROLES,
+  permissions,
+  checkPermission,
+} as const

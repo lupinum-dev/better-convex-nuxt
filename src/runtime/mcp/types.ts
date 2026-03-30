@@ -10,20 +10,20 @@ import type { PropertyValidators } from 'convex/values'
 import type { ZodRawShape } from 'zod'
 
 import type { CheckPermissionFn, Resource } from '../composables/usePermissions'
-import type { ConvexSchemaDefinition } from '../utils/define-convex-schema'
+import type { SchemaDefinition } from '../utils/define-convex-schema'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types'
 
 // ============================================================================
 // Schema helpers (re-exported for convenience)
 // ============================================================================
 
-export type AnyConvexSchema = ConvexSchemaDefinition<unknown, PropertyValidators>
+export type AnyConvexSchema = SchemaDefinition<unknown, PropertyValidators>
 
 export type InferSchemaData<S extends AnyConvexSchema> =
-  S extends ConvexSchemaDefinition<infer T, infer _V> ? T : never
+  S extends SchemaDefinition<infer T, infer _V> ? T : never
 
 export type InferSchemaValidators<S extends AnyConvexSchema> =
-  S extends ConvexSchemaDefinition<unknown, infer V> ? V : never
+  S extends SchemaDefinition<unknown, infer V> ? V : never
 
 // ============================================================================
 // Structured response envelope
@@ -102,8 +102,14 @@ export interface ConvexToolHandlerCtx<P extends string = string> extends ConvexT
   /** Resolved org context for `scoped: true` tools. */
   org?: McpOrgContext
   can: (permission: P, resource?: Resource) => boolean
-  /** Explicit raw Convex call lane for functions that do not accept service auth args. */
-  public: ConvexToolCallFns
+  ok: <T>(data: T, summary?: string) => McpToolCallbackResult
+  error: (
+    category: ConvexErrorCategory,
+    message: string,
+    issues?: ConvexErrorIssue[],
+  ) => McpToolCallbackResult
+  preview: (preview: string | PreviewResult) => McpToolCallbackResult
+  blocked: (preview: string | PreviewResult) => McpToolCallbackResult
 }
 
 export type ConvexToolMiddlewareCtx<P extends string = string> = ConvexToolHandlerCtx<P>
@@ -217,7 +223,7 @@ export interface McpOrgContext {
 
 export interface CreateConvexToolsOptions<P extends string = string> {
   /** Permission check function from your permissions.config.ts */
-  checkPermission: CheckPermissionFn<P>
+  checkPermission?: CheckPermissionFn<P>
   /** Custom auth resolver. Default: reads event.context.mcpAuth */
   resolveAuth?: (event: H3Event) => McpAuthIdentity | null | Promise<McpAuthIdentity | null>
   /** Tenant configuration for org-scoped tools */

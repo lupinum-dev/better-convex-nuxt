@@ -1,73 +1,55 @@
-import type { ConvexSchemaMetaBase, ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
-/**
- * Shared comment schema — define once, use everywhere.
- *
- * Comments are nested under posts and scoped to organizations.
- */
 import { v } from 'convex/values'
-import type { PropertyValidators } from 'convex/values'
 
-// ---------------------------------------------------------------------------
-// Validators
-// ---------------------------------------------------------------------------
+import {
+  defineSchema,
+  defineTableMeta,
+} from '../../../src/runtime/schema'
 
-export const createCommentArgs = {
-  postId: v.id('posts'),
-  content: v.string(),
-} satisfies PropertyValidators
-
-export const updateCommentArgs = {
-  id: v.id('comments'),
-  content: v.string(),
-} satisfies PropertyValidators
-
-export const deleteCommentArgs = {
-  id: v.id('comments'),
-} satisfies PropertyValidators
-
-export const listCommentsByPostArgs = {
-  postId: v.id('posts'),
-} satisfies PropertyValidators
-
-// ---------------------------------------------------------------------------
-// Metadata
-// ---------------------------------------------------------------------------
-
-export const createCommentMeta = {
+export const createComment = defineSchema({
   description: 'Add a comment to a post',
-  fields: {
+  args: {
+    postId: v.id('posts'),
+    content: v.string(),
+  },
+  meta: {
     postId: { label: 'Post', description: 'The post to comment on' },
     content: { label: 'Comment', description: 'The comment text' },
   },
-} satisfies ConvexSchemaMetaFor<typeof createCommentArgs>
+})
 
-export const updateCommentMeta = {
+export const updateComment = defineSchema({
   description: 'Edit an existing comment',
-  fields: {
+  args: {
+    id: v.id('comments'),
+    content: v.string(),
+  },
+  meta: {
     id: { label: 'Comment ID', description: 'The comment to update' },
     content: { label: 'Comment', description: 'New comment text' },
   },
-} satisfies ConvexSchemaMetaFor<typeof updateCommentArgs>
+})
 
-export const deleteCommentMeta = {
+export const deleteComment = defineSchema({
   description: 'Delete a comment',
-  fields: {
+  args: {
+    id: v.id('comments'),
+  },
+  meta: {
     id: { label: 'Comment ID', description: 'The comment to delete' },
   },
-} satisfies ConvexSchemaMetaFor<typeof deleteCommentArgs>
+})
 
-export const listCommentsByPostMeta = {
+export const listCommentsByPost = defineSchema({
   description: 'List all comments on a post',
-  fields: {
+  args: {
+    postId: v.id('posts'),
+  },
+  meta: {
     postId: { label: 'Post', description: 'The post to list comments for' },
   },
-} satisfies ConvexSchemaMetaFor<typeof listCommentsByPostArgs>
+})
 
-// ---------------------------------------------------------------------------
-// Table-level metadata — declares tenant scoping intent
-// ---------------------------------------------------------------------------
-
-export const commentTableMeta = {
+export const commentTable = defineTableMeta({
   description: 'Comments on blog posts',
   tenant: { scoped: true, ownerField: 'ownerId' },
-} satisfies ConvexSchemaMetaBase
+})

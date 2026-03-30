@@ -1,16 +1,17 @@
 import { v } from 'convex/values'
 
-import { query, mutation } from './_generated/server'
-import { resolveActor, serviceAuthArgs, tryResolveActor } from './lib/actor'
+import {
+  authedMutation,
+  openQuery,
+  publicQuery,
+} from './functions'
+import { addTask } from '../shared/schemas/task'
 
-// Public stats - no auth required
-// Used to test the `public` option in useConvexQuery
-export const publicStats = query({
+export const publicStats = publicQuery({
   args: {},
-  handler: async (ctx) => {
-    // This query doesn't check auth - it's truly public
-    const totalTasks = await ctx.db.query('tasks').collect()
-    const completedTasks = totalTasks.filter((t) => t.completed)
+  handler: async ({ db }) => {
+    const totalTasks = await db.query('tasks').collect()
+    const completedTasks = totalTasks.filter(task => task.completed)
 
     return {
       total: totalTasks.length,
@@ -21,80 +22,51 @@ export const publicStats = query({
   },
 })
 
-// Get all tasks for the current user
-export const list = query({
-  args: { ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const actor = await tryResolveActor(ctx, args)
-    if (!actor) {
-      return []
-    }
+export const list = openQuery({
+  args: {},
+  handler: async ({ actor, db }) => {
+    if (!actor) return []
 
-    const tasks = await ctx.db
+    return await db
       .query('tasks')
-      .withIndex('by_user', (q) => q.eq('userId', actor.userId))
+      .withIndex('by_user', q => q.eq('userId', actor.userId))
       .order('desc')
       .collect()
-
-    return tasks
   },
 })
 
-// Add a new task
-export const add = mutation({
-  args: { title: v.string(), ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const actor = await resolveActor(ctx, args)
-
-    const taskId = await ctx.db.insert('tasks', {
+export const add = authedMutation({
+  args: addTask.validators,
+  handler: async ({ db, actor }, args) => {
+    return await db.insert('tasks', {
       userId: actor.userId,
       title: args.title,
       completed: false,
       createdAt: Date.now(),
     })
-
-    return taskId
   },
 })
 
-// Toggle task completion
-export const toggle = mutation({
-  args: { id: v.id('tasks'), ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const actor = await resolveActor(ctx, args)
+export const toggle = authedMutation({
+  args: { id: v.id('tasks') },
+  handler: async ({ db, actor }, args) => {
+    const task = await db.get(args.id)
+    if (!task) throw new Error('Task not found')
+    if (task.userId !== actor.userId) throw new Error('Not authorized')
 
-    const task = await ctx.db.get(args.id)
-    if (!task) {
-      throw new Error('Task not found')
-    }
-
-    // Ensure user owns the task
-    if (task.userId !== actor.userId) {
-      throw new Error('Not authorized')
-    }
-
-    await ctx.db.patch(args.id, {
+    await db.patch(args.id, {
       completed: !task.completed,
     })
   },
 })
 
-// Delete a task
-export const remove = mutation({
-  args: { id: v.id('tasks'), ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const actor = await resolveActor(ctx, args)
+export const remove = authedMutation({
+  args: { id: v.id('tasks') },
+  handler: async ({ db, actor }, args) => {
+    const task = await db.get(args.id)
+    if (!task) throw new Error('Task not found')
+    if (task.userId !== actor.userId) throw new Error('Not authorized')
 
-    const task = await ctx.db.get(args.id)
-    if (!task) {
-      throw new Error('Task not found')
-    }
-
-    // Ensure user owns the task
-    if (task.userId !== actor.userId) {
-      throw new Error('Not authorized')
-    }
-
-    await ctx.db.delete(args.id)
+    await db.delete(args.id)
   },
 })

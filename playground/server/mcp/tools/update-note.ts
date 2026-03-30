@@ -1,31 +1,27 @@
-import { wrapError } from 'better-convex-nuxt/mcp'
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
+import { defineTool } from '#convex/mcp'
 
 import { api } from '../../../convex/_generated/api'
-import { updateNoteArgs, updateNoteMeta } from '../../../shared/schemas/note'
-import { defineConvexTool } from '../utils/tools'
+import { updateNote } from '../../../shared/schemas/note'
 
-const schema = defineConvexSchema(updateNoteArgs, updateNoteMeta)
-
-export default defineConvexTool({
-  schema,
+export default defineTool({
+  schema: updateNote,
   name: 'update-note',
   auth: 'required',
   middleware: async (args, ctx, next) => {
-    const note = await ctx.public.query(api.notes.get, { id: args.id })
+    const note = await ctx.query(api.notes.get, { id: args.id })
     if (!note) {
-      return wrapError('not_found', `Note "${args.id}" not found.`)
+      return ctx.error('not_found', `Note "${args.id}" not found.`)
     }
 
     const allowed = ctx.can('post.update', { ownerId: note.userId })
     if (!allowed) {
-      return wrapError('auth', 'You do not have permission to update this note.')
+      return ctx.error('auth', 'You do not have permission to update this note.')
     }
 
     return next()
   },
   handler: async (args, _extra, ctx) => {
-    await ctx.public.mutation(api.notes.update, args)
-    return { updated: true, id: args.id }
+    await ctx.mutation(api.notes.update, args)
+    return ctx.ok({ updated: true, id: args.id })
   },
 })

@@ -1,21 +1,17 @@
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { withSummary } from 'better-convex-nuxt/mcp'
+import { defineTool } from '#convex/mcp'
 
 import { api } from '../../../convex/_generated/api'
-import { createCommentArgs, createCommentMeta } from '../../../shared/schemas/comment'
-import { defineConvexTool } from '../utils/tools'
+import { createComment } from '../../../shared/schemas/comment'
 
-const schema = defineConvexSchema(createCommentArgs, createCommentMeta)
-
-export default defineConvexTool({
-  schema,
+export default defineTool({
+  schema: createComment,
   name: 'create-comment',
   auth: 'required',
   require: 'comment.create',
   scoped: true,
   handler: async (args, _extra, ctx) => {
     const commentId = await ctx.mutation(api.comments.create, args)
-    return withSummary(
+    return ctx.ok(
       { id: commentId, postId: args.postId },
       `Added comment to post ${args.postId}`,
     )

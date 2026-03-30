@@ -1,12 +1,9 @@
-import { defineConvexMcpTool } from 'better-convex-nuxt/mcp'
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
+import { defineTool } from '#convex/mcp'
 
-import { createTaskArgs, createTaskMeta } from '../../../shared/task'
+import { createTask } from '../../../shared/task'
 
-const schema = defineConvexSchema(createTaskArgs, createTaskMeta)
-
-export default defineConvexMcpTool({
+export default defineTool({
   name: 'create-task',
-  schema,
+  schema: createTask,
   handler: async (args) => args.title,
 })

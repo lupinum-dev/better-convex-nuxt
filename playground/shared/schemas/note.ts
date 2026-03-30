@@ -1,89 +1,93 @@
-import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
-/**
- * Shared note schema — define once, use everywhere.
- *
- * This file ONLY depends on convex/values, so it can be safely imported
- * from both convex/ functions and Nuxt app code (including MCP tools).
- */
 import { v } from 'convex/values'
-import type { PropertyValidators } from 'convex/values'
 
-export const createNoteArgs = {
-  title: v.string(),
-  content: v.string(),
-} satisfies PropertyValidators
+import { defineSchema } from '../../../src/runtime/schema'
 
-export const createNoteMeta = {
+export const createNote = defineSchema({
   description: 'Create a new note',
-  fields: {
-    title: { label: 'Title', description: 'The note title', examples: ['Meeting Notes', 'Quick Idea'] },
-    content: { label: 'Content', description: 'The note body text', examples: ['# My Note\nSome content here'] },
+  args: {
+    title: v.string(),
+    content: v.string(),
   },
-} satisfies ConvexSchemaMetaFor<typeof createNoteArgs>
+  meta: {
+    title: {
+      label: 'Title',
+      description: 'The note title',
+      examples: ['Meeting Notes', 'Quick Idea'],
+    },
+    content: {
+      label: 'Content',
+      description: 'The note body text',
+      examples: ['# My Note\nSome content here'],
+    },
+  },
+})
 
-export const deleteNoteArgs = {
-  id: v.id('notes'),
-} satisfies PropertyValidators
-
-export const deleteNoteMeta = {
+export const deleteNote = defineSchema({
   description: 'Permanently delete a note',
-  fields: {
+  args: {
+    id: v.id('notes'),
+  },
+  meta: {
     id: { label: 'Note ID', description: 'The ID of the note to delete' },
   },
-} satisfies ConvexSchemaMetaFor<typeof deleteNoteArgs>
+})
 
-// ── Update note ──────────────────────────────────────────────────────────────
-
-export const updateNoteArgs = {
-  id: v.id('notes'),
-  title: v.optional(v.string()),
-  content: v.optional(v.string()),
-} satisfies PropertyValidators
-
-export const updateNoteMeta = {
+export const updateNote = defineSchema({
   description: 'Update an existing note',
-  fields: {
+  args: {
+    id: v.id('notes'),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+  },
+  meta: {
     id: { label: 'Note ID', description: 'The note to update' },
-    title: { label: 'Title', description: 'New title (optional)', examples: ['Updated Title'] },
+    title: {
+      label: 'Title',
+      description: 'New title (optional)',
+      examples: ['Updated Title'],
+    },
     content: { label: 'Content', description: 'New content (optional)' },
   },
-} satisfies ConvexSchemaMetaFor<typeof updateNoteArgs>
+})
 
-// ── Search notes ─────────────────────────────────────────────────────────────
-
-export const searchNotesArgs = {
-  query: v.string(),
-} satisfies PropertyValidators
-
-export const searchNotesMeta = {
+export const searchNotes = defineSchema({
   description: 'Search notes by title or content',
-  fields: {
-    query: { label: 'Search query', description: 'Text to search for in titles and content', examples: ['meeting', 'TODO'] },
+  args: {
+    query: v.string(),
   },
-} satisfies ConvexSchemaMetaFor<typeof searchNotesArgs>
+  meta: {
+    query: {
+      label: 'Search query',
+      description: 'Text to search for in titles and content',
+      examples: ['meeting', 'TODO'],
+    },
+  },
+})
 
-// ── Bulk delete notes ────────────────────────────────────────────────────────
-
-export const bulkDeleteNotesArgs = {
-  ids: v.array(v.id('notes')),
-} satisfies PropertyValidators
-
-export const bulkDeleteNotesMeta = {
+export const bulkDeleteNotes = defineSchema({
   description: 'Delete multiple notes at once (max 10)',
-  fields: {
-    ids: { label: 'Note IDs', description: 'Array of note IDs to delete', examples: [['id1', 'id2']] },
+  args: {
+    ids: v.array(v.id('notes')),
   },
-} satisfies ConvexSchemaMetaFor<typeof bulkDeleteNotesArgs>
+  meta: {
+    ids: {
+      label: 'Note IDs',
+      description: 'Array of note IDs to delete',
+      examples: [['id1', 'id2']],
+    },
+  },
+})
 
-// ── Export notes ─────────────────────────────────────────────────────────────
-
-export const exportNotesArgs = {
-  format: v.union(v.literal('json'), v.literal('csv')),
-} satisfies PropertyValidators
-
-export const exportNotesMeta = {
+export const exportNotes = defineSchema({
   description: 'Export all notes in the specified format',
-  fields: {
-    format: { label: 'Format', description: 'Export format', enum: ['json', 'csv'] },
+  args: {
+    format: v.union(v.literal('json'), v.literal('csv')),
   },
-} satisfies ConvexSchemaMetaFor<typeof exportNotesArgs>
+  meta: {
+    format: {
+      label: 'Format',
+      description: 'Export format',
+      enum: ['json', 'csv'],
+    },
+  },
+})

@@ -1,13 +1,11 @@
-/**
- * defineConvexSchema — define once, use everywhere.
- *
- * Wraps a flat Convex validators record into a unified schema object that
- * works across the entire stack: Convex mutations, form libraries, server
- * routes, and client-side pre-validation.
- */
-
 import { v } from 'convex/values'
-import type { PropertyValidators, ObjectType } from 'convex/values'
+import type {
+  GenericValidator,
+  Infer,
+  ObjectType,
+  PropertyValidators,
+} from 'convex/values'
+import { z } from 'zod'
 
 import { validateConvex } from './convex-schema'
 import type {
@@ -17,120 +15,239 @@ import type {
   StandardSchemaV1SuccessResult,
 } from './standard-schema'
 
-// ============================================================================
-// Types
-// ============================================================================
+type ValidatorNode = GenericValidator & {
+  kind?: string
+  isOptional?: string
+  tableName?: string
+  value?: unknown
+  element?: GenericValidator
+  inner?: GenericValidator
+  members?: GenericValidator[]
+}
 
-export interface ConvexSchemaFieldMeta {
-  /** Human-readable label (for forms) */
+export interface SchemaFieldMeta {
   label?: string
-  /** Description (for MCP tool .describe(), docs) */
   description?: string
-  /** Example values shown to MCP agents */
   examples?: unknown[]
-  /** Valid string values (when not using v.literal) */
   enum?: string[]
-  /** Default value hint shown in description, not enforced at runtime */
   defaultHint?: unknown
 }
 
-export interface ConvexSchemaTenantMeta {
-  /** Whether this table is org-scoped */
+export interface TableTenantMeta {
   scoped: true
-  /** Field that identifies the document owner (for ownership-based permissions) */
   ownerField?: string
 }
 
-export interface ConvexSchemaMetaBase {
-  /** Schema-level description (for MCP tool description) */
+export interface TableMeta {
   description?: string
-  /** Tenant scoping metadata. Omit for unscoped tables/schemas. */
-  tenant?: ConvexSchemaTenantMeta
+  tenant?: TableTenantMeta
 }
 
-/** Back-compat alias for earlier experimental type name. */
-export type ConvexSchemaMeta = ConvexSchemaMetaBase
-
-export type ConvexSchemaMetaFor<V extends PropertyValidators> = ConvexSchemaMetaBase & {
-  /** Per-field metadata; if provided, it must cover every validator key. */
-  fields?: { [K in keyof V]: ConvexSchemaFieldMeta }
+export type InputSchemaMeta<V extends PropertyValidators> = {
+  [K in keyof V]?: SchemaFieldMeta
 }
 
-/**
- * Unified schema object returned by `defineConvexSchema`.
- *
- * Implements `StandardSchemaV1` directly, so it can be passed to:
- * - `useConvexMutation(api.x, { validate: schema })`
- * - `<UForm :schema="schema">`
- * - Any Standard Schema consumer
- */
-export interface ConvexSchemaDefinition<
+export type ResolvedSchemaMeta<V extends PropertyValidators> = {
+  description?: string
+  fields: {
+    [K in keyof V]: Required<Pick<SchemaFieldMeta, 'label' | 'description'>> & SchemaFieldMeta
+  }
+}
+
+export interface SchemaDefinition<
   T,
   V extends PropertyValidators = PropertyValidators,
 > extends StandardSchemaV1<T> {
-  /** Raw Convex validators — spread into `mutation({ args: schema.args })` */
-  readonly args: V
-  /** Standard Schema v1 object for form libraries */
+  readonly description: string | undefined
+  readonly validators: V
+  readonly meta: ResolvedSchemaMeta<V>
+  readonly zod: z.ZodObject<{ [K in keyof V]: z.ZodType<Infer<V[K]>> }>
+  readonly parse: (input: unknown) => T
   readonly standard: StandardSchemaV1<T>
-  /** H3-compatible validation: returns typed data or throws (statusCode 422) */
   readonly validate: (data: unknown) => T
-  /** Optional metadata (labels, descriptions) */
-  readonly meta: ConvexSchemaMetaFor<V> | undefined
 }
 
-// ============================================================================
-// Core
-// ============================================================================
+function titleCase(input: string): string {
+  return input
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase())
+}
 
-/**
- * Define a reusable Convex schema with optional metadata.
- *
- * @example
- * ```ts
- * export const createPostSchema = defineConvexSchema({
- *   title: v.string(),
- *   body: v.string(),
- * }, {
- *   fields: {
- *     title: { label: 'Title', description: 'The post title' },
- *     body: { label: 'Body', description: 'Markdown content' },
- *   },
- * })
- *
- * // Convex mutation: mutation({ args: createPostSchema.args, ... })
- * // Form:            <UForm :schema="createPostSchema" />
- * // Mutation:        useConvexMutation(api.x, { validate: createPostSchema })
- * // Server route:    readValidatedBody(event, createPostSchema.validate)
- * ```
- */
-export function defineConvexSchema<V extends PropertyValidators>(
+function describeValidator(validator: ValidatorNode): string {
+  switch (validator.kind) {
+    case 'string':
+      return 'A string value'
+    case 'float64':
+      return 'A number value'
+    case 'boolean':
+      return 'A boolean value'
+    case 'id':
+      return `A reference to a ${validator.tableName} document`
+    case 'literal':
+      return `The literal value ${JSON.stringify(validator.value)}`
+    case 'array':
+      return 'A list of values'
+    default:
+      return 'A value'
+  }
+}
+
+function toZod(validator: GenericValidator): z.ZodTypeAny {
+  const node = validator as ValidatorNode
+
+  let base: z.ZodTypeAny
+
+  switch (node.kind) {
+    case 'string':
+      base = z.string()
+      break
+    case 'float64':
+      base = z.number()
+      break
+    case 'int64':
+      base = z.bigint()
+      break
+    case 'boolean':
+      base = z.boolean()
+      break
+    case 'null':
+      base = z.null()
+      break
+    case 'bytes':
+      base = z.instanceof(ArrayBuffer)
+      break
+    case 'id':
+      base = z.string()
+      break
+    case 'literal':
+      base = z.literal(node.value)
+      break
+    case 'array':
+      base = z.array(toZod(node.element!))
+      break
+    case 'object': {
+      const fields = (node as { fields?: PropertyValidators }).fields ?? {}
+      const shape = Object.fromEntries(
+        Object.entries(fields).map(([key, value]) => [key, toZod(value)]),
+      )
+      base = z.object(shape)
+      break
+    }
+    case 'union': {
+      const members = node.members ?? []
+      const literalMembers = members.filter(member => (member as ValidatorNode).kind === 'literal')
+      if (literalMembers.length === members.length && literalMembers.length > 0) {
+        const values = literalMembers.map(member => String((member as ValidatorNode).value))
+        base = z.enum([values[0]!, ...values.slice(1)] as [string, ...string[]])
+        break
+      }
+
+      if (members.length === 0) {
+        base = z.never()
+        break
+      }
+
+      if (members.length === 1) {
+        base = toZod(members[0]!)
+        break
+      }
+
+      base = z.union(
+        members.map(member => toZod(member)) as [
+          z.ZodTypeAny,
+          z.ZodTypeAny,
+          ...z.ZodTypeAny[],
+        ],
+      )
+      break
+    }
+    default:
+      base = z.any()
+      break
+  }
+
+  return node.isOptional === 'optional' ? base.optional() : base
+}
+
+function createResolvedMeta<V extends PropertyValidators>(
   validators: V,
-  options?: ConvexSchemaMetaFor<V>,
-): ConvexSchemaDefinition<ObjectType<V>, V> {
+  description: string | undefined,
+  meta: InputSchemaMeta<V> | undefined,
+): ResolvedSchemaMeta<V> {
+  const fields = Object.fromEntries(
+    Object.entries(validators).map(([key, validator]) => {
+      const provided = meta?.[key as keyof V]
+      const node = validator as ValidatorNode
+
+      return [key, {
+        label: provided?.label ?? titleCase(key),
+        description: provided?.description ?? describeValidator(node),
+        ...(provided?.examples ? { examples: provided.examples } : {}),
+        ...(provided?.enum ? { enum: provided.enum } : {}),
+        ...(provided?.defaultHint !== undefined ? { defaultHint: provided.defaultHint } : {}),
+      }]
+    }),
+  ) as ResolvedSchemaMeta<V>['fields']
+
+  return {
+    description,
+    fields,
+  }
+}
+
+export function defineSchema<V extends PropertyValidators>(
+  definition: {
+    description?: string
+    args: V
+    meta?: InputSchemaMeta<V>
+  },
+): SchemaDefinition<ObjectType<V>, V> {
   type T = ObjectType<V>
 
-  const objectValidator = v.object(validators)
-
-  // Multi-error Standard Schema using our walker
+  const objectValidator = v.object(definition.args)
   const standardProps: StandardSchemaV1Props<T> = {
     version: 1,
     vendor: 'better-convex-nuxt',
     validate: (value: unknown) => {
       const issues = validateConvex(objectValidator, value)
       if (issues.length > 0) {
-        return { issues: issues.map((i) => ({ message: i.message, path: i.path })) }
+        return {
+          issues: issues.map(issue => ({
+            message: issue.message,
+            path: issue.path,
+          })),
+        }
       }
+
       return { value: value as T }
     },
   }
 
   const standard: StandardSchemaV1<T> = { '~standard': standardProps }
+  const resolvedMeta = createResolvedMeta(
+    definition.args,
+    definition.description,
+    definition.meta,
+  )
 
-  // H3-compatible validate: returns typed data or throws with statusCode 422
+  const zodShape = Object.fromEntries(
+    Object.entries(definition.args).map(([key, validator]) => [key, toZod(validator)]),
+  ) as { [K in keyof V]: z.ZodType<Infer<V[K]>> }
+
+  const zod = z.object(zodShape)
+
+  const parse = (input: unknown): T => {
+    return zod.parse(input) as unknown as T
+  }
+
   const validate = (data: unknown): T => {
     const result = standardProps.validate(data) as StandardSchemaV1Result<T>
     if ('issues' in result && result.issues && result.issues.length > 0) {
-      const err = new Error('Validation Error') as Error & { statusCode: number; data: unknown }
+      const err = new Error('Validation Error') as Error & {
+        statusCode: number
+        data: unknown
+      }
       err.statusCode = 422
       err.data = { issues: result.issues }
       throw err
@@ -139,10 +256,20 @@ export function defineConvexSchema<V extends PropertyValidators>(
   }
 
   return {
-    args: validators,
+    description: definition.description,
+    validators: definition.args,
+    meta: resolvedMeta,
+    zod,
+    parse,
     standard,
     '~standard': standardProps,
     validate,
-    meta: options,
   }
 }
+
+export function defineTableMeta<TMeta extends TableMeta>(meta: TMeta): TMeta {
+  return meta
+}
+
+// Internal aliases retained so source-level tests can migrate incrementally.
+export const defineConvexSchema = defineSchema

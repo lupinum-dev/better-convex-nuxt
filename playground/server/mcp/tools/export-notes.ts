@@ -1,15 +1,11 @@
+import { defineTool } from '#convex/mcp'
 import { z } from 'zod'
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { withSummary } from 'better-convex-nuxt/mcp'
 
 import { api } from '../../../convex/_generated/api'
-import { exportNotesArgs, exportNotesMeta } from '../../../shared/schemas/note'
-import { defineConvexTool } from '../utils/tools'
+import { exportNotes } from '../../../shared/schemas/note'
 
-const schema = defineConvexSchema(exportNotesArgs, exportNotesMeta)
-
-export default defineConvexTool({
-  schema,
+export default defineTool({
+  schema: exportNotes,
   name: 'export-notes',
   operation: 'action',
   auth: 'required',
@@ -23,7 +19,7 @@ export default defineConvexTool({
     exportedAt: z.string(),
   },
   handler: async (args, _extra, ctx) => {
-    const notes = await ctx.public.query(api.notes.list)
+    const notes = await ctx.query(api.notes.list)
     const exportedAt = new Date().toISOString()
 
     const content = args.format === 'csv'
@@ -35,7 +31,7 @@ export default defineConvexTool({
         ].join('\n')
       : JSON.stringify(notes, null, 2)
 
-    return withSummary(
+    return ctx.ok(
       { format: args.format, content, noteCount: notes.length, exportedAt },
       `Exported ${notes.length} notes as ${args.format.toUpperCase()}`,
     )

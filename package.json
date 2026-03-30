@@ -42,20 +42,17 @@
       "composables": [
         "./dist/runtime/composables/index.d.ts"
       ],
+      "convex": [
+        "./dist/runtime/convex/index.d.ts"
+      ],
       "schema": [
         "./dist/runtime/schema/index.d.ts"
       ],
       "mcp": [
         "./dist/runtime/mcp/index.d.ts"
       ],
-      "scoping": [
-        "./dist/runtime/scoping/index.d.ts"
-      ],
       "server": [
         "./dist/runtime/server/index.d.ts"
-      ],
-      "actor": [
-        "./dist/runtime/actor/index.d.ts"
       ]
     }
   },
@@ -68,6 +65,10 @@
       "types": "./dist/runtime/composables/index.d.ts",
       "import": "./dist/runtime/composables/index.js"
     },
+    "./convex": {
+      "types": "./dist/runtime/convex/index.d.ts",
+      "import": "./dist/runtime/convex/index.js"
+    },
     "./schema": {
       "types": "./dist/runtime/schema/index.d.ts",
       "import": "./dist/runtime/schema/index.js"
@@ -76,17 +77,9 @@
       "types": "./dist/runtime/mcp/index.d.ts",
       "import": "./dist/runtime/mcp/index.js"
     },
-    "./scoping": {
-      "types": "./dist/runtime/scoping/index.d.ts",
-      "import": "./dist/runtime/scoping/index.js"
-    },
     "./server": {
       "types": "./dist/runtime/server/index.d.ts",
       "import": "./dist/runtime/server/index.js"
-    },
-    "./actor": {
-      "types": "./dist/runtime/actor/index.d.ts",
-      "import": "./dist/runtime/actor/index.js"
     }
   },
   "scripts": {

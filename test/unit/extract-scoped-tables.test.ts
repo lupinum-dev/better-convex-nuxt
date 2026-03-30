@@ -1,4 +1,4 @@
-import type { ConvexSchemaMetaBase } from 'better-convex-nuxt/schema'
+import type { TableMeta } from 'better-convex-nuxt/schema'
 
 import { describe, expect, it } from 'vitest'
 
@@ -10,7 +10,7 @@ describe('extractScopedTables', () => {
       posts: { tenant: { scoped: true } },
       comments: { tenant: { scoped: true } },
       users: { description: 'Global users table' },
-    } satisfies Record<string, ConvexSchemaMetaBase>
+    } satisfies Record<string, TableMeta>
 
     const result = extractScopedTables(metas)
 
@@ -21,7 +21,7 @@ describe('extractScopedTables', () => {
     const metas = {
       settings: { description: 'App settings' },
       users: {},
-    } satisfies Record<string, ConvexSchemaMetaBase>
+    } satisfies Record<string, TableMeta>
 
     const result = extractScopedTables(metas)
 
@@ -33,7 +33,7 @@ describe('extractScopedTables', () => {
       posts: { tenant: { scoped: true } },
       logs: { tenant: { scoped: true, ownerField: 'userId' } },
       // TypeScript enforces scoped: true, but runtime should still filter
-    } satisfies Record<string, ConvexSchemaMetaBase>
+    } satisfies Record<string, TableMeta>
 
     const result = extractScopedTables(metas)
 
@@ -44,7 +44,7 @@ describe('extractScopedTables', () => {
     const metas = {
       users: {},
       settings: { description: 'Global' },
-    } satisfies Record<string, ConvexSchemaMetaBase>
+    } satisfies Record<string, TableMeta>
 
     expect(extractScopedTables(metas)).toEqual([])
   })
@@ -56,7 +56,7 @@ describe('extractScopedTables', () => {
   it('preserves ownerField metadata', () => {
     const metas = {
       posts: { tenant: { scoped: true, ownerField: 'authorId' } },
-    } satisfies Record<string, ConvexSchemaMetaBase>
+    } satisfies Record<string, TableMeta>
 
     // extractScopedTables only returns names, but the metadata is preserved
     // in the original object for other consumers

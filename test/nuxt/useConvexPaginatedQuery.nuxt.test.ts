@@ -214,7 +214,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       continueCursor: null,
     }
 
-    await result.refetch()
+    await result.refresh()
 
     await waitFor(() => {
       const refreshed = result.results.value as Array<{ title: string }>
@@ -269,7 +269,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     result.loadMore(1)
     await waitFor(() => result.results.value.length === 2)
 
-    await result.restart()
+    await result.reset()
 
     await waitFor(() => result.results.value.length === 1)
     const resetResults = result.results.value as Array<{ _id: string }>
@@ -286,7 +286,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       { convex: new MockConvexClient() },
     )
 
-    expect(typeof result.restart).toBe('function')
+    expect(typeof result.reset).toBe('function')
     expect('clear' in (result as unknown as Record<string, unknown>)).toBe(false)
     expect('isLoadingFirstPage' in (result as unknown as Record<string, unknown>)).toBe(false)
     expect('isLoadingMore' in (result as unknown as Record<string, unknown>)).toBe(false)
@@ -510,7 +510,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     await waitFor(() => result.status.value === 'error')
     expect(result.error.value?.message).toContain('first page failed')
 
-    const refreshPromise = result.refetch()
+    const refreshPromise = result.refresh()
     await waitFor(() => result.status.value === 'loading-first-page')
     await refreshPromise
     await waitFor(() => result.status.value === 'exhausted')
@@ -548,7 +548,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
 
     await waitFor(() => result.status.value === 'error')
 
-    const resetPromise = result.restart()
+    const resetPromise = result.reset()
     await waitFor(() => result.status.value === 'loading-first-page')
     await resetPromise
     await waitFor(() => result.status.value === 'exhausted')

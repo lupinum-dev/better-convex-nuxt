@@ -5,10 +5,9 @@ import { convexLocal } from 'convex-vite-plugin'
 const runtimeComposablesEntry = fileURLToPath(
   new URL('../src/runtime/composables/index.ts', import.meta.url),
 )
-const runtimeActorEntry = fileURLToPath(new URL('../src/runtime/actor/index.ts', import.meta.url))
+const runtimeConvexEntry = fileURLToPath(new URL('../src/runtime/convex/index.ts', import.meta.url))
 const runtimeSchemaEntry = fileURLToPath(new URL('../src/runtime/schema/index.ts', import.meta.url))
 const runtimeMcpEntry = fileURLToPath(new URL('../src/runtime/mcp/index.ts', import.meta.url))
-const runtimeScopingEntry = fileURLToPath(new URL('../src/runtime/scoping/index.ts', import.meta.url))
 const runtimeServerEntry = fileURLToPath(new URL('../src/runtime/server/index.ts', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('./', import.meta.url))
 const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
@@ -40,11 +39,10 @@ export default defineNuxtConfig({
   alias: {
     // The playground runs against the local module source, not an installed package.
     // Mirror the published subpath imports so examples stay copy-pastable for consumers.
-    'better-convex-nuxt/actor': runtimeActorEntry,
     'better-convex-nuxt/composables': runtimeComposablesEntry,
+    'better-convex-nuxt/convex': runtimeConvexEntry,
     'better-convex-nuxt/schema': runtimeSchemaEntry,
     'better-convex-nuxt/mcp': runtimeMcpEntry,
-    'better-convex-nuxt/scoping': runtimeScopingEntry,
     'better-convex-nuxt/server': runtimeServerEntry,
   },
 
@@ -65,7 +63,12 @@ export default defineNuxtConfig({
   },
 
   convex: {
-    permissions: true,
+    permissions: {
+      config: '~/convex/permissions.config',
+    },
+    tenant: {
+      orgField: 'organizationId',
+    },
     url: useLocalConvex
       ? localConvexUrl
       : process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,

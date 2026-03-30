@@ -1,11 +1,11 @@
 import { v } from 'convex/values'
 
-import { query, mutation } from './_generated/server'
 import {
-  requireActor,
-  serviceAuthArgs,
-  tryResolveActor,
-} from './lib/actor'
+  openQuery,
+  publicMutation,
+  publicQuery,
+  scopedMutation,
+} from './functions'
 
 function generateKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -16,13 +16,12 @@ function generateKey(): string {
   return result
 }
 
-export const list = query({
-  args: { ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const actor = await tryResolveActor(ctx, args)
+export const list = openQuery({
+  args: {},
+  handler: async ({ actor, db }) => {
     if (!actor?.orgId) return []
 
-    return await ctx.db
+    return await db
       .query('mcpKeys')
       .withIndex('by_organization', (q) => q.eq('organizationId', actor.orgId as any))
       .order('desc')
@@ -30,7 +29,7 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = scopedMutation({
   args: {
     name: v.string(),
     role: v.union(
@@ -39,20 +38,17 @@ export const create = mutation({
       v.literal('member'),
       v.literal('viewer'),
     ),
-    ...serviceAuthArgs,
   },
-  handler: async (ctx, args) => {
-    const actor = await requireActor(ctx, args)
+  handler: async ({ db, actor }, args) => {
     const key = generateKey()
     const prefix = key.slice(0, 12) + '...'
 
-    const id = await ctx.db.insert('mcpKeys', {
+    const id = await db.insert('mcpKeys', {
       name: args.name,
       key,
       prefix,
       role: args.role,
       userId: actor.userId,
-      organizationId: actor.orgId as any,
       status: 'active',
       createdAt: Date.now(),
     })
@@ -61,25 +57,21 @@ export const create = mutation({
   },
 })
 
-export const revoke = mutation({
-  args: { id: v.id('mcpKeys'), ...serviceAuthArgs },
-  handler: async (ctx, args) => {
-    const actor = await requireActor(ctx, args)
-    const mcpKey = await ctx.db.get(args.id)
-    if (!mcpKey) throw new Error('Key not found')
-    if (mcpKey.organizationId !== actor.orgId) throw new Error('Not your key')
-
-    await ctx.db.patch(args.id, {
+export const revoke = scopedMutation({
+  args: { id: v.id('mcpKeys') },
+  resource: (args) => args.id,
+  handler: async ({ db }, args) => {
+    await db.patch(args.id, {
       status: 'revoked',
       revokedAt: Date.now(),
     })
   },
 })
 
-export const validate = query({
+export const validate = publicQuery({
   args: { key: v.string() },
-  handler: async (ctx, args) => {
-    const mcpKey = await ctx.db
+  handler: async ({ db }, args) => {
+    const mcpKey = await db
       .query('mcpKeys')
       .withIndex('by_key', (q) => q.eq('key', args.key))
       .first()
@@ -94,16 +86,16 @@ export const validate = query({
   },
 })
 
-export const touch = mutation({
+export const touch = publicMutation({
   args: { key: v.string() },
-  handler: async (ctx, args) => {
-    const mcpKey = await ctx.db
+  handler: async ({ db }, args) => {
+    const mcpKey = await db
       .query('mcpKeys')
       .withIndex('by_key', (q) => q.eq('key', args.key))
       .first()
 
     if (mcpKey && mcpKey.status === 'active') {
-      await ctx.db.patch(mcpKey._id, { lastUsedAt: Date.now() })
+      await db.patch(mcpKey._id, { lastUsedAt: Date.now() })
     }
   },
 })

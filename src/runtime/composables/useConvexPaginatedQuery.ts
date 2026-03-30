@@ -68,9 +68,9 @@ export interface UseConvexPaginatedQueryData<Item> {
   loadMore: (numItems: number) => void
   error: Readonly<Ref<Error | null>>
   /** Re-fetch all current pages in-place, preserving pagination positions */
-  refetch: () => Promise<void>
+  refresh: () => Promise<void>
   /** Clear all pages and restart from page 1 */
-  restart: () => Promise<void>
+  reset: () => Promise<void>
 }
 
 export interface UseConvexPaginatedQueryReturn<Item>
@@ -432,7 +432,7 @@ export function createConvexPaginatedQueryState<
     },
   )
 
-  async function refetch(): Promise<void> {
+  async function refresh(): Promise<void> {
     if (isSkipped.value) return
 
     isManualRefreshPending.value = true
@@ -473,7 +473,7 @@ export function createConvexPaginatedQueryState<
     }
   }
 
-  async function restart(): Promise<void> {
+  async function reset(): Promise<void> {
     cleanupAllPageSubscriptions()
     pages.value = []
     globalError.value = null
@@ -505,8 +505,8 @@ export function createConvexPaginatedQueryState<
       hasNextPage: computed(() => status.value === 'ready'),
       loadMore,
       error,
-      refetch,
-      restart,
+      refresh,
+      reset,
     },
     resolvePromise: () => Promise.resolve(firstPageResource.asyncData).then(() => {}),
   }

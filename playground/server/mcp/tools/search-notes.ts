@@ -1,13 +1,10 @@
-import { defineConvexTool, withSummary } from 'better-convex-nuxt/mcp'
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
+import { defineTool } from '#convex/mcp'
 
 import { api } from '../../../convex/_generated/api'
-import { searchNotesArgs, searchNotesMeta } from '../../../shared/schemas/note'
+import { searchNotes } from '../../../shared/schemas/note'
 
-const schema = defineConvexSchema(searchNotesArgs, searchNotesMeta)
-
-export default defineConvexTool({
-  schema,
+export default defineTool({
+  schema: searchNotes,
   name: 'search-notes',
   operation: 'query',
   auth: 'optional',
@@ -17,9 +14,9 @@ export default defineConvexTool({
     { query: 'project update' },
   ],
   handler: async (args, _extra, ctx) => {
-    const results = await ctx.public.query(api.notes.search, { query: args.query })
+    const results = await ctx.query(api.notes.search, { query: args.query })
 
-    return withSummary(
+    return ctx.ok(
       { results, total: results.length },
       results.length
         ? `Found ${results.length} note${results.length === 1 ? '' : 's'} matching "${args.query}"`

@@ -32,6 +32,11 @@ export {
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,
 } from './useConvexQuery'
+export {
+  useCachedQuery,
+  type UseCachedQueryOptions,
+  type UseCachedQueryReturn,
+} from './useCachedQuery'
 export type {
   QueryStatus,
   MutationStatus,
@@ -77,24 +82,19 @@ export {
 // Validation — Convex validator → Standard Schema conversion
 export { toConvexSchema, useConvexSchema } from '../utils/convex-schema'
 export {
-  defineConvexSchema,
-  type ConvexSchemaDefinition,
-  type ConvexSchemaMeta,
-  type ConvexSchemaMetaBase,
-  type ConvexSchemaMetaFor,
-  type ConvexSchemaFieldMeta,
+  defineSchema,
+  defineTableMeta,
+  type SchemaDefinition,
+  type SchemaFieldMeta,
+  type InputSchemaMeta,
+  type ResolvedSchemaMeta,
+  type TableMeta,
+  type TableTenantMeta,
 } from '../utils/define-convex-schema'
 export type { ValidateOption } from '../utils/resolve-validator'
 export type { StandardSchemaV1 } from '../utils/standard-schema'
 
 // Tenant composables (opt-in via createTenantComposables factory)
-export {
-  createTenantComposables,
-  type CreateTenantComposablesOptions,
-  type UseTenantContextReturn,
-} from './useTenant'
-
-// Permission composables (opt-in via module config)
 export {
   createPermissions,
   type PermissionContext,

@@ -1,14 +1,10 @@
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { withSummary } from 'better-convex-nuxt/mcp'
+import { defineTool } from '#convex/mcp'
 
 import { api } from '../../../convex/_generated/api'
-import { listCommentsByPostArgs, listCommentsByPostMeta } from '../../../shared/schemas/comment'
-import { defineConvexTool } from '../utils/tools'
+import { listCommentsByPost } from '../../../shared/schemas/comment'
 
-const schema = defineConvexSchema(listCommentsByPostArgs, listCommentsByPostMeta)
-
-export default defineConvexTool({
-  schema,
+export default defineTool({
+  schema: listCommentsByPost,
   name: 'list-comments',
   operation: 'query',
   auth: 'required',
@@ -16,7 +12,7 @@ export default defineConvexTool({
   scoped: true,
   handler: async (args, _extra, ctx) => {
     const comments = await ctx.query(api.comments.listByPost, args)
-    return withSummary(
+    return ctx.ok(
       { postId: args.postId, count: comments.length, comments },
       `Found ${comments.length} comment${comments.length === 1 ? '' : 's'}`,
     )

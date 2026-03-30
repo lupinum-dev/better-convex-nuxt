@@ -1,12 +1,14 @@
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { withSummary } from 'better-convex-nuxt/mcp'
+import { defineTool } from '#convex/mcp'
+import { defineSchema } from 'better-convex-nuxt/schema'
 
 import { api } from '../../../convex/_generated/api'
-import { defineConvexTool } from '../utils/tools'
 
-const schema = defineConvexSchema({}, { description: 'List all posts in the current organization' })
+const schema = defineSchema({
+  description: 'List all posts in the current organization',
+  args: {},
+})
 
-export default defineConvexTool({
+export default defineTool({
   schema,
   name: 'list-posts',
   operation: 'query',
@@ -14,7 +16,7 @@ export default defineConvexTool({
   scoped: true,
   handler: async (_args, _extra, ctx) => {
     const posts = await ctx.query(api.posts.list)
-    return withSummary(
+    return ctx.ok(
       { count: posts.length, posts },
       `Found ${posts.length} post${posts.length === 1 ? '' : 's'}`,
     )
