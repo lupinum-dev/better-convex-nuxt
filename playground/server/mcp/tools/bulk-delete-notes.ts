@@ -7,7 +7,7 @@ export default defineTool({
   schema: bulkDeleteNotes,
   name: 'bulk-delete-notes',
   auth: 'required',
-  require: 'post.delete',
+  check: actor => ['owner', 'admin'].includes(actor.role),
   destructive: true,
   tags: ['bulk', 'dangerous'],
   rateLimit: { max: 5, window: '1m' },

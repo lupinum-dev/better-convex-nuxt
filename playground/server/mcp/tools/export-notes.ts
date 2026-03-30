@@ -9,7 +9,7 @@ export default defineTool({
   name: 'export-notes',
   operation: 'action',
   auth: 'required',
-  require: 'post.read',
+  check: actor => ['owner', 'admin', 'member', 'viewer'].includes(actor.role),
   tags: ['export', 'admin'],
   enabled: (event) => !!event.context.mcpAuth,
   outputSchema: {

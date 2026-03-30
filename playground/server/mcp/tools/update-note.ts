@@ -13,8 +13,10 @@ export default defineTool({
       return ctx.error('not_found', `Note "${args.id}" not found.`)
     }
 
-    const allowed = ctx.can('post.update', { ownerId: note.userId })
-    if (!allowed) {
+    const isAdmin = ctx.actor?.role === 'owner' || ctx.actor?.role === 'admin'
+    const isOwner = !!ctx.actor && note.userId === ctx.actor.userId
+    const isMemberOwner = ctx.actor?.role === 'member' && isOwner
+    if (!isAdmin && !isMemberOwner) {
       return ctx.error('auth', 'You do not have permission to update this note.')
     }
 

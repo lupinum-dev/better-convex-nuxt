@@ -13,6 +13,7 @@ Key files:
 - `auth.ts`: Better Auth setup and provider wiring
 - `http.ts`: Better Auth route registration
 - `schema.ts`: demo data model
-- `permissions.config.ts`: demo permission rules
+- `auth/actor.ts`: demo actor resolution
+- `auth/checks.ts`: demo auth checks
 
 For local env and workspace setup, use [../../DEVELOPMENT.md](../../DEVELOPMENT.md).

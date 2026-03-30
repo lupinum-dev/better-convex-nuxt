@@ -1,11 +1,19 @@
 import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
+import { can } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { components, internal } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
+import {
+  canAdminSettings,
+  canCreateFeed,
+  canUploadFile,
+  canViewAll,
+} from './auth/checks'
 import authConfig from './auth.config'
 
 // Get site URL from environment
@@ -101,30 +109,32 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 
 export const getPermissionContext = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-
-    if (!identity) {
+    const actor = await getActor(ctx)
+    if (!actor) {
       return null
     }
 
-    // Look up user in our database
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
       .first()
 
-    // User doesn't exist yet - will be created by trigger
     if (!user) {
       return null
     }
 
-    // Return permission context
     return {
       role: user.role,
       userId: user.authId,
       displayName: user.displayName,
       email: user.email,
       avatarUrl: user.avatarUrl,
+      can: {
+        'admin.settings': can(actor, canAdminSettings),
+        'view.all': can(actor, canViewAll),
+        'feed.create': can(actor, canCreateFeed),
+        'file.upload': can(actor, canUploadFile),
+      },
     }
   },
 })

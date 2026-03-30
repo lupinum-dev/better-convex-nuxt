@@ -231,7 +231,7 @@ function formatFileSize(bytes: number) {
               </span>
             </div>
             <UButton
-              v-if="can('file.delete', { ownerId: file.uploadedBy })"
+              v-if="can('file.delete', file)"
               icon="i-lucide-trash-2"
               color="error"
               size="xs"

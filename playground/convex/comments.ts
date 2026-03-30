@@ -1,58 +1,90 @@
-import { scopedMutation, scopedQuery } from "./functions";
+import { can, guard } from 'better-convex-nuxt/auth'
+
+import { mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
+import {
+  canCreateComment,
+  canDeleteComment,
+  canReadComment,
+  canUpdateComment,
+} from './auth/checks'
+import { withCan } from './auth/resource'
+import { loadResource } from './auth/scope'
 import {
   createComment,
   deleteComment,
   listCommentsByPost,
   updateComment,
-} from "../shared/schemas/comment";
+} from '../shared/schemas/comment'
 
-export const listByPost = scopedQuery({
+function attachCommentPermissions(
+  actor: Awaited<ReturnType<typeof getActor>>,
+  comment: { ownerId: string; [key: string]: unknown },
+) {
+  return withCan(comment, {
+    'comment.update': can(actor, canUpdateComment(comment)),
+    'comment.delete': can(actor, canDeleteComment(comment)),
+  })
+}
+
+export const listByPost = query({
   args: listCommentsByPost.validators,
-  handler: async ({ db }, args) => {
-    const post = await db.get(args.postId);
-    if (!post) return [];
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    if (!actor) return []
 
-    return await db
-      .query("comments")
-      .filter((q) => q.eq(q.field("postId"), args.postId))
-      .order("desc")
-      .collect();
+    guard(actor, 'Read comments', canReadComment)
+
+    const post = loadResource(actor, await ctx.db.get(args.postId), 'Post')
+    const comments = await ctx.db
+      .query('comments')
+      .withIndex('by_post', q => q.eq('postId', post._id))
+      .order('desc')
+      .collect()
+
+    return comments.map(comment => attachCommentPermissions(actor, comment))
   },
-});
+})
 
-export const create = scopedMutation({
+export const create = mutation({
   args: createComment.validators,
-  require: "comment.create",
-  resource: (args) => ({ table: "posts", id: args.postId }),
-  handler: async ({ db, actor }, args) => {
-    return await db.insert("comments", {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create comment', canCreateComment)
+    const post = loadResource(actor, await ctx.db.get(args.postId), 'Post')
+
+    return await ctx.db.insert('comments', {
       postId: args.postId,
       content: args.content,
       ownerId: actor.userId,
+      organizationId: post.organizationId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    });
+    })
   },
-});
+})
 
-export const update = scopedMutation({
+export const update = mutation({
   args: updateComment.validators,
-  require: "comment.update",
-  resource: (args) => args.id,
-  handler: async ({ db }, args) => {
-    await db.patch(args.id, {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')
+    guard(actor, 'Update comment', canUpdateComment(comment))
+
+    await ctx.db.patch(args.id, {
       content: args.content,
       editedAt: Date.now(),
       updatedAt: Date.now(),
-    });
+    })
   },
-});
+})
 
-export const remove = scopedMutation({
+export const remove = mutation({
   args: deleteComment.validators,
-  require: "comment.delete",
-  resource: (args) => args.id,
-  handler: async ({ db }, args) => {
-    await db.delete(args.id);
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')
+    guard(actor, 'Delete comment', canDeleteComment(comment))
+    await ctx.db.delete(args.id)
   },
-});
+})

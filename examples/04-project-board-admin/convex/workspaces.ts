@@ -12,7 +12,7 @@ import {
   canManageMembers,
   canViewAudit,
 } from './auth/checks'
-import { getActor } from './auth/principal'
+import { getActor } from './auth/actor'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 

@@ -18,7 +18,6 @@ export default defineNuxtConfig({
     auth: {
       enabled: true,
     },
-    permissions: true,
   },
 
   compatibilityDate: '2025-01-15',

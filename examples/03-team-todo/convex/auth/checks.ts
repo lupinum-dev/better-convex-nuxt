@@ -1,6 +1,6 @@
 import { and, or } from 'better-convex-nuxt/auth'
 
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export const hasRole = (...roles: string[]) => (actor: Actor) => !!actor && roles.includes(actor.role)
 export const isOwnerOf = (resource: { ownerId: string }) =>

@@ -33,15 +33,6 @@ export interface ConvexPublicRuntimeConfig {
   upload?: {
     maxConcurrent?: number
   }
-  /** Permission config used for generated helpers */
-  permissions?: {
-    config: string
-  } | null
-  /** Tenant config used for scoped helpers */
-  tenant?: {
-    field: string
-    index: string
-  } | null
   /** Logging level */
   logging?: LogLevel
   /** Optional debug channels for high-verbosity traces */

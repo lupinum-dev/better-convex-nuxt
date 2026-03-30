@@ -1,16 +1,15 @@
+import { guard } from 'better-convex-nuxt/auth'
+import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
-import {
-  authedMutation,
-  openQuery,
-  publicQuery,
-} from './functions'
 import { addTask } from '../shared/schemas/task'
+import { getActor } from './auth/actor'
+import { isAuthenticated } from './auth/checks'
 
-export const publicStats = publicQuery({
+export const publicStats = query({
   args: {},
-  handler: async ({ db }) => {
-    const totalTasks = await db.query('tasks').collect()
+  handler: async (ctx) => {
+    const totalTasks = await ctx.db.query('tasks').collect()
     const completedTasks = totalTasks.filter(task => task.completed)
 
     return {
@@ -22,12 +21,13 @@ export const publicStats = publicQuery({
   },
 })
 
-export const list = openQuery({
+export const list = query({
   args: {},
-  handler: async ({ actor, db }) => {
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
     if (!actor) return []
 
-    return await db
+    return await ctx.db
       .query('tasks')
       .withIndex('by_user', q => q.eq('userId', actor.userId))
       .order('desc')
@@ -35,10 +35,13 @@ export const list = openQuery({
   },
 })
 
-export const add = authedMutation({
+export const add = mutation({
   args: addTask.validators,
-  handler: async ({ db, actor }, args) => {
-    return await db.insert('tasks', {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create task', isAuthenticated)
+
+    return await ctx.db.insert('tasks', {
       userId: actor.userId,
       title: args.title,
       completed: false,
@@ -47,26 +50,32 @@ export const add = authedMutation({
   },
 })
 
-export const toggle = authedMutation({
+export const toggle = mutation({
   args: { id: v.id('tasks') },
-  handler: async ({ db, actor }, args) => {
-    const task = await db.get(args.id)
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Update task', isAuthenticated)
+
+    const task = await ctx.db.get(args.id)
     if (!task) throw new Error('Task not found')
     if (task.userId !== actor.userId) throw new Error('Not authorized')
 
-    await db.patch(args.id, {
+    await ctx.db.patch(args.id, {
       completed: !task.completed,
     })
   },
 })
 
-export const remove = authedMutation({
+export const remove = mutation({
   args: { id: v.id('tasks') },
-  handler: async ({ db, actor }, args) => {
-    const task = await db.get(args.id)
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Delete task', isAuthenticated)
+
+    const task = await ctx.db.get(args.id)
     if (!task) throw new Error('Task not found')
     if (task.userId !== actor.userId) throw new Error('Not authorized')
 
-    await db.delete(args.id)
+    await ctx.db.delete(args.id)
   },
 })

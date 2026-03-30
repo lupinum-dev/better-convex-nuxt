@@ -7,7 +7,7 @@ export default defineTool({
   schema: updatePost,
   name: 'update-post',
   auth: 'required',
-  require: 'post.update',
+  check: actor => ['owner', 'admin', 'member'].includes(actor.role),
   scoped: true,
   handler: async (args, ctx) => {
     await ctx.mutation(api.posts.update, args)

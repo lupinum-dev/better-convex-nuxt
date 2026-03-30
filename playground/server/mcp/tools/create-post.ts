@@ -7,7 +7,7 @@ export default defineTool({
   schema: createPost,
   name: 'create-post',
   auth: 'required',
-  require: 'post.create',
+  check: actor => ['owner', 'admin', 'member'].includes(actor.role),
   scoped: true,
   rateLimit: { max: 10, window: '1m' },
   handler: async (args, ctx) => {

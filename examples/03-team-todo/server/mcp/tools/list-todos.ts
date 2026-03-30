@@ -11,7 +11,7 @@ export default defineTool({
   name: 'list-todos',
   schema: listTodos,
   auth: 'required',
-  require: 'todo.read',
+  check: actor => ['owner', 'admin', 'member', 'viewer'].includes(actor.role),
   scoped: true,
   handler: async (_args, ctx) => {
     const todos = await ctx.query(api.todos.list, {})

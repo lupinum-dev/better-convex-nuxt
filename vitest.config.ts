@@ -44,7 +44,7 @@ export default defineConfig({
         resolve: {
           alias: {
             'better-convex-nuxt/composables': fileURLToPath(new URL('./src/runtime/composables/index.ts', import.meta.url)),
-            'better-convex-nuxt/convex': fileURLToPath(new URL('./src/runtime/convex/index.ts', import.meta.url)),
+            'better-convex-nuxt/auth': fileURLToPath(new URL('./src/runtime/auth/index.ts', import.meta.url)),
             'better-convex-nuxt/mcp': fileURLToPath(new URL('./src/runtime/mcp/index.ts', import.meta.url)),
             'better-convex-nuxt/schema': fileURLToPath(new URL('./src/runtime/schema/index.ts', import.meta.url)),
             'better-convex-nuxt/server': fileURLToPath(new URL('./src/runtime/server/index.ts', import.meta.url)),

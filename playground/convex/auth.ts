@@ -1,11 +1,24 @@
 import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
+import { can } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { components, internal } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
 import { internalAction, mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
+import {
+  canCreateComment,
+  canCreatePost,
+  canInviteMembers,
+  canManageMembers,
+  canManageOrgSettings,
+  canPublishPost,
+  canReadComment,
+  canReadPost,
+  canViewBilling,
+} from './auth/checks'
 import authConfig from './auth.config'
 
 // Get site URL from environment
@@ -211,19 +224,35 @@ export const getPermissionContext = query({
       // #endregion
     }
 
+    const actor = await getActor(ctx)
+    if (!actor) {
+      return { _debug: { ...debugInfo, reason: 'actor resolution failed' } } as { _debug: DebugInfo }
+    }
+
     // Return permission context even if no tenant is assigned yet.
-    // The frontend uses that partial context to show the "create organization" flow.
     const context: {
       role: string
       userId: string
       displayName?: string
       email?: string
       tenantId?: string
+      can: Record<string, boolean>
     } = {
       role: user.role,
       userId: user.authId,
       displayName: user.displayName,
       email: user.email,
+      can: {
+        'org.settings': can(actor, canManageOrgSettings),
+        'org.billing': can(actor, canViewBilling),
+        'org.invite': can(actor, canInviteMembers),
+        'org.members': can(actor, canManageMembers),
+        'post.create': can(actor, canCreatePost),
+        'post.read': can(actor, canReadPost),
+        'post.publish': can(actor, canPublishPost),
+        'comment.create': can(actor, canCreateComment),
+        'comment.read': can(actor, canReadComment),
+      },
     }
 
     // Only include tenantId if user has one

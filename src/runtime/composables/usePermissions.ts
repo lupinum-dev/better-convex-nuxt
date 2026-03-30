@@ -37,9 +37,11 @@ export interface UsePermissionsReturn<TContext extends AuthContext = AuthContext
 }
 
 export interface UseAuthGuardOptions {
-  can: string
+  can?: string
+  check?: (ctx: AuthContext) => boolean
   redirectTo?: RouteLocationRaw
   loginPath?: RouteLocationRaw
+  message?: string
 }
 
 export function createAuth<
@@ -78,6 +80,7 @@ export function createAuth<
   function useAuthGuard(options: UseAuthGuardOptions): void {
     const {
       can: requiredKey,
+      check,
       redirectTo = '/',
       loginPath = '/auth/signin',
     } = options
@@ -88,7 +91,12 @@ export function createAuth<
     } = createConvexQueryState(query, {}, undefined, true).resultData
     const ctx = computed(() => data.value as TContext | null)
     const isAuthenticated = computed(() => !!ctx.value)
-    const hasPermission = computed(() => ctx.value?.can?.[requiredKey] === true)
+    const passesGuard = computed(() => {
+      if (!ctx.value) return false
+      if (typeof check === 'function') return check(ctx.value)
+      if (typeof requiredKey === 'string') return ctx.value.can?.[requiredKey] === true
+      return false
+    })
     let redirectPending = false
 
     watchEffect(() => {
@@ -102,7 +110,7 @@ export function createAuth<
         return
       }
 
-      if (!hasPermission.value) {
+      if (!passesGuard.value) {
         redirectPending = true
         void router.push(redirectTo).finally(() => {
           redirectPending = false

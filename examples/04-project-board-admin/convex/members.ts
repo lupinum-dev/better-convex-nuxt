@@ -4,7 +4,7 @@ import { v } from 'convex/values'
 import { deny, guard } from 'better-convex-nuxt/auth'
 
 import { canManageMembers } from './auth/checks'
-import { getActor } from './auth/principal'
+import { getActor } from './auth/actor'
 import { ensureFound, ensureTenant } from './auth/scope'
 
 export const list = query({

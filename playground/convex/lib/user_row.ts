@@ -1,14 +1,12 @@
 import type { GenericDataModel, GenericDatabaseReader } from 'convex/server'
 
-import type { Actor } from '../../../src/runtime/actor'
+import type { Actor } from '../auth/actor'
 
 export async function getUserRowFromActor(
   db: GenericDatabaseReader<GenericDataModel>,
   actor: Actor,
 ) {
-  if (actor._id) {
-    return await db.get(actor._id)
-  }
+  if (!actor) return null
 
   return await db
     .query('users')

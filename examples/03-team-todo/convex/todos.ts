@@ -8,7 +8,7 @@ import {
   canReadTodo,
   canUpdateTodo,
 } from './auth/checks'
-import { getActor } from './auth/principal'
+import { getActor } from './auth/actor'
 import { withCan } from './auth/resource'
 import { ensureFound, ensureTenant } from './auth/scope'
 import {

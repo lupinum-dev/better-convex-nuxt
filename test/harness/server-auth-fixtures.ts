@@ -70,8 +70,6 @@ export function mockConvexConfig(overrides?: Record<string, unknown>): Normalize
       maxConcurrent: 3,
       ...uploadOverrides,
     },
-    permissions: overrides?.permissions === true,
-    tenant: null,
     logging:
       overrides?.logging === false || overrides?.logging === 'info' || overrides?.logging === 'debug'
         ? overrides.logging

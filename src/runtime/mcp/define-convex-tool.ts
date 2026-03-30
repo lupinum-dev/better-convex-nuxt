@@ -12,7 +12,6 @@ import type { PropertyValidators } from 'convex/values'
 import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
-import type { CheckPermissionFn } from '../convex/define-permissions'
 import {
   serverConvexAction,
   serverConvexMutation,
@@ -35,13 +34,10 @@ import type {
   ConvexToolCallFns,
   ConvexToolHandlerCtx,
   ConvexToolMiddlewareCtx,
-  CreateConvexToolsOptions,
   DefineConvexToolOptions,
   InferSchemaData,
   InferSchemaValidators,
   McpAuthIdentity,
-  McpTenantConfig,
-  McpTenantContext,
   PreviewResult,
 } from './types'
 
@@ -51,12 +47,8 @@ import type {
 
 interface DefineConvexToolFullOptions<
   S extends AnyConvexSchema,
-  P extends string = string,
   TRole extends string = string,
-> extends DefineConvexToolOptions<S, P, TRole> {
-  _checkPermission?: CheckPermissionFn<P, TRole>
-  _resolveAuth?: (event: H3Event) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
-  _tenant?: McpTenantConfig
+> extends DefineConvexToolOptions<S, TRole> {
 }
 
 // ============================================================================
@@ -374,22 +366,16 @@ function createToolCallFns(
   }
 }
 
-function createToolContext<P extends string, TRole extends string>(
+function createToolContext<TRole extends string>(
   event: H3Event,
   actor: McpAuthIdentity<TRole> | null,
-  tenant: McpTenantContext | undefined,
-  checkPermission: CheckPermissionFn<P, TRole> | undefined,
-): ConvexToolHandlerCtx<P, TRole> {
-  const calls = createToolCallFns(event, actor, tenant !== undefined)
+  scoped: boolean,
+): ConvexToolHandlerCtx<TRole> {
+  const calls = createToolCallFns(event, actor, scoped)
 
   return {
     event,
     actor,
-    tenant,
-    can: (permission: P, resource?: { ownerId?: string; [key: string]: unknown }) => {
-      if (!checkPermission || !actor) return false
-      return checkPermission(actor, permission, resource)
-    },
     ...calls,
     ok: (data, summary) => wrapSuccess(
       summary ? withSummary(data, summary) : data,
@@ -418,10 +404,9 @@ function isValidCallToolResult(value: unknown): value is McpToolCallbackResult {
 
 function _buildToolDefinition<
   S extends AnyConvexSchema,
-  P extends string = string,
   TRole extends string = string,
 >(
-  options: DefineConvexToolFullOptions<S, P, TRole>,
+  options: DefineConvexToolFullOptions<S, TRole>,
 ): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape> {
   type BuiltToolDefinition = McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>
 
@@ -433,7 +418,7 @@ function _buildToolDefinition<
     operation = 'mutation',
     annotations: annotationOverrides,
     auth = 'none',
-    require: requiredPermission,
+    check,
     destructive = false,
     maxItems,
     rateLimit,
@@ -446,25 +431,16 @@ function _buildToolDefinition<
     enabled,
     cache,
     scoped = false,
-    _checkPermission,
-    _resolveAuth,
-    _tenant,
+    resolveAuth,
   } = options
 
   const toolLabel = name ? `defineTool:${name}` : 'defineTool'
 
   // ── Fail-fast definition-time validations ──────────────────────────────
 
-  if (requiredPermission && !_checkPermission) {
+  if (check && auth === 'none') {
     throw new Error(
-      `defineTool: "require" needs a checkPermission function. `
-      + `Use createConvexTools({ checkPermission }) or pass _checkPermission directly.`,
-    )
-  }
-
-  if (requiredPermission && auth === 'none') {
-    throw new Error(
-      `defineTool: "require" needs auth. Set auth to "required" or "optional".`,
+      `defineTool: "check" needs auth. Set auth to "required" or "optional".`,
     )
   }
 
@@ -477,13 +453,6 @@ function _buildToolDefinition<
   if (rateLimit && !name) {
     throw new Error(
       `defineTool: "rateLimit" requires an explicit "name" so tools have distinct rate-limit buckets.`,
-    )
-  }
-
-  if (scoped && !_tenant) {
-    throw new Error(
-      `defineTool: "scoped: true" requires a tenant config. `
-      + `Use createConvexTools({ checkPermission, tenant: { field, index, resolveTenantId } }).`,
     )
   }
 
@@ -555,9 +524,9 @@ function _buildToolDefinition<
 
       let resolvedAuth: McpAuthIdentity<TRole> | null = null
       if (auth !== 'none') {
-        resolvedAuth = _resolveAuth
-          ? await _resolveAuth(event)
-          : resolveDefaultAuth(event)
+          resolvedAuth = resolveAuth
+            ? await resolveAuth(event)
+            : resolveDefaultAuth(event)
       }
 
       // ── Step 2: Auth check ────────────────────────────────────────────
@@ -565,44 +534,31 @@ function _buildToolDefinition<
         return wrapError('auth', 'Authentication required.')
       }
 
-      // ── Step 3: Permission check ──────────────────────────────────────
-      if (requiredPermission && _checkPermission) {
+      // ── Step 3: Optional actor check ──────────────────────────────────
+      if (check) {
         if (!resolvedAuth) {
           return wrapError('auth', 'Authentication required.')
         }
-        const allowed = _checkPermission(resolvedAuth, requiredPermission)
+        const allowed = await check(resolvedAuth)
         if (!allowed) {
-          return wrapError(
-            'auth',
-            `Permission denied: requires '${requiredPermission}' (your role: ${resolvedAuth.role}).`,
-          )
+          return wrapError('auth', 'Forbidden.')
         }
       }
 
-      // ── Step 3b: Resolve tenant context for scoped tools ─────────────
-      let tenantContext: McpTenantContext | undefined
-      if (scoped && _tenant) {
+      // ── Step 3b: Scoped calls require tenantId on the actor ───────────
+      if (scoped) {
         if (!resolvedAuth) {
           return wrapError('auth', 'Authentication required for scoped tools.')
         }
-        const tenantId = _tenant.resolveTenantId(resolvedAuth)
-        if (!tenantId) {
+        if (!resolvedAuth.tenantId) {
           return wrapError('auth', 'MCP token must include tenantId for scoped tools.')
-        }
-        tenantContext = {
-          id: tenantId,
-          owns(doc: Record<string, unknown> | null) {
-            if (!doc) return false
-            return doc[_tenant.field] === tenantId
-          },
         }
       }
 
       const ctx = createToolContext(
         event,
         resolvedAuth,
-        tenantContext,
-        _checkPermission,
+        scoped,
       )
 
       const normalizedArgs = normalizeToolArgs(args)
@@ -659,7 +615,7 @@ function _buildToolDefinition<
 
   async function runHandlerWithConfirmation(
     args: NormalizedToolArgs<S>,
-    ctx: ConvexToolMiddlewareCtx<P, TRole>,
+    ctx: ConvexToolMiddlewareCtx<TRole>,
   ): Promise<McpToolCallbackResult> {
     // Step 7: Preview routing
     if (destructive && preview && !args.confirmed) {
@@ -699,8 +655,8 @@ function _buildToolDefinition<
       ? async (event) => {
           const baseVisible = await enabled?.(event)
           if (baseVisible === false) return false
-          const resolved = _resolveAuth
-            ? await _resolveAuth(event)
+          const resolved = resolveAuth
+            ? await resolveAuth(event)
             : resolveDefaultAuth(event)
           return resolved !== null
         }
@@ -752,54 +708,9 @@ function _buildToolDefinition<
  */
 export function defineTool<
   S extends AnyConvexSchema,
-  P extends string = string,
   TRole extends string = string,
 >(
-  options: DefineConvexToolOptions<S, P, TRole>,
+  options: DefineConvexToolOptions<S, TRole>,
 ): McpToolDefinition {
-  return _buildToolDefinition(options as DefineConvexToolFullOptions<S, P, TRole>) as McpToolDefinition
-}
-
-/**
- * Create a typed tool factory with your permission system baked in.
- *
- * Mirrors the `createPermissions` pattern from the client side.
- * Define once, get typed `require` autocomplete everywhere.
- *
- * @example
- * ```ts
- * // server/mcp/utils/tools.ts
- * import { createConvexTools } from 'better-convex-nuxt/mcp'
- * import { checkPermission } from '~~/convex/permissions.config'
- *
- * export const { defineTool } = createConvexTools({
- *   checkPermission,
- * })
- *
- * // server/mcp/tools/create-post.ts
- * import { defineTool } from '../utils/tools'
- *
- * export default defineTool({
- *   schema: createPostSchema,
- *   auth: 'required',
- *   require: 'post.create',  // ← autocomplete + type error on typos
- *   handler: (args) => serverConvexMutation(api.posts.create, args),
- * })
- * ```
- */
-export function createConvexTools<P extends string = string, TRole extends string = string>(
-  factoryOptions: CreateConvexToolsOptions<P, TRole>,
-) {
-  return {
-    defineTool: <S extends AnyConvexSchema>(
-      toolOptions: DefineConvexToolOptions<S, P, TRole>,
-    ): McpToolDefinition => {
-      return _buildToolDefinition({
-        ...toolOptions,
-        _checkPermission: factoryOptions.checkPermission,
-        _resolveAuth: factoryOptions.resolveAuth,
-        _tenant: factoryOptions.tenant,
-      } as DefineConvexToolFullOptions<S, P, TRole>) as McpToolDefinition
-    },
-  }
+  return _buildToolDefinition(options as DefineConvexToolFullOptions<S, TRole>) as McpToolDefinition
 }

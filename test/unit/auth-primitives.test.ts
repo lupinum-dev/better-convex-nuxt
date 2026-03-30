@@ -25,7 +25,10 @@ describe('auth primitives', () => {
 
   it('throws forbidden errors from guard()', () => {
     expect(() => guard(null, 'Read dashboard', false)).toThrow(/Forbidden: Read dashboard/)
-    expect(() => guard(null, 'Read dashboard', deny('No dashboard for you.'))).toThrow(/No dashboard for you/)
+  })
+
+  it('throws forbidden errors from deny()', () => {
+    expect(() => deny('No dashboard for you.')).toThrow(/No dashboard for you/)
   })
 
   it('fails closed in can() when checks throw', () => {

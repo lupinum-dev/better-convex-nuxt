@@ -160,18 +160,6 @@ export interface ConvexDebugOptions {
   serverAuthFlow?: boolean
 }
 
-export interface PermissionsOptions {
-  /** Path to the app's exported permissionConfig */
-  config: string
-}
-
-export interface TenantOptions {
-  /** Field used for tenant scoping on tenant-aware tables */
-  field: string
-  /** Index used for tenant-scoped queries on tenant-aware tables */
-  index: string
-}
-
 export interface ModuleOptions {
   /** Convex deployment URL (WebSocket) — e.g., https://your-app.convex.cloud */
   url?: string
@@ -210,10 +198,6 @@ export interface ModuleOptions {
   query?: QueryDefaults
   /** Default options for upload composables. */
   upload?: UploadDefaults
-  /** Permission config path used for generated `#convex/mcp` helpers. */
-  permissions?: PermissionsOptions
-  /** Tenant configuration used by scoped helpers and generated aliases. */
-  tenant?: TenantOptions
   /**
    * Enable module logging.
    * - false: No logs (production default)
@@ -269,8 +253,6 @@ export default defineNuxtModule<ModuleOptions>({
     upload: {
       maxConcurrent: DEFAULT_UPLOAD_MAX_CONCURRENT,
     },
-    permissions: undefined,
-    tenant: undefined,
     logging: false,
     debug: {
       authFlow: false,
@@ -360,8 +342,6 @@ export default defineNuxtModule<ModuleOptions>({
         upload: {
           maxConcurrent: options.upload?.maxConcurrent ?? 3,
         },
-        permissions: options.permissions ?? null,
-        tenant: options.tenant ?? null,
         logging: options.logging ?? false,
         debug: {
           authFlow: options.debug?.authFlow ?? false,
@@ -492,34 +472,8 @@ export {
       write: true,
       getContents: () => {
         const defineToolPath = resolver.resolve('./runtime/mcp/define-convex-tool')
-        if (!options.permissions && !options.tenant) {
-          return `
-export { defineTool } from '${defineToolPath}'
-`
-        }
-
-        const permissionImport = options.permissions
-          ? `import { permissionConfig } from '${options.permissions.config}'`
-          : ''
-        const checkPermissionConfig = options.permissions
-          ? `checkPermission: permissionConfig.checkPermission,`
-          : ''
-        const tenantConfig = options.tenant
-          ? `tenant: {
-  field: '${options.tenant.field}',
-  index: '${options.tenant.index}',
-  resolveTenantId: (actor) => actor.tenantId ?? null,
-},`
-          : ''
-
         return `
-import { createConvexTools } from '${defineToolPath}'
-${permissionImport}
-
-export const { defineTool } = createConvexTools({
-  ${checkPermissionConfig}
-  ${tenantConfig}
-})
+export { defineTool } from '${defineToolPath}'
 `
       },
     })

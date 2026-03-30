@@ -1,81 +1,118 @@
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
-import type { Id } from './_generated/dataModel'
+import { can, guard } from 'better-convex-nuxt/auth'
 
+import { mutation, query } from './_generated/server'
+import type { Id } from './_generated/dataModel'
+import { getActor } from './auth/actor'
 import {
-  openQuery,
-  scopedMutation,
-} from './functions'
+  canCreatePost,
+  canDeletePost,
+  canPublishPost,
+  canReadPost,
+  canUpdatePost,
+} from './auth/checks'
+import { withCan } from './auth/resource'
+import { loadResource } from './auth/scope'
 import {
   createPost,
   updatePost,
 } from '../shared/schemas/post'
 
-export const list = openQuery({
-  args: {},
-  handler: async ({ actor, db }) => {
-    if (!actor?.tenantId) return []
-    const tenantId = actor.tenantId as Id<'organizations'>
+function attachPostPermissions(
+  actor: Awaited<ReturnType<typeof getActor>>,
+  post: {
+    ownerId: string
+    [key: string]: unknown
+  },
+) {
+  return withCan(post, {
+    'post.update': can(actor, canUpdatePost(post)),
+    'post.delete': can(actor, canDeletePost(post)),
+    'post.publish': can(actor, canPublishPost),
+  })
+}
 
-    return await db
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
+    if (!actor?.tenantId) return []
+
+    guard(actor, 'Read posts', canReadPost)
+
+    const posts = await ctx.db
       .query('posts')
-      .withIndex('by_organization', q => q.eq('organizationId', tenantId))
+      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
       .order('desc')
       .collect()
+
+    return posts.map(post => attachPostPermissions(actor, post))
   },
 })
 
-export const listPaginated = openQuery({
+export const listPaginated = query({
   args: { paginationOpts: paginationOptsValidator },
-  handler: async ({ actor, db }, args) => {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
     if (!actor?.tenantId) {
-      return {
-        page: [],
-        isDone: true,
-        continueCursor: '',
-      }
+      return { page: [], isDone: true, continueCursor: '' }
     }
-    const tenantId = actor.tenantId as Id<'organizations'>
 
-    return await db
+    guard(actor, 'Read posts', canReadPost)
+
+    const result = await ctx.db
       .query('posts')
-      .withIndex('by_organization', q => q.eq('organizationId', tenantId))
+      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
       .order('desc')
       .paginate(args.paginationOpts)
+
+    return {
+      ...result,
+      page: result.page.map(post => attachPostPermissions(actor, post)),
+    }
   },
 })
 
-export const get = openQuery({
+export const get = query({
   args: { id: v.id('posts') },
-  handler: async ({ actor, db }, args) => {
-    if (!actor?.tenantId) return null
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    if (!actor) return null
 
-    const post = await db.get(args.id)
-    if (!post || post.organizationId !== actor.tenantId) return null
-    return post
+    guard(actor, 'Read post', canReadPost)
+
+    const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
+    return attachPostPermissions(actor, post)
   },
 })
 
-export const create = scopedMutation({
+export const create = mutation({
   args: createPost.validators,
-  require: 'post.create',
-  handler: async ({ db, actor }, args) => {
-    return await db.insert('posts', {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create post', canCreatePost)
+    if (!actor.tenantId) throw new Error('No organization selected')
+
+    return await ctx.db.insert('posts', {
       ...args,
       status: 'draft',
       ownerId: actor.userId,
+      organizationId: actor.tenantId as Id<'organizations'>,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
   },
 })
 
-export const update = scopedMutation({
+export const update = mutation({
   args: updatePost.validators,
-  require: 'post.update',
-  resource: args => args.id,
-  handler: async ({ db }, args) => {
-    await db.patch(args.id, {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
+    guard(actor, 'Update post', canUpdatePost(post))
+
+    await ctx.db.patch(args.id, {
       ...(args.title !== undefined ? { title: args.title } : {}),
       ...(args.content !== undefined ? { content: args.content } : {}),
       updatedAt: Date.now(),
@@ -83,21 +120,24 @@ export const update = scopedMutation({
   },
 })
 
-export const remove = scopedMutation({
+export const remove = mutation({
   args: { id: v.id('posts') },
-  require: 'post.delete',
-  resource: args => args.id,
-  handler: async ({ db }, args) => {
-    await db.delete(args.id)
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
+    guard(actor, 'Delete post', canDeletePost(post))
+    await ctx.db.delete(args.id)
   },
 })
 
-export const publish = scopedMutation({
+export const publish = mutation({
   args: { id: v.id('posts') },
-  require: 'post.publish',
-  resource: args => args.id,
-  handler: async ({ db }, args) => {
-    await db.patch(args.id, {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
+    guard(actor, 'Publish post', canPublishPost)
+
+    await ctx.db.patch(args.id, {
       status: 'published',
       publishedAt: Date.now(),
       updatedAt: Date.now(),

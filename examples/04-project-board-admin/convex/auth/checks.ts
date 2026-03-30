@@ -1,7 +1,7 @@
 import { and, or } from 'better-convex-nuxt/auth'
 
 import type { Doc } from '../_generated/dataModel'
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export const isAuthenticated = (actor: Actor) => actor !== null
 export const hasRole = (...roles: string[]) => (actor: Actor) => !!actor && roles.includes(actor.role)

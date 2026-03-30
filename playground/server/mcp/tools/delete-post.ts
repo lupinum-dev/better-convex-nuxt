@@ -7,7 +7,7 @@ export default defineTool({
   schema: deletePost,
   name: 'delete-post',
   auth: 'required',
-  require: 'post.delete',
+  check: actor => ['owner', 'admin', 'member'].includes(actor.role),
   scoped: true,
   destructive: true,
   preview: async (args, ctx) => {

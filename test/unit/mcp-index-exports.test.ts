@@ -13,10 +13,14 @@ describe('mcp entrypoint exports', () => {
     mcpApi = await import('../../src/runtime/mcp/index')
   })
 
-  it('exports the V2 MCP API', () => {
-    expect(mcpApi).toHaveProperty('defineTool')
-    expect(mcpApi).not.toHaveProperty('defineConvexTool')
-    expect(mcpApi).not.toHaveProperty('createConvexTools')
+  it('exports the MCP API surface', () => {
+    expect(Object.keys(mcpApi).sort()).toEqual([
+      'defineTool',
+      'withSummary',
+      'wrapError',
+      'wrapPreview',
+      'wrapSuccess',
+    ])
   })
 
   it('exports envelope helpers', () => {

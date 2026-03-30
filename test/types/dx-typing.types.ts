@@ -1,6 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 
-import type { Check, Denial, Identity, Visibility } from '../../src/runtime/auth'
+import type { Identity, Visibility } from '../../src/runtime/auth'
 import {
   and,
   applyVisibility,
@@ -18,18 +18,20 @@ type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
     ? true
     : false
+type Extends<A, B> = A extends B ? true : false
 
 type Actor = { role: 'owner' | 'member'; userId: string; tenantId: string } | null
-type _checkType = Assert<IsEqual<Check<Actor>, (principal: Actor) => boolean | Denial>>
+type ActorCheck = (actor: Actor) => boolean
 
-const isOwner: Check<Actor> = (actor) => !!actor && actor.role === 'owner'
-const isMember: Check<Actor> = (actor) => !!actor && actor.role === 'member'
+const isOwner: ActorCheck = (actor: Actor) => !!actor && actor.role === 'owner'
+const isMember: ActorCheck = (actor: Actor) => !!actor && actor.role === 'member'
 
 const composed = and(isOwner, isMember)
 const allowed = can({ role: 'owner', userId: 'u1', tenantId: 't1' }, composed)
 void allowed
 
-guard(null, 'Admin page', deny('Blocked'))
+deny('Blocked')
+guard(null, 'Admin page', false)
 verifyKey('a', 'b')
 
 const visibility = defineVisibility(async () => [{ _id: '1' }])
@@ -50,9 +52,10 @@ const auth = createAuth({
 
 type UsePermissionsApi = ReturnType<typeof auth.usePermissions>
 type GuardOptions = Parameters<typeof auth.useAuthGuard>[0]
-type _roleFromComposable = Assert<IsEqual<UsePermissionsApi['role']['value'], 'owner' | 'member' | null>>
-type _planFromComposable = Assert<IsEqual<UsePermissionsApi['plan']['value'], 'free' | 'pro' | null>>
-type _guardCanKey = Assert<IsEqual<GuardOptions['can'], string>>
+type _roleFromComposable = Assert<Extends<UsePermissionsApi['role']['value'], string | null | undefined>>
+type _planFromComposable = Assert<Extends<UsePermissionsApi['plan']['value'], string | null | undefined>>
+type _guardCanKey = Assert<IsEqual<GuardOptions['can'], string | undefined>>
+type _guardCheck = Assert<IsEqual<GuardOptions['check'], ((ctx: import('../../src/runtime/composables/usePermissions').AuthContext) => boolean) | undefined>>
 
 const _identity = {} as Identity | null
 void _identity

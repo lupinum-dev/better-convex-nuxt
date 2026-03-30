@@ -1,10 +1,7 @@
+import { mutation, query } from './_generated/server'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
-import {
-  publicMutation,
-  publicQuery,
-} from './functions'
 import { createNote } from '../shared/schemas/note'
 
 function withTitle<T extends { title?: string | null }>(note: T) {
@@ -14,18 +11,18 @@ function withTitle<T extends { title?: string | null }>(note: T) {
   }
 }
 
-export const list = publicQuery({
+export const list = query({
   args: {},
-  handler: async ({ db }) => {
-    const notes = await db.query('notes').order('desc').take(50)
+  handler: async (ctx) => {
+    const notes = await ctx.db.query('notes').order('desc').take(50)
     return notes.map(withTitle)
   },
 })
 
-export const listPaginated = publicQuery({
+export const listPaginated = query({
   args: { paginationOpts: paginationOptsValidator },
-  handler: async ({ db }, args) => {
-    const result = await db.query('notes').order('desc').paginate(args.paginationOpts)
+  handler: async (ctx, args) => {
+    const result = await ctx.db.query('notes').order('desc').paginate(args.paginationOpts)
     return {
       ...result,
       page: result.page.map(withTitle),
@@ -33,10 +30,10 @@ export const listPaginated = publicQuery({
   },
 })
 
-export const listPaginatedAsc = publicQuery({
+export const listPaginatedAsc = query({
   args: { paginationOpts: paginationOptsValidator },
-  handler: async ({ db }, args) => {
-    const result = await db.query('notes').order('asc').paginate(args.paginationOpts)
+  handler: async (ctx, args) => {
+    const result = await ctx.db.query('notes').order('asc').paginate(args.paginationOpts)
     return {
       ...result,
       page: result.page.map(withTitle),
@@ -44,20 +41,20 @@ export const listPaginatedAsc = publicQuery({
   },
 })
 
-export const get = publicQuery({
+export const get = query({
   args: { id: v.id('notes') },
-  handler: async ({ db }, args) => {
-    const note = await db.get(args.id)
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.id)
     return note ? withTitle(note) : null
   },
 })
 
-export const search = publicQuery({
+export const search = query({
   args: { query: v.string() },
-  handler: async ({ db }, args) => {
+  handler: async (ctx, args) => {
     if (!args.query.trim()) return []
 
-    const notes = await db.query('notes').collect()
+    const notes = await ctx.db.query('notes').collect()
     const lowerQuery = args.query.toLowerCase()
 
     return notes
@@ -69,10 +66,10 @@ export const search = publicQuery({
   },
 })
 
-export const add = publicMutation({
+export const add = mutation({
   args: createNote.validators,
-  handler: async ({ db }, args) => {
-    return await db.insert('notes', {
+  handler: async (ctx, args) => {
+    return await ctx.db.insert('notes', {
       title: args.title,
       content: args.content,
       createdAt: Date.now(),
@@ -80,42 +77,42 @@ export const add = publicMutation({
   },
 })
 
-export const update = publicMutation({
+export const update = mutation({
   args: {
     id: v.id('notes'),
     title: v.optional(v.string()),
     content: v.optional(v.string()),
   },
-  handler: async ({ db }, args) => {
-    const note = await db.get(args.id)
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.id)
     if (!note) throw new Error('Note not found')
 
-    await db.patch(args.id, {
+    await ctx.db.patch(args.id, {
       ...(args.title !== undefined ? { title: args.title } : {}),
       ...(args.content !== undefined ? { content: args.content } : {}),
     })
   },
 })
 
-export const count = publicQuery({
+export const count = query({
   args: {},
-  handler: async ({ db }) => {
-    const notes = await db.query('notes').collect()
+  handler: async (ctx) => {
+    const notes = await ctx.db.query('notes').collect()
     return { total: notes.length }
   },
 })
 
-export const remove = publicMutation({
+export const remove = mutation({
   args: { id: v.id('notes') },
-  handler: async ({ db }, args) => {
-    await db.delete(args.id)
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id)
   },
 })
 
-export const listDelayed = publicQuery({
+export const listDelayed = query({
   args: {},
-  handler: async ({ db }) => {
-    const notes = await db.query('notes').order('desc').take(50)
+  handler: async (ctx) => {
+    const notes = await ctx.db.query('notes').order('desc').take(50)
     return notes.map(withTitle)
   },
 })

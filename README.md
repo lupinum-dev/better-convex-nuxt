@@ -168,7 +168,7 @@ Inside Convex functions, use the validator view directly:
 import { mutation } from './_generated/server'
 import { guard } from 'better-convex-nuxt/auth'
 import { canCreatePost } from './auth/checks'
-import { getActor } from './auth/principal'
+import { getActor } from './auth/actor'
 
 export const create = mutation({
   args: createPost.validators,

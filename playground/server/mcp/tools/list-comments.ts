@@ -8,7 +8,7 @@ export default defineTool({
   name: 'list-comments',
   operation: 'query',
   auth: 'required',
-  require: 'comment.read',
+  check: actor => ['owner', 'admin', 'member', 'viewer'].includes(actor.role),
   scoped: true,
   handler: async (args, ctx) => {
     const comments = await ctx.query(api.comments.listByPost, args)

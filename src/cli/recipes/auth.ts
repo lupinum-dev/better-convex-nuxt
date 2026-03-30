@@ -4,7 +4,7 @@ export type RecipeTemplate = {
 }
 
 export const authTemplates = {
-  principal: `
+  actor: `
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getIdentity, verifyKey } from 'better-convex-nuxt/auth'
@@ -49,7 +49,7 @@ export function getServiceActor(
   checks: `
 import { and, or } from 'better-convex-nuxt/auth'
 
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export const isAuthenticated = (actor: Actor) => actor !== null
 export const hasRole = (...roles: string[]) => (actor: Actor) => !!actor && roles.includes(actor.role)
@@ -65,7 +65,7 @@ export const canUpdateOwned = (resource: { ownerId: string }) =>
   scope: `
 import { deny } from 'better-convex-nuxt/auth'
 
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export function ensureTenant(
   actor: Actor,
@@ -82,6 +82,16 @@ export function ensureFound<T>(
   label = 'Resource',
 ): asserts doc is T {
   if (!doc) throw new Error(\`\${label} not found.\`)
+}
+
+export function loadResource<T extends { workspaceId: string }>(
+  actor: Actor,
+  doc: T | null | undefined,
+  label = 'Resource',
+): T {
+  ensureFound(doc, label)
+  ensureTenant(actor, doc)
+  return doc
 }
 `.trimStart(),
   resource: `
@@ -104,10 +114,10 @@ export const { usePermissions, useAuthGuard } = createAuth({
   query: api.auth.getPermissionContext,
 })
 `.trimStart(),
-  filters: `
+  visibility: `
 import { defineVisibility } from 'better-convex-nuxt/auth'
 
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export const workspaceVisibility = defineVisibility(
   async (actor: Actor, db) => {
@@ -119,7 +129,7 @@ export const workspaceVisibility = defineVisibility(
 )
 `.trimStart(),
   redaction: `
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 type RedactionRule = {
   fields: string[]
@@ -144,7 +154,7 @@ export function redact<T extends Record<string, unknown>>(
   enrollment: `
 import { deny } from 'better-convex-nuxt/auth'
 
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export async function requireEnrollment(
   db: any,
@@ -182,7 +192,7 @@ export async function ensurePrerequisites(db: any, userId: string, lesson: { pre
   serviceAuth: `
 import { deny, verifyKey } from 'better-convex-nuxt/auth'
 
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export function resolveServiceActor(
   key: string,
@@ -212,7 +222,7 @@ export async function ensureNotProcessed(db: any, eventId: string): Promise<void
 }
 `.trimStart(),
   plans: `
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 const planFeatures: Record<string, string[]> = {
   free: ['projects'],
@@ -233,7 +243,7 @@ export const hasFeature = (feature: string) =>
   limits: `
 import { deny } from 'better-convex-nuxt/auth'
 
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export async function ensureWithinLimit(
   db: any,
@@ -255,7 +265,7 @@ export async function ensureWithinLimit(
   pageAccess: `
 import { deny } from 'better-convex-nuxt/auth'
 
-import type { Actor } from './principal'
+import type { Actor } from './actor'
 
 export type AccessLevel = 'view' | 'comment' | 'edit'
 
@@ -355,14 +365,14 @@ export async function writeAuditEvent(
 
 export const authRecipeRegistry: Record<string, RecipeTemplate[]> = {
   auth: [
-    { path: 'convex/auth/principal.ts', content: authTemplates.principal },
+    { path: 'convex/auth/actor.ts', content: authTemplates.actor },
     { path: 'convex/auth/checks.ts', content: authTemplates.checks },
     { path: 'convex/auth/scope.ts', content: authTemplates.scope },
     { path: 'convex/auth/resource.ts', content: authTemplates.resource },
     { path: 'composables/usePermissions.ts', content: authTemplates.composable },
   ],
   'auth:crm': [
-    { path: 'convex/auth/filters.ts', content: authTemplates.filters },
+    { path: 'convex/auth/visibility.ts', content: authTemplates.visibility },
     { path: 'convex/auth/redaction.ts', content: authTemplates.redaction },
   ],
   'auth:lms': [
@@ -384,8 +394,8 @@ export const authRecipeRegistry: Record<string, RecipeTemplate[]> = {
   'auth:agency': [
     { path: 'convex/auth/agency.ts', content: authTemplates.agency },
   ],
-  'auth:filters': [
-    { path: 'convex/auth/filters.ts', content: authTemplates.filters },
+  'auth:visibility': [
+    { path: 'convex/auth/visibility.ts', content: authTemplates.visibility },
   ],
   'auth:share-tokens': [
     { path: 'convex/auth/share-tokens.ts', content: authTemplates.shareTokens },

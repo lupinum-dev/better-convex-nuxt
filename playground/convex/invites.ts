@@ -1,51 +1,48 @@
+import { guard } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 
-import {
-  authedMutation,
-  openQuery,
-  scopedMutation,
-} from './functions'
+import { mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
+import { canInviteMembers } from './auth/checks'
+import { loadResource } from './auth/scope'
 import { getUserRowFromActor } from './lib/user_row'
-import { checkPermission, type Role } from './permissions.config'
 
-export const listPending = openQuery({
+export const listPending = query({
   args: {},
-  handler: async ({ actor, db }) => {
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
     if (!actor?.tenantId) return []
-    const tenantId = actor.tenantId as Id<'organizations'>
+    if (!canInviteMembers(actor)) return []
 
-    const allowed = checkPermission(
-      { role: actor.role as Role, userId: actor.userId },
-      'org.invite',
-    )
-    if (!allowed) return []
-
-    return await db
+    return await ctx.db
       .query('invites')
-      .withIndex('by_organization', q => q.eq('organizationId', tenantId))
-      .filter((q) => q.eq(q.field('status'), 'pending'))
+      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
+      .filter(q => q.eq(q.field('status'), 'pending'))
       .order('desc')
       .collect()
   },
 })
 
-export const create = scopedMutation({
+export const create = mutation({
   args: {
     email: v.string(),
     role: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
-  require: 'org.invite',
-  handler: async ({ db, actor }, args) => {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Invite member', canInviteMembers)
+    if (!actor.tenantId) throw new Error('No organization selected')
+
     const tenantId = actor.tenantId as Id<'organizations'>
     if (args.role === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can invite admins')
     }
 
-    const existing = await db
+    const existing = await ctx.db
       .query('invites')
-      .withIndex('by_email', (q) => q.eq('email', args.email))
-      .filter((q) =>
+      .withIndex('by_email', q => q.eq('email', args.email))
+      .filter(q =>
         q.and(
           q.eq(q.field('organizationId'), tenantId),
           q.eq(q.field('status'), 'pending'),
@@ -53,23 +50,20 @@ export const create = scopedMutation({
       )
       .first()
 
-    if (existing) {
-      throw new Error('Already invited')
-    }
+    if (existing) throw new Error('Already invited')
 
-    const existingUser = await db
+    const existingUser = await ctx.db
       .query('users')
-      .withIndex('by_email', (q) => q.eq('email', args.email))
+      .withIndex('by_email', q => q.eq('email', args.email))
       .filter(q => q.eq(q.field('organizationId'), tenantId))
       .first()
 
-    if (existingUser) {
-      throw new Error('Already a member')
-    }
+    if (existingUser) throw new Error('Already a member')
 
-    return await db.insert('invites', {
+    return await ctx.db.insert('invites', {
       email: args.email,
       role: args.role,
+      organizationId: tenantId,
       invitedBy: actor.userId,
       status: 'pending',
       createdAt: Date.now(),
@@ -78,44 +72,40 @@ export const create = scopedMutation({
   },
 })
 
-export const revoke = scopedMutation({
+export const revoke = mutation({
   args: { id: v.id('invites') },
-  require: 'org.invite',
-  resource: (args) => args.id,
-  handler: async ({ db, resource }, args) => {
-    if (!resource) throw new Error('Invite not found')
-    if (resource.status !== 'pending') {
-      throw new Error('Invite is not pending')
-    }
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Revoke invite', canInviteMembers)
 
-    await db.patch(args.id, { status: 'revoked' })
+    const invite = loadResource(actor, await ctx.db.get(args.id), 'Invite')
+    if (invite.status !== 'pending') throw new Error('Invite is not pending')
+
+    await ctx.db.patch(args.id, { status: 'revoked' })
   },
 })
 
-export const accept = authedMutation({
+export const accept = mutation({
   args: { id: v.id('invites') },
-  handler: async ({ db, actor }, args) => {
-    const user = await getUserRowFromActor(db, actor)
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Accept invite', actor !== null)
+
+    const user = await getUserRowFromActor(ctx.db, actor)
     if (!user) throw new Error('User not found')
 
-    const invite = await db.get(args.id)
+    const invite = await ctx.db.get(args.id)
     if (!invite) throw new Error('Invite not found')
-    if (invite.email !== user.email) {
-      throw new Error('Invite is for a different email')
-    }
-    if (invite.status !== 'pending') {
-      throw new Error('Invite is no longer valid')
-    }
+    if (invite.email !== user.email) throw new Error('Invite is for a different email')
+    if (invite.status !== 'pending') throw new Error('Invite is no longer valid')
     if (invite.expiresAt < Date.now()) {
-      await db.patch(args.id, { status: 'expired' })
+      await ctx.db.patch(args.id, { status: 'expired' })
       throw new Error('Invite has expired')
     }
-    if (user.organizationId) {
-      throw new Error('You are already in an organization')
-    }
+    if (user.organizationId) throw new Error('You are already in an organization')
 
-    await db.patch(args.id, { status: 'accepted' })
-    await db.patch(user._id, {
+    await ctx.db.patch(args.id, { status: 'accepted' })
+    await ctx.db.patch(user._id, {
       organizationId: invite.organizationId,
       role: invite.role,
       updatedAt: Date.now(),
@@ -123,18 +113,19 @@ export const accept = authedMutation({
   },
 })
 
-export const getMyInvites = openQuery({
+export const getMyInvites = query({
   args: {},
-  handler: async ({ actor, db }) => {
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
     if (!actor) return []
 
-    const user = await getUserRowFromActor(db, actor)
+    const user = await getUserRowFromActor(ctx.db, actor)
     if (!user?.email) return []
 
-    return await db
+    return await ctx.db
       .query('invites')
-      .withIndex('by_email', (q) => q.eq('email', user.email))
-      .filter((q) => q.eq(q.field('status'), 'pending'))
+      .withIndex('by_email', q => q.eq('email', user.email))
+      .filter(q => q.eq(q.field('status'), 'pending'))
       .collect()
   },
 })

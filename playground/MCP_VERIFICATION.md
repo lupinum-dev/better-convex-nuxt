@@ -87,7 +87,7 @@ still need to be removed before this pattern is production-ready.
 
 - Replace the hardcoded local fallback service key in `playground/shared/dev-service-key.ts`
   with real environment-only secret management.
-- Remove the playground fallback validator in `playground/convex/actor.config.ts`
+- Remove the playground fallback validator in `playground/convex/auth/actor.ts`
   so service auth only succeeds through the real configured secret.
 - Rotate any local demo keys and service keys used during development.
 - Make sure production MCP keys are created, stored, and revoked only through the

@@ -1,94 +1,53 @@
-/**
- * Permission Composable
- *
- * Uses createPermissions() from the module, then extends with
- * playground-specific features like auto-user-creation.
- */
+import { computed, watchEffect, type ComputedRef } from 'vue'
 
-import { watchEffect } from 'vue'
-
-import { createPermissions } from '#imports'
+import { createAuth } from '#imports'
 import { api } from '~/convex/_generated/api'
-import { checkPermission, type Permission, type Resource } from '~/convex/permissions.config'
 
-// Re-export types for convenience
-export type { Permission, Resource }
+type ResourceWithCan = {
+  _can?: Record<string, boolean>
+}
 
-// ============================================
-// CREATE BASE COMPOSABLES FROM MODULE
-// ============================================
-
-const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGuard } =
-  createPermissions({
-    query: api.auth.getPermissionContext,
-    checkPermission,
-  })
-
-// ============================================
-// EXTENDED USE PERMISSIONS
-// ============================================
-// Wraps the base composable with auto-user-creation for the playground.
-//
-// Usage:
-//   const { can, user, isAuthenticated, pending } = usePermissions()
-//
-//   // In template:
-//   <button v-if="can('post.update', post)">Edit</button>
+const { usePermissions: useBasePermissions, useAuthGuard: useBaseAuthGuard } = createAuth({
+  query: api.auth.getPermissionContext,
+})
 
 export function usePermissions() {
   const base = useBasePermissions()
-
-  // ----------------------------------------
-  // Auto-create user if needed (playground-specific)
-  // ----------------------------------------
-  // If user has identity but doesn't exist in DB, create them.
-  // This is useful for testing flows where users sign in but
-  // haven't been created in the database yet.
-
   const createUser = useConvexMutation(api.auth.createUserIfNeeded)
 
   watchEffect(async () => {
     if (base.pending.value) return
-    const context = base.user.value as {
+    const context = base.ctx.value as {
       _debug?: { hasIdentity?: boolean; hasUser?: boolean; reason?: string }
     } | null
     const debugInfo = context?._debug
-    // If user has identity but not in DB, create them
     if (
       debugInfo?.hasIdentity &&
       !debugInfo?.hasUser &&
       debugInfo?.reason === 'user not found in DB, needs to be created'
     ) {
-      try {
-        await createUser({})
-        // Query will automatically re-run and pick up the new user
-      } catch (e) {
-        console.error('Failed to create user:', e)
-      }
+      await createUser({})
     }
   })
 
-  // Return base API (no extra helpers needed for playground)
-  return base
+  function can(permission: string, resource?: ResourceWithCan): ComputedRef<boolean> {
+    if (resource) {
+      return computed(() => resource._can?.[permission] === true)
+    }
+    return base.can(permission)
+  }
+
+  return {
+    ...base,
+    user: computed(() => base.ctx.value),
+    can,
+  }
 }
 
-// ============================================
-// USE PERMISSION GUARD
-// ============================================
-// Re-export with custom login path for playground.
-//
-// Usage:
-//   usePermissionGuard('org.settings', '/dashboard')
-
-export function usePermissionGuard(
-  permission: Permission,
-  redirectTo: string = '/',
-  resource?: Resource,
-) {
-  return basePermissionGuard({
-    permission,
+export function useAuthGuard(permission: string, redirectTo = '/') {
+  return useBaseAuthGuard({
+    can: permission,
     redirectTo,
-    resource,
     loginPath: '/auth/signin',
   })
 }

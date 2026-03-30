@@ -1,5 +1,3 @@
-import { timingSafeEqual } from 'node:crypto'
-
 import type {
   GenericDataModel,
   GenericDatabaseReader,
@@ -15,16 +13,8 @@ export type Identity = {
   name?: string
 }
 
-export type Denial = {
-  denied: true
-  reason: string
-  source?: string
-}
-
-export type CheckResult = boolean | Denial
-export type Check<P = unknown> = (principal: P) => CheckResult
-
-type AnyCheck<P> = Check<P> | CheckResult
+type Check<P = unknown> = (principal: P) => boolean
+type AnyCheck<P> = Check<P> | boolean
 
 type QueryLike<T = unknown> = Pick<Query<any>, 'collect'> & T
 type VisibilityResolver<T, P> = (
@@ -41,16 +31,8 @@ type AnyCtx =
   | GenericQueryCtx<GenericDataModel>
   | GenericMutationCtx<GenericDataModel>
 
-function runCheck<P>(principal: P, check: AnyCheck<P>): CheckResult {
+function runCheck<P>(principal: P, check: AnyCheck<P>): boolean {
   return typeof check === 'function' ? (check as Check<P>)(principal) : check
-}
-
-function isDenied(result: CheckResult): result is Denial {
-  return typeof result === 'object' && result !== null && result.denied === true
-}
-
-function toBoolean(result: CheckResult): boolean {
-  return result === true
 }
 
 function toForbiddenError(reason: string, source?: string): ConvexError<{ code: 'FORBIDDEN', message: string, source?: string }> {
@@ -62,52 +44,32 @@ function toForbiddenError(reason: string, source?: string): ConvexError<{ code: 
 }
 
 export function and<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
-  return (principal: P) => {
-    for (const check of checks) {
-      const result = runCheck(principal, check)
-      if (result === true) continue
-      if (isDenied(result)) return result
-      return false
-    }
-    return true
-  }
+  return (principal: P) => checks.every(check => runCheck(principal, check))
 }
 
 export function or<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
-  return (principal: P) => {
-    let firstDenial: Denial | null = null
-    for (const check of checks) {
-      const result = runCheck(principal, check)
-      if (result === true) return true
-      if (!firstDenial && isDenied(result)) firstDenial = result
-    }
-    return firstDenial ?? false
-  }
+  return (principal: P) => checks.some(check => runCheck(principal, check))
 }
 
 export function not<P = unknown>(check: AnyCheck<P>): Check<P> {
-  return (principal: P) => !toBoolean(runCheck(principal, check))
+  return (principal: P) => !runCheck(principal, check)
 }
 
 export const all = and
 export const any = or
 
-export function deny(reason: string, source?: string): Denial {
-  return { denied: true, reason, ...(source ? { source } : {}) }
+export function deny(reason: string, source?: string): never {
+  throw toForbiddenError(reason, source)
 }
 
 export function guard<P = unknown>(principal: P, label: string, check: AnyCheck<P>): void {
-  const result = runCheck(principal, check)
-  if (result === true) return
-  if (isDenied(result)) {
-    throw toForbiddenError(result.reason || `Forbidden: ${label}`, result.source)
-  }
+  if (runCheck(principal, check)) return
   throw toForbiddenError(`Forbidden: ${label}`)
 }
 
 export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
   try {
-    return toBoolean(runCheck(principal, check))
+    return !!runCheck(principal, check)
   } catch {
     return false
   }
@@ -125,10 +87,16 @@ export async function getIdentity(ctx: AnyCtx): Promise<Identity | null> {
 
 export function verifyKey(provided: string, expected: string): boolean {
   if (!provided || !expected) return false
-  const a = Buffer.from(provided)
-  const b = Buffer.from(expected)
-  if (a.length !== b.length) return false
-  return timingSafeEqual(a, b)
+  let mismatch = provided.length === expected.length ? 0 : 1
+  const maxLength = Math.max(provided.length, expected.length)
+
+  for (let index = 0; index < maxLength; index++) {
+    const left = provided.charCodeAt(index) || 0
+    const right = expected.charCodeAt(index) || 0
+    mismatch |= left ^ right
+  }
+
+  return mismatch === 0
 }
 
 export function defineVisibility<T, P = unknown>(

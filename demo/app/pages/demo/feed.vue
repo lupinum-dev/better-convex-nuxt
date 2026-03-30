@@ -82,8 +82,8 @@ const typeIcons: Record<string, string> = {
   event: 'i-lucide-calendar',
 }
 
-function canDelete(item: { authorId: string }) {
-  return can('feed.delete', { ownerId: item.authorId }).value
+function canDelete(item: { _can?: Record<string, boolean> }) {
+  return can('feed.delete', item).value
 }
 </script>
 

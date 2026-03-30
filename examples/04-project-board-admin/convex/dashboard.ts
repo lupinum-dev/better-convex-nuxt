@@ -4,7 +4,7 @@ import { v } from 'convex/values'
 import { guard } from 'better-convex-nuxt/auth'
 
 import { canViewAudit } from './auth/checks'
-import { getActor } from './auth/principal'
+import { getActor } from './auth/actor'
 
 export const stats = query({
   args: {},

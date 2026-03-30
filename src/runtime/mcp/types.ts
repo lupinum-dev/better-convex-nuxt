@@ -8,7 +8,6 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import type { PropertyValidators } from 'convex/values'
 import type { ZodRawShape } from 'zod'
 
-import type { CheckPermissionFn } from '../convex/define-permissions'
 import type { SchemaDefinition } from '../utils/define-convex-schema'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types'
 
@@ -95,15 +94,11 @@ export interface ConvexToolCallFns {
 }
 
 export interface ConvexToolHandlerCtx<
-  P extends string = string,
   TRole extends string = string,
 > extends ConvexToolCallFns {
   event: H3Event
   /** Resolved actor, or null if auth is 'none' or no credentials were provided. */
   actor: McpAuthIdentity<TRole> | null
-  /** Resolved tenant context for `scoped: true` tools. */
-  tenant?: McpTenantContext
-  can: (permission: P, resource?: Record<string, unknown>) => boolean
   ok: <T>(data: T, summary?: string) => McpToolCallbackResult
   error: (
     category: ConvexErrorCategory,
@@ -115,17 +110,15 @@ export interface ConvexToolHandlerCtx<
 }
 
 export type ConvexToolMiddlewareCtx<
-  P extends string = string,
   TRole extends string = string,
-> = ConvexToolHandlerCtx<P, TRole>
+> = ConvexToolHandlerCtx<TRole>
 
 export type ConvexToolMiddleware<
   S extends AnyConvexSchema,
-  P extends string = string,
   TRole extends string = string,
 > = (
   args: InferSchemaData<S>,
-  ctx: ConvexToolMiddlewareCtx<P, TRole>,
+  ctx: ConvexToolMiddlewareCtx<TRole>,
   next: () => Promise<McpToolCallbackResult>,
 ) => McpToolCallbackResult | Promise<McpToolCallbackResult>
 
@@ -135,7 +128,6 @@ export type ConvexToolMiddleware<
 
 export interface DefineConvexToolOptions<
   S extends AnyConvexSchema,
-  P extends string = string,
   TRole extends string = string,
 > {
   /** Shared Convex schema — provides input validation and metadata. */
@@ -143,7 +135,7 @@ export interface DefineConvexToolOptions<
   /** Tool handler. Return plain data — the framework wraps it. */
   handler: (
     args: InferSchemaData<S>,
-    ctx: ConvexToolHandlerCtx<P, TRole>,
+    ctx: ConvexToolHandlerCtx<TRole>,
   ) => unknown | Promise<unknown>
 
   // ── Identity ──────────────────────────────────────────────
@@ -161,10 +153,12 @@ export interface DefineConvexToolOptions<
   // ── Auth ──────────────────────────────────────────────────
   /** Auth requirement. Default: 'none'. */
   auth?: 'required' | 'optional' | 'none'
-  /** Permission string checked via checkPermission. Requires createConvexTools factory or checkPermission option. */
-  require?: P
-  /** Enable tenant scoping. Requires createConvexTools with tenant config. Handler receives `{ tenant }` context. */
+  /** Optional actor check evaluated before the handler runs. */
+  check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
+  /** Enable service-auth injection for Convex calls using the resolved actor. Requires actor.tenantId. */
   scoped?: boolean
+  /** Custom auth resolver for this tool. Default: reads event.context.mcpAuth. */
+  resolveAuth?: (event: H3Event) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
 
   // ── Safety ────────────────────────────────────────────────
   /**
@@ -183,7 +177,7 @@ export interface DefineConvexToolOptions<
   /** Preview function for destructive tools. Receives the same args as handler, plus the middleware context. */
   preview?: (
     args: InferSchemaData<S>,
-    ctx: ConvexToolMiddlewareCtx<P, TRole>,
+    ctx: ConvexToolMiddlewareCtx<TRole>,
   ) => string | PreviewResult | Promise<string | PreviewResult>
 
   // ── Grouping ──────────────────────────────────────────────
@@ -198,45 +192,9 @@ export interface DefineConvexToolOptions<
   /** Example inputs for MCP agents. Auto-generated from field examples if omitted. */
   inputExamples?: Partial<InferSchemaData<S>>[]
   /** Custom middleware. Single function — compose internally if needed. */
-  middleware?: ConvexToolMiddleware<S, P, TRole>
+  middleware?: ConvexToolMiddleware<S, TRole>
   /** Guard to include/hide this tool per-request. */
   enabled?: (event: H3Event) => boolean | Promise<boolean>
   /** Cache configuration (passed through to mcp-toolkit). */
   cache?: McpToolCache
-}
-
-// ============================================================================
-// Tenant scoping for MCP tools
-// ============================================================================
-
-export interface McpTenantConfig {
-  /** The field name used for tenant scoping (for example 'organizationId'). */
-  field: string
-  /** Index used to scope tenant-aware queries (for example 'by_organization'). */
-  index: string
-  /** Resolve tenantId from the authenticated MCP identity. Return null if no tenant. */
-  resolveTenantId: (actor: McpAuthIdentity) => string | null
-}
-
-export interface McpTenantContext {
-  /** The resolved tenant ID */
-  id: string
-  /** Whether a document belongs to this tenant (checks the configured field). */
-  owns: (doc: Record<string, unknown> | null) => boolean
-}
-
-// ============================================================================
-// Factory
-// ============================================================================
-
-export interface CreateConvexToolsOptions<
-  P extends string = string,
-  TRole extends string = string,
-> {
-  /** Permission check function from your permissions.config.ts */
-  checkPermission?: CheckPermissionFn<P, TRole>
-  /** Custom auth resolver. Default: reads event.context.mcpAuth */
-  resolveAuth?: (event: H3Event) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
-  /** Tenant configuration for org-scoped tools */
-  tenant?: McpTenantConfig
 }

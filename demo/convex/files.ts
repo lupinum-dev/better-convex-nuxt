@@ -4,9 +4,13 @@
  * Demonstrates file uploads with useConvexUpload and useConvexStorageUrl.
  */
 
+import { can, guard } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
+import { canDeleteFile, canUploadFile, canViewAll } from './auth/checks'
+import { withCan } from './auth/resource'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/']
@@ -17,20 +21,8 @@ const ALLOWED_TYPES = ['image/']
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
-
-    // Check user role - only admin and member can upload
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (!user || user.role === 'viewer') {
-      throw new Error('Not authorized to upload files')
-    }
+    const actor = await getActor(ctx)
+    guard(actor, 'Generate upload URL', canUploadFile)
 
     return await ctx.storage.generateUploadUrl()
   },
@@ -47,21 +39,10 @@ export const save = mutation({
     size: v.number(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
-
-    // Check user role - only admin and member can upload
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (!user || user.role === 'viewer') {
-      // Clean up the uploaded file since user isn't authorized
+    const actor = await getActor(ctx)
+    if (!can(actor, canUploadFile)) {
       await ctx.storage.delete(args.storageId)
-      throw new Error('Not authorized to upload files')
+      guard(actor, 'Upload file', canUploadFile)
     }
 
     // Validate file size
@@ -82,7 +63,7 @@ export const save = mutation({
       filename: args.filename,
       mimeType: args.mimeType,
       size: args.size,
-      uploadedBy: identity.subject,
+      uploadedBy: actor.userId,
       createdAt: Date.now(),
     })
 
@@ -108,6 +89,10 @@ export const getUrl = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    const actor = await getActor(ctx)
+    if (!actor) return []
+    guard(actor, 'Read files', canViewAll)
+
     const files = await ctx.db.query('files').withIndex('by_created').order('desc').take(50)
 
     // Fetch uploader info for each file
@@ -119,7 +104,9 @@ export const list = query({
           .first()
 
         return {
-          ...file,
+          ...withCan(file, {
+            'file.delete': can(actor, canDeleteFile(file)),
+          }),
           uploaderName: uploader?.displayName || uploader?.email || 'Unknown',
           uploaderAvatarUrl: uploader?.avatarUrl,
         }
@@ -138,32 +125,14 @@ export const remove = mutation({
     id: v.id('files'),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
+    const actor = await getActor(ctx)
+    guard(actor, 'Delete file', actor !== null)
 
     const file = await ctx.db.get(args.id)
     if (!file) {
       throw new Error('File not found')
     }
-
-    // Check user role and ownership
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    const isOwner = file.uploadedBy === identity.subject
-    const isAdmin = user?.role === 'admin'
-    const isMember = user?.role === 'member'
-
-    // Admins can delete any file
-    // Members can only delete their own files
-    // Viewers cannot delete any files
-    if (!isAdmin && !(isMember && isOwner)) {
-      throw new Error('Not authorized to delete this file')
-    }
+    guard(actor, 'Delete file', canDeleteFile(file))
 
     // Delete from storage
     await ctx.storage.delete(file.storageId)

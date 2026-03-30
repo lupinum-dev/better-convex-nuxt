@@ -7,15 +7,15 @@ It shows:
 - real auth
 - actor resolution
 - tenant-scoped tables
-- declarative permissions
-- frontend permission checks with `createPermissions()`
+- app-owned checks in `convex/auth/*`
+- backend-owned permission context via `createAuth()`
 - MCP tools built with `#convex/mcp`
 - first-class tests with `better-convex-nuxt/testing`
 
 ## Files To Read First
 
-1. `convex/functions.ts`
-2. `convex/permissions.config.ts`
+1. `convex/auth/actor.ts`
+2. `convex/auth/checks.ts`
 3. `shared/schemas/todo.ts`
 4. `convex/todos.ts`
 5. `composables/usePermissions.ts`
@@ -80,7 +80,7 @@ The example test file covers:
 - service-auth callers obey the same permission rules as browser and MCP callers
 
 `composables/usePermissions.ts` is intentionally tiny. It exists so Nuxt can auto-import
-`usePermissions()` everywhere else in the app while the permission config itself stays in Convex-land.
+`usePermissions()` everywhere else in the app while the permission context query stays in Convex-land.
 
 `shared/` is also intentional. Both Convex code and Nitro/MCP code import the same args definitions,
 so the folder marks a runtime boundary rather than a Nuxt convention.

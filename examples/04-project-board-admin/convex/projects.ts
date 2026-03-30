@@ -8,7 +8,7 @@ import {
   canCreateProject,
   canReadProject,
 } from './auth/checks'
-import { getActor } from './auth/principal'
+import { getActor } from './auth/actor'
 import { ensureFound, ensureTenant } from './auth/scope'
 
 export const list = query({

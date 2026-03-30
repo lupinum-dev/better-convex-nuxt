@@ -12,7 +12,7 @@ export default defineTool({
   name: 'delete-todo',
   schema: deleteTodo,
   auth: 'required',
-  require: 'todo.delete',
+  check: actor => ['owner', 'admin', 'member'].includes(actor.role),
   scoped: true,
   destructive: true,
   preview: async (args, ctx) => {

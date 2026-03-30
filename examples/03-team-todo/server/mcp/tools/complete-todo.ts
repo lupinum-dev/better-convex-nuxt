@@ -11,7 +11,7 @@ export default defineTool({
   name: 'complete-todo',
   schema: setTodoCompleted,
   auth: 'required',
-  require: 'todo.update',
+  check: actor => ['owner', 'admin', 'member'].includes(actor.role),
   scoped: true,
   handler: async (args, ctx) => {
     await ctx.mutation(api.todos.setCompleted, {

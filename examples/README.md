@@ -6,7 +6,7 @@ This folder contains standalone apps that show the current primitives-first API 
 
 | Example          | Best for                     | Shows                                                                                                        |
 | ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `01-public-todo` | First look                   | `publicQuery`, `publicMutation`, `defineArgs`                                                                |
+| `01-public-todo` | First look                   | raw `query` / `mutation`, `defineArgs`                                                                       |
 | `02-auth-todo`   | Auth-only apps               | Better Auth wiring, raw Convex handlers                                     |
 | `03-team-todo`   | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#convex/mcp`, `better-convex-nuxt/testing` |
 | `04-project-board-admin` | Month-two product work | Pagination, optimistic updates, uploads, Nitro routes, `guard`, `_can`, admin workflows, integration + E2E tests |

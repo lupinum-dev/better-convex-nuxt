@@ -4,9 +4,13 @@
  * Demonstrates real-time subscriptions with useConvexQuery.
  */
 
+import { can, guard } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
+import { canCreateFeed, canDeleteFeed, canViewAll } from './auth/checks'
+import { withCan } from './auth/resource'
 
 /**
  * List all feed items, sorted by creation time (newest first)
@@ -14,9 +18,15 @@ import { mutation, query } from './_generated/server'
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    const actor = await getActor(ctx)
+    if (!actor) return []
+    guard(actor, 'Read feed', canViewAll)
+
     const items = await ctx.db.query('feedItems').withIndex('by_created').order('desc').take(50)
 
-    return items
+    return items.map(item => withCan(item, {
+      'feed.delete': can(actor, canDeleteFeed(item)),
+    }))
   },
 })
 
@@ -30,6 +40,9 @@ export const listFiltered = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Read feed', canViewAll)
+
     let query = ctx.db.query('feedItems').withIndex('by_created').order('desc')
 
     // Apply type filter if specified
@@ -38,7 +51,9 @@ export const listFiltered = query({
     }
 
     const items = await query.take(args.limit ?? 50)
-    return items
+    return items.map(item => withCan(item, {
+      'feed.delete': can(actor, canDeleteFeed(item)),
+    }))
   },
 })
 
@@ -51,29 +66,19 @@ export const add = mutation({
     type: v.union(v.literal('message'), v.literal('task'), v.literal('event')),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
+    const actor = await getActor(ctx)
+    guard(actor, 'Create feed item', canCreateFeed)
 
-    // Get user for display name and role check
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
       .first()
-
-    // Check permission: viewers cannot create feed items
-    if (user?.role === 'viewer') {
-      throw new Error(
-        'Permission denied: Viewers can only read content. Switch to Member, Admin, or Owner role to create posts.',
-      )
-    }
 
     const itemId = await ctx.db.insert('feedItems', {
       content: args.content,
       type: args.type,
-      authorId: identity.subject,
-      authorName: user?.displayName || identity.name || 'Anonymous',
+      authorId: actor.userId,
+      authorName: user?.displayName || 'Anonymous',
       createdAt: Date.now(),
     })
 
@@ -89,40 +94,14 @@ export const remove = mutation({
     id: v.id('feedItems'),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
+    const actor = await getActor(ctx)
+    guard(actor, 'Delete feed item', actor !== null)
 
     const item = await ctx.db.get(args.id)
     if (!item) {
       throw new Error('Item not found')
     }
-
-    // Get user role
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    // Permission check:
-    // - admin can delete any item
-    // - member can delete own items only
-    // - viewer cannot delete anything
-    const isAdmin = user?.role === 'admin'
-    const isOwner = item.authorId === identity.subject
-    const isMember = user?.role === 'member'
-
-    if (!isAdmin && !(isMember && isOwner)) {
-      if (user?.role === 'viewer') {
-        throw new Error(
-          'Permission denied: Viewers cannot delete posts. Switch to a higher role to delete content.',
-        )
-      }
-      throw new Error(
-        'Permission denied: You can only delete your own posts. Admins can delete any post.',
-      )
-    }
+    guard(actor, 'Delete feed item', canDeleteFeed(item))
 
     await ctx.db.delete(args.id)
   },

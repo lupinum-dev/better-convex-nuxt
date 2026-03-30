@@ -91,7 +91,6 @@ export {
 export type { ValidateOption } from '../utils/resolve-validator'
 export type { StandardSchemaV1 } from '../utils/standard-schema'
 
-// Tenant composables (opt-in via createTenantComposables factory)
 export {
   createAuth,
   type AuthContext,

@@ -8,14 +8,14 @@ It adds:
 - optimistic board updates
 - file uploads on comments
 - nested project -> task -> comment permissions
-- cross-table `resource` loading
+- explicit `loadResource()` helpers
 - `guard` for business-state and secondary-document checks
 - Nitro routes that call Convex
 - first-class integration tests and browser E2E
 
 ## Files To Read First
 
-1. `convex/permissions.config.ts`
+1. `convex/auth/checks.ts`
 2. `convex/tasks.ts`
 3. `pages/projects/[id].vue`
 4. `pages/admin/index.vue`
@@ -57,4 +57,4 @@ Example 04 keeps the same safety model, then shows the next layer of real produc
 5. Open the admin page and change another member from `member` to `viewer`.
 6. Verify the member loses task-creation access live.
 
-`convex/functions.ts` is still a factory because Convex files run on Convex's infrastructure, outside Nuxt's auto-import/build scope. This file creates the builders once for that runtime and the rest of the app imports them.
+Convex files run on Convex's infrastructure, outside Nuxt's auto-import/build scope. That is why the app owns tiny files like `convex/auth/actor.ts` and imports raw `query()` / `mutation()` directly instead of relying on framework builders.

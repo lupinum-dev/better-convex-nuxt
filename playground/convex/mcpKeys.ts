@@ -1,12 +1,11 @@
+import { guard } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 
-import {
-  openQuery,
-  publicMutation,
-  publicQuery,
-  scopedMutation,
-} from './functions'
+import { mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
+import { canInviteMembers } from './auth/checks'
+import { loadResource } from './auth/scope'
 
 function generateKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -17,21 +16,21 @@ function generateKey(): string {
   return result
 }
 
-export const list = openQuery({
+export const list = query({
   args: {},
-  handler: async ({ actor, db }) => {
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
     if (!actor?.tenantId) return []
-    const tenantId = actor.tenantId as Id<'organizations'>
 
-    return await db
+    return await ctx.db
       .query('mcpKeys')
-      .withIndex('by_organization', q => q.eq('organizationId', tenantId))
+      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
       .order('desc')
       .collect()
   },
 })
 
-export const create = scopedMutation({
+export const create = mutation({
   args: {
     name: v.string(),
     role: v.union(
@@ -41,16 +40,21 @@ export const create = scopedMutation({
       v.literal('viewer'),
     ),
   },
-  handler: async ({ db, actor }, args) => {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Create MCP key', canInviteMembers)
+    if (!actor.tenantId) throw new Error('No organization selected')
+
     const key = generateKey()
     const prefix = key.slice(0, 12) + '...'
 
-    const id = await db.insert('mcpKeys', {
+    const id = await ctx.db.insert('mcpKeys', {
       name: args.name,
       key,
       prefix,
       role: args.role,
       userId: actor.userId,
+      organizationId: actor.tenantId as Id<'organizations'>,
       status: 'active',
       createdAt: Date.now(),
     })
@@ -59,23 +63,26 @@ export const create = scopedMutation({
   },
 })
 
-export const revoke = scopedMutation({
+export const revoke = mutation({
   args: { id: v.id('mcpKeys') },
-  resource: (args) => args.id,
-  handler: async ({ db }, args) => {
-    await db.patch(args.id, {
+  handler: async (ctx, args) => {
+    const actor = await getActor(ctx)
+    guard(actor, 'Revoke MCP key', canInviteMembers)
+    loadResource(actor, await ctx.db.get(args.id), 'MCP key')
+
+    await ctx.db.patch(args.id, {
       status: 'revoked',
       revokedAt: Date.now(),
     })
   },
 })
 
-export const validate = publicQuery({
+export const validate = query({
   args: { key: v.string() },
-  handler: async ({ db }, args) => {
-    const mcpKey = await db
+  handler: async (ctx, args) => {
+    const mcpKey = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .withIndex('by_key', q => q.eq('key', args.key))
       .first()
 
     if (!mcpKey || mcpKey.status !== 'active') return null
@@ -88,16 +95,16 @@ export const validate = publicQuery({
   },
 })
 
-export const touch = publicMutation({
+export const touch = mutation({
   args: { key: v.string() },
-  handler: async ({ db }, args) => {
-    const mcpKey = await db
+  handler: async (ctx, args) => {
+    const mcpKey = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .withIndex('by_key', q => q.eq('key', args.key))
       .first()
 
     if (mcpKey && mcpKey.status === 'active') {
-      await db.patch(mcpKey._id, { lastUsedAt: Date.now() })
+      await ctx.db.patch(mcpKey._id, { lastUsedAt: Date.now() })
     }
   },
 })
