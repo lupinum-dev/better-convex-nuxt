@@ -1,13 +1,22 @@
+import type {
+  GenericMutationCtx,
+  GenericQueryCtx,
+} from 'convex/server'
+
 import { defineActorConfig } from '../../src/runtime/convex'
-import type { AnyCtx } from '../../src/runtime/actor'
+import type { DataModel } from './_generated/dataModel'
 import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../shared/dev-service-key'
+
+type PlaygroundActorCtx =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
 
 function resolveExpectedServiceKey(): string {
   return process.env.CONVEX_SERVICE_KEY?.trim() || PLAYGROUND_LOCAL_SERVICE_KEY
 }
 
-export const actorConfig = defineActorConfig({
-  resolveFromAuth: async (ctx: AnyCtx) => {
+export const actorConfig = defineActorConfig<PlaygroundActorCtx>({
+  resolveFromAuth: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
 

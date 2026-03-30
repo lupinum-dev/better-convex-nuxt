@@ -4,8 +4,8 @@ import type { Actor, ActorConfig, AnyCtx, ArgsWithServiceAuth } from './types'
 // Service key validation
 // ============================================================================
 
-async function validateServiceKey(
-  config: ActorConfig,
+async function validateServiceKey<TCtx>(
+  config: ActorConfig<TCtx>,
   key: string,
   ctx: AnyCtx,
 ): Promise<boolean> {
@@ -15,14 +15,14 @@ async function validateServiceKey(
     return process.env[config.serviceKey] === key
   }
 
-  return config.serviceKey(key, ctx)
+  return config.serviceKey(key, ctx as TCtx)
 }
 
 // ============================================================================
 // createTryResolveActor — returns Actor | null, never throws
 // ============================================================================
 
-export function createTryResolveActor(config: ActorConfig) {
+export function createTryResolveActor<TCtx>(config: ActorConfig<TCtx>) {
   return async function tryResolveActor(
     ctx: AnyCtx,
     args: ArgsWithServiceAuth,
@@ -39,7 +39,7 @@ export function createTryResolveActor(config: ActorConfig) {
     }
 
     // Path 2: Browser auth via ctx.auth
-    return config.resolveFromAuth(ctx)
+    return config.resolveFromAuth(ctx as TCtx)
   }
 }
 
@@ -47,7 +47,7 @@ export function createTryResolveActor(config: ActorConfig) {
 // createResolveActor — returns Actor, throws if not authenticated
 // ============================================================================
 
-export function createResolveActor(config: ActorConfig) {
+export function createResolveActor<TCtx>(config: ActorConfig<TCtx>) {
   const tryResolve = createTryResolveActor(config)
 
   return async function resolveActor(
@@ -66,7 +66,7 @@ export function createResolveActor(config: ActorConfig) {
 // createRequireActor — returns Actor with orgId, throws if no auth or no org
 // ============================================================================
 
-export function createRequireActor(config: ActorConfig) {
+export function createRequireActor<TCtx>(config: ActorConfig<TCtx>) {
   const resolve = createResolveActor(config)
 
   return async function requireActor(

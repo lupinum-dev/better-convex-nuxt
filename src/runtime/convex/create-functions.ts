@@ -25,11 +25,9 @@ import {
   createScopedWriter,
 } from '../scoping/scoped-db'
 
-export type DefineActorConfig<TConfig extends ActorConfig = ActorConfig> = TConfig
-
-export function defineActorConfig<TConfig extends ActorConfig>(
-  config: TConfig,
-): DefineActorConfig<TConfig> {
+export function defineActorConfig<TCtx = AnyCtx>(
+  config: ActorConfig<TCtx>,
+): ActorConfig<TCtx> {
   return config
 }
 
@@ -49,10 +47,13 @@ export interface PermissionsConfig<Permission extends string = string> {
   ) => boolean
 }
 
-export interface CreateFunctionsOptions<Permission extends string = string> {
+export interface CreateFunctionsOptions<
+  Permission extends string = string,
+  TActorCtx = unknown,
+> {
   schema?: Record<string, TableMeta | undefined>
   permissions?: PermissionsConfig<Permission>
-  actor: ActorConfig
+  actor: ActorConfig<TActorCtx>
   tenant?: {
     orgField: string
     orgIdFrom?: 'actor' | 'args'
@@ -242,8 +243,11 @@ export interface ScopedBuilderOptions<
   ) => Promise<unknown> | unknown
 }
 
-export function createFunctions<Permission extends string = string>(
-  options: CreateFunctionsOptions<Permission>,
+export function createFunctions<
+  Permission extends string = string,
+  TActorCtx = unknown,
+>(
+  options: CreateFunctionsOptions<Permission, TActorCtx>,
 ) {
   const tryResolveActor = createTryResolveActor(options.actor)
   const resolveActor = createResolveActor(options.actor)

@@ -24,12 +24,12 @@ export type AnyCtx =
   | GenericQueryCtx<GenericDataModel>
   | GenericMutationCtx<GenericDataModel>
 
-export interface ActorConfig {
+export interface ActorConfig<TCtx = AnyCtx> {
   /**
    * Resolve an actor from ctx.auth (browser path).
    * Return null if not authenticated.
    */
-  resolveFromAuth: (ctx: AnyCtx) => Promise<Actor | null>
+  resolveFromAuth: (ctx: TCtx) => Promise<Actor | null>
 
   /**
    * Service key validation for server-to-server calls.
@@ -38,7 +38,7 @@ export interface ActorConfig {
    * - `function` → custom validator, receives `(key, ctx)` for DB-backed validation
    * - `undefined` → service auth disabled
    */
-  serviceKey?: string | ((key: string, ctx: AnyCtx) => boolean | Promise<boolean>)
+  serviceKey?: string | ((key: string, ctx: TCtx) => boolean | Promise<boolean>)
 }
 
 // ============================================================================
