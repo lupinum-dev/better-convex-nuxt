@@ -270,6 +270,69 @@ describe('server Convex fetch helpers', () => {
     })
   })
 
+  it('auth:service injects service auth args instead of bearer auth', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ value: { ok: true } }), {
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.CONVEX_SERVICE_KEY = 'service-key-123'
+
+    await serverConvexMutation(
+      createEvent(),
+      { _path: 'tasks:create' } as never,
+      { title: 'From webhook' } as never,
+      {
+        auth: 'service',
+        actor: {
+          userId: 'user_admin',
+          role: 'admin',
+          tenantId: 'workspace_1',
+        },
+      },
+    )
+
+    const firstCall = fetchMock.mock.calls[0]
+    expect(firstCall).toBeDefined()
+    const [, init] = firstCall as unknown as [string, RequestInit]
+    expect(init.headers).toMatchObject({
+      'Content-Type': 'application/json',
+    })
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
+    expect(JSON.parse(String(init.body))).toEqual({
+      path: 'tasks:create',
+      args: {
+        title: 'From webhook',
+        _serviceKey: 'service-key-123',
+        _serviceActor: {
+          userId: 'user_admin',
+          role: 'admin',
+          tenantId: 'workspace_1',
+        },
+      },
+    })
+  })
+
+  it('auth:service requires an explicit actor', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ value: { ok: true } }), {
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.CONVEX_SERVICE_KEY = 'service-key-123'
+
+    await expect(
+      serverConvexMutation(
+        createEvent(),
+        { _path: 'tasks:create' } as never,
+        { title: 'From webhook' } as never,
+        { auth: 'service' },
+      ),
+    ).rejects.toThrow('requires `options.actor`')
+  })
+
   it('reuses one auth resolution across multiple serverConvex calls in the same request', async () => {
     const event = createEvent('better-auth.session_token=session123')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

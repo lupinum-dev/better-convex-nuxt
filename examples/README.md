@@ -1,6 +1,6 @@
 # Runnable Examples
 
-This folder contains three standalone todo apps that show the V2 API at three different complexity levels.
+This folder contains four standalone apps that show the V2 API at increasing levels of complexity.
 
 ## Which One To Open First?
 
@@ -9,6 +9,7 @@ This folder contains three standalone todo apps that show the V2 API at three di
 | `01-public-todo` | First look                   | `publicQuery`, `publicMutation`, `defineArgs`                                                                |
 | `02-auth-todo`   | Auth-only apps               | `authedQuery`, `authedMutation`, `defineActorConfig`, Better Auth wiring                                     |
 | `03-team-todo`   | Full-stack multi-tenant apps | `scopedQuery`, `scopedMutation`, `definePermissions({ rules })`, `#convex/mcp`, `better-convex-nuxt/testing` |
+| `04-project-board-admin` | Month-two product work | Pagination, optimistic updates, uploads, Nitro server routes, `guard`, admin workflows, integration + E2E tests |
 
 ## Important Repo Note
 
@@ -35,6 +36,7 @@ If you are running these examples from inside this repository and the local pack
 | `01-public-todo` | `CONVEX_URL`                                          | none                                                   |
 | `02-auth-todo`   | `CONVEX_URL`, `CONVEX_SITE_URL`                       | `SITE_URL`, `BETTER_AUTH_SECRET`                       |
 | `03-team-todo`   | `CONVEX_URL`, `CONVEX_SITE_URL`, `CONVEX_SERVICE_KEY` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
+| `04-project-board-admin` | `CONVEX_URL`, `CONVEX_SITE_URL`, `CONVEX_SERVICE_KEY` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
 
 ## Why The Code Is Comment-Heavy
 

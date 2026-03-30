@@ -82,7 +82,7 @@ export type ConvexClientAuthMode = 'auto' | 'none'
 /**
  * Server-side auth mode for server helper calls.
  */
-export type ConvexServerAuthMode = 'auto' | 'required' | 'none'
+export type ConvexServerAuthMode = 'auto' | 'required' | 'none' | 'service'
 
 /**
  * Make specific properties optional in a type

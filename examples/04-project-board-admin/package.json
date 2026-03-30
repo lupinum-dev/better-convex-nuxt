@@ -1,0 +1,32 @@
+{
+  "name": "example-project-board-admin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxi dev --dotenv .env.local",
+    "build": "nuxi build --dotenv .env.local",
+    "typecheck": "nuxi typecheck --dotenv .env.local",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:all": "pnpm test && pnpm test:e2e",
+    "convex:dev": "convex dev",
+    "convex:codegen": "convex codegen"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.11.3",
+    "better-auth": "^1.5.0",
+    "better-convex-nuxt": "file:../..",
+    "convex": "^1.34.0",
+    "convex-helpers": "^0.1.114",
+    "nuxt": "^4.3.1",
+    "zod": "^4.3.0"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "@playwright/test": "^1.58.2",
+    "convex-test": "^0.0.41",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
+    "vue-tsc": "^3.2.5"
+  }
+}

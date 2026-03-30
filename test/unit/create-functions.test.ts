@@ -76,6 +76,34 @@ describe('createFunctions', () => {
       })
       expect(query).toBeDefined()
     })
+
+    it('accepts guard callbacks on authed and scoped builders', () => {
+      const fns = createFunctions({
+        schema,
+        actor: actorConfig,
+        permissions: permissionConfig,
+      })
+
+      const authedQuery = fns.authedQuery({
+        args: {},
+        guard: ({ actor }) => {
+          if (actor.userId === 'blocked') return 'Blocked'
+        },
+        handler: async () => null,
+      })
+      const scopedMutation = fns.scopedMutation({
+        args: { id: v.id('posts') },
+        require: 'post.create',
+        resource: args => args.id,
+        guard: ({ resource }) => {
+          if (resource?.title === 'archived') return 'Archived'
+        },
+        handler: async () => null,
+      })
+
+      expect(authedQuery).toBeDefined()
+      expect(scopedMutation).toBeDefined()
+    })
   })
 
   describe('schema table extraction', () => {

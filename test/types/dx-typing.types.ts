@@ -85,10 +85,39 @@ const { scopedMutation } = createFunctions({
   },
 })
 
+const { publicQuery, authedMutation } = createFunctions({
+  actor: actorConfig,
+  permissions: permissionConfig,
+})
+
+publicQuery({
+  args: {},
+  handler: async ({ raw }) => {
+    void raw.ctx
+    return null
+  },
+})
+
+authedMutation({
+  args: { id: v.id('posts') },
+  resource: args => args.id,
+  guard: ({ raw }) => {
+    void raw.db
+  },
+  handler: async ({ raw }) => {
+    void raw.ctx
+    return null
+  },
+})
+
 scopedMutation({
   args: { id: v.id('posts') },
   require: 'post.create',
   resource: (args) => ({ table: 'posts', id: args.id }),
+  guard: ({ resource }) => {
+    const title = resource?.title
+    void title
+  },
   handler: async ({ actor, db }) => {
     const role: Role = actor.role
     void role
@@ -105,6 +134,18 @@ scopedMutation({
   args: { id: v.id('posts') },
   // @ts-expect-error Invalid permission should be rejected.
   require: 'post.delete',
+  handler: async () => null,
+})
+
+scopedMutation({
+  args: { id: v.id('posts') },
+  require: 'post.update',
+  resource: (args) => ({ table: 'posts', id: args.id }),
+  guard: ({ actor, resource }) => {
+    if (actor.role === 'member' && resource?.title === 'locked') {
+      return 'Locked posts cannot be edited.'
+    }
+  },
   handler: async () => null,
 })
 

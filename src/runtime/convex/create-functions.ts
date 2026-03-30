@@ -278,6 +278,10 @@ function createCrossTenantResourceError(
   ))
 }
 
+function createGuardError(message: string): Error {
+  return new Error(message)
+}
+
 function getOwnerField<KnownTableName extends string>(
   tables: TableOverrides<KnownTableName> | undefined,
   tableName: KnownTableName | null,
@@ -327,16 +331,19 @@ async function loadResource<TSchema extends SchemaLike>(
 
 type PublicContext<TDb extends AnyDb> = {
   db: TDb
+  raw: RawContext<AnyCtx, TDb>
 }
 
 type OpenContext<TDb extends AnyDb, Role extends string> = {
   db: TDb
   actor: Actor<Role> | null
+  raw: RawContext<AnyCtx, TDb>
 }
 
 type AuthedContext<TDb extends AnyDb, Role extends string> = {
   db: TDb
   actor: Actor<Role>
+  raw: RawContext<AnyCtx, TDb>
   resource?: Record<string, unknown>
 }
 
@@ -351,6 +358,9 @@ type ScopedContext<TCtx extends AnyCtx, Role extends string, KnownTableName exte
   raw: RawContext<TCtx, TCtx['db']>
   resource?: Record<string, unknown>
 }
+
+// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+type GuardResult = void | string | Promise<void | string>
 
 export interface PermissionsConfig<
   Permission extends string = string,
@@ -410,6 +420,10 @@ export interface AuthedBuilderOptions<
   require?: Permission
   resource?: (args: ObjectType<ArgsValidator>) => ResourceRef<KnownTableName>
   ownerField?: string
+  guard?: (
+    ctx: AuthedContext<TCtx['db'], Role>,
+    args: ObjectType<ArgsValidator>,
+  ) => GuardResult
   handler: (
     ctx: AuthedContext<TCtx['db'], Role>,
     args: ObjectType<ArgsValidator>,
@@ -426,6 +440,10 @@ export interface ScopedBuilderOptions<
   args: ArgsValidator
   require?: Permission
   resource?: (args: ObjectType<ArgsValidator>) => ResourceRef<KnownTableName>
+  guard?: (
+    ctx: ScopedContext<TCtx, Role, KnownTableName>,
+    args: ObjectType<ArgsValidator>,
+  ) => GuardResult
   handler: (
     ctx: ScopedContext<TCtx, Role, KnownTableName>,
     args: ObjectType<ArgsValidator>,
@@ -491,7 +509,7 @@ export function createFunctions<
     return registrar({
       args: config.args,
       handler: async (ctx: AnyCtx, args: ObjectType<ArgsValidator>) => {
-        return await config.handler({ db: ctx.db }, args)
+        return await config.handler({ db: ctx.db, raw: { ctx, db: ctx.db } }, args)
       },
     })
   }
@@ -509,7 +527,7 @@ export function createFunctions<
         const args = (rawArgs[0] ?? {}) as ObjectType<ArgsValidator> & ServiceActorArgs<Role>
         const actor = await tryResolveActor(ctx, args as ArgsWithServiceAuth<Role>)
         return await config.handler(
-          { db: ctx.db, actor },
+          { db: ctx.db, actor, raw: { ctx, db: ctx.db } },
           stripServiceArgs(args as Record<string, unknown>) as ObjectType<ArgsValidator>,
         )
       }) as never,
@@ -552,12 +570,20 @@ export function createFunctions<
 
         assertPermission(actor, config.require, permissionResource)
 
+        const handlerContext: AuthedContext<AnyCtx['db'], Role> = {
+          db: ctx.db,
+          actor,
+          raw: { ctx, db: ctx.db },
+          ...(loadedResource ? { resource: loadedResource.doc } : {}),
+        }
+
+        const guardResult = await config.guard?.(handlerContext, cleanArgs)
+        if (typeof guardResult === 'string') {
+          throw createGuardError(guardResult)
+        }
+
         return await config.handler(
-          {
-            db: ctx.db,
-            actor,
-            ...(loadedResource ? { resource: loadedResource.doc } : {}),
-          },
+          handlerContext,
           cleanArgs,
         )
       }) as never,
@@ -613,13 +639,20 @@ export function createFunctions<
               scopedTables,
             )
 
+        const handlerContext = {
+          db: scopedDb,
+          actor,
+          raw: { ctx, db: ctx.db },
+          ...(loadedResource ? { resource: loadedResource.doc } : {}),
+        } as ScopedContext<AnyCtx, Role, TableName<TSchema>>
+
+        const guardResult = await config.guard?.(handlerContext, cleanArgs)
+        if (typeof guardResult === 'string') {
+          throw createGuardError(guardResult)
+        }
+
         return await config.handler(
-          {
-            db: scopedDb,
-            actor,
-            raw: { ctx, db: ctx.db },
-            ...(loadedResource ? { resource: loadedResource.doc } : {}),
-          } as ScopedContext<AnyCtx, Role, TableName<TSchema>>,
+          handlerContext,
           cleanArgs,
         )
       }) as never,

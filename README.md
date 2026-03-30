@@ -70,11 +70,12 @@ export default defineNuxtConfig({
 
 If you want runnable reference apps instead of copy-paste snippets, start in [examples/README.md](./examples/README.md).
 
-It includes three standalone todo apps:
+It includes four standalone apps:
 
 - public only
 - auth only
 - full auth + tenant scoping + permissions + MCP
+- month-two board/admin patterns with uploads, Nitro routes, and E2E coverage
 
 ## Testing
 

@@ -26,12 +26,25 @@ export interface ServerConvexOptions {
    * - 'auto': use session cookie when available (default)
    * - 'required': throw when auth token cannot be resolved
    * - 'none': never attach auth
+   * - 'service': inject service auth args for server-to-server scoped/authed calls
    */
   auth?: ConvexServerAuthMode
   /**
    * Explicit auth token override. When provided, skips auto resolution.
    */
   authToken?: string
+  /**
+   * Service actor to inject when auth='service'.
+   */
+  actor?: {
+    userId: string
+    role: string
+    tenantId?: string
+  }
+  /**
+   * Explicit service key override. Defaults to CONVEX_SERVICE_KEY.
+   */
+  serviceKey?: string
 }
 
 function getHelperName(operationType: ConvexOperationType): ServerConvexHelperName {
@@ -105,6 +118,7 @@ async function executeConvexOperation<T>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
+  let requestArgs = args ?? {}
 
   const logSuccess = (duration: number) => {
     if (operationType === 'query') {
@@ -127,17 +141,45 @@ async function executeConvexOperation<T>(
   }
 
   let authToken: string | undefined
-  try {
-    authToken = await resolveAuthToken(event, options)
-  } catch (error) {
-    const err = toServerConvexError(error, errorContext, 'auth')
-    const duration = Date.now() - startTime
-    logError(err, duration)
-    throw err
-  }
+  if (authMode === 'service') {
+    const actor = options?.actor
+    if (!actor) {
+      throw createServerConvexError(
+        `Service auth for ${functionPath} requires \`options.actor\`.`,
+        errorContext,
+      )
+    }
 
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`
+    const serviceKey = options?.serviceKey ?? process.env.CONVEX_SERVICE_KEY
+    if (!serviceKey) {
+      throw createServerConvexError(
+        `Service auth for ${functionPath} requires \`CONVEX_SERVICE_KEY\` or \`options.serviceKey\`.`,
+        errorContext,
+      )
+    }
+
+    requestArgs = {
+      ...requestArgs,
+      _serviceKey: serviceKey,
+      _serviceActor: {
+        userId: actor.userId,
+        role: actor.role,
+        ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
+      },
+    }
+  } else {
+    try {
+      authToken = await resolveAuthToken(event, options)
+    } catch (error) {
+      const err = toServerConvexError(error, errorContext, 'auth')
+      const duration = Date.now() - startTime
+      logError(err, duration)
+      throw err
+    }
+
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`
+    }
   }
 
   try {
@@ -146,7 +188,7 @@ async function executeConvexOperation<T>(
       headers,
       body: JSON.stringify({
         path: functionPath,
-        args: args ?? {},
+        args: requestArgs,
       }),
     })
 
