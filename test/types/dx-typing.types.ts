@@ -151,7 +151,7 @@ defineTool({
 // ---------------------------------------------------------------------------
 
 // Empty permissions config → InferPermission resolves to never
-const emptyPermConfig = definePermissions({
+const _emptyPermConfig = definePermissions({
   roles: ['admin'] as const,
   permissions: {
     global: {},
@@ -159,11 +159,11 @@ const emptyPermConfig = definePermissions({
   checkPermission: () => true,
 })
 
-type EmptyPermission = InferPermission<typeof emptyPermConfig>
+type EmptyPermission = InferPermission<typeof _emptyPermConfig>
 type _emptyPermissionIsNever = Assert<IsEqual<EmptyPermission, never>>
 
 // Ownership-based permission rule (own/any) still infers correctly
-const ownershipConfig = definePermissions({
+const _ownershipConfig = definePermissions({
   roles: ['owner', 'editor', 'viewer'] as const,
   permissions: {
     global: {},
@@ -176,12 +176,12 @@ const ownershipConfig = definePermissions({
   checkPermission: () => true,
 })
 
-type OwnershipPermission = InferPermission<typeof ownershipConfig>
+type OwnershipPermission = InferPermission<typeof _ownershipConfig>
 type _ownershipPermInference = Assert<
   IsEqual<OwnershipPermission, 'doc.read' | 'doc.write' | 'doc.delete'>
 >
 
-type OwnershipRole = InferRole<typeof ownershipConfig>
+type OwnershipRole = InferRole<typeof _ownershipConfig>
 type _ownershipRoleInference = Assert<
   IsEqual<OwnershipRole, 'owner' | 'editor' | 'viewer'>
 >

@@ -66,6 +66,16 @@ export default defineNuxtConfig({
 }
 ```
 
+## Examples
+
+If you want runnable reference apps instead of copy-paste snippets, start in [examples/README.md](./examples/README.md).
+
+It includes three standalone todo apps:
+
+- public only
+- auth only
+- full auth + tenant scoping + permissions + MCP
+
 ## Usage
 
 ### Shared Schema DX

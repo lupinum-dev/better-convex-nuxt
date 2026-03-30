@@ -1,0 +1,23 @@
+{
+  "name": "example-auth-todo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxi dev --dotenv .env.local",
+    "build": "nuxi build --dotenv .env.local",
+    "typecheck": "nuxi typecheck --dotenv .env.local",
+    "convex:dev": "convex dev",
+    "convex:codegen": "convex codegen"
+  },
+  "dependencies": {
+    "@convex-dev/better-auth": "^0.11.3",
+    "better-auth": "^1.5.0",
+    "better-convex-nuxt": "file:../..",
+    "convex": "^1.34.0",
+    "nuxt": "^4.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.2.5"
+  }
+}

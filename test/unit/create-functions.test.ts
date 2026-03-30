@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { createFunctions, defineActorConfig } from '../../src/runtime/convex/create-functions'
 import { definePermissions } from '../../src/runtime/convex/define-permissions'
