@@ -74,7 +74,7 @@ This page keeps current-workspace actions and cross-client reporting in the same
 
         <form @submit.prevent="handleCreateProject">
           <input v-model="projectForm.name" placeholder="Project name" required />
-          <button :disabled="createProject.pending.value || !can('project.create').value">
+          <button :disabled="createProject.pending.value || !canCreateProject">
             Create project in current workspace
           </button>
         </form>
@@ -85,7 +85,7 @@ This page keeps current-workspace actions and cross-client reporting in the same
           </li>
         </ul>
 
-        <section v-if="can('agency.dashboard').value">
+        <section v-if="canDashboard">
           <h2>Agency portfolio</h2>
           <ul v-if="portfolio?.length">
             <li v-for="entry in portfolio" :key="entry.workspace.id">
@@ -108,6 +108,8 @@ import { api } from '~/convex/_generated/api'
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ctx, role, tenantId } = usePermissions()
+const canCreateProject = can('project.create')
+const canDashboard = can('agency.dashboard')
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
@@ -130,7 +132,7 @@ const { data: accessibleWorkspaces } = await useConvexQuery(api.workspaces.listA
 const { data: projects, error: projectsError } = await useConvexQuery(api.projects.list, workspaceArgs)
 const { data: portfolio } = await useConvexQuery(
   api.dashboard.portfolio,
-  computed(() => (can('agency.dashboard').value ? {} : undefined)),
+  computed(() => (canDashboard.value ? {} : undefined)),
 )
 
 const projectError = computed(

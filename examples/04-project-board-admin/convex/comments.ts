@@ -24,7 +24,7 @@ export const listByTask = query({
 })
 
 export const create = mutation({
-  args: createComment.convexValidators,
+  args: createComment.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create comment', canComment)

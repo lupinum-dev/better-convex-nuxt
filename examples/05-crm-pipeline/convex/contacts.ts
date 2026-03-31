@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { applyVisibility, can, authorize, requireAuth } from 'better-convex-nuxt/auth'
+import { applyVisibility, can, authorize } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -38,7 +38,6 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Create contact', canCreateContact)
-    requireAuth(actor)
 
     const ownerId = can(actor, hasRole('owner', 'admin', 'manager')) && args.ownerId
       ? args.ownerId

@@ -462,17 +462,17 @@ function _buildToolDefinition<
     )
   }
 
-  if (maxItems && !(maxItems.field in schema.validators)) {
+  if (maxItems && !(maxItems.field in schema.args)) {
     throw new Error(
       `defineTool: maxItems.field "${maxItems.field}" not found in schema validators. `
-      + `Available: ${Object.keys(schema.validators).join(', ')}`,
+      + `Available: ${Object.keys(schema.args).join(', ')}`,
     )
   }
 
   // ── Build input schema ─────────────────────────────────────────────────
 
   let inputSchema = applyEnhancedFieldDescriptions(
-    convexToMcpZodFields(schema.validators),
+    convexToMcpZodFields(schema.args),
     schema.meta.fields,
   ) as ConvexToolInputSchema<S>
 

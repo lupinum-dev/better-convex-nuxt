@@ -29,7 +29,6 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Create project', hasRole('owner', 'member'))
-    requireAuth(actor)
 
     return ctx.db.insert('projects', {
       workspaceId: actor.tenantId,

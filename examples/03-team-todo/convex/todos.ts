@@ -29,7 +29,7 @@ export const list = query({
 })
 
 export const get = query({
-  args: deleteTodo.convexValidators,
+  args: deleteTodo.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read todos', canReadTodo)
@@ -45,7 +45,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: createTodo.convexValidators,
+  args: createTodo.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create todo', canCreateTodo)
@@ -61,7 +61,7 @@ export const create = mutation({
 })
 
 export const setCompleted = mutation({
-  args: setTodoCompleted.convexValidators,
+  args: setTodoCompleted.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const todo = await ctx.db.get(args.id)
@@ -76,7 +76,7 @@ export const setCompleted = mutation({
 })
 
 export const remove = mutation({
-  args: deleteTodo.convexValidators,
+  args: deleteTodo.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const todo = await ctx.db.get(args.id)

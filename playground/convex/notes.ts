@@ -67,7 +67,7 @@ export const search = query({
 })
 
 export const add = mutation({
-  args: createNote.validators,
+  args: createNote.args,
   handler: async (ctx, args) => {
     return await ctx.db.insert('notes', {
       title: args.title,

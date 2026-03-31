@@ -11,5 +11,5 @@ export const createTask = defineArgs({
   },
 })
 
-export const createTaskArgs = createTask.validators
+export const createTaskArgs = createTask.args
 export const createTaskMeta = createTask.meta

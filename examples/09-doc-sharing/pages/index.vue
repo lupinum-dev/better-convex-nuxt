@@ -63,7 +63,7 @@ This page puts workspace access and token access side by side so the two auth pa
       </section>
 
       <section v-else>
-        <button v-if="can('page.create')" @click="seedDemoPages({})">Seed demo pages</button>
+        <button v-if="canCreatePage" @click="seedDemoPages({})">Seed demo pages</button>
 
         <ul v-if="pages?.length">
           <li v-for="page in pages" :key="page._id">
@@ -97,6 +97,7 @@ import type { Id } from '~/convex/_generated/dataModel'
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ctx, role, tenantId } = usePermissions()
+const canCreatePage = can('page.create')
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })

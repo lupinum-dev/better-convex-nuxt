@@ -147,8 +147,8 @@ export const createPost = defineArgs({
 The same object is reused across the stack:
 
 ```ts
-createPost.convexValidators // Convex handler validators (includes hidden service-auth fields)
-createPost.validators // public input fields only
+createPost.fullArgs // Convex handler validators (includes hidden service-auth fields)
+createPost.args // public input fields only
 createPost.parse // runtime validation
 createPost.meta // labels + descriptions for tools/forms
 createPost.zod // Zod view
@@ -163,7 +163,7 @@ import { defineTool } from '#convex/mcp'
 import { serverConvexMutation } from '#convex/server'
 
 export const create = mutation({
-  args: createPost.convexValidators,
+  args: createPost.fullArgs,
   handler: async (ctx, args) => {
     return await ctx.db.insert('posts', args)
   },
@@ -183,15 +183,15 @@ Inside Convex functions, use the validator view directly:
 
 ```ts
 import { mutation } from './_generated/server'
-import { guard } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
 import { canCreatePost } from './auth/checks'
 import { getActor } from './auth/actor'
 
 export const create = mutation({
-  args: createPost.convexValidators,
+  args: createPost.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create post', canCreatePost)
+    authorize(actor, 'Create post', canCreatePost)
     return await ctx.db.insert('posts', args)
   },
 })

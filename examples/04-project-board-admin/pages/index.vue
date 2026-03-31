@@ -150,7 +150,7 @@
                 the first load.
               </p>
             </div>
-            <NuxtLink v-if="can('workspace.audit')" class="ghost link" to="/admin">
+            <NuxtLink v-if="canAudit" class="ghost link" to="/admin">
               Open admin dashboard
             </NuxtLink>
           </div>
@@ -227,6 +227,7 @@ import { api } from '~/convex/_generated/api'
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ready, role, tenantId, ctx } = usePermissions()
+const canAudit = can('workspace.audit')
 
 const signUpForm = reactive({
   name: '',

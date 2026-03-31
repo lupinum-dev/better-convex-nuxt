@@ -33,7 +33,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: createProject.convexValidators,
+  args: createProject.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create project', canCreateProject)
@@ -64,7 +64,7 @@ export const create = mutation({
 })
 
 export const archive = mutation({
-  args: archiveProject.convexValidators,
+  args: archiveProject.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Archive project', canArchiveProject)

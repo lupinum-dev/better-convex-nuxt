@@ -12,7 +12,7 @@ export const list = query({
 })
 
 export const create = mutation({
-  args: createTodo.validators,
+  args: createTodo.args,
   handler: async (ctx, args) => {
     // The page passes plain business args, and the handler inserts plain business fields.
     return await ctx.db.insert('todos', {

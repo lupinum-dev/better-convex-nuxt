@@ -69,7 +69,7 @@ This page keeps the LMS UI small so the lesson-access chain stays visible while 
       </section>
 
       <section v-else>
-        <button v-if="can('course.seed')" @click="seedDemoCourse({})">
+        <button v-if="canSeed" @click="seedDemoCourse({})">
           Seed demo course
         </button>
 
@@ -106,6 +106,7 @@ import type { Id } from '~/convex/_generated/dataModel'
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ctx, role, tenantId } = usePermissions()
+const canSeed = can('course.seed')
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })

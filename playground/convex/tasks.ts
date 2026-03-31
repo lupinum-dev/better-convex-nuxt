@@ -36,7 +36,7 @@ export const list = query({
 })
 
 export const add = mutation({
-  args: addTask.validators,
+  args: addTask.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Create task', isAuthenticated)

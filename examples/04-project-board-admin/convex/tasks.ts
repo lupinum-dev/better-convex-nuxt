@@ -61,7 +61,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: createTask.convexValidators,
+  args: createTask.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create task', canCreateTask)
@@ -99,7 +99,7 @@ export const create = mutation({
 })
 
 export const moveToColumn = mutation({
-  args: moveTask.convexValidators,
+  args: moveTask.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
@@ -121,7 +121,7 @@ export const moveToColumn = mutation({
 })
 
 export const assign = mutation({
-  args: assignTask.convexValidators,
+  args: assignTask.fullArgs,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Assign task', canAssignTask)

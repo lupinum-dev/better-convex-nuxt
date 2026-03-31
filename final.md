@@ -73,7 +73,7 @@ export const list = authedQuery({
 ```ts
 // convex/todos.ts
 export const create = scopedMutation({
-  args: createTodo.validators,
+  args: createTodo.args,
   require: "todo.create",
   handler: async ({ db, actor }, args) => {
     return await db.insert("todos", {
@@ -338,7 +338,7 @@ export const createTodo = defineArgs({
 
 One definition gives you:
 
-- `createTodo.validators` — Convex function args
+- `createTodo.args` — Convex function args
 - `createTodo.meta` — labels and descriptions for tools and forms
 - `createTodo.zod` — Zod schema for runtime validation
 - `createTodo.parse(input)` — validate unknown data and get typed output
@@ -347,7 +347,7 @@ Use it in Convex functions:
 
 ```ts
 export const create = scopedMutation({
-  args: createTodo.validators,
+  args: createTodo.args,
   handler: async ({ db, actor }, args) => { ... },
 })
 ```

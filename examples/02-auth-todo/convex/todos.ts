@@ -24,7 +24,7 @@ export const list = query({
 })
 
 export const create = mutation({
-  args: createTodo.validators,
+  args: createTodo.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Create todo', isAuthenticated)

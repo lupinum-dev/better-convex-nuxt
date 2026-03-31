@@ -99,8 +99,8 @@ the primitives for common patterns. They are not the official architecture.
 ### The module owns
 
 - Check composition primitives (`and`, `or`, `not`, `all`, `any`)
-- Authorization runners (`guard`, `can`, `deny`)
-- Session resolution (`getIdentity`)
+- Authorization runners (`authorize`, `can`, `deny`)
+- Session resolution (`getAuth`)
 - Key verification (`verifyKey`)
 - Visibility filter helpers (`defineVisibility`, `applyVisibility`)
 - Frontend composable factory (`createAuth`)
@@ -113,7 +113,7 @@ the primitives for common patterns. They are not the official architecture.
 - Roles and what they mean
 - Tenant/workspace model
 - All check functions (`hasRole`, `isOwnerOf`, `isAuthenticated`, ...)
-- All guard functions (`ensureTenant`, `ensureFound`, `requireEnrollment`, ...)
+- All guard functions (`ensureTenant`, `requireRecord`, `requireEnrollment`, ...)
 - All visibility filters
 - Plan and feature logic
 - Sharing and token logic
@@ -173,7 +173,7 @@ function ensureTenant(actor: Actor, resource: { workspaceId: string }): void {
     throw deny("Resource not found.");
 }
 
-function ensureFound<T>(doc: T | null, label = "Resource"): asserts doc is T {
+function requireRecord<T>(doc: T | null, label = "Resource"): asserts doc is T {
   if (!doc) throw new Error(`${label} not found.`);
 }
 
@@ -253,13 +253,13 @@ const canManage = or(
 ### Authorization runners
 
 ```ts
-import { guard, can, deny } from "better-convex-nuxt/auth";
+import { authorize, can, deny } from "better-convex-nuxt/auth";
 ```
 
-**`guard(actor, label, check)`** — hard check. Throws on failure.
+**`authorize(actor, label, check)`** — hard check. Throws on failure.
 
 ```ts
-guard(actor, "Create task", canCreateTask);
+authorize(actor, "Create task", canCreateTask);
 // If canCreateTask(actor) returns false:
 //   throws ConvexError({ code: 'FORBIDDEN', message: 'Forbidden: Create task' })
 ```
@@ -267,7 +267,7 @@ guard(actor, "Create task", canCreateTask);
 Implementation:
 
 ```ts
-function guard(actor, label, check) {
+function authorize(actor, label, check) {
   if (typeof check === "function" ? check(actor) : check) return;
   throw new ConvexError({ code: "FORBIDDEN", message: `Forbidden: ${label}` });
 }
@@ -311,13 +311,13 @@ Checks return booleans. Guards and handlers throw denials.
 ### Session and key helpers
 
 ```ts
-import { getIdentity, verifyKey } from "better-convex-nuxt/auth";
+import { getAuth, verifyKey } from "better-convex-nuxt/auth";
 ```
 
-**`getIdentity(ctx)`** — extracts the authenticated identity from Convex auth.
+**`getAuth(ctx)`** — extracts the authenticated identity from Convex auth.
 
 ```ts
-const identity = await getIdentity(ctx);
+const identity = await getAuth(ctx);
 // → { subject: 'user_abc', email: 'alice@example.com', name: 'Alice' } | null
 ```
 
@@ -404,10 +404,10 @@ See section 17 (Testing) for the full story.
 ```
 better-convex-nuxt/auth
   and, or, not, all, any       — check composition
-  guard                        — hard check (throws)
+  authorize                    — hard check (throws)
   can                          — soft check (returns boolean)
   deny                         — throw a denial
-  getIdentity                  — raw session identity
+  getAuth                  — raw session identity
   verifyKey                    — constant-time key comparison
   defineVisibility             — create a visibility filter
   applyVisibility              — resolve a visibility filter
@@ -483,7 +483,7 @@ A collaboration platform might have 7.
 // convex/auth/actor.ts
 // This file is YOURS. The recipe gives you a starting point.
 
-import { getIdentity, verifyKey } from "better-convex-nuxt/auth";
+import { getAuth, verifyKey } from "better-convex-nuxt/auth";
 import type { GenericQueryCtx, GenericMutationCtx } from "convex/server";
 import type { DataModel } from "../_generated/dataModel";
 
@@ -501,7 +501,7 @@ export type Actor =
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>;
 
 export async function getActor(ctx: Ctx): Promise<Actor> {
-  const identity = await getIdentity(ctx);
+  const identity = await getAuth(ctx);
   if (!identity) return null;
 
   const user = await ctx.db
@@ -581,7 +581,7 @@ export function ensureTenant(
     throw deny("Resource not found.");
 }
 
-export function ensureFound<T>(
+export function requireRecord<T>(
   doc: T | null | undefined,
   label = "Resource",
 ): asserts doc is T {
@@ -594,7 +594,7 @@ export function loadResource<T extends { workspaceId: string }>(
   doc: T | null | undefined,
   label = "Resource",
 ): T {
-  ensureFound(doc, label);
+  requireRecord(doc, label);
   ensureTenant(actor, doc);
   return doc;
 }
@@ -797,7 +797,7 @@ useAuthGuard({
 
 Every `v-if="task._can.update"` in a template reflects a decision the backend
 already made inside `withCan(task, { update: can(actor, canUpdateTask(task)) })`.
-The mutation handler ALSO calls `guard(actor, 'Update task', canUpdateTask(task))`
+The mutation handler ALSO calls `authorize(actor, 'Update task', canUpdateTask(task))`
 before doing anything. The `_can` data is a UX courtesy, not a security boundary.
 
 If `_can` data is missing → the UI hides the action. Safe by default.
@@ -821,7 +821,7 @@ export const create = mutation({
     const actor = await getActor(ctx)
 
     // 2. Check capability
-    guard(actor, 'Create task', canCreateTask)
+    authorize(actor, 'Create task', canCreateTask)
 
     // 3. Load resource + verify tenant (one-liner with loadResource)
     const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
@@ -845,7 +845,7 @@ export const listByProject = query({
     const actor = await getActor(ctx);
 
     // 2. Check capability
-    guard(actor, "Read tasks", canReadTask);
+    authorize(actor, "Read tasks", canReadTask);
 
     // 3. Load parent resource + verify tenant
     const project = loadResource(
@@ -878,7 +878,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx);
-    guard(actor, "Read contacts", hasRole("owner", "admin", "manager", "rep"));
+    authorize(actor, "Read contacts", hasRole("owner", "admin", "manager", "rep"));
 
     // Visibility filter handles "which rows"
     const contacts = await applyVisibility(contactVisibility, actor, ctx.db);
@@ -894,7 +894,7 @@ export const bulkUpdate = mutation({
   args: { ids: v.array(v.id("tasks")), status: taskStatusValidator },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx);
-    guard(actor, "Bulk update", hasRole("owner", "admin", "member"));
+    authorize(actor, "Bulk update", hasRole("owner", "admin", "member"));
 
     const results = { updated: 0, skipped: [] as string[] };
 
@@ -939,7 +939,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx);
-    guard(actor, "Create task", canCreateTask);
+    authorize(actor, "Create task", canCreateTask);
 
     const project = loadResource(
       actor,
@@ -974,7 +974,7 @@ export const moveToColumn = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx);
     const task = loadResource(actor, await ctx.db.get(args.id), "Task");
-    guard(actor, "Update task", canUpdateTask(task));
+    authorize(actor, "Update task", canUpdateTask(task));
 
     await ctx.db.patch(args.id, { status: args.status, updatedAt: Date.now() });
   },
@@ -988,12 +988,12 @@ export const createComment = mutation({
   args: { taskId: v.id("tasks"), body: v.string() },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx);
-    guard(actor, "Comment", canComment);
+    authorize(actor, "Comment", canComment);
 
     const task = loadResource(actor, await ctx.db.get(args.taskId), "Task");
 
     const project = await ctx.db.get(task.projectId);
-    ensureFound(project, "Project");
+    requireRecord(project, "Project");
     if (project.status === "archived")
       throw deny("Cannot comment in archived projects.");
 
@@ -1016,7 +1016,7 @@ export const listByProject = query({
   args: { projectId: v.id("projects") },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx);
-    guard(actor, "Read tasks", hasRole("owner", "admin", "member", "viewer"));
+    authorize(actor, "Read tasks", hasRole("owner", "admin", "member", "viewer"));
 
     loadResource(actor, await ctx.db.get(args.projectId), "Project");
 
@@ -1155,7 +1155,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx);
-    guard(actor, "Read contacts", hasRole("owner", "admin", "manager", "rep"));
+    authorize(actor, "Read contacts", hasRole("owner", "admin", "manager", "rep"));
 
     const contacts = await applyVisibility(contactVisibility, actor, ctx.db);
     return contacts.map((c) => redactContact(actor, c));
@@ -1254,11 +1254,11 @@ export const getLesson = query({
   args: { id: v.id("lessons") },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx);
-    guard(actor, "Read lesson", isAuthenticated);
+    authorize(actor, "Read lesson", isAuthenticated);
 
     const lesson = loadResource(actor, await ctx.db.get(args.id), "Lesson");
     const course = await ctx.db.get(lesson.courseId);
-    ensureFound(course, "Course");
+    requireRecord(course, "Course");
 
     // Staff see everything
     if (can(actor, hasRole("owner", "admin", "instructor"))) return lesson;
@@ -1336,7 +1336,7 @@ export const processRefund = mutation({
   args: { orderId: v.id("orders"), reason: v.string() },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx);
-    guard(
+    authorize(
       actor,
       "Process refund",
       or(hasRole("owner", "admin"), (a) => a?.kind === "service"),
@@ -1476,7 +1476,7 @@ export const createProject = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create project', canCreateProject)
+    authorize(actor, 'Create project', canCreateProject)
     await ensureWithinLimit(ctx.db, actor, 'projects')
 
     return ctx.db.insert('projects', { ... })
@@ -1649,13 +1649,13 @@ export const viewPage = query({
       if (grant.pageId !== args.id)
         throw deny("Token does not match this page.");
       const page = await ctx.db.get(args.id);
-      ensureFound(page, "Page");
+      requireRecord(page, "Page");
       return { ...page, _access: grant.level, _via: "share_link" };
     }
 
     // Path 2: authenticated workspace member
     const actor = await getActor(ctx);
-    guard(actor, "View page", isAuthenticated);
+    authorize(actor, "View page", isAuthenticated);
     const page = loadResource(actor, await ctx.db.get(args.id), "Page");
     const access = await requirePageAccess(ctx.db, actor, page._id, "view");
     return { ...page, _access: access, _via: "workspace" };
@@ -1674,11 +1674,11 @@ export const viewPage = query({
 ### agency.ts
 
 ```ts
-import { getIdentity, deny } from "better-convex-nuxt/auth";
+import { getAuth, deny } from "better-convex-nuxt/auth";
 import type { Actor } from "./actor";
 
 export async function getAgencyActor(ctx): Promise<Actor> {
-  const identity = await getIdentity(ctx);
+  const identity = await getAuth(ctx);
   if (!identity) return null;
   const user = await ctx.db
     .query("users")
@@ -1954,11 +1954,11 @@ describe("task authorization", () => {
 ```ts
 // BAD: loads resource without tenant verification
 const task = await ctx.db.get(args.id);
-guard(actor, "Update", canUpdateTask(task!));
+authorize(actor, "Update", canUpdateTask(task!));
 
 // GOOD: use loadResource to combine existence + tenant in one call
 const task = loadResource(actor, await ctx.db.get(args.id), "Task");
-guard(actor, "Update", canUpdateTask(task));
+authorize(actor, "Update", canUpdateTask(task));
 ```
 
 ### Mixing checks and guards
@@ -1972,7 +1972,7 @@ const canCreate = async (actor) => {
 };
 
 // GOOD: checks are pure booleans. Guards are async and throw.
-guard(actor, "Create project", canCreateProject); // check (pure)
+authorize(actor, "Create project", canCreateProject); // check (pure)
 await ensureWithinLimit(ctx.db, actor, "projects"); // guard (async, throws)
 ```
 
@@ -2015,11 +2015,11 @@ const enrollment = await requireEnrollment(ctx.db, actor, courseId); // loaded w
 ```ts
 // BAD: only checking permissions on the frontend
 <button v-if="can('task.create')" @click="create">Create</button>
-// ... but the mutation handler doesn't call guard()
+// ... but the mutation handler doesn't call authorize()
 
 // GOOD: frontend hides the button AND backend enforces
 // Frontend: v-if="can('task.create')"
-// Backend: guard(actor, 'Create task', canCreateTask)
+// Backend: authorize(actor, 'Create task', canCreateTask)
 ```
 
 ---
@@ -2082,7 +2082,7 @@ THREE SHAPES
 
   Guards (async, throw on failure):
     ensureTenant(actor, resource)
-    ensureFound(doc, label)
+    requireRecord(doc, label)
     loadResource(actor, doc, label)  — combines existence + tenant
     requireEnrollment(db, actor, courseId)
     ensureWithinLimit(db, actor, resource)
@@ -2091,13 +2091,13 @@ THREE SHAPES
     defineVisibility(fn), applyVisibility(filter, actor, db)
 
 RUNNERS
-  guard(actor, label, check) — throws 'Forbidden: {label}' on false
+  authorize(actor, label, check) — throws 'Forbidden: {label}' on false
   can(actor, check) — returns boolean (for soft/bulk checks)
   deny(reason) — throws ConvexError with FORBIDDEN code
 
 STANDARD HANDLER PATTERN
   1. const actor = await getActor(ctx)
-  2. guard(actor, 'Action', check)
+  2. authorize(actor, 'Action', check)
   3. const doc = loadResource(actor, await ctx.db.get(args.id), 'Label')
   4. Business guards: if (doc.status === 'archived') throw deny('...')
   5. Do the thing
@@ -2144,10 +2144,10 @@ The module doesn't change. Your auth folder does.
 | `not`               | Check composition | Inverts a check                       |
 | `all`               | Check composition | Alias for `and`                       |
 | `any`               | Check composition | Alias for `or`                        |
-| `guard`             | Runner            | Hard check — throws on failure        |
+| `authorize`         | Runner            | Hard check — throws on failure        |
 | `can`               | Runner            | Soft check — returns boolean          |
 | `deny`              | Error             | Throws ConvexError with FORBIDDEN     |
-| `getIdentity`       | Session           | Raw Convex auth identity              |
+| `getAuth`       | Session           | Raw Convex auth identity              |
 | `verifyKey`         | Utility           | Constant-time key comparison          |
 | `defineVisibility`  | Filter factory    | Creates a visibility filter           |
 | `applyVisibility`   | Filter runner     | Resolves a visibility filter          |
@@ -2168,7 +2168,7 @@ The module doesn't change. Your auth folder does.
 | `hasFeature`          | Check          | `has*` for capability predicates      |
 | `canUpdateTask`       | Check          | `can*` for composed permission checks |
 | `ensureTenant`        | Guard          | `ensure*` for boundary guards         |
-| `ensureFound`         | Guard          | `ensure*` for boundary guards         |
+| `requireRecord`         | Guard          | `ensure*` for boundary guards         |
 | `loadResource`        | Guard          | Convenience (ensure + ensure in one)  |
 | `ensureWithinLimit`   | Guard          | `ensure*` for boundary guards         |
 | `ensurePrerequisites` | Guard          | `ensure*` for boundary guards         |

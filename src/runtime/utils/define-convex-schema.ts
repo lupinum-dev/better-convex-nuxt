@@ -55,7 +55,11 @@ export interface SchemaDefinition<
   V extends PropertyValidators = PropertyValidators,
 > extends StandardSchemaV1<T> {
   readonly description: string | undefined
+  readonly args: V
+  readonly fullArgs: V & typeof serviceAuthValidators
+  /** @deprecated Use `.args` instead. */
   readonly validators: V
+  /** @deprecated Use `.fullArgs` instead. */
   readonly convexValidators: V & typeof serviceAuthValidators
   readonly meta: ResolvedSchemaMeta<V>
   readonly zod: z.ZodObject<{ [K in keyof V]: z.ZodType<Infer<V[K]>> }>
@@ -254,6 +258,8 @@ export function defineArgs<V extends PropertyValidators>(definition: {
 
   return {
     description: definition.description,
+    args: definition.args,
+    fullArgs: convexValidators,
     validators: definition.args,
     convexValidators,
     meta: resolvedMeta,

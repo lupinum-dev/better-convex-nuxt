@@ -88,7 +88,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: createPost.validators,
+  args: createPost.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Create post', canCreatePost)
@@ -106,7 +106,7 @@ export const create = mutation({
 })
 
 export const update = mutation({
-  args: updatePost.validators,
+  args: updatePost.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const post = loadResource(actor, await ctx.db.get(args.id), 'Post')

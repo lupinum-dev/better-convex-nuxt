@@ -5,7 +5,7 @@
  */
 import { v } from 'convex/values'
 
-import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
+import { deny, authorize } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -19,7 +19,6 @@ export const listLessonsByCourse = query({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Read lesson', isAuthenticated)
-    requireAuth(actor)
 
     const course = loadResource(actor, await ctx.db.get(args.courseId), 'Course')
     const lessons = await ctx.db
@@ -43,7 +42,6 @@ export const getLesson = query({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Read lesson', canReadLesson)
-    requireAuth(actor)
 
     const lesson = loadResource(actor, await ctx.db.get(args.id), 'Lesson')
     const course = await ctx.db.get(lesson.courseId)
@@ -73,7 +71,6 @@ export const enrollSelf = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Enroll self', hasRole('owner', 'admin', 'instructor', 'student'))
-    requireAuth(actor)
 
     const course = loadResource(actor, await ctx.db.get(args.courseId), 'Course')
     const existing = await ctx.db
@@ -98,7 +95,6 @@ export const completeLesson = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Complete lesson', hasRole('owner', 'admin', 'instructor', 'student'))
-    requireAuth(actor)
 
     const lesson = loadResource(actor, await ctx.db.get(args.lessonId), 'Lesson')
     const existing = await ctx.db

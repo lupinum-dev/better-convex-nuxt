@@ -28,7 +28,7 @@ function attachCommentPermissions(
 }
 
 export const listByPost = query({
-  args: listCommentsByPost.validators,
+  args: listCommentsByPost.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     if (!actor) return []
@@ -47,7 +47,7 @@ export const listByPost = query({
 })
 
 export const create = mutation({
-  args: createComment.validators,
+  args: createComment.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Create comment', canCreateComment)
@@ -65,7 +65,7 @@ export const create = mutation({
 })
 
 export const update = mutation({
-  args: updateComment.validators,
+  args: updateComment.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')
@@ -80,7 +80,7 @@ export const update = mutation({
 })
 
 export const remove = mutation({
-  args: deleteComment.validators,
+  args: deleteComment.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')

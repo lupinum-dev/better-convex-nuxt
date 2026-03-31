@@ -165,7 +165,7 @@ const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorks
 const contactArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: contacts, error: contactsError } = await useConvexQuery(api.contacts.list, contactArgs)
 
-const canCreateContact = computed(() => can('contact.create').value)
+const canCreateContact = can('contact.create')
 const contactError = computed(
   () =>
     createContact.error.value?.message

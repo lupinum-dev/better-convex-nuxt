@@ -11,6 +11,7 @@ const props = defineProps<{
 }>()
 
 const { can } = usePermissions()
+const canManageMembers = can('workspace.members')
 const changeRole = useConvexMutation(api.members.changeRole)
 const memberKey = computed(() => props.member.email || props.member.authId)
 
@@ -31,7 +32,7 @@ async function handleRoleChange(event: Event) {
     </div>
 
     <select
-      v-if="can('workspace.members') && props.member.role !== 'owner'"
+      v-if="canManageMembers && props.member.role !== 'owner'"
       :data-testid="`member-role-${memberKey}`"
       :value="props.member.role"
       class="select"

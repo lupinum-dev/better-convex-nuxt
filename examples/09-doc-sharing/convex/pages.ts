@@ -23,7 +23,6 @@ export const list = query({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Read page', isAuthenticated)
-    requireAuth(actor)
 
     return ctx.db
       .query('pages')
@@ -38,7 +37,6 @@ export const seedDemoPages = mutation({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Create page', canCreatePage)
-    requireAuth(actor)
 
     const now = Date.now()
     const rootPageId = await ctx.db.insert('pages', {
@@ -119,7 +117,6 @@ export const viewPage = query({
 
     const actor = await getActor(ctx)
     authorize(actor, 'View page', isAuthenticated)
-    requireAuth(actor)
     const page = loadResource(actor, await ctx.db.get(args.id), 'Page')
     const access = await requirePageAccess(ctx.db, actor, page._id, 'view')
     return {

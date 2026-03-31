@@ -66,18 +66,18 @@ This page shows the split between cheap plan context in the UI and real limit ch
         <p v-if="usageProjects">
           Projects: {{ usageProjects.current }}/{{ usageProjects.max === Infinity ? '∞' : usageProjects.max }}
         </p>
-        <p>Exports enabled: {{ can('workspace.exports').value ? 'yes' : 'no' }}</p>
+        <p>Exports enabled: {{ canExports ? 'yes' : 'no' }}</p>
 
         <button @click="upgradePlan({ plan: 'pro' })">Upgrade to pro</button>
 
         <form @submit.prevent="handleCreateProject">
           <input v-model="projectForm.name" placeholder="Project name" required />
-          <button :disabled="createProject.pending.value || !can('project.create').value">
+          <button :disabled="createProject.pending.value || !canCreateProject">
             Create project
           </button>
         </form>
 
-        <button v-if="can('workspace.exports').value" @click="runExport">Run export</button>
+        <button v-if="canExports" @click="runExport">Run export</button>
 
         <ul v-if="projects?.length">
           <li v-for="project in projects" :key="project._id">
@@ -100,6 +100,8 @@ import { api } from '~/convex/_generated/api'
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ctx, plan, role, tenantId } = usePermissions()
+const canExports = can('workspace.exports')
+const canCreateProject = can('project.create')
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
@@ -119,7 +121,7 @@ const createProject = useConvexMutation(api.projects.create)
 
 const projectArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: projects, error: projectsError } = await useConvexQuery(api.projects.list, projectArgs)
-const exportArgs = computed(() => (tenantId.value && can('workspace.exports').value ? {} : undefined))
+const exportArgs = computed(() => (tenantId.value && canExports.value ? {} : undefined))
 const { data: exportData } = await useConvexQuery(api.projects.exportProjects, exportArgs)
 
 const usageProjects = computed(() => ctx.value?.usage?.projects ?? null)

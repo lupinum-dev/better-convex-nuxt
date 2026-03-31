@@ -5,7 +5,7 @@ import { defineArgs } from '../../src/runtime/schema'
 import { validateConvex } from '../../src/runtime/utils/convex-schema'
 
 describe('defineArgs service-auth compatibility', () => {
-  it('convexValidators equals validators by default (no service auth fields)', () => {
+  it('fullArgs equals args by default (no service auth fields)', () => {
     const createThing = defineArgs({
       description: 'Create a thing',
       args: {
@@ -13,11 +13,11 @@ describe('defineArgs service-auth compatibility', () => {
       },
     })
 
-    expect(Object.keys(createThing.validators)).toEqual(['title'])
-    expect(Object.keys(createThing.convexValidators)).toEqual(['title'])
+    expect(Object.keys(createThing.args)).toEqual(['title'])
+    expect(Object.keys(createThing.fullArgs)).toEqual(['title'])
   })
 
-  it('widens convexValidators with service auth fields when serviceAuth is true', () => {
+  it('widens fullArgs with service auth fields when serviceAuth is true', () => {
     const createThing = defineArgs({
       description: 'Create a thing',
       args: {
@@ -26,14 +26,14 @@ describe('defineArgs service-auth compatibility', () => {
       serviceAuth: true,
     })
 
-    expect(Object.keys(createThing.validators)).toEqual(['title'])
-    expect(Object.keys(createThing.convexValidators)).toEqual([
+    expect(Object.keys(createThing.args)).toEqual(['title'])
+    expect(Object.keys(createThing.fullArgs)).toEqual([
       'title',
       '_serviceKey',
       '_serviceActor',
     ])
 
-    const issues = validateConvex(v.object(createThing.convexValidators), {
+    const issues = validateConvex(v.object(createThing.fullArgs), {
       title: 'Hello',
       _serviceKey: 'service-key',
       _serviceActor: {

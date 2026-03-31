@@ -30,7 +30,6 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Create project', canCreateProject)
-    requireAuth(actor)
     await ensureWithinLimit(ctx.db, actor, 'projects')
 
     return ctx.db.insert('projects', {
@@ -48,7 +47,6 @@ export const exportProjects = query({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Export projects', hasFeature('exports'))
-    requireAuth(actor)
 
     const projects = await ctx.db
       .query('projects')

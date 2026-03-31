@@ -14,7 +14,6 @@ export const seedDemoCourse = mutation({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     authorize(actor, 'Seed course', hasRole('owner', 'admin', 'instructor'))
-    requireAuth(actor)
 
     const now = Date.now()
     const courseId = await ctx.db.insert('courses', {

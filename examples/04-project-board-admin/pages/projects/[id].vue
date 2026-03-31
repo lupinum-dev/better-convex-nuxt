@@ -17,7 +17,7 @@
           >
             Export CSV
           </a>
-          <NuxtLink v-if="can('workspace.audit')" class="ghost link" to="/admin">Admin</NuxtLink>
+          <NuxtLink v-if="canAudit" class="ghost link" to="/admin">Admin</NuxtLink>
         </div>
       </header>
 
@@ -103,6 +103,7 @@ useAuthGuard({
 
 const route = useRoute()
 const { can } = usePermissions()
+const canAudit = can('workspace.audit')
 const projectId = computed(() => route.params.id as Id<'projects'>)
 
 const taskForm = reactive({

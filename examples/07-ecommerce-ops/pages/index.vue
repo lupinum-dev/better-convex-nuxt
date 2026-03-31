@@ -63,14 +63,14 @@ This page is intentionally simple because the interesting part is shared auth an
       </section>
 
       <section v-else>
-        <button v-if="can('order.refund')" @click="seedDemoOrders({})">Seed demo orders</button>
+        <button v-if="canRefund" @click="seedDemoOrders({})">Seed demo orders</button>
 
         <ul v-if="orders?.length">
           <li v-for="order in orders" :key="order._id">
             <strong>{{ order.orderNumber }}</strong> · {{ order.status }} ·
             {{ (order.amountCents / 100).toFixed(2) }}
             <button
-              :disabled="!can('order.refund') || order.status === 'refunded'"
+              :disabled="!canRefund || order.status === 'refunded'"
               @click="refundOrder({ orderId: order._id, reason: 'Customer requested refund' })"
             >
               Refund
@@ -92,6 +92,7 @@ import { api } from '~/convex/_generated/api'
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ctx, role, tenantId } = usePermissions()
+const canRefund = can('order.refund')
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
