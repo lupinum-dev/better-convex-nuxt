@@ -1,53 +1,90 @@
 <template>
-  <main class="page">
-    <section class="panel">
-      <p class="eyebrow">Example 01</p>
-      <h1>Public Todo</h1>
-      <p class="lede">
-        This page is intentionally simple: a single query renders the list and three mutations
-        change it.
-      </p>
+  <div class="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-neutral-950">
+    <UCard class="w-full max-w-lg">
+      <template #header>
+        <p class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400">
+          Example 01
+        </p>
+        <h1 class="text-3xl font-bold mt-1">Public Todo</h1>
+        <p class="text-sm text-(--ui-text-muted) mt-2">
+          A single query renders the list. Three mutations change it. No auth required.
+        </p>
+      </template>
 
-      <form class="composer" @submit.prevent="handleCreate">
-        <label class="label" for="title">New todo</label>
-        <div class="composer-row">
-          <input
-            id="title"
-            v-model="title"
-            class="input"
-            type="text"
-            placeholder="Write something small and concrete"
-            required
-          />
-          <button class="button" type="submit" :disabled="createTodo.pending.value">
-            {{ createTodo.pending.value ? 'Adding...' : 'Add' }}
-          </button>
-        </div>
+      <!-- Composer -->
+      <form class="flex gap-3 mb-6" @submit.prevent="handleCreate">
+        <UInput
+          v-model="title"
+          placeholder="Write something small and concrete"
+          class="flex-1"
+          required
+          :disabled="createTodo.pending.value"
+        />
+        <UButton
+          type="submit"
+          :loading="createTodo.pending.value"
+          leading-icon="i-lucide-plus"
+        >
+          Add
+        </UButton>
       </form>
 
-      <p v-if="queryError" class="error">{{ queryError }}</p>
-      <p v-if="mutationError" class="error">{{ mutationError }}</p>
+      <!-- Errors -->
+      <UAlert
+        v-if="queryError"
+        color="error"
+        variant="soft"
+        icon="i-lucide-circle-alert"
+        title="Query error"
+        :description="queryError"
+        class="mb-4"
+      />
+      <UAlert
+        v-if="mutationError"
+        color="error"
+        variant="soft"
+        icon="i-lucide-circle-alert"
+        title="Mutation error"
+        :description="mutationError"
+        class="mb-4"
+      />
 
-      <ul v-if="todos?.length" class="list">
-        <li v-for="todo in todos" :key="todo._id" class="item">
-          <label class="checkbox-row">
-            <input
-              type="checkbox"
-              :checked="todo.completed"
-              @change="toggleTodo({ id: todo._id })"
-            />
-            <span :class="{ done: todo.completed }">{{ todo.title }}</span>
-          </label>
-          <button class="ghost" type="button" @click="removeTodo({ id: todo._id })">
-            Delete
-          </button>
+      <!-- Loading skeletons -->
+      <div v-if="pending" class="space-y-3">
+        <USkeleton v-for="n in 3" :key="n" class="h-12 w-full rounded-xl" />
+      </div>
+
+      <!-- Empty state -->
+      <p v-else-if="!todos?.length" class="text-(--ui-text-muted) text-sm text-center py-8">
+        No todos yet. Add the first one above.
+      </p>
+
+      <!-- List -->
+      <ul v-else class="space-y-2">
+        <li
+          v-for="todo in todos"
+          :key="todo._id"
+          class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-(--ui-border) bg-(--ui-bg-elevated)"
+        >
+          <UCheckbox
+            :model-value="todo.completed"
+            :label="todo.title"
+            :ui="{ label: todo.completed ? 'line-through text-(--ui-text-muted)' : '' }"
+            @update:model-value="toggleTodo({ id: todo._id })"
+          />
+          <UButton
+            icon="i-lucide-trash-2"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            square
+            aria-label="Delete todo"
+            @click="removeTodo({ id: todo._id })"
+          />
         </li>
       </ul>
-
-      <p v-else-if="pending" class="empty">Loading todos...</p>
-      <p v-else class="empty">No todos yet. Add the first one above.</p>
-    </section>
-  </main>
+    </UCard>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -55,10 +92,13 @@
  * Why this file exists:
  * This page is the shortest end-to-end example of the client API.
  * The goal is to show "query data, call mutation, watch the list update" with as little noise as possible.
+ * Presentation layer uses Nuxt UI — all Convex logic is identical to the raw version.
  */
 import { computed, ref } from 'vue'
 
 import { api } from '~/convex/_generated/api'
+
+const toast = useToast()
 
 // One live query powers the whole page.
 const { data: todos, pending, error } = await useConvexQuery(api.todos.list, {})
@@ -80,145 +120,11 @@ const mutationError = computed(() =>
 
 async function handleCreate() {
   // The mutation only needs the business arg defined by the shared schema.
-  await createTodo({
-    title: title.value,
-  })
+  await createTodo({ title: title.value })
 
   // The query updates automatically after the mutation settles, so the page does not refetch manually.
   title.value = ''
+
+  toast.add({ title: 'Todo added', color: 'success', icon: 'i-lucide-circle-check' })
 }
 </script>
-
-<style scoped>
-.page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  padding: 2rem;
-  background:
-    radial-gradient(circle at top left, rgba(34, 197, 94, 0.16), transparent 28rem),
-    linear-gradient(180deg, #f8fafc 0%, #eefbf2 100%);
-  color: #0f172a;
-}
-
-.panel {
-  width: min(100%, 42rem);
-  padding: 2rem;
-  border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
-}
-
-.eyebrow {
-  margin: 0 0 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #15803d;
-}
-
-h1 {
-  margin: 0;
-  font-size: clamp(2rem, 4vw, 3rem);
-}
-
-.lede {
-  margin: 0.75rem 0 1.5rem;
-  color: #475569;
-}
-
-.composer {
-  margin-bottom: 1.5rem;
-}
-
-.label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-}
-
-.composer-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.75rem;
-}
-
-.input,
-.button,
-.ghost {
-  border-radius: 0.9rem;
-  font: inherit;
-}
-
-.input {
-  min-width: 0;
-  padding: 0.9rem 1rem;
-  border: 1px solid #cbd5e1;
-  background: white;
-}
-
-.button {
-  padding: 0.9rem 1.2rem;
-  border: none;
-  background: #15803d;
-  color: white;
-  font-weight: 700;
-}
-
-.ghost {
-  padding: 0.45rem 0.8rem;
-  border: 1px solid #cbd5e1;
-  background: white;
-}
-
-.list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.85rem;
-}
-
-.item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.95rem 1rem;
-  border-radius: 1rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-}
-
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.done {
-  color: #64748b;
-  text-decoration: line-through;
-}
-
-.error {
-  color: #b91c1c;
-}
-
-.empty {
-  color: #64748b;
-}
-
-@media (max-width: 640px) {
-  .composer-row {
-    grid-template-columns: 1fr;
-  }
-
-  .item {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-</style>
