@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { randomBytes } from 'node:crypto'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
@@ -57,13 +57,44 @@ export function parseEnvFile(cwd, fileName = '.env.local') {
   return values
 }
 
+export function serializeEnvFile(values) {
+  return Object.entries(values)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n')
+}
+
+const MANAGED_CONVEX_ENV_KEYS = new Set([
+  'CONVEX_DEPLOYMENT',
+  'CONVEX_URL',
+  'CONVEX_SITE_URL',
+  'NUXT_PUBLIC_CONVEX_URL',
+  'NUXT_PUBLIC_CONVEX_SITE_URL',
+])
+
+export function stripManagedConvexEnvVars(values) {
+  return Object.fromEntries(
+    Object.entries(values).filter(([key]) => !MANAGED_CONVEX_ENV_KEYS.has(key)),
+  )
+}
+
+export function shouldResetLocalBackendForMissingSecret(exampleEnv, preservedEnvLocal) {
+  return /replace.?me/i.test(exampleEnv.BETTER_AUTH_SECRET ?? '')
+    && !preservedEnvLocal.BETTER_AUTH_SECRET
+}
+
 /**
  * Reads `.env.example` and resolves placeholder values to generated secrets.
  * Any value matching /replace.?me/i is replaced with a random 32-byte hex string.
  */
-export function resolveConvexEnvVars(parsed) {
+export function resolveConvexEnvVars(parsed, existing = {}) {
   const resolved = {}
   for (const [key, value] of Object.entries(parsed)) {
+    const existingValue = existing[key]
+    if (/replace.?me/i.test(value) && existingValue && !/replace.?me/i.test(existingValue)) {
+      resolved[key] = existingValue
+      continue
+    }
+
     resolved[key] = /replace.?me/i.test(value) ? randomBytes(32).toString('hex') : value
   }
   return resolved
@@ -71,15 +102,30 @@ export function resolveConvexEnvVars(parsed) {
 
 export async function isPortFree(port, host = DEFAULT_HOST) {
   return await new Promise((resolve) => {
-    const server = net.createServer()
+    const socket = new net.Socket()
+    let settled = false
 
-    server.once('error', () => {
-      resolve(false)
-    })
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      socket.destroy()
+      resolve(value)
+    }
 
-    server.listen(port, host, () => {
-      server.close(() => resolve(true))
+    socket.setTimeout(250)
+    socket.once('connect', () => finish(false))
+    socket.once('timeout', () => finish(true))
+    socket.once('error', (error) => {
+      if (error && typeof error === 'object' && 'code' in error) {
+        const code = error.code
+        if (code === 'ECONNREFUSED' || code === 'EHOSTUNREACH' || code === 'ENETUNREACH') {
+          finish(true)
+          return
+        }
+      }
+      finish(false)
     })
+    socket.connect(port, host)
   })
 }
 
@@ -99,8 +145,146 @@ export async function findAvailablePortPair({
   throw new Error(`Could not find a free local Convex port pair in ${start}-${end + 1}.`)
 }
 
+export function getDesiredNuxtPort(cwd = process.cwd()) {
+  const baseName = path.basename(cwd)
+  const match = baseName.match(/^(\d+)-/)
+  if (!match) return 4126
+
+  const exampleNumber = Number.parseInt(match[1], 10)
+  if (!Number.isInteger(exampleNumber) || exampleNumber < 1) return 4126
+
+  return 4120 + exampleNumber
+}
+
+export function getDesiredSiteUrl(cwd = process.cwd()) {
+  return `http://localhost:${getDesiredNuxtPort(cwd)}`
+}
+
 export function convexGeneratedDir(cwd) {
   return path.join(cwd, 'convex', '_generated')
+}
+
+export function convexLocalConfigPath(cwd) {
+  return path.join(cwd, '.convex', 'local', 'default', 'config.json')
+}
+
+export function convexLocalSqlitePath(cwd) {
+  return path.join(cwd, '.convex', 'local', 'default', 'convex_local_backend.sqlite3')
+}
+
+export function readConvexLocalConfig(cwd, { existsSyncFn = existsSync, readFileSyncFn = readFileSync } = {}) {
+  const configPath = convexLocalConfigPath(cwd)
+  if (!existsSyncFn(configPath)) return null
+
+  try {
+    return JSON.parse(readFileSyncFn(configPath, 'utf8'))
+  }
+  catch {
+    return null
+  }
+}
+
+export function writeConvexLocalConfig(
+  cwd,
+  config,
+  { writeFileSyncFn = writeFileSync } = {},
+) {
+  writeFileSyncFn(convexLocalConfigPath(cwd), `${JSON.stringify(config)}\n`, 'utf8')
+}
+
+export async function selectExamplePortPair({
+  cwd,
+  findAvailablePortPairFn = findAvailablePortPair,
+  isPortFreeFn = isPortFree,
+  readConvexLocalConfigFn = readConvexLocalConfig,
+} = {}) {
+  const existingConfig = readConvexLocalConfigFn(cwd)
+  const configuredCloudPort = existingConfig?.ports?.cloud
+  const configuredSitePort = existingConfig?.ports?.site
+
+  if (
+    Number.isInteger(configuredCloudPort)
+    && Number.isInteger(configuredSitePort)
+    && await isPortFreeFn(configuredCloudPort)
+    && await isPortFreeFn(configuredSitePort)
+  ) {
+    return configuredCloudPort
+  }
+
+  return await findAvailablePortPairFn()
+}
+
+export function syncConvexLocalConfigPortPair(
+  cwd,
+  port,
+  {
+    readConvexLocalConfigFn = readConvexLocalConfig,
+    writeConvexLocalConfigFn = writeConvexLocalConfig,
+  } = {},
+) {
+  const config = readConvexLocalConfigFn(cwd)
+  if (!config?.ports) return
+
+  if (config.ports.cloud === port && config.ports.site === port + 1) return
+
+  writeConvexLocalConfigFn(cwd, {
+    ...config,
+    ports: {
+      ...config.ports,
+      cloud: port,
+      site: port + 1,
+    },
+  })
+}
+
+export function findListeningPids(port) {
+  try {
+    const output = execFileSync('lsof', ['-nP', `-tiTCP:${port}`, '-sTCP:LISTEN'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return output
+      .split(/\r?\n/)
+      .map(line => Number.parseInt(line.trim(), 10))
+      .filter(Number.isInteger)
+  } catch {
+    return []
+  }
+}
+
+export async function clearPorts(
+  ports,
+  {
+    findListeningPidsFn = findListeningPids,
+    killFn = process.kill.bind(process),
+    sleepFn = sleep,
+    stdout = process.stdout,
+  } = {},
+) {
+  const uniquePorts = [...new Set(ports.filter(port => Number.isInteger(port) && port > 0))]
+
+  for (const port of uniquePorts) {
+    const pids = [...new Set(findListeningPidsFn(port))]
+    if (pids.length === 0) continue
+
+    const label = colorize('system'.padEnd(6), '33')
+    stdout.write(`${label} clearing port ${port} (pids: ${pids.join(', ')})\n`)
+
+    for (const pid of pids) {
+      try {
+        killFn(pid, 'SIGTERM')
+      } catch {}
+    }
+
+    await sleepFn(300)
+
+    const remainingPids = [...new Set(findListeningPidsFn(port))]
+    for (const pid of remainingPids) {
+      try {
+        killFn(pid, 'SIGKILL')
+      } catch {}
+    }
+  }
 }
 
 export async function waitForPort(
@@ -295,8 +479,8 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
       spawnFn,
       cwd,
       env,
-      command: 'npx',
-      args: ['convex', 'env', 'set', '--force', '--from-file', tmpPath],
+      command: 'pnpm',
+      args: ['exec', 'convex', 'env', 'set', '--force', '--from-file', tmpPath],
       stdout,
       stderr,
     })
@@ -310,21 +494,70 @@ export async function runExampleDev({
   cwd = process.cwd(),
   spawnFn = spawn,
   findAvailablePortPairFn = findAvailablePortPair,
+  isPortFreeFn = isPortFree,
   waitForConvexEnvFn = waitForConvexEnv,
   waitForConvexReadyFn = waitForConvexReady,
   existsSyncFn = existsSync,
   rmSyncFn = rmSync,
+  writeFileSyncFn = writeFileSync,
+  readConvexLocalConfigFn = readConvexLocalConfig,
+  writeConvexLocalConfigFn = writeConvexLocalConfig,
+  clearPortsFn = clearPorts,
   stdout = process.stdout,
   stderr = process.stderr,
   exitFn = process.exit,
   disableAiFiles = true,
 } = {}) {
-  // Pre-select a free port pair so convex never hits a "port already in use" error.
-  const port = await findAvailablePortPairFn()
+  const desiredNuxtPort = getDesiredNuxtPort(cwd)
+  const configuredPorts = readConvexLocalConfigFn(cwd)?.ports
+  await clearPortsFn([
+    desiredNuxtPort,
+    configuredPorts?.cloud,
+    configuredPorts?.site,
+  ], { stdout })
 
-  // Remove stale .env.local so waitForConvexEnv cannot return values from a previous run.
+  // Reuse configured ports when possible, otherwise move the saved deployment to a free pair.
+  const port = await selectExamplePortPair({
+    cwd,
+    findAvailablePortPairFn,
+    isPortFreeFn,
+    readConvexLocalConfigFn,
+  })
+
+  await clearPortsFn([port, port + 1], { stdout })
+
+  syncConvexLocalConfigPortPair(cwd, port, {
+    readConvexLocalConfigFn,
+    writeConvexLocalConfigFn,
+  })
+
+  const preservedEnvLocal = stripManagedConvexEnvVars(parseEnvFile(cwd))
+  const exampleEnv = {
+    ...parseEnvFile(cwd, '.env.example'),
+    SITE_URL: getDesiredSiteUrl(cwd),
+  }
+
+  // Remove stale Convex runtime entries so waitForConvexEnv cannot return values from a previous run.
   const envLocalPath = path.join(cwd, '.env.local')
-  if (existsSyncFn(envLocalPath)) rmSyncFn(envLocalPath)
+  if (existsSyncFn(envLocalPath)) {
+    rmSyncFn(envLocalPath)
+  }
+
+  const convexVars = resolveConvexEnvVars(exampleEnv, preservedEnvLocal)
+  const persistentEnvLocal = stripManagedConvexEnvVars({
+    ...preservedEnvLocal,
+    ...convexVars,
+  })
+  if (Object.keys(persistentEnvLocal).length > 0) {
+    writeFileSyncFn(envLocalPath, `${serializeEnvFile(persistentEnvLocal)}\n`, 'utf8')
+  }
+
+  if (shouldResetLocalBackendForMissingSecret(exampleEnv, preservedEnvLocal)) {
+    const sqlitePath = convexLocalSqlitePath(cwd)
+    if (existsSyncFn(sqlitePath)) {
+      rmSyncFn(sqlitePath)
+    }
+  }
 
   const convexEnv = {
     ...process.env,
@@ -338,14 +571,15 @@ export async function runExampleDev({
       spawnFn,
       cwd,
       env: convexEnv,
-      command: 'npx',
-      args: ['convex', 'ai-files', 'disable'],
+      command: 'pnpm',
+      args: ['exec', 'convex', 'ai-files', 'disable'],
       stdout,
       stderr,
     })
   }
 
-  const convex = spawnFn('npx', [
+  const convex = spawnFn('pnpm', [
+    'exec',
     'convex',
     'dev',
     '--local',
@@ -416,7 +650,6 @@ export async function runExampleDev({
     ])
 
     // Push .env.example vars to the Convex deployment, generating secrets for placeholders.
-    const convexVars = resolveConvexEnvVars(parseEnvFile(cwd, '.env.example'))
     if (Object.keys(convexVars).length > 0) {
       const sysLabel = colorize('system'.padEnd(6), '33')
       stdout.write(`${sysLabel} configuring Convex env vars from .env.example\n`)
@@ -425,7 +658,12 @@ export async function runExampleDev({
 
     nuxt = spawnFn('pnpm', ['run', 'dev:nuxt'], {
       cwd,
-      env: { ...process.env, ...ready },
+      env: {
+        ...process.env,
+        ...persistentEnvLocal,
+        ...ready,
+        PORT: String(desiredNuxtPort),
+      },
       stdio: ['inherit', 'pipe', 'pipe'],
     })
 

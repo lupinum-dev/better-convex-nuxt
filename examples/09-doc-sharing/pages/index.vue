@@ -29,6 +29,8 @@ This page puts workspace access and token access side by side so the two auth pa
         <input v-model="signInForm.password" placeholder="Password" type="password" required />
         <button :disabled="authAction.pending.value">Sign in</button>
       </form>
+
+      <p v-if="authAction.error.value" class="error">{{ authAction.error.value.message }}</p>
     </ConvexUnauthenticated>
 
     <ConvexAuthenticated>
@@ -184,6 +186,10 @@ header,
 ul,
 pre {
   margin-bottom: 1rem;
+}
+
+.error {
+  color: #b91c1c;
 }
 
 input,

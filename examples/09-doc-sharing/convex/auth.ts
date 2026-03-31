@@ -9,9 +9,25 @@ import authConfig from './auth.config'
 
 const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
 const authFunctions: AuthFunctions = internal.auth
-type BetterAuthComponent = { betterAuth: Parameters<typeof createClient<DataModel>>[0] }
 
-export const authComponent = createClient<DataModel>((components as BetterAuthComponent).betterAuth, {
+function getTrustedOrigins(): string[] {
+  try {
+    const url = new URL(siteUrl)
+    const trusted = new Set([siteUrl])
+
+    if (url.hostname === 'localhost') {
+      trusted.add(`http://127.0.0.1:${url.port}`)
+    } else if (url.hostname === '127.0.0.1') {
+      trusted.add(`http://localhost:${url.port}`)
+    }
+
+    return [...trusted]
+  } catch {
+    return [siteUrl]
+  }
+}
+
+export const authComponent = createClient<DataModel>(components.betterAuth, {
   authFunctions,
   triggers: {
     user: {
@@ -68,7 +84,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
         authConfig,
       }),
     ],
-    trustedOrigins: [siteUrl, 'http://127.0.0.1:3000', 'http://localhost:3000'],
+    trustedOrigins: getTrustedOrigins(),
   })
 
 export const createUserIfNeeded = mutation({
