@@ -14,8 +14,6 @@ export type AuthIdentity = {
   name?: string
 }
 
-/** @deprecated Use `AuthIdentity` instead. */
-export type Identity = AuthIdentity
 
 export type AuthErrorData = {
   code: 'FORBIDDEN' | 'NOT_FOUND'
@@ -84,8 +82,6 @@ export function authorize<P>(principal: P, label: string, check: AnyCheck<NonNul
   if (!runCheck(principal, check)) throw toForbiddenError(`Forbidden: ${label}`, undefined, category)
 }
 
-/** @deprecated Use `authorize` instead. */
-export const guard = authorize
 
 export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
   try {
@@ -105,8 +101,6 @@ export function requireAuth<P>(
   }
 }
 
-/** @deprecated Use `requireAuth` instead. */
-export const requirePrincipal = requireAuth
 
 export function requireRecord<T>(
   doc: T | null | undefined,
@@ -117,8 +111,6 @@ export function requireRecord<T>(
   }
 }
 
-/** @deprecated Use `requireRecord` instead. */
-export const ensureFound = requireRecord
 
 export async function getAuth(ctx: AnyCtx): Promise<AuthIdentity | null> {
   const identity = await ctx.auth.getUserIdentity()
@@ -130,8 +122,6 @@ export async function getAuth(ctx: AnyCtx): Promise<AuthIdentity | null> {
   }
 }
 
-/** @deprecated Use `getAuth` instead. */
-export const getIdentity = getAuth
 
 export function verifyKey(provided: string, expected: string): boolean {
   if (!provided || !expected) return false

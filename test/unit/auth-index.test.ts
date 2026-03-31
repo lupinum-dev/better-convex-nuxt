@@ -19,11 +19,6 @@ describe('auth entrypoint exports', () => {
     expect(authApi).toHaveProperty('getAuth')
     expect(authApi).toHaveProperty('requireAuth')
     expect(authApi).toHaveProperty('requireRecord')
-    // deprecated aliases still exported
-    expect(authApi).toHaveProperty('guard')
-    expect(authApi).toHaveProperty('getIdentity')
-    expect(authApi).toHaveProperty('requirePrincipal')
-    expect(authApi).toHaveProperty('ensureFound')
     expect(authApi).toHaveProperty('verifyKey')
     expect(authApi).toHaveProperty('defineVisibility')
     expect(authApi).toHaveProperty('applyVisibility')
