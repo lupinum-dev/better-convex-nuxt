@@ -29,11 +29,20 @@ export function useEnsureConvexUser<TMutation extends EmptyArgsMutation>(
   mutationRef: TMutation,
 ): UseEnsureConvexUserReturn {
   const { isAuthenticated, user } = useConvexAuth()
+  const lastEnsuredUserId = ref<string | null>(null)
+
+  if (import.meta.server) {
+    return {
+      pending: computed(() => false),
+      error: computed(() => null),
+      ensured: computed(() => false),
+    }
+  }
+
   const ensureUser = useConvexMutation(mutationRef as EmptyArgsMutation) as UseConvexMutationReturn<
     Record<string, never>,
     unknown
   >
-  const lastEnsuredUserId = ref<string | null>(null)
 
   watch(
     [isAuthenticated, user],
