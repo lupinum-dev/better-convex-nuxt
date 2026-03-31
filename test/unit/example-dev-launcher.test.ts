@@ -219,7 +219,7 @@ describe('example dev launcher', () => {
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
   })
 
-  it('passes the pre-selected port to convex dev as CONVEX_LOCAL_BACKEND_PORT', async () => {
+  it('passes the pre-selected port to convex dev via local port flags', async () => {
     const convex = createChildProcess()
     const spawnFn = vi.fn().mockReturnValue(convex)
 
@@ -243,7 +243,7 @@ describe('example dev launcher', () => {
     await vi.waitFor(() => {
       expect(spawnFn).toHaveBeenCalledWith(
         'npx',
-        ['convex', 'dev'],
+        ['convex', 'dev', '--local', '--local-cloud-port', '3214', '--local-site-port', '3215'],
         expect.objectContaining({
           env: expect.objectContaining({ CONVEX_LOCAL_BACKEND_PORT: '3214' }),
         }),

@@ -84,11 +84,9 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       return useConvexAuthActions()
     })
 
-    await expect(
-      result.execute(async () => {
-        throw new Error('first failure')
-      }),
-    ).rejects.toThrow()
+    await result.execute(async () => {
+      throw new Error('first failure')
+    })
     expect(result.error.value).not.toBeNull()
 
     await result.execute(async () => ({ data: 'ok', error: null }))
@@ -96,18 +94,16 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     expect(result.data.value).toEqual({ data: 'ok', error: null })
   })
 
-  it('detects Better Auth { error } response and throws ConvexCallError', async () => {
+  it('detects Better Auth { error } response and sets error.value', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
       return useConvexAuthActions()
     })
 
-    await expect(
-      result.execute(async () => ({
-        data: null,
-        error: { message: 'Invalid credentials', status: 401, code: 'INVALID_CREDENTIALS' },
-      })),
-    ).rejects.toThrow(ConvexCallError)
+    await result.execute(async () => ({
+      data: null,
+      error: { message: 'Invalid credentials', status: 401, code: 'INVALID_CREDENTIALS' },
+    }))
 
     expect(result.error.value).toBeInstanceOf(ConvexCallError)
     const convexError = result.error.value as ConvexCallError
@@ -123,27 +119,23 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       return useConvexAuthActions()
     })
 
-    await expect(
-      result.execute(async () => {
-        throw new Error('Network failure')
-      }),
-    ).rejects.toThrow(ConvexCallError)
+    await result.execute(async () => {
+      throw new Error('Network failure')
+    })
 
     expect(result.error.value).toBeInstanceOf(ConvexCallError)
     expect(result.error.value!.message).toBe('Network failure')
   })
 
-  it('sets pending=false even when execute throws', async () => {
+  it('sets pending=false when execute fails', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
       return useConvexAuthActions()
     })
 
-    await expect(
-      result.execute(async () => {
-        throw new Error('boom')
-      }),
-    ).rejects.toThrow()
+    await result.execute(async () => {
+      throw new Error('boom')
+    })
 
     expect(result.pending.value).toBe(false)
   })
@@ -166,12 +158,10 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       return useConvexAuthActions()
     })
 
-    await expect(
-      result.execute(async () => ({
-        data: null,
-        error: { message: 'Bad creds', status: 401 },
-      })),
-    ).rejects.toThrow()
+    await result.execute(async () => ({
+      data: null,
+      error: { message: 'Bad creds', status: 401 },
+    }))
 
     expect(refreshCallCount).toBe(0)
   })
@@ -205,9 +195,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       return useConvexAuthActions()
     })
 
-    await expect(
-      result.execute(async () => ({ data: { user: { id: 'u1' } }, error: null })),
-    ).rejects.toThrow(ConvexCallError)
+    await result.execute(async () => ({ data: { user: { id: 'u1' } }, error: null }))
 
     expect(result.error.value).toBeInstanceOf(ConvexCallError)
     expect(result.error.value!.message).toBe('Token refresh failed')

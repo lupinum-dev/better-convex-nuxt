@@ -296,7 +296,7 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
       cwd,
       env,
       command: 'npx',
-      args: ['convex', 'env', 'set', '--from-file', tmpPath],
+      args: ['convex', 'env', 'set', '--force', '--from-file', tmpPath],
       stdout,
       stderr,
     })
@@ -345,7 +345,15 @@ export async function runExampleDev({
     })
   }
 
-  const convex = spawnFn('npx', ['convex', 'dev'], {
+  const convex = spawnFn('npx', [
+    'convex',
+    'dev',
+    '--local',
+    '--local-cloud-port',
+    String(port),
+    '--local-site-port',
+    String(port + 1),
+  ], {
     cwd,
     env: convexEnv,
     stdio: ['inherit', 'pipe', 'pipe'],
