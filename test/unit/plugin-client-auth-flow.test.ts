@@ -48,6 +48,7 @@ const {
 } = vi.hoisted(() => {
   const clientState = {
     fetchToken: null as null | ((input: { forceRefreshToken: boolean }) => Promise<string | null>),
+    setAuthCalls: 0,
   }
   const hookRegistry = new Map<string, (...args: unknown[]) => unknown>()
 
@@ -57,7 +58,17 @@ const {
       onChange?: (isAuthenticated: boolean) => void,
     ) {
       clientState.fetchToken = fetchToken
-      onChange?.(false)
+      clientState.setAuthCalls += 1
+
+      if (clientState.setAuthCalls === 1) {
+        onChange?.(false)
+        return
+      }
+
+      void fetchToken({ forceRefreshToken: true }).then(
+        token => onChange?.(Boolean(token)),
+        () => onChange?.(false),
+      )
     }
   }
 
@@ -115,6 +126,7 @@ describe('plugin.client auth flow', () => {
     vi.useRealTimers()
     stateStore.clear()
     clientState.fetchToken = null
+    clientState.setAuthCalls = 0
     hookRegistry.clear()
 
     useRuntimeConfigMock.mockReturnValue({
@@ -244,6 +256,46 @@ describe('plugin.client auth flow', () => {
     expect(stateStore.get('convex:user')?.value).toEqual(
       expect.objectContaining({ id: 'u-hydrated', email: 'hydrated@test.com' }),
     )
+    expect(stateStore.get('convex:authError')?.value).toBeNull()
+  })
+
+  it('skips the first forced bootstrap refresh when SSR already established an anonymous session miss', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin(createNuxtAppMock({ serverRendered: true }) as never)
+
+    const fetchToken = clientState.fetchToken
+    expect(fetchToken).toBeTypeOf('function')
+
+    await expect(fetchToken!({ forceRefreshToken: false })).resolves.toBeNull()
+    await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBeNull()
+
+    expect(tokenMock).not.toHaveBeenCalled()
+    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'client-fetchToken:skip',
+      outcome: 'skip',
+      details: expect.objectContaining({
+        reason: 'ssr-rendered-no-session-bootstrap',
+      }),
+    }))
+  })
+
+  it('still performs a forced exchange after an explicit auth refresh from an anonymous SSR boot', async () => {
+    const refreshedToken = mintJwt({ sub: 'u-refresh', email: 'refresh@test.com' })
+    tokenMock.mockResolvedValue({ data: { token: refreshedToken }, error: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin(createNuxtAppMock({ serverRendered: true }) as never)
+
+    const refreshHook = hookRegistry.get('better-convex:auth:refresh')
+    expect(refreshHook).toBeTypeOf('function')
+
+    await expect(refreshHook?.()).resolves.toBeUndefined()
+
+    expect(tokenMock).toHaveBeenCalledTimes(1)
+    expect(stateStore.get('convex:token')?.value).toBe(refreshedToken)
     expect(stateStore.get('convex:authError')?.value).toBeNull()
   })
 

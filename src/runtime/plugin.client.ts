@@ -24,22 +24,6 @@ export default defineNuxtPlugin((nuxtApp) => {
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (client)')
 
-  const debugConfig = publicConvex?.debug as { authFlow?: boolean; clientAuthFlow?: boolean } | undefined
-  const enableClientAuthTrace =
-    logLevel === 'debug' && (debugConfig?.authFlow === true || debugConfig?.clientAuthFlow === true)
-  if (enableClientAuthTrace) {
-    const rawAuthLog = logger.auth.bind(logger)
-    logger.auth = (event) => {
-      rawAuthLog(event)
-      console.log('[BCN_AUTH][client]', {
-        phase: event.phase,
-        outcome: event.outcome,
-        ...event.details,
-        error: event.error ? event.error.message : null,
-      })
-    }
-  }
-
   // HMR-safe initialization
   if (nuxtApp.$convex) {
     logger.debug('plugin:init (client) skipped; already initialized')

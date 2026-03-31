@@ -77,27 +77,6 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   const logLevel = getLogLevel(publicConvex)
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (server)')
-  const debugConfig = publicConvex?.debug as
-    | {
-        authFlow?: boolean
-        serverAuthFlow?: boolean
-      }
-    | undefined
-  const enableServerAuthTrace =
-    logLevel === 'debug' && (debugConfig?.authFlow === true || debugConfig?.serverAuthFlow === true)
-  const rawAuthLog = logger.auth.bind(logger)
-  logger.auth = (event) => {
-    rawAuthLog(event)
-    if (enableServerAuthTrace) {
-      console.log('[BCN_AUTH][server]', {
-        phase: event.phase,
-        outcome: event.outcome,
-        ...event.details,
-        error: event.error ? event.error.message : null,
-      })
-    }
-  }
-
   // Check if auth is enabled
   const authConfig = convexConfig.auth
   const isAuthEnabled = authConfig.enabled

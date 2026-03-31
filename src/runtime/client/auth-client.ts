@@ -137,6 +137,10 @@ export function initAuthClient(
   let lastTokenValidation = Date.now()
   let inflightFetch: Promise<ClientAuthStateResult> | null = null
   let inflightIsForced = false
+  let skipNextAnonymousBootstrapRefresh =
+    Boolean(nuxtApp.payload?.serverRendered)
+    && !convexToken.value
+    && !normalizeHydratedUser(convexUser.value)
 
   const syncHydratedAuthFromToken = (
     source: 'hydrated-token' | 'recent-token-cache',
@@ -182,6 +186,7 @@ export function initAuthClient(
   }): Promise<ClientAuthStateResult> => {
     const route = router.currentRoute.value
     const routePath = route?.path ?? '/'
+    const hasHydratedUser = Boolean(normalizeHydratedUser(convexUser.value))
 
     logger.auth({
       phase: 'client-fetchToken:start',
@@ -191,7 +196,7 @@ export function initAuthClient(
         path: routePath,
         forceRefreshToken,
         hasHydratedToken: Boolean(convexToken.value),
-        hasHydratedUser: Boolean(normalizeHydratedUser(convexUser.value)),
+        hasHydratedUser,
       },
     })
 
@@ -270,13 +275,27 @@ export function initAuthClient(
 
     // SSR with no session is already a known unauthenticated state.
     const wasServerRendered = Boolean(nuxtApp.payload?.serverRendered)
-    if (wasServerRendered && !convexToken.value && !normalizeHydratedUser(convexUser.value) && !forceRefreshToken) {
+    if (wasServerRendered && !convexToken.value && !hasHydratedUser && !forceRefreshToken) {
       logger.auth({
         phase: 'client-fetchToken:skip',
         outcome: 'skip',
         details: {
           traceId,
           reason: 'ssr-rendered-no-hydrated-session',
+          path: routePath,
+        },
+      })
+      return buildUnauthenticatedResult('skip')
+    }
+
+    if (forceRefreshToken && skipNextAnonymousBootstrapRefresh && !convexToken.value && !hasHydratedUser) {
+      skipNextAnonymousBootstrapRefresh = false
+      logger.auth({
+        phase: 'client-fetchToken:skip',
+        outcome: 'skip',
+        details: {
+          traceId,
+          reason: 'ssr-rendered-no-session-bootstrap',
           path: routePath,
         },
       })
@@ -407,6 +426,7 @@ export function initAuthClient(
       convexClientInstance.setAuth(fetchToken, onChange)
     },
     async refresh(fetchToken, onChange) {
+      skipNextAnonymousBootstrapRefresh = false
       lastTokenValidation = 0
       await new Promise<void>((resolve) => {
         convexClientInstance.setAuth(

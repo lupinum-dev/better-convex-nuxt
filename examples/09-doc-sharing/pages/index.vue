@@ -42,9 +42,9 @@ This page puts workspace access and token access side by side so the two auth pa
         <button @click="handleSignOut">Sign out</button>
       </header>
 
-      <p v-if="ensureUserRow.pending.value">Preparing your application user...</p>
+      <p v-if="!appReady">Loading your workspace access...</p>
 
-      <section v-if="!tenantId">
+      <section v-else-if="!tenantId">
         <form @submit.prevent="handleCreateWorkspace">
           <h2>Create workspace</h2>
           <input v-model="createWorkspaceForm.name" placeholder="Workspace name" required />
@@ -98,8 +98,9 @@ import type { Id } from '~/convex/_generated/dataModel'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, ctx, role, tenantId } = usePermissions()
+const { can, ctx, role, tenantId, pending: permissionsPending } = usePermissions()
 const canCreatePage = can('page.create')
+const appReady = computed(() => !permissionsPending.value && !!ctx.value)
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
@@ -115,7 +116,7 @@ const shareView = reactive({
 const createdToken = ref('')
 const selectedPageArgs = ref<{ id: Id<'pages'>, shareToken?: string } | undefined>(undefined)
 
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
+useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const seedDemoPages = useConvexMutation(api.pages.seedDemoPages)
