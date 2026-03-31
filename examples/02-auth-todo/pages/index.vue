@@ -1,119 +1,198 @@
 <template>
-  <main class="page">
-    <section class="panel">
-      <p class="eyebrow">Example 02</p>
-      <h1>Auth Todo</h1>
-      <p class="lede">
-        This version keeps the same todo domain, but now every list and mutation belongs to the
-        signed-in user.
-      </p>
-
-      <ConvexAuthLoading>
-        <p class="status">Checking the current session...</p>
-      </ConvexAuthLoading>
-
-      <ConvexUnauthenticated>
-        <div class="auth-grid">
-          <form class="card" @submit.prevent="handleSignUp">
-            <h2>Create account</h2>
-            <label class="field">
-              <span>Name</span>
-              <input v-model="signUpForm.name" class="input" type="text" required />
-            </label>
-            <label class="field">
-              <span>Email</span>
-              <input v-model="signUpForm.email" class="input" type="email" required />
-            </label>
-            <label class="field">
-              <span>Password</span>
-              <input
-                v-model="signUpForm.password"
-                class="input"
-                type="password"
-                minlength="8"
-                required
-              />
-            </label>
-            <button class="button" type="submit" :disabled="authAction.pending.value">
-              {{ authAction.pending.value ? 'Creating...' : 'Sign up' }}
-            </button>
-          </form>
-
-          <form class="card" @submit.prevent="handleSignIn">
-            <h2>Sign in</h2>
-            <label class="field">
-              <span>Email</span>
-              <input v-model="signInForm.email" class="input" type="email" required />
-            </label>
-            <label class="field">
-              <span>Password</span>
-              <input v-model="signInForm.password" class="input" type="password" required />
-            </label>
-            <button class="button muted" type="submit" :disabled="authAction.pending.value">
-              {{ authAction.pending.value ? 'Signing in...' : 'Sign in' }}
-            </button>
-          </form>
-        </div>
-
-        <p v-if="authAction.error.value" class="error">
-          {{ authAction.error.value.message }}
+  <div
+    class="min-h-screen flex items-center justify-center p-6 bg-linear-to-br from-green-50 to-white dark:from-green-950/20 dark:to-neutral-950"
+  >
+    <UCard class="w-full max-w-4xl">
+      <template #header>
+        <p
+          class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400"
+        >
+          Example 02
         </p>
-      </ConvexUnauthenticated>
+        <h1 class="text-3xl font-bold mt-1">Auth Todo</h1>
+        <p class="text-sm text-muted mt-2">
+          This version keeps the same todo domain, but now every list and mutation belongs to the
+          signed-in user.
+        </p>
+      </template>
 
-      <ConvexAuthenticated>
-        <header class="toolbar">
-          <div>
-            <h2>{{ user?.name || user?.email || 'Signed in user' }}</h2>
-            <p class="hint">
-              The page waits until a matching row exists in the app's `users` table before it runs
-              the authed todo query.
-            </p>
+      <div class="space-y-4">
+        <ConvexAuthLoading>
+          <div class="space-y-3">
+            <p class="text-sm text-muted">Checking the current session...</p>
+            <USkeleton class="h-24 w-full rounded-xl" />
           </div>
-          <button class="ghost" type="button" @click="handleSignOut">
-            Sign out
-          </button>
-        </header>
+        </ConvexAuthLoading>
 
-        <p v-if="ensureUserRow.pending.value || todosPending" class="status">Loading your personal todos...</p>
-        <p v-if="todoError" class="error">{{ todoError }}</p>
+        <ConvexUnauthenticated>
+          <UAlert
+            v-if="authAction.error.value"
+            color="error"
+            variant="soft"
+            icon="i-lucide-circle-alert"
+            title="Authentication error"
+            :description="authAction.error.value.message"
+          />
 
-        <form class="composer" @submit.prevent="handleCreateTodo">
-          <label class="field">
-            <span>New personal todo</span>
-            <div class="composer-row">
-              <input
-                v-model="title"
-                class="input"
-                type="text"
-                placeholder="Only your account should see this"
-                required
-              />
-              <button class="button" type="submit" :disabled="createTodo.pending.value || !actorReady">
-                {{ createTodo.pending.value ? 'Adding...' : 'Add' }}
-              </button>
+          <div class="grid gap-4 md:grid-cols-2">
+            <UCard>
+              <template #header>
+                <h2 class="text-lg font-semibold">Create account</h2>
+                <p class="text-sm text-muted mt-1">
+                  Create a personal account so your todos stay scoped to you.
+                </p>
+              </template>
+
+              <form class="space-y-4" @submit.prevent="handleSignUp">
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Name</label>
+                  <UInput v-model="signUpForm.name" type="text" required />
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Email</label>
+                  <UInput v-model="signUpForm.email" type="email" required />
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Password</label>
+                  <UInput
+                    v-model="signUpForm.password"
+                    type="password"
+                    minlength="8"
+                    required
+                  />
+                </div>
+
+                <UButton type="submit" block :loading="authAction.pending.value">
+                  {{ authAction.pending.value ? 'Creating...' : 'Sign up' }}
+                </UButton>
+              </form>
+            </UCard>
+
+            <UCard>
+              <template #header>
+                <h2 class="text-lg font-semibold">Sign in</h2>
+                <p class="text-sm text-muted mt-1">
+                  Use an existing account to load your personal todo list.
+                </p>
+              </template>
+
+              <form class="space-y-4" @submit.prevent="handleSignIn">
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Email</label>
+                  <UInput v-model="signInForm.email" type="email" required />
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Password</label>
+                  <UInput v-model="signInForm.password" type="password" required />
+                </div>
+
+                <UButton
+                  type="submit"
+                  block
+                  color="neutral"
+                  variant="soft"
+                  :loading="authAction.pending.value"
+                >
+                  {{ authAction.pending.value ? 'Signing in...' : 'Sign in' }}
+                </UButton>
+              </form>
+            </UCard>
+          </div>
+        </ConvexUnauthenticated>
+
+        <ConvexAuthenticated>
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 class="text-xl font-semibold">
+                  {{ user?.name || user?.email || 'Signed in user' }}
+                </h2>
+                <p class="text-sm text-muted mt-1">
+                  The page waits until a matching row exists in the app's `users` table before it
+                  runs the authed todo query.
+                </p>
+              </div>
+
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                trailing-icon="i-lucide-log-out"
+                @click="handleSignOut"
+              >
+                Sign out
+              </UButton>
             </div>
-          </label>
-        </form>
 
-        <ul v-if="todos?.length" class="list">
-          <li v-for="todo in todos" :key="todo._id" class="item">
-            <label class="checkbox-row">
-              <input
-                type="checkbox"
-                :checked="todo.completed"
-                @change="toggleTodo({ id: todo._id })"
-              />
-              <span :class="{ done: todo.completed }">{{ todo.title }}</span>
-            </label>
-            <button class="ghost" type="button" @click="removeTodo({ id: todo._id })">
-              Delete
-            </button>
-          </li>
-        </ul>
-        <p v-else-if="actorReady" class="empty">No personal todos yet.</p>
-      </ConvexAuthenticated>
-    </section>
-  </main>
+            <UAlert
+              v-if="todoError"
+              color="error"
+              variant="soft"
+              icon="i-lucide-circle-alert"
+              title="Todo error"
+              :description="todoError"
+            />
+
+            <div v-if="ensureUserRow.pending.value || todosPending" class="space-y-3">
+              <p class="text-sm text-muted">Loading your personal todos...</p>
+              <USkeleton v-for="n in 3" :key="n" class="h-12 w-full rounded-xl" />
+            </div>
+
+            <template v-else>
+              <form class="flex flex-col gap-3 md:flex-row" @submit.prevent="handleCreateTodo">
+                <UInput
+                  v-model="title"
+                  placeholder="Only your account should see this"
+                  class="flex-1"
+                  required
+                  :disabled="createTodo.pending.value || !actorReady"
+                />
+                <UButton
+                  type="submit"
+                  :loading="createTodo.pending.value"
+                  :disabled="!actorReady"
+                  leading-icon="i-lucide-plus"
+                >
+                  Add
+                </UButton>
+              </form>
+
+              <ul v-if="todos?.length" class="space-y-2">
+                <li
+                  v-for="todo in todos"
+                  :key="todo._id"
+                  class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-default bg-elevated"
+                >
+                  <UCheckbox
+                    :model-value="todo.completed"
+                    :label="todo.title"
+                    :ui="{ label: todo.completed ? 'line-through text-muted' : '' }"
+                    @update:model-value="toggleTodo({ id: todo._id })"
+                  />
+                  <UButton
+                    icon="i-lucide-trash-2"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    square
+                    aria-label="Delete todo"
+                    @click="removeTodo({ id: todo._id })"
+                  />
+                </li>
+              </ul>
+
+              <p v-else-if="actorReady" class="text-muted text-sm text-center py-8">
+                No personal todos yet.
+              </p>
+            </template>
+          </div>
+        </ConvexAuthenticated>
+      </div>
+    </UCard>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -202,163 +281,3 @@ async function handleCreateTodo() {
   title.value = ''
 }
 </script>
-
-<style scoped>
-.page {
-  min-height: 100vh;
-  padding: 2rem;
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.18), transparent 26rem),
-    linear-gradient(180deg, #f8fafc 0%, #eff6ff 100%);
-  color: #0f172a;
-}
-
-.panel {
-  width: min(100%, 64rem);
-  margin: 0 auto;
-  padding: 2rem;
-  border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
-}
-
-.eyebrow {
-  margin: 0 0 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #0369a1;
-}
-
-h1,
-h2 {
-  margin: 0;
-}
-
-.lede,
-.hint,
-.status,
-.empty {
-  color: #475569;
-}
-
-.auth-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.card {
-  display: grid;
-  gap: 0.9rem;
-  padding: 1.2rem;
-  border-radius: 1.1rem;
-  background: white;
-  border: 1px solid #dbeafe;
-}
-
-.toolbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.field {
-  display: grid;
-  gap: 0.45rem;
-}
-
-.composer {
-  margin: 1.5rem 0;
-}
-
-.composer-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.75rem;
-}
-
-.input,
-.button,
-.ghost {
-  border-radius: 0.9rem;
-  font: inherit;
-}
-
-.input {
-  min-width: 0;
-  padding: 0.9rem 1rem;
-  border: 1px solid #cbd5e1;
-  background: white;
-}
-
-.button {
-  padding: 0.9rem 1.2rem;
-  border: none;
-  background: #0369a1;
-  color: white;
-  font-weight: 700;
-}
-
-.button.muted {
-  background: #334155;
-}
-
-.ghost {
-  padding: 0.75rem 1rem;
-  border: 1px solid #cbd5e1;
-  background: white;
-}
-
-.list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 0.85rem;
-}
-
-.item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.95rem 1rem;
-  border-radius: 1rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-}
-
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-}
-
-.done {
-  color: #64748b;
-  text-decoration: line-through;
-}
-
-.error {
-  color: #b91c1c;
-}
-
-@media (max-width: 720px) {
-  .auth-grid,
-  .composer-row {
-    grid-template-columns: 1fr;
-  }
-
-  .toolbar,
-  .item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-</style>

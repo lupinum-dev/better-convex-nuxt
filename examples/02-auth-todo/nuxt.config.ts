@@ -4,7 +4,8 @@
  * The example deliberately keeps everything on one page so the auth state transitions are easy to inspect.
  */
 export default defineNuxtConfig({
-  modules: ['better-convex-nuxt'],
+  modules: ['better-convex-nuxt', '@nuxt/ui'],
+  css: ['~/assets/css/main.css'],
 
   compatibilityDate: '2026-03-30',
 
