@@ -108,47 +108,6 @@ export function ensureFound<T>(
   }
 }
 
-export type UserActor<TRole extends string = string> = {
-  kind: 'user'
-  userId: string
-  role: TRole
-  tenantId: string
-}
-
-export async function resolveUserActor<TRole extends string = string>(
-  ctx: AnyCtx,
-  options?: {
-    usersTable?: string
-    authIdField?: string
-    authIdIndex?: string
-    roleField?: string
-    tenantIdField?: string
-  },
-): Promise<UserActor<TRole> | null> {
-  const {
-    usersTable = 'users',
-    authIdField = 'authId',
-    authIdIndex = 'by_auth_id',
-    roleField = 'role',
-    tenantIdField = 'workspaceId',
-  } = options ?? {}
-
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic table/field names require generic db access
-  const user = await (ctx.db as any).query(usersTable).withIndex(authIdIndex, (q: any) => q.eq(authIdField, identity.subject)).first()
-
-  if (!user?.[tenantIdField]) return null
-
-  return {
-    kind: 'user',
-    userId: user[authIdField],
-    role: user[roleField] as TRole,
-    tenantId: user[tenantIdField],
-  }
-}
-
 export async function getIdentity(ctx: AnyCtx): Promise<Identity | null> {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) return null

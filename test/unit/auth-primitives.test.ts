@@ -14,7 +14,6 @@ import {
   guard,
   not,
   requirePrincipal,
-  resolveUserActor,
   verifyKey,
 } from '../../src/runtime/auth'
 
@@ -133,58 +132,6 @@ describe('auth primitives', () => {
     ensureFound(doc)
     // After ensureFound, doc is narrowed — this access is type-safe
     expect(doc.name).toBe('test')
-  })
-
-  it('resolveUserActor returns null when identity is missing', async () => {
-    const ctx = {
-      auth: { getUserIdentity: async () => null },
-      db: {},
-    } as any
-    const result = await resolveUserActor(ctx)
-    expect(result).toBeNull()
-  })
-
-  it('resolveUserActor resolves a user from a mock context', async () => {
-    const mockUser = { authId: 'auth-123', role: 'admin', workspaceId: 'ws-1' }
-    const ctx = {
-      auth: {
-        getUserIdentity: async () => ({ subject: 'auth-123', tokenIdentifier: 'test' }),
-      },
-      db: {
-        query: () => ({
-          withIndex: () => ({
-            first: async () => mockUser,
-          }),
-        }),
-      },
-    } as any
-
-    const actor = await resolveUserActor<'admin' | 'member'>(ctx)
-    expect(actor).toEqual({
-      kind: 'user',
-      userId: 'auth-123',
-      role: 'admin',
-      tenantId: 'ws-1',
-    })
-  })
-
-  it('resolveUserActor returns null when user has no tenant', async () => {
-    const mockUser = { authId: 'auth-123', role: 'admin', workspaceId: null }
-    const ctx = {
-      auth: {
-        getUserIdentity: async () => ({ subject: 'auth-123', tokenIdentifier: 'test' }),
-      },
-      db: {
-        query: () => ({
-          withIndex: () => ({
-            first: async () => mockUser,
-          }),
-        }),
-      },
-    } as any
-
-    const result = await resolveUserActor(ctx)
-    expect(result).toBeNull()
   })
 
   it('applies visibility queries and arrays', async () => {
