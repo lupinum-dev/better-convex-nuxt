@@ -32,6 +32,15 @@ It shows:
 5. Confirm the owner can manage all Alpha todos while the member is limited by ownership rules.
 6. Use the MCP curl commands below to manage Alpha's todos as account A.
 
+## Run It
+
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
+
+The launcher starts a local Convex deployment, waits for `_generated`, and then starts Nuxt. Keep
+`CONVEX_SERVICE_KEY`, `SITE_URL`, and `BETTER_AUTH_SECRET` in `.env.local`; local Convex URLs are injected.
+
 ## MCP Demo Auth
 
 To keep the example focused, MCP auth uses a tiny demo middleware:

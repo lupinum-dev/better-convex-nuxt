@@ -9,9 +9,9 @@ import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canCreatePage, isAuthenticated } from './auth/checks'
-import { type AccessLevel, requirePageAccess } from './auth/page-access'
+import { type AccessLevel, requirePageAccess } from './auth/pageAccess'
 import { requireRecord, loadResource } from './auth/scope'
-import { requireTokenLevel, resolveShareToken } from './auth/share-tokens'
+import { requireTokenLevel, resolveShareToken } from './auth/shareTokens'
 
 function createShareTokenValue(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(18))

@@ -2,16 +2,16 @@ import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getAuth } from 'better-convex-nuxt/auth'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string }
+  | { kind: 'user'; userId: string; role: string; tenantId: Id<'workspaces'> }
   | null
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: Ctx): Promise<Actor> {
-  const auth = await getAuth(ctx)
+  const auth = await getAuth(ctx as Parameters<typeof getAuth>[0])
   if (!auth) return null
 
   const user = await ctx.db

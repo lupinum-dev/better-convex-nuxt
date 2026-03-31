@@ -37,6 +37,14 @@ It shows:
 4. `convex/webhooks.ts`
 5. `convex/ecommerce.test.ts`
 
+## Run It
+
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
+
+Keep `CONVEX_SERVICE_KEY` in `.env.local`. The launcher injects the local Convex URLs automatically.
+
 ## Demo Flow
 
 1. Sign up and create a workspace.

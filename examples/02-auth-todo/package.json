@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxi dev --dotenv .env.local",
+    "dev": "node ../../scripts/example-dev.mjs",
+    "dev:nuxt": "nuxi dev --dotenv .env.local",
     "build": "nuxi build --dotenv .env.local",
     "typecheck": "nuxi typecheck --dotenv .env.local",
-    "convex:dev": "convex dev",
+    "convex:dev": "CONVEX_AGENT_MODE=anonymous convex dev",
     "convex:codegen": "convex codegen"
   },
   "dependencies": {

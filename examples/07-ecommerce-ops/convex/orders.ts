@@ -5,7 +5,7 @@ import { authorize } from 'better-convex-nuxt/auth'
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canReadOrders, canRefundOrders } from './auth/checks'
-import { validateRefundEligibility } from './refund-rules'
+import { validateRefundEligibility } from './refundRules'
 
 export const list = query({
   args: {},

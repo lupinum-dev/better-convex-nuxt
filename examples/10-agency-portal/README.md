@@ -36,6 +36,12 @@ It shows:
 4. `pages/index.vue`
 5. `convex/agency.test.ts`
 
+## Run It
+
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
+
 ## Demo Flow
 
 1. Sign up and create a client workspace.

@@ -42,24 +42,29 @@ That keeps the main package validation fast and avoids forcing generated Convex 
 Every example is a small consumer app with its own `package.json`.
 
 1. `cd` into the example folder.
-2. Copy `.env.example` to `.env.local`.
+2. Copy `.env.example` to `.env.local` if that example has app-owned env vars.
 3. Run `pnpm install`.
-4. Start Convex with `npx convex dev`.
-5. Start Nuxt with `pnpm dev`.
+4. Start everything with `pnpm dev`.
+
+`pnpm dev` starts an anonymous local Convex deployment, waits for Convex to write the local deployment
+env plus codegen output, then starts Nuxt with the resulting `CONVEX_URL` and `CONVEX_SITE_URL`.
+
+If you want the old split-terminal workflow for debugging, `pnpm convex:dev` is still available as an
+advanced command, but it is local-only and no longer the default example path.
 
 If you are running these examples from inside this repository and the local package link does not resolve yet, run `pnpm dev:prepare` once at the repo root so the package's built exports are available.
 
 ## Environment Variables
 
-| Example | Nuxt env vars | Extra Convex/auth env vars |
+| Example | Injected by `pnpm dev` | App-owned env vars |
 | --- | --- | --- |
-| `01-public-todo` | `CONVEX_URL` | none |
+| `01-public-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | none |
 | `02-auth-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `03-team-todo` | `CONVEX_URL`, `CONVEX_SITE_URL`, `CONVEX_SERVICE_KEY` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
-| `04-project-board-admin` | `CONVEX_URL`, `CONVEX_SITE_URL`, `CONVEX_SERVICE_KEY` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
+| `03-team-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
+| `04-project-board-admin` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
 | `05-crm-pipeline` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
 | `06-course-lms` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `07-ecommerce-ops` | `CONVEX_URL`, `CONVEX_SITE_URL`, `CONVEX_SERVICE_KEY` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
+| `07-ecommerce-ops` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
 | `08-freemium-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
 | `09-doc-sharing` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
 | `10-agency-portal` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |

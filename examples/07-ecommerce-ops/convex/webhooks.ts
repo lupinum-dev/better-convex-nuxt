@@ -5,8 +5,8 @@ import { v } from 'convex/values'
 
 import { mutation } from './_generated/server'
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
-import { resolveServiceActor } from './auth/service-auth'
-import { validateRefundEligibility } from './refund-rules'
+import { resolveServiceActor } from './auth/serviceAuth'
+import { validateRefundEligibility } from './refundRules'
 
 export const processRefundWebhook = mutation({
   args: {

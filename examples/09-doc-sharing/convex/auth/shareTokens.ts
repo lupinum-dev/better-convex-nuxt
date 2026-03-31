@@ -6,7 +6,7 @@ import { deny } from 'better-convex-nuxt/auth'
 
 import type { DatabaseReader } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'
-import type { AccessLevel } from './page-access'
+import type { AccessLevel } from './pageAccess'
 
 export type ShareGrant = {
   kind: 'share_token'

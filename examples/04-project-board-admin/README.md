@@ -48,10 +48,12 @@ field names change.
 
 ## Run It
 
-1. `pnpm install`
-2. `pnpm convex:codegen`
-3. `pnpm convex:dev`
-4. In another terminal: `pnpm dev`
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
+
+`pnpm dev` is the default path. It starts an anonymous local Convex deployment, waits for Convex codegen, and then starts Nuxt.
+Use `pnpm convex:dev` only if you explicitly want to run the local backend by hand.
 
 ## Run The Tests
 

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createTestContext } from 'better-convex-nuxt/testing'
 
+import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -54,8 +55,9 @@ describe('doc sharing example', () => {
     })
 
     const seeded = await team.users.owner.mutation(api.pages.seedDemoPages, {})
+    const workspaceId = team.id as Id<'workspaces'>
     await ctx.seed('shareTokens', {
-      workspaceId: team.id,
+      workspaceId,
       pageId: seeded.rootPageId,
       token: 'expired-token',
       level: 'view',
@@ -78,8 +80,9 @@ describe('doc sharing example', () => {
     })
 
     const seeded = await team.users.owner.mutation(api.pages.seedDemoPages, {})
+    const workspaceId = team.id as Id<'workspaces'>
     await ctx.seed('shareTokens', {
-      workspaceId: team.id,
+      workspaceId,
       pageId: seeded.rootPageId,
       token: 'revoked-token',
       level: 'view',
@@ -102,8 +105,9 @@ describe('doc sharing example', () => {
     })
 
     const seeded = await team.users.owner.mutation(api.pages.seedDemoPages, {})
+    const workspaceId = team.id as Id<'workspaces'>
     await ctx.seed('shareTokens', {
-      workspaceId: team.id,
+      workspaceId,
       pageId: seeded.rootPageId,
       token: 'view-only',
       level: 'view',
@@ -130,8 +134,9 @@ describe('doc sharing example', () => {
     })
 
     const seeded = await team.users.owner.mutation(api.pages.seedDemoPages, {})
+    const workspaceId = team.id as Id<'workspaces'>
     await ctx.seed('pageShares', {
-      workspaceId: team.id,
+      workspaceId,
       pageId: seeded.rootPageId,
       userId: team.users.viewer.authId,
       level: 'view',

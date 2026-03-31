@@ -19,6 +19,15 @@ It shows:
 3. `convex/todos.ts`
 4. `pages/index.vue`
 
+## Run It
+
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
+
+`pnpm dev` starts the local Convex deployment for you. Keep `SITE_URL` and `BETTER_AUTH_SECRET` in `.env.local`;
+do not set `CONVEX_URL` manually for this example.
+
 ## What To Try
 
 1. Create an account.

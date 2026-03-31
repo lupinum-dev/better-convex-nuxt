@@ -9,8 +9,9 @@ import authConfig from './auth.config'
 
 const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
 const authFunctions: AuthFunctions = internal.auth
+type BetterAuthComponent = { betterAuth: Parameters<typeof createClient<DataModel>>[0] }
 
-export const authComponent = createClient<DataModel>(components.betterAuth, {
+export const authComponent = createClient<DataModel>((components as BetterAuthComponent).betterAuth, {
   authFunctions,
   triggers: {
     user: {

@@ -15,6 +15,13 @@ It shows:
 2. `convex/todos.ts`
 3. `pages/index.vue`
 
+## Run It
+
+1. `pnpm install`
+2. `pnpm dev`
+
+`pnpm dev` starts a local Convex deployment automatically and injects the local Convex URLs for Nuxt.
+
 ## What To Try
 
 1. Add a todo.
