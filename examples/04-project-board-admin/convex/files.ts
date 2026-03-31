@@ -4,7 +4,7 @@
  * This handler only needs "are you signed in?" because the actual file becomes workspace-scoped
  * later when comments attach the returned storage id.
  */
-import { guard } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
@@ -16,7 +16,7 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     // Upload URLs are actor-gated, but they are not tied to a specific task or project yet.
-    guard(actor, 'Generate upload URL', isAuthenticated)
+    authorize(actor, 'Generate upload URL', isAuthenticated)
     return await ctx.storage.generateUploadUrl()
   },
 })

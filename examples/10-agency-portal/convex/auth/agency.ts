@@ -5,7 +5,7 @@
  */
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import { getIdentity, deny } from 'better-convex-nuxt/auth'
+import { getAuth, deny } from 'better-convex-nuxt/auth'
 
 import type { Doc, Id } from '../_generated/dataModel'
 import type { DataModel } from '../_generated/dataModel'
@@ -20,12 +20,12 @@ export type AgencyActor = {
 }
 
 export async function getAgencyActor(ctx: Ctx): Promise<AgencyActor | null> {
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
+  const auth = await getAuth(ctx)
+  if (!auth) return null
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+    .withIndex('by_auth_id', q => q.eq('authId', auth.subject))
     .first()
   if (!user) return null
 

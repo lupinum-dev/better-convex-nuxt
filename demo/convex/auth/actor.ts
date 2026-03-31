@@ -3,7 +3,7 @@ import type {
   GenericQueryCtx,
 } from 'convex/server'
 
-import { getIdentity } from 'better-convex-nuxt/auth'
+import { getAuth } from 'better-convex-nuxt/auth'
 
 import type { DataModel } from '../_generated/dataModel'
 
@@ -18,12 +18,12 @@ type DemoCtx =
   | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: DemoCtx): Promise<Actor> {
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
+  const auth = await getAuth(ctx)
+  if (!auth) return null
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+    .withIndex('by_auth_id', q => q.eq('authId', auth.subject))
     .first()
 
   if (!user) return null

@@ -4,7 +4,7 @@
  */
 import { mutation, query } from './_generated/server'
 
-import { deny, guard, requirePrincipal } from 'better-convex-nuxt/auth'
+import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 
 import { getActor } from './auth/actor'
 import { hasRole } from './auth/checks'
@@ -13,8 +13,8 @@ export const seedDemoCourse = mutation({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Seed course', hasRole('owner', 'admin', 'instructor'))
-    requirePrincipal(actor)
+    authorize(actor, 'Seed course', hasRole('owner', 'admin', 'instructor'))
+    requireAuth(actor)
 
     const now = Date.now()
     const courseId = await ctx.db.insert('courses', {
@@ -66,7 +66,7 @@ export const listCourses = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    requirePrincipal(actor)
+    requireAuth(actor)
 
     return ctx.db
       .query('courses')

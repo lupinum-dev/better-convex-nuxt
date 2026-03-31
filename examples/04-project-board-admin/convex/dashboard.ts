@@ -1,4 +1,4 @@
-import { guard } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { query } from './_generated/server'
@@ -9,7 +9,7 @@ export const stats = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'View audit', canViewAudit)
+    authorize(actor, 'View audit', canViewAudit)
 
     const [projects, tasks] = await Promise.all([
       ctx.db
@@ -34,7 +34,7 @@ export const recentActivity = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'View audit', canViewAudit)
+    authorize(actor, 'View audit', canViewAudit)
 
     const events = await ctx.db
       .query('auditEvents')

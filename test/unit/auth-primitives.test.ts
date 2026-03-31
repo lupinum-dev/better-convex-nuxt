@@ -6,14 +6,14 @@ import {
   all,
   any,
   applyVisibility,
+  authorize,
   can,
   defineVisibility,
   deny,
-  ensureFound,
   getVisibilityQuery,
-  guard,
   not,
-  requirePrincipal,
+  requireAuth,
+  requireRecord,
   verifyKey,
 } from '../../src/runtime/auth'
 
@@ -28,18 +28,18 @@ describe('auth primitives', () => {
     expect(can(actor, not(hasRole('admin')))).toBe(true)
   })
 
-  it('throws forbidden errors from guard() and narrows the type', () => {
-    expect(() => guard(null, 'Read dashboard', false)).toThrow(/Forbidden: Read dashboard/)
+  it('throws forbidden errors from authorize() and narrows the type', () => {
+    expect(() => authorize(null, 'Read dashboard', false)).toThrow(/Forbidden: Read dashboard/)
 
     const actor: { role: string } | null = { role: 'admin' }
-    guard(actor, 'Read dashboard', a => a.role === 'admin')
-    // After guard, actor is narrowed to non-null — this access is type-safe
+    authorize(actor, 'Read dashboard', a => a.role === 'admin')
+    // After authorize, actor is narrowed to non-null — this access is type-safe
     expect(actor.role).toBe('admin')
   })
 
-  it('guard() includes auth category when principal is null', () => {
+  it('authorize() includes auth category when actor is null', () => {
     try {
-      guard(null, 'Read dashboard', true)
+      authorize(null, 'Read dashboard', true)
     }
     catch (error) {
       expect(error).toBeInstanceOf(ConvexError)
@@ -47,9 +47,9 @@ describe('auth primitives', () => {
     }
   })
 
-  it('guard() accepts an optional category', () => {
+  it('authorize() accepts an optional category', () => {
     try {
-      guard({ role: 'viewer' }, 'Manage users', () => false, 'role')
+      authorize({ role: 'viewer' }, 'Manage users', () => false, 'role')
     }
     catch (error) {
       expect(error).toBeInstanceOf(ConvexError)
@@ -86,13 +86,13 @@ describe('auth primitives', () => {
     }
   })
 
-  it('narrows authenticated principals with requirePrincipal()', () => {
+  it('narrows authenticated actors with requireAuth()', () => {
     const actor: { userId: string } | null = { userId: 'alice' }
 
-    expect(() => requirePrincipal(actor)).not.toThrow()
-    requirePrincipal(actor)
+    expect(() => requireAuth(actor)).not.toThrow()
+    requireAuth(actor)
     expect(actor.userId).toBe('alice')
-    expect(() => requirePrincipal(null)).toThrow(/Not authenticated\./)
+    expect(() => requireAuth(null)).toThrow(/Not authenticated\./)
   })
 
   it('fails closed in can() for ConvexError but rethrows programming bugs', () => {
@@ -111,13 +111,13 @@ describe('auth primitives', () => {
     expect(verifyKey('', 'def')).toBe(false)
   })
 
-  it('ensureFound throws ConvexError with NOT_FOUND code', () => {
-    expect(() => ensureFound(null)).toThrow()
-    expect(() => ensureFound(undefined)).toThrow()
-    expect(() => ensureFound({ id: '1' })).not.toThrow()
+  it('requireRecord throws ConvexError with NOT_FOUND code', () => {
+    expect(() => requireRecord(null)).toThrow()
+    expect(() => requireRecord(undefined)).toThrow()
+    expect(() => requireRecord({ id: '1' })).not.toThrow()
 
     try {
-      ensureFound(null, 'Project')
+      requireRecord(null, 'Project')
     }
     catch (error) {
       expect(error).toBeInstanceOf(ConvexError)
@@ -127,10 +127,10 @@ describe('auth primitives', () => {
     }
   })
 
-  it('ensureFound narrows the type', () => {
+  it('requireRecord narrows the type', () => {
     const doc: { name: string } | null = { name: 'test' }
-    ensureFound(doc)
-    // After ensureFound, doc is narrowed — this access is type-safe
+    requireRecord(doc)
+    // After requireRecord, doc is narrowed — this access is type-safe
     expect(doc.name).toBe('test')
   })
 

@@ -1,4 +1,4 @@
-import { guard } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 
@@ -31,7 +31,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Invite member', canInviteMembers)
+    authorize(actor, 'Invite member', canInviteMembers)
     if (!actor.tenantId) throw new Error('No organization selected')
 
     const tenantId = actor.tenantId as Id<'organizations'>
@@ -76,7 +76,7 @@ export const revoke = mutation({
   args: { id: v.id('invites') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Revoke invite', canInviteMembers)
+    authorize(actor, 'Revoke invite', canInviteMembers)
 
     const invite = loadResource(actor, await ctx.db.get(args.id), 'Invite')
     if (invite.status !== 'pending') throw new Error('Invite is not pending')
@@ -89,7 +89,7 @@ export const accept = mutation({
   args: { id: v.id('invites') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Accept invite', actor !== null)
+    authorize(actor, 'Accept invite', actor !== null)
 
     const user = await getUserRowFromActor(ctx.db, actor)
     if (!user) throw new Error('User not found')

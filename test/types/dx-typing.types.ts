@@ -1,13 +1,13 @@
 import type { FunctionReference } from 'convex/server'
 
-import type { Identity, Visibility } from '../../src/runtime/auth'
+import type { AuthIdentity, Visibility } from '../../src/runtime/auth'
 import {
   and,
   applyVisibility,
+  authorize,
   can,
   deny,
-  requirePrincipal,
-  guard,
+  requireAuth,
   verifyKey,
   defineVisibility,
 } from '../../src/runtime/auth'
@@ -32,11 +32,11 @@ const allowed = can({ role: 'owner', userId: 'u1', tenantId: 't1' }, composed)
 void allowed
 
 const requiredActor = {} as Actor
-requirePrincipal(requiredActor)
+requireAuth(requiredActor)
 type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
 
 deny('Blocked')
-guard(null, 'Admin page', false)
+authorize(null, 'Admin page', false)
 verifyKey('a', 'b')
 
 const visibility = defineVisibility(async () => [{ _id: '1' }])
@@ -98,7 +98,7 @@ type _genericPermissionKey = Assert<IsEqual<PermissionKey<GenericPermissionConte
 type _genericCanParameter = Assert<IsEqual<Parameters<GenericUsePermissionsApi['can']>[0], string>>
 type _genericGuardCanKey = Assert<IsEqual<GenericGuardOptions['can'], string | undefined>>
 
-const _identity = {} as Identity | null
+const _identity = {} as AuthIdentity | null
 void _identity
 const _visibility = {} as Visibility<{ _id: string }, { userId: string }>
 void _visibility

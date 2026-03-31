@@ -1,4 +1,4 @@
-import { guard } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 
@@ -42,7 +42,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create MCP key', canInviteMembers)
+    authorize(actor, 'Create MCP key', canInviteMembers)
     if (!actor.tenantId) throw new Error('No organization selected')
 
     const key = generateKey()
@@ -67,7 +67,7 @@ export const revoke = mutation({
   args: { id: v.id('mcpKeys') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Revoke MCP key', canInviteMembers)
+    authorize(actor, 'Revoke MCP key', canInviteMembers)
     loadResource(actor, await ctx.db.get(args.id), 'MCP key')
 
     await ctx.db.patch(args.id, {

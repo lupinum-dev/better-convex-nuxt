@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
-import { can, guard } from 'better-convex-nuxt/auth'
+import { can, authorize } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import type { Id } from './_generated/dataModel'
@@ -39,7 +39,7 @@ export const list = query({
     const actor = await getActor(ctx)
     if (!actor?.tenantId) return []
 
-    guard(actor, 'Read posts', canReadPost)
+    authorize(actor, 'Read posts', canReadPost)
 
     const posts = await ctx.db
       .query('posts')
@@ -59,7 +59,7 @@ export const listPaginated = query({
       return { page: [], isDone: true, continueCursor: '' }
     }
 
-    guard(actor, 'Read posts', canReadPost)
+    authorize(actor, 'Read posts', canReadPost)
 
     const result = await ctx.db
       .query('posts')
@@ -80,7 +80,7 @@ export const get = query({
     const actor = await getActor(ctx)
     if (!actor) return null
 
-    guard(actor, 'Read post', canReadPost)
+    authorize(actor, 'Read post', canReadPost)
 
     const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
     return attachPostPermissions(actor, post)
@@ -91,7 +91,7 @@ export const create = mutation({
   args: createPost.validators,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create post', canCreatePost)
+    authorize(actor, 'Create post', canCreatePost)
     if (!actor.tenantId) throw new Error('No organization selected')
 
     return await ctx.db.insert('posts', {
@@ -110,7 +110,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
-    guard(actor, 'Update post', canUpdatePost(post))
+    authorize(actor, 'Update post', canUpdatePost(post))
 
     await ctx.db.patch(args.id, {
       ...(args.title !== undefined ? { title: args.title } : {}),
@@ -125,7 +125,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
-    guard(actor, 'Delete post', canDeletePost(post))
+    authorize(actor, 'Delete post', canDeletePost(post))
     await ctx.db.delete(args.id)
   },
 })
@@ -135,7 +135,7 @@ export const publish = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
-    guard(actor, 'Publish post', canPublishPost)
+    authorize(actor, 'Publish post', canPublishPost)
 
     await ctx.db.patch(args.id, {
       status: 'published',

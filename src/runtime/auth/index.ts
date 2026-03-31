@@ -8,11 +8,14 @@ import type {
 } from 'convex/server'
 import { ConvexError } from 'convex/values'
 
-export type Identity = {
+export type AuthIdentity = {
   subject: string
   email?: string
   name?: string
 }
+
+/** @deprecated Use `AuthIdentity` instead. */
+export type Identity = AuthIdentity
 
 export type AuthErrorData = {
   code: 'FORBIDDEN' | 'NOT_FOUND'
@@ -76,10 +79,13 @@ export function deny(reason: string, sourceOrOptions?: string | { source?: strin
   throw toForbiddenError(reason, sourceOrOptions)
 }
 
-export function guard<P>(principal: P, label: string, check: AnyCheck<NonNullable<P>>, category?: string): asserts principal is NonNullable<P> {
+export function authorize<P>(principal: P, label: string, check: AnyCheck<NonNullable<P>>, category?: string): asserts principal is NonNullable<P> {
   if (principal == null) throw toForbiddenError(`Forbidden: ${label}`, undefined, category ?? 'auth')
   if (!runCheck(principal, check)) throw toForbiddenError(`Forbidden: ${label}`, undefined, category)
 }
+
+/** @deprecated Use `authorize` instead. */
+export const guard = authorize
 
 export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
   try {
@@ -90,7 +96,7 @@ export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
   }
 }
 
-export function requirePrincipal<P>(
+export function requireAuth<P>(
   principal: P,
   reason = 'Not authenticated.',
 ): asserts principal is NonNullable<P> {
@@ -99,7 +105,10 @@ export function requirePrincipal<P>(
   }
 }
 
-export function ensureFound<T>(
+/** @deprecated Use `requireAuth` instead. */
+export const requirePrincipal = requireAuth
+
+export function requireRecord<T>(
   doc: T | null | undefined,
   label?: string,
 ): asserts doc is T {
@@ -108,7 +117,10 @@ export function ensureFound<T>(
   }
 }
 
-export async function getIdentity(ctx: AnyCtx): Promise<Identity | null> {
+/** @deprecated Use `requireRecord` instead. */
+export const ensureFound = requireRecord
+
+export async function getAuth(ctx: AnyCtx): Promise<AuthIdentity | null> {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) return null
   return {
@@ -117,6 +129,9 @@ export async function getIdentity(ctx: AnyCtx): Promise<Identity | null> {
     ...(typeof identity.name === 'string' ? { name: identity.name } : {}),
   }
 }
+
+/** @deprecated Use `getAuth` instead. */
+export const getIdentity = getAuth
 
 export function verifyKey(provided: string, expected: string): boolean {
   if (!provided || !expected) return false

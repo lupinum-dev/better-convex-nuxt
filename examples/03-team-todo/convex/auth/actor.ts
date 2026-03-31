@@ -1,4 +1,4 @@
-import { getIdentity, verifyKey } from 'better-convex-nuxt/auth'
+import { getAuth, verifyKey } from 'better-convex-nuxt/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'
@@ -31,12 +31,12 @@ export async function getActor(ctx: TeamTodoCtx, args?: ServiceAuthArgs): Promis
       : null
   if (serviceActor) return serviceActor
 
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
+  const auth = await getAuth(ctx)
+  if (!auth) return null
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+    .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
     .first()
 
   if (!user?.workspaceId) return null

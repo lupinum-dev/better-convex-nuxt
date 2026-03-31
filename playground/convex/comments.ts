@@ -1,4 +1,4 @@
-import { can, guard } from 'better-convex-nuxt/auth'
+import { can, authorize } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -33,7 +33,7 @@ export const listByPost = query({
     const actor = await getActor(ctx)
     if (!actor) return []
 
-    guard(actor, 'Read comments', canReadComment)
+    authorize(actor, 'Read comments', canReadComment)
 
     const post = loadResource(actor, await ctx.db.get(args.postId), 'Post')
     const comments = await ctx.db
@@ -50,7 +50,7 @@ export const create = mutation({
   args: createComment.validators,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create comment', canCreateComment)
+    authorize(actor, 'Create comment', canCreateComment)
     const post = loadResource(actor, await ctx.db.get(args.postId), 'Post')
 
     return await ctx.db.insert('comments', {
@@ -69,7 +69,7 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')
-    guard(actor, 'Update comment', canUpdateComment(comment))
+    authorize(actor, 'Update comment', canUpdateComment(comment))
 
     await ctx.db.patch(args.id, {
       content: args.content,
@@ -84,7 +84,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')
-    guard(actor, 'Delete comment', canDeleteComment(comment))
+    authorize(actor, 'Delete comment', canDeleteComment(comment))
     await ctx.db.delete(args.id)
   },
 })

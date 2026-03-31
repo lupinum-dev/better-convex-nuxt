@@ -4,13 +4,13 @@
  */
 import { v } from 'convex/values'
 
-import { deny, guard, requirePrincipal } from 'better-convex-nuxt/auth'
+import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canCreatePage, isAuthenticated } from './auth/checks'
 import { type AccessLevel, requirePageAccess } from './auth/page-access'
-import { ensureFound, loadResource } from './auth/scope'
+import { requireRecord, loadResource } from './auth/scope'
 import { requireTokenLevel, resolveShareToken } from './auth/share-tokens'
 
 function createShareTokenValue(): string {
@@ -22,8 +22,8 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Read page', isAuthenticated)
-    requirePrincipal(actor)
+    authorize(actor, 'Read page', isAuthenticated)
+    requireAuth(actor)
 
     return ctx.db
       .query('pages')
@@ -37,8 +37,8 @@ export const seedDemoPages = mutation({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create page', canCreatePage)
-    requirePrincipal(actor)
+    authorize(actor, 'Create page', canCreatePage)
+    requireAuth(actor)
 
     const now = Date.now()
     const rootPageId = await ctx.db.insert('pages', {
@@ -81,7 +81,7 @@ export const createShareToken = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    requirePrincipal(actor)
+    requireAuth(actor)
     const page = loadResource(actor, await ctx.db.get(args.pageId), 'Page')
     await requirePageAccess(ctx.db, actor, page._id, 'edit')
 
@@ -108,7 +108,7 @@ export const viewPage = query({
       const grant = await resolveShareToken(ctx.db, args.shareToken)
       if (grant.pageId !== args.id) throw deny('Token does not match this page.')
       const page = await ctx.db.get(args.id)
-      ensureFound(page, 'Page')
+      requireRecord(page, 'Page')
       if (page.workspaceId !== grant.workspaceId) throw deny('Token does not match this page.')
       return {
         ...page,
@@ -118,8 +118,8 @@ export const viewPage = query({
     }
 
     const actor = await getActor(ctx)
-    guard(actor, 'View page', isAuthenticated)
-    requirePrincipal(actor)
+    authorize(actor, 'View page', isAuthenticated)
+    requireAuth(actor)
     const page = loadResource(actor, await ctx.db.get(args.id), 'Page')
     const access = await requirePageAccess(ctx.db, actor, page._id, 'view')
     return {
@@ -141,7 +141,7 @@ export const commentWithToken = mutation({
     if (grant.pageId !== args.pageId) throw deny('Token does not match this page.')
     requireTokenLevel(grant, 'comment')
     const page = await ctx.db.get(args.pageId)
-    ensureFound(page, 'Page')
+    requireRecord(page, 'Page')
     if (page.workspaceId !== grant.workspaceId) throw deny('Token does not match this page.')
     return { body: args.body, via: 'share_link' }
   },

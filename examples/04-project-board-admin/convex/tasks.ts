@@ -1,4 +1,4 @@
-import { can, deny, guard } from 'better-convex-nuxt/auth'
+import { can, deny, authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import {
@@ -25,7 +25,7 @@ export const listByProject = query({
   args: { projectId: v.id('projects') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Read tasks', canReadTask)
+    authorize(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
@@ -48,7 +48,7 @@ export const get = query({
   args: { id: v.id('tasks') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Read task', canReadTask)
+    authorize(actor, 'Read task', canReadTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
@@ -64,7 +64,7 @@ export const create = mutation({
   args: createTask.convexValidators,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Create task', canCreateTask)
+    authorize(actor, 'Create task', canCreateTask)
 
     const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
@@ -103,7 +103,7 @@ export const moveToColumn = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
-    guard(actor, 'Update task', canUpdateTask(task))
+    authorize(actor, 'Update task', canUpdateTask(task))
 
     const now = Date.now()
     await ctx.db.patch(args.id, { status: args.status, updatedAt: now })
@@ -124,7 +124,7 @@ export const assign = mutation({
   args: assignTask.convexValidators,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Assign task', canAssignTask)
+    authorize(actor, 'Assign task', canAssignTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
@@ -160,7 +160,7 @@ export const bulkUpdateStatus = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
+    authorize(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
 
     const now = Date.now()
     const results = { updated: 0, skipped: [] as string[] }
@@ -199,7 +199,7 @@ export const listForExport = query({
   args: { projectId: v.id('projects') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Read tasks', canReadTask)
+    authorize(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 

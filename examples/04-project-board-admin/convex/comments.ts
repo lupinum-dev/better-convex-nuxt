@@ -1,4 +1,4 @@
-import { deny, guard } from 'better-convex-nuxt/auth'
+import { deny, authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { createComment } from '../shared/schemas/comment'
@@ -11,7 +11,7 @@ export const listByTask = query({
   args: { taskId: v.id('tasks') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Read comments', canComment)
+    authorize(actor, 'Read comments', canComment)
 
     loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 
@@ -27,7 +27,7 @@ export const create = mutation({
   args: createComment.convexValidators,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Create comment', canComment)
+    authorize(actor, 'Create comment', canComment)
 
     const task = loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 

@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { applyVisibility, can, guard, requirePrincipal } from 'better-convex-nuxt/auth'
+import { applyVisibility, can, authorize, requireAuth } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -14,7 +14,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Read contacts', canReadContacts)
+    authorize(actor, 'Read contacts', canReadContacts)
 
     const contacts = await applyVisibility(contactVisibility, actor, ctx.db)
     return contacts.map(contact =>
@@ -37,8 +37,8 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create contact', canCreateContact)
-    requirePrincipal(actor)
+    authorize(actor, 'Create contact', canCreateContact)
+    requireAuth(actor)
 
     const ownerId = can(actor, hasRole('owner', 'admin', 'manager')) && args.ownerId
       ? args.ownerId
@@ -68,7 +68,7 @@ export const updateNotes = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const contact = loadResource(actor, await ctx.db.get(args.id), 'Contact')
-    guard(actor, 'Update contact', canUpdateContact(contact))
+    authorize(actor, 'Update contact', canUpdateContact(contact))
 
     await ctx.db.patch(args.id, {
       internalNotes: args.internalNotes,

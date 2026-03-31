@@ -1,16 +1,16 @@
-import { deny, guard } from 'better-convex-nuxt/auth'
+import { deny, authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canManageMembers } from './auth/checks'
-import { ensureFound, ensureTenant } from './auth/scope'
+import { requireRecord, ensureTenant } from './auth/scope'
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Manage members', canManageMembers)
+    authorize(actor, 'Manage members', canManageMembers)
 
     return ctx.db
       .query('users')
@@ -27,10 +27,10 @@ export const changeRole = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
-    guard(actor, 'Manage members', canManageMembers)
+    authorize(actor, 'Manage members', canManageMembers)
 
     const target = await ctx.db.get(args.userId)
-    ensureFound(target, 'User')
+    requireRecord(target, 'User')
     // Users can exist before they join a workspace, so this edge stays explicit instead of
     // forcing the generic loadResource() helper onto an optional workspaceId shape.
     ensureTenant(actor, { workspaceId: target.workspaceId })

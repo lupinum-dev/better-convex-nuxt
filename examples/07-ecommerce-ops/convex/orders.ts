@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { guard, requirePrincipal } from 'better-convex-nuxt/auth'
+import { authorize, requireAuth } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -11,8 +11,8 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Read orders', canReadOrders)
-    requirePrincipal(actor)
+    authorize(actor, 'Read orders', canReadOrders)
+    requireAuth(actor)
 
     return ctx.db
       .query('orders')
@@ -26,8 +26,8 @@ export const seedDemoOrders = mutation({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Refund orders', canRefundOrders)
-    requirePrincipal(actor)
+    authorize(actor, 'Refund orders', canRefundOrders)
+    requireAuth(actor)
 
     const now = Date.now()
     const fulfilledOrderId = await ctx.db.insert('orders', {
@@ -60,8 +60,8 @@ export const processRefund = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Process refund', canRefundOrders)
-    requirePrincipal(actor)
+    authorize(actor, 'Process refund', canRefundOrders)
+    requireAuth(actor)
 
     const order = await validateRefundEligibility(ctx, actor, args.orderId)
     await ctx.db.patch(order._id, {

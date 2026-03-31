@@ -1,4 +1,4 @@
-import { guard } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
@@ -11,7 +11,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Read todos', isAuthenticated)
+    authorize(actor, 'Read todos', isAuthenticated)
 
     // `db` is raw here because this app is user-scoped, not tenant-scoped.
     // The handler enforces ownership by filtering with the guaranteed actor.
@@ -27,7 +27,7 @@ export const create = mutation({
   args: createTodo.validators,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create todo', isAuthenticated)
+    authorize(actor, 'Create todo', isAuthenticated)
 
     // Ownership is explicit in the inserted row.
     return await ctx.db.insert('todos', {
@@ -43,7 +43,7 @@ export const toggle = mutation({
   args: { id: v.id('todos') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Update todo', isAuthenticated)
+    authorize(actor, 'Update todo', isAuthenticated)
 
     const todo = loadOwnedResource(actor, await ctx.db.get(args.id), 'Todo')
 
@@ -57,7 +57,7 @@ export const remove = mutation({
   args: { id: v.id('todos') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Delete todo', isAuthenticated)
+    authorize(actor, 'Delete todo', isAuthenticated)
 
     loadOwnedResource(actor, await ctx.db.get(args.id), 'Todo')
 

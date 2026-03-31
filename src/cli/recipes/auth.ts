@@ -7,7 +7,7 @@ export const authTemplates = {
   actor: `
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import { getIdentity, verifyKey } from 'better-convex-nuxt/auth'
+import { getAuth, verifyKey } from 'better-convex-nuxt/auth'
 
 import type { DataModel } from '../_generated/dataModel'
 
@@ -21,12 +21,12 @@ export type Actor =
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: Ctx): Promise<Actor> {
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
+  const auth = await getAuth(ctx)
+  if (!auth) return null
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+    .withIndex('by_auth_id', q => q.eq('authId', auth.subject))
     .first()
 
   if (!user?.workspaceId) return null
@@ -65,17 +65,17 @@ export const canUpdateOwned = (resource: { ownerId: string }) =>
   or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(resource)))
 `.trimStart(),
   scope: `
-import { deny, ensureFound, requirePrincipal } from 'better-convex-nuxt/auth'
+import { deny, requireAuth, requireRecord } from 'better-convex-nuxt/auth'
 
 import type { Actor } from './actor'
 
-export { ensureFound }
+export { requireRecord }
 
 export function ensureTenant(
   actor: Actor,
   resource: { workspaceId: string },
 ): void {
-  requirePrincipal(actor)
+  requireAuth(actor)
   if (actor.tenantId !== resource.workspaceId) {
     throw deny('Resource not found.')
   }
@@ -86,7 +86,7 @@ export function loadResource<T extends { workspaceId: string }>(
   doc: T | null | undefined,
   label = 'Resource',
 ): T {
-  ensureFound(doc, label)
+  requireRecord(doc, label)
   ensureTenant(actor, doc)
   return doc
 }
@@ -311,14 +311,14 @@ export async function resolveShareToken(db: any, token: string) {
 }
 `.trimStart(),
   agency: `
-import { deny, getIdentity } from 'better-convex-nuxt/auth'
+import { deny, getAuth } from 'better-convex-nuxt/auth'
 
 export async function getAgencyActor(ctx: any) {
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
+  const auth = await getAuth(ctx)
+  if (!auth) return null
 
   const user = await ctx.db.query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', identity.subject))
+    .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
     .first()
 
   if (!user) return null

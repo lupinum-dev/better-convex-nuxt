@@ -3,7 +3,7 @@ import type {
   GenericQueryCtx,
 } from 'convex/server'
 
-import { getIdentity, verifyKey } from 'better-convex-nuxt/auth'
+import { getAuth, verifyKey } from 'better-convex-nuxt/auth'
 
 import type { DataModel } from '../_generated/dataModel'
 import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../../shared/dev-service-key'
@@ -24,12 +24,12 @@ function resolveExpectedServiceKey(): string {
 }
 
 export async function getActor(ctx: PlaygroundCtx): Promise<Actor> {
-  const identity = await getIdentity(ctx)
-  if (!identity) return null
+  const auth = await getAuth(ctx)
+  if (!auth) return null
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+    .withIndex('by_auth_id', q => q.eq('authId', auth.subject))
     .first()
 
   if (!user) return null

@@ -1,4 +1,4 @@
-import { guard } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
@@ -39,7 +39,7 @@ export const add = mutation({
   args: addTask.validators,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create task', isAuthenticated)
+    authorize(actor, 'Create task', isAuthenticated)
 
     return await ctx.db.insert('tasks', {
       userId: actor.userId,
@@ -54,7 +54,7 @@ export const toggle = mutation({
   args: { id: v.id('tasks') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Update task', isAuthenticated)
+    authorize(actor, 'Update task', isAuthenticated)
 
     const task = await ctx.db.get(args.id)
     if (!task) throw new Error('Task not found')
@@ -70,7 +70,7 @@ export const remove = mutation({
   args: { id: v.id('tasks') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Delete task', isAuthenticated)
+    authorize(actor, 'Delete task', isAuthenticated)
 
     const task = await ctx.db.get(args.id)
     if (!task) throw new Error('Task not found')

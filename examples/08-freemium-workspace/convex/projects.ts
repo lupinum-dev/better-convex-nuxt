@@ -4,7 +4,7 @@
  */
 import { v } from 'convex/values'
 
-import { deny, guard, requirePrincipal } from 'better-convex-nuxt/auth'
+import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -15,7 +15,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    requirePrincipal(actor)
+    requireAuth(actor)
 
     return ctx.db
       .query('projects')
@@ -29,8 +29,8 @@ export const create = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create project', canCreateProject)
-    requirePrincipal(actor)
+    authorize(actor, 'Create project', canCreateProject)
+    requireAuth(actor)
     await ensureWithinLimit(ctx.db, actor, 'projects')
 
     return ctx.db.insert('projects', {
@@ -47,8 +47,8 @@ export const exportProjects = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Export projects', hasFeature('exports'))
-    requirePrincipal(actor)
+    authorize(actor, 'Export projects', hasFeature('exports'))
+    requireAuth(actor)
 
     const projects = await ctx.db
       .query('projects')

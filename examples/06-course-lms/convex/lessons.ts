@@ -5,21 +5,21 @@
  */
 import { v } from 'convex/values'
 
-import { deny, guard, requirePrincipal } from 'better-convex-nuxt/auth'
+import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canReadLesson, hasRole, isAuthenticated } from './auth/checks'
 import { isStaffActor, requireEnrollment } from './auth/enrollment'
 import { ensurePrerequisites } from './auth/prerequisites'
-import { ensureFound, loadResource } from './auth/scope'
+import { requireRecord, loadResource } from './auth/scope'
 
 export const listLessonsByCourse = query({
   args: { courseId: v.id('courses') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Read lesson', isAuthenticated)
-    requirePrincipal(actor)
+    authorize(actor, 'Read lesson', isAuthenticated)
+    requireAuth(actor)
 
     const course = loadResource(actor, await ctx.db.get(args.courseId), 'Course')
     const lessons = await ctx.db
@@ -42,12 +42,12 @@ export const getLesson = query({
   args: { id: v.id('lessons') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Read lesson', canReadLesson)
-    requirePrincipal(actor)
+    authorize(actor, 'Read lesson', canReadLesson)
+    requireAuth(actor)
 
     const lesson = loadResource(actor, await ctx.db.get(args.id), 'Lesson')
     const course = await ctx.db.get(lesson.courseId)
-    ensureFound(course, 'Course')
+    requireRecord(course, 'Course')
 
     if (isStaffActor(actor)) return lesson
 
@@ -72,8 +72,8 @@ export const enrollSelf = mutation({
   args: { courseId: v.id('courses') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Enroll self', hasRole('owner', 'admin', 'instructor', 'student'))
-    requirePrincipal(actor)
+    authorize(actor, 'Enroll self', hasRole('owner', 'admin', 'instructor', 'student'))
+    requireAuth(actor)
 
     const course = loadResource(actor, await ctx.db.get(args.courseId), 'Course')
     const existing = await ctx.db
@@ -97,8 +97,8 @@ export const completeLesson = mutation({
   args: { lessonId: v.id('lessons') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Complete lesson', hasRole('owner', 'admin', 'instructor', 'student'))
-    requirePrincipal(actor)
+    authorize(actor, 'Complete lesson', hasRole('owner', 'admin', 'instructor', 'student'))
+    requireAuth(actor)
 
     const lesson = loadResource(actor, await ctx.db.get(args.lessonId), 'Lesson')
     const existing = await ctx.db

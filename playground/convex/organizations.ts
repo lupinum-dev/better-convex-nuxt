@@ -1,4 +1,4 @@
-import { can, guard } from 'better-convex-nuxt/auth'
+import { can, authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 
@@ -33,7 +33,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Create organization', actor !== null)
+    authorize(actor, 'Create organization', actor !== null)
 
     const user = await getUserRowFromActor(ctx.db, actor)
     if (!user) throw new Error('User not found')
@@ -70,7 +70,7 @@ export const updateSettings = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Update organization settings', canManageOrgSettings)
+    authorize(actor, 'Update organization settings', canManageOrgSettings)
     if (!actor.tenantId) throw new Error('No organization selected')
 
     await ctx.db.patch(actor.tenantId as Id<'organizations'>, {
@@ -112,7 +112,7 @@ export const changeMemberRole = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Manage organization members', canManageMembers)
+    authorize(actor, 'Manage organization members', canManageMembers)
 
     const targetUser = await ctx.db.get(args.userId)
     if (!targetUser) throw new Error('User not found')
@@ -133,7 +133,7 @@ export const removeMember = mutation({
   args: { userId: v.id('users') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Remove organization member', canManageMembers)
+    authorize(actor, 'Remove organization member', canManageMembers)
 
     const targetUser = await ctx.db.get(args.userId)
     if (!targetUser) throw new Error('User not found')
@@ -156,7 +156,7 @@ export const leave = mutation({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    guard(actor, 'Leave organization', actor !== null)
+    authorize(actor, 'Leave organization', actor !== null)
 
     if (actor.role === 'owner') {
       throw new Error('Owner cannot leave organization. Transfer ownership first.')
