@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..')
+
 const DEFAULT_HOST = '127.0.0.1'
 const DEFAULT_PORT_START = 3210
 const DEFAULT_PORT_END = 3298
@@ -492,40 +493,20 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
   }
 }
 
-async function refreshExamplePackageSnapshot({
-  cwd,
+async function prepareLocalModuleForDev({
   spawnFn,
   stdout,
   stderr,
 }) {
-  const packageJsonPath = path.join(cwd, 'package.json')
-  if (!existsSync(packageJsonPath)) return
-
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
-  const dependencySpec = packageJson.dependencies?.['better-convex-nuxt']
-  if (dependencySpec !== 'file:../..') return
-
   const sysLabel = colorize('system'.padEnd(6), '33')
-  stdout.write(`${sysLabel} building local better-convex-nuxt package\n`)
+  stdout.write(`${sysLabel} preparing local better-convex-nuxt module\n`)
   await runCheckedCommand({
     label: 'build',
     spawnFn,
     cwd: REPO_ROOT,
     env: process.env,
     command: 'pnpm',
-    args: ['prepack'],
-    stdout,
-    stderr,
-  })
-
-  stdout.write(`${sysLabel} refreshing example dependency snapshot\n`)
-  await runCheckedCommand({
-    label: 'pnpm',
-    spawnFn,
-    cwd,
-    env: process.env,
-    command: 'pnpm',
-    args: ['install', '--prefer-offline'],
+    args: ['run', 'dev:prepare'],
     stdout,
     stderr,
   })
@@ -548,8 +529,11 @@ export async function runExampleDev({
   stderr = process.stderr,
   exitFn = process.exit,
   disableAiFiles = true,
+  prepareModuleForDev = true,
 } = {}) {
-  await refreshExamplePackageSnapshot({ cwd, spawnFn, stdout, stderr })
+  if (prepareModuleForDev) {
+    await prepareLocalModuleForDev({ spawnFn, stdout, stderr })
+  }
 
   const desiredNuxtPort = getDesiredNuxtPort(cwd)
   const configuredPorts = readConvexLocalConfigFn(cwd)?.ports

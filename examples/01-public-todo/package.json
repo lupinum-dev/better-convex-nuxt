@@ -11,7 +11,7 @@
     "convex:codegen": "convex codegen"
   },
   "dependencies": {
-    "better-convex-nuxt": "file:../..",
+    "better-convex-nuxt": "link:../..",
     "convex": "^1.34.0",
     "nuxt": "^4.3.1"
   },

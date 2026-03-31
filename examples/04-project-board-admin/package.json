@@ -16,7 +16,7 @@
   "dependencies": {
     "@convex-dev/better-auth": "^0.11.3",
     "better-auth": "^1.5.0",
-    "better-convex-nuxt": "file:../..",
+    "better-convex-nuxt": "link:../..",
     "convex": "^1.34.0",
     "convex-helpers": "^0.1.114",
     "nuxt": "^4.3.1",

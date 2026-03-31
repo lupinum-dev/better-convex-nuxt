@@ -388,6 +388,7 @@ describe('example dev launcher', () => {
       stderr: process.stderr,
       exitFn: processExit,
       disableAiFiles: false,
+      prepareModuleForDev: false,
     })
 
     await vi.waitFor(() => {
@@ -433,6 +434,7 @@ describe('example dev launcher', () => {
       stderr: process.stderr,
       exitFn: processExit,
       disableAiFiles: false,
+      prepareModuleForDev: false,
     })
 
     await vi.waitFor(() =>
@@ -488,6 +490,7 @@ describe('example dev launcher', () => {
       stderr: process.stderr,
       exitFn: processExit,
       disableAiFiles: false,
+      prepareModuleForDev: false,
     })
 
     await vi.waitFor(() => {
