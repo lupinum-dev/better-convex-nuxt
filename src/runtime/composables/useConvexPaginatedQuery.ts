@@ -508,7 +508,7 @@ export function createConvexPaginatedQueryState<
       refresh,
       reset,
     },
-    resolvePromise: () => Promise.resolve(firstPageResource.asyncData).then(() => {}),
+    resolvePromise: () => firstPageResource.resolvePromise,
   }
 }
 export function useConvexPaginatedQuery<
@@ -528,7 +528,7 @@ export function useConvexPaginatedQuery<
       .then(
         () =>
           new Promise<UseConvexPaginatedQueryData<TransformedItem>>((resolve) => {
-            if (!result.isLoading.value) {
+            if (import.meta.server || !result.isLoading.value) {
               resolve(resolvedResult)
               return
             }

@@ -381,7 +381,7 @@ export function createConvexQueryState<
       status: resource.status as Ref<QueryStatus>,
       isStale: isStale as Ref<boolean>,
     },
-    resolvePromise: () => Promise.resolve(resource.asyncData).then(() => {}),
+    resolvePromise: () => resource.resolvePromise,
   }
 }
 export function useConvexQuery<
@@ -401,7 +401,7 @@ export function useConvexQuery<
       .then(
         () =>
           new Promise<UseConvexQueryData<DataT>>((resolve) => {
-            if (!result.pending.value) {
+            if (import.meta.server || !result.pending.value) {
               resolve(resolvedResult)
               return
             }
