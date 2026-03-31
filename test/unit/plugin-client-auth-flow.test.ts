@@ -49,6 +49,7 @@ const {
   const clientState = {
     fetchToken: null as null | ((input: { forceRefreshToken: boolean }) => Promise<string | null>),
     setAuthCalls: 0,
+    skipOnChangeAfterFetch: false,
   }
   const hookRegistry = new Map<string, (...args: unknown[]) => unknown>()
 
@@ -66,7 +67,11 @@ const {
       }
 
       void fetchToken({ forceRefreshToken: true }).then(
-        token => onChange?.(Boolean(token)),
+        (token) => {
+          if (!clientState.skipOnChangeAfterFetch) {
+            onChange?.(Boolean(token))
+          }
+        },
         () => onChange?.(false),
       )
     }
@@ -127,6 +132,7 @@ describe('plugin.client auth flow', () => {
     stateStore.clear()
     clientState.fetchToken = null
     clientState.setAuthCalls = 0
+    clientState.skipOnChangeAfterFetch = false
     hookRegistry.clear()
 
     useRuntimeConfigMock.mockReturnValue({
@@ -284,6 +290,25 @@ describe('plugin.client auth flow', () => {
   it('still performs a forced exchange after an explicit auth refresh from an anonymous SSR boot', async () => {
     const refreshedToken = mintJwt({ sub: 'u-refresh', email: 'refresh@test.com' })
     tokenMock.mockResolvedValue({ data: { token: refreshedToken }, error: null })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin(createNuxtAppMock({ serverRendered: true }) as never)
+
+    const refreshHook = hookRegistry.get('better-convex:auth:refresh')
+    expect(refreshHook).toBeTypeOf('function')
+
+    await expect(refreshHook?.()).resolves.toBeUndefined()
+
+    expect(tokenMock).toHaveBeenCalledTimes(1)
+    expect(stateStore.get('convex:token')?.value).toBe(refreshedToken)
+    expect(stateStore.get('convex:authError')?.value).toBeNull()
+  })
+
+  it('completes an explicit auth refresh even when Convex never emits onChange after fetching a token', async () => {
+    const refreshedToken = mintJwt({ sub: 'u-refresh-fallback', email: 'refresh-fallback@test.com' })
+    tokenMock.mockResolvedValue({ data: { token: refreshedToken }, error: null })
+    clientState.skipOnChangeAfterFetch = true
     vi.stubGlobal('fetch', vi.fn())
 
     const plugin = (await import('../../src/runtime/plugin.client')).default
