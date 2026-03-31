@@ -177,27 +177,12 @@ const contactError = computed(
 
 async function handleSignUp() {
   if (!client) throw new Error('Auth client unavailable.')
-  await authAction.execute(
-    () =>
-      client.signUp.email({
-        name: signUpForm.name,
-        email: signUpForm.email,
-        password: signUpForm.password,
-      }),
-    { redirectTo: '/' },
-  )
+  await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })
 }
 
 async function handleSignIn() {
   if (!client) throw new Error('Auth client unavailable.')
-  await authAction.execute(
-    () =>
-      client.signIn.email({
-        email: signInForm.email,
-        password: signInForm.password,
-      }),
-    { redirectTo: '/' },
-  )
+  await authAction.execute(() => client.signIn.email(signInForm), { redirectTo: '/' })
 }
 
 async function handleSignOut() {

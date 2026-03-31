@@ -4,7 +4,8 @@
  * demonstrate the complete primitives-first surface in one place.
  */
 export default defineNuxtConfig({
-  modules: ['better-convex-nuxt', '@nuxtjs/mcp-toolkit'],
+  modules: ['better-convex-nuxt', '@nuxt/ui', '@nuxtjs/mcp-toolkit'],
+  css: ['~/assets/css/main.css'],
 
   compatibilityDate: '2026-03-30',
 

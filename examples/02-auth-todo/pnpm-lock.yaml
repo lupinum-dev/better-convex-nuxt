@@ -32,6 +32,9 @@ importers:
       tailwindcss:
         specifier: ^4.1.13
         version: 4.2.2
+      zod:
+        specifier: ^4.3.0
+        version: 4.3.6
     devDependencies:
       typescript:
         specifier: ^5.9.3

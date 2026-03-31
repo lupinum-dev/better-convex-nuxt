@@ -25,80 +25,53 @@
         </ConvexAuthLoading>
 
         <ConvexUnauthenticated>
-          <UAlert
-            v-if="authAction.error.value"
-            color="error"
-            variant="soft"
-            icon="i-lucide-circle-alert"
-            title="Authentication error"
-            :description="authAction.error.value.message"
-          />
-
           <div class="grid gap-4 md:grid-cols-2">
             <UCard>
-              <template #header>
-                <h2 class="text-lg font-semibold">Create account</h2>
-                <p class="text-sm text-muted mt-1">
-                  Create a personal account so your todos stay scoped to you.
-                </p>
-              </template>
-
-              <form class="space-y-4" @submit.prevent="handleSignUp">
-                <div class="space-y-1">
-                  <label class="text-sm font-medium text-highlighted">Name</label>
-                  <UInput v-model="signUpForm.name" type="text" required />
-                </div>
-
-                <div class="space-y-1">
-                  <label class="text-sm font-medium text-highlighted">Email</label>
-                  <UInput v-model="signUpForm.email" type="email" required />
-                </div>
-
-                <div class="space-y-1">
-                  <label class="text-sm font-medium text-highlighted">Password</label>
-                  <UInput
-                    v-model="signUpForm.password"
-                    type="password"
-                    minlength="8"
-                    required
+              <UAuthForm
+                :schema="signUpSchema"
+                title="Create account"
+                description="Create a personal account so your todos stay scoped to you."
+                icon="i-lucide-user-plus"
+                :fields="signUpFields"
+                :submit="{ label: 'Sign up', block: true }"
+                :loading="authAction.pending.value"
+                @submit="handleSignUp"
+              >
+                <template #validation>
+                  <UAlert
+                    v-if="authAction.error.value"
+                    color="error"
+                    variant="soft"
+                    icon="i-lucide-circle-alert"
+                    title="Authentication error"
+                    :description="authAction.error.value.message"
                   />
-                </div>
-
-                <UButton type="submit" block :loading="authAction.pending.value">
-                  {{ authAction.pending.value ? 'Creating...' : 'Sign up' }}
-                </UButton>
-              </form>
+                </template>
+              </UAuthForm>
             </UCard>
 
             <UCard>
-              <template #header>
-                <h2 class="text-lg font-semibold">Sign in</h2>
-                <p class="text-sm text-muted mt-1">
-                  Use an existing account to load your personal todo list.
-                </p>
-              </template>
-
-              <form class="space-y-4" @submit.prevent="handleSignIn">
-                <div class="space-y-1">
-                  <label class="text-sm font-medium text-highlighted">Email</label>
-                  <UInput v-model="signInForm.email" type="email" required />
-                </div>
-
-                <div class="space-y-1">
-                  <label class="text-sm font-medium text-highlighted">Password</label>
-                  <UInput v-model="signInForm.password" type="password" required />
-                </div>
-
-                <UButton
-                  type="submit"
-                  block
-                  color="neutral"
-                  variant="soft"
-                  :loading="authAction.pending.value"
-                >
-                  {{ authAction.pending.value ? 'Signing in...' : 'Sign in' }}
-                </UButton>
-              </form>
+              <UAuthForm
+                :schema="signInSchema"
+                title="Sign in"
+                description="Use an existing account to load your personal todo list."
+                icon="i-lucide-log-in"
+                :fields="signInFields"
+                :submit="{ label: 'Sign in', block: true, color: 'neutral', variant: 'soft' }"
+                :loading="authAction.pending.value"
+                @submit="handleSignIn"
+              >
+                <template #validation>
+                  <UAlert
+                    v-if="authAction.error.value"
+                    color="error"
+                    variant="soft"
+                    icon="i-lucide-circle-alert"
+                    title="Authentication error"
+                    :description="authAction.error.value.message"
+                  />
+                </template>
+              </UAuthForm>
             </UCard>
           </div>
         </ConvexUnauthenticated>
@@ -201,23 +174,69 @@
  * The page intentionally shows the whole auth story in one place:
  * signed out -> sign in/up -> actor ready -> user-scoped query and mutations.
  */
-import { computed, reactive, ref } from 'vue'
+import * as z from 'zod'
+import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
+import { computed, ref } from 'vue'
 
 import { api } from '~/convex/_generated/api'
 
 const { client, isAuthenticated, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 
-const signUpForm = reactive({
-  name: '',
-  email: '',
-  password: '',
+const signUpFields: AuthFormField[] = [
+  {
+    name: 'name',
+    type: 'text',
+    label: 'Name',
+    placeholder: 'Enter your name',
+    required: true,
+  },
+  {
+    name: 'email',
+    type: 'email',
+    label: 'Email',
+    placeholder: 'Enter your email',
+    required: true,
+  },
+  {
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'Create a password',
+    required: true,
+  },
+]
+
+const signInFields: AuthFormField[] = [
+  {
+    name: 'email',
+    type: 'email',
+    label: 'Email',
+    placeholder: 'Enter your email',
+    required: true,
+  },
+  {
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'Enter your password',
+    required: true,
+  },
+]
+
+const signUpSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email'),
+  password: z.string().min(8, 'Must be at least 8 characters'),
 })
 
-const signInForm = reactive({
-  email: '',
-  password: '',
+const signInSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(1, 'Password is required'),
 })
+
+type SignUpSchema = z.output<typeof signUpSchema>
+type SignInSchema = z.output<typeof signInSchema>
 
 const title = ref('')
 const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
@@ -242,31 +261,16 @@ const todoError = computed(() =>
   || '',
 )
 
-async function handleSignUp() {
+async function handleSignUp(payload: FormSubmitEvent<SignUpSchema>) {
   if (!client) throw new Error('Auth client unavailable.')
 
-  await authAction.execute(
-    () =>
-      client.signUp.email({
-        name: signUpForm.name,
-        email: signUpForm.email,
-        password: signUpForm.password,
-      }),
-    { redirectTo: '/' },
-  )
+  await authAction.execute(() => client.signUp.email(payload.data), { redirectTo: '/' })
 }
 
-async function handleSignIn() {
+async function handleSignIn(payload: FormSubmitEvent<SignInSchema>) {
   if (!client) throw new Error('Auth client unavailable.')
 
-  await authAction.execute(
-    () =>
-      client.signIn.email({
-        email: signInForm.email,
-        password: signInForm.password,
-      }),
-    { redirectTo: '/' },
-  )
+  await authAction.execute(() => client.signIn.email(payload.data), { redirectTo: '/' })
 }
 
 async function handleSignOut() {

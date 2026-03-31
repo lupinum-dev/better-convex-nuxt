@@ -277,24 +277,11 @@ const displayName = computed(
 const canCreateProject = can('project.create')
 
 async function handleSignUp() {
-  await authAction.execute(
-    () => client.signUp.email({
-      email: signUpForm.email,
-      password: signUpForm.password,
-      name: signUpForm.name,
-    }),
-    { redirectTo: '/' },
-  )
+  await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })
 }
 
 async function handleSignIn() {
-  await authAction.execute(
-    () => client.signIn.email({
-      email: signInForm.email,
-      password: signInForm.password,
-    }),
-    { redirectTo: '/' },
-  )
+  await authAction.execute(() => client.signIn.email(signInForm), { redirectTo: '/' })
 }
 
 async function handleSignOut() {

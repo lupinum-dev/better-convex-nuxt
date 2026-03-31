@@ -429,11 +429,25 @@ export function initAuthClient(
       skipNextAnonymousBootstrapRefresh = false
       lastTokenValidation = 0
       await new Promise<void>((resolve) => {
+        let settled = false
+        const finish = (authenticated: boolean) => {
+          if (settled) return
+          settled = true
+          onChange(authenticated)
+          resolve()
+        }
+
         convexClientInstance.setAuth(
-          (input) => fetchToken({ ...input, forceRefreshToken: true }),
+          async (input) => {
+            const token = await fetchToken({ ...input, forceRefreshToken: true })
+            // Some flows have no active subscriptions yet, so Convex may not
+            // invoke `onChange` promptly. Resolve refresh once the forced token
+            // fetch itself settles.
+            finish(Boolean(token))
+            return token
+          },
           () => {
-            onChange(Boolean(convexToken.value && normalizeHydratedUser(convexUser.value)))
-            resolve()
+            finish(Boolean(convexToken.value && normalizeHydratedUser(convexUser.value)))
           },
         )
       })
