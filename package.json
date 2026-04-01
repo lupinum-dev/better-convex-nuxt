@@ -26,12 +26,12 @@
     "type": "git",
     "url": "git+https://github.com/lupinum-dev/better-convex-nuxt.git"
   },
-  "files": [
-    "dist"
-  ],
   "bin": {
     "better-convex-nuxt": "./dist/cli.mjs"
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "./dist/module.mjs",
   "typesVersions": {
@@ -48,8 +48,8 @@
       "composables": [
         "./dist/runtime/composables/index.d.ts"
       ],
-      "service": [
-        "./dist/runtime/service/index.d.ts"
+      "trusted-caller": [
+        "./dist/runtime/trusted-caller/index.d.ts"
       ],
       "visibility": [
         "./dist/runtime/visibility/index.d.ts"
@@ -82,9 +82,9 @@
       "types": "./dist/runtime/composables/index.d.ts",
       "import": "./dist/runtime/composables/index.js"
     },
-    "./service": {
-      "types": "./dist/runtime/service/index.d.ts",
-      "import": "./dist/runtime/service/index.js"
+    "./trusted-caller": {
+      "types": "./dist/runtime/trusted-caller/index.d.ts",
+      "import": "./dist/runtime/trusted-caller/index.js"
     },
     "./visibility": {
       "types": "./dist/runtime/visibility/index.d.ts",

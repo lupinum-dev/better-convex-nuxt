@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 
-import type { UserConfig } from 'vite'
 import { convexTest, type TestConvex } from 'convex-test'
 import type {
   DataModelFromSchemaDefinition,
@@ -10,10 +9,10 @@ import type {
   OptionalRestArgs,
   SchemaDefinition,
 } from 'convex/server'
+import type { UserConfig } from 'vite'
 
-const defaultModules = typeof import.meta.glob === 'function'
-  ? import.meta.glob('/convex/**/*.*s')
-  : {}
+const defaultModules =
+  typeof import.meta.glob === 'function' ? import.meta.glob('/convex/**/*.*s') : {}
 
 export function createConvexTestModules(
   modules?: Record<string, () => Promise<unknown>>,
@@ -38,7 +37,11 @@ export const convexServerMock = async () => {
 function withGeneratedModuleHint(
   modules: Record<string, () => Promise<unknown>>,
 ): Record<string, () => Promise<unknown>> {
-  if (Object.keys(modules).some(path => path.includes('/_generated/') || path.includes('./_generated/'))) {
+  if (
+    Object.keys(modules).some(
+      (path) => path.includes('/_generated/') || path.includes('./_generated/'),
+    )
+  ) {
     return modules
   }
 
@@ -67,10 +70,10 @@ type DocumentFor<
   TSchema extends AnySchemaDefinition,
   TTable extends TableName<TSchema>,
 > = DataModelFor<TSchema>[TTable]['document']
-type InsertDataFor<
-  TSchema extends AnySchemaDefinition,
-  TTable extends TableName<TSchema>,
-> = Omit<DocumentFor<TSchema, TTable>, '_id' | '_creationTime'>
+type InsertDataFor<TSchema extends AnySchemaDefinition, TTable extends TableName<TSchema>> = Omit<
+  DocumentFor<TSchema, TTable>,
+  '_id' | '_creationTime'
+>
 
 type TestClient<TSchema extends AnySchemaDefinition> = Pick<
   TestConvex<TSchema>,
@@ -101,12 +104,10 @@ type SeededTenantUser<
 
 export type ConvexTestConfigOptions = UserConfig
 
-export interface CreateTestContextOptions<
-  TSchema extends AnySchemaDefinition,
-> {
+export interface CreateTestContextOptions<TSchema extends AnySchemaDefinition> {
   schema: TSchema
   modules?: Record<string, () => Promise<unknown>>
-  serviceKey?: string
+  trustedCallerKey?: string
   tenant?: {
     table?: string
     field?: string
@@ -123,10 +124,7 @@ export interface CreateTestContextOptions<
   permissions?: unknown
 }
 
-export interface TestContext<
-  TSchema extends AnySchemaDefinition,
-  TRole extends string = string,
-> {
+export interface TestContext<TSchema extends AnySchemaDefinition, TRole extends string = string> {
   raw: TestConvex<TSchema>
   seed: <TTable extends TableName<TSchema>>(
     table: TTable,
@@ -135,17 +133,11 @@ export interface TestContext<
   readAll: <TTable extends TableName<TSchema>>(
     table: TTable,
   ) => Promise<Array<DocumentFor<TSchema, TTable>>>
-  seedTenant: (
-    options: SeedTenantOptions<TRole>,
-  ) => Promise<{
+  seedTenant: (options: SeedTenantOptions<TRole>) => Promise<{
     id: string
     users: Record<string, SeededTenantUser<TSchema, TRole>>
   }>
-  asService: (actor: {
-    userId: string
-    role: TRole
-    tenantId?: string
-  }) => TestClient<TSchema>
+  asTrustedCaller: (actor: { userId: string }) => TestClient<TSchema>
 }
 
 function mergeInlineDeps(config: UserConfig): UserConfig {
@@ -176,19 +168,17 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-function createServiceClient<TSchema extends AnySchemaDefinition, TRole extends string>(
+function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
   raw: TestConvex<TSchema>,
-  serviceKey: string,
-  actor: { userId: string; role: TRole; tenantId?: string },
+  trustedCallerKey: string,
+  actor: { userId: string },
 ): TestClient<TSchema> {
   function withServiceArgs<TArgs extends Record<string, unknown> | undefined>(args: TArgs) {
     return {
       ...(args ?? {}),
-      _serviceKey: serviceKey,
-      _serviceActor: {
+      _trustedCallerKey: trustedCallerKey,
+      _trustedCaller: {
         userId: actor.userId,
-        role: actor.role,
-        ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
       },
     }
   }
@@ -225,16 +215,12 @@ export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserCon
 export function createTestContext<
   TSchema extends AnySchemaDefinition,
   TRole extends string = string,
->(
-  options: CreateTestContextOptions<TSchema>,
-): TestContext<TSchema, TRole> {
+>(options: CreateTestContextOptions<TSchema>): TestContext<TSchema, TRole> {
   const modules = withGeneratedModuleHint(options.modules ?? defaultModules)
-  const raw = convexTest(
-    options.schema,
-    modules,
-  ) as unknown as TestConvex<TSchema>
-  const serviceKey = options.serviceKey ?? process.env.CONVEX_SERVICE_KEY ?? 'test-service-key'
-  process.env.CONVEX_SERVICE_KEY = serviceKey
+  const raw = convexTest(options.schema, modules) as unknown as TestConvex<TSchema>
+  const trustedCallerKey =
+    options.trustedCallerKey ?? process.env.CONVEX_TRUSTED_CALLER_KEY ?? 'test-trusted-caller-key'
+  process.env.CONVEX_TRUSTED_CALLER_KEY = trustedCallerKey
 
   const tenantTable = options.tenant?.table ?? 'workspaces'
   const tenantField = options.tenant?.field ?? 'workspaceId'
@@ -258,13 +244,11 @@ export function createTestContext<
     table: TTable,
   ): Promise<Array<DocumentFor<TSchema, TTable>>> {
     return await raw.run(async (ctx) => {
-      return await ctx.db.query(table).collect() as Array<DocumentFor<TSchema, TTable>>
+      return (await ctx.db.query(table).collect()) as Array<DocumentFor<TSchema, TTable>>
     })
   }
 
-  async function seedTenant(
-    seedOptions: SeedTenantOptions<TRole>,
-  ): Promise<{
+  async function seedTenant(seedOptions: SeedTenantOptions<TRole>): Promise<{
     id: string
     users: Record<string, SeededTenantUser<TSchema, TRole>>
   }> {
@@ -276,14 +260,17 @@ export function createTestContext<
     const now = Date.now()
 
     const id = await raw.run(async (ctx) => {
-      return await ctx.db.insert(tenantTable as TableName<TSchema>, {
-        name,
-        slug,
-        ownerId: ownerAuthId,
-        createdAt: now,
-        updatedAt: now,
-        ...tenantData,
-      } as never)
+      return await ctx.db.insert(
+        tenantTable as TableName<TSchema>,
+        {
+          name,
+          slug,
+          ownerId: ownerAuthId,
+          createdAt: now,
+          updatedAt: now,
+          ...tenantData,
+        } as never,
+      )
     })
 
     const seededUsers = {} as Record<string, SeededTenantUser<TSchema, TRole>>
@@ -295,16 +282,19 @@ export function createTestContext<
       const resolvedEmail = email ?? `${slug}-${key}@example.test`
 
       const userId = await raw.run(async (ctx) => {
-        return await ctx.db.insert(userTable as TableName<TSchema>, {
-          [authField]: resolvedAuthId,
-          [roleField]: role,
-          [userTenantField]: id,
-          [nameField]: resolvedDisplayName,
-          [emailField]: resolvedEmail,
-          createdAt: now,
-          updatedAt: now,
-          ...userData,
-        } as never)
+        return await ctx.db.insert(
+          userTable as TableName<TSchema>,
+          {
+            [authField]: resolvedAuthId,
+            [roleField]: role,
+            [userTenantField]: id,
+            [nameField]: resolvedDisplayName,
+            [emailField]: resolvedEmail,
+            createdAt: now,
+            updatedAt: now,
+            ...userData,
+          } as never,
+        )
       })
 
       const caller = raw.withIdentity({ subject: resolvedAuthId })
@@ -324,8 +314,8 @@ export function createTestContext<
     }
   }
 
-  function asService(actor: { userId: string; role: TRole; tenantId?: string }): TestClient<TSchema> {
-    return createServiceClient(raw, serviceKey, actor)
+  function asTrustedCaller(actor: { userId: string }): TestClient<TSchema> {
+    return createTrustedCallerClient(raw, trustedCallerKey, actor)
   }
 
   return {
@@ -333,6 +323,6 @@ export function createTestContext<
     seed,
     readAll,
     seedTenant,
-    asService,
+    asTrustedCaller,
   }
 }

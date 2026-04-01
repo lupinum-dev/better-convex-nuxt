@@ -33,10 +33,18 @@ export default defineConfig({
       {
         resolve: {
           alias: {
-            'better-convex-nuxt/auth': fileURLToPath(new URL('./src/runtime/auth/index.ts', import.meta.url)),
-            'better-convex-nuxt/service': fileURLToPath(new URL('./src/runtime/service/index.ts', import.meta.url)),
-            'better-convex-nuxt/visibility': fileURLToPath(new URL('./src/runtime/visibility/index.ts', import.meta.url)),
-            'better-convex-nuxt/args': fileURLToPath(new URL('./src/runtime/args/index.ts', import.meta.url)),
+            'better-convex-nuxt/auth': fileURLToPath(
+              new URL('./src/runtime/auth/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/trusted-caller': fileURLToPath(
+              new URL('./src/runtime/trusted-caller/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/visibility': fileURLToPath(
+              new URL('./src/runtime/visibility/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/args': fileURLToPath(
+              new URL('./src/runtime/args/index.ts', import.meta.url),
+            ),
           },
         },
         test: {
@@ -53,14 +61,30 @@ export default defineConfig({
       {
         resolve: {
           alias: {
-            'better-convex-nuxt/composables': fileURLToPath(new URL('./src/runtime/composables/index.ts', import.meta.url)),
-            'better-convex-nuxt/auth': fileURLToPath(new URL('./src/runtime/auth/index.ts', import.meta.url)),
-            'better-convex-nuxt/service': fileURLToPath(new URL('./src/runtime/service/index.ts', import.meta.url)),
-            'better-convex-nuxt/visibility': fileURLToPath(new URL('./src/runtime/visibility/index.ts', import.meta.url)),
-            'better-convex-nuxt/mcp': fileURLToPath(new URL('./src/runtime/mcp/index.ts', import.meta.url)),
-            'better-convex-nuxt/args': fileURLToPath(new URL('./src/runtime/args/index.ts', import.meta.url)),
-            'better-convex-nuxt/server': fileURLToPath(new URL('./src/runtime/server/index.ts', import.meta.url)),
-            'better-convex-nuxt/testing': fileURLToPath(new URL('./src/runtime/testing/index.ts', import.meta.url)),
+            'better-convex-nuxt/composables': fileURLToPath(
+              new URL('./src/runtime/composables/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/auth': fileURLToPath(
+              new URL('./src/runtime/auth/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/trusted-caller': fileURLToPath(
+              new URL('./src/runtime/trusted-caller/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/visibility': fileURLToPath(
+              new URL('./src/runtime/visibility/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/mcp': fileURLToPath(
+              new URL('./src/runtime/mcp/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/args': fileURLToPath(
+              new URL('./src/runtime/args/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/server': fileURLToPath(
+              new URL('./src/runtime/server/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/testing': fileURLToPath(
+              new URL('./src/runtime/testing/index.ts', import.meta.url),
+            ),
           },
         },
         test: {
@@ -129,15 +153,17 @@ export default defineConfig({
       },
 
       ...(isEvaliteRun
-        ? [{
-            test: {
-              name: 'evalite',
-              include: ['test/evals/**/*.eval.ts'],
-              environment: 'node',
-              testTimeout: 120000,
-              fileParallelism: false,
+        ? [
+            {
+              test: {
+                name: 'evalite',
+                include: ['test/evals/**/*.eval.ts'],
+                environment: 'node',
+                testTimeout: 120000,
+                fileParallelism: false,
+              },
             },
-          }]
+          ]
         : []),
     ],
   },

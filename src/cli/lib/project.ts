@@ -26,7 +26,7 @@ export interface ProjectInspection {
   nuxtConfigPath: string | null
   nuxtConfigText: string
   envSources: EnvSource[]
-  sourceFiles: Array<{ path: string, text: string }>
+  sourceFiles: Array<{ path: string; text: string }>
 }
 
 export interface LegacyApiUsage {
@@ -62,7 +62,12 @@ function getRecordValue(
 function collectDependencyNames(packageJson: PackageJson | null): Set<string> {
   const dependencyNames = new Set<string>()
 
-  for (const key of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const) {
+  for (const key of [
+    'dependencies',
+    'devDependencies',
+    'optionalDependencies',
+    'peerDependencies',
+  ] as const) {
     for (const dependencyName of Object.keys(getRecordValue(packageJson, key))) {
       dependencyNames.add(dependencyName)
     }
@@ -80,7 +85,7 @@ function findFirstExisting(cwd: string, candidates: readonly string[]): string |
   return null
 }
 
-function collectProjectSourceFiles(cwd: string): Array<{ path: string, text: string }> {
+function collectProjectSourceFiles(cwd: string): Array<{ path: string; text: string }> {
   const directories = [
     'app',
     'components',
@@ -96,7 +101,7 @@ function collectProjectSourceFiles(cwd: string): Array<{ path: string, text: str
     'utils',
   ]
   const extensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.vue', '.md'])
-  const files: Array<{ path: string, text: string }> = []
+  const files: Array<{ path: string; text: string }> = []
 
   const walk = (directory: string) => {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -142,7 +147,7 @@ export function inspectProject(cwd: string): ProjectInspection {
   const packageJsonPath = resolve(resolvedCwd, 'package.json')
   const packageJson = readJsonIfExists(packageJsonPath)
   const nuxtConfigPath = findFirstExisting(resolvedCwd, NUXT_CONFIG_CANDIDATES)
-  const nuxtConfigText = nuxtConfigPath ? readTextIfExists(nuxtConfigPath) ?? '' : ''
+  const nuxtConfigText = nuxtConfigPath ? (readTextIfExists(nuxtConfigPath) ?? '') : ''
   const envSources = ENV_FILE_CANDIDATES.flatMap((candidate) => {
     const path = resolve(resolvedCwd, candidate)
     const text = readTextIfExists(path)
@@ -194,13 +199,19 @@ export function findConvexUrlSource(project: ProjectInspection): string | null {
     return 'process.env.CONVEX_URL'
   }
 
-  if (typeof process.env.NUXT_PUBLIC_CONVEX_URL === 'string' && process.env.NUXT_PUBLIC_CONVEX_URL.trim()) {
+  if (
+    typeof process.env.NUXT_PUBLIC_CONVEX_URL === 'string' &&
+    process.env.NUXT_PUBLIC_CONVEX_URL.trim()
+  ) {
     return 'process.env.NUXT_PUBLIC_CONVEX_URL'
   }
 
   for (const envSource of project.envSources) {
     for (const line of envSource.text.split(/\r?\n/)) {
-      if (hasEnvAssignment(line, 'CONVEX_URL') || hasEnvAssignment(line, 'NUXT_PUBLIC_CONVEX_URL')) {
+      if (
+        hasEnvAssignment(line, 'CONVEX_URL') ||
+        hasEnvAssignment(line, 'NUXT_PUBLIC_CONVEX_URL')
+      ) {
         return envSource.path
       }
     }
@@ -212,12 +223,14 @@ export function findConvexUrlSource(project: ProjectInspection): string | null {
 const LEGACY_API_PATTERNS = [
   {
     id: 'createAuth()',
-    replacement: 'Remove the local permissions factory and configure convex.permissions.query instead.',
+    replacement:
+      'Remove the local permissions factory and configure convex.permissions.query instead.',
     regex: /\bcreateAuth\s*\(\s*\{/,
   },
   {
     id: 'useEnsureConvexUser',
-    replacement: 'Configure convex.auth.ensureUserMutation and let the module bootstrap the user row.',
+    replacement:
+      'Configure convex.auth.ensureUserMutation and let the module bootstrap the user row.',
     regex: /\buseEnsureConvexUser\b/,
   },
   {
@@ -226,14 +239,14 @@ const LEGACY_API_PATTERNS = [
     regex: /better-convex-nuxt\/schema/,
   },
   {
-    id: 'withTrustedCaller',
-    replacement: 'Rename service transport helpers to withServiceAuth and getServiceCaller.',
-    regex: /\bwithTrustedCaller\b/,
+    id: 'withServiceAuth',
+    replacement: 'Rename service transport helpers to withTrustedCaller and getTrustedCaller.',
+    regex: /\bwithServiceAuth\b/,
   },
   {
-    id: 'getTrustedCaller',
-    replacement: 'Rename service transport helpers to withServiceAuth and getServiceCaller.',
-    regex: /\bgetTrustedCaller\b/,
+    id: 'getServiceCaller',
+    replacement: 'Rename service transport helpers to withTrustedCaller and getTrustedCaller.',
+    regex: /\bgetServiceCaller\b/,
   },
 ] as const
 

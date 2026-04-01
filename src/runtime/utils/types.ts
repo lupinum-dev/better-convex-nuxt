@@ -82,7 +82,7 @@ export type ConvexClientAuthMode = 'auto' | 'none'
 /**
  * Server-side auth mode for server helper calls.
  */
-export type ConvexServerAuthMode = 'auto' | 'required' | 'none' | 'service'
+export type ConvexServerAuthMode = 'auto' | 'required' | 'none' | 'trusted'
 
 /**
  * Make specific properties optional in a type
@@ -161,7 +161,9 @@ export interface ConvexCallSuccessPayload<
 /**
  * Payload for `convex:mutation:error` and `convex:action:error` hooks.
  */
-export interface ConvexCallErrorPayload<TOperation extends ConvexCallOperation = ConvexCallOperation> {
+export interface ConvexCallErrorPayload<
+  TOperation extends ConvexCallOperation = ConvexCallOperation,
+> {
   /** Convex function path (e.g. "posts:create"). */
   functionPath: string
   /** Whether this was a mutation or action. */

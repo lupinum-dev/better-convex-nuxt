@@ -153,12 +153,15 @@ describe('CLI doctor', () => {
 
   it('initializes the workspace-mcp permissions files', () => {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-init-workspace-mcp-permissions-'))
-    const result = runCli(['init', 'permissions', '--model', 'workspace-mcp', '--cwd', cwd], repoRoot)
+    const result = runCli(
+      ['init', 'permissions', '--model', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
     const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(actor).toContain('getServiceCaller')
+    expect(actor).toContain('getTrustedCaller')
     expect(workspaces).toContain('getPermissionContext')
   })
 
@@ -175,24 +178,30 @@ describe('CLI doctor', () => {
   it('fails doctor when removed V2 APIs are still present', () => {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-doctor-legacy-'))
     mkdirSync(resolve(cwd, 'composables'), { recursive: true })
-    writeFileSync(resolve(cwd, 'package.json'), JSON.stringify({
-      dependencies: {
-        nuxt: '^3.0.0',
-        convex: '^1.0.0',
-        'better-convex-nuxt': '^3.0.0',
-      },
-    }))
-    writeFileSync(resolve(cwd, 'nuxt.config.ts'), 'export default defineNuxtConfig({ modules: [\'better-convex-nuxt\'] })\n')
+    writeFileSync(
+      resolve(cwd, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          nuxt: '^3.0.0',
+          convex: '^1.0.0',
+          'better-convex-nuxt': '^3.0.0',
+        },
+      }),
+    )
+    writeFileSync(
+      resolve(cwd, 'nuxt.config.ts'),
+      "export default defineNuxtConfig({ modules: ['better-convex-nuxt'] })\n",
+    )
     writeFileSync(
       resolve(cwd, 'composables/usePermissions.ts'),
-      'import { createAuth } from \'better-convex-nuxt/composables\'\nexport const auth = createAuth({ query: {} as never })\n',
+      "import { createAuth } from 'better-convex-nuxt/composables'\nexport const auth = createAuth({ query: {} as never })\n",
     )
 
     const result = runCli(['doctor', '--json'], cwd)
     const report = JSON.parse(result.stdout) as {
-      findings: Array<{ id: string, status: string, fixHint: string }>
+      findings: Array<{ id: string; status: string; fixHint: string }>
     }
-    const finding = report.findings.find(entry => entry.id === 'legacy-v2-apis')
+    const finding = report.findings.find((entry) => entry.id === 'legacy-v2-apis')
 
     expect(result.status, result.stderr).toBe(1)
     expect(finding?.status).toBe('fail')

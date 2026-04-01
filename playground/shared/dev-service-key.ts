@@ -7,4 +7,4 @@
  *
  * Real apps should use an actual secret env var on both the server and Convex.
  */
-export const PLAYGROUND_LOCAL_SERVICE_KEY = 'service-key-1234567890'
+export const PLAYGROUND_LOCAL_TRUSTED_CALLER_KEY = 'trusted-caller-key-1234567890'

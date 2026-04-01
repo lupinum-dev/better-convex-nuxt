@@ -17,16 +17,9 @@ const roleValidator = v.union(
   v.literal('viewer'),
 )
 
-const visibilityValidator = v.union(
-  v.literal('public'),
-  v.literal('workspace'),
-  v.literal('draft'),
-)
+const visibilityValidator = v.union(v.literal('public'), v.literal('workspace'), v.literal('draft'))
 
-const keyStatusValidator = v.union(
-  v.literal('active'),
-  v.literal('revoked'),
-)
+const keyStatusValidator = v.union(v.literal('active'), v.literal('revoked'))
 
 export default defineSchema({
   workspaces: defineTable({
@@ -71,14 +64,14 @@ export default defineSchema({
     name: v.string(),
     prefix: v.string(),
     hash: v.string(),
-    role: roleValidator,
-    userId: v.string(),
-    workspaceId: v.id('workspaces'),
+    boundAuthId: v.string(),
+    boundWorkspaceId: v.id('workspaces'),
+    issuedByAuthId: v.string(),
     status: keyStatusValidator,
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
   })
-    .index('by_workspace', ['workspaceId'])
+    .index('by_bound_workspace', ['boundWorkspaceId'])
     .index('by_hash', ['hash']),
 })

@@ -4,7 +4,7 @@ This is the e-commerce back-office SaaS example.
 
 It shows:
 
-- human actors and service actors
+- human actors and webhook bot users
 - idempotent webhook handling
 - refund-state guards that apply to both paths
 - backend-owned permission context exposed to Nuxt through configured `usePermissions()`
@@ -13,7 +13,7 @@ It shows:
 
 - workspace membership
 - roles: `owner`, `admin`, `support`, `viewer`
-- service actor authenticated with `verifyServiceKey()` and an explicit `CONVEX_SERVICE_KEY`
+- trusted webhook callers authenticated with `verifyTrustedCallerKey()` and an explicit `CONVEX_TRUSTED_CALLER_KEY`
 
 ## Easy Problem
 
@@ -25,13 +25,13 @@ It shows:
 
 ## Module Primitives Used
 
-- `guard`, `can`, `deny`, `verifyServiceKey`
+- `guard`, `can`, `deny`, `verifyTrustedCallerKey`
 - configured `usePermissions()` / `useAuthGuard()`
 - `createTestContext`
 
 ## Files To Read First
 
-1. `convex/auth/service-auth.ts`
+1. `convex/auth/trustedCaller.ts`
 2. `convex/auth/idempotency.ts`
 3. `convex/orders.ts`
 4. `convex/webhooks.ts`
@@ -43,18 +43,18 @@ It shows:
 2. `pnpm install`
 3. `pnpm dev`
 
-Keep `CONVEX_SERVICE_KEY` in `.env.local`. The launcher injects the local Convex URLs automatically.
+Keep `CONVEX_TRUSTED_CALLER_KEY` in `.env.local`. The launcher injects the local Convex URLs automatically.
 
 ## Demo Flow
 
 1. Sign up and create a workspace.
 2. Seed demo orders.
 3. Refund a fulfilled order as an admin.
-4. Compare that with the service-auth webhook path in the test file.
+4. Compare that with the webhook bot path in the test file.
 
 ## Test Focus
 
 - invalid service key denied
 - missing service-key config fails closed
 - duplicate event denied
-- refund-state guards for both human and service actors
+- refund-state guards for both human and webhook bot users

@@ -37,6 +37,7 @@ npx better-convex-nuxt init permissions --model workspace
 npx better-convex-nuxt init permissions --model workspace-mcp
 npx better-convex-nuxt init mcp
 ```
+
 `init auth` writes the Better Auth bridge and Convex plumbing. `init permissions` writes the app-owned actor and permission-context patterns. `init mcp` scaffolds MCP auth middleware.
 
 The permission model stays explicit and app-owned. If you want the repo’s lane model, denial
@@ -121,7 +122,7 @@ const team = await ctx.seedTenant({
 })
 ```
 
-Use `ctx.asService(...)` when you want to verify the hidden service-auth path directly.
+Use `ctx.asTrustedCaller(...)` when you want to verify the hidden trusted-caller path directly.
 
 Keep `convex/test.setup.ts` in app code. The Vite module glob and the generated-server mock need to
 live in the consumer app, but the file itself is now just the standard bridge:
@@ -187,10 +188,10 @@ Typical usage by runtime:
 import { mutation } from './_generated/server'
 import { defineTool } from '#convex/mcp'
 import { authorize } from 'better-convex-nuxt/auth'
-import { withServiceAuth } from 'better-convex-nuxt/service'
+import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 
 export const create = mutation({
-  args: withServiceAuth(createPost.args),
+  args: withTrustedCaller(createPost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create post', canCreatePost)
@@ -218,12 +219,12 @@ Inside Convex functions, use the validator view directly:
 ```ts
 import { mutation } from './_generated/server'
 import { authorize } from 'better-convex-nuxt/auth'
-import { withServiceAuth } from 'better-convex-nuxt/service'
+import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 import { canCreatePost } from './auth/checks'
 import { getActor } from './auth/actor'
 
 export const create = mutation({
-  args: withServiceAuth(createPost.args),
+  args: withTrustedCaller(createPost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create post', canCreatePost)

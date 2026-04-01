@@ -1,6 +1,5 @@
 import { can, deny, authorize } from 'better-convex-nuxt/auth'
-import { withServiceAuth } from 'better-convex-nuxt/service'
-import { mutation, query } from './_generated/server'
+import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 
 import {
   bulkDeleteRunbooks,
@@ -11,6 +10,7 @@ import {
   searchRunbooks,
   updateRunbook,
 } from '../shared/schemas/runbook'
+import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import {
   canCreateRunbook,
@@ -46,16 +46,19 @@ function normalizeTerm(value: string): string {
   return value.trim().toLowerCase()
 }
 
-function matchesTerm(runbook: {
-  title: string
-  summary: string
-  content: string
-  tags: string[]
-}, term: string): boolean {
+function matchesTerm(
+  runbook: {
+    title: string
+    summary: string
+    content: string
+    tags: string[]
+  },
+  term: string,
+): boolean {
   if (!term) return true
 
-  const haystack = `${runbook.title}\n${runbook.summary}\n${runbook.content}\n${runbook.tags.join(' ')}`
-    .toLowerCase()
+  const haystack =
+    `${runbook.title}\n${runbook.summary}\n${runbook.content}\n${runbook.tags.join(' ')}`.toLowerCase()
   return haystack.includes(term)
 }
 
@@ -64,7 +67,7 @@ export const listPublic = query({
   handler: async (ctx) => {
     const runbooks = await ctx.db
       .query('runbooks')
-      .withIndex('by_visibility', q => q.eq('visibility', 'public'))
+      .withIndex('by_visibility', (q) => q.eq('visibility', 'public'))
       .order('desc')
       .collect()
     return runbooks.map(toPublicRunbook)
@@ -77,36 +80,38 @@ export const searchPublic = query({
     const term = normalizeTerm(args.term)
     const candidates = await ctx.db
       .query('runbooks')
-      .withIndex('by_visibility', q => q.eq('visibility', 'public'))
+      .withIndex('by_visibility', (q) => q.eq('visibility', 'public'))
       .order('desc')
       .take(50)
 
-    return candidates.filter(runbook => matchesTerm(runbook, term)).map(toPublicRunbook)
+    return candidates.filter((runbook) => matchesTerm(runbook, term)).map(toPublicRunbook)
   },
 })
 
 export const listWorkspace = query({
-  args: withServiceAuth(listRunbooks.args),
+  args: withTrustedCaller(listRunbooks.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read runbooks', canReadWorkspaceRunbook)
 
     const runbooks = await ctx.db
       .query('runbooks')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
 
-    return runbooks.map(runbook => withCan(runbook, {
-      update: can(actor, canUpdateRunbook(runbook)),
-      delete: can(actor, canDeleteRunbook(runbook)),
-      publish: can(actor, canPublishRunbook),
-    }))
+    return runbooks.map((runbook) =>
+      withCan(runbook, {
+        update: can(actor, canUpdateRunbook(runbook)),
+        delete: can(actor, canDeleteRunbook(runbook)),
+        publish: can(actor, canPublishRunbook),
+      }),
+    )
   },
 })
 
 export const get = query({
-  args: withServiceAuth(getRunbook.args),
+  args: withTrustedCaller(getRunbook.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const runbook = await ctx.db.get(args.id)
@@ -114,8 +119,14 @@ export const get = query({
 
     if (runbook.visibility === 'public') {
       return withCan(toPublicRunbook(runbook), {
-        update: !!actor && actor.tenantId === runbook.workspaceId && can(actor, canUpdateRunbook(runbook)),
-        delete: !!actor && actor.tenantId === runbook.workspaceId && can(actor, canDeleteRunbook(runbook)),
+        update:
+          !!actor &&
+          actor.tenantId === runbook.workspaceId &&
+          can(actor, canUpdateRunbook(runbook)),
+        delete:
+          !!actor &&
+          actor.tenantId === runbook.workspaceId &&
+          can(actor, canDeleteRunbook(runbook)),
         publish: !!actor && actor.tenantId === runbook.workspaceId && can(actor, canPublishRunbook),
       })
     }
@@ -132,7 +143,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: withServiceAuth(createRunbook.args),
+  args: withTrustedCaller(createRunbook.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create runbook', canCreateRunbook)
@@ -159,7 +170,7 @@ export const create = mutation({
 })
 
 export const update = mutation({
-  args: withServiceAuth(updateRunbook.args),
+  args: withTrustedCaller(updateRunbook.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const runbook = loadResource(actor, await ctx.db.get(args.id), 'Runbook')
@@ -185,7 +196,7 @@ export const update = mutation({
 })
 
 export const remove = mutation({
-  args: withServiceAuth(deleteRunbook.args),
+  args: withTrustedCaller(deleteRunbook.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const runbook = loadResource(actor, await ctx.db.get(args.id), 'Runbook')
@@ -195,13 +206,13 @@ export const remove = mutation({
 })
 
 export const bulkRemove = mutation({
-  args: withServiceAuth(bulkDeleteRunbooks.args),
+  args: withTrustedCaller(bulkDeleteRunbooks.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Bulk delete runbooks', canPublishRunbook)
 
     let deleted = 0
-    const skipped: { id: string, reason: string }[] = []
+    const skipped: { id: string; reason: string }[] = []
 
     for (const id of args.ids) {
       const runbook = await ctx.db.get(id)
@@ -231,23 +242,23 @@ export const bulkRemove = mutation({
 })
 
 export const workspaceOverview = query({
-  args: withServiceAuth(listRunbooks.args),
+  args: withTrustedCaller(listRunbooks.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read runbook overview', canReadWorkspaceRunbook)
 
     const runbooks = await ctx.db
       .query('runbooks')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
 
     return {
       total: runbooks.length,
-      public: runbooks.filter(runbook => runbook.visibility === 'public').length,
-      workspaceOnly: runbooks.filter(runbook => runbook.visibility === 'workspace').length,
-      drafts: runbooks.filter(runbook => runbook.visibility === 'draft').length,
-      recentTitles: runbooks.slice(0, 5).map(runbook => runbook.title),
+      public: runbooks.filter((runbook) => runbook.visibility === 'public').length,
+      workspaceOnly: runbooks.filter((runbook) => runbook.visibility === 'workspace').length,
+      drafts: runbooks.filter((runbook) => runbook.visibility === 'draft').length,
+      recentTitles: runbooks.slice(0, 5).map((runbook) => runbook.title),
     }
   },
 })

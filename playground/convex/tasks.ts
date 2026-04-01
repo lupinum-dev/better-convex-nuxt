@@ -1,9 +1,9 @@
 import { authorize } from 'better-convex-nuxt/auth'
-import { withServiceAuth } from 'better-convex-nuxt/service'
-import { mutation, query } from './_generated/server'
+import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
 
 import { addTask, listTasks } from '../shared/schemas/task'
+import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { isAuthenticated } from './auth/checks'
 
@@ -11,7 +11,7 @@ export const publicStats = query({
   args: {},
   handler: async (ctx) => {
     const totalTasks = await ctx.db.query('tasks').collect()
-    const completedTasks = totalTasks.filter(task => task.completed)
+    const completedTasks = totalTasks.filter((task) => task.completed)
 
     return {
       total: totalTasks.length,
@@ -23,21 +23,21 @@ export const publicStats = query({
 })
 
 export const list = query({
-  args: withServiceAuth(listTasks.args),
+  args: withTrustedCaller(listTasks.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor) return []
 
     return await ctx.db
       .query('tasks')
-      .withIndex('by_user', q => q.eq('userId', actor.userId))
+      .withIndex('by_user', (q) => q.eq('userId', actor.userId))
       .order('desc')
       .collect()
   },
 })
 
 export const add = mutation({
-  args: withServiceAuth(addTask.args),
+  args: withTrustedCaller(addTask.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create task', isAuthenticated)

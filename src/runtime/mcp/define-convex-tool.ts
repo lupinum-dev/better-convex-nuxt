@@ -1,34 +1,24 @@
-import type { H3Event } from 'h3'
+import type { ShapeOutput } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 import type {
   McpToolAnnotations,
   McpToolCallbackResult,
   McpToolDefinition,
 } from '@nuxtjs/mcp-toolkit/server'
-import type { ShapeOutput } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 import { convexToZodFields } from 'convex-helpers/server/zod4'
 import type { ZodValidatorFromConvex } from 'convex-helpers/server/zod4'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { PropertyValidators } from 'convex/values'
+import type { H3Event } from 'h3'
 import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
-import {
-  serverConvexAction,
-  serverConvexMutation,
-  serverConvexQuery,
-} from '../server/utils/convex'
+import { serverConvexAction, serverConvexMutation, serverConvexQuery } from '../server/utils/convex'
 import { toConvexError } from '../utils/call-result'
 import type { SchemaFieldMeta } from '../utils/define-convex-schema'
 import type { ConvexToolOperation } from '../utils/types'
-
 import { cleanErrorMessage, inferCategoryFromMessage } from './error-helpers'
 import { globalRateLimiter, parseWindowString } from './rate-limiter'
-import {
-  withSummary,
-  wrapError,
-  wrapPreview,
-  wrapSuccess,
-} from './result-envelope'
+import { withSummary, wrapError, wrapPreview, wrapSuccess } from './result-envelope'
 import type {
   AnyConvexSchema,
   ConvexToolCallFns,
@@ -48,8 +38,7 @@ import type {
 interface DefineConvexToolFullOptions<
   S extends AnyConvexSchema,
   TRole extends string = string,
-> extends DefineConvexToolOptions<S, TRole> {
-}
+> extends DefineConvexToolOptions<S, TRole> {}
 
 // ============================================================================
 // Input schema types
@@ -59,14 +48,15 @@ type ConvexMcpInputSchema<V extends PropertyValidators> = {
   [K in keyof V]: ZodValidatorFromConvex<V[K]>
 }
 
-type ConvexToolInputSchema<S extends AnyConvexSchema> =
-  ConvexMcpInputSchema<InferSchemaValidators<S>> & { _confirmed?: ZodTypeAny }
+type ConvexToolInputSchema<S extends AnyConvexSchema> = ConvexMcpInputSchema<
+  InferSchemaValidators<S>
+> & { _confirmed?: ZodTypeAny }
 
-type ConvexToolHandlerArgs<S extends AnyConvexSchema> =
-  ShapeOutput<ConvexToolInputSchema<S>>
+type ConvexToolHandlerArgs<S extends AnyConvexSchema> = ShapeOutput<ConvexToolInputSchema<S>>
 
-type ConvexToolGeneratedExamples<V extends PropertyValidators> =
-  Partial<ShapeOutput<ConvexMcpInputSchema<V>>>[]
+type ConvexToolGeneratedExamples<V extends PropertyValidators> = Partial<
+  ShapeOutput<ConvexMcpInputSchema<V>>
+>[]
 
 interface NormalizedToolArgs<S extends AnyConvexSchema> {
   clean: InferSchemaData<S>
@@ -85,7 +75,13 @@ interface NormalizedToolArgs<S extends AnyConvexSchema> {
  * Returns a JSON-Schema-safe Zod replacement if so, or null if no fixup needed.
  */
 function convexIdToZod(cv: unknown): ZodTypeAny | null {
-  const v = cv as { kind?: string; tableName?: string; element?: unknown; inner?: unknown; members?: unknown[] }
+  const v = cv as {
+    kind?: string
+    tableName?: string
+    element?: unknown
+    inner?: unknown
+    members?: unknown[]
+  }
   if (!v || typeof v !== 'object' || !v.kind) return null
 
   // Direct: v.id('table')
@@ -107,11 +103,11 @@ function convexIdToZod(cv: unknown): ZodTypeAny | null {
 
   // Fail-fast: v.union() containing v.id() (at any depth) can't be auto-converted
   if (v.kind === 'union' && Array.isArray(v.members)) {
-    const hasId = v.members.some(m => convexIdToZod(m) !== null)
+    const hasId = v.members.some((m) => convexIdToZod(m) !== null)
     if (hasId) {
       throw new Error(
-        `defineTool: v.union() containing v.id() cannot be auto-converted to JSON Schema. `
-        + `Use a plain v.string() instead, or provide the field description via schema metadata.`,
+        `defineTool: v.union() containing v.id() cannot be auto-converted to JSON Schema. ` +
+          `Use a plain v.string() instead, or provide the field description via schema metadata.`,
       )
     }
   }
@@ -150,12 +146,27 @@ function deriveAnnotations(
   const base: McpToolAnnotations = (() => {
     switch (operation) {
       case 'query':
-        return { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+        return {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        }
       case 'action':
-        return { readOnlyHint: false, destructiveHint: destructive ?? false, idempotentHint: false, openWorldHint: true }
+        return {
+          readOnlyHint: false,
+          destructiveHint: destructive ?? false,
+          idempotentHint: false,
+          openWorldHint: true,
+        }
       case 'mutation':
       default:
-        return { readOnlyHint: false, destructiveHint: destructive ?? false, idempotentHint: false, openWorldHint: false }
+        return {
+          readOnlyHint: false,
+          destructiveHint: destructive ?? false,
+          idempotentHint: false,
+          openWorldHint: false,
+        }
     }
   })()
 
@@ -174,7 +185,7 @@ function buildFieldDescription(meta: SchemaFieldMeta): string | undefined {
   if (meta.examples?.length) {
     const exampleStr = meta.examples
       .slice(0, 3)
-      .map(e => JSON.stringify(e))
+      .map((e) => JSON.stringify(e))
       .join(', ')
     parts.push(`(e.g. ${exampleStr})`)
   }
@@ -226,7 +237,8 @@ function buildInputExamples<V extends PropertyValidators>(
 
   for (const [key, meta] of Object.entries(fields) as [string, SchemaFieldMeta][]) {
     if (meta.examples?.length) {
-      example[key as keyof typeof example] = meta.examples[0] as typeof example[keyof typeof example]
+      example[key as keyof typeof example] = meta
+        .examples[0] as (typeof example)[keyof typeof example]
       hasAny = true
     }
   }
@@ -235,18 +247,13 @@ function buildInputExamples<V extends PropertyValidators>(
 }
 
 function toToolInputExamples<S extends AnyConvexSchema>(
-  examples:
-    | Partial<InferSchemaData<S>>[]
-    | Partial<Record<string, unknown>>[]
-    | undefined,
+  examples: Partial<InferSchemaData<S>>[] | Partial<Record<string, unknown>>[] | undefined,
 ): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['inputExamples'] {
   return examples as McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['inputExamples']
 }
 
 function toToolHandler<S extends AnyConvexSchema>(
-  handler: (
-    args: ConvexToolHandlerArgs<S>,
-  ) => Promise<McpToolCallbackResult>,
+  handler: (args: ConvexToolHandlerArgs<S>) => Promise<McpToolCallbackResult>,
 ): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['handler'] {
   return handler as unknown as McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>['handler']
 }
@@ -270,20 +277,18 @@ function injectServiceActorArgs(
     return args ?? {}
   }
 
-  const serviceKey = process.env.CONVEX_SERVICE_KEY?.trim()
-  if (!serviceKey) {
+  const trustedCallerKey = process.env.CONVEX_TRUSTED_CALLER_KEY?.trim()
+  if (!trustedCallerKey) {
     throw new Error(
-      'CONVEX_SERVICE_KEY is required for authenticated MCP ctx.query()/mutation()/action() calls.',
+      'CONVEX_TRUSTED_CALLER_KEY is required for authenticated MCP ctx.query()/mutation()/action() calls.',
     )
   }
 
   return {
     ...(args ?? {}),
-    _serviceKey: serviceKey,
-    _serviceActor: {
+    _trustedCallerKey: trustedCallerKey,
+    _trustedCaller: {
       userId: actor.userId,
-      role: actor.role,
-      ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
     },
   }
 }
@@ -292,14 +297,16 @@ function injectServiceActorArgs(
 // Auth helpers
 // ============================================================================
 
-function resolveDefaultAuth<TRole extends string = string>(
-  event: { context: Record<string, unknown> },
-): McpAuthIdentity<TRole> | null {
-  const auth = event.context.mcpAuth as {
-    role?: string
-    userId?: string
-    tenantId?: string
-  } | undefined
+function resolveDefaultAuth<TRole extends string = string>(event: {
+  context: Record<string, unknown>
+}): McpAuthIdentity<TRole> | null {
+  const auth = event.context.mcpAuth as
+    | {
+        role?: string
+        userId?: string
+        tenantId?: string
+      }
+    | undefined
   if (!auth?.role || !auth?.userId) return null
   return {
     role: auth.role as TRole,
@@ -321,7 +328,9 @@ interface ResolveToolAccessOptions<TRole extends string = string> {
   auth: DefineConvexToolOptions<AnyConvexSchema, TRole>['auth']
   scoped: boolean
   check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
-  resolveAuth?: (event: H3Event) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
+  resolveAuth?: (
+    event: H3Event,
+  ) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
 }
 
 async function resolveToolAccess<TRole extends string = string>(
@@ -332,9 +341,7 @@ async function resolveToolAccess<TRole extends string = string>(
 
   let actor: McpAuthIdentity<TRole> | null = null
   if (auth !== 'none') {
-    actor = resolveAuth
-      ? await resolveAuth(event)
-      : resolveDefaultAuth(event)
+    actor = resolveAuth ? await resolveAuth(event) : resolveDefaultAuth(event)
   }
 
   if (auth === 'required' && !actor) {
@@ -376,11 +383,9 @@ function createToolCallFns(
       return await serverConvexQuery(
         event,
         fn,
-        (
-          injectIdentity
-            ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
-            : (args ?? {})
-        ) as FunctionArgs<Query>,
+        (injectIdentity
+          ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
+          : (args ?? {})) as FunctionArgs<Query>,
         { auth: 'none' },
       )
     },
@@ -391,11 +396,9 @@ function createToolCallFns(
       return await serverConvexMutation(
         event,
         fn,
-        (
-          injectIdentity
-            ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
-            : (args ?? {})
-        ) as FunctionArgs<Mutation>,
+        (injectIdentity
+          ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
+          : (args ?? {})) as FunctionArgs<Mutation>,
         { auth: 'none' },
       )
     },
@@ -406,11 +409,9 @@ function createToolCallFns(
       return await serverConvexAction(
         event,
         fn,
-        (
-          injectIdentity
-            ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
-            : (args ?? {})
-        ) as FunctionArgs<Action>,
+        (injectIdentity
+          ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
+          : (args ?? {})) as FunctionArgs<Action>,
         { auth: 'none' },
       )
     },
@@ -428,15 +429,14 @@ function createToolContext<TRole extends string>(
     event,
     actor,
     ...calls,
-    ok: (data, summary) => wrapSuccess(
-      summary ? withSummary(data, summary) : data,
-    ),
+    ok: (data, summary) => wrapSuccess(summary ? withSummary(data, summary) : data),
     error: (category, message, issues) => wrapError(category, message, issues),
     preview: (preview) => wrapPreview(normalizePreview(preview)),
-    blocked: (preview) => wrapPreview({
-      ...normalizePreview(preview),
-      blocked: true,
-    }),
+    blocked: (preview) =>
+      wrapPreview({
+        ...normalizePreview(preview),
+        blocked: true,
+      }),
   }
 }
 
@@ -453,10 +453,7 @@ function isValidCallToolResult(value: unknown): value is McpToolCallbackResult {
 // Core builder
 // ============================================================================
 
-function _buildToolDefinition<
-  S extends AnyConvexSchema,
-  TRole extends string = string,
->(
+function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = string>(
   options: DefineConvexToolFullOptions<S, TRole>,
 ): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape> {
   type BuiltToolDefinition = McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>
@@ -490,9 +487,7 @@ function _buildToolDefinition<
   // ── Fail-fast definition-time validations ──────────────────────────────
 
   if (check && auth === 'none') {
-    throw new Error(
-      `defineTool: "check" needs auth. Set auth to "required" or "optional".`,
-    )
+    throw new Error(`defineTool: "check" needs auth. Set auth to "required" or "optional".`)
   }
 
   if (preview && !destructive) {
@@ -515,8 +510,8 @@ function _buildToolDefinition<
 
   if (maxItems && !(maxItems.field in schema.args)) {
     throw new Error(
-      `defineTool: maxItems.field "${maxItems.field}" not found in schema validators. `
-      + `Available: ${Object.keys(schema.args).join(', ')}`,
+      `defineTool: maxItems.field "${maxItems.field}" not found in schema validators. ` +
+        `Available: ${Object.keys(schema.args).join(', ')}`,
     )
   }
 
@@ -565,83 +560,80 @@ function _buildToolDefinition<
 
   // ── The wrapped handler with safety pipeline ───────────────────────────
 
-  const wrappedHandler = toToolHandler<S>(async (
-    args: ConvexToolHandlerArgs<S>,
-  ): Promise<McpToolCallbackResult> => {
-    try {
-      // ── Step 1: Resolve event + auth once ─────────────────────────────
-      const { useEvent } = await import('nitropack/runtime')
-      const event = useEvent()
+  const wrappedHandler = toToolHandler<S>(
+    async (args: ConvexToolHandlerArgs<S>): Promise<McpToolCallbackResult> => {
+      try {
+        // ── Step 1: Resolve event + auth once ─────────────────────────────
+        const { useEvent } = await import('nitropack/runtime')
+        const event = useEvent()
 
-      const access = await resolveToolAccess(event, {
-        auth,
-        scoped,
-        check,
-        resolveAuth,
-      })
-      if (access.deniedReason) {
-        return wrapError('auth', access.deniedReason)
-      }
+        const access = await resolveToolAccess(event, {
+          auth,
+          scoped,
+          check,
+          resolveAuth,
+        })
+        if (access.deniedReason) {
+          return wrapError('auth', access.deniedReason)
+        }
 
-      const resolvedAuth = access.actor
+        const resolvedAuth = access.actor
 
-      const ctx = createToolContext(
-        event,
-        resolvedAuth,
-        resolvedAuth !== null,
-      )
+        const ctx = createToolContext(event, resolvedAuth, resolvedAuth !== null)
 
-      const normalizedArgs = normalizeToolArgs(args)
+        const normalizedArgs = normalizeToolArgs(args)
 
-      // ── Step 2: Rate limit (after auth so failed-auth requests don't consume tokens) ──
-      if (rateLimitConfig) {
-        const rateLimitBucket = resolvedAuth ? `${name!}:${resolvedAuth.userId}` : name!
-        const check = globalRateLimiter.check(rateLimitBucket, rateLimitConfig)
-        if (!check.allowed) {
-          return wrapError(
-            'cooldown',
-            `Rate limit exceeded (${rateLimit!.max} per ${rateLimit!.window}). Try again in ${check.retryAfterSeconds} seconds.`,
+        // ── Step 2: Rate limit (after auth so failed-auth requests don't consume tokens) ──
+        if (rateLimitConfig) {
+          const rateLimitBucket = resolvedAuth ? `${name!}:${resolvedAuth.userId}` : name!
+          const check = globalRateLimiter.check(rateLimitBucket, rateLimitConfig)
+          if (!check.allowed) {
+            return wrapError(
+              'cooldown',
+              `Rate limit exceeded (${rateLimit!.max} per ${rateLimit!.window}). Try again in ${check.retryAfterSeconds} seconds.`,
+            )
+          }
+        }
+
+        // ── Step 3: Max items ─────────────────────────────────────────────
+        if (maxItems) {
+          const arr = normalizedArgs.clean[maxItems.field]
+          if (Array.isArray(arr) && arr.length > maxItems.limit) {
+            return wrapError(
+              'scope_exceeded',
+              `Cannot process more than ${maxItems.limit} items at once. Received ${arr.length}.`,
+            )
+          }
+        }
+
+        // ── Step 4: Middleware ────────────────────────────────────────────
+        if (middleware) {
+          const result = await middleware(normalizedArgs.clean, ctx, async () =>
+            runHandlerWithConfirmation(normalizedArgs, ctx),
           )
+          if (!isValidCallToolResult(result)) {
+            return wrapError(
+              'server',
+              `[${toolLabel}] Middleware must return a result. Did you forget to \`return next()\`?`,
+            )
+          }
+          return result
         }
-      }
 
-      // ── Step 3: Max items ─────────────────────────────────────────────
-      if (maxItems) {
-        const arr = normalizedArgs.clean[maxItems.field]
-        if (Array.isArray(arr) && arr.length > maxItems.limit) {
-          return wrapError(
-            'scope_exceeded',
-            `Cannot process more than ${maxItems.limit} items at once. Received ${arr.length}.`,
-          )
-        }
+        // ── Steps 5-7: Preview, confirmation, handler ─────────────────────
+        return await runHandlerWithConfirmation(normalizedArgs, ctx)
+      } catch (err) {
+        console.error(`[${toolLabel}]`, err)
+        const convexError = toConvexError(err)
+        const message = cleanErrorMessage(convexError.message)
+        const category =
+          convexError.category !== 'unknown'
+            ? convexError.category
+            : (inferCategoryFromMessage(message) ?? 'unknown')
+        return wrapError(category, message, convexError.issues)
       }
-
-      // ── Step 4: Middleware ────────────────────────────────────────────
-      if (middleware) {
-        const result = await middleware(
-          normalizedArgs.clean,
-          ctx,
-          async () => runHandlerWithConfirmation(normalizedArgs, ctx),
-        )
-        if (!isValidCallToolResult(result)) {
-          return wrapError('server', `[${toolLabel}] Middleware must return a result. Did you forget to \`return next()\`?`)
-        }
-        return result
-      }
-
-      // ── Steps 5-7: Preview, confirmation, handler ─────────────────────
-      return await runHandlerWithConfirmation(normalizedArgs, ctx)
-    }
-    catch (err) {
-      console.error(`[${toolLabel}]`, err)
-      const convexError = toConvexError(err)
-      const message = cleanErrorMessage(convexError.message)
-      const category = convexError.category !== 'unknown'
-        ? convexError.category
-        : inferCategoryFromMessage(message) ?? 'unknown'
-      return wrapError(category, message, convexError.issues)
-    }
-  })
+    },
+  )
 
   async function runHandlerWithConfirmation(
     args: NormalizedToolArgs<S>,
@@ -739,10 +731,7 @@ function _buildToolDefinition<
  * })
  * ```
  */
-export function defineTool<
-  S extends AnyConvexSchema,
-  TRole extends string = string,
->(
+export function defineTool<S extends AnyConvexSchema, TRole extends string = string>(
   options: DefineConvexToolOptions<S, TRole>,
 ): McpToolDefinition {
   return _buildToolDefinition(options as DefineConvexToolFullOptions<S, TRole>) as McpToolDefinition

@@ -61,14 +61,14 @@ describe('example dev launcher', () => {
     const port = await findAvailablePortPair({
       start: 3210,
       end: 3216,
-      isPortFreeFn: async candidate => freePorts.has(candidate),
+      isPortFreeFn: async (candidate) => freePorts.has(candidate),
     })
 
     expect(port).toBe(3214)
   })
 
   it('clears listening processes on the requested ports', async () => {
-    const killed: Array<{ pid: number, signal: NodeJS.Signals }> = []
+    const killed: Array<{ pid: number; signal: NodeJS.Signals }> = []
     const portState = new Map<number, number[]>([
       [3000, [111]],
       [3210, [222, 333]],
@@ -76,7 +76,7 @@ describe('example dev launcher', () => {
     ])
 
     await clearPorts([3000, 3210, 3211, 3210], {
-      findListeningPidsFn: port => portState.get(port) ?? [],
+      findListeningPidsFn: (port) => portState.get(port) ?? [],
       killFn: ((pid: number, signal: NodeJS.Signals) => {
         killed.push({ pid, signal })
         for (const [port, pids] of portState.entries()) {
@@ -121,15 +121,15 @@ describe('example dev launcher', () => {
   it('auto-generates secrets for placeholder values in .env.example', () => {
     const resolved = resolveConvexEnvVars({
       BETTER_AUTH_SECRET: 'replace-me',
-      CONVEX_SERVICE_KEY: 'replace-me-with-a-long-random-shared-secret',
+      CONVEX_TRUSTED_CALLER_KEY: 'replace-me-with-a-long-random-shared-secret',
       SITE_URL: 'http://127.0.0.1:3000',
     }) as Record<string, string>
 
     expect(resolved.SITE_URL).toBe('http://127.0.0.1:3000')
     expect(resolved.BETTER_AUTH_SECRET).not.toMatch(/replace.?me/i)
     expect(resolved.BETTER_AUTH_SECRET).toHaveLength(64) // 32 bytes hex
-    expect(resolved.CONVEX_SERVICE_KEY).not.toMatch(/replace.?me/i)
-    expect(resolved.CONVEX_SERVICE_KEY).not.toBe(resolved.BETTER_AUTH_SECRET)
+    expect(resolved.CONVEX_TRUSTED_CALLER_KEY).not.toMatch(/replace.?me/i)
+    expect(resolved.CONVEX_TRUSTED_CALLER_KEY).not.toBe(resolved.BETTER_AUTH_SECRET)
   })
 
   it('reuses persisted secrets from .env.local when placeholders are resolved', () => {
@@ -149,35 +149,43 @@ describe('example dev launcher', () => {
   })
 
   it('strips launcher-managed Convex runtime keys from .env.local values', () => {
-    expect(stripManagedConvexEnvVars({
-      BETTER_AUTH_SECRET: 'stable-secret',
-      SITE_URL: 'http://localhost:3000',
-      CONVEX_URL: 'http://127.0.0.1:3210',
-      CONVEX_SITE_URL: 'http://127.0.0.1:3211',
-      CONVEX_DEPLOYMENT: 'anonymous:demo',
-    })).toEqual({
+    expect(
+      stripManagedConvexEnvVars({
+        BETTER_AUTH_SECRET: 'stable-secret',
+        SITE_URL: 'http://localhost:3000',
+        CONVEX_URL: 'http://127.0.0.1:3210',
+        CONVEX_SITE_URL: 'http://127.0.0.1:3211',
+        CONVEX_DEPLOYMENT: 'anonymous:demo',
+      }),
+    ).toEqual({
       BETTER_AUTH_SECRET: 'stable-secret',
       SITE_URL: 'http://localhost:3000',
     })
   })
 
   it('serializes env files without dropping values', () => {
-    expect(serializeEnvFile({
-      BETTER_AUTH_SECRET: 'stable-secret',
-      SITE_URL: 'http://localhost:3000',
-    })).toBe('BETTER_AUTH_SECRET=stable-secret\nSITE_URL=http://localhost:3000')
+    expect(
+      serializeEnvFile({
+        BETTER_AUTH_SECRET: 'stable-secret',
+        SITE_URL: 'http://localhost:3000',
+      }),
+    ).toBe('BETTER_AUTH_SECRET=stable-secret\nSITE_URL=http://localhost:3000')
   })
 
   it('resets the local backend only when a generated auth secret has not been persisted yet', () => {
-    expect(shouldResetLocalBackendForMissingSecret(
-      { BETTER_AUTH_SECRET: 'replace-me', SITE_URL: 'http://localhost:3000' },
-      {},
-    )).toBe(true)
+    expect(
+      shouldResetLocalBackendForMissingSecret(
+        { BETTER_AUTH_SECRET: 'replace-me', SITE_URL: 'http://localhost:3000' },
+        {},
+      ),
+    ).toBe(true)
 
-    expect(shouldResetLocalBackendForMissingSecret(
-      { BETTER_AUTH_SECRET: 'replace-me', SITE_URL: 'http://localhost:3000' },
-      { BETTER_AUTH_SECRET: 'stable-secret' },
-    )).toBe(false)
+    expect(
+      shouldResetLocalBackendForMissingSecret(
+        { BETTER_AUTH_SECRET: 'replace-me', SITE_URL: 'http://localhost:3000' },
+        { BETTER_AUTH_SECRET: 'stable-secret' },
+      ),
+    ).toBe(false)
   })
 
   it('reads Convex deployment env from .env.local', () => {
@@ -190,7 +198,8 @@ describe('example dev launcher', () => {
     const cwd = '/repo/examples/01-public-todo'
     const config = readConvexLocalConfig(cwd, {
       existsSyncFn: () => true,
-      readFileSyncFn: ((() => '{"ports":{"cloud":3210,"site":3211},"deploymentName":"anonymous-agent"}') as unknown) as typeof import('node:fs').readFileSync,
+      readFileSyncFn: (() =>
+        '{"ports":{"cloud":3210,"site":3211},"deploymentName":"anonymous-agent"}') as unknown as typeof import('node:fs').readFileSync,
     })
 
     expect(config).toEqual({
@@ -205,7 +214,7 @@ describe('example dev launcher', () => {
       readConvexLocalConfigFn: () => ({
         ports: { cloud: 3216, site: 3217 },
       }),
-      isPortFreeFn: async candidate => candidate === 3216 || candidate === 3217,
+      isPortFreeFn: async (candidate) => candidate === 3216 || candidate === 3217,
       findAvailablePortPairFn: async () => 3220,
     } as Parameters<typeof selectExamplePortPair>[0])
 
@@ -287,7 +296,9 @@ describe('example dev launcher', () => {
     })
 
     expect((env as Record<string, string | undefined>).CONVEX_URL).toBe('http://127.0.0.1:3212')
-    expect((env as Record<string, string | undefined>).CONVEX_SITE_URL).toBe('http://127.0.0.1:3213')
+    expect((env as Record<string, string | undefined>).CONVEX_SITE_URL).toBe(
+      'http://127.0.0.1:3213',
+    )
   })
 
   it('skips stale .env.local entries that do not match the expected port', async () => {
@@ -350,7 +361,7 @@ describe('example dev launcher', () => {
     })
 
     handler()
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(shutdown).toHaveBeenCalledWith(0)
   })
@@ -396,7 +407,16 @@ describe('example dev launcher', () => {
       expect(clearPortsFn).toHaveBeenCalledWith([3214, 3215], expect.any(Object))
       expect(spawnFn).toHaveBeenCalledWith(
         'pnpm',
-        ['exec', 'convex', 'dev', '--local', '--local-cloud-port', '3214', '--local-site-port', '3215'],
+        [
+          'exec',
+          'convex',
+          'dev',
+          '--local',
+          '--local-cloud-port',
+          '3214',
+          '--local-site-port',
+          '3215',
+        ],
         expect.objectContaining({
           env: expect.objectContaining({ CONVEX_LOCAL_BACKEND_PORT: '3214' }),
         }),
@@ -438,9 +458,7 @@ describe('example dev launcher', () => {
     } as Parameters<typeof runExampleDev>[0])
 
     await vi.waitFor(() =>
-      expect(rmSyncFn).toHaveBeenCalledWith(
-        expect.stringContaining('.env.local'),
-      ),
+      expect(rmSyncFn).toHaveBeenCalledWith(expect.stringContaining('.env.local')),
     )
 
     convex.emit('exit', 1, null)
@@ -460,7 +478,6 @@ describe('example dev launcher', () => {
       'BETTER_AUTH_SECRET=stable-secret\nSITE_URL=http://localhost:3000',
     )
   })
-
 
   it('fails closed when Convex exits before readiness', async () => {
     const convex = createChildProcess()

@@ -39,7 +39,7 @@ It shows:
 3. `pnpm dev`
 
 The launcher starts a local Convex deployment, waits for `_generated`, and then starts Nuxt. Keep
-`CONVEX_SERVICE_KEY`, `SITE_URL`, and `BETTER_AUTH_SECRET` in `.env.local`; local Convex URLs are injected.
+`CONVEX_TRUSTED_CALLER_KEY`, `SITE_URL`, and `BETTER_AUTH_SECRET` in `.env.local`; local Convex URLs are injected.
 
 ## MCP Demo Auth
 
@@ -87,7 +87,7 @@ The example test file covers:
 - member can update own todo
 - member cannot update another member's todo
 - tenants cannot see each other's todos
-- service-auth callers obey the same permission rules as browser and MCP callers
+- trusted callers obey the same permission rules as browser and MCP callers
 
 `convex/test.setup.ts` is intentionally app-owned. It uses `createConvexTestModules(...)` and
 `convexServerMock` from `better-convex-nuxt/testing`, but the Vite glob and generated-server mock

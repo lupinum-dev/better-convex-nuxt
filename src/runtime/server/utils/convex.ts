@@ -26,7 +26,7 @@ export interface ServerConvexOptions {
    * - 'auto': use session cookie when available (default)
    * - 'required': throw when auth token cannot be resolved
    * - 'none': never attach auth
-   * - 'service': inject service auth args for server-to-server scoped/authed calls
+   * - 'trusted': inject trusted caller args for server-to-server scoped/authed calls
    */
   auth?: ConvexServerAuthMode
   /**
@@ -34,17 +34,15 @@ export interface ServerConvexOptions {
    */
   authToken?: string
   /**
-   * Service actor to inject when auth='service'.
+   * Trusted caller user identity to inject when auth='trusted'.
    */
   actor?: {
     userId: string
-    role: string
-    tenantId?: string
   }
   /**
-   * Explicit service key override. Defaults to CONVEX_SERVICE_KEY.
+   * Explicit trusted caller key override. Defaults to CONVEX_TRUSTED_CALLER_KEY.
    */
-  serviceKey?: string
+  trustedCallerKey?: string
 }
 
 function getHelperName(operationType: ConvexOperationType): ServerConvexHelperName {
@@ -73,7 +71,10 @@ function toServerConvexError(
   })
 }
 
-function createServerConvexError(message: string, context: ServerConvexErrorContext): ConvexCallError {
+function createServerConvexError(
+  message: string,
+  context: ServerConvexErrorContext,
+): ConvexCallError {
   return new ConvexCallError(`[${context.helper}] ${message}`, context)
 }
 
@@ -141,30 +142,28 @@ async function executeConvexOperation<T>(
   }
 
   let authToken: string | undefined
-  if (authMode === 'service') {
+  if (authMode === 'trusted') {
     const actor = options?.actor
     if (!actor) {
       throw createServerConvexError(
-        `Service auth for ${functionPath} requires \`options.actor\`.`,
+        `Trusted caller auth for ${functionPath} requires \`options.actor\`.`,
         errorContext,
       )
     }
 
-    const serviceKey = options?.serviceKey ?? process.env.CONVEX_SERVICE_KEY
-    if (!serviceKey) {
+    const trustedCallerKey = options?.trustedCallerKey ?? process.env.CONVEX_TRUSTED_CALLER_KEY
+    if (!trustedCallerKey) {
       throw createServerConvexError(
-        `Service auth for ${functionPath} requires \`CONVEX_SERVICE_KEY\` or \`options.serviceKey\`.`,
+        `Trusted caller auth for ${functionPath} requires \`CONVEX_TRUSTED_CALLER_KEY\` or \`options.trustedCallerKey\`.`,
         errorContext,
       )
     }
 
     requestArgs = {
       ...requestArgs,
-      _serviceKey: serviceKey,
-      _serviceActor: {
+      _trustedCallerKey: trustedCallerKey,
+      _trustedCaller: {
         userId: actor.userId,
-        role: actor.role,
-        ...(actor.tenantId ? { tenantId: actor.tenantId } : {}),
       },
     }
   } else {
@@ -258,7 +257,12 @@ function isH3EventLike(value: unknown): value is H3Event {
 
 function parseServerConvexArgs<Fn extends FunctionReference<'query' | 'mutation' | 'action'>>(
   operationType: ConvexOperationType,
-  input: [H3Event | Fn, Fn | FunctionArgs<Fn> | undefined, FunctionArgs<Fn> | ServerConvexOptions | undefined, ServerConvexOptions | undefined],
+  input: [
+    H3Event | Fn,
+    Fn | FunctionArgs<Fn> | undefined,
+    FunctionArgs<Fn> | ServerConvexOptions | undefined,
+    ServerConvexOptions | undefined,
+  ],
 ): {
   event: H3Event
   fn: Fn

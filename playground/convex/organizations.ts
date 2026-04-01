@@ -1,15 +1,12 @@
-import { can, authorize } from 'better-convex-nuxt/auth'
-import { withServiceAuth } from 'better-convex-nuxt/service'
 import { defineArgs } from 'better-convex-nuxt/args'
+import { can, authorize } from 'better-convex-nuxt/auth'
+import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
-import type { Id } from './_generated/dataModel'
 
+import type { Id } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
-import {
-  canManageMembers,
-  canManageOrgSettings,
-} from './auth/checks'
+import { canManageMembers, canManageOrgSettings } from './auth/checks'
 import { getUserRowFromActor } from './lib/user_row'
 
 const createOrganizationArgs = defineArgs({
@@ -36,7 +33,7 @@ export const list = query({
 })
 
 export const create = mutation({
-  args: withServiceAuth(createOrganizationArgs.args),
+  args: withTrustedCaller(createOrganizationArgs.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create organization', actor !== null)
@@ -46,7 +43,7 @@ export const create = mutation({
 
     const existing = await ctx.db
       .query('organizations')
-      .withIndex('by_slug', q => q.eq('slug', args.slug))
+      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
       .first()
 
     if (existing) throw new Error('Organization slug already exists')
@@ -92,7 +89,7 @@ export const getByIds = query({
     ids: v.array(v.id('organizations')),
   },
   handler: async (ctx, args) => {
-    const orgs = await Promise.all(args.ids.map(id => ctx.db.get(id)))
+    const orgs = await Promise.all(args.ids.map((id) => ctx.db.get(id)))
     return orgs.filter((org): org is NonNullable<typeof org> => org !== null)
   },
 })
@@ -106,7 +103,9 @@ export const getMembers = query({
 
     return await ctx.db
       .query('users')
-      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
+      .withIndex('by_organization', (q) =>
+        q.eq('organizationId', actor.tenantId as Id<'organizations'>),
+      )
       .collect()
   },
 })
@@ -122,7 +121,8 @@ export const changeMemberRole = mutation({
 
     const targetUser = await ctx.db.get(args.userId)
     if (!targetUser) throw new Error('User not found')
-    if (targetUser.organizationId !== actor.tenantId) throw new Error('User not in your organization')
+    if (targetUser.organizationId !== actor.tenantId)
+      throw new Error('User not in your organization')
     if (targetUser.role === 'owner') throw new Error("Cannot change owner's role")
     if (args.newRole === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can promote to admin')
@@ -143,8 +143,10 @@ export const removeMember = mutation({
 
     const targetUser = await ctx.db.get(args.userId)
     if (!targetUser) throw new Error('User not found')
-    if (targetUser.organizationId !== actor.tenantId) throw new Error('User not in your organization')
-    if (targetUser.authId === actor.userId) throw new Error('Cannot remove yourself - use Leave Organization instead')
+    if (targetUser.organizationId !== actor.tenantId)
+      throw new Error('User not in your organization')
+    if (targetUser.authId === actor.userId)
+      throw new Error('Cannot remove yourself - use Leave Organization instead')
     if (targetUser.role === 'owner') throw new Error('Cannot remove owner')
     if (targetUser.role === 'admin' && actor.role !== 'owner') {
       throw new Error('Only owner can remove admins')

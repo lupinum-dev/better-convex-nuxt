@@ -1,28 +1,19 @@
+import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { ConvexError } from 'convex/values'
-
-import {
-  authorize,
-  can,
-  deny,
-  and,
-  or,
-  requireAuth,
-  requireRecord,
-} from '../../src/runtime/auth'
-import { verifyServiceKey } from '../../src/runtime/service'
-import {
-  applyVisibility,
-  defineVisibility,
-  getVisibilityQuery,
-} from '../../src/runtime/visibility'
+import { authorize, can, deny, and, or, requireAuth, requireRecord } from '../../src/runtime/auth'
+import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
+import { applyVisibility, defineVisibility, getVisibilityQuery } from '../../src/runtime/visibility'
 
 describe('auth primitives', () => {
   it('evaluates boolean composition helpers', () => {
     const actor = { role: 'member', userId: 'alice' }
-    const hasRole = (...roles: string[]) => (value: typeof actor | null) => !!value && roles.includes(value.role)
-    const owns = (resource: { ownerId: string }) => (value: typeof actor | null) => !!value && value.userId === resource.ownerId
+    const hasRole =
+      (...roles: string[]) =>
+      (value: typeof actor | null) =>
+        !!value && roles.includes(value.role)
+    const owns = (resource: { ownerId: string }) => (value: typeof actor | null) =>
+      !!value && value.userId === resource.ownerId
 
     expect(can(actor, and(hasRole('member'), owns({ ownerId: 'alice' })))).toBe(true)
     expect(can(actor, or(hasRole('admin'), owns({ ownerId: 'alice' })))).toBe(true)
@@ -33,7 +24,7 @@ describe('auth primitives', () => {
     expect(() => authorize(null, 'Read dashboard', false)).toThrow(/Forbidden: Read dashboard/)
 
     const actor: { role: string } | null = { role: 'admin' }
-    authorize(actor, 'Read dashboard', a => a.role === 'admin')
+    authorize(actor, 'Read dashboard', (a) => a.role === 'admin')
     // After authorize, actor is narrowed to non-null — this access is type-safe
     expect(actor.role).toBe('admin')
   })
@@ -41,8 +32,7 @@ describe('auth primitives', () => {
   it('authorize() includes auth category when actor is null', () => {
     try {
       authorize(null, 'Read dashboard', true)
-    }
-    catch (error) {
+    } catch (error) {
       expect(error).toBeInstanceOf(ConvexError)
       expect((error as ConvexError<any>).data.category).toBe('auth')
     }
@@ -51,8 +41,7 @@ describe('auth primitives', () => {
   it('authorize() accepts an optional category', () => {
     try {
       authorize({ role: 'viewer' }, 'Manage users', () => false, 'role')
-    }
-    catch (error) {
+    } catch (error) {
       expect(error).toBeInstanceOf(ConvexError)
       expect((error as ConvexError<any>).data.category).toBe('role')
     }
@@ -65,8 +54,7 @@ describe('auth primitives', () => {
   it('deny() accepts a source string (backward compat)', () => {
     try {
       deny('Nope', 'test-source')
-    }
-    catch (error) {
+    } catch (error) {
       expect(error).toBeInstanceOf(ConvexError)
       const data = (error as ConvexError<any>).data
       expect(data.source).toBe('test-source')
@@ -77,8 +65,7 @@ describe('auth primitives', () => {
   it('deny() accepts an options object with category', () => {
     try {
       deny('Plan limit reached', { category: 'plan', source: 'billing' })
-    }
-    catch (error) {
+    } catch (error) {
       expect(error).toBeInstanceOf(ConvexError)
       const data = (error as ConvexError<any>).data
       expect(data.category).toBe('plan')
@@ -97,19 +84,23 @@ describe('auth primitives', () => {
   })
 
   it('fails closed in can() for ConvexError but rethrows programming bugs', () => {
-    expect(can({}, () => {
-      deny('forbidden')
-    })).toBe(false)
+    expect(
+      can({}, () => {
+        deny('forbidden')
+      }),
+    ).toBe(false)
 
-    expect(() => can({}, () => {
-      throw new Error('boom')
-    })).toThrow('boom')
+    expect(() =>
+      can({}, () => {
+        throw new Error('boom')
+      }),
+    ).toThrow('boom')
   })
 
   it('verifies keys in constant-time-compatible shape', () => {
-    expect(verifyServiceKey('abc', 'abc')).toBe(true)
-    expect(verifyServiceKey('abc', 'def')).toBe(false)
-    expect(verifyServiceKey('', 'def')).toBe(false)
+    expect(verifyTrustedCallerKey('abc', 'abc')).toBe(true)
+    expect(verifyTrustedCallerKey('abc', 'def')).toBe(false)
+    expect(verifyTrustedCallerKey('', 'def')).toBe(false)
   })
 
   it('requireRecord throws ConvexError with NOT_FOUND code', () => {
@@ -119,8 +110,7 @@ describe('auth primitives', () => {
 
     try {
       requireRecord(null, 'Project')
-    }
-    catch (error) {
+    } catch (error) {
       expect(error).toBeInstanceOf(ConvexError)
       const data = (error as ConvexError<any>).data
       expect(data.code).toBe('NOT_FOUND')

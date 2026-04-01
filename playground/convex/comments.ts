@@ -1,23 +1,18 @@
 import { can, authorize } from 'better-convex-nuxt/auth'
-import { withServiceAuth } from 'better-convex-nuxt/service'
+import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 
-import { mutation, query } from './_generated/server'
-import type { Actor } from './auth/actor'
-import { getActor } from './auth/actor'
-import {
-  canCreateComment,
-  canDeleteComment,
-  canReadComment,
-  canUpdateComment,
-} from './auth/checks'
-import { withCan } from './auth/resource'
-import { loadResource } from './auth/scope'
 import {
   createComment,
   deleteComment,
   listCommentsByPost,
   updateComment,
 } from '../shared/schemas/comment'
+import { mutation, query } from './_generated/server'
+import type { Actor } from './auth/actor'
+import { getActor } from './auth/actor'
+import { canCreateComment, canDeleteComment, canReadComment, canUpdateComment } from './auth/checks'
+import { withCan } from './auth/resource'
+import { loadResource } from './auth/scope'
 
 function attachCommentPermissions(
   actor: Exclude<Actor, null>,
@@ -30,7 +25,7 @@ function attachCommentPermissions(
 }
 
 export const listByPost = query({
-  args: withServiceAuth(listCommentsByPost.args),
+  args: withTrustedCaller(listCommentsByPost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor) return []
@@ -40,16 +35,16 @@ export const listByPost = query({
     const post = loadResource(actor, await ctx.db.get(args.postId), 'Post')
     const comments = await ctx.db
       .query('comments')
-      .withIndex('by_post', q => q.eq('postId', post._id))
+      .withIndex('by_post', (q) => q.eq('postId', post._id))
       .order('desc')
       .collect()
 
-    return comments.map(comment => attachCommentPermissions(actor, comment))
+    return comments.map((comment) => attachCommentPermissions(actor, comment))
   },
 })
 
 export const create = mutation({
-  args: withServiceAuth(createComment.args),
+  args: withTrustedCaller(createComment.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create comment', canCreateComment)
@@ -67,7 +62,7 @@ export const create = mutation({
 })
 
 export const update = mutation({
-  args: withServiceAuth(updateComment.args),
+  args: withTrustedCaller(updateComment.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')
@@ -82,7 +77,7 @@ export const update = mutation({
 })
 
 export const remove = mutation({
-  args: withServiceAuth(deleteComment.args),
+  args: withTrustedCaller(deleteComment.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')

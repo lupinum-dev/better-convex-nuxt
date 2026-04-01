@@ -1,14 +1,13 @@
 /**
  * Why this file exists:
  * Example 04 is meant to show real month-two patterns, not just UI polish.
- * These tests prove tenant isolation, guard behavior, bulk semantics, and service-auth parity.
+ * These tests prove tenant isolation, guard behavior, bulk semantics, and trusted-caller parity.
  */
 /// <reference types="vite/client" />
 
+import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
-
-import { createTestContext } from 'better-convex-nuxt/testing'
 
 import schema from './schema'
 import { modules } from './test.setup'
@@ -162,8 +161,12 @@ describe('project board example', () => {
       priority: 'medium',
     })
 
-    const alphaTasks = await alpha.users.owner.query(api.tasks.listByProject, { projectId: alphaProject })
-    const betaTasks = await beta.users.owner.query(api.tasks.listByProject, { projectId: betaProject })
+    const alphaTasks = await alpha.users.owner.query(api.tasks.listByProject, {
+      projectId: alphaProject,
+    })
+    const betaTasks = await beta.users.owner.query(api.tasks.listByProject, {
+      projectId: betaProject,
+    })
 
     expect(alphaTasks).toHaveLength(1)
     expect(alphaTasks[0]?.title).toBe('Alpha task')
@@ -187,9 +190,9 @@ describe('project board example', () => {
       summary: 'A',
     })
 
-    await expect(
-      beta.users.owner.query(api.projects.get, { id: alphaProject }),
-    ).rejects.toThrow('Resource not found.')
+    await expect(beta.users.owner.query(api.projects.get, { id: alphaProject })).rejects.toThrow(
+      'Resource not found.',
+    )
   })
 
   it('returns resource not found when another workspace tries to comment on a task by id', async () => {
@@ -244,15 +247,15 @@ describe('project board example', () => {
     const members = await team.users.owner.query(api.members.list, {})
 
     expect(members).toHaveLength(2)
-    expect(members.find(member => member.authId === 'floating-user')).toBeUndefined()
+    expect(members.find((member) => member.authId === 'floating-user')).toBeUndefined()
   })
 
   it('does not expose a raw storage-url query anymore', async () => {
     const ctx = createCtx()
 
-    await expect(
-      ctx.raw.query(api.files.getUrl, {} as never),
-    ).rejects.toThrow(/getUrl|Could not find|not found/)
+    await expect(ctx.raw.query(api.files.getUrl, {} as never)).rejects.toThrow(
+      /getUrl|Could not find|not found/,
+    )
   })
 
   it('bulk updates only the member-owned tasks and reports skipped ids', async () => {
@@ -290,7 +293,7 @@ describe('project board example', () => {
     expect(result.skipped).toHaveLength(1)
   })
 
-  it('service-auth callers obey the same permission rules as browser users', async () => {
+  it('trusted callers obey the same permission rules as browser users', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
@@ -305,14 +308,12 @@ describe('project board example', () => {
       summary: 'Service auth',
     })
 
-    const service = ctx.asService({
+    const trustedCaller = ctx.asTrustedCaller({
       userId: team.users.viewer.authId,
-      role: 'viewer',
-      tenantId: team.id,
     })
 
     await expect(
-      service.mutation(api.tasks.create, {
+      trustedCaller.mutation(api.tasks.create, {
         projectId,
         title: 'Nope',
         priority: 'medium',

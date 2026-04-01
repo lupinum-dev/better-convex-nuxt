@@ -1,12 +1,11 @@
 /**
  * Why this file exists:
  * Nitro routes often need to act on behalf of external systems. This example shows the server
- * helper calling the same scoped mutation layer with service auth instead of browser cookies.
+ * helper calling the same scoped mutation layer with trusted caller auth instead of browser cookies.
  */
 import { createError, defineEventHandler, readBody } from 'h3'
 
 import { serverConvexMutation } from '#convex/server'
-
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
 
@@ -26,7 +25,10 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody<WebhookBody>(event)
   if (!body.projectId || !body.title || !body.createdBy || !body.workspaceId) {
-    throw createError({ statusCode: 400, message: 'projectId, title, createdBy, and workspaceId are required.' })
+    throw createError({
+      statusCode: 400,
+      message: 'projectId, title, createdBy, and workspaceId are required.',
+    })
   }
 
   const taskId = await serverConvexMutation(
@@ -38,11 +40,9 @@ export default defineEventHandler(async (event) => {
       priority: body.priority ?? 'medium',
     },
     {
-      auth: 'service',
+      auth: 'trusted',
       actor: {
         userId: body.createdBy,
-        role: 'admin',
-        tenantId: body.workspaceId,
       },
     },
   )

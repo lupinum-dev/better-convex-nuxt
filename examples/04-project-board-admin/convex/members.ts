@@ -1,5 +1,5 @@
 import { deny, authorize } from 'better-convex-nuxt/auth'
-import { withServiceAuth } from 'better-convex-nuxt/service'
+import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
@@ -22,7 +22,7 @@ export const list = query({
 })
 
 export const changeRole = mutation({
-  args: withServiceAuth({
+  args: withTrustedCaller({
     userId: v.id('users'),
     newRole: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
   }),

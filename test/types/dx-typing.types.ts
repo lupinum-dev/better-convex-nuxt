@@ -1,25 +1,17 @@
 import type { FunctionReference } from 'convex/server'
 
 import type { AuthIdentity } from '../../src/runtime/auth'
-import {
-  authorize,
-  can,
-  deny,
-  requireAuth,
-  and,
-} from '../../src/runtime/auth'
-import type { Visibility } from '../../src/runtime/visibility'
-import { applyVisibility, defineVisibility } from '../../src/runtime/visibility'
-import { verifyServiceKey } from '../../src/runtime/service'
+import { authorize, can, deny, requireAuth, and } from '../../src/runtime/auth'
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { createTestContext } from '../../src/runtime/testing'
+import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
+import type { Visibility } from '../../src/runtime/visibility'
+import { applyVisibility, defineVisibility } from '../../src/runtime/visibility'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
-    ? true
-    : false
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
 type Actor = { role: 'owner' | 'member'; userId: string; tenantId: string } | null
 type ActorCheck = (actor: Actor) => boolean
@@ -37,7 +29,7 @@ type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
 
 deny('Blocked')
 authorize(null, 'Admin page', false)
-verifyServiceKey('a', 'b')
+verifyTrustedCallerKey('a', 'b')
 
 const visibility = defineVisibility(async () => [{ _id: '1' }])
 void applyVisibility(visibility, { userId: 'u1' }, {} as never)
@@ -52,8 +44,12 @@ type PermissionContext = {
   can: Record<'task.create' | 'workspace.members', boolean>
 }
 
-const permissionQuery =
-  {} as FunctionReference<'query', 'public', Record<string, never>, PermissionContext | null>
+const permissionQuery = {} as FunctionReference<
+  'query',
+  'public',
+  Record<string, never>,
+  PermissionContext | null
+>
 
 const _auth = createConfiguredPermissionsComposables(
   permissionQuery,
@@ -62,19 +58,37 @@ const _auth = createConfiguredPermissionsComposables(
 
 type UsePermissionsApi = ReturnType<typeof _auth.usePermissions>
 type GuardOptions = Parameters<typeof _auth.useAuthGuard>[0]
-type _permissionKey = Assert<IsEqual<PermissionKey<PermissionContext>, 'task.create' | 'workspace.members'>>
-type _ctxFromComposable = Assert<IsEqual<UsePermissionsApi['ctx']['value'], PermissionContext | null>>
-type _roleFromComposable = Assert<IsEqual<UsePermissionsApi['role']['value'], PermissionContext['role'] | null>>
-type _planFromComposable = Assert<IsEqual<UsePermissionsApi['plan']['value'], PermissionContext['plan'] | null>>
-type _ctxDisplayName = Assert<IsEqual<NonNullable<UsePermissionsApi['ctx']['value']>['displayName'], string | null>>
-type _ctxUsageCurrent = Assert<IsEqual<NonNullable<UsePermissionsApi['ctx']['value']>['usage']['projects']['current'], number>>
-type _canParameter = Assert<IsEqual<Parameters<UsePermissionsApi['can']>[0], 'task.create' | 'workspace.members'>>
-type _guardCanKey = Assert<IsEqual<GuardOptions['can'], 'task.create' | 'workspace.members' | undefined>>
-type _guardCheck = Assert<IsEqual<GuardOptions['check'], ((ctx: PermissionContext) => boolean) | undefined>>
+type _permissionKey = Assert<
+  IsEqual<PermissionKey<PermissionContext>, 'task.create' | 'workspace.members'>
+>
+type _ctxFromComposable = Assert<
+  IsEqual<UsePermissionsApi['ctx']['value'], PermissionContext | null>
+>
+type _roleFromComposable = Assert<
+  IsEqual<UsePermissionsApi['role']['value'], PermissionContext['role'] | null>
+>
+type _planFromComposable = Assert<
+  IsEqual<UsePermissionsApi['plan']['value'], PermissionContext['plan'] | null>
+>
+type _ctxDisplayName = Assert<
+  IsEqual<NonNullable<UsePermissionsApi['ctx']['value']>['displayName'], string | null>
+>
+type _ctxUsageCurrent = Assert<
+  IsEqual<NonNullable<UsePermissionsApi['ctx']['value']>['usage']['projects']['current'], number>
+>
+type _canParameter = Assert<
+  IsEqual<Parameters<UsePermissionsApi['can']>[0], 'task.create' | 'workspace.members'>
+>
+type _guardCanKey = Assert<
+  IsEqual<GuardOptions['can'], 'task.create' | 'workspace.members' | undefined>
+>
+type _guardCheck = Assert<
+  IsEqual<GuardOptions['check'], ((ctx: PermissionContext) => boolean) | undefined>
+>
 
 const _validGuardOptions: GuardOptions = {
   can: 'task.create',
-  check: ctx => ctx.usage.projects.current > 0,
+  check: (ctx) => ctx.usage.projects.current > 0,
 }
 void _validGuardOptions
 
@@ -86,8 +100,12 @@ type GenericPermissionContext = {
   can: Record<string, boolean>
 }
 
-const genericPermissionQuery =
-  {} as FunctionReference<'query', 'public', Record<string, never>, GenericPermissionContext | null>
+const genericPermissionQuery = {} as FunctionReference<
+  'query',
+  'public',
+  Record<string, never>,
+  GenericPermissionContext | null
+>
 
 const _genericAuth = createConfiguredPermissionsComposables(
   genericPermissionQuery,

@@ -7,8 +7,12 @@ const runtimeComposablesEntry = fileURLToPath(
 )
 const runtimeAuthEntry = fileURLToPath(new URL('../src/runtime/auth/index.ts', import.meta.url))
 const runtimeArgsEntry = fileURLToPath(new URL('../src/runtime/args/index.ts', import.meta.url))
-const runtimeServiceEntry = fileURLToPath(new URL('../src/runtime/service/index.ts', import.meta.url))
-const runtimeVisibilityEntry = fileURLToPath(new URL('../src/runtime/visibility/index.ts', import.meta.url))
+const runtimeTrustedCallerEntry = fileURLToPath(
+  new URL('../src/runtime/trusted-caller/index.ts', import.meta.url),
+)
+const runtimeVisibilityEntry = fileURLToPath(
+  new URL('../src/runtime/visibility/index.ts', import.meta.url),
+)
 const runtimeMcpEntry = fileURLToPath(new URL('../src/runtime/mcp/index.ts', import.meta.url))
 const runtimeServerEntry = fileURLToPath(new URL('../src/runtime/server/index.ts', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('./', import.meta.url))
@@ -47,7 +51,7 @@ export default defineNuxtConfig({
     'better-convex-nuxt/args': runtimeArgsEntry,
     'better-convex-nuxt/mcp': runtimeMcpEntry,
     'better-convex-nuxt/server': runtimeServerEntry,
-    'better-convex-nuxt/service': runtimeServiceEntry,
+    'better-convex-nuxt/trusted-caller': runtimeTrustedCallerEntry,
     'better-convex-nuxt/visibility': runtimeVisibilityEntry,
   },
 

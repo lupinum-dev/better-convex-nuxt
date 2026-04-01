@@ -1,19 +1,60 @@
 import { authorize, deny } from 'better-convex-nuxt/auth'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
 
 import { createMcpKey, revokeMcpKey } from '../shared/schemas/mcp-key'
+import type { DataModel, Doc } from './_generated/dataModel'
+import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
-import { loadResource } from './auth/scope'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
-function servicePrincipalUserId(key: { _id: string, role: string, userId: string }): string {
-  // Owner keys intentionally act as the issuing owner so the canonical owner key
-  // can manage owner-owned seeded content. Lower-privilege keys get their own
-  // principal id so they do not inherit the issuer's resource ownership.
-  return key.role === 'owner' ? key.userId : `mcp-key:${key._id}`
+type BoundUser = Pick<Doc<'users'>, 'authId' | 'displayName' | 'email' | 'role' | 'workspaceId'>
+type McpKeyDoc = Doc<'mcpKeys'>
+type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type KeyUsability = 'usable' | 'revoked' | 'bound_user_missing' | 'bound_user_workspace_mismatch'
+
+async function getBoundUser(ctx: Ctx, boundAuthId: string): Promise<BoundUser | null> {
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_auth_id', (q) => q.eq('authId', boundAuthId))
+    .first()
+
+  return user ?? null
+}
+
+function getKeyUsability(key: McpKeyDoc, boundUser: BoundUser | null): KeyUsability {
+  if (key.status === 'revoked') return 'revoked'
+  if (!boundUser?.workspaceId) return 'bound_user_missing'
+  if (boundUser.workspaceId !== key.boundWorkspaceId) return 'bound_user_workspace_mismatch'
+  return 'usable'
+}
+
+function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
+  return {
+    _id: key._id,
+    _creationTime: key._creationTime,
+    name: key.name,
+    prefix: key.prefix,
+    boundAuthId: key.boundAuthId,
+    boundWorkspaceId: key.boundWorkspaceId,
+    issuedByAuthId: key.issuedByAuthId,
+    status: key.status,
+    createdAt: key.createdAt,
+    lastUsedAt: key.lastUsedAt,
+    revokedAt: key.revokedAt,
+    effectiveRole: boundUser?.role ?? null,
+    usability: getKeyUsability(key, boundUser),
+    boundUser: boundUser
+      ? {
+          authId: boundUser.authId,
+          displayName: boundUser.displayName ?? null,
+          email: boundUser.email ?? null,
+          role: boundUser.role,
+        }
+      : null,
+  }
 }
 
 export const list = query({
@@ -24,11 +65,13 @@ export const list = query({
 
     const keys = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_bound_workspace', (q) => q.eq('boundWorkspaceId', actor.tenantId))
       .order('desc')
       .collect()
 
-    return keys.map(({ hash: _hash, ...key }) => key)
+    return await Promise.all(
+      keys.map(async (key) => toListedKey(key, await getBoundUser(ctx, key.boundAuthId))),
+    )
   },
 })
 
@@ -38,17 +81,21 @@ export const create = mutation({
     const actor = await getActor(ctx)
     authorize(actor, 'Manage MCP keys', canManageMcpKeys)
 
-    if (!canIssueKeyRole(actor, args.role)) {
-      throw deny('You cannot issue an MCP key with that role.')
+    const boundUser = await getBoundUser(ctx, args.boundAuthId)
+    if (!boundUser?.workspaceId || boundUser.workspaceId !== actor.tenantId) {
+      throw deny('You can only issue MCP keys for users in your workspace.')
+    }
+    if (!canIssueKeyRole(actor, boundUser.role)) {
+      throw deny('You cannot issue an MCP key for that user.')
     }
 
     return await ctx.db.insert('mcpKeys', {
       name: args.name,
       prefix: args.prefix,
       hash: args.hash,
-      role: args.role,
-      userId: actor.userId,
-      workspaceId: actor.tenantId,
+      boundAuthId: boundUser.authId,
+      boundWorkspaceId: actor.tenantId,
+      issuedByAuthId: actor.userId,
       status: 'active',
       createdAt: Date.now(),
     })
@@ -61,9 +108,18 @@ export const revoke = mutation({
     const actor = await getActor(ctx)
     authorize(actor, 'Manage MCP keys', canManageMcpKeys)
 
-    const key = loadResource(actor, await ctx.db.get(args.id), 'MCP key')
-    if (!canIssueKeyRole(actor, key.role)) {
-      throw deny('You cannot revoke an MCP key with that role.')
+    const rawKey = await ctx.db.get(args.id)
+    if (!rawKey || rawKey.boundWorkspaceId !== actor.tenantId) {
+      throw deny('MCP key not found.')
+    }
+
+    const boundUser = await getBoundUser(ctx, rawKey.boundAuthId)
+    if (
+      boundUser?.workspaceId &&
+      boundUser.workspaceId === rawKey.boundWorkspaceId &&
+      !canIssueKeyRole(actor, boundUser.role)
+    ) {
+      throw deny('You cannot revoke an MCP key for that user.')
     }
 
     await ctx.db.patch(args.id, {
@@ -80,16 +136,18 @@ export const validate = query({
   handler: async (ctx, args) => {
     const key = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_hash', q => q.eq('hash', args.hash))
+      .withIndex('by_hash', (q) => q.eq('hash', args.hash))
       .first()
 
     if (!key || key.status !== 'active') return null
+    const boundUser = await getBoundUser(ctx, key.boundAuthId)
+    if (!boundUser?.workspaceId || boundUser.workspaceId !== key.boundWorkspaceId) return null
 
     return {
       id: key._id,
-      role: key.role,
-      userId: servicePrincipalUserId(key),
-      tenantId: key.workspaceId,
+      role: boundUser.role,
+      userId: boundUser.authId,
+      tenantId: boundUser.workspaceId,
       lastUsedAt: key.lastUsedAt ?? null,
     }
   },

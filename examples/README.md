@@ -7,13 +7,13 @@ This folder now has two jobs:
 
 ## Which One To Open First?
 
-| Example | Best for | Shows |
-| --- | --- | --- |
-| `01-public-todo` | First look | raw `query` / `mutation`, `defineArgs` |
-| `02-auth-todo` | Auth-only apps | Better Auth wiring, raw Convex handlers |
-| `03-team-todo` | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#convex/mcp`, `better-convex-nuxt/testing` |
-| `04-project-board-admin` | Month-two product work | Project-management SaaS, pagination, optimistic updates, uploads, Nitro routes, `guard`, `_can`, admin workflows, integration + E2E tests |
-| `11-mcp-reference` | Full MCP implementation | hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode |
+| Example                  | Best for                     | Shows                                                                                                                                     |
+| ------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-public-todo`         | First look                   | raw `query` / `mutation`, `defineArgs`                                                                                                    |
+| `02-auth-todo`           | Auth-only apps               | Better Auth wiring, raw Convex handlers                                                                                                   |
+| `03-team-todo`           | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#convex/mcp`, `better-convex-nuxt/testing`                                               |
+| `04-project-board-admin` | Month-two product work       | Project-management SaaS, pagination, optimistic updates, uploads, Nitro routes, `guard`, `_can`, admin workflows, integration + E2E tests |
+| `11-mcp-reference`       | Full MCP implementation      | hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode                                            |
 
 If you're here because of shared validators or `shared/` folders rather than auth shape, read:
 
@@ -22,16 +22,16 @@ If you're here because of shared validators or `shared/` folders rather than aut
 
 ## SaaS Coverage Matrix
 
-| Example | SaaS type | Auth shape | Easy problem | Hard problem |
-| --- | --- | --- | --- | --- |
-| `04-project-board-admin` | Project management | role + ownership + state guards | member updates own task | archived resources and nested resource guards |
-| `05-crm-pipeline` | CRM | row visibility + redaction | rep edits own contact | manager/team visibility and sensitive field redaction |
-| `06-course-lms` | Course / LMS | relationship access | enrolled student reads lesson | prerequisites, publishing state, timed unlocks |
-| `07-ecommerce-ops` | E-commerce back office | user + service actors | admin refunds a valid order | webhook auth, idempotency, refund-state guards |
-| `08-freemium-workspace` | Freemium B2B | plan entitlements + limits | plan feature visible in UI | count-based project limits |
-| `09-doc-sharing` | Collaboration / sharing | resource sharing + public tokens | workspace member views a page | inherited access and token-level enforcement |
-| `10-agency-portal` | Agency / multi-client | controlled cross-tenant access | client user works inside current workspace | agency-wide dashboard across assigned clients only |
-| `11-mcp-reference` | MCP reference app | real MCP key auth + full protocol surface | public tool discovery | session state, dynamic tools, destructive confirmations, code mode |
+| Example                  | SaaS type               | Auth shape                                | Easy problem                               | Hard problem                                                       |
+| ------------------------ | ----------------------- | ----------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| `04-project-board-admin` | Project management      | role + ownership + state guards           | member updates own task                    | archived resources and nested resource guards                      |
+| `05-crm-pipeline`        | CRM                     | row visibility + redaction                | rep edits own contact                      | manager/team visibility and sensitive field redaction              |
+| `06-course-lms`          | Course / LMS            | relationship access                       | enrolled student reads lesson              | prerequisites, publishing state, timed unlocks                     |
+| `07-ecommerce-ops`       | E-commerce back office  | users + webhook bot users                 | admin refunds a valid order                | webhook auth, idempotency, refund-state guards                     |
+| `08-freemium-workspace`  | Freemium B2B            | plan entitlements + limits                | plan feature visible in UI                 | count-based project limits                                         |
+| `09-doc-sharing`         | Collaboration / sharing | resource sharing + public tokens          | workspace member views a page              | inherited access and token-level enforcement                       |
+| `10-agency-portal`       | Agency / multi-client   | controlled cross-tenant access            | client user works inside current workspace | agency-wide dashboard across assigned clients only                 |
+| `11-mcp-reference`       | MCP reference app       | real MCP key auth + full protocol surface | public tool discovery                      | session state, dynamic tools, destructive confirmations, code mode |
 
 ## Important Repo Note
 
@@ -58,19 +58,19 @@ If you are running these examples from inside this repository and the local pack
 
 ## Environment Variables
 
-| Example | Injected by `pnpm dev` | App-owned env vars |
-| --- | --- | --- |
-| `01-public-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | none |
-| `02-auth-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `03-team-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
-| `04-project-board-admin` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
-| `05-crm-pipeline` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `06-course-lms` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `07-ecommerce-ops` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
-| `08-freemium-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `09-doc-sharing` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `10-agency-portal` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `11-mcp-reference` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
+| Example                  | Injected by `pnpm dev`          | App-owned env vars                                            |
+| ------------------------ | ------------------------------- | ------------------------------------------------------------- |
+| `01-public-todo`         | `CONVEX_URL`, `CONVEX_SITE_URL` | none                                                          |
+| `02-auth-todo`           | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `03-team-todo`           | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
+| `04-project-board-admin` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
+| `05-crm-pipeline`        | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `06-course-lms`          | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `07-ecommerce-ops`       | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
+| `08-freemium-workspace`  | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `09-doc-sharing`         | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `10-agency-portal`       | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `11-mcp-reference`       | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
 
 ## Why The Code Is Comment-Heavy
 

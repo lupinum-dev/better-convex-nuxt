@@ -1,20 +1,18 @@
 <template>
-  <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.14),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)] p-6">
+  <div
+    class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.14),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)] p-6"
+  >
     <div class="mx-auto flex max-w-7xl flex-col gap-6">
       <UCard>
         <template #header>
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="space-y-2">
-              <p class="text-xs font-black uppercase tracking-[0.28em] text-sky-700">
-                Example 11
-              </p>
-              <h1 class="text-3xl font-black tracking-tight text-slate-950">
-                MCP Reference
-              </h1>
+              <p class="text-xs font-black uppercase tracking-[0.28em] text-sky-700">Example 11</p>
+              <h1 class="text-3xl font-black tracking-tight text-slate-950">MCP Reference</h1>
               <p class="max-w-3xl text-sm leading-6 text-slate-600">
-                The complete MCP example: public and scoped tools, destructive previews,
-                result envelopes, prompts, resources, sessions, dynamic per-session tools,
-                code mode, and a real hashed MCP key flow.
+                The complete MCP example: public and scoped tools, destructive previews, result
+                envelopes, prompts, resources, sessions, dynamic per-session tools, code mode, and a
+                real hashed MCP key flow.
               </p>
             </div>
 
@@ -149,7 +147,9 @@
                         <h2 class="text-xl font-semibold text-slate-950">{{ displayName }}</h2>
                         <p class="mt-1 text-sm text-slate-600">
                           Role:
-                          <span class="font-semibold text-slate-900">{{ permissionsPending ? 'loading…' : (role || 'no workspace yet') }}</span>
+                          <span class="font-semibold text-slate-900">{{
+                            permissionsPending ? 'loading…' : role || 'no workspace yet'
+                          }}</span>
                           <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
                         </p>
                       </div>
@@ -232,7 +232,10 @@
 
                           <div class="space-y-1">
                             <label class="text-sm font-medium text-slate-900">Role</label>
-                            <USelect v-model="joinWorkspaceForm.role" :items="workspaceRoleOptions" />
+                            <USelect
+                              v-model="joinWorkspaceForm.role"
+                              :items="workspaceRoleOptions"
+                            />
                           </div>
 
                           <UButton
@@ -284,15 +287,44 @@
                             </div>
                           </template>
 
-                          <form class="grid gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4" @submit.prevent="handleCreateRunbook">
-                            <UInput v-model="createRunbookForm.title" placeholder="Runbook title" :disabled="!canCreateRunbook" required />
-                            <UInput v-model="createRunbookForm.summary" placeholder="One-line summary" :disabled="!canCreateRunbook" required />
-                            <UTextarea v-model="createRunbookForm.content" :rows="6" :disabled="!canCreateRunbook" />
+                          <form
+                            class="grid gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4"
+                            @submit.prevent="handleCreateRunbook"
+                          >
+                            <UInput
+                              v-model="createRunbookForm.title"
+                              placeholder="Runbook title"
+                              :disabled="!canCreateRunbook"
+                              required
+                            />
+                            <UInput
+                              v-model="createRunbookForm.summary"
+                              placeholder="One-line summary"
+                              :disabled="!canCreateRunbook"
+                              required
+                            />
+                            <UTextarea
+                              v-model="createRunbookForm.content"
+                              :rows="6"
+                              :disabled="!canCreateRunbook"
+                            />
                             <div class="grid gap-3 md:grid-cols-[1fr_1fr]">
-                              <USelect v-model="createRunbookForm.visibility" :items="visibilityOptions" :disabled="!canCreateRunbook" />
-                              <UInput v-model="createRunbookForm.tags" placeholder="incident, ops, release" :disabled="!canCreateRunbook" />
+                              <USelect
+                                v-model="createRunbookForm.visibility"
+                                :items="visibilityOptions"
+                                :disabled="!canCreateRunbook"
+                              />
+                              <UInput
+                                v-model="createRunbookForm.tags"
+                                placeholder="incident, ops, release"
+                                :disabled="!canCreateRunbook"
+                              />
                             </div>
-                            <UButton type="submit" :loading="createRunbookMutation.pending.value" :disabled="!canCreateRunbook">
+                            <UButton
+                              type="submit"
+                              :loading="createRunbookMutation.pending.value"
+                              :disabled="!canCreateRunbook"
+                            >
                               Create runbook
                             </UButton>
                           </form>
@@ -307,11 +339,17 @@
                               :key="runbook._id"
                               class="rounded-2xl border border-slate-200 bg-white/90 p-4"
                             >
-                              <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                              <div
+                                class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
+                              >
                                 <div class="space-y-2">
                                   <div class="flex flex-wrap items-center gap-2">
-                                    <h4 class="font-semibold text-slate-950">{{ runbook.title }}</h4>
-                                    <UBadge color="neutral" variant="soft">{{ runbook.visibility }}</UBadge>
+                                    <h4 class="font-semibold text-slate-950">
+                                      {{ runbook.title }}
+                                    </h4>
+                                    <UBadge color="neutral" variant="soft">{{
+                                      runbook.visibility
+                                    }}</UBadge>
                                   </div>
                                   <p class="text-sm text-slate-600">{{ runbook.summary }}</p>
                                   <div class="flex flex-wrap gap-2">
@@ -333,7 +371,9 @@
                                     size="xs"
                                     color="neutral"
                                     variant="soft"
-                                    :disabled="!runbook._can.update || visibility === runbook.visibility"
+                                    :disabled="
+                                      !runbook._can.update || visibility === runbook.visibility
+                                    "
                                     @click="handleSetVisibility(runbook._id, visibility)"
                                   >
                                     {{ visibility }}
@@ -357,23 +397,30 @@
                           <template #header>
                             <h3 class="text-lg font-semibold">Reference MCP flows</h3>
                             <p class="mt-1 text-sm text-slate-600">
-                              The example ships public, scoped, session, dynamic, resource, prompt, and code-mode flows.
+                              The example ships public, scoped, session, dynamic, resource, prompt,
+                              and code-mode flows.
                             </p>
                           </template>
 
                           <div class="grid gap-3 md:grid-cols-2">
                             <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
                               <p class="text-sm font-semibold text-slate-900">Public tool call</p>
-                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">curl {{ endpointBase }}/mcp \
+                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">
+curl {{ endpointBase }}/mcp \
   -H 'Content-Type: application/json' \
-  -d '{"method":"tools/list","params":{}}'</pre>
+  -d '{"method":"tools/list","params":{}}'</pre
+                              >
                             </div>
                             <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
-                              <p class="text-sm font-semibold text-slate-900">Scoped authenticated call</p>
-                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">curl {{ endpointBase }}/mcp \
+                              <p class="text-sm font-semibold text-slate-900">
+                                Scoped authenticated call
+                              </p>
+                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">
+curl {{ endpointBase }}/mcp \
   -H "Authorization: Bearer {{ createdKeySecret || 'mcp_…' }}" \
   -H 'Content-Type: application/json' \
-  -d '{"method":"tools/list","params":{}}'</pre>
+  -d '{"method":"tools/list","params":{}}'</pre
+                              >
                             </div>
                           </div>
                         </UCard>
@@ -404,10 +451,42 @@
                             :description="`Copy this now. It will not be shown again: ${createdKeySecret}`"
                           />
 
-                          <form class="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4" @submit.prevent="handleCreateMcpKey">
-                            <UInput v-model="createKeyForm.name" placeholder="Key name" :disabled="!canManageMcp" required />
-                            <USelect v-model="createKeyForm.role" :items="mcpRoleOptions" :disabled="!canManageMcp" />
-                            <UButton type="submit" :loading="createKey.pending.value" :disabled="!canManageMcp">
+                          <form
+                            class="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4"
+                            @submit.prevent="handleCreateMcpKey"
+                          >
+                            <UInput
+                              v-model="createKeyForm.name"
+                              placeholder="Key name"
+                              :disabled="!canManageMcp"
+                              required
+                            />
+                            <USelect
+                              v-model="createKeyForm.boundAuthId"
+                              :items="mcpBoundUserOptions"
+                              :disabled="!canManageMcp || !mcpBoundUserOptions.length"
+                              placeholder="Choose workspace user"
+                            />
+                            <p v-if="selectedMcpBoundUser" class="text-xs text-slate-500">
+                              This key will act as
+                              <span class="font-semibold text-slate-700">
+                                {{
+                                  selectedMcpBoundUser.displayName ||
+                                  selectedMcpBoundUser.email ||
+                                  selectedMcpBoundUser.authId
+                                }}
+                              </span>
+                              with their live role
+                              <span class="font-semibold text-slate-700">{{
+                                selectedMcpBoundUser.role
+                              }}</span
+                              >.
+                            </p>
+                            <UButton
+                              type="submit"
+                              :loading="createKey.pending.value"
+                              :disabled="!canManageMcp || !selectedMcpBoundUser"
+                            >
                               Issue MCP key
                             </UButton>
                           </form>
@@ -415,8 +494,17 @@
                           <div class="mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4">
                             <p class="text-sm font-semibold text-slate-900">Verify a key</p>
                             <div class="mt-3 flex gap-3">
-                              <UInput v-model="verifyServiceKeyForm.token" class="flex-1" placeholder="Paste mcp_ token" />
-                              <UButton color="neutral" variant="soft" :loading="verifyingKey" @click="handleVerifyKey">
+                              <UInput
+                                v-model="verifyMcpKeyForm.token"
+                                class="flex-1"
+                                placeholder="Paste mcp_ token"
+                              />
+                              <UButton
+                                color="neutral"
+                                variant="soft"
+                                :loading="verifyingKey"
+                                @click="handleVerifyKey"
+                              >
                                 Verify
                               </UButton>
                             </div>
@@ -439,11 +527,25 @@
                                 <div>
                                   <p class="font-semibold text-slate-900">{{ key.name }}</p>
                                   <p class="mt-1 text-xs text-slate-500">
-                                    {{ key.prefix }} · role {{ key.role }} · status {{ key.status }}
+                                    {{ key.prefix }} · acts as
+                                    {{
+                                      key.boundUser?.displayName ||
+                                      key.boundUser?.email ||
+                                      key.boundAuthId
+                                    }}
+                                    · live role {{ key.effectiveRole || 'unavailable' }} · status
+                                    {{ key.status }}
+                                  </p>
+                                  <p class="mt-1 text-xs text-slate-500">
+                                    Binding: {{ formatKeyUsability(key.usability) }}
                                   </p>
                                   <p class="mt-1 text-xs text-slate-500">
                                     Last used:
-                                    {{ key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : 'never' }}
+                                    {{
+                                      key.lastUsedAt
+                                        ? new Date(key.lastUsedAt).toLocaleString()
+                                        : 'never'
+                                    }}
                                   </p>
                                 </div>
                                 <UButton
@@ -466,12 +568,34 @@
                           </template>
 
                           <ul class="space-y-3 text-sm text-slate-600">
-                            <li><span class="font-semibold text-slate-900">Public tools:</span> list and search public runbooks.</li>
-                            <li><span class="font-semibold text-slate-900">Scoped tools:</span> list, create, update, delete, bulk-delete, and summarize workspace runbooks.</li>
-                            <li><span class="font-semibold text-slate-900">Middleware:</span> create/update/search and bulk-delete tools demonstrate tool middleware.</li>
-                            <li><span class="font-semibold text-slate-900">Sessions:</span> set/get focus plus dynamic shortcut registration.</li>
-                            <li><span class="font-semibold text-slate-900">Resources and prompts:</span> `app://mcp-reference/guide` and `/plan-runbook-workflow` are discoverable.</li>
-                            <li><span class="font-semibold text-slate-900">Code mode:</span> `/mcp/runbook-agent` exposes a focused orchestration endpoint.</li>
+                            <li>
+                              <span class="font-semibold text-slate-900">Public tools:</span> list
+                              and search public runbooks.
+                            </li>
+                            <li>
+                              <span class="font-semibold text-slate-900">Scoped tools:</span> list,
+                              create, update, delete, bulk-delete, and summarize workspace runbooks.
+                            </li>
+                            <li>
+                              <span class="font-semibold text-slate-900">Middleware:</span>
+                              create/update/search and bulk-delete tools demonstrate tool
+                              middleware.
+                            </li>
+                            <li>
+                              <span class="font-semibold text-slate-900">Sessions:</span> set/get
+                              focus plus dynamic shortcut registration.
+                            </li>
+                            <li>
+                              <span class="font-semibold text-slate-900"
+                                >Resources and prompts:</span
+                              >
+                              `app://mcp-reference/guide` and `/plan-runbook-workflow` are
+                              discoverable.
+                            </li>
+                            <li>
+                              <span class="font-semibold text-slate-900">Code mode:</span>
+                              `/mcp/runbook-agent` exposes a focused orchestration endpoint.
+                            </li>
                           </ul>
                         </UCard>
                       </div>
@@ -490,12 +614,14 @@
 
               <div class="space-y-4 text-sm leading-6 text-slate-600">
                 <p>
-                  Example 03 is the minimal MCP story. Example 11 is the full reference:
-                  one compact business domain, one real MCP auth story, and one place to read every major capability.
+                  Example 03 is the minimal MCP story. Example 11 is the full reference: one compact
+                  business domain, one real MCP auth story, and one place to read every major
+                  capability.
                 </p>
                 <p>
-                  The app UI uses browser auth. MCP clients use bearer tokens stored as hashes in Convex.
-                  Both paths converge on the same `getActor(ctx, args)` permission flow in Convex.
+                  The app UI uses browser auth. MCP clients use bearer tokens stored as hashes in
+                  Convex. Both paths converge on the same `getActor(ctx, args)` permission flow in
+                  Convex.
                 </p>
               </div>
             </UCard>
@@ -507,9 +633,9 @@
 </template>
 
 <script setup lang="ts">
-import * as z from 'zod'
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 import { computed, reactive, ref } from 'vue'
+import * as z from 'zod'
 
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
@@ -521,12 +647,24 @@ const { can, ready, role, tenantId, ctx, pending: permissionsPending } = usePerm
 const signUpFields: AuthFormField[] = [
   { name: 'name', type: 'text', label: 'Name', placeholder: 'Enter your name', required: true },
   { name: 'email', type: 'email', label: 'Email', placeholder: 'Enter your email', required: true },
-  { name: 'password', type: 'password', label: 'Password', placeholder: 'Create a password', required: true },
+  {
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'Create a password',
+    required: true,
+  },
 ]
 
 const signInFields: AuthFormField[] = [
   { name: 'email', type: 'email', label: 'Email', placeholder: 'Enter your email', required: true },
-  { name: 'password', type: 'password', label: 'Password', placeholder: 'Enter your password', required: true },
+  {
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'Enter your password',
+    required: true,
+  },
 ]
 
 const signUpSchema = z.object({
@@ -563,10 +701,10 @@ const createRunbookForm = reactive({
 
 const createKeyForm = reactive({
   name: 'Primary agent key',
-  role: 'member' as 'owner' | 'admin' | 'member' | 'viewer',
+  boundAuthId: '',
 })
 
-const verifyServiceKeyForm = reactive({
+const verifyMcpKeyForm = reactive({
   token: '',
 })
 
@@ -585,7 +723,10 @@ const createKey = useConvexMutation(api.mcpKeys.create)
 const revokeKey = useConvexMutation(api.mcpKeys.revoke)
 
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
-const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(api.runbooks.listPublic, {})
+const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
+  api.runbooks.listPublic,
+  {},
+)
 
 const canCreateRunbook = can('runbook.create')
 const canManageMcp = can('mcp.manage')
@@ -593,23 +734,25 @@ const canManageMcp = can('mcp.manage')
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
 const mcpKeyArgs = computed(() => (tenantId.value && canManageMcp.value ? {} : undefined))
 
-const { data: workspaceRunbooks, pending: workspaceRunbooksPending, error: workspaceRunbooksError } = await useConvexQuery(
-  api.runbooks.listWorkspace,
-  workspaceArgs,
-)
+const {
+  data: workspaceRunbooks,
+  pending: workspaceRunbooksPending,
+  error: workspaceRunbooksError,
+} = await useConvexQuery(api.runbooks.listWorkspace, workspaceArgs)
 
-const { data: mcpKeys, error: mcpKeysError } = await useConvexQuery(
-  api.mcpKeys.list,
+const { data: mcpKeys, error: mcpKeysError } = await useConvexQuery(api.mcpKeys.list, mcpKeyArgs)
+const { data: mcpKeyUsers, error: mcpKeyUsersError } = await useConvexQuery(
+  api.users.listWorkspaceUsersForMcpKeys,
   mcpKeyArgs,
 )
 
 const displayName = computed(
   () =>
-    ctx.value?.displayName
-    || ctx.value?.email
-    || user.value?.name
-    || user.value?.email
-    || 'Signed in user',
+    ctx.value?.displayName ||
+    ctx.value?.email ||
+    user.value?.name ||
+    user.value?.email ||
+    'Signed in user',
 )
 
 const endpointBase = computed(() => {
@@ -623,41 +766,62 @@ const endpointBase = computed(() => {
 const workspaceRoleOptions = ['admin', 'member', 'viewer'] as const
 const visibilityOptions = ['draft', 'workspace', 'public'] as const
 
-const mcpRoleOptions = computed(() => {
-  if (role.value === 'owner') return ['owner', 'admin', 'member', 'viewer'] as const
-  return ['member', 'viewer'] as const
-})
+const mcpBoundUserOptions = computed(() =>
+  (mcpKeyUsers.value ?? []).map((user) => ({
+    label: `${user.displayName || user.email || user.authId} (${user.role})`,
+    value: user.authId,
+  })),
+)
 
-const appError = computed(() =>
-  workspaceRunbooksError.value?.message
-  || mcpKeysError.value?.message
-  || createRunbookMutation.error.value?.message
-  || updateRunbookMutation.error.value?.message
-  || deleteRunbookMutation.error.value?.message
-  || createKey.error.value?.message
-  || revokeKey.error.value?.message
-  || createWorkspace.error.value?.message
-  || joinWorkspace.error.value?.message
-  || '',
+const selectedMcpBoundUser = computed(
+  () =>
+    (mcpKeyUsers.value ?? []).find((user) => user.authId === createKeyForm.boundAuthId) ??
+    (mcpKeyUsers.value ?? [])[0] ??
+    null,
+)
+
+const appError = computed(
+  () =>
+    workspaceRunbooksError.value?.message ||
+    mcpKeysError.value?.message ||
+    mcpKeyUsersError.value?.message ||
+    createRunbookMutation.error.value?.message ||
+    updateRunbookMutation.error.value?.message ||
+    deleteRunbookMutation.error.value?.message ||
+    createKey.error.value?.message ||
+    revokeKey.error.value?.message ||
+    createWorkspace.error.value?.message ||
+    joinWorkspace.error.value?.message ||
+    '',
 )
 
 async function hashToken(token: string): Promise<string> {
   const encoded = new TextEncoder().encode(token)
   const hash = await crypto.subtle.digest('SHA-256', encoded)
-  return Array.from(new Uint8Array(hash)).map(value => value.toString(16).padStart(2, '0')).join('')
+  return Array.from(new Uint8Array(hash))
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 function generateMcpToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24))
-  const body = Array.from(bytes).map(value => value.toString(16).padStart(2, '0')).join('')
+  const body = Array.from(bytes)
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('')
   return `mcp_${body}`
 }
 
 function toTagList(raw: string): string[] {
   return raw
     .split(',')
-    .map(tag => tag.trim())
+    .map((tag) => tag.trim())
     .filter(Boolean)
+}
+
+function formatKeyUsability(
+  value: 'usable' | 'revoked' | 'bound_user_missing' | 'bound_user_workspace_mismatch',
+) {
+  return value.replaceAll('_', ' ')
 }
 
 async function handleSignUp(payload: FormSubmitEvent<SignUpSchema>) {
@@ -701,7 +865,10 @@ async function handleCreateRunbook() {
   createRunbookForm.summary = ''
 }
 
-async function handleSetVisibility(id: Id<'runbooks'>, visibility: 'public' | 'workspace' | 'draft') {
+async function handleSetVisibility(
+  id: Id<'runbooks'>,
+  visibility: 'public' | 'workspace' | 'draft',
+) {
   await updateRunbookMutation({ id, visibility })
 }
 
@@ -710,13 +877,18 @@ async function handleDeleteRunbook(id: Id<'runbooks'>) {
 }
 
 async function handleCreateMcpKey() {
+  const boundAuthId = selectedMcpBoundUser.value?.authId
+  if (!boundAuthId) {
+    throw new Error('Choose a workspace user before issuing an MCP key.')
+  }
+
   const token = generateMcpToken()
   const hash = await hashToken(token)
   const prefix = `${token.slice(0, 14)}...`
 
   await createKey({
     name: createKeyForm.name,
-    role: createKeyForm.role,
+    boundAuthId,
     prefix,
     hash,
   })
@@ -729,7 +901,7 @@ async function handleVerifyKey() {
   verifyingKey.value = true
 
   try {
-    const token = verifyServiceKeyForm.token.trim()
+    const token = verifyMcpKeyForm.token.trim()
     if (!token.startsWith('mcp_')) {
       verifyVariant.value = 'error'
       verifyMessage.value = 'Keys in this example always start with mcp_.'
@@ -748,8 +920,7 @@ async function handleVerifyKey() {
 
     verifyVariant.value = 'success'
     verifyMessage.value = `Valid key for role ${result.role} in workspace ${result.tenantId}.`
-  }
-  finally {
+  } finally {
     verifyingKey.value = false
   }
 }

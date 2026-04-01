@@ -271,24 +271,23 @@ describe('server Convex fetch helpers', () => {
   })
 
   it('auth:service injects service auth args instead of bearer auth', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ value: { ok: true } }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    process.env.CONVEX_SERVICE_KEY = 'service-key-123'
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-caller-key-123'
 
     await serverConvexMutation(
       createEvent(),
       { _path: 'tasks:create' } as never,
       { title: 'From webhook' } as never,
       {
-        auth: 'service',
+        auth: 'trusted',
         actor: {
           userId: 'user_admin',
-          role: 'admin',
-          tenantId: 'workspace_1',
         },
       },
     )
@@ -304,31 +303,30 @@ describe('server Convex fetch helpers', () => {
       path: 'tasks:create',
       args: {
         title: 'From webhook',
-        _serviceKey: 'service-key-123',
-        _serviceActor: {
+        _trustedCallerKey: 'trusted-caller-key-123',
+        _trustedCaller: {
           userId: 'user_admin',
-          role: 'admin',
-          tenantId: 'workspace_1',
         },
       },
     })
   })
 
-  it('auth:service requires an explicit actor', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ value: { ok: true } }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+  it('auth:trusted requires an explicit actor', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    process.env.CONVEX_SERVICE_KEY = 'service-key-123'
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-caller-key-123'
 
     await expect(
       serverConvexMutation(
         createEvent(),
         { _path: 'tasks:create' } as never,
         { title: 'From webhook' } as never,
-        { auth: 'service' },
+        { auth: 'trusted' },
       ),
     ).rejects.toThrow('requires `options.actor`')
   })
@@ -350,9 +348,14 @@ describe('server Convex fetch helpers', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await serverConvexQuery(event, { _path: 'notes:list' } as never, {} as never, { auth: 'auto' })
-    await serverConvexMutation(event, { _path: 'notes:add' } as never, { title: 'Hello' } as never, {
-      auth: 'auto',
-    })
+    await serverConvexMutation(
+      event,
+      { _path: 'notes:add' } as never,
+      { title: 'Hello' } as never,
+      {
+        auth: 'auto',
+      },
+    )
 
     expect(
       fetchMock.mock.calls.filter((call) =>
@@ -408,10 +411,11 @@ describe('server Convex fetch helpers', () => {
   })
 
   it('auth:none never calls token exchange endpoint', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ value: { ok: true } }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     vi.stubGlobal('fetch', fetchMock)
 

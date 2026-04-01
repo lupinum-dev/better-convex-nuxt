@@ -290,29 +290,40 @@ function workspaceActorTemplate({ withServiceCaller }: { withServiceCaller: bool
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getAuth } from 'better-convex-nuxt/auth'
-${withServiceCaller ? "import { getServiceCaller } from 'better-convex-nuxt/service'\n" : ''}
+${withServiceCaller ? "import { getTrustedCaller } from 'better-convex-nuxt/trusted-caller'\n" : ''}
 import type { DataModel } from '../_generated/dataModel'
 
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
 export type Actor =
   | { kind: 'user'; userId: string; role: Role; tenantId: string }
-${withServiceCaller ? "  | { kind: 'service'; userId: string; role: Role; tenantId: string }\n" : ''}  | null
+  | null
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: Ctx, args?: Record<string, unknown>): Promise<Actor> {
-${withServiceCaller ? `  const serviceCaller = getServiceCaller(args)
-  if (serviceCaller) {
+${
+  withServiceCaller
+    ? `  const trustedCaller = getTrustedCaller(args)
+  if (trustedCaller) {
+    const membership = await ctx.db
+      .query('users')
+      .withIndex('by_auth_id', q => q.eq('authId', trustedCaller.userId))
+      .first()
+
+    if (!membership?.workspaceId) return null
+
     return {
-      kind: 'service',
-      userId: serviceCaller.userId,
-      role: serviceCaller.role as Role,
-      tenantId: serviceCaller.tenantId,
+      kind: 'user',
+      userId: membership.authId,
+      role: membership.role,
+      tenantId: membership.workspaceId,
     }
   }
 
-` : ''}  const auth = await getAuth(ctx)
+`
+    : ''
+}  const auth = await getAuth(ctx)
   if (!auth) return null
 
   const membership = await ctx.db
@@ -442,8 +453,7 @@ async function pathExists(path: string): Promise<boolean> {
   try {
     await access(path)
     return true
-  }
-  catch {
+  } catch {
     return false
   }
 }
@@ -452,7 +462,7 @@ async function writeTemplateFiles(
   cwd: string,
   files: TemplateFile[],
   force: boolean,
-): Promise<{ written: string[], skipped: string[] }> {
+): Promise<{ written: string[]; skipped: string[] }> {
   const written: string[] = []
   const skipped: string[] = []
 
@@ -474,7 +484,7 @@ async function writeTemplateFiles(
 
 async function updateAuthBridgeDefaults(cwd: string, fields: string): Promise<void> {
   const authBridgePath = resolve(cwd, 'convex/authBridge.ts')
-  if (!await pathExists(authBridgePath)) {
+  if (!(await pathExists(authBridgePath))) {
     return
   }
 
@@ -490,26 +500,27 @@ export async function applyInitTemplateSet(
   templateSet: InitTemplateSet,
   force: boolean,
 ): Promise<{
-    written: string[]
-    skipped: string[]
-    authored: string[]
-    generated: string[]
-  }> {
+  written: string[]
+  skipped: string[]
+  authored: string[]
+  generated: string[]
+}> {
   const { written, skipped } = await writeTemplateFiles(cwd, templateSet.files, force)
   await templateSet.afterWrite?.(cwd)
 
   return {
     written,
     skipped,
-    authored: templateSet.files.filter(file => file.ownership === 'authored').map(file => file.path),
-    generated: templateSet.files.filter(file => file.ownership === 'generated').map(file => file.path),
+    authored: templateSet.files
+      .filter((file) => file.ownership === 'authored')
+      .map((file) => file.path),
+    generated: templateSet.files
+      .filter((file) => file.ownership === 'generated')
+      .map((file) => file.path),
   }
 }
 
-export function getInitTemplateSet(
-  target: InitTarget,
-  model?: PermissionModel,
-): InitTemplateSet {
+export function getInitTemplateSet(target: InitTarget, model?: PermissionModel): InitTemplateSet {
   if (target === 'auth') {
     return {
       label: 'auth',
@@ -519,7 +530,11 @@ export function getInitTemplateSet(
         { path: 'convex/authBridge.ts', content: authBridgeTemplate(), ownership: 'generated' },
         { path: 'convex/auth.config.ts', content: authConfigTemplate(), ownership: 'generated' },
         { path: 'convex/http.ts', content: httpTemplate(), ownership: 'generated' },
-        { path: 'convex/convex.config.ts', content: convexConfigTemplate(), ownership: 'generated' },
+        {
+          path: 'convex/convex.config.ts',
+          content: convexConfigTemplate(),
+          ownership: 'generated',
+        },
         { path: 'convex/test.setup.ts', content: testSetupTemplate(), ownership: 'generated' },
       ],
     }
@@ -527,7 +542,9 @@ export function getInitTemplateSet(
 
   if (target === 'permissions') {
     if (!model) {
-      throw new Error('Missing permissions model. Use --model personal, workspace, or workspace-mcp.')
+      throw new Error(
+        'Missing permissions model. Use --model personal, workspace, or workspace-mcp.',
+      )
     }
 
     if (model === 'personal') {
@@ -536,8 +553,16 @@ export function getInitTemplateSet(
         description: 'Scaffold app-owned personal actor and permission context files',
         files: [
           { path: 'convex/auth/actor.ts', content: personalActorTemplate(), ownership: 'authored' },
-          { path: 'convex/auth/checks.ts', content: personalChecksTemplate(), ownership: 'authored' },
-          { path: 'convex/users.ts', content: personalPermissionQueryTemplate(), ownership: 'authored' },
+          {
+            path: 'convex/auth/checks.ts',
+            content: personalChecksTemplate(),
+            ownership: 'authored',
+          },
+          {
+            path: 'convex/users.ts',
+            content: personalPermissionQueryTemplate(),
+            ownership: 'authored',
+          },
         ],
       }
     }
@@ -551,11 +576,23 @@ export function getInitTemplateSet(
           content: workspaceActorTemplate({ withServiceCaller: model === 'workspace-mcp' }),
           ownership: 'authored',
         },
-        { path: 'convex/auth/checks.ts', content: workspaceChecksTemplate(), ownership: 'authored' },
-        { path: 'convex/auth/resource.ts', content: workspaceResourceTemplate(), ownership: 'authored' },
-        { path: 'convex/workspaces.ts', content: workspacePermissionQueryTemplate(), ownership: 'authored' },
+        {
+          path: 'convex/auth/checks.ts',
+          content: workspaceChecksTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/auth/resource.ts',
+          content: workspaceResourceTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/workspaces.ts',
+          content: workspacePermissionQueryTemplate(),
+          ownership: 'authored',
+        },
       ],
-      afterWrite: async cwd => await updateAuthBridgeDefaults(cwd, "role: 'member',"),
+      afterWrite: async (cwd) => await updateAuthBridgeDefaults(cwd, "role: 'member',"),
     }
   }
 
@@ -564,7 +601,11 @@ export function getInitTemplateSet(
       label: 'mcp',
       description: 'Scaffold MCP middleware glue',
       files: [
-        { path: 'server/middleware/mcp-auth.ts', content: mcpMiddlewareTemplate(), ownership: 'authored' },
+        {
+          path: 'server/middleware/mcp-auth.ts',
+          content: mcpMiddlewareTemplate(),
+          ownership: 'authored',
+        },
       ],
     }
   }

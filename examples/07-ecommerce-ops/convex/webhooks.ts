@@ -5,19 +5,19 @@ import { v } from 'convex/values'
 
 import { mutation } from './_generated/server'
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
-import { resolveServiceActor } from './auth/serviceAuth'
+import { resolveWebhookActor } from './auth/trustedCaller'
 import { validateRefundEligibility } from './refundRules'
 
 export const processRefundWebhook = mutation({
   args: {
-    serviceKey: v.string(),
+    trustedCallerKey: v.string(),
     workspaceId: v.id('workspaces'),
     orderId: v.id('orders'),
     eventId: v.string(),
     reason: v.string(),
   },
   handler: async (ctx, args) => {
-    const actor = resolveServiceActor(args.serviceKey, 'webhook', args.workspaceId)
+    const actor = await resolveWebhookActor(ctx, args.trustedCallerKey, args.workspaceId)
     await ensureNotProcessed(ctx.db, 'webhook', args.eventId)
 
     const order = await validateRefundEligibility(ctx, actor, args.orderId)

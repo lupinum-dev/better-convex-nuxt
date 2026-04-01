@@ -1,22 +1,22 @@
 /// <reference types="vite/client" />
 
+import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createTestContext } from 'better-convex-nuxt/testing'
-
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
+import { ensureWebhookBotUser } from './auth/trustedCaller'
 import schema from './schema'
 import { modules } from './test.setup'
 
 const api = anyApi
-const SERVICE_KEY = 'test-service-key'
+const TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
 
 function createCtx() {
   return createTestContext({
     schema,
     modules,
-    serviceKey: SERVICE_KEY,
+    trustedCallerKey: TRUSTED_CALLER_KEY,
     tenant: {
       table: 'workspaces',
       field: 'workspaceId',
@@ -33,7 +33,13 @@ function createCtx() {
 }
 
 describe('ecommerce example', () => {
-  it('denies an invalid service key', async () => {
+  async function seedWebhookBot(ctx: ReturnType<typeof createCtx>, workspaceId: string) {
+    await ctx.raw.run(async (innerCtx) => {
+      await ensureWebhookBotUser(innerCtx as never, workspaceId as never)
+    })
+  }
+
+  it('denies an invalid trusted caller key', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Store',
@@ -41,16 +47,17 @@ describe('ecommerce example', () => {
     })
 
     const orderId = await team.users.owner.mutation(api.orders.seedDemoOrders, {})
+    await seedWebhookBot(ctx, team.id)
 
     await expect(
       ctx.raw.mutation(api.webhooks.processRefundWebhook, {
-        serviceKey: 'wrong-key',
+        trustedCallerKey: 'wrong-key',
         workspaceId: team.id,
         orderId,
         eventId: 'evt-1',
         reason: 'Chargeback',
       }),
-    ).rejects.toThrow('Invalid service key.')
+    ).rejects.toThrow('Invalid trusted caller key.')
   })
 
   it('denies duplicate webhook events', async () => {
@@ -61,9 +68,10 @@ describe('ecommerce example', () => {
     })
 
     const orderId = await team.users.owner.mutation(api.orders.seedDemoOrders, {})
+    await seedWebhookBot(ctx, team.id)
 
     await ctx.raw.mutation(api.webhooks.processRefundWebhook, {
-      serviceKey: SERVICE_KEY,
+      trustedCallerKey: TRUSTED_CALLER_KEY,
       workspaceId: team.id,
       orderId,
       eventId: 'evt-duplicate',
@@ -72,7 +80,7 @@ describe('ecommerce example', () => {
 
     await expect(
       ctx.raw.mutation(api.webhooks.processRefundWebhook, {
-        serviceKey: SERVICE_KEY,
+        trustedCallerKey: TRUSTED_CALLER_KEY,
         workspaceId: team.id,
         orderId,
         eventId: 'evt-duplicate',
@@ -86,8 +94,12 @@ describe('ecommerce example', () => {
 
     await ctx.raw.run(async (innerCtx) => {
       await markProcessed(innerCtx.db, 'evt-shared', 'webhook')
-      await expect(ensureNotProcessed(innerCtx.db, 'erp-sync', 'evt-shared')).resolves.toBeUndefined()
-      await expect(ensureNotProcessed(innerCtx.db, 'webhook', 'evt-shared')).rejects.toThrow('Event already processed.')
+      await expect(
+        ensureNotProcessed(innerCtx.db, 'erp-sync', 'evt-shared'),
+      ).resolves.toBeUndefined()
+      await expect(ensureNotProcessed(innerCtx.db, 'webhook', 'evt-shared')).rejects.toThrow(
+        'Event already processed.',
+      )
     })
   })
 
@@ -100,7 +112,7 @@ describe('ecommerce example', () => {
 
     await team.users.owner.mutation(api.orders.seedDemoOrders, {})
     const orders = await team.users.owner.query(api.orders.list, {})
-    const pendingOrder = orders.find(order => order.status === 'pending')
+    const pendingOrder = orders.find((order) => order.status === 'pending')
 
     await expect(
       team.users.owner.mutation(api.orders.processRefund, {
@@ -110,7 +122,7 @@ describe('ecommerce example', () => {
     ).rejects.toThrow('Cannot refund unfulfilled orders.')
   })
 
-  it('applies refund guards to service actors', async () => {
+  it('applies refund guards to webhook bot users', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Store',
@@ -118,12 +130,13 @@ describe('ecommerce example', () => {
     })
 
     await team.users.owner.mutation(api.orders.seedDemoOrders, {})
+    await seedWebhookBot(ctx, team.id)
     const orders = await team.users.owner.query(api.orders.list, {})
-    const pendingOrder = orders.find(order => order.status === 'pending')
+    const pendingOrder = orders.find((order) => order.status === 'pending')
 
     await expect(
       ctx.raw.mutation(api.webhooks.processRefundWebhook, {
-        serviceKey: SERVICE_KEY,
+        trustedCallerKey: TRUSTED_CALLER_KEY,
         workspaceId: team.id,
         orderId: pendingOrder!._id,
         eventId: 'evt-pending',
@@ -166,11 +179,11 @@ describe('ecommerce example', () => {
 
     await team.users.owner.mutation(api.orders.seedDemoOrders, {})
     const orders = await team.users.owner.query(api.orders.list, {})
-    const fulfilledOrder = orders.find(order => order.status === 'fulfilled')
+    const fulfilledOrder = orders.find((order) => order.status === 'fulfilled')
 
     await ctx.raw.run(async (innerCtx) => {
       await innerCtx.db.patch(fulfilledOrder!._id, {
-        fulfilledAt: Date.now() - (31 * 24 * 60 * 60 * 1000),
+        fulfilledAt: Date.now() - 31 * 24 * 60 * 60 * 1000,
       } as never)
     })
 
@@ -191,7 +204,7 @@ describe('ecommerce example', () => {
 
     await team.users.owner.mutation(api.orders.seedDemoOrders, {})
     const orders = await team.users.owner.query(api.orders.list, {})
-    const fulfilledOrder = orders.find(order => order.status === 'fulfilled')
+    const fulfilledOrder = orders.find((order) => order.status === 'fulfilled')
 
     await team.users.owner.mutation(api.orders.processRefund, {
       orderId: fulfilledOrder!._id,
@@ -228,7 +241,7 @@ describe('ecommerce example', () => {
     ).rejects.toThrow('Order is under fraud review.')
   })
 
-  it('fails closed when the service key env var is missing', async () => {
+  it('fails closed when the trusted caller key env var is missing', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Store',
@@ -236,23 +249,23 @@ describe('ecommerce example', () => {
     })
 
     const orderId = await team.users.owner.mutation(api.orders.seedDemoOrders, {})
-    const previous = process.env.CONVEX_SERVICE_KEY
-    delete process.env.CONVEX_SERVICE_KEY
+    await seedWebhookBot(ctx, team.id)
+    const previous = process.env.CONVEX_TRUSTED_CALLER_KEY
+    delete process.env.CONVEX_TRUSTED_CALLER_KEY
 
     try {
       await expect(
         ctx.raw.mutation(api.webhooks.processRefundWebhook, {
-          serviceKey: SERVICE_KEY,
+          trustedCallerKey: TRUSTED_CALLER_KEY,
           workspaceId: team.id,
           orderId,
           eventId: 'evt-missing-env',
           reason: 'Chargeback',
         }),
-      ).rejects.toThrow('CONVEX_SERVICE_KEY must be set')
-    }
-    finally {
-      if (previous === undefined) delete process.env.CONVEX_SERVICE_KEY
-      else process.env.CONVEX_SERVICE_KEY = previous
+      ).rejects.toThrow('CONVEX_TRUSTED_CALLER_KEY must be set')
+    } finally {
+      if (previous === undefined) delete process.env.CONVEX_TRUSTED_CALLER_KEY
+      else process.env.CONVEX_TRUSTED_CALLER_KEY = previous
     }
   })
 })

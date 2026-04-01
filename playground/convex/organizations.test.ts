@@ -7,7 +7,7 @@ import { modules } from './test.setup'
 
 describe('organizations', () => {
   beforeEach(() => {
-    process.env.CONVEX_SERVICE_KEY = 'test-service-key'
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
   })
 
   it('assigns the current browser-auth user as owner when creating an organization', async () => {
@@ -43,7 +43,7 @@ describe('organizations', () => {
     })
   })
 
-  it('assigns the service-auth user as owner when creating an organization', async () => {
+  it('assigns the trusted caller user as owner when creating an organization', async () => {
     const t = convexTest(schema, modules)
 
     await t.run(async (ctx) => {
@@ -60,10 +60,9 @@ describe('organizations', () => {
     const orgId = await t.mutation(api.organizations.create, {
       name: 'Service Org',
       slug: 'service-org',
-      _serviceKey: 'test-service-key',
-      _serviceActor: {
+      _trustedCallerKey: 'test-trusted-caller-key',
+      _trustedCaller: {
         userId: 'service_user',
-        role: 'member',
       },
     })
 
@@ -80,20 +79,19 @@ describe('organizations', () => {
     })
   })
 
-  it('fails cleanly when the service-auth caller has no backing user row', async () => {
+  it('fails cleanly when the trusted caller has no backing user row', async () => {
     const t = convexTest(schema, modules)
 
     await expect(
       t.mutation(api.organizations.create, {
         name: 'Missing User Org',
         slug: 'missing-user-org',
-        _serviceKey: 'test-service-key',
-        _serviceActor: {
+        _trustedCallerKey: 'test-trusted-caller-key',
+        _trustedCaller: {
           userId: 'missing_user',
-          role: 'member',
         },
       }),
-    ).rejects.toThrow('User not found')
+    ).rejects.toThrow('Forbidden: Create organization')
 
     const organizations = await t.query(api.organizations.list, {})
     expect(organizations).toEqual([])

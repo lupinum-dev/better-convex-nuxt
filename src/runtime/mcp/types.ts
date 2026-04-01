@@ -1,4 +1,3 @@
-import type { H3Event } from 'h3'
 import type {
   McpToolAnnotations,
   McpToolCache,
@@ -6,6 +5,7 @@ import type {
 } from '@nuxtjs/mcp-toolkit/server'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { PropertyValidators } from 'convex/values'
+import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
 import type { SchemaDefinition } from '../utils/define-convex-schema'
@@ -93,9 +93,7 @@ export interface ConvexToolCallFns {
   ) => Promise<FunctionReturnType<Action>>
 }
 
-export interface ConvexToolHandlerCtx<
-  TRole extends string = string,
-> extends ConvexToolCallFns {
+export interface ConvexToolHandlerCtx<TRole extends string = string> extends ConvexToolCallFns {
   event: H3Event
   /** Resolved actor, or null if auth is 'none' or no credentials were provided. */
   actor: McpAuthIdentity<TRole> | null
@@ -109,14 +107,9 @@ export interface ConvexToolHandlerCtx<
   blocked: (preview: string | PreviewResult) => McpToolCallbackResult
 }
 
-export type ConvexToolMiddlewareCtx<
-  TRole extends string = string,
-> = ConvexToolHandlerCtx<TRole>
+export type ConvexToolMiddlewareCtx<TRole extends string = string> = ConvexToolHandlerCtx<TRole>
 
-export type ConvexToolMiddleware<
-  S extends AnyConvexSchema,
-  TRole extends string = string,
-> = (
+export type ConvexToolMiddleware<S extends AnyConvexSchema, TRole extends string = string> = (
   args: InferSchemaData<S>,
   ctx: ConvexToolMiddlewareCtx<TRole>,
   next: () => Promise<McpToolCallbackResult>,
@@ -126,10 +119,7 @@ export type ConvexToolMiddleware<
 // Tool options (public — what users type)
 // ============================================================================
 
-export interface DefineConvexToolOptions<
-  S extends AnyConvexSchema,
-  TRole extends string = string,
-> {
+export interface DefineConvexToolOptions<S extends AnyConvexSchema, TRole extends string = string> {
   /** Shared Convex schema — provides input validation and metadata. */
   schema: S
   /** Tool handler. Return plain data — the framework wraps it. */
@@ -155,10 +145,12 @@ export interface DefineConvexToolOptions<
   auth?: 'required' | 'optional' | 'none'
   /** Optional actor check evaluated for both visibility and execution. */
   check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
-  /** Enable service-auth injection for Convex calls using the resolved actor. Tools are hidden unless actor.tenantId exists. */
+  /** Enable trusted-caller injection for Convex calls using the resolved actor. Tools are hidden unless actor.tenantId exists. */
   scoped?: boolean
   /** Custom auth resolver for this tool. Default: reads event.context.mcpAuth. */
-  resolveAuth?: (event: H3Event) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
+  resolveAuth?: (
+    event: H3Event,
+  ) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
 
   // ── Safety ────────────────────────────────────────────────
   /**

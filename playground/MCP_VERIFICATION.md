@@ -53,7 +53,7 @@ When setup is correct:
 - Missing full key:
   If the verification page only shows a prefix, paste the full `mcp_*` secret once on `/demo/mcp-verify` or recreate the key on `/demo/mcp-keys`.
 
-- Missing `CONVEX_SERVICE_KEY`:
+- Missing `CONVEX_TRUSTED_CALLER_KEY`:
   Actor-backed MCP calls fail because authenticated `ctx.query()` / `ctx.mutation()` need service injection.
 
 - No local `jq`:
@@ -106,8 +106,8 @@ still need to be removed before this pattern is production-ready.
 
 - Fix or remove the broken `pnpm dev:local` / `convexLocal(...)` path. It is still a trap.
 - Confirm the real deployment has the required env vars wired on both sides:
-  `CONVEX_SERVICE_KEY`, Better Auth secrets, site URL, and any MCP auth config.
-- Verify service actor injection works in the real hosted Convex environment without
+  `CONVEX_TRUSTED_CALLER_KEY`, Better Auth secrets, site URL, and any MCP auth config.
+- Verify trusted caller injection works in the real hosted Convex environment without
   any playground-only fallback behavior.
 - Re-run the full MCP audit against staging with real hosted URLs and real `mcp_*` keys.
 

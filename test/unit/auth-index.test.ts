@@ -2,12 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 describe('auth entrypoint exports', () => {
   let authApi: typeof import('../../src/runtime/auth/index')
-  let serviceApi: typeof import('../../src/runtime/service/index')
+  let trustedCallerApi: typeof import('../../src/runtime/trusted-caller/index')
   let visibilityApi: typeof import('../../src/runtime/visibility/index')
 
   beforeAll(async () => {
     authApi = await import('../../src/runtime/auth/index')
-    serviceApi = await import('../../src/runtime/service/index')
+    trustedCallerApi = await import('../../src/runtime/trusted-caller/index')
     visibilityApi = await import('../../src/runtime/visibility/index')
   })
 
@@ -21,9 +21,9 @@ describe('auth entrypoint exports', () => {
     expect(authApi).toHaveProperty('requireAuth')
     expect(authApi).toHaveProperty('requireRecord')
 
-    expect(serviceApi).toHaveProperty('getServiceCaller')
-    expect(serviceApi).toHaveProperty('verifyServiceKey')
-    expect(serviceApi).toHaveProperty('withServiceAuth')
+    expect(trustedCallerApi).toHaveProperty('getTrustedCaller')
+    expect(trustedCallerApi).toHaveProperty('verifyTrustedCallerKey')
+    expect(trustedCallerApi).toHaveProperty('withTrustedCaller')
 
     expect(visibilityApi).toHaveProperty('defineVisibility')
     expect(visibilityApi).toHaveProperty('applyVisibility')

@@ -1,11 +1,12 @@
+import { defineArgs } from 'better-convex-nuxt/args'
+import { can, authorize } from 'better-convex-nuxt/auth'
+import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
-import { can, authorize } from 'better-convex-nuxt/auth'
-import { withServiceAuth } from 'better-convex-nuxt/service'
-import { defineArgs } from 'better-convex-nuxt/args'
 
-import { mutation, query } from './_generated/server'
+import { createPost, deletePost, updatePost } from '../shared/schemas/post'
 import type { Id } from './_generated/dataModel'
+import { mutation, query } from './_generated/server'
 import type { Actor } from './auth/actor'
 import { getActor } from './auth/actor'
 import {
@@ -17,11 +18,6 @@ import {
 } from './auth/checks'
 import { withCan } from './auth/resource'
 import { loadResource } from './auth/scope'
-import {
-  createPost,
-  deletePost,
-  updatePost,
-} from '../shared/schemas/post'
 
 const listPostsArgs = defineArgs({
   args: {},
@@ -75,10 +71,7 @@ function denyPostPermission(
   throw new Error(`Forbidden: post.${action}\nActor: ${formatActor(actor)}\nReason: ${reason}`)
 }
 
-function denyTenantMismatch(
-  actor: Actor,
-  post: { organizationId: string },
-): never {
+function denyTenantMismatch(actor: Actor, post: { organizationId: string }): never {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Document belongs to a different tenant.')
   }
@@ -89,7 +82,7 @@ function denyTenantMismatch(
 }
 
 export const list = query({
-  args: withServiceAuth(listPostsArgs.args),
+  args: withTrustedCaller(listPostsArgs.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor?.tenantId) return []
@@ -98,16 +91,18 @@ export const list = query({
 
     const posts = await ctx.db
       .query('posts')
-      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
+      .withIndex('by_organization', (q) =>
+        q.eq('organizationId', actor.tenantId as Id<'organizations'>),
+      )
       .order('desc')
       .collect()
 
-    return posts.map(post => attachPostPermissions(actor, post))
+    return posts.map((post) => attachPostPermissions(actor, post))
   },
 })
 
 export const listPaginated = query({
-  args: withServiceAuth(listPostsPaginatedArgs.args),
+  args: withTrustedCaller(listPostsPaginatedArgs.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor?.tenantId) {
@@ -118,19 +113,21 @@ export const listPaginated = query({
 
     const result = await ctx.db
       .query('posts')
-      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
+      .withIndex('by_organization', (q) =>
+        q.eq('organizationId', actor.tenantId as Id<'organizations'>),
+      )
       .order('desc')
       .paginate(args.paginationOpts)
 
     return {
       ...result,
-      page: result.page.map(post => attachPostPermissions(actor, post)),
+      page: result.page.map((post) => attachPostPermissions(actor, post)),
     }
   },
 })
 
 export const get = query({
-  args: withServiceAuth(getPostArgs.args),
+  args: withTrustedCaller(getPostArgs.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor) return null
@@ -146,7 +143,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: withServiceAuth(createPost.args),
+  args: withTrustedCaller(createPost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor) {
@@ -170,7 +167,7 @@ export const create = mutation({
 })
 
 export const update = mutation({
-  args: withServiceAuth(updatePost.args),
+  args: withTrustedCaller(updatePost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const post = await ctx.db.get(args.id)
@@ -179,9 +176,10 @@ export const update = mutation({
       denyTenantMismatch(actor, post)
     }
     if (!can(actor, canUpdatePost(post))) {
-      const reason = actor?.role === 'member'
-        ? 'Role "member" has own-only access.'
-        : 'Actor cannot update this post.'
+      const reason =
+        actor?.role === 'member'
+          ? 'Role "member" has own-only access.'
+          : 'Actor cannot update this post.'
       denyPostPermission('update', actor, reason)
     }
 
@@ -194,7 +192,7 @@ export const update = mutation({
 })
 
 export const remove = mutation({
-  args: withServiceAuth(deletePost.args),
+  args: withTrustedCaller(deletePost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const post = await ctx.db.get(args.id)
@@ -203,9 +201,10 @@ export const remove = mutation({
       denyTenantMismatch(actor, post)
     }
     if (!can(actor, canDeletePost(post))) {
-      const reason = actor?.role === 'member'
-        ? 'Role "member" has own-only access.'
-        : 'Actor cannot delete this post.'
+      const reason =
+        actor?.role === 'member'
+          ? 'Role "member" has own-only access.'
+          : 'Actor cannot delete this post.'
       denyPostPermission('delete', actor, reason)
     }
     await ctx.db.delete(args.id)
@@ -213,7 +212,7 @@ export const remove = mutation({
 })
 
 export const publish = mutation({
-  args: withServiceAuth({ id: v.id('posts') }),
+  args: withTrustedCaller({ id: v.id('posts') }),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const post = await ctx.db.get(args.id)
@@ -222,7 +221,11 @@ export const publish = mutation({
       denyTenantMismatch(actor, post)
     }
     if (!can(actor, canPublishPost)) {
-      denyPostPermission('publish', actor, `Role "${actor?.role ?? 'anonymous'}" cannot publish posts.`)
+      denyPostPermission(
+        'publish',
+        actor,
+        `Role "${actor?.role ?? 'anonymous'}" cannot publish posts.`,
+      )
     }
 
     await ctx.db.patch(args.id, {
