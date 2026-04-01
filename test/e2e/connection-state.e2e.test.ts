@@ -8,7 +8,7 @@ import { ensureLocalConvex } from '../helpers/local-convex'
 let local: Awaited<ReturnType<typeof ensureLocalConvex>> | null = null
 try {
   local = await ensureLocalConvex({
-    cwd: fileURLToPath(new URL('../../playground', import.meta.url)),
+    cwd: fileURLToPath(new URL('../../internal-harness', import.meta.url)),
   })
 } catch (error) {
   console.warn('[e2e] Skipping connection-state suite: local Convex backend unavailable.', error)
@@ -24,7 +24,7 @@ maybeDescribe('Connection state (full stack)', async () => {
   })
 
   await setup({
-    rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
+    rootDir: fileURLToPath(new URL('../../internal-harness', import.meta.url)),
     env: local?.env,
   })
 

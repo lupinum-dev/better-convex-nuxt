@@ -85,7 +85,7 @@ function buildManualAuthSetupHelp(cwd: string): string {
     '  npx convex dev --local --once',
     '  npx convex env set SITE_URL http://localhost:3000 --env-file .env.local',
     '  npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local',
-    '  cd /Users/matthias/Git/libs/better-convex-nuxt && pnpm test:e2e',
+    `  cd ${process.cwd()} && pnpm test:e2e`,
   ].join('\n')
 }
 
@@ -146,7 +146,7 @@ function sanitizeBodyPreview(text: string): string {
 }
 
 export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = {}): Promise<void> {
-  const cwd = options.cwd ?? path.resolve(process.cwd(), 'playground')
+  const cwd = options.cwd ?? path.resolve(process.cwd(), 'internal-harness')
   const timeoutMs = options.timeoutMs ?? 5000
   const envFile = await readLocalConvexEnv(cwd)
   const mergedEnv = options.env ?? {}
@@ -240,7 +240,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
 export async function ensureLocalConvex(
   options: { port?: number; cwd?: string; timeoutMs?: number } = {},
 ): Promise<EnsureLocalConvexResult> {
-  const cwd = options.cwd ?? path.resolve(process.cwd(), 'playground')
+  const cwd = options.cwd ?? path.resolve(process.cwd(), 'internal-harness')
   const timeoutMs = options.timeoutMs ?? 25_000
   const envFile = await readLocalConvexEnv(cwd)
   const explicitUrl = process.env.CONVEX_URL ?? envFile.url
@@ -271,6 +271,9 @@ export async function ensureLocalConvex(
           env: {
             ...process.env,
             ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
+            SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
+            BETTER_AUTH_SECRET:
+              process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
           },
           stdio: 'pipe',
         })
@@ -338,6 +341,9 @@ export async function ensureLocalConvex(
       env: {
         ...process.env,
         ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
+        SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
+        BETTER_AUTH_SECRET:
+          process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
         CONVEX_LOCAL_BACKEND_PORT: String(port),
       },
       stdio: 'pipe',

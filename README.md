@@ -5,12 +5,11 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, file uploads, and authorization primitives.
+Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, file uploads, permissions, server helpers, and MCP tooling.
 
 - [Documentation](https://better-convex-nuxt.vercel.app)
-
-> [!NOTE]
-> This module is evolving quickly. Prefer the hosted docs for the latest setup and deployment guidance.
+- [Examples](./examples/README.md)
+- [Public demo app](./demo)
 
 ## Install
 
@@ -18,44 +17,15 @@ Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.c
 pnpm add convex better-convex-nuxt
 ```
 
-If you use MCP tools with shared Convex schemas, install the MCP-only peers as well:
+If you use MCP tools with shared Convex schemas:
 
 ```bash
 pnpm add @nuxtjs/mcp-toolkit convex-helpers zod
 ```
 
-## CLI
-
-A CLI is included for consumer app checks and V3 scaffolding:
-
-```bash
-npx better-convex-nuxt doctor
-npx better-convex-nuxt doctor --cwd ./my-app
-npx better-convex-nuxt doctor --json
-npx better-convex-nuxt init auth
-npx better-convex-nuxt init permissions --model workspace
-npx better-convex-nuxt init permissions --model workspace-mcp
-npx better-convex-nuxt init mcp
-```
-
-`init auth` writes the Better Auth bridge and Convex plumbing. `init permissions` writes the app-owned actor and permission-context patterns. `init mcp` scaffolds MCP auth middleware.
-
-The permission model stays explicit and app-owned. If you want the repo’s lane model, denial
-semantics, and the single-workspace vs memberships guidance in one place, start with
-[`/docs/permissions/actor-lanes-and-models`](https://better-convex-nuxt.vercel.app/docs/permissions/actor-lanes-and-models).
-
-The `doctor` command checks:
-
-- Nuxt app structure (`package.json` + `nuxt.config.*`)
-- `nuxt`, `better-convex-nuxt`, and `convex` dependencies
-- Nuxt module registration in `modules`
-- Convex URL presence via `CONVEX_URL`, `NUXT_PUBLIC_CONVEX_URL`, `.env.local`, or `.env`
-
 ## Quick Start
 
-1. Add the module to `nuxt.config.ts`.
-2. Run `npx convex dev` to create your Convex project and generate `.env.local`.
-3. Start Nuxt with `--dotenv .env.local`.
+Add the module to `nuxt.config.ts` and point it at your Convex deployment:
 
 ```ts
 export default defineNuxtConfig({
@@ -65,6 +35,8 @@ export default defineNuxtConfig({
   },
 })
 ```
+
+Use `.env.local` when running Nuxt locally:
 
 ```json
 {
@@ -76,175 +48,7 @@ export default defineNuxtConfig({
 }
 ```
 
-## Examples
-
-If you want runnable reference apps instead of copy-paste snippets, start in [examples/README.md](./examples/README.md).
-
-It includes standalone apps that now demonstrate the raw v4 auth model in two ways:
-
-- a progressive path from public -> auth -> tenant scoping -> project-management product work
-- a SaaS gallery covering project management, CRM, LMS, e-commerce, freemium, collaboration sharing, and agency/multi-client auth shapes
-
-If you're jumping in by product type instead of reading linearly:
-
-- project or task tools: start with `04-project-board-admin`
-- CRM or case-management tools: start with `05-crm-pipeline`
-- learning products: start with `06-course-lms`
-- webhook-heavy back offices: start with `07-ecommerce-ops`
-- plan-gated B2B tools: start with `08-freemium-workspace`
-- doc sharing or public-link products: start with `09-doc-sharing`
-- agency or multi-client portals: start with `10-agency-portal`
-
-## Testing
-
-The testing surface is intentionally small. It wraps `convex-test`, seeds tenant-aware fixtures,
-and lets browser, service, and MCP-style calls hit the same Convex functions.
-
-```ts
-import { defineConfig } from 'vitest/config'
-import { convexTestConfig } from 'better-convex-nuxt/testing'
-
-export default defineConfig(convexTestConfig())
-```
-
-```ts
-import { createTestContext } from 'better-convex-nuxt/testing'
-import schema from './schema'
-import { modules } from './test.setup'
-
-const ctx = createTestContext({ schema, modules })
-const team = await ctx.seedTenant({
-  name: 'Acme',
-  users: {
-    alice: { role: 'owner' },
-    bob: { role: 'member' },
-  },
-})
-```
-
-Use `ctx.asTrustedCaller(...)` when you want to verify the hidden trusted-caller path directly.
-
-Keep `convex/test.setup.ts` in app code. The Vite module glob and the generated-server mock need to
-live in the consumer app, but the file itself is now just the standard bridge:
-
-```ts
-/// <reference types="vite/client" />
-
-import { vi } from 'vitest'
-import { convexServerMock, createConvexTestModules } from 'better-convex-nuxt/testing'
-
-export const modules = createConvexTestModules(
-  import.meta.glob('./**/*.ts', {
-    eager: false,
-  }),
-)
-
-vi.mock('./_generated/server', async () => await convexServerMock())
-```
-
-## Usage
-
-### Shared Schema DX
-
-Shared args definitions now have one source of truth and multiple runtime consumers:
-
-- `better-convex-nuxt/composables` for client composables
-- `better-convex-nuxt/args` for server-safe shared args helpers
-- `better-convex-nuxt/server` for Nitro server helpers
-- `better-convex-nuxt/mcp` for MCP-only helpers
-
-This split is intentional. The goal is one args definition reused across runtimes, not one universal import everywhere. Server files should use `better-convex-nuxt/args`, not `better-convex-nuxt/composables`, so Nitro never pulls the client-heavy entrypoint into the server graph.
-
-```ts
-import { v } from 'convex/values'
-import { defineArgs } from 'better-convex-nuxt/args'
-
-export const createPost = defineArgs({
-  description: 'Create a post',
-  args: {
-    title: v.string(),
-    content: v.string(),
-  },
-  meta: {
-    title: { description: 'Post title' },
-    content: { description: 'Post body' },
-  },
-})
-```
-
-The same object is reused across the stack:
-
-```ts
-createPost.args // public input fields only
-createPost.parse // runtime validation
-createPost.meta // labels + descriptions for tools/forms
-createPost.zod // Zod view
-createPost.description // top-level description
-```
-
-Typical usage by runtime:
-
-```ts
-import { mutation } from './_generated/server'
-import { defineTool } from '#convex/mcp'
-import { authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
-
-export const create = mutation({
-  args: withTrustedCaller(createPost.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Create post', canCreatePost)
-    return await ctx.db.insert('posts', {
-      title: args.title,
-      content: args.content,
-      ownerId: actor.userId,
-      workspaceId: actor.tenantId,
-    })
-  },
-})
-
-export default defineTool({
-  schema: createPost,
-  auth: 'required',
-  handler: async (args, ctx) => {
-    const id = await serverConvexMutation(api.posts.create, args)
-    return ctx.ok({ id }, `Created post "${args.title}"`)
-  },
-})
-```
-
-Inside Convex functions, use the validator view directly:
-
-```ts
-import { mutation } from './_generated/server'
-import { authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
-import { canCreatePost } from './auth/checks'
-import { getActor } from './auth/actor'
-
-export const create = mutation({
-  args: withTrustedCaller(createPost.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Create post', canCreatePost)
-    return await ctx.db.insert('posts', {
-      title: args.title,
-      content: args.content,
-      ownerId: actor.userId,
-      workspaceId: actor.tenantId,
-    })
-  },
-})
-```
-
-Metadata is optional. Tools still work without it, but agents get better help when fields have descriptions and examples.
-
-Use a `shared/` directory when both Convex files and Nuxt server files need the same args definitions. That folder is a runtime boundary, not a framework convention.
-
-Permissions follow the same ownership rule: your app owns the permission-context query, and the module wires the frontend reflection through `convex.permissions.query` so `usePermissions()` and `useAuthGuard()` are auto-imported without a local wrapper file.
-
-### Queries
+### Query Example
 
 ```vue
 <script setup lang="ts">
@@ -262,153 +66,64 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: '
 </template>
 ```
 
-### Mutations
+### Auth Example
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+const { client, isAuthenticated, user } = useConvexAuth()
 
-const { execute } = useConvexMutation(api.tasks.create, {
-  optimisticUpdate: (localStore, args) => {
-    updateQuery({
-      query: api.tasks.list,
-      args: {},
-      store: localStore,
-      updater: (current) =>
-        current ? [{ _id: 'temp', text: args.text, completed: false }, ...current] : [],
-    })
-  },
-})
-
-await execute({ text: 'Ship my app' })
-</script>
-```
-
-### Authentication
-
-```vue
-<script setup lang="ts">
-const { $auth } = useNuxtApp()
-const { isAuthenticated, user } = useConvexAuth()
-
-async function handleLogin() {
-  await $auth.signIn.social({ provider: 'github' })
+async function signInWithGitHub() {
+  await client?.signIn.social({ provider: 'github' })
 }
 </script>
-
-<template>
-  <div v-if="isAuthenticated">Welcome, {{ user?.name }}!</div>
-  <button v-else @click="handleLogin">Sign in with GitHub</button>
-</template>
 ```
 
-## Where Env Vars Go
+## Package Surface
 
-For most apps:
+Published npm entrypoints:
 
-- `CONVEX_URL`: set in the Nuxt app environment or read in `nuxt.config.ts`
-- `CONVEX_SITE_URL`: optional override only when auto-derivation is not correct
-- `SITE_URL`: set in Convex Dashboard for Better Auth redirects/callbacks
-- `BETTER_AUTH_SECRET`: set in Convex Dashboard when auth is enabled
+- `better-convex-nuxt`
+- `better-convex-nuxt/auth`
+- `better-convex-nuxt/args`
+- `better-convex-nuxt/composables`
+- `better-convex-nuxt/mcp`
+- `better-convex-nuxt/server`
+- `better-convex-nuxt/testing`
+- `better-convex-nuxt/trusted-caller`
+- `better-convex-nuxt/visibility`
 
-The full matrix, including `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`, provider credentials, `REDIS_URL`, and `JWKS`, lives here:
+Nuxt-generated surfaces:
 
-- [Environment Matrix](https://better-convex-nuxt.vercel.app/docs/deployment/environment-matrix)
-- [Local Development](https://better-convex-nuxt.vercel.app/docs/deployment/local-development)
+- `#convex/mcp`
+- `#convex/server`
+- server auto-imports such as `serverConvexClearAuthCache` and `validateConvexArgs`
+- config-driven auto-imports such as `usePermissions()` and `useAuthGuard()`
 
-## Local Development
+Those Nuxt-generated surfaces are not npm subpath exports. The generated reference lives at [API Surface](https://better-convex-nuxt.vercel.app/docs/api-reference/api-surface).
 
-If you want fixed localhost Convex URLs during Nuxt development, wire the local backend through
-`convex-vite-plugin` and keep hosted Convex values in `.env.local` as the default mode. This is an
-optional dev-only dependency for playground/local DX. It does not affect the published module
-runtime.
+## CLI
 
-```ts
-import { convexLocal } from 'convex-vite-plugin'
+The package ships a small CLI for consumer checks and scaffolding:
 
-const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
-const localConvexUrl = 'http://127.0.0.1:3210'
-const localConvexSiteUrl = 'http://127.0.0.1:3211'
-const appUrl = process.env.SITE_URL || 'http://localhost:3000'
-
-export default defineNuxtConfig({
-  modules: ['better-convex-nuxt'],
-  convex: {
-    url: useLocalConvex ? localConvexUrl : process.env.CONVEX_URL,
-    siteUrl: useLocalConvex ? localConvexSiteUrl : process.env.CONVEX_SITE_URL,
-  },
-  hooks: {
-    'vite:extendConfig': (config, { isClient }) => {
-      if (!useLocalConvex || !isClient) return
-      config.plugins = [
-        ...(config.plugins ?? []),
-        convexLocal({
-          port: 3210,
-          siteProxyPort: 3211,
-          projectDir: '.',
-          convexDir: 'convex',
-          envVars: {
-            SITE_URL: appUrl,
-            AUTH_BASE_URL: process.env.AUTH_BASE_URL || appUrl,
-            AUTH_TRUSTED_ORIGINS: process.env.AUTH_TRUSTED_ORIGINS || appUrl,
-            BETTER_AUTH_SECRET:
-              process.env.BETTER_AUTH_SECRET || 'local-dev-better-auth-secret-not-for-production',
-          },
-        }),
-      ]
-    },
-  },
-})
+```bash
+npx better-convex-nuxt doctor
+npx better-convex-nuxt doctor --cwd ./my-app
+npx better-convex-nuxt doctor --json
+npx better-convex-nuxt init auth
+npx better-convex-nuxt init permissions --model workspace
+npx better-convex-nuxt init permissions --model workspace-mcp
+npx better-convex-nuxt init mcp
 ```
 
-In local mode the Nuxt auth proxy and `serverConvex*` helpers still talk to `convex.siteUrl`; the
-only difference is that `convex.siteUrl` now points at the local HTTP Actions proxy instead of a
-hosted `.convex.site` domain.
+## Where To Go Next
 
-The privileged reference lane shown in the playground is also opt-in. `pnpm dev:local` enables it
-with a playground-only key for demo purposes. Plain `pnpm dev` leaves that backend-only lane
-disabled unless you explicitly configure matching bridge keys in both the Nuxt server runtime and
-the Convex backend env.
-
-## Runtime Hooks
-
-The module emits a small set of Nuxt runtime hooks for cross-cutting side effects like analytics,
-global error handling, auth reactions, and connection banners.
-
-| Hook                         | Fires When                                                                       |
-| ---------------------------- | -------------------------------------------------------------------------------- |
-| `convex:mutation:success`    | A mutation completes successfully                                                |
-| `convex:mutation:error`      | A mutation fails                                                                 |
-| `convex:action:success`      | An action completes successfully                                                 |
-| `convex:action:error`        | An action fails                                                                  |
-| `convex:unauthorized`        | Unauthorized recovery is triggered for a Convex call                             |
-| `convex:connection:changed`  | The derived connection phase changes (`connecting`, `connected`, `reconnecting`) |
-| `convex:auth:changed`        | The effective authenticated user changes                                         |
-| `better-convex:auth:refresh` | Internal auth refresh runs                                                       |
-
-Full docs: [Runtime Hooks](https://better-convex-nuxt.vercel.app/docs/api-reference/runtime-hooks)
-
-```ts
-export default defineNuxtPlugin((nuxtApp) => {
-  nuxtApp.hook('convex:connection:changed', ({ state, previousState }) => {
-    console.log(`Convex connection ${previousState} -> ${state}`)
-  })
-
-  nuxtApp.hook('convex:auth:changed', ({ isAuthenticated, user }) => {
-    console.log('Auth changed:', isAuthenticated, user?.id)
-  })
-})
-```
-
-## Docs
-
-- [Getting Started](https://better-convex-nuxt.vercel.app/docs/guide/get-started)
-- [Authentication Reference](https://better-convex-nuxt.vercel.app/docs/auth-security/authentication)
-- [Server Call Lanes](https://better-convex-nuxt.vercel.app/docs/server-side/server-call-lanes)
-- [Permissions Setup](https://better-convex-nuxt.vercel.app/docs/auth-security/permissions-setup)
-- [Server Routes](https://better-convex-nuxt.vercel.app/docs/server-side/server-routes)
-- [System Workloads: Private Bridge](https://better-convex-nuxt.vercel.app/docs/recipes/system-workloads-private-bridge)
-- [Module Configuration](https://better-convex-nuxt.vercel.app/docs/advanced/module-config)
+- [Get Started](https://better-convex-nuxt.vercel.app/docs/guide/get-started)
+- [Authentication](https://better-convex-nuxt.vercel.app/docs/auth-security/authentication)
+- [Permissions](https://better-convex-nuxt.vercel.app/docs/permissions/setup)
+- [Server Side](https://better-convex-nuxt.vercel.app/docs/server-side/ssr-overview)
+- [MCP Tools](https://better-convex-nuxt.vercel.app/docs/mcp-tools/getting-started)
+- [Testing](https://better-convex-nuxt.vercel.app/docs/testing/getting-started)
+- [Module Options](https://better-convex-nuxt.vercel.app/docs/configuration/module-options)
 - [Deployment Overview](https://better-convex-nuxt.vercel.app/docs/deployment/overview)
 
 ## Contributing
@@ -417,12 +132,11 @@ export default defineNuxtPlugin((nuxtApp) => {
 pnpm install
 pnpm dev:prepare
 pnpm dev
-pnpm dev:local
 pnpm test
 pnpm lint
 ```
 
-Maintainer setup notes live in [DEVELOPMENT.md](./DEVELOPMENT.md).
+Maintainer notes live in [DEVELOPMENT.md](./DEVELOPMENT.md).
 
 ## License
 

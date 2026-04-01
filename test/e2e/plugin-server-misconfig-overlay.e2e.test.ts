@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('plugin.server dev misconfig overlay', async () => {
   await setup({
-    rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
+    rootDir: fileURLToPath(new URL('../../internal-harness', import.meta.url)),
     dev: true,
     port: 3000,
     nuxtConfig: {

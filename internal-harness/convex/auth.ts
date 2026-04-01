@@ -17,10 +17,11 @@ import {
 } from './auth/checks'
 import { createConvexAuth } from './authBridge'
 
-export const { authComponent, createAuth, createUserIfNeeded } = createConvexAuth((_ctx, bridge) =>
+const convexAuth = createConvexAuth((_ctx, bridge) =>
   betterAuth({
     baseURL: bridge.siteUrl,
     database: bridge.database,
+    secret: process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
     emailAndPassword: {
       enabled: true,
     },
@@ -51,6 +52,37 @@ export const { authComponent, createAuth, createUserIfNeeded } = createConvexAut
     trustedOrigins: bridge.trustedOrigins,
   }),
 )
+
+export const authComponent = convexAuth.authComponent
+export const createAuth = convexAuth.createAuth
+
+export const createUserIfNeeded = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error('Not authenticated')
+    }
+
+    const existing = await ctx.db
+      .query('users')
+      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .first()
+
+    if (existing) {
+      return existing._id
+    }
+
+    return await ctx.db.insert('users', {
+      authId: identity.subject,
+      role: 'member',
+      displayName: identity.name,
+      email: identity.email,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+  },
+})
 
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
 

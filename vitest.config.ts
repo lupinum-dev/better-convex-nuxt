@@ -89,7 +89,7 @@ export default defineConfig({
         },
         test: {
           name: 'convex',
-          include: ['playground/convex/**/*.test.ts'],
+          include: ['internal-harness/convex/**/*.test.ts'],
           environment: 'edge-runtime',
           server: { deps: { inline: [/convex/] } },
         },

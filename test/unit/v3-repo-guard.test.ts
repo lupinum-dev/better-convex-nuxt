@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = process.cwd()
-const rootsToScan = ['src', 'docs', 'examples', 'playground', 'demo', 'test', 'README.md'] as const
+const rootsToScan = ['src', 'docs', 'examples', 'internal-harness', 'demo', 'test', 'README.md'] as const
 const allowedFiles = new Set([
   'src/cli/lib/project.ts',
   'test/unit/cli-doctor.test.ts',

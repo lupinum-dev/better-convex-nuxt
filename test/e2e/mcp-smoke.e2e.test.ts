@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { $fetch, fetch as testFetch, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { PLAYGROUND_LOCAL_TRUSTED_CALLER_KEY } from '../../playground/shared/dev-trusted-caller-key'
+import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../../internal-harness/shared/dev-trusted-caller-key'
 import { ensureLocalConvex } from '../helpers/local-convex'
 
 interface BootstrapResponse {
@@ -30,7 +30,7 @@ interface McpStateResponse {
 let local: Awaited<ReturnType<typeof ensureLocalConvex>> | null = null
 try {
   local = await ensureLocalConvex({
-    cwd: fileURLToPath(new URL('../../playground', import.meta.url)),
+    cwd: fileURLToPath(new URL('../../internal-harness', import.meta.url)),
   })
 } catch (error) {
   console.warn('[e2e] Skipping MCP smoke suite: local Convex backend unavailable.', error)
@@ -46,10 +46,10 @@ maybeDescribe('MCP route smoke', async () => {
   })
 
   await setup({
-    rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
+    rootDir: fileURLToPath(new URL('../../internal-harness', import.meta.url)),
     env: {
       ...local?.env,
-      CONVEX_TRUSTED_CALLER_KEY: PLAYGROUND_LOCAL_TRUSTED_CALLER_KEY,
+      CONVEX_TRUSTED_CALLER_KEY: INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY,
     },
   })
 

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('convexAuth route protection', async () => {
   await setup({
-    rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
+    rootDir: fileURLToPath(new URL('../../internal-harness', import.meta.url)),
   })
 
   it('does not redirect unprotected pages', async () => {

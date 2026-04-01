@@ -107,4 +107,4 @@ curl http://localhost:3000/mcp/runbook-agent \
 
 Example `03-team-todo` is the minimum viable MCP story.
 
-Example `11-mcp-reference` is where you go when you want to see the whole protocol surface in one place without the playground’s extra experimentation.
+Example `11-mcp-reference` is where you go when you want the full public MCP protocol surface in one place.

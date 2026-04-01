@@ -71,7 +71,7 @@ async function resolveBaseUrl(): Promise<string> {
   }
 
   throw new Error(
-    'Could not reach a running playground server for MCP evals. Start the playground first or set MCP_EVAL_BASE_URL.',
+    'Could not reach a running internal harness server for MCP evals. Start the internal harness first or set MCP_EVAL_BASE_URL.',
   )
 }
 

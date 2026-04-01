@@ -475,8 +475,20 @@ definePageMeta({
   layout: 'sidebar',
 })
 
+type ResourceWithCan = {
+  _can?: Record<string, boolean>
+}
+
 // Permissions
-const { can, role, tenantId, pending, ready } = usePermissions()
+const { can: canPermission, role, tenantId, pending, ready } = usePermissions()
+
+function can(permission: string, resource?: ResourceWithCan) {
+  if (resource) {
+    return resource._can?.[permission] === true
+  }
+
+  return canPermission(permission)
+}
 
 // Queries - use status for explicit state management
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)

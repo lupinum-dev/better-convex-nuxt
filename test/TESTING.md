@@ -19,7 +19,7 @@ test/
 Backend tests live in:
 
 ```text
-playground/convex/
+internal-harness/convex/
 ├── *.test.ts
 └── lib/*.test.ts
 ```
@@ -42,7 +42,7 @@ pnpm test:full
 - `unit`: pure helpers under `test/unit/**` and auth helper/security suites under `test/auth/**/*.test.ts`
 - `nuxt`: Nuxt runtime suites under `test/nuxt/**` and `test/auth/**/*.nuxt.test.ts`
 - `server`: server-side auth/cache suites under `test/auth/**/*.server.test.ts`
-- `convex`: backend tests in `playground/convex/**`
+- `convex`: backend tests in `internal-harness/convex/**`
 - `browser`: browser component tests in `test/browser/**`
 - `e2e`: full-stack suites in `test/e2e/**`
 
@@ -54,7 +54,7 @@ pnpm test:full
 4. Shared auth test utilities live in `test/harness` and should stay focused on setup, state, and triggers rather than custom assertion DSLs.
 5. Pure browser rendering behavior goes in `test/browser`.
 6. Full-stack tests stay thin and intentional in `test/e2e`.
-7. Convex/backend behavior belongs in `playground/convex/*.test.ts`.
+7. Convex/backend behavior belongs in `internal-harness/convex/*.test.ts`.
 8. Prefer deterministic assertions over sleeps.
 
 Before adding a new auth test, place it in the single suite that owns that behavior; do not duplicate the same invariant in both behavior and OWASP suites.
@@ -72,11 +72,11 @@ For local auth-loop E2E you need:
 Example:
 
 ```bash
-cd /Users/matthias/Git/libs/better-convex-nuxt/playground
+cd /path/to/better-convex-nuxt/internal-harness
 npx convex dev --local --once
 npx convex env set SITE_URL http://localhost:3000 --env-file .env.local
 npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
-cd /Users/matthias/Git/libs/better-convex-nuxt
+cd /path/to/better-convex-nuxt
 pnpm test:e2e
 ```
 

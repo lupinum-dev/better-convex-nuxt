@@ -1,499 +1,138 @@
 ---
 name: better-convex-nuxt
 description: >
-  Use this skill when working with Convex in a Nuxt application. This includes Convex queries,
-  mutations, actions, optimistic updates, authentication with Better Auth, file uploads, paginated
-  queries, server-side Convex calls, permissions, real-time subscriptions, or connection state.
-  Activate whenever a Nuxt project uses the better-convex-nuxt module or any of its composables:
-  useConvexQuery, useConvexMutation, useConvexAction, useConvexPaginatedQuery, useConvexAuth,
-  useConvexUpload, useConvexStorageUrl, useConvexConnectionState, createPermissions,
-  serverConvexQuery, serverConvexMutation, serverConvexAction, ConvexAuthenticated,
-  ConvexUnauthenticated, ConvexAuthLoading, ConvexAuthError, prependTo, appendTo, removeFrom,
-  updateIn, defineConvexTool, createConvexTools, defineConvexSchema, wrapSuccess, wrapError,
-  withSummary. Also use when the user mentions Convex+Nuxt integration or MCP tools,
-  even if they don't name the module explicitly.
+  Use this skill when working with the better-convex-nuxt module, its package subpaths,
+  Nuxt auto-imports, or its auth, permissions, server, testing, or MCP patterns.
+  Activate whenever a Nuxt project uses better-convex-nuxt or APIs such as
+  useConvexQuery, useConvexMutation, useConvexAction, useConvexPaginatedQuery,
+  useCachedQuery, useConvexAuth, useConvexAuthActions, useConvexUpload,
+  useConvexStorageUrl, useConvexConnectionState, usePermissions, useAuthGuard,
+  serverConvexQuery, serverConvexMutation, serverConvexAction, defineArgs,
+  defineTool, withTrustedCaller, getTrustedCaller, authorize, or the
+  #convex/mcp and #convex/server aliases.
 ---
 
 # better-convex-nuxt
 
-Full-featured Nuxt 4+ module for [Convex](https://convex.dev) with SSR, real-time WebSocket subscriptions, Better Auth authentication, file uploads, permissions, server utilities, and MCP tool framework. All composables and components are **auto-imported**.
+Nuxt module for Convex with SSR queries, realtime subscriptions, Better Auth integration, app-owned permissions, server helpers, uploads, testing helpers, and MCP tooling.
 
 Docs: https://better-convex-nuxt.vercel.app
 
-For deeper context on any feature, read the corresponding file under `docs/content/docs/` in this repo.
+## Public Surface
 
-## Project Structure
+Published package imports:
 
-```
-nuxt.config.ts          # modules: ['better-convex-nuxt'], convex: { ... }
-.env.local              # CONVEX_URL=https://your-app.convex.cloud
-convex/                 # Backend functions
-  schema.ts             # Database schema
-  *.ts                  # Queries, mutations, actions
-  _generated/api.ts     # Typed API object (auto-generated)
-app/pages/              # Vue pages
-app/components/         # Vue components
-server/api/             # Nuxt server routes using serverConvex*
-```
+- `better-convex-nuxt`
+- `better-convex-nuxt/auth`
+- `better-convex-nuxt/args`
+- `better-convex-nuxt/composables`
+- `better-convex-nuxt/mcp`
+- `better-convex-nuxt/server`
+- `better-convex-nuxt/testing`
+- `better-convex-nuxt/trusted-caller`
+- `better-convex-nuxt/visibility`
 
-Always import the API object as `import { api } from '~~/convex/_generated/api'`.
+Nuxt-generated surfaces:
 
-## Core Patterns
+- `#convex/mcp`
+- `#convex/server`
+- server auto-imports from `#imports`
+- config-driven auto-imports like `usePermissions()` and `useAuthGuard()`
+
+Do not confuse package exports with Nuxt auto-imports or generated aliases.
+
+## Current Patterns
 
 ### Queries
 
-`useConvexQuery` fetches data with SSR and real-time subscriptions. Use `await` for SSR hydration.
-
-```vue
-<script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
-
-// SSR + real-time subscription
-const {
-  data: tasks,
-  status,
-  pending,
-  error,
-  refresh,
-  clear,
-} = await useConvexQuery(api.tasks.list, { status: 'active' })
-</script>
-```
-
-Reactive args via getter function:
-
-```ts
-const filter = ref('active')
-const { data } = await useConvexQuery(api.tasks.list, () => ({ status: filter.value }))
-```
-
-Options: `default` (initial value), `transform` (post-process), `server` (SSR toggle), `subscribe` (real-time toggle), `shared` (deduplicate across components), `keepPreviousData`.
-
-Reference: `docs/content/docs/2.data-fetching/1.queries.md`
-
-### Conditional Queries
-
-Return `null` from args to skip the query. Status becomes `'skipped'`.
-
-```ts
-const teamId = ref<string | null>(null)
-
-const { data: members } = await useConvexQuery(api.teams.getMembers, () =>
-  teamId.value ? { teamId: teamId.value } : null,
-)
-// Query runs only when teamId is non-null
-```
-
-Never wrap the composable call in `v-if` — always call it unconditionally and use the null-args pattern.
-
-Reference: `docs/content/docs/2.data-fetching/3.conditional-queries.md`
-
-### Paginated Queries
-
-```vue
-<script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
-
-const { results, status, loadMore, hasNextPage, isLoading, isExhausted, refetch, restart } =
-  await useConvexPaginatedQuery(api.posts.listPaginated, {}, { initialNumItems: 10 })
-</script>
-
-<template>
-  <article v-for="post in results" :key="post._id">{{ post.title }}</article>
-  <button v-if="hasNextPage" @click="loadMore(10)" :disabled="isLoading">Load More</button>
-</template>
-```
-
-The backend function must accept `paginationOpts` — do NOT pass it from the client; the composable injects it.
-
-Status values: `'skipped' | 'loading-first-page' | 'ready' | 'loading-more' | 'exhausted' | 'error'`
-
-Reference: `docs/content/docs/2.data-fetching/2.paginated-queries.md`
-
-### Mutations
-
-`useConvexMutation` returns a callable function with reactive state properties.
-
-```vue
-<script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
-
-const createTask = useConvexMutation(api.tasks.create, {
-  onSuccess: (result) => {
-    /* handle success */
-  },
-  onError: (error) => {
-    /* handle error */
-  },
-})
-
-async function handleCreate() {
-  await createTask({ text: 'Ship it' })
-}
-</script>
-
-<template>
-  <button @click="handleCreate" :disabled="createTask.pending.value">Create</button>
-</template>
-```
-
-Returns: callable function + `{ data, status, pending, error, reset }` as properties on the function.
-
-Reference: `docs/content/docs/3.mutations/1.mutations.md`
-
-### Optimistic Updates
-
-#### Builder API (ctx.query / ctx.paginatedQuery)
-
-```ts
-const addNote = useConvexMutation(api.notes.add, {
-  optimisticUpdate: (ctx, args) => {
-    // Regular query: .update() or .set()
-    ctx
-      .query(api.notes.list, {})
-      .update((notes) =>
-        notes ? [{ ...args, _id: crypto.randomUUID(), _creationTime: Date.now() }, ...notes] : [],
-      )
-
-    // Paginated query: .insertAtTop(), .deleteItem(), .updateItem(), .insertAtPosition()
-    ctx
-      .paginatedQuery(api.messages.list, { channelId: args.channelId })
-      .insertAtTop({ ...args, _id: crypto.randomUUID(), _creationTime: Date.now() })
-  },
-})
-```
-
-`ctx.query(ref, args)` — args must exactly match the query's active subscription args.
-`ctx.matchQuery(ref)` — update ALL active subscriptions for a query regardless of args.
-`ctx.matchPaginatedQuery(ref)` — same for paginated queries.
-`ctx.store` — escape hatch to the raw Convex `OptimisticLocalStore`.
-
-#### Standalone Helpers (auto-imported)
-
-```ts
-// Prepend to array query
-prependTo(ctx, api.notes.list, {}, { ...args, _id: crypto.randomUUID(), _creationTime: Date.now() })
-
-// Append to array query
-appendTo(ctx, api.notes.list, {}, newItem)
-
-// Remove by predicate
-removeFrom(ctx, api.notes.list, {}, (note) => note._id === args.id)
-
-// Update by predicate
-updateIn(
-  ctx,
-  api.notes.list,
-  {},
-  (note) => note._id === args.id,
-  (note) => ({ ...note, ...args }),
-)
-```
-
-Reference: `docs/content/docs/3.mutations/3.optimistic-updates.md`
-
-### Actions
-
-`useConvexAction` has the same shape as mutations but no `optimisticUpdate`. For external APIs and long tasks.
-
-```ts
-const generateReport = useConvexAction(api.reports.generate)
-await generateReport({ reportId: '123' })
-```
-
-Reference: `docs/content/docs/3.mutations/2.actions.md`
-
-### Authentication
-
-#### Reading auth state
-
-```vue
-<script setup lang="ts">
-const { user, isAuthenticated, isPending, signOut } = useConvexAuth()
-</script>
-```
-
-`user` is a `ConvexUser` with: `id, name, email, emailVerified?, image?, createdAt?, updatedAt?`
-
-#### Sign-in (via Better Auth client)
-
-Sign-in uses Better Auth directly, NOT `useConvexAuth()`.
-
-```ts
-import { createAuthClient } from 'better-auth/vue'
-
-const authClient = createAuthClient({ baseURL: '/api/auth' })
-
-// OAuth — page redirects, auth state auto-updates on return
-await authClient.signIn.social({ provider: 'github' })
-
-// Email/password — must call refreshAuth() after
-const { refreshAuth } = useConvexAuthInternal()
-const { error } = await authClient.signIn.email({ email, password })
-if (!error) {
-  await refreshAuth()
-  navigateTo('/')
-}
-```
-
-#### Auth components
-
-```vue
-<ConvexAuthenticated>Only visible when signed in</ConvexAuthenticated>
-<ConvexUnauthenticated>Only visible when signed out</ConvexUnauthenticated>
-<ConvexAuthLoading>Only visible while auth is loading</ConvexAuthLoading>
-<ConvexAuthError
-  v-slot="{ retry, error }"
->Auth failed: {{ error }} <button @click="retry">Retry</button></ConvexAuthError>
-```
-
-#### Route protection
-
-```ts
-// In page component
-definePageMeta({ convexAuth: true }) // Require auth, redirect unauthenticated users
-definePageMeta({ skipConvexAuth: true }) // Skip auth token fetching (use on sign-in/public pages)
-```
-
-Reference: `docs/content/docs/4.auth-security/`
-
-### File Uploads
-
-```vue
-<script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
-
-const {
-  upload,
-  data: storageId,
-  status,
-  pending,
-  progress,
-  error,
-} = useConvexUpload(api.files.generateUploadUrl, {
-  allowedTypes: ['image/*'],
-  maxSizeBytes: 5_000_000,
-})
-
-const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId)
-</script>
-
-<template>
-  <input type="file" @change="upload(($event.target as HTMLInputElement).files![0])" />
-  <div v-if="pending">{{ progress }}%</div>
-  <img v-if="imageUrl" :src="imageUrl" />
-</template>
-```
-
-Reference: `docs/content/docs/5.file-uploads/`
-
-### Server-Side Utilities
-
-Use in `server/api/` routes or server middleware. These are auto-imported in server context.
-
-```ts
-// server/api/data.get.ts
-import { api } from '~~/convex/_generated/api'
-
-export default defineEventHandler(async (event) => {
-  return await serverConvexQuery(event, api.data.getList, {}, { auth: 'auto' })
-})
-```
-
-Auth modes: `'auto'` (use session if available), `'required'` (throw if no session), `'none'` (skip auth).
-
-Also available: `serverConvexMutation`, `serverConvexAction`.
-
-Reference: `docs/content/docs/6.server-side/`
-
-### MCP Tools
-
-Build agent-ready MCP tools backed by Convex. Tools live in `server/mcp/tools/*.ts` and are auto-discovered.
-
-#### Minimal Tool
-
-```ts
-// server/mcp/tools/list-notes.ts
-import { defineConvexTool } from 'better-convex-nuxt/mcp'
-import { defineConvexSchema } from 'better-convex-nuxt/schema'
-import { serverConvexQuery } from 'better-convex-nuxt/server'
-import { api } from '~~/convex/_generated/api'
-
-const schema = defineConvexSchema({}, { description: 'List all notes' })
-
-export default defineConvexTool({
-  schema,
-  operation: 'query',
-  handler: async () => serverConvexQuery(api.notes.list, {}),
-})
-```
-
-#### Shared Schema
-
-`defineConvexSchema(args, meta)` — one source of truth for Convex functions, Nuxt forms, and MCP tools. Field metadata (`description`, `examples`, `enum`, `defaultHint`) flows into JSON Schema for agents.
-
-```ts
-// shared/schemas/note.ts
-import type { ConvexSchemaMetaFor } from 'better-convex-nuxt/schema'
-import { v } from 'convex/values'
-
-export const createNoteArgs = { title: v.string(), content: v.string() }
-export const createNoteMeta = {
-  description: 'Create a new note',
-  fields: {
-    title: { description: 'The note title', examples: ['Meeting Notes'] },
-    content: { description: 'The note body text' },
-  },
-} satisfies ConvexSchemaMetaFor<typeof createNoteArgs>
-```
-
-#### Auth & Permissions
-
-Three auth modes: `auth: 'none'` (default) | `'optional'` | `'required'`. Identity is `McpAuthIdentity { role, userId }`.
-
-Use `createConvexTools({ checkPermission })` factory for typed `require: 'post.create'` permission checks.
-
-```ts
-// server/mcp/utils/tools.ts
-import { createConvexTools } from 'better-convex-nuxt/mcp'
-import { checkPermission } from '~~/convex/permissions.config'
-export const { defineConvexTool } = createConvexTools({ checkPermission })
-```
-
-#### Destructive Confirmation Flow
-
-`destructive: true` adds `_confirmed` to input and enables two-call flow:
-
-1. First call → preview or `confirmation_required` error
-2. Second call with `_confirmed: true` → executes handler
-
-Add `preview` handler for rich previews: `{ summary, blocked?, affects?, warn? }`.
-
-#### Result Envelopes
-
-All responses use `{ ok: true, data }` or `{ ok: false, error: { category, message, retryable } }`.
-
-- `withSummary(data, text)` — human summary + structured data
-- `wrapError(category, message)` — categorized error from middleware
-- `outputSchema` — auto-wrapped in `{ ok, data }` envelope (don't double-wrap)
-
-#### MCP-Specific Gotchas
-
-1. **v.id() conversion**: `defineConvexSchema` auto-converts `v.id()` → `z.string()`. Must use shared schema, not raw validators.
-2. **v.union() with v.id()**: Throws at definition time — use `v.string()` instead.
-3. **outputSchema wrapping**: Framework wraps in `{ ok, data }` automatically. Don't add the envelope yourself.
-4. **Preview errors**: Caught and wrapped like handler errors — no special handling needed.
-5. **rateLimit**: In-memory, per-tool-name. Resets on server restart. For production, use an external store.
-6. **auth: 'optional'**: Still resolves identity if present — useful for middleware that enriches responses based on auth.
-
-Reference: `docs/content/docs/13.mcp-tools/`
+- Use `await useConvexQuery(...)` for SSR + subscriptions.
+- Use `useConvexPaginatedQuery(...)` for paginated lists.
+- Use `useCachedQuery(...)` when a detail query can seed itself from already-fetched list data.
+- Use `executeConvexQuery(...)` only as the Nuxt auto-import for one-shot query execution.
+- Conditional queries use the null-args pattern, not conditional composable calls.
+
+### Mutations And Actions
+
+- `useConvexMutation(...)` returns a callable function with reactive state properties.
+- `useConvexAction(...)` has the same shape, without optimistic updates.
+- Optimistic helpers are `prependTo`, `appendTo`, `removeFrom`, and `updateIn`.
+
+### Auth
+
+- `useConvexAuth()` exposes auth state and the Better Auth client.
+- `useConvexAuthActions()` wraps Better Auth client calls and refreshes Convex auth afterward.
+- Auth components are global only when `convex.auth` is enabled:
+  - `<ConvexAuthenticated>`
+  - `<ConvexUnauthenticated>`
+  - `<ConvexAuthLoading>`
+  - `<ConvexAuthError>`
 
 ### Permissions
 
-Enable in config: `convex: { permissions: true }`.
+- The app owns the permission-context query.
+- The module wires frontend reflection through `convex.permissions.query`.
+- `usePermissions()` and `useAuthGuard()` are generated auto-imports, not package exports.
+- Prefer backend-owned `_can` data for resource-specific authorization. Use `useAuthGuard()` for page-level capability gating.
 
-```ts
-// app/composables/usePermissions.ts
-import { createPermissions } from '#imports'
-import { api } from '~~/convex/_generated/api'
+### Shared Args
 
-export const { usePermissions, usePermissionGuard } = createPermissions({
-  query: api.auth.getPermissionContext, // Returns { role, userId, ... }
-  checkPermission: (context, action, resource?) => {
-    if (context.role === 'admin') return true
-    if (action === 'post.edit') return resource?.authorId === context.userId
-    return false
-  },
-})
-```
+- Define shared input schemas with `defineArgs()` from `better-convex-nuxt/args`.
+- Reuse the same schema across Convex handlers, Nitro routes, and MCP tools.
+- Shared args are schema-only. Hidden trusted-caller transport belongs in `withTrustedCaller(...)`, not in `defineArgs()`.
 
-```vue
-<script setup lang="ts">
-const { can, ready } = usePermissions()
-</script>
-<template>
-  <button v-if="can('post.create').value">New Post</button>
-</template>
-```
+### Trusted Caller
 
-`can()` returns `ComputedRef<boolean>` — use `.value` in templates or store in a variable.
+- Use `withTrustedCaller(schema.args)` in Convex validators that support server-to-server or MCP actor injection.
+- Resolve the effective actor explicitly with `getActor(ctx, args)` in app code.
+- Use `getTrustedCaller(args)` only when you need the injected identity directly.
+- Old wrapper-style actor APIs are not part of the current foundation.
 
-Reference: `docs/content/docs/7.permissions/`
+### Server Helpers
 
-### Connection State
+- Package export: `better-convex-nuxt/server`
+  - `serverConvexQuery`
+  - `serverConvexMutation`
+  - `serverConvexAction`
+- Nuxt server auto-import only:
+  - `serverConvexClearAuthCache`
+  - `validateConvexArgs`
+- `ServerConvexOptions.auth` supports `'auto'`, `'required'`, `'none'`, and `'trusted'`.
 
-```ts
-const { isConnected, isReconnecting, pendingMutations, shouldShowOfflineUi } =
-  useConvexConnectionState()
-```
+### MCP
 
-Use `shouldShowOfflineUi` (not `!isConnected`) to avoid hydration flash — it's `false` during SSR and only becomes `true` after a real disconnect.
+- Use `defineTool()` from `#convex/mcp` for Convex-backed MCP tools.
+- Use generic MCP primitives from the same alias when you need prompts, resources, handlers, sessions, or dynamic tools.
+- `scoped: true` is the trusted-caller-aware MCP path. It still requires explicit actor resolution in the Convex handler.
 
-Reference: `docs/content/docs/8.real-time/2.connection-state.md`
+### Testing
 
-## Configuration
+- Use `convexTestConfig()` and `createTestContext()` from `better-convex-nuxt/testing`.
+- Keep `convex/test.setup.ts` in the consumer app.
+- `asTrustedCaller()` is the test-only way to exercise trusted-caller paths.
 
-```ts
-export default defineNuxtConfig({
-  modules: ['better-convex-nuxt'],
-  convex: {
-    url: process.env.CONVEX_URL,
-    siteUrl: process.env.CONVEX_SITE_URL, // Auto-derived, override if needed
-    auth: true, // true | false | AuthOptions
-    // auth: { route: '/api/auth', trustedOrigins: ['https://*.vercel.app'] },
-    query: { server: true, subscribe: true }, // SSR and real-time defaults
-    upload: { maxConcurrent: 3 },
-    permissions: false, // Enable createPermissions
-    logging: false, // false | 'info' | 'debug'
-  },
-})
-```
+## Current Repo Surfaces
 
-Reference: `docs/content/docs/9.configuration/1.module-options.md`
+- `src/`: package source
+- `docs/`: hosted docs app and docs content
+- `demo/`: public showcase app
+- `internal-harness/`: contributor-only dev and test harness
+- `examples/`: runnable consumer reference apps
 
-## Common Gotchas
+## Source Of Truth
 
-1. **Import path**: Always `import { api } from '~~/convex/_generated/api'` — not from `convex/`.
-2. **Mutations/actions are client-only**: `useConvexMutation` and `useConvexAction` do not run during SSR. Use `serverConvexMutation` for server-side mutations.
-3. **SSR requires await**: `await useConvexQuery(...)` for SSR hydration. Without `await`, data starts as `null` and loads client-side.
-4. **Conditional queries**: Return `null` from args getter to skip. Never wrap the composable in `v-if`.
-5. **Optimistic update args must match**: `ctx.query(ref, args)` — the `args` must exactly match what the active query was called with. Use `ctx.matchQuery(ref)` when unsure.
-6. **Email sign-in needs refreshAuth**: After `authClient.signIn.email()`, call `refreshAuth()` from `useConvexAuthInternal()`. OAuth doesn't need this (page redirects).
-7. **Sign-in page meta**: Use `definePageMeta({ skipConvexAuth: true })` on sign-in/sign-up pages to prevent redirect loops.
-8. **Don't pass paginationOpts**: The paginated query composable injects `paginationOpts` automatically.
-9. **Load env correctly**: Run `nuxt dev --dotenv .env.local` to pick up `CONVEX_URL`.
-10. **Async context for serverConvex without event**: If omitting the `event` parameter from `serverConvexQuery`, enable `experimental: { asyncContext: true }` in nuxt.config.
+Prefer these docs when answering questions:
 
-## Error Handling
+- `docs/content/docs/12.api-reference/7.api-surface.md`
+- `docs/content/docs/12.api-reference/1.composables.md`
+- `docs/content/docs/12.api-reference/3.server-utilities.md`
+- `docs/content/docs/12.api-reference/5.mcp.md`
+- `docs/content/docs/7.permissions/*.md`
+- `docs/content/docs/13.mcp-tools/*.md`
 
-Convex calls can throw `ConvexCallError` with `{ message, code, status, helper, operation, functionPath, convexUrl, authMode }`. Errors are also available on the reactive `error` ref.
+When in doubt, verify against:
 
-The `convex:unauthorized` Nuxt hook fires on 401/403 errors when `auth.unauthorized.enabled` is true. Configure `auth.unauthorized.redirectTo` for automatic redirects.
-
-Reference: `docs/content/docs/3.mutations/4.error-handling.md`
-
-## Documentation Reference
-
-| Topic                 | File                                                             |
-| --------------------- | ---------------------------------------------------------------- |
-| Getting started       | `docs/content/docs/1.guide/`                                     |
-| Queries               | `docs/content/docs/2.data-fetching/1.queries.md`                 |
-| Paginated queries     | `docs/content/docs/2.data-fetching/2.paginated-queries.md`       |
-| Conditional queries   | `docs/content/docs/2.data-fetching/3.conditional-queries.md`     |
-| Transforms & defaults | `docs/content/docs/2.data-fetching/4.transforms-and-defaults.md` |
-| Shared queries        | `docs/content/docs/2.data-fetching/5.shared-queries.md`          |
-| Mutations             | `docs/content/docs/3.mutations/1.mutations.md`                   |
-| Actions               | `docs/content/docs/3.mutations/2.actions.md`                     |
-| Optimistic updates    | `docs/content/docs/3.mutations/3.optimistic-updates.md`          |
-| Error handling        | `docs/content/docs/3.mutations/4.error-handling.md`              |
-| Authentication        | `docs/content/docs/4.auth-security/`                             |
-| File uploads          | `docs/content/docs/5.file-uploads/`                              |
-| Server-side           | `docs/content/docs/6.server-side/`                               |
-| Permissions           | `docs/content/docs/7.permissions/`                               |
-| Real-time             | `docs/content/docs/8.real-time/`                                 |
-| Configuration         | `docs/content/docs/9.configuration/`                             |
-| Deployment            | `docs/content/docs/10.deployment/`                               |
-| API reference         | `docs/content/docs/12.api-reference/`                            |
-| MCP tools             | `docs/content/docs/13.mcp-tools/`                                |
-
-Read these files for deeper context when working on specific features.
+- `package.json` exports
+- `src/module.ts` auto-import and alias registration
+- `src/runtime/composables/index.ts`
+- `src/runtime/server/index.ts`
+- `src/runtime/mcp/index.ts`

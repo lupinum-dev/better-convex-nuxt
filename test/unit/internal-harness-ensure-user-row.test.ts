@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { shouldEnsureUserRow } from '../../playground/composables/ensure-user-row-debug'
+import { shouldEnsureUserRow } from '../../internal-harness/composables/ensure-user-row-debug'
 
-describe('playground ensure-user-row gating', () => {
+describe('internal harness ensure-user-row gating', () => {
   it('only bootstraps when auth exists but the app user row is still missing', () => {
     expect(shouldEnsureUserRow(null)).toBe(false)
     expect(

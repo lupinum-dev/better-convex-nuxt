@@ -15,14 +15,14 @@ const runtimeVisibilityEntry = fileURLToPath(
 )
 const runtimeMcpEntry = fileURLToPath(new URL('../src/runtime/mcp/index.ts', import.meta.url))
 const runtimeServerEntry = fileURLToPath(new URL('../src/runtime/server/index.ts', import.meta.url))
-const playgroundRoot = fileURLToPath(new URL('./', import.meta.url))
+const harnessRoot = fileURLToPath(new URL('./', import.meta.url))
 const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
 const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true'
-const playgroundUrl = process.env.SITE_URL || 'http://localhost:3000'
+const harnessUrl = process.env.SITE_URL || 'http://localhost:3000'
 const localConvexUrl = 'http://127.0.0.1:3210'
 const localConvexSiteUrl = 'http://127.0.0.1:3211'
 const localPrivateBridgeKey =
-  process.env.CONVEX_PRIVATE_BRIDGE_KEY || 'playground-private-bridge-key-not-for-production'
+  process.env.CONVEX_PRIVATE_BRIDGE_KEY || 'internal-harness-private-bridge-key-not-for-production'
 
 function appendOrigin(origins: string | undefined, origin: string): string {
   const values = new Set(
@@ -39,12 +39,12 @@ export default defineNuxtConfig({
   modules: ['../src/module', '@nuxtjs/mcp-toolkit'],
 
   mcp: {
-    name: 'better-convex-nuxt-playground',
+    name: 'better-convex-nuxt-internal-harness',
     sessions: true,
   },
 
   alias: {
-    // The playground runs against the local module source, not an installed package.
+    // The internal harness runs against the local module source, not an installed package.
     // Mirror the published subpath imports so examples stay copy-pastable for consumers.
     'better-convex-nuxt/composables': runtimeComposablesEntry,
     'better-convex-nuxt/auth': runtimeAuthEntry,
@@ -97,17 +97,17 @@ export default defineNuxtConfig({
       config.plugins = [
         ...(config.plugins ?? []),
         convexLocal({
-          instanceName: 'better-convex-nuxt-playground',
-          stateIdSuffix: 'playground-local-v1',
+          instanceName: 'better-convex-nuxt-internal-harness',
+          stateIdSuffix: 'internal-harness-local-v1',
           port: 3210,
           siteProxyPort: 3211,
-          projectDir: playgroundRoot,
+          projectDir: harnessRoot,
           convexDir: 'convex',
           reset: resetLocalBackend,
           envVars: {
-            SITE_URL: playgroundUrl,
-            AUTH_BASE_URL: process.env.AUTH_BASE_URL || playgroundUrl,
-            AUTH_TRUSTED_ORIGINS: appendOrigin(process.env.AUTH_TRUSTED_ORIGINS, playgroundUrl),
+            SITE_URL: harnessUrl,
+            AUTH_BASE_URL: process.env.AUTH_BASE_URL || harnessUrl,
+            AUTH_TRUSTED_ORIGINS: appendOrigin(process.env.AUTH_TRUSTED_ORIGINS, harnessUrl),
             BETTER_AUTH_SECRET:
               process.env.BETTER_AUTH_SECRET || 'local-dev-better-auth-secret-not-for-production',
             CONVEX_PRIVATE_BRIDGE_KEY: localPrivateBridgeKey,

@@ -3,285 +3,203 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const rootDir = process.cwd()
+const checkMode = process.argv.includes('--check')
+
+const packageJsonPath = resolve(rootDir, 'package.json')
 const modulePath = resolve(rootDir, 'src/module.ts')
 const componentsDir = resolve(rootDir, 'src/runtime/components')
-const outputPath = resolve(rootDir, 'docs/content/docs/6.advanced/8.api-surface.md')
-const packageJsonPath = resolve(rootDir, 'package.json')
+const outputPath = resolve(rootDir, 'docs/content/docs/12.api-reference/7.api-surface.md')
 
-const moduleSource = readFileSync(modulePath, 'utf8')
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
+const moduleSource = readFileSync(modulePath, 'utf8')
 
-function normalizeRepoUrl(input) {
-  if (typeof input !== 'string') return null
-  const cleaned = input
-    .replace(/^git\+/, '')
-    .replace(/\.git$/, '')
-    .replace(/^git@github\.com:/, 'https://github.com/')
-  return cleaned.startsWith('https://') ? cleaned : null
+function sectionBetween(source, startMarker, endMarker) {
+  const start = source.indexOf(startMarker)
+  const end = source.indexOf(endMarker, start)
+  if (start === -1 || end === -1) return ''
+  return source.slice(start, end)
 }
 
-const repoBase =
-  normalizeRepoUrl(packageJson?.repository?.url) ??
-  'https://github.com/lupinum-dev/better-convex-nuxt'
-
-function extractNames(pattern) {
+function extractNames(block) {
   const names = new Set()
-  for (const match of moduleSource.matchAll(pattern)) {
-    if (!match[1]) continue
-    names.add(match[1])
+  for (const match of block.matchAll(/name:\s*'([^']+)'/g)) {
+    if (match[1]) names.add(match[1])
   }
   return [...names].sort((a, b) => a.localeCompare(b))
 }
 
-const composableImports = extractNames(
-  /name:\s*'([^']+)'\s*,\s*from:\s*resolver\.resolve\('\.\/runtime\/composables\/[^']+'\)/g,
-)
-const serverImports = extractNames(
-  /name:\s*'([^']+)'\s*,\s*from:\s*resolver\.resolve\('\.\/runtime\/server\/utils\/[^']+'\)/g,
-)
-const componentNames = readdirSync(componentsDir)
-  .filter((name) => name.endsWith('.vue'))
-  .map((name) => name.replace(/\.vue$/, ''))
-  .sort((a, b) => a.localeCompare(b))
-
-const composableMeta = {
-  createAuth: {
-    kind: 'Factory',
-    purpose: 'Builds a frontend auth API that reads backend-owned capability context.',
-    guide: '/docs/auth-security/permissions',
-  },
-  defineSharedConvexQuery: {
-    kind: 'Helper',
-    purpose: 'Creates a shared query instance that is reused across a Nuxt app/request.',
-    guide: '/docs/data-fetching/queries',
-  },
-  deleteFromPaginatedQuery: {
-    kind: 'Helper',
-    purpose: 'Optimistically removes an item from a paginated query cache.',
-    guide: '/docs/mutations/optimistic-updates',
-  },
-  deleteFromQuery: {
-    kind: 'Helper',
-    purpose: 'Optimistically removes an item from a regular query cache.',
-    guide: '/docs/mutations/optimistic-updates',
-  },
-  getQueryKey: {
-    kind: 'Helper',
-    purpose: 'Creates a stable query cache key for invalidation and updates.',
-    guide: '/docs/data-fetching/caching-reuse',
-  },
-  insertAtBottomIfLoaded: {
-    kind: 'Helper',
-    purpose: 'Optimistically inserts an item at the end of paginated data when loaded.',
-    guide: '/docs/mutations/optimistic-updates',
-  },
-  insertAtPosition: {
-    kind: 'Helper',
-    purpose: 'Optimistically inserts an item at a custom position in paginated data.',
-    guide: '/docs/mutations/optimistic-updates',
-  },
-  insertAtTop: {
-    kind: 'Helper',
-    purpose: 'Optimistically inserts an item at the top of paginated data.',
-    guide: '/docs/mutations/optimistic-updates',
-  },
-  optimisticallyUpdateValueInPaginatedQuery: {
-    kind: 'Helper',
-    purpose: 'Optimistically updates matching items across paginated query pages.',
-    guide: '/docs/mutations/optimistic-updates',
-  },
-  setQueryData: {
-    kind: 'Helper',
-    purpose: 'Replaces cached query data with a new value.',
-    guide: '/docs/data-fetching/caching-reuse',
-  },
-  updateAllQueries: {
-    kind: 'Helper',
-    purpose: 'Applies an updater across multiple cached query results.',
-    guide: '/docs/data-fetching/caching-reuse',
-  },
-  updateInPaginatedQuery: {
-    kind: 'Helper',
-    purpose: 'Optimistically updates matching items across paginated query pages.',
-    guide: '/docs/mutations/optimistic-updates',
-  },
-  updateQuery: {
-    kind: 'Helper',
-    purpose: 'Applies an updater to one cached query result.',
-    guide: '/docs/data-fetching/caching-reuse',
-  },
-  useConvex: {
-    kind: 'Composable',
-    purpose: 'Gives direct access to the underlying Convex client.',
-    guide: '/docs/guide/basics',
-  },
-  useConvexAction: {
-    kind: 'Composable',
-    purpose: 'Runs Convex actions with reactive status and error handling.',
-    guide: '/docs/mutations/actions',
-  },
-  useConvexAuth: {
-    kind: 'Composable',
-    purpose: 'Tracks auth state and user/session information in Nuxt.',
-    guide: '/docs/auth-security/authentication',
-  },
-  useConvexCall: {
-    kind: 'Composable',
-    purpose: 'Runs imperative one-shot query, mutation, or action calls on the client.',
-    guide: '/docs/data-fetching/queries',
-  },
-  useConvexConnectionState: {
-    kind: 'Composable',
-    purpose: 'Observes live WebSocket connection state to Convex.',
-    guide: '/docs/advanced/connection-state',
-  },
-  useConvexFileUpload: {
-    kind: 'Composable',
-    purpose: 'Uploads files to Convex storage with progress tracking.',
-    guide: '/docs/advanced/file-storage',
-  },
-  useConvexMutation: {
-    kind: 'Composable',
-    purpose: 'Runs Convex mutations with status, errors, and optimistic hooks.',
-    guide: '/docs/mutations/mutations',
-  },
-  useConvexPaginatedQuery: {
-    kind: 'Composable',
-    purpose: 'Fetches and paginates query results with real-time updates.',
-    guide: '/docs/data-fetching/pagination',
-  },
-  useConvexQuery: {
-    kind: 'Composable',
-    purpose: 'Fetches reactive query data with SSR and subscription support.',
-    guide: '/docs/data-fetching/queries',
-  },
-  useConvexStorageUrl: {
-    kind: 'Composable',
-    purpose: 'Resolves Convex file storage IDs to usable URLs.',
-    guide: '/docs/advanced/file-storage',
-  },
-  useConvexUploadQueue: {
-    kind: 'Composable',
-    purpose: 'Queues and coordinates concurrent file uploads.',
-    guide: '/docs/advanced/file-storage',
-  },
-}
-
-const serverMeta = {
-  serverConvexAction: {
-    kind: 'Server helper',
-    purpose: 'Runs a Convex action from server routes/handlers.',
-    guide: '/docs/server-side/server-routes',
-  },
-  serverConvexClearAuthCache: {
-    kind: 'Server helper',
-    purpose:
-      'Clears cached auth token state for Nuxt server routes via the `#imports` auto-import surface.',
-    guide: '/docs/server-side/ssr-hydration',
-  },
-  serverConvexMutation: {
-    kind: 'Server helper',
-    purpose: 'Runs a Convex mutation from server routes/handlers.',
-    guide: '/docs/server-side/server-routes',
-  },
-  serverConvexQuery: {
-    kind: 'Server helper',
-    purpose: 'Runs a Convex query from server routes/handlers.',
-    guide: '/docs/server-side/server-routes',
-  },
-}
-
-const componentMeta = {
-  ConvexAuthenticated: {
-    kind: 'Component',
-    purpose: 'Renders slot content only for authenticated users.',
-    guide: '/docs/auth-security/authentication',
-  },
-  ConvexAuthError: {
-    kind: 'Component',
-    purpose: 'Renders slot content when auth resolves with an error.',
-    guide: '/docs/auth-security/authentication',
-  },
-  ConvexAuthLoading: {
-    kind: 'Component',
-    purpose: 'Renders slot content while auth state is still loading.',
-    guide: '/docs/auth-security/authentication',
-  },
-  ConvexUnauthenticated: {
-    kind: 'Component',
-    purpose: 'Renders slot content only for signed-out users.',
-    guide: '/docs/auth-security/authentication',
-  },
-}
-
-function fallbackMeta(name, defaultKind = 'Helper') {
-  return {
-    kind: name.startsWith('use') ? 'Composable' : defaultKind,
-    purpose: 'Auto-imported runtime API provided by this module.',
-    guide: '/docs/guide/get-started',
+function extractAliases(source) {
+  const aliases = new Set()
+  for (const match of source.matchAll(/nuxt\.options\.alias\['([^']+)'\]/g)) {
+    if (match[1]) aliases.add(match[1])
   }
+  return [...aliases].sort((a, b) => a.localeCompare(b))
 }
 
-function toRows(names, meta, options = {}) {
-  const { component = false, defaultKind = 'Helper' } = options
-  return names
-    .map((name) => {
-      const details = meta[name] ?? fallbackMeta(name, defaultKind)
-      const displayName = component ? `<${name}>` : name
-      return `| \`${displayName}\` | ${details.kind} | ${details.purpose} | [Guide](${details.guide}) |`
+function toImportPath(key) {
+  return key === '.' ? 'better-convex-nuxt' : `better-convex-nuxt/${key.replace(/^\.\//, '')}`
+}
+
+function toDocRows(items, detailMap) {
+  return items
+    .map((item) => {
+      const detail = detailMap[item] ?? 'Runtime API'
+      return `| \`${item}\` | ${detail} |`
     })
     .join('\n')
 }
 
-const file = `---
-title: API Surface
-description: Generated reference of auto-imported composables, server helpers, and global auth components.
-navigation:
-  icon: i-lucide-list
----
+const alwaysAutoImports = extractNames(
+  sectionBetween(moduleSource, '// 6. Auto-import composables', '// 6b. Auth composables'),
+)
+const authAutoImports = extractNames(
+  sectionBetween(moduleSource, '// 6b. Auth composables', '// 7. Auto-import server utilities'),
+)
+const serverAutoImports = extractNames(
+  sectionBetween(moduleSource, '// 7. Auto-import server utilities', '// 9. Add types to tsconfig references'),
+)
+const permissionAutoImports = ['useAuthGuard', 'usePermissions']
+const aliases = extractAliases(moduleSource)
+const components = readdirSync(componentsDir)
+  .filter((name) => name.endsWith('.vue'))
+  .map((name) => name.replace(/\.vue$/, ''))
+  .sort((a, b) => a.localeCompare(b))
+const packageSubpaths = Object.keys(packageJson.exports).sort((a, b) => a.localeCompare(b))
 
-This page is generated from module entrypoints and runtime component files.
+const clientDetails = {
+  appendTo: 'Optimistic update helper',
+  executeConvexQuery: 'Nuxt auto-import only: one-shot query execution without full composable state',
+  getQueryKey: 'Shared cache key helper',
+  prependTo: 'Optimistic update helper',
+  removeFrom: 'Optimistic update helper',
+  updateIn: 'Optimistic update helper',
+  useCachedQuery: 'Query composable seeded from an already-fetched parent query',
+  useConvex: 'Raw Convex client access',
+  useConvexAction: 'Action composable with status tracking',
+  useConvexAuth: 'Auth state composable',
+  useConvexAuthActions: 'Better Auth action wrapper with refresh + redirect handling',
+  useConvexConnectionState: 'Connection state composable',
+  useConvexMutation: 'Mutation composable with optimistic hooks',
+  useConvexPaginatedQuery: 'Paginated query composable',
+  useConvexQuery: 'Query composable with SSR + subscriptions',
+  useConvexStorageUrl: 'Storage URL helper',
+  useConvexUpload: 'Upload composable',
+}
 
-Source of truth:
-- [src/module.ts](${repoBase}/blob/main/src/module.ts)
-- [src/runtime/composables/index.ts](${repoBase}/blob/main/src/runtime/composables/index.ts)
-- [src/runtime/server/utils](${repoBase}/tree/main/src/runtime/server/utils)
-- [src/runtime/server/utils/auth-cache.ts](${repoBase}/blob/main/src/runtime/server/utils/auth-cache.ts)
-- [src/runtime/components](${repoBase}/tree/main/src/runtime/components)
+const permissionDetails = {
+  useAuthGuard: 'Available only when `convex.permissions.query` is configured',
+  usePermissions: 'Available only when `convex.permissions.query` is configured',
+}
 
-This reference answers:
-- Which APIs are auto-imported?
-- What is each API for?
-- Where is the best guide for examples and deeper usage?
+const serverDetails = {
+  serverConvexAction: 'Nuxt server auto-import and package export from `better-convex-nuxt/server`',
+  serverConvexClearAuthCache: 'Nuxt server auto-import only',
+  serverConvexMutation: 'Nuxt server auto-import and package export from `better-convex-nuxt/server`',
+  serverConvexQuery: 'Nuxt server auto-import and package export from `better-convex-nuxt/server`',
+  validateConvexArgs: 'Nuxt server auto-import only',
+}
 
-Note:
-- Server APIs listed here are Nuxt auto-imports available from \`#imports\`.
-- The package export \`better-convex-nuxt/server\` is narrower and should not be assumed to match the full Nuxt auto-import surface.
+const aliasDetails = {
+  '#convex/mcp': 'Nuxt alias generated by the module; re-exports the MCP entrypoint inside the app',
+  '#convex/server': 'Nuxt alias generated by the module; re-exports the server entrypoint inside the app',
+}
 
-Regenerate this page with:
+const packageRows = packageSubpaths
+  .map((key) => {
+    const label = key === '.' ? 'root module' : key.replace(/^\.\//, '')
+    return `| \`${toImportPath(key)}\` | ${label} |`
+  })
+  .join('\n')
 
-\`\`\`bash
-node scripts/generate-api-surface.mjs
-\`\`\`
+const file = [
+  '---',
+  "title: 'API Surface'",
+  "description: 'Generated reference for package subpaths, Nuxt auto-imports, aliases, and auth components.'",
+  '---',
+  '',
+  'This page is generated from:',
+  '',
+  '- `package.json` package exports',
+  '- `src/module.ts`',
+  '- `src/runtime/components/*`',
+  '',
+  'Use it to answer one question first: **is this API a package import, a Nuxt auto-import, or a generated alias?**',
+  '',
+  '## Package Subpaths',
+  '',
+  'These are the published npm entrypoints.',
+  '',
+  '| Import | Surface |',
+  '| ------ | ------- |',
+  packageRows,
+  '',
+  '## Nuxt Auto-Imports',
+  '',
+  'These are available inside a Nuxt app that has the module installed.',
+  '',
+  '### Core Client Auto-Imports',
+  '',
+  '| Name | Notes |',
+  '| ---- | ----- |',
+  toDocRows(alwaysAutoImports, clientDetails),
+  '',
+  '### Auth-Enabled Auto-Imports',
+  '',
+  'These are registered only when `convex.auth` is enabled.',
+  '',
+  '| Name | Notes |',
+  '| ---- | ----- |',
+  toDocRows(authAutoImports, clientDetails),
+  '',
+  '### Permission-Configured Auto-Imports',
+  '',
+  'These are registered only when `convex.permissions.query` is configured.',
+  '',
+  '| Name | Notes |',
+  '| ---- | ----- |',
+  toDocRows(permissionAutoImports, permissionDetails),
+  '',
+  '### Server Auto-Imports',
+  '',
+  'These are available from Nuxt server files via `#imports`.',
+  '',
+  '| Name | Notes |',
+  '| ---- | ----- |',
+  toDocRows(serverAutoImports, serverDetails),
+  '',
+  '## Nuxt Aliases',
+  '',
+  'These aliases are generated inside the consumer app by the module.',
+  '',
+  '| Alias | Notes |',
+  '| ----- | ----- |',
+  toDocRows(aliases, aliasDetails),
+  '',
+  '## Global Auth Components',
+  '',
+  'These components are globally registered only when `convex.auth` is enabled.',
+  '',
+  '| Component | Notes |',
+  '| --------- | ----- |',
+  components.map((name) => `| \`<${name}>\` | Global auth component |`).join('\n'),
+  '',
+  '## Important Boundaries',
+  '',
+  '- `better-convex-nuxt/server` is a **package export**.',
+  '- `serverConvexClearAuthCache` and `validateConvexArgs` are **Nuxt server auto-imports**, not package subpath exports.',
+  '- `#convex/mcp` and `#convex/server` are **generated Nuxt aliases**, not bare npm specifiers.',
+  '- `usePermissions()` and `useAuthGuard()` are **config-driven auto-imports**, not package subpath exports.',
+  '',
+].join('\n')
 
-## Composable Auto-Imports
-
-| Name | Kind | Purpose | Learn More |
-| ---- | ---- | ------- | ---------- |
-${toRows(composableImports, composableMeta)}
-
-## Server Auto-Imports
-
-| Name | Kind | Purpose | Learn More |
-| ---- | ---- | ------- | ---------- |
-${toRows(serverImports, serverMeta, { defaultKind: 'Server helper' })}
-
-## Global Auth Components
-
-| Name | Kind | Purpose | Learn More |
-| ---- | ---- | ------- | ---------- |
-${toRows(componentNames, componentMeta, { component: true, defaultKind: 'Component' })}
-`
+if (checkMode) {
+  const current = readFileSync(outputPath, 'utf8')
+  if (current !== file) {
+    console.error('[docs] API surface page is stale. Run `pnpm docs:api-surface`.')
+    process.exit(1)
+  }
+  process.exit(0)
+}
 
 writeFileSync(outputPath, file)
 console.log(`Generated ${outputPath}`)

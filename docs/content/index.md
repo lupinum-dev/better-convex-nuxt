@@ -115,6 +115,9 @@ async function handleOAuth() {
 
 ```vue
 <script setup lang="ts">
+import { api } from '~~/convex/_generated/api'
+
+const props = defineProps<{ id: string }>()
 const { can, role } = usePermissions()
 const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
 </script>
