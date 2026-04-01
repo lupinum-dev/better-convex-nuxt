@@ -4,9 +4,13 @@ import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../internal-harness/shared/dev-trusted-caller-key'
-import { fetchMcpBootstrap, fetchMcpState, type BootstrapResponse } from '../support/e2e/mcp-bootstrap'
-import { initializeMcpSession, rpc } from '../support/e2e/mcp-client'
 import { ensureManagedLocalConvex } from '../support/e2e/managed-convex'
+import {
+  fetchMcpBootstrap,
+  fetchMcpState,
+  type BootstrapResponse,
+} from '../support/e2e/mcp-bootstrap'
+import { initializeMcpSession, rpc } from '../support/e2e/mcp-client'
 
 let local: Awaited<ReturnType<typeof ensureManagedLocalConvex>> | null = null
 try {

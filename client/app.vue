@@ -1,0 +1,135 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+
+import { useConvexDevtools } from './composables/useConvexDevtools'
+import { useServerRpc } from './composables/useServerRpc'
+
+const { snapshot } = useConvexDevtools()
+const { proxyStats, isLoading: proxyLoading, fetchStats, clearStats } = useServerRpc()
+
+const activeTab = ref<'overview' | 'data' | 'auth' | 'advanced'>('overview')
+
+// Derived data
+const queries = computed(() => snapshot.value?.queries ?? [])
+const mutations = computed(() => snapshot.value?.mutations ?? [])
+const authState = computed(() => snapshot.value?.authState ?? null)
+const connectionState = computed(() => snapshot.value?.connectionState ?? null)
+const authWaterfall = computed(() => snapshot.value?.authWaterfall ?? null)
+const permissionState = computed(() => snapshot.value?.permissionContextState ?? null)
+const authBootstrapState = computed(() => snapshot.value?.authBootstrapState ?? null)
+
+const errorCount = computed(() => {
+  const queryErrors = queries.value.filter((q) => q.status === 'error').length
+  const mutationErrors = mutations.value.filter((m) => m.state === 'error').length
+  return queryErrors + mutationErrors
+})
+
+function onTabAuth() {
+  activeTab.value = 'auth'
+  fetchStats()
+}
+</script>
+
+<template>
+  <div class="h-screen flex flex-col bg-base text-base">
+    <!-- Header -->
+    <NNavbar>
+      <template #actions>
+        <div class="flex items-center justify-between w-full">
+          <div class="flex items-center gap-2 font-bold">
+            <NIcon icon="i-carbon-data-connected" class="text-lg" />
+            Convex
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <div class="flex items-center gap-1.5">
+              <span
+                class="w-2 h-2 rounded-full"
+                :class="connectionState?.isConnected ? 'bg-green-500' : 'bg-red-500'"
+              />
+              <span class="op-60">{{
+                connectionState?.isConnected ? 'Connected' : 'Disconnected'
+              }}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span
+                class="w-2 h-2 rounded-full"
+                :class="authState?.isAuthenticated ? 'bg-green-500' : 'bg-gray-400'"
+              />
+              <span class="op-60">
+                {{
+                  authState?.isAuthenticated
+                    ? authState.user?.name || 'Authenticated'
+                    : 'Not authenticated'
+                }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </template>
+    </NNavbar>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-base px-2">
+      <button
+        v-for="tab in ['overview', 'data', 'auth', 'advanced'] as const"
+        :key="tab"
+        class="px-3 py-2 text-xs font-medium border-b-2 transition-colors capitalize"
+        :class="
+          activeTab === tab
+            ? 'border-green-500 text-green-500'
+            : 'border-transparent op-50 hover:op-80'
+        "
+        @click="tab === 'auth' ? onTabAuth() : (activeTab = tab)"
+      >
+        {{ tab }}
+        <NBadge v-if="tab === 'data'" class="ml-1" n="xs">
+          {{ queries.length + mutations.length }}
+        </NBadge>
+        <NBadge v-if="tab === 'overview' && errorCount > 0" class="ml-1" n="xs red">
+          {{ errorCount }}
+        </NBadge>
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto">
+      <!-- No connection -->
+      <div v-if="!snapshot" class="flex items-center justify-center h-full op-50">
+        <div class="text-center">
+          <NIcon icon="i-carbon-connect" class="text-3xl mb-2" />
+          <div class="text-sm">Waiting for connection...</div>
+        </div>
+      </div>
+
+      <template v-else>
+        <!-- Overview Tab -->
+        <OverviewPanel
+          v-show="activeTab === 'overview'"
+          :queries="queries"
+          :mutations="mutations"
+          :auth-state="authState"
+          :connection-state="connectionState"
+          :error-count="errorCount"
+        />
+
+        <!-- Data Tab -->
+        <DataPanel v-show="activeTab === 'data'" :queries="queries" :mutations="mutations" />
+
+        <!-- Auth Tab -->
+        <AuthPanel
+          v-show="activeTab === 'auth'"
+          :auth-state="authState"
+          :waterfall="authWaterfall"
+          :permission-state="permissionState"
+          :auth-bootstrap-state="authBootstrapState"
+          :proxy-stats="proxyStats"
+          :proxy-loading="proxyLoading"
+          @clear-proxy="clearStats"
+        />
+
+        <!-- Advanced Tab -->
+        <AdvancedPanel v-show="activeTab === 'advanced'" :snapshot="snapshot" />
+      </template>
+    </div>
+  </div>
+</template>

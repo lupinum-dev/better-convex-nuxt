@@ -564,9 +564,9 @@ describe('cross-tenant isolation', () => {
       title: 'Alpha Docs',
     })
 
-    await expect(
-      beta.users.owner.query(api.knowledgeBases.get, { id: alphaKB }),
-    ).rejects.toThrow('Resource not found.')
+    await expect(beta.users.owner.query(api.knowledgeBases.get, { id: alphaKB })).rejects.toThrow(
+      'Resource not found.',
+    )
   })
 })
 

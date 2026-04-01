@@ -4,42 +4,42 @@ Seven examples, progressive difficulty, every one using full Nuxt UI.
 
 ## Which One To Open First?
 
-| Example | Best for | Shows |
-|---------|----------|-------|
-| `01-public-todo` | First look | raw `query` / `mutation`, `defineArgs` |
-| `02-auth-todo` | Auth-only apps | Better Auth wiring, raw Convex handlers |
-| `03-team-workspace` | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#convex/mcp`, webhook idempotency, trusted callers, `better-convex-nuxt/testing` |
-| `04-saas-platform` | Month-two product work | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows |
-| `05-visibility-access` | Advanced access patterns | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy |
-| `06-multi-workspace` | Agency / multi-client | Multi-workspace membership, workspace switching, cross-tenant agency dashboard |
-| `07-mcp-reference` | Full MCP implementation | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode |
+| Example                | Best for                     | Shows                                                                                                                             |
+| ---------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `01-public-todo`       | First look                   | raw `query` / `mutation`, `defineArgs`                                                                                            |
+| `02-auth-todo`         | Auth-only apps               | Better Auth wiring, raw Convex handlers                                                                                           |
+| `03-team-workspace`    | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#convex/mcp`, webhook idempotency, trusted callers, `better-convex-nuxt/testing` |
+| `04-saas-platform`     | Month-two product work       | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows     |
+| `05-visibility-access` | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy        |
+| `06-multi-workspace`   | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                    |
+| `07-mcp-reference`     | Full MCP implementation      | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode                                    |
 
 ## Concept Coverage Matrix
 
-| Concept | Example |
-|---------|---------|
-| Public queries/mutations | 01 |
-| Better Auth + session management | 02+ |
-| Tenant isolation (`workspaceId` + `by_workspace`) | 03+ |
-| Role-based authorization (`guard`, `can`, `deny`) | 03+ |
-| Trusted callers + webhook auth | 03 |
-| Idempotency (replay protection) | 03 |
-| Pagination + optimistic updates | 04 |
-| Plan entitlements + usage limits | 04 |
-| Feature flags (`hasFeature`) | 04 |
-| Server routes (Nitro) | 03, 04 |
-| Row-level visibility (private/team/workspace) | 05 |
-| Field redaction (sensitive fields) | 05 |
-| Manager hierarchy | 05 |
-| Enrollment-based access | 05 |
-| Prerequisite chains | 05 |
-| Share tokens (hashed, expirable, revocable) | 05 |
-| Inherited access levels | 05 |
-| Multi-workspace membership | 06 |
-| Cross-tenant dashboard | 06 |
-| MCP tools, prompts, resources | 03, 07 |
-| MCP sessions + dynamic tools | 07 |
-| MCP key auth (hashed at rest) | 07 |
+| Concept                                           | Example |
+| ------------------------------------------------- | ------- |
+| Public queries/mutations                          | 01      |
+| Better Auth + session management                  | 02+     |
+| Tenant isolation (`workspaceId` + `by_workspace`) | 03+     |
+| Role-based authorization (`guard`, `can`, `deny`) | 03+     |
+| Trusted callers + webhook auth                    | 03      |
+| Idempotency (replay protection)                   | 03      |
+| Pagination + optimistic updates                   | 04      |
+| Plan entitlements + usage limits                  | 04      |
+| Feature flags (`hasFeature`)                      | 04      |
+| Server routes (Nitro)                             | 03, 04  |
+| Row-level visibility (private/team/workspace)     | 05      |
+| Field redaction (sensitive fields)                | 05      |
+| Manager hierarchy                                 | 05      |
+| Enrollment-based access                           | 05      |
+| Prerequisite chains                               | 05      |
+| Share tokens (hashed, expirable, revocable)       | 05      |
+| Inherited access levels                           | 05      |
+| Multi-workspace membership                        | 06      |
+| Cross-tenant dashboard                            | 06      |
+| MCP tools, prompts, resources                     | 03, 07  |
+| MCP sessions + dynamic tools                      | 07      |
+| MCP key auth (hashed at rest)                     | 07      |
 
 ## Canonical Default
 
@@ -68,15 +68,15 @@ env plus codegen output, then starts Nuxt with the resulting `CONVEX_URL` and `C
 
 ## Environment Variables
 
-| Example | Injected by `pnpm dev` | App-owned env vars |
-|---------|------------------------|--------------------|
-| `01-public-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | none |
-| `02-auth-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `03-team-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
-| `04-saas-platform` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
-| `05-visibility-access` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `06-multi-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
-| `07-mcp-reference` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
+| Example                | Injected by `pnpm dev`          | App-owned env vars                                            |
+| ---------------------- | ------------------------------- | ------------------------------------------------------------- |
+| `01-public-todo`       | `CONVEX_URL`, `CONVEX_SITE_URL` | none                                                          |
+| `02-auth-todo`         | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `03-team-workspace`    | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
+| `04-saas-platform`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
+| `05-visibility-access` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `06-multi-workspace`   | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
+| `07-mcp-reference`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
 
 ## Why The Code Is Comment-Heavy
 

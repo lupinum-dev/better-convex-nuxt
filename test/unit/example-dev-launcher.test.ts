@@ -137,11 +137,10 @@ describe('example dev launcher', () => {
 
   it('keeps tracked example env files on the trusted caller secret name', () => {
     const files = [
-      'examples/03-team-todo/.env.example',
-      'examples/04-project-board-admin/.env.example',
-      'examples/07-ecommerce-ops/.env.example',
-      'examples/11-mcp-reference/.env.example',
-      'examples/11-mcp-reference/.env.local',
+      'examples/03-team-workspace/.env.example',
+      'examples/04-saas-platform/.env.example',
+      'examples/07-mcp-reference/.env.example',
+      'examples/07-mcp-reference/.env.local',
       'test/internal-harness/.env.local',
     ]
 

@@ -3,8 +3,11 @@ import { once } from 'node:events'
 import path from 'node:path'
 
 import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../../internal-harness/shared/dev-trusted-caller-key'
-
-import { assertLocalAuthReady, deriveSiteUrlFromConvexUrl, readLocalConvexEnv } from './auth-preflight'
+import {
+  assertLocalAuthReady,
+  deriveSiteUrlFromConvexUrl,
+  readLocalConvexEnv,
+} from './auth-preflight'
 import { terminateListeningPorts, waitForPort } from './ports'
 
 interface ManagedLocalConvexHandle {
@@ -42,7 +45,9 @@ function parseManagedConvexUrl(urlString: string): { port: number; url: string }
 
   const port = Number.parseInt(url.port || '3210', 10)
   if (Number.isNaN(port)) {
-    throw new Error(`[e2e][managed-convex] Managed local Convex requires a numeric port: ${urlString}`)
+    throw new Error(
+      `[e2e][managed-convex] Managed local Convex requires a numeric port: ${urlString}`,
+    )
   }
 
   url.hostname = '127.0.0.1'
@@ -59,7 +64,9 @@ export async function ensureManagedLocalConvex(
   const cwd = options.cwd ?? path.resolve(process.cwd(), 'test/internal-harness')
   const timeoutMs = options.timeoutMs ?? 60_000
   const envFile = await readLocalConvexEnv(cwd)
-  const resolved = parseManagedConvexUrl(process.env.CONVEX_URL ?? envFile.url ?? 'http://127.0.0.1:3210')
+  const resolved = parseManagedConvexUrl(
+    process.env.CONVEX_URL ?? envFile.url ?? 'http://127.0.0.1:3210',
+  )
   const siteUrl =
     process.env.CONVEX_SITE_URL ??
     envFile.siteUrl ??

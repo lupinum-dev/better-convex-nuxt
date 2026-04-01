@@ -16,6 +16,7 @@ import {
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 
+import { setupConvexDevtools } from './devtools'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants'
 import {
@@ -758,55 +759,8 @@ export default defineNuxtPlugin({
 
     // 10. Setup Nuxt DevTools integration (dev mode only)
     if (nuxt.options.dev) {
-      setupDevTools(nuxt, resolver)
+      setupConvexDevtools(nuxt)
+      logger.info('Nuxt DevTools integration enabled')
     }
   },
 })
-
-/**
- * Setup Nuxt DevTools integration.
- * Only called in dev mode.
- */
-function setupDevTools(nuxt: Nuxt, resolver: ReturnType<typeof createResolver>): void {
-  // Compute the absolute path to devtools output at module setup time
-  const devtoolsOutputPath = resolver.resolve('./runtime/devtools/ui/dist')
-
-  // Store the path in runtime config for server handler access
-  nuxt.options.runtimeConfig.convexDevtoolsPath = devtoolsOutputPath
-
-  // Register custom tab via Nuxt hook (more reliable than addCustomTab)
-  ;(
-    nuxt as Nuxt & {
-      hook: (
-        name: 'devtools:customTabs',
-        cb: (tabs: Array<Record<string, unknown>>) => void,
-      ) => void
-    }
-  ).hook('devtools:customTabs', (tabs) => {
-    tabs.push({
-      name: 'convex',
-      title: 'Convex',
-      icon: '/__convex_devtools__/convex-logo.svg',
-      category: 'app',
-      view: {
-        type: 'iframe',
-        src: '/__convex_devtools__',
-        persistent: true,
-      },
-    })
-  })
-
-  // Add server route to serve DevTools UI
-  addServerHandler({
-    route: '/__convex_devtools__',
-    handler: resolver.resolve('./runtime/devtools/server'),
-  })
-
-  // Also handle subpaths for assets
-  addServerHandler({
-    route: '/__convex_devtools__/**',
-    handler: resolver.resolve('./runtime/devtools/server'),
-  })
-
-  logger.info('Nuxt DevTools integration enabled')
-}

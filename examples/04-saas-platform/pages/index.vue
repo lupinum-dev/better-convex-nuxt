@@ -10,7 +10,8 @@
         <h1 class="text-3xl font-bold mt-1">SaaS Platform</h1>
         <p class="text-sm text-muted mt-2">
           The month-two app: paginated lists, uploads, server routes, role management, plan
-          entitlements, and usage limits on top of the same explicit auth pattern used in Example 03.
+          entitlements, and usage limits on top of the same explicit auth pattern used in Example
+          03.
         </p>
       </template>
 
@@ -102,11 +103,19 @@
                     Role:
                     <span class="font-semibold text-highlighted">{{ role || 'loading…' }}</span>
                   </p>
-                  <UBadge v-if="ctx?.plan" :color="ctx.plan === 'free' ? 'neutral' : 'success'" variant="subtle" size="xs">
+                  <UBadge
+                    v-if="ctx?.plan"
+                    :color="ctx.plan === 'free' ? 'neutral' : 'success'"
+                    variant="subtle"
+                    size="xs"
+                  >
                     {{ ctx.plan }}
                   </UBadge>
                   <span v-if="ctx?.usage?.projects" class="text-xs text-muted">
-                    {{ ctx.usage.projects.current }}/{{ ctx.usage.projects.max === Infinity ? '∞' : ctx.usage.projects.max }} projects
+                    {{ ctx.usage.projects.current }}/{{
+                      ctx.usage.projects.max === Infinity ? '∞' : ctx.usage.projects.max
+                    }}
+                    projects
                   </span>
                 </div>
               </div>

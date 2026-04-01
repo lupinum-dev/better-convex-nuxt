@@ -12,7 +12,8 @@ function walk(target) {
 
   const files = []
   for (const entry of readdirSync(target, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name === '.nuxt' || entry.name === '.output') continue
+    if (entry.name === 'node_modules' || entry.name === '.nuxt' || entry.name === '.output')
+      continue
     files.push(...walk(resolve(target, entry.name)))
   }
   return files

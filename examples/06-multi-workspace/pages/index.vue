@@ -230,11 +230,7 @@ This page keeps current-workspace actions and cross-client reporting in the same
                   >
                     <div class="flex-1 space-y-1">
                       <label class="text-sm font-medium text-highlighted">Project name</label>
-                      <UInput
-                        v-model="projectForm.name"
-                        placeholder="Client rebrand"
-                        required
-                      />
+                      <UInput v-model="projectForm.name" placeholder="Client rebrand" required />
                     </div>
                     <UButton
                       type="submit"

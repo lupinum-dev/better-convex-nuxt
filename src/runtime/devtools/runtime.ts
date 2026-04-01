@@ -1,42 +1,23 @@
-import type { QueryRegistryEntry } from './query-registry'
+import type { ConvexDevtoolsStore } from './store'
+import type { QueryRegistryEntry } from './types'
 
 type QueryEntry = Omit<QueryRegistryEntry, 'lastUpdated' | 'updateCount'> & { updateCount?: number }
 type QueryStatusUpdate = Partial<
   Pick<QueryRegistryEntry, 'status' | 'data' | 'error' | 'dataSource' | 'hasSubscription'>
 >
 
-let mutationRegistry: typeof import('./mutation-registry') | null = null
-let mutationRegistryAttempted = false
+let store: ConvexDevtoolsStore | null = null
 
-let queryRegistry: typeof import('./query-registry') | null = null
-let queryRegistryAttempted = false
-
-function loadMutationRegistry(): void {
-  if (!import.meta.client || !import.meta.dev || mutationRegistryAttempted) return
-  mutationRegistryAttempted = true
-  import('./mutation-registry')
-    .then((module) => {
-      mutationRegistry = module
-    })
-    .catch((error) => {
-      console.warn('[convex-devtools] Failed to load mutation registry:', error)
-    })
-}
-
-function loadQueryRegistry(): void {
-  if (!import.meta.client || !import.meta.dev || queryRegistryAttempted) return
-  queryRegistryAttempted = true
-  import('./query-registry')
-    .then((module) => {
-      queryRegistry = module
-    })
-    .catch((error) => {
-      console.warn('[convex-devtools] Failed to load query registry:', error)
-    })
+/**
+ * Called from plugin.client.ts after store creation to make it
+ * available to composables without needing useNuxtApp().
+ */
+export function setDevtoolsStore(s: ConvexDevtoolsStore): void {
+  store = s
 }
 
 export function warmQueryDevtools(): void {
-  loadQueryRegistry()
+  // No-op — store is eagerly created in plugin.client.ts
 }
 
 export function registerDevtoolsEntry(
@@ -45,10 +26,9 @@ export function registerDevtoolsEntry(
   args: unknown,
   hasOptimisticUpdate = false,
 ): string | null {
-  loadMutationRegistry()
-  if (!import.meta.dev || !mutationRegistry) return null
+  if (!import.meta.dev || !store) return null
 
-  return mutationRegistry.registerMutation({
+  return store.registerMutation({
     name,
     type,
     args,
@@ -63,10 +43,10 @@ export function updateDevtoolsEntrySuccess(
   startTime: number,
   result: unknown,
 ): void {
-  if (!import.meta.dev || !mutationRegistry || !id) return
+  if (!import.meta.dev || !store || !id) return
 
   const settledAt = Date.now()
-  mutationRegistry.updateMutationState(id, {
+  store.updateMutationState(id, {
     state: 'success',
     result,
     settledAt,
@@ -79,10 +59,10 @@ export function updateDevtoolsEntryError(
   startTime: number,
   error: string,
 ): void {
-  if (!import.meta.dev || !mutationRegistry || !id) return
+  if (!import.meta.dev || !store || !id) return
 
   const settledAt = Date.now()
-  mutationRegistry.updateMutationState(id, {
+  store.updateMutationState(id, {
     state: 'error',
     error,
     settledAt,
@@ -91,17 +71,16 @@ export function updateDevtoolsEntryError(
 }
 
 export function registerDevtoolsQuery(entry: QueryEntry): void {
-  loadQueryRegistry()
-  if (!import.meta.dev || !queryRegistry) return
-  queryRegistry.registerQuery(entry)
+  if (!import.meta.dev || !store) return
+  store.registerQuery(entry)
 }
 
 export function updateDevtoolsQuery(id: string, update: QueryStatusUpdate): void {
-  if (!import.meta.dev || !queryRegistry) return
-  queryRegistry.updateQueryStatus(id, update)
+  if (!import.meta.dev || !store) return
+  store.updateQueryStatus(id, update)
 }
 
 export function unregisterDevtoolsQuery(id: string): void {
-  if (!import.meta.dev || !queryRegistry) return
-  queryRegistry.unregisterQuery(id)
+  if (!import.meta.dev || !store) return
+  store.unregisterQuery(id)
 }

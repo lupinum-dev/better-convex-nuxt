@@ -27,13 +27,13 @@ Workspace → Knowledge Base → Article (hierarchical via parentArticleId)
 
 ## Roles
 
-| Role | KB | Articles | Enrollments | Shares |
-|------|-----|----------|-------------|--------|
-| owner | create/publish | full access, skip enrollment | manage | create |
-| admin | create/publish | full access, skip enrollment | manage | create |
-| editor | — | create, see team articles, see internal notes | manage | create |
-| contributor | — | create own, see workspace articles | — | — |
-| viewer | — | see workspace articles (if enrolled) | — | — |
+| Role        | KB             | Articles                                      | Enrollments | Shares |
+| ----------- | -------------- | --------------------------------------------- | ----------- | ------ |
+| owner       | create/publish | full access, skip enrollment                  | manage      | create |
+| admin       | create/publish | full access, skip enrollment                  | manage      | create |
+| editor      | —              | create, see team articles, see internal notes | manage      | create |
+| contributor | —              | create own, see workspace articles            | —           | —      |
+| viewer      | —              | see workspace articles (if enrolled)          | —           | —      |
 
 ## Running
 

@@ -3,27 +3,27 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { buildAuthProxyForwardHeaders } from '../../src/runtime/server/api/auth/headers'
+import { shouldSkipProxyResponseHeader } from '../../src/runtime/server/api/auth/headers'
+import { getCanonicalRedirectTarget } from '../../src/runtime/server/api/auth/redirect-utils'
+import { isOriginAllowed } from '../../src/runtime/server/api/auth/security'
+import { DEFAULT_CONVEX_AUTH_CONFIG } from '../../src/runtime/utils/auth-config'
+import { resolveRouteProtectionDecision } from '../../src/runtime/utils/auth-route-protection'
 import {
   clearsBetterAuthSessionCookie,
   getBetterAuthSessionToken,
   hasBetterAuthSessionCookie,
 } from '../../src/runtime/utils/auth-token'
-import { resolveRouteProtectionDecision } from '../../src/runtime/utils/auth-route-protection'
 import {
   decodeJwtPayload,
   decodeUserFromJwt,
   getJwtTimeUntilExpiryMs,
 } from '../../src/runtime/utils/convex-shared'
-import { buildAuthProxyForwardHeaders } from '../../src/runtime/server/api/auth/headers'
-import { shouldSkipProxyResponseHeader } from '../../src/runtime/server/api/auth/headers'
-import { DEFAULT_CONVEX_AUTH_CONFIG } from '../../src/runtime/utils/auth-config'
-import { normalizeConvexRuntimeConfig } from '../../src/runtime/utils/runtime-config'
-import { getCanonicalRedirectTarget } from '../../src/runtime/server/api/auth/redirect-utils'
-import { isOriginAllowed } from '../../src/runtime/server/api/auth/security'
 import {
   resolveRedirectTarget,
   validateRedirectPath,
 } from '../../src/runtime/utils/redirect-safety'
+import { normalizeConvexRuntimeConfig } from '../../src/runtime/utils/runtime-config'
 
 function mintJwt(payload: Record<string, unknown>): string {
   const base64Url = (value: string) =>
@@ -249,9 +249,8 @@ describe('OWASP A08: Integrity Failures', () => {
   })
 
   it('clearing one cached session does not affect another', async () => {
-    const { getCachedAuthToken, serverConvexClearAuthCache, setCachedAuthToken } = await import(
-      '../../src/runtime/server/utils/auth-cache'
-    )
+    const { getCachedAuthToken, serverConvexClearAuthCache, setCachedAuthToken } =
+      await import('../../src/runtime/server/utils/auth-cache')
 
     await setCachedAuthToken('session-a', 'jwt-a', 60)
     await setCachedAuthToken('session-b', 'jwt-b', 60)
@@ -263,9 +262,8 @@ describe('OWASP A08: Integrity Failures', () => {
   })
 
   it('reads back the cached JWT for the same session token', async () => {
-    const { getCachedAuthToken, setCachedAuthToken } = await import(
-      '../../src/runtime/server/utils/auth-cache'
-    )
+    const { getCachedAuthToken, setCachedAuthToken } =
+      await import('../../src/runtime/server/utils/auth-cache')
 
     await setCachedAuthToken('session-abc', 'jwt-for-abc', 60)
     expect(await getCachedAuthToken('session-abc')).toBe('jwt-for-abc')

@@ -123,7 +123,9 @@ export default defineConfig({
         plugins: [vue()],
         resolve: {
           alias: {
-            '#imports': fileURLToPath(new URL('./test/support/browser/imports.ts', import.meta.url)),
+            '#imports': fileURLToPath(
+              new URL('./test/support/browser/imports.ts', import.meta.url),
+            ),
           },
         },
         test: {

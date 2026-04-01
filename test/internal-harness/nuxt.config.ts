@@ -14,7 +14,9 @@ const runtimeVisibilityEntry = fileURLToPath(
   new URL('../../src/runtime/visibility/index.ts', import.meta.url),
 )
 const runtimeMcpEntry = fileURLToPath(new URL('../../src/runtime/mcp/index.ts', import.meta.url))
-const runtimeServerEntry = fileURLToPath(new URL('../../src/runtime/server/index.ts', import.meta.url))
+const runtimeServerEntry = fileURLToPath(
+  new URL('../../src/runtime/server/index.ts', import.meta.url),
+)
 const harnessRoot = fileURLToPath(new URL('./', import.meta.url))
 const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
 const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true'

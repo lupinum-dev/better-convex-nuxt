@@ -56,7 +56,11 @@
                 <label class="text-sm font-medium text-highlighted">User auth ID</label>
                 <UInput v-model="enrollForm.userId" placeholder="User auth ID" required />
               </div>
-              <UButton type="submit" :loading="enrollUser.pending.value" leading-icon="i-lucide-user-plus">
+              <UButton
+                type="submit"
+                :loading="enrollUser.pending.value"
+                leading-icon="i-lucide-user-plus"
+              >
                 Enroll
               </UButton>
             </form>
@@ -83,7 +87,11 @@
                   <USelect v-model="articleForm.visibility" :items="visibilityOptions" />
                 </div>
               </div>
-              <UButton type="submit" :loading="createArticle.pending.value" leading-icon="i-lucide-plus">
+              <UButton
+                type="submit"
+                :loading="createArticle.pending.value"
+                leading-icon="i-lucide-plus"
+              >
                 Create article
               </UButton>
             </form>

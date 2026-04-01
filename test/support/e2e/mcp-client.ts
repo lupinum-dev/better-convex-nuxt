@@ -58,5 +58,7 @@ export async function initializeMcpSession(key?: string): Promise<string | undef
     { key },
   )
 
-  return response.headers.get('mcp-session-id') ?? response.headers.get('Mcp-Session-Id') ?? undefined
+  return (
+    response.headers.get('mcp-session-id') ?? response.headers.get('Mcp-Session-Id') ?? undefined
+  )
 }

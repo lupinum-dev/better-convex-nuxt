@@ -1,10 +1,34 @@
 import type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult } from '../utils/auth-debug'
-/**
- * DevTools types and interfaces.
- */
-import type { QueryRegistryEntry } from './query-registry'
 
 export type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult }
+
+// ============================================================================
+// Query Types
+// ============================================================================
+
+export type QueryStatus = 'pending' | 'success' | 'error' | 'idle'
+export type DataSource = 'ssr' | 'websocket' | 'cache'
+
+export interface QueryOptions {
+  immediate: boolean
+  server: boolean
+  subscribe: boolean
+  auth: 'auto' | 'none'
+}
+
+export interface QueryRegistryEntry {
+  id: string
+  name: string
+  args: unknown
+  status: QueryStatus
+  dataSource: DataSource
+  data: unknown
+  error?: string
+  lastUpdated: number
+  hasSubscription: boolean
+  updateCount: number
+  options?: QueryOptions
+}
 
 // ============================================================================
 // Mutation Types
@@ -13,27 +37,16 @@ export type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult }
 export type MutationState = 'optimistic' | 'pending' | 'success' | 'error'
 
 export interface MutationEntry {
-  /** Unique identifier (generated UUID) */
   id: string
-  /** Function name (e.g., "api.notes.create") */
   name: string
-  /** Operation type */
   type: 'mutation' | 'action'
-  /** Operation arguments */
   args: unknown
-  /** Current state in lifecycle */
   state: MutationState
-  /** Whether this mutation has an optimistic update */
   hasOptimisticUpdate: boolean
-  /** Timestamp when mutation was initiated */
   startedAt: number
-  /** Timestamp when mutation settled (success/error) */
   settledAt?: number
-  /** Duration in ms (settledAt - startedAt) */
   duration?: number
-  /** Result data on success */
   result?: unknown
-  /** Error message on failure */
   error?: string
 }
 
@@ -42,23 +55,13 @@ export interface MutationEntry {
 // ============================================================================
 
 export interface JWTClaims {
-  /** Subject (user ID) */
   sub?: string
-  /** Issued at timestamp (seconds) */
   iat?: number
-  /** Expiration timestamp (seconds) */
   exp?: number
-  /** Issuer */
   iss?: string
-  /** Audience */
   aud?: string | string[]
-  /** Any additional claims */
   [key: string]: unknown
 }
-
-// ============================================================================
-// User and Auth State Types
-// ============================================================================
 
 export interface ConvexUser {
   id: string
@@ -78,13 +81,9 @@ export interface AuthState {
 }
 
 export interface EnhancedAuthState extends AuthState {
-  /** Decoded JWT claims */
   claims?: JWTClaims
-  /** Token issued at timestamp (ms) */
   issuedAt?: number
-  /** Token expiration timestamp (ms) */
   expiresAt?: number
-  /** Seconds until token expires */
   expiresInSeconds?: number
 }
 
@@ -116,78 +115,45 @@ export interface ConnectionState {
 }
 
 // ============================================================================
-// Auth Proxy Types (Dev Mode Debugging)
+// Auth Proxy Types
 // ============================================================================
 
 export interface AuthProxyRequest {
-  /** Unique request ID */
   id: string
-  /** Target path (e.g., "/convex/token", "/get-session") */
   path: string
-  /** HTTP method */
   method: string
-  /** Request timestamp */
   timestamp: number
-  /** Response status code */
   status?: number
-  /** Duration in ms */
   duration?: number
-  /** Whether request succeeded */
   success?: boolean
-  /** Error message if failed */
   error?: string
 }
 
 export interface AuthProxyStats {
-  /** Total requests made */
   totalRequests: number
-  /** Successful requests */
   successCount: number
-  /** Failed requests */
   errorCount: number
-  /** Average response time (ms) */
   avgDuration: number
-  /** Recent requests (last 20) */
   recentRequests: AuthProxyRequest[]
 }
 
 // ============================================================================
-// DevTools Bridge Interface
+// DevTools Snapshot & RPC Types
 // ============================================================================
 
-export interface ConvexDevToolsBridge {
-  /** Get all active queries */
-  getQueries: () => QueryRegistryEntry[]
-  /** Get a specific query by ID for detail view */
-  getQueryDetail: (id: string) => QueryRegistryEntry | undefined
-  /** Subscribe to query updates */
-  subscribeToQueries: (callback: (queries: QueryRegistryEntry[]) => void) => () => void
-  /** Get all mutation entries */
-  getMutations: () => MutationEntry[]
-  /** Subscribe to mutation updates */
-  subscribeToMutations: (callback: (mutations: MutationEntry[]) => void) => () => void
-  /** Get auth state */
-  getAuthState: () => AuthState
-  /** Get enhanced auth state with JWT claims */
-  getEnhancedAuthState: () => EnhancedAuthState
-  /** Get connection state */
-  getConnectionState: () => ConnectionState
-  /** Get the most recent auth waterfall (SSR timing data) */
-  getAuthWaterfall: () => AuthWaterfall | null
-  /** Get auth proxy stats (dev mode only) */
-  getAuthProxyStats: () => Promise<AuthProxyStats | null>
-  /** Get configured permission context debug state */
-  getPermissionContextState: () => PermissionContextState
-  /** Get configured auth bootstrap debug state */
-  getAuthBootstrapState: () => AuthBootstrapState
-  /** Version of the bridge API */
-  version: string
+export interface ConvexDevtoolsSnapshot {
+  queries: QueryRegistryEntry[]
+  mutations: MutationEntry[]
+  authState: EnhancedAuthState
+  connectionState: ConnectionState
+  authWaterfall: AuthWaterfall | null
+  permissionContextState: PermissionContextState
+  authBootstrapState: AuthBootstrapState
 }
 
-declare global {
-  interface Window {
-    __CONVEX_DEVTOOLS__?: ConvexDevToolsBridge
-  }
+export interface ServerRpcFunctions {
+  getAuthProxyStats(): Promise<AuthProxyStats | null>
+  clearAuthProxyStats(): Promise<void>
 }
 
-export {}
+export interface ClientRpcFunctions {}

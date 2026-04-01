@@ -23,7 +23,17 @@ export async function startManagedNuxtDev(
   const startupTimeoutMs = options.startupTimeoutMs ?? 45_000
   const child: ChildProcessWithoutNullStreams = spawn(
     'pnpm',
-    ['exec', 'nuxi', 'dev', '--cwd', options.projectDir, '--host', '127.0.0.1', '--port', String(port)],
+    [
+      'exec',
+      'nuxi',
+      'dev',
+      '--cwd',
+      options.projectDir,
+      '--host',
+      '127.0.0.1',
+      '--port',
+      String(port),
+    ],
     {
       cwd: options.workspaceRoot,
       env: {

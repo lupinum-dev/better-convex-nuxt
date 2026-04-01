@@ -3,7 +3,15 @@ import { v } from 'convex/values'
 import { components } from './_generated/api'
 import { mutation, query } from './_generated/server'
 
-const ALL_TABLES = ['organizations', 'users', 'posts', 'comments', 'tasks', 'notes', 'mcpKeys'] as const
+const ALL_TABLES = [
+  'organizations',
+  'users',
+  'posts',
+  'comments',
+  'tasks',
+  'notes',
+  'mcpKeys',
+] as const
 
 const BETTER_AUTH_TABLES = [
   'user',

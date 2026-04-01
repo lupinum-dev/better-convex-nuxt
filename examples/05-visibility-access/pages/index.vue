@@ -9,8 +9,8 @@
         </p>
         <h1 class="text-3xl font-bold mt-1">Team Knowledge Base</h1>
         <p class="text-sm text-muted mt-2">
-          Row-level visibility, field redaction, enrollment-based access, prerequisite chains,
-          share tokens, and inherited access levels in a single knowledge base domain.
+          Row-level visibility, field redaction, enrollment-based access, prerequisite chains, share
+          tokens, and inherited access levels in a single knowledge base domain.
         </p>
       </template>
 
@@ -156,8 +156,14 @@
                       <USelect v-model="joinWorkspaceForm.role" :items="roleOptions" />
                     </div>
                     <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Manager email (optional)</label>
-                      <UInput v-model="joinWorkspaceForm.managerEmail" type="email" placeholder="editor@example.com" />
+                      <label class="text-sm font-medium text-highlighted"
+                        >Manager email (optional)</label
+                      >
+                      <UInput
+                        v-model="joinWorkspaceForm.managerEmail"
+                        type="email"
+                        placeholder="editor@example.com"
+                      />
                     </div>
                     <UButton
                       type="submit"
@@ -198,7 +204,8 @@
                     <div>
                       <h3 class="text-lg font-semibold">Knowledge Bases</h3>
                       <p class="text-sm text-muted mt-1">
-                        Each knowledge base contains articles with visibility, enrollment, and prerequisites.
+                        Each knowledge base contains articles with visibility, enrollment, and
+                        prerequisites.
                       </p>
                     </div>
                   </div>
@@ -214,7 +221,11 @@
                       <label class="text-sm font-medium text-highlighted">Title</label>
                       <UInput v-model="kbForm.title" placeholder="Engineering Handbook" required />
                     </div>
-                    <UButton type="submit" :loading="createKB.pending.value" leading-icon="i-lucide-plus">
+                    <UButton
+                      type="submit"
+                      :loading="createKB.pending.value"
+                      leading-icon="i-lucide-plus"
+                    >
                       Create
                     </UButton>
                   </form>

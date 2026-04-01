@@ -67,9 +67,7 @@ export const enroll = mutation({
 
     const existing = await ctx.db
       .query('enrollments')
-      .withIndex('by_user_kb', (q) =>
-        q.eq('userId', args.userId).eq('knowledgeBaseId', kb._id),
-      )
+      .withIndex('by_user_kb', (q) => q.eq('userId', args.userId).eq('knowledgeBaseId', kb._id))
       .first()
 
     if (existing?.status === 'active') return existing._id

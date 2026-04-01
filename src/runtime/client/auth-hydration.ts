@@ -7,7 +7,6 @@ import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_AUTH_TRACE_ID,
   STATE_KEY_AUTH_WATERFALL,
-  STATE_KEY_DEVTOOLS_INSTANCE_ID,
   STATE_KEY_PENDING,
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
@@ -40,10 +39,6 @@ export function initHydrationState(): HydrationState {
     useState<string>(
       STATE_KEY_AUTH_TRACE_ID,
       () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    )
-    useState<string>(
-      STATE_KEY_DEVTOOLS_INSTANCE_ID,
-      () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
     )
   }
 

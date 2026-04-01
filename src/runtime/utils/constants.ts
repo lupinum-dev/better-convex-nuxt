@@ -9,8 +9,6 @@ export const STATE_KEY_AUTH_ERROR = 'convex:authError'
 export const STATE_KEY_AUTH_WATERFALL = 'convex:authWaterfall'
 /** @dev Only allocated when import.meta.dev is true */
 export const STATE_KEY_AUTH_TRACE_ID = 'convex:authTraceId'
-/** @dev Only allocated when import.meta.dev is true */
-export const STATE_KEY_DEVTOOLS_INSTANCE_ID = 'convex:devtoolsInstanceId'
 
 // ============================================================
 // Better Auth cookie names
@@ -59,14 +57,3 @@ export const CONNECTION_HYDRATION_GRACE_MS = 500
 
 /** Default maximum number of concurrent uploads for useConvexUpload queue mode. */
 export const DEFAULT_UPLOAD_MAX_CONCURRENT = 3
-
-// ============================================================
-// DevTools
-// ============================================================
-
-/**
- * Returns a BroadcastChannel name scoped to the current origin.
- * Prevents DevTools messages from leaking between different apps
- * running on different ports during development.
- */
-export const getDevtoolsChannelName = (origin: string) => `convex-devtools:${origin}`

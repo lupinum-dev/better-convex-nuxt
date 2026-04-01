@@ -31,7 +31,13 @@
               <p class="text-sm text-muted mt-1">
                 Current plan:
                 <UBadge
-                  :color="ctx?.plan === 'enterprise' ? 'success' : ctx?.plan === 'pro' ? 'info' : 'neutral'"
+                  :color="
+                    ctx?.plan === 'enterprise'
+                      ? 'success'
+                      : ctx?.plan === 'pro'
+                        ? 'info'
+                        : 'neutral'
+                  "
                   variant="subtle"
                 >
                   {{ ctx?.plan || 'loading…' }}
@@ -64,7 +70,8 @@
           <div class="flex items-center justify-between text-sm">
             <span class="text-muted">Projects used</span>
             <span class="font-medium text-highlighted">
-              {{ ctx.usage.projects.current }} / {{ ctx.usage.projects.max === Infinity ? '∞' : ctx.usage.projects.max }}
+              {{ ctx.usage.projects.current }} /
+              {{ ctx.usage.projects.max === Infinity ? '∞' : ctx.usage.projects.max }}
             </span>
           </div>
           <div class="h-2 rounded-full bg-elevated overflow-hidden">

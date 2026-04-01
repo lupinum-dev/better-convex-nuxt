@@ -13,9 +13,16 @@
       </UBadge>
     </div>
     <p class="text-sm text-muted mt-1 line-clamp-2">{{ article.body }}</p>
-    <div v-if="article.prerequisiteIds?.length" class="flex items-center gap-1 mt-2 text-xs text-muted">
+    <div
+      v-if="article.prerequisiteIds?.length"
+      class="flex items-center gap-1 mt-2 text-xs text-muted"
+    >
       <UIcon name="i-lucide-lock" class="w-3 h-3" />
-      <span>{{ article.prerequisiteIds.length }} prerequisite{{ article.prerequisiteIds.length > 1 ? 's' : '' }}</span>
+      <span
+        >{{ article.prerequisiteIds.length }} prerequisite{{
+          article.prerequisiteIds.length > 1 ? 's' : ''
+        }}</span
+      >
     </div>
   </NuxtLink>
 </template>
@@ -34,10 +41,14 @@ const props = defineProps<{
 
 const visibilityColor = computed(() => {
   switch (props.article.visibility) {
-    case 'workspace': return 'success'
-    case 'team': return 'info'
-    case 'private': return 'warning'
-    default: return 'neutral'
+    case 'workspace':
+      return 'success'
+    case 'team':
+      return 'info'
+    case 'private':
+      return 'warning'
+    default:
+      return 'neutral'
   }
 })
 </script>

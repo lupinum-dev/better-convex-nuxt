@@ -82,7 +82,11 @@ export function resetAuthProxyHandlerHarness() {
       const current = (event.__headers as Record<string, string> | undefined) ?? {}
       event.__headers = { ...current, ...headers }
     },
-    setResponseStatus: (event: Record<string, unknown>, statusCode: number, statusText?: string) => {
+    setResponseStatus: (
+      event: Record<string, unknown>,
+      statusCode: number,
+      statusText?: string,
+    ) => {
       event.__status = { statusCode, statusText }
     },
   }))

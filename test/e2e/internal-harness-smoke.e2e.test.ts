@@ -15,7 +15,10 @@ try {
     cwd: harnessRoot,
   })
 } catch (error) {
-  console.warn('[e2e] Skipping internal-harness smoke suite: local Convex backend unavailable.', error)
+  console.warn(
+    '[e2e] Skipping internal-harness smoke suite: local Convex backend unavailable.',
+    error,
+  )
 }
 
 if (local) {
