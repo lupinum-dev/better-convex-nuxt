@@ -11,6 +11,7 @@ interface LocalConvexHandle {
 }
 
 interface LocalConvexEnv {
+  trustedCallerKey?: string
   url?: string
   siteUrl?: string
 }
@@ -53,6 +54,7 @@ async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
     }
 
     return {
+      trustedCallerKey: values.CONVEX_TRUSTED_CALLER_KEY,
       url: values.CONVEX_URL,
       siteUrl: values.CONVEX_SITE_URL,
     }
@@ -79,7 +81,7 @@ function deriveSiteUrlFromConvexUrl(urlString: string): string | null {
 
 function buildManualAuthSetupHelp(cwd: string): string {
   return [
-    '[e2e][auth-loop] Local Better Auth setup is incomplete.',
+    '[e2e][local-auth] Local Better Auth setup is incomplete.',
     'Run these commands and retry:',
     `  cd ${cwd}`,
     '  npx convex dev --local --once',
@@ -121,6 +123,86 @@ function waitForPort(port: number, timeoutMs: number): Promise<void> {
 
     check()
   })
+}
+
+function waitForPortClosed(port: number, timeoutMs: number): Promise<void> {
+  const started = Date.now()
+
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      const socket = new net.Socket()
+      socket.setTimeout(500)
+      socket.once('connect', () => {
+        socket.destroy()
+        retry()
+      })
+      socket.once('timeout', () => {
+        socket.destroy()
+        resolve()
+      })
+      socket.once('error', () => {
+        socket.destroy()
+        resolve()
+      })
+      socket.connect(port, '127.0.0.1')
+    }
+
+    const retry = () => {
+      if (Date.now() - started > timeoutMs) {
+        reject(new Error(`Timed out waiting for port ${port} to close`))
+        return
+      }
+      setTimeout(check, 100)
+    }
+
+    check()
+  })
+}
+
+async function listListeningPids(port: number): Promise<number[]> {
+  return await new Promise((resolve) => {
+    const child = spawn('lsof', ['-nP', `-tiTCP:${port}`, '-sTCP:LISTEN'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+
+    let stdout = ''
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk)
+    })
+    child.once('error', () => resolve([]))
+    child.once('close', () => {
+      const pids = stdout
+        .split(/\s+/)
+        .map((value) => Number.parseInt(value, 10))
+        .filter((value) => !Number.isNaN(value))
+      resolve(pids)
+    })
+  })
+}
+
+async function terminateListeningPorts(ports: number[]): Promise<void> {
+  for (const port of ports) {
+    const pids = await listListeningPids(port)
+    for (const pid of pids) {
+      try {
+        process.kill(pid, 'SIGTERM')
+      } catch {}
+    }
+  }
+
+  for (const port of ports) {
+    try {
+      await waitForPortClosed(port, 5_000)
+    } catch {
+      const pids = await listListeningPids(port)
+      for (const pid of pids) {
+        try {
+          process.kill(pid, 'SIGKILL')
+        } catch {}
+      }
+      await waitForPortClosed(port, 5_000).catch(() => {})
+    }
+  }
 }
 
 async function fetchWithTimeout(
@@ -165,7 +247,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
 
     throw new Error(
       [
-        `[e2e][auth-loop] Missing required local Convex env values: ${missing}.`,
+        `[e2e][local-auth] Missing required local Convex env values: ${missing}.`,
         `- resolved CONVEX_URL: ${convexUrl ?? 'missing'}`,
         `- resolved CONVEX_SITE_URL: ${siteUrl ?? 'missing'}`,
         buildManualAuthSetupHelp(cwd),
@@ -194,7 +276,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
   } catch (error) {
     throw new Error(
       [
-        `[e2e][auth-loop] Could not reach Better Auth endpoint: ${getSessionEndpoint}`,
+        `[e2e][local-auth] Could not reach Better Auth endpoint: ${getSessionEndpoint}`,
         `- cause: ${error instanceof Error ? error.message : String(error)}`,
         buildManualAuthSetupHelp(cwd),
       ].join('\n'),
@@ -204,7 +286,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
   if (response.status === 404) {
     throw new Error(
       [
-        `[e2e][auth-loop] Better Auth HTTP route returned 404 at ${getSessionEndpoint}.`,
+        `[e2e][local-auth] Better Auth HTTP route returned 404 at ${getSessionEndpoint}.`,
         '- likely cause: Better Auth routes are not registered on the local Convex site URL.',
         buildManualAuthSetupHelp(cwd),
       ].join('\n'),
@@ -215,7 +297,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
     const body = sanitizeBodyPreview(await response.text())
     throw new Error(
       [
-        `[e2e][auth-loop] Better Auth origin validation failed (403) at ${getSessionEndpoint}.`,
+        `[e2e][local-auth] Better Auth origin validation failed (403) at ${getSessionEndpoint}.`,
         `- attempted origin: ${origin}`,
         `- response: ${body || '(empty body)'}`,
         '- likely cause: SITE_URL/trusted origins do not include http://localhost:3000.',
@@ -228,7 +310,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
     const body = sanitizeBodyPreview(await response.text())
     throw new Error(
       [
-        `[e2e][auth-loop] Better Auth endpoint returned ${response.status} at ${getSessionEndpoint}.`,
+        `[e2e][local-auth] Better Auth endpoint returned ${response.status} at ${getSessionEndpoint}.`,
         `- response: ${body || '(empty body)'}`,
         '- likely cause: missing/invalid BETTER_AUTH_SECRET or local auth component setup.',
         buildManualAuthSetupHelp(cwd),
@@ -238,14 +320,118 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
 }
 
 export async function ensureLocalConvex(
-  options: { port?: number; cwd?: string; timeoutMs?: number } = {},
+  options: { managed?: boolean; port?: number; cwd?: string; timeoutMs?: number } = {},
 ): Promise<EnsureLocalConvexResult> {
   const cwd = options.cwd ?? path.resolve(process.cwd(), 'internal-harness')
-  const timeoutMs = options.timeoutMs ?? 25_000
+  const timeoutMs = options.timeoutMs ?? (options.managed === true ? 60_000 : 25_000)
   const envFile = await readLocalConvexEnv(cwd)
   const explicitUrl = process.env.CONVEX_URL ?? envFile.url
 
-  if (explicitUrl) {
+  if (explicitUrl && options.managed === true) {
+    const explicitSiteUrl =
+      process.env.CONVEX_SITE_URL ?? envFile.siteUrl ?? deriveSiteUrlFromConvexUrl(explicitUrl)
+
+    let explicitPort: number | null = null
+    try {
+      const parsed = new URL(explicitUrl)
+      if (parsed.port) {
+        const numeric = Number.parseInt(parsed.port, 10)
+        if (!Number.isNaN(numeric)) {
+          explicitPort = numeric
+        }
+      }
+    } catch {
+      explicitPort = null
+    }
+
+    const managedPorts = new Set<number>([3210, 3211])
+    for (const candidate of [explicitUrl, explicitSiteUrl]) {
+      if (!candidate) continue
+      try {
+        const parsed = new URL(candidate)
+        if (parsed.port) {
+          const parsedPort = Number.parseInt(parsed.port, 10)
+          if (!Number.isNaN(parsedPort)) {
+            managedPorts.add(parsedPort)
+          }
+        }
+      } catch {}
+    }
+    await terminateListeningPorts([...managedPorts])
+
+    if (!explicitPort) {
+      throw new Error(`Managed local Convex requires a port in CONVEX_URL. Received: ${explicitUrl}`)
+    }
+
+    const child = spawn('npx', ['convex', 'dev', '--local'], {
+      cwd,
+      env: {
+        ...process.env,
+        ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
+        SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
+        BETTER_AUTH_SECRET:
+          process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
+        ...(process.env.CONVEX_TRUSTED_CALLER_KEY ?? envFile.trustedCallerKey
+          ? {
+              CONVEX_TRUSTED_CALLER_KEY:
+                process.env.CONVEX_TRUSTED_CALLER_KEY ?? envFile.trustedCallerKey!,
+            }
+          : {}),
+        CONVEX_LOCAL_BACKEND_PORT: String(explicitPort),
+      },
+      stdio: 'pipe',
+    })
+
+    child.stdout.on('data', () => {})
+    child.stderr.on('data', () => {})
+
+    child.once('exit', (code) => {
+      if (code !== null && code !== 0 && activeHandle?.process === child) {
+        activeHandle = null
+      }
+    })
+
+    activeHandle = {
+      process: child,
+      url: explicitUrl,
+      port: explicitPort,
+    }
+
+    await waitForPort(explicitPort, timeoutMs)
+    retainers += 1
+
+    const release = async () => {
+      if (!activeHandle) return
+      retainers -= 1
+      if (retainers > 0) return
+
+      const managedChild = activeHandle.process
+      activeHandle = null
+      managedChild.kill('SIGTERM')
+
+      const timer = setTimeout(() => {
+        if (!managedChild.killed) {
+          managedChild.kill('SIGKILL')
+        }
+      }, 3000)
+
+      await once(managedChild, 'exit').catch(() => {})
+      clearTimeout(timer)
+    }
+
+    return {
+      env: {
+        CONVEX_URL: explicitUrl,
+        NUXT_PUBLIC_CONVEX_URL: explicitUrl,
+        ...(explicitSiteUrl ? { CONVEX_SITE_URL: explicitSiteUrl } : {}),
+        ...(explicitSiteUrl ? { NUXT_PUBLIC_CONVEX_SITE_URL: explicitSiteUrl } : {}),
+        ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
+      },
+      release,
+    }
+  }
+
+  if (explicitUrl && options.managed !== true) {
     const explicitSiteUrl =
       process.env.CONVEX_SITE_URL ?? envFile.siteUrl ?? deriveSiteUrlFromConvexUrl(explicitUrl)
 
@@ -274,6 +460,12 @@ export async function ensureLocalConvex(
             SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
             BETTER_AUTH_SECRET:
               process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
+            ...(process.env.CONVEX_TRUSTED_CALLER_KEY ?? envFile.trustedCallerKey
+              ? {
+                  CONVEX_TRUSTED_CALLER_KEY:
+                    process.env.CONVEX_TRUSTED_CALLER_KEY ?? envFile.trustedCallerKey!,
+                }
+              : {}),
           },
           stdio: 'pipe',
         })
@@ -344,6 +536,12 @@ export async function ensureLocalConvex(
         SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
         BETTER_AUTH_SECRET:
           process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
+        ...(process.env.CONVEX_TRUSTED_CALLER_KEY ?? envFile.trustedCallerKey
+          ? {
+              CONVEX_TRUSTED_CALLER_KEY:
+                process.env.CONVEX_TRUSTED_CALLER_KEY ?? envFile.trustedCallerKey!,
+            }
+          : {}),
         CONVEX_LOCAL_BACKEND_PORT: String(port),
       },
       stdio: 'pipe',

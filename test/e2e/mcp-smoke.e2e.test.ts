@@ -31,6 +31,7 @@ let local: Awaited<ReturnType<typeof ensureLocalConvex>> | null = null
 try {
   local = await ensureLocalConvex({
     cwd: fileURLToPath(new URL('../../internal-harness', import.meta.url)),
+    managed: true,
   })
 } catch (error) {
   console.warn('[e2e] Skipping MCP smoke suite: local Convex backend unavailable.', error)

@@ -41,6 +41,21 @@ const {
   MockConvexClient,
   hookRegistry,
 } = vi.hoisted(() => {
+  const unwrapNuxtPlugin = (plugin: unknown) => {
+    if (typeof plugin === 'function') {
+      return plugin
+    }
+    if (
+      plugin &&
+      typeof plugin === 'object' &&
+      'setup' in plugin &&
+      typeof plugin.setup === 'function'
+    ) {
+      return plugin.setup
+    }
+    return plugin
+  }
+
   const clientState = {
     fetchToken: null as null | ((input: { forceRefreshToken: boolean }) => Promise<string | null>),
     setAuthCalls: 0,
@@ -73,7 +88,7 @@ const {
   }
 
   return {
-    defineNuxtPluginMock: vi.fn((fn: unknown) => fn),
+    defineNuxtPluginMock: vi.fn(unwrapNuxtPlugin),
     useRuntimeConfigMock: vi.fn(),
     useStateMock: vi.fn(),
     useRouterMock: vi.fn(),

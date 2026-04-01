@@ -5,8 +5,6 @@ import vue from '@vitejs/plugin-vue'
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 
-const isEvaliteRun = process.env.EVALITE_REPORT_TRACES === 'true'
-
 /**
  * Vitest Configuration
  *
@@ -151,20 +149,6 @@ export default defineConfig({
           fileParallelism: false,
         },
       },
-
-      ...(isEvaliteRun
-        ? [
-            {
-              test: {
-                name: 'evalite',
-                include: ['test/evals/**/*.eval.ts'],
-                environment: 'node',
-                testTimeout: 120000,
-                fileParallelism: false,
-              },
-            },
-          ]
-        : []),
     ],
   },
 })

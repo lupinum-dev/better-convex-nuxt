@@ -664,8 +664,12 @@ import { setupConfiguredAuthBootstrap } from '${resolver.resolve('./runtime/clie
 
 const configuredMutation = (api as Record<string, any>)['${parsed.modulePath}']['${parsed.exportName}']
 
-export default defineNuxtPlugin(() => {
-  setupConfiguredAuthBootstrap(configuredMutation, '${ensureUserMutationPath}')
+export default defineNuxtPlugin({
+  name: 'better-convex-nuxt:auth-bootstrap',
+  dependsOn: ['better-convex-nuxt:client'],
+  setup() {
+    setupConfiguredAuthBootstrap(configuredMutation, '${ensureUserMutationPath}')
+  },
 })
 `,
       })

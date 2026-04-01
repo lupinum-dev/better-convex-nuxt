@@ -1,10 +1,32 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { createAuthHarness, createMockTokenExchange, TEST_USERS } from '../../harness'
+import { createAuthHarness, createMockTokenExchange, TEST_USERS } from '../harness'
 
 let h: Awaited<ReturnType<typeof createAuthHarness>>
 
 afterEach(() => h?.dispose())
+
+describe('OWASP A01: Broken Access Control (Runtime)', () => {
+  it('never treats a token-only state as authenticated', async () => {
+    h = await createAuthHarness({
+      initialToken: 'invalid.jwt.token',
+      initialUser: null,
+      initialAuthError: 'Failed to decode auth token',
+    })
+
+    expect(h.isAuthenticated.value).toBe(false)
+  })
+
+  it('does not allow direct token mutation to bypass user-based auth checks', async () => {
+    h = await createAuthHarness()
+
+    h.token.value = 'manually-injected.token'
+    await h.flush()
+
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.isAnonymous.value).toBe(true)
+  })
+})
 
 describe('OWASP A04: Insecure Design (Runtime)', () => {
   it('dedupes concurrent refreshAuth calls', async () => {
@@ -108,5 +130,47 @@ describe('OWASP A04: Insecure Design (Runtime)', () => {
     expect(h.token.value).toBeNull()
     expect(h.user.value).toBeNull()
     expect(h.rawAuthError.value).toBeNull()
+  })
+})
+
+describe('OWASP A07: Authentication Failures (Runtime)', () => {
+  it('replaces the full token on refresh instead of merging with the old one', async () => {
+    const exchange = createMockTokenExchange()
+    exchange.respondWithPayload(TEST_USERS.bob.payload)
+
+    h = await createAuthHarness({
+      initialToken: TEST_USERS.alice.token,
+      initialUser: TEST_USERS.alice.user,
+      tokenExchange: exchange,
+    })
+
+    const previousToken = h.token.value
+    await h.triggerRefresh()
+
+    expect(h.token.value).not.toBe(previousToken)
+    expect(h.token.value).not.toContain(previousToken ?? '')
+    expect(h.isAuthenticated.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.user.value?.id).toBe('user-bob')
+  })
+
+  it('does not restore the previous identity after signOut when the exchange misses', async () => {
+    const exchange = createMockTokenExchange()
+
+    h = await createAuthHarness({
+      initialToken: TEST_USERS.alice.token,
+      initialUser: TEST_USERS.alice.user,
+      tokenExchange: exchange,
+    })
+
+    await h.triggerSignOut()
+    exchange.respondWithMiss()
+
+    await expect(h.triggerRefresh()).resolves.toBeUndefined()
+    expect(h.isAuthenticated.value).toBe(false)
+    expect(h.isAnonymous.value).toBe(true)
+    expect(h.pending.value).toBe(false)
+    expect(h.token.value).toBeNull()
+    expect(h.user.value).toBeNull()
   })
 })

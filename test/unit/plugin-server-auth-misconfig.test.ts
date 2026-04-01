@@ -11,7 +11,20 @@ const {
   setCachedAuthTokenMock,
   decodeUserFromJwtMock,
 } = vi.hoisted(() => ({
-  defineNuxtPluginMock: vi.fn((fn: unknown) => fn),
+  defineNuxtPluginMock: vi.fn((plugin: unknown) => {
+    if (typeof plugin === 'function') {
+      return plugin
+    }
+    if (
+      plugin &&
+      typeof plugin === 'object' &&
+      'setup' in plugin &&
+      typeof plugin.setup === 'function'
+    ) {
+      return plugin.setup
+    }
+    return plugin
+  }),
   useRuntimeConfigMock: vi.fn(),
   useRequestEventMock: vi.fn(),
   useStateMock: vi.fn(),
