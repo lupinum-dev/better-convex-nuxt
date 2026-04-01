@@ -14,6 +14,12 @@ It adds:
 - Nitro routes that call Convex
 - first-class integration tests and browser E2E
 
+Attachment note for this pass:
+
+- upload preview is client-side before submit
+- already-saved attachments are intentionally not reopened through a raw Convex storage lookup
+- any future retrieval path should hang off the owning comment or task, not `_storage` directly
+
 ## Files To Read First
 
 1. `convex/auth/checks.ts`

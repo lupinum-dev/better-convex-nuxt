@@ -1,12 +1,18 @@
+/**
+ * Why this file differs from the default tenant-scoped pattern:
+ * This example introduces the trusted-caller lane, so the actor can resolve from either Better
+ * Auth or explicit trusted args. `userId` remains the auth-subject string stored on ownership
+ * fields, not a Convex user document id.
+ */
 import type { AuthIdentity } from 'better-convex-nuxt/auth'
 import { getAuth, getTrustedCaller } from 'better-convex-nuxt/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string }
-  | { kind: 'service'; serviceId: string; userId: string; role: string; tenantId: string }
+  | { kind: 'user'; userId: string; role: Doc<'users'>['role']; tenantId: Id<'workspaces'> }
+  | { kind: 'service'; serviceId: string; userId: string; role: Doc<'users'>['role']; tenantId: Id<'workspaces'> }
   | null
 
 type TeamTodoCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
@@ -19,8 +25,8 @@ export async function getActor(ctx: TeamTodoCtx, args?: unknown): Promise<Actor>
       kind: 'service',
       serviceId: 'service',
       userId: trusted.userId,
-      role: trusted.role,
-      tenantId: trusted.tenantId,
+      role: trusted.role as Doc<'users'>['role'],
+      tenantId: trusted.tenantId as Id<'workspaces'>,
     }
   }
 

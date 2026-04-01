@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { applyVisibility, can, authorize } from 'better-convex-nuxt/auth'
+import { applyVisibility, can, authorize, deny } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -8,7 +8,13 @@ import { canCreateContact, canReadContacts, canUpdateContact, hasRole } from './
 import { redactContact } from './auth/redaction'
 import { withCan } from './auth/resource'
 import { loadResource } from './auth/scope'
-import { contactVisibility } from './auth/visibility'
+import {
+  canAccessContactOwner,
+  canUpdateVisibleContact,
+  contactVisibility,
+  getContactOwnerScope,
+  requireAssignableContactOwner,
+} from './auth/visibility'
 
 export const list = query({
   args: {},
@@ -17,9 +23,12 @@ export const list = query({
     authorize(actor, 'Read contacts', canReadContacts)
 
     const contacts = await applyVisibility(contactVisibility, actor, ctx.db)
+    const ownerScope = await getContactOwnerScope(ctx.db, actor)
+
     return contacts.map(contact =>
       withCan(redactContact(actor, contact), {
-        update: can(actor, canUpdateContact(contact)),
+        update: can(actor, canUpdateContact(contact))
+          || canAccessContactOwner(ownerScope, contact.ownerId),
       }),
     )
   },
@@ -42,6 +51,7 @@ export const create = mutation({
     const ownerId = can(actor, hasRole('owner', 'admin', 'manager')) && args.ownerId
       ? args.ownerId
       : actor.userId
+    await requireAssignableContactOwner(ctx.db, actor, ownerId)
 
     const now = Date.now()
     return ctx.db.insert('contacts', {
@@ -67,7 +77,11 @@ export const updateNotes = mutation({
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
     const contact = loadResource(actor, await ctx.db.get(args.id), 'Contact')
-    authorize(actor, 'Update contact', canUpdateContact(contact))
+    authorize(actor, 'Update contact', canReadContacts)
+
+    if (!await canUpdateVisibleContact(ctx.db, actor, contact)) {
+      throw deny('Forbidden: Update contact')
+    }
 
     await ctx.db.patch(args.id, {
       internalNotes: args.internalNotes,

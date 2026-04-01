@@ -4,12 +4,13 @@
  */
 import { deny, verifyKey } from 'better-convex-nuxt/auth'
 
+import type { Id } from '../_generated/dataModel'
 import type { Actor } from './actor'
 
 export function resolveServiceActor(
   key: string,
   serviceId: string,
-  tenantId: string,
+  tenantId: Id<'workspaces'>,
 ): Actor {
   const expected = process.env.CONVEX_SERVICE_KEY?.trim()
   if (!expected) throw new Error('CONVEX_SERVICE_KEY must be set for service-auth example flows.')

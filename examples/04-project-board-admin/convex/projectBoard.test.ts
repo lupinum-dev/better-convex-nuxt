@@ -247,6 +247,14 @@ describe('project board example', () => {
     expect(members.find(member => member.authId === 'floating-user')).toBeUndefined()
   })
 
+  it('does not expose a raw storage-url query anymore', async () => {
+    const ctx = createCtx()
+
+    await expect(
+      ctx.raw.query(api.files.getUrl, {} as never),
+    ).rejects.toThrow(/getUrl|Could not find|not found/)
+  })
+
   it('bulk updates only the member-owned tasks and reports skipped ids', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({

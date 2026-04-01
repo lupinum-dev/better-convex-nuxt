@@ -1,11 +1,16 @@
+/**
+ * Why this file differs from the default tenant-scoped pattern:
+ * LMS access stays on the single-workspace track, but lesson progress and enrollment still use the
+ * auth-subject string stored in the user row rather than a Convex user document id.
+ */
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getAuth } from 'better-convex-nuxt/auth'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string }
+  | { kind: 'user'; userId: string; role: Doc<'users'>['role']; tenantId: Id<'workspaces'> }
   | null
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>

@@ -1,11 +1,22 @@
+/**
+ * Why this file differs from the default tenant-scoped pattern:
+ * The freemium example resolves both tenant membership and plan state into the actor so backend
+ * plan checks stay alongside role checks. `userId` remains the auth-subject string.
+ */
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getAuth } from 'better-convex-nuxt/auth'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string; plan: string }
+  | {
+      kind: 'user'
+      userId: string
+      role: Doc<'users'>['role']
+      tenantId: Id<'workspaces'>
+      plan: Doc<'workspaces'>['plan']
+    }
   | null
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>

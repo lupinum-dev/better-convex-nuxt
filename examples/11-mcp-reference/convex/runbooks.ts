@@ -21,6 +21,26 @@ import {
 import { withCan } from './auth/resource'
 import { loadResource } from './auth/scope'
 
+function toPublicRunbook(runbook: {
+  _id: string
+  title: string
+  summary: string
+  content: string
+  tags: string[]
+  visibility: 'public' | 'workspace' | 'draft'
+  publishedAt?: number
+}) {
+  return {
+    _id: runbook._id,
+    title: runbook.title,
+    summary: runbook.summary,
+    content: runbook.content,
+    tags: runbook.tags,
+    visibility: runbook.visibility,
+    publishedAt: runbook.publishedAt ?? null,
+  }
+}
+
 function normalizeTerm(value: string): string {
   return value.trim().toLowerCase()
 }
@@ -41,11 +61,12 @@ function matchesTerm(runbook: {
 export const listPublic = query({
   args: listRunbooks.args,
   handler: async (ctx) => {
-    return await ctx.db
+    const runbooks = await ctx.db
       .query('runbooks')
       .withIndex('by_visibility', q => q.eq('visibility', 'public'))
       .order('desc')
       .collect()
+    return runbooks.map(toPublicRunbook)
   },
 })
 
@@ -59,7 +80,7 @@ export const searchPublic = query({
       .order('desc')
       .take(50)
 
-    return candidates.filter(runbook => matchesTerm(runbook, term))
+    return candidates.filter(runbook => matchesTerm(runbook, term)).map(toPublicRunbook)
   },
 })
 
@@ -91,7 +112,7 @@ export const get = query({
     if (!runbook) return null
 
     if (runbook.visibility === 'public') {
-      return withCan(runbook, {
+      return withCan(toPublicRunbook(runbook), {
         update: !!actor && actor.tenantId === runbook.workspaceId && can(actor, canUpdateRunbook(runbook)),
         delete: !!actor && actor.tenantId === runbook.workspaceId && can(actor, canDeleteRunbook(runbook)),
         publish: !!actor && actor.tenantId === runbook.workspaceId && can(actor, canPublishRunbook),

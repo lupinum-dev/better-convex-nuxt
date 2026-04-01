@@ -24,6 +24,10 @@ export async function getAccessLevel(
   if (!actor || actor.kind !== 'user') return null
   if (['owner', 'admin'].includes(actor.role)) return 'edit'
 
+  const page = await db.get(pageId)
+  if (!page) return null
+  if (page.ownerId === actor.userId) return 'edit'
+
   const share = await db
     .query('pageShares')
     .withIndex('by_user_page', q => q.eq('userId', actor.userId).eq('pageId', pageId))
@@ -31,8 +35,7 @@ export async function getAccessLevel(
   if (share) return share.level as AccessLevel
 
   if (['member', 'viewer'].includes(actor.role)) {
-    const page = await db.get(pageId)
-    if (page?.visibility === 'workspace') return 'view'
+    if (page.visibility === 'workspace') return 'view'
   }
 
   return null

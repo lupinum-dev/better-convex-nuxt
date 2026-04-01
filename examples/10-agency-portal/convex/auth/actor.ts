@@ -1,11 +1,16 @@
+/**
+ * Why this file differs from the default tenant-scoped pattern:
+ * Agency access resolves authority from `memberships`, not from the user row. The user row only
+ * stores the current workspace selection, while `role` comes from the matching membership.
+ */
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getAuth } from 'better-convex-nuxt/auth'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string }
+  | { kind: 'user'; userId: string; role: Doc<'memberships'>['role']; tenantId: Id<'workspaces'> }
   | null
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>

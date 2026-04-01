@@ -74,6 +74,10 @@ describe('mcp reference example', () => {
 
     const publicRunbooks = await ctx.raw.query(api.runbooks.listPublic, {})
     expect(publicRunbooks.some((runbook: { title: string }) => runbook.title === 'Public handoff')).toBe(true)
+    const publicRunbook = publicRunbooks.find((runbook: { title: string }) => runbook.title === 'Public handoff')
+    expect(publicRunbook).toBeTruthy()
+    expect('workspaceId' in (publicRunbook ?? {})).toBe(false)
+    expect('ownerId' in (publicRunbook ?? {})).toBe(false)
 
     await expect(ctx.raw.query(api.runbooks.listWorkspace, {})).rejects.toThrow('Forbidden: Read runbooks')
   })

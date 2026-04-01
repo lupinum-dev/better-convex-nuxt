@@ -6,6 +6,8 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
+import { taskPriorityValidator, taskStatusValidator } from '../shared/schemas/task'
+
 export const roleValidator = v.union(
   v.literal('owner'),
   v.literal('admin'),
@@ -16,18 +18,6 @@ export const roleValidator = v.union(
 export const projectStatusValidator = v.union(
   v.literal('active'),
   v.literal('archived'),
-)
-
-export const taskStatusValidator = v.union(
-  v.literal('backlog'),
-  v.literal('in_progress'),
-  v.literal('done'),
-)
-
-export const taskPriorityValidator = v.union(
-  v.literal('low'),
-  v.literal('medium'),
-  v.literal('high'),
 )
 
 export default defineSchema({

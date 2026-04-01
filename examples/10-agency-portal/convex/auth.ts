@@ -20,7 +20,6 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           authId: doc._id,
           email: doc.email,
           displayName: doc.name,
-          role: 'member',
           createdAt: now,
           updatedAt: now,
         })
@@ -88,7 +87,6 @@ export const createUserIfNeeded = mutation({
       authId: identity.subject,
       email: identity.email,
       displayName: identity.name,
-      role: 'member',
       createdAt: now,
       updatedAt: now,
     })

@@ -164,6 +164,76 @@ describe('crm example', () => {
     expect(contacts[0]?.internalNotes).toBe('manager review')
   })
 
+  it('blocks a manager from updating a contact outside their team', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Pipeline',
+      users: {
+        managerA: { role: 'manager', authId: 'pipeline-manager-a' },
+        managerB: { role: 'manager', authId: 'pipeline-manager-b' },
+        alice: { role: 'rep', managerId: 'pipeline-manager-a' },
+        bruno: { role: 'rep', managerId: 'pipeline-manager-b' },
+      },
+    })
+
+    const contactId = await team.users.bruno.mutation(api.contacts.create, {
+      name: 'Bruno Lead',
+      company: 'Beta',
+    })
+
+    await expect(
+      team.users.managerA.mutation(api.contacts.updateNotes, {
+        id: contactId,
+        internalNotes: 'should fail',
+      }),
+    ).rejects.toThrow('Forbidden: Update contact')
+  })
+
+  it('rejects assigning a contact to an owner outside the actor scope', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Pipeline',
+      users: {
+        managerA: { role: 'manager', authId: 'pipeline-manager-a' },
+        managerB: { role: 'manager', authId: 'pipeline-manager-b' },
+        alice: { role: 'rep', managerId: 'pipeline-manager-a' },
+        bruno: { role: 'rep', managerId: 'pipeline-manager-b' },
+      },
+    })
+
+    await expect(
+      team.users.managerA.mutation(api.contacts.create, {
+        name: 'Blocked Lead',
+        company: 'Beta',
+        ownerId: team.users.bruno.authId,
+      }),
+    ).rejects.toThrow('You cannot assign contacts to that owner.')
+  })
+
+  it('rejects assigning a contact to a user in another workspace', async () => {
+    const ctx = createCtx()
+    const alpha = await ctx.seedTenant({
+      name: 'Alpha Pipeline',
+      users: {
+        owner: { role: 'owner' },
+      },
+    })
+    const beta = await ctx.seedTenant({
+      name: 'Beta Pipeline',
+      users: {
+        rep: { role: 'rep' },
+      },
+    })
+
+    await expect(
+      alpha.users.owner.mutation(api.contacts.create, {
+        name: 'Cross-tenant Lead',
+        company: 'Nope',
+        ownerId: beta.users.rep.authId,
+      }),
+    ).rejects.toThrow('Contact owner not found.')
+  })
+
   it('keeps contact visibility tenant-scoped across workspaces', async () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({

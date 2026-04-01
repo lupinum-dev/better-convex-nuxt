@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createTestContext } from 'better-convex-nuxt/testing'
 
+import { ensureNotProcessed, markProcessed } from './auth/idempotency'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -78,6 +79,16 @@ describe('ecommerce example', () => {
         reason: 'Chargeback',
       }),
     ).rejects.toThrow('Event already processed.')
+  })
+
+  it('treats source plus event id as the replay key', async () => {
+    const ctx = createCtx()
+
+    await ctx.raw.run(async (innerCtx) => {
+      await markProcessed(innerCtx.db, 'evt-shared', 'webhook')
+      await expect(ensureNotProcessed(innerCtx.db, 'erp-sync', 'evt-shared')).resolves.toBeUndefined()
+      await expect(ensureNotProcessed(innerCtx.db, 'webhook', 'evt-shared')).rejects.toThrow('Event already processed.')
+    })
   })
 
   it('applies refund guards to human actors', async () => {

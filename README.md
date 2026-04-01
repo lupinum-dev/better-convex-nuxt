@@ -42,6 +42,10 @@ npx better-convex-nuxt add auth:crm
 `--starter workspace-mcp` for non-interactive runs. Use `add auth:<block>` for additive vertical
 helpers like CRM, LMS, or freemium blocks.
 
+The permission model stays explicit and app-owned. If you want the repo’s lane model, denial
+semantics, and the single-workspace vs memberships guidance in one place, start with
+[`/docs/permissions/actor-lanes-and-models`](https://better-convex-nuxt.vercel.app/docs/permissions/actor-lanes-and-models).
+
 The `doctor` command checks:
 
 - Nuxt app structure (`package.json` + `nuxt.config.*`)

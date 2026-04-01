@@ -1,11 +1,16 @@
+/**
+ * Why this file differs from the default tenant-scoped pattern:
+ * CRM ownership is tracked by auth-subject strings, so the actor keeps the auth subject that
+ * owns contacts plus the current tenant id resolved from the user row.
+ */
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getAuth } from 'better-convex-nuxt/auth'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string }
+  | { kind: 'user'; userId: string; role: Doc<'users'>['role']; tenantId: Id<'workspaces'> }
   | null
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>

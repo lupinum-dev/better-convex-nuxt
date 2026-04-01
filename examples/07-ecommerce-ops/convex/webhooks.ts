@@ -18,7 +18,7 @@ export const processRefundWebhook = mutation({
   },
   handler: async (ctx, args) => {
     const actor = resolveServiceActor(args.serviceKey, 'webhook', args.workspaceId)
-    await ensureNotProcessed(ctx.db, args.eventId)
+    await ensureNotProcessed(ctx.db, 'webhook', args.eventId)
 
     const order = await validateRefundEligibility(ctx, actor, args.orderId)
     await ctx.db.patch(order._id, {

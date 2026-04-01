@@ -61,5 +61,5 @@ export default defineSchema({
     eventId: v.string(),
     source: v.string(),
     processedAt: v.number(),
-  }).index('by_event_id', ['eventId']),
+  }).index('by_source_event_id', ['source', 'eventId']),
 })

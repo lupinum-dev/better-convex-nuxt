@@ -3,6 +3,10 @@
  * Why this file exists:
  * Real apps hit file uploads quickly. This component keeps the upload flow isolated so the task
  * detail page can stay focused on the permission and comment story.
+ *
+ * Deliberate tradeoff for this pass:
+ * after upload we only keep a local pre-submit preview. Saved attachments are not reopened through
+ * Convex until there is a scoped comment/task download path.
  */
 import type { Id } from '~/convex/_generated/dataModel'
 import { api } from '~/convex/_generated/api'

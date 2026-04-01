@@ -11,8 +11,8 @@ import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canReadLesson, hasRole, isAuthenticated } from './auth/checks'
 import { isStaffActor, requireEnrollment } from './auth/enrollment'
-import { ensurePrerequisites } from './auth/prerequisites'
-import { requireRecord, loadResource } from './auth/scope'
+import { requireLessonAccess } from './auth/lessonAccess'
+import { loadResource } from './auth/scope'
 
 export const listLessonsByCourse = query({
   args: { courseId: v.id('courses') },
@@ -44,21 +44,9 @@ export const getLesson = query({
     authorize(actor, 'Read lesson', canReadLesson)
 
     const lesson = loadResource(actor, await ctx.db.get(args.id), 'Lesson')
-    const course = await ctx.db.get(lesson.courseId)
-    requireRecord(course, 'Course')
+    const { enrollment } = await requireLessonAccess(ctx.db, actor, lesson)
 
-    if (isStaffActor(actor)) return lesson
-
-    if (course.status !== 'published') throw deny('Course not available.')
-    if (lesson.status !== 'published') throw deny('Lesson not available.')
-
-    const enrollment = await requireEnrollment(ctx.db, actor, course._id)
-    await ensurePrerequisites(ctx.db, actor.userId, lesson)
-
-    if (lesson.availableAfter && lesson.availableAfter > Date.now()) {
-      throw deny('This lesson is not available yet.')
-    }
-
+    if (!enrollment) return lesson
     return {
       ...lesson,
       enrolledAt: enrollment.createdAt,
@@ -97,6 +85,7 @@ export const completeLesson = mutation({
     authorize(actor, 'Complete lesson', hasRole('owner', 'admin', 'instructor', 'student'))
 
     const lesson = loadResource(actor, await ctx.db.get(args.lessonId), 'Lesson')
+    await requireLessonAccess(ctx.db, actor, lesson)
     const existing = await ctx.db
       .query('lessonProgress')
       .withIndex('by_user_lesson', q => q.eq('userId', actor.userId).eq('lessonId', lesson._id))

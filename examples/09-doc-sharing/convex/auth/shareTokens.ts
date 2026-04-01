@@ -16,10 +16,26 @@ export type ShareGrant = {
   level: AccessLevel
 }
 
+export function createShareTokenValue(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(18))
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+export function shareTokenPrefix(token: string): string {
+  return `share_${token.slice(0, 8)}...`
+}
+
+export async function hashShareToken(token: string): Promise<string> {
+  const encoded = new TextEncoder().encode(token)
+  const hash = await crypto.subtle.digest('SHA-256', encoded)
+  return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
 export async function resolveShareToken(db: DatabaseReader, token: string): Promise<ShareGrant> {
+  const hash = await hashShareToken(token)
   const record = await db
     .query('shareTokens')
-    .withIndex('by_token', q => q.eq('token', token))
+    .withIndex('by_hash', q => q.eq('hash', hash))
     .first()
 
   if (!record) throw deny('Invalid share link.')

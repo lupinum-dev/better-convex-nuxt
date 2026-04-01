@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { createTestContext } from 'better-convex-nuxt/testing'
 
 import type { Id } from './_generated/dataModel'
+import { hashShareToken, shareTokenPrefix } from './auth/shareTokens'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -45,6 +46,20 @@ describe('doc sharing example', () => {
     expect(page._via).toBe('workspace')
   })
 
+  it('lets the page owner read a private page without a separate share row', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Docs',
+      users: {
+        member: { role: 'member' },
+      },
+    })
+
+    const seeded = await team.users.member.mutation(api.pages.seedDemoPages, {})
+    const page = await team.users.member.query(api.pages.viewPage, { id: seeded.childPageId })
+    expect(page._access).toBe('edit')
+  })
+
   it('denies an expired token', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
@@ -59,7 +74,8 @@ describe('doc sharing example', () => {
     await ctx.seed('shareTokens', {
       workspaceId,
       pageId: seeded.rootPageId,
-      token: 'expired-token',
+      prefix: shareTokenPrefix('expired-token'),
+      hash: await hashShareToken('expired-token'),
       level: 'view',
       expiresAt: Date.now() - 1000,
       createdAt: Date.now(),
@@ -84,7 +100,8 @@ describe('doc sharing example', () => {
     await ctx.seed('shareTokens', {
       workspaceId,
       pageId: seeded.rootPageId,
-      token: 'revoked-token',
+      prefix: shareTokenPrefix('revoked-token'),
+      hash: await hashShareToken('revoked-token'),
       level: 'view',
       revokedAt: Date.now() - 1000,
       createdAt: Date.now(),
@@ -109,7 +126,8 @@ describe('doc sharing example', () => {
     await ctx.seed('shareTokens', {
       workspaceId,
       pageId: seeded.rootPageId,
-      token: 'view-only',
+      prefix: shareTokenPrefix('view-only'),
+      hash: await hashShareToken('view-only'),
       level: 'view',
       createdAt: Date.now(),
     })
@@ -170,6 +188,28 @@ describe('doc sharing example', () => {
         shareToken: token,
       }),
     ).rejects.toThrow('Token does not match this page.')
+  })
+
+  it('stores only a hash for new share tokens', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Docs',
+      users: {
+        owner: { role: 'owner' },
+      },
+    })
+
+    const seeded = await team.users.owner.mutation(api.pages.seedDemoPages, {})
+    const token = await team.users.owner.mutation(api.pages.createShareToken, {
+      pageId: seeded.rootPageId,
+      level: 'view',
+    })
+
+    const records = await ctx.readAll('shareTokens')
+    expect(records).toHaveLength(1)
+    expect(records[0]?.prefix).toBe(shareTokenPrefix(token))
+    expect(records[0]?.hash).toBe(await hashShareToken(token))
+    expect('token' in (records[0] ?? {})).toBe(false)
   })
 
   it('returns permission context booleans for owners and viewers', async () => {

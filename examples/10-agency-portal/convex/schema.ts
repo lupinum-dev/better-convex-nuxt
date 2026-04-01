@@ -22,7 +22,6 @@ export default defineSchema({
     authId: v.string(),
     email: v.optional(v.string()),
     displayName: v.optional(v.string()),
-    role: v.optional(v.string()),
     workspaceId: v.optional(v.id('workspaces')),
     createdAt: v.number(),
     updatedAt: v.number(),

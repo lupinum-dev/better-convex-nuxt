@@ -62,10 +62,11 @@ export default defineSchema({
   shareTokens: defineTable({
     workspaceId: v.id('workspaces'),
     pageId: v.id('pages'),
-    token: v.string(),
+    prefix: v.string(),
+    hash: v.string(),
     level: accessLevelValidator,
     expiresAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
     createdAt: v.number(),
-  }).index('by_token', ['token']),
+  }).index('by_hash', ['hash']),
 })

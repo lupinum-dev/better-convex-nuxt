@@ -11,12 +11,13 @@ import { getActor } from './auth/actor'
 import { canCreatePage, isAuthenticated } from './auth/checks'
 import { type AccessLevel, requirePageAccess } from './auth/pageAccess'
 import { requireRecord, loadResource } from './auth/scope'
-import { requireTokenLevel, resolveShareToken } from './auth/shareTokens'
-
-function createShareTokenValue(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(18))
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
-}
+import {
+  createShareTokenValue,
+  hashShareToken,
+  requireTokenLevel,
+  resolveShareToken,
+  shareTokenPrefix,
+} from './auth/shareTokens'
 
 export const list = query({
   args: {},
@@ -84,10 +85,12 @@ export const createShareToken = mutation({
     await requirePageAccess(ctx.db, actor, page._id, 'edit')
 
     const token = createShareTokenValue()
+    const hash = await hashShareToken(token)
     await ctx.db.insert('shareTokens', {
       workspaceId: actor.tenantId,
       pageId: page._id,
-      token,
+      prefix: shareTokenPrefix(token),
+      hash,
       level: args.level,
       createdAt: Date.now(),
     })

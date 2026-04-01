@@ -1,3 +1,8 @@
+/**
+ * Why this file differs from the later tenant-scoped examples:
+ * Example 02 is still auth-only. `userId` here is the auth-subject string stored in `users.authId`,
+ * not a Convex document id.
+ */
 import type {
   GenericMutationCtx,
   GenericQueryCtx,

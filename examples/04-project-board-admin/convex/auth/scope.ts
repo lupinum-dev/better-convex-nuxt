@@ -1,12 +1,13 @@
 import { deny, requireAuth, requireRecord } from 'better-convex-nuxt/auth'
 
+import type { Id } from '../_generated/dataModel'
 import type { Actor } from './actor'
 
 export { requireRecord }
 
 export function ensureTenant(
   actor: Actor,
-  resource: { workspaceId: string },
+  resource: { workspaceId: Id<'workspaces'> },
 ): void {
   requireAuth(actor)
   if (actor.tenantId !== resource.workspaceId) {
@@ -14,7 +15,7 @@ export function ensureTenant(
   }
 }
 
-export function loadResource<T extends { workspaceId: string }>(
+export function loadResource<T extends { workspaceId: Id<'workspaces'> }>(
   actor: Actor,
   doc: T | null | undefined,
   label = 'Resource',

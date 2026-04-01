@@ -1,12 +1,18 @@
+/**
+ * Why this file differs from the default tenant-scoped pattern:
+ * This example has an explicit machine-caller lane. Service actors intentionally do not carry a
+ * human `userId`, which keeps service-side business actions from silently inheriting user-owned
+ * resource rights.
+ */
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getAuth } from 'better-convex-nuxt/auth'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string }
-  | { kind: 'service'; serviceId: string; role: string; tenantId: string }
+  | { kind: 'user'; userId: string; role: Doc<'users'>['role']; tenantId: Id<'workspaces'> }
+  | { kind: 'service'; serviceId: string; role: Doc<'users'>['role']; tenantId: Id<'workspaces'> }
   | null
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>

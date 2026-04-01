@@ -33,11 +33,11 @@ describe('agency example', () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({
       name: 'Alpha',
-      users: { owner: { role: 'owner' } },
+      users: { owner: {} },
     })
     const beta = await ctx.seedTenant({
       name: 'Beta',
-      users: { owner: { role: 'owner' } },
+      users: { owner: {} },
     })
 
     await ctx.seed('memberships', {
@@ -139,8 +139,8 @@ describe('agency example', () => {
     const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
-        owner: { role: 'owner' },
-        viewer: { role: 'viewer' },
+        owner: {},
+        viewer: {},
       },
     })
 
@@ -176,8 +176,8 @@ describe('agency example', () => {
     const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
-        owner: { role: 'owner' },
-        member: { role: 'viewer' },
+        owner: {},
+        member: {},
       },
     })
 
