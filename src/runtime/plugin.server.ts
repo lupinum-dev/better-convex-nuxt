@@ -17,59 +17,17 @@ import { createSharedAuthEngine } from './client/auth-engine'
 import type { AuthWaterfall } from './utils/auth-debug'
 import { resolveRequestAuth } from './server/utils/auth-resolver'
 import { projectResolvedAuthForHydration } from './server/utils/auth-hydration'
-import { fetchWithTimeout } from './server/utils/http'
 import {
-  SERVER_FETCH_TIMEOUT_MS,
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_AUTH_WATERFALL,
   STATE_KEY_PENDING,
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from './utils/constants'
-import {
-  buildAuthTokenDecodeFailureMessage,
-  buildAuthProxyUnreachableMessage,
-  buildAuthProxyUpstreamStatusMessage,
-} from './utils/auth-errors'
+import { buildAuthTokenDecodeFailureMessage } from './utils/auth-errors'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 import type { ConvexUser } from './utils/types'
-
-const AUTH_HEALTHCHECK_CACHE_KEY = '__BCN_AUTH_HEALTHCHECK_DONE__'
-
-async function runAuthHealthcheckOnce(siteUrl: string): Promise<void> {
-  if (!import.meta.dev) return
-
-  const globalState = globalThis as typeof globalThis & {
-    [AUTH_HEALTHCHECK_CACHE_KEY]?: Set<string>
-  }
-  if (!globalState[AUTH_HEALTHCHECK_CACHE_KEY]) {
-    globalState[AUTH_HEALTHCHECK_CACHE_KEY] = new Set<string>()
-  }
-  const checked = globalState[AUTH_HEALTHCHECK_CACHE_KEY]
-  if (checked.has(siteUrl)) return
-  checked.add(siteUrl)
-
-  try {
-    const response = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
-      method: 'GET',
-      timeoutMs: SERVER_FETCH_TIMEOUT_MS,
-    })
-    if ([200, 401, 403].includes(response.status)) {
-      return
-    }
-    if (response.status === 404) {
-      console.warn(
-        buildAuthProxyUpstreamStatusMessage(siteUrl, '/get-session', 404),
-        'Did you register Better Auth routes in `convex/http.ts` and deploy them?',
-      )
-      return
-    }
-    console.warn(buildAuthProxyUpstreamStatusMessage(siteUrl, '/get-session', response.status))
-  } catch (error) {
-    console.warn(buildAuthProxyUnreachableMessage(siteUrl, error))
-  }
-}
 export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
@@ -96,12 +54,6 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   const requestPath = event.path || event.node.req.url || '(unknown)'
   const requestMethod = event.method || 'GET'
   const requestId = crypto.randomUUID()
-
-  const siteUrl = convexConfig.siteUrl
-
-  if (siteUrl) {
-    void runAuthHealthcheckOnce(siteUrl)
-  }
 
   // Helper to log auth events
   const logAuth = (

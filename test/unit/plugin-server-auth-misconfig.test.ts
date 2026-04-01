@@ -115,9 +115,6 @@ describe('plugin.server token exchange failure policy', () => {
 
   it('treats 500 token exchange as misconfig (dev throw, always sets auth error)', async () => {
     fetchWithTimeoutMock.mockImplementation(async (url: string) => {
-      if (url.endsWith('/api/auth/get-session')) {
-        return createResponse(200, { user: null })
-      }
       if (url.endsWith('/api/auth/convex/token')) {
         return createResponse(500, {})
       }
@@ -138,11 +135,28 @@ describe('plugin.server token exchange failure policy', () => {
     )
   })
 
+  it('relies only on the token exchange path and does not probe get-session separately', async () => {
+    fetchWithTimeoutMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/api/auth/convex/token')) {
+        return createResponse(401, { error: 'unauthorized' })
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (nuxtApp: unknown) => Promise<void>
+    await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
+
+    expect(fetchWithTimeoutMock).toHaveBeenCalledTimes(1)
+    expect(fetchWithTimeoutMock).toHaveBeenCalledWith(
+      'https://demo.convex.site/api/auth/convex/token',
+      expect.objectContaining({
+        headers: { Cookie: 'better-auth.session_token=abc' },
+      }),
+    )
+  })
+
   it('keeps 401 token exchange as graceful unauthenticated (no throw)', async () => {
     fetchWithTimeoutMock.mockImplementation(async (url: string) => {
-      if (url.endsWith('/api/auth/get-session')) {
-        return createResponse(200, { user: null })
-      }
       if (url.endsWith('/api/auth/convex/token')) {
         return createResponse(401, { error: 'unauthorized' })
       }
@@ -163,9 +177,6 @@ describe('plugin.server token exchange failure policy', () => {
   it('fails closed during SSR when a token exchanges successfully but cannot be decoded', async () => {
     decodeUserFromJwtMock.mockReturnValue(null)
     fetchWithTimeoutMock.mockImplementation(async (url: string) => {
-      if (url.endsWith('/api/auth/get-session')) {
-        return createResponse(200, { user: null })
-      }
       if (url.endsWith('/api/auth/convex/token')) {
         return createResponse(200, { token: 'invalid.jwt.token' })
       }

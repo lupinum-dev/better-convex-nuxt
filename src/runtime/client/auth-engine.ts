@@ -362,11 +362,11 @@ export function createSharedAuthEngine(
           return
         }
 
-        if (token.value) {
-          return
+        if (rawAuthError.value) {
+          throw new Error(rawAuthError.value)
         }
 
-        throw new Error(rawAuthError.value ?? 'Authentication refresh completed without a token')
+        return
       } catch (error) {
         if (operationId !== state.operationId) {
           if (import.meta.dev) {

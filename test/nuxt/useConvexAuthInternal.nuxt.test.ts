@@ -81,6 +81,54 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     expect(result.auth.isPending.value).toBe(false)
   })
 
+  it('refreshAuth resolves cleanly when refresh settles unauthenticated without an error', async () => {
+    const { result } = await captureInNuxt(() => {
+      installMockAuthEngine({
+        initialToken: 'stale.jwt.token',
+        initialUser: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+        fetchAuthState: async (_input) => ({
+          token: null,
+          user: null,
+          error: null,
+          source: 'exchange',
+        }),
+      })
+
+      return { auth: useConvexAuth(), internal: useConvexAuthController() }
+    })
+
+    await expect(result.internal.refreshAuth()).resolves.toBeUndefined()
+    expect(result.internal.token.value).toBeNull()
+    expect(result.auth.user.value).toBeNull()
+    expect(result.auth.isAuthenticated.value).toBe(false)
+    expect(result.auth.authError.value).toBeNull()
+    expect(result.auth.isPending.value).toBe(false)
+  })
+
+  it('refreshAuth rejects when refresh settles unauthenticated with an explicit error', async () => {
+    const { result } = await captureInNuxt(() => {
+      installMockAuthEngine({
+        initialToken: 'stale.jwt.token',
+        initialUser: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+        fetchAuthState: async (_input) => ({
+          token: null,
+          user: null,
+          error: 'refresh exchange failed',
+          source: 'exchange',
+        }),
+      })
+
+      return { auth: useConvexAuth(), internal: useConvexAuthController() }
+    })
+
+    await expect(result.internal.refreshAuth()).rejects.toThrow('refresh exchange failed')
+    expect(result.internal.token.value).toBeNull()
+    expect(result.auth.user.value).toBeNull()
+    expect(result.auth.isAuthenticated.value).toBe(false)
+    expect(result.auth.authError.value?.message).toBe('refresh exchange failed')
+    expect(result.auth.isPending.value).toBe(false)
+  })
+
   it('awaitAuthReady resolves final auth state without throwing', async () => {
     const { result } = await captureInNuxt(() => {
       installMockAuthEngine({
