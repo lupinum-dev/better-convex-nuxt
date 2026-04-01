@@ -4,10 +4,10 @@
  * The example deliberately keeps everything on one page so the auth state transitions are easy to inspect.
  */
 export default defineNuxtConfig({
-  modules: ['better-convex-nuxt', '@nuxt/ui'],
-  css: ['~/assets/css/main.css'],
+  modules: ["better-convex-nuxt", "@nuxt/ui"],
+  css: ["~/assets/css/main.css"],
 
-  compatibilityDate: '2026-03-30',
+  compatibilityDate: "2026-03-30",
 
   devtools: {
     enabled: true,
@@ -17,15 +17,18 @@ export default defineNuxtConfig({
     strict: true,
   },
 
+  // Works in SSR and SPA
+  // ssr: false,
+
   convex: {
     url: process.env.CONVEX_URL,
     siteUrl: process.env.CONVEX_SITE_URL,
     auth: true,
-    logging: 'debug',
+    logging: "debug",
     debug: {
       authFlow: true,
       clientAuthFlow: true,
       serverAuthFlow: true,
     },
   },
-})
+});
