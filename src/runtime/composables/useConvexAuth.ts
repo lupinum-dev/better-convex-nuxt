@@ -22,7 +22,7 @@ export interface UseConvexAuthReturn {
   isSessionExpired: ComputedRef<boolean>
   /** Better Auth client for direct sign-in, sign-up, and provider actions. */
   client: AuthClient | null
-  /** Force refresh Convex auth state after a Better Auth session change. */
+  /** Re-sync Convex auth state after a Better Auth session change. Throws only on real refresh failure. */
   refreshAuth: () => Promise<void>
   /** Last auth error as an Error instance, or null when healthy. */
   authError: Readonly<Ref<Error | null>>
@@ -62,6 +62,9 @@ export interface UseConvexAuthReturn {
  * await client!.signIn.email({ email, password })
  * await refreshAuth()
  * ```
+ *
+ * `refreshAuth()` means "re-synchronize auth state", not "guarantee an authenticated token exists".
+ * After it resolves, inspect `isAuthenticated`, `isAnonymous`, or `isSessionExpired` to decide what to do next.
  */
 export function useConvexAuth(): UseConvexAuthReturn {
   const auth = useConvexAuthController()

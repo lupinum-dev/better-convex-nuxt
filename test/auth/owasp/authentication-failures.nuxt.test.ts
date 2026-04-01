@@ -43,8 +43,9 @@ describe('OWASP A07: Authentication Failures (Runtime)', () => {
     await h.triggerSignOut()
     exchange.respondWithMiss()
 
-    await expect(h.triggerRefresh()).rejects.toThrow(/without a token/)
+    await expect(h.triggerRefresh()).resolves.toBeUndefined()
     expect(h.isAuthenticated.value).toBe(false)
+    expect(h.isAnonymous.value).toBe(true)
     expect(h.pending.value).toBe(false)
     expect(h.token.value).toBeNull()
     expect(h.user.value).toBeNull()

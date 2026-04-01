@@ -202,30 +202,17 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     expect(result.pending.value).toBe(false)
   })
 
-  it('retries a transient missing-token refresh after a successful auth action', async () => {
-    let refreshCallCount = 0
-
+  it('allows a successful auth action to settle anonymous after refresh without treating it as an error', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine({
-        fetchAuthState: async (_input) => {
-          refreshCallCount++
-
-          if (refreshCallCount === 1) {
-            return {
-              token: null,
-              user: null,
-              error: null,
-              source: 'exchange',
-            }
-          }
-
-          return {
-            token: 'refreshed.jwt.token',
-            user: AUTH_USER,
-            error: null,
-            source: 'exchange',
-          }
-        },
+        initialToken: 'stale.jwt.token',
+        initialUser: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+        fetchAuthState: async (_input) => ({
+          token: null,
+          user: null,
+          error: null,
+          source: 'exchange',
+        }),
       })
       return useConvexAuthActions()
     })
@@ -234,10 +221,10 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       result.execute(async () => ({ data: { user: { id: 'u1' } }, error: null })),
     ).resolves.toEqual({ data: { user: { id: 'u1' } }, error: null })
 
-    expect(refreshCallCount).toBe(2)
     expect(result.error.value).toBeNull()
     expect(result.pending.value).toBe(false)
     expect(result.status.value).toBe('success')
+    expect(result.data.value).toEqual({ data: { user: { id: 'u1' } }, error: null })
   })
 
   it.each([

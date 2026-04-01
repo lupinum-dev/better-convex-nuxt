@@ -6,8 +6,6 @@ import { wrapBetterAuthError } from '../utils/auth-errors'
 import { useConvexAuthController } from './internal/useConvexAuthController'
 import { useAuthRedirect } from './useAuthRedirect'
 
-const AUTH_ACTION_REFRESH_RETRY_DELAYS_MS = [0, 100, 250] as const
-
 export interface UseConvexAuthActionsOptions {
   /** Where to redirect after a successful auth flow. Overridden by `?redirect=` query param. */
   redirectTo?: string
@@ -44,14 +42,6 @@ function extractBetterAuthError(result: unknown): unknown | null {
   return null
 }
 
-function isMissingTokenRefreshError(error: unknown): boolean {
-  return error instanceof Error && /without a token/i.test(error.message)
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<T> {
   const auth = useConvexAuthController()
   const { redirectAfterAuth } = useAuthRedirect()
@@ -70,26 +60,7 @@ export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<
   }
 
   const refreshAuthAfterAction = async (): Promise<void> => {
-    let lastError: unknown = null
-
-    for (const [index, delayMs] of AUTH_ACTION_REFRESH_RETRY_DELAYS_MS.entries()) {
-      if (delayMs > 0) {
-        await sleep(delayMs)
-      }
-
-      try {
-        await auth.refreshAuth()
-        return
-      } catch (cause) {
-        lastError = cause
-        const hasRemainingAttempts = index < AUTH_ACTION_REFRESH_RETRY_DELAYS_MS.length - 1
-        if (!hasRemainingAttempts || !isMissingTokenRefreshError(cause)) {
-          throw cause
-        }
-      }
-    }
-
-    throw lastError instanceof Error ? lastError : new Error('Authentication refresh failed')
+    await auth.refreshAuth()
   }
 
   const execute = async <R extends T = T>(

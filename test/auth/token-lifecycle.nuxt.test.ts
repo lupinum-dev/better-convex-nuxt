@@ -74,7 +74,7 @@ describe('Auth Token Lifecycle', () => {
     expect(h.rawAuthError.value).toBeNull()
   })
 
-  it('fails closed when refresh completes without a token', async () => {
+  it('settles anonymous when refresh completes without a token', async () => {
     const exchange = createMockTokenExchange()
     exchange.respondWithMiss()
 
@@ -84,12 +84,13 @@ describe('Auth Token Lifecycle', () => {
       tokenExchange: exchange,
     })
 
-    await expect(h.triggerRefresh()).rejects.toThrow(/without a token/)
+    await expect(h.triggerRefresh()).resolves.toBeUndefined()
     expect(h.isAuthenticated.value).toBe(false)
+    expect(h.isAnonymous.value).toBe(true)
     expect(h.pending.value).toBe(false)
     expect(h.token.value).toBeNull()
     expect(h.user.value).toBeNull()
-    expect(h.rawAuthError.value).toMatch(/without a token/)
+    expect(h.rawAuthError.value).toBeNull()
   })
 
   it('fails closed when refresh returns an invalid JWT that cannot be decoded', async () => {
@@ -159,7 +160,7 @@ describe('Auth Token Lifecycle', () => {
 
     expect(h.isSessionExpired.value).toBe(false)
 
-    await expect(h.triggerRefresh()).rejects.toThrow(/without a token/)
+    await expect(h.triggerRefresh()).resolves.toBeUndefined()
     expect(h.isSessionExpired.value).toBe(true)
 
     h.dispose()

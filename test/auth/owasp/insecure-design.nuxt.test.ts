@@ -78,7 +78,7 @@ describe('OWASP A04: Insecure Design (Runtime)', () => {
     expect(h.rawAuthError.value).toBeNull()
   })
 
-  it('refresh failure clears previously authenticated state instead of leaving it stale', async () => {
+  it('anonymous refresh clears previously authenticated state instead of leaving it stale', async () => {
     const exchange = createMockTokenExchange()
     exchange.respondWithMiss()
 
@@ -88,12 +88,13 @@ describe('OWASP A04: Insecure Design (Runtime)', () => {
       tokenExchange: exchange,
     })
 
-    await expect(h.triggerRefresh()).rejects.toThrow(/without a token/)
+    await expect(h.triggerRefresh()).resolves.toBeUndefined()
     expect(h.isAuthenticated.value).toBe(false)
+    expect(h.isAnonymous.value).toBe(true)
     expect(h.pending.value).toBe(false)
     expect(h.token.value).toBeNull()
     expect(h.user.value).toBeNull()
-    expect(h.rawAuthError.value).toMatch(/without a token/)
+    expect(h.rawAuthError.value).toBeNull()
   })
 
   it('invalidate during a pending refresh leaves the final state unauthenticated', async () => {
