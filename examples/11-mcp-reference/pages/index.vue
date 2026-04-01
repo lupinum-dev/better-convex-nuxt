@@ -21,11 +21,11 @@
             <div class="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
               <div class="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
                 <p class="font-semibold text-slate-900">Default endpoint</p>
-                <code class="text-xs">http://localhost:3000/mcp</code>
+                <code class="text-xs">{{ endpointBase }}/mcp</code>
               </div>
               <div class="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
                 <p class="font-semibold text-slate-900">Code mode endpoint</p>
-                <code class="text-xs">http://localhost:3000/mcp/runbook-agent</code>
+                <code class="text-xs">{{ endpointBase }}/mcp/runbook-agent</code>
               </div>
             </div>
           </div>
@@ -149,7 +149,7 @@
                         <h2 class="text-xl font-semibold text-slate-950">{{ displayName }}</h2>
                         <p class="mt-1 text-sm text-slate-600">
                           Role:
-                          <span class="font-semibold text-slate-900">{{ role || 'loading…' }}</span>
+                          <span class="font-semibold text-slate-900">{{ permissionsPending ? 'loading…' : (role || 'no workspace yet') }}</span>
                           <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
                         </p>
                       </div>
@@ -179,6 +179,15 @@
                     <p class="text-sm text-slate-600">Preparing your application user…</p>
                     <USkeleton class="h-20 w-full rounded-2xl" />
                   </div>
+
+                  <UAlert
+                    v-else-if="!permissionsPending && !ready"
+                    color="warning"
+                    variant="soft"
+                    icon="i-lucide-triangle-alert"
+                    title="Account setup incomplete"
+                    description="Your browser session is active, but the example could not load your workspace context yet. Sign out and sign back in once to rebuild the app user row."
+                  />
 
                   <template v-if="ready && !tenantId">
                     <div class="grid gap-4 lg:grid-cols-2">
@@ -355,13 +364,13 @@
                           <div class="grid gap-3 md:grid-cols-2">
                             <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
                               <p class="text-sm font-semibold text-slate-900">Public tool call</p>
-                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">curl http://localhost:3000/mcp \
+                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">curl {{ endpointBase }}/mcp \
   -H 'Content-Type: application/json' \
   -d '{"method":"tools/list","params":{}}'</pre>
                             </div>
                             <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
                               <p class="text-sm font-semibold text-slate-900">Scoped authenticated call</p>
-                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">curl http://localhost:3000/mcp \
+                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">curl {{ endpointBase }}/mcp \
   -H "Authorization: Bearer {{ createdKeySecret || 'mcp_…' }}" \
   -H 'Content-Type: application/json' \
   -d '{"method":"tools/list","params":{}}'</pre>
@@ -507,7 +516,7 @@ import type { Id } from '~/convex/_generated/dataModel'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, ready, role, tenantId, ctx } = usePermissions()
+const { can, ready, role, tenantId, ctx, pending: permissionsPending } = usePermissions()
 
 const signUpFields: AuthFormField[] = [
   { name: 'name', type: 'text', label: 'Name', placeholder: 'Enter your name', required: true },
@@ -565,6 +574,7 @@ const createdKeySecret = ref('')
 const verifyMessage = ref('')
 const verifyVariant = ref<'success' | 'error'>('success')
 const verifyingKey = ref(false)
+const requestUrl = useRequestURL()
 
 const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
@@ -577,6 +587,9 @@ const revokeKey = useConvexMutation(api.mcpKeys.revoke)
 
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
 const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(api.runbooks.listPublic, {})
+
+const canCreateRunbook = can('runbook.create')
+const canManageMcp = can('mcp.manage')
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
 const mcpKeyArgs = computed(() => (tenantId.value && canManageMcp.value ? {} : undefined))
@@ -600,8 +613,13 @@ const displayName = computed(
     || 'Signed in user',
 )
 
-const canCreateRunbook = can('runbook.create')
-const canManageMcp = can('mcp.manage')
+const endpointBase = computed(() => {
+  if (import.meta.client) {
+    return window.location.origin
+  }
+
+  return requestUrl.origin
+})
 
 const workspaceRoleOptions = ['admin', 'member', 'viewer'] as const
 const visibilityOptions = ['draft', 'workspace', 'public'] as const

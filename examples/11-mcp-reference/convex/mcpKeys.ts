@@ -9,6 +9,13 @@ import { loadResource } from './auth/scope'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
+function servicePrincipalUserId(key: { _id: string, role: string, userId: string }): string {
+  // Owner keys intentionally act as the issuing owner so the canonical owner key
+  // can manage owner-owned seeded content. Lower-privilege keys get their own
+  // principal id so they do not inherit the issuer's resource ownership.
+  return key.role === 'owner' ? key.userId : `mcp-key:${key._id}`
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -81,7 +88,7 @@ export const validate = query({
     return {
       id: key._id,
       role: key.role,
-      userId: key.userId,
+      userId: servicePrincipalUserId(key),
       tenantId: key.workspaceId,
       lastUsedAt: key.lastUsedAt ?? null,
     }

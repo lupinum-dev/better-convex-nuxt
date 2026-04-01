@@ -24,26 +24,28 @@ export const listWorkspaces = query({
 export const getPermissionContext = query({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
-    if (!actor) return null
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', actor.userId))
+      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
       .first()
 
     if (!user) return null
 
+    const actor = await getActor(ctx)
+
     return {
       role: user.role,
       userId: user.authId,
-      tenantId: user.workspaceId,
-      email: user.email,
-      displayName: user.displayName,
+      tenantId: user.workspaceId ?? null,
+      email: user.email ?? null,
+      displayName: user.displayName ?? null,
       can: {
-        'runbook.read': can(actor, canReadWorkspaceRunbook),
-        'runbook.create': can(actor, canCreateRunbook),
-        'mcp.manage': can(actor, canManageMcpKeys),
+        'runbook.read': actor ? can(actor, canReadWorkspaceRunbook) : false,
+        'runbook.create': actor ? can(actor, canCreateRunbook) : false,
+        'mcp.manage': actor ? can(actor, canManageMcpKeys) : false,
       },
     }
   },

@@ -16,6 +16,9 @@ export default defineTool({
     if (!runbook) {
       return ctx.blocked('Runbook not found.')
     }
+    if (!runbook._can?.delete) {
+      return ctx.blocked('You do not have permission to delete this runbook.')
+    }
 
     return ctx.preview({
       summary: `Will permanently delete "${runbook.title}".`,

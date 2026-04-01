@@ -49,7 +49,14 @@ Last updated: 2026-04-01
 - `DONE` `resources/list` and `resources/read` expose `app://mcp-reference/guide`.
 - `DONE` `prompts/list` and `prompts/get` expose `plan-runbook-workflow`.
 - `DONE` `/mcp/runbook-agent` initializes and exposes the code-mode endpoint.
-- `TODO` Live-verify the authenticated MCP key flow end to end against the running example UI.
+- `DONE` Authenticated users without a workspace now receive an onboarding-safe permission context instead of a blank authenticated screen.
+- `DONE` Live-verify the authenticated MCP key flow end to end against the running example using real owner/admin/member/viewer keys.
+- `DONE` Verify viewer discovery hides mutating workspace tools while direct calls still fail safely.
+- `DONE` Verify non-owner MCP keys no longer inherit the issuing owner's resource ownership.
+- `DONE` Verify member delete previews are blocked for owner-owned runbooks instead of misleadingly awaiting confirmation.
+- `DONE` Verify the example page no longer trips the `canManageMcp` initialization error and now renders the live request origin in endpoint cards.
+- `DONE` Exhaustively verify the live MCP surface on `http://localhost:4131` across 46 real endpoint checks: discovery, auth, scoped visibility, prompts, resources, sessions, dynamic tools, middleware, max-items guards, rate limits, destructive confirmation, role boundaries, and code mode execution.
+- `DONE` Confirm the live page HTML at `http://localhost:4131/` renders the corrected endpoint URLs and no longer includes the `canManageMcp` initialization error text.
 
 ## Known Issues / Notes
 
@@ -63,6 +70,12 @@ Last updated: 2026-04-01
 - Fixed: Evalite now targets the running playground server directly and auto-detects `localhost:3001` or `localhost:3000`, which avoids brittle Nuxt test-context coupling.
 - Fixed: `examples/11-mcp-reference` needed `nitro.experimental.asyncContext` enabled for `useMcpSession()`.
 - Fixed: generic MCP session mutators in `examples/11-mcp-reference` were incorrectly using the Convex-specific `auth` option; they now use explicit `enabled(event)` + runtime guards.
+- Fixed: `examples/11-mcp-reference` previously returned `null` from `getPermissionContext` for signed-in users without a workspace, which left the authenticated page stuck in an empty loading state.
+- Fixed: non-owner MCP keys in `examples/11-mcp-reference` previously reused the issuing owner's `userId`, which let member keys pass owner-based resource checks.
+- Fixed: `update-runbook` in `examples/11-mcp-reference` was discoverable to viewers because it lacked an MCP-level role check.
+- Fixed: `delete-runbook` previews in `examples/11-mcp-reference` previously ignored per-resource `_can.delete` and could preview a deletion that confirmation would later reject.
+- Fixed: `examples/11-mcp-reference/pages/index.vue` referenced `canManageMcp` before it was initialized, which could crash the page setup for authenticated users.
+- Note: browser automation via Playwright could not be used in this environment because its scratch directory target (`/.playwright-mcp`) is mounted read-only. Live endpoint checks and page HTML verification were used instead.
 - Proven unrelated typecheck failures remain in:
   - `src/runtime/composables/useConvexAuthActions.ts`
   - `test/nuxt/useConvexAuthFlow.nuxt.test.ts`
