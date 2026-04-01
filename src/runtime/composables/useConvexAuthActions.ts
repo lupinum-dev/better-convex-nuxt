@@ -60,7 +60,7 @@ export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<
   }
 
   const refreshAuthAfterAction = async (): Promise<void> => {
-    await auth.refreshAuth()
+    await auth.refreshAuth({ trigger: 'auth-action' })
   }
 
   const execute = async <R extends T = T>(

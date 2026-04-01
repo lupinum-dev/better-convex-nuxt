@@ -17,9 +17,9 @@
           signed-in user.
         </p>
         <p class="text-sm text-muted mt-2">
-          Auth is resolved during SSR, but the todo query waits until the client creates or confirms
-          the matching app-level user row. That short handoff is why you see a loading state before
-          the personal list subscribes.
+          Auth may already be resolved during SSR, but the todo query still waits for the app-level
+          user row. The client uses <code>useEnsureConvexUser()</code> to create or confirm that
+          row before the personal list subscribes.
         </p>
       </div>
 
@@ -87,8 +87,9 @@
                 {{ user?.name || user?.email || 'Signed in user' }}
               </h2>
               <p class="text-sm text-muted mt-1">
-                SSR already knows who you are. The todo query starts after the client ensures a
-                matching row exists in the app's `users` table.
+                SSR can already know who you are, but app actor readiness is separate. The todo
+                query starts only after the client ensures a matching row exists in the app's
+                <code>users</code> table.
               </p>
             </div>
 
@@ -266,46 +267,36 @@ const todoError = computed(() =>
   || '',
 )
 
+const DEBUG_AUTH_TODO_VERBOSE = false
+
+const debugPhase = computed(() => {
+  if (isPending.value) return 'auth:pending'
+  if (authAction.pending.value) return 'auth-action:pending'
+  if (!isAuthenticated.value) return 'auth:anonymous'
+  if (ensureUserRow.pending.value) return 'bootstrap:ensuring-user'
+  if (!actorReady.value) return 'bootstrap:awaiting-user'
+  if (todosPending.value) return 'todos:subscribing'
+  return 'todos:ready'
+})
+
 if (import.meta.dev) {
   watch(
-    [
-      isPending,
-      isAuthenticated,
-      actorReady,
-      () => user.value?.id ?? null,
-      () => authAction.pending.value,
-      () => authAction.error.value?.message ?? null,
-      () => ensureUserRow.pending.value,
-      () => ensureUserRow.error.value?.message ?? null,
-      todosPending,
-      () => todosError.value?.message ?? null,
-      () => todos.value?.length ?? 0,
-    ],
-    ([
-      authPending,
-      authenticated,
-      ensured,
-      userId,
-      authMutationPending,
-      authMutationError,
-      ensurePending,
-      ensureError,
-      todoPending,
-      queryError,
-      todoCount,
-    ]) => {
-      console.debug('[example-02] auth/todo snapshot', {
-        authPending,
-        authenticated,
-        ensured,
+    [debugPhase, () => user.value?.id ?? null, () => todos.value?.length ?? 0, todoError],
+    ([phase, userId, todoCount, error], previous) => {
+      const [previousPhase, previousUserId, previousTodoCount, previousError] = previous ?? []
+      if (!DEBUG_AUTH_TODO_VERBOSE
+        && phase === previousPhase
+        && userId === previousUserId
+        && todoCount === previousTodoCount
+        && error === previousError) {
+        return
+      }
+
+      console.debug('[example-02] auth/todo transition', {
+        phase,
         userId,
-        authMutationPending,
-        authMutationError,
-        ensurePending,
-        ensureError,
-        todoPending,
-        queryError,
         todoCount,
+        error: error || null,
       })
     },
     { immediate: true },

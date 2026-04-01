@@ -303,6 +303,22 @@ describe('plugin.client auth flow', () => {
     expect(tokenMock).toHaveBeenCalledTimes(1)
     expect(stateStore.get('convex:token')?.value).toBe(refreshedToken)
     expect(stateStore.get('convex:authError')?.value).toBeNull()
+    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'client-fetchToken:start',
+      outcome: 'success',
+      details: expect.objectContaining({
+        trigger: 'manual-refresh',
+        forceRefreshToken: true,
+      }),
+    }))
+    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'client-setAuth',
+      outcome: 'success',
+      details: expect.objectContaining({
+        trigger: 'manual-refresh',
+        state: 'authenticated',
+      }),
+    }))
   })
 
   it('completes an explicit auth refresh even when Convex never emits onChange after fetching a token', async () => {
@@ -322,6 +338,13 @@ describe('plugin.client auth flow', () => {
     expect(tokenMock).toHaveBeenCalledTimes(1)
     expect(stateStore.get('convex:token')?.value).toBe(refreshedToken)
     expect(stateStore.get('convex:authError')?.value).toBeNull()
+    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'client-fetchToken:start',
+      outcome: 'success',
+      details: expect.objectContaining({
+        trigger: 'manual-refresh',
+      }),
+    }))
   })
 
   it('fails closed and logs when a hydrated SSR token cannot be decoded', async () => {

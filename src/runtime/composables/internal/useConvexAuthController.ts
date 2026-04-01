@@ -19,6 +19,7 @@ import type { ComputedRef, Ref } from 'vue'
 import { useNuxtApp } from '#imports'
 
 import { getSharedAuthEngine } from '../../client/auth-engine'
+import type { AuthTrigger } from '../../client/auth-engine'
 import type { ConvexUser } from '../../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
@@ -35,7 +36,7 @@ export interface ConvexAuthController {
   isAnonymous: ComputedRef<boolean>
   isSessionExpired: ComputedRef<boolean>
   client: AuthClient | null
-  refreshAuth: () => Promise<void>
+  refreshAuth: (options?: { trigger?: AuthTrigger }) => Promise<void>
   signOut: () => Promise<void>
   awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
 }

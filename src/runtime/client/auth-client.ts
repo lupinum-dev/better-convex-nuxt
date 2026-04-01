@@ -43,6 +43,7 @@ import { matchesSkipRoute } from '../utils/route-matcher'
 import type { ConvexUser } from '../utils/types'
 import type {
   AuthTransport,
+  AuthTrigger,
   ClientAuthStateResult,
 } from './auth-engine'
 
@@ -180,9 +181,11 @@ export function initAuthClient(
   const doFetchAuthState = async ({
     forceRefreshToken,
     signal,
+    trigger,
   }: {
     forceRefreshToken: boolean
     signal?: AbortSignal
+    trigger?: AuthTrigger
   }): Promise<ClientAuthStateResult> => {
     const route = router.currentRoute.value
     const routePath = route?.path ?? '/'
@@ -197,6 +200,7 @@ export function initAuthClient(
         forceRefreshToken,
         hasHydratedToken: Boolean(convexToken.value),
         hasHydratedUser,
+        ...(forceRefreshToken ? { trigger: trigger ?? 'unknown' } : {}),
       },
     })
 
@@ -423,23 +427,27 @@ export function initAuthClient(
     client: authClient,
     fetchAuthState,
     install(fetchToken, onChange) {
-      convexClientInstance.setAuth(fetchToken, onChange)
+      convexClientInstance.setAuth(
+        (input) => fetchToken({ ...input, trigger: 'convex-set-auth' }),
+        (isAuthenticated) => onChange(isAuthenticated, { trigger: 'convex-set-auth' }),
+      )
     },
-    async refresh(fetchToken, onChange) {
+    async refresh(fetchToken, onChange, options) {
       skipNextAnonymousBootstrapRefresh = false
       lastTokenValidation = 0
+      const trigger = options?.trigger ?? 'manual-refresh'
       await new Promise<void>((resolve) => {
         let settled = false
         const finish = (authenticated: boolean) => {
           if (settled) return
           settled = true
-          onChange(authenticated)
+          onChange(authenticated, { trigger })
           resolve()
         }
 
         convexClientInstance.setAuth(
           async (input) => {
-            const token = await fetchToken({ ...input, forceRefreshToken: true })
+            const token = await fetchToken({ ...input, forceRefreshToken: true, trigger })
             // Some flows have no active subscriptions yet, so Convex may not
             // invoke `onChange` promptly. Resolve refresh once the forced token
             // fetch itself settles.

@@ -1,10 +1,16 @@
+import { computed } from 'vue'
 import { describe, expect, it } from 'vitest'
 
 import { useRouter } from '#imports'
 
+import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
+import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthActions } from '../../src/runtime/composables/useConvexAuthActions'
+import { useEnsureConvexUser } from '../../src/runtime/composables/useEnsureConvexUser'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
+import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { waitFor } from '../helpers/wait-for'
 import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 
 const AUTH_USER = {
@@ -12,6 +18,8 @@ const AUTH_USER = {
   name: 'Auth User',
   email: 'auth@test.com',
 }
+const ENSURE_USER_MUTATION = mockFnRef<'mutation'>('auth:createUserIfNeeded')
+const TODOS_QUERY = mockFnRef<'query'>('todos:list')
 
 function initAuthEngine(options?: Parameters<typeof installMockAuthEngine>[0]) {
   installMockAuthEngine({
@@ -225,6 +233,62 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     expect(result.pending.value).toBe(false)
     expect(result.status.value).toBe('success')
     expect(result.data.value).toEqual({ data: { user: { id: 'u1' } }, error: null })
+  })
+
+  it('covers the auth action -> ensure user -> query subscribe -> sign out flow', async () => {
+    const convex = new MockConvexClient()
+    convex.setMutationHandler('auth:createUserIfNeeded', async () => ({ ok: true }))
+
+    const { result, flush } = await captureInNuxt(() => {
+      installMockAuthEngine({
+        fetchAuthState: async (_input) => ({
+          token: 'refreshed.jwt.token',
+          user: AUTH_USER,
+          error: null,
+          source: 'exchange',
+        }),
+      })
+
+      const auth = useConvexAuth()
+      const actions = useConvexAuthActions()
+      const ensure = useEnsureConvexUser(ENSURE_USER_MUTATION)
+      const todoArgs = computed(() =>
+        auth.isAuthenticated.value && ensure.ensured.value ? {} : undefined,
+      )
+      const todos = createConvexQueryState(TODOS_QUERY, todoArgs, {}, true).resultData
+
+      return { auth, actions, ensure, todos }
+    }, { convex })
+
+    expect(result.auth.isAuthenticated.value).toBe(false)
+    expect(result.ensure.ensured.value).toBe(false)
+    expect(convex.activeListenerCount(TODOS_QUERY, {})).toBe(0)
+
+    await expect(
+      result.actions.execute(async () => ({ data: { user: { id: 'u-auth' } }, error: null })),
+    ).resolves.toEqual({ data: { user: { id: 'u-auth' } }, error: null })
+
+    await waitFor(() => result.auth.isAuthenticated.value === true)
+    await waitFor(() => convex.calls.mutation.length === 1)
+    await waitFor(() => result.ensure.ensured.value === true)
+    await flush()
+    await waitFor(() =>
+      convex.calls.onUpdate.some((call) => call.query === TODOS_QUERY),
+    )
+
+    convex.emitQueryResult(TODOS_QUERY, {}, [{ _id: 't1', title: 'First todo' }])
+    await waitFor(() => result.todos.data.value?.length === 1)
+
+    expect(result.todos.data.value).toEqual([{ _id: 't1', title: 'First todo' }])
+    expect(result.todos.pending.value).toBe(false)
+
+    await result.auth.signOut()
+    await flush()
+
+    await waitFor(() => result.auth.isAnonymous.value === true)
+    await waitFor(() => convex.activeListenerCount() === 0)
+    expect(result.ensure.ensured.value).toBe(false)
+    expect(result.todos.data.value).toBeNull()
   })
 
   it.each([

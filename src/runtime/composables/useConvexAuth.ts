@@ -76,7 +76,7 @@ export function useConvexAuth(): UseConvexAuthReturn {
     isAnonymous: auth.isAnonymous,
     isSessionExpired: auth.isSessionExpired,
     client: auth.client,
-    refreshAuth: auth.refreshAuth,
+    refreshAuth: () => auth.refreshAuth({ trigger: 'manual-refresh' }),
     authError: readonly(auth.authError),
     signOut: auth.signOut,
   }

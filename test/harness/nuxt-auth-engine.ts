@@ -66,9 +66,9 @@ export function installMockAuthEngine(
     })),
     install() {
     },
-    async refresh(fetchToken, onChange) {
-      const nextToken = await fetchToken({ forceRefreshToken: true })
-      onChange(Boolean(nextToken))
+    async refresh(fetchToken, onChange, options) {
+      const nextToken = await fetchToken({ forceRefreshToken: true, trigger: options?.trigger })
+      onChange(Boolean(nextToken), { trigger: options?.trigger })
     },
     async invalidate() {
       await options.invalidate?.()

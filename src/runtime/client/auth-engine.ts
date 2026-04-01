@@ -25,6 +25,14 @@ import type {
 } from '../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
+export type AuthTrigger =
+  | 'convex-set-auth'
+  | 'manual-refresh'
+  | 'auth-action'
+  | 'post-signout'
+  | 'invalidate'
+  | 'bootstrap'
+  | 'unknown'
 
 /** Minimal app interface for hook registration and emission. */
 interface RuntimeHookApp {
@@ -56,7 +64,12 @@ export type ClientAuthStateResult =
 type ConvexFetchToken = (input: {
   forceRefreshToken: boolean
   signal?: AbortSignal
+  trigger?: AuthTrigger
 }) => Promise<string | null>
+
+interface AuthStateChangeMeta {
+  trigger?: AuthTrigger
+}
 
 /**
  * Transport layer interface between the auth engine and the token source.
@@ -73,11 +86,16 @@ export interface AuthTransport {
   fetchAuthState: (input: {
     forceRefreshToken: boolean
     signal?: AbortSignal
+    trigger?: AuthTrigger
   }) => Promise<ClientAuthStateResult>
   /** Wire fetchToken into the ConvexClient. Called once at startup. */
-  install: (fetchToken: ConvexFetchToken, onChange: (isAuthenticated: boolean) => void) => void
+  install: (fetchToken: ConvexFetchToken, onChange: (isAuthenticated: boolean, meta?: AuthStateChangeMeta) => void) => void
   /** Re-authenticate by calling setAuth with forceRefreshToken. */
-  refresh: (fetchToken: ConvexFetchToken, onChange: (isAuthenticated: boolean) => void) => Promise<void>
+  refresh: (
+    fetchToken: ConvexFetchToken,
+    onChange: (isAuthenticated: boolean, meta?: AuthStateChangeMeta) => void,
+    options?: { trigger?: AuthTrigger },
+  ) => Promise<void>
   /** Clear the ConvexClient's auth state. */
   invalidate: () => Promise<void>
 }
@@ -130,7 +148,7 @@ export interface CreateSharedAuthEngineOptions {
   rawAuthError: Ref<string | null>
   wasAuthenticated: Ref<boolean>
   transport?: AuthTransport | null
-  onSetAuthState?: (isAuthenticated: boolean) => void
+  onSetAuthState?: (isAuthenticated: boolean, meta?: AuthStateChangeMeta) => void
   resolveInitialAuth?: () => void
 }
 
@@ -311,8 +329,8 @@ export function createSharedAuthEngine(
     return null
   }
 
-  const onTransportAuthStateChange = (authenticated: boolean) => {
-    onSetAuthState?.(authenticated)
+  const onTransportAuthStateChange = (authenticated: boolean, meta?: AuthStateChangeMeta) => {
+    onSetAuthState?.(authenticated, meta)
   }
 
   const configureTransport = (transport: AuthTransport | null) => {
@@ -326,7 +344,7 @@ export function createSharedAuthEngine(
   }
 
   // Refresh re-runs the full transport flow and invalidates older results.
-  const refreshAuth = async (): Promise<void> => {
+  const refreshAuth = async (options?: { trigger?: AuthTrigger }): Promise<void> => {
     if (state.refreshPromise) {
       return state.refreshPromise
     }
@@ -346,7 +364,9 @@ export function createSharedAuthEngine(
 
       try {
         await withTimeout(
-          transport.refresh(fetchTokenForConvex, onTransportAuthStateChange),
+          transport.refresh(fetchTokenForConvex, onTransportAuthStateChange, {
+            trigger: options?.trigger ?? 'manual-refresh',
+          }),
           AUTH_REFRESH_TIMEOUT_MS,
           () => {
             if (import.meta.dev) {
@@ -501,7 +521,7 @@ export function createSharedAuthEngine(
   if (!state.hooksRegistered) {
     state.hooksRegistered = true
     nuxtApp.hook('better-convex:auth:refresh', async () => {
-      await refreshAuth()
+      await refreshAuth({ trigger: 'manual-refresh' })
     })
     nuxtApp.hook('better-convex:auth:invalidate', async () => {
       await invalidateAuth({ clearWasAuthenticated: true })

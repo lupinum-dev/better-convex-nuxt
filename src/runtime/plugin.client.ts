@@ -49,7 +49,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     pending: hydration.convexPending,
     rawAuthError: hydration.convexAuthError,
     wasAuthenticated,
-    onSetAuthState: (isAuthenticated) => {
+    onSetAuthState: (isAuthenticated, meta) => {
       logger.auth({
         phase: 'client-setAuth',
         outcome: 'success',
@@ -58,6 +58,7 @@ export default defineNuxtPlugin((nuxtApp) => {
           state: isAuthenticated ? 'authenticated' : 'unauthenticated',
           hasToken: Boolean(hydration.convexToken.value),
           hasUser: Boolean(hydration.convexUser.value),
+          ...(meta?.trigger ? { trigger: meta.trigger } : {}),
         },
       })
     },
