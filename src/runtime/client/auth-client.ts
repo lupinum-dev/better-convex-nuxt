@@ -138,6 +138,7 @@ export function initAuthClient(
   let lastTokenValidation = Date.now()
   let inflightFetch: Promise<ClientAuthStateResult> | null = null
   let inflightIsForced = false
+  let skipNextAnonymousSpaBootConvexSetAuthRefresh = false
   let skipNextAnonymousBootstrapRefresh =
     Boolean(nuxtApp.payload?.serverRendered)
     && !convexToken.value
@@ -306,6 +307,28 @@ export function initAuthClient(
       return buildUnauthenticatedResult('skip')
     }
 
+    if (
+      forceRefreshToken
+      && trigger === 'convex-set-auth'
+      && skipNextAnonymousSpaBootConvexSetAuthRefresh
+      && !nuxtApp.payload?.serverRendered
+      && !convexToken.value
+      && !hasHydratedUser
+    ) {
+      skipNextAnonymousSpaBootConvexSetAuthRefresh = false
+      logger.auth({
+        phase: 'client-fetchToken:skip',
+        outcome: 'skip',
+        details: {
+          traceId,
+          reason: 'spa-anonymous-client-init-already-settled',
+          trigger,
+          path: routePath,
+        },
+      })
+      return buildUnauthenticatedResult('skip')
+    }
+
     try {
       logger.auth({
         phase: 'client-fetchToken:request',
@@ -348,10 +371,18 @@ export function initAuthClient(
           },
         })
 
+        skipNextAnonymousSpaBootConvexSetAuthRefresh =
+          !forceRefreshToken
+          && !nuxtApp.payload?.serverRendered
+          && !convexToken.value
+          && !hasHydratedUser
+          && error === null
+
         return buildUnauthenticatedResult('exchange', error)
       }
 
       const token = response.data.token
+      skipNextAnonymousSpaBootConvexSetAuthRefresh = false
       const decodedUser = decodeUserFromJwt(token)
       if (!decodedUser) {
         const error = buildAuthTokenDecodeFailureMessage()
@@ -434,6 +465,7 @@ export function initAuthClient(
     },
     async refresh(fetchToken, onChange, options) {
       skipNextAnonymousBootstrapRefresh = false
+      skipNextAnonymousSpaBootConvexSetAuthRefresh = false
       lastTokenValidation = 0
       const trigger = options?.trigger ?? 'manual-refresh'
       await new Promise<void>((resolve) => {
@@ -464,6 +496,7 @@ export function initAuthClient(
       lastTokenValidation = 0
       inflightFetch = null
       inflightIsForced = false
+      skipNextAnonymousSpaBootConvexSetAuthRefresh = false
       await new Promise<void>((resolve) => {
         convexClientInstance.setAuth(async () => null, () => resolve())
       })

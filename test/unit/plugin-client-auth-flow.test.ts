@@ -238,6 +238,33 @@ describe('plugin.client auth flow', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('skips the immediate convex-set-auth forced retry after a clean anonymous SPA boot miss', async () => {
+    tokenMock.mockResolvedValue({
+      data: null,
+      error: null,
+    })
+    vi.stubGlobal('fetch', vi.fn())
+
+    const plugin = (await import('../../src/runtime/plugin.client')).default
+    await plugin(createNuxtAppMock({ serverRendered: false }) as never)
+
+    const fetchToken = clientState.fetchToken
+    expect(fetchToken).toBeTypeOf('function')
+
+    await expect(fetchToken!({ forceRefreshToken: false })).resolves.toBeNull()
+    await expect(fetchToken!({ forceRefreshToken: true, trigger: 'convex-set-auth' } as never)).resolves.toBeNull()
+
+    expect(tokenMock).toHaveBeenCalledTimes(1)
+    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'client-fetchToken:skip',
+      outcome: 'skip',
+      details: expect.objectContaining({
+        reason: 'spa-anonymous-client-init-already-settled',
+        trigger: 'convex-set-auth',
+      }),
+    }))
+  })
+
   it('hydrates a missing user directly from a valid SSR token without exchanging again', async () => {
     const hydratedToken = mintJwt({ sub: 'u-hydrated', email: 'hydrated@test.com' })
     stateStore.set('convex:token', { value: hydratedToken })
