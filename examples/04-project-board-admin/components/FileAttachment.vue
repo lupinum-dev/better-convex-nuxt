@@ -8,6 +8,7 @@ import type { Id } from '~/convex/_generated/dataModel'
 import { api } from '~/convex/_generated/api'
 
 const modelValue = defineModel<Id<'_storage'> | null | undefined>()
+const localPreviewUrl = ref<string | null>(null)
 
 const {
   upload,
@@ -26,14 +27,30 @@ watch(uploadedStorageId, (nextValue) => {
   }
 })
 
-const previewUrl = useConvexStorageUrl(api.files.getUrl, computed(() => modelValue.value))
-
 async function handleFile(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
+
+  if (localPreviewUrl.value) {
+    URL.revokeObjectURL(localPreviewUrl.value)
+  }
+  localPreviewUrl.value = URL.createObjectURL(file)
   await upload(file)
 }
+
+watch(modelValue, (nextValue) => {
+  if (!nextValue && localPreviewUrl.value) {
+    URL.revokeObjectURL(localPreviewUrl.value)
+    localPreviewUrl.value = null
+  }
+})
+
+onBeforeUnmount(() => {
+  if (localPreviewUrl.value) {
+    URL.revokeObjectURL(localPreviewUrl.value)
+  }
+})
 </script>
 
 <template>
@@ -56,14 +73,14 @@ async function handleFile(event: Event) {
       :description="error.message"
     />
 
-    <div v-if="previewUrl">
+    <div v-if="localPreviewUrl">
       <UButton
         variant="link"
-        :to="previewUrl"
+        :to="localPreviewUrl"
         target="_blank"
         leading-icon="i-lucide-paperclip"
       >
-        Open uploaded file
+        Preview selected file
       </UButton>
     </div>
   </div>

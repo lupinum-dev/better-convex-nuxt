@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { resolve } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -36,8 +36,6 @@ function runDoctorJson(fixtureName: string) {
 
 describe('CLI doctor', () => {
   beforeAll(() => {
-    if (existsSync(cliEntry)) return
-
     const buildResult = spawnSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.cli.json'], {
       cwd: repoRoot,
       encoding: 'utf8',
@@ -113,18 +111,57 @@ describe('CLI doctor', () => {
     expect(output).toContain('Error: Unknown command')
   })
 
-  it('adds the base auth recipe files', () => {
-    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-add-auth-'))
-    const result = runCli(['add', 'auth', '--cwd', cwd], repoRoot)
+  it('adds the personal auth starter files', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-add-auth-personal-'))
+    const result = runCli(['add', 'auth', '--starter', 'personal', '--cwd', cwd], repoRoot)
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
-    const composable = readFileSync(resolve(cwd, 'composables/usePermissions.ts'), 'utf8')
+    const authBridge = readFileSync(resolve(cwd, 'convex/auth.ts'), 'utf8')
+    const testSetup = readFileSync(resolve(cwd, 'convex/test.setup.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(actor).toContain('export type Actor')
-    expect(composable).toContain('createAuth')
+    expect(actor).toContain("| { kind: 'user'; userId: string }")
+    expect(authBridge).toContain('createClient<DataModel>')
+    expect(testSetup).toContain('createConvexTestModules')
   })
 
-  it('adds a SaaS recipe and an individual block recipe', () => {
+  it('adds the workspace auth starter files', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-add-auth-workspace-'))
+    const result = runCli(['add', 'auth', '--starter', 'workspace', '--cwd', cwd], repoRoot)
+    const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
+    const resource = readFileSync(resolve(cwd, 'convex/auth/resource.ts'), 'utf8')
+    const testSetup = readFileSync(resolve(cwd, 'convex/test.setup.ts'), 'utf8')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(actor).toContain('tenantId: string')
+    expect(resource).toContain('withCan')
+    expect(testSetup).toContain('convexServerMock')
+  })
+
+  it('adds the workspace-mcp auth starter files', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-add-auth-workspace-mcp-'))
+    const result = runCli(['add', 'auth', '--starter', 'workspace-mcp', '--cwd', cwd], repoRoot)
+    const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
+    const authConfig = readFileSync(resolve(cwd, 'convex/auth.config.ts'), 'utf8')
+    const testSetup = readFileSync(resolve(cwd, 'convex/test.setup.ts'), 'utf8')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(actor).toContain('getTrustedCaller')
+    expect(authConfig).toContain('getAuthConfigProvider')
+    expect(testSetup).toContain('createConvexTestModules')
+  })
+
+  it('lists available starters and additive blocks', () => {
+    const result = runCli(['add', '--list'], repoRoot)
+    const output = `${result.stdout}\n${result.stderr}`
+
+    expect(result.status, output).toBe(0)
+    expect(output).toContain('auth:personal')
+    expect(output).toContain('auth:workspace')
+    expect(output).toContain('auth:workspace-mcp')
+    expect(output).toContain('auth:crm')
+  })
+
+  it('adds additive block recipes', () => {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-add-recipe-'))
 
     const crm = runCli(['add', 'auth:crm', '--cwd', cwd], repoRoot)

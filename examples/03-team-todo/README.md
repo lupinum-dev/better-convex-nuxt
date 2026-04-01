@@ -63,22 +63,23 @@ curl http://localhost:3000/mcp \
 This example is the trust proof, so it includes a small real test setup.
 
 ```ts
-import { defineConfig } from "vitest/config";
-import { convexTestConfig } from "better-convex-nuxt/testing";
+import { defineConfig } from 'vitest/config'
+import { convexTestConfig } from 'better-convex-nuxt/testing'
 
 export default defineConfig(
   convexTestConfig({
     test: {
-      include: ["convex/**/*.test.ts"],
+      include: ['convex/**/*.test.ts'],
     },
   }),
-);
+)
 ```
 
 ```ts
-import { createTestContext } from "better-convex-nuxt/testing";
+import { createTestContext } from 'better-convex-nuxt/testing'
+import { modules } from './test.setup'
 
-const ctx = createTestContext({ schema });
+const ctx = createTestContext({ schema, modules })
 ```
 
 The example test file covers:
@@ -87,6 +88,10 @@ The example test file covers:
 - member cannot update another member's todo
 - tenants cannot see each other's todos
 - service-auth callers obey the same permission rules as browser and MCP callers
+
+`convex/test.setup.ts` is intentionally app-owned. It uses `createConvexTestModules(...)` and
+`convexServerMock` from `better-convex-nuxt/testing`, but the Vite glob and generated-server mock
+still live in the example app.
 
 `composables/usePermissions.ts` is intentionally tiny. It exists so Nuxt can auto-import
 `usePermissions()` everywhere else in the app while the raw permission `ctx` query stays in Convex-land.

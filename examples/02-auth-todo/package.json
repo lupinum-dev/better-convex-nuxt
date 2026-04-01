@@ -6,6 +6,7 @@
     "dev": "node ../../scripts/example-dev.mjs",
     "dev:nuxt": "nuxi dev --dotenv .env.local",
     "build": "nuxi build --dotenv .env.local",
+    "test": "vitest run",
     "typecheck": "nuxi typecheck --dotenv .env.local",
     "convex:dev": "CONVEX_AGENT_MODE=anonymous convex dev",
     "convex:codegen": "convex codegen"
@@ -22,7 +23,10 @@
     "zod": "^4.3.0"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "convex-test": "^0.0.41",
     "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
     "vue-tsc": "^3.2.5"
   }
 }

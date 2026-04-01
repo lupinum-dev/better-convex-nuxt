@@ -26,15 +26,21 @@ pnpm add @nuxtjs/mcp-toolkit convex-helpers zod
 
 ## CLI
 
-A CLI is included for consumer app checks and auth recipe scaffolding:
+A CLI is included for consumer app checks, auth starters, and additive auth blocks:
 
 ```bash
 npx better-convex-nuxt doctor
 npx better-convex-nuxt doctor --cwd ./my-app
 npx better-convex-nuxt doctor --json
+npx better-convex-nuxt add --list
 npx better-convex-nuxt add auth
+npx better-convex-nuxt add auth --starter workspace
 npx better-convex-nuxt add auth:crm
 ```
+
+`add auth` is now a starter chooser. Use `--starter personal`, `--starter workspace`, or
+`--starter workspace-mcp` for non-interactive runs. Use `add auth:<block>` for additive vertical
+helpers like CRM, LMS, or freemium blocks.
 
 The `doctor` command checks:
 
@@ -101,8 +107,10 @@ export default defineConfig(convexTestConfig())
 
 ```ts
 import { createTestContext } from 'better-convex-nuxt/testing'
+import schema from './schema'
+import { modules } from './test.setup'
 
-const ctx = createTestContext({ schema })
+const ctx = createTestContext({ schema, modules })
 const team = await ctx.seedTenant({
   name: 'Acme',
   users: {
@@ -113,6 +121,24 @@ const team = await ctx.seedTenant({
 ```
 
 Use `ctx.asService(...)` when you want to verify the hidden service-auth path directly.
+
+Keep `convex/test.setup.ts` in app code. The Vite module glob and the generated-server mock need to
+live in the consumer app, but the file itself is now just the standard bridge:
+
+```ts
+/// <reference types="vite/client" />
+
+import { vi } from 'vitest'
+import { convexServerMock, createConvexTestModules } from 'better-convex-nuxt/testing'
+
+export const modules = createConvexTestModules(
+  import.meta.glob('./**/*.ts', {
+    eager: false,
+  }),
+)
+
+vi.mock('./_generated/server', async () => await convexServerMock())
+```
 
 ## Usage
 

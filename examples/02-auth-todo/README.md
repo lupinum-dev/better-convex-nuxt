@@ -11,6 +11,7 @@ It shows:
 - raw Convex `query()` and `mutation()`
 - explicit ownership checks in handlers
 - auth-aware page rendering with `ConvexAuthenticated`, `ConvexUnauthenticated`, and `ConvexAuthLoading`
+- the same app-owned `convex/test.setup.ts` bridge used by the larger examples
 
 ## Files To Read First
 
@@ -34,3 +35,11 @@ do not set `CONVEX_URL` manually for this example.
 2. Add a few todos.
 3. Sign out and sign back in.
 4. Create a second account and verify the lists stay separate.
+
+## Testing
+
+This example now includes a small Convex test harness as the personal-auth starter reference:
+
+- `vitest.config.ts` uses `convexTestConfig(...)`
+- `convex/test.setup.ts` keeps the Vite module glob and generated-server mock in app code
+- `convex/todos.test.ts` proves that one user cannot mutate another user's todo
