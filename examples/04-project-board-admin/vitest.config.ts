@@ -4,6 +4,6 @@ import { convexTestConfig } from 'better-convex-nuxt/testing'
 
 export default defineConfig(convexTestConfig({
   test: {
-    include: ['convex/**/*.test.ts'],
+    include: ['convex/**/*.test.ts', 'server/**/*.test.ts'],
   },
 }))

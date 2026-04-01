@@ -16,7 +16,7 @@ describe('trusted caller helpers', () => {
     expect(Object.keys(args)).toEqual(['title', '_trustedCallerKey', '_trustedCaller'])
   })
 
-  it('returns the trusted caller identity when the service key matches', () => {
+  it('returns the trusted caller identity when the trusted caller key matches', () => {
     process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-key'
 
     expect(

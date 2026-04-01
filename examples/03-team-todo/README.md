@@ -47,7 +47,7 @@ To keep the example focused, MCP auth uses a tiny demo middleware:
 
 - header format: `Authorization: Bearer demo:<email>`
 - middleware resolves that email to a real user in Convex
-- `#convex/mcp` then injects service auth into the scoped Convex calls
+- `#convex/mcp` then injects trusted caller auth into the scoped Convex calls
 
 Example:
 

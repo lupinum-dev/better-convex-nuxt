@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { $fetch, fetch as testFetch, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { PLAYGROUND_LOCAL_TRUSTED_CALLER_KEY } from '../../playground/shared/dev-service-key'
+import { PLAYGROUND_LOCAL_TRUSTED_CALLER_KEY } from '../../playground/shared/dev-trusted-caller-key'
 import { ensureLocalConvex } from '../helpers/local-convex'
 
 interface BootstrapResponse {

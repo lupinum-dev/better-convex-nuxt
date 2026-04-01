@@ -270,7 +270,7 @@ describe('server Convex fetch helpers', () => {
     })
   })
 
-  it('auth:service injects service auth args instead of bearer auth', async () => {
+  it('auth:trusted injects trusted caller args instead of bearer auth', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ value: { ok: true } }), {

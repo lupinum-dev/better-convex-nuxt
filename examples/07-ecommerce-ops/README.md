@@ -21,7 +21,7 @@ It shows:
 
 ## Hard Problem
 
-- duplicated or invalid webhook events must be denied, and the refund rules must stay consistent across human and machine callers
+- duplicated or invalid webhook events must be denied, and the refund rules must stay consistent across human and webhook bot users
 
 ## Module Primitives Used
 
@@ -54,7 +54,7 @@ Keep `CONVEX_TRUSTED_CALLER_KEY` in `.env.local`. The launcher injects the local
 
 ## Test Focus
 
-- invalid service key denied
-- missing service-key config fails closed
+- invalid trusted caller key denied
+- missing trusted-caller config fails closed
 - duplicate event denied
 - refund-state guards for both human and webhook bot users

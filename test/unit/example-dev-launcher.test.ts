@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs'
 import { EventEmitter } from 'node:events'
+import { resolve } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,6 +29,7 @@ import {
 } from '../../scripts/example-dev.mjs'
 
 class FakeStream extends EventEmitter {}
+const LEGACY_TRUSTED_CALLER_ENV_VAR = ['CONVEX', 'SERVICE', 'KEY'].join('_')
 
 type FakeChildProcess = EventEmitter & {
   stdout: FakeStream
@@ -130,6 +133,23 @@ describe('example dev launcher', () => {
     expect(resolved.BETTER_AUTH_SECRET).toHaveLength(64) // 32 bytes hex
     expect(resolved.CONVEX_TRUSTED_CALLER_KEY).not.toMatch(/replace.?me/i)
     expect(resolved.CONVEX_TRUSTED_CALLER_KEY).not.toBe(resolved.BETTER_AUTH_SECRET)
+  })
+
+  it('keeps tracked example env files on the trusted caller secret name', () => {
+    const files = [
+      'examples/03-team-todo/.env.example',
+      'examples/04-project-board-admin/.env.example',
+      'examples/07-ecommerce-ops/.env.example',
+      'examples/11-mcp-reference/.env.example',
+      'examples/11-mcp-reference/.env.local',
+      'playground/.env.local',
+    ]
+
+    for (const file of files) {
+      const source = readFileSync(resolve(process.cwd(), file), 'utf8')
+      expect(source, file).toContain('CONVEX_TRUSTED_CALLER_KEY')
+      expect(source, file).not.toContain(LEGACY_TRUSTED_CALLER_ENV_VAR)
+    }
   })
 
   it('reuses persisted secrets from .env.local when placeholders are resolved', () => {

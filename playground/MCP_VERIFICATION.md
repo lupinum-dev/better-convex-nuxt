@@ -54,7 +54,7 @@ When setup is correct:
   If the verification page only shows a prefix, paste the full `mcp_*` secret once on `/demo/mcp-verify` or recreate the key on `/demo/mcp-keys`.
 
 - Missing `CONVEX_TRUSTED_CALLER_KEY`:
-  Actor-backed MCP calls fail because authenticated `ctx.query()` / `ctx.mutation()` need service injection.
+  Actor-backed MCP calls fail because authenticated `ctx.query()` / `ctx.mutation()` need trusted caller injection.
 
 - No local `jq`:
   The generated commands depend on `jq` to extract session ids and created resource ids.
@@ -85,11 +85,11 @@ still need to be removed before this pattern is production-ready.
 
 ### Security and secrets
 
-- Replace the hardcoded local fallback service key in `playground/shared/dev-service-key.ts`
+- Replace the hardcoded local fallback trusted caller key in `playground/shared/dev-trusted-caller-key.ts`
   with real environment-only secret management.
 - Remove the playground fallback validator in `playground/convex/auth/actor.ts`
-  so service auth only succeeds through the real configured secret.
-- Rotate any local demo keys and service keys used during development.
+  so trusted caller auth only succeeds through the real configured secret.
+- Rotate any local demo keys and trusted caller keys used during development.
 - Make sure production MCP keys are created, stored, and revoked only through the
   real key lifecycle flow. Do not rely on browser-local copies of full secrets.
 

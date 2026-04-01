@@ -7,7 +7,7 @@ This page is intentionally simple because the interesting part is shared auth an
     <h1>Example 07: E-Commerce Ops</h1>
     <p>
       This example keeps the UI simple because the hard part is not CRUD. It is keeping human and
-      machine callers on the same business-state path.
+      webhook bot users on the same business-state path.
     </p>
 
     <ConvexAuthLoading>

@@ -62,8 +62,8 @@ Last updated: 2026-04-01
 
 - Fixed: playground build failed on `createAuth` auto-import resolution in `playground/composables/usePermissions.ts`.
 - Fixed: MCP auth middleware was not mapping `tenantId` onto the MCP actor, which hid scoped tools from valid actors.
-- Fixed: service-auth MCP calls were only injecting `_serviceKey` and `_serviceActor` for scoped tools, causing execution/discovery drift for authenticated non-scoped tools.
-- Fixed: Convex actor resolution ignored `_serviceKey` and `_serviceActor`, so MCP-authenticated calls did not reach Convex with the intended actor identity.
+- Fixed: trusted-caller MCP calls now inject the hidden trusted caller transport consistently for scoped and non-scoped authenticated tools.
+- Fixed: Convex actor resolution now reads the trusted caller transport correctly, so MCP-authenticated calls reach Convex with the intended actor identity.
 - Fixed: wrapper-based `actorQuery` / `actorMutation` auth flow was removed in favor of explicit `getActor(ctx, args)` plus `withTrustedCaller(...)`.
 - Fixed: shared schemas are schema-only again; hidden trusted-caller transport no longer lives on `defineArgs()`.
 - Fixed: Evalite was not discovering `.eval.ts` files because the repo Vitest config had no eval project and the CLI script was using the wrong subcommand.

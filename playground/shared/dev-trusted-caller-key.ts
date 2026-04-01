@@ -1,5 +1,5 @@
 /**
- * Playground-only fallback for local service-to-service auth.
+ * Playground-only fallback for local trusted caller auth.
  *
  * Local Convex dev does not reliably surface arbitrary shell env vars inside
  * query/mutation runtimes, so the playground keeps one deterministic fallback

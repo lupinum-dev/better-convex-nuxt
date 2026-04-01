@@ -9,14 +9,19 @@ const allowedFiles = new Set([
   'src/cli/lib/project.ts',
   'test/unit/cli-doctor.test.ts',
   'test/unit/module-auto-imports.test.ts',
+  'test/unit/v3-repo-guard.test.ts',
 ])
 
 const bannedPatterns = [
   /\buseEnsureConvexUser\b/,
-  /\bwithTrustedCaller\b/,
-  /\bgetTrustedCaller\b/,
   /better-convex-nuxt\/schema/,
   /\bcreateAuth\s*\(\s*\{/,
+  /CONVEX_SERVICE_KEY/,
+  /_serviceKey\b/,
+  /_serviceActor\b/,
+  /\bauth:\s*'service'\b/,
+  /\bwithServiceAuth\b/,
+  /\bgetServiceCaller\b/,
 ] as const
 
 function collectFiles(target: string): string[] {
@@ -33,7 +38,7 @@ function collectFiles(target: string): string[] {
         continue
       }
 
-      if (entry.name === '.nuxt' || entry.name === '.data') {
+      if (entry.name === '.nuxt' || entry.name === '.data' || entry.name === '.convex') {
         continue
       }
 
@@ -55,7 +60,7 @@ function collectFiles(target: string): string[] {
 }
 
 describe('v3 repo guard', () => {
-  it('keeps removed public API names out of the repo except for explicit legacy checks', { timeout: 15000 }, () => {
+  it('keeps removed public API names and legacy service transport names out of the repo except for explicit legacy checks', { timeout: 15000 }, () => {
     const violations: string[] = []
 
     for (const target of rootsToScan) {

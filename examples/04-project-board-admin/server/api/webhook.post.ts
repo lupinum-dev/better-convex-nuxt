@@ -14,7 +14,6 @@ type WebhookBody = {
   title?: string
   priority?: 'low' | 'medium' | 'high'
   createdBy?: string
-  workspaceId?: string
 }
 
 export default defineEventHandler(async (event) => {
@@ -24,10 +23,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<WebhookBody>(event)
-  if (!body.projectId || !body.title || !body.createdBy || !body.workspaceId) {
+  if (!body.projectId || !body.title || !body.createdBy) {
     throw createError({
       statusCode: 400,
-      message: 'projectId, title, createdBy, and workspaceId are required.',
+      message: 'projectId, title, and createdBy are required.',
     })
   }
 

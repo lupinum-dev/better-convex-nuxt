@@ -1,6 +1,6 @@
 /**
  * Shared refund-eligibility rules.
- * Human refund flows and service/webhook flows must hit the same business-state checks.
+ * Human refund flows and trusted webhook flows must hit the same business-state checks.
  */
 import type { GenericMutationCtx } from 'convex/server'
 

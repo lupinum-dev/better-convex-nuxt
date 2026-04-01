@@ -639,6 +639,7 @@ import * as z from 'zod'
 
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
+import { selectMcpBoundUser } from '~/shared/mcp-bound-user'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -773,11 +774,8 @@ const mcpBoundUserOptions = computed(() =>
   })),
 )
 
-const selectedMcpBoundUser = computed(
-  () =>
-    (mcpKeyUsers.value ?? []).find((user) => user.authId === createKeyForm.boundAuthId) ??
-    (mcpKeyUsers.value ?? [])[0] ??
-    null,
+const selectedMcpBoundUser = computed(() =>
+  selectMcpBoundUser(mcpKeyUsers.value ?? [], createKeyForm.boundAuthId),
 )
 
 const appError = computed(
@@ -877,8 +875,8 @@ async function handleDeleteRunbook(id: Id<'runbooks'>) {
 }
 
 async function handleCreateMcpKey() {
-  const boundAuthId = selectedMcpBoundUser.value?.authId
-  if (!boundAuthId) {
+  const boundAuthId = createKeyForm.boundAuthId.trim()
+  if (!boundAuthId || !selectedMcpBoundUser.value) {
     throw new Error('Choose a workspace user before issuing an MCP key.')
   }
 

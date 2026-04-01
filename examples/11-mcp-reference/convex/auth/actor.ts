@@ -1,7 +1,7 @@
 /**
  * Why this file differs from the default tenant-scoped pattern:
  * This example teaches both browser and trusted non-browser lanes. `userId` remains the auth
- * subject or synthetic service principal stored on ownership fields, not a Convex user document id.
+ * subject stored on ownership fields, not a Convex user document id.
  */
 import type { AuthIdentity } from 'better-convex-nuxt/auth'
 import { getTrustedCaller } from 'better-convex-nuxt/trusted-caller'
