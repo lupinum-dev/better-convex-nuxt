@@ -1,9 +1,11 @@
 /**
  * Why this file exists:
- * The full example needs three tables:
- * - workspaces: the tenant boundary
- * - users: the source of actor role + tenant membership
- * - todos: the tenant-scoped resource protected by permissions
+ * Example 11 is the full MCP reference app. The schema keeps the business domain deliberately
+ * small so the MCP behavior stays readable:
+ * - workspaces: tenant boundary
+ * - users: browser-auth actor rows
+ * - runbooks: public + workspace + draft content used by MCP tools/resources/prompts
+ * - mcpKeys: hashed bearer tokens for MCP clients
  */
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
@@ -13,6 +15,17 @@ const roleValidator = v.union(
   v.literal('admin'),
   v.literal('member'),
   v.literal('viewer'),
+)
+
+const visibilityValidator = v.union(
+  v.literal('public'),
+  v.literal('workspace'),
+  v.literal('draft'),
+)
+
+const keyStatusValidator = v.union(
+  v.literal('active'),
+  v.literal('revoked'),
 )
 
 export default defineSchema({
@@ -37,13 +50,35 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_workspace', ['workspaceId']),
 
-  todos: defineTable({
+  runbooks: defineTable({
     title: v.string(),
-    completed: v.boolean(),
+    summary: v.string(),
+    content: v.string(),
+    visibility: visibilityValidator,
+    tags: v.array(v.string()),
     ownerId: v.string(),
     workspaceId: v.id('workspaces'),
     createdAt: v.number(),
+    updatedAt: v.number(),
+    publishedAt: v.optional(v.number()),
   })
     .index('by_workspace', ['workspaceId'])
+    .index('by_visibility', ['visibility'])
+    .index('by_workspace_visibility', ['workspaceId', 'visibility'])
     .index('by_owner', ['ownerId']),
+
+  mcpKeys: defineTable({
+    name: v.string(),
+    prefix: v.string(),
+    hash: v.string(),
+    role: roleValidator,
+    userId: v.string(),
+    workspaceId: v.id('workspaces'),
+    status: keyStatusValidator,
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index('by_workspace', ['workspaceId'])
+    .index('by_hash', ['hash']),
 })

@@ -1,9 +1,9 @@
 import { defineConfig } from 'vitest/config'
-import { convexTestConfig } from 'better-convex-nuxt/testing'
+import { convexTestConfig } from '../../dist/runtime/testing/index.js'
 
 export default defineConfig(convexTestConfig({
   test: {
-    include: ['convex/**/*.test.ts'],
-    name: 'example-team-todo',
+    include: ['test/**/*.test.ts'],
+    name: 'example-mcp-reference',
   },
 }))

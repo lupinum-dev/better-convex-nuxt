@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
- * This is the "full" example config. It enables auth and the MCP toolkit so the app can
- * demonstrate the complete primitives-first surface in one place.
+ * Example 11 is the canonical MCP reference app. Sessions are enabled so the example can
+ * demonstrate session state and dynamic per-session tool registration in the default `/mcp` route.
  */
 export default defineNuxtConfig({
   modules: ['better-convex-nuxt', '@nuxt/ui', '@nuxtjs/mcp-toolkit'],
@@ -13,12 +13,19 @@ export default defineNuxtConfig({
     enabled: true,
   },
 
+  nitro: {
+    experimental: {
+      asyncContext: true,
+    },
+  },
+
   typescript: {
     strict: true,
   },
 
   mcp: {
-    name: 'team-todo-example',
+    name: 'mcp-reference-example',
+    sessions: true,
   },
 
   convex: {

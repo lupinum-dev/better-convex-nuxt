@@ -1,299 +1,503 @@
 <template>
-  <div
-    class="min-h-screen flex items-center justify-center p-6 bg-linear-to-br from-green-50 to-white dark:from-green-950/20 dark:to-neutral-950"
-  >
-    <UCard class="w-full max-w-5xl">
-      <template #header>
-        <p
-          class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400"
-        >
-          Example 03
-        </p>
-        <h1 class="text-3xl font-bold mt-1">Team Todo</h1>
-        <p class="text-sm text-muted mt-2">
-          This is the full team app story: auth, tenant scoping, app-owned permissions, frontend
-          permission guards, and MCP tools using the same backend functions.
-        </p>
-      </template>
+  <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.14),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)] p-6">
+    <div class="mx-auto flex max-w-7xl flex-col gap-6">
+      <UCard>
+        <template #header>
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="space-y-2">
+              <p class="text-xs font-black uppercase tracking-[0.28em] text-sky-700">
+                Example 11
+              </p>
+              <h1 class="text-3xl font-black tracking-tight text-slate-950">
+                MCP Reference
+              </h1>
+              <p class="max-w-3xl text-sm leading-6 text-slate-600">
+                The complete MCP example: public and scoped tools, destructive previews,
+                result envelopes, prompts, resources, sessions, dynamic per-session tools,
+                code mode, and a real hashed MCP key flow.
+              </p>
+            </div>
 
-      <div class="space-y-4">
-        <ConvexAuthLoading>
-          <div class="space-y-3">
-            <p class="text-sm text-muted">Checking your session...</p>
-            <USkeleton class="h-24 w-full rounded-xl" />
-          </div>
-        </ConvexAuthLoading>
-
-        <ConvexUnauthenticated>
-          <div class="grid gap-4 md:grid-cols-2">
-            <UCard>
-              <UAuthForm
-                :schema="signUpSchema"
-                title="Create account"
-                description="Start with a user account, then create or join a workspace."
-                icon="i-lucide-user-plus"
-                :fields="signUpFields"
-                :submit="{ label: 'Sign up', block: true }"
-                :loading="authAction.pending.value"
-                @submit="handleSignUp"
-              >
-                <template #validation>
-                  <UAlert
-                    v-if="authAction.error.value"
-                    color="error"
-                    variant="soft"
-                    icon="i-lucide-circle-alert"
-                    title="Authentication error"
-                    :description="authAction.error.value.message"
-                  />
-                </template>
-              </UAuthForm>
-            </UCard>
-
-            <UCard>
-              <UAuthForm
-                :schema="signInSchema"
-                title="Sign in"
-                description="Load your workspace context and permission-aware team todos."
-                icon="i-lucide-log-in"
-                :fields="signInFields"
-                :submit="{ label: 'Sign in', block: true, color: 'neutral', variant: 'soft' }"
-                :loading="authAction.pending.value"
-                @submit="handleSignIn"
-              >
-                <template #validation>
-                  <UAlert
-                    v-if="authAction.error.value"
-                    color="error"
-                    variant="soft"
-                    icon="i-lucide-circle-alert"
-                    title="Authentication error"
-                    :description="authAction.error.value.message"
-                  />
-                </template>
-              </UAuthForm>
-            </UCard>
-          </div>
-        </ConvexUnauthenticated>
-
-        <ConvexAuthenticated>
-          <div class="flex flex-col gap-4">
-            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 class="text-xl font-semibold">{{ displayName }}</h2>
-                <p class="text-sm text-muted mt-1">
-                  Role: <span class="font-semibold text-highlighted">{{ role || 'loading...' }}</span>
-                  <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
-                </p>
+            <div class="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
+              <div class="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                <p class="font-semibold text-slate-900">Default endpoint</p>
+                <code class="text-xs">http://localhost:3000/mcp</code>
               </div>
-
-              <UButton
-                type="button"
-                color="neutral"
-                variant="ghost"
-                trailing-icon="i-lucide-log-out"
-                @click="handleSignOut"
-              >
-                Sign out
-              </UButton>
+              <div class="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                <p class="font-semibold text-slate-900">Code mode endpoint</p>
+                <code class="text-xs">http://localhost:3000/mcp/runbook-agent</code>
+              </div>
             </div>
+          </div>
+        </template>
 
-            <UAlert
-              v-if="todoError"
-              color="error"
-              variant="soft"
-              icon="i-lucide-circle-alert"
-              title="Example error"
-              :description="todoError"
-            />
-
-            <div v-if="ensureUserRow.pending.value" class="space-y-3">
-              <p class="text-sm text-muted">Preparing your application user...</p>
-              <USkeleton class="h-20 w-full rounded-xl" />
-            </div>
-
-            <template v-if="ready && !tenantId">
-              <div class="grid gap-4 md:grid-cols-2">
-                <UCard>
-                  <template #header>
-                    <h3 class="text-lg font-semibold">Create workspace</h3>
-                    <p class="text-sm text-muted mt-1">
-                      The creator becomes the workspace owner. That keeps the example role model obvious.
+        <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+          <div class="space-y-6">
+            <UCard>
+              <template #header>
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 class="text-lg font-semibold text-slate-950">Public MCP surface</h2>
+                    <p class="text-sm text-slate-600">
+                      These runbooks are visible through unauthenticated MCP tools and resources.
                     </p>
-                  </template>
+                  </div>
+                  <UBadge color="info" variant="soft">No auth required</UBadge>
+                </div>
+              </template>
 
-                  <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Name</label>
-                      <UInput v-model="createWorkspaceForm.name" type="text" required />
+              <div v-if="publicPending" class="space-y-3">
+                <USkeleton v-for="n in 2" :key="n" class="h-20 w-full rounded-2xl" />
+              </div>
+              <div v-else class="grid gap-3">
+                <div
+                  v-for="runbook in publicRunbooks"
+                  :key="runbook._id"
+                  class="rounded-2xl border border-slate-200 bg-white/90 p-4"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 class="font-semibold text-slate-950">{{ runbook.title }}</h3>
+                      <p class="mt-1 text-sm text-slate-600">{{ runbook.summary }}</p>
                     </div>
-
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Slug</label>
-                      <UInput v-model="createWorkspaceForm.slug" type="text" required />
-                    </div>
-
-                    <UButton type="submit" block :loading="createWorkspace.pending.value">
-                      {{ createWorkspace.pending.value ? 'Creating...' : 'Create workspace' }}
-                    </UButton>
-                  </form>
-                </UCard>
-
-                <UCard>
-                  <template #header>
-                    <h3 class="text-lg font-semibold">Join workspace</h3>
-                    <p class="text-sm text-muted mt-1">
-                      This demo keeps joining intentionally open so you can quickly test different roles.
-                    </p>
-                  </template>
-
-                  <form class="space-y-4" @submit.prevent="handleJoinWorkspace">
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Workspace slug</label>
-                      <UInput v-model="joinWorkspaceForm.slug" type="text" required />
-                    </div>
-
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Role</label>
-                      <USelect
-                        v-model="joinWorkspaceForm.role"
-                        :items="roleOptions"
-                      />
-                    </div>
-
-                    <UButton
-                      type="submit"
-                      block
+                    <UBadge color="success" variant="subtle">{{ runbook.visibility }}</UBadge>
+                  </div>
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <UBadge
+                      v-for="tag in runbook.tags"
+                      :key="`${runbook._id}-${tag}`"
                       color="neutral"
                       variant="soft"
-                      :loading="joinWorkspace.pending.value"
                     >
-                      {{ joinWorkspace.pending.value ? 'Joining...' : 'Join workspace' }}
-                    </UButton>
-                  </form>
+                      {{ tag }}
+                    </UBadge>
+                  </div>
+                </div>
+                <p v-if="!publicRunbooks?.length" class="text-sm text-slate-500">
+                  No public runbooks yet. Create a workspace to seed the defaults.
+                </p>
+              </div>
+            </UCard>
+
+            <ConvexAuthLoading>
+              <UCard>
+                <div class="space-y-3">
+                  <p class="text-sm text-slate-600">Checking your session…</p>
+                  <USkeleton class="h-28 w-full rounded-2xl" />
+                </div>
+              </UCard>
+            </ConvexAuthLoading>
+
+            <ConvexUnauthenticated>
+              <div class="grid gap-4 lg:grid-cols-2">
+                <UCard>
+                  <UAuthForm
+                    :schema="signUpSchema"
+                    title="Create account"
+                    description="Sign up, create a workspace, then issue MCP keys from the app."
+                    icon="i-lucide-user-plus"
+                    :fields="signUpFields"
+                    :submit="{ label: 'Sign up', block: true }"
+                    :loading="authAction.pending.value"
+                    @submit="handleSignUp"
+                  >
+                    <template #validation>
+                      <UAlert
+                        v-if="authAction.error.value"
+                        color="error"
+                        variant="soft"
+                        icon="i-lucide-circle-alert"
+                        title="Authentication error"
+                        :description="authAction.error.value.message"
+                      />
+                    </template>
+                  </UAuthForm>
+                </UCard>
+
+                <UCard>
+                  <UAuthForm
+                    :schema="signInSchema"
+                    title="Sign in"
+                    description="Load the workspace-scoped runbook dashboard and MCP key manager."
+                    icon="i-lucide-log-in"
+                    :fields="signInFields"
+                    :submit="{ label: 'Sign in', block: true, color: 'neutral', variant: 'soft' }"
+                    :loading="authAction.pending.value"
+                    @submit="handleSignIn"
+                  >
+                    <template #validation>
+                      <UAlert
+                        v-if="authAction.error.value"
+                        color="error"
+                        variant="soft"
+                        icon="i-lucide-circle-alert"
+                        title="Authentication error"
+                        :description="authAction.error.value.message"
+                      />
+                    </template>
+                  </UAuthForm>
                 </UCard>
               </div>
+            </ConvexUnauthenticated>
 
-              <UCard v-if="workspaceOptions?.length">
-                <template #header>
-                  <h3 class="text-lg font-semibold">Existing workspaces</h3>
-                  <p class="text-sm text-muted mt-1">
-                    Use one of these slugs to join from another account.
-                  </p>
-                </template>
-
-                <ul class="space-y-2">
-                  <li
-                    v-for="workspace in workspaceOptions"
-                    :key="workspace._id"
-                    class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-default bg-elevated"
-                  >
-                    <span class="font-medium text-highlighted">{{ workspace.name }}</span>
-                    <span class="text-sm text-muted">{{ workspace.slug }}</span>
-                  </li>
-                </ul>
-              </UCard>
-            </template>
-
-            <template v-if="tenantId">
-              <UCard>
-                <template #header>
-                  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <h3 class="text-lg font-semibold">Workspace todos</h3>
-                      <p class="text-sm text-muted mt-1">
-                        The list query is a raw Convex query, and the handler applies the tenant boundary explicitly.
-                      </p>
-                    </div>
-                    <p class="text-sm text-muted break-words">
-                      MCP demo auth header:
-                      <code class="font-mono text-xs text-highlighted">
-                        Bearer demo:{{ ctx?.email || user?.email || 'you@example.com' }}
-                      </code>
-                    </p>
-                  </div>
-                </template>
-
-                <div class="space-y-4">
-                  <form class="flex flex-col gap-3 md:flex-row" @submit.prevent="handleCreateTodo">
-                    <UInput
-                      v-model="title"
-                      placeholder="Visible to everyone in your workspace"
-                      class="flex-1"
-                      required
-                      :disabled="createTodo.pending.value || !canCreate"
-                    />
-                    <UButton
-                      type="submit"
-                      :loading="createTodo.pending.value"
-                      :disabled="!canCreate"
-                      leading-icon="i-lucide-plus"
-                    >
-                      Add
-                    </UButton>
-                  </form>
-
-                  <UAlert
-                    v-if="!canCreate"
-                    color="warning"
-                    variant="soft"
-                    icon="i-lucide-shield-alert"
-                    title="Create permission required"
-                    description="Your current role cannot create todos in this workspace."
-                  />
-
-                  <div v-if="todosPending" class="space-y-3">
-                    <p class="text-sm text-muted">Loading workspace todos...</p>
-                    <USkeleton v-for="n in 3" :key="n" class="h-14 w-full rounded-xl" />
-                  </div>
-
-                  <ul v-else-if="todos?.length" class="space-y-2">
-                    <li
-                      v-for="todo in todos"
-                      :key="todo._id"
-                      class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-default bg-elevated"
-                    >
-                      <div class="min-w-0 flex-1 space-y-1">
-                        <UCheckbox
-                          :model-value="todo.completed"
-                          :label="todo.title"
-                          :disabled="!todo._can.update"
-                          :ui="{ label: todo.completed ? 'line-through text-muted' : '' }"
-                          @update:model-value="handleToggle(todo._id, !todo.completed)"
-                        />
-                        <p class="text-xs text-muted">owner: {{ todo.ownerId }}</p>
+            <ConvexAuthenticated>
+              <div class="space-y-6">
+                <UCard>
+                  <template #header>
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <h2 class="text-xl font-semibold text-slate-950">{{ displayName }}</h2>
+                        <p class="mt-1 text-sm text-slate-600">
+                          Role:
+                          <span class="font-semibold text-slate-900">{{ role || 'loading…' }}</span>
+                          <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
+                        </p>
                       </div>
 
                       <UButton
-                        icon="i-lucide-trash-2"
+                        type="button"
                         color="neutral"
                         variant="ghost"
-                        size="xs"
-                        square
-                        aria-label="Delete todo"
-                        :disabled="!todo._can.delete"
-                        @click="removeTodo({ id: todo._id })"
-                      />
-                    </li>
-                  </ul>
+                        trailing-icon="i-lucide-log-out"
+                        @click="handleSignOut"
+                      >
+                        Sign out
+                      </UButton>
+                    </div>
+                  </template>
 
-                  <p v-else class="text-muted text-sm text-center py-8">No team todos yet.</p>
-                </div>
-              </UCard>
-            </template>
+                  <UAlert
+                    v-if="appError"
+                    color="error"
+                    variant="soft"
+                    icon="i-lucide-circle-alert"
+                    title="Example error"
+                    :description="appError"
+                  />
+
+                  <div v-if="ensureUserRow.pending.value" class="space-y-3">
+                    <p class="text-sm text-slate-600">Preparing your application user…</p>
+                    <USkeleton class="h-20 w-full rounded-2xl" />
+                  </div>
+
+                  <template v-if="ready && !tenantId">
+                    <div class="grid gap-4 lg:grid-cols-2">
+                      <UCard>
+                        <template #header>
+                          <h3 class="text-lg font-semibold">Create workspace</h3>
+                          <p class="mt-1 text-sm text-slate-600">
+                            The creator becomes owner and gets seeded runbooks for the MCP demos.
+                          </p>
+                        </template>
+
+                        <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
+                          <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-900">Name</label>
+                            <UInput v-model="createWorkspaceForm.name" required />
+                          </div>
+
+                          <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-900">Slug</label>
+                            <UInput v-model="createWorkspaceForm.slug" required />
+                          </div>
+
+                          <UButton type="submit" block :loading="createWorkspace.pending.value">
+                            Create workspace
+                          </UButton>
+                        </form>
+                      </UCard>
+
+                      <UCard>
+                        <template #header>
+                          <h3 class="text-lg font-semibold">Join workspace</h3>
+                          <p class="mt-1 text-sm text-slate-600">
+                            Join an existing workspace to test role-aware MCP visibility.
+                          </p>
+                        </template>
+
+                        <form class="space-y-4" @submit.prevent="handleJoinWorkspace">
+                          <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-900">Workspace slug</label>
+                            <UInput v-model="joinWorkspaceForm.slug" required />
+                          </div>
+
+                          <div class="space-y-1">
+                            <label class="text-sm font-medium text-slate-900">Role</label>
+                            <USelect v-model="joinWorkspaceForm.role" :items="workspaceRoleOptions" />
+                          </div>
+
+                          <UButton
+                            type="submit"
+                            block
+                            color="neutral"
+                            variant="soft"
+                            :loading="joinWorkspace.pending.value"
+                          >
+                            Join workspace
+                          </UButton>
+                        </form>
+                      </UCard>
+                    </div>
+
+                    <UCard v-if="workspaceOptions?.length">
+                      <template #header>
+                        <h3 class="text-lg font-semibold">Existing workspaces</h3>
+                      </template>
+
+                      <ul class="space-y-2">
+                        <li
+                          v-for="workspace in workspaceOptions"
+                          :key="workspace._id"
+                          class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3"
+                        >
+                          <span class="font-medium text-slate-900">{{ workspace.name }}</span>
+                          <span class="text-sm text-slate-500">{{ workspace.slug }}</span>
+                        </li>
+                      </ul>
+                    </UCard>
+                  </template>
+
+                  <template v-if="tenantId">
+                    <div class="grid gap-6 2xl:grid-cols-[1.1fr_0.9fr]">
+                      <div class="space-y-6">
+                        <UCard>
+                          <template #header>
+                            <div class="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 class="text-lg font-semibold">Workspace runbooks</h3>
+                                <p class="mt-1 text-sm text-slate-600">
+                                  These are the records the scoped MCP tools manipulate.
+                                </p>
+                              </div>
+                              <UBadge v-if="canCreateRunbook" color="success" variant="soft">
+                                Create allowed
+                              </UBadge>
+                            </div>
+                          </template>
+
+                          <form class="grid gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4" @submit.prevent="handleCreateRunbook">
+                            <UInput v-model="createRunbookForm.title" placeholder="Runbook title" :disabled="!canCreateRunbook" required />
+                            <UInput v-model="createRunbookForm.summary" placeholder="One-line summary" :disabled="!canCreateRunbook" required />
+                            <UTextarea v-model="createRunbookForm.content" :rows="6" :disabled="!canCreateRunbook" />
+                            <div class="grid gap-3 md:grid-cols-[1fr_1fr]">
+                              <USelect v-model="createRunbookForm.visibility" :items="visibilityOptions" :disabled="!canCreateRunbook" />
+                              <UInput v-model="createRunbookForm.tags" placeholder="incident, ops, release" :disabled="!canCreateRunbook" />
+                            </div>
+                            <UButton type="submit" :loading="createRunbookMutation.pending.value" :disabled="!canCreateRunbook">
+                              Create runbook
+                            </UButton>
+                          </form>
+
+                          <div class="mt-4 space-y-3">
+                            <div v-if="workspaceRunbooksPending" class="space-y-3">
+                              <USkeleton v-for="n in 3" :key="n" class="h-24 w-full rounded-2xl" />
+                            </div>
+
+                            <div
+                              v-for="runbook in workspaceRunbooks"
+                              :key="runbook._id"
+                              class="rounded-2xl border border-slate-200 bg-white/90 p-4"
+                            >
+                              <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                <div class="space-y-2">
+                                  <div class="flex flex-wrap items-center gap-2">
+                                    <h4 class="font-semibold text-slate-950">{{ runbook.title }}</h4>
+                                    <UBadge color="neutral" variant="soft">{{ runbook.visibility }}</UBadge>
+                                  </div>
+                                  <p class="text-sm text-slate-600">{{ runbook.summary }}</p>
+                                  <div class="flex flex-wrap gap-2">
+                                    <UBadge
+                                      v-for="tag in runbook.tags"
+                                      :key="`${runbook._id}-${tag}`"
+                                      color="neutral"
+                                      variant="subtle"
+                                    >
+                                      {{ tag }}
+                                    </UBadge>
+                                  </div>
+                                </div>
+
+                                <div class="flex flex-wrap gap-2">
+                                  <UButton
+                                    v-for="visibility in visibilityOptions"
+                                    :key="`${runbook._id}-${visibility}`"
+                                    size="xs"
+                                    color="neutral"
+                                    variant="soft"
+                                    :disabled="!runbook._can.update || visibility === runbook.visibility"
+                                    @click="handleSetVisibility(runbook._id, visibility)"
+                                  >
+                                    {{ visibility }}
+                                  </UButton>
+                                  <UButton
+                                    size="xs"
+                                    color="error"
+                                    variant="soft"
+                                    :disabled="!runbook._can.delete"
+                                    @click="handleDeleteRunbook(runbook._id)"
+                                  >
+                                    Delete
+                                  </UButton>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </UCard>
+
+                        <UCard>
+                          <template #header>
+                            <h3 class="text-lg font-semibold">Reference MCP flows</h3>
+                            <p class="mt-1 text-sm text-slate-600">
+                              The example ships public, scoped, session, dynamic, resource, prompt, and code-mode flows.
+                            </p>
+                          </template>
+
+                          <div class="grid gap-3 md:grid-cols-2">
+                            <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
+                              <p class="text-sm font-semibold text-slate-900">Public tool call</p>
+                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">curl http://localhost:3000/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"method":"tools/list","params":{}}'</pre>
+                            </div>
+                            <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
+                              <p class="text-sm font-semibold text-slate-900">Scoped authenticated call</p>
+                              <pre class="mt-2 overflow-x-auto text-xs text-slate-700">curl http://localhost:3000/mcp \
+  -H "Authorization: Bearer {{ createdKeySecret || 'mcp_…' }}" \
+  -H 'Content-Type: application/json' \
+  -d '{"method":"tools/list","params":{}}'</pre>
+                            </div>
+                          </div>
+                        </UCard>
+                      </div>
+
+                      <div class="space-y-6">
+                        <UCard>
+                          <template #header>
+                            <div class="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 class="text-lg font-semibold">MCP keys</h3>
+                                <p class="mt-1 text-sm text-slate-600">
+                                  Keys are hashed at rest and only shown once after creation.
+                                </p>
+                              </div>
+                              <UBadge :color="canManageMcp ? 'success' : 'warning'" variant="soft">
+                                {{ canManageMcp ? 'Manage allowed' : 'Owner or admin only' }}
+                              </UBadge>
+                            </div>
+                          </template>
+
+                          <UAlert
+                            v-if="createdKeySecret"
+                            color="success"
+                            variant="soft"
+                            icon="i-lucide-key-round"
+                            title="New MCP key"
+                            :description="`Copy this now. It will not be shown again: ${createdKeySecret}`"
+                          />
+
+                          <form class="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4" @submit.prevent="handleCreateMcpKey">
+                            <UInput v-model="createKeyForm.name" placeholder="Key name" :disabled="!canManageMcp" required />
+                            <USelect v-model="createKeyForm.role" :items="mcpRoleOptions" :disabled="!canManageMcp" />
+                            <UButton type="submit" :loading="createKey.pending.value" :disabled="!canManageMcp">
+                              Issue MCP key
+                            </UButton>
+                          </form>
+
+                          <div class="mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4">
+                            <p class="text-sm font-semibold text-slate-900">Verify a key</p>
+                            <div class="mt-3 flex gap-3">
+                              <UInput v-model="verifyKeyForm.token" class="flex-1" placeholder="Paste mcp_ token" />
+                              <UButton color="neutral" variant="soft" :loading="verifyingKey" @click="handleVerifyKey">
+                                Verify
+                              </UButton>
+                            </div>
+                            <UAlert
+                              v-if="verifyMessage"
+                              class="mt-3"
+                              :color="verifyVariant"
+                              variant="soft"
+                              :description="verifyMessage"
+                            />
+                          </div>
+
+                          <div class="mt-4 space-y-3">
+                            <div
+                              v-for="key in mcpKeys"
+                              :key="key._id"
+                              class="rounded-2xl border border-slate-200 bg-white/90 p-4"
+                            >
+                              <div class="flex items-start justify-between gap-3">
+                                <div>
+                                  <p class="font-semibold text-slate-900">{{ key.name }}</p>
+                                  <p class="mt-1 text-xs text-slate-500">
+                                    {{ key.prefix }} · role {{ key.role }} · status {{ key.status }}
+                                  </p>
+                                  <p class="mt-1 text-xs text-slate-500">
+                                    Last used:
+                                    {{ key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : 'never' }}
+                                  </p>
+                                </div>
+                                <UButton
+                                  size="xs"
+                                  color="error"
+                                  variant="soft"
+                                  :disabled="key.status === 'revoked' || !canManageMcp"
+                                  @click="revokeKey({ id: key._id })"
+                                >
+                                  Revoke
+                                </UButton>
+                              </div>
+                            </div>
+                          </div>
+                        </UCard>
+
+                        <UCard>
+                          <template #header>
+                            <h3 class="text-lg font-semibold">Capability map</h3>
+                          </template>
+
+                          <ul class="space-y-3 text-sm text-slate-600">
+                            <li><span class="font-semibold text-slate-900">Public tools:</span> list and search public runbooks.</li>
+                            <li><span class="font-semibold text-slate-900">Scoped tools:</span> list, create, update, delete, bulk-delete, and summarize workspace runbooks.</li>
+                            <li><span class="font-semibold text-slate-900">Middleware:</span> create/update/search and bulk-delete tools demonstrate tool middleware.</li>
+                            <li><span class="font-semibold text-slate-900">Sessions:</span> set/get focus plus dynamic shortcut registration.</li>
+                            <li><span class="font-semibold text-slate-900">Resources and prompts:</span> `app://mcp-reference/guide` and `/plan-runbook-workflow` are discoverable.</li>
+                            <li><span class="font-semibold text-slate-900">Code mode:</span> `/mcp/runbook-agent` exposes a focused orchestration endpoint.</li>
+                          </ul>
+                        </UCard>
+                      </div>
+                    </div>
+                  </template>
+                </UCard>
+              </div>
+            </ConvexAuthenticated>
           </div>
-        </ConvexAuthenticated>
-      </div>
-    </UCard>
+
+          <div class="space-y-6">
+            <UCard>
+              <template #header>
+                <h2 class="text-lg font-semibold text-slate-950">Why this example exists</h2>
+              </template>
+
+              <div class="space-y-4 text-sm leading-6 text-slate-600">
+                <p>
+                  Example 03 is the minimal MCP story. Example 11 is the full reference:
+                  one compact business domain, one real MCP auth story, and one place to read every major capability.
+                </p>
+                <p>
+                  The app UI uses browser auth. MCP clients use bearer tokens stored as hashes in Convex.
+                  Both paths converge on the same `getActor(ctx, args)` permission flow in Convex.
+                </p>
+              </div>
+            </UCard>
+          </div>
+        </div>
+      </UCard>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-/**
- * Why this file exists:
- * This page intentionally puts the whole "full example" flow in one file so readers can
- * trace auth, onboarding, scoped queries, and frontend permission checks without hunting around.
- */
 import * as z from 'zod'
 import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 import { computed, reactive, ref } from 'vue'
@@ -306,44 +510,14 @@ const authAction = useConvexAuthActions()
 const { can, ready, role, tenantId, ctx } = usePermissions()
 
 const signUpFields: AuthFormField[] = [
-  {
-    name: 'name',
-    type: 'text',
-    label: 'Name',
-    placeholder: 'Enter your name',
-    required: true,
-  },
-  {
-    name: 'email',
-    type: 'email',
-    label: 'Email',
-    placeholder: 'Enter your email',
-    required: true,
-  },
-  {
-    name: 'password',
-    type: 'password',
-    label: 'Password',
-    placeholder: 'Create a password',
-    required: true,
-  },
+  { name: 'name', type: 'text', label: 'Name', placeholder: 'Enter your name', required: true },
+  { name: 'email', type: 'email', label: 'Email', placeholder: 'Enter your email', required: true },
+  { name: 'password', type: 'password', label: 'Password', placeholder: 'Create a password', required: true },
 ]
 
 const signInFields: AuthFormField[] = [
-  {
-    name: 'email',
-    type: 'email',
-    label: 'Email',
-    placeholder: 'Enter your email',
-    required: true,
-  },
-  {
-    name: 'password',
-    type: 'password',
-    label: 'Password',
-    placeholder: 'Enter your password',
-    required: true,
-  },
+  { name: 'email', type: 'email', label: 'Email', placeholder: 'Enter your email', required: true },
+  { name: 'password', type: 'password', label: 'Password', placeholder: 'Enter your password', required: true },
 ]
 
 const signUpSchema = z.object({
@@ -370,23 +544,51 @@ const joinWorkspaceForm = reactive({
   role: 'member' as 'admin' | 'member' | 'viewer',
 })
 
-const title = ref('')
+const createRunbookForm = reactive({
+  title: '',
+  summary: '',
+  content: '# New runbook\n\n1. Add the first step\n2. Add the second step',
+  visibility: 'draft' as 'public' | 'workspace' | 'draft',
+  tags: 'ops, reference',
+})
+
+const createKeyForm = reactive({
+  name: 'Primary agent key',
+  role: 'member' as 'owner' | 'admin' | 'member' | 'viewer',
+})
+
+const verifyKeyForm = reactive({
+  token: '',
+})
+
+const createdKeySecret = ref('')
+const verifyMessage = ref('')
+const verifyVariant = ref<'success' | 'error'>('success')
+const verifyingKey = ref(false)
 
 const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
-const createTodo = useConvexMutation(api.todos.create)
-const updateTodo = useConvexMutation(api.todos.setCompleted)
-const removeTodo = useConvexMutation(api.todos.remove)
+const createRunbookMutation = useConvexMutation(api.runbooks.create)
+const updateRunbookMutation = useConvexMutation(api.runbooks.update)
+const deleteRunbookMutation = useConvexMutation(api.runbooks.remove)
+const createKey = useConvexMutation(api.mcpKeys.create)
+const revokeKey = useConvexMutation(api.mcpKeys.revoke)
 
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
+const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(api.runbooks.listPublic, {})
 
-// The permission context query can run anonymously. It returns null until the user is signed in.
-// The todo list query only runs once the user actually belongs to a workspace.
-const todoArgs = computed(() => (tenantId.value ? {} : undefined))
-const { data: todos, pending: todosPending, error: todosError } = await useConvexQuery(
-  api.todos.list,
-  todoArgs,
+const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
+const mcpKeyArgs = computed(() => (tenantId.value && canManageMcp.value ? {} : undefined))
+
+const { data: workspaceRunbooks, pending: workspaceRunbooksPending, error: workspaceRunbooksError } = await useConvexQuery(
+  api.runbooks.listWorkspace,
+  workspaceArgs,
+)
+
+const { data: mcpKeys, error: mcpKeysError } = await useConvexQuery(
+  api.mcpKeys.list,
+  mcpKeyArgs,
 )
 
 const displayName = computed(
@@ -398,29 +600,57 @@ const displayName = computed(
     || 'Signed in user',
 )
 
-const canCreate = can('todo.create')
-const roleOptions = ['admin', 'member', 'viewer'] as const
+const canCreateRunbook = can('runbook.create')
+const canManageMcp = can('mcp.manage')
 
-const todoError = computed(() =>
+const workspaceRoleOptions = ['admin', 'member', 'viewer'] as const
+const visibilityOptions = ['draft', 'workspace', 'public'] as const
+
+const mcpRoleOptions = computed(() => {
+  if (role.value === 'owner') return ['owner', 'admin', 'member', 'viewer'] as const
+  return ['member', 'viewer'] as const
+})
+
+const appError = computed(() =>
   ensureUserRow.error.value?.message
-  || todosError.value?.message
-  || createTodo.error.value?.message
-  || updateTodo.error.value?.message
-  || removeTodo.error.value?.message
+  || workspaceRunbooksError.value?.message
+  || mcpKeysError.value?.message
+  || createRunbookMutation.error.value?.message
+  || updateRunbookMutation.error.value?.message
+  || deleteRunbookMutation.error.value?.message
+  || createKey.error.value?.message
+  || revokeKey.error.value?.message
   || createWorkspace.error.value?.message
   || joinWorkspace.error.value?.message
   || '',
 )
 
+async function hashToken(token: string): Promise<string> {
+  const encoded = new TextEncoder().encode(token)
+  const hash = await crypto.subtle.digest('SHA-256', encoded)
+  return Array.from(new Uint8Array(hash)).map(value => value.toString(16).padStart(2, '0')).join('')
+}
+
+function generateMcpToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(24))
+  const body = Array.from(bytes).map(value => value.toString(16).padStart(2, '0')).join('')
+  return `mcp_${body}`
+}
+
+function toTagList(raw: string): string[] {
+  return raw
+    .split(',')
+    .map(tag => tag.trim())
+    .filter(Boolean)
+}
+
 async function handleSignUp(payload: FormSubmitEvent<SignUpSchema>) {
   if (!client) throw new Error('Auth client unavailable.')
-
   await authAction.execute(() => client.signUp.email(payload.data), { redirectTo: '/' })
 }
 
 async function handleSignIn(payload: FormSubmitEvent<SignInSchema>) {
   if (!client) throw new Error('Auth client unavailable.')
-
   await authAction.execute(() => client.signIn.email(payload.data), { redirectTo: '/' })
 }
 
@@ -442,18 +672,69 @@ async function handleJoinWorkspace() {
   })
 }
 
-async function handleCreateTodo() {
-  await createTodo({
-    title: title.value,
+async function handleCreateRunbook() {
+  await createRunbookMutation({
+    title: createRunbookForm.title,
+    summary: createRunbookForm.summary,
+    content: createRunbookForm.content,
+    visibility: createRunbookForm.visibility,
+    tags: toTagList(createRunbookForm.tags),
   })
 
-  title.value = ''
+  createRunbookForm.title = ''
+  createRunbookForm.summary = ''
 }
 
-async function handleToggle(id: Id<'todos'>, completed: boolean) {
-  await updateTodo({
-    id,
-    completed,
+async function handleSetVisibility(id: Id<'runbooks'>, visibility: 'public' | 'workspace' | 'draft') {
+  await updateRunbookMutation({ id, visibility })
+}
+
+async function handleDeleteRunbook(id: Id<'runbooks'>) {
+  await deleteRunbookMutation({ id })
+}
+
+async function handleCreateMcpKey() {
+  const token = generateMcpToken()
+  const hash = await hashToken(token)
+  const prefix = `${token.slice(0, 14)}...`
+
+  await createKey({
+    name: createKeyForm.name,
+    role: createKeyForm.role,
+    prefix,
+    hash,
   })
+
+  createdKeySecret.value = token
+}
+
+async function handleVerifyKey() {
+  if (!client) throw new Error('Convex client unavailable.')
+  verifyingKey.value = true
+
+  try {
+    const token = verifyKeyForm.token.trim()
+    if (!token.startsWith('mcp_')) {
+      verifyVariant.value = 'error'
+      verifyMessage.value = 'Keys in this example always start with mcp_.'
+      return
+    }
+
+    const result = await client.query(api.mcpKeys.validate, {
+      hash: await hashToken(token),
+    })
+
+    if (!result) {
+      verifyVariant.value = 'error'
+      verifyMessage.value = 'No active MCP key matched that token.'
+      return
+    }
+
+    verifyVariant.value = 'success'
+    verifyMessage.value = `Valid key for role ${result.role} in workspace ${result.tenantId}.`
+  }
+  finally {
+    verifyingKey.value = false
+  }
 }
 </script>

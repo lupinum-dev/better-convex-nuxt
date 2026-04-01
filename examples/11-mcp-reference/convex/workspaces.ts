@@ -4,8 +4,9 @@ import { mutation, query } from './_generated/server'
 import { can, deny } from 'better-convex-nuxt/auth'
 
 import {
-  canCreateTodo,
-  canReadTodo,
+  canCreateRunbook,
+  canManageMcpKeys,
+  canReadWorkspaceRunbook,
 } from './auth/checks'
 import { getActor } from './auth/actor'
 
@@ -40,8 +41,9 @@ export const getPermissionContext = query({
       email: user.email,
       displayName: user.displayName,
       can: {
-        'todo.read': can(actor, canReadTodo),
-        'todo.create': can(actor, canCreateTodo),
+        'runbook.read': can(actor, canReadWorkspaceRunbook),
+        'runbook.create': can(actor, canCreateRunbook),
+        'mcp.manage': can(actor, canManageMcpKeys),
       },
     }
   },
@@ -75,6 +77,43 @@ export const createWorkspace = mutation({
       name: args.name,
       slug: args.slug,
       ownerId: identity.subject,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await ctx.db.insert('runbooks', {
+      title: 'Public onboarding guide',
+      summary: 'A public runbook that demonstrates the unauthenticated MCP surface.',
+      content: [
+        '# Public onboarding guide',
+        '',
+        '- Public tools can list and search this runbook without auth.',
+        '- Scoped tools operate on workspace runbooks after MCP key auth succeeds.',
+        '- Sessions enable stored preferences and dynamic per-session tools.',
+      ].join('\n'),
+      visibility: 'public',
+      tags: ['public', 'onboarding'],
+      ownerId: identity.subject,
+      workspaceId: tenantId,
+      createdAt: now,
+      updatedAt: now,
+      publishedAt: now,
+    })
+
+    await ctx.db.insert('runbooks', {
+      title: 'Internal incident checklist',
+      summary: 'A workspace-only runbook seeded so the authenticated MCP tools have content.',
+      content: [
+        '# Internal incident checklist',
+        '',
+        '1. Acknowledge the incident.',
+        '2. Assign an owner.',
+        '3. Capture current impact and next update time.',
+      ].join('\n'),
+      visibility: 'workspace',
+      tags: ['incident', 'ops'],
+      ownerId: identity.subject,
+      workspaceId: tenantId,
       createdAt: now,
       updatedAt: now,
     })

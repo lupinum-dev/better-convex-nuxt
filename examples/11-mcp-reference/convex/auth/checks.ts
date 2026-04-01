@@ -9,9 +9,18 @@ export const hasRole =
 export const isOwnerOf = (resource: { ownerId: string }) => (actor: Actor) =>
   !!actor && actor.userId === resource.ownerId
 
-export const canCreateTodo = hasRole('owner', 'admin', 'member')
-export const canReadTodo = hasRole('owner', 'admin', 'member', 'viewer')
-export const canUpdateTodo = (todo: { ownerId: string }) =>
-  or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(todo)))
-export const canDeleteTodo = (todo: { ownerId: string }) =>
-  or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(todo)))
+export const canCreateRunbook = hasRole('owner', 'admin', 'member')
+export const canReadWorkspaceRunbook = hasRole('owner', 'admin', 'member', 'viewer')
+export const canUpdateRunbook = (runbook: { ownerId: string }) =>
+  or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(runbook)))
+export const canDeleteRunbook = (runbook: { ownerId: string }) =>
+  or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(runbook)))
+export const canPublishRunbook = hasRole('owner', 'admin')
+export const canManageMcpKeys = hasRole('owner', 'admin')
+
+export function canIssueKeyRole(actor: Actor, role: string): boolean {
+  if (!actor) return false
+  if (actor.role === 'owner') return ['owner', 'admin', 'member', 'viewer'].includes(role)
+  if (actor.role === 'admin') return ['member', 'viewer'].includes(role)
+  return false
+}

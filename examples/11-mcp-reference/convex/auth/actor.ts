@@ -1,17 +1,17 @@
 import type { AuthIdentity } from 'better-convex-nuxt/auth'
-import { getAuth, getTrustedCaller } from 'better-convex-nuxt/auth'
+import { getTrustedCaller } from 'better-convex-nuxt/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
 
 export type Actor =
-  | { kind: 'user'; userId: string; role: string; tenantId: string }
-  | { kind: 'service'; serviceId: string; userId: string; role: string; tenantId: string }
+  | { kind: 'user'; userId: string; role: string; tenantId: Id<'workspaces'> }
+  | { kind: 'service'; serviceId: string; userId: string; role: string; tenantId: Id<'workspaces'> }
   | null
 
-type TeamTodoCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type McpReferenceCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
-export async function getActor(ctx: TeamTodoCtx, args?: unknown): Promise<Actor> {
+export async function getActor(ctx: McpReferenceCtx, args?: unknown): Promise<Actor> {
   const trusted = getTrustedCaller(args)
   if (trusted) {
     if (!trusted.tenantId) return null
@@ -20,14 +20,20 @@ export async function getActor(ctx: TeamTodoCtx, args?: unknown): Promise<Actor>
       serviceId: 'service',
       userId: trusted.userId,
       role: trusted.role,
-      tenantId: trusted.tenantId,
+      tenantId: trusted.tenantId as Id<'workspaces'>,
     }
   }
 
-  return await resolveActor(ctx, await getAuth(ctx))
+  const identity = await ctx.auth.getUserIdentity()
+  if (!identity) return null
+  return await resolveActor(ctx, {
+    subject: identity.subject,
+    ...(typeof identity.email === 'string' ? { email: identity.email } : {}),
+    ...(typeof identity.name === 'string' ? { name: identity.name } : {}),
+  })
 }
 
-export async function resolveActor(ctx: TeamTodoCtx, auth: AuthIdentity | null): Promise<Actor> {
+export async function resolveActor(ctx: McpReferenceCtx, auth: AuthIdentity | null): Promise<Actor> {
   if (!auth) return null
 
   const user = await ctx.db

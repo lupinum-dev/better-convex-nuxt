@@ -13,6 +13,7 @@ This folder now has two jobs:
 | `02-auth-todo` | Auth-only apps | Better Auth wiring, raw Convex handlers |
 | `03-team-todo` | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#convex/mcp`, `better-convex-nuxt/testing` |
 | `04-project-board-admin` | Month-two product work | Project-management SaaS, pagination, optimistic updates, uploads, Nitro routes, `guard`, `_can`, admin workflows, integration + E2E tests |
+| `11-mcp-reference` | Full MCP implementation | hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode |
 
 If you're here because of shared validators or `shared/` folders rather than auth shape, read:
 
@@ -30,6 +31,7 @@ If you're here because of shared validators or `shared/` folders rather than aut
 | `08-freemium-workspace` | Freemium B2B | plan entitlements + limits | plan feature visible in UI | count-based project limits |
 | `09-doc-sharing` | Collaboration / sharing | resource sharing + public tokens | workspace member views a page | inherited access and token-level enforcement |
 | `10-agency-portal` | Agency / multi-client | controlled cross-tenant access | client user works inside current workspace | agency-wide dashboard across assigned clients only |
+| `11-mcp-reference` | MCP reference app | real MCP key auth + full protocol surface | public tool discovery | session state, dynamic tools, destructive confirmations, code mode |
 
 ## Important Repo Note
 
@@ -68,6 +70,7 @@ If you are running these examples from inside this repository and the local pack
 | `08-freemium-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
 | `09-doc-sharing` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
 | `10-agency-portal` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET` |
+| `11-mcp-reference` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_SERVICE_KEY` |
 
 ## Why The Code Is Comment-Heavy
 

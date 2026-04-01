@@ -1,29 +1,49 @@
 /**
  * Why this file exists:
- * The example needs a tiny way to authenticate MCP requests without teaching API key issuance too.
- * `Authorization: Bearer demo:<email>` is intentionally demo-only and should not be copied to production.
+ * This is the example's real MCP auth story:
+ * - the app UI creates bearer tokens
+ * - only a hash is stored in Convex
+ * - MCP requests send `Authorization: Bearer mcp_...`
+ * - the middleware hashes that token, validates it in Convex, then maps the result to `event.context.mcpAuth`
  */
-import { serverConvexQuery } from '#convex/server'
+import { createHash } from 'node:crypto'
+
+import { serverConvexMutation, serverConvexQuery } from '#convex/server'
 
 import { api } from '~/convex/_generated/api'
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
 
 export default defineEventHandler(async (event) => {
   if (!event.path?.startsWith('/mcp')) return
 
   const header = getRequestHeader(event, 'authorization')
-  if (!header?.startsWith('Bearer demo:')) return
+  if (!header?.startsWith('Bearer ')) return
 
-  const email = header.slice('Bearer demo:'.length).trim()
-  if (!email) return
+  const token = header.slice('Bearer '.length).trim()
+  if (!token.startsWith('mcp_')) return
 
-  const actor = await serverConvexQuery(
+  const validated = await serverConvexQuery(
     event,
-    api.users.resolveMcpActorByEmail,
-    { email },
+    api.mcpKeys.validate,
+    { hash: hashToken(token) },
     { auth: 'none' },
   )
 
-  if (actor) {
-    event.context.mcpAuth = actor
+  if (!validated) return
+
+  event.context.mcpAuth = {
+    role: validated.role,
+    userId: validated.userId,
+    tenantId: validated.tenantId,
   }
+
+  serverConvexMutation(
+    event,
+    api.mcpKeys.touch,
+    { id: validated.id, seenAt: Date.now() },
+    { auth: 'none' },
+  ).catch(() => {})
 })

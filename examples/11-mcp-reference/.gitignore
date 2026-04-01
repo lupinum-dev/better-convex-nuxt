@@ -6,3 +6,5 @@ dist
 coverage
 .env.local
 convex/_generated
+convex.json
+convex/tsconfig.json

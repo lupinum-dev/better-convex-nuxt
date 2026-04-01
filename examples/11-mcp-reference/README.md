@@ -1,36 +1,46 @@
-# Team Todo Example
+# MCP Reference Example
 
-This is the smallest example that proves the framework is safe for real team software.
+This is the full MCP reference app.
 
-It shows:
+It is intentionally compact on the business side and broad on the MCP side.
 
-- real auth
-- actor resolution
-- tenant-scoped tables
-- app-owned checks in `convex/auth/*`
-- backend-owned permission context exposed to Nuxt through `createAuth` from `better-convex-nuxt/composables`
-- MCP tools built with `#convex/mcp`
-- first-class tests with `better-convex-nuxt/testing`
+## What It Shows
+
+- public MCP tools with no auth
+- auth-required + tenant-scoped MCP tools
+- destructive preview + confirmation flow
+- tool middleware
+- rate limiting and bulk-operation limits
+- structured result envelopes and output schemas
+- prompts and resources
+- session state with `useMcpSession()`
+- dynamic per-session tool registration with `useMcpServer()`
+- a separate code-mode endpoint
+- real MCP bearer keys stored as hashes at rest
+
+## Business Domain
+
+The app is a workspace runbook library:
+
+- public runbooks are visible to unauthenticated MCP callers
+- workspace runbooks require browser auth in the app or an MCP bearer key
+- owners/admins can issue MCP keys for their workspace
+
+That gives the example one small domain while still covering every major MCP path.
 
 ## Files To Read First
 
-1. `convex/auth/actor.ts`
-2. `convex/auth/checks.ts`
-3. `shared/schemas/todo.ts`
-4. `convex/todos.ts`
-5. `composables/usePermissions.ts`
-6. `server/mcp/tools/*.ts`
-7. `convex/todos.test.ts`
-8. `vitest.config.ts`
-
-## Demo Flow
-
-1. Create account A and create workspace `alpha` -> that user becomes `owner`.
-2. Create account B and join workspace `alpha` as `member`.
-3. Create account C and create workspace `beta`.
-4. Add todos in both workspaces and verify lists stay isolated.
-5. Confirm the owner can manage all Alpha todos while the member is limited by ownership rules.
-6. Use the MCP curl commands below to manage Alpha's todos as account A.
+1. `convex/schema.ts`
+2. `convex/runbooks.ts`
+3. `convex/mcpKeys.ts`
+4. `server/middleware/mcp-auth.ts`
+5. `server/mcp/tools/public/*`
+6. `server/mcp/tools/workspace/*`
+7. `server/mcp/tools/session/*`
+8. `server/mcp/resources/mcp-reference-guide.ts`
+9. `server/mcp/prompts/plan-runbook-workflow.ts`
+10. `server/mcp/code-mode-demo.ts`
+11. `pages/index.vue`
 
 ## Run It
 
@@ -38,58 +48,63 @@ It shows:
 2. `pnpm install`
 3. `pnpm dev`
 
-The launcher starts a local Convex deployment, waits for `_generated`, and then starts Nuxt. Keep
-`CONVEX_SERVICE_KEY`, `SITE_URL`, and `BETTER_AUTH_SECRET` in `.env.local`; local Convex URLs are injected.
+`pnpm dev` starts a local Convex deployment, writes local env values, runs codegen, and then starts Nuxt.
 
-## MCP Demo Auth
+## Demo Flow
 
-To keep the example focused, MCP auth uses a tiny demo middleware:
+1. Sign up and create a workspace.
+2. Notice the workspace is seeded with one public and one internal runbook.
+3. Issue an MCP key from the UI and copy it once.
+4. Call the default MCP endpoint with that key and confirm scoped tools appear.
+5. Call the code-mode endpoint and compare the smaller tool set.
+6. Use the session tools to store a focus and register a temporary shortcut.
 
-- header format: `Authorization: Bearer demo:<email>`
-- middleware resolves that email to a real user in Convex
-- `#convex/mcp` then injects service auth into the scoped Convex calls
+## MCP Curl Snippets
 
-Example:
+Public discovery:
 
 ```bash
 curl http://localhost:3000/mcp \
   -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer demo:owner@example.com' \
-  -d '{"method":"tools/list","params":{}}'
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
 ```
 
-## Testing
+Authenticated discovery:
 
-This example is the trust proof, so it includes a small real test setup.
-
-```ts
-import { defineConfig } from "vitest/config";
-import { convexTestConfig } from "better-convex-nuxt/testing";
-
-export default defineConfig(
-  convexTestConfig({
-    test: {
-      include: ["convex/**/*.test.ts"],
-    },
-  }),
-);
+```bash
+curl http://localhost:3000/mcp \
+  -H 'Authorization: Bearer mcp_your_token_here' \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
 ```
 
-```ts
-import { createTestContext } from "better-convex-nuxt/testing";
+Read the guide resource:
 
-const ctx = createTestContext({ schema });
+```bash
+curl http://localhost:3000/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":"2","method":"resources/read","params":{"uri":"app://mcp-reference/guide"}}'
 ```
 
-The example test file covers:
+Use the code-mode endpoint:
 
-- member can update own todo
-- member cannot update another member's todo
-- tenants cannot see each other's todos
-- service-auth callers obey the same permission rules as browser and MCP callers
+```bash
+curl http://localhost:3000/mcp/runbook-agent \
+  -H 'Authorization: Bearer mcp_your_token_here' \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
+```
 
-`composables/usePermissions.ts` is intentionally tiny. It exists so Nuxt can auto-import
-`usePermissions()` everywhere else in the app while the raw permission `ctx` query stays in Convex-land.
+## Security Notes
 
-`shared/` is also intentional. Both Convex code and Nitro/MCP code import the same args definitions,
-so the folder marks a runtime boundary rather than a Nuxt convention.
+- MCP keys are stored as SHA-256 hashes in Convex, not plaintext.
+- The full bearer token is only shown once in the UI after creation.
+- MCP key validation happens in Nitro middleware and maps into `event.context.mcpAuth`.
+- Scoped MCP tools still call the same Convex handlers as the UI.
+- `lastUsedAt` updates are debounced to once per minute per key to avoid unnecessary write contention.
+
+## Why This Example Exists
+
+Example `03-team-todo` is the minimum viable MCP story.
+
+Example `11-mcp-reference` is where you go when you want to see the whole protocol surface in one place without the playground’s extra experimentation.
