@@ -3,18 +3,18 @@ import { fileURLToPath } from 'node:url'
 import { convexLocal } from 'convex-vite-plugin'
 
 const runtimeComposablesEntry = fileURLToPath(
-  new URL('../src/runtime/composables/index.ts', import.meta.url),
+  new URL('../../src/runtime/composables/index.ts', import.meta.url),
 )
-const runtimeAuthEntry = fileURLToPath(new URL('../src/runtime/auth/index.ts', import.meta.url))
-const runtimeArgsEntry = fileURLToPath(new URL('../src/runtime/args/index.ts', import.meta.url))
+const runtimeAuthEntry = fileURLToPath(new URL('../../src/runtime/auth/index.ts', import.meta.url))
+const runtimeArgsEntry = fileURLToPath(new URL('../../src/runtime/args/index.ts', import.meta.url))
 const runtimeTrustedCallerEntry = fileURLToPath(
-  new URL('../src/runtime/trusted-caller/index.ts', import.meta.url),
+  new URL('../../src/runtime/trusted-caller/index.ts', import.meta.url),
 )
 const runtimeVisibilityEntry = fileURLToPath(
-  new URL('../src/runtime/visibility/index.ts', import.meta.url),
+  new URL('../../src/runtime/visibility/index.ts', import.meta.url),
 )
-const runtimeMcpEntry = fileURLToPath(new URL('../src/runtime/mcp/index.ts', import.meta.url))
-const runtimeServerEntry = fileURLToPath(new URL('../src/runtime/server/index.ts', import.meta.url))
+const runtimeMcpEntry = fileURLToPath(new URL('../../src/runtime/mcp/index.ts', import.meta.url))
+const runtimeServerEntry = fileURLToPath(new URL('../../src/runtime/server/index.ts', import.meta.url))
 const harnessRoot = fileURLToPath(new URL('./', import.meta.url))
 const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
 const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true'
@@ -36,7 +36,7 @@ function appendOrigin(origins: string | undefined, origin: string): string {
 }
 
 export default defineNuxtConfig({
-  modules: ['../src/module', '@nuxtjs/mcp-toolkit'],
+  modules: ['../../src/module', '@nuxtjs/mcp-toolkit'],
 
   mcp: {
     name: 'better-convex-nuxt-internal-harness',

@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { defineArgs } from '../../../src/runtime/schema'
+import { defineArgs } from '../../../../src/runtime/schema'
 
 export const createNote = defineArgs({
   description: 'Create a new note',

@@ -1,6 +1,6 @@
 import { createError, defineEventHandler } from 'h3'
 
-import { serverConvexQuery } from '../../../src/runtime/server/utils/convex'
+import { serverConvexQuery } from '../../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
 function assertTestResetEnabled() {

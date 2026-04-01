@@ -62,7 +62,7 @@ const markdownTargets = [
   ...walk(resolve(rootDir, 'docs')).filter((file) => extname(file) === '.md'),
   ...walk(resolve(rootDir, 'examples')).filter((file) => extname(file) === '.md'),
   ...walk(resolve(rootDir, 'demo')).filter((file) => extname(file) === '.md'),
-  ...walk(resolve(rootDir, 'internal-harness')).filter((file) => extname(file) === '.md'),
+  ...walk(resolve(rootDir, 'test/internal-harness')).filter((file) => extname(file) === '.md'),
 ]
 
 const issues = []

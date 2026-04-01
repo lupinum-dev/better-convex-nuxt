@@ -3,7 +3,7 @@
   "exclude": [
     "dist",
     "node_modules",
-    "internal-harness",
+    "test/internal-harness",
     "docs",
     "demo",
     "examples",

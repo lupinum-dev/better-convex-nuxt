@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { defineArgs } from '../../../src/runtime/schema'
+import { defineArgs } from '../../../../src/runtime/schema'
 
 export const createComment = defineArgs({
   description: 'Add a comment to a post',

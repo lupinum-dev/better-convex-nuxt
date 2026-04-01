@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { defineArgs } from '../../../src/runtime/schema'
+import { defineArgs } from '../../../../src/runtime/schema'
 
 export const addTask = defineArgs({
   description: 'Add a task to your personal list',

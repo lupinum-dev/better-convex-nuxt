@@ -115,7 +115,7 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 - `src/`: package source
 - `docs/`: hosted docs app and docs content
 - `demo/`: public showcase app
-- `internal-harness/`: contributor-only dev and test harness
+- `test/internal-harness/`: contributor-only dev and test harness
 - `examples/`: runnable consumer reference apps
 
 ## Source Of Truth

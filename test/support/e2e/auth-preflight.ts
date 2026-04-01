@@ -77,7 +77,7 @@ function buildManagedAuthSetupHelp(cwd: string): string {
 }
 
 export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = {}): Promise<void> {
-  const cwd = options.cwd ?? path.resolve(process.cwd(), 'internal-harness')
+  const cwd = options.cwd ?? path.resolve(process.cwd(), 'test/internal-harness')
   const timeoutMs = options.timeoutMs ?? 5_000
   const envFile = await readLocalConvexEnv(cwd)
   const mergedEnv = options.env ?? {}

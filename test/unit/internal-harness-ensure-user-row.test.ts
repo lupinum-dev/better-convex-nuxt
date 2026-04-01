@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { shouldEnsureUserRow } from '../../internal-harness/composables/ensure-user-row-debug'
+import { shouldEnsureUserRow } from '../internal-harness/composables/ensure-user-row-debug'
 
 describe('internal harness ensure-user-row gating', () => {
   it('only bootstraps when auth exists but the app user row is still missing', () => {

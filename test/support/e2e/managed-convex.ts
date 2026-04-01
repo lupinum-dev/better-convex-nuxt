@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { once } from 'node:events'
 import path from 'node:path'
 
-import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../../../internal-harness/shared/dev-trusted-caller-key'
+import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../../internal-harness/shared/dev-trusted-caller-key'
 
 import { assertLocalAuthReady, deriveSiteUrlFromConvexUrl, readLocalConvexEnv } from './auth-preflight'
 import { terminateListeningPorts, waitForPort } from './ports'
@@ -56,7 +56,7 @@ function parseManagedConvexUrl(urlString: string): { port: number; url: string }
 export async function ensureManagedLocalConvex(
   options: EnsureManagedLocalConvexOptions = {},
 ): Promise<ManagedLocalConvexResult> {
-  const cwd = options.cwd ?? path.resolve(process.cwd(), 'internal-harness')
+  const cwd = options.cwd ?? path.resolve(process.cwd(), 'test/internal-harness')
   const timeoutMs = options.timeoutMs ?? 60_000
   const envFile = await readLocalConvexEnv(cwd)
   const resolved = parseManagedConvexUrl(process.env.CONVEX_URL ?? envFile.url ?? 'http://127.0.0.1:3210')

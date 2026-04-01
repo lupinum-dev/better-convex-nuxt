@@ -142,7 +142,7 @@ describe('example dev launcher', () => {
       'examples/07-ecommerce-ops/.env.example',
       'examples/11-mcp-reference/.env.example',
       'examples/11-mcp-reference/.env.local',
-      'internal-harness/.env.local',
+      'test/internal-harness/.env.local',
     ]
 
     for (const file of files) {

@@ -4,7 +4,7 @@
  * This demonstrates module augmentation for local development in this repo.
  * The runtime decoder only fills the normalized identity fields.
  */
-declare module '../../src/runtime/utils/types' {
+declare module '../../../src/runtime/utils/types' {
   interface ConvexUser {
     role?: 'owner' | 'admin' | 'member' | 'viewer'
     authId?: string

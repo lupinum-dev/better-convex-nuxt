@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler, readBody, createError } from 'h3'
 
-import { serverConvexMutation } from '../../../src/runtime/server/utils/convex'
+import { serverConvexMutation } from '../../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
 /**

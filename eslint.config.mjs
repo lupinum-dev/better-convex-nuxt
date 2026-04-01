@@ -10,7 +10,7 @@ export default createConfigForNuxt({
     stylistic: false,
   },
   dirs: {
-    src: ['./internal-harness'],
+    src: ['./test/internal-harness'],
   },
 })
   .prepend(
@@ -33,7 +33,7 @@ export default createConfigForNuxt({
       },
     },
     {
-      files: ['internal-harness/middleware/**/*.ts'],
+      files: ['test/internal-harness/middleware/**/*.ts'],
       rules: {
         'no-restricted-syntax': [
           'error',
@@ -55,7 +55,7 @@ export default createConfigForNuxt({
       },
     },
     {
-      files: ['internal-harness/plugins/**/*.ts'],
+      files: ['test/internal-harness/plugins/**/*.ts'],
       rules: {
         'no-restricted-syntax': [
           'error',

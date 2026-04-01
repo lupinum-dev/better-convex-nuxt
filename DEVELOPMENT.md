@@ -5,7 +5,7 @@ This file is the maintainer source of truth for local workspace setup and contri
 ## Repo Surfaces
 
 - repo root: module source, tests, release scripts, anti-drift checks
-- `internal-harness/`: contributor-only Nuxt app for root dev, evals, E2E, and repro work
+- `test/internal-harness/`: contributor-only Nuxt app for root dev, evals, E2E, and repro work
 - `demo/`: public showcase app
 - `docs/`: hosted documentation site
 - `examples/`: runnable consumer reference apps
@@ -38,7 +38,7 @@ pnpm docs:api-surface
 
 ## Internal Harness
 
-`internal-harness/` replaces the old public playground. It is intentionally contributor-facing only.
+`test/internal-harness/` replaces the old public playground. It is intentionally contributor-facing only.
 
 Use it for:
 
@@ -46,9 +46,9 @@ Use it for:
 - auth and MCP verification
 - regression reproduction
 - root E2E and eval flows
-- backend harness tests under `internal-harness/convex`
+- backend harness tests under `test/internal-harness/convex`
 
-The root `pnpm dev*` commands all target `internal-harness/`.
+The root `pnpm dev*` commands all target `test/internal-harness/`.
 
 ## Local Env Layout
 
@@ -79,7 +79,7 @@ Relevant docs:
 When you need a dedicated local backend for auth, MCP, or E2E:
 
 ```bash
-cd internal-harness
+cd test/internal-harness
 npx convex dev --local
 ```
 

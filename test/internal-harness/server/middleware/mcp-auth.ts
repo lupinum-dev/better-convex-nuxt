@@ -7,7 +7,7 @@
  * Also supports the legacy format `Bearer <role>:<userId>:<tenantId?>` for
  * quick testing without creating a key in the database.
  */
-import { serverConvexQuery, serverConvexMutation } from '../../../src/runtime/server/utils/convex'
+import { serverConvexQuery, serverConvexMutation } from '../../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
 export default defineEventHandler(async (event) => {
