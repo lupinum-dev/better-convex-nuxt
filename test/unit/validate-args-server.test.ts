@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { validateConvexArgs } from '../../src/runtime/server/utils/validate'
 import * as convexSchema from '../../src/runtime/utils/convex-schema'
-import { expectValidationError } from '../helpers/validation-error'
+import { expectValidationError } from '../support/unit/validation-error'
 
 describe('validateConvexArgs', () => {
   beforeEach(() => {

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 
 import { useConvexStorageUrl } from '../../src/runtime/composables/useConvexStorageUrl'
-import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
-import { waitFor } from '../helpers/wait-for'
+import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { waitFor } from '../support/nuxt/wait-for'
 
 describe('useConvexStorageUrl (Nuxt runtime)', () => {
   it('returns just the URL as a computed ref', async () => {

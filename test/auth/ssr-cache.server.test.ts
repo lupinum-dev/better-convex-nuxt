@@ -11,7 +11,7 @@ import {
   useEventMock,
   useRuntimeConfigMock,
   useStorageMock,
-} from '../harness/server-auth-fixtures'
+} from '../support/auth/server-auth-fixtures'
 
 vi.mock('nitropack/runtime', () => ({
   useStorage: useStorageMock,

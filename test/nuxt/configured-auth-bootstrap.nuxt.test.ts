@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
-import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
-import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
-import { waitFor } from '../helpers/wait-for'
+import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
+import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { waitFor } from '../support/nuxt/wait-for'
 
 const mutation = mockFnRef<'mutation'>('auth:createUserIfNeeded')
 

@@ -8,7 +8,7 @@
 import type { H3Event } from 'h3'
 import { vi } from 'vitest'
 
-import type { NormalizedConvexRuntimeConfig } from '../../src/runtime/utils/runtime-config'
+import type { NormalizedConvexRuntimeConfig } from '../../../src/runtime/utils/runtime-config'
 
 export const useStorageMock = vi.fn()
 export const useRuntimeConfigMock = vi.fn()

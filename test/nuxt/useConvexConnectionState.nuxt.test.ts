@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { useNuxtApp } from '#imports'
 
 import { useConvexConnectionState } from '../../src/runtime/composables/useConvexConnectionState'
-import { MockConvexClient } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { MockConvexClient } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
 
 describe('useConvexConnectionState (Nuxt runtime)', () => {
   it('does not emit on initial boot and only emits when the connection phase changes', async () => {

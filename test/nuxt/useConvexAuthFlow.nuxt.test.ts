@@ -9,10 +9,10 @@ import { useConvexAuthActions } from '../../src/runtime/composables/useConvexAut
 import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
-import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
-import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
-import { waitFor } from '../helpers/wait-for'
+import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
+import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { waitFor } from '../support/nuxt/wait-for'
 
 const AUTH_USER = {
   id: 'u-auth',

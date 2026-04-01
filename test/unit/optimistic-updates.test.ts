@@ -8,7 +8,7 @@ import {
   removeFrom,
   updateIn,
 } from '../../src/runtime/composables/optimistic-updates'
-import { mockFnRef } from '../helpers/mock-convex-client'
+import { mockFnRef } from '../support/nuxt/mock-convex-client'
 
 interface StoredQuery {
   query: unknown

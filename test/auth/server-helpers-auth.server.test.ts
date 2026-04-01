@@ -11,7 +11,7 @@ import {
   installServerAuthStorageMock,
   mockConvexConfig,
   resetServerAuthFixtureState,
-} from '../harness/server-auth-fixtures'
+} from '../support/auth/server-auth-fixtures'
 
 const { useStorageMock } = vi.hoisted(() => ({
   useStorageMock: vi.fn(),

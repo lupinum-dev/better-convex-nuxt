@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { useUploadQueue as useConvexUpload } from '../../src/runtime/composables/useConvexUpload'
-import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
-import { waitFor } from '../helpers/wait-for'
+import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { waitFor } from '../support/nuxt/wait-for'
 
 interface UploadPlan {
   status: number

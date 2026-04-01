@@ -11,9 +11,9 @@ import {
   type PaginatedQueryItem,
   type UseConvexPaginatedQueryOptions,
 } from '../../src/runtime/composables/useConvexPaginatedQuery'
-import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
-import { waitFor } from '../helpers/wait-for'
+import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { waitFor } from '../support/nuxt/wait-for'
 
 function useConvexPaginatedQueryState<
   Query extends PaginatedQueryReference,

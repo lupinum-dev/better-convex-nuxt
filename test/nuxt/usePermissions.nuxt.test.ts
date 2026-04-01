@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { useRouter } from '#imports'
 
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
-import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
-import { waitFor } from '../helpers/wait-for'
+import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
+import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { waitFor } from '../support/nuxt/wait-for'
 
 describe('configured permissions composables (Nuxt runtime)', () => {
   it('reads auth context and keeps can() reactive from ctx.can', async () => {

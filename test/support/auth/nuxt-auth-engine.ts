@@ -17,14 +17,14 @@ import {
   getSharedAuthEngine,
   type AuthTransport,
   type ClientAuthStateResult,
-} from '../../src/runtime/client/auth-engine'
+} from '../../../src/runtime/client/auth-engine'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_PENDING,
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
-} from '../../src/runtime/utils/constants'
-import type { ConvexUser } from '../../src/runtime/utils/types'
+} from '../../../src/runtime/utils/constants'
+import type { ConvexUser } from '../../../src/runtime/utils/types'
 
 export interface InstallMockAuthEngineOptions {
   initialToken?: string | null
