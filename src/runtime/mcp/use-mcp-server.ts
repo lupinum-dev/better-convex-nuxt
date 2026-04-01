@@ -56,13 +56,13 @@ function wrapRegister<
   method: TMethod,
   map: Map<string, RegistrationHandle>,
 ): McpServer[TMethod] {
-  const register = server[method].bind(server) as McpServer[TMethod]
+  const register = server[method].bind(server) as unknown as (...args: unknown[]) => RegistrationHandle
 
-  return ((...args: Parameters<McpServer[TMethod]>) => {
-    const handle = register(...args) as ReturnType<McpServer[TMethod]>
-    map.set(args[0], handle as RegistrationHandle)
+  return ((...args: unknown[]) => {
+    const handle = register(...args)
+    map.set(String(args[0]), handle)
     return handle
-  }) as McpServer[TMethod]
+  }) as unknown as McpServer[TMethod]
 }
 
 export function useMcpServer(): McpServerHelper {

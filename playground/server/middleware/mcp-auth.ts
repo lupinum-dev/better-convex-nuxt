@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
         event.context.mcpAuth = {
           role: result.role,
           userId: result.userId,
-          ...(result.orgId && { tenantId: result.orgId }),
+          ...(result.tenantId && { tenantId: result.tenantId }),
         }
         // Fire-and-forget: update lastUsedAt
         serverConvexMutation(event, api.mcpKeys.touch, { key: token }).catch(() => {})

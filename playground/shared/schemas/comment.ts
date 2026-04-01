@@ -4,6 +4,7 @@ import { defineArgs } from '../../../src/runtime/schema'
 
 export const createComment = defineArgs({
   description: 'Add a comment to a post',
+  serviceAuth: true,
   args: {
     postId: v.id('posts'),
     content: v.string(),
@@ -16,6 +17,7 @@ export const createComment = defineArgs({
 
 export const updateComment = defineArgs({
   description: 'Edit an existing comment',
+  serviceAuth: true,
   args: {
     id: v.id('comments'),
     content: v.string(),
@@ -28,6 +30,7 @@ export const updateComment = defineArgs({
 
 export const deleteComment = defineArgs({
   description: 'Delete a comment',
+  serviceAuth: true,
   args: {
     id: v.id('comments'),
   },
@@ -38,6 +41,7 @@ export const deleteComment = defineArgs({
 
 export const listCommentsByPost = defineArgs({
   description: 'List all comments on a post',
+  serviceAuth: true,
   args: {
     postId: v.id('posts'),
   },

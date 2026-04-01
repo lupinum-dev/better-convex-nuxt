@@ -1,6 +1,6 @@
 import { computed, type ComputedRef } from 'vue'
 
-import { createAuth } from '#imports'
+import { createAuth } from 'better-convex-nuxt/composables'
 import { api } from '~/convex/_generated/api'
 
 type ResourceWithCan = {

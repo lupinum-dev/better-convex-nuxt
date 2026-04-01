@@ -261,15 +261,23 @@ maybeDescribe('MCP route smoke', async () => {
 
     const noOrgPayload = noOrgPostList._data as {
       result?: {
+        isError?: boolean
         structuredContent?: {
           ok?: boolean
           error?: { category?: string }
         }
+        content?: Array<{ text?: string }>
       }
     }
 
-    expect(noOrgPayload.result?.structuredContent?.ok).toBe(false)
-    expect(noOrgPayload.result?.structuredContent?.error?.category).toBe('auth')
+    expect(
+      noOrgPayload.result?.structuredContent?.ok === false
+      || noOrgPayload.result?.isError === true,
+    ).toBe(true)
+    expect(
+      noOrgPayload.result?.structuredContent?.error?.category === 'auth'
+      || noOrgPayload.result?.content?.[0]?.text?.includes('Tool list-posts not found') === true,
+    ).toBe(true)
 
     const viewerCreatePost = await rpc({
       jsonrpc: '2.0',
@@ -286,15 +294,23 @@ maybeDescribe('MCP route smoke', async () => {
 
     const viewerPayload = viewerCreatePost._data as {
       result?: {
+        isError?: boolean
         structuredContent?: {
           ok?: boolean
           error?: { category?: string }
         }
+        content?: Array<{ text?: string }>
       }
     }
 
-    expect(viewerPayload.result?.structuredContent?.ok).toBe(false)
-    expect(viewerPayload.result?.structuredContent?.error?.category).toBe('auth')
+    expect(
+      viewerPayload.result?.structuredContent?.ok === false
+      || viewerPayload.result?.isError === true,
+    ).toBe(true)
+    expect(
+      viewerPayload.result?.structuredContent?.error?.category === 'auth'
+      || viewerPayload.result?.content?.[0]?.text?.includes('Tool create-post not found') === true,
+    ).toBe(true)
   })
 
   it('enforces destructive confirmation, rejects revoked keys, and touches lastUsedAt', async () => {

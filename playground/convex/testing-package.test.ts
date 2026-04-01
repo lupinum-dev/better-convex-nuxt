@@ -36,7 +36,7 @@ describe('better-convex-nuxt/testing', () => {
 
     await expect(
       team.users.bob.mutation(api.posts.publish, { id: postId }),
-    ).rejects.toThrow('Forbidden: post.publish')
+    ).rejects.toThrow(/Forbidden: (Publish post|post\.publish)/)
   })
 
   it('injects service auth with the same permission rules as browser callers', async () => {
@@ -63,6 +63,6 @@ describe('better-convex-nuxt/testing', () => {
         title: 'Nope',
         content: 'Viewers should not create posts.',
       }),
-    ).rejects.toThrow('Forbidden: post.create')
+    ).rejects.toThrow(/Forbidden: (Create post|post\.create)/)
   })
 })

@@ -4,6 +4,7 @@ import { defineArgs } from '../../../src/runtime/schema'
 
 export const createNote = defineArgs({
   description: 'Create a new note',
+  serviceAuth: true,
   args: {
     title: v.string(),
     content: v.string(),
@@ -24,6 +25,7 @@ export const createNote = defineArgs({
 
 export const deleteNote = defineArgs({
   description: 'Permanently delete a note',
+  serviceAuth: true,
   args: {
     id: v.id('notes'),
   },
@@ -34,6 +36,7 @@ export const deleteNote = defineArgs({
 
 export const updateNote = defineArgs({
   description: 'Update an existing note',
+  serviceAuth: true,
   args: {
     id: v.id('notes'),
     title: v.optional(v.string()),
@@ -52,6 +55,7 @@ export const updateNote = defineArgs({
 
 export const searchNotes = defineArgs({
   description: 'Search notes by title or content',
+  serviceAuth: true,
   args: {
     query: v.string(),
   },
@@ -66,6 +70,7 @@ export const searchNotes = defineArgs({
 
 export const bulkDeleteNotes = defineArgs({
   description: 'Delete multiple notes at once (max 10)',
+  serviceAuth: true,
   args: {
     ids: v.array(v.id('notes')),
   },
@@ -80,6 +85,7 @@ export const bulkDeleteNotes = defineArgs({
 
 export const exportNotes = defineArgs({
   description: 'Export all notes in the specified format',
+  serviceAuth: true,
   args: {
     format: v.union(v.literal('json'), v.literal('csv')),
   },

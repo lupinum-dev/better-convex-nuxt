@@ -19,11 +19,43 @@ type PlaygroundCtx =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
 
+type ServiceAuthArgs = {
+  _serviceKey?: string
+  _serviceActor?: {
+    userId?: string
+    role?: string
+    tenantId?: string
+  }
+}
+
 function resolveExpectedServiceKey(): string {
   return process.env.CONVEX_SERVICE_KEY?.trim() || PLAYGROUND_LOCAL_SERVICE_KEY
 }
 
 export async function getActor(ctx: PlaygroundCtx): Promise<Actor> {
+  return await getActorFromArgs(ctx)
+}
+
+export async function getActorFromArgs(
+  ctx: PlaygroundCtx,
+  args?: ServiceAuthArgs,
+): Promise<Actor> {
+  const serviceActor = args?._serviceActor
+  if (args?._serviceKey && serviceActor?.userId && serviceActor.role && verifyKey(args._serviceKey, resolveExpectedServiceKey())) {
+    if (serviceActor.role === 'owner'
+      || serviceActor.role === 'admin'
+      || serviceActor.role === 'member'
+      || serviceActor.role === 'viewer'
+    ) {
+      return {
+        kind: 'user',
+        userId: serviceActor.userId,
+        role: serviceActor.role,
+        ...(serviceActor.tenantId ? { tenantId: serviceActor.tenantId } : {}),
+      }
+    }
+  }
+
   const auth = await getAuth(ctx)
   if (!auth) return null
 

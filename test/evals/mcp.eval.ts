@@ -1,12 +1,5 @@
-import { fileURLToPath } from 'node:url'
-
 import { createMCPClient } from '@ai-sdk/mcp'
-import { $fetch, setup, url as testUrl } from '@nuxt/test-utils/e2e'
 import { createScorer, evalite } from 'evalite'
-import { afterAll } from 'vitest'
-
-import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../../playground/shared/dev-service-key'
-import { ensureLocalConvex } from '../helpers/local-convex'
 
 interface BootstrapResponse {
   organizationId: string
@@ -61,20 +54,52 @@ interface ConfirmationOutput {
   error?: string
 }
 
-const playgroundRoot = fileURLToPath(new URL('../../playground', import.meta.url))
-const local = await ensureLocalConvex({ cwd: playgroundRoot })
+async function resolveBaseUrl(): Promise<string> {
+  const candidates = [
+    process.env.MCP_EVAL_BASE_URL,
+    'http://localhost:3001',
+    'http://localhost:3000',
+  ].filter((value): value is string => Boolean(value))
 
-await setup({
-  rootDir: playgroundRoot,
-  env: {
-    ...local.env,
-    CONVEX_SERVICE_KEY: PLAYGROUND_LOCAL_SERVICE_KEY,
-  },
-})
+  for (const candidate of candidates) {
+    try {
+      const probeUrl = new URL('/', candidate.endsWith('/') ? candidate : `${candidate}/`)
+      const response = await fetch(probeUrl, { method: 'GET' })
+      if (response.ok || response.status < 500) {
+        return probeUrl.origin
+      }
+    } catch {
+      continue
+    }
+  }
 
-afterAll(async () => {
-  await local.release()
-})
+  throw new Error(
+    'Could not reach a running playground server for MCP evals. Start the playground first or set MCP_EVAL_BASE_URL.',
+  )
+}
+
+const baseUrl = await resolveBaseUrl()
+const baseOrigin = new URL(baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`)
+const mcpUrl = new URL('/mcp', baseOrigin).toString()
+const bootstrapUrl = new URL('/api/test-mcp-bootstrap', baseOrigin).toString()
+
+let evalLock: Promise<void> = Promise.resolve()
+
+async function withEvalLock<T>(run: () => Promise<T>): Promise<T> {
+  const previous = evalLock
+  let release!: () => void
+  evalLock = new Promise<void>((resolve) => {
+    release = resolve
+  })
+
+  await previous
+
+  try {
+    return await run()
+  } finally {
+    release()
+  }
+}
 
 function getAuthKey(actor: ActorKind, bootstrap: BootstrapResponse): string | undefined {
   switch (actor) {
@@ -93,9 +118,11 @@ function getAuthKey(actor: ActorKind, bootstrap: BootstrapResponse): string | un
 }
 
 async function resetMcpState(): Promise<BootstrapResponse> {
-  return await $fetch('/api/test-mcp-bootstrap', {
-    method: 'POST',
-  }) as BootstrapResponse
+  const response = await fetch(bootstrapUrl, { method: 'POST' })
+  if (!response.ok) {
+    throw new Error(`Bootstrap reset failed with ${response.status} ${response.statusText}`)
+  }
+  return await response.json() as BootstrapResponse
 }
 
 async function createClient(actor: ActorKind, bootstrap: BootstrapResponse) {
@@ -104,7 +131,7 @@ async function createClient(actor: ActorKind, bootstrap: BootstrapResponse) {
   return await createMCPClient({
     transport: {
       type: 'http',
-      url: testUrl('/mcp'),
+      url: mcpUrl,
       headers: key
         ? {
             Authorization: `Bearer ${key}`,
@@ -346,19 +373,17 @@ evalite('MCP Tool Visibility', {
     },
   ],
   task: async ({ actor }) => {
-    const bootstrap = await resetMcpState()
-    const client = await createClient(actor, bootstrap)
-
-    try {
+    return await withEvalLock(async () => {
+      const bootstrap = await resetMcpState()
+      const client = await createClient(actor, bootstrap)
       const result = await client.listTools()
       return result.tools.map(tool => tool.name)
-    } finally {
-      await client.close()
-    }
+    })
   },
   scorers: [visibilityScorer],
   columns: ({ output }) => [
     { label: 'Visible Tools', value: output.join(', ') },
+    { label: 'Visibility OK', value: String(output.length > 0) },
   ],
 })
 
@@ -456,46 +481,46 @@ evalite('MCP Tool Routing', {
     },
   ],
   task: async ({ actor, prompt }) => {
-    const bootstrap = await resetMcpState()
-    const client = await createClient(actor, bootstrap)
+    return await withEvalLock(async () => {
+      const bootstrap = await resetMcpState()
+      const client = await createClient(actor, bootstrap)
 
-    try {
-      const tools = await client.tools()
-      const availableTools = Object.keys(tools)
-      const selection = pickToolCall(prompt, availableTools, bootstrap)
-      const selectedTool = tools[selection.toolName]
+      try {
+        const tools = await client.tools()
+        const availableTools = Object.keys(tools)
+        const selection = pickToolCall(prompt, availableTools, bootstrap)
+        const selectedTool = tools[selection.toolName]
 
-      if (!selectedTool?.execute) {
+        if (!selectedTool?.execute) {
+          return {
+            availableTools,
+            chosenTool: selection.toolName,
+            chosenArgs: selection.args,
+            result: null,
+            error: `Tool "${selection.toolName}" did not expose an execute function.`,
+          } satisfies RouteOutput
+        }
+
+        const result = await selectedTool.execute(selection.args, {
+          toolCallId: 'eval-route-call',
+          messages: [],
+        })
         return {
           availableTools,
           chosenTool: selection.toolName,
           chosenArgs: selection.args,
+          result,
+        } satisfies RouteOutput
+      } catch (error) {
+        return {
+          availableTools: [],
+          chosenTool: null,
+          chosenArgs: null,
           result: null,
-          error: `Tool "${selection.toolName}" did not expose an execute function.`,
+          error: error instanceof Error ? error.message : String(error),
         } satisfies RouteOutput
       }
-
-      const result = await selectedTool.execute(selection.args, {
-        toolCallId: 'eval-route-call',
-        messages: [],
-      })
-      return {
-        availableTools,
-        chosenTool: selection.toolName,
-        chosenArgs: selection.args,
-        result,
-      } satisfies RouteOutput
-    } catch (error) {
-      return {
-        availableTools: [],
-        chosenTool: null,
-        chosenArgs: null,
-        result: null,
-        error: error instanceof Error ? error.message : String(error),
-      } satisfies RouteOutput
-    } finally {
-      await client.close()
-    }
+    })
   },
   scorers: [routingScorer],
   columns: ({ output }) => [
@@ -532,44 +557,44 @@ evalite('MCP Destructive Confirmation', {
     },
   ],
   task: async ({ actor, toolName, resource }) => {
-    const bootstrap = await resetMcpState()
-    const client = await createClient(actor, bootstrap)
+    return await withEvalLock(async () => {
+      const bootstrap = await resetMcpState()
+      const client = await createClient(actor, bootstrap)
 
-    try {
-      const tools = await client.tools()
-      const tool = tools[toolName]
-      const id = bootstrap.resources[resource]
+      try {
+        const tools = await client.tools()
+        const tool = tools[toolName]
+        const id = bootstrap.resources[resource]
 
-      if (!tool?.execute) {
+        if (!tool?.execute) {
+          return {
+            preview: null,
+            confirmed: null,
+            error: `Tool "${toolName}" did not expose an execute function.`,
+          } satisfies ConfirmationOutput
+        }
+
+        const preview = await tool.execute({ id }, {
+          toolCallId: 'eval-preview-call',
+          messages: [],
+        })
+        const confirmed = await tool.execute({ id, _confirmed: true }, {
+          toolCallId: 'eval-confirmed-call',
+          messages: [],
+        })
+
+        return {
+          preview,
+          confirmed,
+        } satisfies ConfirmationOutput
+      } catch (error) {
         return {
           preview: null,
           confirmed: null,
-          error: `Tool "${toolName}" did not expose an execute function.`,
+          error: error instanceof Error ? error.message : String(error),
         } satisfies ConfirmationOutput
       }
-
-      const preview = await tool.execute({ id }, {
-        toolCallId: 'eval-preview-call',
-        messages: [],
-      })
-      const confirmed = await tool.execute({ id, _confirmed: true }, {
-        toolCallId: 'eval-confirmed-call',
-        messages: [],
-      })
-
-      return {
-        preview,
-        confirmed,
-      } satisfies ConfirmationOutput
-    } catch (error) {
-      return {
-        preview: null,
-        confirmed: null,
-        error: error instanceof Error ? error.message : String(error),
-      } satisfies ConfirmationOutput
-    } finally {
-      await client.close()
-    }
+    })
   },
   scorers: [confirmationScorer],
   columns: ({ output }) => [

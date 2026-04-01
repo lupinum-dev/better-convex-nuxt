@@ -420,9 +420,9 @@ function createToolCallFns(
 function createToolContext<TRole extends string>(
   event: H3Event,
   actor: McpAuthIdentity<TRole> | null,
-  scoped: boolean,
+  injectIdentity: boolean,
 ): ConvexToolHandlerCtx<TRole> {
-  const calls = createToolCallFns(event, actor, scoped)
+  const calls = createToolCallFns(event, actor, injectIdentity)
 
   return {
     event,
@@ -588,7 +588,7 @@ function _buildToolDefinition<
       const ctx = createToolContext(
         event,
         resolvedAuth,
-        scoped,
+        resolvedAuth !== null,
       )
 
       const normalizedArgs = normalizeToolArgs(args)

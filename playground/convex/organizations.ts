@@ -1,14 +1,23 @@
 import { can, authorize } from 'better-convex-nuxt/auth'
+import { defineArgs } from 'better-convex-nuxt/schema'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 
 import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
+import { getActor, getActorFromArgs } from './auth/actor'
 import {
   canManageMembers,
   canManageOrgSettings,
 } from './auth/checks'
 import { getUserRowFromActor } from './lib/user_row'
+
+const createOrganizationArgs = defineArgs({
+  args: {
+    name: v.string(),
+    slug: v.string(),
+  },
+  serviceAuth: true,
+})
 
 export const getCurrent = query({
   args: {},
@@ -27,12 +36,9 @@ export const list = query({
 })
 
 export const create = mutation({
-  args: {
-    name: v.string(),
-    slug: v.string(),
-  },
+  args: createOrganizationArgs.fullArgs,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActorFromArgs(ctx, args)
     authorize(actor, 'Create organization', actor !== null)
 
     const user = await getUserRowFromActor(ctx.db, actor)

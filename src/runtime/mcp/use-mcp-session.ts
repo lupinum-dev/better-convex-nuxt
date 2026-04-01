@@ -1,4 +1,4 @@
-import type { Storage } from 'unstorage'
+import type { Storage, StorageValue } from 'unstorage'
 import { getHeader } from 'h3'
 import { useEvent, useStorage } from 'nitropack/runtime'
 
@@ -25,8 +25,8 @@ export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T>
   const storage = useStorage(`mcp:sessions:${sessionId}`)
 
   return {
-    get: key => storage.getItem(key),
-    set: (key, value) => storage.setItem(key, value),
+    get: async key => await storage.getItem(key) as T[typeof key] | null,
+    set: (key, value) => storage.setItem(key, value as StorageValue),
     remove: key => storage.removeItem(key),
     has: key => storage.hasItem(key),
     keys: () => storage.getKeys(),
