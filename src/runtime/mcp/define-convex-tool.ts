@@ -312,6 +312,57 @@ function normalizePreview(raw: string | PreviewResult): PreviewResult {
   return typeof raw === 'string' ? { summary: raw } : raw
 }
 
+interface ToolAccessResolution<TRole extends string = string> {
+  actor: McpAuthIdentity<TRole> | null
+  deniedReason: string | null
+}
+
+interface ResolveToolAccessOptions<TRole extends string = string> {
+  auth: DefineConvexToolOptions<AnyConvexSchema, TRole>['auth']
+  scoped: boolean
+  check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
+  resolveAuth?: (event: H3Event) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
+}
+
+async function resolveToolAccess<TRole extends string = string>(
+  event: H3Event,
+  options: ResolveToolAccessOptions<TRole>,
+): Promise<ToolAccessResolution<TRole>> {
+  const { auth, scoped, check, resolveAuth } = options
+
+  let actor: McpAuthIdentity<TRole> | null = null
+  if (auth !== 'none') {
+    actor = resolveAuth
+      ? await resolveAuth(event)
+      : resolveDefaultAuth(event)
+  }
+
+  if (auth === 'required' && !actor) {
+    return { actor, deniedReason: 'Authentication required.' }
+  }
+
+  if (scoped) {
+    if (!actor) {
+      return { actor, deniedReason: 'Authentication required for scoped tools.' }
+    }
+    if (!actor.tenantId) {
+      return { actor, deniedReason: 'MCP token must include tenantId for scoped tools.' }
+    }
+  }
+
+  if (check) {
+    if (!actor) {
+      return { actor, deniedReason: 'Authentication required.' }
+    }
+    const allowed = await check(actor)
+    if (!allowed) {
+      return { actor, deniedReason: 'Forbidden.' }
+    }
+  }
+
+  return { actor, deniedReason: null }
+}
+
 function createToolCallFns(
   event: H3Event,
   actor: McpAuthIdentity | null,
@@ -522,38 +573,17 @@ function _buildToolDefinition<
       const { useEvent } = await import('nitropack/runtime')
       const event = useEvent()
 
-      let resolvedAuth: McpAuthIdentity<TRole> | null = null
-      if (auth !== 'none') {
-          resolvedAuth = resolveAuth
-            ? await resolveAuth(event)
-            : resolveDefaultAuth(event)
+      const access = await resolveToolAccess(event, {
+        auth,
+        scoped,
+        check,
+        resolveAuth,
+      })
+      if (access.deniedReason) {
+        return wrapError('auth', access.deniedReason)
       }
 
-      // ── Step 2: Auth check ────────────────────────────────────────────
-      if (auth === 'required' && !resolvedAuth) {
-        return wrapError('auth', 'Authentication required.')
-      }
-
-      // ── Step 3: Optional actor check ──────────────────────────────────
-      if (check) {
-        if (!resolvedAuth) {
-          return wrapError('auth', 'Authentication required.')
-        }
-        const allowed = await check(resolvedAuth)
-        if (!allowed) {
-          return wrapError('auth', 'Forbidden.')
-        }
-      }
-
-      // ── Step 3b: Scoped calls require tenantId on the actor ───────────
-      if (scoped) {
-        if (!resolvedAuth) {
-          return wrapError('auth', 'Authentication required for scoped tools.')
-        }
-        if (!resolvedAuth.tenantId) {
-          return wrapError('auth', 'MCP token must include tenantId for scoped tools.')
-        }
-      }
+      const resolvedAuth = access.actor
 
       const ctx = createToolContext(
         event,
@@ -563,7 +593,7 @@ function _buildToolDefinition<
 
       const normalizedArgs = normalizeToolArgs(args)
 
-      // ── Step 4: Rate limit (after auth so failed-auth requests don't consume tokens) ──
+      // ── Step 2: Rate limit (after auth so failed-auth requests don't consume tokens) ──
       if (rateLimitConfig) {
         const rateLimitBucket = resolvedAuth ? `${name!}:${resolvedAuth.userId}` : name!
         const check = globalRateLimiter.check(rateLimitBucket, rateLimitConfig)
@@ -575,7 +605,7 @@ function _buildToolDefinition<
         }
       }
 
-      // ── Step 5: Max items ─────────────────────────────────────────────
+      // ── Step 3: Max items ─────────────────────────────────────────────
       if (maxItems) {
         const arr = normalizedArgs.clean[maxItems.field]
         if (Array.isArray(arr) && arr.length > maxItems.limit) {
@@ -586,7 +616,7 @@ function _buildToolDefinition<
         }
       }
 
-      // ── Step 6: Middleware ────────────────────────────────────────────
+      // ── Step 4: Middleware ────────────────────────────────────────────
       if (middleware) {
         const result = await middleware(
           normalizedArgs.clean,
@@ -599,7 +629,7 @@ function _buildToolDefinition<
         return result
       }
 
-      // ── Steps 7-9: Preview, confirmation, handler ─────────────────────
+      // ── Steps 5-7: Preview, confirmation, handler ─────────────────────
       return await runHandlerWithConfirmation(normalizedArgs, ctx)
     }
     catch (err) {
@@ -651,16 +681,19 @@ function _buildToolDefinition<
     inputExamples,
     group,
     tags,
-    enabled: auth === 'required'
-      ? async (event) => {
-          const baseVisible = await enabled?.(event)
-          if (baseVisible === false) return false
-          const resolved = resolveAuth
-            ? await resolveAuth(event)
-            : resolveDefaultAuth(event)
-          return resolved !== null
-        }
-      : enabled,
+    enabled: async (event) => {
+      const baseVisible = await enabled?.(event)
+      if (baseVisible === false) return false
+
+      const access = await resolveToolAccess(event, {
+        auth,
+        scoped,
+        check,
+        resolveAuth,
+      })
+
+      return access.deniedReason === null
+    },
     cache,
     handler: wrappedHandler,
   }

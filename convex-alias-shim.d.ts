@@ -1,7 +1,5 @@
 declare module '#convex/mcp' {
-  import type { defineTool as defineToolFn } from './src/runtime/mcp/define-convex-tool'
-
-  export const defineTool: typeof defineToolFn
+  export * from 'better-convex-nuxt/mcp'
 }
 
 declare module '#convex/server' {

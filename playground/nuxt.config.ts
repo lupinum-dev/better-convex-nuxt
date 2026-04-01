@@ -34,6 +34,7 @@ export default defineNuxtConfig({
 
   mcp: {
     name: 'better-convex-nuxt-playground',
+    sessions: true,
   },
 
   alias: {

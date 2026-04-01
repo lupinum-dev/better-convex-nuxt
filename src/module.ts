@@ -471,9 +471,9 @@ export {
       filename: 'convex/mcp.ts',
       write: true,
       getContents: () => {
-        const defineToolPath = resolver.resolve('./runtime/mcp/define-convex-tool')
+        const mcpEntryPath = resolver.resolve('./runtime/mcp/index')
         return `
-export { defineTool } from '${defineToolPath}'
+export * from '${mcpEntryPath}'
 `
       },
     })

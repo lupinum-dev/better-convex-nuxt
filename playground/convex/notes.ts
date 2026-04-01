@@ -54,7 +54,9 @@ export const search = query({
   handler: async (ctx, args) => {
     if (!args.query.trim()) return []
 
-    const notes = await ctx.db.query('notes').collect()
+    // The playground keeps note search intentionally simple, but bound the scan
+    // so the MCP-facing demo does not read an unbounded table.
+    const notes = await ctx.db.query('notes').order('desc').take(200)
     const lowerQuery = args.query.toLowerCase()
 
     return notes

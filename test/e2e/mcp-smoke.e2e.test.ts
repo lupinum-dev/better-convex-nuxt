@@ -115,7 +115,7 @@ maybeDescribe('MCP route smoke', async () => {
     }
 
     expect(payload.result?.protocolVersion).toBe('2025-03-26')
-    return undefined
+    return response.headers.get('mcp-session-id') ?? response.headers.get('Mcp-Session-Id') ?? undefined
   }
 
   async function readState() {
@@ -124,6 +124,8 @@ maybeDescribe('MCP route smoke', async () => {
 
   it('lists only public tools anonymously', async () => {
     const sessionId = await initialize()
+    expect(sessionId).toEqual(expect.any(String))
+
     const response = await rpc({
       jsonrpc: '2.0',
       id: 2,
@@ -147,6 +149,7 @@ maybeDescribe('MCP route smoke', async () => {
 
   it('exposes authenticated tools and round-trips public tool calls', async () => {
     const memberSession = await initialize(bootstrap.keys.member.key)
+    expect(memberSession).toEqual(expect.any(String))
 
     const listResponse = await rpc({
       jsonrpc: '2.0',
@@ -186,6 +189,39 @@ maybeDescribe('MCP route smoke', async () => {
 
     expect(notePayload.result?.structuredContent?.ok).toBe(true)
     expect(notePayload.result?.structuredContent?.data?.id).toBeTruthy()
+  })
+
+  it('hides scoped and role-denied tools from discovery', async () => {
+    const noOrgSession = await initialize(bootstrap.keys.noOrg.key)
+    const viewerSession = await initialize(bootstrap.keys.viewer.key)
+
+    const noOrgList = await rpc({
+      jsonrpc: '2.0',
+      id: 30,
+      method: 'tools/list',
+    }, { sessionId: noOrgSession, key: bootstrap.keys.noOrg.key })
+
+    const noOrgToolNames = ((noOrgList._data as {
+      result?: { tools?: Array<{ name: string }> }
+    }).result?.tools ?? []).map(tool => tool.name)
+
+    expect(noOrgToolNames).not.toContain('list-posts')
+    expect(noOrgToolNames).not.toContain('create-post')
+    expect(noOrgToolNames).not.toContain('create-comment')
+
+    const viewerList = await rpc({
+      jsonrpc: '2.0',
+      id: 31,
+      method: 'tools/list',
+    }, { sessionId: viewerSession, key: bootstrap.keys.viewer.key })
+
+    const viewerToolNames = ((viewerList._data as {
+      result?: { tools?: Array<{ name: string }> }
+    }).result?.tools ?? []).map(tool => tool.name)
+
+    expect(viewerToolNames).toContain('list-posts')
+    expect(viewerToolNames).toContain('create-comment')
+    expect(viewerToolNames).not.toContain('create-post')
   })
 
   it('handles auth-required and org-scoped failures correctly', async () => {
@@ -353,6 +389,108 @@ maybeDescribe('MCP route smoke', async () => {
     }
 
     expect(touchedKey?.lastUsedAt).toEqual(expect.any(Number))
+  })
+
+  it('persists session state and supports dynamic session-local tools', async () => {
+    const memberSession = await initialize(bootstrap.keys.member.key)
+    const shortcutName = 'release-check'
+    const registeredName = `session-shortcut-${shortcutName}`
+
+    const setPreference = await rpc({
+      jsonrpc: '2.0',
+      id: 40,
+      method: 'tools/call',
+      params: {
+        name: 'set-session-preference',
+        arguments: {
+          preferredSearch: 'release board',
+        },
+      },
+    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+
+    expect((setPreference._data as {
+      result?: { structuredContent?: { preferredSearch?: string } }
+    }).result?.structuredContent?.preferredSearch).toBe('release board')
+
+    const getPreference = await rpc({
+      jsonrpc: '2.0',
+      id: 41,
+      method: 'tools/call',
+      params: {
+        name: 'get-session-preference',
+        arguments: {},
+      },
+    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+
+    expect((getPreference._data as {
+      result?: { structuredContent?: { preferredSearch?: string } }
+    }).result?.structuredContent?.preferredSearch).toBe('release board')
+
+    await rpc({
+      jsonrpc: '2.0',
+      id: 42,
+      method: 'tools/call',
+      params: {
+        name: 'register-session-shortcut',
+        arguments: {
+          name: shortcutName,
+          message: 'Ship it.',
+        },
+      },
+    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+
+    const afterRegister = await rpc({
+      jsonrpc: '2.0',
+      id: 43,
+      method: 'tools/list',
+    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+
+    const registeredTools = ((afterRegister._data as {
+      result?: { tools?: Array<{ name: string }> }
+    }).result?.tools ?? []).map(tool => tool.name)
+
+    expect(registeredTools).toContain(registeredName)
+
+    const shortcutCall = await rpc({
+      jsonrpc: '2.0',
+      id: 44,
+      method: 'tools/call',
+      params: {
+        name: registeredName,
+        arguments: {},
+      },
+    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+
+    expect((shortcutCall._data as {
+      result?: { structuredContent?: { ok?: boolean; message?: string } }
+    }).result?.structuredContent).toMatchObject({
+      ok: true,
+      message: 'Ship it.',
+    })
+
+    await rpc({
+      jsonrpc: '2.0',
+      id: 45,
+      method: 'tools/call',
+      params: {
+        name: 'unregister-session-shortcut',
+        arguments: {
+          name: shortcutName,
+        },
+      },
+    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+
+    const afterUnregister = await rpc({
+      jsonrpc: '2.0',
+      id: 46,
+      method: 'tools/list',
+    }, { sessionId: memberSession, key: bootstrap.keys.member.key })
+
+    const finalTools = ((afterUnregister._data as {
+      result?: { tools?: Array<{ name: string }> }
+    }).result?.tools ?? []).map(tool => tool.name)
+
+    expect(finalTools).not.toContain(registeredName)
   })
 })
 

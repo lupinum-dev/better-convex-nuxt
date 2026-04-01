@@ -153,9 +153,9 @@ export interface DefineConvexToolOptions<
   // ── Auth ──────────────────────────────────────────────────
   /** Auth requirement. Default: 'none'. */
   auth?: 'required' | 'optional' | 'none'
-  /** Optional actor check evaluated before the handler runs. */
+  /** Optional actor check evaluated for both visibility and execution. */
   check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
-  /** Enable service-auth injection for Convex calls using the resolved actor. Requires actor.tenantId. */
+  /** Enable service-auth injection for Convex calls using the resolved actor. Tools are hidden unless actor.tenantId exists. */
   scoped?: boolean
   /** Custom auth resolver for this tool. Default: reads event.context.mcpAuth. */
   resolveAuth?: (event: H3Event) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
@@ -193,7 +193,7 @@ export interface DefineConvexToolOptions<
   inputExamples?: Partial<InferSchemaData<S>>[]
   /** Custom middleware. Single function — compose internally if needed. */
   middleware?: ConvexToolMiddleware<S, TRole>
-  /** Guard to include/hide this tool per-request. */
+  /** Guard to include/hide this tool per-request. Runs before built-in auth/scoped/check visibility rules. */
   enabled?: (event: H3Event) => boolean | Promise<boolean>
   /** Cache configuration (passed through to mcp-toolkit). */
   cache?: McpToolCache
