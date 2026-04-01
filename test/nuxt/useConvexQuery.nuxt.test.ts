@@ -463,6 +463,44 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.queryResult.data.value).toEqual([{ _id: 'n1' }])
   })
 
+  it('tears down and re-subscribes cleanly across defined -> skipped -> defined args', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:skip-cycle')
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const tag = ref<'alpha' | 'beta' | null>('alpha')
+        const queryResult = useConvexQueryState(
+          query,
+          () => (tag.value ? { tag: tag.value } : null),
+          {},
+        )
+        return { tag, queryResult }
+      },
+      { convex },
+    )
+
+    convex.emitQueryResult(query, { tag: 'alpha' }, [{ _id: 'a1' }])
+    await waitFor(() => result.queryResult.data.value?.[0]?._id === 'a1')
+    await waitFor(() => convex.activeListenerCount(query, { tag: 'alpha' }) === 1)
+
+    result.tag.value = null
+    await flush()
+
+    await waitFor(() => result.queryResult.status.value === 'skipped')
+    await waitFor(() => convex.activeListenerCount(query, { tag: 'alpha' }) === 0)
+    expect(result.queryResult.pending.value).toBe(false)
+    expect(result.queryResult.data.value).toBeNull()
+
+    result.tag.value = 'beta'
+    await flush()
+
+    convex.emitQueryResult(query, { tag: 'beta' }, [{ _id: 'b1' }])
+    await waitFor(() => result.queryResult.data.value?.[0]?._id === 'b1')
+    await waitFor(() => convex.activeListenerCount(query, { tag: 'beta' }) === 1)
+    expect(convex.activeListenerCount(query, { tag: 'alpha' })).toBe(0)
+  })
+
   it('null-args getter skips the query', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:null-args-getter')
@@ -475,6 +513,47 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.status.value).toBe('skipped')
     expect(result.pending.value).toBe(false)
     expect(convex.activeListenerCount()).toBe(0)
+  })
+
+  it('follows the auth-gated query lifecycle: skipped -> subscribed -> unsubscribed', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('todos:list:auth-gated')
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const authenticated = ref(false)
+        const ensured = ref(false)
+        const queryResult = useConvexQueryState(
+          query,
+          () => (authenticated.value && ensured.value ? {} : undefined),
+          {},
+        )
+        return { authenticated, ensured, queryResult }
+      },
+      { convex },
+    )
+
+    expect(result.queryResult.status.value).toBe('skipped')
+    expect(convex.activeListenerCount(query, {})).toBe(0)
+
+    result.authenticated.value = true
+    await flush()
+    expect(result.queryResult.status.value).toBe('skipped')
+    expect(convex.activeListenerCount(query, {})).toBe(0)
+
+    result.ensured.value = true
+    await flush()
+
+    convex.emitQueryResult(query, {}, [{ _id: 't1', title: 'Todo' }])
+    await waitFor(() => result.queryResult.data.value?.[0]?.title === 'Todo')
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
+
+    result.authenticated.value = false
+    await flush()
+
+    await waitFor(() => result.queryResult.status.value === 'skipped')
+    await waitFor(() => convex.activeListenerCount(query, {}) === 0)
+    expect(result.queryResult.data.value).toBeNull()
   })
 
   it('onData callback fires on each update with transformed data', async () => {

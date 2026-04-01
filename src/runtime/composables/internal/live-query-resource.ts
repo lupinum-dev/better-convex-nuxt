@@ -44,6 +44,8 @@ export interface SharedQuerySubscriptionHandle {
   release: () => boolean
 }
 
+export type LiveQueryUnsubscribeReason = 'args-changed' | 'args-skipped' | 'scope-dispose'
+
 export interface LiveQueryResourceOptions<Query extends FunctionReference<'query'>, Result> {
   query: Query
   args: ComputedRef<FunctionArgs<Query> | null | undefined>
@@ -58,7 +60,11 @@ export interface LiveQueryResourceOptions<Query extends FunctionReference<'query
   dedupe?: 'cancel' | 'defer'
   onShare?: (refCount: number) => void
   onSubscribe?: (cacheKey: string) => void
-  onUnsubscribe?: (cacheKey: string, didRelease: boolean) => void
+  onUnsubscribe?: (
+    cacheKey: string,
+    didRelease: boolean,
+    reason: LiveQueryUnsubscribeReason,
+  ) => void
   onData?: (result: Result, source: 'loader' | 'subscription') => void
   onError?: (error: Error) => void
 }
@@ -317,10 +323,10 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
 
   let subscriptionHandle: SharedQuerySubscriptionHandle | null = null
 
-  const releaseSubscriptionHandle = () => {
+  const releaseSubscriptionHandle = (reason: LiveQueryUnsubscribeReason) => {
     if (!subscriptionHandle) return false
     const didRelease = subscriptionHandle.release()
-    options.onUnsubscribe?.(cacheKey.value, didRelease)
+    options.onUnsubscribe?.(cacheKey.value, didRelease, reason)
     subscriptionHandle = null
     return didRelease
   }
@@ -329,11 +335,11 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
     const syncSubscription = () => {
       const currentArgs = args.value
       if (isSkipped.value || currentArgs == null) {
-        releaseSubscriptionHandle()
+        releaseSubscriptionHandle('args-skipped')
         return
       }
 
-      releaseSubscriptionHandle()
+      releaseSubscriptionHandle('args-changed')
       subscriptionHandle = startSharedQuerySubscription<Query, Result>({
         query,
         args: currentArgs as FunctionArgs<Query>,
@@ -366,7 +372,7 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
     })
 
     onScopeDispose(() => {
-      releaseSubscriptionHandle()
+      releaseSubscriptionHandle('scope-dispose')
     })
   }
 

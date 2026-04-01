@@ -290,9 +290,9 @@ export function createConvexQueryState<
         },
       })
     },
-    onUnsubscribe: (currentCacheKey, didRelease) => {
+    onUnsubscribe: (currentCacheKey, didRelease, reason) => {
       if (!didRelease) return
-      logger.query({ name: fnName, event: 'unsubscribe' })
+      logger.query({ name: fnName, event: 'unsubscribe', reason, args: normalizedArgs.value })
       if (import.meta.dev) {
         unregisterDevtoolsQuery(currentCacheKey)
       }
@@ -335,6 +335,19 @@ export function createConvexQueryState<
       options?.onError?.(error)
     },
   })
+
+  watch(
+    isSkipped,
+    (skipped) => {
+      if (!skipped) return
+      logger.query({
+        name: fnName,
+        event: 'skip',
+        reason: 'nullish-args',
+      })
+    },
+    { immediate: true },
+  )
 
   if (keepPreviousData && lastSettledData) {
     watch(

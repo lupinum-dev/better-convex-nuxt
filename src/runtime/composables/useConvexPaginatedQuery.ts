@@ -11,10 +11,12 @@ import {
   type MaybeRefOrGetter,
   type Ref,
 } from 'vue'
+import { useRuntimeConfig } from '#imports'
 
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getFunctionName, getQueryKey, hashArgs } from '../utils/convex-cache'
+import { getLogLevel, getSharedLogger } from '../utils/logger'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { generatePaginationId } from '../utils/shared-helpers'
 import type {
@@ -26,6 +28,7 @@ import {
   createLiveQueryResource,
   executeLiveQuery,
   startSharedQuerySubscription,
+  type LiveQueryUnsubscribeReason,
   type SharedQuerySubscriptionHandle,
 } from './internal/live-query-resource'
 
@@ -113,11 +116,13 @@ export function createConvexPaginatedQueryState<
 
   const convexConfig = getConvexRuntimeConfig()
   const query_defaults = convexConfig.query
+  const runtimeConfig = useRuntimeConfig()
   const initialNumItems = options?.initialNumItems ?? 10
   const server = options?.server ?? query_defaults?.server ?? true
   const subscribe = options?.subscribe ?? query_defaults?.subscribe ?? true
   const keepPreviousData = options?.keepPreviousData ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
+  const logger = getSharedLogger(getLogLevel(runtimeConfig.public.convex ?? {}))
 
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
 
@@ -144,6 +149,18 @@ export function createConvexPaginatedQueryState<
 
   const lastSettledResults = keepPreviousData ? shallowRef<TransformedItem[]>([]) : null
   const lastSettledArgsHash = keepPreviousData ? ref<string | null>(null) : null
+
+  const logSkip = () => {
+    logger.query({
+      name: fnName,
+      event: 'skip',
+      reason: 'nullish-args',
+    })
+  }
+
+  const getReleaseReason = (
+    reason: 'args-changed' | 'args-skipped' | 'reset' | 'scope-dispose',
+  ): string => reason
 
   const initialPaginationOpts = computed(() => ({
     numItems: initialNumItems,
@@ -187,6 +204,39 @@ export function createConvexPaginatedQueryState<
     authMode: 'auto',
     resolveImmediately,
     dedupe: 'defer',
+    onSubscribe: () => {
+      logger.query({ name: fnName, event: 'subscribe', args: firstPageArgs.value ?? undefined })
+    },
+    onUnsubscribe: (_cacheKey, didRelease, reason) => {
+      if (!didRelease) return
+      logger.query({
+        name: fnName,
+        event: 'unsubscribe',
+        reason,
+        args: firstPageArgs.value ?? undefined,
+      })
+    },
+    onShare: (refCount) => {
+      logger.query({
+        name: fnName,
+        event: 'share',
+        refCount,
+        args: firstPageArgs.value ?? undefined,
+      })
+    },
+    onData: (result, source) => {
+      if (source !== 'subscription') return
+      logger.query({
+        name: fnName,
+        event: 'update',
+        count: result.page.length,
+        args: firstPageArgs.value ?? undefined,
+        data: result,
+      })
+    },
+    onError: (error) => {
+      logger.query({ name: fnName, event: 'error', error, args: firstPageArgs.value ?? undefined })
+    },
   })
 
   const getStableSubscriptionKey = (paginationOpts: StablePaginationOpts): string => {
@@ -196,15 +246,28 @@ export function createConvexPaginatedQueryState<
     return `paginated:${getQueryKey(query, buildPageArgs(paginationOpts))}`
   }
 
-  const releasePageSubscription = (page: PageState<Item> | undefined) => {
+  const releasePageSubscription = (
+    page: PageState<Item> | undefined,
+    reason: 'args-changed' | 'args-skipped' | 'reset' | 'scope-dispose',
+  ) => {
     if (!page?.subscription) return
-    page.subscription.release()
+    const args = buildPageArgs(page.paginationOpts)
+    const didRelease = page.subscription.release()
     page.subscription = null
+    if (!didRelease) return
+    logger.query({
+      name: fnName,
+      event: 'unsubscribe',
+      reason: getReleaseReason(reason),
+      args,
+    })
   }
 
-  const cleanupAllPageSubscriptions = () => {
+  const cleanupAllPageSubscriptions = (
+    reason: 'args-changed' | 'args-skipped' | 'reset' | 'scope-dispose',
+  ) => {
     for (const page of pages.value) {
-      releasePageSubscription(page)
+      releasePageSubscription(page, reason)
     }
   }
 
@@ -222,16 +285,30 @@ export function createConvexPaginatedQueryState<
     const page = pages.value[pageIndex]
     if (!page) return
 
-    releasePageSubscription(page)
+    releasePageSubscription(page, 'args-changed')
+    const pageArgs = buildPageArgs(page.paginationOpts)
     page.subscription = startSharedQuerySubscription<Query, PaginationResult<Item>>({
       query,
-      args: buildPageArgs(page.paginationOpts),
+      args: pageArgs,
       cacheKey: getStableSubscriptionKey({
         numItems: page.paginationOpts.numItems,
         cursor: page.paginationOpts.cursor,
       }),
       functionName: fnName,
+      onShare: (refCount) => {
+        logger.query({ name: fnName, event: 'share', refCount, args: pageArgs })
+      },
+      onSubscribe: () => {
+        logger.query({ name: fnName, event: 'subscribe', args: pageArgs })
+      },
       onData: (result) => {
+        logger.query({
+          name: fnName,
+          event: 'update',
+          count: result.page.length,
+          args: pageArgs,
+          data: result,
+        })
         updatePage(pageIndex, (current) => ({
           ...current,
           result,
@@ -240,6 +317,7 @@ export function createConvexPaginatedQueryState<
         }))
       },
       onError: (error) => {
+        logger.query({ name: fnName, event: 'error', error, args: pageArgs })
         updatePage(pageIndex, (current) => ({
           ...current,
           pending: false,
@@ -415,11 +493,20 @@ export function createConvexPaginatedQueryState<
   }
 
   watch(
+    isSkipped,
+    (skipped) => {
+      if (!skipped) return
+      logSkip()
+    },
+    { immediate: true },
+  )
+
+  watch(
     () => `${argsHash.value}:${isSkipped.value ? 'skipped' : 'enabled'}`,
     async (next, prev) => {
       if (next === prev) return
 
-      cleanupAllPageSubscriptions()
+      cleanupAllPageSubscriptions(isSkipped.value ? 'args-skipped' : 'args-changed')
       pages.value = []
       globalError.value = null
       currentPaginationId.value = generatePaginationId()
@@ -474,7 +561,7 @@ export function createConvexPaginatedQueryState<
   }
 
   async function reset(): Promise<void> {
-    cleanupAllPageSubscriptions()
+    cleanupAllPageSubscriptions('reset')
     pages.value = []
     globalError.value = null
     currentPaginationId.value = generatePaginationId()
@@ -489,7 +576,7 @@ export function createConvexPaginatedQueryState<
 
   if (cleanupScope) {
     onScopeDispose(() => {
-      cleanupAllPageSubscriptions()
+      cleanupAllPageSubscriptions('scope-dispose')
     })
   }
 

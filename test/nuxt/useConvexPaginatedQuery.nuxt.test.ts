@@ -293,6 +293,219 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect('isRefreshing' in (result as unknown as Record<string, unknown>)).toBe(false)
   })
 
+  it('releases loaded page subscriptions when args change', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:args-change-release')
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const teamId = ref('team-a')
+        const queryResult = useConvexPaginatedQueryState(
+          query as never,
+          () => ({ teamId: teamId.value }) as never,
+          { initialNumItems: 2 },
+        )
+        return { teamId, queryResult }
+      },
+      { convex },
+    )
+
+    convex.emitQueryResultWhere(
+      ({ query: q, args }) => {
+        const path = (q as { _path?: string })._path
+        const a = args as { teamId?: string; paginationOpts?: { cursor?: string | null } }
+        return (
+          path === 'notes:listPaginated:args-change-release' &&
+          a.teamId === 'team-a' &&
+          a.paginationOpts?.cursor === null
+        )
+      },
+      {
+        page: [{ _id: 'a1', title: 'A1' }],
+        isDone: false,
+        continueCursor: 'c1',
+      },
+    )
+
+    await waitFor(() => result.queryResult.results.value.length === 1)
+    const teamAFirstArgs = convex.calls.onUpdate.find((call) => {
+      const args = call.args as { teamId?: string; paginationOpts?: { cursor?: string | null } }
+      return args.teamId === 'team-a' && args.paginationOpts?.cursor === null
+    })?.args
+    expect(teamAFirstArgs).toBeDefined()
+    await waitFor(() => convex.activeListenerCount(query, teamAFirstArgs) === 1)
+
+    result.queryResult.loadMore(2)
+    const teamASecondArgs = convex.calls.onUpdate.find((call) => {
+      const args = call.args as { teamId?: string; paginationOpts?: { cursor?: string | null } }
+      return args.teamId === 'team-a' && args.paginationOpts?.cursor === 'c1'
+    })?.args
+    expect(teamASecondArgs).toBeDefined()
+
+    convex.emitQueryResultWhere(
+      ({ query: q, args }) => {
+        const path = (q as { _path?: string })._path
+        const a = args as { teamId?: string; paginationOpts?: { cursor?: string | null } }
+        return (
+          path === 'notes:listPaginated:args-change-release' &&
+          a.teamId === 'team-a' &&
+          a.paginationOpts?.cursor === 'c1'
+        )
+      },
+      {
+        page: [{ _id: 'a2', title: 'A2' }],
+        isDone: true,
+        continueCursor: null,
+      },
+    )
+
+    await waitFor(() => result.queryResult.results.value.length === 2)
+    await waitFor(() => convex.activeListenerCount(query, teamASecondArgs) === 1)
+
+    result.teamId.value = 'team-b'
+    await flush()
+
+    await waitFor(() => convex.activeListenerCount(query, teamAFirstArgs) === 0)
+    await waitFor(() => convex.activeListenerCount(query, teamASecondArgs) === 0)
+    await waitFor(() =>
+      convex.calls.onUpdate.some((call) => {
+        const args = call.args as { teamId?: string; paginationOpts?: { cursor?: string | null } }
+        return args.teamId === 'team-b' && args.paginationOpts?.cursor === null
+      }),
+    )
+    expect(result.queryResult.status.value).toBe('loading-first-page')
+  })
+
+  it('reset() releases loaded page subscriptions and starts over from the first page only', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:reset-release')
+
+    const { result } = await captureInNuxt(
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 }),
+      { convex },
+    )
+
+    convex.emitQueryResultByPath('notes:listPaginated:reset-release', {
+      page: [{ _id: 'n1', title: 'A' }],
+      isDone: false,
+      continueCursor: 'c1',
+    })
+    await waitFor(() => result.results.value.length === 1)
+    const firstArgs = convex.calls.onUpdate.find((call) => {
+      const args = call.args as { paginationOpts?: { cursor?: string | null } }
+      return args.paginationOpts?.cursor === null
+    })?.args
+    expect(firstArgs).toBeDefined()
+    await waitFor(() => convex.activeListenerCount(query, firstArgs) === 1)
+
+    result.loadMore(2)
+    const secondArgs = convex.calls.onUpdate.find((call) => {
+      const args = call.args as { paginationOpts?: { cursor?: string | null } }
+      return args.paginationOpts?.cursor === 'c1'
+    })?.args
+    expect(secondArgs).toBeDefined()
+
+    convex.emitQueryResultWhere(
+      ({ query: q, args }) => {
+        const path = (q as { _path?: string })._path
+        const cursor = (args as { paginationOpts?: { cursor?: string | null } }).paginationOpts
+          ?.cursor
+        return path === 'notes:listPaginated:reset-release' && cursor === 'c1'
+      },
+      {
+        page: [{ _id: 'n2', title: 'B' }],
+        isDone: true,
+        continueCursor: null,
+      },
+    )
+    await waitFor(() => result.results.value.length === 2)
+    await waitFor(() => convex.activeListenerCount(query, secondArgs) === 1)
+
+    const resetPromise = result.reset()
+    await waitFor(() => convex.activeListenerCount(query, firstArgs) === 0)
+    await waitFor(() => convex.activeListenerCount(query, secondArgs) === 0)
+
+    convex.emitQueryResultWhere(
+      ({ query: q, args }) => {
+        const path = (q as { _path?: string })._path
+        const cursor = (args as { paginationOpts?: { cursor?: string | null } }).paginationOpts
+          ?.cursor
+        return path === 'notes:listPaginated:reset-release' && cursor === null
+      },
+      {
+        page: [{ _id: 'n3', title: 'Reset A' }],
+        isDone: true,
+        continueCursor: null,
+      },
+    )
+    await resetPromise
+    await waitFor(() => (result.results.value as Array<{ _id: string }>)[0]?._id === 'n3')
+    await waitFor(() => convex.activeListenerCount() === 1)
+    expect(result.results.value).toHaveLength(1)
+  })
+
+  it('skips cleanly after loaded pages and releases all active subscriptions', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:skip-after-pages')
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const enabled = ref(true)
+        const queryResult = useConvexPaginatedQueryState(
+          query as never,
+          () => (enabled.value ? ({} as never) : null),
+          { initialNumItems: 2 },
+        )
+        return { enabled, queryResult }
+      },
+      { convex },
+    )
+
+    convex.emitQueryResultByPath('notes:listPaginated:skip-after-pages', {
+      page: [{ _id: 'n1', title: 'A' }],
+      isDone: false,
+      continueCursor: 'c1',
+    })
+    await waitFor(() => result.queryResult.results.value.length === 1)
+    const firstArgs = convex.calls.onUpdate.find((call) => {
+      const args = call.args as { paginationOpts?: { cursor?: string | null } }
+      return args.paginationOpts?.cursor === null
+    })?.args
+    expect(firstArgs).toBeDefined()
+    await waitFor(() => convex.activeListenerCount(query, firstArgs) === 1)
+
+    result.queryResult.loadMore(2)
+    const secondArgs = convex.calls.onUpdate.find((call) => {
+      const args = call.args as { paginationOpts?: { cursor?: string | null } }
+      return args.paginationOpts?.cursor === 'c1'
+    })?.args
+    expect(secondArgs).toBeDefined()
+
+    convex.emitQueryResultWhere(
+      ({ query: q, args }) => {
+        const path = (q as { _path?: string })._path
+        const cursor = (args as { paginationOpts?: { cursor?: string | null } }).paginationOpts
+          ?.cursor
+        return path === 'notes:listPaginated:skip-after-pages' && cursor === 'c1'
+      },
+      {
+        page: [{ _id: 'n2', title: 'B' }],
+        isDone: true,
+        continueCursor: null,
+      },
+    )
+    await waitFor(() => result.queryResult.results.value.length === 2)
+    await waitFor(() => convex.activeListenerCount(query, secondArgs) === 1)
+
+    result.enabled.value = false
+    await flush()
+
+    await waitFor(() => result.queryResult.status.value === 'skipped')
+    await waitFor(() => convex.activeListenerCount(query, firstArgs) === 0)
+    await waitFor(() => convex.activeListenerCount(query, secondArgs) === 0)
+    expect(result.queryResult.results.value).toEqual([])
+  })
+
   it('applies transform on concatenated pages and subsequent updates', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:listPaginated:transform')

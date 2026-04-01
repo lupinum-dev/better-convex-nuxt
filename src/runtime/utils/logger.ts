@@ -26,9 +26,10 @@ export interface AuthEvent {
 
 export interface QueryEvent {
   name: string
-  event: 'subscribe' | 'update' | 'unsubscribe' | 'error' | 'share'
+  event: 'subscribe' | 'update' | 'unsubscribe' | 'error' | 'share' | 'skip'
   count?: number // item count for updates
   refCount?: number // for subscription sharing
+  reason?: string
   args?: unknown
   data?: unknown // only logged in debug mode
   error?: Error
@@ -148,13 +149,16 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
           msg += event.count !== undefined ? ` update (${event.count} items)` : ' update'
           break
         case 'unsubscribe':
-          msg += ' unsubscribe'
+          msg += event.reason ? ` unsubscribe (${event.reason})` : ' unsubscribe'
           break
         case 'share':
           msg += ` share (refCount: ${event.refCount})`
           break
         case 'error':
           msg += ' error'
+          break
+        case 'skip':
+          msg += event.reason ? ` skip (${event.reason})` : ' skip'
           break
       }
 
