@@ -5,6 +5,10 @@ import { DEVTOOLS_UI_PATH, DEVTOOLS_UI_PORT } from '../src/runtime/devtools/cons
 const resolver = createResolver(import.meta.url)
 
 export default defineNuxtConfig({
+  ssr: false,
+  devtools: {
+    enabled: false,
+  },
   modules: ['@nuxt/devtools-ui-kit'],
   app: {
     baseURL: DEVTOOLS_UI_PATH,
