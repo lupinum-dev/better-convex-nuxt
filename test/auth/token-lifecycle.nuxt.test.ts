@@ -10,7 +10,7 @@ import {
   createMockTokenExchange,
   mintJwtExpiringIn,
   TEST_USERS,
-} from '../harness'
+} from '../support/auth'
 
 let h: Awaited<ReturnType<typeof createAuthHarness>>
 

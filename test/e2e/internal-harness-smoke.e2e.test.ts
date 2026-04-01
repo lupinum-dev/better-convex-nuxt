@@ -1,91 +1,18 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { once } from 'node:events'
 import { fileURLToPath } from 'node:url'
-import net from 'node:net'
 
 import { $fetch, createPage, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { ensureLocalConvex } from '../helpers/local-convex'
+import { fetchWithTimeout } from '../support/e2e/http'
+import { ensureManagedLocalConvex } from '../support/e2e/managed-convex'
+import { startManagedNuxtDev } from '../support/e2e/managed-nuxt-dev'
 
 const harnessRoot = fileURLToPath(new URL('../../internal-harness', import.meta.url))
 
-function waitForPort(port: number, timeoutMs: number): Promise<void> {
-  const started = Date.now()
-
-  return new Promise((resolve, reject) => {
-    const check = () => {
-      const socket = new net.Socket()
-      socket.setTimeout(500)
-      socket.once('connect', () => {
-        socket.destroy()
-        resolve()
-      })
-      socket.once('timeout', () => {
-        socket.destroy()
-        retry()
-      })
-      socket.once('error', () => {
-        socket.destroy()
-        retry()
-      })
-      socket.connect(port, '127.0.0.1')
-    }
-
-    const retry = () => {
-      if (Date.now() - started > timeoutMs) {
-        reject(new Error(`Timed out waiting for port ${port}`))
-        return
-      }
-      setTimeout(check, 100)
-    }
-
-    check()
-  })
-}
-
-function getFreePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer()
-    server.unref()
-    server.on('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const address = server.address()
-      if (!address || typeof address === 'string') {
-        server.close(() => reject(new Error('Could not determine free port')))
-        return
-      }
-      const { port } = address
-      server.close((error) => {
-        if (error) {
-          reject(error)
-          return
-        }
-        resolve(port)
-      })
-    })
-  })
-}
-
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    return await fetch(url, {
-      ...init,
-      signal: controller.signal,
-    })
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-let local: Awaited<ReturnType<typeof ensureLocalConvex>> | null = null
+let local: Awaited<ReturnType<typeof ensureManagedLocalConvex>> | null = null
 try {
-  local = await ensureLocalConvex({
+  local = await ensureManagedLocalConvex({
     cwd: harnessRoot,
-    managed: true,
   })
 } catch (error) {
   console.warn('[e2e] Skipping internal-harness smoke suite: local Convex backend unavailable.', error)
@@ -181,40 +108,32 @@ maybeDescribe('internal harness smoke', () => {
 })
 
 describe('internal harness dev misconfig overlay', () => {
-  let devServer: ChildProcessWithoutNullStreams | null = null
-  let devPort = 3000
+  const workspaceRoot = fileURLToPath(new URL('../..', import.meta.url))
+  let devServer: Awaited<ReturnType<typeof startManagedNuxtDev>> | null = null
 
   beforeAll(async () => {
-    devPort = await getFreePort()
-    devServer = spawn('pnpm', ['exec', 'nuxi', 'dev', '--cwd', 'internal-harness', '--host', '127.0.0.1', '--port', String(devPort)], {
-      cwd: fileURLToPath(new URL('../..', import.meta.url)),
+    devServer = await startManagedNuxtDev({
+      projectDir: harnessRoot,
+      workspaceRoot,
       env: {
-        ...process.env,
         CONVEX_URL: 'https://demo.convex.cloud',
         CONVEX_SITE_URL: 'http://127.0.0.1:1',
         NUXT_PUBLIC_CONVEX_URL: 'https://demo.convex.cloud',
         NUXT_PUBLIC_CONVEX_SITE_URL: 'http://127.0.0.1:1',
         NODE_ENV: 'development',
       },
-      stdio: 'pipe',
     })
-
-    devServer.stdout.on('data', () => {})
-    devServer.stderr.on('data', () => {})
-
-    await waitForPort(devPort, 45_000)
   }, 60_000)
 
   afterAll(async () => {
     if (!devServer) return
-    devServer.kill('SIGTERM')
-    await once(devServer, 'exit').catch(() => {})
+    await devServer.release()
     devServer = null
   })
 
   it('renders a visible SSR error page when token exchange fails in dev', async () => {
     const response = await fetchWithTimeout(
-      `http://127.0.0.1:${devPort}/labs/guard-open?force_misconfig=1`,
+      `${devServer!.origin}/labs/guard-open?force_misconfig=1`,
       {
         headers: {
           cookie: 'better-auth.session_token=e2e-session-token',

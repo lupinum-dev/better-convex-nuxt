@@ -11,8 +11,12 @@ test/
 ├── auth/
 ├── browser/
 ├── e2e/
-├── harness/
-├── helpers/
+├── support/
+│   ├── auth/
+│   ├── browser/
+│   ├── e2e/
+│   ├── nuxt/
+│   └── unit/
 └── fixtures/
 ```
 
@@ -35,6 +39,7 @@ pnpm test:nuxt
 pnpm test:browser
 pnpm test:e2e
 pnpm test:full
+pnpm test:list
 ```
 
 ## Vitest Projects
@@ -48,28 +53,34 @@ pnpm test:full
 
 ## Design Rules
 
-1. Runtime/composable behavior goes in `test/nuxt`.
-2. Canonical auth flow and lifecycle coverage goes in `test/auth/*.nuxt.test.ts`.
-3. OWASP-mapped auth coverage lives in `test/auth/owasp.test.ts` and `test/auth/owasp.nuxt.test.ts`.
-4. Shared auth test utilities live in `test/harness` and should stay focused on setup, state, and triggers rather than custom assertion DSLs.
-5. Pure browser rendering behavior goes in `test/browser`.
-6. Full-stack tests stay thin and intentional in `test/e2e`.
-7. Convex/backend behavior belongs in `internal-harness/convex/*.test.ts`.
-8. Prefer deterministic assertions over sleeps.
+1. `unit` owns pure logic and small mocks.
+2. `nuxt` owns composable, plugin, and runtime integration.
+3. `server` owns server helper behavior only.
+4. `browser` owns component rendering behavior.
+5. `convex` owns real backend permission and data behavior in `internal-harness/convex/*.test.ts`.
+6. `e2e` owns package-boundary smoke coverage only.
+7. Shared test infrastructure lives under `test/support/*` and should stay focused on setup and reusable primitives rather than custom assertion DSLs.
+8. New tests should use `test/support/*` helpers instead of ad hoc local mocks or process management.
+9. E2E specs must not inline process, port, or backend lifecycle helpers.
+10. Prefer deterministic assertions over sleeps.
 
 Before adding a new auth test, place it in the single suite that owns that behavior; do not duplicate the same invariant in both behavior and OWASP suites.
 
-## Local E2E Setup
+## Support Layout
 
-For the internal-harness smoke and MCP smoke E2E suites you need:
+- `test/support/auth`: auth harnesses, JWT factories, token exchange mocks, server auth fixtures
+- `test/support/nuxt`: composable/runtime capture helpers and mock Convex client utilities
+- `test/support/e2e`: managed local Convex, managed Nuxt dev server, ports, HTTP helpers, MCP helpers
+- `test/support/unit`: shared unit-test harnesses and validation helpers
+- `test/support/browser`: browser shims for Vitest aliases
 
-- local Convex running
-- `CONVEX_URL`
-- optionally `CONVEX_SITE_URL` if you are not using the local default
-- `SITE_URL`
-- `BETTER_AUTH_SECRET`
+## Managed E2E
 
-Example:
+`pnpm test:e2e` is managed-only. It rebuilds the module, kills conflicting listeners on the configured local Convex ports, boots its own local backend, injects the trusted-caller env required by the MCP smoke suite, and tears everything down when the run finishes.
+
+Normal contributors should not prestart Convex for the smoke suite. The only required manual setup is the local Better Auth config inside `internal-harness/.env.local`.
+
+If local auth has not been initialized yet:
 
 ```bash
 cd /path/to/better-convex-nuxt/internal-harness
@@ -79,3 +90,7 @@ npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.loc
 cd /path/to/better-convex-nuxt
 pnpm test:e2e
 ```
+
+## Maintenance
+
+- `pnpm test:list` lists repo-owned test files while excluding `test/fixtures/**/node_modules`.

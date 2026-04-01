@@ -1,37 +1,17 @@
 import { fileURLToPath } from 'node:url'
 
-import { $fetch, fetch as testFetch, setup } from '@nuxt/test-utils/e2e'
+import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../../internal-harness/shared/dev-trusted-caller-key'
-import { ensureLocalConvex } from '../helpers/local-convex'
+import { fetchMcpBootstrap, fetchMcpState, type BootstrapResponse } from '../support/e2e/mcp-bootstrap'
+import { initializeMcpSession, rpc } from '../support/e2e/mcp-client'
+import { ensureManagedLocalConvex } from '../support/e2e/managed-convex'
 
-interface BootstrapResponse {
-  organizationId: string
-  resources: {
-    noteId: string
-    taskId: string
-    postId: string
-    commentId: string
-  }
-  keys: Record<'admin' | 'member' | 'viewer' | 'noOrg' | 'revoked', { id: string; key: string }>
-}
-
-interface McpStateResponse {
-  keys: Array<{
-    _id: string
-    key: string
-    status: string
-    lastUsedAt?: number
-  }>
-  counts: Record<string, number>
-}
-
-let local: Awaited<ReturnType<typeof ensureLocalConvex>> | null = null
+let local: Awaited<ReturnType<typeof ensureManagedLocalConvex>> | null = null
 try {
-  local = await ensureLocalConvex({
+  local = await ensureManagedLocalConvex({
     cwd: fileURLToPath(new URL('../../internal-harness', import.meta.url)),
-    managed: true,
   })
 } catch (error) {
   console.warn('[e2e] Skipping MCP smoke suite: local Convex backend unavailable.', error)
@@ -61,72 +41,11 @@ maybeDescribe('MCP route smoke', async () => {
   let bootstrap: BootstrapResponse
 
   beforeAll(async () => {
-    bootstrap = (await fetchAny('/api/test-mcp-bootstrap', {
-      method: 'POST',
-    })) as BootstrapResponse
+    bootstrap = await fetchMcpBootstrap(fetchAny)
   })
 
-  async function rpc(
-    body: Record<string, unknown>,
-    options: { sessionId?: string; key?: string } = {},
-  ) {
-    const response = await testFetch('/mcp', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json, text/event-stream',
-        ...(options.sessionId ? { 'Mcp-Session-Id': options.sessionId } : {}),
-        ...(options.key ? { Authorization: `Bearer ${options.key}` } : {}),
-      },
-      body: JSON.stringify(body),
-    })
-
-    const text = await response.text()
-    const contentType = response.headers.get('content-type') ?? ''
-    const data = contentType.includes('text/event-stream')
-      ? parseSsePayload(text)
-      : (JSON.parse(text) as unknown)
-
-    return {
-      _data: data,
-      headers: response.headers,
-      status: response.status,
-    }
-  }
-
-  async function initialize(key?: string): Promise<string | undefined> {
-    const response = await rpc(
-      {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'initialize',
-        params: {
-          protocolVersion: '2025-03-26',
-          capabilities: {},
-          clientInfo: { name: 'vitest', version: '1.0.0' },
-        },
-      },
-      { key },
-    )
-
-    const payload = response._data as {
-      result?: {
-        protocolVersion?: string
-      }
-    }
-
-    expect(payload.result?.protocolVersion).toBe('2025-03-26')
-    return (
-      response.headers.get('mcp-session-id') ?? response.headers.get('Mcp-Session-Id') ?? undefined
-    )
-  }
-
-  async function readState() {
-    return (await fetchAny('/api/test-mcp-state')) as McpStateResponse
-  }
-
   it('lists only public tools anonymously', async () => {
-    const sessionId = await initialize()
+    const sessionId = await initializeMcpSession()
     expect(sessionId).toEqual(expect.any(String))
 
     const response = await rpc(
@@ -154,7 +73,7 @@ maybeDescribe('MCP route smoke', async () => {
   })
 
   it('exposes authenticated tools and round-trips public tool calls', async () => {
-    const memberSession = await initialize(bootstrap.keys.member.key)
+    const memberSession = await initializeMcpSession(bootstrap.keys.member.key)
     expect(memberSession).toEqual(expect.any(String))
 
     const listResponse = await rpc(
@@ -208,8 +127,8 @@ maybeDescribe('MCP route smoke', async () => {
   })
 
   it('hides scoped and role-denied tools from discovery', async () => {
-    const noOrgSession = await initialize(bootstrap.keys.noOrg.key)
-    const viewerSession = await initialize(bootstrap.keys.viewer.key)
+    const noOrgSession = await initializeMcpSession(bootstrap.keys.noOrg.key)
+    const viewerSession = await initializeMcpSession(bootstrap.keys.viewer.key)
 
     const noOrgList = await rpc(
       {
@@ -255,9 +174,9 @@ maybeDescribe('MCP route smoke', async () => {
   })
 
   it('handles auth-required and org-scoped failures correctly', async () => {
-    const publicSession = await initialize()
-    const noOrgSession = await initialize(bootstrap.keys.noOrg.key)
-    const viewerSession = await initialize(bootstrap.keys.viewer.key)
+    const publicSession = await initializeMcpSession()
+    const noOrgSession = await initializeMcpSession(bootstrap.keys.noOrg.key)
+    const viewerSession = await initializeMcpSession(bootstrap.keys.viewer.key)
 
     const anonTask = await rpc(
       {
@@ -352,8 +271,8 @@ maybeDescribe('MCP route smoke', async () => {
   })
 
   it('enforces destructive confirmation, rejects revoked keys, and touches lastUsedAt', async () => {
-    const adminSession = await initialize(bootstrap.keys.admin.key)
-    const revokedSession = await initialize(bootstrap.keys.revoked.key)
+    const adminSession = await initializeMcpSession(bootstrap.keys.admin.key)
+    const revokedSession = await initializeMcpSession(bootstrap.keys.revoked.key)
 
     const preview = await rpc(
       {
@@ -445,7 +364,7 @@ maybeDescribe('MCP route smoke', async () => {
 
     let touchedKey: { lastUsedAt?: number } | undefined
     for (let attempt = 0; attempt < 20; attempt += 1) {
-      const state = await readState()
+      const state = await fetchMcpState(fetchAny)
       touchedKey = state.keys.find((key) => key._id === bootstrap.keys.admin.id)
       if (touchedKey?.lastUsedAt) break
       await new Promise((resolve) => setTimeout(resolve, 100))
@@ -455,7 +374,7 @@ maybeDescribe('MCP route smoke', async () => {
   })
 
   it('persists session state and supports dynamic session-local tools', async () => {
-    const memberSession = await initialize(bootstrap.keys.member.key)
+    const memberSession = await initializeMcpSession(bootstrap.keys.member.key)
     const shortcutName = 'release-check'
     const registeredName = `session-shortcut-${shortcutName}`
 
@@ -597,12 +516,3 @@ maybeDescribe('MCP route smoke', async () => {
     expect(finalTools).not.toContain(registeredName)
   })
 })
-
-function parseSsePayload(text: string) {
-  const match = text.match(/data:\s*(\{[\s\S]*\})/)
-  if (!match?.[1]) {
-    throw new Error(`Could not parse SSE payload: ${text}`)
-  }
-
-  return JSON.parse(match[1]) as unknown
-}
