@@ -1,7 +1,8 @@
-import { can, authorize } from 'better-convex-nuxt/auth'
+import { can, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
-import { getActorFromArgs } from './auth/actor'
+import type { Actor } from './auth/actor'
+import { getActor } from './auth/actor'
 import {
   canCreateComment,
   canDeleteComment,
@@ -18,7 +19,7 @@ import {
 } from '../shared/schemas/comment'
 
 function attachCommentPermissions(
-  actor: Awaited<ReturnType<typeof getActorFromArgs>>,
+  actor: Exclude<Actor, null>,
   comment: { ownerId: string; [key: string]: unknown },
 ) {
   return withCan(comment, {
@@ -28,9 +29,9 @@ function attachCommentPermissions(
 }
 
 export const listByPost = query({
-  args: listCommentsByPost.fullArgs,
+  args: withTrustedCaller(listCommentsByPost.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
+    const actor = await getActor(ctx, args)
     if (!actor) return []
 
     authorize(actor, 'Read comments', canReadComment)
@@ -47,9 +48,9 @@ export const listByPost = query({
 })
 
 export const create = mutation({
-  args: createComment.fullArgs,
+  args: withTrustedCaller(createComment.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
+    const actor = await getActor(ctx, args)
     authorize(actor, 'Create comment', canCreateComment)
     const post = loadResource(actor, await ctx.db.get(args.postId), 'Post')
 
@@ -65,9 +66,9 @@ export const create = mutation({
 })
 
 export const update = mutation({
-  args: updateComment.fullArgs,
+  args: withTrustedCaller(updateComment.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
+    const actor = await getActor(ctx, args)
     const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')
     authorize(actor, 'Update comment', canUpdateComment(comment))
 
@@ -80,9 +81,9 @@ export const update = mutation({
 })
 
 export const remove = mutation({
-  args: deleteComment.fullArgs,
+  args: withTrustedCaller(deleteComment.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
+    const actor = await getActor(ctx, args)
     const comment = loadResource(actor, await ctx.db.get(args.id), 'Comment')
     authorize(actor, 'Delete comment', canDeleteComment(comment))
     await ctx.db.delete(args.id)

@@ -1,4 +1,4 @@
-import { deny, authorize } from 'better-convex-nuxt/auth'
+import { deny, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
@@ -21,10 +21,10 @@ export const list = query({
 })
 
 export const changeRole = mutation({
-  args: {
+  args: withTrustedCaller({
     userId: v.id('users'),
     newRole: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
-  },
+  }),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Manage members', canManageMembers)

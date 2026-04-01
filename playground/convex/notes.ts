@@ -12,21 +12,18 @@ import {
 
 const listNotesArgs = defineArgs({
   args: {},
-  serviceAuth: true,
 })
 
 const listPaginatedNotesArgs = defineArgs({
   args: {
     paginationOpts: paginationOptsValidator,
   },
-  serviceAuth: true,
 })
 
 const getNoteArgs = defineArgs({
   args: {
     id: v.id('notes'),
   },
-  serviceAuth: true,
 })
 
 function withTitle<T extends { title?: string | null }>(note: T) {
@@ -37,7 +34,7 @@ function withTitle<T extends { title?: string | null }>(note: T) {
 }
 
 export const list = query({
-  args: listNotesArgs.fullArgs,
+  args: listNotesArgs.args,
   handler: async (ctx) => {
     const notes = await ctx.db.query('notes').order('desc').take(50)
     return notes.map(withTitle)
@@ -45,7 +42,7 @@ export const list = query({
 })
 
 export const listPaginated = query({
-  args: listPaginatedNotesArgs.fullArgs,
+  args: listPaginatedNotesArgs.args,
   handler: async (ctx, args) => {
     const result = await ctx.db.query('notes').order('desc').paginate(args.paginationOpts)
     return {
@@ -56,7 +53,7 @@ export const listPaginated = query({
 })
 
 export const listPaginatedAsc = query({
-  args: listPaginatedNotesArgs.fullArgs,
+  args: listPaginatedNotesArgs.args,
   handler: async (ctx, args) => {
     const result = await ctx.db.query('notes').order('asc').paginate(args.paginationOpts)
     return {
@@ -67,7 +64,7 @@ export const listPaginatedAsc = query({
 })
 
 export const get = query({
-  args: getNoteArgs.fullArgs,
+  args: getNoteArgs.args,
   handler: async (ctx, args) => {
     const note = await ctx.db.get(args.id)
     return note ? withTitle(note) : null
@@ -75,7 +72,7 @@ export const get = query({
 })
 
 export const search = query({
-  args: searchNotes.fullArgs,
+  args: searchNotes.args,
   handler: async (ctx, args) => {
     if (!args.query.trim()) return []
 
@@ -94,7 +91,7 @@ export const search = query({
 })
 
 export const add = mutation({
-  args: createNote.fullArgs,
+  args: createNote.args,
   handler: async (ctx, args) => {
     return await ctx.db.insert('notes', {
       title: args.title,
@@ -105,7 +102,7 @@ export const add = mutation({
 })
 
 export const update = mutation({
-  args: updateNote.fullArgs,
+  args: updateNote.args,
   handler: async (ctx, args) => {
     const note = await ctx.db.get(args.id)
     if (!note) throw new Error('Note not found')
@@ -126,14 +123,14 @@ export const count = query({
 })
 
 export const remove = mutation({
-  args: deleteNote.fullArgs,
+  args: deleteNote.args,
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)
   },
 })
 
 export const listDelayed = query({
-  args: listNotesArgs.fullArgs,
+  args: listNotesArgs.args,
   handler: async (ctx) => {
     const notes = await ctx.db.query('notes').order('desc').take(50)
     return notes.map(withTitle)

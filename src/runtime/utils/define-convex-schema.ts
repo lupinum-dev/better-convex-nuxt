@@ -20,17 +20,6 @@ type ValidatorNode = GenericValidator & {
   members?: GenericValidator[]
 }
 
-const serviceAuthValidators = {
-  _serviceKey: v.optional(v.string()),
-  _serviceActor: v.optional(
-    v.object({
-      userId: v.string(),
-      role: v.string(),
-      tenantId: v.optional(v.string()),
-    }),
-  ),
-} satisfies PropertyValidators
-
 export interface SchemaFieldMeta {
   label?: string
   description?: string
@@ -56,11 +45,6 @@ export interface SchemaDefinition<
 > extends StandardSchemaV1<T> {
   readonly description: string | undefined
   readonly args: V
-  readonly fullArgs: V & typeof serviceAuthValidators
-  /** @deprecated Use `.args` instead. */
-  readonly validators: V
-  /** @deprecated Use `.fullArgs` instead. */
-  readonly convexValidators: V & typeof serviceAuthValidators
   readonly meta: ResolvedSchemaMeta<V>
   readonly zod: z.ZodObject<{ [K in keyof V]: z.ZodType<Infer<V[K]>> }>
   readonly parse: (input: unknown) => T
@@ -202,15 +186,10 @@ export function defineArgs<V extends PropertyValidators>(definition: {
   description?: string
   args: V
   meta?: InputSchemaMeta<V>
-  serviceAuth?: boolean
 }): SchemaDefinition<ObjectType<V>, V> {
   type T = ObjectType<V>
 
   const objectValidator = v.object(definition.args)
-  const convexValidators = (definition.serviceAuth
-    ? { ...definition.args, ...serviceAuthValidators }
-    : { ...definition.args }
-  ) as V & typeof serviceAuthValidators
   const standardProps: StandardSchemaV1Props<T> = {
     version: 1,
     vendor: 'better-convex-nuxt',
@@ -259,9 +238,6 @@ export function defineArgs<V extends PropertyValidators>(definition: {
   return {
     description: definition.description,
     args: definition.args,
-    fullArgs: convexValidators,
-    validators: definition.args,
-    convexValidators,
     meta: resolvedMeta,
     zod,
     parse,

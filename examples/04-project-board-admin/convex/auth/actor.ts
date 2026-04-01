@@ -1,4 +1,5 @@
-import { getAuth, verifyKey } from 'better-convex-nuxt/auth'
+import type { AuthIdentity } from 'better-convex-nuxt/auth'
+import { getAuth, getTrustedCaller } from 'better-convex-nuxt/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'
@@ -8,30 +9,25 @@ export type Actor =
   | { kind: 'service'; serviceId: string; userId: string; role: string; tenantId: string }
   | null
 
-type ServiceAuthArgs = {
-  _serviceKey?: string
-  _serviceActor?: {
-    userId: string
-    role: string
-    tenantId?: string
-  }
-}
-
 type ProjectBoardCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
-export async function getActor(ctx: ProjectBoardCtx, args?: ServiceAuthArgs): Promise<Actor> {
-  const serviceActor =
-    args?._serviceKey && args._serviceActor?.tenantId
-      ? getServiceActor(args._serviceKey, {
-          serviceId: 'service',
-          userId: args._serviceActor.userId,
-          role: args._serviceActor.role,
-          tenantId: args._serviceActor.tenantId,
-        })
-      : null
-  if (serviceActor) return serviceActor
+export async function getActor(ctx: ProjectBoardCtx, args?: unknown): Promise<Actor> {
+  const trusted = getTrustedCaller(args)
+  if (trusted) {
+    if (!trusted.tenantId) return null
+    return {
+      kind: 'service',
+      serviceId: 'service',
+      userId: trusted.userId,
+      role: trusted.role,
+      tenantId: trusted.tenantId,
+    }
+  }
 
-  const auth = await getAuth(ctx)
+  return await resolveActor(ctx, await getAuth(ctx))
+}
+
+export async function resolveActor(ctx: ProjectBoardCtx, auth: AuthIdentity | null): Promise<Actor> {
   if (!auth) return null
 
   const user = await ctx.db
@@ -46,21 +42,5 @@ export async function getActor(ctx: ProjectBoardCtx, args?: ServiceAuthArgs): Pr
     userId: user.authId,
     role: user.role,
     tenantId: user.workspaceId,
-  }
-}
-
-export function getServiceActor(
-  key: string,
-  actor: { serviceId: string; userId: string; role: string; tenantId: string },
-): Actor {
-  const expected = process.env.CONVEX_SERVICE_KEY?.trim()
-  if (!expected) return null
-  if (!verifyKey(key, expected)) return null
-  return {
-    kind: 'service',
-    serviceId: actor.serviceId,
-    userId: actor.userId,
-    role: actor.role,
-    tenantId: actor.tenantId,
   }
 }

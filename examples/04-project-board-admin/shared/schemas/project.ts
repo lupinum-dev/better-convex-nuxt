@@ -13,7 +13,6 @@ export const projectStatusValidator = v.union(
 )
 
 export const createProject = defineArgs({
-  serviceAuth: true,
   description: 'Create a new project inside the current workspace.',
   args: {
     name: v.string(),
@@ -22,7 +21,6 @@ export const createProject = defineArgs({
 })
 
 export const archiveProject = defineArgs({
-  serviceAuth: true,
   description: 'Archive a project and freeze new task creation.',
   args: {
     id: v.id('projects'),

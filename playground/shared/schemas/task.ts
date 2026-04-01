@@ -4,7 +4,6 @@ import { defineArgs } from '../../../src/runtime/schema'
 
 export const addTask = defineArgs({
   description: 'Add a task to your personal list',
-  serviceAuth: true,
   args: {
     title: v.string(),
   },
@@ -22,6 +21,5 @@ export const addTask = defineArgs({
 
 export const listTasks = defineArgs({
   description: 'List your tasks',
-  serviceAuth: true,
   args: {},
 })

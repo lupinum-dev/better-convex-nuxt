@@ -3,6 +3,8 @@ import { getHeader } from 'h3'
 import { useEvent, useStorage } from 'nitropack/runtime'
 
 export interface McpSessionStore<T = Record<string, unknown>> {
+  sessionId: string
+  namespace: string
   get<K extends keyof T & string>(key: K): Promise<T[K] | null>
   set<K extends keyof T & string>(key: K, value: T[K]): Promise<void>
   remove<K extends keyof T & string>(key: K): Promise<void>
@@ -10,6 +12,14 @@ export interface McpSessionStore<T = Record<string, unknown>> {
   keys(): Promise<string[]>
   clear(): Promise<void>
   storage: Storage
+}
+
+function sanitizeNamespace(value: string): string {
+  return value
+    .replace(/[^a-zA-Z0-9:_/-]+/g, '-')
+    .replace(/\/+/g, '/')
+    .replace(/^-+|-+$/g, '')
+    || 'mcp'
 }
 
 export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T> {
@@ -22,9 +32,16 @@ export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T>
     )
   }
 
-  const storage = useStorage(`mcp:sessions:${sessionId}`)
+  const routeNamespace = sanitizeNamespace(
+    event.path
+    || event.node.req.url
+    || 'mcp',
+  )
+  const storage = useStorage(`mcp:sessions:${routeNamespace}:${sessionId}`)
 
   return {
+    sessionId,
+    namespace: routeNamespace,
     get: async key => await storage.getItem(key) as T[typeof key] | null,
     set: (key, value) => storage.setItem(key, value as StorageValue),
     remove: key => storage.removeItem(key),

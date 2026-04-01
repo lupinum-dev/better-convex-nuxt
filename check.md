@@ -31,6 +31,9 @@ Last updated: 2026-04-01
 - `DONE` MCP smoke e2e test passes.
 - `DONE` Evalite MCP evals pass.
 - `DONE` Typecheck remaining failures are proven unrelated to MCP changes.
+- `DONE` Auth explicit trusted-caller cutover passes unit tests.
+- `DONE` Stub package build exposes the new auth surface (`withTrustedCaller`, `getTrustedCaller`).
+- `DONE` Playground Convex tests still pass after removing `actorQuery` / `actorMutation`.
 
 ## Known Issues / Notes
 
@@ -38,6 +41,8 @@ Last updated: 2026-04-01
 - Fixed: MCP auth middleware was not mapping `tenantId` onto the MCP actor, which hid scoped tools from valid actors.
 - Fixed: service-auth MCP calls were only injecting `_serviceKey` and `_serviceActor` for scoped tools, causing execution/discovery drift for authenticated non-scoped tools.
 - Fixed: Convex actor resolution ignored `_serviceKey` and `_serviceActor`, so MCP-authenticated calls did not reach Convex with the intended actor identity.
+- Fixed: wrapper-based `actorQuery` / `actorMutation` auth flow was removed in favor of explicit `getActor(ctx, args)` plus `withTrustedCaller(...)`.
+- Fixed: shared schemas are schema-only again; hidden trusted-caller transport no longer lives on `defineArgs()`.
 - Fixed: Evalite was not discovering `.eval.ts` files because the repo Vitest config had no eval project and the CLI script was using the wrong subcommand.
 - Fixed: Evalite now targets the running playground server directly and auto-detects `localhost:3001` or `localhost:3000`, which avoids brittle Nuxt test-context coupling.
 - Proven unrelated typecheck failures remain in:

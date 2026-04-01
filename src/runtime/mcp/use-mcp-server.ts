@@ -1,4 +1,12 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type {
+  McpServer,
+  ReadResourceCallback,
+  ReadResourceTemplateCallback,
+  RegisteredResource,
+  RegisteredResourceTemplate,
+  ResourceMetadata,
+  ResourceTemplate,
+} from '@modelcontextprotocol/sdk/server/mcp.js'
 import { useEvent } from 'nitropack/runtime'
 
 interface RegistrationHandle {
@@ -49,20 +57,14 @@ function removeByName(map: Map<string, RegistrationHandle>, name: string): boole
   return true
 }
 
-function wrapRegister<
-  TMethod extends 'registerTool' | 'registerPrompt' | 'registerResource',
->(
-  server: McpServer,
-  method: TMethod,
+function replaceRegistration<T extends RegistrationHandle>(
   map: Map<string, RegistrationHandle>,
-): McpServer[TMethod] {
-  const register = server[method].bind(server) as unknown as (...args: unknown[]) => RegistrationHandle
-
-  return ((...args: unknown[]) => {
-    const handle = register(...args)
-    map.set(String(args[0]), handle)
-    return handle
-  }) as unknown as McpServer[TMethod]
+  name: string,
+  handle: T,
+): T {
+  removeByName(map, name)
+  map.set(name, handle)
+  return handle
 }
 
 export function useMcpServer(): McpServerHelper {
@@ -78,9 +80,29 @@ export function useMcpServer(): McpServerHelper {
   const reg = getRegistrations(server)
 
   return {
-    registerTool: wrapRegister(server, 'registerTool', reg.tools),
-    registerPrompt: wrapRegister(server, 'registerPrompt', reg.prompts),
-    registerResource: wrapRegister(server, 'registerResource', reg.resources),
+    registerTool: ((name, config, cb) => {
+      const handle = server.registerTool(name, config, cb)
+      return replaceRegistration(reg.tools, name, handle)
+    }) as McpServer['registerTool'],
+    registerPrompt: ((name, config, cb) => {
+      const handle = server.registerPrompt(name, config, cb)
+      return replaceRegistration(reg.prompts, name, handle)
+    }) as McpServer['registerPrompt'],
+    registerResource: ((name: string, uriOrTemplate: string | ResourceTemplate, config: ResourceMetadata, readCallback: ReadResourceCallback | ReadResourceTemplateCallback) => {
+      const handle
+        = typeof uriOrTemplate === 'string'
+          ? server.registerResource(name, uriOrTemplate, config, readCallback as ReadResourceCallback)
+          : server.registerResource(name, uriOrTemplate, config, readCallback as ReadResourceTemplateCallback)
+
+      return replaceRegistration(
+        reg.resources,
+        name,
+        handle as RegisteredResource | RegisteredResourceTemplate,
+      )
+    }) as {
+      (name: string, uriOrTemplate: string, config: ResourceMetadata, readCallback: ReadResourceCallback): RegisteredResource
+      (name: string, uriOrTemplate: ResourceTemplate, config: ResourceMetadata, readCallback: ReadResourceTemplateCallback): RegisteredResourceTemplate
+    },
     removeTool: name => removeByName(reg.tools, name),
     removePrompt: name => removeByName(reg.prompts, name),
     removeResource: name => removeByName(reg.resources, name),

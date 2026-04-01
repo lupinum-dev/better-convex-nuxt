@@ -147,7 +147,6 @@ export const createPost = defineArgs({
 The same object is reused across the stack:
 
 ```ts
-createPost.fullArgs // Convex handler validators (includes hidden service-auth fields)
 createPost.args // public input fields only
 createPost.parse // runtime validation
 createPost.meta // labels + descriptions for tools/forms
@@ -160,12 +159,19 @@ Typical usage by runtime:
 ```ts
 import { mutation } from './_generated/server'
 import { defineTool } from '#convex/mcp'
-import { serverConvexMutation } from '#convex/server'
+import { authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
 
 export const create = mutation({
-  args: createPost.fullArgs,
+  args: withTrustedCaller(createPost.args),
   handler: async (ctx, args) => {
-    return await ctx.db.insert('posts', args)
+    const actor = await getActor(ctx, args)
+    authorize(actor, 'Create post', canCreatePost)
+    return await ctx.db.insert('posts', {
+      title: args.title,
+      content: args.content,
+      ownerId: actor.userId,
+      workspaceId: actor.tenantId,
+    })
   },
 })
 
@@ -183,16 +189,21 @@ Inside Convex functions, use the validator view directly:
 
 ```ts
 import { mutation } from './_generated/server'
-import { authorize } from 'better-convex-nuxt/auth'
+import { authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
 import { canCreatePost } from './auth/checks'
 import { getActor } from './auth/actor'
 
 export const create = mutation({
-  args: createPost.fullArgs,
+  args: withTrustedCaller(createPost.args),
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     authorize(actor, 'Create post', canCreatePost)
-    return await ctx.db.insert('posts', args)
+    return await ctx.db.insert('posts', {
+      title: args.title,
+      content: args.content,
+      ownerId: actor.userId,
+      workspaceId: actor.tenantId,
+    })
   },
 })
 ```

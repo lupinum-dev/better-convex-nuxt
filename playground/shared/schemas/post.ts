@@ -4,7 +4,6 @@ import { defineArgs } from '../../../src/runtime/schema'
 
 export const createPost = defineArgs({
   description: 'Create a new blog post',
-  serviceAuth: true,
   args: {
     title: v.string(),
     content: v.string(),
@@ -17,7 +16,6 @@ export const createPost = defineArgs({
 
 export const updatePost = defineArgs({
   description: 'Update an existing blog post',
-  serviceAuth: true,
   args: {
     id: v.id('posts'),
     title: v.optional(v.string()),
@@ -32,7 +30,6 @@ export const updatePost = defineArgs({
 
 export const deletePost = defineArgs({
   description: 'Permanently delete a post',
-  serviceAuth: true,
   args: {
     id: v.id('posts'),
   },

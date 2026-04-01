@@ -6,12 +6,19 @@ import type {
   GenericTableInfo,
   Query,
 } from 'convex/server'
-import { ConvexError } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
+import type { PropertyValidators } from 'convex/values'
 
 export type AuthIdentity = {
   subject: string
   email?: string
   name?: string
+}
+
+export type TrustedCallerIdentity = {
+  userId: string
+  role: string
+  tenantId?: string
 }
 
 
@@ -36,9 +43,29 @@ export type Visibility<T, P = unknown> = {
   resolve: VisibilityResolver<T, P>
 }
 
-type AnyCtx =
-  | GenericQueryCtx<GenericDataModel>
-  | GenericMutationCtx<GenericDataModel>
+type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
+
+const trustedCallerValidators = {
+  _serviceKey: v.optional(v.string()),
+  _serviceActor: v.optional(
+    v.object({
+      userId: v.string(),
+      role: v.string(),
+      tenantId: v.optional(v.string()),
+    }),
+  ),
+} satisfies PropertyValidators
+
+type TrustedCallerInput = {
+  _serviceKey?: unknown
+  _serviceActor?: {
+    userId?: unknown
+    role?: unknown
+    tenantId?: unknown
+  } | null
+}
 
 function runCheck<P>(principal: P, check: AnyCheck<P>): boolean {
   return typeof check === 'function' ? (check as Check<P>)(principal) : check
@@ -51,6 +78,10 @@ function toForbiddenError(reason: string, source?: string, category?: string): C
     ...(category ? { category } : {}),
     ...(source ? { source } : {}),
   })
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 export function and<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
@@ -112,13 +143,60 @@ export function requireRecord<T>(
 }
 
 
-export async function getAuth(ctx: AnyCtx): Promise<AuthIdentity | null> {
+export async function getAuth<DataModel extends GenericDataModel>(
+  ctx: AnyCtx<DataModel>,
+): Promise<AuthIdentity | null> {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) return null
   return {
     subject: identity.subject,
     ...(typeof identity.email === 'string' ? { email: identity.email } : {}),
     ...(typeof identity.name === 'string' ? { name: identity.name } : {}),
+  }
+}
+
+export function withTrustedCaller<V extends PropertyValidators>(args: V): V {
+  return {
+    ...args,
+    ...trustedCallerValidators,
+  } as V
+}
+
+export function getTrustedCaller(args: unknown): TrustedCallerIdentity | null {
+  if (!isObject(args)) return null
+
+  const input = args as TrustedCallerInput
+  const hasTrustedTransport = input._serviceKey !== undefined || input._serviceActor !== undefined
+  if (!hasTrustedTransport) return null
+
+  if (
+    typeof input._serviceKey !== 'string'
+    || !isObject(input._serviceActor)
+    || typeof input._serviceActor.userId !== 'string'
+    || typeof input._serviceActor.role !== 'string'
+    || (
+      input._serviceActor.tenantId !== undefined
+      && typeof input._serviceActor.tenantId !== 'string'
+    )
+  ) {
+    throw toForbiddenError('Malformed trusted caller payload.', 'service-auth', 'auth')
+  }
+
+  const expectedKey = process.env.CONVEX_SERVICE_KEY?.trim()
+  if (!expectedKey) {
+    throw toForbiddenError('Trusted caller auth is not configured.', 'service-auth', 'auth')
+  }
+
+  if (!verifyKey(input._serviceKey, expectedKey)) {
+    throw toForbiddenError('Invalid trusted caller credentials.', 'service-auth', 'auth')
+  }
+
+  return {
+    userId: input._serviceActor.userId,
+    role: input._serviceActor.role,
+    ...(typeof input._serviceActor.tenantId === 'string'
+      ? { tenantId: input._serviceActor.tenantId }
+      : {}),
   }
 }
 

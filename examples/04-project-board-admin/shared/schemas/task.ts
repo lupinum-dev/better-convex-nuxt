@@ -20,7 +20,6 @@ export const taskPriorityValidator = v.union(
 )
 
 export const createTask = defineArgs({
-  serviceAuth: true,
   description: 'Create a task inside a project.',
   args: {
     projectId: v.id('projects'),
@@ -36,7 +35,6 @@ export const createTask = defineArgs({
 })
 
 export const moveTask = defineArgs({
-  serviceAuth: true,
   description: 'Move a task between board columns.',
   args: {
     id: v.id('tasks'),
@@ -45,7 +43,6 @@ export const moveTask = defineArgs({
 })
 
 export const assignTask = defineArgs({
-  serviceAuth: true,
   description: 'Assign a task to another workspace member.',
   args: {
     id: v.id('tasks'),

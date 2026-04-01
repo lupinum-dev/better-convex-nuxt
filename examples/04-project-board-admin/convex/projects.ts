@@ -1,4 +1,4 @@
-import { deny, authorize } from 'better-convex-nuxt/auth'
+import { deny, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { archiveProject, createProject } from '../shared/schemas/project'
@@ -22,9 +22,9 @@ export const list = query({
 })
 
 export const get = query({
-  args: { id: v.id('projects') },
+  args: withTrustedCaller({ id: v.id('projects') }),
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await getActor(ctx, args)
     authorize(actor, 'Read projects', canReadProject)
 
     const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
@@ -33,7 +33,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: createProject.fullArgs,
+  args: withTrustedCaller(createProject.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create project', canCreateProject)
@@ -64,7 +64,7 @@ export const create = mutation({
 })
 
 export const archive = mutation({
-  args: archiveProject.fullArgs,
+  args: withTrustedCaller(archiveProject.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Archive project', canArchiveProject)

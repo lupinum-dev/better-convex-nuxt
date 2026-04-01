@@ -3,60 +3,48 @@ import type {
   GenericQueryCtx,
 } from 'convex/server'
 
-import { getAuth, verifyKey } from 'better-convex-nuxt/auth'
+import type { AuthIdentity } from 'better-convex-nuxt/auth'
+import { getAuth, getTrustedCaller } from 'better-convex-nuxt/auth'
 
 import type { DataModel } from '../_generated/dataModel'
-import { PLAYGROUND_LOCAL_SERVICE_KEY } from '../../shared/dev-service-key'
 
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
 export type Actor =
   | { kind: 'user'; userId: string; role: Role; tenantId?: string }
-  | { kind: 'service'; serviceId: string; role: Role; tenantId?: string }
   | null
 
 type PlaygroundCtx =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
 
-type ServiceAuthArgs = {
-  _serviceKey?: string
-  _serviceActor?: {
-    userId?: string
-    role?: string
-    tenantId?: string
-  }
-}
-
-function resolveExpectedServiceKey(): string {
-  return process.env.CONVEX_SERVICE_KEY?.trim() || PLAYGROUND_LOCAL_SERVICE_KEY
-}
-
-export async function getActor(ctx: PlaygroundCtx): Promise<Actor> {
-  return await getActorFromArgs(ctx)
-}
-
-export async function getActorFromArgs(
-  ctx: PlaygroundCtx,
-  args?: ServiceAuthArgs,
-): Promise<Actor> {
-  const serviceActor = args?._serviceActor
-  if (args?._serviceKey && serviceActor?.userId && serviceActor.role && verifyKey(args._serviceKey, resolveExpectedServiceKey())) {
-    if (serviceActor.role === 'owner'
-      || serviceActor.role === 'admin'
-      || serviceActor.role === 'member'
-      || serviceActor.role === 'viewer'
+export async function getActor(ctx: PlaygroundCtx, args?: unknown): Promise<Actor> {
+  const trusted = getTrustedCaller(args)
+  if (trusted) {
+    if (
+      trusted.role === 'owner'
+      || trusted.role === 'admin'
+      || trusted.role === 'member'
+      || trusted.role === 'viewer'
     ) {
       return {
         kind: 'user',
-        userId: serviceActor.userId,
-        role: serviceActor.role,
-        ...(serviceActor.tenantId ? { tenantId: serviceActor.tenantId } : {}),
+        userId: trusted.userId,
+        role: trusted.role,
+        ...(trusted.tenantId ? { tenantId: trusted.tenantId } : {}),
       }
     }
+
+    return null
   }
 
-  const auth = await getAuth(ctx)
+  return await resolveActor(ctx, await getAuth(ctx))
+}
+
+export async function resolveActor(
+  ctx: PlaygroundCtx,
+  auth: AuthIdentity | null,
+): Promise<Actor> {
   if (!auth) return null
 
   const user = await ctx.db
@@ -72,12 +60,4 @@ export async function getActorFromArgs(
     role: user.role,
     ...(user.organizationId ? { tenantId: user.organizationId } : {}),
   }
-}
-
-export function getServiceActor(
-  key: string,
-  actor: { serviceId: string; role: Role; tenantId?: string },
-): Actor {
-  if (!verifyKey(key, resolveExpectedServiceKey())) return null
-  return { kind: 'service', ...actor }
 }

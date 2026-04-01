@@ -1,11 +1,12 @@
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
-import { can, authorize } from 'better-convex-nuxt/auth'
+import { can, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
 import { defineArgs } from 'better-convex-nuxt/schema'
 
 import { mutation, query } from './_generated/server'
 import type { Id } from './_generated/dataModel'
-import { getActorFromArgs } from './auth/actor'
+import type { Actor } from './auth/actor'
+import { getActor } from './auth/actor'
 import {
   canCreatePost,
   canDeletePost,
@@ -23,25 +24,22 @@ import {
 
 const listPostsArgs = defineArgs({
   args: {},
-  serviceAuth: true,
 })
 
 const listPostsPaginatedArgs = defineArgs({
   args: {
     paginationOpts: paginationOptsValidator,
   },
-  serviceAuth: true,
 })
 
 const getPostArgs = defineArgs({
   args: {
     id: v.id('posts'),
   },
-  serviceAuth: true,
 })
 
 function attachPostPermissions(
-  actor: Awaited<ReturnType<typeof getActorFromArgs>>,
+  actor: Exclude<Actor, null>,
   post: {
     ownerId: string
     [key: string]: unknown
@@ -54,10 +52,45 @@ function attachPostPermissions(
   })
 }
 
+function formatActor(actor: Actor): string {
+  if (!actor) return 'null'
+  return JSON.stringify({
+    userId: actor.userId,
+    role: actor.role,
+    tenantId: actor.tenantId ?? null,
+    kind: actor.kind,
+  })
+}
+
+function denyPostPermission(
+  action: 'create' | 'update' | 'delete' | 'publish',
+  actor: Actor,
+  reason: string,
+): never {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`Forbidden: post.${action}`)
+  }
+
+  throw new Error(`Forbidden: post.${action}\nActor: ${formatActor(actor)}\nReason: ${reason}`)
+}
+
+function denyTenantMismatch(
+  actor: Actor,
+  post: { organizationId: string },
+): never {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Document belongs to a different tenant.')
+  }
+
+  throw new Error(
+    `Document belongs to a different tenant.\nActor: ${formatActor(actor)}\nReason: organizationId ${post.organizationId}`,
+  )
+}
+
 export const list = query({
-  args: listPostsArgs.fullArgs,
+  args: withTrustedCaller(listPostsArgs.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
+    const actor = await getActor(ctx, args)
     if (!actor?.tenantId) return []
 
     authorize(actor, 'Read posts', canReadPost)
@@ -73,9 +106,9 @@ export const list = query({
 })
 
 export const listPaginated = query({
-  args: listPostsPaginatedArgs.fullArgs,
+  args: withTrustedCaller(listPostsPaginatedArgs.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
+    const actor = await getActor(ctx, args)
     if (!actor?.tenantId) {
       return { page: [], isDone: true, continueCursor: '' }
     }
@@ -96,23 +129,31 @@ export const listPaginated = query({
 })
 
 export const get = query({
-  args: getPostArgs.fullArgs,
+  args: withTrustedCaller(getPostArgs.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
+    const actor = await getActor(ctx, args)
     if (!actor) return null
 
     authorize(actor, 'Read post', canReadPost)
 
-    const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
+    const post = await ctx.db.get(args.id)
+    if (!post) return null
+    if (!actor.tenantId || actor.tenantId !== post.organizationId) return null
+
     return attachPostPermissions(actor, post)
   },
 })
 
 export const create = mutation({
-  args: createPost.fullArgs,
+  args: withTrustedCaller(createPost.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
-    authorize(actor, 'Create post', canCreatePost)
+    const actor = await getActor(ctx, args)
+    if (!actor) {
+      throw new Error('Authentication required.')
+    }
+    if (!can(actor, canCreatePost)) {
+      denyPostPermission('create', actor, `Role "${actor.role}" cannot create posts.`)
+    }
     if (!actor.tenantId) throw new Error('No organization selected')
 
     return await ctx.db.insert('posts', {
@@ -128,11 +169,20 @@ export const create = mutation({
 })
 
 export const update = mutation({
-  args: updatePost.fullArgs,
+  args: withTrustedCaller(updatePost.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
-    const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
-    authorize(actor, 'Update post', canUpdatePost(post))
+    const actor = await getActor(ctx, args)
+    const post = await ctx.db.get(args.id)
+    if (!post) throw new Error('Post not found.')
+    if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
+      denyTenantMismatch(actor, post)
+    }
+    if (!can(actor, canUpdatePost(post))) {
+      const reason = actor?.role === 'member'
+        ? 'Role "member" has own-only access.'
+        : 'Actor cannot update this post.'
+      denyPostPermission('update', actor, reason)
+    }
 
     await ctx.db.patch(args.id, {
       ...(args.title !== undefined ? { title: args.title } : {}),
@@ -143,21 +193,36 @@ export const update = mutation({
 })
 
 export const remove = mutation({
-  args: deletePost.fullArgs,
+  args: withTrustedCaller(deletePost.args),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
-    const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
-    authorize(actor, 'Delete post', canDeletePost(post))
+    const actor = await getActor(ctx, args)
+    const post = await ctx.db.get(args.id)
+    if (!post) throw new Error('Post not found.')
+    if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
+      denyTenantMismatch(actor, post)
+    }
+    if (!can(actor, canDeletePost(post))) {
+      const reason = actor?.role === 'member'
+        ? 'Role "member" has own-only access.'
+        : 'Actor cannot delete this post.'
+      denyPostPermission('delete', actor, reason)
+    }
     await ctx.db.delete(args.id)
   },
 })
 
 export const publish = mutation({
-  args: { id: v.id('posts') },
+  args: withTrustedCaller({ id: v.id('posts') }),
   handler: async (ctx, args) => {
-    const actor = await getActorFromArgs(ctx, args)
-    const post = loadResource(actor, await ctx.db.get(args.id), 'Post')
-    authorize(actor, 'Publish post', canPublishPost)
+    const actor = await getActor(ctx, args)
+    const post = await ctx.db.get(args.id)
+    if (!post) throw new Error('Post not found.')
+    if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
+      denyTenantMismatch(actor, post)
+    }
+    if (!can(actor, canPublishPost)) {
+      denyPostPermission('publish', actor, `Role "${actor?.role ?? 'anonymous'}" cannot publish posts.`)
+    }
 
     await ctx.db.patch(args.id, {
       status: 'published',
