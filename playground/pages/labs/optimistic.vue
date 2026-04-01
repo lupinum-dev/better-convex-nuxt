@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { Id } from '~~/convex/_generated/dataModel'
 import { api } from '~~/convex/_generated/api'
+import type { Id } from '~~/convex/_generated/dataModel'
 
 definePageMeta({
   layout: 'sidebar',
@@ -41,47 +41,39 @@ watch(
 )
 
 // Mutation WITH optimistic update
-const addNoteOptimistic = useConvexMutation(
-  api.notes.add,
-  {
-    optimisticUpdate: (ctx, args) => {
-      console.log('[Optimistic] Applying optimistic update for add')
-      ctx.query(api.notes.list, {}).update((current) => {
-        const now = Date.now()
-        const optimisticNote = {
-          _id: `optimistic-${now}` as Id<'notes'>,
-          _creationTime: now,
-          createdAt: now,
-          title: args.title,
-          content: args.content,
-        }
-        console.log('[Optimistic] Created optimistic note:', optimisticNote.title)
-        return current ? [optimisticNote, ...current] : [optimisticNote]
-      })
-    },
+const addNoteOptimistic = useConvexMutation(api.notes.add, {
+  optimisticUpdate: (ctx, args) => {
+    console.log('[Optimistic] Applying optimistic update for add')
+    ctx.query(api.notes.list, {}).update((current) => {
+      const now = Date.now()
+      const optimisticNote = {
+        _id: `optimistic-${now}` as Id<'notes'>,
+        _creationTime: now,
+        createdAt: now,
+        title: args.title,
+        content: args.content,
+      }
+      console.log('[Optimistic] Created optimistic note:', optimisticNote.title)
+      return current ? [optimisticNote, ...current] : [optimisticNote]
+    })
   },
-)
+})
 
 // Mutation WITHOUT optimistic update (for comparison)
 const addNoteNormal = useConvexMutation(api.notes.add)
 
 // Delete mutation WITH optimistic update
-const removeNoteOptimistic = useConvexMutation(
-  api.notes.remove,
-  {
-    optimisticUpdate: (ctx, args) => {
-      console.log('[Optimistic] Applying optimistic update for remove')
-      ctx.query(api.notes.list, {}).update((current) =>
-        current?.filter((note) => note._id !== args.id) ?? [],
-      )
-    },
+const removeNoteOptimistic = useConvexMutation(api.notes.remove, {
+  optimisticUpdate: (ctx, args) => {
+    console.log('[Optimistic] Applying optimistic update for remove')
+    ctx
+      .query(api.notes.list, {})
+      .update((current) => current?.filter((note) => note._id !== args.id) ?? [])
   },
-)
+})
 
 // Delete mutation WITHOUT optimistic update (for comparison)
-const removeNoteNormal = useConvexMutation(
-  api.notes.remove,
-)
+const removeNoteNormal = useConvexMutation(api.notes.remove)
 
 async function handleAddOptimistic() {
   const timestamp = Date.now()

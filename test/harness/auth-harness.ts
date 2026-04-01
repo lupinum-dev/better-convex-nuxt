@@ -27,13 +27,13 @@ import {
 } from '../../src/runtime/client/auth-engine'
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { buildAuthTokenDecodeFailureMessage } from '../../src/runtime/utils/auth-errors'
-import { decodeUserFromJwt } from '../../src/runtime/utils/convex-shared'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_PENDING,
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from '../../src/runtime/utils/constants'
+import { decodeUserFromJwt } from '../../src/runtime/utils/convex-shared'
 import type { ConvexUser } from '../../src/runtime/utils/types'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { createMockTokenExchange, type MockTokenExchange } from './mock-token-exchange'
@@ -108,9 +108,7 @@ function buildTransportResult(
   }
 }
 
-export async function createAuthHarness(
-  options: AuthHarnessOptions = {},
-): Promise<AuthHarness> {
+export async function createAuthHarness(options: AuthHarnessOptions = {}): Promise<AuthHarness> {
   const {
     initialToken = null,
     initialUser = null,
@@ -126,80 +124,81 @@ export async function createAuthHarness(
   const invalidateHandlerSpy = vi.fn()
   const signOutSpy = buildSignOutMock(signOutBehavior)
 
-  const captured = await captureInNuxt(() => {
-    const nuxtApp = useNuxtApp()
-    const token = useState<string | null>(STATE_KEY_TOKEN)
-    const user = useState<ConvexUser | null>(STATE_KEY_USER)
-    const pending = useState<boolean>(STATE_KEY_PENDING)
-    const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR)
-    const wasAuthenticated = useState<boolean>(
-      'better-convex:was-authenticated',
-      () => Boolean(initialToken && initialUser),
-    )
+  const captured = await captureInNuxt(
+    () => {
+      const nuxtApp = useNuxtApp()
+      const token = useState<string | null>(STATE_KEY_TOKEN)
+      const user = useState<ConvexUser | null>(STATE_KEY_USER)
+      const pending = useState<boolean>(STATE_KEY_PENDING)
+      const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR)
+      const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () =>
+        Boolean(initialToken && initialUser),
+      )
 
-    token.value = initialToken
-    user.value = initialUser
-    pending.value = initialPending
-    rawAuthError.value = initialAuthError
-    wasAuthenticated.value = Boolean(initialToken && initialUser)
+      token.value = initialToken
+      user.value = initialUser
+      pending.value = initialPending
+      rawAuthError.value = initialAuthError
+      wasAuthenticated.value = Boolean(initialToken && initialUser)
 
-    nuxtApp.hook('convex:auth:changed', authChangedSpy)
-    nuxtApp.hook('convex:unauthorized', unauthorizedSpy)
+      nuxtApp.hook('convex:auth:changed', authChangedSpy)
+      nuxtApp.hook('convex:unauthorized', unauthorizedSpy)
 
-    const transport: AuthTransport = {
-      client: { signOut: signOutSpy } as never,
-      async fetchAuthState() {
-        refreshHandlerSpy()
-        const response = await tokenExchange.getNextResponse()
-        return buildTransportResult(response)
-      },
-      // No-op: the harness drives the engine directly via composable methods.
-      // The initial setAuth flow triggered by ConvexClient is out of scope.
-      install(_fetchToken, _onChange) {
-      },
-      async refresh(fetchToken, onChange, options) {
-        const nextToken = await fetchToken({ forceRefreshToken: true, trigger: options?.trigger })
-        onChange(Boolean(nextToken), { trigger: options?.trigger })
-      },
-      async invalidate() {
-        invalidateHandlerSpy()
-      },
-    }
+      const transport: AuthTransport = {
+        client: { signOut: signOutSpy } as never,
+        async fetchAuthState() {
+          refreshHandlerSpy()
+          const response = await tokenExchange.getNextResponse()
+          return buildTransportResult(response)
+        },
+        // No-op: the harness drives the engine directly via composable methods.
+        // The initial setAuth flow triggered by ConvexClient is out of scope.
+        install(_fetchToken, _onChange) {},
+        async refresh(fetchToken, onChange, options) {
+          const nextToken = await fetchToken({ forceRefreshToken: true, trigger: options?.trigger })
+          onChange(Boolean(nextToken), { trigger: options?.trigger })
+        },
+        async invalidate() {
+          invalidateHandlerSpy()
+        },
+      }
 
-    let engine: SharedAuthEngine
-    try {
-      engine = getSharedAuthEngine(nuxtApp)
-      engine.configureTransport(transport)
-    } catch {
-      engine = createSharedAuthEngine({
-        nuxtApp,
+      let engine: SharedAuthEngine
+      try {
+        engine = getSharedAuthEngine(nuxtApp)
+        engine.configureTransport(transport)
+      } catch {
+        engine = createSharedAuthEngine({
+          nuxtApp,
+          token,
+          user,
+          pending,
+          rawAuthError,
+          wasAuthenticated,
+          transport,
+        })
+      }
+      engine.initialize()
+
+      return {
+        auth: useConvexAuth(),
+        engine,
         token,
         user,
         pending,
         rawAuthError,
-        wasAuthenticated,
-        transport,
-      })
-    }
-    engine.initialize()
-
-    return {
-      auth: useConvexAuth(),
-      engine,
-      token,
-      user,
-      pending,
-      rawAuthError,
-      nuxtApp,
-    }
-  }, {
-    auth: { signOut: signOutSpy },
-    convexConfig: {
-      auth: {
-        enabled: false,
+        nuxtApp,
+      }
+    },
+    {
+      auth: { signOut: signOutSpy },
+      convexConfig: {
+        auth: {
+          enabled: false,
+        },
       },
     },
-  })
+  )
 
   const flush = async () => {
     await captured.flush()
@@ -226,7 +225,9 @@ export async function createAuthHarness(
       await flush()
     },
     async triggerInvalidate() {
-      await (captured.result.engine as SharedAuthEngine).invalidateAuth({ clearWasAuthenticated: true })
+      await (captured.result.engine as SharedAuthEngine).invalidateAuth({
+        clearWasAuthenticated: true,
+      })
       await flush()
     },
     async triggerSignOut() {
@@ -242,9 +243,7 @@ export async function createAuthHarness(
   return harness
 }
 
-function buildSignOutMock(
-  behavior: AuthHarnessOptions['signOutBehavior'],
-): Mock {
+function buildSignOutMock(behavior: AuthHarnessOptions['signOutBehavior']): Mock {
   if (typeof behavior === 'function') {
     return vi.fn(behavior)
   }

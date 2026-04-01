@@ -1,9 +1,8 @@
 /// <reference types="vite/client" />
 
+import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
-
-import { createTestContext } from 'better-convex-nuxt/testing'
 
 import type { Id } from './_generated/dataModel'
 import { hashShareToken, shareTokenPrefix } from './auth/shareTokens'

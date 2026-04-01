@@ -1,17 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  serverConvexMutation,
-  serverConvexQuery,
-} from '../../src/runtime/server/utils/convex'
-import {
   resolveRequestAuth,
   resolveRequestAuthToken,
 } from '../../src/runtime/server/utils/auth-resolver'
-import {
-  decodeUserFromJwt,
-  getJwtTimeUntilExpiryMs,
-} from '../../src/runtime/utils/convex-shared'
+import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/server/utils/convex'
+import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
 import {
   createEvent,
   installServerAuthStorageMock,
@@ -75,14 +69,12 @@ describe('server auth helpers', () => {
       { auth: 'auto' },
     )
 
-    const exchangeCalls = fetchMock.mock.calls.filter(call =>
+    const exchangeCalls = fetchMock.mock.calls.filter((call) =>
       String(call[0]).endsWith('/api/auth/convex/token'),
     )
     expect(exchangeCalls).toHaveLength(1)
 
-    const queryCall = fetchMock.mock.calls.find(call =>
-      String(call[0]).endsWith('/api/query'),
-    )
+    const queryCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith('/api/query'))
     expect(queryCall).toBeDefined()
     if (!queryCall) {
       throw new Error('Expected query fetch call')
@@ -92,24 +84,22 @@ describe('server auth helpers', () => {
   })
 
   it('auth:auto skips token exchange when no Better Auth cookie exists', async () => {
-    const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ value: [] }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+    const fetchMock = vi.fn(
+      async (_input?: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ value: [] }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    await serverConvexQuery(
-      createEvent(),
-      { _path: 'notes:list' } as never,
-      {} as never,
-      { auth: 'auto' },
-    )
+    await serverConvexQuery(createEvent(), { _path: 'notes:list' } as never, {} as never, {
+      auth: 'auto',
+    })
 
-    expect(fetchMock.mock.calls.filter(call => String(call[0]).endsWith('/api/auth/convex/token'))).toHaveLength(0)
-    const queryCall = fetchMock.mock.calls.find(call =>
-      String(call[0]).endsWith('/api/query'),
-    )
+    expect(
+      fetchMock.mock.calls.filter((call) => String(call[0]).endsWith('/api/auth/convex/token')),
+    ).toHaveLength(0)
+    const queryCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith('/api/query'))
     expect(queryCall).toBeDefined()
     if (!queryCall) {
       throw new Error('Expected query fetch call')
@@ -122,20 +112,20 @@ describe('server auth helpers', () => {
     vi.stubGlobal('fetch', vi.fn())
 
     await expect(
-      serverConvexQuery(
-        createEvent(),
-        { _path: 'notes:list' } as never,
-        {} as never,
-        { auth: 'required' },
-      ),
-    ).rejects.toThrow('[serverConvex] Authentication required but no Better Auth session cookie was found')
+      serverConvexQuery(createEvent(), { _path: 'notes:list' } as never, {} as never, {
+        auth: 'required',
+      }),
+    ).rejects.toThrow(
+      '[serverConvex] Authentication required but no Better Auth session cookie was found',
+    )
   })
 
   it('auth:none never exchanges the cookie and never forwards a bearer token', async () => {
-    const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ value: { ok: true } }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+    const fetchMock = vi.fn(
+      async (_input?: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -146,8 +136,10 @@ describe('server auth helpers', () => {
       { auth: 'none' },
     )
 
-    expect(fetchMock.mock.calls.filter(call => String(call[0]).endsWith('/api/auth/convex/token'))).toHaveLength(0)
-    const mutationCall = fetchMock.mock.calls.find(call =>
+    expect(
+      fetchMock.mock.calls.filter((call) => String(call[0]).endsWith('/api/auth/convex/token')),
+    ).toHaveLength(0)
+    const mutationCall = fetchMock.mock.calls.find((call) =>
       String(call[0]).endsWith('/api/mutation'),
     )
     expect(mutationCall).toBeDefined()
@@ -175,21 +167,15 @@ describe('server auth helpers', () => {
     const event = createEvent('better-auth.session_token=session-123')
 
     await Promise.all([
-      serverConvexQuery(
-        event,
-        { _path: 'notes:list' } as never,
-        {} as never,
-        { auth: 'auto' },
-      ),
-      serverConvexMutation(
-        event,
-        { _path: 'notes:add' } as never,
-        { title: 'Shared' } as never,
-        { auth: 'auto' },
-      ),
+      serverConvexQuery(event, { _path: 'notes:list' } as never, {} as never, { auth: 'auto' }),
+      serverConvexMutation(event, { _path: 'notes:add' } as never, { title: 'Shared' } as never, {
+        auth: 'auto',
+      }),
     ])
 
-    expect(fetchMock.mock.calls.filter(call => String(call[0]).endsWith('/api/auth/convex/token'))).toHaveLength(1)
+    expect(
+      fetchMock.mock.calls.filter((call) => String(call[0]).endsWith('/api/auth/convex/token')),
+    ).toHaveLength(1)
   })
 
   it('resolveRequestAuth caches a validated token in the request context and returns the same resolved object', async () => {
@@ -225,7 +211,8 @@ describe('server auth helpers', () => {
       serverConvexClearAuthCache: vi.fn(),
     }))
 
-    const { resolveRequestAuth: resolveRequestAuthWithMocks } = await import('../../src/runtime/server/utils/auth-resolver')
+    const { resolveRequestAuth: resolveRequestAuthWithMocks } =
+      await import('../../src/runtime/server/utils/auth-resolver')
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       if (String(input).endsWith('/api/auth/convex/token')) {
@@ -263,10 +250,11 @@ describe('server auth helpers', () => {
   })
 
   it('returns a concrete error when auth is required but the token exchange yields no token', async () => {
-    const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ value: { ok: true } }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+    const fetchMock = vi.fn(
+      async (_input?: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -280,10 +268,11 @@ describe('server auth helpers', () => {
   })
 
   it('rejects an invalid but present session by surfacing the resolver error in required mode', async () => {
-    const fetchMock = vi.fn(async (_input?: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(JSON.stringify({ token: undefined }), {
-        headers: { 'content-type': 'application/json' },
-      }),
+    const fetchMock = vi.fn(
+      async (_input?: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ token: undefined }), {
+          headers: { 'content-type': 'application/json' },
+        }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -297,7 +286,8 @@ describe('server auth helpers', () => {
   })
 
   it('preserves JWT expiry math on the server-side auth path', () => {
-    const token = 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyLTEiLCJleHAiOjQ3OTk5OTk5OTl9.test'
+    const token =
+      'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyLTEiLCJleHAiOjQ3OTk5OTk5OTl9.test'
     const remaining = getJwtTimeUntilExpiryMs(token, 1_700_000_000_000)
     expect(remaining).not.toBeNull()
     expect(remaining).toBeGreaterThan(0)

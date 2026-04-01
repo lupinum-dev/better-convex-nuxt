@@ -64,7 +64,9 @@ This page shows the split between cheap plan context in the UI and real limit ch
 
       <section v-else>
         <p v-if="usageProjects">
-          Projects: {{ usageProjects.current }}/{{ usageProjects.max === Infinity ? '∞' : usageProjects.max }}
+          Projects: {{ usageProjects.current }}/{{
+            usageProjects.max === Infinity ? '∞' : usageProjects.max
+          }}
         </p>
         <p>Exports enabled: {{ canExports ? 'yes' : 'no' }}</p>
 
@@ -119,17 +121,20 @@ const upgradePlan = useConvexMutation(api.workspaces.upgradePlan)
 const createProject = useConvexMutation(api.projects.create)
 
 const projectArgs = computed(() => (tenantId.value ? {} : undefined))
-const { data: projects, error: projectsError } = await useConvexQuery(api.projects.list, projectArgs)
+const { data: projects, error: projectsError } = await useConvexQuery(
+  api.projects.list,
+  projectArgs,
+)
 const exportArgs = computed(() => (tenantId.value && canExports.value ? {} : undefined))
 const { data: exportData } = await useConvexQuery(api.projects.exportProjects, exportArgs)
 
 const usageProjects = computed(() => ctx.value?.usage?.projects ?? null)
 const projectError = computed(
   () =>
-    projectsError.value?.message
-    || createProject.error.value?.message
-    || upgradePlan.error.value?.message
-    || '',
+    projectsError.value?.message ||
+    createProject.error.value?.message ||
+    upgradePlan.error.value?.message ||
+    '',
 )
 
 async function handleSignUp() {

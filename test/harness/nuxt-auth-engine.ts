@@ -18,7 +18,12 @@ import {
   type AuthTransport,
   type ClientAuthStateResult,
 } from '../../src/runtime/client/auth-engine'
-import { STATE_KEY_AUTH_ERROR, STATE_KEY_PENDING, STATE_KEY_TOKEN, STATE_KEY_USER } from '../../src/runtime/utils/constants'
+import {
+  STATE_KEY_AUTH_ERROR,
+  STATE_KEY_PENDING,
+  STATE_KEY_TOKEN,
+  STATE_KEY_USER,
+} from '../../src/runtime/utils/constants'
 import type { ConvexUser } from '../../src/runtime/utils/types'
 
 export interface InstallMockAuthEngineOptions {
@@ -35,17 +40,14 @@ export interface InstallMockAuthEngineOptions {
   invalidate?: () => Promise<void>
 }
 
-export function installMockAuthEngine(
-  options: InstallMockAuthEngineOptions = {},
-) {
+export function installMockAuthEngine(options: InstallMockAuthEngineOptions = {}) {
   const nuxtApp = useNuxtApp()
   const token = useState<string | null>(STATE_KEY_TOKEN)
   const user = useState<ConvexUser | null>(STATE_KEY_USER)
   const pending = useState<boolean>(STATE_KEY_PENDING)
   const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR)
-  const wasAuthenticated = useState<boolean>(
-    'better-convex:was-authenticated',
-    () => Boolean(options.initialToken && options.initialUser),
+  const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () =>
+    Boolean(options.initialToken && options.initialUser),
   )
 
   token.value = options.initialToken ?? null
@@ -58,14 +60,15 @@ export function installMockAuthEngine(
     client: {
       signOut: options.signOut ?? (async () => {}),
     } as never,
-    fetchAuthState: options.fetchAuthState ?? (async (_input) => ({
-      token: 'refreshed.jwt.token',
-      user: { id: 'u-auth', name: 'Auth User', email: 'auth@test.com' },
-      error: null,
-      source: 'exchange',
-    })),
-    install() {
-    },
+    fetchAuthState:
+      options.fetchAuthState ??
+      (async (_input) => ({
+        token: 'refreshed.jwt.token',
+        user: { id: 'u-auth', name: 'Auth User', email: 'auth@test.com' },
+        error: null,
+        source: 'exchange',
+      })),
+    install() {},
     async refresh(fetchToken, onChange, options) {
       const nextToken = await fetchToken({ forceRefreshToken: true, trigger: options?.trigger })
       onChange(Boolean(nextToken), { trigger: options?.trigger })

@@ -35,10 +35,10 @@ import type {
 // Internal options (adds factory-injected fields — not part of public API)
 // ============================================================================
 
-interface DefineConvexToolFullOptions<
+type DefineConvexToolFullOptions<
   S extends AnyConvexSchema,
   TRole extends string = string,
-> extends DefineConvexToolOptions<S, TRole> {}
+> = DefineConvexToolOptions<S, TRole>
 
 // ============================================================================
 // Input schema types

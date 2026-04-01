@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
+
 import {
   defineNuxtModule,
   addPlugin,
@@ -15,8 +16,8 @@ import {
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 
-import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
+import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants'
 import {
   getSiteUrlResolutionHint,
   isValidAbsoluteUrl,
@@ -30,6 +31,7 @@ export type { LogLevel } from './runtime/utils/logger'
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 
 const logger = useLogger('better-convex-nuxt')
+const CONVEX_FUNCTION_FILE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs']
 
 /**
  * Normalize the `auth` option shorthand forms into a full AuthOptions object.
@@ -236,7 +238,9 @@ function normalizeConfiguredFunctionPath(value: unknown): string | undefined {
   return normalized
 }
 
-function splitConfiguredFunctionPath(path: string): { modulePath: string; exportName: string } | null {
+function splitConfiguredFunctionPath(
+  path: string,
+): { modulePath: string; exportName: string } | null {
   const lastDot = path.lastIndexOf('.')
   if (lastDot <= 0 || lastDot === path.length - 1) return null
   return {
@@ -255,7 +259,7 @@ function walkFiles(root: string): string[] {
       files.push(...walkFiles(fullPath))
       continue
     }
-    if (/\.(ts|tsx|mts|cts|js|mjs|cjs)$/.test(entry.name)) {
+    if (CONVEX_FUNCTION_FILE_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
       files.push(fullPath)
     }
   }
@@ -269,10 +273,17 @@ function collectConvexFunctionPaths(projectRoot: string): string[] {
 
   for (const file of files) {
     const source = readFileSync(file, 'utf8')
-    const relativeFile = relative(convexDir, file).replaceAll(sep, '/').replace(/\.[^.]+$/, '')
+    const relativeFile = relative(convexDir, file)
+      .replaceAll(sep, '/')
+      .replace(/\.[^.]+$/, '')
 
-    for (const match of source.matchAll(/export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(?:query|mutation|action|internalQuery|internalMutation|internalAction)\s*\(/g)) {
-      const exportName = match[1]
+    for (const match of source.matchAll(
+      /export\s+const\s+\w+\s*=\s*(?:query|mutation|action|internalQuery|internalMutation|internalAction)\s*\(/g,
+    )) {
+      const exportName = match[0]
+        .replace(/^export\s+const\s+/, '')
+        .replace(/\s*=.*$/, '')
+        .trim()
       if (exportName) {
         paths.add(`${relativeFile}.${exportName}`)
       }
@@ -288,15 +299,17 @@ function createConfiguredFunctionError(
   availablePaths: string[],
 ): Error {
   const suggestions = availablePaths
-    .filter(candidate =>
-      candidate.includes(configuredPath.split('.').slice(-1)[0] ?? '')
-      || candidate.includes(configuredPath.split('.')[0] ?? ''),
+    .filter(
+      (candidate) =>
+        candidate.includes(configuredPath.split('.').slice(-1)[0] ?? '') ||
+        candidate.includes(configuredPath.split('.')[0] ?? ''),
     )
     .slice(0, 5)
 
-  const suggestionText = suggestions.length > 0
-    ? ` Did you mean: ${suggestions.join(', ')}?`
-    : ` Available Convex functions: ${availablePaths.slice(0, 20).join(', ')}${availablePaths.length > 20 ? ', ...' : ''}`
+  const suggestionText =
+    suggestions.length > 0
+      ? ` Did you mean: ${suggestions.join(', ')}?`
+      : ` Available Convex functions: ${availablePaths.slice(0, 20).join(', ')}${availablePaths.length > 20 ? ', ...' : ''}`
 
   return new Error(
     `[better-convex-nuxt] Invalid convex.${kind}: "${configuredPath}".` +
@@ -389,14 +402,14 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error.
     // Runtime validation happens in the plugins when the actual values are available.
-    const hasConfiguredConvexLocation
-      = Boolean(options.url || options.siteUrl)
-        || Boolean(
-          process.env.NUXT_PUBLIC_CONVEX_URL
-          || process.env.CONVEX_URL
-          || process.env.NUXT_PUBLIC_CONVEX_SITE_URL
-          || process.env.CONVEX_SITE_URL,
-        )
+    const hasConfiguredConvexLocation =
+      Boolean(options.url || options.siteUrl) ||
+      Boolean(
+        process.env.NUXT_PUBLIC_CONVEX_URL ||
+        process.env.CONVEX_URL ||
+        process.env.NUXT_PUBLIC_CONVEX_SITE_URL ||
+        process.env.CONVEX_SITE_URL,
+      )
 
     if (isAuthEnabled && !resolvedSiteUrl && hasConfiguredConvexLocation) {
       logger.warn(
@@ -458,11 +471,19 @@ export default defineNuxtModule<ModuleOptions>({
         : []
 
     if (permissionQueryPath && !availableConvexFunctions.includes(permissionQueryPath)) {
-      throw createConfiguredFunctionError('permissions.query', permissionQueryPath, availableConvexFunctions)
+      throw createConfiguredFunctionError(
+        'permissions.query',
+        permissionQueryPath,
+        availableConvexFunctions,
+      )
     }
 
     if (ensureUserMutationPath && !availableConvexFunctions.includes(ensureUserMutationPath)) {
-      throw createConfiguredFunctionError('auth.ensureUserMutation', ensureUserMutationPath, availableConvexFunctions)
+      throw createConfiguredFunctionError(
+        'auth.ensureUserMutation',
+        ensureUserMutationPath,
+        availableConvexFunctions,
+      )
     }
 
     // 2. Register Server Plugin (runs first for SSR token exchange)

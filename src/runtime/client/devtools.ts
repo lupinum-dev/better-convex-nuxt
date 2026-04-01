@@ -1,8 +1,8 @@
 import type { ConvexClient } from 'convex/browser'
 import type { Ref } from 'vue'
 
-import type { AuthWaterfall } from '../utils/auth-debug'
 import type { AuthBootstrapDevtoolsState, PermissionDevtoolsState } from '../devtools/state'
+import type { AuthWaterfall } from '../utils/auth-debug'
 
 /**
  * Lazily loads and sets up the DevTools bridge in dev mode only.

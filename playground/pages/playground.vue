@@ -206,11 +206,7 @@ const deleteNoteMutation = useConvexMutation(api.notes.remove)
 const wasSSR = useState('playground-was-ssr', () => import.meta.server)
 
 // ========== Section 1: Basic Query ==========
-const {
-  data: notes,
-  pending: notesPending,
-  error: notesError,
-} = useConvexQuery(api.notes.list, {})
+const { data: notes, pending: notesPending, error: notesError } = useConvexQuery(api.notes.list, {})
 
 // Form state for adding notes
 const newNoteTitle = ref('')
@@ -266,10 +262,7 @@ const searchArgs = computed(() => {
   return { query: debouncedQuery.value }
 })
 
-const { data: searchResults, pending: searchPending } = useConvexQuery(
-  api.notes.search,
-  searchArgs,
-)
+const { data: searchResults, pending: searchPending } = useConvexQuery(api.notes.search, searchArgs)
 
 // ========== Section 3: Skip Pattern ==========
 const enableSkipDemo = useState('playground-skip-demo', () => true)
@@ -278,10 +271,7 @@ const skipArgs = computed(() => {
   return enableSkipDemo.value ? {} : undefined
 })
 
-const { data: skipDemoData, pending: skipDemoPending } = useConvexQuery(
-  api.notes.list,
-  skipArgs,
-)
+const { data: skipDemoData, pending: skipDemoPending } = useConvexQuery(api.notes.list, skipArgs)
 
 // ========== Section 4: useNuxtData (Cache Access) ==========
 // useNuxtData gives access to data cached by useConvexQuery using the same key

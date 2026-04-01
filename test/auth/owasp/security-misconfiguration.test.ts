@@ -2,11 +2,10 @@
  * OWASP A05: Security Misconfiguration
  */
 import { describe, expect, it, vi } from 'vitest'
-import {
-  DEFAULT_CONVEX_AUTH_CONFIG,
-} from '../../../src/runtime/utils/auth-config'
-import { normalizeConvexRuntimeConfig } from '../../../src/runtime/utils/runtime-config'
+
 import { shouldSkipProxyResponseHeader } from '../../../src/runtime/server/api/auth/headers'
+import { DEFAULT_CONVEX_AUTH_CONFIG } from '../../../src/runtime/utils/auth-config'
+import { normalizeConvexRuntimeConfig } from '../../../src/runtime/utils/runtime-config'
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: () => ({ public: { convex: {} } }),

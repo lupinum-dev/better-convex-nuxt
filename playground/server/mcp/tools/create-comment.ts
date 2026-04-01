@@ -7,13 +7,10 @@ export default defineTool({
   schema: createComment,
   name: 'create-comment',
   auth: 'required',
-  check: actor => ['owner', 'admin', 'member', 'viewer'].includes(actor.role),
+  check: (actor) => ['owner', 'admin', 'member', 'viewer'].includes(actor.role),
   scoped: true,
   handler: async (args, ctx) => {
     const commentId = await ctx.mutation(api.comments.create, args)
-    return ctx.ok(
-      { id: commentId, postId: args.postId },
-      `Added comment to post ${args.postId}`,
-    )
+    return ctx.ok({ id: commentId, postId: args.postId }, `Added comment to post ${args.postId}`)
   },
 })

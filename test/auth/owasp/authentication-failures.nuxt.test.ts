@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import {
-  createAuthHarness,
-  createMockTokenExchange,
-  TEST_USERS,
-} from '../../harness'
+import { createAuthHarness, createMockTokenExchange, TEST_USERS } from '../../harness'
 
 let h: Awaited<ReturnType<typeof createAuthHarness>>
 

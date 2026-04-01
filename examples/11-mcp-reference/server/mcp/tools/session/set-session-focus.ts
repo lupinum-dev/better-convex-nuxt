@@ -1,5 +1,6 @@
-import { defineMcpTool, useMcpSession } from '#convex/mcp'
 import { z } from 'zod'
+
+import { defineMcpTool, useMcpSession } from '#convex/mcp'
 
 interface ReferenceSessionData {
   preferredFocus?: string

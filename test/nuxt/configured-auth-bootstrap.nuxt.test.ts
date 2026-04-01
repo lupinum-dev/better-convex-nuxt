@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
+import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
-import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 
 const mutation = mockFnRef<'mutation'>('auth:createUserIfNeeded')
 
@@ -14,19 +14,22 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     convex.setMutationHandler('auth:createUserIfNeeded', async () => ({ ok: true }))
 
-    const { result } = await captureInNuxt(() => {
-      const auth = installMockAuthEngine({
-        initialToken: null,
-        initialUser: null,
-        initialPending: false,
-      })
-      setupConfiguredAuthBootstrap(mutation, 'auth.createUserIfNeeded')
+    const { result } = await captureInNuxt(
+      () => {
+        const auth = installMockAuthEngine({
+          initialToken: null,
+          initialUser: null,
+          initialPending: false,
+        })
+        setupConfiguredAuthBootstrap(mutation, 'auth.createUserIfNeeded')
 
-      return {
-        auth,
-        bootstrap: useAuthBootstrapDevtoolsState(),
-      }
-    }, { convex })
+        return {
+          auth,
+          bootstrap: useAuthBootstrapDevtoolsState(),
+        }
+      },
+      { convex },
+    )
 
     expect(convex.calls.mutation).toHaveLength(0)
 
@@ -48,22 +51,25 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
       throw new Error('User already exists')
     })
 
-    const { result } = await captureInNuxt(() => {
-      installMockAuthEngine({
-        initialToken: 'jwt.token',
-        initialUser: {
-          id: 'user-1',
-          name: 'Auth User',
-          email: 'auth@example.test',
-        },
-        initialPending: false,
-      })
-      setupConfiguredAuthBootstrap(mutation, 'auth.createUserIfNeeded')
+    const { result } = await captureInNuxt(
+      () => {
+        installMockAuthEngine({
+          initialToken: 'jwt.token',
+          initialUser: {
+            id: 'user-1',
+            name: 'Auth User',
+            email: 'auth@example.test',
+          },
+          initialPending: false,
+        })
+        setupConfiguredAuthBootstrap(mutation, 'auth.createUserIfNeeded')
 
-      return {
-        bootstrap: useAuthBootstrapDevtoolsState(),
-      }
-    }, { convex })
+        return {
+          bootstrap: useAuthBootstrapDevtoolsState(),
+        }
+      },
+      { convex },
+    )
 
     await waitFor(() => convex.calls.mutation.length === 1)
     expect(result.bootstrap.value.ensured).toBe(true)

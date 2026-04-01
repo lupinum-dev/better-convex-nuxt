@@ -1,17 +1,9 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-export const roleValidator = v.union(
-  v.literal('owner'),
-  v.literal('admin'),
-  v.literal('member'),
-)
+export const roleValidator = v.union(v.literal('owner'), v.literal('admin'), v.literal('member'))
 
-export const planValidator = v.union(
-  v.literal('free'),
-  v.literal('pro'),
-  v.literal('enterprise'),
-)
+export const planValidator = v.union(v.literal('free'), v.literal('pro'), v.literal('enterprise'))
 
 export default defineSchema({
   workspaces: defineTable({

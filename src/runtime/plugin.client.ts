@@ -6,10 +6,10 @@ import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
 import { initAuthClient } from './client/auth-client'
 import { createSharedAuthEngine } from './client/auth-engine'
+import { initHydrationState } from './client/auth-hydration'
 import { initConvexClient } from './client/convex-client'
 import { setupDevtoolsBridgeIfDev } from './client/devtools'
 import { initRuntimeConnectionHooks } from './client/runtime-hooks'
-import { initHydrationState } from './client/auth-hydration'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './devtools/state'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors'
 import { STATE_KEY_AUTH_TRACE_ID, STATE_KEY_DEVTOOLS_INSTANCE_ID } from './utils/constants'
@@ -36,9 +36,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   const isAuthEnabled = authConfig.enabled
   const resolvedSiteUrl = convexConfig.siteUrl
   const hydration = initHydrationState()
-  const wasAuthenticated = useState<boolean>(
-    'better-convex:was-authenticated',
-    () => Boolean(hydration.convexToken.value && hydration.convexUser.value),
+  const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () =>
+    Boolean(hydration.convexToken.value && hydration.convexUser.value),
   )
   const traceId = import.meta.dev
     ? (useState<string>(STATE_KEY_AUTH_TRACE_ID).value ?? 'unknown')
@@ -67,8 +66,8 @@ export default defineNuxtPlugin((nuxtApp) => {
   })
 
   if (!convexUrl) {
-    const missingUrlMessage
-      = 'Convex URL not configured. Set `convex.url` or provide `CONVEX_URL` / `NUXT_PUBLIC_CONVEX_URL`.'
+    const missingUrlMessage =
+      'Convex URL not configured. Set `convex.url` or provide `CONVEX_URL` / `NUXT_PUBLIC_CONVEX_URL`.'
     authEngine.initialize({
       error: missingUrlMessage,
       resolveInitialAuth: true,
@@ -92,20 +91,23 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   if (isAuthEnabled && resolvedSiteUrl) {
     const authRoute = authConfig.route
-    const authBaseURL = typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
+    const authBaseURL =
+      typeof window !== 'undefined' ? `${window.location.origin}${authRoute}` : authRoute
     const router = useRouter()
 
-    authEngine.configureTransport(initAuthClient(client, {
-      baseURL: authBaseURL,
-      authRoute,
-      skipRoutes: authConfig.skipAuthRoutes,
-      convexToken: hydration.convexToken,
-      convexUser: hydration.convexUser,
-      logger,
-      nuxtApp,
-      router,
-      traceId,
-    }))
+    authEngine.configureTransport(
+      initAuthClient(client, {
+        baseURL: authBaseURL,
+        authRoute,
+        skipRoutes: authConfig.skipAuthRoutes,
+        convexToken: hydration.convexToken,
+        convexUser: hydration.convexUser,
+        logger,
+        nuxtApp,
+        router,
+        traceId,
+      }),
+    )
   } else if (isAuthEnabled) {
     const missingSiteUrlMessage = buildMissingSiteUrlMessage(convexUrl)
     authEngine.initialize({

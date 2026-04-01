@@ -1,9 +1,8 @@
 /// <reference types="vite/client" />
 
+import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
-
-import { createTestContext } from 'better-convex-nuxt/testing'
 
 import schema from './schema'
 import { modules } from './test.setup'
@@ -40,9 +39,9 @@ describe('freemium example', () => {
     await team.users.owner.mutation(api.projects.create, { name: 'Two' })
     await team.users.owner.mutation(api.projects.create, { name: 'Three' })
 
-    await expect(
-      team.users.owner.mutation(api.projects.create, { name: 'Four' }),
-    ).rejects.toThrow('Plan limit reached')
+    await expect(team.users.owner.mutation(api.projects.create, { name: 'Four' })).rejects.toThrow(
+      'Plan limit reached',
+    )
   })
 
   it('allows the same mutation after upgrading to pro', async () => {

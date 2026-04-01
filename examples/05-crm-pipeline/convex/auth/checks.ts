@@ -13,8 +13,8 @@ export const hasRole =
   (...roles: Doc<'users'>['role'][]) =>
   (actor: Actor) =>
     !!actor && roles.includes(actor.role)
-export const isOwnerOf = (resource: { ownerId: string }) =>
-  (actor: Actor) => !!actor && actor.kind === 'user' && resource.ownerId === actor.userId
+export const isOwnerOf = (resource: { ownerId: string }) => (actor: Actor) =>
+  !!actor && actor.kind === 'user' && resource.ownerId === actor.userId
 
 export const canReadContacts = hasRole('owner', 'admin', 'manager', 'rep')
 export const canCreateContact = hasRole('owner', 'admin', 'manager', 'rep')

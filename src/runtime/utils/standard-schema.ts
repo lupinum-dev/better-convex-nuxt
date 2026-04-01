@@ -55,9 +55,11 @@ export interface StandardSchemaV1PathSegment {
 }
 
 /** Infers the input type of a Standard Schema. */
-export type StandardSchemaV1InferInput<Schema extends StandardSchemaV1> =
-  NonNullable<Schema['~standard']['types']>['input']
+export type StandardSchemaV1InferInput<Schema extends StandardSchemaV1> = NonNullable<
+  Schema['~standard']['types']
+>['input']
 
 /** Infers the output type of a Standard Schema. */
-export type StandardSchemaV1InferOutput<Schema extends StandardSchemaV1> =
-  NonNullable<Schema['~standard']['types']>['output']
+export type StandardSchemaV1InferOutput<Schema extends StandardSchemaV1> = NonNullable<
+  Schema['~standard']['types']
+>['output']

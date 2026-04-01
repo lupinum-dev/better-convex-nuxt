@@ -158,13 +158,10 @@ describe('useConvexUpload queue mode (Nuxt runtime)', () => {
       FakeQueueXhr.setPlan(`http://upload.local/${i}`, { delayMs: 20 })
     }
 
-    const { result } = await captureInNuxt(
-      () => useConvexUpload(mutation, { maxConcurrent: 2 }),
-      {
-        convex,
-        convexConfig: { upload: { maxConcurrent: 1 } },
-      },
-    )
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation, { maxConcurrent: 2 }), {
+      convex,
+      convexConfig: { upload: { maxConcurrent: 1 } },
+    })
 
     void result.enqueue(
       Array.from({ length: 4 }).map((_, i) => ({
@@ -190,10 +187,9 @@ describe('useConvexUpload queue mode (Nuxt runtime)', () => {
     FakeQueueXhr.setPlan('http://upload.local/small', { delayMs: 10 })
     FakeQueueXhr.setPlan('http://upload.local/large', { delayMs: 120 })
 
-    const { result } = await captureInNuxt(
-      () => useConvexUpload(mutation, { maxConcurrent: 2 }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation, { maxConcurrent: 2 }), {
+      convex,
+    })
 
     void result.enqueue([
       { file: makeFile('small.bin', 10), mutationArgs: { id: 'small' } },
@@ -229,10 +225,9 @@ describe('useConvexUpload queue mode (Nuxt runtime)', () => {
     FakeQueueXhr.setPlan('http://upload.local/second', { delayMs: 10 })
     FakeQueueXhr.setPlan('http://upload.local/third', { delayMs: 10 })
 
-    const { result } = await captureInNuxt(
-      () => useConvexUpload(mutation, { maxConcurrent: 1 }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation, { maxConcurrent: 1 }), {
+      convex,
+    })
 
     void result
       .enqueue([
@@ -319,10 +314,9 @@ describe('useConvexUpload queue mode (Nuxt runtime)', () => {
       responseText: JSON.stringify({ storageId: 'storage:two' }),
     })
 
-    const { result } = await captureInNuxt(
-      () => useConvexUpload(mutation, { maxConcurrent: 2 }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation, { maxConcurrent: 2 }), {
+      convex,
+    })
 
     const storageIds = await result.enqueue([
       { file: makeFile('one.bin', 10), mutationArgs: { id: 'one' } },
@@ -347,10 +341,9 @@ describe('useConvexUpload queue mode (Nuxt runtime)', () => {
     FakeQueueXhr.setPlan('http://upload.local/two', { delayMs: 120 })
     FakeQueueXhr.setPlan('http://upload.local/three', { delayMs: 120 })
 
-    const { result } = await captureInNuxt(
-      () => useConvexUpload(mutation, { maxConcurrent: 1 }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation, { maxConcurrent: 1 }), {
+      convex,
+    })
 
     void result
       .enqueue([
@@ -387,10 +380,9 @@ describe('useConvexUpload queue mode (Nuxt runtime)', () => {
     FakeQueueXhr.setPlan('http://upload.local/one', { delayMs: 120 })
     FakeQueueXhr.setPlan('http://upload.local/two', { delayMs: 120 })
 
-    const { result } = await captureInNuxt(
-      () => useConvexUpload(mutation, { maxConcurrent: 1 }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexUpload(mutation, { maxConcurrent: 1 }), {
+      convex,
+    })
 
     const enqueueResultPromise = result
       .enqueue([

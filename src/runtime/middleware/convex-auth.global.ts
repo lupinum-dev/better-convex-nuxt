@@ -1,12 +1,12 @@
 import { defineNuxtRouteMiddleware, navigateTo, useRuntimeConfig } from '#app'
 
-import { useConvexAuth } from '../composables/useConvexAuth'
 import { useConvexAuthController } from '../composables/internal/useConvexAuthController'
-import { AUTH_MIDDLEWARE_TIMEOUT_MS } from '../utils/constants'
+import { useConvexAuth } from '../composables/useConvexAuth'
 import {
   resolveRouteProtectionDecision,
   type ConvexAuthPageMeta,
 } from '../utils/auth-route-protection'
+import { AUTH_MIDDLEWARE_TIMEOUT_MS } from '../utils/constants'
 import { normalizeConvexRuntimeConfig } from '../utils/runtime-config'
 
 export default defineNuxtRouteMiddleware(async (to) => {

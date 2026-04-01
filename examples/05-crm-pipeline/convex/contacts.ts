@@ -1,7 +1,6 @@
-import { v } from 'convex/values'
-
 import { can, authorize, deny } from 'better-convex-nuxt/auth'
 import { applyVisibility } from 'better-convex-nuxt/visibility'
+import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -26,10 +25,11 @@ export const list = query({
     const contacts = await applyVisibility(contactVisibility, actor, ctx.db)
     const ownerScope = await getContactOwnerScope(ctx.db, actor)
 
-    return contacts.map(contact =>
+    return contacts.map((contact) =>
       withCan(redactContact(actor, contact), {
-        update: can(actor, canUpdateContact(contact))
-          || canAccessContactOwner(ownerScope, contact.ownerId),
+        update:
+          can(actor, canUpdateContact(contact)) ||
+          canAccessContactOwner(ownerScope, contact.ownerId),
       }),
     )
   },
@@ -49,9 +49,8 @@ export const create = mutation({
     const actor = await getActor(ctx)
     authorize(actor, 'Create contact', canCreateContact)
 
-    const ownerId = can(actor, hasRole('owner', 'admin', 'manager')) && args.ownerId
-      ? args.ownerId
-      : actor.userId
+    const ownerId =
+      can(actor, hasRole('owner', 'admin', 'manager')) && args.ownerId ? args.ownerId : actor.userId
     await requireAssignableContactOwner(ctx.db, actor, ownerId)
 
     const now = Date.now()
@@ -80,7 +79,7 @@ export const updateNotes = mutation({
     const contact = loadResource(actor, await ctx.db.get(args.id), 'Contact')
     authorize(actor, 'Update contact', canReadContacts)
 
-    if (!await canUpdateVisibleContact(ctx.db, actor, contact)) {
+    if (!(await canUpdateVisibleContact(ctx.db, actor, contact))) {
       throw deny('Forbidden: Update contact')
     }
 

@@ -3,8 +3,8 @@ import { watch } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import { useAuthBootstrapDevtoolsState } from '../devtools/state'
 import { useConvexAuthController } from '../composables/internal/useConvexAuthController'
+import { useAuthBootstrapDevtoolsState } from '../devtools/state'
 
 function isHarmlessBootstrapError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? '')

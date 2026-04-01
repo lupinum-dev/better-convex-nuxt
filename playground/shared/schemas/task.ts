@@ -11,10 +11,7 @@ export const addTask = defineArgs({
     title: {
       label: 'Title',
       description: 'The task title',
-      examples: [
-        'Review MCP verification flow',
-        'Ship playground smoke tests',
-      ],
+      examples: ['Review MCP verification flow', 'Ship playground smoke tests'],
     },
   },
 })

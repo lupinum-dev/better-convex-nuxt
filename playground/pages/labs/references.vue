@@ -10,7 +10,9 @@
       </div>
       <div class="status-card">
         <div class="status-label">Auth state</div>
-        <strong>{{ isAuthenticated ? user?.email || user?.name || 'Signed in' : 'Signed out' }}</strong>
+        <strong>{{
+          isAuthenticated ? user?.email || user?.name || 'Signed in' : 'Signed out'
+        }}</strong>
         <div class="status-copy">
           {{ authStateMessage }}
         </div>
@@ -81,8 +83,8 @@
         <div>
           <h2>4. Auth-required server failure</h2>
           <p>
-            Calls a Nitro route that uses `serverConvexQuery(..., { auth: 'required' })` so you
-            can see the auth error surface when the request is unauthenticated.
+            Calls a Nitro route that uses `serverConvexQuery(..., { auth: 'required' })` so you can
+            see the auth error surface when the request is unauthenticated.
           </p>
         </div>
         <button class="button" :disabled="serverAuthPending" @click="runServerAuthRequired">
@@ -123,7 +125,9 @@ const serverAuthResult = ref<Record<string, unknown> | null>(null)
 
 const notesCount = computed(() => notes.value?.length ?? 0)
 const notesPreview = computed(() => JSON.stringify((notes.value ?? []).slice(0, 5), null, 2))
-const authStateMessage = computed(() => authError.value?.message ?? 'Client auth composables are healthy.')
+const authStateMessage = computed(
+  () => authError.value?.message ?? 'Client auth composables are healthy.',
+)
 const taskResultPreview = computed(() =>
   JSON.stringify(
     taskResult.value ?? {

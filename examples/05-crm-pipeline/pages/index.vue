@@ -61,10 +61,7 @@
             <option value="manager">manager</option>
             <option value="rep">rep</option>
           </select>
-          <input
-            v-model="joinWorkspaceForm.managerEmail"
-            placeholder="Manager email (for reps)"
-          />
+          <input v-model="joinWorkspaceForm.managerEmail" placeholder="Manager email (for reps)" />
           <button :disabled="joinWorkspace.pending.value">Join workspace</button>
         </form>
 
@@ -90,7 +87,9 @@
             type="number"
           />
           <textarea v-model="contactForm.internalNotes" placeholder="Internal notes" />
-          <button :disabled="createContact.pending.value || !canCreateContact">Create contact</button>
+          <button :disabled="createContact.pending.value || !canCreateContact">
+            Create contact
+          </button>
         </form>
 
         <p v-if="contactError">{{ contactError }}</p>
@@ -162,16 +161,19 @@ const createContact = useConvexMutation(api.contacts.create)
 
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
 const contactArgs = computed(() => (tenantId.value ? {} : undefined))
-const { data: contacts, error: contactsError } = await useConvexQuery(api.contacts.list, contactArgs)
+const { data: contacts, error: contactsError } = await useConvexQuery(
+  api.contacts.list,
+  contactArgs,
+)
 
 const canCreateContact = can('contact.create')
 const contactError = computed(
   () =>
-    createContact.error.value?.message
-    || contactsError.value?.message
-    || createWorkspace.error.value?.message
-    || joinWorkspace.error.value?.message
-    || '',
+    createContact.error.value?.message ||
+    contactsError.value?.message ||
+    createWorkspace.error.value?.message ||
+    joinWorkspace.error.value?.message ||
+    '',
 )
 
 async function handleSignUp() {

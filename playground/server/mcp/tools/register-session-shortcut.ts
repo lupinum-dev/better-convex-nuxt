@@ -1,5 +1,6 @@
-import { defineMcpTool, useMcpServer, useMcpSession } from '#convex/mcp'
 import { z } from 'zod'
+
+import { defineMcpTool, useMcpServer, useMcpSession } from '#convex/mcp'
 
 interface PlaygroundSessionData {
   preferredSearch?: string
@@ -28,19 +29,23 @@ export default defineMcpTool({
     const shortcutName = normalizeShortcutName(name)
     const mcp = useMcpServer()
     const session = useMcpSession<PlaygroundSessionData>()
-    const registeredShortcuts = await session.get('registeredShortcuts') ?? []
+    const registeredShortcuts = (await session.get('registeredShortcuts')) ?? []
 
-    mcp.registerTool(shortcutName, {
-      description: `Session-local shortcut that returns "${message}"`,
-    }, async () => {
-      return {
-        content: [{ type: 'text', text: message }],
-        structuredContent: {
-          ok: true,
-          message,
-        },
-      }
-    })
+    mcp.registerTool(
+      shortcutName,
+      {
+        description: `Session-local shortcut that returns "${message}"`,
+      },
+      async () => {
+        return {
+          content: [{ type: 'text', text: message }],
+          structuredContent: {
+            ok: true,
+            message,
+          },
+        }
+      },
+    )
 
     if (!registeredShortcuts.includes(shortcutName)) {
       await session.set('registeredShortcuts', [...registeredShortcuts, shortcutName])

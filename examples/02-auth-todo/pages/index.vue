@@ -4,9 +4,7 @@
   >
     <UCard class="w-full max-w-4xl">
       <template #header>
-        <p
-          class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400"
-        >
+        <p class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400">
           Example 02
         </p>
         <h1 class="text-3xl font-bold mt-1">Auth Todo</h1>
@@ -171,14 +169,14 @@
 </template>
 
 <script setup lang="ts">
+import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
+import { computed, ref, watch } from 'vue'
 /**
  * Why this file exists:
  * The page intentionally shows the whole auth story in one place:
  * signed out -> sign in/up -> actor ready -> user-scoped query and mutations.
  */
 import * as z from 'zod'
-import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
-import { computed, ref, watch } from 'vue'
 
 import { api } from '~/convex/_generated/api'
 
@@ -248,17 +246,19 @@ const removeTodo = useConvexMutation(api.todos.remove)
 // The auth bootstrap is module-managed, so private data can subscribe once auth is active.
 const actorReady = computed(() => isAuthenticated.value)
 const todoArgs = computed(() => (isAuthenticated.value && actorReady.value ? {} : undefined))
-const { data: todos, pending: todosPending, error: todosError } = await useConvexQuery(
-  api.todos.list,
-  todoArgs,
-)
+const {
+  data: todos,
+  pending: todosPending,
+  error: todosError,
+} = await useConvexQuery(api.todos.list, todoArgs)
 
-const todoError = computed(() =>
-  todosError.value?.message
-  || createTodo.error.value?.message
-  || toggleTodo.error.value?.message
-  || removeTodo.error.value?.message
-  || '',
+const todoError = computed(
+  () =>
+    todosError.value?.message ||
+    createTodo.error.value?.message ||
+    toggleTodo.error.value?.message ||
+    removeTodo.error.value?.message ||
+    '',
 )
 
 const DEBUG_AUTH_TODO_VERBOSE = false
@@ -276,11 +276,13 @@ if (import.meta.dev) {
     [debugPhase, () => user.value?.id ?? null, () => todos.value?.length ?? 0, todoError],
     ([phase, userId, todoCount, error], previous) => {
       const [previousPhase, previousUserId, previousTodoCount, previousError] = previous ?? []
-      if (!DEBUG_AUTH_TODO_VERBOSE
-        && phase === previousPhase
-        && userId === previousUserId
-        && todoCount === previousTodoCount
-        && error === previousError) {
+      if (
+        !DEBUG_AUTH_TODO_VERBOSE &&
+        phase === previousPhase &&
+        userId === previousUserId &&
+        todoCount === previousTodoCount &&
+        error === previousError
+      ) {
         return
       }
 

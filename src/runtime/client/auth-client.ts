@@ -30,22 +30,12 @@ import {
   buildClientAuthRequestFailureMessage,
   buildClientAuthResponseErrorMessage,
 } from '../utils/auth-errors'
-import {
-  TOKEN_CACHE_MS,
-  TOKEN_EXPIRY_SAFETY_BUFFER_MS,
-} from '../utils/constants'
-import {
-  decodeUserFromJwt,
-  getJwtTimeUntilExpiryMs,
-} from '../utils/convex-shared'
+import { TOKEN_CACHE_MS, TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../utils/constants'
+import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
 import type { Logger } from '../utils/logger'
 import { matchesSkipRoute } from '../utils/route-matcher'
 import type { ConvexUser } from '../utils/types'
-import type {
-  AuthTransport,
-  AuthTrigger,
-  ClientAuthStateResult,
-} from './auth-engine'
+import type { AuthTransport, AuthTrigger, ClientAuthStateResult } from './auth-engine'
 
 interface MinimalNuxtApp {
   payload?: { serverRendered?: boolean }
@@ -140,9 +130,9 @@ export function initAuthClient(
   let inflightIsForced = false
   let skipNextAnonymousSpaBootConvexSetAuthRefresh = false
   let skipNextAnonymousBootstrapRefresh =
-    Boolean(nuxtApp.payload?.serverRendered)
-    && !convexToken.value
-    && !normalizeHydratedUser(convexUser.value)
+    Boolean(nuxtApp.payload?.serverRendered) &&
+    !convexToken.value &&
+    !normalizeHydratedUser(convexUser.value)
 
   const syncHydratedAuthFromToken = (
     source: 'hydrated-token' | 'recent-token-cache',
@@ -241,7 +231,9 @@ export function initAuthClient(
       })
       const result = syncHydratedAuthFromToken('hydrated-token', routePath)
       if (result.token !== null) {
-        result.onCommit = () => { lastTokenValidation = Date.now() }
+        result.onCommit = () => {
+          lastTokenValidation = Date.now()
+        }
       }
       return result
     }
@@ -252,12 +244,10 @@ export function initAuthClient(
     if (convexToken.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
       const tokenTimeUntilExpiryMs = getJwtTimeUntilExpiryMs(convexToken.value)
       const canReuseToken =
-        tokenTimeUntilExpiryMs === null
-        || (
-          tokenTimeUntilExpiryMs > TOKEN_EXPIRY_SAFETY_BUFFER_MS
-          && timeSinceValidation
-          < Math.min(TOKEN_CACHE_MS, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS)
-        )
+        tokenTimeUntilExpiryMs === null ||
+        (tokenTimeUntilExpiryMs > TOKEN_EXPIRY_SAFETY_BUFFER_MS &&
+          timeSinceValidation <
+            Math.min(TOKEN_CACHE_MS, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS))
 
       if (canReuseToken) {
         logger.auth({
@@ -272,7 +262,9 @@ export function initAuthClient(
         })
         const result = syncHydratedAuthFromToken('recent-token-cache', routePath)
         if (result.token !== null) {
-          result.onCommit = () => { lastTokenValidation = Date.now() }
+          result.onCommit = () => {
+            lastTokenValidation = Date.now()
+          }
         }
         return result
       }
@@ -293,7 +285,12 @@ export function initAuthClient(
       return buildUnauthenticatedResult('skip')
     }
 
-    if (forceRefreshToken && skipNextAnonymousBootstrapRefresh && !convexToken.value && !hasHydratedUser) {
+    if (
+      forceRefreshToken &&
+      skipNextAnonymousBootstrapRefresh &&
+      !convexToken.value &&
+      !hasHydratedUser
+    ) {
       skipNextAnonymousBootstrapRefresh = false
       logger.auth({
         phase: 'client-fetchToken:skip',
@@ -308,12 +305,12 @@ export function initAuthClient(
     }
 
     if (
-      forceRefreshToken
-      && trigger === 'convex-set-auth'
-      && skipNextAnonymousSpaBootConvexSetAuthRefresh
-      && !nuxtApp.payload?.serverRendered
-      && !convexToken.value
-      && !hasHydratedUser
+      forceRefreshToken &&
+      trigger === 'convex-set-auth' &&
+      skipNextAnonymousSpaBootConvexSetAuthRefresh &&
+      !nuxtApp.payload?.serverRendered &&
+      !convexToken.value &&
+      !hasHydratedUser
     ) {
       skipNextAnonymousSpaBootConvexSetAuthRefresh = false
       logger.auth({
@@ -353,9 +350,9 @@ export function initAuthClient(
       if (response.error || !response.data?.token) {
         const error = response.error
           ? buildClientAuthResponseErrorMessage(
-              typeof response.error === 'object'
-                && response.error !== null
-                && 'message' in response.error
+              typeof response.error === 'object' &&
+                response.error !== null &&
+                'message' in response.error
                 ? String((response.error as { message: unknown }).message)
                 : 'Authentication failed',
             )
@@ -372,11 +369,11 @@ export function initAuthClient(
         })
 
         skipNextAnonymousSpaBootConvexSetAuthRefresh =
-          !forceRefreshToken
-          && !nuxtApp.payload?.serverRendered
-          && !convexToken.value
-          && !hasHydratedUser
-          && error === null
+          !forceRefreshToken &&
+          !nuxtApp.payload?.serverRendered &&
+          !convexToken.value &&
+          !hasHydratedUser &&
+          error === null
 
         return buildUnauthenticatedResult('exchange', error)
       }
@@ -412,7 +409,9 @@ export function initAuthClient(
 
       return {
         ...buildAuthenticatedResult('exchange', token, decodedUser),
-        onCommit: () => { lastTokenValidation = Date.now() },
+        onCommit: () => {
+          lastTokenValidation = Date.now()
+        },
       }
     } catch (error) {
       if (signal?.aborted) {
@@ -498,7 +497,10 @@ export function initAuthClient(
       inflightIsForced = false
       skipNextAnonymousSpaBootConvexSetAuthRefresh = false
       await new Promise<void>((resolve) => {
-        convexClientInstance.setAuth(async () => null, () => resolve())
+        convexClientInstance.setAuth(
+          async () => null,
+          () => resolve(),
+        )
       })
     },
   }

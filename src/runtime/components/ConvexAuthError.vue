@@ -31,8 +31,9 @@
  * ```
  */
 import { computed, ref } from 'vue'
-import { useConvexAuth } from '../composables/useConvexAuth'
+
 import { useConvexAuthController } from '../composables/internal/useConvexAuthController'
+import { useConvexAuth } from '../composables/useConvexAuth'
 import type { ConvexErrorCategory } from '../utils/types'
 
 interface StructuredAuthError {
@@ -105,7 +106,9 @@ const structuredError = computed<StructuredAuthError | null>(() => {
   const isTokenDecode = !!(token.value && !user.value)
   const isExplicitFailure = !!authError.value
   return {
-    message: authError.value?.message || (isTokenDecode ? 'Failed to decode auth token' : 'Authentication error'),
+    message:
+      authError.value?.message ||
+      (isTokenDecode ? 'Failed to decode auth token' : 'Authentication error'),
     category: 'auth' as ConvexErrorCategory,
     isRecoverable: true,
     isTokenDecode,

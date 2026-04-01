@@ -80,7 +80,9 @@ export interface OptimisticQueryHandle<Query extends FunctionReference<'query'>>
    * Update the query result using an updater function.
    * @example ctx.query(api.notes.list, {}).update(notes => [...notes, newNote])
    */
-  update: (updater: (current: FunctionReturnType<Query> | undefined) => FunctionReturnType<Query>) => void
+  update: (
+    updater: (current: FunctionReturnType<Query> | undefined) => FunctionReturnType<Query>,
+  ) => void
   /**
    * Replace the query result with a new value.
    * @example ctx.query(api.notes.get, { id }).set({ ...note, title: 'Updated' })
@@ -104,7 +106,10 @@ export interface OptimisticPaginatedHandle<Query extends PaginatedQueryReference
    * Update the item matching the given Convex document `_id`.
    * All Convex documents have a system-generated `_id` field — this is the standard matching key.
    */
-  updateItem: (id: string, updater: (item: PaginatedQueryItem<Query>) => PaginatedQueryItem<Query>) => void
+  updateItem: (
+    id: string,
+    updater: (item: PaginatedQueryItem<Query>) => PaginatedQueryItem<Query>,
+  ) => void
   /**
    * Remove the item matching the given Convex document `_id`.
    * All Convex documents have a system-generated `_id` field — this is the standard matching key.
@@ -151,7 +156,10 @@ export interface OptimisticContext {
   /**
    * Get a handle to perform optimistic updates on a regular query.
    */
-  query<Q extends FunctionReference<'query'>>(query: Q, args: FunctionArgs<Q>): OptimisticQueryHandle<Q>
+  query<Q extends FunctionReference<'query'>>(
+    query: Q,
+    args: FunctionArgs<Q>,
+  ): OptimisticQueryHandle<Q>
   /**
    * Get a handle to perform optimistic updates on a paginated query.
    * Applies to all currently loaded pages matching these args.
@@ -186,7 +194,10 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
   return {
     store,
 
-    query<Q extends FunctionReference<'query'>>(query: Q, args: FunctionArgs<Q>): OptimisticQueryHandle<Q> {
+    query<Q extends FunctionReference<'query'>>(
+      query: Q,
+      args: FunctionArgs<Q>,
+    ): OptimisticQueryHandle<Q> {
       return {
         update(updater) {
           const currentValue = store.getQuery(query, args)
@@ -219,12 +230,21 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
     ): OptimisticPaginatedHandle<Q> {
       /** Apply an operation to all matching paginated query entries in the store. */
       function forEachMatchingPage(
-        callback: (paginatedValue: PaginationResult<PaginatedQueryItem<Q>>, pageArgs: FunctionArgs<Q>) => void,
+        callback: (
+          paginatedValue: PaginationResult<PaginatedQueryItem<Q>>,
+          pageArgs: FunctionArgs<Q>,
+        ) => void,
       ): void {
         const allQueries = store.getAllQueries(query)
         for (const { args: pageArgs, value } of allQueries) {
           if (!value) continue
-          if (!argsMatchForPaginatedQuery(pageArgs as Record<string, unknown>, args as Record<string, unknown>)) continue
+          if (
+            !argsMatchForPaginatedQuery(
+              pageArgs as Record<string, unknown>,
+              args as Record<string, unknown>,
+            )
+          )
+            continue
           callback(value as PaginationResult<PaginatedQueryItem<Q>>, pageArgs)
         }
       }
@@ -296,10 +316,7 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
             store.setQuery(
               query,
               args as FunctionArgs<Q>,
-              updater(
-                value as PaginationResult<PaginatedQueryItem<Q>>,
-                args as FunctionArgs<Q>,
-              ),
+              updater(value as PaginationResult<PaginatedQueryItem<Q>>, args as FunctionArgs<Q>),
             )
           }
         },
@@ -333,7 +350,9 @@ export function prependTo<Q extends FunctionReference<'query'>>(
   args: FunctionArgs<Q>,
   item: ArrayQueryItem<Q>,
 ): void {
-  ctx.query(query, args).update((list) => [item, ...((list as unknown[]) ?? [])] as FunctionReturnType<Q>)
+  ctx
+    .query(query, args)
+    .update((list) => [item, ...((list as unknown[]) ?? [])] as FunctionReturnType<Q>)
 }
 
 /**
@@ -345,7 +364,9 @@ export function appendTo<Q extends FunctionReference<'query'>>(
   args: FunctionArgs<Q>,
   item: ArrayQueryItem<Q>,
 ): void {
-  ctx.query(query, args).update((list) => [...((list as unknown[]) ?? []), item] as FunctionReturnType<Q>)
+  ctx
+    .query(query, args)
+    .update((list) => [...((list as unknown[]) ?? []), item] as FunctionReturnType<Q>)
 }
 
 /**
@@ -365,9 +386,14 @@ export function removeFrom<Q extends FunctionReference<'query'>>(
   args: FunctionArgs<Q>,
   predicate: (item: ArrayQueryItem<Q>) => boolean,
 ): void {
-  ctx.query(query, args).update(
-    (list) => ((list as unknown[]) ?? []).filter((i) => !predicate(i as ArrayQueryItem<Q>)) as FunctionReturnType<Q>,
-  )
+  ctx
+    .query(query, args)
+    .update(
+      (list) =>
+        ((list as unknown[]) ?? []).filter(
+          (i) => !predicate(i as ArrayQueryItem<Q>),
+        ) as FunctionReturnType<Q>,
+    )
 }
 
 /**

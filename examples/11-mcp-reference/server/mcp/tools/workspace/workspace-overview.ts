@@ -1,6 +1,6 @@
-import { defineTool } from '#convex/mcp'
 import { z } from 'zod'
 
+import { defineTool } from '#convex/mcp'
 import { api } from '~/convex/_generated/api'
 import { listRunbooks } from '~/shared/schemas/runbook'
 
@@ -20,6 +20,9 @@ export default defineTool({
   },
   handler: async (_args, ctx) => {
     const overview = await ctx.query(api.runbooks.workspaceOverview, {})
-    return ctx.ok(overview, `Workspace has ${overview.total} runbook${overview.total === 1 ? '' : 's'}.`)
+    return ctx.ok(
+      overview,
+      `Workspace has ${overview.total} runbook${overview.total === 1 ? '' : 's'}.`,
+    )
   },
 })

@@ -69,5 +69,4 @@ export const DEFAULT_UPLOAD_MAX_CONCURRENT = 3
  * Prevents DevTools messages from leaking between different apps
  * running on different ports during development.
  */
-export const getDevtoolsChannelName = (origin: string) =>
-  `convex-devtools:${origin}`
+export const getDevtoolsChannelName = (origin: string) => `convex-devtools:${origin}`

@@ -1,7 +1,16 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference } from 'convex/server'
-import { computed, onScopeDispose, useAsyncData, useNuxtApp, useRequestEvent, useState, watch } from '#imports'
 import type { ComputedRef, Ref } from 'vue'
+
+import {
+  computed,
+  onScopeDispose,
+  useAsyncData,
+  useNuxtApp,
+  useRequestEvent,
+  useState,
+  watch,
+} from '#imports'
 
 import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized'
 import {
@@ -394,13 +403,14 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
     return asyncData.pending.value
   })
 
-  const status = computed((): QueryStatus =>
-    computeQueryStatus(
-      isSkipped.value,
-      asyncData.error.value != null,
-      pending.value,
-      asyncData.data.value != null,
-    ),
+  const status = computed(
+    (): QueryStatus =>
+      computeQueryStatus(
+        isSkipped.value,
+        asyncData.error.value != null,
+        pending.value,
+        asyncData.data.value != null,
+      ),
   )
 
   let resolvePromise: Promise<void>

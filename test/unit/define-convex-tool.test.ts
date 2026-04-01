@@ -1,6 +1,6 @@
+import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { v } from 'convex/values'
 
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
 import { defineArgs } from '../../src/runtime/schema'
@@ -66,7 +66,7 @@ describe('defineTool visibility and auth parity', () => {
       schema: emptySchema,
       name: 'member-only-tool',
       auth: 'required',
-      check: actor => actor.role === 'member',
+      check: (actor) => actor.role === 'member',
       handler: async (_args, ctx) => ctx.ok({ ok: true }),
     })
 
@@ -87,9 +87,9 @@ describe('defineTool visibility and auth parity', () => {
       handler: async (_args, ctx) => ctx.ok({ ok: true }),
     })
 
-    await expect(
-      tool.enabled?.(createEvent({ role: 'member', userId: 'member-1' })),
-    ).resolves.toBe(false)
+    await expect(tool.enabled?.(createEvent({ role: 'member', userId: 'member-1' }))).resolves.toBe(
+      false,
+    )
     await expect(
       tool.enabled?.(createEvent({ role: 'member', userId: 'member-1', tenantId: 'org-1' })),
     ).resolves.toBe(true)
@@ -100,11 +100,13 @@ describe('defineTool visibility and auth parity', () => {
       schema: emptySchema,
       name: 'guarded-tool',
       auth: 'required',
-      check: actor => actor.role === 'member',
+      check: (actor) => actor.role === 'member',
       handler: async (_args, ctx) => ctx.ok({ ok: true }),
     })
 
-    useEventMock.mockReturnValue(createEvent({ role: 'viewer', userId: 'viewer-1', tenantId: 'org-1' }))
+    useEventMock.mockReturnValue(
+      createEvent({ role: 'viewer', userId: 'viewer-1', tenantId: 'org-1' }),
+    )
 
     const result = await tool.handler({} as never, {} as never)
 

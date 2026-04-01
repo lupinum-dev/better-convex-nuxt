@@ -462,4 +462,3 @@ Adopt the following stance for `better-convex-nuxt`:
 In short:
 
 > Auth is not the problem. Bootstrap placement is the problem.
-

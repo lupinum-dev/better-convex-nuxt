@@ -1,6 +1,6 @@
-import type { Storage, StorageValue } from 'unstorage'
 import { getHeader } from 'h3'
 import { useEvent, useStorage } from 'nitropack/runtime'
+import type { Storage, StorageValue } from 'unstorage'
 
 export interface McpSessionStore<T = Record<string, unknown>> {
   sessionId: string
@@ -15,11 +15,12 @@ export interface McpSessionStore<T = Record<string, unknown>> {
 }
 
 function sanitizeNamespace(value: string): string {
-  return value
-    .replace(/[^a-zA-Z0-9:_/-]+/g, '-')
-    .replace(/\/+/g, '/')
-    .replace(/^-+|-+$/g, '')
-    || 'mcp'
+  return (
+    value
+      .replace(/[^\w:/-]+/g, '-')
+      .replace(/\/+/g, '/')
+      .replace(/^-+|-+$/g, '') || 'mcp'
+  )
 }
 
 export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T> {
@@ -32,20 +33,16 @@ export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T>
     )
   }
 
-  const routeNamespace = sanitizeNamespace(
-    event.path
-    || event.node.req.url
-    || 'mcp',
-  )
+  const routeNamespace = sanitizeNamespace(event.path || event.node.req.url || 'mcp')
   const storage = useStorage(`mcp:sessions:${routeNamespace}:${sessionId}`)
 
   return {
     sessionId,
     namespace: routeNamespace,
-    get: async key => await storage.getItem(key) as T[typeof key] | null,
+    get: async (key) => (await storage.getItem(key)) as T[typeof key] | null,
     set: (key, value) => storage.setItem(key, value as StorageValue),
-    remove: key => storage.removeItem(key),
-    has: key => storage.hasItem(key),
+    remove: (key) => storage.removeItem(key),
+    has: (key) => storage.hasItem(key),
     keys: () => storage.getKeys(),
     clear: () => storage.clear(),
     storage,

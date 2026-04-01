@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { api } from '~/convex/_generated/api'
 /**
  * Why this file exists:
  * The task detail page needs one place where comments, uploads, and nested permissions meet.
  * Keeping that flow in its own component makes the page easier to read.
  */
 import type { Id } from '~/convex/_generated/dataModel'
-import { api } from '~/convex/_generated/api'
 
 const props = defineProps<{
   taskId: Id<'tasks'>
@@ -17,7 +17,11 @@ const attachmentStorageId = ref<Id<'_storage'> | null>(null)
 const createComment = useConvexMutation(api.comments.create)
 const canCreateComment = can('comment.create')
 
-const { data: comments, pending, error } = await useConvexQuery(
+const {
+  data: comments,
+  pending,
+  error,
+} = await useConvexQuery(
   api.comments.listByTask,
   computed(() => ({ taskId: props.taskId })),
 )

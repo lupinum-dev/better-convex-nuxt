@@ -17,12 +17,9 @@
 import type { createAuthClient } from 'better-auth/vue'
 import { computed, type ComputedRef, type Ref } from 'vue'
 
-import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants'
 import { waitForPendingClear } from '../utils/auth-pending'
-import type {
-  ConvexAuthChangedPayload,
-  ConvexUser,
-} from '../utils/types'
+import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants'
+import type { ConvexAuthChangedPayload, ConvexUser } from '../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 export type AuthTrigger =
@@ -89,7 +86,10 @@ export interface AuthTransport {
     trigger?: AuthTrigger
   }) => Promise<ClientAuthStateResult>
   /** Wire fetchToken into the ConvexClient. Called once at startup. */
-  install: (fetchToken: ConvexFetchToken, onChange: (isAuthenticated: boolean, meta?: AuthStateChangeMeta) => void) => void
+  install: (
+    fetchToken: ConvexFetchToken,
+    onChange: (isAuthenticated: boolean, meta?: AuthStateChangeMeta) => void,
+  ) => void
   /** Re-authenticate by calling setAuth with forceRefreshToken. */
   refresh: (
     fetchToken: ConvexFetchToken,
@@ -134,10 +134,7 @@ export interface SharedAuthEngine {
   }) => Promise<void>
   signOut: () => Promise<void>
   awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
-  initialize: (options?: {
-    error?: string | null
-    resolveInitialAuth?: boolean
-  }) => void
+  initialize: (options?: { error?: string | null; resolveInitialAuth?: boolean }) => void
 }
 
 export interface CreateSharedAuthEngineOptions {
@@ -165,7 +162,11 @@ function buildSnapshot(token: string | null, user: ConvexUser | null): AuthSnaps
   }
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () => Error): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  onTimeout: () => Error,
+): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null
 
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
@@ -181,7 +182,11 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, onTimeout: () =>
   })
 }
 
-function getEngineState(nuxtApp: object, token: Ref<string | null>, user: Ref<ConvexUser | null>): AuthEngineState {
+function getEngineState(
+  nuxtApp: object,
+  token: Ref<string | null>,
+  user: Ref<ConvexUser | null>,
+): AuthEngineState {
   const existing = authEngineStates.get(nuxtApp)
   if (existing) {
     return existing
@@ -203,16 +208,14 @@ export function getSharedAuthEngine(nuxtApp: object): SharedAuthEngine {
   const engine = authEngines.get(nuxtApp)
   if (!engine) {
     throw new Error(
-      '[better-convex-nuxt] Auth engine not initialized. '
-      + 'Ensure the Convex client plugin runs before composables.',
+      '[better-convex-nuxt] Auth engine not initialized. ' +
+        'Ensure the Convex client plugin runs before composables.',
     )
   }
   return engine
 }
 
-export function createSharedAuthEngine(
-  options: CreateSharedAuthEngineOptions,
-): SharedAuthEngine {
+export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): SharedAuthEngine {
   const {
     nuxtApp,
     token,
@@ -248,8 +251,8 @@ export function createSharedAuthEngine(
     state.snapshot = nextSnapshot
 
     const changed =
-      previousSnapshot.isAuthenticated !== nextSnapshot.isAuthenticated
-      || previousSnapshot.userId !== nextSnapshot.userId
+      previousSnapshot.isAuthenticated !== nextSnapshot.isAuthenticated ||
+      previousSnapshot.userId !== nextSnapshot.userId
 
     if (!changed) {
       return
@@ -274,10 +277,13 @@ export function createSharedAuthEngine(
     emitIfChanged(buildSnapshot(nextToken, nextUser))
   }
 
-  const commitUnauthenticated = (nextError: string | null, options?: {
-    clearWasAuthenticated?: boolean
-    emit?: boolean
-  }) => {
+  const commitUnauthenticated = (
+    nextError: string | null,
+    options?: {
+      clearWasAuthenticated?: boolean
+      emit?: boolean
+    },
+  ) => {
     token.value = null
     user.value = null
     rawAuthError.value = nextError
@@ -390,7 +396,10 @@ export function createSharedAuthEngine(
       } catch (error) {
         if (operationId !== state.operationId) {
           if (import.meta.dev) {
-            console.debug('[better-convex-nuxt] Discarding stale refresh error (superseded by newer operation):', error)
+            console.debug(
+              '[better-convex-nuxt] Discarding stale refresh error (superseded by newer operation):',
+              error,
+            )
           }
           return
         }
@@ -500,10 +509,7 @@ export function createSharedAuthEngine(
     return isAuthenticated.value
   }
 
-  const initialize = (options?: {
-    error?: string | null
-    resolveInitialAuth?: boolean
-  }) => {
+  const initialize = (options?: { error?: string | null; resolveInitialAuth?: boolean }) => {
     state.snapshot = buildSnapshot(token.value, user.value)
     if (options?.error !== undefined) {
       rawAuthError.value = options.error

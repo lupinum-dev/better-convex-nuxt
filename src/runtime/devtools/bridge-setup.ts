@@ -9,8 +9,9 @@ import type { ConvexClient } from 'convex/browser'
 import { toRaw } from 'vue'
 import type { Ref } from 'vue'
 
-import { createAppDevtoolsTransport, cloneDevtoolsPayload } from './transport'
+import type { AuthWaterfall } from '../utils/auth-debug'
 import { getDevtoolsChannelName } from '../utils/constants'
+import { createAppDevtoolsTransport, cloneDevtoolsPayload } from './transport'
 import type {
   ConvexDevToolsBridge,
   ConvexUser,
@@ -20,7 +21,6 @@ import type {
   PermissionContextState,
   AuthBootstrapState,
 } from './types'
-import type { AuthWaterfall } from '../utils/auth-debug'
 
 /**
  * Setup the DevTools bridge on the window object.
@@ -142,9 +142,11 @@ export async function setupDevToolsBridge(
       }
     },
 
-    getPermissionContextState: (): PermissionContextState => cloneDevtoolsPayload(toRaw(permissionState.value)),
+    getPermissionContextState: (): PermissionContextState =>
+      cloneDevtoolsPayload(toRaw(permissionState.value)),
 
-    getAuthBootstrapState: (): AuthBootstrapState => cloneDevtoolsPayload(toRaw(authBootstrapState.value)),
+    getAuthBootstrapState: (): AuthBootstrapState =>
+      cloneDevtoolsPayload(toRaw(authBootstrapState.value)),
   }
 
   // Expose on window for direct access (same-origin)

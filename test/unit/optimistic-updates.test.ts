@@ -1,8 +1,14 @@
+import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createOptimisticContext, prependTo, appendTo, removeFrom, updateIn } from '../../src/runtime/composables/optimistic-updates'
+import {
+  createOptimisticContext,
+  prependTo,
+  appendTo,
+  removeFrom,
+  updateIn,
+} from '../../src/runtime/composables/optimistic-updates'
 import { mockFnRef } from '../helpers/mock-convex-client'
-import type { FunctionReference } from 'convex/server'
 
 interface StoredQuery {
   query: unknown
@@ -55,9 +61,9 @@ describe('optimistic-updates fluent API', () => {
       const query = mockFnRef<'query'>('notes:list')
       const ctx = createOptimisticContext(store as never)
 
-      ctx.query(query, { orgId: 'org-1' }).update((current) =>
-        [...(current ?? []), { _id: 'n1', title: 'First' }],
-      )
+      ctx
+        .query(query, { orgId: 'org-1' })
+        .update((current) => [...(current ?? []), { _id: 'n1', title: 'First' }])
 
       expect(store.getQuery(query, { orgId: 'org-1' })).toEqual([{ _id: 'n1', title: 'First' }])
     })
@@ -90,7 +96,8 @@ describe('optimistic-updates fluent API', () => {
         { page: [{ _id: 'p2' }], isDone: false, continueCursor: 'c1' },
       )
 
-      ctx.paginatedQuery(query as never, { orgId: 'org-1' } as never)
+      ctx
+        .paginatedQuery(query as never, { orgId: 'org-1' } as never)
         .insertAtTop({ _id: 'new-top' } as never)
 
       const updatedOrg1 = store.getQuery(query, {
@@ -125,7 +132,8 @@ describe('optimistic-updates fluent API', () => {
         },
       )
 
-      ctx.paginatedQuery(query as never, { status: 'open' } as never)
+      ctx
+        .paginatedQuery(query as never, { status: 'open' } as never)
         .insertAtPosition({ _id: 'b', order: 2 } as never, 1)
 
       const updated = store.getQuery(query, {
@@ -147,7 +155,8 @@ describe('optimistic-updates fluent API', () => {
         { page: [{ _id: 'm1' }], isDone: false, continueCursor: 'c1' },
       )
 
-      ctx.paginatedQuery(query as never, { channel: 'general' } as never)
+      ctx
+        .paginatedQuery(query as never, { channel: 'general' } as never)
         .insertAtBottomIfLoaded({ _id: 'm2' } as never)
 
       const notDone = store.getQuery(query, {
@@ -162,7 +171,8 @@ describe('optimistic-updates fluent API', () => {
         { page: [{ _id: 'm1' }], isDone: true, continueCursor: null },
       )
 
-      ctx.paginatedQuery(query as never, { channel: 'general' } as never)
+      ctx
+        .paginatedQuery(query as never, { channel: 'general' } as never)
         .insertAtBottomIfLoaded({ _id: 'm2' } as never)
 
       const done = store.getQuery(query, {
@@ -190,8 +200,12 @@ describe('optimistic-updates fluent API', () => {
         },
       )
 
-      ctx.paginatedQuery(query as never, { listId: 'inbox' } as never)
-        .updateItem('t2', (item) => ({ ...(item as { _id: string; done: boolean }), done: true } as never))
+      ctx
+        .paginatedQuery(query as never, { listId: 'inbox' } as never)
+        .updateItem(
+          't2',
+          (item) => ({ ...(item as { _id: string; done: boolean }), done: true }) as never,
+        )
 
       const updated = store.getQuery(query, {
         listId: 'inbox',
@@ -223,8 +237,7 @@ describe('optimistic-updates fluent API', () => {
         },
       )
 
-      ctx.paginatedQuery(query as never, { postId: 'p1' } as never)
-        .deleteItem('c2')
+      ctx.paginatedQuery(query as never, { postId: 'p1' } as never).deleteItem('c2')
 
       const updated = store.getQuery(query, {
         postId: 'p1',
@@ -249,10 +262,15 @@ describe('optimistic-updates fluent API', () => {
     store.setQuery(query, { orgId: 'a' }, [{ _id: 'n1', orgId: 'a' }])
     store.setQuery(query, { orgId: 'b' }, [{ _id: 'n2', orgId: 'b' }])
 
-    ctx.matchQuery(query).update((current, args) => [
-      ...((current ?? []) as Array<{ _id: string; orgId: string }>),
-      { _id: `extra:${args.orgId}`, orgId: args.orgId },
-    ] as never)
+    ctx
+      .matchQuery(query)
+      .update(
+        (current, args) =>
+          [
+            ...((current ?? []) as Array<{ _id: string; orgId: string }>),
+            { _id: `extra:${args.orgId}`, orgId: args.orgId },
+          ] as never,
+      )
 
     expect(store.getQuery(query, { orgId: 'a' })).toEqual([
       { _id: 'n1', orgId: 'a' },
@@ -280,28 +298,39 @@ describe('optimistic-updates fluent API', () => {
       { page: [{ _id: 'p2' }], isDone: true, continueCursor: null },
     )
 
-    ctx.matchPaginatedQuery(query as never).update((current, args) => ({
-      ...(current as { page: Array<{ _id: string }>; isDone: boolean; continueCursor: string | null }),
-      page: [
-        ...(current?.page ?? []),
-        {
-          _id: `extra:${String((args as { paginationOpts?: { cursor?: string | null } }).paginationOpts?.cursor ?? 'root')}`,
-        },
-      ],
-    }) as never)
+    ctx.matchPaginatedQuery(query as never).update(
+      (current, args) =>
+        ({
+          ...(current as {
+            page: Array<{ _id: string }>
+            isDone: boolean
+            continueCursor: string | null
+          }),
+          page: [
+            ...(current?.page ?? []),
+            {
+              _id: `extra:${String((args as { paginationOpts?: { cursor?: string | null } }).paginationOpts?.cursor ?? 'root')}`,
+            },
+          ],
+        }) as never,
+    )
 
-    expect(store.getQuery(query, {
-      orgId: 'a',
-      paginationOpts: { numItems: 2, cursor: null },
-    })).toEqual({
+    expect(
+      store.getQuery(query, {
+        orgId: 'a',
+        paginationOpts: { numItems: 2, cursor: null },
+      }),
+    ).toEqual({
       page: [{ _id: 'p1' }, { _id: 'extra:root' }],
       isDone: false,
       continueCursor: 'c1',
     })
-    expect(store.getQuery(query, {
-      orgId: 'a',
-      paginationOpts: { numItems: 2, cursor: 'c1' },
-    })).toEqual({
+    expect(
+      store.getQuery(query, {
+        orgId: 'a',
+        paginationOpts: { numItems: 2, cursor: 'c1' },
+      }),
+    ).toEqual({
       page: [{ _id: 'p2' }, { _id: 'extra:c1' }],
       isDone: true,
       continueCursor: null,
@@ -318,7 +347,10 @@ describe('optimistic-updates fluent API', () => {
       const query = mockFnRef<'query'>('notes:list:prepend')
       const ctx = createOptimisticContext(store as never)
 
-      store.setQuery(query, {}, [{ _id: 'n1', title: 'First' }, { _id: 'n2', title: 'Second' }])
+      store.setQuery(query, {}, [
+        { _id: 'n1', title: 'First' },
+        { _id: 'n2', title: 'Second' },
+      ])
 
       prependTo(ctx, query as never, {} as never, { _id: 'n0', title: 'Prepended' } as never)
 
@@ -351,7 +383,12 @@ describe('optimistic-updates fluent API', () => {
         { _id: 'n3', title: 'Keep' },
       ])
 
-      removeFrom(ctx, query as never, {} as never, ((item: { _id: string }) => item._id === 'n2') as never)
+      removeFrom(
+        ctx,
+        query as never,
+        {} as never,
+        ((item: { _id: string }) => item._id === 'n2') as never,
+      )
 
       const result = store.getQuery(query, {}) as Array<{ _id: string }>
       expect(result.map((i) => i._id)).toEqual(['n1', 'n3'])
@@ -373,10 +410,18 @@ describe('optimistic-updates fluent API', () => {
         query as never,
         {} as never,
         ((item: { _id: string }) => item._id === 'n1') as never,
-        ((item: { _id: string; title: string; done: boolean }) => ({ ...item, title: 'Updated', done: true })) as never,
+        ((item: { _id: string; title: string; done: boolean }) => ({
+          ...item,
+          title: 'Updated',
+          done: true,
+        })) as never,
       )
 
-      const result = store.getQuery(query, {}) as Array<{ _id: string; title: string; done: boolean }>
+      const result = store.getQuery(query, {}) as Array<{
+        _id: string
+        title: string
+        done: boolean
+      }>
       expect(result[0]).toEqual({ _id: 'n1', title: 'Updated', done: true })
       expect(result[1]).toEqual({ _id: 'n2', title: 'Keep', done: false })
       expect(result[2]).toEqual({ _id: 'n3', title: 'Old', done: false })

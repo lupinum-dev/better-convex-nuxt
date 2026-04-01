@@ -244,10 +244,7 @@ const extendedAuthClient = shallowRef<ExtendedAuthClient | null>(null)
 const extendedSessionStore = shallowRef<unknown>(null)
 
 const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
-const { data: ctx } = await useConvexQuery(
-  api.auth.getPermissionContext,
-  permissionQueryArgs,
-)
+const { data: ctx } = await useConvexQuery(api.auth.getPermissionContext, permissionQueryArgs)
 
 // Compile-time proof: these property accesses fail if ConvexUser augmentation
 // does not flow through useConvexAuth().user.
@@ -256,11 +253,7 @@ const augmentedUserFields = computed(() => ({
   authId: user.value?.authId,
   organizationId: user.value?.organizationId,
 }))
-const permissionRole = computed(() =>
-  ctx.value && 'role' in ctx.value
-    ? ctx.value.role
-    : null,
-)
+const permissionRole = computed(() => (ctx.value && 'role' in ctx.value ? ctx.value.role : null))
 
 onMounted(() => {
   try {

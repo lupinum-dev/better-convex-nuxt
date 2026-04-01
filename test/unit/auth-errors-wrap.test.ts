@@ -1,17 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import {
   buildClientAuthResponseErrorMessage,
   wrapBetterAuthError,
 } from '../../src/runtime/utils/auth-errors'
+import { ConvexCallError } from '../../src/runtime/utils/call-result'
 
 describe('wrapBetterAuthError', () => {
   it('wraps a Better Auth error object with message and status', () => {
-    const error = wrapBetterAuthError(
-      { message: 'Invalid credentials', status: 401 },
-      'signIn',
-    )
+    const error = wrapBetterAuthError({ message: 'Invalid credentials', status: 401 }, 'signIn')
     expect(error).toBeInstanceOf(ConvexCallError)
     expect(error.message).toBe('Invalid credentials')
     expect(error.status).toBe(401)
@@ -53,18 +50,12 @@ describe('wrapBetterAuthError', () => {
   })
 
   it('derives validation category from 422 status', () => {
-    const error = wrapBetterAuthError(
-      { message: 'Email already exists', status: 422 },
-      'signUp',
-    )
+    const error = wrapBetterAuthError({ message: 'Email already exists', status: 422 }, 'signUp')
     expect(error.category).toBe('validation')
   })
 
   it('handles non-numeric status gracefully', () => {
-    const error = wrapBetterAuthError(
-      { message: 'Error', status: 'bad' },
-      'signIn',
-    )
+    const error = wrapBetterAuthError({ message: 'Error', status: 'bad' }, 'signIn')
     expect(error.status).toBeUndefined()
   })
 })

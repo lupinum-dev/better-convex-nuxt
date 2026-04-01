@@ -1,33 +1,42 @@
-import { describe, expect, it, vi } from 'vitest'
 import { v } from 'convex/values'
+import { describe, expect, it, vi } from 'vitest'
 
-import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
+import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
 function hasStringName(value: unknown): value is { name: string } {
-  return typeof value === 'object'
-    && value !== null
-    && 'name' in value
-    && typeof (value as { name?: unknown }).name === 'string'
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'name' in value &&
+    typeof (value as { name?: unknown }).name === 'string'
+  )
 }
 
 describe('mutation pre-validation (Nuxt runtime)', () => {
   it('passes validation and executes mutation normally', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:validated-ok')
-    convex.setMutationHandler('testing:validated-ok', async (args) => ({ saved: true, ...(args as Record<string, unknown>) }))
+    convex.setMutationHandler('testing:validated-ok', async (args) => ({
+      saved: true,
+      ...(args as Record<string, unknown>),
+    }))
 
     const { result } = await captureInNuxt(
-      () => useConvexMutation(mutation, {
-        validate: v.object({ title: v.string() }),
-      }),
+      () =>
+        useConvexMutation(mutation, {
+          validate: v.object({ title: v.string() }),
+        }),
       { convex },
     )
 
-    await expect(result({ title: 'Hello' } as never)).resolves.toEqual({ saved: true, title: 'Hello' })
+    await expect(result({ title: 'Hello' } as never)).resolves.toEqual({
+      saved: true,
+      title: 'Hello',
+    })
     expect(result.status.value).toBe('success')
   })
 
@@ -38,9 +47,10 @@ describe('mutation pre-validation (Nuxt runtime)', () => {
     convex.setMutationHandler('testing:validated-fail', handler)
 
     const { result } = await captureInNuxt(
-      () => useConvexMutation(mutation, {
-        validate: v.object({ title: v.string() }),
-      }),
+      () =>
+        useConvexMutation(mutation, {
+          validate: v.object({ title: v.string() }),
+        }),
       { convex },
     )
 
@@ -55,9 +65,10 @@ describe('mutation pre-validation (Nuxt runtime)', () => {
     convex.setMutationHandler('testing:val-error-shape', async () => ({ ok: true }))
 
     const { result } = await captureInNuxt(
-      () => useConvexMutation(mutation, {
-        validate: v.object({ name: v.string(), age: v.float64() }),
-      }),
+      () =>
+        useConvexMutation(mutation, {
+          validate: v.object({ name: v.string(), age: v.float64() }),
+        }),
       { convex },
     )
 
@@ -76,13 +87,14 @@ describe('mutation pre-validation (Nuxt runtime)', () => {
     convex.setMutationHandler('testing:multi-issue', async () => ({ ok: true }))
 
     const { result } = await captureInNuxt(
-      () => useConvexMutation(mutation, {
-        validate: v.object({
-          name: v.string(),
-          email: v.string(),
-          age: v.float64(),
+      () =>
+        useConvexMutation(mutation, {
+          validate: v.object({
+            name: v.string(),
+            email: v.string(),
+            age: v.float64(),
+          }),
         }),
-      }),
       { convex },
     )
 
@@ -90,7 +102,7 @@ describe('mutation pre-validation (Nuxt runtime)', () => {
 
     const err = result.error.value as ConvexCallError
     expect(err.issues).toHaveLength(3)
-    expect(err.issues!.map(i => i.path)).toEqual(['name', 'email', 'age'])
+    expect(err.issues!.map((i) => i.path)).toEqual(['name', 'email', 'age'])
   })
 
   it('fires onError callback on validation failure', async () => {
@@ -100,10 +112,11 @@ describe('mutation pre-validation (Nuxt runtime)', () => {
     const onError = vi.fn()
 
     const { result } = await captureInNuxt(
-      () => useConvexMutation(mutation, {
-        validate: v.object({ name: v.string() }),
-        onError,
-      }),
+      () =>
+        useConvexMutation(mutation, {
+          validate: v.object({ name: v.string() }),
+          onError,
+        }),
       { convex },
     )
 
@@ -121,9 +134,10 @@ describe('mutation pre-validation (Nuxt runtime)', () => {
     convex.setMutationHandler('testing:val-status', async () => ({ ok: true }))
 
     const { result } = await captureInNuxt(
-      () => useConvexMutation(mutation, {
-        validate: v.object({ name: v.string() }),
-      }),
+      () =>
+        useConvexMutation(mutation, {
+          validate: v.object({ name: v.string() }),
+        }),
       { convex },
     )
 
@@ -173,9 +187,10 @@ describe('action pre-validation (Nuxt runtime)', () => {
     convex.setActionHandler('testing:val-action', handler)
 
     const { result } = await captureInNuxt(
-      () => useConvexAction(action, {
-        validate: v.object({ url: v.string() }),
-      }),
+      () =>
+        useConvexAction(action, {
+          validate: v.object({ url: v.string() }),
+        }),
       { convex },
     )
 

@@ -4,9 +4,7 @@
   >
     <UCard class="w-full max-w-5xl">
       <template #header>
-        <p
-          class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400"
-        >
+        <p class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400">
           Example 04
         </p>
         <h1 class="text-3xl font-bold mt-1">Project Board + Admin</h1>
@@ -38,13 +36,29 @@
                 </div>
                 <div class="space-y-1">
                   <label class="text-sm font-medium text-highlighted">Email</label>
-                  <UInput v-model="signUpForm.email" data-testid="signup-email" type="email" required />
+                  <UInput
+                    v-model="signUpForm.email"
+                    data-testid="signup-email"
+                    type="email"
+                    required
+                  />
                 </div>
                 <div class="space-y-1">
                   <label class="text-sm font-medium text-highlighted">Password</label>
-                  <UInput v-model="signUpForm.password" data-testid="signup-password" type="password" minlength="8" required />
+                  <UInput
+                    v-model="signUpForm.password"
+                    data-testid="signup-password"
+                    type="password"
+                    minlength="8"
+                    required
+                  />
                 </div>
-                <UButton data-testid="signup-submit" type="submit" block :loading="authAction.pending.value">
+                <UButton
+                  data-testid="signup-submit"
+                  type="submit"
+                  block
+                  :loading="authAction.pending.value"
+                >
                   Sign up
                 </UButton>
               </form>
@@ -64,7 +78,13 @@
                   <label class="text-sm font-medium text-highlighted">Password</label>
                   <UInput v-model="signInForm.password" type="password" required />
                 </div>
-                <UButton type="submit" block color="neutral" variant="soft" :loading="authAction.pending.value">
+                <UButton
+                  type="submit"
+                  block
+                  color="neutral"
+                  variant="soft"
+                  :loading="authAction.pending.value"
+                >
                   Sign in
                 </UButton>
               </form>
@@ -115,21 +135,32 @@
                 <UCard>
                   <template #header>
                     <h3 class="text-lg font-semibold">Create workspace</h3>
-                    <p class="text-sm text-muted mt-1">
-                      The creator becomes the workspace owner.
-                    </p>
+                    <p class="text-sm text-muted mt-1">The creator becomes the workspace owner.</p>
                   </template>
 
                   <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
                     <div class="space-y-1">
                       <label class="text-sm font-medium text-highlighted">Name</label>
-                      <UInput v-model="createWorkspaceForm.name" data-testid="workspace-name" required />
+                      <UInput
+                        v-model="createWorkspaceForm.name"
+                        data-testid="workspace-name"
+                        required
+                      />
                     </div>
                     <div class="space-y-1">
                       <label class="text-sm font-medium text-highlighted">Slug</label>
-                      <UInput v-model="createWorkspaceForm.slug" data-testid="workspace-slug" required />
+                      <UInput
+                        v-model="createWorkspaceForm.slug"
+                        data-testid="workspace-slug"
+                        required
+                      />
                     </div>
-                    <UButton data-testid="workspace-submit" type="submit" block :loading="createWorkspace.pending.value">
+                    <UButton
+                      data-testid="workspace-submit"
+                      type="submit"
+                      block
+                      :loading="createWorkspace.pending.value"
+                    >
                       Create workspace
                     </UButton>
                   </form>
@@ -139,7 +170,8 @@
                   <template #header>
                     <h3 class="text-lg font-semibold">Join workspace</h3>
                     <p class="text-sm text-muted mt-1">
-                      This demo keeps joining intentionally open so you can quickly test different roles.
+                      This demo keeps joining intentionally open so you can quickly test different
+                      roles.
                     </p>
                   </template>
 
@@ -150,12 +182,15 @@
                     </div>
                     <div class="space-y-1">
                       <label class="text-sm font-medium text-highlighted">Role</label>
-                      <USelect
-                        v-model="joinWorkspaceForm.role"
-                        :items="roleOptions"
-                      />
+                      <USelect v-model="joinWorkspaceForm.role" :items="roleOptions" />
                     </div>
-                    <UButton type="submit" block color="neutral" variant="soft" :loading="joinWorkspace.pending.value">
+                    <UButton
+                      type="submit"
+                      block
+                      color="neutral"
+                      variant="soft"
+                      :loading="joinWorkspace.pending.value"
+                    >
                       Join workspace
                     </UButton>
                   </form>
@@ -190,8 +225,8 @@
                     <div>
                       <h3 class="text-lg font-semibold">Projects</h3>
                       <p class="text-sm text-muted mt-1">
-                        This list is paginated because real lists get long. The page still stays live after
-                        the first load.
+                        This list is paginated because real lists get long. The page still stays
+                        live after the first load.
                       </p>
                     </div>
                     <UButton
@@ -207,7 +242,11 @@
                 </template>
 
                 <div class="space-y-4">
-                  <form v-if="canCreateProject" class="flex flex-col gap-3 md:flex-row md:items-end" @submit.prevent="handleCreateProject">
+                  <form
+                    v-if="canCreateProject"
+                    class="flex flex-col gap-3 md:flex-row md:items-end"
+                    @submit.prevent="handleCreateProject"
+                  >
                     <div class="flex-1 space-y-1">
                       <label class="text-sm font-medium text-highlighted">Project name</label>
                       <UInput
@@ -243,7 +282,9 @@
                       :to="`/projects/${project._id}`"
                     >
                       <p class="font-semibold text-highlighted">{{ project.name }}</p>
-                      <p class="text-sm text-muted mt-1">{{ project.summary || 'No summary yet.' }}</p>
+                      <p class="text-sm text-muted mt-1">
+                        {{ project.summary || 'No summary yet.' }}
+                      </p>
                     </NuxtLink>
                   </div>
 
@@ -257,7 +298,9 @@
                     >
                       Load more
                     </UButton>
-                    <p v-if="projectStatus === 'exhausted'" class="text-sm text-muted">All projects loaded.</p>
+                    <p v-if="projectStatus === 'exhausted'" class="text-sm text-muted">
+                      All projects loaded.
+                    </p>
                   </div>
                 </div>
               </UCard>
@@ -316,7 +359,7 @@ const createProject = useConvexMutation(api.projects.create)
 
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
 
-const projectArgs = computed(() => tenantId.value ? {} : undefined)
+const projectArgs = computed(() => (tenantId.value ? {} : undefined))
 const {
   results: projects,
   status: projectStatus,

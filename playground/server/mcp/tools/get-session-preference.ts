@@ -13,12 +13,14 @@ export default defineMcpTool({
     const preferredSearch = await session.get('preferredSearch')
 
     return {
-      content: [{
-        type: 'text',
-        text: preferredSearch
-          ? `Current session preference: "${preferredSearch}".`
-          : 'No session preference stored yet.',
-      }],
+      content: [
+        {
+          type: 'text',
+          text: preferredSearch
+            ? `Current session preference: "${preferredSearch}".`
+            : 'No session preference stored yet.',
+        },
+      ],
       structuredContent: {
         preferredSearch,
       },

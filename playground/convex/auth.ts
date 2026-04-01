@@ -17,40 +17,39 @@ import {
 } from './auth/checks'
 import { createConvexAuth } from './authBridge'
 
-export const { authComponent, createAuth, createUserIfNeeded } = createConvexAuth(
-  (_ctx, bridge) =>
-    betterAuth({
-      baseURL: bridge.siteUrl,
-      database: bridge.database,
-      emailAndPassword: {
-        enabled: true,
+export const { authComponent, createAuth, createUserIfNeeded } = createConvexAuth((_ctx, bridge) =>
+  betterAuth({
+    baseURL: bridge.siteUrl,
+    database: bridge.database,
+    emailAndPassword: {
+      enabled: true,
+    },
+    user: {
+      additionalFields: {
+        organizationId: { type: 'string', required: false },
+        marketingOptIn: { type: 'boolean', required: false },
       },
-      user: {
-        additionalFields: {
-          organizationId: { type: 'string', required: false },
-          marketingOptIn: { type: 'boolean', required: false },
+    },
+    plugins: [
+      bridge.createConvexPlugin({
+        jwt: {
+          definePayload: ({ user }) => ({
+            name: user.name,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            image: user.image ?? undefined,
+            authId: user.id,
+            role: 'member',
+          }),
         },
-      },
-      plugins: [
-        bridge.createConvexPlugin({
-          jwt: {
-            definePayload: ({ user }) => ({
-              name: user.name,
-              email: user.email,
-              emailVerified: user.emailVerified,
-              image: user.image ?? undefined,
-              authId: user.id,
-              role: 'member',
-            }),
-          },
-        }),
-      ],
-      session: {
-        expiresIn: 60 * 60 * 24 * 7,
-        updateAge: 60 * 60 * 24,
-      },
-      trustedOrigins: bridge.trustedOrigins,
-    }),
+      }),
+    ],
+    session: {
+      expiresIn: 60 * 60 * 24 * 7,
+      updateAge: 60 * 60 * 24,
+    },
+    trustedOrigins: bridge.trustedOrigins,
+  }),
 )
 
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
@@ -121,7 +120,9 @@ export const getPermissionContext = query({
 
     const actor = await getActor(ctx)
     if (!actor) {
-      return { _debug: { ...debugInfo, reason: 'actor resolution failed' } } as { _debug: DebugInfo }
+      return { _debug: { ...debugInfo, reason: 'actor resolution failed' } } as {
+        _debug: DebugInfo
+      }
     }
 
     // Return permission context even if no tenant is assigned yet.

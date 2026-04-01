@@ -60,24 +60,28 @@ function collectFiles(target: string): string[] {
 }
 
 describe('v3 repo guard', () => {
-  it('keeps removed public API names and legacy service transport names out of the repo except for explicit legacy checks', { timeout: 15000 }, () => {
-    const violations: string[] = []
+  it(
+    'keeps removed public API names and legacy service transport names out of the repo except for explicit legacy checks',
+    { timeout: 15000 },
+    () => {
+      const violations: string[] = []
 
-    for (const target of rootsToScan) {
-      for (const relativePath of collectFiles(target)) {
-        if (allowedFiles.has(relativePath)) {
-          continue
-        }
+      for (const target of rootsToScan) {
+        for (const relativePath of collectFiles(target)) {
+          if (allowedFiles.has(relativePath)) {
+            continue
+          }
 
-        const source = readFileSync(resolve(root, relativePath), 'utf8')
-        for (const pattern of bannedPatterns) {
-          if (pattern.test(source)) {
-            violations.push(`${relativePath} matches ${pattern}`)
+          const source = readFileSync(resolve(root, relativePath), 'utf8')
+          for (const pattern of bannedPatterns) {
+            if (pattern.test(source)) {
+              violations.push(`${relativePath} matches ${pattern}`)
+            }
           }
         }
       }
-    }
 
-    expect(violations).toEqual([])
-  })
+      expect(violations).toEqual([])
+    },
+  )
 })

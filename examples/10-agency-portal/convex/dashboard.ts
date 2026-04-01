@@ -17,22 +17,22 @@ export const portfolio = query({
 
     const memberships = await getMemberships(ctx.db, actor.userId)
     const clientIds = memberships
-      .filter(m => ['agency_admin', 'agency_manager'].includes(m.role))
-      .map(m => m.workspaceId)
+      .filter((m) => ['agency_admin', 'agency_manager'].includes(m.role))
+      .map((m) => m.workspaceId)
 
     return Promise.all(
       clientIds.map(async (workspaceId) => {
         const workspace = await ctx.db.get(workspaceId)
         const projects = await ctx.db
           .query('projects')
-          .withIndex('by_workspace', q => q.eq('workspaceId', workspaceId))
+          .withIndex('by_workspace', (q) => q.eq('workspaceId', workspaceId))
           .collect()
         return {
           workspace: {
             id: workspaceId,
             name: workspace?.name ?? workspaceId,
           },
-          activeProjects: projects.filter(project => project.status === 'active').length,
+          activeProjects: projects.filter((project) => project.status === 'active').length,
         }
       }),
     )

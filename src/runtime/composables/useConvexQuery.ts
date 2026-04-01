@@ -1,6 +1,14 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import { computed, getCurrentScope, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
+import {
+  computed,
+  getCurrentScope,
+  ref,
+  toValue,
+  watch,
+  type MaybeRefOrGetter,
+  type Ref,
+} from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
@@ -12,10 +20,10 @@ import {
 } from '../devtools/runtime'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getQueryKey, getFunctionName, hashArgs } from '../utils/convex-cache'
-import type { QueryStatus } from '../utils/types'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { executeQueryViaSubscriptionOnce } from '../utils/one-shot-subscription'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
+import type { QueryStatus } from '../utils/types'
 import {
   createLiveQueryResource,
   executeLiveQuery,
@@ -61,8 +69,7 @@ export interface UseConvexQueryData<DataT> {
 }
 
 export interface UseConvexQueryReturn<DataT>
-  extends UseConvexQueryData<DataT>,
-    PromiseLike<UseConvexQueryData<DataT>> {}
+  extends UseConvexQueryData<DataT>, PromiseLike<UseConvexQueryData<DataT>> {}
 
 interface BuildConvexQueryResult<DataT> {
   resultData: UseConvexQueryData<DataT>
@@ -110,7 +117,10 @@ function getFingerprint(value: unknown): string {
     return `hash:${hashArgs(value)}`
   } catch (e) {
     if (import.meta.dev) {
-      console.warn('[better-convex-nuxt] Failed to fingerprint shared query args — duplicate-key detection is degraded:', e)
+      console.warn(
+        '[better-convex-nuxt] Failed to fingerprint shared query args — duplicate-key detection is degraded:',
+        e,
+      )
     }
     return 'dynamic:object'
   }
@@ -160,7 +170,9 @@ export function createConvexQueryState<
     const registry = getSharedRegistry(nuxtApp)
     const queryName = getFunctionName(query)
     const argsFingerprint = getFingerprint(args)
-    const optionsFingerprint = getSharedOptionsFingerprint(options as UseConvexQueryOptions<unknown>)
+    const optionsFingerprint = getSharedOptionsFingerprint(
+      options as UseConvexQueryOptions<unknown>,
+    )
     const existing = registry.entries.get(options.shared)
 
     if (existing) {
@@ -244,7 +256,9 @@ export function createConvexQueryState<
     lastSettledArgsHash = ref<string | null>(null)
     lastReceivedArgsHash = ref<string | null>(null)
   }
-  const currentArgsHash = computed(() => (isSkipped.value ? null : hashArgs(normalizedArgs.value ?? {})))
+  const currentArgsHash = computed(() =>
+    isSkipped.value ? null : hashArgs(normalizedArgs.value ?? {}),
+  )
 
   const resource = createLiveQueryResource<Query, RawT>({
     query,
@@ -351,7 +365,11 @@ export function createConvexQueryState<
 
   if (keepPreviousData && lastSettledData) {
     watch(
-      [() => resource.asyncData.data.value, () => resource.pending.value, () => currentArgsHash.value],
+      [
+        () => resource.asyncData.data.value,
+        () => resource.pending.value,
+        () => currentArgsHash.value,
+      ],
       ([value, pending, argsHash]) => {
         if (value != null && !pending && argsHash) {
           lastSettledData!.value = value
@@ -410,7 +428,8 @@ export function useConvexQuery<
   const result = created.resultData as UseConvexQueryReturn<DataT>
   const resolvedResult = { ...created.resultData } as UseConvexQueryData<DataT>
   result.then = (onFulfilled, onRejected) =>
-    created.resolvePromise()
+    created
+      .resolvePromise()
       .then(
         () =>
           new Promise<UseConvexQueryData<DataT>>((resolve) => {

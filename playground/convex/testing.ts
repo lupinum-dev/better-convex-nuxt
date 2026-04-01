@@ -41,8 +41,7 @@ const BETTER_AUTH_TABLES = [
 function assertTestResetEnabled(confirmationCode: string, expectedCode: string, label: string) {
   if (confirmationCode !== expectedCode) {
     throw new Error(
-      `[testing.${label}] Invalid confirmation code. `
-      + `Pass confirmationCode: "${expectedCode}"`,
+      `[testing.${label}] Invalid confirmation code. ` + `Pass confirmationCode: "${expectedCode}"`,
     )
   }
 }
@@ -113,11 +112,7 @@ export const seedMcpVerification = mutation({
     confirmationCode: v.string(),
   },
   handler: async (ctx, args) => {
-    assertTestResetEnabled(
-      args.confirmationCode,
-      'SEED_MCP_VERIFICATION',
-      'seedMcpVerification',
-    )
+    assertTestResetEnabled(args.confirmationCode, 'SEED_MCP_VERIFICATION', 'seedMcpVerification')
 
     const now = Date.now()
     const organizationId = await ctx.db.insert('organizations', {

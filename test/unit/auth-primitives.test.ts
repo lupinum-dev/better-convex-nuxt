@@ -5,6 +5,18 @@ import { authorize, can, deny, and, or, requireAuth, requireRecord } from '../..
 import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
 import { applyVisibility, defineVisibility, getVisibilityQuery } from '../../src/runtime/visibility'
 
+type ConvexErrorData = {
+  category?: string
+  source?: string
+  code?: string
+  message?: string
+}
+
+function expectConvexErrorData(error: unknown): ConvexErrorData {
+  expect(error).toBeInstanceOf(ConvexError)
+  return (error as ConvexError<ConvexErrorData>).data
+}
+
 describe('auth primitives', () => {
   it('evaluates boolean composition helpers', () => {
     const actor = { role: 'member', userId: 'alice' }
@@ -33,8 +45,8 @@ describe('auth primitives', () => {
     try {
       authorize(null, 'Read dashboard', true)
     } catch (error) {
-      expect(error).toBeInstanceOf(ConvexError)
-      expect((error as ConvexError<any>).data.category).toBe('auth')
+      const data = expectConvexErrorData(error)
+      expect(data.category).toBe('auth')
     }
   })
 
@@ -42,8 +54,7 @@ describe('auth primitives', () => {
     try {
       authorize({ role: 'viewer' }, 'Manage users', () => false, 'role')
     } catch (error) {
-      expect(error).toBeInstanceOf(ConvexError)
-      expect((error as ConvexError<any>).data.category).toBe('role')
+      expect(expectConvexErrorData(error).category).toBe('role')
     }
   })
 
@@ -55,8 +66,7 @@ describe('auth primitives', () => {
     try {
       deny('Nope', 'test-source')
     } catch (error) {
-      expect(error).toBeInstanceOf(ConvexError)
-      const data = (error as ConvexError<any>).data
+      const data = expectConvexErrorData(error)
       expect(data.source).toBe('test-source')
       expect(data.category).toBeUndefined()
     }
@@ -66,8 +76,7 @@ describe('auth primitives', () => {
     try {
       deny('Plan limit reached', { category: 'plan', source: 'billing' })
     } catch (error) {
-      expect(error).toBeInstanceOf(ConvexError)
-      const data = (error as ConvexError<any>).data
+      const data = expectConvexErrorData(error)
       expect(data.category).toBe('plan')
       expect(data.source).toBe('billing')
       expect(data.message).toBe('Plan limit reached')
@@ -111,8 +120,7 @@ describe('auth primitives', () => {
     try {
       requireRecord(null, 'Project')
     } catch (error) {
-      expect(error).toBeInstanceOf(ConvexError)
-      const data = (error as ConvexError<any>).data
+      const data = expectConvexErrorData(error)
       expect(data.code).toBe('NOT_FOUND')
       expect(data.message).toBe('Project not found.')
     }

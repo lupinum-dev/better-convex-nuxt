@@ -1,11 +1,10 @@
+import { defineArgs } from 'better-convex-nuxt/args'
 /**
  * Why this file exists:
  * The task board touches the same inputs from the browser, Nitro routes, and tests.
  * Shared args definitions keep that flow small and predictable.
  */
 import { v } from 'convex/values'
-
-import { defineArgs } from 'better-convex-nuxt/args'
 
 export const taskStatusValidator = v.union(
   v.literal('backlog'),

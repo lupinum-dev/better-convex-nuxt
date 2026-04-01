@@ -1,7 +1,7 @@
 import { deny } from 'better-convex-nuxt/auth'
 
-import type { DatabaseReader } from '../_generated/server'
 import type { Doc } from '../_generated/dataModel'
+import type { DatabaseReader } from '../_generated/server'
 
 export async function ensurePrerequisites(
   db: DatabaseReader,
@@ -11,7 +11,7 @@ export async function ensurePrerequisites(
   for (const prerequisiteId of lesson.prerequisiteIds ?? []) {
     const progress = await db
       .query('lessonProgress')
-      .withIndex('by_user_lesson', q => q.eq('userId', userId).eq('lessonId', prerequisiteId))
+      .withIndex('by_user_lesson', (q) => q.eq('userId', userId).eq('lessonId', prerequisiteId))
       .first()
 
     if (!progress?.completedAt) {

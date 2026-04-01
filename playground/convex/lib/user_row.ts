@@ -10,6 +10,6 @@ export async function getUserRowFromActor(
 
   return await db
     .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', actor.userId))
+    .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
     .first()
 }

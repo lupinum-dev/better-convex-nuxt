@@ -127,8 +127,14 @@ const seedAgencyPortfolio = useConvexMutation(api.workspaces.seedAgencyPortfolio
 const createProject = useConvexMutation(api.projects.create)
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
-const { data: accessibleWorkspaces } = await useConvexQuery(api.workspaces.listAccessibleWorkspaces, workspaceArgs)
-const { data: projects, error: projectsError } = await useConvexQuery(api.projects.list, workspaceArgs)
+const { data: accessibleWorkspaces } = await useConvexQuery(
+  api.workspaces.listAccessibleWorkspaces,
+  workspaceArgs,
+)
+const { data: projects, error: projectsError } = await useConvexQuery(
+  api.projects.list,
+  workspaceArgs,
+)
 const { data: portfolio } = await useConvexQuery(
   api.dashboard.portfolio,
   computed(() => (canDashboard.value ? {} : undefined)),
@@ -136,10 +142,10 @@ const { data: portfolio } = await useConvexQuery(
 
 const projectError = computed(
   () =>
-    projectsError.value?.message
-    || createProject.error.value?.message
-    || switchWorkspace.error.value?.message
-    || '',
+    projectsError.value?.message ||
+    createProject.error.value?.message ||
+    switchWorkspace.error.value?.message ||
+    '',
 )
 
 async function handleSignUp() {

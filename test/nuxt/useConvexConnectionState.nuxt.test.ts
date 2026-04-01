@@ -11,11 +11,14 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const hookSpy = vi.fn()
 
-    const { wrapper } = await captureInNuxt(() => {
-      const nuxtApp = useNuxtApp()
-      nuxtApp.hook('convex:connection:changed', hookSpy)
-      return useConvexConnectionState()
-    }, { convex })
+    const { wrapper } = await captureInNuxt(
+      () => {
+        const nuxtApp = useNuxtApp()
+        nuxtApp.hook('convex:connection:changed', hookSpy)
+        return useConvexConnectionState()
+      },
+      { convex },
+    )
 
     expect(hookSpy).not.toHaveBeenCalled()
 

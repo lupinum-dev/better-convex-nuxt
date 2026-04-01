@@ -51,7 +51,7 @@ const { data, pending, status } = useConvexQueryLazy(api.users.me, {})
 const { results, status, loadMore } = useConvexPaginatedQueryLazy(
   api.messages.list,
   {},
-  { initialNumItems: 20 }
+  { initialNumItems: 20 },
 )
 ```
 
@@ -76,12 +76,12 @@ See the [Server Call Lanes](./docs/content/docs/5.server-side/3.server-call-lane
 
 Three new computed properties are now exposed:
 
-| Property | Description |
-|---|---|
-| `hasEverConnected` | `true` after the first successful WebSocket connection |
-| `hasInflightRequests` | `true` while any mutation or action is in-flight |
-| `connectionRetries` | Number of reconnection attempts since last successful connection |
-| `isHydratingConnection` | Suppresses offline UI during the initial hydration grace window |
+| Property                | Description                                                      |
+| ----------------------- | ---------------------------------------------------------------- |
+| `hasEverConnected`      | `true` after the first successful WebSocket connection           |
+| `hasInflightRequests`   | `true` while any mutation or action is in-flight                 |
+| `connectionRetries`     | Number of reconnection attempts since last successful connection |
+| `isHydratingConnection` | Suppresses offline UI during the initial hydration grace window  |
 
 ```ts
 const {
@@ -116,11 +116,11 @@ The module now supports running a local Convex backend via `@convex-dev/convex-v
 
 #### ⚠️ Breaking Changes
 
-| Change | Migration |
-|---|---|
-| `inflightMutations` / `inflightActions` renamed to `pendingMutations` / `pendingActions` in connection state | Update any direct references to the renamed properties |
-| Custom JWT claims no longer forwarded onto `ConvexUser` from `decodeUserFromJwt` | Access custom claims from the raw JWT directly if needed |
-| `transformKey` option removed from `useConvexQuery` | Remove `transformKey` from options — results are applied directly |
+| Change                                                                                                       | Migration                                                         |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `inflightMutations` / `inflightActions` renamed to `pendingMutations` / `pendingActions` in connection state | Update any direct references to the renamed properties            |
+| Custom JWT claims no longer forwarded onto `ConvexUser` from `decodeUserFromJwt`                             | Access custom claims from the raw JWT directly if needed          |
+| `transformKey` option removed from `useConvexQuery`                                                          | Remove `transformKey` from options — results are applied directly |
 
 ### 📖 Documentation
 
@@ -181,7 +181,7 @@ The module now supports running a local Convex backend via `@convex-dev/convex-v
 - Enhance authentication configuration and documentation ([d09c42a](https://github.com/lupinum-dev/better-convex-nuxt/commit/d09c42a))
 - Streamline Convex configuration and enhance authentication handling ([2d09cdb](https://github.com/lupinum-dev/better-convex-nuxt/commit/2d09cdb))
 - Unify Convex configuration access across composables ([b78a514](https://github.com/lupinum-dev/better-convex-nuxt/commit/b78a514))
-- ⚠️  Modernize Nuxt 4/Vue 3.5 runtime, harden auth proxy, and add cache-reuse recipe/demo ([7e7eb57](https://github.com/lupinum-dev/better-convex-nuxt/commit/7e7eb57))
+- ⚠️ Modernize Nuxt 4/Vue 3.5 runtime, harden auth proxy, and add cache-reuse recipe/demo ([7e7eb57](https://github.com/lupinum-dev/better-convex-nuxt/commit/7e7eb57))
 - Update error handling and improve component structure ([6cefde9](https://github.com/lupinum-dev/better-convex-nuxt/commit/6cefde9))
 - Migrate to useConvexAuth for authentication handling ([16f82c7](https://github.com/lupinum-dev/better-convex-nuxt/commit/16f82c7))
 - Finish release Candidate ([a50ea1d](https://github.com/lupinum-dev/better-convex-nuxt/commit/a50ea1d))
@@ -227,7 +227,7 @@ The module now supports running a local Convex backend via `@convex-dev/convex-v
 
 #### ⚠️ Breaking Changes
 
-- ⚠️  Modernize Nuxt 4/Vue 3.5 runtime, harden auth proxy, and add cache-reuse recipe/demo ([7e7eb57](https://github.com/lupinum-dev/better-convex-nuxt/commit/7e7eb57))
+- ⚠️ Modernize Nuxt 4/Vue 3.5 runtime, harden auth proxy, and add cache-reuse recipe/demo ([7e7eb57](https://github.com/lupinum-dev/better-convex-nuxt/commit/7e7eb57))
 
 ### ❤️ Contributors
 

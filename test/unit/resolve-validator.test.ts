@@ -1,13 +1,13 @@
-import { describe, expect, it } from 'vitest'
 import { v } from 'convex/values'
+import { describe, expect, it } from 'vitest'
 
+import { toConvexSchema } from '../../src/runtime/utils/convex-schema'
 import {
   isConvexValidator,
   isStandardSchema,
   resolveSchema,
   runValidation,
 } from '../../src/runtime/utils/resolve-validator'
-import { toConvexSchema } from '../../src/runtime/utils/convex-schema'
 import type { StandardSchemaV1 } from '../../src/runtime/utils/standard-schema'
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,9 @@ describe('resolveSchema', () => {
   })
 
   it('throws for unknown input', () => {
-    expect(() => resolveSchema({ foo: 'bar' } as unknown as Parameters<typeof resolveSchema>[0])).toThrow(/Expected a Convex validator/)
+    expect(() =>
+      resolveSchema({ foo: 'bar' } as unknown as Parameters<typeof resolveSchema>[0]),
+    ).toThrow(/Expected a Convex validator/)
   })
 })
 
@@ -90,9 +92,11 @@ describe('runValidation', () => {
   })
 
   it('converts path arrays to dot-notation strings', async () => {
-    const schema = toConvexSchema(v.object({
-      customer: v.object({ name: v.string() }),
-    }))
+    const schema = toConvexSchema(
+      v.object({
+        customer: v.object({ name: v.string() }),
+      }),
+    )
     const result = await runValidation(schema, { customer: { name: 42 } })
     expect(result.valid).toBe(false)
     if (!result.valid) {
@@ -107,10 +111,12 @@ describe('runValidation', () => {
         version: 1,
         vendor: 'test',
         validate: () => ({
-          issues: [{
-            message: 'bad',
-            path: [{ key: 'address' }, { key: 'zip' }],
-          }],
+          issues: [
+            {
+              message: 'bad',
+              path: [{ key: 'address' }, { key: 'zip' }],
+            },
+          ],
         }),
       },
     }
@@ -127,10 +133,12 @@ describe('runValidation', () => {
         version: 1,
         vendor: 'test',
         validate: () => ({
-          issues: [{
-            message: 'bad',
-            path: ['items', 0, { key: 'quantity' }],
-          }],
+          issues: [
+            {
+              message: 'bad',
+              path: ['items', 0, { key: 'quantity' }],
+            },
+          ],
         }),
       },
     }
@@ -176,10 +184,12 @@ describe('runValidation', () => {
   })
 
   it('collects multiple issues', async () => {
-    const schema = toConvexSchema(v.object({
-      name: v.string(),
-      age: v.float64(),
-    }))
+    const schema = toConvexSchema(
+      v.object({
+        name: v.string(),
+        age: v.float64(),
+      }),
+    )
     const result = await runValidation(schema, { name: 42, age: 'old' })
     expect(result.valid).toBe(false)
     if (!result.valid) {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+
 import type { AuthProxyStats, AuthProxyRequest } from '../../types'
 
 const props = defineProps<{

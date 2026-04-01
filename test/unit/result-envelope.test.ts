@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { withSummary, wrapError, wrapPreview, wrapSuccess } from '../../src/runtime/mcp/result-envelope'
-import type {
-  ConvexToolErrorResult,
-  ConvexToolPreviewResult,
-} from '../../src/runtime/mcp/types'
+import {
+  withSummary,
+  wrapError,
+  wrapPreview,
+  wrapSuccess,
+} from '../../src/runtime/mcp/result-envelope'
+import type { ConvexToolErrorResult, ConvexToolPreviewResult } from '../../src/runtime/mcp/types'
 
 function getErrorResult(result: { structuredContent?: unknown }): ConvexToolErrorResult {
   return result.structuredContent as ConvexToolErrorResult
@@ -35,9 +37,7 @@ describe('wrapSuccess', () => {
       ok: true,
       data: { id: 'abc' },
     })
-    expect(result.content).toEqual([
-      { type: 'text', text: 'Created post abc' },
-    ])
+    expect(result.content).toEqual([{ type: 'text', text: 'Created post abc' }])
   })
 
   it('does not split plain objects with data+summary fields', () => {
@@ -58,9 +58,7 @@ describe('wrapSuccess', () => {
   it('wraps undefined safely', () => {
     const result = wrapSuccess(undefined)
     expect(result.structuredContent).toEqual({ ok: true, data: undefined })
-    expect(result.content).toEqual([
-      { type: 'text', text: 'undefined' },
-    ])
+    expect(result.content).toEqual([{ type: 'text', text: 'undefined' }])
   })
 
   it('wraps arrays', () => {
@@ -81,9 +79,7 @@ describe('wrapError', () => {
         retryable: true,
       },
     })
-    expect(result.content).toEqual([
-      { type: 'text', text: 'Authentication required' },
-    ])
+    expect(result.content).toEqual([{ type: 'text', text: 'Authentication required' }])
     expect(result.isError).toBe(true)
   })
 
@@ -110,7 +106,17 @@ describe('wrapError', () => {
   })
 
   it('marks all expected categories as retryable', () => {
-    const retryable = ['auth', 'validation', 'rate_limit', 'scope_exceeded', 'confirmation_required', 'cooldown', 'network', 'server', 'conflict'] as const
+    const retryable = [
+      'auth',
+      'validation',
+      'rate_limit',
+      'scope_exceeded',
+      'confirmation_required',
+      'cooldown',
+      'network',
+      'server',
+      'conflict',
+    ] as const
     for (const cat of retryable) {
       const result = wrapError(cat, 'test')
       expect(getErrorResult(result).error.retryable, `${cat} should be retryable`).toBe(true)
@@ -133,9 +139,7 @@ describe('wrapPreview', () => {
       },
       awaitingConfirmation: true,
     })
-    expect(result.content).toEqual([
-      { type: 'text', text: 'Will delete "My Post"' },
-    ])
+    expect(result.content).toEqual([{ type: 'text', text: 'Will delete "My Post"' }])
     expect(result.isError).toBeUndefined()
   })
 
@@ -162,8 +166,6 @@ describe('withSummary', () => {
       ok: true,
       data: { id: 'abc' },
     })
-    expect(result.content).toEqual([
-      { type: 'text', text: 'Created post' },
-    ])
+    expect(result.content).toEqual([{ type: 'text', text: 'Created post' }])
   })
 })

@@ -1,10 +1,9 @@
+import { deny } from 'better-convex-nuxt/auth'
 /**
  * Shared refund-eligibility rules.
  * Human refund flows and trusted webhook flows must hit the same business-state checks.
  */
 import type { GenericMutationCtx } from 'convex/server'
-
-import { deny } from 'better-convex-nuxt/auth'
 
 import type { DataModel } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
@@ -25,7 +24,7 @@ export async function validateRefundEligibility(ctx: MutationCtx, actor: Actor, 
 
   const hold = await ctx.db
     .query('fraudHolds')
-    .withIndex('by_order', q => q.eq('orderId', order._id))
+    .withIndex('by_order', (q) => q.eq('orderId', order._id))
     .first()
   if (hold && !hold.resolvedAt) throw deny('Order is under fraud review.')
 

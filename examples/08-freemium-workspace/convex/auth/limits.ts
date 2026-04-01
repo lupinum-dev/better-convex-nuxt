@@ -3,7 +3,6 @@
  * Plan entitlements answer "may they use the feature?" Limits answer "is there room right now?"
  */
 import { deny } from 'better-convex-nuxt/auth'
-
 import type { GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'
@@ -17,15 +16,20 @@ const usageLimits = {
 
 type Db = GenericQueryCtx<DataModel>['db']
 
-export async function ensureWithinLimit(db: Db, actor: Actor, resource: keyof typeof usageLimits): Promise<void> {
+export async function ensureWithinLimit(
+  db: Db,
+  actor: Actor,
+  resource: keyof typeof usageLimits,
+): Promise<void> {
   if (!actor) throw deny('Not authenticated.')
 
-  const limit = usageLimits[resource].limits[actor.plan as keyof typeof usageLimits.projects.limits] ?? Infinity
+  const limit =
+    usageLimits[resource].limits[actor.plan as keyof typeof usageLimits.projects.limits] ?? Infinity
   if (limit === Infinity) return
 
   const rows = await db
     .query(resource)
-    .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+    .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
     .collect()
 
   if (rows.length >= limit) {
@@ -36,10 +40,11 @@ export async function ensureWithinLimit(db: Db, actor: Actor, resource: keyof ty
 export async function getUsage(db: Db, actor: Actor, resource: keyof typeof usageLimits) {
   if (!actor) return null
 
-  const max = usageLimits[resource].limits[actor.plan as keyof typeof usageLimits.projects.limits] ?? Infinity
+  const max =
+    usageLimits[resource].limits[actor.plan as keyof typeof usageLimits.projects.limits] ?? Infinity
   const rows = await db
     .query(resource)
-    .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+    .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
     .collect()
 
   return {

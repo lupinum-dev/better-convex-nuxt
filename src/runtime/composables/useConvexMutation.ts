@@ -1,6 +1,4 @@
 import type { OptimisticLocalStore } from 'convex/browser'
-import { createOptimisticContext } from './optimistic-updates'
-import type { OptimisticContext } from './optimistic-updates'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
 
@@ -14,15 +12,17 @@ import {
 } from '../devtools/runtime'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { ConvexCallError, toConvexError } from '../utils/call-result'
-import { resolveSchema, runValidation, type ValidateOption } from '../utils/resolve-validator'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel, type Logger } from '../utils/logger'
+import { resolveSchema, runValidation, type ValidateOption } from '../utils/resolve-validator'
 import type {
   ConvexCallErrorPayload,
   ConvexCallOperation,
   ConvexCallSuccessPayload,
   MutationStatus,
 } from '../utils/types'
+import { createOptimisticContext } from './optimistic-updates'
+import type { OptimisticContext } from './optimistic-updates'
 import { getRequiredConvexClient } from './useConvex'
 
 // Re-export optimistic update builder types
@@ -157,7 +157,17 @@ export function createConvexCallState<
   onError?: (error: Error, args: Args) => void
   validate?: ValidateOption
 }): UseConvexMutationReturn<Args, Result> {
-  const { fnName, callType, logger, nuxtApp, hasOptimisticUpdate, callFn, onSuccess, onError, validate: validateOption } = config
+  const {
+    fnName,
+    callType,
+    logger,
+    nuxtApp,
+    hasOptimisticUpdate,
+    callFn,
+    onSuccess,
+    onError,
+    validate: validateOption,
+  } = config
   const hookHandlers = createConvexCallHookHandlers<TCallType, Result>(nuxtApp, callType)
 
   let activeRequestId = 0
@@ -209,7 +219,10 @@ export function createConvexCallState<
             onError?.(err, args)
           } catch (callbackError) {
             if (import.meta.dev) {
-              console.warn(`[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`, callbackError)
+              console.warn(
+                `[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`,
+                callbackError,
+              )
             }
           }
           updateDevtoolsEntryError(callId, startTime, err.message)
@@ -248,7 +261,10 @@ export function createConvexCallState<
           onError?.(err, args)
         } catch (callbackError) {
           if (import.meta.dev) {
-            console.warn(`[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`, callbackError)
+            console.warn(
+              `[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`,
+              callbackError,
+            )
           }
         }
         updateDevtoolsEntryError(callId, startTime, err.message)
@@ -280,7 +296,10 @@ export function createConvexCallState<
         onSuccess?.(result, args)
       } catch (callbackError) {
         if (import.meta.dev) {
-          console.warn(`[better-convex-nuxt] ${callType} onSuccess callback threw in ${fnName}:`, callbackError)
+          console.warn(
+            `[better-convex-nuxt] ${callType} onSuccess callback threw in ${fnName}:`,
+            callbackError,
+          )
         }
       }
 
@@ -312,7 +331,10 @@ export function createConvexCallState<
         onError?.(err, args)
       } catch (callbackError) {
         if (import.meta.dev) {
-          console.warn(`[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`, callbackError)
+          console.warn(
+            `[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`,
+            callbackError,
+          )
         }
       }
 

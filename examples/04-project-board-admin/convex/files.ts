@@ -10,8 +10,8 @@
  * owning comment or task, not raw `_storage`.
  */
 import { authorize } from 'better-convex-nuxt/auth'
-import { mutation } from './_generated/server'
 
+import { mutation } from './_generated/server'
 import { getActor } from './auth/actor'
 import { isAuthenticated } from './auth/checks'
 

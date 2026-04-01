@@ -43,8 +43,14 @@ export function renderDoctorReport(report: DoctorReport, options: RenderDoctorRe
 
   process.stdout.write('\n')
   process.stdout.write(`${paint(options.color, 'bold', 'Checks')}\n`)
-  process.stdout.write(`${report.findings.map((finding) => renderFinding(finding, options.color)).join('\n\n')}\n\n`)
+  process.stdout.write(
+    `${report.findings.map((finding) => renderFinding(finding, options.color)).join('\n\n')}\n\n`,
+  )
 
   const summary = `Summary: ${report.summary.pass} passed, ${report.summary.warn} warnings, ${report.summary.fail} failures`
-  outro(report.summary.fail > 0 ? paint(options.color, 'red', summary) : paint(options.color, 'green', summary))
+  outro(
+    report.summary.fail > 0
+      ? paint(options.color, 'red', summary)
+      : paint(options.color, 'green', summary),
+  )
 }

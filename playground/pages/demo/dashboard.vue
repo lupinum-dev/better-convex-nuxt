@@ -54,7 +54,9 @@
             </div>
             <div class="info-item">
               <span class="label">Session Status</span>
-              <span class="value id">{{ isPending ? 'Checking...' : isAuthenticated ? 'JWT ready' : 'No JWT' }}</span>
+              <span class="value id">{{
+                isPending ? 'Checking...' : isAuthenticated ? 'JWT ready' : 'No JWT'
+              }}</span>
             </div>
           </div>
         </section>

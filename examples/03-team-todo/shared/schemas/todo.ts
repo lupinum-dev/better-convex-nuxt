@@ -1,11 +1,10 @@
+import { defineArgs } from 'better-convex-nuxt/args'
 /**
  * Why this file exists:
  * These args definitions are shared across Convex handlers and MCP tools.
  * The folder lives at `shared/` because both runtimes need to import the same plain data contracts.
  */
 import { v } from 'convex/values'
-
-import { defineArgs } from 'better-convex-nuxt/args'
 
 export const createTodo = defineArgs({
   description: 'Create a team todo',

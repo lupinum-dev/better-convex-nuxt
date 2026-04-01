@@ -5,10 +5,7 @@ import type { Actor } from './actor'
 
 export { requireRecord }
 
-export function ensureTenant(
-  actor: Actor,
-  resource: { workspaceId: Id<'workspaces'> },
-): void {
+export function ensureTenant(actor: Actor, resource: { workspaceId: Id<'workspaces'> }): void {
   requireAuth(actor)
   if (actor.tenantId !== resource.workspaceId) {
     throw deny('Resource not found.')

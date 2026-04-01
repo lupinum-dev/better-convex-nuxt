@@ -29,11 +29,7 @@ onMounted(() => {
     (entries) => {
       const [entry] = entries
       if (!entry) return
-      if (
-        entry.isIntersecting &&
-        infiniteStatus.value === 'ready' &&
-        !infiniteLoading.value
-      ) {
+      if (entry.isIntersecting && infiniteStatus.value === 'ready' && !infiniteLoading.value) {
         infiniteLoadMore(5)
       }
     },

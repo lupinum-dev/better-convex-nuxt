@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
 import type { GenericValidator } from 'convex/values'
 import { v } from 'convex/values'
+import { describe, expect, it } from 'vitest'
 
 import { validateConvex, toConvexSchema } from '../../src/runtime/utils/convex-schema'
 
@@ -171,13 +171,15 @@ describe('validateConvex', () => {
     })
 
     it('validates matching object', () => {
-      expect(validateConvex(userValidator, { name: 'Alice', age: 30, email: 'a@b.com' })).toEqual([])
+      expect(validateConvex(userValidator, { name: 'Alice', age: 30, email: 'a@b.com' })).toEqual(
+        [],
+      )
     })
 
     it('rejects missing required fields', () => {
       const issues = validateConvex(userValidator, { name: 'Alice' })
       expect(issues).toHaveLength(2)
-      expect(issues.map(i => i.path)).toEqual([['age'], ['email']])
+      expect(issues.map((i) => i.path)).toEqual([['age'], ['email']])
     })
 
     it('accepts missing optional fields', () => {
@@ -246,7 +248,7 @@ describe('validateConvex', () => {
       })
       const issues = validateConvex(schema, {})
       expect(issues).toHaveLength(3)
-      expect(issues.map(i => i.path)).toEqual([['name'], ['email'], ['company']])
+      expect(issues.map((i) => i.path)).toEqual([['name'], ['email'], ['company']])
     })
 
     it('collects errors at multiple nesting levels', () => {
@@ -273,10 +275,12 @@ describe('validateConvex', () => {
     })
 
     it('collects errors from array with multiple bad elements', () => {
-      const schema = v.array(v.object({
-        productId: v.id('products'),
-        quantity: v.float64(),
-      }))
+      const schema = v.array(
+        v.object({
+          productId: v.id('products'),
+          quantity: v.float64(),
+        }),
+      )
       const issues = validateConvex(schema, [
         { productId: 'p1', quantity: 'bad' },
         { productId: 42, quantity: 5 },
@@ -294,10 +298,10 @@ describe('validateConvex', () => {
         active: v.boolean(),
       })
       const issues = validateConvex(schema, {
-        name: 'Alice',       // valid
-        age: 'thirty',       // invalid
-        email: 'a@b.com',    // valid
-        active: 'yes',       // invalid
+        name: 'Alice', // valid
+        age: 'thirty', // invalid
+        email: 'a@b.com', // valid
+        active: 'yes', // invalid
       })
       expect(issues).toHaveLength(2)
       expect(issues[0]!.path).toEqual(['age'])

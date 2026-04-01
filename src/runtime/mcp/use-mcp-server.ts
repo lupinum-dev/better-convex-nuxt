@@ -88,11 +88,26 @@ export function useMcpServer(): McpServerHelper {
       const handle = server.registerPrompt(name, config, cb)
       return replaceRegistration(reg.prompts, name, handle)
     }) as McpServer['registerPrompt'],
-    registerResource: ((name: string, uriOrTemplate: string | ResourceTemplate, config: ResourceMetadata, readCallback: ReadResourceCallback | ReadResourceTemplateCallback) => {
-      const handle
-        = typeof uriOrTemplate === 'string'
-          ? server.registerResource(name, uriOrTemplate, config, readCallback as ReadResourceCallback)
-          : server.registerResource(name, uriOrTemplate, config, readCallback as ReadResourceTemplateCallback)
+    registerResource: ((
+      name: string,
+      uriOrTemplate: string | ResourceTemplate,
+      config: ResourceMetadata,
+      readCallback: ReadResourceCallback | ReadResourceTemplateCallback,
+    ) => {
+      const handle =
+        typeof uriOrTemplate === 'string'
+          ? server.registerResource(
+              name,
+              uriOrTemplate,
+              config,
+              readCallback as ReadResourceCallback,
+            )
+          : server.registerResource(
+              name,
+              uriOrTemplate,
+              config,
+              readCallback as ReadResourceTemplateCallback,
+            )
 
       return replaceRegistration(
         reg.resources,
@@ -100,12 +115,22 @@ export function useMcpServer(): McpServerHelper {
         handle as RegisteredResource | RegisteredResourceTemplate,
       )
     }) as {
-      (name: string, uriOrTemplate: string, config: ResourceMetadata, readCallback: ReadResourceCallback): RegisteredResource
-      (name: string, uriOrTemplate: ResourceTemplate, config: ResourceMetadata, readCallback: ReadResourceTemplateCallback): RegisteredResourceTemplate
+      (
+        name: string,
+        uriOrTemplate: string,
+        config: ResourceMetadata,
+        readCallback: ReadResourceCallback,
+      ): RegisteredResource
+      (
+        name: string,
+        uriOrTemplate: ResourceTemplate,
+        config: ResourceMetadata,
+        readCallback: ReadResourceTemplateCallback,
+      ): RegisteredResourceTemplate
     },
-    removeTool: name => removeByName(reg.tools, name),
-    removePrompt: name => removeByName(reg.prompts, name),
-    removeResource: name => removeByName(reg.resources, name),
+    removeTool: (name) => removeByName(reg.tools, name),
+    removePrompt: (name) => removeByName(reg.prompts, name),
+    removeResource: (name) => removeByName(reg.resources, name),
     server,
   }
 }

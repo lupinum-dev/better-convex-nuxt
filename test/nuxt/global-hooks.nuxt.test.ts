@@ -24,10 +24,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const hookSpy = vi.fn()
 
-      const { result, nuxtApp } = await captureInNuxt(
-        () => useConvexMutation(mutation),
-        { convex },
-      )
+      const { result, nuxtApp } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
       nuxtApp.hook('convex:mutation:success', hookSpy)
 
@@ -51,10 +48,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const hookSpy = vi.fn()
 
-      const { result, nuxtApp } = await captureInNuxt(
-        () => useConvexMutation(mutation),
-        { convex },
-      )
+      const { result, nuxtApp } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
       nuxtApp.hook('convex:mutation:error', hookSpy)
 
@@ -80,10 +74,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const hookSpy = vi.fn()
 
-      const { result, nuxtApp } = await captureInNuxt(
-        () => useConvexMutation(mutation),
-        { convex },
-      )
+      const { result, nuxtApp } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
       nuxtApp.hook('convex:mutation:error', hookSpy)
 
@@ -109,10 +100,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const hookSpy = vi.fn()
 
-      const { result, nuxtApp } = await captureInNuxt(
-        () => useConvexAction(action),
-        { convex },
-      )
+      const { result, nuxtApp } = await captureInNuxt(() => useConvexAction(action), { convex })
 
       nuxtApp.hook('convex:action:success', hookSpy)
 
@@ -135,10 +123,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const hookSpy = vi.fn()
 
-      const { result, nuxtApp } = await captureInNuxt(
-        () => useConvexAction(action),
-        { convex },
-      )
+      const { result, nuxtApp } = await captureInNuxt(() => useConvexAction(action), { convex })
 
       nuxtApp.hook('convex:action:error', hookSpy)
 
@@ -178,7 +163,7 @@ describe('global hooks (Nuxt runtime)', () => {
       await result({} as never)
 
       // Allow fire-and-forget callHook to resolve
-      await new Promise(r => setTimeout(r, 10))
+      await new Promise((r) => setTimeout(r, 10))
 
       expect(listener1).toHaveBeenCalledTimes(1)
       expect(listener2).toHaveBeenCalledTimes(1)
@@ -206,7 +191,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       await result({} as never)
       // Success hooks are fire-and-forget (void callHook) — wait for the floating promise
-      await new Promise(r => setTimeout(r, 10))
+      await new Promise((r) => setTimeout(r, 10))
 
       expect(onSuccess).toHaveBeenCalledTimes(1)
       expect(hookSpy).toHaveBeenCalledTimes(1)
@@ -241,11 +226,14 @@ describe('global hooks (Nuxt runtime)', () => {
       const convex = new MockConvexClient()
       const hookSpy = vi.fn()
 
-      const { wrapper } = await captureInNuxt(() => {
-        const nuxtApp = useNuxtApp()
-        nuxtApp.hook('convex:connection:changed', hookSpy)
-        return useConvexConnectionState()
-      }, { convex })
+      const { wrapper } = await captureInNuxt(
+        () => {
+          const nuxtApp = useNuxtApp()
+          nuxtApp.hook('convex:connection:changed', hookSpy)
+          return useConvexConnectionState()
+        },
+        { convex },
+      )
 
       convex.updateConnectionState({
         isWebSocketConnected: true,
@@ -271,6 +259,5 @@ describe('global hooks (Nuxt runtime)', () => {
 
       wrapper.unmount()
     })
-
   })
 })

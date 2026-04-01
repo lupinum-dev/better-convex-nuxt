@@ -24,9 +24,11 @@ export const list = query({
 
     const items = await ctx.db.query('feedItems').withIndex('by_created').order('desc').take(50)
 
-    return items.map(item => withCan(item, {
-      'feed.delete': can(actor, canDeleteFeed(item)),
-    }))
+    return items.map((item) =>
+      withCan(item, {
+        'feed.delete': can(actor, canDeleteFeed(item)),
+      }),
+    )
   },
 })
 
@@ -51,9 +53,11 @@ export const listFiltered = query({
     }
 
     const items = await query.take(args.limit ?? 50)
-    return items.map(item => withCan(item, {
-      'feed.delete': can(actor, canDeleteFeed(item)),
-    }))
+    return items.map((item) =>
+      withCan(item, {
+        'feed.delete': can(actor, canDeleteFeed(item)),
+      }),
+    )
   },
 })
 

@@ -168,7 +168,11 @@
 
           <!-- Leave Organization (non-owners only) -->
           <div v-if="role !== 'owner'" class="leave-org">
-            <button class="btn btn-danger" :disabled="leaveOrg.pending.value" @click="handleLeaveOrg">
+            <button
+              class="btn btn-danger"
+              :disabled="leaveOrg.pending.value"
+              @click="handleLeaveOrg"
+            >
               {{ leaveOrg.pending.value ? 'Leaving...' : 'Leave Organization' }}
             </button>
           </div>
@@ -200,7 +204,11 @@
                 <input v-model="editOrgName" type="text" required />
               </div>
               <div class="form-actions">
-                <button type="submit" class="btn btn-primary" :disabled="updateOrgSettings.pending.value">
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  :disabled="updateOrgSettings.pending.value"
+                >
                   {{ updateOrgSettings.pending.value ? 'Saving...' : 'Save Changes' }}
                 </button>
                 <button type="button" class="btn btn-secondary" @click="cancelEditSettings">
@@ -468,7 +476,7 @@ definePageMeta({
 })
 
 // Permissions
-const { can, ctx, role, tenantId, pending, ready } = usePermissions()
+const { can, role, tenantId, pending, ready } = usePermissions()
 
 // Queries - use status for explicit state management
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)

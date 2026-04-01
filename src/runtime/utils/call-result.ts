@@ -134,7 +134,8 @@ interface ConvexErrorLike {
 
 function isNetworkError(error: unknown): boolean {
   if (error instanceof TypeError) return true
-  if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('fetch'))) return true
+  if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('fetch')))
+    return true
   return false
 }
 
@@ -185,7 +186,7 @@ function extractIssues(data: Record<string, unknown>): ConvexErrorIssue[] | unde
   if (!Array.isArray(raw)) return undefined
   const mapped = raw
     .filter((i): i is Record<string, unknown> => !!i && typeof i === 'object')
-    .map(i => ({
+    .map((i) => ({
       path: asString(i.path ?? i.field),
       message: asString(i.message) ?? 'Unknown error',
       code: asString(i.code),

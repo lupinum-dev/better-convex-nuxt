@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+
 import type {
   EnhancedAuthState,
   AuthWaterfall,
@@ -7,8 +8,8 @@ import type {
   PermissionContextState,
   AuthBootstrapState,
 } from '../../types'
-import JsonViewer from './JsonViewer.vue'
 import AuthWaterfallComponent from './AuthWaterfall.vue'
+import JsonViewer from './JsonViewer.vue'
 
 const props = defineProps<{
   authState: EnhancedAuthState | null
@@ -85,7 +86,9 @@ const expirationDisplay = computed(() => {
       <div class="detail-title">Permission Context</div>
       <div class="token-info">
         <div class="token-stat">
-          <div class="token-stat-value">{{ permissionState.pending ? 'Loading' : permissionState.ready ? 'Ready' : 'Idle' }}</div>
+          <div class="token-stat-value">
+            {{ permissionState.pending ? 'Loading' : permissionState.ready ? 'Ready' : 'Idle' }}
+          </div>
           <div class="token-stat-label">Status</div>
         </div>
         <div class="token-stat">

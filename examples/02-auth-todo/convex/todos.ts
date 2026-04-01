@@ -1,8 +1,8 @@
 import { authorize } from 'better-convex-nuxt/auth'
-import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
 import { createTodo } from '../shared/schemas/todo'
+import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { isAuthenticated } from './auth/checks'
 import { loadOwnedResource } from './auth/scope'
@@ -17,7 +17,7 @@ export const list = query({
     // The handler enforces ownership by filtering with the guaranteed actor.
     return await ctx.db
       .query('todos')
-      .withIndex('by_user', q => q.eq('userId', actor.userId))
+      .withIndex('by_user', (q) => q.eq('userId', actor.userId))
       .order('desc')
       .collect()
   },

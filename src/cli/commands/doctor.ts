@@ -29,7 +29,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const legacyApiUsages = findLegacyApiUsages(project)
   const legacyUsageSummary = legacyApiUsages
     .slice(0, 3)
-    .map(usage => `${usage.id} in ${usage.path}`)
+    .map((usage) => `${usage.id} in ${usage.path}`)
     .join('\n')
 
   return [
@@ -51,7 +51,9 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       message: hasDependency(project, 'nuxt')
         ? 'nuxt is declared in package.json.'
         : 'nuxt is not declared in dependencies or devDependencies.',
-      fixHint: hasDependency(project, 'nuxt') ? 'Keep Nuxt installed in the consumer app.' : 'Add nuxt to the app package.json.',
+      fixHint: hasDependency(project, 'nuxt')
+        ? 'Keep Nuxt installed in the consumer app.'
+        : 'Add nuxt to the app package.json.',
     },
     {
       id: 'module-installed',
@@ -82,7 +84,9 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       message: hasDependency(project, 'convex')
         ? 'convex is declared in package.json.'
         : 'convex is not declared in dependencies or devDependencies.',
-      fixHint: hasDependency(project, 'convex') ? 'Keep Convex installed in the consumer app.' : 'Add convex to the app package.json.',
+      fixHint: hasDependency(project, 'convex')
+        ? 'Keep Convex installed in the consumer app.'
+        : 'Add convex to the app package.json.',
     },
     {
       id: 'convex-url-configured',
@@ -99,12 +103,15 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       id: 'legacy-v2-apis',
       title: 'Removed V2 APIs',
       status: legacyApiUsages.length === 0 ? 'pass' : 'fail',
-      message: legacyApiUsages.length === 0
-        ? 'No removed V2 imports or APIs were detected.'
-        : `Found removed V2 APIs:\n${legacyUsageSummary}`,
-      fixHint: legacyApiUsages.length === 0
-        ? 'Keep using the V3 auth, service, visibility, and args entrypoints.'
-        : legacyApiUsages[0]?.replacement ?? 'Replace removed V2 APIs with their V3 equivalents.',
+      message:
+        legacyApiUsages.length === 0
+          ? 'No removed V2 imports or APIs were detected.'
+          : `Found removed V2 APIs:\n${legacyUsageSummary}`,
+      fixHint:
+        legacyApiUsages.length === 0
+          ? 'Keep using the V3 auth, service, visibility, and args entrypoints.'
+          : (legacyApiUsages[0]?.replacement ??
+            'Replace removed V2 APIs with their V3 equivalents.'),
     },
   ]
 }

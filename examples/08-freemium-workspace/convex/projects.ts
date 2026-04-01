@@ -1,10 +1,9 @@
+import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 /**
  * Why this file exists:
  * The freemium example keeps entitlements and count-based limits separate on purpose.
  */
 import { v } from 'convex/values'
-
-import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -19,7 +18,7 @@ export const list = query({
 
     return ctx.db
       .query('projects')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
   },
@@ -50,9 +49,9 @@ export const exportProjects = query({
 
     const projects = await ctx.db
       .query('projects')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .collect()
 
-    return projects.map(project => project.name).join(', ')
+    return projects.map((project) => project.name).join(', ')
   },
 })

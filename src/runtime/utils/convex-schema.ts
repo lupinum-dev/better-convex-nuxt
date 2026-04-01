@@ -38,26 +38,27 @@ function typeOf(value: unknown): string {
 
 function kindLabel(kind: string): string {
   switch (kind) {
-    case 'float64': return 'number'
-    case 'int64': return 'bigint'
-    default: return kind
+    case 'float64':
+      return 'number'
+    case 'int64':
+      return 'bigint'
+    default:
+      return kind
   }
 }
 
 function isConvexValidatorNode(value: unknown): value is GenericValidator & ConvexValidatorNode {
   return Boolean(
-    value
-      && typeof value === 'object'
-      && typeof (value as ConvexValidatorNode).kind === 'string',
+    value && typeof value === 'object' && typeof (value as ConvexValidatorNode).kind === 'string',
   )
 }
 
 function isValidatorFieldMap(value: unknown): value is Record<string, GenericValidator> {
   return Boolean(
-    value
-      && typeof value === 'object'
-      && !Array.isArray(value)
-      && Object.values(value).every(isConvexValidatorNode),
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.values(value).every(isConvexValidatorNode),
   )
 }
 
@@ -67,9 +68,9 @@ function getValidatorKind(validator: GenericValidator): string {
 
 function isOptionalValidator(validator: GenericValidator): boolean {
   return Boolean(
-    validator
-      && typeof validator === 'object'
-      && (validator as ConvexValidatorNode).isOptional === 'optional',
+    validator &&
+    typeof validator === 'object' &&
+    (validator as ConvexValidatorNode).isOptional === 'optional',
   )
 }
 
@@ -267,9 +268,7 @@ export function validateConvex(
         }
       }
       if (!matched) {
-        const expected = members
-          .map(member => kindLabel(getValidatorKind(member)))
-          .join(', ')
+        const expected = members.map((member) => kindLabel(getValidatorKind(member))).join(', ')
         issues.push({
           message: `Expected one of: ${expected}`,
           path,
@@ -313,7 +312,7 @@ export function toConvexSchema<V extends GenericValidator>(
         const issues = validateConvex(validator, value)
         if (issues.length > 0) {
           return {
-            issues: issues.map(i => ({
+            issues: issues.map((i) => ({
               message: i.message,
               path: i.path,
             })),

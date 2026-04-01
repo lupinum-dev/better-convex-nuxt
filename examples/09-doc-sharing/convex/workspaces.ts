@@ -1,6 +1,5 @@
-import { v } from 'convex/values'
-
 import { can, deny } from 'better-convex-nuxt/auth'
+import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -23,7 +22,7 @@ export const getPermissionContext = query({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', actor.userId))
+      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
       .first()
 
     return {
@@ -47,13 +46,13 @@ export const createWorkspace = mutation({
 
     const existing = await ctx.db
       .query('workspaces')
-      .withIndex('by_slug', q => q.eq('slug', args.slug))
+      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
       .first()
     if (existing) throw new Error('That workspace slug is already taken.')
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
       .first()
     if (!user) throw new Error('Current user row not found.')
 
@@ -87,13 +86,13 @@ export const joinWorkspace = mutation({
 
     const workspace = await ctx.db
       .query('workspaces')
-      .withIndex('by_slug', q => q.eq('slug', args.slug))
+      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
       .first()
     if (!workspace) throw new Error('Workspace not found.')
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
       .first()
     if (!user) throw new Error('Current user row not found.')
 

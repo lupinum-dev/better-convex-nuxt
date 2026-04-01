@@ -9,10 +9,7 @@ interface BootstrapResponse {
     postId: string
     commentId: string
   }
-  keys: Record<
-    'admin' | 'member' | 'viewer' | 'noOrg' | 'revoked',
-    { id: string; key: string }
-  >
+  keys: Record<'admin' | 'member' | 'viewer' | 'noOrg' | 'revoked', { id: string; key: string }>
 }
 
 type ActorKind = 'anonymous' | 'admin' | 'member' | 'viewer' | 'noOrg'
@@ -122,7 +119,7 @@ async function resetMcpState(): Promise<BootstrapResponse> {
   if (!response.ok) {
     throw new Error(`Bootstrap reset failed with ${response.status} ${response.statusText}`)
   }
-  return await response.json() as BootstrapResponse
+  return (await response.json()) as BootstrapResponse
 }
 
 async function createClient(actor: ActorKind, bootstrap: BootstrapResponse) {
@@ -142,7 +139,7 @@ async function createClient(actor: ActorKind, bootstrap: BootstrapResponse) {
 }
 
 function extractQuotedValues(prompt: string): string[] {
-  return Array.from(prompt.matchAll(/"([^"]+)"/g)).map(match => match[1] ?? '')
+  return Array.from(prompt.matchAll(/"([^"]+)"/g)).map((match) => match[1] ?? '')
 }
 
 function normalizeText(value: string): string {
@@ -189,7 +186,10 @@ function pickToolCall(
     return { toolName, args }
   }
 
-  if ((lowerPrompt.includes('search') || lowerPrompt.includes('find')) && lowerPrompt.includes('note')) {
+  if (
+    (lowerPrompt.includes('search') || lowerPrompt.includes('find')) &&
+    lowerPrompt.includes('note')
+  ) {
     return requireTool('search-notes', {
       query: normalizeText(quoted[0] ?? 'roadmap'),
     })
@@ -199,16 +199,24 @@ function pickToolCall(
     return requireTool('list-notes', {})
   }
 
-  if ((lowerPrompt.includes('create') || lowerPrompt.includes('save') || lowerPrompt.includes('add'))
-    && lowerPrompt.includes('note')) {
+  if (
+    (lowerPrompt.includes('create') ||
+      lowerPrompt.includes('save') ||
+      lowerPrompt.includes('add')) &&
+    lowerPrompt.includes('note')
+  ) {
     return requireTool('create-note', {
       title: normalizeText(quoted[0] ?? 'Untitled note'),
       content: normalizeText(quoted[1] ?? 'Created by MCP eval'),
     })
   }
 
-  if ((lowerPrompt.includes('publish') || lowerPrompt.includes('create') || lowerPrompt.includes('write'))
-    && lowerPrompt.includes('post')) {
+  if (
+    (lowerPrompt.includes('publish') ||
+      lowerPrompt.includes('create') ||
+      lowerPrompt.includes('write')) &&
+    lowerPrompt.includes('post')
+  ) {
     return requireTool('create-post', {
       title: normalizeText(quoted[0] ?? 'Untitled post'),
       content: normalizeText(quoted[1] ?? 'Created by MCP eval'),
@@ -246,8 +254,8 @@ const visibilityScorer = createScorer<VisibilityCase, string[], ExpectedVisibili
       return { score: 0, metadata: { reason: 'Missing expected visibility data' } }
     }
 
-    const missing = expected.present.filter(name => !output.includes(name))
-    const leaked = expected.absent.filter(name => output.includes(name))
+    const missing = expected.present.filter((name) => !output.includes(name))
+    const leaked = expected.absent.filter((name) => output.includes(name))
 
     if (missing.length === 0 && leaked.length === 0) {
       return 1
@@ -377,7 +385,7 @@ evalite('MCP Tool Visibility', {
       const bootstrap = await resetMcpState()
       const client = await createClient(actor, bootstrap)
       const result = await client.listTools()
-      return result.tools.map(tool => tool.name)
+      return result.tools.map((tool) => tool.name)
     })
   },
   scorers: [visibilityScorer],
@@ -574,14 +582,20 @@ evalite('MCP Destructive Confirmation', {
           } satisfies ConfirmationOutput
         }
 
-        const preview = await tool.execute({ id }, {
-          toolCallId: 'eval-preview-call',
-          messages: [],
-        })
-        const confirmed = await tool.execute({ id, _confirmed: true }, {
-          toolCallId: 'eval-confirmed-call',
-          messages: [],
-        })
+        const preview = await tool.execute(
+          { id },
+          {
+            toolCallId: 'eval-preview-call',
+            messages: [],
+          },
+        )
+        const confirmed = await tool.execute(
+          { id, _confirmed: true },
+          {
+            toolCallId: 'eval-confirmed-call',
+            messages: [],
+          },
+        )
 
         return {
           preview,

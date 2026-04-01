@@ -4,8 +4,8 @@
  */
 import { deny } from 'better-convex-nuxt/auth'
 
-import type { DatabaseReader } from '../_generated/server'
 import type { Id } from '../_generated/dataModel'
+import type { DatabaseReader } from '../_generated/server'
 import type { Actor } from './actor'
 
 export type AccessLevel = 'view' | 'comment' | 'edit'
@@ -30,7 +30,7 @@ export async function getAccessLevel(
 
   const share = await db
     .query('pageShares')
-    .withIndex('by_user_page', q => q.eq('userId', actor.userId).eq('pageId', pageId))
+    .withIndex('by_user_page', (q) => q.eq('userId', actor.userId).eq('pageId', pageId))
     .first()
   if (share) return share.level as AccessLevel
 

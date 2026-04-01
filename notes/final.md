@@ -21,16 +21,16 @@ If you've ever shipped a multi-tenant app and spent more time on authorization p
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ["better-convex-nuxt"],
+  modules: ['better-convex-nuxt'],
   convex: { url: process.env.CONVEX_URL },
-});
+})
 ```
 
 ```vue
 <!-- pages/index.vue -->
 <script setup>
-const { data: notes } = await useConvexQuery(api.notes.list, {});
-const addNote = useConvexMutation(api.notes.add);
+const { data: notes } = await useConvexQuery(api.notes.list, {})
+const addNote = useConvexMutation(api.notes.add)
 </script>
 
 <template>
@@ -45,12 +45,12 @@ That's SSR, live subscriptions, and type-safe mutations. No providers, no contex
 
 ```ts
 // convex/functions.ts
-import { createFunctions } from "better-convex-nuxt/convex";
-import actorConfig from "./actor.config";
+import { createFunctions } from 'better-convex-nuxt/convex'
+import actorConfig from './actor.config'
 
 export const { authedQuery, authedMutation } = createFunctions({
   actor: actorConfig,
-});
+})
 ```
 
 ```ts
@@ -59,11 +59,11 @@ export const list = authedQuery({
   args: {},
   handler: async ({ db, actor }) => {
     return await db
-      .query("todos")
-      .withIndex("by_user", (q) => q.eq("userId", actor.userId))
-      .collect();
+      .query('todos')
+      .withIndex('by_user', (q) => q.eq('userId', actor.userId))
+      .collect()
   },
-});
+})
 ```
 
 `actor` is guaranteed. If the user isn't signed in, the function never runs. No `if (!identity) throw` boilerplate.
@@ -74,15 +74,15 @@ export const list = authedQuery({
 // convex/todos.ts
 export const create = scopedMutation({
   args: createTodo.args,
-  require: "todo.create",
+  require: 'todo.create',
   handler: async ({ db, actor }, args) => {
-    return await db.insert("todos", {
+    return await db.insert('todos', {
       title: args.title,
       ownerId: actor.userId,
       createdAt: Date.now(),
-    });
+    })
   },
-});
+})
 ```
 
 `db` only sees the current team's data. `require` checks the permission before the handler runs. `db.insert` sets the team field automatically. You write four lines of business logic. The framework handles the rest.
@@ -105,7 +105,7 @@ All eight come from one call:
 
 ```ts
 // convex/functions.ts — the one file you create
-import { createFunctions } from "better-convex-nuxt/convex";
+import { createFunctions } from 'better-convex-nuxt/convex'
 
 export const {
   publicQuery,
@@ -120,7 +120,7 @@ export const {
   schema,
   actor: actorConfig,
   permissions: permissionConfig,
-});
+})
 ```
 
 Why a factory and not auto-imports? Because this code runs on Convex's servers, not Nuxt's. The `convex/` directory is a separate runtime with its own build. The factory is the bridge between the two worlds.
@@ -150,7 +150,7 @@ If you genuinely need raw access (admin tools, migrations), there's an escape ha
 handler: async ({ db, actor, raw }) => {
   // raw.ctx.db is the unscoped Convex database
   // The name 'raw' is intentionally blunt — it should stand out in code review
-};
+}
 ```
 
 ---
@@ -161,19 +161,19 @@ handler: async ({ db, actor, raw }) => {
 
 ```ts
 // convex/permissions.config.ts
-import { definePermissions } from "better-convex-nuxt/convex";
+import { definePermissions } from 'better-convex-nuxt/convex'
 
 export const permissionConfig = definePermissions({
-  roles: ["owner", "admin", "member", "viewer"],
+  roles: ['owner', 'admin', 'member', 'viewer'],
   rules: {
     todo: {
-      create: { roles: ["owner", "admin", "member"] },
-      read: { roles: ["owner", "admin", "member", "viewer"] },
-      update: { own: ["member"], any: ["owner", "admin"] },
-      delete: { own: ["member"], any: ["owner", "admin"] },
+      create: { roles: ['owner', 'admin', 'member'] },
+      read: { roles: ['owner', 'admin', 'member', 'viewer'] },
+      update: { own: ['member'], any: ['owner', 'admin'] },
+      delete: { own: ['member'], any: ['owner', 'admin'] },
     },
   },
-});
+})
 ```
 
 That's it. No `checkPermission` function to write. The framework generates it from the rules. The `own` / `any` pattern means members can update their own todos, admins can update anyone's.
@@ -182,13 +182,13 @@ That's it. No `checkPermission` function to write. The framework generates it fr
 
 ```ts
 export const update = scopedMutation({
-  args: { id: v.id("todos"), title: v.string() },
-  require: "todo.update",
+  args: { id: v.id('todos'), title: v.string() },
+  require: 'todo.update',
   resource: (args) => args.id,
   handler: async ({ db }, args) => {
-    await db.patch(args.id, { title: args.title });
+    await db.patch(args.id, { title: args.title })
   },
-});
+})
 ```
 
 `require: 'todo.update'` — checked before the handler runs. If the actor's role doesn't have access, the handler never executes.
@@ -201,7 +201,7 @@ The handler just does the business logic. Four lines.
 
 ```vue
 <script setup>
-const { can, role, tenantId } = usePermissions();
+const { can, role, tenantId } = usePermissions()
 </script>
 
 <template>
@@ -210,9 +210,7 @@ const { can, role, tenantId } = usePermissions();
   <div v-for="todo in todos" :key="todo._id">
     {{ todo.title }}
     <button v-if="can('todo.update', todo)" @click="edit(todo)">Edit</button>
-    <button v-if="can('todo.delete', todo)" @click="remove(todo)">
-      Delete
-    </button>
+    <button v-if="can('todo.delete', todo)" @click="remove(todo)">Delete</button>
   </div>
 </template>
 ```
@@ -261,23 +259,23 @@ If your field is `organizationId` and your index is `by_organization`, that's th
 // convex/actor.config.ts
 export default defineActorConfig({
   resolveFromAuth: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return null
 
     const user = await ctx.db
-      .query("users")
-      .withIndex("by_auth_id", (q) => q.eq("authId", identity.subject))
-      .first();
+      .query('users')
+      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .first()
 
-    if (!user) return null;
+    if (!user) return null
 
     return {
       userId: user.authId,
       role: user.role,
       tenantId: user.teamId,
-    };
+    }
   },
-});
+})
 ```
 
 `tenantId` is the framework's name for "which team is this user in." Your database calls it whatever you want — `teamId`, `workspaceId`, `storeId`, `schoolId`. The actor bridges the two.
@@ -290,22 +288,22 @@ export const list = scopedQuery({
   handler: async ({ db }) => {
     // This only returns the current team's todos.
     // There is no way to query another team's data through this db.
-    return await db.query("todos").order("desc").collect();
+    return await db.query('todos').order('desc').collect()
   },
-});
+})
 
 export const create = scopedMutation({
   args: { title: v.string() },
   handler: async ({ db, actor }, args) => {
     // db.insert automatically sets teamId.
     // You never write teamId in your handler.
-    return await db.insert("todos", {
+    return await db.insert('todos', {
       title: args.title,
       ownerId: actor.userId,
       createdAt: Date.now(),
-    });
+    })
   },
-});
+})
 ```
 
 That's it. No `if (doc.teamId !== actor.tenantId)` checks. No `...args, teamId: actor.tenantId` in inserts. The scoped database handles both.
@@ -318,22 +316,22 @@ That's it. No `if (doc.teamId !== actor.tenantId)` checks. No `...args, teamId: 
 
 ```ts
 // shared/schemas/todo.ts
-import { v } from "convex/values";
-import { defineArgs } from "better-convex-nuxt/schema";
+import { v } from 'convex/values'
+import { defineArgs } from 'better-convex-nuxt/schema'
 
 export const createTodo = defineArgs({
-  description: "Create a team todo",
+  description: 'Create a team todo',
   args: {
     title: v.string(),
   },
   meta: {
     title: {
-      label: "Title",
-      description: "What needs to be done",
-      examples: ["Review the PR", "Update the docs"],
+      label: 'Title',
+      description: 'What needs to be done',
+      examples: ['Review the PR', 'Update the docs'],
     },
   },
-});
+})
 ```
 
 One definition gives you:
@@ -365,7 +363,7 @@ export default defineTool({
 Use it for input validation:
 
 ```ts
-const parsed = createTodo.parse(req.body); // throws if invalid
+const parsed = createTodo.parse(req.body) // throws if invalid
 ```
 
 The `meta` is optional. If you skip it, labels are auto-generated from field names and descriptions from validator types.
@@ -378,21 +376,21 @@ The `meta` is optional. If you skip it, labels are auto-generated from field nam
 
 ```ts
 // server/mcp/tools/create-todo.ts
-import { defineTool } from "#convex/mcp";
-import { api } from "~/convex/_generated/api";
-import { createTodo } from "~/shared/schemas/todo";
+import { defineTool } from '#convex/mcp'
+import { api } from '~/convex/_generated/api'
+import { createTodo } from '~/shared/schemas/todo'
 
 export default defineTool({
   schema: createTodo,
-  name: "create-todo",
-  auth: "required",
-  require: "todo.create",
+  name: 'create-todo',
+  auth: 'required',
+  require: 'todo.create',
   scoped: true,
   handler: async (args, ctx) => {
-    const id = await ctx.mutation(api.todos.create, args);
-    return ctx.ok({ id }, `Created todo "${args.title}"`);
+    const id = await ctx.mutation(api.todos.create, args)
+    return ctx.ok({ id }, `Created todo "${args.title}"`)
   },
-});
+})
 ```
 
 `#convex/mcp` is generated by the module with your permission config baked in. Every tool follows the same pattern. `ctx.mutation` injects service auth automatically when `scoped: true`. The tool author never thinks about service keys.
@@ -402,23 +400,23 @@ export default defineTool({
 ```ts
 export default defineTool({
   schema: deleteTodo,
-  name: "delete-todo",
-  auth: "required",
-  require: "todo.delete",
+  name: 'delete-todo',
+  auth: 'required',
+  require: 'todo.delete',
   scoped: true,
   destructive: true,
 
   preview: async (args, ctx) => {
-    const todo = await ctx.query(api.todos.get, { id: args.id });
-    if (!todo) return ctx.blocked("Todo not found");
-    return ctx.preview(`Will permanently delete "${todo.title}"`);
+    const todo = await ctx.query(api.todos.get, { id: args.id })
+    if (!todo) return ctx.blocked('Todo not found')
+    return ctx.preview(`Will permanently delete "${todo.title}"`)
   },
 
   handler: async (args, ctx) => {
-    await ctx.mutation(api.todos.remove, args);
-    return ctx.ok({ deleted: true });
+    await ctx.mutation(api.todos.remove, args)
+    return ctx.ok({ deleted: true })
   },
-});
+})
 ```
 
 First MCP call returns the preview. Second call (with `_confirmed: true`) executes the handler. The tool author writes both functions; the framework handles the flow.
@@ -430,7 +428,7 @@ First MCP call returns the preview. Second call (with `_confirmed: true`) execut
 ### Queries are live
 
 ```ts
-const { data, pending, error } = await useConvexQuery(api.todos.list, {});
+const { data, pending, error } = await useConvexQuery(api.todos.list, {})
 ```
 
 SSR on first load. WebSocket subscription on the client. When data changes on the server, `data` updates. No polling, no refetching, no cache invalidation.
@@ -438,14 +436,14 @@ SSR on first load. WebSocket subscription on the client. When data changes on th
 ### Mutations have built-in state
 
 ```ts
-const addTodo = useConvexMutation(api.todos.create);
+const addTodo = useConvexMutation(api.todos.create)
 
-await addTodo({ title: "Ship it" });
+await addTodo({ title: 'Ship it' })
 
-addTodo.pending.value; // was it in flight?
-addTodo.error.value; // did it fail?
-addTodo.status.value; // 'idle' | 'pending' | 'success' | 'error'
-addTodo.reset(); // back to idle
+addTodo.pending.value // was it in flight?
+addTodo.error.value // did it fail?
+addTodo.status.value // 'idle' | 'pending' | 'success' | 'error'
+addTodo.reset() // back to idle
 ```
 
 ### Queries skip when they should
@@ -455,7 +453,7 @@ addTodo.reset(); // back to idle
 const { data } = await useConvexQuery(
   api.todos.list,
   computed(() => (isAuthenticated.value ? {} : undefined)),
-);
+)
 ```
 
 Pass `undefined` as args and the query doesn't run. Pass real args and it does. Reactive.
@@ -479,7 +477,7 @@ Pass `undefined` as args and the query doesn't run. Pass real args and it does. 
 Route protection:
 
 ```ts
-definePageMeta({ convexAuth: true });
+definePageMeta({ convexAuth: true })
 ```
 
 ---
@@ -490,31 +488,31 @@ definePageMeta({ convexAuth: true });
 
 ```ts
 // vitest.config.ts
-import { defineConfig } from "vitest/config";
-import { convexTestConfig } from "better-convex-nuxt/testing";
+import { defineConfig } from 'vitest/config'
+import { convexTestConfig } from 'better-convex-nuxt/testing'
 
-export default defineConfig(convexTestConfig());
+export default defineConfig(convexTestConfig())
 ```
 
 ### One-line setup
 
 ```ts
-import { createTestContext } from "better-convex-nuxt/testing";
+import { createTestContext } from 'better-convex-nuxt/testing'
 
-const ctx = createTestContext({ schema });
+const ctx = createTestContext({ schema })
 ```
 
 ### The only test helper you need
 
 ```ts
 const team = await ctx.seedTenant({
-  name: "Acme",
+  name: 'Acme',
   users: {
-    alice: { role: "owner" },
-    bob: { role: "member" },
-    carol: { role: "viewer" },
+    alice: { role: 'owner' },
+    bob: { role: 'member' },
+    carol: { role: 'viewer' },
   },
-});
+})
 ```
 
 One call. Team created. Three users created, each with a role. Each user has `.query()` and `.mutation()` methods that are already authenticated.
@@ -522,28 +520,28 @@ One call. Team created. Three users created, each with a role. Each user has `.q
 ### Write the test
 
 ```ts
-it("members can only update their own todos", async () => {
+it('members can only update their own todos', async () => {
   const team = await ctx.seedTenant({
-    name: "Acme",
+    name: 'Acme',
     users: {
-      alice: { role: "member" },
-      bob: { role: "member" },
+      alice: { role: 'member' },
+      bob: { role: 'member' },
     },
-  });
+  })
 
   const todoId = await team.users.alice.mutation(api.todos.create, {
-    title: "Alice todo",
-  });
+    title: 'Alice todo',
+  })
 
   await expect(
-    team.users.bob.mutation(api.todos.update, { id: todoId, title: "Hacked" }),
-  ).rejects.toThrow("Forbidden: todo.update");
+    team.users.bob.mutation(api.todos.update, { id: todoId, title: 'Hacked' }),
+  ).rejects.toThrow('Forbidden: todo.update')
 
   await team.users.alice.mutation(api.todos.update, {
     id: todoId,
-    title: "Updated",
-  });
-});
+    title: 'Updated',
+  })
+})
 ```
 
 One line of setup. The rest is the test. The assertion reads like a sentence.
@@ -551,48 +549,48 @@ One line of setup. The rest is the test. The assertion reads like a sentence.
 ### Test tenant isolation
 
 ```ts
-it("teams cannot see each other", async () => {
+it('teams cannot see each other', async () => {
   const acme = await ctx.seedTenant({
-    name: "Acme",
-    users: { alice: { role: "member" } },
-  });
+    name: 'Acme',
+    users: { alice: { role: 'member' } },
+  })
   const globex = await ctx.seedTenant({
-    name: "Globex",
-    users: { bob: { role: "member" } },
-  });
+    name: 'Globex',
+    users: { bob: { role: 'member' } },
+  })
 
-  await acme.users.alice.mutation(api.todos.create, { title: "Acme secret" });
-  await globex.users.bob.mutation(api.todos.create, { title: "Globex secret" });
+  await acme.users.alice.mutation(api.todos.create, { title: 'Acme secret' })
+  await globex.users.bob.mutation(api.todos.create, { title: 'Globex secret' })
 
-  const aliceTodos = await acme.users.alice.query(api.todos.list, {});
-  const bobTodos = await globex.users.bob.query(api.todos.list, {});
+  const aliceTodos = await acme.users.alice.query(api.todos.list, {})
+  const bobTodos = await globex.users.bob.query(api.todos.list, {})
 
-  expect(aliceTodos).toHaveLength(1);
-  expect(aliceTodos[0].title).toBe("Acme secret");
-  expect(bobTodos).toHaveLength(1);
-  expect(bobTodos[0].title).toBe("Globex secret");
-});
+  expect(aliceTodos).toHaveLength(1)
+  expect(aliceTodos[0].title).toBe('Acme secret')
+  expect(bobTodos).toHaveLength(1)
+  expect(bobTodos[0].title).toBe('Globex secret')
+})
 ```
 
 ### Test service auth
 
 ```ts
-it("MCP tools use the same permission rules", async () => {
+it('MCP tools use the same permission rules', async () => {
   const team = await ctx.seedTenant({
-    name: "Acme",
-    users: { viewer: { role: "viewer" } },
-  });
+    name: 'Acme',
+    users: { viewer: { role: 'viewer' } },
+  })
 
   const service = ctx.asService({
     userId: team.users.viewer.authId,
-    role: "viewer",
+    role: 'viewer',
     tenantId: team.id,
-  });
+  })
 
-  await expect(
-    service.mutation(api.todos.create, { title: "Nope" }),
-  ).rejects.toThrow("Forbidden: todo.create");
-});
+  await expect(service.mutation(api.todos.create, { title: 'Nope' })).rejects.toThrow(
+    'Forbidden: todo.create',
+  )
+})
 ```
 
 ### Errors explain themselves

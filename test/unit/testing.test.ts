@@ -7,8 +7,6 @@ describe('convexTestConfig', () => {
     const config = convexTestConfig()
 
     expect(config.test?.environment).toBe('edge-runtime')
-    expect(config.test?.server?.deps?.inline).toEqual(
-      expect.arrayContaining([expect.any(RegExp)]),
-    )
+    expect(config.test?.server?.deps?.inline).toEqual(expect.arrayContaining([expect.any(RegExp)]))
   })
 })

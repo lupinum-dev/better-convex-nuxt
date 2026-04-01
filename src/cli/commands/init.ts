@@ -54,7 +54,7 @@ export const initCommand = defineCommand({
     const cwd = resolve(args.cwd || process.cwd())
     const templateSet = getInitTemplateSet(
       target,
-      args.model ? String(args.model) as 'personal' | 'workspace' | 'workspace-mcp' : undefined,
+      args.model ? (String(args.model) as 'personal' | 'workspace' | 'workspace-mcp') : undefined,
     )
     const result = await applyInitTemplateSet(cwd, templateSet, Boolean(args.force))
 

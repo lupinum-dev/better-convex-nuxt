@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { api } from '~/convex/_generated/api'
 /**
  * Why this file exists:
  * This is the optimistic update demo. The task card mutates the board immediately, then the
  * realtime query confirms or rolls it back.
  */
 import type { Doc, Id } from '~/convex/_generated/dataModel'
-import { api } from '~/convex/_generated/api'
 
 type TaskWithCan = Doc<'tasks'> & { _can: Record<string, boolean> }
 
@@ -27,9 +27,13 @@ function nextStatus() {
 
 const moveTask = useConvexMutation(api.tasks.moveToColumn, {
   optimisticUpdate: (ctx, args) => {
-    ctx.query(api.tasks.listByProject, { projectId: props.projectId }).update(tasks =>
-      tasks?.map(task => task._id === args.id ? { ...task, status: args.status } : task) ?? [],
-    )
+    ctx
+      .query(api.tasks.listByProject, { projectId: props.projectId })
+      .update(
+        (tasks) =>
+          tasks?.map((task) => (task._id === args.id ? { ...task, status: args.status } : task)) ??
+          [],
+      )
   },
 })
 </script>

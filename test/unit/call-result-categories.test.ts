@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { categorizeError, ConvexCallError, toConvexError } from '../../src/runtime/utils/call-result'
+import {
+  categorizeError,
+  ConvexCallError,
+  toConvexError,
+} from '../../src/runtime/utils/call-result'
 
 describe('categorizeError', () => {
   describe('code-based categorization', () => {
@@ -201,9 +205,7 @@ describe('toConvexError category and issues', () => {
         errors: [{ path: 'title', message: 'Too long' }],
       },
     })
-    expect(error.issues).toEqual([
-      { path: 'title', message: 'Too long', code: undefined },
-    ])
+    expect(error.issues).toEqual([{ path: 'title', message: 'Too long', code: undefined }])
   })
 
   it('extracts issues from fieldErrors array', () => {
@@ -214,9 +216,7 @@ describe('toConvexError category and issues', () => {
         fieldErrors: [{ field: 'age', message: 'Must be positive' }],
       },
     })
-    expect(error.issues).toEqual([
-      { path: 'age', message: 'Must be positive', code: undefined },
-    ])
+    expect(error.issues).toEqual([{ path: 'age', message: 'Must be positive', code: undefined }])
   })
 
   it('ignores empty issues array', () => {

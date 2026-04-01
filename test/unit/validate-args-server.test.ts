@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { v } from 'convex/values'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import * as convexSchema from '../../src/runtime/utils/convex-schema'
 import { validateConvexArgs } from '../../src/runtime/server/utils/validate'
+import * as convexSchema from '../../src/runtime/utils/convex-schema'
 import { expectValidationError } from '../helpers/validation-error'
 
 describe('validateConvexArgs', () => {
@@ -29,10 +29,12 @@ describe('validateConvexArgs', () => {
   })
 
   it('includes issues array in error data', async () => {
-    const validate = validateConvexArgs(v.object({
-      name: v.string(),
-      email: v.string(),
-    }))
+    const validate = validateConvexArgs(
+      v.object({
+        name: v.string(),
+        email: v.string(),
+      }),
+    )
     try {
       await validate({ name: 42, email: true })
       expect.fail('Should have thrown')
@@ -45,21 +47,25 @@ describe('validateConvexArgs', () => {
   })
 
   it('returns typed value matching the validator', async () => {
-    const validate = validateConvexArgs(v.object({
-      count: v.float64(),
-      active: v.boolean(),
-    }))
+    const validate = validateConvexArgs(
+      v.object({
+        count: v.float64(),
+        active: v.boolean(),
+      }),
+    )
     const result = await validate({ count: 5, active: true })
     expect(result.count).toBe(5)
     expect(result.active).toBe(true)
   })
 
   it('collects multiple validation issues (multi-error)', async () => {
-    const validate = validateConvexArgs(v.object({
-      a: v.string(),
-      b: v.string(),
-      c: v.string(),
-    }))
+    const validate = validateConvexArgs(
+      v.object({
+        a: v.string(),
+        b: v.string(),
+        c: v.string(),
+      }),
+    )
     try {
       await validate({})
       expect.fail('Should have thrown')

@@ -11,7 +11,7 @@ const trustedOrigins = [siteUrl, 'http://localhost:3000', 'http://127.0.0.1:3000
 const authFunctions: AuthFunctions = internal.auth
 
 function buildUserFields(
-  input: { authId: string, displayName: string, email: string },
+  input: { authId: string; displayName: string; email: string },
   now: number,
 ) {
   return {
@@ -29,11 +29,17 @@ const authComponent = createClient<DataModel>(components.betterAuth, {
   triggers: {
     user: {
       onCreate: async (ctx, doc) => {
-        await ctx.db.insert('users', buildUserFields({
-          authId: doc._id,
-          displayName: doc.name,
-          email: doc.email,
-        }, Date.now()))
+        await ctx.db.insert(
+          'users',
+          buildUserFields(
+            {
+              authId: doc._id,
+              displayName: doc.name,
+              email: doc.email,
+            },
+            Date.now(),
+          ),
+        )
       },
       onUpdate: async (ctx, doc) => {
         const user = await ctx.db
@@ -102,11 +108,17 @@ export function createConvexAuth<TAuth>(
         return existing._id
       }
 
-      return await ctx.db.insert('users', buildUserFields({
-        authId: identity.subject,
-        displayName: identity.name,
-        email: identity.email,
-      }, Date.now()))
+      return await ctx.db.insert(
+        'users',
+        buildUserFields(
+          {
+            authId: identity.subject,
+            displayName: identity.name,
+            email: identity.email,
+          },
+          Date.now(),
+        ),
+      )
     },
   })
 

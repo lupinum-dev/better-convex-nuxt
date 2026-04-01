@@ -110,9 +110,7 @@ export function buildClientAuthResponseErrorMessage(rawMessage: string): string 
 
 /** JWT token received but could not be decoded — fail-closed to unauthenticated. */
 export function buildAuthTokenDecodeFailureMessage(): string {
-  return prefix(
-    'Authentication failed. Received an invalid auth token.',
-  )
+  return prefix('Authentication failed. Received an invalid auth token.')
 }
 
 /**

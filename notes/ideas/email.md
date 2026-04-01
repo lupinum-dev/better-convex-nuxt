@@ -62,24 +62,24 @@ Or even tighter with a Convex action hook:
 // After a mutation succeeds, send an email
 const inviteUser = useConvexMutation(api.teams.invite, {
   onSuccess: async (result, args) => {
-    await $fetch("/api/send-invite", {
-      method: "POST",
+    await $fetch('/api/send-invite', {
+      method: 'POST',
       body: { email: args.email, inviteId: result.inviteId },
-    });
+    })
   },
-});
+})
 ```
 
 But look at what `sendConvexEmail` would actually be:
 
 ```ts
 export async function sendConvexEmail(options: EmailOptions) {
-  const config = useRuntimeConfig();
-  const provider = config.convex.email.provider;
+  const config = useRuntimeConfig()
+  const provider = config.convex.email.provider
 
-  if (provider === "resend") {
-    return await $fetch("https://api.resend.com/emails", {
-      method: "POST",
+  if (provider === 'resend') {
+    return await $fetch('https://api.resend.com/emails', {
+      method: 'POST',
       headers: { Authorization: `Bearer ${config.resendApiKey}` },
       body: {
         from: config.convex.email.from,
@@ -87,10 +87,10 @@ export async function sendConvexEmail(options: EmailOptions) {
         subject: options.subject,
         html: options.html,
       },
-    });
+    })
   }
 
-  if (provider === "brevo") {
+  if (provider === 'brevo') {
     // similar fetch call
   }
 }
@@ -120,27 +120,27 @@ Document the pattern. In your docs, show a clear example:
 
 ```ts
 // convex/emails.ts — Convex action that sends email
-import { Resend } from "resend";
+import { Resend } from 'resend'
 
 export const sendInvite = action({
-  args: { email: v.string(), inviteId: v.id("invites") },
+  args: { email: v.string(), inviteId: v.id('invites') },
   handler: async (ctx, { email, inviteId }) => {
-    const invite = await ctx.runQuery(api.invites.get, { id: inviteId });
-    const resend = new Resend(process.env.RESEND_API_KEY);
+    const invite = await ctx.runQuery(api.invites.get, { id: inviteId })
+    const resend = new Resend(process.env.RESEND_API_KEY)
     await resend.emails.send({
-      from: "app@example.com",
+      from: 'app@example.com',
       to: email,
       subject: `You're invited to ${invite.teamName}`,
       html: `<p>Join here: ${invite.url}</p>`,
-    });
+    })
   },
-});
+})
 ```
 
 ```ts
 // In your Vue component — trigger it via useConvexAction
-const sendInvite = useConvexAction(api.emails.sendInvite);
-await sendInvite({ email: "user@example.com", inviteId });
+const sendInvite = useConvexAction(api.emails.sendInvite)
+await sendInvite({ email: 'user@example.com', inviteId })
 ```
 
 That's the Convex way to do email. The action runs server-side, has access to your database, and your module's `useConvexAction` handles the client-side state (pending, error, success). No email abstraction needed — the Convex action _is_ the abstraction.

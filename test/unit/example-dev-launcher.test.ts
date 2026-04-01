@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
 import { EventEmitter } from 'node:events'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'

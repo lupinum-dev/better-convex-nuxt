@@ -29,7 +29,12 @@ export function cleanErrorMessage(message: string): string {
  */
 export function inferCategoryFromMessage(message: string): ConvexErrorCategory | undefined {
   const lower = message.toLowerCase()
-  if (lower.includes('unauthorized') || lower.includes('unauthenticated') || lower.includes('forbidden')) return 'auth'
+  if (
+    lower.includes('unauthorized') ||
+    lower.includes('unauthenticated') ||
+    lower.includes('forbidden')
+  )
+    return 'auth'
   if (lower.includes('not found')) return 'not_found'
   if (lower.includes('rate limit') || lower.includes('too many')) return 'rate_limit'
   if (lower.includes('validation') || lower.includes('invalid arg')) return 'validation'

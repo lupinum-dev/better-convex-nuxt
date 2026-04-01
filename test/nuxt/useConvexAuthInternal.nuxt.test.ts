@@ -2,14 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useNuxtApp, useState } from '#imports'
 
-import type {
-  AuthTransport,
-  ClientAuthStateResult,
-} from '../../src/runtime/client/auth-engine'
-import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
+import type { AuthTransport, ClientAuthStateResult } from '../../src/runtime/client/auth-engine'
 import { useConvexAuthController } from '../../src/runtime/composables/internal/useConvexAuthController'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
+import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
 const AUTH_USER = {
   id: 'u-auth',
@@ -39,14 +36,15 @@ function buildMockTransport(options?: {
     client: {
       signOut: async () => {},
     } as never,
-    fetchAuthState: options?.fetchAuthState ?? (async (_input) => ({
-      token: 'refreshed.jwt.token',
-      user: AUTH_USER,
-      error: null,
-      source: 'exchange',
-    })),
-    install() {
-    },
+    fetchAuthState:
+      options?.fetchAuthState ??
+      (async (_input) => ({
+        token: 'refreshed.jwt.token',
+        user: AUTH_USER,
+        error: null,
+        source: 'exchange',
+      })),
+    install() {},
     async refresh(fetchToken, onChange) {
       const nextToken = await fetchToken({ forceRefreshToken: true })
       onChange(Boolean(nextToken))
@@ -177,9 +175,12 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
         }),
       })
 
-      nuxtApp.hook('convex:auth:changed' as never, ((payload: unknown) => {
-        hookPayloads.push(payload)
-      }) as never)
+      nuxtApp.hook(
+        'convex:auth:changed' as never,
+        ((payload: unknown) => {
+          hookPayloads.push(payload)
+        }) as never,
+      )
 
       return useConvexAuthController()
     })
@@ -198,7 +199,9 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
       installMockAuthEngine({
         initialToken: 'active.jwt.token',
         initialUser: { id: 'u-active', name: 'Active User', email: 'active@test.com' },
-        invalidate: async () => { throw new Error('invalidate failed') },
+        invalidate: async () => {
+          throw new Error('invalidate failed')
+        },
       })
 
       return useConvexAuthController()
@@ -290,7 +293,11 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     await flush()
 
     expect(result.token.value).toBe('fresh.jwt.token')
-    expect(result.user.value).toEqual({ id: 'u-fresh', name: 'Fresh User', email: 'fresh@test.com' })
+    expect(result.user.value).toEqual({
+      id: 'u-fresh',
+      name: 'Fresh User',
+      email: 'fresh@test.com',
+    })
   })
 
   it('exposes token, authError, refreshAuth, and awaitAuthReady without a pre-seeded error', async () => {

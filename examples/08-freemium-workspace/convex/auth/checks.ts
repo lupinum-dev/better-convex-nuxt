@@ -1,11 +1,10 @@
+import type { Doc } from '../_generated/dataModel'
 /**
  * Check style:
  * Direct exports are static actor predicates. Plan checks stay separate from role checks so the
  * handler body can combine entitlement and role constraints explicitly.
  */
 import type { Actor } from './actor'
-
-import type { Doc } from '../_generated/dataModel'
 
 const planFeatures: Record<Doc<'workspaces'>['plan'], string[]> = {
   free: ['projects'],

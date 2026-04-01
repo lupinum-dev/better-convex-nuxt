@@ -11,6 +11,7 @@ import {
   type MaybeRefOrGetter,
   type Ref,
 } from 'vue'
+
 import { useRuntimeConfig } from '#imports'
 
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
@@ -19,18 +20,17 @@ import { getFunctionName, getQueryKey, hashArgs } from '../utils/convex-cache'
 import { getLogLevel, getSharedLogger } from '../utils/logger'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { generatePaginationId } from '../utils/shared-helpers'
+import {
+  createLiveQueryResource,
+  executeLiveQuery,
+  startSharedQuerySubscription,
+  type SharedQuerySubscriptionHandle,
+} from './internal/live-query-resource'
 import type {
   PaginatedQueryReference,
   PaginatedQueryArgs,
   PaginatedQueryItem,
 } from './optimistic-updates'
-import {
-  createLiveQueryResource,
-  executeLiveQuery,
-  startSharedQuerySubscription,
-  type LiveQueryUnsubscribeReason,
-  type SharedQuerySubscriptionHandle,
-} from './internal/live-query-resource'
 
 export {
   type PaginatedQueryReference,
@@ -77,8 +77,7 @@ export interface UseConvexPaginatedQueryData<Item> {
 }
 
 export interface UseConvexPaginatedQueryReturn<Item>
-  extends UseConvexPaginatedQueryData<Item>,
-    PromiseLike<UseConvexPaginatedQueryData<Item>> {}
+  extends UseConvexPaginatedQueryData<Item>, PromiseLike<UseConvexPaginatedQueryData<Item>> {}
 
 interface BuildConvexPaginatedQueryResult<Item> {
   resultData: UseConvexPaginatedQueryData<Item>
@@ -185,7 +184,8 @@ export function createConvexPaginatedQueryState<
   })
 
   const firstPageWatchSource = computed(
-    () => `${argsHash.value}:${isSkipped.value ? 'skipped' : 'enabled'}:${currentPaginationId.value}`,
+    () =>
+      `${argsHash.value}:${isSkipped.value ? 'skipped' : 'enabled'}:${currentPaginationId.value}`,
   )
 
   const firstPageArgs = computed(() => {
@@ -344,8 +344,11 @@ export function createConvexPaginatedQueryState<
     if (isSkipped.value) return
 
     const lastLoadedPage =
-      pages.value.length > 0 ? pages.value[pages.value.length - 1]?.result : firstPageResource.asyncData.data.value
-    const pendingLastPage = pages.value.length > 0 ? pages.value[pages.value.length - 1]?.pending : false
+      pages.value.length > 0
+        ? pages.value[pages.value.length - 1]?.result
+        : firstPageResource.asyncData.data.value
+    const pendingLastPage =
+      pages.value.length > 0 ? pages.value[pages.value.length - 1]?.pending : false
 
     if (!lastLoadedPage || pendingLastPage || lastLoadedPage.isDone) {
       return
@@ -611,7 +614,8 @@ export function useConvexPaginatedQuery<
   const result = created.resultData as UseConvexPaginatedQueryReturn<TransformedItem>
   const resolvedResult = { ...created.resultData } as UseConvexPaginatedQueryData<TransformedItem>
   result.then = (onFulfilled, onRejected) =>
-    created.resolvePromise()
+    created
+      .resolvePromise()
       .then(
         () =>
           new Promise<UseConvexPaginatedQueryData<TransformedItem>>((resolve) => {

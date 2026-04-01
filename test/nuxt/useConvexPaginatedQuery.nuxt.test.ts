@@ -68,8 +68,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
   it('returns skipped + not loading for null args', async () => {
     const query = mockFnRef<'query'>('notes:listPaginated:disabled-static')
     const { result } = await captureInNuxt(
-      () =>
-        useConvexPaginatedQueryState(query as never, null, { initialNumItems: 3 }),
+      () => useConvexPaginatedQueryState(query as never, null, { initialNumItems: 3 }),
       { convex: new MockConvexClient() },
     )
 
@@ -84,8 +83,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:listPaginated:enabled-false')
 
     const { result } = await captureInNuxt(
-      () =>
-        useConvexPaginatedQueryState(query as never, null, { initialNumItems: 3 }),
+      () => useConvexPaginatedQueryState(query as never, null, { initialNumItems: 3 }),
       { convex },
     )
 

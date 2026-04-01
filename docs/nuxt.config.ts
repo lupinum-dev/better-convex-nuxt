@@ -236,7 +236,8 @@ export default defineNuxtConfig({
       },
       {
         title: 'API Reference',
-        description: 'Complete API reference for composables, components, server utilities, and types.',
+        description:
+          'Complete API reference for composables, components, server utilities, and types.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/12.api-reference%' },

@@ -29,14 +29,14 @@ This duplication creates drift, bugs, and extra maintenance. The natural source 
 
 [Standard Schema](https://github.com/standard-schema/standard-schema) (v1) is a vendor-neutral interface for validation. It has been adopted by:
 
-| Library | Standard Schema Support |
-|---|---|
-| **Zod v4** | Native producer |
-| **Valibot v1+** | Native producer |
+| Library         | Standard Schema Support                 |
+| --------------- | --------------------------------------- |
+| **Zod v4**      | Native producer                         |
+| **Valibot v1+** | Native producer                         |
 | **VeeValidate** | Native consumer (via `toTypedSchema()`) |
-| **FormKit** | Native consumer |
-| **Nuxt UI v3** | Native consumer (form components) |
-| **tRPC** | Native consumer |
+| **FormKit**     | Native consumer                         |
+| **Nuxt UI v3**  | Native consumer (form components)       |
+| **tRPC**        | Native consumer                         |
 
 `@standard-schema/spec` is a **types-only** package (zero runtime code, zero bundle impact). It is already an installed peer dependency of `convex-helpers`.
 
@@ -92,10 +92,12 @@ import { v } from 'convex/values'
 // Or import shared validators from your convex/ directory:
 // import { createPostArgs } from '~/convex/schemas/post'
 
-const schema = useConvexSchema(v.object({
-  title: v.string(),
-  body: v.string(),
-}))
+const schema = useConvexSchema(
+  v.object({
+    title: v.string(),
+    body: v.string(),
+  }),
+)
 
 // schema is StandardSchemaV1 — plug directly into any form library
 </script>
@@ -195,10 +197,12 @@ import { v } from 'convex/values'
 export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(
     event,
-    validateConvexArgs(v.object({
-      title: v.string(),
-      body: v.string(),
-    }))
+    validateConvexArgs(
+      v.object({
+        title: v.string(),
+        body: v.string(),
+      }),
+    ),
   )
   // body is typed as { title: string; body: string }
   return serverConvexMutation(event, api.posts.create, body)
@@ -212,10 +216,7 @@ export default defineEventHandler(async (event) => {
 import { createPostArgs } from '~/convex/schemas/post'
 
 export default defineEventHandler(async (event) => {
-  const body = await readValidatedBody(
-    event,
-    validateConvexArgs(v.object(createPostArgs))
-  )
+  const body = await readValidatedBody(event, validateConvexArgs(v.object(createPostArgs)))
   return serverConvexMutation(event, api.posts.create, body)
 })
 ```
@@ -396,11 +397,11 @@ We document all three patterns without opinionating.
 
 ### New auto-imports
 
-| Import | Context | Source |
-|---|---|---|
-| `useConvexSchema` | Client + SSR | `composables/useConvexSchema` |
-| `toStandardSchema` | Client + SSR | `convex-helpers/standardSchema` |
-| `validateConvexArgs` | Server only | `server/utils/validation` |
+| Import               | Context      | Source                          |
+| -------------------- | ------------ | ------------------------------- |
+| `useConvexSchema`    | Client + SSR | `composables/useConvexSchema`   |
+| `toStandardSchema`   | Client + SSR | `convex-helpers/standardSchema` |
+| `validateConvexArgs` | Server only  | `server/utils/validation`       |
 
 ### Module changes (`src/module.ts`)
 
@@ -434,11 +435,11 @@ export { toStandardSchema } from 'convex-helpers/standardSchema'
 
 ### No new dependencies
 
-| Package | Already installed | Type |
-|---|---|---|
-| `convex-helpers` | Yes (transitive via convex) | Runtime |
+| Package                 | Already installed                | Type       |
+| ----------------------- | -------------------------------- | ---------- |
+| `convex-helpers`        | Yes (transitive via convex)      | Runtime    |
 | `@standard-schema/spec` | Yes (peer dep of convex-helpers) | Types only |
-| `convex` | Yes (direct dependency) | Runtime |
+| `convex`                | Yes (direct dependency)          | Runtime    |
 
 ---
 
@@ -446,18 +447,18 @@ export { toStandardSchema } from 'convex-helpers/standardSchema'
 
 ### New files
 
-| File | Purpose | ~Lines |
-|---|---|---|
-| `src/runtime/composables/useConvexSchema.ts` | Client composable | ~15 |
-| `src/runtime/server/utils/validation.ts` | Server validation bridge | ~25 |
+| File                                         | Purpose                  | ~Lines |
+| -------------------------------------------- | ------------------------ | ------ |
+| `src/runtime/composables/useConvexSchema.ts` | Client composable        | ~15    |
+| `src/runtime/server/utils/validation.ts`     | Server validation bridge | ~25    |
 
 ### Modified files
 
-| File | Change |
-|---|---|
-| `src/module.ts` | Add auto-imports for `useConvexSchema`, `toStandardSchema`, `validateConvexArgs` |
-| `src/runtime/composables/index.ts` | Export `useConvexSchema` and re-export `toStandardSchema` |
-| `src/runtime/server/index.ts` | Export `validateConvexArgs` and re-export `toStandardSchema` |
+| File                               | Change                                                                           |
+| ---------------------------------- | -------------------------------------------------------------------------------- |
+| `src/module.ts`                    | Add auto-imports for `useConvexSchema`, `toStandardSchema`, `validateConvexArgs` |
+| `src/runtime/composables/index.ts` | Export `useConvexSchema` and re-export `toStandardSchema`                        |
+| `src/runtime/server/index.ts`      | Export `validateConvexArgs` and re-export `toStandardSchema`                     |
 
 ### Documentation
 
@@ -495,13 +496,13 @@ If validators ever need to be computed reactively (e.g., conditional fields base
 
 ## Decision Record
 
-| Decision | Rationale |
-|---|---|
-| Standard Schema over Zod/Valibot | Zero deps, universal bridge, already installed |
-| Composable wrapper over raw re-export | Auto-import DX, future extensibility |
-| H3 adapter function over monkey-patching | Clean, explicit, no surprises |
-| Shared `convex/schemas/` convention | Follows Convex conventions, colocates with functions |
-| No refinement support | Out of scope — Convex validators define protocol shape, not UI constraints |
+| Decision                                 | Rationale                                                                  |
+| ---------------------------------------- | -------------------------------------------------------------------------- |
+| Standard Schema over Zod/Valibot         | Zero deps, universal bridge, already installed                             |
+| Composable wrapper over raw re-export    | Auto-import DX, future extensibility                                       |
+| H3 adapter function over monkey-patching | Clean, explicit, no surprises                                              |
+| Shared `convex/schemas/` convention      | Follows Convex conventions, colocates with functions                       |
+| No refinement support                    | Out of scope — Convex validators define protocol shape, not UI constraints |
 
 ---
 

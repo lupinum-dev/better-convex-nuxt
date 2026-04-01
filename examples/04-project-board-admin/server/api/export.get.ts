@@ -6,7 +6,6 @@
 import { createError, defineEventHandler, getQuery, setResponseHeader } from 'h3'
 
 import { serverConvexQuery } from '#convex/server'
-
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
 
@@ -27,8 +26,9 @@ export default defineEventHandler(async (event) => {
 
   const csv = [
     'title,status,priority,assignee,createdAt',
-    ...tasks.map(task =>
-      `"${task.title}","${task.status}","${task.priority}","${task.assigneeId ?? ''}","${new Date(task.createdAt).toISOString()}"`,
+    ...tasks.map(
+      (task) =>
+        `"${task.title}","${task.status}","${task.priority}","${task.assigneeId ?? ''}","${new Date(task.createdAt).toISOString()}"`,
     ),
   ].join('\n')
 

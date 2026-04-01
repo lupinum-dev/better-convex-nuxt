@@ -647,7 +647,7 @@ describe('experiment 4: hidden ctx with type inference', () => {
 
     // Query
     const notes = await t.query(wrapped.listNotes, { _orgId: 'org_crud' })
-    expect(notes.some(n => n._id === id)).toBe(true)
+    expect(notes.some((n) => n._id === id)).toBe(true)
 
     // Patch
     await t.mutation(wrapped.updateNote, {
@@ -824,7 +824,9 @@ describe('experiment 5: db.get() document completeness', () => {
     const currentOrgId = orgId
 
     const checkOrgAccess = async (
-      ctx: { db: { get: (id: Id<'notes'> | Id<'posts'>) => Promise<Record<string, unknown> | null> } },
+      ctx: {
+        db: { get: (id: Id<'notes'> | Id<'posts'>) => Promise<Record<string, unknown> | null> }
+      },
       id: Id<'notes'> | Id<'posts'>,
     ) => {
       const doc = await ctx.db.get(id)

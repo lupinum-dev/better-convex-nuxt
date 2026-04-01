@@ -125,7 +125,9 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
   return {
     auth(event: AuthEvent): void {
       const msg = event.details
-        ? `${event.phase} [${event.outcome}] ${Object.entries(event.details).map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`).join(' ')}`
+        ? `${event.phase} [${event.outcome}] ${Object.entries(event.details)
+            .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
+            .join(' ')}`
         : `${event.phase} [${event.outcome}]`
 
       if (event.error) {
@@ -174,7 +176,8 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       if (event.event === 'optimistic') {
         msg += ' optimistic'
       } else if (event.event === 'success') {
-        msg += event.duration !== undefined ? ` success ${formatDuration(event.duration)}` : ' success'
+        msg +=
+          event.duration !== undefined ? ` success ${formatDuration(event.duration)}` : ' success'
       } else {
         msg += ' error'
       }
@@ -189,7 +192,8 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
     action(event: ActionEvent): void {
       let msg = event.name
       if (event.event === 'success') {
-        msg += event.duration !== undefined ? ` success ${formatDuration(event.duration)}` : ' success'
+        msg +=
+          event.duration !== undefined ? ` success ${formatDuration(event.duration)}` : ' success'
       } else {
         msg += ' error'
       }
@@ -205,9 +209,10 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       if (event.event === 'lost') {
         connection.warn('Connection lost')
       } else {
-        const msg = event.offlineDuration !== undefined
-          ? `Connection restored (offline ${formatDuration(event.offlineDuration)})`
-          : 'Connection restored'
+        const msg =
+          event.offlineDuration !== undefined
+            ? `Connection restored (offline ${formatDuration(event.offlineDuration)})`
+            : 'Connection restored'
         connection.info(msg)
       }
     },
@@ -215,10 +220,18 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
     upload(event: UploadEvent): void {
       let msg = event.name
       if (event.event === 'success') {
-        const parts = [event.filename, event.size !== undefined ? formatBytes(event.size) : null, event.duration !== undefined ? formatDuration(event.duration) : null].filter(Boolean)
+        const parts = [
+          event.filename,
+          event.size !== undefined ? formatBytes(event.size) : null,
+          event.duration !== undefined ? formatDuration(event.duration) : null,
+        ].filter(Boolean)
         msg += ` success${parts.length ? ` ${parts.join(' ')}` : ''}`
       } else {
-        const errMsg = event.error ? (typeof event.error === 'string' ? event.error : event.error.message) : ''
+        const errMsg = event.error
+          ? typeof event.error === 'string'
+            ? event.error
+            : event.error.message
+          : ''
         msg += ` error${errMsg ? ` ${errMsg}` : ''}`
       }
 

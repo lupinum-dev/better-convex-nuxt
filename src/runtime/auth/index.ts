@@ -1,8 +1,4 @@
-import type {
-  GenericDataModel,
-  GenericMutationCtx,
-  GenericQueryCtx,
-} from 'convex/server'
+import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { ConvexError } from 'convex/values'
 
 export type AuthIdentity = {
@@ -43,18 +39,18 @@ function toForbiddenError(
 }
 
 export function and<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
-  return (principal: P) => checks.every(check => runCheck(principal, check))
+  return (principal: P) => checks.every((check) => runCheck(principal, check))
 }
 
 export function or<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
-  return (principal: P) => checks.some(check => runCheck(principal, check))
+  return (principal: P) => checks.some((check) => runCheck(principal, check))
 }
 
 export function deny(reason: string, source?: string): never
-export function deny(reason: string, options: { source?: string, category?: string }): never
+export function deny(reason: string, options: { source?: string; category?: string }): never
 export function deny(
   reason: string,
-  sourceOrOptions?: string | { source?: string, category?: string },
+  sourceOrOptions?: string | { source?: string; category?: string },
 ): never {
   if (typeof sourceOrOptions === 'object') {
     throw toForbiddenError(reason, sourceOrOptions.source, sourceOrOptions.category)
@@ -68,8 +64,10 @@ export function authorize<P>(
   check: AnyCheck<NonNullable<P>>,
   category?: string,
 ): asserts principal is NonNullable<P> {
-  if (principal == null) throw toForbiddenError(`Forbidden: ${label}`, undefined, category ?? 'auth')
-  if (!runCheck(principal, check)) throw toForbiddenError(`Forbidden: ${label}`, undefined, category)
+  if (principal == null)
+    throw toForbiddenError(`Forbidden: ${label}`, undefined, category ?? 'auth')
+  if (!runCheck(principal, check))
+    throw toForbiddenError(`Forbidden: ${label}`, undefined, category)
 }
 
 export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
@@ -90,10 +88,7 @@ export function requireAuth<P>(
   }
 }
 
-export function requireRecord<T>(
-  doc: T | null | undefined,
-  label?: string,
-): asserts doc is T {
+export function requireRecord<T>(doc: T | null | undefined, label?: string): asserts doc is T {
   if (doc == null) {
     throw new ConvexError({
       code: 'NOT_FOUND' as const,

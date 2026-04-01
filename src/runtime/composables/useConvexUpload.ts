@@ -7,8 +7,8 @@ import { DEFAULT_UPLOAD_MAX_CONCURRENT } from '../utils/constants'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
-import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../utils/upload-core'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
+import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../utils/upload-core'
 import { useConvex } from './useConvex'
 
 export type { UploadProgressInfo } from '../utils/upload-core'
@@ -65,10 +65,7 @@ export interface UseConvexUploadOptions {
 }
 
 export interface UseConvexUploadReturn<Mutation extends FunctionReference<'mutation'>> {
-  (
-    input: File | File[],
-    mutationArgs?: FunctionArgs<Mutation>,
-  ): Promise<string | string[]>
+  (input: File | File[], mutationArgs?: FunctionArgs<Mutation>): Promise<string | string[]>
   upload: (
     input: File | File[],
     mutationArgs?: FunctionArgs<Mutation>,
@@ -390,7 +387,12 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   const runItem = async (itemId: string): Promise<void> => {
     const controller = new AbortController()
     activeById.set(itemId, controller)
-    mutateItem(itemId, (item) => ({ ...item, status: 'pending', startedAt: Date.now(), error: null }))
+    mutateItem(itemId, (item) => ({
+      ...item,
+      status: 'pending',
+      startedAt: Date.now(),
+      error: null,
+    }))
 
     try {
       const item = items.value.find((e) => e.id === itemId)
@@ -533,7 +535,9 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
       if (result.status === 'fulfilled') {
         storageIds.push(result.value)
       } else {
-        failures.push(result.reason instanceof Error ? result.reason : new Error(String(result.reason)))
+        failures.push(
+          result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
+        )
       }
     }
 
@@ -651,9 +655,7 @@ export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
   })
   const error = computed(() => {
     if (mode.value === 'queue') {
-      const latestQueueError = [...queue.items.value]
-        .reverse()
-        .find((item) => item.error)?.error
+      const latestQueueError = [...queue.items.value].reverse().find((item) => item.error)?.error
       return latestQueueError ?? null
     }
     return single.error.value

@@ -111,10 +111,10 @@ const { data: orders, error: ordersError } = await useConvexQuery(api.orders.lis
 
 const orderError = computed(
   () =>
-    ordersError.value?.message
-    || refundOrder.error.value?.message
-    || seedDemoOrders.error.value?.message
-    || '',
+    ordersError.value?.message ||
+    refundOrder.error.value?.message ||
+    seedDemoOrders.error.value?.message ||
+    '',
 )
 
 async function handleSignUp() {

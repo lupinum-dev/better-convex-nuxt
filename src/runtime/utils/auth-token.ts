@@ -1,8 +1,8 @@
-import type { ConvexClientAuthMode } from './types'
 import {
   BETTER_AUTH_SECURE_SESSION_COOKIE_NAME,
   BETTER_AUTH_SESSION_COOKIE_NAME,
 } from './constants'
+import type { ConvexClientAuthMode } from './types'
 
 export interface SharedAuthTokenState {
   value: string | null
@@ -39,16 +39,16 @@ export function getBetterAuthSessionToken(cookieHeader: string): string | null {
 
 function isBetterAuthSessionCookieName(cookieName: string): boolean {
   return (
-    cookieName === BETTER_AUTH_SESSION_COOKIE_NAME
-    || cookieName === BETTER_AUTH_SECURE_SESSION_COOKIE_NAME
+    cookieName === BETTER_AUTH_SESSION_COOKIE_NAME ||
+    cookieName === BETTER_AUTH_SECURE_SESSION_COOKIE_NAME
   )
 }
 
 function isCookieExplicitlyCleared(setCookieValue: string): boolean {
   const lower = setCookieValue.toLowerCase()
   return (
-    /(?:^|;\s*)max-age=0(?:;|$)/.test(lower)
-    || /(?:^|;\s*)expires=thu,\s*01 jan 1970 00:00:00 gmt(?:;|$)/.test(lower)
+    /(?:^|;\s*)max-age=0(?:;|$)/.test(lower) ||
+    /(?:^|;\s*)expires=thu,\s*01 jan 1970 00:00:00 gmt(?:;|$)/.test(lower)
   )
 }
 

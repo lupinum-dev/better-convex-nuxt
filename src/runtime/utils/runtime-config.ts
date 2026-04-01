@@ -103,14 +103,15 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
           const n = Math.trunc(candidate)
           return n > 0 ? n : 1_048_576
         })(),
-        },
       },
+    },
     permissions: {
-      query: typeof raw?.permissions === 'object'
-        && raw.permissions !== null
-        && typeof (raw.permissions as Record<string, unknown>).query === 'string'
-        ? (raw.permissions as Record<string, unknown>).query as string
-        : null,
+      query:
+        typeof raw?.permissions === 'object' &&
+        raw.permissions !== null &&
+        typeof (raw.permissions as Record<string, unknown>).query === 'string'
+          ? ((raw.permissions as Record<string, unknown>).query as string)
+          : null,
     },
     query: {
       server: queryRaw?.server !== false,

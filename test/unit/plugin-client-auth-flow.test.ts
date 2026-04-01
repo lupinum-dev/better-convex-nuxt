@@ -1,12 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  TOKEN_CACHE_MS,
-  TOKEN_EXPIRY_SAFETY_BUFFER_MS,
-} from '../../src/runtime/utils/constants'
-import {
-  mintJwt,
-  mintJwtExpiringIn,
-} from '../harness/jwt-factory'
+
+import { TOKEN_CACHE_MS, TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../../src/runtime/utils/constants'
+import { mintJwt, mintJwtExpiringIn } from '../harness/jwt-factory'
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
@@ -252,17 +247,21 @@ describe('plugin.client auth flow', () => {
     expect(fetchToken).toBeTypeOf('function')
 
     await expect(fetchToken!({ forceRefreshToken: false })).resolves.toBeNull()
-    await expect(fetchToken!({ forceRefreshToken: true, trigger: 'convex-set-auth' } as never)).resolves.toBeNull()
+    await expect(
+      fetchToken!({ forceRefreshToken: true, trigger: 'convex-set-auth' } as never),
+    ).resolves.toBeNull()
 
     expect(tokenMock).toHaveBeenCalledTimes(1)
-    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
-      phase: 'client-fetchToken:skip',
-      outcome: 'skip',
-      details: expect.objectContaining({
-        reason: 'spa-anonymous-client-init-already-settled',
-        trigger: 'convex-set-auth',
+    expect(authLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'client-fetchToken:skip',
+        outcome: 'skip',
+        details: expect.objectContaining({
+          reason: 'spa-anonymous-client-init-already-settled',
+          trigger: 'convex-set-auth',
+        }),
       }),
-    }))
+    )
   })
 
   it('hydrates a missing user directly from a valid SSR token without exchanging again', async () => {
@@ -305,13 +304,15 @@ describe('plugin.client auth flow', () => {
     await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBeNull()
 
     expect(tokenMock).not.toHaveBeenCalled()
-    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
-      phase: 'client-fetchToken:skip',
-      outcome: 'skip',
-      details: expect.objectContaining({
-        reason: 'ssr-rendered-no-session-bootstrap',
+    expect(authLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'client-fetchToken:skip',
+        outcome: 'skip',
+        details: expect.objectContaining({
+          reason: 'ssr-rendered-no-session-bootstrap',
+        }),
       }),
-    }))
+    )
   })
 
   it('still performs a forced exchange after an explicit auth refresh from an anonymous SSR boot', async () => {
@@ -330,26 +331,33 @@ describe('plugin.client auth flow', () => {
     expect(tokenMock).toHaveBeenCalledTimes(1)
     expect(stateStore.get('convex:token')?.value).toBe(refreshedToken)
     expect(stateStore.get('convex:authError')?.value).toBeNull()
-    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
-      phase: 'client-fetchToken:start',
-      outcome: 'success',
-      details: expect.objectContaining({
-        trigger: 'manual-refresh',
-        forceRefreshToken: true,
+    expect(authLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'client-fetchToken:start',
+        outcome: 'success',
+        details: expect.objectContaining({
+          trigger: 'manual-refresh',
+          forceRefreshToken: true,
+        }),
       }),
-    }))
-    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
-      phase: 'client-setAuth',
-      outcome: 'success',
-      details: expect.objectContaining({
-        trigger: 'manual-refresh',
-        state: 'authenticated',
+    )
+    expect(authLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'client-setAuth',
+        outcome: 'success',
+        details: expect.objectContaining({
+          trigger: 'manual-refresh',
+          state: 'authenticated',
+        }),
       }),
-    }))
+    )
   })
 
   it('completes an explicit auth refresh even when Convex never emits onChange after fetching a token', async () => {
-    const refreshedToken = mintJwt({ sub: 'u-refresh-fallback', email: 'refresh-fallback@test.com' })
+    const refreshedToken = mintJwt({
+      sub: 'u-refresh-fallback',
+      email: 'refresh-fallback@test.com',
+    })
     tokenMock.mockResolvedValue({ data: { token: refreshedToken }, error: null })
     clientState.skipOnChangeAfterFetch = true
     vi.stubGlobal('fetch', vi.fn())
@@ -365,13 +373,15 @@ describe('plugin.client auth flow', () => {
     expect(tokenMock).toHaveBeenCalledTimes(1)
     expect(stateStore.get('convex:token')?.value).toBe(refreshedToken)
     expect(stateStore.get('convex:authError')?.value).toBeNull()
-    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
-      phase: 'client-fetchToken:start',
-      outcome: 'success',
-      details: expect.objectContaining({
-        trigger: 'manual-refresh',
+    expect(authLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'client-fetchToken:start',
+        outcome: 'success',
+        details: expect.objectContaining({
+          trigger: 'manual-refresh',
+        }),
       }),
-    }))
+    )
   })
 
   it('fails closed and logs when a hydrated SSR token cannot be decoded', async () => {
@@ -396,13 +406,15 @@ describe('plugin.client auth flow', () => {
     expect(stateStore.get('convex:token')?.value).toBeNull()
     expect(stateStore.get('convex:user')?.value).toBeNull()
     expect(String(stateStore.get('convex:authError')?.value ?? '')).toMatch(/invalid auth token/i)
-    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
-      phase: 'client-fetchToken:cache',
-      outcome: 'error',
-      details: expect.objectContaining({
-        source: 'hydrated-token',
+    expect(authLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'client-fetchToken:cache',
+        outcome: 'error',
+        details: expect.objectContaining({
+          source: 'hydrated-token',
+        }),
       }),
-    }))
+    )
   })
 
   it('reuses the recent token cache without another exchange and can decode the user again', async () => {
@@ -458,13 +470,15 @@ describe('plugin.client auth flow', () => {
     await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBeNull()
     expect(tokenMock).not.toHaveBeenCalled()
     expect(stateStore.get('convex:token')?.value).toBeNull()
-    expect(authLogMock).toHaveBeenCalledWith(expect.objectContaining({
-      phase: 'client-fetchToken:cache',
-      outcome: 'error',
-      details: expect.objectContaining({
-        source: 'recent-token-cache',
+    expect(authLogMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'client-fetchToken:cache',
+        outcome: 'error',
+        details: expect.objectContaining({
+          source: 'recent-token-cache',
+        }),
       }),
-    }))
+    )
   })
 
   it('forces a fresh exchange after the recent token cache window expires', async () => {
@@ -526,8 +540,8 @@ describe('plugin.client auth flow', () => {
   it('keeps a replacement forced in-flight request alive when an older non-forced request settles', async () => {
     const replacementToken = mintJwt({ sub: 'u-replacement', email: 'replacement@test.com' })
     const fallbackToken = mintJwt({ sub: 'u-fallback', email: 'fallback@test.com' })
-    const firstResponse = createDeferred<{ data: null, error: null }>()
-    const secondResponse = createDeferred<{ data: { token: string }, error: null }>()
+    const firstResponse = createDeferred<{ data: null; error: null }>()
+    const secondResponse = createDeferred<{ data: { token: string }; error: null }>()
 
     tokenMock
       .mockImplementationOnce(() => firstResponse.promise)
@@ -594,7 +608,9 @@ describe('plugin.client auth flow', () => {
     expect(stateStore.get('convex:token')?.value).toBeNull()
     expect(stateStore.get('convex:user')?.value).toBeNull()
     expect(stateStore.get('convex:authError')?.value).toBeNull()
-    await expect(clientState.fetchToken?.({ forceRefreshToken: false }) ?? Promise.resolve(null)).resolves.toBeNull()
+    await expect(
+      clientState.fetchToken?.({ forceRefreshToken: false }) ?? Promise.resolve(null),
+    ).resolves.toBeNull()
   })
 
   it('initializes the shared auth engine even when convex.url is missing', async () => {

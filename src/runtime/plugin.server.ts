@@ -10,13 +10,15 @@
  * This ensures authenticated state is available on first render with zero flash.
  */
 
-import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 import type { Ref } from 'vue'
 
+import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
+
 import { createSharedAuthEngine } from './client/auth-engine'
-import type { AuthWaterfall } from './utils/auth-debug'
-import { resolveRequestAuth } from './server/utils/auth-resolver'
 import { projectResolvedAuthForHydration } from './server/utils/auth-hydration'
+import { resolveRequestAuth } from './server/utils/auth-resolver'
+import type { AuthWaterfall } from './utils/auth-debug'
+import { buildAuthTokenDecodeFailureMessage } from './utils/auth-errors'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_AUTH_WATERFALL,
@@ -24,7 +26,6 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from './utils/constants'
-import { buildAuthTokenDecodeFailureMessage } from './utils/auth-errors'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 import type { ConvexUser } from './utils/types'

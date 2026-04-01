@@ -121,7 +121,9 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (nuxtApp: unknown) => Promise<void>
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+      nuxtApp: unknown,
+    ) => Promise<void>
     const run = plugin(createNuxtAppMock())
 
     if (import.meta.dev) {
@@ -143,7 +145,9 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (nuxtApp: unknown) => Promise<void>
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+      nuxtApp: unknown,
+    ) => Promise<void>
     await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
 
     expect(fetchWithTimeoutMock).toHaveBeenCalledTimes(1)
@@ -164,7 +168,9 @@ describe('plugin.server token exchange failure policy', () => {
     })
 
     const { getSharedAuthEngine } = await import('../../src/runtime/client/auth-engine')
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (nuxtApp: unknown) => Promise<void>
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+      nuxtApp: unknown,
+    ) => Promise<void>
     const nuxtApp = createNuxtAppMock()
     await expect(plugin(nuxtApp)).resolves.toBeUndefined()
 
@@ -183,7 +189,9 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (nuxtApp: unknown) => Promise<void>
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+      nuxtApp: unknown,
+    ) => Promise<void>
     await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
 
     expect(stateStore.get('convex:token')?.value).toBeNull()

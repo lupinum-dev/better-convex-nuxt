@@ -3,8 +3,8 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { isOriginAllowed } from '../../../src/runtime/server/api/auth/security'
 import { getCanonicalRedirectTarget } from '../../../src/runtime/server/api/auth/redirect-utils'
+import { isOriginAllowed } from '../../../src/runtime/server/api/auth/security'
 
 describe('OWASP A10: SSRF', () => {
   it('only follows canonical redirects when origin, path, and query all match', () => {
@@ -53,19 +53,15 @@ describe('OWASP A10: SSRF', () => {
 
   it('keeps trusted origins scoped to CORS checks rather than upstream target selection', () => {
     expect(
-      isOriginAllowed(
-        'https://preview-123.vercel.app',
-        'https://app.example.com',
-        ['https://preview-*.vercel.app'],
-      ),
+      isOriginAllowed('https://preview-123.vercel.app', 'https://app.example.com', [
+        'https://preview-*.vercel.app',
+      ]),
     ).toBe(true)
 
     expect(
-      isOriginAllowed(
-        'https://preview-123.vercel.app.evil.com',
-        'https://app.example.com',
-        ['https://preview-*.vercel.app'],
-      ),
+      isOriginAllowed('https://preview-123.vercel.app.evil.com', 'https://app.example.com', [
+        'https://preview-*.vercel.app',
+      ]),
     ).toBe(false)
   })
 })

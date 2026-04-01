@@ -32,8 +32,7 @@ export default defineEventHandler(async (event) => {
         // Fire-and-forget: update lastUsedAt
         serverConvexMutation(event, api.mcpKeys.touch, { key: token }).catch(() => {})
       }
-    }
-    catch (e) {
+    } catch (e) {
       console.error('[mcp-auth] Key validation failed:', e)
     }
     return

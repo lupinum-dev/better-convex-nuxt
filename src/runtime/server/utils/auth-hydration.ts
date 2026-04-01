@@ -23,23 +23,23 @@ import type { ResolvedRequestAuth } from './auth-resolver'
  */
 export type HydratedRequestAuth =
   | {
-    decodeFailed: true
-    token: null
-    user: null
-    error: string
-  }
+      decodeFailed: true
+      token: null
+      user: null
+      error: string
+    }
   | {
-    decodeFailed: false
-    token: string
-    user: ConvexUser
-    error: null
-  }
+      decodeFailed: false
+      token: string
+      user: ConvexUser
+      error: null
+    }
   | {
-    decodeFailed: false
-    token: null
-    user: null
-    error: string | null
-  }
+      decodeFailed: false
+      token: null
+      user: null
+      error: string | null
+    }
 
 /**
  * Project server auth into a client-safe snapshot.

@@ -1,10 +1,9 @@
+import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 /**
  * Why this file exists:
  * Collaboration apps usually have two auth paths at once: signed-in workspace access and token access.
  */
 import { v } from 'convex/values'
-
-import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -27,7 +26,7 @@ export const list = query({
 
     return ctx.db
       .query('pages')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
   },

@@ -1,7 +1,7 @@
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import { UNAUTHORIZED_REDIRECT_DEBOUNCE_MS } from './constants'
 import { isConvexUnauthorizedError } from './auth-unauthorized-core'
+import { UNAUTHORIZED_REDIRECT_DEBOUNCE_MS } from './constants'
 import { normalizeConvexRuntimeConfig } from './runtime-config'
 
 export type UnauthorizedErrorSource = 'mutation' | 'action' | 'query'

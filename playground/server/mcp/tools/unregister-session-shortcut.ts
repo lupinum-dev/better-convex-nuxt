@@ -1,7 +1,7 @@
 import { createError } from 'h3'
+import { z } from 'zod'
 
 import { defineMcpTool, useMcpServer, useMcpSession } from '#convex/mcp'
-import { z } from 'zod'
 
 interface PlaygroundSessionData {
   preferredSearch?: string
@@ -35,10 +35,10 @@ export default defineMcpTool({
       throw createError({ statusCode: 404, message: `Session tool "${shortcutName}" not found.` })
     }
 
-    const registeredShortcuts = await session.get('registeredShortcuts') ?? []
+    const registeredShortcuts = (await session.get('registeredShortcuts')) ?? []
     await session.set(
       'registeredShortcuts',
-      registeredShortcuts.filter(entry => entry !== shortcutName),
+      registeredShortcuts.filter((entry) => entry !== shortcutName),
     )
 
     return {

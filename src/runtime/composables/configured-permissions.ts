@@ -60,10 +60,7 @@ export interface UseAuthGuardOptions<
 function usePermissionContextState<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
->(
-  query: Query,
-  configuredQueryName: string,
-) {
+>(query: Query, configuredQueryName: string) {
   const { data, pending, error } = createConvexQueryState(
     query,
     {},
@@ -96,10 +93,7 @@ export function createConfiguredPermissionsComposables<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
   TPermissions extends string = PermissionKey<TContext>,
->(
-  query: Query,
-  configuredQueryName: string,
-) {
+>(query: Query, configuredQueryName: string) {
   function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
     const { ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
 
@@ -120,14 +114,12 @@ export function createConfiguredPermissionsComposables<
   }
 
   function useAuthGuard(options: UseAuthGuardOptions<TContext, TPermissions>): void {
-    const {
-      can: requiredKey,
-      check,
-      redirectTo = '/',
-      loginPath = '/auth/signin',
-    } = options
+    const { can: requiredKey, check, redirectTo = '/', loginPath = '/auth/signin' } = options
     const router = useRouter()
-    const { data, ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
+    const { data, ctx, pending } = usePermissionContextState<Query, TContext>(
+      query,
+      configuredQueryName,
+    )
     const ready = computed<boolean>(() => !!ctx.value)
     const passesGuard = computed<boolean>(() => {
       if (!ctx.value) return false

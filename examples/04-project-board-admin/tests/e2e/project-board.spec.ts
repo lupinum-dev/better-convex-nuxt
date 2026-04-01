@@ -39,8 +39,8 @@ test('owner flow covers project, board, task detail, upload, and export', async 
   })
   await page.getByTestId('comment-submit').click()
 
-  const exportPromise = page.waitForResponse(response =>
-    response.url().includes('/api/export') && response.status() === 200,
+  const exportPromise = page.waitForResponse(
+    (response) => response.url().includes('/api/export') && response.status() === 200,
   )
   await page.getByRole('link', { name: '← Back to board' }).click()
   await page.getByRole('link', { name: 'Export CSV' }).click()

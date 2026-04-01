@@ -44,9 +44,10 @@ export function useAuthRedirect(): UseAuthRedirectReturn {
     const authConfig = normalizeConvexAuthConfig(
       (runtimeConfig.public.convex as Record<string, unknown> | undefined)?.auth,
     )
-    const loginPath = typeof authConfig.routeProtection.redirectTo === 'string'
-      ? authConfig.routeProtection.redirectTo
-      : undefined
+    const loginPath =
+      typeof authConfig.routeProtection.redirectTo === 'string'
+        ? authConfig.routeProtection.redirectTo
+        : undefined
 
     const target = resolveRedirectTarget(rawStr, fallbackPath, loginPath)
     await navigateTo(target)

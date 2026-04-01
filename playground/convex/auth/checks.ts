@@ -35,9 +35,12 @@ export const ROLE_INFO: Record<
 }
 
 export const isAuthenticated = (actor: Actor) => actor !== null
-export const hasRole = (...roles: Role[]) => (actor: Actor) => !!actor && roles.includes(actor.role)
-export const isOwnerOf = (resource: { ownerId: string }) =>
-  (actor: Actor) => !!actor && actor.kind === 'user' && resource.ownerId === actor.userId
+export const hasRole =
+  (...roles: Role[]) =>
+  (actor: Actor) =>
+    !!actor && roles.includes(actor.role)
+export const isOwnerOf = (resource: { ownerId: string }) => (actor: Actor) =>
+  !!actor && actor.kind === 'user' && resource.ownerId === actor.userId
 
 export const canManageOrgSettings = hasRole('owner')
 export const canViewBilling = hasRole('owner')

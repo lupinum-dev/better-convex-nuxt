@@ -9,7 +9,8 @@ const UNIT_MS: Record<string, number> = {
  */
 export function parseWindowString(window: string): number {
   const match = window.match(/^(\d+)\s*([smh])$/)
-  if (!match) throw new Error(`Invalid rate limit window: "${window}". Use format like "1m", "30s", "2h".`)
+  if (!match)
+    throw new Error(`Invalid rate limit window: "${window}". Use format like "1m", "30s", "2h".`)
   return Number(match[1]) * UNIT_MS[match[2]!]!
 }
 

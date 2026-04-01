@@ -1,5 +1,4 @@
 import { defineTool } from '#convex/mcp'
-
 import { api } from '~/convex/_generated/api'
 import { createRunbook } from '~/shared/schemas/runbook'
 
@@ -9,7 +8,7 @@ export default defineTool({
   auth: 'required',
   scoped: true,
   group: 'workspace',
-  check: actor => ['owner', 'admin', 'member'].includes(actor.role),
+  check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
   maxItems: { field: 'tags', limit: 6 },
   middleware: async (args, ctx, next) => {
     if (!args.content.trim().startsWith('# ')) {

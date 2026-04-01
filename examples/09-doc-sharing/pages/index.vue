@@ -6,8 +6,8 @@ This page puts workspace access and token access side by side so the two auth pa
   <main class="page">
     <h1>Example 09: Doc Sharing</h1>
     <p>
-      The page demonstrates both access paths: normal workspace access and token-based link
-      access. The backend keeps them explicit so they do not blur together.
+      The page demonstrates both access paths: normal workspace access and token-based link access.
+      The backend keeps them explicit so they do not blur together.
     </p>
 
     <ConvexAuthLoading>
@@ -114,7 +114,7 @@ const shareView = reactive({
   token: '',
 })
 const createdToken = ref('')
-const selectedPageArgs = ref<{ id: Id<'pages'>, shareToken?: string } | undefined>(undefined)
+const selectedPageArgs = ref<{ id: Id<'pages'>; shareToken?: string } | undefined>(undefined)
 
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
@@ -122,14 +122,17 @@ const seedDemoPages = useConvexMutation(api.pages.seedDemoPages)
 const createShareToken = useConvexMutation(api.pages.createShareToken)
 const pageArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: pages, error: pagesError } = await useConvexQuery(api.pages.list, pageArgs)
-const { data: openedPage, error: openedPageError } = await useConvexQuery(api.pages.viewPage, selectedPageArgs)
+const { data: openedPage, error: openedPageError } = await useConvexQuery(
+  api.pages.viewPage,
+  selectedPageArgs,
+)
 
 const pageError = computed(
   () =>
-    pagesError.value?.message
-    || openedPageError.value?.message
-    || createShareToken.error.value?.message
-    || '',
+    pagesError.value?.message ||
+    openedPageError.value?.message ||
+    createShareToken.error.value?.message ||
+    '',
 )
 
 async function handleSignUp() {

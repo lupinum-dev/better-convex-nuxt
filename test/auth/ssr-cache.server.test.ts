@@ -70,7 +70,8 @@ describe('server SSR auth cache', () => {
     const { setCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
     const { resolveRequestAuth } = await import('../../src/runtime/server/utils/auth-resolver')
 
-    const token = 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyLWNhY2hlZCIsIm5hbWUiOiJBbGljZSJ9.test'
+    const token =
+      'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyLWNhY2hlZCIsIm5hbWUiOiJBbGljZSJ9.test'
     await setCachedAuthToken('session-cached', token, 60)
 
     const fetchMock = vi.fn(async () => {
@@ -129,7 +130,8 @@ describe('server SSR auth cache', () => {
   })
 
   it('resolver cache can be disabled without changing raw cache utility behavior', async () => {
-    const { setCachedAuthToken, getCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
+    const { setCachedAuthToken, getCachedAuthToken } =
+      await import('../../src/runtime/server/utils/auth-cache')
     await setCachedAuthToken('session-disabled', 'jwt-disabled', 60)
 
     expect(await getCachedAuthToken('session-disabled')).toBe('jwt-disabled')

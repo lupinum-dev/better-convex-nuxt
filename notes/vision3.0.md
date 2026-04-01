@@ -40,11 +40,11 @@ The config stays minimal:
 
 ```ts
 export default defineNuxtConfig({
-  modules: ["better-convex-nuxt"],
+  modules: ['better-convex-nuxt'],
   convex: {
     auth: true, // or false, or { route: '/api/auth', cache: { ... } }
   },
-});
+})
 ```
 
 This layer should have maybe 12-15 exports total. Someone should be able to read the entire API surface in under 5 minutes and think "oh, that's just Convex but it works in Nuxt."
@@ -69,13 +69,13 @@ This is just the small helpers that talk to Convex's auth identity:
 
 ```ts
 // The entire export surface:
-export { getAuth }; // read ctx.auth.getUserIdentity()
-export { requireAuth }; // throw if no identity
-export { deny }; // throw a Convex-friendly forbidden error
-export { authorize }; // check + narrow type
-export { can }; // boolean check without throwing
-export { and, or }; // combinators
-export { verifyKey }; // constant-time key comparison
+export { getAuth } // read ctx.auth.getUserIdentity()
+export { requireAuth } // throw if no identity
+export { deny } // throw a Convex-friendly forbidden error
+export { authorize } // check + narrow type
+export { can } // boolean check without throwing
+export { and, or } // combinators
+export { verifyKey } // constant-time key comparison
 ```
 
 That's it. Seven exports. No actor resolution, no tenant scoping, no trusted callers. Those are _your app's_ concerns.
@@ -87,10 +87,10 @@ The reason this works is that `getAuth()` returns the raw Convex identity and `a
 Optional. Only relevant if you're building multi-tenant apps.
 
 ```ts
-export { ensureTenant }; // compare actor.tenantId to resource.workspaceId
-export { loadResource }; // requireRecord + ensureTenant in one call
-export { requireRecord }; // throw if doc is null
-export { withCan }; // attach _can to a document
+export { ensureTenant } // compare actor.tenantId to resource.workspaceId
+export { loadResource } // requireRecord + ensureTenant in one call
+export { requireRecord } // throw if doc is null
+export { withCan } // attach _can to a document
 ```
 
 Four exports. Each one is a 3-5 line function. People can look at the source and think "I could have written that" — which is exactly what you want from primitives.
@@ -100,7 +100,7 @@ Four exports. Each one is a 3-5 line function. People can look at the source and
 This stays roughly as-is, but with a better name. `defineArgs` is actually great. But the import path should make it obvious what it's for:
 
 ```ts
-import { defineArgs } from "better-convex-nuxt/schema";
+import { defineArgs } from 'better-convex-nuxt/schema'
 ```
 
 And the meta system should have a clear expansion path — right now it generates MCP descriptions, but it should also be able to generate form labels, Zod schemas (which it already does), and potentially Convex validators (which it also already does). Make that story more explicit in the docs.
@@ -110,8 +110,8 @@ And the meta system should have a clear expansion path — right now it generate
 This is the MCP/webhook/server-route auth transport. It should be completely separate from the core auth:
 
 ```ts
-export { withTrustedCaller }; // widen Convex args with hidden caller payload
-export { getTrustedCaller }; // extract trusted caller from args
+export { withTrustedCaller } // widen Convex args with hidden caller payload
+export { getTrustedCaller } // extract trusted caller from args
 ```
 
 Two exports. The reason this needs to be separate is that most apps will never use it. And the apps that do use it (MCP, webhooks) need to understand it deeply. Mixing it into the core auth makes both audiences confused.
@@ -119,7 +119,7 @@ Two exports. The reason this needs to be separate is that most apps will never u
 ### Recipe: Frontend Permissions (`better-convex-nuxt/permissions`)
 
 ```ts
-export { createAuth }; // factory for usePermissions + useAuthGuard
+export { createAuth } // factory for usePermissions + useAuthGuard
 ```
 
 One export. It takes a query reference and gives back composables. The permission context query shape is _your app's_ decision. The module just provides the reactive wrapper.
@@ -195,34 +195,34 @@ Right now every example has a `getActor()` that's 20-40 lines and does double du
 
 ```ts
 // In your convex/auth/actor.ts — YOUR code
-import { getAuth } from "better-convex-nuxt/auth";
+import { getAuth } from 'better-convex-nuxt/auth'
 
 export async function getActor(ctx) {
-  const identity = await getAuth(ctx);
-  if (!identity) return null;
+  const identity = await getAuth(ctx)
+  if (!identity) return null
 
   // Everything below this line is YOUR business logic.
   // The module doesn't care what shape your actor is.
   const user = await ctx.db
-    .query("users")
-    .withIndex("by_auth_id", (q) => q.eq("authId", identity.subject))
-    .first();
+    .query('users')
+    .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+    .first()
 
-  if (!user?.workspaceId) return null;
-  return { userId: user.authId, role: user.role, tenantId: user.workspaceId };
+  if (!user?.workspaceId) return null
+  return { userId: user.authId, role: user.role, tenantId: user.workspaceId }
 }
 ```
 
 If you also need service auth:
 
 ```ts
-import { getAuth, getTrustedCaller } from "better-convex-nuxt/auth";
+import { getAuth, getTrustedCaller } from 'better-convex-nuxt/auth'
 
 export async function getActor(ctx, args?) {
-  const trusted = getTrustedCaller(args);
-  if (trusted) return { ...trusted, kind: "service" };
+  const trusted = getTrustedCaller(args)
+  if (trusted) return { ...trusted, kind: 'service' }
 
-  const identity = await getAuth(ctx);
+  const identity = await getAuth(ctx)
   // ... same as above
 }
 ```
@@ -234,21 +234,21 @@ The module provides `getAuth` and `getTrustedCaller`. Your app decides how to co
 `withTrustedCaller(schema.args)` is the right mechanism but the name makes it sound like it's doing something magical. What it actually does is add hidden fields to the Convex validator. Call it what it is:
 
 ```ts
-import { extendArgs } from "better-convex-nuxt/service";
+import { extendArgs } from 'better-convex-nuxt/service'
 
 export const create = mutation({
   args: extendArgs(createTodo.args), // adds hidden service-auth fields
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args);
+    const actor = await getActor(ctx, args)
     // ...
   },
-});
+})
 ```
 
 Or even more honest:
 
 ```ts
-import { withServiceAuth } from "better-convex-nuxt/service";
+import { withServiceAuth } from 'better-convex-nuxt/service'
 ```
 
 The name should tell you _why_ the args are being widened, not _how_.
@@ -262,11 +262,9 @@ The CRM example's visibility system (`defineVisibility`, `applyVisibility`) is p
 Every authenticated example has this dance:
 
 ```ts
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded);
-const actorReady = computed(() => ensureUserRow.ensured.value);
-const todoArgs = computed(() =>
-  isAuthenticated.value && actorReady.value ? {} : undefined,
-);
+const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
+const actorReady = computed(() => ensureUserRow.ensured.value)
+const todoArgs = computed(() => (isAuthenticated.value && actorReady.value ? {} : undefined))
 ```
 
 This is ceremony that every app has to repeat. The module should provide a first-class solution:
@@ -275,12 +273,12 @@ This is ceremony that every app has to repeat. The module should provide a first
 // Option A: Module handles it via config
 convex: {
   auth: {
-    ensureUser: api.auth.createUserIfNeeded; // auto-called after sign-in
+    ensureUser: api.auth.createUserIfNeeded // auto-called after sign-in
   }
 }
 
 // Option B: A cleaner composable
-const { ready } = useConvexUser(api.auth.createUserIfNeeded);
+const { ready } = useConvexUser(api.auth.createUserIfNeeded)
 // 'ready' means: authenticated + user row exists + permission context loaded
 ```
 

@@ -9,15 +9,18 @@
 import type { ConvexClient } from 'convex/browser'
 import { ref, type Ref } from 'vue'
 
+import type { Logger } from '../utils/logger'
 import type {
   ConvexConnectionChangedPayload,
   ConvexConnectionPhase,
   ConnectionState,
 } from '../utils/types'
-import type { Logger } from '../utils/logger'
 
 type RuntimeHookApp = object & {
-  callHook(event: 'convex:connection:changed', payload: ConvexConnectionChangedPayload): Promise<unknown>
+  callHook(
+    event: 'convex:connection:changed',
+    payload: ConvexConnectionChangedPayload,
+  ): Promise<unknown>
 }
 
 const DEFAULT_CONNECTION_STATE: ConnectionState = {
@@ -56,16 +59,16 @@ function getConnectionStateStore(app: object): ConnectionStateStore {
   return created
 }
 
-function supportsConnectionHooks(
-  client: ConvexClient | undefined,
-): client is ConvexClient & {
+function supportsConnectionHooks(client: ConvexClient | undefined): client is ConvexClient & {
   connectionState: () => ConnectionState
   subscribeToConnectionState: (cb: (state: ConnectionState) => void) => () => void
 } {
   return Boolean(
-    client
-      && typeof (client as ConvexClient & { connectionState?: unknown }).connectionState === 'function'
-      && typeof (client as ConvexClient & { subscribeToConnectionState?: unknown }).subscribeToConnectionState === 'function',
+    client &&
+    typeof (client as ConvexClient & { connectionState?: unknown }).connectionState ===
+      'function' &&
+    typeof (client as ConvexClient & { subscribeToConnectionState?: unknown })
+      .subscribeToConnectionState === 'function',
   )
 }
 
@@ -100,9 +103,7 @@ function handleConnectionStateChange(
 
   if (wasConnected !== nowConnected) {
     if (nowConnected) {
-      const offlineDuration = store.disconnectedAt
-        ? Date.now() - store.disconnectedAt
-        : undefined
+      const offlineDuration = store.disconnectedAt ? Date.now() - store.disconnectedAt : undefined
       logger.connection?.({ event: 'restored', offlineDuration })
       store.disconnectedAt = null
     } else {

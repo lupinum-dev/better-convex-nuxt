@@ -17,7 +17,6 @@ import {
   canUpdatePost,
 } from './auth/checks'
 import { withCan } from './auth/resource'
-import { loadResource } from './auth/scope'
 
 const listPostsArgs = defineArgs({
   args: {},

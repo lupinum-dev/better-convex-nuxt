@@ -219,8 +219,7 @@ describe('posts', () => {
             title: 'Hacked again',
           }),
         ).rejects.toThrow(/^Forbidden: post\.update$/)
-      }
-      finally {
+      } finally {
         process.env.NODE_ENV = originalNodeEnv
       }
     })

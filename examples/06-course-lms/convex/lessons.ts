@@ -1,11 +1,10 @@
+import { deny, authorize } from 'better-convex-nuxt/auth'
 /**
  * Why this file exists:
  * Learning products are where role checks stop being enough. Lesson access depends on
  * enrollment, prerequisite progress, and publication state.
  */
 import { v } from 'convex/values'
-
-import { deny, authorize } from 'better-convex-nuxt/auth'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -23,7 +22,7 @@ export const listLessonsByCourse = query({
     const course = loadResource(actor, await ctx.db.get(args.courseId), 'Course')
     const lessons = await ctx.db
       .query('lessons')
-      .withIndex('by_course', q => q.eq('courseId', args.courseId))
+      .withIndex('by_course', (q) => q.eq('courseId', args.courseId))
       .order('asc')
       .collect()
 
@@ -32,7 +31,7 @@ export const listLessonsByCourse = query({
 
     await requireEnrollment(ctx.db, actor, course._id)
     return lessons
-      .filter(lesson => lesson.status === 'published')
+      .filter((lesson) => lesson.status === 'published')
       .map(({ _id, title, status }) => ({ _id, title, status }))
   },
 })
@@ -63,7 +62,7 @@ export const enrollSelf = mutation({
     const course = loadResource(actor, await ctx.db.get(args.courseId), 'Course')
     const existing = await ctx.db
       .query('enrollments')
-      .withIndex('by_user_course', q => q.eq('userId', actor.userId).eq('courseId', course._id))
+      .withIndex('by_user_course', (q) => q.eq('userId', actor.userId).eq('courseId', course._id))
       .first()
 
     if (existing) return existing._id
@@ -88,7 +87,7 @@ export const completeLesson = mutation({
     await requireLessonAccess(ctx.db, actor, lesson)
     const existing = await ctx.db
       .query('lessonProgress')
-      .withIndex('by_user_lesson', q => q.eq('userId', actor.userId).eq('lessonId', lesson._id))
+      .withIndex('by_user_lesson', (q) => q.eq('userId', actor.userId).eq('lessonId', lesson._id))
       .first()
 
     if (existing) {

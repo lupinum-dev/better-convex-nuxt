@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import { getQueryKey } from 'better-convex-nuxt/composables'
+import { api } from '~~/convex/_generated/api'
 
 definePageMeta({
   layout: 'sidebar',

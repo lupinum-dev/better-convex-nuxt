@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  requireRecord,
-  loadOwnedResource,
-} from '../../examples/02-auth-todo/convex/auth/scope'
+import { requireRecord, loadOwnedResource } from '../../examples/02-auth-todo/convex/auth/scope'
 
 describe('example 02 auth scope helpers', () => {
   it('throws a not found error for missing docs', () => {

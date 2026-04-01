@@ -67,10 +67,11 @@ async function handleSignIn() {
     }
 
     await execute(
-      () => client.signIn.email({
-        email: form.email,
-        password: form.password,
-      }),
+      () =>
+        client.signIn.email({
+          email: form.email,
+          password: form.password,
+        }),
       { redirectTo: '/' },
     )
   } catch {

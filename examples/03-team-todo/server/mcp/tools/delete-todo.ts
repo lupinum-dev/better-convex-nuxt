@@ -4,7 +4,6 @@
  * This example keeps that flow small enough to understand in one read.
  */
 import { defineTool } from '#convex/mcp'
-
 import { api } from '~/convex/_generated/api'
 import { deleteTodo } from '~/shared/schemas/todo'
 
@@ -12,7 +11,7 @@ export default defineTool({
   name: 'delete-todo',
   schema: deleteTodo,
   auth: 'required',
-  check: actor => ['owner', 'admin', 'member'].includes(actor.role),
+  check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
   scoped: true,
   destructive: true,
   preview: async (args, ctx) => {

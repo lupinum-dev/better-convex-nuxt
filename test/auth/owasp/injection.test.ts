@@ -3,8 +3,11 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { validateRedirectPath, resolveRedirectTarget } from '../../../src/runtime/utils/redirect-safety'
 import { buildAuthProxyForwardHeaders } from '../../../src/runtime/server/api/auth/headers'
+import {
+  validateRedirectPath,
+  resolveRedirectTarget,
+} from '../../../src/runtime/utils/redirect-safety'
 
 describe('OWASP A03: Injection', () => {
   it('rejects non-relative redirect targets and backslash normalization tricks', () => {
@@ -15,10 +18,12 @@ describe('OWASP A03: Injection', () => {
   })
 
   it('falls back to a safe path when the primary redirect target is unsafe', () => {
-    expect(resolveRedirectTarget('https://evil.example.com', '/dashboard', '/auth/signin'))
-      .toBe('/dashboard')
-    expect(resolveRedirectTarget('javascript:alert(1)', '/dashboard', '/auth/signin'))
-      .toBe('/dashboard')
+    expect(resolveRedirectTarget('https://evil.example.com', '/dashboard', '/auth/signin')).toBe(
+      '/dashboard',
+    )
+    expect(resolveRedirectTarget('javascript:alert(1)', '/dashboard', '/auth/signin')).toBe(
+      '/dashboard',
+    )
   })
 
   it('keeps forwarded proxy headers free of hop-by-hop headers', () => {

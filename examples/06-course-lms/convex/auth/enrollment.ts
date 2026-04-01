@@ -4,8 +4,8 @@
  */
 import { deny } from 'better-convex-nuxt/auth'
 
-import type { DatabaseReader } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
+import type { DatabaseReader } from '../_generated/server'
 import type { Actor } from './actor'
 import { hasRole } from './checks'
 
@@ -22,7 +22,7 @@ export async function requireEnrollment(
 
   const enrollment = await db
     .query('enrollments')
-    .withIndex('by_user_course', q => q.eq('userId', actor.userId).eq('courseId', courseId))
+    .withIndex('by_user_course', (q) => q.eq('userId', actor.userId).eq('courseId', courseId))
     .first()
 
   if (!enrollment || enrollment.status !== 'active') {

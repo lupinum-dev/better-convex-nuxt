@@ -1,6 +1,8 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
+
 import { readonly } from '#imports'
+
 import type { ConvexUser } from '../utils/types'
 import { useConvexAuthController } from './internal/useConvexAuthController'
 

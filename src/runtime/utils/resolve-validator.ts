@@ -8,6 +8,7 @@
 
 import type { GenericValidator } from 'convex/values'
 
+import { toConvexSchema } from './convex-schema'
 import type {
   StandardSchemaV1,
   StandardSchemaV1PathSegment,
@@ -15,7 +16,6 @@ import type {
   StandardSchemaV1SuccessResult,
 } from './standard-schema'
 import type { ConvexErrorIssue } from './types'
-import { toConvexSchema } from './convex-schema'
 
 // ============================================================================
 // Type for the validate option
@@ -29,9 +29,11 @@ export type ValidateOption = GenericValidator | StandardSchemaV1
 // ============================================================================
 
 export function isConvexValidator(value: unknown): value is GenericValidator {
-  return !!value
-    && typeof value === 'object'
-    && (value as { isConvexValidator?: unknown }).isConvexValidator === true
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    (value as { isConvexValidator?: unknown }).isConvexValidator === true
+  )
 }
 
 export function isStandardSchema(value: unknown): value is StandardSchemaV1 {
@@ -58,7 +60,7 @@ export function resolveSchema(input: ValidateOption): StandardSchemaV1 {
 /** Convert a Standard Schema path array to a dot-notation string for ConvexErrorIssue. */
 function pathToString(path: ReadonlyArray<PropertyKey | StandardSchemaV1PathSegment>): string {
   return path
-    .map(segment =>
+    .map((segment) =>
       typeof segment === 'object' && segment !== null && 'key' in segment
         ? String(segment.key)
         : String(segment),
@@ -90,7 +92,7 @@ export async function runValidation(
   if (result.issues && result.issues.length > 0) {
     return {
       valid: false,
-      issues: result.issues.map(issue => ({
+      issues: result.issues.map((issue) => ({
         path: issue.path && issue.path.length > 0 ? pathToString(issue.path) : undefined,
         message: issue.message,
       })),

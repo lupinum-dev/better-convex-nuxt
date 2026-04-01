@@ -16,13 +16,10 @@ import {
   buildBlockedOriginMessage,
   buildMissingSiteUrlMessage,
 } from '../../../utils/auth-errors'
-import {
-  clearsBetterAuthSessionCookie,
-  getBetterAuthSessionToken,
-} from '../../../utils/auth-token'
+import { clearsBetterAuthSessionCookie, getBetterAuthSessionToken } from '../../../utils/auth-token'
 import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
-import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
 import { serverConvexClearAuthCache } from '../../utils/auth-cache'
+import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
 import {
   getRequestBodySizeError,
   getResponseBodySizeError,
@@ -60,9 +57,9 @@ function isMalformedAuthSubpath(path: string): boolean {
 
   // Reject traversal separators/dot segments that only appear after a second decode pass.
   if (
-    lowerDecodedPath.includes('%2e')
-    || lowerDecodedPath.includes('%2f')
-    || lowerDecodedPath.includes('%5c')
+    lowerDecodedPath.includes('%2e') ||
+    lowerDecodedPath.includes('%2f') ||
+    lowerDecodedPath.includes('%5c')
   ) {
     return true
   }
@@ -138,7 +135,8 @@ export default defineEventHandler(async (event: H3Event) => {
     }
     setHeaders(event, {
       'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': criticalEndpointAllowMethods?.join(', ') ?? GENERIC_CORS_ALLOW_METHODS,
+      'Access-Control-Allow-Methods':
+        criticalEndpointAllowMethods?.join(', ') ?? GENERIC_CORS_ALLOW_METHODS,
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
       'Access-Control-Allow-Credentials': 'true',
       'Access-Control-Max-Age': '86400',
@@ -263,10 +261,10 @@ export default defineEventHandler(async (event: H3Event) => {
 
     const cookies = response.headers.getSetCookie?.() || []
     const shouldClearSessionCache =
-      Boolean(incomingSessionToken)
-      && response.status >= 200
-      && response.status < 400
-      && clearsBetterAuthSessionCookie(cookies)
+      Boolean(incomingSessionToken) &&
+      response.status >= 200 &&
+      response.status < 400 &&
+      clearsBetterAuthSessionCookie(cookies)
 
     if (shouldClearSessionCache && incomingSessionToken) {
       await serverConvexClearAuthCache(incomingSessionToken)

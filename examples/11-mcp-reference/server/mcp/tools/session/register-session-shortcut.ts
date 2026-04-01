@@ -1,7 +1,8 @@
-import { defineMcpTool, useMcpServer, useMcpSession } from '#convex/mcp'
 import { createError } from 'h3'
 import { useEvent } from 'nitropack/runtime'
 import { z } from 'zod'
+
+import { defineMcpTool, useMcpServer, useMcpSession } from '#convex/mcp'
 
 interface ReferenceSessionData {
   preferredFocus?: string
@@ -21,7 +22,7 @@ function normalizeShortcutName(input: string): string {
 export default defineMcpTool({
   name: 'register-session-shortcut',
   description: 'Register a session-local tool that returns a canned workflow note.',
-  enabled: event => !!event.context.mcpAuth,
+  enabled: (event) => !!event.context.mcpAuth,
   inputSchema: {
     name: z.string().describe('Requested shortcut name'),
     message: z.string().describe('Message the dynamic tool should return'),
@@ -34,14 +35,18 @@ export default defineMcpTool({
     const shortcutName = normalizeShortcutName(name)
     const mcp = useMcpServer()
     const session = useMcpSession<ReferenceSessionData>()
-    const registeredShortcuts = await session.get('registeredShortcuts') ?? []
+    const registeredShortcuts = (await session.get('registeredShortcuts')) ?? []
 
-    mcp.registerTool(shortcutName, {
-      description: `Session-local shortcut that returns "${message}"`,
-    }, async () => ({
-      content: [{ type: 'text', text: message }],
-      structuredContent: { ok: true, message },
-    }))
+    mcp.registerTool(
+      shortcutName,
+      {
+        description: `Session-local shortcut that returns "${message}"`,
+      },
+      async () => ({
+        content: [{ type: 'text', text: message }],
+        structuredContent: { ok: true, message },
+      }),
+    )
 
     if (!registeredShortcuts.includes(shortcutName)) {
       await session.set('registeredShortcuts', [...registeredShortcuts, shortcutName])

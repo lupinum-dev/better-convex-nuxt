@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { randomBytes } from 'node:crypto'
 import { execFileSync, spawn } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
@@ -81,8 +81,10 @@ export function stripManagedConvexEnvVars(values) {
 }
 
 export function shouldResetLocalBackendForMissingSecret(exampleEnv, preservedEnvLocal) {
-  return /replace.?me/i.test(exampleEnv.BETTER_AUTH_SECRET ?? '')
-    && !preservedEnvLocal.BETTER_AUTH_SECRET
+  return (
+    /replace.?me/i.test(exampleEnv.BETTER_AUTH_SECRET ?? '') &&
+    !preservedEnvLocal.BETTER_AUTH_SECRET
+  )
 }
 
 /**
@@ -175,23 +177,21 @@ export function convexLocalSqlitePath(cwd) {
   return path.join(cwd, '.convex', 'local', 'default', 'convex_local_backend.sqlite3')
 }
 
-export function readConvexLocalConfig(cwd, { existsSyncFn = existsSync, readFileSyncFn = readFileSync } = {}) {
+export function readConvexLocalConfig(
+  cwd,
+  { existsSyncFn = existsSync, readFileSyncFn = readFileSync } = {},
+) {
   const configPath = convexLocalConfigPath(cwd)
   if (!existsSyncFn(configPath)) return null
 
   try {
     return JSON.parse(readFileSyncFn(configPath, 'utf8'))
-  }
-  catch {
+  } catch {
     return null
   }
 }
 
-export function writeConvexLocalConfig(
-  cwd,
-  config,
-  { writeFileSyncFn = writeFileSync } = {},
-) {
+export function writeConvexLocalConfig(cwd, config, { writeFileSyncFn = writeFileSync } = {}) {
   writeFileSyncFn(convexLocalConfigPath(cwd), `${JSON.stringify(config)}\n`, 'utf8')
 }
 
@@ -206,10 +206,10 @@ export async function selectExamplePortPair({
   const configuredSitePort = existingConfig?.ports?.site
 
   if (
-    Number.isInteger(configuredCloudPort)
-    && Number.isInteger(configuredSitePort)
-    && await isPortFreeFn(configuredCloudPort)
-    && await isPortFreeFn(configuredSitePort)
+    Number.isInteger(configuredCloudPort) &&
+    Number.isInteger(configuredSitePort) &&
+    (await isPortFreeFn(configuredCloudPort)) &&
+    (await isPortFreeFn(configuredSitePort))
   ) {
     return configuredCloudPort
   }
@@ -248,7 +248,7 @@ export function findListeningPids(port) {
     })
     return output
       .split(/\r?\n/)
-      .map(line => Number.parseInt(line.trim(), 10))
+      .map((line) => Number.parseInt(line.trim(), 10))
       .filter(Number.isInteger)
   } catch {
     return []
@@ -264,7 +264,7 @@ export async function clearPorts(
     stdout = process.stdout,
   } = {},
 ) {
-  const uniquePorts = [...new Set(ports.filter(port => Number.isInteger(port) && port > 0))]
+  const uniquePorts = [...new Set(ports.filter((port) => Number.isInteger(port) && port > 0))]
 
   for (const port of uniquePorts) {
     const pids = [...new Set(findListeningPidsFn(port))]
@@ -276,7 +276,9 @@ export async function clearPorts(
     for (const pid of pids) {
       try {
         killFn(pid, 'SIGTERM')
-      } catch {}
+      } catch {
+        // Ignore processes that exit before the signal is delivered.
+      }
     }
 
     await sleepFn(300)
@@ -285,19 +287,16 @@ export async function clearPorts(
     for (const pid of remainingPids) {
       try {
         killFn(pid, 'SIGKILL')
-      } catch {}
+      } catch {
+        // Ignore processes that exited during the grace period.
+      }
     }
   }
 }
 
 export async function waitForPort(
   port,
-  {
-    host = DEFAULT_HOST,
-    timeoutMs = READINESS_TIMEOUT_MS,
-    intervalMs = 100,
-    connectFn,
-  } = {},
+  { host = DEFAULT_HOST, timeoutMs = READINESS_TIMEOUT_MS, intervalMs = 100, connectFn } = {},
 ) {
   const deadline = Date.now() + timeoutMs
   const connect =
@@ -331,11 +330,7 @@ export async function waitForPort(
 
 export async function waitForGeneratedDir(
   cwd,
-  {
-    timeoutMs = READINESS_TIMEOUT_MS,
-    intervalMs = 100,
-    existsSyncFn = existsSync,
-  } = {},
+  { timeoutMs = READINESS_TIMEOUT_MS, intervalMs = 100, existsSyncFn = existsSync } = {},
 ) {
   const deadline = Date.now() + timeoutMs
   const generatedDir = convexGeneratedDir(cwd)
@@ -378,7 +373,7 @@ export async function waitForConvexEnv(
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function createLinePrefix(label, colorCode) {
@@ -446,16 +441,7 @@ function onceExit(child) {
   })
 }
 
-async function runCheckedCommand({
-  label,
-  spawnFn,
-  cwd,
-  env,
-  command,
-  args,
-  stdout,
-  stderr,
-}) {
+async function runCheckedCommand({ label, spawnFn, cwd, env, command, args, stdout, stderr }) {
   const child = spawnFn(command, args, {
     cwd,
     env,
@@ -475,7 +461,13 @@ async function runCheckedCommand({
 
 async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
   const tmpPath = path.join(tmpdir(), `convex-env-${process.pid}.env`)
-  writeFileSync(tmpPath, Object.entries(vars).map(([k, v]) => `${k}=${v}`).join('\n'), 'utf8')
+  writeFileSync(
+    tmpPath,
+    Object.entries(vars)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n'),
+    'utf8',
+  )
   try {
     await runCheckedCommand({
       label: 'convex',
@@ -487,17 +479,16 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
       stdout,
       stderr,
     })
-  }
-  finally {
-    try { unlinkSync(tmpPath) } catch {}
+  } finally {
+    try {
+      unlinkSync(tmpPath)
+    } catch {
+      // Ignore temp-file cleanup races.
+    }
   }
 }
 
-async function prepareLocalModuleForDev({
-  spawnFn,
-  stdout,
-  stderr,
-}) {
+async function prepareLocalModuleForDev({ spawnFn, stdout, stderr }) {
   const sysLabel = colorize('system'.padEnd(6), '33')
   stdout.write(`${sysLabel} preparing local better-convex-nuxt module\n`)
   await runCheckedCommand({
@@ -537,11 +528,7 @@ export async function runExampleDev({
 
   const desiredNuxtPort = getDesiredNuxtPort(cwd)
   const configuredPorts = readConvexLocalConfigFn(cwd)?.ports
-  await clearPortsFn([
-    desiredNuxtPort,
-    configuredPorts?.cloud,
-    configuredPorts?.site,
-  ], { stdout })
+  await clearPortsFn([desiredNuxtPort, configuredPorts?.cloud, configuredPorts?.site], { stdout })
 
   // Reuse configured ports when possible, otherwise move the saved deployment to a free pair.
   const port = await selectExamplePortPair({
@@ -605,20 +592,24 @@ export async function runExampleDev({
     })
   }
 
-  const convex = spawnFn('pnpm', [
-    'exec',
-    'convex',
-    'dev',
-    '--local',
-    '--local-cloud-port',
-    String(port),
-    '--local-site-port',
-    String(port + 1),
-  ], {
-    cwd,
-    env: convexEnv,
-    stdio: ['inherit', 'pipe', 'pipe'],
-  })
+  const convex = spawnFn(
+    'pnpm',
+    [
+      'exec',
+      'convex',
+      'dev',
+      '--local',
+      '--local-cloud-port',
+      String(port),
+      '--local-site-port',
+      String(port + 1),
+    ],
+    {
+      cwd,
+      env: convexEnv,
+      stdio: ['inherit', 'pipe', 'pipe'],
+    },
+  )
 
   const flushConvexStdout = prefixStream(convex.stdout, 'convex', '36', stdout)
   const flushConvexStderr = prefixStream(convex.stderr, 'convex', '36', stderr)

@@ -27,8 +27,12 @@
           <section class="panel">
             <h2>Setup</h2>
             <div class="meta-list">
-              <div><span>Endpoint</span><code>{{ endpoint }}</code></div>
-              <div><span>Current user</span><code>{{ currentUser?.authId ?? 'unknown' }}</code></div>
+              <div>
+                <span>Endpoint</span><code>{{ endpoint }}</code>
+              </div>
+              <div>
+                <span>Current user</span><code>{{ currentUser?.authId ?? 'unknown' }}</code>
+              </div>
               <div>
                 <span>Current org</span>
                 <code>{{ currentUser?.organizationId ?? 'create or join an org first' }}</code>
@@ -42,7 +46,8 @@
             <ul class="checklist">
               <li :class="{ ok: Boolean(currentUser?.organizationId) }">
                 <span>{{ currentUser?.organizationId ? 'Ready' : 'Missing' }}</span>
-                Create or join an organization on <NuxtLink to="/demo/permissions">Permissions</NuxtLink>.
+                Create or join an organization on
+                <NuxtLink to="/demo/permissions">Permissions</NuxtLink>.
               </li>
               <li :class="{ ok: Boolean(roleKeys.admin.secret) }">
                 <span>{{ roleKeys.admin.secret ? 'Ready' : 'Missing' }}</span>
@@ -73,27 +78,36 @@
                 <span>Key</span>
                 <select v-model="selectedKeyIds[role]">
                   <option value="">Select a {{ role }} key</option>
-                  <option
-                    v-for="key in keysByRole[role]"
-                    :key="key._id"
-                    :value="key._id"
-                  >
+                  <option v-for="key in keysByRole[role]" :key="key._id" :value="key._id">
                     {{ key.name }} · {{ key.prefix }}
                   </option>
                 </select>
               </label>
 
               <div v-if="selectedKeys[role]" class="key-summary">
-                <div><span>Name</span><strong>{{ selectedKeys[role]?.name }}</strong></div>
-                <div><span>User</span><code>{{ selectedKeys[role]?.userId }}</code></div>
-                <div><span>Org</span><code>{{ selectedKeys[role]?.organizationId ?? 'none' }}</code></div>
-                <div><span>Last used</span><code>{{ formatLastUsed(selectedKeys[role]?.lastUsedAt) }}</code></div>
+                <div>
+                  <span>Name</span><strong>{{ selectedKeys[role]?.name }}</strong>
+                </div>
+                <div>
+                  <span>User</span><code>{{ selectedKeys[role]?.userId }}</code>
+                </div>
+                <div>
+                  <span>Org</span><code>{{ selectedKeys[role]?.organizationId ?? 'none' }}</code>
+                </div>
+                <div>
+                  <span>Last used</span
+                  ><code>{{ formatLastUsed(selectedKeys[role]?.lastUsedAt) }}</code>
+                </div>
               </div>
 
               <div v-if="roleKeys[role].secret" class="remembered">
                 <span>Saved in this browser</span>
-                <button class="btn btn-sm" @click="copyText(roleKeys[role].secret ?? '')">Copy</button>
-                <button class="btn btn-sm btn-secondary" @click="forgetRoleSecret(role)">Forget local secret</button>
+                <button class="btn btn-sm" @click="copyText(roleKeys[role].secret ?? '')">
+                  Copy
+                </button>
+                <button class="btn btn-sm btn-secondary" @click="forgetRoleSecret(role)">
+                  Forget local secret
+                </button>
               </div>
 
               <div v-else class="remember-form">
@@ -106,7 +120,11 @@
                     :disabled="!selectedKeys[role]"
                   />
                 </label>
-                <button class="btn btn-primary btn-sm" :disabled="!canRemember(role)" @click="rememberRoleSecret(role)">
+                <button
+                  class="btn btn-primary btn-sm"
+                  :disabled="!canRemember(role)"
+                  @click="rememberRoleSecret(role)"
+                >
                   Remember locally
                 </button>
               </div>
@@ -142,7 +160,13 @@
               <p class="recipe-meta"><strong>Prereqs:</strong> {{ recipe.prereqs }}</p>
               <p class="recipe-meta"><strong>Expected:</strong> {{ recipe.expected }}</p>
               <div class="code-card">
-                <button class="btn btn-sm" :disabled="!recipe.ready" @click="copyText(recipe.command)">Copy</button>
+                <button
+                  class="btn btn-sm"
+                  :disabled="!recipe.ready"
+                  @click="copyText(recipe.command)"
+                >
+                  Copy
+                </button>
                 <pre><code>{{ recipe.command }}</code></pre>
               </div>
             </article>
@@ -154,8 +178,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Doc } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
+import type { Doc } from '../../convex/_generated/dataModel'
 
 definePageMeta({
   layout: 'sidebar',
@@ -198,9 +222,9 @@ const activeKeys = computed(() =>
 )
 
 const keysByRole = computed<Record<KeyRole, McpKeyDoc[]>>(() => ({
-  admin: activeKeys.value.filter(key => key.role === 'admin'),
-  member: activeKeys.value.filter(key => key.role === 'member'),
-  viewer: activeKeys.value.filter(key => key.role === 'viewer'),
+  admin: activeKeys.value.filter((key) => key.role === 'admin'),
+  member: activeKeys.value.filter((key) => key.role === 'member'),
+  viewer: activeKeys.value.filter((key) => key.role === 'viewer'),
 }))
 
 const selectedKeyIds = reactive<Record<KeyRole, string>>({
@@ -216,28 +240,30 @@ const secretInputs = reactive<Record<KeyRole, string>>({
 })
 
 const selectedKeys = computed<Record<KeyRole, McpKeyDoc | null>>(() => ({
-  admin: activeKeys.value.find(key => key._id === selectedKeyIds.admin) ?? null,
-  member: activeKeys.value.find(key => key._id === selectedKeyIds.member) ?? null,
-  viewer: activeKeys.value.find(key => key._id === selectedKeyIds.viewer) ?? null,
+  admin: activeKeys.value.find((key) => key._id === selectedKeyIds.admin) ?? null,
+  member: activeKeys.value.find((key) => key._id === selectedKeyIds.member) ?? null,
+  viewer: activeKeys.value.find((key) => key._id === selectedKeyIds.viewer) ?? null,
 }))
 
-const roleKeys = computed<Record<KeyRole, { key: McpKeyDoc | null; secret: string | null }>>(() => ({
-  admin: {
-    key: selectedKeys.value.admin,
-    secret: getSecret(selectedKeyIds.admin)?.key ?? null,
-  },
-  member: {
-    key: selectedKeys.value.member,
-    secret: getSecret(selectedKeyIds.member)?.key ?? null,
-  },
-  viewer: {
-    key: selectedKeys.value.viewer,
-    secret: getSecret(selectedKeyIds.viewer)?.key ?? null,
-  },
-}))
+const roleKeys = computed<Record<KeyRole, { key: McpKeyDoc | null; secret: string | null }>>(
+  () => ({
+    admin: {
+      key: selectedKeys.value.admin,
+      secret: getSecret(selectedKeyIds.admin)?.key ?? null,
+    },
+    member: {
+      key: selectedKeys.value.member,
+      secret: getSecret(selectedKeyIds.member)?.key ?? null,
+    },
+    viewer: {
+      key: selectedKeys.value.viewer,
+      secret: getSecret(selectedKeyIds.viewer)?.key ?? null,
+    },
+  }),
+)
 
 function pickDefaultKey(role: KeyRole): string {
-  const remembered = keysByRole.value[role].find(key => Boolean(getSecret(key._id)))
+  const remembered = keysByRole.value[role].find((key) => Boolean(getSecret(key._id)))
   return remembered?._id ?? keysByRole.value[role][0]?._id ?? ''
 }
 
@@ -251,9 +277,13 @@ watchEffect(() => {
   const requestedId = typeof route.query.keyId === 'string' ? route.query.keyId : null
   if (!requestedId) return
 
-  const requestedKey = activeKeys.value.find(key => key._id === requestedId)
+  const requestedKey = activeKeys.value.find((key) => key._id === requestedId)
   if (!requestedKey) return
-  if (requestedKey.role === 'admin' || requestedKey.role === 'member' || requestedKey.role === 'viewer') {
+  if (
+    requestedKey.role === 'admin' ||
+    requestedKey.role === 'member' ||
+    requestedKey.role === 'viewer'
+  ) {
     selectedKeyIds[requestedKey.role] = requestedKey._id
   }
 })
@@ -290,18 +320,20 @@ function formatLastUsed(timestamp: number | undefined) {
   return new Date(timestamp).toLocaleString()
 }
 
-const shellSetup = computed(() => [
-  `export MCP_ENDPOINT='${endpoint.value}'`,
-  roleKeys.value.admin.secret
-    ? `export MCP_ADMIN_KEY='${roleKeys.value.admin.secret}'`
-    : '# export MCP_ADMIN_KEY=\'mcp_...\'',
-  roleKeys.value.member.secret
-    ? `export MCP_MEMBER_KEY='${roleKeys.value.member.secret}'`
-    : '# export MCP_MEMBER_KEY=\'mcp_...\'',
-  roleKeys.value.viewer.secret
-    ? `export MCP_VIEWER_KEY='${roleKeys.value.viewer.secret}'`
-    : '# export MCP_VIEWER_KEY=\'mcp_...\'',
-].join('\n'))
+const shellSetup = computed(() =>
+  [
+    `export MCP_ENDPOINT='${endpoint.value}'`,
+    roleKeys.value.admin.secret
+      ? `export MCP_ADMIN_KEY='${roleKeys.value.admin.secret}'`
+      : "# export MCP_ADMIN_KEY='mcp_...'",
+    roleKeys.value.member.secret
+      ? `export MCP_MEMBER_KEY='${roleKeys.value.member.secret}'`
+      : "# export MCP_MEMBER_KEY='mcp_...'",
+    roleKeys.value.viewer.secret
+      ? `export MCP_VIEWER_KEY='${roleKeys.value.viewer.secret}'`
+      : "# export MCP_VIEWER_KEY='mcp_...'",
+  ].join('\n'),
+)
 
 function initializeCommand(sessionVar: string, keyVar?: string) {
   return [
@@ -335,7 +367,8 @@ const recipes = computed<Recipe[]>(() => {
       title: 'Anonymous discovery',
       concept: 'Initialize a public MCP session and confirm only public/optional tools are listed.',
       prereqs: 'None',
-      expected: '`list-notes`, `create-note`, `search-notes`, and `delete-note` appear. Auth-required tools do not.',
+      expected:
+        '`list-notes`, `create-note`, `search-notes`, and `delete-note` appear. Auth-required tools do not.',
       ready: true,
       command: [
         initializeCommand('PUBLIC_SESSION'),
@@ -369,7 +402,8 @@ const recipes = computed<Recipe[]>(() => {
     },
     {
       title: 'Optional auth on a public tool',
-      concept: 'Call `search-notes` with a real key and confirm public functions still work via MCP.',
+      concept:
+        'Call `search-notes` with a real key and confirm public functions still work via MCP.',
       prereqs: 'Remember a member key locally.',
       expected: 'The search succeeds with the member key and returns note matches.',
       ready: hasMember,
@@ -516,7 +550,7 @@ const recipes = computed<Recipe[]>(() => {
         `{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"delete-note","arguments":{"id":"$NOTE_ID","_confirmed":true}}}`,
         `JSON`,
         `)" | jq .`,
-      ].join('\n')
+      ].join('\n'),
     },
     {
       title: 'Destructive post preview + confirm',
@@ -628,7 +662,8 @@ const recipes = computed<Recipe[]>(() => {
       title: 'Revoke and prove auth failure',
       concept: 'Use the UI to revoke a key, then rerun the same authenticated MCP call.',
       prereqs: 'Remember a viewer or member key and revoke it on the MCP Keys page.',
-      expected: 'After revocation, the call fails with an auth-style error or the session cannot access auth-only tools.',
+      expected:
+        'After revocation, the call fails with an auth-style error or the session cannot access auth-only tools.',
       ready: hasViewer,
       command: hasViewer
         ? [

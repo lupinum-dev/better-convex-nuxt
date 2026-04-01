@@ -1,14 +1,9 @@
-import { mutation, query } from './_generated/server'
+import { defineArgs } from 'better-convex-nuxt/args'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
-import { defineArgs } from 'better-convex-nuxt/args'
 
-import {
-  createNote,
-  deleteNote,
-  searchNotes,
-  updateNote,
-} from '../shared/schemas/note'
+import { createNote, deleteNote, searchNotes, updateNote } from '../shared/schemas/note'
+import { mutation, query } from './_generated/server'
 
 const listNotesArgs = defineArgs({
   args: {},
@@ -82,9 +77,10 @@ export const search = query({
     const lowerQuery = args.query.toLowerCase()
 
     return notes
-      .filter(note =>
-        (note.title ?? '').toLowerCase().includes(lowerQuery)
-        || note.content.toLowerCase().includes(lowerQuery),
+      .filter(
+        (note) =>
+          (note.title ?? '').toLowerCase().includes(lowerQuery) ||
+          note.content.toLowerCase().includes(lowerQuery),
       )
       .map(withTitle)
   },

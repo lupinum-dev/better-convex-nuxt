@@ -18,19 +18,19 @@ function parseStoredSecrets(raw: string | null): StoredMcpSecrets {
     if (!parsed || typeof parsed !== 'object') return {}
 
     return Object.fromEntries(
-      Object.entries(parsed as Record<string, unknown>)
-        .filter((entry): entry is [string, StoredMcpSecret] => {
+      Object.entries(parsed as Record<string, unknown>).filter(
+        (entry): entry is [string, StoredMcpSecret] => {
           const value = entry[1] as Partial<StoredMcpSecret> | undefined
           return Boolean(
-            value
-            && typeof value === 'object'
-            && typeof value.key === 'string'
-            && typeof value.updatedAt === 'number',
+            value &&
+            typeof value === 'object' &&
+            typeof value.key === 'string' &&
+            typeof value.updatedAt === 'number',
           )
-        }),
+        },
+      ),
     )
-  }
-  catch {
+  } catch {
     return {}
   }
 }

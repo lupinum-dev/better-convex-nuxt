@@ -66,7 +66,9 @@ declare module '#app' {
     'better-convex:auth:refresh': () => void | Promise<void>
     'better-convex:auth:invalidate': () => void | Promise<void>
     'convex:unauthorized': (payload: ConvexUnauthorizedPayload) => void | Promise<void>
-    'convex:mutation:success': (payload: ConvexCallSuccessPayload<'mutation'>) => void | Promise<void>
+    'convex:mutation:success': (
+      payload: ConvexCallSuccessPayload<'mutation'>,
+    ) => void | Promise<void>
     'convex:mutation:error': (payload: ConvexCallErrorPayload<'mutation'>) => void | Promise<void>
     'convex:action:success': (payload: ConvexCallSuccessPayload<'action'>) => void | Promise<void>
     'convex:action:error': (payload: ConvexCallErrorPayload<'action'>) => void | Promise<void>

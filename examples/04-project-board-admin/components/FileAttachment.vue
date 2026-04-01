@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { api } from '~/convex/_generated/api'
 /**
  * Why this file exists:
  * Real apps hit file uploads quickly. This component keeps the upload flow isolated so the task
@@ -9,7 +10,6 @@
  * Convex until there is a scoped comment/task download path.
  */
 import type { Id } from '~/convex/_generated/dataModel'
-import { api } from '~/convex/_generated/api'
 
 const modelValue = defineModel<Id<'_storage'> | null | undefined>()
 const localPreviewUrl = ref<string | null>(null)
@@ -61,7 +61,12 @@ onBeforeUnmount(() => {
   <div class="space-y-2">
     <label class="block text-sm font-medium text-highlighted">
       Attachment
-      <input data-testid="attachment-input" type="file" class="mt-1 block text-sm" @change="handleFile" />
+      <input
+        data-testid="attachment-input"
+        type="file"
+        class="mt-1 block text-sm"
+        @change="handleFile"
+      />
     </label>
 
     <div v-if="pending" class="space-y-1">

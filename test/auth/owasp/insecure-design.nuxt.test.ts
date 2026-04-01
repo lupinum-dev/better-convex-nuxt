@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import {
-  createAuthHarness,
-  createMockTokenExchange,
-  TEST_USERS,
-} from '../../harness'
+import { createAuthHarness, createMockTokenExchange, TEST_USERS } from '../../harness'
 
 let h: Awaited<ReturnType<typeof createAuthHarness>>
 
@@ -17,10 +13,7 @@ describe('OWASP A04: Insecure Design (Runtime)', () => {
 
     h = await createAuthHarness({ tokenExchange: exchange })
 
-    const [first, second] = await Promise.allSettled([
-      h.triggerRefresh(),
-      h.triggerRefresh(),
-    ])
+    const [first, second] = await Promise.allSettled([h.triggerRefresh(), h.triggerRefresh()])
 
     expect(first.status).toBe('fulfilled')
     expect(second.status).toBe('fulfilled')
@@ -37,10 +30,7 @@ describe('OWASP A04: Insecure Design (Runtime)', () => {
       signOutBehavior: 'slow',
     })
 
-    const [first, second] = await Promise.allSettled([
-      h.triggerSignOut(),
-      h.triggerSignOut(),
-    ])
+    const [first, second] = await Promise.allSettled([h.triggerSignOut(), h.triggerSignOut()])
 
     expect(first.status).toBe('fulfilled')
     expect(second.status).toBe('fulfilled')

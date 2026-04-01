@@ -1,3 +1,4 @@
+import { defineArgs } from 'better-convex-nuxt/args'
 /**
  * Why this file exists:
  * These args definitions are reused by both Convex handlers and server-side callers.
@@ -5,12 +6,7 @@
  */
 import { v } from 'convex/values'
 
-import { defineArgs } from 'better-convex-nuxt/args'
-
-export const projectStatusValidator = v.union(
-  v.literal('active'),
-  v.literal('archived'),
-)
+export const projectStatusValidator = v.union(v.literal('active'), v.literal('archived'))
 
 export const createProject = defineArgs({
   description: 'Create a new project inside the current workspace.',

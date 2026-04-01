@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  AUTH_REFRESH_TIMEOUT_MS,
+  TOKEN_EXPIRY_SAFETY_BUFFER_MS,
+} from '../../src/runtime/utils/constants'
+import { getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
+import {
   createAuthHarness,
   createMockTokenExchange,
   mintJwtExpiringIn,
   TEST_USERS,
 } from '../harness'
-import { getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
-import {
-  AUTH_REFRESH_TIMEOUT_MS,
-  TOKEN_EXPIRY_SAFETY_BUFFER_MS,
-} from '../../src/runtime/utils/constants'
 
 let h: Awaited<ReturnType<typeof createAuthHarness>>
 

@@ -1,7 +1,7 @@
 import { deny } from 'better-convex-nuxt/auth'
 
-import type { DatabaseReader } from '../_generated/server'
 import type { Doc } from '../_generated/dataModel'
+import type { DatabaseReader } from '../_generated/server'
 import type { Actor } from './actor'
 import { isStaffActor, requireEnrollment } from './enrollment'
 import { ensurePrerequisites } from './prerequisites'
@@ -11,7 +11,7 @@ export async function requireLessonAccess(
   db: DatabaseReader,
   actor: Exclude<Actor, null>,
   lesson: Doc<'lessons'>,
-): Promise<{ course: Doc<'courses'>, enrollment: Doc<'enrollments'> | null }> {
+): Promise<{ course: Doc<'courses'>; enrollment: Doc<'enrollments'> | null }> {
   const course = await db.get(lesson.courseId)
   requireRecord(course, 'Course')
 

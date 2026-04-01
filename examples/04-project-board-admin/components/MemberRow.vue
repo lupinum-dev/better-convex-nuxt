@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { api } from '~/convex/_generated/api'
 /**
  * Why this file exists:
  * Changing roles live is the clearest proof that frontend permission state is reactive end to end.
  */
 import type { Doc } from '~/convex/_generated/dataModel'
-import { api } from '~/convex/_generated/api'
 
 const props = defineProps<{
   member: Doc<'users'>
@@ -27,7 +27,9 @@ async function handleRoleChange(event: Event) {
 <template>
   <div class="flex items-center justify-between gap-4 py-3 border-b border-default">
     <div class="min-w-0">
-      <p class="font-medium text-highlighted truncate">{{ props.member.displayName || props.member.authId }}</p>
+      <p class="font-medium text-highlighted truncate">
+        {{ props.member.displayName || props.member.authId }}
+      </p>
       <p class="text-sm text-muted truncate">{{ props.member.email || props.member.authId }}</p>
     </div>
 

@@ -9,7 +9,6 @@
 import { createHash } from 'node:crypto'
 
 import { serverConvexMutation, serverConvexQuery } from '#convex/server'
-
 import { api } from '~/convex/_generated/api'
 
 function hashToken(token: string): string {

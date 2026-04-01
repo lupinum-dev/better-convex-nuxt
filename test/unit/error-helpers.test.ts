@@ -5,32 +5,32 @@ import { cleanErrorMessage, inferCategoryFromMessage } from '../../src/runtime/m
 describe('cleanErrorMessage', () => {
   it('strips serverConvexMutation prefix', () => {
     expect(
-      cleanErrorMessage('[serverConvexMutation] Request failed for posts:create via http://localhost/api. Something broke'),
+      cleanErrorMessage(
+        '[serverConvexMutation] Request failed for posts:create via http://localhost/api. Something broke',
+      ),
     ).toBe('Something broke')
   })
 
   it('strips Request ID markers', () => {
-    expect(
-      cleanErrorMessage('[Request ID: abc-123] Not found'),
-    ).toBe('Not found')
+    expect(cleanErrorMessage('[Request ID: abc-123] Not found')).toBe('Not found')
   })
 
   it('strips stack traces', () => {
     expect(
-      cleanErrorMessage('Bad input\n    at Object.handler (file.ts:10:5)\n    at process (runtime.ts:42:3)'),
+      cleanErrorMessage(
+        'Bad input\n    at Object.handler (file.ts:10:5)\n    at process (runtime.ts:42:3)',
+      ),
     ).toBe('Bad input')
   })
 
   it('extracts message from Uncaught Error pattern', () => {
-    expect(
-      cleanErrorMessage('Server Error\nUncaught Error: You are not allowed'),
-    ).toBe('You are not allowed')
+    expect(cleanErrorMessage('Server Error\nUncaught Error: You are not allowed')).toBe(
+      'You are not allowed',
+    )
   })
 
   it('extracts message from plain Error pattern', () => {
-    expect(
-      cleanErrorMessage('Error: Something went wrong'),
-    ).toBe('Something went wrong')
+    expect(cleanErrorMessage('Error: Something went wrong')).toBe('Something went wrong')
   })
 
   it('returns original message when nothing to clean', () => {

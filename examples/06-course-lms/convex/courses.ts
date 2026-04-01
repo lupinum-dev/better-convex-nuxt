@@ -1,11 +1,10 @@
+import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
+
 /**
  * Why this file exists:
  * Course-level handlers stay small so the auth story remains centered on relationships.
  */
 import { mutation, query } from './_generated/server'
-
-import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
-
 import { getActor } from './auth/actor'
 import { hasRole } from './auth/checks'
 
@@ -69,7 +68,7 @@ export const listCourses = query({
 
     return ctx.db
       .query('courses')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('asc')
       .collect()
   },

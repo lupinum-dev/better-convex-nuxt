@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import type { NuxtApp } from '#app'
 
 import { createConvexCallState } from '../../src/runtime/composables/useConvexMutation'
@@ -213,9 +214,7 @@ describe('global hooks (unit)', () => {
           operation: 'action',
         }),
       )
-      const payload = callHookMock.mock.calls.find(
-        ([name]) => name === 'convex:action:error',
-      )?.[1]
+      const payload = callHookMock.mock.calls.find(([name]) => name === 'convex:action:error')?.[1]
       expect(payload.error).toBeInstanceOf(ConvexCallError)
     })
   })

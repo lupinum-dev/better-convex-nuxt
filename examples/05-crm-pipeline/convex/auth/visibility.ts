@@ -1,8 +1,8 @@
 import { deny } from 'better-convex-nuxt/auth'
 import { defineVisibility } from 'better-convex-nuxt/visibility'
 
-import type { DatabaseReader } from '../_generated/server'
 import type { Doc } from '../_generated/dataModel'
+import type { DatabaseReader } from '../_generated/server'
 import type { Actor } from './actor'
 
 type ContactOwnerScope = 'all' | Set<string>
@@ -18,10 +18,10 @@ export async function getContactOwnerScope(
   if (actor.role === 'manager') {
     const team = await db
       .query('users')
-      .withIndex('by_manager', q => q.eq('managerId', actor.userId))
+      .withIndex('by_manager', (q) => q.eq('managerId', actor.userId))
       .collect()
 
-    return new Set([actor.userId, ...team.map(user => user.authId)])
+    return new Set([actor.userId, ...team.map((user) => user.authId)])
   }
 
   return new Set([actor.userId])
@@ -47,7 +47,7 @@ export async function requireAssignableContactOwner(
 ): Promise<Doc<'users'>> {
   const owner = await db
     .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', ownerId))
+    .withIndex('by_auth_id', (q) => q.eq('authId', ownerId))
     .first()
 
   if (!owner || owner.workspaceId !== actor.tenantId) {
@@ -70,13 +70,13 @@ export const contactVisibility = defineVisibility(async (actor: Actor, db) => {
   if (ownerScope === 'all') {
     return db
       .query('contacts')
-      .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
   }
 
   const contacts = await db
     .query('contacts')
-    .withIndex('by_workspace', q => q.eq('workspaceId', actor.tenantId))
+    .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
     .collect()
 
-  return contacts.filter(contact => canAccessContactOwner(ownerScope, contact.ownerId))
+  return contacts.filter((contact) => canAccessContactOwner(ownerScope, contact.ownerId))
 })

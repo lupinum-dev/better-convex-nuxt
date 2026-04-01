@@ -96,7 +96,9 @@ function handleReset() {
         </div>
         <div class="state-item">
           <span class="label">error:</span>
-          <span data-testid="add-error" class="value">{{ addNote.error.value?.message ?? 'null' }}</span>
+          <span data-testid="add-error" class="value">{{
+            addNote.error.value?.message ?? 'null'
+          }}</span>
         </div>
         <div class="state-item">
           <span class="label">data (noteId):</span>
@@ -122,7 +124,9 @@ function handleReset() {
         </div>
         <div class="state-item">
           <span class="label">error:</span>
-          <span data-testid="fail-error" class="value">{{ failMutation.error.value?.message ?? 'null' }}</span>
+          <span data-testid="fail-error" class="value">{{
+            failMutation.error.value?.message ?? 'null'
+          }}</span>
         </div>
         <div class="state-item">
           <span class="label">error count:</span>

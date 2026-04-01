@@ -6,7 +6,12 @@
       <UCard>
         <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <UButton :to="`/projects/${projectId}`" variant="link" leading-icon="i-lucide-arrow-left" class="mb-2">
+            <UButton
+              :to="`/projects/${projectId}`"
+              variant="link"
+              leading-icon="i-lucide-arrow-left"
+              class="mb-2"
+            >
               Back to board
             </UButton>
             <h1 class="text-2xl font-bold">{{ task?.title || 'Task detail' }}</h1>
@@ -92,14 +97,14 @@ const { data: task } = await useCachedQuery(
     from: {
       query: api.tasks.listByProject,
       args: { projectId },
-      find: tasks => tasks.find(candidate => candidate._id === taskId.value),
+      find: (tasks) => tasks.find((candidate) => candidate._id === taskId.value),
     },
   },
 )
 
 const { data: members } = await useConvexQuery(
   api.members.list,
-  computed(() => canAssign.value ? {} : undefined),
+  computed(() => (canAssign.value ? {} : undefined)),
 )
 
 const assignTask = useConvexMutation(api.tasks.assign)

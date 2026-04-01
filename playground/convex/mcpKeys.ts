@@ -1,7 +1,7 @@
 import { authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
-import type { Id } from './_generated/dataModel'
 
+import type { Id } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canInviteMembers } from './auth/checks'
@@ -24,7 +24,9 @@ export const list = query({
 
     return await ctx.db
       .query('mcpKeys')
-      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
+      .withIndex('by_organization', (q) =>
+        q.eq('organizationId', actor.tenantId as Id<'organizations'>),
+      )
       .order('desc')
       .collect()
   },
@@ -33,12 +35,7 @@ export const list = query({
 export const create = mutation({
   args: {
     name: v.string(),
-    role: v.union(
-      v.literal('owner'),
-      v.literal('admin'),
-      v.literal('member'),
-      v.literal('viewer'),
-    ),
+    role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
@@ -82,7 +79,7 @@ export const validate = query({
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_key', q => q.eq('key', args.key))
+      .withIndex('by_key', (q) => q.eq('key', args.key))
       .first()
 
     if (!mcpKey || mcpKey.status !== 'active') return null
@@ -100,7 +97,7 @@ export const touch = mutation({
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_key', q => q.eq('key', args.key))
+      .withIndex('by_key', (q) => q.eq('key', args.key))
       .first()
 
     if (mcpKey && mcpKey.status === 'active') {

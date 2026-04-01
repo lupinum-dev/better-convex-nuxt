@@ -4,7 +4,6 @@
  * `Authorization: Bearer demo:<email>` is intentionally demo-only and should not be copied to production.
  */
 import { serverConvexQuery } from '#convex/server'
-
 import { api } from '~/convex/_generated/api'
 
 export default defineEventHandler(async (event) => {

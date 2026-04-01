@@ -69,9 +69,7 @@ This page keeps the LMS UI small so the lesson-access chain stays visible while 
       </section>
 
       <section v-else>
-        <button v-if="canSeed" @click="seedDemoCourse({})">
-          Seed demo course
-        </button>
+        <button v-if="canSeed" @click="seedDemoCourse({})">Seed demo course</button>
 
         <ul v-if="courses?.length">
           <li v-for="course in courses" :key="course._id">
@@ -127,17 +125,25 @@ const selectedCourseId = ref<Id<'courses'> | null>(null)
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
 const courseArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: courses } = await useConvexQuery(api.courses.listCourses, courseArgs)
-const lessonsArgs = computed(() => (selectedCourseId.value ? { courseId: selectedCourseId.value } : undefined))
+const lessonsArgs = computed(() =>
+  selectedCourseId.value ? { courseId: selectedCourseId.value } : undefined,
+)
 const { data: lessons } = await useConvexQuery(api.lessons.listLessonsByCourse, lessonsArgs)
 
-watch(courses, (value) => {
-  if (!value?.length) return
-  if (!selectedCourseId.value) {
-    selectedCourseId.value = value[0]!._id
-  }
-}, { immediate: true })
+watch(
+  courses,
+  (value) => {
+    if (!value?.length) return
+    if (!selectedCourseId.value) {
+      selectedCourseId.value = value[0]!._id
+    }
+  },
+  { immediate: true },
+)
 
-const selectedLessonArgs = computed(() => (selectedLessonId.value ? { id: selectedLessonId.value } : undefined))
+const selectedLessonArgs = computed(() =>
+  selectedLessonId.value ? { id: selectedLessonId.value } : undefined,
+)
 const { data: selectedLesson, error: selectedLessonError } = await useConvexQuery(
   api.lessons.getLesson,
   selectedLessonArgs,
@@ -145,27 +151,21 @@ const { data: selectedLesson, error: selectedLessonError } = await useConvexQuer
 
 const lessonError = computed(
   () =>
-    selectedLessonError.value?.message
-    || seedDemoCourse.error.value?.message
-    || enrollSelf.error.value?.message
-    || completeLesson.error.value?.message
-    || '',
+    selectedLessonError.value?.message ||
+    seedDemoCourse.error.value?.message ||
+    enrollSelf.error.value?.message ||
+    completeLesson.error.value?.message ||
+    '',
 )
 
 async function handleSignUp() {
   if (!client) throw new Error('Auth client unavailable.')
-  await authAction.execute(
-    () => client.signUp.email(signUpForm),
-    { redirectTo: '/' },
-  )
+  await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })
 }
 
 async function handleSignIn() {
   if (!client) throw new Error('Auth client unavailable.')
-  await authAction.execute(
-    () => client.signIn.email(signInForm),
-    { redirectTo: '/' },
-  )
+  await authAction.execute(() => client.signIn.email(signInForm), { redirectTo: '/' })
 }
 
 async function handleSignOut() {

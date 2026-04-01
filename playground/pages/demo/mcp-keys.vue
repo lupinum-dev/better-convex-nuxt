@@ -113,7 +113,9 @@
             </div>
             <div class="info-row">
               <label>Next step</label>
-              <NuxtLink to="/demo/mcp-verify" class="inline-link">Open the generated curl worksheet</NuxtLink>
+              <NuxtLink to="/demo/mcp-verify" class="inline-link"
+                >Open the generated curl worksheet</NuxtLink
+              >
             </div>
           </div>
         </section>
@@ -184,8 +186,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Doc, Id } from '../../convex/_generated/dataModel'
 import { api } from '../../convex/_generated/api'
+import type { Doc, Id } from '../../convex/_generated/dataModel'
 
 definePageMeta({
   layout: 'sidebar',
@@ -256,12 +258,10 @@ async function handleCreate() {
   try {
     await createKey(newKey.value.name.trim(), newKey.value.role)
     newKey.value = { name: '', role: 'member' }
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to create key:', e)
     actionError.value = toErrorMessage(e, 'Failed to create key.')
-  }
-  finally {
+  } finally {
     isCreating.value = false
   }
 }
@@ -271,12 +271,10 @@ async function handlePresetCreate(role: KeyRole, name: string) {
   actionError.value = null
   try {
     await createKey(name, role)
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to create preset key:', e)
     actionError.value = toErrorMessage(e, 'Failed to create key.')
-  }
-  finally {
+  } finally {
     isCreating.value = false
   }
 }
@@ -288,18 +286,16 @@ async function handleRevoke(id: Id<'mcpKeys'>) {
     const client = getConvexClient()
     await client.mutation(api.mcpKeys.revoke, { id })
     forgetSecret(id)
-  }
-  catch (e) {
+  } catch (e) {
     console.error('Failed to revoke key:', e)
     actionError.value = toErrorMessage(e, 'Failed to revoke key.')
-  }
-  finally {
+  } finally {
     isRevoking.value = null
   }
 }
 
 function hasRememberedRole(role: KeyRole) {
-  return activeKeys.value.some(key => key.role === role && hasSecret(key._id))
+  return activeKeys.value.some((key) => key.role === role && hasSecret(key._id))
 }
 
 function goToVerification(id: Id<'mcpKeys'>) {
@@ -315,9 +311,10 @@ async function copyKey(key: string) {
   try {
     await navigator.clipboard.writeText(key)
     copied.value = true
-    setTimeout(() => { copied.value = false }, 2000)
-  }
-  catch {
+    setTimeout(() => {
+      copied.value = false
+    }, 2000)
+  } catch {
     const el = document.querySelector('.key-value') as HTMLElement | null
     if (!el) return
     const range = document.createRange()
@@ -351,7 +348,7 @@ function toErrorMessage(error: unknown, fallback: string): string {
 watch(keys, (value) => {
   if (!value) return
 
-  const activeIds = new Set(value.filter(key => key.status === 'active').map(key => key._id))
+  const activeIds = new Set(value.filter((key) => key.status === 'active').map((key) => key._id))
   for (const id of Object.keys(secrets.value)) {
     if (!activeIds.has(id as Id<'mcpKeys'>)) {
       forgetSecret(id)

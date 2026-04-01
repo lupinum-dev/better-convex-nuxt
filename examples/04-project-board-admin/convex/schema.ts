@@ -15,10 +15,7 @@ export const roleValidator = v.union(
   v.literal('viewer'),
 )
 
-export const projectStatusValidator = v.union(
-  v.literal('active'),
-  v.literal('archived'),
-)
+export const projectStatusValidator = v.union(v.literal('active'), v.literal('archived'))
 
 export default defineSchema({
   workspaces: defineTable({

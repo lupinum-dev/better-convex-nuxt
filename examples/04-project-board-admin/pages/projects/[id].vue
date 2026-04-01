@@ -10,7 +10,9 @@
               Back to projects
             </UButton>
             <h1 class="text-2xl font-bold">{{ project?.name || 'Project board' }}</h1>
-            <p class="text-sm text-muted mt-1">{{ project?.summary || 'Track work across the team.' }}</p>
+            <p class="text-sm text-muted mt-1">
+              {{ project?.summary || 'Track work across the team.' }}
+            </p>
           </div>
 
           <div class="flex gap-2">
@@ -37,7 +39,10 @@
       </UCard>
 
       <UCard v-if="canCreateTask">
-        <form class="flex flex-col gap-3 md:flex-row md:items-end" @submit.prevent="handleCreateTask">
+        <form
+          class="flex flex-col gap-3 md:flex-row md:items-end"
+          @submit.prevent="handleCreateTask"
+        >
           <div class="flex-1 space-y-1">
             <label class="text-sm font-medium text-highlighted">Task title</label>
             <UInput
@@ -49,10 +54,7 @@
           </div>
           <div class="space-y-1">
             <label class="text-sm font-medium text-highlighted">Priority</label>
-            <USelect
-              v-model="taskForm.priority"
-              :items="['low', 'medium', 'high']"
-            />
+            <USelect v-model="taskForm.priority" :items="['low', 'medium', 'high']" />
           </div>
           <UButton
             data-testid="task-submit"
@@ -65,10 +67,7 @@
         </form>
       </UCard>
 
-      <BulkActions
-        :selected-ids="selectedIds"
-        @cleared="selectedIds = []"
-      />
+      <BulkActions :selected-ids="selectedIds" @cleared="selectedIds = []" />
 
       <div class="grid gap-4 lg:grid-cols-3">
         <BoardColumn
@@ -141,11 +140,11 @@ const { data: tasks } = await useConvexQuery(
   computed(() => ({ projectId: projectId.value })),
 )
 
-const backlogTasks = computed(() => tasks.value?.filter(task => task.status === 'backlog') ?? [])
-const inProgressTasks = computed(() =>
-  tasks.value?.filter(task => task.status === 'in_progress') ?? [],
+const backlogTasks = computed(() => tasks.value?.filter((task) => task.status === 'backlog') ?? [])
+const inProgressTasks = computed(
+  () => tasks.value?.filter((task) => task.status === 'in_progress') ?? [],
 )
-const doneTasks = computed(() => tasks.value?.filter(task => task.status === 'done') ?? [])
+const doneTasks = computed(() => tasks.value?.filter((task) => task.status === 'done') ?? [])
 
 async function handleCreateTask() {
   await createTask({
@@ -159,7 +158,7 @@ async function handleCreateTask() {
 
 function toggleSelected(id: Id<'tasks'>) {
   selectedIds.value = selectedIds.value.includes(id)
-    ? selectedIds.value.filter(current => current !== id)
+    ? selectedIds.value.filter((current) => current !== id)
     : [...selectedIds.value, id]
 }
 </script>

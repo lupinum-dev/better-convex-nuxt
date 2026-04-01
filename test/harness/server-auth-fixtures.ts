@@ -15,7 +15,7 @@ export const useRuntimeConfigMock = vi.fn()
 export const useEventMock = vi.fn()
 
 export const backingStore = new Map<string, unknown>()
-export const storageSetCalls: Array<{ key: string, value: unknown, ttl?: number }> = []
+export const storageSetCalls: Array<{ key: string; value: unknown; ttl?: number }> = []
 
 export function createEvent(cookie?: string): H3Event {
   return {
@@ -28,11 +28,17 @@ export function createEvent(cookie?: string): H3Event {
   } as unknown as H3Event
 }
 
-export function mockConvexConfig(overrides?: Record<string, unknown>): NormalizedConvexRuntimeConfig {
+export function mockConvexConfig(
+  overrides?: Record<string, unknown>,
+): NormalizedConvexRuntimeConfig {
   const authOverrides = (overrides?.auth ?? {}) as Partial<NormalizedConvexRuntimeConfig['auth']>
-  const permissionsOverrides = (overrides?.permissions ?? {}) as Partial<NormalizedConvexRuntimeConfig['permissions']>
+  const permissionsOverrides = (overrides?.permissions ?? {}) as Partial<
+    NormalizedConvexRuntimeConfig['permissions']
+  >
   const queryOverrides = (overrides?.query ?? {}) as Partial<NormalizedConvexRuntimeConfig['query']>
-  const uploadOverrides = (overrides?.upload ?? {}) as Partial<NormalizedConvexRuntimeConfig['upload']>
+  const uploadOverrides = (overrides?.upload ?? {}) as Partial<
+    NormalizedConvexRuntimeConfig['upload']
+  >
   const debugOverrides = (overrides?.debug ?? {}) as Partial<NormalizedConvexRuntimeConfig['debug']>
 
   return {
@@ -76,7 +82,9 @@ export function mockConvexConfig(overrides?: Record<string, unknown>): Normalize
       ...uploadOverrides,
     },
     logging:
-      overrides?.logging === false || overrides?.logging === 'info' || overrides?.logging === 'debug'
+      overrides?.logging === false ||
+      overrides?.logging === 'info' ||
+      overrides?.logging === 'debug'
         ? overrides.logging
         : false,
     debug: {

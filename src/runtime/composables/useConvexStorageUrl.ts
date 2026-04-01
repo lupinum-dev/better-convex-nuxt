@@ -89,7 +89,7 @@ export function useConvexStorageUrl(
 ): ComputedRef<string | null> {
   const { data } = useConvexQuery(
     getUrlQuery,
-    computed(() => toValue(storageId) ? { storageId: toValue(storageId)! } : null),
+    computed(() => (toValue(storageId) ? { storageId: toValue(storageId)! } : null)),
     {},
   )
   return computed(() => data.value)

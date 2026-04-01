@@ -34,7 +34,7 @@ export async function applyVisibility<T, P = unknown>(
   const result = await visibility.resolve(principal, db)
   if (Array.isArray(result)) return result
   if (result && typeof result.collect === 'function') {
-    return await result.collect() as T[]
+    return (await result.collect()) as T[]
   }
   return []
 }

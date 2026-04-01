@@ -142,17 +142,17 @@ Naming convention: `has*`, `is*`, `can*`
 
 ```ts
 // These are checks
-const isAuthenticated = (a: Actor) => a !== null;
+const isAuthenticated = (a: Actor) => a !== null
 const hasRole =
   (...roles: string[]) =>
   (a: Actor) =>
-    !!a && roles.includes(a.role);
+    !!a && roles.includes(a.role)
 const isOwnerOf = (resource: { ownerId: string }) => (a: Actor) =>
-  !!a && a.kind === "user" && resource.ownerId === a.userId;
+  !!a && a.kind === 'user' && resource.ownerId === a.userId
 
 // Checks compose with boolean logic
-const canUpdateTask = (task: Doc<"tasks">) =>
-  or(hasRole("owner", "admin"), and(hasRole("member"), isOwnerOf(task)));
+const canUpdateTask = (task: Doc<'tasks'>) =>
+  or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task)))
 ```
 
 Checks are safe to use on both server and client.
@@ -168,25 +168,21 @@ Naming convention: `ensure*` for boundaries, `require*` for relationships
 ```ts
 // These are guards
 function ensureTenant(actor: Actor, resource: { workspaceId: string }): void {
-  if (!actor) throw deny("Not authenticated.");
-  if (actor.tenantId !== resource.workspaceId)
-    throw deny("Resource not found.");
+  if (!actor) throw deny('Not authenticated.')
+  if (actor.tenantId !== resource.workspaceId) throw deny('Resource not found.')
 }
 
-function requireRecord<T>(doc: T | null, label = "Resource"): asserts doc is T {
-  if (!doc) throw new Error(`${label} not found.`);
+function requireRecord<T>(doc: T | null, label = 'Resource'): asserts doc is T {
+  if (!doc) throw new Error(`${label} not found.`)
 }
 
 async function requireEnrollment(db, actor: Actor, courseId) {
   const enrollment = await db
-    .query("enrollments")
-    .withIndex("by_user_course", (q) =>
-      q.eq("userId", actor.userId).eq("courseId", courseId),
-    )
-    .first();
-  if (!enrollment || enrollment.status !== "active")
-    throw deny("Not enrolled.");
-  return enrollment;
+    .query('enrollments')
+    .withIndex('by_user_course', (q) => q.eq('userId', actor.userId).eq('courseId', courseId))
+    .first()
+  if (!enrollment || enrollment.status !== 'active') throw deny('Not enrolled.')
+  return enrollment
 }
 
 async function ensureWithinLimit(db, actor: Actor, resource: string) {
@@ -206,15 +202,13 @@ Naming convention: `define*Visibility`, `apply*Visibility`
 
 ```ts
 const contactVisibility = defineVisibility(async (actor, db) => {
-  if (["owner", "admin"].includes(actor.role)) {
+  if (['owner', 'admin'].includes(actor.role)) {
     return db
-      .query("contacts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", actor.tenantId));
+      .query('contacts')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
   }
-  return db
-    .query("contacts")
-    .withIndex("by_owner", (q) => q.eq("ownerId", actor.userId));
-});
+  return db.query('contacts').withIndex('by_owner', (q) => q.eq('ownerId', actor.userId))
+})
 ```
 
 Prefer indexed query narrowing when possible. Use in-memory filtering only
@@ -231,7 +225,7 @@ The complete public API. This is everything you install.
 ### Check composition
 
 ```ts
-import { and, or, not, all, any } from "better-convex-nuxt/auth";
+import { and, or, not, all, any } from 'better-convex-nuxt/auth'
 ```
 
 - `and(...checks)` — returns `true` only if every check returns `true`
@@ -244,22 +238,19 @@ Checks are functions of shape `(actor: any) => boolean`. Composition returns
 the same shape.
 
 ```ts
-const canManage = or(
-  hasRole("owner", "admin"),
-  and(hasRole("member"), isOwnerOf(task)),
-);
+const canManage = or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task)))
 ```
 
 ### Authorization runners
 
 ```ts
-import { authorize, can, deny } from "better-convex-nuxt/auth";
+import { authorize, can, deny } from 'better-convex-nuxt/auth'
 ```
 
 **`authorize(actor, label, check)`** — hard check. Throws on failure.
 
 ```ts
-authorize(actor, "Create task", canCreateTask);
+authorize(actor, 'Create task', canCreateTask)
 // If canCreateTask(actor) returns false:
 //   throws ConvexError({ code: 'FORBIDDEN', message: 'Forbidden: Create task' })
 ```
@@ -268,8 +259,8 @@ Implementation:
 
 ```ts
 function authorize(actor, label, check) {
-  if (typeof check === "function" ? check(actor) : check) return;
-  throw new ConvexError({ code: "FORBIDDEN", message: `Forbidden: ${label}` });
+  if (typeof check === 'function' ? check(actor) : check) return
+  throw new ConvexError({ code: 'FORBIDDEN', message: `Forbidden: ${label}` })
 }
 ```
 
@@ -279,7 +270,7 @@ function authorize(actor, label, check) {
 if (can(actor, canUpdateTask(task))) {
   // update it
 } else {
-  results.skipped.push(task._id);
+  results.skipped.push(task._id)
 }
 ```
 
@@ -288,9 +279,9 @@ Implementation:
 ```ts
 function can(actor, check) {
   try {
-    return typeof check === "function" ? !!check(actor) : !!check;
+    return typeof check === 'function' ? !!check(actor) : !!check
   } catch {
-    return false;
+    return false
   }
 }
 ```
@@ -298,10 +289,10 @@ function can(actor, check) {
 **`deny(reason, source?)`** — throws a ConvexError with FORBIDDEN code.
 
 ```ts
-throw deny("Project is archived.");
+throw deny('Project is archived.')
 // → ConvexError({ code: 'FORBIDDEN', message: 'Project is archived.' })
 
-throw deny("Refund window closed.", "refund_guard");
+throw deny('Refund window closed.', 'refund_guard')
 // → ConvexError({ code: 'FORBIDDEN', message: 'Refund window closed.', source: 'refund_guard' })
 ```
 
@@ -311,13 +302,13 @@ Checks return booleans. Guards and handlers throw denials.
 ### Session and key helpers
 
 ```ts
-import { getAuth, verifyKey } from "better-convex-nuxt/auth";
+import { getAuth, verifyKey } from 'better-convex-nuxt/auth'
 ```
 
 **`getAuth(ctx)`** — extracts the authenticated identity from Convex auth.
 
 ```ts
-const identity = await getAuth(ctx);
+const identity = await getAuth(ctx)
 // → { subject: 'user_abc', email: 'alice@example.com', name: 'Alice' } | null
 ```
 
@@ -327,7 +318,7 @@ and enriches the result with role, tenant, and plan from your database.
 **`verifyKey(provided, expected)`** — constant-time string comparison.
 
 ```ts
-const valid = verifyKey(providedKey, process.env.SERVICE_KEY ?? "");
+const valid = verifyKey(providedKey, process.env.SERVICE_KEY ?? '')
 // → boolean
 ```
 
@@ -336,22 +327,20 @@ Used in service/webhook authentication to prevent timing attacks.
 ### Visibility filters
 
 ```ts
-import { defineVisibility, applyVisibility } from "better-convex-nuxt/auth";
+import { defineVisibility, applyVisibility } from 'better-convex-nuxt/auth'
 ```
 
 **`defineVisibility(fn)`** — creates a named visibility filter.
 
 ```ts
 const contactVisibility = defineVisibility(async (actor, db) => {
-  if (["owner", "admin"].includes(actor.role)) {
+  if (['owner', 'admin'].includes(actor.role)) {
     return db
-      .query("contacts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", actor.tenantId));
+      .query('contacts')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
   }
-  return db
-    .query("contacts")
-    .withIndex("by_owner", (q) => q.eq("ownerId", actor.userId));
-});
+  return db.query('contacts').withIndex('by_owner', (q) => q.eq('ownerId', actor.userId))
+})
 ```
 
 The function receives the actor and a database reader. It returns either a
@@ -361,7 +350,7 @@ an array (for complex join logic).
 **`applyVisibility(filter, actor, db)`** — resolves a visibility filter.
 
 ```ts
-const contacts = await applyVisibility(contactVisibility, actor, ctx.db);
+const contacts = await applyVisibility(contactVisibility, actor, ctx.db)
 ```
 
 If the filter returned a Convex query, `applyVisibility` collects it.
@@ -371,14 +360,14 @@ For paginated endpoints, call the filter function directly instead of
 using `applyVisibility`, so you keep the query object for `.paginate()`:
 
 ```ts
-const query = await contactVisibility.resolve(actor, ctx.db);
-return query.order("desc").paginate(args.paginationOpts);
+const query = await contactVisibility.resolve(actor, ctx.db)
+return query.order('desc').paginate(args.paginationOpts)
 ```
 
 ### Frontend composable
 
 ```ts
-import { createAuth } from "better-convex-nuxt/composables";
+import { createAuth } from 'better-convex-nuxt/composables'
 ```
 
 **`createAuth(opts)`** — creates the permission composable and route guard.
@@ -386,7 +375,7 @@ import { createAuth } from "better-convex-nuxt/composables";
 ```ts
 const { usePermissions, useAuthGuard } = createAuth({
   query: api.auth.getPermissionContext,
-});
+})
 ```
 
 See section 8 (Frontend integration) for the full story.
@@ -394,7 +383,7 @@ See section 8 (Frontend integration) for the full story.
 ### Testing
 
 ```ts
-import { createTestContext } from "better-convex-nuxt/testing";
+import { createTestContext } from 'better-convex-nuxt/testing'
 ```
 
 See section 17 (Testing) for the full story.
@@ -483,50 +472,50 @@ A collaboration platform might have 7.
 // convex/auth/actor.ts
 // This file is YOURS. The recipe gives you a starting point.
 
-import { getAuth, verifyKey } from "better-convex-nuxt/auth";
-import type { GenericQueryCtx, GenericMutationCtx } from "convex/server";
-import type { DataModel } from "../_generated/dataModel";
+import { getAuth, verifyKey } from 'better-convex-nuxt/auth'
+import type { GenericQueryCtx, GenericMutationCtx } from 'convex/server'
+import type { DataModel } from '../_generated/dataModel'
 
 export type Actor =
   | {
-      kind: "user";
-      userId: string;
-      role: string;
-      tenantId: string;
-      plan?: string;
+      kind: 'user'
+      userId: string
+      role: string
+      tenantId: string
+      plan?: string
     }
-  | { kind: "service"; serviceId: string; role: string; tenantId: string }
-  | null;
+  | { kind: 'service'; serviceId: string; role: string; tenantId: string }
+  | null
 
-type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>;
+type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: Ctx): Promise<Actor> {
-  const identity = await getAuth(ctx);
-  if (!identity) return null;
+  const identity = await getAuth(ctx)
+  if (!identity) return null
 
   const user = await ctx.db
-    .query("users")
-    .withIndex("by_auth_id", (q) => q.eq("authId", identity.subject))
-    .first();
+    .query('users')
+    .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+    .first()
 
-  if (!user?.workspaceId) return null;
+  if (!user?.workspaceId) return null
 
   return {
-    kind: "user",
+    kind: 'user',
     userId: user.authId,
     role: user.role,
     tenantId: user.workspaceId,
     plan: user.plan,
-  };
+  }
 }
 
 export function getServiceActor(
   key: string,
   identity: { userId: string; role: string; tenantId: string },
 ): Actor {
-  const expected = process.env.CONVEX_SERVICE_KEY?.trim() || "";
-  if (!verifyKey(key, expected)) return null;
-  return { kind: "service", serviceId: "service", ...identity };
+  const expected = process.env.CONVEX_SERVICE_KEY?.trim() || ''
+  if (!verifyKey(key, expected)) return null
+  return { kind: 'service', serviceId: 'service', ...identity }
 }
 ```
 
@@ -536,31 +525,31 @@ export function getServiceActor(
 // convex/auth/checks.ts
 // Pure functions. Composable. Work on server and client.
 
-import { and, or } from "better-convex-nuxt/auth";
-import type { Actor } from "./actor";
-import type { Doc } from "../_generated/dataModel";
+import { and, or } from 'better-convex-nuxt/auth'
+import type { Actor } from './actor'
+import type { Doc } from '../_generated/dataModel'
 
 // --- Base checks ---
-export const isAuthenticated = (a: Actor) => a !== null;
+export const isAuthenticated = (a: Actor) => a !== null
 export const hasRole =
   (...roles: string[]) =>
   (a: Actor) =>
-    !!a && roles.includes(a.role);
+    !!a && roles.includes(a.role)
 export const isOwnerOf = (resource: { ownerId: string }) => (a: Actor) =>
-  !!a && a.kind === "user" && resource.ownerId === a.userId;
+  !!a && a.kind === 'user' && resource.ownerId === a.userId
 
 // --- Composed checks (these are YOUR app's rules) ---
-export const canCreateProject = hasRole("owner", "admin");
-export const canArchiveProject = hasRole("owner", "admin");
+export const canCreateProject = hasRole('owner', 'admin')
+export const canArchiveProject = hasRole('owner', 'admin')
 
-export const canCreateTask = hasRole("owner", "admin", "member");
-export const canAssignTask = hasRole("owner", "admin");
-export const canUpdateTask = (task: Doc<"tasks">) =>
-  or(hasRole("owner", "admin"), and(hasRole("member"), isOwnerOf(task)));
+export const canCreateTask = hasRole('owner', 'admin', 'member')
+export const canAssignTask = hasRole('owner', 'admin')
+export const canUpdateTask = (task: Doc<'tasks'>) =>
+  or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task)))
 
-export const canComment = hasRole("owner", "admin", "member", "viewer");
-export const canManageMembers = hasRole("owner", "admin");
-export const canViewAudit = hasRole("owner", "admin");
+export const canComment = hasRole('owner', 'admin', 'member', 'viewer')
+export const canManageMembers = hasRole('owner', 'admin')
+export const canViewAudit = hasRole('owner', 'admin')
 ```
 
 ### Step 3: Define your guards
@@ -569,34 +558,27 @@ export const canViewAudit = hasRole("owner", "admin");
 // convex/auth/scope.ts
 // Guards that throw. Server-only.
 
-import { deny } from "better-convex-nuxt/auth";
-import type { Actor } from "./actor";
+import { deny } from 'better-convex-nuxt/auth'
+import type { Actor } from './actor'
 
-export function ensureTenant(
-  actor: Actor,
-  resource: { workspaceId: string },
-): void {
-  if (!actor) throw deny("Not authenticated.");
-  if (actor.tenantId !== resource.workspaceId)
-    throw deny("Resource not found.");
+export function ensureTenant(actor: Actor, resource: { workspaceId: string }): void {
+  if (!actor) throw deny('Not authenticated.')
+  if (actor.tenantId !== resource.workspaceId) throw deny('Resource not found.')
 }
 
-export function requireRecord<T>(
-  doc: T | null | undefined,
-  label = "Resource",
-): asserts doc is T {
-  if (!doc) throw new Error(`${label} not found.`);
+export function requireRecord<T>(doc: T | null | undefined, label = 'Resource'): asserts doc is T {
+  if (!doc) throw new Error(`${label} not found.`)
 }
 
 // Convenience: load + verify existence + verify tenant in one call
 export function loadResource<T extends { workspaceId: string }>(
   actor: Actor,
   doc: T | null | undefined,
-  label = "Resource",
+  label = 'Resource',
 ): T {
-  requireRecord(doc, label);
-  ensureTenant(actor, doc);
-  return doc;
+  requireRecord(doc, label)
+  ensureTenant(actor, doc)
+  return doc
 }
 ```
 
@@ -605,9 +587,9 @@ export function loadResource<T extends { workspaceId: string }>(
 ```ts
 // convex/auth/context.ts
 
-import { query } from "../_generated/server";
-import { can } from "better-convex-nuxt/auth";
-import { getActor } from "./actor";
+import { query } from '../_generated/server'
+import { can } from 'better-convex-nuxt/auth'
+import { getActor } from './actor'
 import {
   canCreateProject,
   canArchiveProject,
@@ -616,22 +598,22 @@ import {
   canComment,
   canManageMembers,
   canViewAudit,
-} from "./checks";
+} from './checks'
 
 export const getPermissionContext = query({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx);
-    if (!actor) return null;
+    const actor = await getActor(ctx)
+    if (!actor) return null
 
     const user = await ctx.db
-      .query("users")
-      .withIndex("by_auth_id", (q) => q.eq("authId", actor.userId))
-      .first();
+      .query('users')
+      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+      .first()
 
     return {
       role: actor.role,
-      plan: actor.plan ?? "free",
+      plan: actor.plan ?? 'free',
       userId: actor.userId,
       tenantId: actor.tenantId,
       email: user?.email,
@@ -641,17 +623,17 @@ export const getPermissionContext = query({
       // Only checks that depend on role/plan go here.
       // Resource-specific checks go in withCan() on query results.
       can: {
-        "project.create": can(actor, canCreateProject),
-        "project.archive": can(actor, canArchiveProject),
-        "task.create": can(actor, canCreateTask),
-        "task.assign": can(actor, canAssignTask),
-        "comment.create": can(actor, canComment),
-        "workspace.members": can(actor, canManageMembers),
-        "workspace.audit": can(actor, canViewAudit),
+        'project.create': can(actor, canCreateProject),
+        'project.archive': can(actor, canArchiveProject),
+        'task.create': can(actor, canCreateTask),
+        'task.assign': can(actor, canAssignTask),
+        'comment.create': can(actor, canComment),
+        'workspace.members': can(actor, canManageMembers),
+        'workspace.audit': can(actor, canViewAudit),
       },
-    };
+    }
   },
-});
+})
 ```
 
 ### Step 5: Set up the frontend composable
@@ -659,12 +641,12 @@ export const getPermissionContext = query({
 ```ts
 // composables/usePermissions.ts
 
-import { createAuth } from "better-convex-nuxt/composables";
-import { api } from "~/convex/_generated/api";
+import { createAuth } from 'better-convex-nuxt/composables'
+import { api } from '~/convex/_generated/api'
 
 export const { usePermissions, useAuthGuard } = createAuth({
   query: api.auth.context.getPermissionContext,
-});
+})
 ```
 
 ---
@@ -684,11 +666,11 @@ They answer "what can this user do in general?" and arrive via the
 
 ```vue
 <script setup>
-const { can, role, plan } = usePermissions();
+const { can, role, plan } = usePermissions()
 
 // Global check — "can this role create tasks at all?"
-const canCreate = can("task.create");
-const canManage = can("workspace.members");
+const canCreate = can('task.create')
+const canManage = can('workspace.members')
 </script>
 
 <template>
@@ -719,7 +701,7 @@ export function withCan<T extends Record<string, any>>(
   doc: T,
   checks: Record<string, boolean>,
 ): T & { _can: Record<string, boolean> } {
-  return { ...doc, _can: checks };
+  return { ...doc, _can: checks }
 }
 ```
 
@@ -730,7 +712,7 @@ return tasks.map((task) =>
     update: can(actor, canUpdateTask(task)),
     delete: can(actor, canUpdateTask(task)),
   }),
-);
+)
 ```
 
 On the frontend, read `_can` directly:
@@ -758,7 +740,7 @@ const {
   tenantId, // Ref<string | null>
   isAuthenticated, // Ref<boolean>
   can, // (key: string) => ComputedRef<boolean>
-} = usePermissions();
+} = usePermissions()
 ```
 
 ### Route guards
@@ -766,7 +748,7 @@ const {
 ```vue
 <script setup>
 // Redirects to '/' if the actor doesn't have this capability
-useAuthGuard({ can: "workspace.audit", redirectTo: "/" });
+useAuthGuard({ can: 'workspace.audit', redirectTo: '/' })
 </script>
 ```
 
@@ -778,10 +760,10 @@ For custom guard logic:
 
 ```ts
 useAuthGuard({
-  check: (ctx) => ctx.role === "owner",
-  redirectTo: "/",
-  message: "Owner access required.",
-});
+  check: (ctx) => ctx.role === 'owner',
+  redirectTo: '/',
+  message: 'Owner access required.',
+})
 ```
 
 ### When to use which layer
@@ -839,36 +821,32 @@ export const create = mutation({
 
 ```ts
 export const listByProject = query({
-  args: { projectId: v.id("projects") },
+  args: { projectId: v.id('projects') },
   handler: async (ctx, args) => {
     // 1. Resolve the actor
-    const actor = await getActor(ctx);
+    const actor = await getActor(ctx)
 
     // 2. Check capability
-    authorize(actor, "Read tasks", canReadTask);
+    authorize(actor, 'Read tasks', canReadTask)
 
     // 3. Load parent resource + verify tenant
-    const project = loadResource(
-      actor,
-      await ctx.db.get(args.projectId),
-      "Project",
-    );
+    const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
     // 4. Query the data
     const tasks = await ctx.db
-      .query("tasks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .order("desc")
-      .collect();
+      .query('tasks')
+      .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+      .order('desc')
+      .collect()
 
     // 5. Attach per-item permissions for the frontend
     return tasks.map((task) =>
       withCan(task, {
         update: can(actor, canUpdateTask(task)),
       }),
-    );
+    )
   },
-});
+})
 ```
 
 ### For queries with visibility filters
@@ -877,45 +855,45 @@ export const listByProject = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx);
-    authorize(actor, "Read contacts", hasRole("owner", "admin", "manager", "rep"));
+    const actor = await getActor(ctx)
+    authorize(actor, 'Read contacts', hasRole('owner', 'admin', 'manager', 'rep'))
 
     // Visibility filter handles "which rows"
-    const contacts = await applyVisibility(contactVisibility, actor, ctx.db);
-    return contacts.map((c) => redactContact(actor, c));
+    const contacts = await applyVisibility(contactVisibility, actor, ctx.db)
+    return contacts.map((c) => redactContact(actor, c))
   },
-});
+})
 ```
 
 ### For bulk operations
 
 ```ts
 export const bulkUpdate = mutation({
-  args: { ids: v.array(v.id("tasks")), status: taskStatusValidator },
+  args: { ids: v.array(v.id('tasks')), status: taskStatusValidator },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx);
-    authorize(actor, "Bulk update", hasRole("owner", "admin", "member"));
+    const actor = await getActor(ctx)
+    authorize(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
 
-    const results = { updated: 0, skipped: [] as string[] };
+    const results = { updated: 0, skipped: [] as string[] }
 
     for (const id of args.ids) {
-      const task = await ctx.db.get(id);
+      const task = await ctx.db.get(id)
       if (!task || task.workspaceId !== actor!.tenantId) {
-        results.skipped.push(id);
-        continue;
+        results.skipped.push(id)
+        continue
       }
       // Per-item soft check
       if (!can(actor, canUpdateTask(task))) {
-        results.skipped.push(id);
-        continue;
+        results.skipped.push(id)
+        continue
       }
-      await ctx.db.patch(id, { status: args.status, updatedAt: Date.now() });
-      results.updated++;
+      await ctx.db.patch(id, { status: args.status, updatedAt: Date.now() })
+      results.updated++
     }
 
-    return results;
+    return results
   },
-});
+})
 ```
 
 ---
@@ -933,120 +911,115 @@ export const bulkUpdate = mutation({
 ```ts
 export const create = mutation({
   args: {
-    projectId: v.id("projects"),
+    projectId: v.id('projects'),
     title: v.string(),
     priority: v.optional(taskPriorityValidator),
   },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx);
-    authorize(actor, "Create task", canCreateTask);
+    const actor = await getActor(ctx)
+    authorize(actor, 'Create task', canCreateTask)
 
-    const project = loadResource(
-      actor,
-      await ctx.db.get(args.projectId),
-      "Project",
-    );
+    const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
-    if (project.status === "archived") {
-      throw deny("Cannot add tasks to archived projects.");
+    if (project.status === 'archived') {
+      throw deny('Cannot add tasks to archived projects.')
     }
 
-    const now = Date.now();
-    return ctx.db.insert("tasks", {
+    const now = Date.now()
+    return ctx.db.insert('tasks', {
       projectId: args.projectId,
       title: args.title,
-      status: "backlog",
-      priority: args.priority ?? "medium",
+      status: 'backlog',
+      priority: args.priority ?? 'medium',
       ownerId: actor!.userId,
       workspaceId: actor!.tenantId,
       createdAt: now,
       updatedAt: now,
-    });
+    })
   },
-});
+})
 ```
 
 **Task move with ownership check:**
 
 ```ts
 export const moveToColumn = mutation({
-  args: { id: v.id("tasks"), status: taskStatusValidator },
+  args: { id: v.id('tasks'), status: taskStatusValidator },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx);
-    const task = loadResource(actor, await ctx.db.get(args.id), "Task");
-    authorize(actor, "Update task", canUpdateTask(task));
+    const actor = await getActor(ctx)
+    const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
+    authorize(actor, 'Update task', canUpdateTask(task))
 
-    await ctx.db.patch(args.id, { status: args.status, updatedAt: Date.now() });
+    await ctx.db.patch(args.id, { status: args.status, updatedAt: Date.now() })
   },
-});
+})
 ```
 
 **Comment with parent-project guard:**
 
 ```ts
 export const createComment = mutation({
-  args: { taskId: v.id("tasks"), body: v.string() },
+  args: { taskId: v.id('tasks'), body: v.string() },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx);
-    authorize(actor, "Comment", canComment);
+    const actor = await getActor(ctx)
+    authorize(actor, 'Comment', canComment)
 
-    const task = loadResource(actor, await ctx.db.get(args.taskId), "Task");
+    const task = loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 
-    const project = await ctx.db.get(task.projectId);
-    requireRecord(project, "Project");
-    if (project.status === "archived")
-      throw deny("Cannot comment in archived projects.");
+    const project = await ctx.db.get(task.projectId)
+    requireRecord(project, 'Project')
+    if (project.status === 'archived') throw deny('Cannot comment in archived projects.')
 
-    return ctx.db.insert("comments", {
+    return ctx.db.insert('comments', {
       taskId: args.taskId,
       body: args.body,
       ownerId: actor!.userId,
       workspaceId: actor!.tenantId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    });
+    })
   },
-});
+})
 ```
 
 **Task list with per-item permissions for the board UI:**
 
 ```ts
 export const listByProject = query({
-  args: { projectId: v.id("projects") },
+  args: { projectId: v.id('projects') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx);
-    authorize(actor, "Read tasks", hasRole("owner", "admin", "member", "viewer"));
+    const actor = await getActor(ctx)
+    authorize(actor, 'Read tasks', hasRole('owner', 'admin', 'member', 'viewer'))
 
-    loadResource(actor, await ctx.db.get(args.projectId), "Project");
+    loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
     const tasks = await ctx.db
-      .query("tasks")
-      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
-      .order("desc")
-      .collect();
+      .query('tasks')
+      .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
+      .order('desc')
+      .collect()
 
     return tasks.map((task) =>
       withCan(task, {
         update: can(actor, canUpdateTask(task)),
         delete: can(actor, canUpdateTask(task)),
       }),
-    );
+    )
   },
-});
+})
 ```
 
 **Frontend board page:**
 
 ```vue
 <script setup>
-const { can } = usePermissions();
-const canCreate = can("task.create");
+const { can } = usePermissions()
+const canCreate = can('task.create')
 
 const { data: tasks } = await useConvexQuery(
   api.tasks.listByProject,
   computed(() => ({ projectId: projectId.value })),
-);
+)
 </script>
 
 <template>
@@ -1062,9 +1035,7 @@ const { data: tasks } = await useConvexQuery(
 <template>
   <article class="task-card">
     <span>{{ task.title }}</span>
-    <button v-if="task._can.update && task.status !== 'done'" @click="move">
-      Move forward
-    </button>
+    <button v-if="task._can.update && task.status !== 'done'" @click="move">Move forward</button>
   </article>
 </template>
 ```
@@ -1080,71 +1051,66 @@ const { data: tasks } = await useConvexQuery(
 ### visibility.ts
 
 ```ts
-import { defineVisibility } from "better-convex-nuxt/auth";
-import type { Actor } from "./actor";
+import { defineVisibility } from 'better-convex-nuxt/auth'
+import type { Actor } from './actor'
 
 export const contactVisibility = defineVisibility(async (actor: Actor, db) => {
-  if (!actor) return [];
+  if (!actor) return []
 
-  if (["owner", "admin"].includes(actor.role)) {
+  if (['owner', 'admin'].includes(actor.role)) {
     return db
-      .query("contacts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", actor.tenantId));
+      .query('contacts')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
   }
 
-  if (actor.role === "manager") {
+  if (actor.role === 'manager') {
     const team = await db
-      .query("users")
-      .withIndex("by_manager", (q) => q.eq("managerId", actor.userId))
-      .collect();
-    const teamIds = [actor.userId, ...team.map((u) => u.authId)];
+      .query('users')
+      .withIndex('by_manager', (q) => q.eq('managerId', actor.userId))
+      .collect()
+    const teamIds = [actor.userId, ...team.map((u) => u.authId)]
 
     const all = await db
-      .query("contacts")
-      .withIndex("by_workspace", (q) => q.eq("workspaceId", actor.tenantId))
-      .collect();
-    return all.filter((c) => teamIds.includes(c.ownerId));
+      .query('contacts')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+      .collect()
+    return all.filter((c) => teamIds.includes(c.ownerId))
   }
 
-  return db
-    .query("contacts")
-    .withIndex("by_owner", (q) => q.eq("ownerId", actor.userId));
-});
+  return db.query('contacts').withIndex('by_owner', (q) => q.eq('ownerId', actor.userId))
+})
 ```
 
 ### redaction.ts
 
 ```ts
-import type { Actor } from "./actor";
-import { hasRole } from "./checks";
+import type { Actor } from './actor'
+import { hasRole } from './checks'
 
 type RedactionRule = {
-  fields: string[];
-  visibleTo: (a: Actor) => boolean;
-};
+  fields: string[]
+  visibleTo: (a: Actor) => boolean
+}
 
 const contactRedactions: RedactionRule[] = [
   {
-    fields: ["estimatedRevenue", "internalNotes"],
-    visibleTo: hasRole("owner", "admin", "manager"),
+    fields: ['estimatedRevenue', 'internalNotes'],
+    visibleTo: hasRole('owner', 'admin', 'manager'),
   },
   {
-    fields: ["phone", "personalEmail"],
-    visibleTo: hasRole("owner", "admin", "manager", "rep"),
+    fields: ['phone', 'personalEmail'],
+    visibleTo: hasRole('owner', 'admin', 'manager', 'rep'),
   },
-];
+]
 
-export function redactContact<T extends Record<string, any>>(
-  actor: Actor,
-  contact: T,
-): T {
-  const result = { ...contact };
+export function redactContact<T extends Record<string, any>>(actor: Actor, contact: T): T {
+  const result = { ...contact }
   for (const rule of contactRedactions) {
     if (!rule.visibleTo(actor)) {
-      for (const field of rule.fields) delete result[field];
+      for (const field of rule.fields) delete result[field]
     }
   }
-  return result;
+  return result
 }
 ```
 
@@ -1154,13 +1120,13 @@ export function redactContact<T extends Record<string, any>>(
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx);
-    authorize(actor, "Read contacts", hasRole("owner", "admin", "manager", "rep"));
+    const actor = await getActor(ctx)
+    authorize(actor, 'Read contacts', hasRole('owner', 'admin', 'manager', 'rep'))
 
-    const contacts = await applyVisibility(contactVisibility, actor, ctx.db);
-    return contacts.map((c) => redactContact(actor, c));
+    const contacts = await applyVisibility(contactVisibility, actor, ctx.db)
+    return contacts.map((c) => redactContact(actor, c))
   },
-});
+})
 ```
 
 ---
@@ -1174,74 +1140,65 @@ export const list = query({
 ### enrollment.ts
 
 ```ts
-import { deny } from "better-convex-nuxt/auth";
-import type { DatabaseReader } from "../_generated/server";
-import type { Id, Doc } from "../_generated/dataModel";
-import type { Actor } from "./actor";
-import { hasRole, can } from "./checks";
+import { deny } from 'better-convex-nuxt/auth'
+import type { DatabaseReader } from '../_generated/server'
+import type { Id, Doc } from '../_generated/dataModel'
+import type { Actor } from './actor'
+import { hasRole, can } from './checks'
 
-export async function getEnrollment(
-  db: DatabaseReader,
-  userId: string,
-  courseId: Id<"courses">,
-) {
+export async function getEnrollment(db: DatabaseReader, userId: string, courseId: Id<'courses'>) {
   return db
-    .query("enrollments")
-    .withIndex("by_user_course", (q) =>
-      q.eq("userId", userId).eq("courseId", courseId),
-    )
-    .first();
+    .query('enrollments')
+    .withIndex('by_user_course', (q) => q.eq('userId', userId).eq('courseId', courseId))
+    .first()
 }
 
 export async function requireEnrollment(
   db: DatabaseReader,
   actor: Actor,
-  courseId: Id<"courses">,
-): Promise<Doc<"enrollments">> {
-  if (!actor) throw deny("Not authenticated.");
+  courseId: Id<'courses'>,
+): Promise<Doc<'enrollments'>> {
+  if (!actor) throw deny('Not authenticated.')
 
   // Staff bypass enrollment
-  if (can(actor, hasRole("owner", "admin", "instructor"))) {
+  if (can(actor, hasRole('owner', 'admin', 'instructor'))) {
     return {
       userId: actor.userId,
       courseId,
-      status: "active",
+      status: 'active',
       createdAt: 0,
-    } as any;
+    } as any
   }
 
-  const enrollment = await getEnrollment(db, actor.userId, courseId);
-  if (!enrollment || enrollment.status !== "active")
-    throw deny("Not enrolled in this course.");
-  return enrollment;
+  const enrollment = await getEnrollment(db, actor.userId, courseId)
+  if (!enrollment || enrollment.status !== 'active') throw deny('Not enrolled in this course.')
+  return enrollment
 }
 ```
 
 ### prerequisites.ts
 
 ```ts
-import { deny } from "better-convex-nuxt/auth";
-import type { DatabaseReader } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import { deny } from 'better-convex-nuxt/auth'
+import type { DatabaseReader } from '../_generated/server'
+import type { Doc } from '../_generated/dataModel'
 
 export async function ensurePrerequisites(
   db: DatabaseReader,
   userId: string,
-  lesson: Doc<"lessons">,
+  lesson: Doc<'lessons'>,
 ): Promise<void> {
-  if (!lesson.prerequisiteIds?.length) return;
+  if (!lesson.prerequisiteIds?.length) return
 
   for (const prereqId of lesson.prerequisiteIds) {
     const progress = await db
-      .query("lessonProgress")
-      .withIndex("by_user_lesson", (q) =>
-        q.eq("userId", userId).eq("lessonId", prereqId),
-      )
-      .first();
+      .query('lessonProgress')
+      .withIndex('by_user_lesson', (q) => q.eq('userId', userId).eq('lessonId', prereqId))
+      .first()
 
     if (!progress?.completedAt) {
-      const prereq = await db.get(prereqId);
-      throw deny(`Complete "${prereq?.title ?? "previous lesson"}" first.`);
+      const prereq = await db.get(prereqId)
+      throw deny(`Complete "${prereq?.title ?? 'previous lesson'}" first.`)
     }
   }
 }
@@ -1251,32 +1208,32 @@ export async function ensurePrerequisites(
 
 ```ts
 export const getLesson = query({
-  args: { id: v.id("lessons") },
+  args: { id: v.id('lessons') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx);
-    authorize(actor, "Read lesson", isAuthenticated);
+    const actor = await getActor(ctx)
+    authorize(actor, 'Read lesson', isAuthenticated)
 
-    const lesson = loadResource(actor, await ctx.db.get(args.id), "Lesson");
-    const course = await ctx.db.get(lesson.courseId);
-    requireRecord(course, "Course");
+    const lesson = loadResource(actor, await ctx.db.get(args.id), 'Lesson')
+    const course = await ctx.db.get(lesson.courseId)
+    requireRecord(course, 'Course')
 
     // Staff see everything
-    if (can(actor, hasRole("owner", "admin", "instructor"))) return lesson;
+    if (can(actor, hasRole('owner', 'admin', 'instructor'))) return lesson
 
     // Students go through the full chain
-    if (course.status !== "published") throw deny("Course not available.");
-    if (lesson.status === "draft") throw deny("Lesson not available.");
+    if (course.status !== 'published') throw deny('Course not available.')
+    if (lesson.status === 'draft') throw deny('Lesson not available.')
 
-    const enrollment = await requireEnrollment(ctx.db, actor, course._id);
-    await ensurePrerequisites(ctx.db, actor!.userId, lesson);
+    const enrollment = await requireEnrollment(ctx.db, actor, course._id)
+    await ensurePrerequisites(ctx.db, actor!.userId, lesson)
 
     if (lesson.availableAfter && lesson.availableAfter > Date.now()) {
-      throw deny("This lesson is not available yet.");
+      throw deny('This lesson is not available yet.')
     }
 
-    return { ...lesson, enrolledAt: enrollment.createdAt };
+    return { ...lesson, enrolledAt: enrollment.createdAt }
   },
-});
+})
 ```
 
 ---
@@ -1290,42 +1247,38 @@ export const getLesson = query({
 ### service-auth.ts
 
 ```ts
-import { verifyKey, deny } from "better-convex-nuxt/auth";
-import type { Actor } from "./actor";
+import { verifyKey, deny } from 'better-convex-nuxt/auth'
+import type { Actor } from './actor'
 
 export function getServiceActor(
   key: string,
   identity: { userId: string; role: string; tenantId: string },
 ): Actor {
-  const expected = process.env.CONVEX_SERVICE_KEY ?? "";
-  if (!verifyKey(key, expected)) throw deny("Invalid service key.");
-  return { kind: "service", serviceId: "webhook", ...identity };
+  const expected = process.env.CONVEX_SERVICE_KEY ?? ''
+  if (!verifyKey(key, expected)) throw deny('Invalid service key.')
+  return { kind: 'service', serviceId: 'webhook', ...identity }
 }
 ```
 
 ### idempotency.ts
 
 ```ts
-import { deny } from "better-convex-nuxt/auth";
+import { deny } from 'better-convex-nuxt/auth'
 
 export async function ensureNotProcessed(db, eventId: string): Promise<void> {
   const existing = await db
-    .query("processedEvents")
-    .withIndex("by_event_id", (q) => q.eq("eventId", eventId))
-    .first();
-  if (existing) throw deny("Event already processed.");
+    .query('processedEvents')
+    .withIndex('by_event_id', (q) => q.eq('eventId', eventId))
+    .first()
+  if (existing) throw deny('Event already processed.')
 }
 
-export async function markProcessed(
-  db,
-  eventId: string,
-  source: string,
-): Promise<void> {
-  await db.insert("processedEvents", {
+export async function markProcessed(db, eventId: string, source: string): Promise<void> {
+  await db.insert('processedEvents', {
     eventId,
     source,
     processedAt: Date.now(),
-  });
+  })
 }
 ```
 
@@ -1333,39 +1286,38 @@ export async function markProcessed(
 
 ```ts
 export const processRefund = mutation({
-  args: { orderId: v.id("orders"), reason: v.string() },
+  args: { orderId: v.id('orders'), reason: v.string() },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx);
+    const actor = await getActor(ctx)
     authorize(
       actor,
-      "Process refund",
-      or(hasRole("owner", "admin"), (a) => a?.kind === "service"),
-    );
+      'Process refund',
+      or(hasRole('owner', 'admin'), (a) => a?.kind === 'service'),
+    )
 
-    const order = loadResource(actor, await ctx.db.get(args.orderId), "Order");
+    const order = loadResource(actor, await ctx.db.get(args.orderId), 'Order')
 
-    if (order.status === "refunded") throw deny("Already refunded.");
-    if (order.status === "pending")
-      throw deny("Cannot refund unfulfilled orders.");
+    if (order.status === 'refunded') throw deny('Already refunded.')
+    if (order.status === 'pending') throw deny('Cannot refund unfulfilled orders.')
 
-    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000
     if (order.fulfilledAt && order.fulfilledAt < Date.now() - thirtyDays) {
-      throw deny("Refund window has closed (30 days).");
+      throw deny('Refund window has closed (30 days).')
     }
 
     const hold = await ctx.db
-      .query("fraudHolds")
-      .withIndex("by_order", (q) => q.eq("orderId", order._id))
-      .first();
-    if (hold && !hold.resolvedAt) throw deny("Order is under fraud review.");
+      .query('fraudHolds')
+      .withIndex('by_order', (q) => q.eq('orderId', order._id))
+      .first()
+    if (hold && !hold.resolvedAt) throw deny('Order is under fraud review.')
 
     await ctx.db.patch(args.orderId, {
-      status: "refunded",
+      status: 'refunded',
       refundedAt: Date.now(),
       refundReason: args.reason,
-    });
+    })
   },
-});
+})
 ```
 
 ---
@@ -1379,93 +1331,83 @@ export const processRefund = mutation({
 ### plans.ts
 
 ```ts
-import type { Actor } from "./actor";
+import type { Actor } from './actor'
 
 const planFeatures: Record<string, string[]> = {
-  free: ["projects", "tasks", "comments"],
-  pro: ["projects", "tasks", "comments", "exports", "api", "custom_fields"],
-  enterprise: ["*"],
-};
+  free: ['projects', 'tasks', 'comments'],
+  pro: ['projects', 'tasks', 'comments', 'exports', 'api', 'custom_fields'],
+  enterprise: ['*'],
+}
 
 export const hasPlan =
   (...plans: string[]) =>
   (a: Actor) =>
-    !!a && plans.includes(a.plan ?? "free");
+    !!a && plans.includes(a.plan ?? 'free')
 
 export const hasFeature = (feature: string) => (a: Actor) => {
-  if (!a) return false;
-  const features = planFeatures[a.plan ?? "free"] ?? [];
-  return features.includes(feature) || features.includes("*");
-};
+  if (!a) return false
+  const features = planFeatures[a.plan ?? 'free'] ?? []
+  return features.includes(feature) || features.includes('*')
+}
 ```
 
 ### limits.ts
 
 ```ts
-import { deny } from "better-convex-nuxt/auth";
-import type { Actor } from "./actor";
+import { deny } from 'better-convex-nuxt/auth'
+import type { Actor } from './actor'
 
 const usageLimits: Record<
   string,
   {
-    index: string;
-    countFilter?: (doc: any) => boolean;
-    limits: Record<string, number>;
+    index: string
+    countFilter?: (doc: any) => boolean
+    limits: Record<string, number>
   }
 > = {
   projects: {
-    index: "by_workspace",
-    countFilter: (p) => p.status === "active",
+    index: 'by_workspace',
+    countFilter: (p) => p.status === 'active',
     limits: { free: 3, pro: 50, enterprise: Infinity },
   },
   members: {
-    index: "by_workspace",
+    index: 'by_workspace',
     limits: { free: 5, pro: 25, enterprise: Infinity },
   },
-};
+}
 
-export async function ensureWithinLimit(
-  db,
-  actor: Actor,
-  resource: string,
-): Promise<void> {
-  if (!actor) throw deny("Not authenticated.");
+export async function ensureWithinLimit(db, actor: Actor, resource: string): Promise<void> {
+  if (!actor) throw deny('Not authenticated.')
 
-  const config = usageLimits[resource];
-  if (!config) return;
+  const config = usageLimits[resource]
+  if (!config) return
 
-  const plan = actor.plan ?? "free";
-  const max = config.limits[plan] ?? Infinity;
-  if (max === Infinity) return;
+  const plan = actor.plan ?? 'free'
+  const max = config.limits[plan] ?? Infinity
+  if (max === Infinity) return
 
   const rows = await db
     .query(resource)
-    .withIndex(config.index, (q) => q.eq("workspaceId", actor.tenantId))
-    .collect();
-  const count = config.countFilter
-    ? rows.filter(config.countFilter).length
-    : rows.length;
+    .withIndex(config.index, (q) => q.eq('workspaceId', actor.tenantId))
+    .collect()
+  const count = config.countFilter ? rows.filter(config.countFilter).length : rows.length
 
   if (count >= max)
-    throw deny(
-      `Plan limit reached: ${count}/${max} ${resource}. Upgrade to add more.`,
-    );
+    throw deny(`Plan limit reached: ${count}/${max} ${resource}. Upgrade to add more.`)
 }
 
 export async function getUsage(db, actor: Actor, resource: string) {
-  if (!actor) return null;
-  const config = usageLimits[resource];
-  if (!config) return null;
-  const plan = actor.plan ?? "free";
-  const max = config.limits[plan] ?? Infinity;
+  if (!actor) return null
+  const config = usageLimits[resource]
+  if (!config) return null
+  const plan = actor.plan ?? 'free'
+  const max = config.limits[plan] ?? Infinity
   const rows = await db
     .query(resource)
-    .withIndex(config.index, (q) => q.eq("workspaceId", actor.tenantId))
-    .collect();
-  const current = config.countFilter
-    ? rows.filter(config.countFilter).length
-    : rows.length;
-  return { current, max, remaining: Math.max(0, max - current) };
+    .withIndex(config.index, (q) => q.eq('workspaceId', actor.tenantId))
+    .collect()
+  const current = config.countFilter ? rows.filter(config.countFilter).length : rows.length
+  return { current, max, remaining: Math.max(0, max - current) }
 }
 ```
 
@@ -1491,29 +1433,26 @@ export const createProject = mutation({
 return {
   ...base,
   usage: {
-    projects: await getUsage(ctx.db, actor, "projects"),
-    members: await getUsage(ctx.db, actor, "members"),
+    projects: await getUsage(ctx.db, actor, 'projects'),
+    members: await getUsage(ctx.db, actor, 'members'),
   },
-};
+}
 ```
 
 ```vue
 <template>
   <button :disabled="!canCreate" @click="create">
     New project
-    <span v-if="usage?.projects"
-      >{{ usage.projects.current }}/{{ usage.projects.max }}</span
-    >
+    <span v-if="usage?.projects">{{ usage.projects.current }}/{{ usage.projects.max }}</span>
   </button>
 </template>
 
 <script setup>
-const { can, ctx } = usePermissions();
-const usage = computed(() => ctx.value?.usage);
+const { can, ctx } = usePermissions()
+const usage = computed(() => ctx.value?.usage)
 const canCreate = computed(
-  () =>
-    can("project.create").value && (usage.value?.projects?.remaining ?? 0) > 0,
-);
+  () => can('project.create').value && (usage.value?.projects?.remaining ?? 0) > 0,
+)
 </script>
 ```
 
@@ -1528,112 +1467,102 @@ const canCreate = computed(
 ### page-access.ts
 
 ```ts
-import { deny } from "better-convex-nuxt/auth";
-import type { DatabaseReader } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
-import type { Actor } from "./actor";
+import { deny } from 'better-convex-nuxt/auth'
+import type { DatabaseReader } from '../_generated/server'
+import type { Id } from '../_generated/dataModel'
+import type { Actor } from './actor'
 
-export type AccessLevel = "view" | "comment" | "edit";
-const hierarchy: Record<AccessLevel, number> = { view: 0, comment: 1, edit: 2 };
+export type AccessLevel = 'view' | 'comment' | 'edit'
+const hierarchy: Record<AccessLevel, number> = { view: 0, comment: 1, edit: 2 }
 
 export async function getAccessLevel(
   db: DatabaseReader,
   actor: Actor,
-  pageId: Id<"pages">,
+  pageId: Id<'pages'>,
 ): Promise<AccessLevel | null> {
-  if (!actor || actor.kind !== "user") return null;
-  if (["owner", "admin"].includes(actor.role)) return "edit";
+  if (!actor || actor.kind !== 'user') return null
+  if (['owner', 'admin'].includes(actor.role)) return 'edit'
 
   const share = await db
-    .query("pageShares")
-    .withIndex("by_user_page", (q) =>
-      q.eq("userId", actor.userId).eq("pageId", pageId),
-    )
-    .first();
-  if (share) return share.level as AccessLevel;
+    .query('pageShares')
+    .withIndex('by_user_page', (q) => q.eq('userId', actor.userId).eq('pageId', pageId))
+    .first()
+  if (share) return share.level as AccessLevel
 
-  if (["member", "viewer"].includes(actor.role)) {
-    const page = await db.get(pageId);
-    if (page?.visibility === "workspace") return "view";
+  if (['member', 'viewer'].includes(actor.role)) {
+    const page = await db.get(pageId)
+    if (page?.visibility === 'workspace') return 'view'
   }
-  return null;
+  return null
 }
 
 export async function getInheritedAccessLevel(
   db: DatabaseReader,
   actor: Actor,
-  pageId: Id<"pages">,
+  pageId: Id<'pages'>,
   maxDepth = 10,
 ): Promise<AccessLevel | null> {
-  const direct = await getAccessLevel(db, actor, pageId);
-  if (direct) return direct;
+  const direct = await getAccessLevel(db, actor, pageId)
+  if (direct) return direct
 
-  let currentId = pageId;
+  let currentId = pageId
   for (let depth = 0; depth < maxDepth; depth++) {
-    const page = await db.get(currentId);
-    if (!page?.parentPageId) break;
-    const parentAccess = await getAccessLevel(db, actor, page.parentPageId);
-    if (parentAccess) return parentAccess;
-    currentId = page.parentPageId;
+    const page = await db.get(currentId)
+    if (!page?.parentPageId) break
+    const parentAccess = await getAccessLevel(db, actor, page.parentPageId)
+    if (parentAccess) return parentAccess
+    currentId = page.parentPageId
   }
-  return null;
+  return null
 }
 
 export async function requirePageAccess(
   db: DatabaseReader,
   actor: Actor,
-  pageId: Id<"pages">,
+  pageId: Id<'pages'>,
   minLevel: AccessLevel,
 ): Promise<AccessLevel> {
-  const level = await getInheritedAccessLevel(db, actor, pageId);
-  if (!level) throw deny("No access to this page.");
+  const level = await getInheritedAccessLevel(db, actor, pageId)
+  if (!level) throw deny('No access to this page.')
   if (hierarchy[level] < hierarchy[minLevel])
-    throw deny(`Requires ${minLevel} access. You have ${level}.`);
-  return level;
+    throw deny(`Requires ${minLevel} access. You have ${level}.`)
+  return level
 }
 ```
 
 ### share-tokens.ts
 
 ```ts
-import { deny } from "better-convex-nuxt/auth";
-import type { DatabaseReader } from "../_generated/server";
-import type { AccessLevel } from "./page-access";
+import { deny } from 'better-convex-nuxt/auth'
+import type { DatabaseReader } from '../_generated/server'
+import type { AccessLevel } from './page-access'
 
 export type ShareGrant = {
-  kind: "share_token";
-  tokenId: string;
-  pageId: string;
-  level: AccessLevel;
-};
+  kind: 'share_token'
+  tokenId: string
+  pageId: string
+  level: AccessLevel
+}
 
-export async function resolveShareToken(
-  db: DatabaseReader,
-  token: string,
-): Promise<ShareGrant> {
+export async function resolveShareToken(db: DatabaseReader, token: string): Promise<ShareGrant> {
   const record = await db
-    .query("shareTokens")
-    .withIndex("by_token", (q) => q.eq("token", token))
-    .first();
-  if (!record) throw deny("Invalid share link.");
-  if (record.expiresAt && record.expiresAt < Date.now())
-    throw deny("Link expired.");
-  if (record.revokedAt) throw deny("Link has been revoked.");
+    .query('shareTokens')
+    .withIndex('by_token', (q) => q.eq('token', token))
+    .first()
+  if (!record) throw deny('Invalid share link.')
+  if (record.expiresAt && record.expiresAt < Date.now()) throw deny('Link expired.')
+  if (record.revokedAt) throw deny('Link has been revoked.')
   return {
-    kind: "share_token",
+    kind: 'share_token',
     tokenId: record._id,
     pageId: record.pageId,
     level: record.level as AccessLevel,
-  };
+  }
 }
 
-export function requireTokenLevel(
-  grant: ShareGrant,
-  minLevel: AccessLevel,
-): void {
-  const h = { view: 0, comment: 1, edit: 2 };
-  if (h[grant.level] < h[minLevel])
-    throw deny(`This link only allows ${grant.level}.`);
+export function requireTokenLevel(grant: ShareGrant, minLevel: AccessLevel): void {
+  const h = { view: 0, comment: 1, edit: 2 }
+  if (h[grant.level] < h[minLevel]) throw deny(`This link only allows ${grant.level}.`)
 }
 ```
 
@@ -1641,26 +1570,25 @@ export function requireTokenLevel(
 
 ```ts
 export const viewPage = query({
-  args: { id: v.id("pages"), shareToken: v.optional(v.string()) },
+  args: { id: v.id('pages'), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
     // Path 1: public share link
     if (args.shareToken) {
-      const grant = await resolveShareToken(ctx.db, args.shareToken);
-      if (grant.pageId !== args.id)
-        throw deny("Token does not match this page.");
-      const page = await ctx.db.get(args.id);
-      requireRecord(page, "Page");
-      return { ...page, _access: grant.level, _via: "share_link" };
+      const grant = await resolveShareToken(ctx.db, args.shareToken)
+      if (grant.pageId !== args.id) throw deny('Token does not match this page.')
+      const page = await ctx.db.get(args.id)
+      requireRecord(page, 'Page')
+      return { ...page, _access: grant.level, _via: 'share_link' }
     }
 
     // Path 2: authenticated workspace member
-    const actor = await getActor(ctx);
-    authorize(actor, "View page", isAuthenticated);
-    const page = loadResource(actor, await ctx.db.get(args.id), "Page");
-    const access = await requirePageAccess(ctx.db, actor, page._id, "view");
-    return { ...page, _access: access, _via: "workspace" };
+    const actor = await getActor(ctx)
+    authorize(actor, 'View page', isAuthenticated)
+    const page = loadResource(actor, await ctx.db.get(args.id), 'Page')
+    const access = await requirePageAccess(ctx.db, actor, page._id, 'view')
+    return { ...page, _access: access, _via: 'workspace' }
   },
-});
+})
 ```
 
 ---
@@ -1674,55 +1602,44 @@ export const viewPage = query({
 ### agency.ts
 
 ```ts
-import { getAuth, deny } from "better-convex-nuxt/auth";
-import type { Actor } from "./actor";
+import { getAuth, deny } from 'better-convex-nuxt/auth'
+import type { Actor } from './actor'
 
 export async function getAgencyActor(ctx): Promise<Actor> {
-  const identity = await getAuth(ctx);
-  if (!identity) return null;
+  const identity = await getAuth(ctx)
+  if (!identity) return null
   const user = await ctx.db
-    .query("users")
-    .withIndex("by_auth_id", (q) => q.eq("authId", identity.subject))
-    .first();
-  if (!user) return null;
+    .query('users')
+    .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+    .first()
+  if (!user) return null
   return {
-    kind: "user",
+    kind: 'user',
     userId: user.authId,
-    role: "agency_user",
-    tenantId: "",
-  };
+    role: 'agency_user',
+    tenantId: '',
+  }
 }
 
 export async function getMemberships(db, userId: string) {
   return db
-    .query("memberships")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .collect();
+    .query('memberships')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .collect()
 }
 
-export async function requireAgencyRole(
-  db,
-  userId: string,
-  ...roles: string[]
-): Promise<void> {
-  const memberships = await getMemberships(db, userId);
-  if (!memberships.some((m) => roles.includes(m.role)))
-    throw deny("Requires agency access.");
+export async function requireAgencyRole(db, userId: string, ...roles: string[]): Promise<void> {
+  const memberships = await getMemberships(db, userId)
+  if (!memberships.some((m) => roles.includes(m.role))) throw deny('Requires agency access.')
 }
 
-export async function requireWorkspaceMembership(
-  db,
-  userId: string,
-  workspaceId: string,
-) {
+export async function requireWorkspaceMembership(db, userId: string, workspaceId: string) {
   const membership = await db
-    .query("memberships")
-    .withIndex("by_user_workspace", (q) =>
-      q.eq("userId", userId).eq("workspaceId", workspaceId),
-    )
-    .first();
-  if (!membership) throw deny("No access to this workspace.");
-  return { role: membership.role };
+    .query('memberships')
+    .withIndex('by_user_workspace', (q) => q.eq('userId', userId).eq('workspaceId', workspaceId))
+    .first()
+  if (!membership) throw deny('No access to this workspace.')
+  return { role: membership.role }
 }
 ```
 
@@ -1732,36 +1649,31 @@ export async function requireWorkspaceMembership(
 export const dashboard = query({
   args: {},
   handler: async (ctx) => {
-    const actor = await getAgencyActor(ctx);
-    if (!actor) throw deny("Not authenticated.");
+    const actor = await getAgencyActor(ctx)
+    if (!actor) throw deny('Not authenticated.')
 
-    await requireAgencyRole(
-      ctx.db,
-      actor.userId,
-      "agency_admin",
-      "agency_manager",
-    );
+    await requireAgencyRole(ctx.db, actor.userId, 'agency_admin', 'agency_manager')
 
-    const memberships = await getMemberships(ctx.db, actor.userId);
+    const memberships = await getMemberships(ctx.db, actor.userId)
     const clientIds = memberships
-      .filter((m) => ["agency_admin", "agency_manager"].includes(m.role))
-      .map((m) => m.workspaceId);
+      .filter((m) => ['agency_admin', 'agency_manager'].includes(m.role))
+      .map((m) => m.workspaceId)
 
     return Promise.all(
       clientIds.map(async (wsId) => {
-        const workspace = await ctx.db.get(wsId);
+        const workspace = await ctx.db.get(wsId)
         const projects = await ctx.db
-          .query("projects")
-          .withIndex("by_workspace", (q) => q.eq("workspaceId", wsId))
-          .collect();
+          .query('projects')
+          .withIndex('by_workspace', (q) => q.eq('workspaceId', wsId))
+          .collect()
         return {
           workspace: { id: wsId, name: workspace?.name },
-          activeProjects: projects.filter((p) => p.status === "active").length,
-        };
+          activeProjects: projects.filter((p) => p.status === 'active').length,
+        }
       }),
-    );
+    )
   },
-});
+})
 ```
 
 ---
@@ -1773,176 +1685,176 @@ export const dashboard = query({
 Checks are pure functions. Test them directly.
 
 ```ts
-import { describe, expect, it } from "vitest";
-import { can } from "better-convex-nuxt/auth";
-import { hasRole, canUpdateTask } from "./auth/checks";
+import { describe, expect, it } from 'vitest'
+import { can } from 'better-convex-nuxt/auth'
+import { hasRole, canUpdateTask } from './auth/checks'
 
-const admin = { kind: "user", userId: "admin", role: "admin", tenantId: "ws1" };
+const admin = { kind: 'user', userId: 'admin', role: 'admin', tenantId: 'ws1' }
 const alice = {
-  kind: "user",
-  userId: "alice",
-  role: "member",
-  tenantId: "ws1",
-};
+  kind: 'user',
+  userId: 'alice',
+  role: 'member',
+  tenantId: 'ws1',
+}
 const viewer = {
-  kind: "user",
-  userId: "viewer",
-  role: "viewer",
-  tenantId: "ws1",
-};
+  kind: 'user',
+  userId: 'viewer',
+  role: 'viewer',
+  tenantId: 'ws1',
+}
 
-describe("checks", () => {
-  it("hasRole matches", () => {
-    expect(can(admin, hasRole("admin"))).toBe(true);
-    expect(can(alice, hasRole("admin"))).toBe(false);
-    expect(can(null, hasRole("admin"))).toBe(false);
-  });
+describe('checks', () => {
+  it('hasRole matches', () => {
+    expect(can(admin, hasRole('admin'))).toBe(true)
+    expect(can(alice, hasRole('admin'))).toBe(false)
+    expect(can(null, hasRole('admin'))).toBe(false)
+  })
 
-  it("canUpdateTask respects ownership", () => {
-    const aliceTask = { ownerId: "alice" };
-    const bobTask = { ownerId: "bob" };
+  it('canUpdateTask respects ownership', () => {
+    const aliceTask = { ownerId: 'alice' }
+    const bobTask = { ownerId: 'bob' }
 
-    expect(can(alice, canUpdateTask(aliceTask))).toBe(true);
-    expect(can(alice, canUpdateTask(bobTask))).toBe(false);
-    expect(can(admin, canUpdateTask(bobTask))).toBe(true);
-  });
-});
+    expect(can(alice, canUpdateTask(aliceTask))).toBe(true)
+    expect(can(alice, canUpdateTask(bobTask))).toBe(false)
+    expect(can(admin, canUpdateTask(bobTask))).toBe(true)
+  })
+})
 ```
 
 ### Integration testing with database
 
 ```ts
-import { createTestContext } from "better-convex-nuxt/testing";
+import { createTestContext } from 'better-convex-nuxt/testing'
 
 function setup() {
   return createTestContext({
     schema,
     modules,
-    tenant: { table: "workspaces", field: "workspaceId" },
+    tenant: { table: 'workspaces', field: 'workspaceId' },
     users: {
-      table: "users",
-      authField: "authId",
-      roleField: "role",
-      tenantField: "workspaceId",
+      table: 'users',
+      authField: 'authId',
+      roleField: 'role',
+      tenantField: 'workspaceId',
     },
-  });
+  })
 }
 
-describe("task authorization", () => {
-  it("member updates own task but not others", async () => {
-    const ctx = setup();
+describe('task authorization', () => {
+  it('member updates own task but not others', async () => {
+    const ctx = setup()
     const team = await ctx.seedTenant({
-      name: "Alpha",
+      name: 'Alpha',
       users: {
-        owner: { role: "owner" },
-        alice: { role: "member" },
-        bob: { role: "member" },
+        owner: { role: 'owner' },
+        alice: { role: 'member' },
+        bob: { role: 'member' },
       },
-    });
+    })
 
     const projectId = await team.users.owner.mutation(api.projects.create, {
-      name: "Board",
-    });
+      name: 'Board',
+    })
     const taskId = await team.users.alice.mutation(api.tasks.create, {
       projectId,
-      title: "Alice task",
-      priority: "medium",
-    });
+      title: 'Alice task',
+      priority: 'medium',
+    })
 
     await team.users.alice.mutation(api.tasks.moveToColumn, {
       id: taskId,
-      status: "in_progress",
-    });
+      status: 'in_progress',
+    })
 
     await expect(
       team.users.bob.mutation(api.tasks.moveToColumn, {
         id: taskId,
-        status: "done",
+        status: 'done',
       }),
-    ).rejects.toThrow("Forbidden");
-  });
+    ).rejects.toThrow('Forbidden')
+  })
 
-  it("tenants are isolated", async () => {
-    const ctx = setup();
+  it('tenants are isolated', async () => {
+    const ctx = setup()
     const alpha = await ctx.seedTenant({
-      name: "Alpha",
-      users: { owner: { role: "owner" } },
-    });
+      name: 'Alpha',
+      users: { owner: { role: 'owner' } },
+    })
     const beta = await ctx.seedTenant({
-      name: "Beta",
-      users: { owner: { role: "owner" } },
-    });
+      name: 'Beta',
+      users: { owner: { role: 'owner' } },
+    })
 
     const ap = await alpha.users.owner.mutation(api.projects.create, {
-      name: "A",
-    });
+      name: 'A',
+    })
     await alpha.users.owner.mutation(api.tasks.create, {
       projectId: ap,
-      title: "Alpha task",
-      priority: "medium",
-    });
+      title: 'Alpha task',
+      priority: 'medium',
+    })
 
     const tasks = await alpha.users.owner.query(api.tasks.listByProject, {
       projectId: ap,
-    });
-    expect(tasks).toHaveLength(1);
-  });
+    })
+    expect(tasks).toHaveLength(1)
+  })
 
-  it("role changes propagate", async () => {
-    const ctx = setup();
+  it('role changes propagate', async () => {
+    const ctx = setup()
     const team = await ctx.seedTenant({
-      name: "Alpha",
-      users: { owner: { role: "owner" }, member: { role: "member" } },
-    });
+      name: 'Alpha',
+      users: { owner: { role: 'owner' }, member: { role: 'member' } },
+    })
 
     const projectId = await team.users.owner.mutation(api.projects.create, {
-      name: "Board",
-    });
+      name: 'Board',
+    })
     await team.users.member.mutation(api.tasks.create, {
       projectId,
-      title: "Works",
-      priority: "medium",
-    });
+      title: 'Works',
+      priority: 'medium',
+    })
 
     await team.users.owner.mutation(api.members.changeRole, {
       userId: team.users.member.id,
-      newRole: "viewer",
-    });
+      newRole: 'viewer',
+    })
 
     await expect(
       team.users.member.mutation(api.tasks.create, {
         projectId,
-        title: "Blocked",
-        priority: "medium",
+        title: 'Blocked',
+        priority: 'medium',
       }),
-    ).rejects.toThrow("Forbidden");
-  });
+    ).rejects.toThrow('Forbidden')
+  })
 
-  it("service actors obey the same rules", async () => {
-    const ctx = setup();
+  it('service actors obey the same rules', async () => {
+    const ctx = setup()
     const team = await ctx.seedTenant({
-      name: "Alpha",
-      users: { owner: { role: "owner" }, viewer: { role: "viewer" } },
-    });
+      name: 'Alpha',
+      users: { owner: { role: 'owner' }, viewer: { role: 'viewer' } },
+    })
 
     const projectId = await team.users.owner.mutation(api.projects.create, {
-      name: "Board",
-    });
+      name: 'Board',
+    })
     const service = ctx.asService({
       userId: team.users.viewer.authId,
-      role: "viewer",
+      role: 'viewer',
       tenantId: team.id,
-    });
+    })
 
     await expect(
       service.mutation(api.tasks.create, {
         projectId,
-        title: "Nope",
-        priority: "medium",
+        title: 'Nope',
+        priority: 'medium',
       }),
-    ).rejects.toThrow("Forbidden");
-  });
-});
+    ).rejects.toThrow('Forbidden')
+  })
+})
 ```
 
 ---
@@ -1953,12 +1865,12 @@ describe("task authorization", () => {
 
 ```ts
 // BAD: loads resource without tenant verification
-const task = await ctx.db.get(args.id);
-authorize(actor, "Update", canUpdateTask(task!));
+const task = await ctx.db.get(args.id)
+authorize(actor, 'Update', canUpdateTask(task!))
 
 // GOOD: use loadResource to combine existence + tenant in one call
-const task = loadResource(actor, await ctx.db.get(args.id), "Task");
-authorize(actor, "Update", canUpdateTask(task));
+const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
+authorize(actor, 'Update', canUpdateTask(task))
 ```
 
 ### Mixing checks and guards
@@ -1966,27 +1878,27 @@ authorize(actor, "Update", canUpdateTask(task));
 ```ts
 // BAD: a "check" that does database reads and throws
 const canCreate = async (actor) => {
-  const count = await db.query("projects").collect();
-  if (count.length >= 3) throw deny("Limit reached.");
-  return true;
-};
+  const count = await db.query('projects').collect()
+  if (count.length >= 3) throw deny('Limit reached.')
+  return true
+}
 
 // GOOD: checks are pure booleans. Guards are async and throw.
-authorize(actor, "Create project", canCreateProject); // check (pure)
-await ensureWithinLimit(ctx.db, actor, "projects"); // guard (async, throws)
+authorize(actor, 'Create project', canCreateProject) // check (pure)
+await ensureWithinLimit(ctx.db, actor, 'projects') // guard (async, throws)
 ```
 
 ### Giant handlers that should use helpers
 
 ```ts
 // BAD: inline tenant check in every handler
-if (!actor) throw deny("Not authenticated.");
-const task = await ctx.db.get(args.id);
-if (!task) throw new Error("Task not found.");
-if (actor.tenantId !== task.workspaceId) throw deny("Not found.");
+if (!actor) throw deny('Not authenticated.')
+const task = await ctx.db.get(args.id)
+if (!task) throw new Error('Task not found.')
+if (actor.tenantId !== task.workspaceId) throw deny('Not found.')
 
 // GOOD: one-liner with loadResource
-const task = loadResource(actor, await ctx.db.get(args.id), "Task");
+const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 ```
 
 ### Overloading the actor
@@ -1998,16 +1910,16 @@ const actor = {
   memberships: await loadAll(),
   enrollments: await loadAll(),
   permissions: await computeAll(),
-};
+}
 
 // GOOD: actor is identity + role + tenant. Load the rest on demand.
 const actor = {
-  kind: "user",
+  kind: 'user',
   userId: user.authId,
   role: user.role,
   tenantId: user.workspaceId,
-};
-const enrollment = await requireEnrollment(ctx.db, actor, courseId); // loaded when needed
+}
+const enrollment = await requireEnrollment(ctx.db, actor, courseId) // loaded when needed
 ```
 
 ### Skipping backend enforcement because the frontend hides the button
@@ -2147,7 +2059,7 @@ The module doesn't change. Your auth folder does.
 | `authorize`         | Runner            | Hard check — throws on failure        |
 | `can`               | Runner            | Soft check — returns boolean          |
 | `deny`              | Error             | Throws ConvexError with FORBIDDEN     |
-| `getAuth`       | Session           | Raw Convex auth identity              |
+| `getAuth`           | Session           | Raw Convex auth identity              |
 | `verifyKey`         | Utility           | Constant-time key comparison          |
 | `defineVisibility`  | Filter factory    | Creates a visibility filter           |
 | `applyVisibility`   | Filter runner     | Resolves a visibility filter          |
@@ -2168,7 +2080,7 @@ The module doesn't change. Your auth folder does.
 | `hasFeature`          | Check          | `has*` for capability predicates      |
 | `canUpdateTask`       | Check          | `can*` for composed permission checks |
 | `ensureTenant`        | Guard          | `ensure*` for boundary guards         |
-| `requireRecord`         | Guard          | `ensure*` for boundary guards         |
+| `requireRecord`       | Guard          | `ensure*` for boundary guards         |
 | `loadResource`        | Guard          | Convenience (ensure + ensure in one)  |
 | `ensureWithinLimit`   | Guard          | `ensure*` for boundary guards         |
 | `ensurePrerequisites` | Guard          | `ensure*` for boundary guards         |

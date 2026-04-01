@@ -1,6 +1,7 @@
 import { computed, watchEffect } from 'vue'
 
 import { api } from '~/convex/_generated/api'
+
 import { shouldEnsureUserRow, type EnsureUserDebugContext } from './ensure-user-row-debug'
 
 export function useEnsureUserRow(

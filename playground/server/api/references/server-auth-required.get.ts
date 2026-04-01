@@ -21,13 +21,14 @@ export default defineEventHandler(async (event: H3Event) => {
       executedOn: 'server',
       source: 'user-scoped',
       message: error instanceof Error ? error.message : String(error),
-      helper: error instanceof Error ? (error as Error & { helper?: string }).helper ?? null : null,
+      helper:
+        error instanceof Error ? ((error as Error & { helper?: string }).helper ?? null) : null,
       functionPath:
         error instanceof Error
-          ? (error as Error & { functionPath?: string }).functionPath ?? null
+          ? ((error as Error & { functionPath?: string }).functionPath ?? null)
           : null,
       authMode:
-        error instanceof Error ? (error as Error & { authMode?: string }).authMode ?? null : null,
+        error instanceof Error ? ((error as Error & { authMode?: string }).authMode ?? null) : null,
     }
   }
 })

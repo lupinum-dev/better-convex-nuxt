@@ -1,18 +1,18 @@
-import { computed } from 'vue'
 import { describe, expect, it } from 'vitest'
+import { computed } from 'vue'
 
 import { useRouter } from '#imports'
 
 import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
-import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthActions } from '../../src/runtime/composables/useConvexAuthActions'
+import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
+import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
-import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 
 const AUTH_USER = {
   id: 'u-auth',
@@ -41,9 +41,10 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       return useConvexAuthActions()
     })
 
-    const fnResult = await result.execute(
-      async () => ({ data: { user: { id: 'u1' } }, error: null }),
-    )
+    const fnResult = await result.execute(async () => ({
+      data: { user: { id: 'u1' } },
+      error: null,
+    }))
 
     expect(fnResult).toEqual({ data: { user: { id: 'u1' } }, error: null })
     expect(result.error.value).toBeNull()
@@ -243,27 +244,30 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     convex.setMutationHandler('auth:createUserIfNeeded', async () => ({ ok: true }))
 
-    const { result, flush } = await captureInNuxt(() => {
-      installMockAuthEngine({
-        fetchAuthState: async (_input) => ({
-          token: 'refreshed.jwt.token',
-          user: AUTH_USER,
-          error: null,
-          source: 'exchange',
-        }),
-      })
+    const { result, flush } = await captureInNuxt(
+      () => {
+        installMockAuthEngine({
+          fetchAuthState: async (_input) => ({
+            token: 'refreshed.jwt.token',
+            user: AUTH_USER,
+            error: null,
+            source: 'exchange',
+          }),
+        })
 
-      const auth = useConvexAuth()
-      const actions = useConvexAuthActions()
-      setupConfiguredAuthBootstrap(ENSURE_USER_MUTATION, 'auth.createUserIfNeeded')
-      const bootstrap = useAuthBootstrapDevtoolsState()
-      const todoArgs = computed(() =>
-        auth.isAuthenticated.value && bootstrap.value.ensured ? {} : undefined,
-      )
-      const todos = createConvexQueryState(TODOS_QUERY, todoArgs, {}, true).resultData
+        const auth = useConvexAuth()
+        const actions = useConvexAuthActions()
+        setupConfiguredAuthBootstrap(ENSURE_USER_MUTATION, 'auth.createUserIfNeeded')
+        const bootstrap = useAuthBootstrapDevtoolsState()
+        const todoArgs = computed(() =>
+          auth.isAuthenticated.value && bootstrap.value.ensured ? {} : undefined,
+        )
+        const todos = createConvexQueryState(TODOS_QUERY, todoArgs, {}, true).resultData
 
-      return { auth, actions, bootstrap, todos }
-    }, { convex })
+        return { auth, actions, bootstrap, todos }
+      },
+      { convex },
+    )
 
     expect(result.auth.isAuthenticated.value).toBe(false)
     expect(result.bootstrap.value.ensured).toBe(false)
@@ -277,9 +281,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     await waitFor(() => convex.calls.mutation.length === 1)
     await waitFor(() => result.bootstrap.value.ensured === true)
     await flush()
-    await waitFor(() =>
-      convex.calls.onUpdate.some((call) => call.query === TODOS_QUERY),
-    )
+    await waitFor(() => convex.calls.onUpdate.some((call) => call.query === TODOS_QUERY))
 
     convex.emitQueryResult(TODOS_QUERY, {}, [{ _id: 't1', title: 'First todo' }])
     await waitFor(() => result.todos.data.value?.length === 1)
@@ -355,7 +357,9 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       },
     )
 
-    await result.router.push('/auth/signin?redirect=%2Fauth%2Fsignin%3Fredirect%3Dhttps%3A%2F%2Fevil.example.com')
+    await result.router.push(
+      '/auth/signin?redirect=%2Fauth%2Fsignin%3Fredirect%3Dhttps%3A%2F%2Fevil.example.com',
+    )
     await flush()
 
     await result.actions.execute(async () => ({ data: 'ok', error: null }), {

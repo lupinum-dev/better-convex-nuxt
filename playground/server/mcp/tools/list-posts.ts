@@ -1,5 +1,6 @@
-import { defineTool } from '#convex/mcp'
 import { defineArgs } from 'better-convex-nuxt/args'
+
+import { defineTool } from '#convex/mcp'
 
 import { api } from '../../../convex/_generated/api'
 

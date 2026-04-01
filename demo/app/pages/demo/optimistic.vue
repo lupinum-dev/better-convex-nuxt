@@ -47,17 +47,20 @@ const { execute: optimisticAdd, status: optimisticAddStatus } = useConvexMutatio
 
 const { execute: optimisticToggle } = useConvexMutation(api.tasks.toggle, {
   optimisticUpdate: (ctx, args) => {
-    ctx.query(api.tasks.list, {}).update((current) =>
-      current?.map((t) => (t._id === args.id ? { ...t, completed: !t.completed } : t)) ?? [],
-    )
+    ctx
+      .query(api.tasks.list, {})
+      .update(
+        (current) =>
+          current?.map((t) => (t._id === args.id ? { ...t, completed: !t.completed } : t)) ?? [],
+      )
   },
 })
 
 const { execute: optimisticDelete } = useConvexMutation(api.tasks.remove, {
   optimisticUpdate: (ctx, args) => {
-    ctx.query(api.tasks.list, {}).update((current) =>
-      current?.filter((task) => task._id !== args.id) ?? [],
-    )
+    ctx
+      .query(api.tasks.list, {})
+      .update((current) => current?.filter((task) => task._id !== args.id) ?? [])
   },
 })
 

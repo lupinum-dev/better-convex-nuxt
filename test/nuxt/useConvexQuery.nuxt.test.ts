@@ -53,12 +53,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
   it('returns skipped + pending=false immediately for null args', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
-    const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, null, {}),
-      {
-        convex: new MockConvexClient(),
-      },
-    )
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, null, {}), {
+      convex: new MockConvexClient(),
+    })
 
     expect(result.data.value).toBeNull()
     expect(result.pending.value).toBe(false)
@@ -68,12 +65,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
   it('exposes refresh/clear but omits execute on query return shape', async () => {
     const query = mockFnRef<'query'>('notes:list:return-shape')
-    const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, null, {}),
-      {
-        convex: new MockConvexClient(),
-      },
-    )
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, null, {}), {
+      convex: new MockConvexClient(),
+    })
 
     expect(typeof result.refresh).toBe('function')
     expect(typeof result.clear).toBe('function')
@@ -119,10 +113,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:enabled-false')
 
-    const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, null, {}),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, null, {}), { convex })
 
     expect(result.status.value).toBe('skipped')
     expect(result.pending.value).toBe(false)
@@ -421,7 +412,10 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(
       () => {
         const queryResult = useConvexQuery(query, {})
-        return { queryResult, isThenable: typeof (queryResult as unknown as { then?: unknown }).then === 'function' }
+        return {
+          queryResult,
+          isThenable: typeof (queryResult as unknown as { then?: unknown }).then === 'function',
+        }
       },
       { convex },
     )
@@ -505,10 +499,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:null-args-getter')
 
-    const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, () => null),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, () => null), { convex })
 
     expect(result.status.value).toBe('skipped')
     expect(result.pending.value).toBe(false)
@@ -563,10 +554,14 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     await captureInNuxt(
       () =>
-        useConvexQueryState(query, {}, {
-          transform: (items: Array<{ _id: string }>) => items.map((i) => i._id),
-          onData,
-        }),
+        useConvexQueryState(
+          query,
+          {},
+          {
+            transform: (items: Array<{ _id: string }>) => items.map((i) => i._id),
+            onData,
+          },
+        ),
       { convex },
     )
 
@@ -586,10 +581,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:list:on-error')
     const onError = vi.fn()
 
-    await captureInNuxt(
-      () => useConvexQueryState(query, {}, { onError }),
-      { convex },
-    )
+    await captureInNuxt(() => useConvexQueryState(query, {}, { onError }), { convex })
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
 

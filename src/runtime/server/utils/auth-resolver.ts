@@ -1,14 +1,14 @@
 import type { H3Event } from 'h3'
 
 import type { AuthWaterfallPhase } from '../../utils/auth-debug'
-import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants'
 import {
   buildMissingSiteUrlMessage,
   buildTokenExchangeFailureMessage,
 } from '../../utils/auth-errors'
+import { getBetterAuthSessionToken } from '../../utils/auth-token'
+import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants'
 import { decodeUserFromJwt } from '../../utils/convex-shared'
 import type { NormalizedConvexRuntimeConfig } from '../../utils/runtime-config'
-import { getBetterAuthSessionToken } from '../../utils/auth-token'
 import type { ConvexUser, ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
 import { fetchWithTimeout } from './http'
@@ -90,11 +90,8 @@ async function resolveRequestAuthUncached(
   config: NormalizedConvexRuntimeConfig,
 ): Promise<ResolvedRequestAuth> {
   const waterfallStart = Date.now()
-  const buildTrace = (
-    outcome: AuthResolutionTrace['outcome'],
-    cacheHit: boolean,
-    error?: string,
-  ) => withTrace(waterfallStart, Date.now() - waterfallStart, phases, cacheHit, outcome, error)
+  const buildTrace = (outcome: AuthResolutionTrace['outcome'], cacheHit: boolean, error?: string) =>
+    withTrace(waterfallStart, Date.now() - waterfallStart, phases, cacheHit, outcome, error)
   const phases: AuthWaterfallPhase[] = []
   const cookieHeader = getCookieHeader(event)
   const sessionCheckStart = Date.now()
@@ -158,7 +155,9 @@ async function resolveRequestAuthUncached(
       const cachedToken = await getCachedAuthToken(sessionToken)
       if (cachedToken) {
         cacheHit = true
-        phases.push(buildPhase('cache-lookup', cacheStart, waterfallStart, 'hit', 'Token from cache'))
+        phases.push(
+          buildPhase('cache-lookup', cacheStart, waterfallStart, 'hit', 'Token from cache'),
+        )
 
         const decodeStart = Date.now()
         const user = decodeUserFromJwt(cachedToken)
@@ -310,7 +309,11 @@ async function resolveRequestAuthUncached(
       tokenExchangeStatus,
       tokenExchangeError,
       isMisconfigError,
-      trace: buildTrace(isMisconfigError ? 'error' : 'unauthenticated', cacheHit, error ?? undefined),
+      trace: buildTrace(
+        isMisconfigError ? 'error' : 'unauthenticated',
+        cacheHit,
+        error ?? undefined,
+      ),
     }
   } catch (error) {
     const normalizedError = error instanceof Error ? error : new Error(String(error))

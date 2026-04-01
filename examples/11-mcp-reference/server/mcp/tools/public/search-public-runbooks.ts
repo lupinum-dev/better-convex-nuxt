@@ -1,5 +1,4 @@
 import { defineTool } from '#convex/mcp'
-
 import { api } from '~/convex/_generated/api'
 import { searchRunbooks } from '~/shared/schemas/runbook'
 
@@ -18,6 +17,9 @@ export default defineTool({
   },
   handler: async (args, ctx) => {
     const runbooks = await ctx.query(api.runbooks.searchPublic, { term: args.term })
-    return ctx.ok({ runbooks }, `Found ${runbooks.length} public match${runbooks.length === 1 ? '' : 'es'}.`)
+    return ctx.ok(
+      { runbooks },
+      `Found ${runbooks.length} public match${runbooks.length === 1 ? '' : 'es'}.`,
+    )
   },
 })

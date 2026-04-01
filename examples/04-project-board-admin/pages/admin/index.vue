@@ -29,7 +29,11 @@
           </template>
 
           <div class="divide-y divide-default">
-            <div v-for="event in recentActivity || []" :key="event._id" class="py-3 first:pt-0 last:pb-0">
+            <div
+              v-for="event in recentActivity || []"
+              :key="event._id"
+              class="py-3 first:pt-0 last:pb-0"
+            >
               <p class="font-medium">{{ event.action }}</p>
               <p class="text-sm text-muted mt-0.5">{{ event.description }}</p>
             </div>

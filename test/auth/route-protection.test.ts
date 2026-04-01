@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { resolveRouteProtectionDecision } from '../../src/runtime/utils/auth-route-protection'
-import { resolveRedirectTarget, validateRedirectPath } from '../../src/runtime/utils/redirect-safety'
+import {
+  resolveRedirectTarget,
+  validateRedirectPath,
+} from '../../src/runtime/utils/redirect-safety'
 
 describe('Route Protection', () => {
   it('preserves the full return URL when redirecting a protected route', () => {
@@ -54,7 +57,8 @@ describe('Route Protection', () => {
   it('rejects unsafe redirect values and falls back to a safe login path', () => {
     expect(validateRedirectPath('https://evil.example.com')).toBeNull()
     expect(validateRedirectPath('//evil.example.com')).toBeNull()
-    expect(resolveRedirectTarget('https://evil.example.com', '/auth/signin', '/auth/signin'))
-      .toBe('/')
+    expect(resolveRedirectTarget('https://evil.example.com', '/auth/signin', '/auth/signin')).toBe(
+      '/',
+    )
   })
 })

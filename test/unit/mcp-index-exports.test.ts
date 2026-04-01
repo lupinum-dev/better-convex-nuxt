@@ -32,22 +32,24 @@ describe('mcp entrypoint exports', () => {
   })
 
   it('exports the MCP API surface', () => {
-    expect(Object.keys(mcpApi).sort()).toEqual(expect.arrayContaining([
-      'completable',
-      'defineMcpHandler',
-      'defineMcpPrompt',
-      'defineMcpResource',
-      'defineMcpTool',
-      'defineTool',
-      'extractToolNames',
-      'imageResult',
-      'useMcpServer',
-      'useMcpSession',
-      'withSummary',
-      'wrapError',
-      'wrapPreview',
-      'wrapSuccess',
-    ]))
+    expect(Object.keys(mcpApi).sort()).toEqual(
+      expect.arrayContaining([
+        'completable',
+        'defineMcpHandler',
+        'defineMcpPrompt',
+        'defineMcpResource',
+        'defineMcpTool',
+        'defineTool',
+        'extractToolNames',
+        'imageResult',
+        'useMcpServer',
+        'useMcpSession',
+        'withSummary',
+        'wrapError',
+        'wrapPreview',
+        'wrapSuccess',
+      ]),
+    )
   })
 
   it('exports toolkit primitives and envelope helpers', () => {

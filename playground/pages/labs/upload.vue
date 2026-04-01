@@ -62,8 +62,8 @@ function handleCancel() {
   <div data-testid="file-upload-status-page" class="container">
     <h1>Upload Lab</h1>
     <p class="description">
-      This page tests the <code>useConvexUpload</code> composable. Upload an image to see the
-      status tracking, progress, and cancel functionality.
+      This page tests the <code>useConvexUpload</code> composable. Upload an image to see the status
+      tracking, progress, and cancel functionality.
     </p>
 
     <section class="control-section">

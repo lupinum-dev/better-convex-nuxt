@@ -1,9 +1,8 @@
 /// <reference types="vite/client" />
 
+import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
-
-import { createTestContext } from 'better-convex-nuxt/testing'
 
 import schema from './schema'
 import { modules } from './test.setup'
@@ -117,7 +116,7 @@ describe('agency example', () => {
     const agent = ctx.raw.withIdentity({ subject: 'agent-1' })
     const portfolio = await agent.query(api.dashboard.portfolio, {})
     expect(portfolio).toHaveLength(2)
-    expect(portfolio.map(entry => entry.workspace.name).sort()).toEqual(['Client A', 'Client B'])
+    expect(portfolio.map((entry) => entry.workspace.name).sort()).toEqual(['Client A', 'Client B'])
   })
 
   it('returns permission context booleans for owners and viewers inside a workspace', async () => {
@@ -183,7 +182,9 @@ describe('agency example', () => {
 
     const memberships = await ctx.readAll('memberships')
     const joinedMemberships = memberships.filter((membership) => {
-      return membership.userId === team.users.member.authId && membership.workspaceId === workspaceId
+      return (
+        membership.userId === team.users.member.authId && membership.workspaceId === workspaceId
+      )
     })
 
     expect(joinedMemberships).toHaveLength(1)

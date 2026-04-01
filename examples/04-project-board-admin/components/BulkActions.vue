@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { api } from '~/convex/_generated/api'
 /**
  * Why this file exists:
  * Bulk operations are where "one-item-at-a-time" demos stop being useful.
  * This keeps the partial-success response visible instead of hiding it behind toasts.
  */
 import type { Id } from '~/convex/_generated/dataModel'
-import { api } from '~/convex/_generated/api'
 
 const props = defineProps<{
   selectedIds: Id<'tasks'>[]

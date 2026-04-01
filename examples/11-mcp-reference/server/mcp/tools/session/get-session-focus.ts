@@ -13,7 +13,12 @@ export default defineMcpTool({
     const focus = await session.get('preferredFocus')
 
     return {
-      content: [{ type: 'text', text: focus ? `Current session focus: ${focus}` : 'No session focus saved yet.' }],
+      content: [
+        {
+          type: 'text',
+          text: focus ? `Current session focus: ${focus}` : 'No session focus saved yet.',
+        },
+      ],
       structuredContent: { focus },
     }
   },

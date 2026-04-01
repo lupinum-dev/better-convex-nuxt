@@ -4,13 +4,11 @@
  * Compatible with H3's `readValidatedBody(event, validateConvexArgs(validator))`.
  */
 
-import { createError } from 'h3'
 import type { GenericValidator, Infer } from 'convex/values'
+import { createError } from 'h3'
 
 import { toConvexSchema } from '../../utils/convex-schema'
-import type {
-  StandardSchemaV1Result,
-} from '../../utils/standard-schema'
+import type { StandardSchemaV1Result } from '../../utils/standard-schema'
 
 /**
  * Create an H3-compatible validation function from a Convex validator.

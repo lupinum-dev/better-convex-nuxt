@@ -1,8 +1,8 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 
-import type { MutationStatus } from '../utils/types'
-import { ConvexCallError, toConvexError } from '../utils/call-result'
 import { wrapBetterAuthError } from '../utils/auth-errors'
+import { ConvexCallError, toConvexError } from '../utils/call-result'
+import type { MutationStatus } from '../utils/types'
 import { useConvexAuthController } from './internal/useConvexAuthController'
 import { useAuthRedirect } from './useAuthRedirect'
 
@@ -35,12 +35,10 @@ export interface UseConvexAuthActionsReturn<T = unknown> {
 }
 
 function extractBetterAuthError(result: unknown): unknown | null {
-  if (!result || typeof result !== 'object')
-    return null
+  if (!result || typeof result !== 'object') return null
 
   const record = result as Record<string, unknown>
-  if ('error' in record && record.error != null)
-    return record.error
+  if ('error' in record && record.error != null) return record.error
 
   return null
 }
@@ -86,8 +84,7 @@ export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<
       _status.value = 'success'
       await redirectAfterAuth(options?.redirectTo)
       return result
-    }
-    catch (cause) {
+    } catch (cause) {
       const wrapped = cause instanceof ConvexCallError ? cause : toConvexError(cause)
       error.value = wrapped
       _status.value = 'error'

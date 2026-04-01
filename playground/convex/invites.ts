@@ -1,7 +1,7 @@
 import { authorize } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
-import type { Id } from './_generated/dataModel'
 
+import type { Id } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canInviteMembers } from './auth/checks'
@@ -17,8 +17,10 @@ export const listPending = query({
 
     return await ctx.db
       .query('invites')
-      .withIndex('by_organization', q => q.eq('organizationId', actor.tenantId as Id<'organizations'>))
-      .filter(q => q.eq(q.field('status'), 'pending'))
+      .withIndex('by_organization', (q) =>
+        q.eq('organizationId', actor.tenantId as Id<'organizations'>),
+      )
+      .filter((q) => q.eq(q.field('status'), 'pending'))
       .order('desc')
       .collect()
   },
@@ -41,12 +43,9 @@ export const create = mutation({
 
     const existing = await ctx.db
       .query('invites')
-      .withIndex('by_email', q => q.eq('email', args.email))
-      .filter(q =>
-        q.and(
-          q.eq(q.field('organizationId'), tenantId),
-          q.eq(q.field('status'), 'pending'),
-        ),
+      .withIndex('by_email', (q) => q.eq('email', args.email))
+      .filter((q) =>
+        q.and(q.eq(q.field('organizationId'), tenantId), q.eq(q.field('status'), 'pending')),
       )
       .first()
 
@@ -54,8 +53,8 @@ export const create = mutation({
 
     const existingUser = await ctx.db
       .query('users')
-      .withIndex('by_email', q => q.eq('email', args.email))
-      .filter(q => q.eq(q.field('organizationId'), tenantId))
+      .withIndex('by_email', (q) => q.eq('email', args.email))
+      .filter((q) => q.eq(q.field('organizationId'), tenantId))
       .first()
 
     if (existingUser) throw new Error('Already a member')
@@ -124,8 +123,8 @@ export const getMyInvites = query({
 
     return await ctx.db
       .query('invites')
-      .withIndex('by_email', q => q.eq('email', user.email))
-      .filter(q => q.eq(q.field('status'), 'pending'))
+      .withIndex('by_email', (q) => q.eq('email', user.email))
+      .filter((q) => q.eq(q.field('status'), 'pending'))
       .collect()
   },
 })

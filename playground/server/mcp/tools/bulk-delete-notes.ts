@@ -7,7 +7,7 @@ export default defineTool({
   schema: bulkDeleteNotes,
   name: 'bulk-delete-notes',
   auth: 'required',
-  check: actor => ['owner', 'admin'].includes(actor.role),
+  check: (actor) => ['owner', 'admin'].includes(actor.role),
   destructive: true,
   tags: ['bulk', 'dangerous'],
   rateLimit: { max: 5, window: '1m' },
@@ -19,9 +19,7 @@ export default defineTool({
     return next()
   },
   preview: async (args, ctx) => {
-    const notes = await Promise.all(
-      args.ids.map(id => ctx.query(api.notes.get, { id })),
-    )
+    const notes = await Promise.all(args.ids.map((id) => ctx.query(api.notes.get, { id })))
     const found = notes.filter(Boolean)
     const missing = args.ids.length - found.length
 
@@ -30,7 +28,7 @@ export default defineTool({
     }
 
     return ctx.preview({
-      summary: `Will permanently delete ${found.length} note${found.length === 1 ? '' : 's'}: ${found.map(note => `"${note!.title}"`).join(', ')}`,
+      summary: `Will permanently delete ${found.length} note${found.length === 1 ? '' : 's'}: ${found.map((note) => `"${note!.title}"`).join(', ')}`,
       warn: missing > 0 ? `${missing} ID(s) not found and will be skipped` : undefined,
       affects: { notes: found.length },
     })
@@ -43,8 +41,7 @@ export default defineTool({
       try {
         await ctx.mutation(api.notes.remove, { id })
         deleted++
-      }
-      catch (error) {
+      } catch (error) {
         skipped.push({
           id,
           reason: error instanceof Error ? error.message : String(error),

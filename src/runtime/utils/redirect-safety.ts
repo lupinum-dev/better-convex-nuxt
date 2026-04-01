@@ -26,10 +26,10 @@ export function validateRedirectPath(raw: string | null | undefined): string | n
   // Reject encoded slash/backslash variants after one decode pass, including
   // double-encoded inputs that still contain %2f/%5c after decode.
   if (
-    decodedOnce.startsWith('//')
-    || decodedOnce.includes('//')
-    || decodedOnce.includes('\\')
-    || hasEncodedSlashOrBackslash(decodedOnce)
+    decodedOnce.startsWith('//') ||
+    decodedOnce.includes('//') ||
+    decodedOnce.includes('\\') ||
+    hasEncodedSlashOrBackslash(decodedOnce)
   ) {
     return null
   }

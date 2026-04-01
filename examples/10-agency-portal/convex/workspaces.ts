@@ -1,15 +1,14 @@
+import { can, deny } from 'better-convex-nuxt/auth'
 /**
  * Why this file exists:
  * Current-workspace actions stay normal here. The agency dashboard lives in a separate query on purpose.
  */
 import { v } from 'convex/values'
 
-import { can, deny } from 'better-convex-nuxt/auth'
-
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
-import { hasRole } from './auth/checks'
 import { getMemberships, requireWorkspaceMembership } from './auth/agency'
+import { hasRole } from './auth/checks'
 
 export const listWorkspaces = query({
   args: {},
@@ -48,7 +47,7 @@ export const getPermissionContext = query({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', actor.userId))
+      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
       .first()
     const memberships = await getMemberships(ctx.db, actor.userId)
 
@@ -60,7 +59,7 @@ export const getPermissionContext = query({
       displayName: user?.displayName ?? null,
       can: {
         'project.create': can(actor, hasRole('owner', 'member')),
-        'agency.dashboard': memberships.some(m =>
+        'agency.dashboard': memberships.some((m) =>
           ['agency_admin', 'agency_manager'].includes(m.role),
         ),
       },
@@ -76,13 +75,13 @@ export const createWorkspace = mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
       .first()
     if (!user) throw new Error('Current user row not found.')
 
     const existing = await ctx.db
       .query('workspaces')
-      .withIndex('by_slug', q => q.eq('slug', args.slug))
+      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
       .first()
     if (existing) throw new Error('That workspace slug is already taken.')
 
@@ -122,19 +121,21 @@ export const joinWorkspace = mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
       .first()
     if (!user) throw new Error('Current user row not found.')
 
     const workspace = await ctx.db
       .query('workspaces')
-      .withIndex('by_slug', q => q.eq('slug', args.slug))
+      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
       .first()
     if (!workspace) throw new Error('Workspace not found.')
 
     const existingMembership = await ctx.db
       .query('memberships')
-      .withIndex('by_user_workspace', q => q.eq('userId', user.authId).eq('workspaceId', workspace._id))
+      .withIndex('by_user_workspace', (q) =>
+        q.eq('userId', user.authId).eq('workspaceId', workspace._id),
+      )
       .first()
     if (existingMembership) {
       await ctx.db.patch(user._id, {
@@ -168,7 +169,7 @@ export const switchWorkspace = mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
       .first()
     if (!user) throw new Error('Current user row not found.')
 

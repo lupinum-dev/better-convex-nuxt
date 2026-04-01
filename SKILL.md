@@ -49,10 +49,14 @@ Always import the API object as `import { api } from '~~/convex/_generated/api'`
 import { api } from '~~/convex/_generated/api'
 
 // SSR + real-time subscription
-const { data: tasks, status, pending, error, refresh, clear } = await useConvexQuery(
-  api.tasks.list,
-  { status: 'active' }
-)
+const {
+  data: tasks,
+  status,
+  pending,
+  error,
+  refresh,
+  clear,
+} = await useConvexQuery(api.tasks.list, { status: 'active' })
 </script>
 ```
 
@@ -74,9 +78,8 @@ Return `null` from args to skip the query. Status becomes `'skipped'`.
 ```ts
 const teamId = ref<string | null>(null)
 
-const { data: members } = await useConvexQuery(
-  api.teams.getMembers,
-  () => teamId.value ? { teamId: teamId.value } : null
+const { data: members } = await useConvexQuery(api.teams.getMembers, () =>
+  teamId.value ? { teamId: teamId.value } : null,
 )
 // Query runs only when teamId is non-null
 ```
@@ -91,8 +94,8 @@ Reference: `docs/content/docs/2.data-fetching/3.conditional-queries.md`
 <script setup lang="ts">
 import { api } from '~~/convex/_generated/api'
 
-const { results, status, loadMore, hasNextPage, isLoading, isExhausted, refetch, restart }
-  = await useConvexPaginatedQuery(api.posts.listPaginated, {}, { initialNumItems: 10 })
+const { results, status, loadMore, hasNextPage, isLoading, isExhausted, refetch, restart } =
+  await useConvexPaginatedQuery(api.posts.listPaginated, {}, { initialNumItems: 10 })
 </script>
 
 <template>
@@ -116,8 +119,12 @@ Reference: `docs/content/docs/2.data-fetching/2.paginated-queries.md`
 import { api } from '~~/convex/_generated/api'
 
 const createTask = useConvexMutation(api.tasks.create, {
-  onSuccess: (result) => { /* handle success */ },
-  onError: (error) => { /* handle error */ },
+  onSuccess: (result) => {
+    /* handle success */
+  },
+  onError: (error) => {
+    /* handle error */
+  },
 })
 
 async function handleCreate() {
@@ -142,12 +149,15 @@ Reference: `docs/content/docs/3.mutations/1.mutations.md`
 const addNote = useConvexMutation(api.notes.add, {
   optimisticUpdate: (ctx, args) => {
     // Regular query: .update() or .set()
-    ctx.query(api.notes.list, {}).update(notes =>
-      notes ? [{ ...args, _id: crypto.randomUUID(), _creationTime: Date.now() }, ...notes] : []
-    )
+    ctx
+      .query(api.notes.list, {})
+      .update((notes) =>
+        notes ? [{ ...args, _id: crypto.randomUUID(), _creationTime: Date.now() }, ...notes] : [],
+      )
 
     // Paginated query: .insertAtTop(), .deleteItem(), .updateItem(), .insertAtPosition()
-    ctx.paginatedQuery(api.messages.list, { channelId: args.channelId })
+    ctx
+      .paginatedQuery(api.messages.list, { channelId: args.channelId })
       .insertAtTop({ ...args, _id: crypto.randomUUID(), _creationTime: Date.now() })
   },
 })
@@ -168,10 +178,16 @@ prependTo(ctx, api.notes.list, {}, { ...args, _id: crypto.randomUUID(), _creatio
 appendTo(ctx, api.notes.list, {}, newItem)
 
 // Remove by predicate
-removeFrom(ctx, api.notes.list, {}, note => note._id === args.id)
+removeFrom(ctx, api.notes.list, {}, (note) => note._id === args.id)
 
 // Update by predicate
-updateIn(ctx, api.notes.list, {}, note => note._id === args.id, note => ({ ...note, ...args }))
+updateIn(
+  ctx,
+  api.notes.list,
+  {},
+  (note) => note._id === args.id,
+  (note) => ({ ...note, ...args }),
+)
 ```
 
 Reference: `docs/content/docs/3.mutations/3.optimistic-updates.md`
@@ -226,15 +242,17 @@ if (!error) {
 <ConvexAuthenticated>Only visible when signed in</ConvexAuthenticated>
 <ConvexUnauthenticated>Only visible when signed out</ConvexUnauthenticated>
 <ConvexAuthLoading>Only visible while auth is loading</ConvexAuthLoading>
-<ConvexAuthError v-slot="{ retry, error }">Auth failed: {{ error }} <button @click="retry">Retry</button></ConvexAuthError>
+<ConvexAuthError
+  v-slot="{ retry, error }"
+>Auth failed: {{ error }} <button @click="retry">Retry</button></ConvexAuthError>
 ```
 
 #### Route protection
 
 ```ts
 // In page component
-definePageMeta({ convexAuth: true })        // Require auth, redirect unauthenticated users
-definePageMeta({ skipConvexAuth: true })     // Skip auth token fetching (use on sign-in/public pages)
+definePageMeta({ convexAuth: true }) // Require auth, redirect unauthenticated users
+definePageMeta({ skipConvexAuth: true }) // Skip auth token fetching (use on sign-in/public pages)
 ```
 
 Reference: `docs/content/docs/4.auth-security/`
@@ -245,10 +263,17 @@ Reference: `docs/content/docs/4.auth-security/`
 <script setup lang="ts">
 import { api } from '~~/convex/_generated/api'
 
-const { upload, data: storageId, status, pending, progress, error } = useConvexUpload(
-  api.files.generateUploadUrl,
-  { allowedTypes: ['image/*'], maxSizeBytes: 5_000_000 }
-)
+const {
+  upload,
+  data: storageId,
+  status,
+  pending,
+  progress,
+  error,
+} = useConvexUpload(api.files.generateUploadUrl, {
+  allowedTypes: ['image/*'],
+  maxSizeBytes: 5_000_000,
+})
 
 const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId)
 </script>
@@ -338,6 +363,7 @@ export const { defineConvexTool } = createConvexTools({ checkPermission })
 #### Destructive Confirmation Flow
 
 `destructive: true` adds `_confirmed` to input and enables two-call flow:
+
 1. First call → preview or `confirmation_required` error
 2. Second call with `_confirmed: true` → executes handler
 
@@ -372,7 +398,7 @@ import { createPermissions } from '#imports'
 import { api } from '~~/convex/_generated/api'
 
 export const { usePermissions, usePermissionGuard } = createPermissions({
-  query: api.auth.getPermissionContext,  // Returns { role, userId, ... }
+  query: api.auth.getPermissionContext, // Returns { role, userId, ... }
   checkPermission: (context, action, resource?) => {
     if (context.role === 'admin') return true
     if (action === 'post.edit') return resource?.authorId === context.userId
@@ -397,8 +423,8 @@ Reference: `docs/content/docs/7.permissions/`
 ### Connection State
 
 ```ts
-const { isConnected, isReconnecting, pendingMutations, shouldShowOfflineUi }
-  = useConvexConnectionState()
+const { isConnected, isReconnecting, pendingMutations, shouldShowOfflineUi } =
+  useConvexConnectionState()
 ```
 
 Use `shouldShowOfflineUi` (not `!isConnected`) to avoid hydration flash — it's `false` during SSR and only becomes `true` after a real disconnect.
@@ -412,13 +438,13 @@ export default defineNuxtConfig({
   modules: ['better-convex-nuxt'],
   convex: {
     url: process.env.CONVEX_URL,
-    siteUrl: process.env.CONVEX_SITE_URL,      // Auto-derived, override if needed
-    auth: true,                                  // true | false | AuthOptions
+    siteUrl: process.env.CONVEX_SITE_URL, // Auto-derived, override if needed
+    auth: true, // true | false | AuthOptions
     // auth: { route: '/api/auth', trustedOrigins: ['https://*.vercel.app'] },
-    query: { server: true, subscribe: true },    // SSR and real-time defaults
+    query: { server: true, subscribe: true }, // SSR and real-time defaults
     upload: { maxConcurrent: 3 },
-    permissions: false,                          // Enable createPermissions
-    logging: false,                              // false | 'info' | 'debug'
+    permissions: false, // Enable createPermissions
+    logging: false, // false | 'info' | 'debug'
   },
 })
 ```
@@ -448,26 +474,26 @@ Reference: `docs/content/docs/3.mutations/4.error-handling.md`
 
 ## Documentation Reference
 
-| Topic | File |
-|-------|------|
-| Getting started | `docs/content/docs/1.guide/` |
-| Queries | `docs/content/docs/2.data-fetching/1.queries.md` |
-| Paginated queries | `docs/content/docs/2.data-fetching/2.paginated-queries.md` |
-| Conditional queries | `docs/content/docs/2.data-fetching/3.conditional-queries.md` |
+| Topic                 | File                                                             |
+| --------------------- | ---------------------------------------------------------------- |
+| Getting started       | `docs/content/docs/1.guide/`                                     |
+| Queries               | `docs/content/docs/2.data-fetching/1.queries.md`                 |
+| Paginated queries     | `docs/content/docs/2.data-fetching/2.paginated-queries.md`       |
+| Conditional queries   | `docs/content/docs/2.data-fetching/3.conditional-queries.md`     |
 | Transforms & defaults | `docs/content/docs/2.data-fetching/4.transforms-and-defaults.md` |
-| Shared queries | `docs/content/docs/2.data-fetching/5.shared-queries.md` |
-| Mutations | `docs/content/docs/3.mutations/1.mutations.md` |
-| Actions | `docs/content/docs/3.mutations/2.actions.md` |
-| Optimistic updates | `docs/content/docs/3.mutations/3.optimistic-updates.md` |
-| Error handling | `docs/content/docs/3.mutations/4.error-handling.md` |
-| Authentication | `docs/content/docs/4.auth-security/` |
-| File uploads | `docs/content/docs/5.file-uploads/` |
-| Server-side | `docs/content/docs/6.server-side/` |
-| Permissions | `docs/content/docs/7.permissions/` |
-| Real-time | `docs/content/docs/8.real-time/` |
-| Configuration | `docs/content/docs/9.configuration/` |
-| Deployment | `docs/content/docs/10.deployment/` |
-| API reference | `docs/content/docs/12.api-reference/` |
-| MCP tools | `docs/content/docs/13.mcp-tools/` |
+| Shared queries        | `docs/content/docs/2.data-fetching/5.shared-queries.md`          |
+| Mutations             | `docs/content/docs/3.mutations/1.mutations.md`                   |
+| Actions               | `docs/content/docs/3.mutations/2.actions.md`                     |
+| Optimistic updates    | `docs/content/docs/3.mutations/3.optimistic-updates.md`          |
+| Error handling        | `docs/content/docs/3.mutations/4.error-handling.md`              |
+| Authentication        | `docs/content/docs/4.auth-security/`                             |
+| File uploads          | `docs/content/docs/5.file-uploads/`                              |
+| Server-side           | `docs/content/docs/6.server-side/`                               |
+| Permissions           | `docs/content/docs/7.permissions/`                               |
+| Real-time             | `docs/content/docs/8.real-time/`                                 |
+| Configuration         | `docs/content/docs/9.configuration/`                             |
+| Deployment            | `docs/content/docs/10.deployment/`                               |
+| API reference         | `docs/content/docs/12.api-reference/`                            |
+| MCP tools             | `docs/content/docs/13.mcp-tools/`                                |
 
 Read these files for deeper context when working on specific features.

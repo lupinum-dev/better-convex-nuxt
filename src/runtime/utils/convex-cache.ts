@@ -1,6 +1,7 @@
 import { shallowRef, type ShallowRef } from 'vue'
 
 import type { useNuxtApp } from '#app'
+
 import { resolveClientAuthToken } from './auth-token'
 
 // Re-export shared utilities

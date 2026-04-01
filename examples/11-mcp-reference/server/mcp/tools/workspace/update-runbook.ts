@@ -1,5 +1,4 @@
 import { defineTool } from '#convex/mcp'
-
 import { api } from '~/convex/_generated/api'
 import { updateRunbook } from '~/shared/schemas/runbook'
 
@@ -9,14 +8,14 @@ export default defineTool({
   auth: 'required',
   scoped: true,
   group: 'workspace',
-  check: actor => ['owner', 'admin', 'member'].includes(actor.role),
+  check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
   middleware: async (args, ctx, next) => {
     if (
-      args.title === undefined
-      && args.summary === undefined
-      && args.content === undefined
-      && args.visibility === undefined
-      && args.tags === undefined
+      args.title === undefined &&
+      args.summary === undefined &&
+      args.content === undefined &&
+      args.visibility === undefined &&
+      args.tags === undefined
     ) {
       return ctx.error('validation', 'Provide at least one field to update.')
     }

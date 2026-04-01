@@ -8,11 +8,7 @@ export default defineTool({
   name: 'search-notes',
   operation: 'query',
   auth: 'optional',
-  inputExamples: [
-    { query: 'meeting' },
-    { query: 'TODO' },
-    { query: 'project update' },
-  ],
+  inputExamples: [{ query: 'meeting' }, { query: 'TODO' }, { query: 'project update' }],
   handler: async (args, ctx) => {
     const results = await ctx.query(api.notes.search, { query: args.query })
 

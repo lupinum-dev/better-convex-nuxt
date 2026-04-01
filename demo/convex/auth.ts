@@ -4,32 +4,26 @@ import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
-import {
-  canAdminSettings,
-  canCreateFeed,
-  canUploadFile,
-  canViewAll,
-} from './auth/checks'
+import { canAdminSettings, canCreateFeed, canUploadFile, canViewAll } from './auth/checks'
 import { createConvexAuth } from './authBridge'
 
-export const { authComponent, createAuth, createUserIfNeeded } = createConvexAuth(
-  (_ctx, bridge) =>
-    betterAuth({
-      baseURL: bridge.siteUrl,
-      database: bridge.database,
-      socialProviders: {
-        github: {
-          clientId: process.env.GITHUB_CLIENT_ID!,
-          clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-        },
+export const { authComponent, createAuth, createUserIfNeeded } = createConvexAuth((_ctx, bridge) =>
+  betterAuth({
+    baseURL: bridge.siteUrl,
+    database: bridge.database,
+    socialProviders: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
       },
-      plugins: [bridge.createConvexPlugin()],
-      session: {
-        expiresIn: 60 * 60 * 24 * 7,
-        updateAge: 60 * 60 * 24,
-      },
-      trustedOrigins: bridge.trustedOrigins,
-    }),
+    },
+    plugins: [bridge.createConvexPlugin()],
+    session: {
+      expiresIn: 60 * 60 * 24 * 7,
+      updateAge: 60 * 60 * 24,
+    },
+    trustedOrigins: bridge.trustedOrigins,
+  }),
 )
 
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()

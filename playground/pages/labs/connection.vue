@@ -81,13 +81,8 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const {
-  state,
-  isConnected,
-  isReconnecting,
-  pendingMutations,
-  shouldShowOfflineUi,
-} = useConvexConnectionState()
+const { state, isConnected, isReconnecting, pendingMutations, shouldShowOfflineUi } =
+  useConvexConnectionState()
 
 const statusClass = computed(() => {
   if (isReconnecting.value) return 'reconnecting'

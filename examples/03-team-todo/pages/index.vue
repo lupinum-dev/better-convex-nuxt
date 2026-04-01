@@ -4,9 +4,7 @@
   >
     <UCard class="w-full max-w-5xl">
       <template #header>
-        <p
-          class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400"
-        >
+        <p class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400">
           Example 03
         </p>
         <h1 class="text-3xl font-bold mt-1">Team Todo</h1>
@@ -82,7 +80,8 @@
               <div>
                 <h2 class="text-xl font-semibold">{{ displayName }}</h2>
                 <p class="text-sm text-muted mt-1">
-                  Role: <span class="font-semibold text-highlighted">{{ role || 'loading...' }}</span>
+                  Role:
+                  <span class="font-semibold text-highlighted">{{ role || 'loading...' }}</span>
                   <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
                 </p>
               </div>
@@ -118,7 +117,8 @@
                   <template #header>
                     <h3 class="text-lg font-semibold">Create workspace</h3>
                     <p class="text-sm text-muted mt-1">
-                      The creator becomes the workspace owner. That keeps the example role model obvious.
+                      The creator becomes the workspace owner. That keeps the example role model
+                      obvious.
                     </p>
                   </template>
 
@@ -143,7 +143,8 @@
                   <template #header>
                     <h3 class="text-lg font-semibold">Join workspace</h3>
                     <p class="text-sm text-muted mt-1">
-                      This demo keeps joining intentionally open so you can quickly test different roles.
+                      This demo keeps joining intentionally open so you can quickly test different
+                      roles.
                     </p>
                   </template>
 
@@ -155,10 +156,7 @@
 
                     <div class="space-y-1">
                       <label class="text-sm font-medium text-highlighted">Role</label>
-                      <USelect
-                        v-model="joinWorkspaceForm.role"
-                        :items="roleOptions"
-                      />
+                      <USelect v-model="joinWorkspaceForm.role" :items="roleOptions" />
                     </div>
 
                     <UButton
@@ -202,7 +200,8 @@
                     <div>
                       <h3 class="text-lg font-semibold">Workspace todos</h3>
                       <p class="text-sm text-muted mt-1">
-                        The list query is a raw Convex query, and the handler applies the tenant boundary explicitly.
+                        The list query is a raw Convex query, and the handler applies the tenant
+                        boundary explicitly.
                       </p>
                     </div>
                     <p class="text-sm text-muted break-words">
@@ -289,14 +288,14 @@
 </template>
 
 <script setup lang="ts">
+import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
+import { computed, reactive, ref } from 'vue'
 /**
  * Why this file exists:
  * This page intentionally puts the whole "full example" flow in one file so readers can
  * trace auth, onboarding, scoped queries, and frontend permission checks without hunting around.
  */
 import * as z from 'zod'
-import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
-import { computed, reactive, ref } from 'vue'
 
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
@@ -383,31 +382,33 @@ const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorks
 // The permission context query can run anonymously. It returns null until the user is signed in.
 // The todo list query only runs once the user actually belongs to a workspace.
 const todoArgs = computed(() => (tenantId.value ? {} : undefined))
-const { data: todos, pending: todosPending, error: todosError } = await useConvexQuery(
-  api.todos.list,
-  todoArgs,
-)
+const {
+  data: todos,
+  pending: todosPending,
+  error: todosError,
+} = await useConvexQuery(api.todos.list, todoArgs)
 
 const displayName = computed(
   () =>
-    ctx.value?.displayName
-    || ctx.value?.email
-    || user.value?.name
-    || user.value?.email
-    || 'Signed in user',
+    ctx.value?.displayName ||
+    ctx.value?.email ||
+    user.value?.name ||
+    user.value?.email ||
+    'Signed in user',
 )
 
 const canCreate = can('todo.create')
 const roleOptions = ['admin', 'member', 'viewer'] as const
 
-const todoError = computed(() =>
-  todosError.value?.message
-  || createTodo.error.value?.message
-  || updateTodo.error.value?.message
-  || removeTodo.error.value?.message
-  || createWorkspace.error.value?.message
-  || joinWorkspace.error.value?.message
-  || '',
+const todoError = computed(
+  () =>
+    todosError.value?.message ||
+    createTodo.error.value?.message ||
+    updateTodo.error.value?.message ||
+    removeTodo.error.value?.message ||
+    createWorkspace.error.value?.message ||
+    joinWorkspace.error.value?.message ||
+    '',
 )
 
 async function handleSignUp(payload: FormSubmitEvent<SignUpSchema>) {

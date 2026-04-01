@@ -32,22 +32,16 @@ vi.mock('h3', () => ({
     const current = (event.__headers as Record<string, string> | undefined) ?? {}
     event.__headers = { ...current, ...headers }
   },
-  setResponseStatus: (
-    event: Record<string, unknown>,
-    statusCode: number,
-    statusText?: string,
-  ) => {
+  setResponseStatus: (event: Record<string, unknown>, statusCode: number, statusText?: string) => {
     event.__status = { statusCode, statusText }
   },
-  createError: (input: Record<string, unknown>) => Object.assign(new Error(String(input.message)), input),
+  createError: (input: Record<string, unknown>) =>
+    Object.assign(new Error(String(input.message)), input),
   getRequestURL: (event: Record<string, unknown>) => event.__url,
   send: (_event: unknown, body: unknown) => body,
-  appendResponseHeader: (
-    event: Record<string, unknown>,
-    key: string,
-    value: string,
-  ) => {
-    const headers = (event.__appendedHeaders as Array<{ key: string, value: string }> | undefined) ?? []
+  appendResponseHeader: (event: Record<string, unknown>, key: string, value: string) => {
+    const headers =
+      (event.__appendedHeaders as Array<{ key: string; value: string }> | undefined) ?? []
     headers.push({ key, value })
     event.__appendedHeaders = headers
   },
@@ -147,7 +141,9 @@ describe('auth proxy handler hardening', () => {
         },
       },
     })
-    buildAuthProxyForwardHeadersMock.mockReturnValue({ cookie: 'better-auth.session_token=session123' })
+    buildAuthProxyForwardHeadersMock.mockReturnValue({
+      cookie: 'better-auth.session_token=session123',
+    })
     shouldSkipProxyResponseHeaderMock.mockReturnValue(false)
     getAuthRoutePatternMock.mockReturnValue(/^\/api\/auth/)
     isOriginAllowedMock.mockReturnValue(true)
@@ -300,27 +296,24 @@ describe('auth proxy handler hardening', () => {
     '/api/auth/%2e%2e%5Cconvex/token',
     '/api/auth/%252e%252e/convex/token',
     '/api/auth/%255cconvex/token',
-  ])(
-    'rejects malformed traversal-like auth proxy paths for %s',
-    async (pathname) => {
-      const handler = await loadAuthProxyHandler()
-      const event = createEvent(pathname, {
-        method: 'GET',
-        rawPathname: pathname,
-      })
+  ])('rejects malformed traversal-like auth proxy paths for %s', async (pathname) => {
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent(pathname, {
+      method: 'GET',
+      rawPathname: pathname,
+    })
 
-      await expect(handler(event)).rejects.toMatchObject({
-        statusCode: 404,
-        data: { code: 'BCN_AUTH_PROXY_INVALID_PATH' },
-      })
+    await expect(handler(event)).rejects.toMatchObject({
+      statusCode: 404,
+      data: { code: 'BCN_AUTH_PROXY_INVALID_PATH' },
+    })
 
-      expect(event.__headers).toMatchObject({
-        'Cache-Control': 'no-store',
-        'X-Content-Type-Options': 'nosniff',
-      })
-      expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
-    },
-  )
+    expect(event.__headers).toMatchObject({
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    })
+    expect(fetchWithCanonicalRedirectsMock).not.toHaveBeenCalled()
+  })
 
   it('returns 413 before proxying oversized request bodies', async () => {
     getRequestBodySizeErrorMock.mockReturnValue({

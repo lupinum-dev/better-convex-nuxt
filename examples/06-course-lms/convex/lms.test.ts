@@ -1,9 +1,8 @@
 /// <reference types="vite/client" />
 
+import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
-
-import { createTestContext } from 'better-convex-nuxt/testing'
 
 import schema from './schema'
 import { modules } from './test.setup'
@@ -27,7 +26,7 @@ describe('lms example', () => {
 
     const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
-    const introLesson = lessons.find(lesson => lesson.title === 'Intro lesson')
+    const introLesson = lessons.find((lesson) => lesson.title === 'Intro lesson')
 
     await team.users.student.mutation(api.lessons.enrollSelf, { courseId })
     const lesson = await team.users.student.query(api.lessons.getLesson, { id: introLesson!._id })
@@ -46,7 +45,7 @@ describe('lms example', () => {
 
     const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
-    const introLesson = lessons.find(lesson => lesson.title === 'Intro lesson')
+    const introLesson = lessons.find((lesson) => lesson.title === 'Intro lesson')
 
     await expect(
       team.users.student.query(api.lessons.getLesson, { id: introLesson!._id }),
@@ -65,7 +64,7 @@ describe('lms example', () => {
 
     const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
-    const advancedLesson = lessons.find(lesson => lesson.title === 'Advanced lesson')
+    const advancedLesson = lessons.find((lesson) => lesson.title === 'Advanced lesson')
 
     await team.users.student.mutation(api.lessons.enrollSelf, { courseId })
     await expect(
@@ -85,7 +84,7 @@ describe('lms example', () => {
 
     const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
-    const introLesson = lessons.find(lesson => lesson.title === 'Intro lesson')
+    const introLesson = lessons.find((lesson) => lesson.title === 'Intro lesson')
 
     await expect(
       team.users.student.mutation(api.lessons.completeLesson, { lessonId: introLesson!._id }),
@@ -104,7 +103,7 @@ describe('lms example', () => {
 
     const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
-    const draftLesson = lessons.find(lesson => lesson.title === 'Draft lesson')
+    const draftLesson = lessons.find((lesson) => lesson.title === 'Draft lesson')
 
     await team.users.student.mutation(api.lessons.enrollSelf, { courseId })
     await expect(
@@ -124,7 +123,7 @@ describe('lms example', () => {
 
     const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
-    const draftLesson = lessons.find(lesson => lesson.title === 'Draft lesson')
+    const draftLesson = lessons.find((lesson) => lesson.title === 'Draft lesson')
 
     await team.users.student.mutation(api.lessons.enrollSelf, { courseId })
     await expect(
@@ -144,7 +143,7 @@ describe('lms example', () => {
 
     const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
-    const advancedLesson = lessons.find(lesson => lesson.title === 'Advanced lesson')
+    const advancedLesson = lessons.find((lesson) => lesson.title === 'Advanced lesson')
 
     await team.users.student.mutation(api.lessons.enrollSelf, { courseId })
     await expect(
@@ -192,15 +191,19 @@ describe('lms example', () => {
 
     const courseId = await team.users.owner.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.owner.query(api.lessons.listLessonsByCourse, { courseId })
-    const introLesson = lessons.find(lesson => lesson.title === 'Intro lesson')
-    const advancedLesson = lessons.find(lesson => lesson.title === 'Advanced lesson')
+    const introLesson = lessons.find((lesson) => lesson.title === 'Intro lesson')
+    const advancedLesson = lessons.find((lesson) => lesson.title === 'Advanced lesson')
 
     await team.users.student.mutation(api.lessons.enrollSelf, { courseId })
-    const listedLessons = await team.users.student.query(api.lessons.listLessonsByCourse, { courseId })
-    expect(listedLessons.map(lesson => lesson.title)).toEqual(['Intro lesson', 'Advanced lesson'])
+    const listedLessons = await team.users.student.query(api.lessons.listLessonsByCourse, {
+      courseId,
+    })
+    expect(listedLessons.map((lesson) => lesson.title)).toEqual(['Intro lesson', 'Advanced lesson'])
 
     await team.users.student.mutation(api.lessons.completeLesson, { lessonId: introLesson!._id })
-    const lesson = await team.users.student.query(api.lessons.getLesson, { id: advancedLesson!._id })
+    const lesson = await team.users.student.query(api.lessons.getLesson, {
+      id: advancedLesson!._id,
+    })
     expect(lesson.title).toBe('Advanced lesson')
   })
 
@@ -215,7 +218,7 @@ describe('lms example', () => {
 
     const courseId = await team.users.instructor.mutation(api.courses.seedDemoCourse, {})
     const lessons = await team.users.instructor.query(api.lessons.listLessonsByCourse, { courseId })
-    const draftLesson = lessons.find(lesson => lesson.title === 'Draft lesson')
+    const draftLesson = lessons.find((lesson) => lesson.title === 'Draft lesson')
 
     await expect(
       team.users.instructor.mutation(api.lessons.completeLesson, { lessonId: draftLesson!._id }),

@@ -35,8 +35,9 @@ describe('OWASP A02: Cryptographic Failures', () => {
 
   it('keeps expiry math finite and rejects invalid exp values', () => {
     expect(getJwtTimeUntilExpiryMs(mintJwt({ sub: 'user-1', exp: Number.NaN }))).toBeNull()
-    expect(getJwtTimeUntilExpiryMs(mintJwt({ sub: 'user-1', exp: Number.POSITIVE_INFINITY })))
-      .toBeNull()
+    expect(
+      getJwtTimeUntilExpiryMs(mintJwt({ sub: 'user-1', exp: Number.POSITIVE_INFINITY })),
+    ).toBeNull()
   })
 
   it('returns a user only when the JWT carries a usable identifier', () => {

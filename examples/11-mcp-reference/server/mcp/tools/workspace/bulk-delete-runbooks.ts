@@ -1,5 +1,4 @@
 import { defineTool } from '#convex/mcp'
-
 import { api } from '~/convex/_generated/api'
 import { bulkDeleteRunbooks } from '~/shared/schemas/runbook'
 
@@ -10,7 +9,7 @@ export default defineTool({
   scoped: true,
   group: 'workspace',
   tags: ['bulk', 'dangerous'],
-  check: actor => ['owner', 'admin'].includes(actor.role),
+  check: (actor) => ['owner', 'admin'].includes(actor.role),
   destructive: true,
   rateLimit: { max: 5, window: '1m' },
   maxItems: { field: 'ids', limit: 10 },
@@ -19,7 +18,7 @@ export default defineTool({
     return await next()
   },
   preview: async (args, ctx) => {
-    const runbooks = await Promise.all(args.ids.map(id => ctx.query(api.runbooks.get, { id })))
+    const runbooks = await Promise.all(args.ids.map((id) => ctx.query(api.runbooks.get, { id })))
     const found = runbooks.filter(Boolean)
 
     if (found.length === 0) {
@@ -27,8 +26,9 @@ export default defineTool({
     }
 
     return ctx.preview({
-      summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map(runbook => `"${runbook!.title}"`).join(', ')}`,
-      warn: found.length !== args.ids.length ? 'Some ids were missing and will be skipped.' : undefined,
+      summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map((runbook) => `"${runbook!.title}"`).join(', ')}`,
+      warn:
+        found.length !== args.ids.length ? 'Some ids were missing and will be skipped.' : undefined,
       affects: { runbooks: found.length },
     })
   },

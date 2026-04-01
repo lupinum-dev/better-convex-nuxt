@@ -29,16 +29,14 @@ describe('OWASP A08: Integrity Failures', () => {
 
     await setCachedAuthToken('session-secret-token', 'jwt-value', 60)
 
-    expect(Array.from(backingStore.keys()).some(key => key.includes('session-secret-token')))
-      .toBe(false)
+    expect(
+      Array.from(backingStore.keys()).some((key) => key.includes('session-secret-token')),
+    ).toBe(false)
   })
 
   it('clearing one cached session does not affect another', async () => {
-    const {
-      setCachedAuthToken,
-      getCachedAuthToken,
-      serverConvexClearAuthCache,
-    } = await import('../../../src/runtime/server/utils/auth-cache')
+    const { setCachedAuthToken, getCachedAuthToken, serverConvexClearAuthCache } =
+      await import('../../../src/runtime/server/utils/auth-cache')
 
     await setCachedAuthToken('session-a', 'jwt-a', 60)
     await setCachedAuthToken('session-b', 'jwt-b', 60)
