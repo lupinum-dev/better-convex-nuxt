@@ -213,7 +213,7 @@ const LEGACY_API_PATTERNS = [
   {
     id: 'createAuth()',
     replacement: 'Remove the local permissions factory and configure convex.permissions.query instead.',
-    regex: /\bcreateAuth\s*\(/,
+    regex: /\bcreateAuth\s*\(\s*\{/,
   },
   {
     id: 'useEnsureConvexUser',

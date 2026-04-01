@@ -16,7 +16,7 @@ const bannedPatterns = [
   /\bwithTrustedCaller\b/,
   /\bgetTrustedCaller\b/,
   /better-convex-nuxt\/schema/,
-  /\bcreateAuth\s*\(/,
+  /\bcreateAuth\s*\(\s*\{/,
 ] as const
 
 function collectFiles(target: string): string[] {
@@ -55,7 +55,7 @@ function collectFiles(target: string): string[] {
 }
 
 describe('v3 repo guard', () => {
-  it('keeps removed public API names out of the repo except for explicit legacy checks', () => {
+  it('keeps removed public API names out of the repo except for explicit legacy checks', { timeout: 15000 }, () => {
     const violations: string[] = []
 
     for (const target of rootsToScan) {

@@ -1,11 +1,7 @@
-import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/better-auth'
-import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
 import { can } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { components, internal } from './_generated/api'
-import type { DataModel } from './_generated/dataModel'
 import { internalAction, mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import {
@@ -19,118 +15,52 @@ import {
   canReadPost,
   canViewBilling,
 } from './auth/checks'
-import authConfig from './auth.config'
+import { createConvexAuth } from './authBridge'
 
-// Get site URL from environment
-const siteUrl = process.env.SITE_URL!
-
-// Auth functions for triggers
-const authFunctions: AuthFunctions = internal.auth
-
-// Create the auth component client with triggers to sync users
-export const authComponent = createClient<DataModel>(components.betterAuth, {
-  authFunctions,
-  triggers: {
-    user: {
-      // Auto-create user in our table when Better Auth creates one
-      onCreate: async (ctx, doc) => {
-        const now = Date.now()
-        await ctx.db.insert('users', {
-          authId: doc._id,
-          role: 'member', // Default role for new users
-          displayName: doc.name,
-          email: doc.email,
-          createdAt: now,
-          updatedAt: now,
-        })
+export const { authComponent, createAuth, createUserIfNeeded } = createConvexAuth(
+  (_ctx, bridge) =>
+    betterAuth({
+      baseURL: bridge.siteUrl,
+      database: bridge.database,
+      emailAndPassword: {
+        enabled: true,
       },
-      // Sync name and email changes
-      onUpdate: async (ctx, newDoc, oldDoc) => {
-        const nameChanged = newDoc.name !== oldDoc.name
-        const emailChanged = newDoc.email !== oldDoc.email
-        if (nameChanged || emailChanged) {
-          const user = await ctx.db
-            .query('users')
-            .withIndex('by_auth_id', (q) => q.eq('authId', newDoc._id))
-            .first()
-          if (user) {
-            await ctx.db.patch(user._id, {
-              ...(nameChanged && { displayName: newDoc.name }),
-              ...(emailChanged && { email: newDoc.email }),
-              updatedAt: Date.now(),
-            })
-          }
-        }
+      user: {
+        additionalFields: {
+          organizationId: { type: 'string', required: false },
+          marketingOptIn: { type: 'boolean', required: false },
+        },
       },
-      // Delete from our table when auth user is deleted
-      onDelete: async (ctx, doc) => {
-        const user = await ctx.db
-          .query('users')
-          .withIndex('by_auth_id', (q) => q.eq('authId', doc._id))
-          .first()
-        if (user) {
-          await ctx.db.delete(user._id)
-        }
+      plugins: [
+        bridge.createConvexPlugin({
+          jwt: {
+            definePayload: ({ user }) => ({
+              name: user.name,
+              email: user.email,
+              emailVerified: user.emailVerified,
+              image: user.image ?? undefined,
+              authId: user.id,
+              role: 'member',
+            }),
+          },
+        }),
+      ],
+      session: {
+        expiresIn: 60 * 60 * 24 * 7,
+        updateAge: 60 * 60 * 24,
       },
-    },
-  },
-})
+      trustedOrigins: bridge.trustedOrigins,
+    }),
+)
 
-// Export trigger handlers for the component
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
 
-// Factory function to create auth instance per request
-export const buildAuth = (ctx: GenericCtx<DataModel>) => {
-  return betterAuth({
-    baseURL: siteUrl,
-    database: authComponent.adapter(ctx),
-    emailAndPassword: {
-      enabled: true,
-    },
-    user: {
-      // Playground-only demo fields to verify Better Auth `additionalFields`
-      // typing on the frontend (authClient.useSession()).
-      additionalFields: {
-        organizationId: { type: 'string', required: false },
-        marketingOptIn: { type: 'boolean', required: false },
-      },
-    },
-    plugins: [
-      // convex() plugin includes JWT functionality - don't add separate jwt() plugin
-      convex({
-        authConfig,
-        jwt: {
-          definePayload: ({ user }) => ({
-            // Keep the standard fields useConvexAuth() expects
-            name: user.name,
-            email: user.email,
-            emailVerified: user.emailVerified,
-            image: user.image ?? undefined,
-            // Custom claims used by the auth lab to verify runtime behavior
-            authId: user.id,
-            // NOTE: Static demo claim. Real app roles should remain sourced from
-            // Convex queries (see /labs/auth "convex db role" section) until
-            // async definePayload is reliably awaited upstream.
-            role: 'member',
-          }),
-        },
-      }),
-    ],
-    session: {
-      expiresIn: 60 * 60 * 24 * 7,
-      updateAge: 60 * 60 * 24,
-    },
-    trustedOrigins: [siteUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'],
-  })
-}
-
-// Type-only bridge for frontend `inferAdditionalFields<AppAuth>()` usage.
-export type AppAuth = ReturnType<typeof buildAuth>
+export type AppAuth = ReturnType<typeof createAuth>
 
 export const rotateKeys = internalAction({
   args: {},
   handler: async (ctx) => {
-    const auth = buildAuth(ctx)
+    const auth = createAuth(ctx)
     const result = await auth.api.rotateKeys()
     return result
   },
@@ -144,41 +74,6 @@ export const rotateKeys = internalAction({
 //
 // The Convex reactivity system will automatically
 // re-run this if the user's role changes.
-
-// Public mutation to create user on-demand (idempotent)
-// Called by frontend when user exists in Better Auth but not in our DB
-export const createUserIfNeeded = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
-
-    // Check if user already exists
-    const existing = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (existing) {
-      return existing._id
-    }
-
-    // Create user with default role 'member' (no org yet)
-    const now = Date.now()
-    const userId = await ctx.db.insert('users', {
-      authId: identity.subject,
-      role: 'member',
-      displayName: identity.name,
-      email: identity.email,
-      createdAt: now,
-      updatedAt: now,
-    })
-
-    return userId
-  },
-})
 
 interface DebugInfo {
   hasIdentity: boolean
