@@ -1,41 +1,61 @@
 <template>
-  <main class="page">
-    <section class="shell">
-      <header class="toolbar">
+  <div
+    class="min-h-screen p-6 bg-linear-to-br from-green-50 to-white dark:from-green-950/20 dark:to-neutral-950"
+  >
+    <div class="max-w-[1200px] mx-auto space-y-4">
+      <UCard>
         <div>
-          <NuxtLink class="back" to="/">← Back to projects</NuxtLink>
-          <h1>Workspace admin</h1>
-          <p class="hint">
+          <UButton to="/" variant="link" leading-icon="i-lucide-arrow-left" class="mb-2">
+            Back to projects
+          </UButton>
+          <h1 class="text-3xl font-bold">Workspace admin</h1>
+          <p class="text-sm text-muted mt-1">
             Three scoped queries run at once here: stats, recent activity, and members.
           </p>
         </div>
-      </header>
+      </UCard>
 
-      <section class="stats-grid">
+      <div class="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <StatsCard label="Active projects" :value="stats?.activeProjects" />
         <StatsCard label="Open tasks" :value="stats?.openTasks" />
         <StatsCard label="Completed today" :value="stats?.completedToday" />
         <StatsCard label="Team members" :value="members?.length" />
-      </section>
+      </div>
 
-      <section class="two-up">
-        <article class="card">
-          <h2>Recent activity</h2>
-          <ul class="activity-list">
-            <li v-for="event in recentActivity || []" :key="event._id">
-              <strong>{{ event.action }}</strong>
-              <p>{{ event.description }}</p>
-            </li>
-          </ul>
-        </article>
+      <div class="grid gap-4 lg:grid-cols-[1fr_380px]">
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Recent activity</h2>
+          </template>
 
-        <article class="card">
-          <h2>Members</h2>
-          <MemberRow v-for="member in members || []" :key="member._id" :member="member" />
-        </article>
-      </section>
-    </section>
-  </main>
+          <div class="divide-y divide-default">
+            <div v-for="event in recentActivity || []" :key="event._id" class="py-3 first:pt-0 last:pb-0">
+              <p class="font-medium">{{ event.action }}</p>
+              <p class="text-sm text-muted mt-0.5">{{ event.description }}</p>
+            </div>
+
+            <p v-if="!recentActivity?.length" class="text-sm text-muted text-center py-6">
+              No recent activity.
+            </p>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Members</h2>
+          </template>
+
+          <div>
+            <MemberRow v-for="member in members || []" :key="member._id" :member="member" />
+
+            <p v-if="!members?.length" class="text-sm text-muted text-center py-6">
+              No members found.
+            </p>
+          </div>
+        </UCard>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -59,70 +79,3 @@ const { data: stats } = await useConvexQuery(api.dashboard.stats, {})
 const { data: recentActivity } = await useConvexQuery(api.dashboard.recentActivity, { limit: 12 })
 const { data: members } = await useConvexQuery(api.members.list, {})
 </script>
-
-<style scoped>
-.page {
-  padding: 2rem;
-  background: #eef4fb;
-  min-height: 100vh;
-}
-
-.shell {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  gap: 1rem;
-}
-
-.toolbar,
-.card {
-  padding: 1rem;
-  border: 1px solid #dbe4ef;
-  border-radius: 20px;
-  background: white;
-}
-
-.stats-grid,
-.two-up {
-  display: grid;
-  gap: 1rem;
-}
-
-.stats-grid {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.two-up {
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
-}
-
-.activity-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.activity-list li {
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #e6edf5;
-}
-
-.activity-list p,
-.hint,
-.back {
-  margin: 0.2rem 0 0;
-  color: #667085;
-}
-
-.back {
-  text-decoration: none;
-}
-
-@media (max-width: 900px) {
-  .two-up {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

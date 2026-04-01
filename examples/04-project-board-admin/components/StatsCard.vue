@@ -11,30 +11,8 @@ defineProps<{
 </script>
 
 <template>
-  <article class="stats-card">
-    <p class="label">{{ label }}</p>
-    <p class="value">{{ value ?? '—' }}</p>
-  </article>
+  <UCard class="text-center">
+    <p class="text-sm text-muted">{{ label }}</p>
+    <p class="text-3xl font-bold mt-1">{{ value ?? '—' }}</p>
+  </UCard>
 </template>
-
-<style scoped>
-.stats-card {
-  border: 1px solid #dbe4ef;
-  border-radius: 16px;
-  padding: 1rem;
-  background: linear-gradient(180deg, #ffffff, #f6fbff);
-}
-
-.label {
-  margin: 0 0 0.25rem;
-  color: #5b6472;
-  font-size: 0.85rem;
-}
-
-.value {
-  margin: 0;
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #132238;
-}
-</style>

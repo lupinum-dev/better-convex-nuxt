@@ -4,7 +4,9 @@
  * but adds custom tenant naming, server routes, uploads, and admin workflows.
  */
 export default defineNuxtConfig({
-  modules: ['better-convex-nuxt'],
+  modules: ['better-convex-nuxt', '@nuxt/ui'],
+
+  css: ['~/assets/css/main.css'],
 
   compatibilityDate: '2026-03-30',
 

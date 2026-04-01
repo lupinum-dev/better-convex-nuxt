@@ -19,13 +19,15 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="column">
-    <header class="column-header">
-      <h3>{{ title }}</h3>
-      <span>{{ tasks.length }}</span>
-    </header>
+  <UCard>
+    <template #header>
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold">{{ title }}</h3>
+        <UBadge variant="subtle" color="neutral">{{ tasks.length }}</UBadge>
+      </div>
+    </template>
 
-    <div class="column-body">
+    <div class="space-y-3">
       <TaskCard
         v-for="task in tasks"
         :key="task._id"
@@ -34,32 +36,8 @@ const emit = defineEmits<{
         :selected="selectedIds.includes(task._id)"
         @toggle-selected="emit('toggleSelected', $event)"
       />
+
+      <p v-if="!tasks.length" class="text-sm text-muted text-center py-4">No tasks</p>
     </div>
-  </section>
+  </UCard>
 </template>
-
-<style scoped>
-.column {
-  display: grid;
-  gap: 0.85rem;
-  padding: 1rem;
-  border: 1px solid #dbe4ef;
-  border-radius: 20px;
-  background: #f8fbff;
-}
-
-.column-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.column-header h3 {
-  margin: 0;
-}
-
-.column-body {
-  display: grid;
-  gap: 0.75rem;
-}
-</style>

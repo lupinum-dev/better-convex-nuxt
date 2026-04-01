@@ -1,46 +1,66 @@
 <template>
-  <main class="page">
-    <section class="shell">
-      <header class="toolbar">
-        <div>
-          <NuxtLink class="back" :to="`/projects/${projectId}`">← Back to board</NuxtLink>
-          <h1>{{ task?.title || 'Task detail' }}</h1>
-          <p class="hint">
-            This page uses <code>useCachedQuery</code> so the card you clicked can render
-            immediately from the already-fetched board list.
-          </p>
+  <div
+    class="min-h-screen p-6 bg-linear-to-br from-green-50 to-white dark:from-green-950/20 dark:to-neutral-950"
+  >
+    <div class="max-w-[1100px] mx-auto space-y-4">
+      <UCard>
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <UButton :to="`/projects/${projectId}`" variant="link" leading-icon="i-lucide-arrow-left" class="mb-2">
+              Back to board
+            </UButton>
+            <h1 class="text-2xl font-bold">{{ task?.title || 'Task detail' }}</h1>
+            <p class="text-sm text-muted mt-1">
+              This page uses <code>useCachedQuery</code> so the card you clicked can render
+              immediately from the already-fetched board list.
+            </p>
+          </div>
+          <UBadge v-if="task" variant="subtle" size="lg">{{ task.status }}</UBadge>
         </div>
-        <span class="badge">{{ task?.status }}</span>
-      </header>
+      </UCard>
 
-      <section class="detail-grid">
-        <article class="card">
-          <h2>Task meta</h2>
-          <p><strong>Priority:</strong> {{ task?.priority }}</p>
-          <p><strong>Owner:</strong> {{ task?.ownerId }}</p>
-          <p><strong>Assignee:</strong> {{ task?.assigneeId || 'Unassigned' }}</p>
+      <div class="grid gap-4 lg:grid-cols-[320px_1fr]">
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Task meta</h2>
+          </template>
 
-          <label v-if="canAssign && members?.length" class="field">
-            <span>Assign task</span>
-            <select
-              :value="task?.assigneeId || ''"
-              class="input"
-              @change="handleAssigneeChange"
-            >
-              <option value="">Unassigned</option>
-              <option v-for="member in members" :key="member._id" :value="member.authId">
-                {{ member.displayName || member.authId }}
-              </option>
-            </select>
-          </label>
-        </article>
+          <div class="space-y-3">
+            <div>
+              <p class="text-sm text-muted">Priority</p>
+              <p class="font-medium">{{ task?.priority }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-muted">Owner</p>
+              <p class="font-medium">{{ task?.ownerId }}</p>
+            </div>
+            <div>
+              <p class="text-sm text-muted">Assignee</p>
+              <p class="font-medium">{{ task?.assigneeId || 'Unassigned' }}</p>
+            </div>
 
-        <article class="card">
+            <div v-if="canAssign && members?.length" class="space-y-1 pt-2">
+              <label class="text-sm font-medium text-highlighted">Assign task</label>
+              <select
+                :value="task?.assigneeId || ''"
+                class="w-full rounded-md border border-default bg-default px-3 py-2 text-sm"
+                @change="handleAssigneeChange"
+              >
+                <option value="">Unassigned</option>
+                <option v-for="member in members" :key="member._id" :value="member.authId">
+                  {{ member.displayName || member.authId }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
           <CommentThread v-if="task" :task-id="task._id" />
-        </article>
-      </section>
-    </section>
-  </main>
+        </UCard>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -96,71 +116,3 @@ async function handleAssigneeChange(event: Event) {
   await handleAssign(select.value || undefined)
 }
 </script>
-
-<style scoped>
-.page {
-  padding: 2rem;
-  background: #eef4fb;
-  min-height: 100vh;
-}
-
-.shell {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: grid;
-  gap: 1rem;
-}
-
-.toolbar,
-.detail-grid {
-  display: grid;
-  gap: 1rem;
-}
-
-.detail-grid {
-  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-}
-
-.card,
-.toolbar {
-  padding: 1rem;
-  border: 1px solid #dbe4ef;
-  border-radius: 20px;
-  background: white;
-}
-
-.badge {
-  justify-self: start;
-  padding: 0.3rem 0.65rem;
-  border-radius: 999px;
-  background: #e8efff;
-  color: #355fb0;
-}
-
-.field {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.input {
-  width: 100%;
-  padding: 0.75rem 0.85rem;
-  border: 1px solid #c7d4e5;
-  border-radius: 12px;
-}
-
-.hint,
-.back {
-  color: #667085;
-}
-
-.back {
-  text-decoration: none;
-}
-
-@media (max-width: 900px) {
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

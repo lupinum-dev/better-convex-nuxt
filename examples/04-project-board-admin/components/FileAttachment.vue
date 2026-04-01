@@ -37,40 +37,34 @@ async function handleFile(event: Event) {
 </script>
 
 <template>
-  <div class="attachment">
-    <label class="picker">
-      <span>Attachment</span>
-      <input data-testid="attachment-input" type="file" @change="handleFile" />
+  <div class="space-y-2">
+    <label class="block text-sm font-medium text-highlighted">
+      Attachment
+      <input data-testid="attachment-input" type="file" class="mt-1 block text-sm" @change="handleFile" />
     </label>
 
-    <p v-if="pending" class="hint">Uploading… {{ progress }}%</p>
-    <p v-if="error" class="error">{{ error.message }}</p>
+    <div v-if="pending" class="space-y-1">
+      <p class="text-sm text-muted">Uploading… {{ progress }}%</p>
+      <UProgress :value="progress" />
+    </div>
 
-    <div v-if="previewUrl" class="preview">
-      <a :href="previewUrl" target="_blank" rel="noreferrer">Open uploaded file</a>
+    <UAlert
+      v-if="error"
+      color="error"
+      variant="soft"
+      icon="i-lucide-circle-alert"
+      :description="error.message"
+    />
+
+    <div v-if="previewUrl">
+      <UButton
+        variant="link"
+        :to="previewUrl"
+        target="_blank"
+        leading-icon="i-lucide-paperclip"
+      >
+        Open uploaded file
+      </UButton>
     </div>
   </div>
 </template>
-
-<style scoped>
-.attachment {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.picker {
-  display: grid;
-  gap: 0.35rem;
-  font-size: 0.9rem;
-}
-
-.hint {
-  margin: 0;
-  color: #5b6472;
-}
-
-.error {
-  margin: 0;
-  color: #b42318;
-}
-</style>

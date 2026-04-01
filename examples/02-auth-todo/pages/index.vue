@@ -2,10 +2,8 @@
   <div
     class="min-h-screen flex items-center justify-center p-6 bg-linear-to-br from-green-50 to-white dark:from-green-950/20 dark:to-neutral-950"
   >
-    <div
-      class="w-full max-w-4xl rounded-lg overflow-hidden bg-default ring ring-default divide-y divide-default"
-    >
-      <div class="p-4 sm:px-6">
+    <UCard class="w-full max-w-4xl">
+      <template #header>
         <p
           class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400"
         >
@@ -21,10 +19,9 @@
           user row. The client uses <code>useEnsureConvexUser()</code> to create or confirm that
           row before the personal list subscribes.
         </p>
-      </div>
+      </template>
 
-      <div class="p-4 sm:p-6">
-        <div class="space-y-4">
+      <div class="space-y-4">
         <div v-if="isPending" class="space-y-3">
           <p class="text-sm text-muted">Checking the current session...</p>
           <USkeleton class="h-24 w-full rounded-xl" />
@@ -168,9 +165,8 @@
             </p>
           </div>
         </div>
-        </div>
       </div>
-    </div>
+    </UCard>
   </div>
 </template>
 

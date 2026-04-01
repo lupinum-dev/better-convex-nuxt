@@ -25,17 +25,17 @@ async function handleRoleChange(event: Event) {
 </script>
 
 <template>
-  <div class="member-row">
-    <div>
-      <strong>{{ props.member.displayName || props.member.authId }}</strong>
-      <p class="hint">{{ props.member.email || props.member.authId }}</p>
+  <div class="flex items-center justify-between gap-4 py-3 border-b border-default">
+    <div class="min-w-0">
+      <p class="font-medium text-highlighted truncate">{{ props.member.displayName || props.member.authId }}</p>
+      <p class="text-sm text-muted truncate">{{ props.member.email || props.member.authId }}</p>
     </div>
 
     <select
       v-if="canManageMembers && props.member.role !== 'owner'"
       :data-testid="`member-role-${memberKey}`"
       :value="props.member.role"
-      class="select"
+      class="min-w-28 rounded-md border border-default bg-default px-3 py-1.5 text-sm"
       @change="handleRoleChange"
     >
       <option value="admin">admin</option>
@@ -43,28 +43,6 @@ async function handleRoleChange(event: Event) {
       <option value="viewer">viewer</option>
     </select>
 
-    <span v-else class="badge">{{ props.member.role }}</span>
+    <UBadge v-else variant="subtle" color="neutral">{{ props.member.role }}</UBadge>
   </div>
 </template>
-
-<style scoped>
-.member-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 0;
-  border-bottom: 1px solid #e6edf5;
-}
-
-.hint {
-  margin: 0.15rem 0 0;
-  color: #667085;
-  font-size: 0.85rem;
-}
-
-.select,
-.badge {
-  min-width: 7rem;
-}
-</style>

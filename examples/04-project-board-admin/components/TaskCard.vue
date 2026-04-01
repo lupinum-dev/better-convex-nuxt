@@ -35,68 +35,40 @@ const moveTask = useConvexMutation(api.tasks.moveToColumn, {
 </script>
 
 <template>
-  <article class="task-card" :data-testid="`task-card-${props.task._id}`">
-    <label class="select-row">
-      <input
-        type="checkbox"
-        :checked="selected"
-        @change="emit('toggleSelected', props.task._id)"
-      />
-      <span>Select</span>
-    </label>
+  <article
+    :data-testid="`task-card-${props.task._id}`"
+    class="space-y-2 rounded-xl border border-default bg-default p-3"
+  >
+    <UCheckbox
+      :model-value="selected"
+      label="Select"
+      :ui="{ label: 'text-sm text-muted' }"
+      @update:model-value="emit('toggleSelected', props.task._id)"
+    />
 
     <NuxtLink
-      class="title"
+      class="block font-semibold text-highlighted hover:underline"
       :data-testid="`task-link-${props.task._id}`"
       :to="`/tasks/${props.task._id}?projectId=${props.projectId}`"
     >
       {{ props.task.title }}
     </NuxtLink>
 
-    <p class="meta">
-      {{ props.task.priority }} priority
-      <span v-if="props.task.assigneeId"> · assigned to {{ props.task.assigneeId }}</span>
+    <p class="text-sm text-muted">
+      <UBadge size="xs" variant="subtle" color="neutral">{{ props.task.priority }}</UBadge>
+      <span v-if="props.task.assigneeId" class="ml-2">assigned to {{ props.task.assigneeId }}</span>
     </p>
 
-    <button
+    <UButton
       v-if="props.task._can.update && props.task.status !== 'done'"
       :data-testid="`task-move-${props.task._id}`"
-      class="ghost"
-      type="button"
+      size="xs"
+      variant="soft"
+      color="neutral"
+      leading-icon="i-lucide-arrow-right"
       @click="moveTask({ id: props.task._id, status: nextStatus() })"
     >
       Move to {{ nextStatus().replace('_', ' ') }}
-    </button>
+    </UButton>
   </article>
 </template>
-
-<style scoped>
-.task-card {
-  display: grid;
-  gap: 0.6rem;
-  border: 1px solid #dbe4ef;
-  border-radius: 16px;
-  padding: 0.9rem;
-  background: #fff;
-}
-
-.select-row {
-  display: flex;
-  gap: 0.35rem;
-  align-items: center;
-  font-size: 0.85rem;
-  color: #667085;
-}
-
-.title {
-  color: #0f172a;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.meta {
-  margin: 0;
-  color: #667085;
-  font-size: 0.85rem;
-}
-</style>

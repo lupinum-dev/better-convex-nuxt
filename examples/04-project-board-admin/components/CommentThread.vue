@@ -35,100 +35,56 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <section class="thread">
-    <header class="thread-header">
-      <h3>Comments</h3>
-      <span v-if="pending">Loading…</span>
-    </header>
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Comments</h3>
+      <span v-if="pending" class="text-sm text-muted">Loading…</span>
+    </div>
 
-    <p v-if="error" class="error">{{ error.message }}</p>
+    <UAlert
+      v-if="error"
+      color="error"
+      variant="soft"
+      icon="i-lucide-circle-alert"
+      :description="error.message"
+    />
 
-    <ul class="comments">
-      <li v-for="comment in comments || []" :key="comment._id" class="comment">
-        <p class="body">{{ comment.body }}</p>
-        <p class="meta">
+    <div class="space-y-3">
+      <div
+        v-for="comment in comments || []"
+        :key="comment._id"
+        class="rounded-xl border border-default p-3"
+      >
+        <p>{{ comment.body }}</p>
+        <p class="text-sm text-muted mt-2">
           by {{ comment.ownerId }}
           <span v-if="comment.attachmentStorageId"> · attachment saved</span>
         </p>
-      </li>
-    </ul>
+      </div>
+    </div>
 
-    <form v-if="canCreateComment" class="composer" @submit.prevent="handleSubmit">
-      <label class="field">
-        <span>New comment</span>
-        <textarea
+    <form v-if="canCreateComment" class="space-y-3" @submit.prevent="handleSubmit">
+      <div class="space-y-1">
+        <label class="text-sm font-medium text-highlighted">New comment</label>
+        <UTextarea
           v-model="body"
           data-testid="comment-body"
-          rows="4"
-          class="input"
+          :rows="4"
           placeholder="Add context for the team"
           required
         />
-      </label>
+      </div>
 
       <FileAttachment v-model="attachmentStorageId" />
 
-      <button
+      <UButton
         data-testid="comment-submit"
-        class="button"
         type="submit"
-        :disabled="createComment.pending.value"
+        :loading="createComment.pending.value"
+        leading-icon="i-lucide-message-square-plus"
       >
-        {{ createComment.pending.value ? 'Saving…' : 'Add comment' }}
-      </button>
+        Add comment
+      </UButton>
     </form>
-  </section>
+  </div>
 </template>
-
-<style scoped>
-.thread {
-  display: grid;
-  gap: 1rem;
-}
-
-.thread-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.comments {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.comment {
-  padding: 0.85rem 1rem;
-  border: 1px solid #dbe4ef;
-  border-radius: 16px;
-}
-
-.body,
-.meta {
-  margin: 0;
-}
-
-.meta {
-  margin-top: 0.4rem;
-  color: #667085;
-  font-size: 0.85rem;
-}
-
-.composer {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.field {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.error {
-  margin: 0;
-  color: #b42318;
-}
-</style>

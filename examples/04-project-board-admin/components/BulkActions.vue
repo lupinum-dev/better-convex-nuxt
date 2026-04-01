@@ -33,35 +33,22 @@ async function markDone() {
 </script>
 
 <template>
-  <div v-if="selectedIds.length" class="bulk-actions">
-    <p class="hint">{{ selectedIds.length }} selected</p>
-    <button
+  <div
+    v-if="selectedIds.length"
+    class="flex items-center gap-3 flex-wrap px-4 py-3 rounded-xl border border-default bg-elevated"
+  >
+    <p class="text-sm text-muted">{{ selectedIds.length }} selected</p>
+
+    <UButton
       data-testid="bulk-complete"
-      class="button"
-      type="button"
-      :disabled="bulkUpdate.pending.value"
+      size="sm"
+      :loading="bulkUpdate.pending.value"
+      leading-icon="i-lucide-check-check"
       @click="markDone"
     >
       Mark selected as done
-    </button>
-    <p v-if="summary" class="hint">{{ summary }}</p>
+    </UButton>
+
+    <p v-if="summary" class="text-sm text-muted">{{ summary }}</p>
   </div>
 </template>
-
-<style scoped>
-.bulk-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  padding: 0.85rem 1rem;
-  border: 1px solid #d7e3f2;
-  border-radius: 14px;
-  background: #f8fbff;
-}
-
-.hint {
-  margin: 0;
-  color: #475467;
-}
-</style>

@@ -1,217 +1,272 @@
 <template>
-  <main class="page">
-    <section class="panel">
-      <p class="eyebrow">Example 04</p>
-      <h1>Project Board + Admin</h1>
-      <p class="lede">
-        This is the month-two app: paginated lists, optimistic board updates, uploads, server
-        routes, and role management on top of the same explicit auth pattern used in Example 03.
-      </p>
+  <div
+    class="min-h-screen flex items-center justify-center p-6 bg-linear-to-br from-green-50 to-white dark:from-green-950/20 dark:to-neutral-950"
+  >
+    <UCard class="w-full max-w-5xl">
+      <template #header>
+        <p
+          class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400"
+        >
+          Example 04
+        </p>
+        <h1 class="text-3xl font-bold mt-1">Project Board + Admin</h1>
+        <p class="text-sm text-muted mt-2">
+          This is the month-two app: paginated lists, optimistic board updates, uploads, server
+          routes, and role management on top of the same explicit auth pattern used in Example 03.
+        </p>
+      </template>
 
-      <ConvexAuthLoading>
-        <p class="status">Checking your session…</p>
-      </ConvexAuthLoading>
-
-      <ConvexUnauthenticated>
-        <div class="auth-grid">
-          <form class="card" @submit.prevent="handleSignUp">
-            <h2>Create account</h2>
-            <label class="field">
-              <span>Name</span>
-              <input v-model="signUpForm.name" data-testid="signup-name" class="input" required />
-            </label>
-            <label class="field">
-              <span>Email</span>
-              <input
-                v-model="signUpForm.email"
-                data-testid="signup-email"
-                class="input"
-                type="email"
-                required
-              />
-            </label>
-            <label class="field">
-              <span>Password</span>
-              <input
-                v-model="signUpForm.password"
-                data-testid="signup-password"
-                class="input"
-                type="password"
-                minlength="8"
-                required
-              />
-            </label>
-            <button data-testid="signup-submit" class="button" :disabled="authAction.pending.value">
-              {{ authAction.pending.value ? 'Creating…' : 'Sign up' }}
-            </button>
-          </form>
-
-          <form class="card" @submit.prevent="handleSignIn">
-            <h2>Sign in</h2>
-            <label class="field">
-              <span>Email</span>
-              <input v-model="signInForm.email" class="input" type="email" required />
-            </label>
-            <label class="field">
-              <span>Password</span>
-              <input v-model="signInForm.password" class="input" type="password" required />
-            </label>
-            <button class="button muted" :disabled="authAction.pending.value">
-              {{ authAction.pending.value ? 'Signing in…' : 'Sign in' }}
-            </button>
-          </form>
-        </div>
-      </ConvexUnauthenticated>
-
-      <ConvexAuthenticated>
-        <header class="toolbar">
-          <div>
-            <h2>{{ displayName }}</h2>
-            <p class="hint">
-              Role: <strong>{{ role || 'loading…' }}</strong>
-              <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
-            </p>
+      <div class="space-y-4">
+        <ConvexAuthLoading>
+          <div class="space-y-3">
+            <p class="text-sm text-muted">Checking your session…</p>
+            <USkeleton class="h-24 w-full rounded-xl" />
           </div>
+        </ConvexAuthLoading>
 
-          <div class="toolbar-actions">
-            <NuxtLink v-if="tenantId" class="ghost link" to="/admin">Admin</NuxtLink>
-            <button class="ghost" type="button" @click="handleSignOut">Sign out</button>
+        <ConvexUnauthenticated>
+          <div class="grid gap-4 md:grid-cols-2">
+            <UCard>
+              <template #header>
+                <h2 class="text-lg font-semibold">Create account</h2>
+              </template>
+
+              <form class="space-y-4" @submit.prevent="handleSignUp">
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Name</label>
+                  <UInput v-model="signUpForm.name" data-testid="signup-name" required />
+                </div>
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Email</label>
+                  <UInput v-model="signUpForm.email" data-testid="signup-email" type="email" required />
+                </div>
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Password</label>
+                  <UInput v-model="signUpForm.password" data-testid="signup-password" type="password" minlength="8" required />
+                </div>
+                <UButton data-testid="signup-submit" type="submit" block :loading="authAction.pending.value">
+                  Sign up
+                </UButton>
+              </form>
+            </UCard>
+
+            <UCard>
+              <template #header>
+                <h2 class="text-lg font-semibold">Sign in</h2>
+              </template>
+
+              <form class="space-y-4" @submit.prevent="handleSignIn">
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Email</label>
+                  <UInput v-model="signInForm.email" type="email" required />
+                </div>
+                <div class="space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Password</label>
+                  <UInput v-model="signInForm.password" type="password" required />
+                </div>
+                <UButton type="submit" block color="neutral" variant="soft" :loading="authAction.pending.value">
+                  Sign in
+                </UButton>
+              </form>
+            </UCard>
           </div>
-        </header>
+        </ConvexUnauthenticated>
 
-        <p v-if="ensureUserRow.pending.value" class="status">Preparing your application user…</p>
+        <ConvexAuthenticated>
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 class="text-xl font-semibold">{{ displayName }}</h2>
+                <p class="text-sm text-muted mt-1">
+                  Role: <span class="font-semibold text-highlighted">{{ role || 'loading…' }}</span>
+                  <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
+                </p>
+              </div>
 
-        <section v-if="ready && !tenantId" class="setup-grid">
-          <form class="card" @submit.prevent="handleCreateWorkspace">
-            <h3>Create workspace</h3>
-            <label class="field">
-              <span>Name</span>
-              <input
-                v-model="createWorkspaceForm.name"
-                data-testid="workspace-name"
-                class="input"
-                required
-              />
-            </label>
-            <label class="field">
-              <span>Slug</span>
-              <input
-                v-model="createWorkspaceForm.slug"
-                data-testid="workspace-slug"
-                class="input"
-                required
-              />
-            </label>
-            <button
-              data-testid="workspace-submit"
-              class="button"
-              :disabled="createWorkspace.pending.value"
-            >
-              {{ createWorkspace.pending.value ? 'Creating…' : 'Create workspace' }}
-            </button>
-          </form>
-
-          <form class="card" @submit.prevent="handleJoinWorkspace">
-            <h3>Join workspace</h3>
-            <label class="field">
-              <span>Workspace slug</span>
-              <input v-model="joinWorkspaceForm.slug" class="input" required />
-            </label>
-            <label class="field">
-              <span>Role</span>
-              <select v-model="joinWorkspaceForm.role" class="input">
-                <option value="admin">admin</option>
-                <option value="member">member</option>
-                <option value="viewer">viewer</option>
-              </select>
-            </label>
-            <button class="button muted" :disabled="joinWorkspace.pending.value">
-              {{ joinWorkspace.pending.value ? 'Joining…' : 'Join workspace' }}
-            </button>
-          </form>
-        </section>
-
-        <section v-if="workspaceOptions?.length && !tenantId" class="workspace-list">
-          <h3>Existing workspaces</h3>
-          <ul>
-            <li v-for="workspace in workspaceOptions" :key="workspace._id">
-              <strong>{{ workspace.name }}</strong>
-              <span>({{ workspace.slug }})</span>
-            </li>
-          </ul>
-        </section>
-
-        <section v-if="tenantId" class="projects-shell">
-          <div class="section-header">
-            <div>
-              <h3>Projects</h3>
-              <p class="hint">
-                This list is paginated because real lists get long. The page still stays live after
-                the first load.
-              </p>
+              <div class="flex gap-2">
+                <UButton
+                  v-if="tenantId"
+                  to="/admin"
+                  color="neutral"
+                  variant="ghost"
+                  leading-icon="i-lucide-shield"
+                >
+                  Admin
+                </UButton>
+                <UButton
+                  type="button"
+                  color="neutral"
+                  variant="ghost"
+                  trailing-icon="i-lucide-log-out"
+                  @click="handleSignOut"
+                >
+                  Sign out
+                </UButton>
+              </div>
             </div>
-            <NuxtLink v-if="canAudit" class="ghost link" to="/admin">
-              Open admin dashboard
-            </NuxtLink>
-          </div>
 
-          <form v-if="canCreateProject" class="composer" @submit.prevent="handleCreateProject">
-            <label class="field">
-              <span>Project name</span>
-              <input
-                v-model="projectForm.name"
-                data-testid="project-name"
-                class="input"
-                placeholder="Launch board refresh"
-                required
-              />
-            </label>
-            <label class="field">
-              <span>Summary</span>
-              <input
-                v-model="projectForm.summary"
-                class="input"
-                placeholder="One-line context for the team"
-              />
-            </label>
-            <button
-              data-testid="project-submit"
-              class="button"
-              :disabled="createProject.pending.value"
-            >
-              {{ createProject.pending.value ? 'Creating…' : 'Create project' }}
-            </button>
-          </form>
+            <div v-if="ensureUserRow.pending.value" class="space-y-3">
+              <p class="text-sm text-muted">Preparing your application user…</p>
+              <USkeleton class="h-20 w-full rounded-xl" />
+            </div>
 
-          <div class="project-grid">
-            <NuxtLink
-              v-for="project in projects"
-              :key="project._id"
-              :data-testid="`project-link-${project._id}`"
-              class="project-card"
-              :to="`/projects/${project._id}`"
-            >
-              <strong>{{ project.name }}</strong>
-              <p>{{ project.summary || 'No summary yet.' }}</p>
-            </NuxtLink>
-          </div>
+            <template v-if="ready && !tenantId">
+              <div class="grid gap-4 md:grid-cols-2">
+                <UCard>
+                  <template #header>
+                    <h3 class="text-lg font-semibold">Create workspace</h3>
+                    <p class="text-sm text-muted mt-1">
+                      The creator becomes the workspace owner.
+                    </p>
+                  </template>
 
-          <div class="pagination-row">
-            <button
-              v-if="projectStatus === 'ready'"
-              data-testid="projects-load-more"
-              class="ghost"
-              type="button"
-              @click="loadMoreProjects(12)"
-            >
-              Load more
-            </button>
-            <p v-if="projectStatus === 'exhausted'" class="hint">All projects loaded.</p>
+                  <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
+                    <div class="space-y-1">
+                      <label class="text-sm font-medium text-highlighted">Name</label>
+                      <UInput v-model="createWorkspaceForm.name" data-testid="workspace-name" required />
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-sm font-medium text-highlighted">Slug</label>
+                      <UInput v-model="createWorkspaceForm.slug" data-testid="workspace-slug" required />
+                    </div>
+                    <UButton data-testid="workspace-submit" type="submit" block :loading="createWorkspace.pending.value">
+                      Create workspace
+                    </UButton>
+                  </form>
+                </UCard>
+
+                <UCard>
+                  <template #header>
+                    <h3 class="text-lg font-semibold">Join workspace</h3>
+                    <p class="text-sm text-muted mt-1">
+                      This demo keeps joining intentionally open so you can quickly test different roles.
+                    </p>
+                  </template>
+
+                  <form class="space-y-4" @submit.prevent="handleJoinWorkspace">
+                    <div class="space-y-1">
+                      <label class="text-sm font-medium text-highlighted">Workspace slug</label>
+                      <UInput v-model="joinWorkspaceForm.slug" required />
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-sm font-medium text-highlighted">Role</label>
+                      <USelect
+                        v-model="joinWorkspaceForm.role"
+                        :items="roleOptions"
+                      />
+                    </div>
+                    <UButton type="submit" block color="neutral" variant="soft" :loading="joinWorkspace.pending.value">
+                      Join workspace
+                    </UButton>
+                  </form>
+                </UCard>
+              </div>
+
+              <UCard v-if="workspaceOptions?.length">
+                <template #header>
+                  <h3 class="text-lg font-semibold">Existing workspaces</h3>
+                  <p class="text-sm text-muted mt-1">
+                    Use one of these slugs to join from another account.
+                  </p>
+                </template>
+
+                <ul class="space-y-2">
+                  <li
+                    v-for="workspace in workspaceOptions"
+                    :key="workspace._id"
+                    class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-default bg-elevated"
+                  >
+                    <span class="font-medium text-highlighted">{{ workspace.name }}</span>
+                    <span class="text-sm text-muted">{{ workspace.slug }}</span>
+                  </li>
+                </ul>
+              </UCard>
+            </template>
+
+            <template v-if="tenantId">
+              <UCard>
+                <template #header>
+                  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <h3 class="text-lg font-semibold">Projects</h3>
+                      <p class="text-sm text-muted mt-1">
+                        This list is paginated because real lists get long. The page still stays live after
+                        the first load.
+                      </p>
+                    </div>
+                    <UButton
+                      v-if="canAudit"
+                      to="/admin"
+                      color="neutral"
+                      variant="ghost"
+                      leading-icon="i-lucide-layout-dashboard"
+                    >
+                      Open admin dashboard
+                    </UButton>
+                  </div>
+                </template>
+
+                <div class="space-y-4">
+                  <form v-if="canCreateProject" class="flex flex-col gap-3 md:flex-row md:items-end" @submit.prevent="handleCreateProject">
+                    <div class="flex-1 space-y-1">
+                      <label class="text-sm font-medium text-highlighted">Project name</label>
+                      <UInput
+                        v-model="projectForm.name"
+                        data-testid="project-name"
+                        placeholder="Launch board refresh"
+                        required
+                      />
+                    </div>
+                    <div class="flex-1 space-y-1">
+                      <label class="text-sm font-medium text-highlighted">Summary</label>
+                      <UInput
+                        v-model="projectForm.summary"
+                        placeholder="One-line context for the team"
+                      />
+                    </div>
+                    <UButton
+                      data-testid="project-submit"
+                      type="submit"
+                      :loading="createProject.pending.value"
+                      leading-icon="i-lucide-plus"
+                    >
+                      Create project
+                    </UButton>
+                  </form>
+
+                  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <NuxtLink
+                      v-for="project in projects"
+                      :key="project._id"
+                      :data-testid="`project-link-${project._id}`"
+                      class="block rounded-xl border border-default bg-elevated p-4 hover:border-primary transition-colors"
+                      :to="`/projects/${project._id}`"
+                    >
+                      <p class="font-semibold text-highlighted">{{ project.name }}</p>
+                      <p class="text-sm text-muted mt-1">{{ project.summary || 'No summary yet.' }}</p>
+                    </NuxtLink>
+                  </div>
+
+                  <div class="flex justify-center">
+                    <UButton
+                      v-if="projectStatus === 'ready'"
+                      data-testid="projects-load-more"
+                      color="neutral"
+                      variant="ghost"
+                      @click="loadMoreProjects(12)"
+                    >
+                      Load more
+                    </UButton>
+                    <p v-if="projectStatus === 'exhausted'" class="text-sm text-muted">All projects loaded.</p>
+                  </div>
+                </div>
+              </UCard>
+            </template>
           </div>
-        </section>
-      </ConvexAuthenticated>
-    </section>
-  </main>
+        </ConvexAuthenticated>
+      </div>
+    </UCard>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -275,6 +330,7 @@ const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
 const canCreateProject = can('project.create')
+const roleOptions = ['admin', 'member', 'viewer'] as const
 
 async function handleSignUp() {
   await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })
@@ -311,116 +367,3 @@ async function handleCreateProject() {
   projectForm.summary = ''
 }
 </script>
-
-<style scoped>
-.page {
-  padding: 2rem;
-  background: linear-gradient(180deg, #f7fbff 0%, #eef4fb 100%);
-  min-height: 100vh;
-}
-
-.panel {
-  max-width: 1100px;
-  margin: 0 auto;
-  display: grid;
-  gap: 1.5rem;
-}
-
-.eyebrow {
-  margin: 0;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #365fb0;
-  font-size: 0.8rem;
-}
-
-.lede,
-.hint,
-.status {
-  margin: 0;
-  color: #667085;
-}
-
-.toolbar,
-.section-header,
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.auth-grid,
-.setup-grid,
-.project-grid {
-  display: grid;
-  gap: 1rem;
-}
-
-.auth-grid,
-.setup-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
-.project-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
-.card,
-.project-card,
-.composer,
-.workspace-list,
-.projects-shell {
-  border: 1px solid #dbe4ef;
-  border-radius: 20px;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.project-card {
-  display: grid;
-  gap: 0.5rem;
-  text-decoration: none;
-  color: #132238;
-}
-
-.field {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.input {
-  width: 100%;
-  padding: 0.75rem 0.85rem;
-  border: 1px solid #c7d4e5;
-  border-radius: 12px;
-}
-
-.button,
-.ghost {
-  padding: 0.75rem 1rem;
-  border-radius: 999px;
-  border: 1px solid #355fb0;
-  cursor: pointer;
-}
-
-.button {
-  background: #355fb0;
-  color: white;
-}
-
-.button.muted,
-.ghost {
-  background: white;
-  color: #355fb0;
-}
-
-.link {
-  text-decoration: none;
-}
-
-.pagination-row {
-  display: flex;
-  justify-content: center;
-}
-</style>
