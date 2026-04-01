@@ -38,9 +38,5 @@ export default defineNuxtConfig({
     permissions: {
       query: 'workspaces.getPermissionContext',
     },
-    tenant: {
-      field: 'workspaceId',
-      index: 'by_workspace',
-    },
   },
 })

@@ -108,10 +108,12 @@ export interface CreateTestContextOptions<TSchema extends AnySchemaDefinition> {
   schema: TSchema
   modules?: Record<string, () => Promise<unknown>>
   trustedCallerKey?: string
+  /** Advanced override for non-canonical tenant schemas. Omit for the default `workspaces.workspaceId` model. */
   tenant?: {
     table?: string
     field?: string
   }
+  /** Advanced override for non-canonical user schemas. Omit for the default `users.authId/role/workspaceId` model. */
   users?: {
     table?: string
     authField?: string
@@ -173,7 +175,7 @@ function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
   trustedCallerKey: string,
   actor: { userId: string },
 ): TestClient<TSchema> {
-  function withServiceArgs<TArgs extends Record<string, unknown> | undefined>(args: TArgs) {
+  function withTrustedCallerArgs<TArgs extends Record<string, unknown> | undefined>(args: TArgs) {
     return {
       ...(args ?? {}),
       _trustedCallerKey: trustedCallerKey,
@@ -188,21 +190,21 @@ function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      const payload = withServiceArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
       return await raw.query(fn, payload as OptionalRestArgs<Query>[0])
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      const payload = withServiceArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
       return await raw.mutation(fn, payload as OptionalRestArgs<Mutation>[0])
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      const payload = withServiceArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
       return await raw.action(fn, payload as OptionalRestArgs<Action>[0])
     },
   }

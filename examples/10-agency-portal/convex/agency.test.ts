@@ -11,21 +11,7 @@ import { modules } from './test.setup'
 const api = anyApi
 
 function createCtx() {
-  return createTestContext({
-    schema,
-    modules,
-    tenant: {
-      table: 'workspaces',
-      field: 'workspaceId',
-    },
-    users: {
-      table: 'users',
-      authField: 'authId',
-      tenantField: 'workspaceId',
-      nameField: 'displayName',
-      emailField: 'email',
-    },
-  })
+  return createTestContext({ schema, modules })
 }
 
 describe('agency example', () => {

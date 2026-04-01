@@ -15,6 +15,19 @@ This folder now has two jobs:
 | `04-project-board-admin` | Month-two product work       | Project-management SaaS, pagination, optimistic updates, uploads, Nitro routes, `guard`, `_can`, admin workflows, integration + E2E tests |
 | `11-mcp-reference`       | Full MCP implementation      | hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode                                            |
 
+## Canonical Default
+
+Examples `03` through `09`, plus `11`, use the repo's canonical single-workspace contract:
+
+- `workspaceId` as the tenant foreign key
+- `by_workspace` as the tenant index name
+- `users.authId`, `users.role`, and `users.workspaceId`
+- `ownerId` storing the auth-subject string
+- `createdAt` / `updatedAt` as millisecond timestamps
+
+Example `10-agency-portal` is the explicit upgrade path when you need memberships-based
+multi-workspace authorization.
+
 If you're here because of shared validators or `shared/` folders rather than auth shape, read:
 
 - [`docs/1.guide/4.shared-schema-dx`](../docs/content/docs/1.guide/4.shared-schema-dx.md)
@@ -79,5 +92,5 @@ These examples are meant to be read line-by-line by people evaluating the module
 That is why the code includes:
 
 - file header comments explaining why the file exists
-- inline comments at the exact points where auth, scoping, authorization, and service/token behavior become non-obvious
+- inline comments at the exact points where auth, scoping, authorization, and trusted-caller or bearer-key behavior become non-obvious
 - very small business domains so the framework behavior is the only thing you need to learn

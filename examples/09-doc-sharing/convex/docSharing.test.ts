@@ -13,22 +13,7 @@ import { modules } from './test.setup'
 const api = anyApi
 
 function createCtx() {
-  return createTestContext({
-    schema,
-    modules,
-    tenant: {
-      table: 'workspaces',
-      field: 'workspaceId',
-    },
-    users: {
-      table: 'users',
-      authField: 'authId',
-      roleField: 'role',
-      tenantField: 'workspaceId',
-      nameField: 'displayName',
-      emailField: 'email',
-    },
-  })
+  return createTestContext({ schema, modules })
 }
 
 describe('doc sharing example', () => {

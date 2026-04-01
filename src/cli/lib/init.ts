@@ -285,12 +285,12 @@ export const getPermissionContext = query({
 `.trimStart()
 }
 
-function workspaceActorTemplate({ withServiceCaller }: { withServiceCaller: boolean }) {
+function workspaceActorTemplate({ withTrustedCaller }: { withTrustedCaller: boolean }) {
   return `
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { getAuth } from 'better-convex-nuxt/auth'
-${withServiceCaller ? "import { getTrustedCaller } from 'better-convex-nuxt/trusted-caller'\n" : ''}
+${withTrustedCaller ? "import { getTrustedCaller } from 'better-convex-nuxt/trusted-caller'\n" : ''}
 import type { DataModel } from '../_generated/dataModel'
 
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
@@ -303,7 +303,7 @@ type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: Ctx, args?: Record<string, unknown>): Promise<Actor> {
 ${
-  withServiceCaller
+  withTrustedCaller
     ? `  const trustedCaller = getTrustedCaller(args)
   if (trustedCaller) {
     const membership = await ctx.db
@@ -372,7 +372,7 @@ export const canManageWorkspace = and(isAuthenticated, hasMinimumRole('admin'))
 `.trimStart()
 }
 
-function workspaceResourceTemplate() {
+function workspaceScopeTemplate() {
   return `
 import { deny, requireRecord } from 'better-convex-nuxt/auth'
 
@@ -387,6 +387,29 @@ export function ensureTenant<T extends { workspaceId: string }>(
     throw deny(\`\${label} not found.\`)
   }
   return resource
+}
+
+export function loadResource<T extends { workspaceId: string }>(
+  actor: { tenantId: string },
+  doc: T | null | undefined,
+  label = 'Resource',
+): T {
+  requireRecord(doc, label)
+  return ensureTenant(actor, doc, label)
+}
+`.trimStart()
+}
+
+function workspaceResourceTemplate() {
+  return `
+export function withCan<T extends Record<string, unknown>, C extends Record<string, boolean>>(
+  resource: T,
+  checks: C,
+): T & { _can: C } {
+  return {
+    ...resource,
+    _can: checks,
+  }
 }
 `.trimStart()
 }
@@ -573,12 +596,17 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
       files: [
         {
           path: 'convex/auth/actor.ts',
-          content: workspaceActorTemplate({ withServiceCaller: model === 'workspace-mcp' }),
+          content: workspaceActorTemplate({ withTrustedCaller: model === 'workspace-mcp' }),
           ownership: 'authored',
         },
         {
           path: 'convex/auth/checks.ts',
           content: workspaceChecksTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/auth/scope.ts',
+          content: workspaceScopeTemplate(),
           ownership: 'authored',
         },
         {

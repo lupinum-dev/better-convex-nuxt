@@ -10,16 +10,7 @@ import { modules } from './test.setup'
 const api = anyApi
 
 function createCtx() {
-  return createTestContext({
-    schema,
-    modules,
-    users: {
-      table: 'users',
-      authField: 'authId',
-      nameField: 'displayName',
-      emailField: 'email',
-    },
-  })
+  return createTestContext({ schema, modules })
 }
 
 describe('auth todo example', () => {

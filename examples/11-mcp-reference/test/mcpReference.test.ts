@@ -10,14 +10,7 @@ import { modules } from '../convex/test.setup'
 const api = anyApi
 
 function createCtx() {
-  return createTestContext({
-    schema,
-    modules,
-    tenant: {
-      table: 'workspaces',
-      field: 'workspaceId',
-    },
-  })
+  return createTestContext({ schema, modules })
 }
 
 describe('mcp reference example', () => {

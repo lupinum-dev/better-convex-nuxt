@@ -17,18 +17,6 @@ function createCtx() {
     schema,
     modules,
     trustedCallerKey: TRUSTED_CALLER_KEY,
-    tenant: {
-      table: 'workspaces',
-      field: 'workspaceId',
-    },
-    users: {
-      table: 'users',
-      authField: 'authId',
-      roleField: 'role',
-      tenantField: 'workspaceId',
-      nameField: 'displayName',
-      emailField: 'email',
-    },
   })
 }
 

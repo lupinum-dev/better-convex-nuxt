@@ -6,7 +6,7 @@ It shows:
 
 - real auth
 - actor resolution
-- tenant-scoped tables
+- tenant-scoped tables on the canonical `workspaceId` / `by_workspace` contract
 - app-owned checks in `convex/auth/*`
 - backend-owned permission context exposed to Nuxt through configured `usePermissions()`
 - MCP tools built with `#convex/mcp`
@@ -81,6 +81,9 @@ import { modules } from './test.setup'
 
 const ctx = createTestContext({ schema, modules })
 ```
+
+That zero-config test setup is the canonical path for the repo's default single-workspace schema:
+`users.authId`, `users.role`, `users.workspaceId`, and `by_workspace`.
 
 The example test file covers:
 

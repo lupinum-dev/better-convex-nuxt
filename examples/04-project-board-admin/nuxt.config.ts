@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
  * Example 04 is the "month two" app. It keeps the same auth foundation as Example 03,
- * but adds custom tenant naming, server routes, uploads, and admin workflows.
+ * but adds server routes, uploads, and admin workflows on top of the same canonical workspace model.
  */
 export default defineNuxtConfig({
   modules: ['better-convex-nuxt', '@nuxt/ui'],
@@ -27,10 +27,6 @@ export default defineNuxtConfig({
     },
     permissions: {
       query: 'workspaces.getPermissionContext',
-    },
-    tenant: {
-      field: 'workspaceId',
-      index: 'by_workspace',
     },
   },
 })

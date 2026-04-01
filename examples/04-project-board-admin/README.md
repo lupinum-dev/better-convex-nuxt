@@ -48,9 +48,14 @@ In the SaaS gallery this example represents:
 - easy problem: members updating their own work
 - hard problem: nested resource guards plus business-state rules like archived projects
 
-This example intentionally uses `workspaceId` instead of Example 03's `organizationId` to make
-the point that tenant naming is app-owned. The auth helpers stay the same; only your table and
-field names change.
+This example keeps the repo's canonical single-workspace contract:
+
+- scoped tables use `workspaceId`
+- tenant indexes use `by_workspace`
+- ownership fields store the auth-subject string
+
+The point of Example 04 is not a different naming scheme. It is the same workspace model from
+Example 03 carried into a larger product surface.
 
 ## Run It
 
