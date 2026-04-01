@@ -34,18 +34,18 @@ function parseManagedConvexUrl(urlString: string): { port: number; url: string }
   try {
     url = new URL(urlString)
   } catch {
-    throw new Error(`[e2e][managed-convex] Invalid CONVEX_URL: ${urlString}`)
+    throw new TypeError(`[e2e][managed-convex] Invalid CONVEX_URL: ${urlString}`)
   }
 
   if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') {
-    throw new Error(
+    throw new TypeError(
       `[e2e][managed-convex] Managed E2E requires a local CONVEX_URL, received: ${urlString}`,
     )
   }
 
   const port = Number.parseInt(url.port || '3210', 10)
   if (Number.isNaN(port)) {
-    throw new Error(
+    throw new TypeError(
       `[e2e][managed-convex] Managed local Convex requires a numeric port: ${urlString}`,
     )
   }
@@ -88,7 +88,9 @@ export async function ensureManagedLocalConvex(
             managedPorts.add(parsedPort)
           }
         }
-      } catch {}
+      } catch (error) {
+        void error
+      }
     }
 
     await terminateListeningPorts([...managedPorts])

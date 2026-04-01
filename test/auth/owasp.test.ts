@@ -3,8 +3,10 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { buildAuthProxyForwardHeaders } from '../../src/runtime/server/api/auth/headers'
-import { shouldSkipProxyResponseHeader } from '../../src/runtime/server/api/auth/headers'
+import {
+  buildAuthProxyForwardHeaders,
+  shouldSkipProxyResponseHeader,
+} from '../../src/runtime/server/api/auth/headers'
 import { getCanonicalRedirectTarget } from '../../src/runtime/server/api/auth/redirect-utils'
 import { isOriginAllowed } from '../../src/runtime/server/api/auth/security'
 import { DEFAULT_CONVEX_AUTH_CONFIG } from '../../src/runtime/utils/auth-config'

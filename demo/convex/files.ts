@@ -4,7 +4,7 @@
  * Demonstrates file uploads with useConvexUpload and useConvexStorageUrl.
  */
 
-import { can, authorize } from 'better-convex-nuxt/auth'
+import { can, enforce } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
@@ -22,7 +22,7 @@ export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Generate upload URL', canUploadFile)
+    enforce(actor, 'Generate upload URL', canUploadFile)
 
     return await ctx.storage.generateUploadUrl()
   },
@@ -42,7 +42,7 @@ export const save = mutation({
     const actor = await getActor(ctx)
     if (!can(actor, canUploadFile)) {
       await ctx.storage.delete(args.storageId)
-      authorize(actor, 'Upload file', canUploadFile)
+      enforce(actor, 'Upload file', canUploadFile)
     }
 
     // Validate file size
@@ -91,7 +91,7 @@ export const list = query({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     if (!actor) return []
-    authorize(actor, 'Read files', canViewAll)
+    enforce(actor, 'Read files', canViewAll)
 
     const files = await ctx.db.query('files').withIndex('by_created').order('desc').take(50)
 
@@ -126,13 +126,13 @@ export const remove = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Delete file', actor !== null)
+    enforce(actor, 'Delete file', actor !== null)
 
     const file = await ctx.db.get(args.id)
     if (!file) {
       throw new Error('File not found')
     }
-    authorize(actor, 'Delete file', canDeleteFile(file))
+    enforce(actor, 'Delete file', canDeleteFile(file))
 
     // Delete from storage
     await ctx.storage.delete(file.storageId)

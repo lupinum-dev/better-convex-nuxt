@@ -1,5 +1,6 @@
-import { defineArgs } from 'better-convex-nuxt/args'
 import { v } from 'convex/values'
+
+import { defineArgs } from '../../../../src/runtime/args'
 
 export const createTask = defineArgs({
   description: 'Create a task',

@@ -91,7 +91,7 @@ describe('plugin.server token exchange failure policy', () => {
 
     useRuntimeConfigMock.mockReturnValue({
       public: {
-        convex: { logging: false, debug: {} },
+        convex: { logging: false },
       },
     })
 

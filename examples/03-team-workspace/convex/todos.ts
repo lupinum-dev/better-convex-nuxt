@@ -1,18 +1,18 @@
-import { can, authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import { can, enforce, ensureTenant } from 'better-convex-nuxt/auth'
+import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 
 import { createTodo, deleteTodo, listTodos, setTodoCompleted } from '../shared/schemas/todo'
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canCreateTodo, canDeleteTodo, canReadTodo, canUpdateTodo } from './auth/checks'
 import { withCan } from './auth/resource'
-import { requireRecord, ensureTenant } from './auth/scope'
+import { requireRecord } from './auth/scope'
 
 export const list = query({
   args: withTrustedCaller(listTodos.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Read todos', canReadTodo)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Read todos', canReadTodo)
 
     const todos = await ctx.db
       .query('todos')
@@ -26,14 +26,14 @@ export const list = query({
         delete: can(actor, canDeleteTodo(todo)),
       }),
     )
-  },
+  }),
 })
 
 export const get = query({
   args: withTrustedCaller(deleteTodo.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Read todos', canReadTodo)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Read todos', canReadTodo)
 
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
@@ -42,14 +42,14 @@ export const get = query({
       update: can(actor, canUpdateTodo(todo)),
       delete: can(actor, canDeleteTodo(todo)),
     })
-  },
+  }),
 })
 
 export const create = mutation({
   args: withTrustedCaller(createTodo.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Create todo', canCreateTodo)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Create todo', canCreateTodo)
 
     return ctx.db.insert('todos', {
       title: args.title,
@@ -58,32 +58,32 @@ export const create = mutation({
       workspaceId: actor.tenantId,
       createdAt: Date.now(),
     })
-  },
+  }),
 })
 
 export const setCompleted = mutation({
   args: withTrustedCaller(setTodoCompleted.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
     ensureTenant(actor, todo)
-    authorize(actor, 'Update todo', canUpdateTodo(todo))
+    enforce(actor, 'Update todo', canUpdateTodo(todo))
 
     await ctx.db.patch(args.id, {
       completed: args.completed,
     })
-  },
+  }),
 })
 
 export const remove = mutation({
   args: withTrustedCaller(deleteTodo.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
     ensureTenant(actor, todo)
-    authorize(actor, 'Delete todo', canDeleteTodo(todo))
+    enforce(actor, 'Delete todo', canDeleteTodo(todo))
     await ctx.db.delete(args.id)
-  },
+  }),
 })

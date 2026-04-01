@@ -1,7 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 
 import type { AuthIdentity } from '../../src/runtime/auth'
-import { authorize, can, deny, requireAuth, and } from '../../src/runtime/auth'
+import { enforce, can, deny, requireAuth, and } from '../../src/runtime/auth'
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { createTestContext } from '../../src/runtime/testing'
@@ -28,7 +28,7 @@ requireAuth(requiredActor)
 type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
 
 deny('Blocked')
-authorize(null, 'Admin page', false)
+enforce(null, 'Admin page', false)
 verifyTrustedCallerKey('a', 'b')
 
 const visibility = defineVisibility(async () => [{ _id: '1' }])

@@ -6,7 +6,6 @@ import {
   clientState,
   createNuxtAppMock,
   getConvexRuntimeConfigMock,
-  hookRegistry,
   loadClientPlugin,
   resetPluginClientTestkit,
   stateStore,

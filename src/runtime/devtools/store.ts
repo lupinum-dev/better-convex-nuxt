@@ -5,18 +5,9 @@
  *
  * Client-only — importing on the server will throw.
  */
-
-if (import.meta.server) {
-  throw new Error(
-    '[better-convex-nuxt] DevTools store must not be imported on server. ' +
-      'This would cause state leakage between SSR requests.',
-  )
-}
-
 import type { ConvexClient } from 'convex/browser'
 import { toRaw } from 'vue'
 import type { Ref } from 'vue'
-
 import { decodeJwtPayload } from '../utils/convex-shared'
 import type {
   QueryRegistryEntry,
@@ -30,6 +21,13 @@ import type {
   ConvexUser,
   JWTClaims,
 } from './types'
+
+if (import.meta.server) {
+  throw new Error(
+    '[better-convex-nuxt] DevTools store must not be imported on server. ' +
+      'This would cause state leakage between SSR requests.',
+  )
+}
 
 const MAX_MUTATIONS = 50
 

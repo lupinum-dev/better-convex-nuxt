@@ -4,7 +4,7 @@
  * Demonstrates real-time subscriptions with useConvexQuery.
  */
 
-import { can, authorize } from 'better-convex-nuxt/auth'
+import { can, enforce } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
@@ -20,7 +20,7 @@ export const list = query({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     if (!actor) return []
-    authorize(actor, 'Read feed', canViewAll)
+    enforce(actor, 'Read feed', canViewAll)
 
     const items = await ctx.db.query('feedItems').withIndex('by_created').order('desc').take(50)
 
@@ -43,7 +43,7 @@ export const listFiltered = query({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Read feed', canViewAll)
+    enforce(actor, 'Read feed', canViewAll)
 
     let query = ctx.db.query('feedItems').withIndex('by_created').order('desc')
 
@@ -71,7 +71,7 @@ export const add = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create feed item', canCreateFeed)
+    enforce(actor, 'Create feed item', canCreateFeed)
 
     const user = await ctx.db
       .query('users')
@@ -99,13 +99,13 @@ export const remove = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Delete feed item', actor !== null)
+    enforce(actor, 'Delete feed item', actor !== null)
 
     const item = await ctx.db.get(args.id)
     if (!item) {
       throw new Error('Item not found')
     }
-    authorize(actor, 'Delete feed item', canDeleteFeed(item))
+    enforce(actor, 'Delete feed item', canDeleteFeed(item))
 
     await ctx.db.delete(args.id)
   },

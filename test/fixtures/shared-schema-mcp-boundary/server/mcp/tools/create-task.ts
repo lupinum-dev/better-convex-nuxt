@@ -1,5 +1,4 @@
-import { defineTool } from '#convex/mcp'
-
+import { defineTool } from '../../../../../../src/runtime/mcp'
 import { createTask } from '../../../shared/task'
 
 export default defineTool({

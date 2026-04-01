@@ -47,7 +47,7 @@ export function setupConvexDevtools(nuxt: Nuxt): void {
           command: 'npx',
           args: ['nuxi', 'dev', '--port', DEVTOOLS_UI_PORT.toString()],
           cwd: resolver.resolve('../client'),
-          nodeOptions: { stdio: 'pipe' },
+          stdio: 'pipe',
           env: {
             PORT: DEVTOOLS_UI_PORT.toString(),
           },

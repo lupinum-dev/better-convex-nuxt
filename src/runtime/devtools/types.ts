@@ -156,4 +156,4 @@ export interface ServerRpcFunctions {
   clearAuthProxyStats(): Promise<void>
 }
 
-export interface ClientRpcFunctions {}
+export type ClientRpcFunctions = Record<string, never>

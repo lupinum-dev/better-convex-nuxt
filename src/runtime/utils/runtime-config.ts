@@ -11,7 +11,6 @@ export interface ConvexRuntimeQueryDefaults {
 
 export interface NormalizedConvexAuthConfig extends ConvexAuthConfig {
   route: string
-  ensureUserMutation?: string
   trustedOrigins: string[]
   skipAuthRoutes: string[]
   cache: { enabled: boolean; ttl: number }
@@ -30,11 +29,6 @@ export interface NormalizedConvexRuntimeConfig {
   query: ConvexRuntimeQueryDefaults
   upload: { maxConcurrent: number }
   logging: LogLevel | false
-  debug: {
-    authFlow: boolean
-    clientAuthFlow: boolean
-    serverAuthFlow: boolean
-  }
 }
 
 function asRecord(input: unknown): Record<string, unknown> | null {
@@ -55,7 +49,6 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const queryRaw = asRecord(raw?.query)
   const cacheRaw = asRecord(authRaw?.cache)
   const proxyRaw = asRecord(authRaw?.proxy)
-  const debugRaw = asRecord(raw?.debug)
   const uploadRaw = asRecord(raw?.upload)
 
   const envUrl = process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL
@@ -76,10 +69,6 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     auth: {
       ...normalizeConvexAuthConfig(authRaw),
       route: normalizeAuthRoute(typeof authRaw?.route === 'string' ? authRaw.route : undefined),
-      ensureUserMutation:
-        typeof authRaw?.ensureUserMutation === 'string' && authRaw.ensureUserMutation.length > 0
-          ? authRaw.ensureUserMutation
-          : undefined,
       trustedOrigins: Array.isArray(authRaw?.trustedOrigins)
         ? authRaw.trustedOrigins.filter((v): v is string => typeof v === 'string')
         : [],
@@ -107,11 +96,13 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     },
     permissions: {
       query:
-        typeof raw?.permissions === 'object' &&
-        raw.permissions !== null &&
-        typeof (raw.permissions as Record<string, unknown>).query === 'string'
-          ? ((raw.permissions as Record<string, unknown>).query as string)
-          : null,
+        typeof raw?.permissions === 'string'
+          ? raw.permissions
+          : typeof raw?.permissions === 'object' &&
+              raw.permissions !== null &&
+              typeof (raw.permissions as Record<string, unknown>).query === 'string'
+            ? ((raw.permissions as Record<string, unknown>).query as string)
+            : null,
     },
     query: {
       server: queryRaw?.server !== false,
@@ -129,11 +120,6 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       raw?.logging === false || typeof raw?.logging === 'string'
         ? (raw.logging as LogLevel | false)
         : false,
-    debug: {
-      authFlow: debugRaw?.authFlow === true,
-      clientAuthFlow: debugRaw?.clientAuthFlow === true,
-      serverAuthFlow: debugRaw?.serverAuthFlow === true,
-    },
   }
 }
 

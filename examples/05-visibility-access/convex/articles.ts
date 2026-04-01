@@ -3,7 +3,7 @@
  * Articles combine all advanced access patterns: visibility, redaction, enrollment,
  * prerequisites, share tokens, and inherited access levels.
  */
-import { authorize, deny } from 'better-convex-nuxt/auth'
+import { enforce, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
@@ -31,7 +31,7 @@ export const list = query({
   args: { knowledgeBaseId: v.id('knowledgeBases') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Read articles', canReadArticle)
+    enforce(actor, 'Read articles', canReadArticle)
 
     const kb = loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
 
@@ -68,7 +68,7 @@ export const viewArticle = query({
     }
 
     const actor = await getActor(ctx)
-    authorize(actor, 'Read articles', canReadArticle)
+    enforce(actor, 'Read articles', canReadArticle)
 
     const article = loadResource(actor, await ctx.db.get(args.id), 'Article')
     await requireArticleAccess(ctx.db, actor, article)
@@ -91,7 +91,7 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create article', canCreateArticle)
+    enforce(actor, 'Create article', canCreateArticle)
     loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
 
     const now = Date.now()
@@ -117,7 +117,7 @@ export const publish = mutation({
   args: { id: v.id('articles') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create article', canCreateArticle)
+    enforce(actor, 'Create article', canCreateArticle)
     const article = loadResource(actor, await ctx.db.get(args.id), 'Article')
     if (article.status === 'published') throw deny('Already published.')
     await ctx.db.patch(args.id, { status: 'published', updatedAt: Date.now() })
@@ -128,7 +128,7 @@ export const markCompleted = mutation({
   args: { articleId: v.id('articles') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Read articles', canReadArticle)
+    enforce(actor, 'Read articles', canReadArticle)
     loadResource(actor, await ctx.db.get(args.articleId), 'Article')
 
     const existing = await ctx.db
@@ -163,7 +163,7 @@ export const createShareToken = mutation({
   },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create share token', canCreateShareToken)
+    enforce(actor, 'Create share token', canCreateShareToken)
     loadResource(actor, await ctx.db.get(args.articleId), 'Article')
 
     const token = createShareTokenValue()
@@ -187,7 +187,7 @@ export const revokeShareToken = mutation({
   args: { tokenId: v.id('shareTokens') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create share token', canCreateShareToken)
+    enforce(actor, 'Create share token', canCreateShareToken)
     const token = loadResource(actor, await ctx.db.get(args.tokenId), 'Share token')
     if (token.revokedAt) throw deny('Already revoked.')
     await ctx.db.patch(args.tokenId, { revokedAt: Date.now() })
@@ -198,7 +198,7 @@ export const seedDemoArticles = mutation({
   args: { knowledgeBaseId: v.id('knowledgeBases') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create article', canCreateArticle)
+    enforce(actor, 'Create article', canCreateArticle)
     loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
 
     const now = Date.now()

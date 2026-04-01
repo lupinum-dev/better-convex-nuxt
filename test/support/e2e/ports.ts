@@ -120,7 +120,9 @@ export async function terminateListeningPorts(ports: number[]): Promise<void> {
     for (const pid of pids) {
       try {
         process.kill(pid, 'SIGTERM')
-      } catch {}
+      } catch (error) {
+        void error
+      }
     }
   }
 
@@ -132,7 +134,9 @@ export async function terminateListeningPorts(ports: number[]): Promise<void> {
       for (const pid of pids) {
         try {
           process.kill(pid, 'SIGKILL')
-        } catch {}
+        } catch (error) {
+          void error
+        }
       }
       await waitForPortClosed(port, 5_000).catch(() => {})
     }

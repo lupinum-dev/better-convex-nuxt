@@ -28,6 +28,7 @@ export default defineNuxtConfig({
       },
     },
   },
+  // @ts-expect-error provided by @nuxt/devtools-ui-kit
   unocss: {
     icons: true,
     shortcuts: {

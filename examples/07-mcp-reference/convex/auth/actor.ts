@@ -4,6 +4,7 @@
  * subject stored on ownership fields, not a Convex user document id.
  */
 import type { AuthIdentity } from 'better-convex-nuxt/auth'
+import { getAuth } from 'better-convex-nuxt/auth'
 import { getTrustedCaller } from 'better-convex-nuxt/trusted-caller'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
@@ -18,19 +19,13 @@ export type Actor = {
 
 type McpReferenceCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
-export async function getActor(ctx: McpReferenceCtx, args?: unknown): Promise<Actor> {
-  const trusted = getTrustedCaller(args)
+export async function getActor(ctx: McpReferenceCtx): Promise<Actor> {
+  const trusted = getTrustedCaller(ctx)
   if (trusted) {
     return await resolveActor(ctx, { subject: trusted.userId })
   }
 
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) return null
-  return await resolveActor(ctx, {
-    subject: identity.subject,
-    ...(typeof identity.email === 'string' ? { email: identity.email } : {}),
-    ...(typeof identity.name === 'string' ? { name: identity.name } : {}),
-  })
+  return await resolveActor(ctx, await getAuth(ctx))
 }
 
 export async function resolveActor(

@@ -1,22 +1,25 @@
-import { deny, requireAuth, requireRecord } from 'better-convex-nuxt/auth'
+import {
+  loadTenantResource as _loadTenantResource,
+  ensureTenant as _ensureTenant,
+  requireAuth,
+  requireRecord,
+} from 'better-convex-nuxt/auth'
 
-import type { Actor } from './actor'
+export { requireAuth, requireRecord }
 
-export { requireRecord }
-
-export function ensureTenant(actor: Actor, resource: { organizationId: string }): void {
-  requireAuth(actor)
-  if (!actor.tenantId || actor.tenantId !== resource.organizationId) {
-    deny('Resource not found.')
-  }
+// Test harness uses organizationId instead of workspaceId
+export function ensureTenant<T extends { organizationId: string }>(
+  actor: { tenantId: string },
+  resource: T,
+  label = 'Resource',
+): T {
+  return _ensureTenant(actor, resource, label, 'organizationId')
 }
 
 export function loadResource<T extends { organizationId: string }>(
-  actor: Actor,
+  actor: { tenantId: string },
   doc: T | null | undefined,
   label = 'Resource',
 ): T {
-  requireRecord(doc, label)
-  ensureTenant(actor, doc)
-  return doc
+  return _loadTenantResource(actor, doc, label, 'organizationId')
 }

@@ -1,6 +1,16 @@
 import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { ConvexError } from 'convex/values'
 
+export { defineAuth } from './define-auth'
+export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth'
+export {
+  createDefaultGetActor,
+  defineActorExtension,
+  defineActorFromMembership,
+} from './define-actor'
+export type { DefaultActor, DefineActorExtensionOptions } from './define-actor'
+export { definePermissions } from './define-permissions'
+
 export type AuthIdentity = {
   subject: string
   email?: string
@@ -58,7 +68,7 @@ export function deny(
   throw toForbiddenError(reason, sourceOrOptions)
 }
 
-export function authorize<P>(
+export function enforce<P>(
   principal: P,
   label: string,
   check: AnyCheck<NonNullable<P>>,
@@ -106,5 +116,37 @@ export async function getAuth<DataModel extends GenericDataModel>(
     subject: identity.subject,
     ...(typeof identity.email === 'string' ? { email: identity.email } : {}),
     ...(typeof identity.name === 'string' ? { name: identity.name } : {}),
+  }
+}
+
+export function ensureTenant<T extends Record<string, unknown>>(
+  actor: { tenantId: string },
+  resource: T,
+  label = 'Resource',
+  tenantField = 'workspaceId',
+): T {
+  if ((resource as Record<string, unknown>)[tenantField] !== actor.tenantId) {
+    throw toForbiddenError(`${label} not found.`)
+  }
+  return resource
+}
+
+export function loadTenantResource<T extends Record<string, unknown>>(
+  actor: { tenantId: string },
+  doc: T | null | undefined,
+  label = 'Resource',
+  tenantField = 'workspaceId',
+): T {
+  requireRecord(doc, label)
+  return ensureTenant(actor, doc, label, tenantField)
+}
+
+export function withCan<T extends Record<string, unknown>, C extends Record<string, boolean>>(
+  resource: T,
+  checks: C,
+): T & { _can: C } {
+  return {
+    ...resource,
+    _can: checks,
   }
 }

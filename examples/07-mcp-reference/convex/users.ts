@@ -1,4 +1,4 @@
-import { authorize } from 'better-convex-nuxt/auth'
+import { enforce } from 'better-convex-nuxt/auth'
 
 import { query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -21,7 +21,7 @@ export const listWorkspaceUsersForMcpKeys = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Manage MCP keys', canManageMcpKeys)
+    enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const users = await ctx.db
       .query('users')

@@ -1,5 +1,5 @@
-import { can, deny, authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import { can, deny, enforce } from 'better-convex-nuxt/auth'
+import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
 
 import {
@@ -24,9 +24,9 @@ import { loadResource } from './auth/scope'
 
 export const listByProject = query({
   args: withTrustedCaller({ projectId: v.id('projects') }),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Read tasks', canReadTask)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
@@ -42,14 +42,14 @@ export const listByProject = query({
         delete: can(actor, canDeleteTask(task)),
       }),
     )
-  },
+  }),
 })
 
 export const get = query({
   args: withTrustedCaller({ id: v.id('tasks') }),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Read task', canReadTask)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Read task', canReadTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
@@ -58,14 +58,14 @@ export const get = query({
       delete: can(actor, canDeleteTask(task)),
       assign: can(actor, canAssignTask),
     })
-  },
+  }),
 })
 
 export const create = mutation({
   args: withTrustedCaller(createTask.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Create task', canCreateTask)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Create task', canCreateTask)
 
     const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
@@ -96,15 +96,15 @@ export const create = mutation({
     })
 
     return taskId
-  },
+  }),
 })
 
 export const moveToColumn = mutation({
   args: withTrustedCaller(moveTask.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
-    authorize(actor, 'Update task', canUpdateTask(task))
+    enforce(actor, 'Update task', canUpdateTask(task))
 
     const now = Date.now()
     await ctx.db.patch(args.id, { status: args.status, updatedAt: now })
@@ -118,14 +118,14 @@ export const moveToColumn = mutation({
       description: `Moved "${task.title}" to ${args.status}.`,
       createdAt: now,
     })
-  },
+  }),
 })
 
 export const assign = mutation({
   args: withTrustedCaller(assignTask.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Assign task', canAssignTask)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Assign task', canAssignTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
@@ -151,7 +151,7 @@ export const assign = mutation({
       description: `Assigned "${task.title}" to ${args.assigneeId ?? 'nobody'}.`,
       createdAt: now,
     })
-  },
+  }),
 })
 
 export const bulkUpdateStatus = mutation({
@@ -159,9 +159,9 @@ export const bulkUpdateStatus = mutation({
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
   }),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
 
     const now = Date.now()
     const results = { updated: 0, skipped: [] as string[] }
@@ -193,14 +193,14 @@ export const bulkUpdateStatus = mutation({
     })
 
     return results
-  },
+  }),
 })
 
 export const listForExport = query({
   args: withTrustedCaller({ projectId: v.id('projects') }),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Read tasks', canReadTask)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
@@ -209,5 +209,5 @@ export const listForExport = query({
       .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
       .order('desc')
       .collect()
-  },
+  }),
 })

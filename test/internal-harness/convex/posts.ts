@@ -1,6 +1,6 @@
 import { defineArgs } from 'better-convex-nuxt/args'
-import { can, authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import { can, enforce } from 'better-convex-nuxt/auth'
+import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
 
 import { createPost, deletePost, updatePost } from '../shared/schemas/post'
@@ -75,11 +75,11 @@ function denyTenantMismatch(actor: Actor, post: { organizationId: string }): nev
 
 export const list = query({
   args: withTrustedCaller(listPostsArgs.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, _args) => {
+    const actor = await getActor(ctx)
     if (!actor?.tenantId) return []
 
-    authorize(actor, 'Read posts', canReadPost)
+    enforce(actor, 'Read posts', canReadPost)
 
     const posts = await ctx.db
       .query('posts')
@@ -90,29 +90,29 @@ export const list = query({
       .collect()
 
     return posts.map((post) => attachPostPermissions(actor, post))
-  },
+  }),
 })
 
 export const get = query({
   args: withTrustedCaller(getPostArgs.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     if (!actor) return null
 
-    authorize(actor, 'Read post', canReadPost)
+    enforce(actor, 'Read post', canReadPost)
 
     const post = await ctx.db.get(args.id)
     if (!post) return null
     if (!actor.tenantId || actor.tenantId !== post.organizationId) return null
 
     return attachPostPermissions(actor, post)
-  },
+  }),
 })
 
 export const create = mutation({
   args: withTrustedCaller(createPost.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     if (!actor) {
       throw new Error('Authentication required.')
     }
@@ -130,13 +130,13 @@ export const create = mutation({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
-  },
+  }),
 })
 
 export const update = mutation({
   args: withTrustedCaller(updatePost.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const post = await ctx.db.get(args.id)
     if (!post) throw new Error('Post not found.')
     if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
@@ -155,13 +155,13 @@ export const update = mutation({
       ...(args.content !== undefined ? { content: args.content } : {}),
       updatedAt: Date.now(),
     })
-  },
+  }),
 })
 
 export const remove = mutation({
   args: withTrustedCaller(deletePost.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const post = await ctx.db.get(args.id)
     if (!post) throw new Error('Post not found.')
     if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
@@ -175,13 +175,13 @@ export const remove = mutation({
       denyPostPermission('delete', actor, reason)
     }
     await ctx.db.delete(args.id)
-  },
+  }),
 })
 
 export const publish = mutation({
   args: withTrustedCaller({ id: v.id('posts') }),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const post = await ctx.db.get(args.id)
     if (!post) throw new Error('Post not found.')
     if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
@@ -200,5 +200,5 @@ export const publish = mutation({
       publishedAt: Date.now(),
       updatedAt: Date.now(),
     })
-  },
+  }),
 })

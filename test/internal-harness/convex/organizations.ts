@@ -1,6 +1,6 @@
 import { defineArgs } from 'better-convex-nuxt/args'
-import { authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import { enforce } from 'better-convex-nuxt/auth'
+import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
@@ -23,9 +23,9 @@ export const list = query({
 
 export const create = mutation({
   args: withTrustedCaller(createOrganizationArgs.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Create organization', actor !== null)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Create organization', actor !== null)
 
     const user = await getUserRowFromActor(ctx.db, actor)
     if (!user) throw new Error('User not found')
@@ -52,5 +52,5 @@ export const create = mutation({
     })
 
     return orgId
-  },
+  }),
 })

@@ -21,8 +21,8 @@ export type Actor = {
 
 type ProjectBoardCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
-export async function getActor(ctx: ProjectBoardCtx, args?: unknown): Promise<Actor> {
-  const trusted = getTrustedCaller(args)
+export async function getActor(ctx: ProjectBoardCtx): Promise<Actor> {
+  const trusted = getTrustedCaller(ctx)
   if (trusted) {
     return await resolveActor(ctx, { subject: trusted.userId })
   }

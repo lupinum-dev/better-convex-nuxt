@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
-  buildAuthProxyForwardHeadersMock,
   createEvent,
   createResponseWithCookies,
   fetchWithCanonicalRedirectsMock,
-  getAuthRoutePatternMock,
   getRequestBodySizeErrorMock,
   getResponseBodySizeErrorMock,
   isOriginAllowedMock,
@@ -14,7 +12,6 @@ import {
   readResponseBodyWithLimitMock,
   resetAuthProxyHandlerHarness,
   serverConvexClearAuthCacheMock,
-  shouldSkipProxyResponseHeaderMock,
 } from '../support/unit/auth-proxy-handler-harness'
 
 describe('auth proxy handler hardening', () => {

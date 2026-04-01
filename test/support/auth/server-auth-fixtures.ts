@@ -39,7 +39,6 @@ export function mockConvexConfig(
   const uploadOverrides = (overrides?.upload ?? {}) as Partial<
     NormalizedConvexRuntimeConfig['upload']
   >
-  const debugOverrides = (overrides?.debug ?? {}) as Partial<NormalizedConvexRuntimeConfig['debug']>
 
   return {
     url: typeof overrides?.url === 'string' ? overrides.url : 'http://127.0.0.1:3210',
@@ -87,12 +86,6 @@ export function mockConvexConfig(
       overrides?.logging === 'debug'
         ? overrides.logging
         : false,
-    debug: {
-      authFlow: false,
-      clientAuthFlow: false,
-      serverAuthFlow: false,
-      ...debugOverrides,
-    },
   }
 }
 

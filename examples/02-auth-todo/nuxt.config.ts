@@ -22,16 +22,9 @@ export default defineNuxtConfig({
 
   convex: {
     url: process.env.CONVEX_URL,
-    siteUrl: process.env.CONVEX_SITE_URL,
     auth: {
       enabled: true,
-      ensureUserMutation: 'auth.createUserIfNeeded',
     },
     logging: 'debug',
-    debug: {
-      authFlow: true,
-      clientAuthFlow: true,
-      serverAuthFlow: true,
-    },
   },
 })

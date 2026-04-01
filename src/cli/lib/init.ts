@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 export type InitTarget = 'auth' | 'permissions' | 'mcp'
@@ -19,146 +19,19 @@ export interface InitTemplateSet {
 
 function authTsTemplate() {
   return `
-import { betterAuth } from 'better-auth'
-
-import { createConvexAuth } from './authBridge'
-
-export const { authComponent, createAuth, createUserIfNeeded } = createConvexAuth(
-  (_ctx, bridge) =>
-    betterAuth({
-      baseURL: bridge.siteUrl,
-      database: bridge.database,
-      emailAndPassword: {
-        enabled: true,
-      },
-      plugins: bridge.plugins,
-      trustedOrigins: bridge.trustedOrigins,
-    }),
-)
-`.trimStart()
-}
-
-function authBridgeTemplate() {
-  return `
-import { createClient } from '@convex-dev/better-auth'
-import { convex } from '@convex-dev/better-auth/plugins'
+import { defineAuth } from 'better-convex-nuxt/auth'
 
 import { components, internal } from './_generated/api'
 import { mutation } from './_generated/server'
 import authConfig from './auth.config'
 
-const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
-const trustedOrigins = [siteUrl, 'http://127.0.0.1:3000', 'http://localhost:3000']
-
-function buildUserFields(
-  input: { authId: string, email?: string | null, displayName?: string | null },
-  now: number,
-) {
-  return {
-    authId: input.authId,
-    email: input.email ?? null,
-    displayName: input.displayName ?? null,
-    createdAt: now,
-    updatedAt: now,
-    // __BCN_DEFAULT_USER_FIELDS__
-  }
-}
-
-function buildUpdatedUserFields(input: { email?: string | null, displayName?: string | null }) {
-  return {
-    email: input.email ?? null,
-    displayName: input.displayName ?? null,
-    updatedAt: Date.now(),
-  }
-}
-
-export function createConvexAuth(buildAuth) {
-  const authComponent = createClient(components.betterAuth, {
-    authFunctions: internal.auth,
-    triggers: {
-      user: {
-        onCreate: async (ctx, doc) => {
-          const now = Date.now()
-          await ctx.db.insert('users', buildUserFields({
-            authId: doc._id,
-            email: doc.email,
-            displayName: doc.name,
-          }, now))
-        },
-        onUpdate: async (ctx, doc) => {
-          const user = await ctx.db
-            .query('users')
-            .withIndex('by_auth_id', q => q.eq('authId', doc._id))
-            .first()
-
-          if (!user) {
-            return
-          }
-
-          await ctx.db.patch(user._id, buildUpdatedUserFields({
-            email: doc.email,
-            displayName: doc.name,
-          }))
-        },
-        onDelete: async (ctx, doc) => {
-          const user = await ctx.db
-            .query('users')
-            .withIndex('by_auth_id', q => q.eq('authId', doc._id))
-            .first()
-
-          if (user) {
-            await ctx.db.delete(user._id)
-          }
-        },
-      },
-    },
-  })
-
-  const bridge = {
-    siteUrl,
-    trustedOrigins,
-    database: null,
-    plugins: [convex({ authConfig })],
-  }
-
-  const createAuth = (ctx) =>
-    buildAuth(ctx, {
-      ...bridge,
-      database: authComponent.adapter(ctx),
-    })
-
-  const createUserIfNeeded = mutation({
-    args: {},
-    handler: async (ctx) => {
-      const identity = await ctx.auth.getUserIdentity()
-      if (!identity) {
-        throw new Error('Not authenticated.')
-      }
-
-      const existing = await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', q => q.eq('authId', identity.subject))
-        .first()
-
-      if (existing) {
-        return existing._id
-      }
-
-      const now = Date.now()
-      return await ctx.db.insert('users', buildUserFields({
-        authId: identity.subject,
-        email: identity.email,
-        displayName: identity.name,
-      }, now))
-    },
-  })
-
-  return {
-    authComponent,
-    createAuth,
-    createUserIfNeeded,
-  }
-}
+export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
+  { components, internal, mutation, authConfig },
+  {
+    emailPassword: true,
+    // oauth: ['github', 'google'],
+  },
+)
 `.trimStart()
 }
 
@@ -218,34 +91,12 @@ vi.mock('./_generated/server', async () => await convexServerMock())
 
 function personalActorTemplate() {
   return `
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import { createDefaultGetActor } from 'better-convex-nuxt/auth'
+import type { DefaultActor } from 'better-convex-nuxt/auth'
 
-import { getAuth } from 'better-convex-nuxt/auth'
+export type Actor = DefaultActor | null
 
-import type { DataModel } from '../_generated/dataModel'
-
-export type Actor =
-  | { kind: 'user'; userId: string }
-  | null
-
-type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
-
-export async function getActor(ctx: Ctx): Promise<Actor> {
-  const auth = await getAuth(ctx)
-  if (!auth) return null
-
-  const user = await ctx.db
-    .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', auth.subject))
-    .first()
-
-  if (!user) return null
-
-  return {
-    kind: 'user',
-    userId: user.authId,
-  }
-}
+export const getActor = createDefaultGetActor()
 `.trimStart()
 }
 
@@ -285,61 +136,16 @@ export const getPermissionContext = query({
 `.trimStart()
 }
 
-function workspaceActorTemplate({ withTrustedCaller }: { withTrustedCaller: boolean }) {
+function workspaceActorTemplate() {
   return `
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
-
-import { getAuth } from 'better-convex-nuxt/auth'
-${withTrustedCaller ? "import { getTrustedCaller } from 'better-convex-nuxt/trusted-caller'\n" : ''}
-import type { DataModel } from '../_generated/dataModel'
+import { createDefaultGetActor } from 'better-convex-nuxt/auth'
+import type { DefaultActor } from 'better-convex-nuxt/auth'
 
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
-export type Actor =
-  | { kind: 'user'; userId: string; role: Role; tenantId: string }
-  | null
+export type Actor = DefaultActor | null
 
-type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
-
-export async function getActor(ctx: Ctx, args?: Record<string, unknown>): Promise<Actor> {
-${
-  withTrustedCaller
-    ? `  const trustedCaller = getTrustedCaller(args)
-  if (trustedCaller) {
-    const membership = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', q => q.eq('authId', trustedCaller.userId))
-      .first()
-
-    if (!membership?.workspaceId) return null
-
-    return {
-      kind: 'user',
-      userId: membership.authId,
-      role: membership.role,
-      tenantId: membership.workspaceId,
-    }
-  }
-
-`
-    : ''
-}  const auth = await getAuth(ctx)
-  if (!auth) return null
-
-  const membership = await ctx.db
-    .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', auth.subject))
-    .first()
-
-  if (!membership?.workspaceId) return null
-
-  return {
-    kind: 'user',
-    userId: membership.authId,
-    role: membership.role,
-    tenantId: membership.workspaceId,
-  }
-}
+export const getActor = createDefaultGetActor()
 `.trimStart()
 }
 
@@ -374,43 +180,7 @@ export const canManageWorkspace = and(isAuthenticated, hasMinimumRole('admin'))
 
 function workspaceScopeTemplate() {
   return `
-import { deny, requireRecord } from 'better-convex-nuxt/auth'
-
-export { requireRecord }
-
-export function ensureTenant<T extends { workspaceId: string }>(
-  actor: { tenantId: string },
-  resource: T,
-  label = 'Resource',
-): T {
-  if (resource.workspaceId !== actor.tenantId) {
-    throw deny(\`\${label} not found.\`)
-  }
-  return resource
-}
-
-export function loadResource<T extends { workspaceId: string }>(
-  actor: { tenantId: string },
-  doc: T | null | undefined,
-  label = 'Resource',
-): T {
-  requireRecord(doc, label)
-  return ensureTenant(actor, doc, label)
-}
-`.trimStart()
-}
-
-function workspaceResourceTemplate() {
-  return `
-export function withCan<T extends Record<string, unknown>, C extends Record<string, boolean>>(
-  resource: T,
-  checks: C,
-): T & { _can: C } {
-  return {
-    ...resource,
-    _can: checks,
-  }
-}
+export { ensureTenant, loadTenantResource, requireRecord, withCan } from 'better-convex-nuxt/auth'
 `.trimStart()
 }
 
@@ -505,19 +275,6 @@ async function writeTemplateFiles(
   return { written, skipped }
 }
 
-async function updateAuthBridgeDefaults(cwd: string, fields: string): Promise<void> {
-  const authBridgePath = resolve(cwd, 'convex/authBridge.ts')
-  if (!(await pathExists(authBridgePath))) {
-    return
-  }
-
-  const source = await readFile(authBridgePath, 'utf8')
-  const nextSource = source.replace('// __BCN_DEFAULT_USER_FIELDS__', fields)
-  if (nextSource !== source) {
-    await writeFile(authBridgePath, nextSource, 'utf8')
-  }
-}
-
 export async function applyInitTemplateSet(
   cwd: string,
   templateSet: InitTemplateSet,
@@ -550,7 +307,6 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
       description: 'Scaffold Better Auth + Convex bridge files',
       files: [
         { path: 'convex/auth.ts', content: authTsTemplate(), ownership: 'authored' },
-        { path: 'convex/authBridge.ts', content: authBridgeTemplate(), ownership: 'generated' },
         { path: 'convex/auth.config.ts', content: authConfigTemplate(), ownership: 'generated' },
         { path: 'convex/http.ts', content: httpTemplate(), ownership: 'generated' },
         {
@@ -596,7 +352,7 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
       files: [
         {
           path: 'convex/auth/actor.ts',
-          content: workspaceActorTemplate({ withTrustedCaller: model === 'workspace-mcp' }),
+          content: workspaceActorTemplate(),
           ownership: 'authored',
         },
         {
@@ -607,12 +363,7 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
         {
           path: 'convex/auth/scope.ts',
           content: workspaceScopeTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/auth/resource.ts',
-          content: workspaceResourceTemplate(),
-          ownership: 'authored',
+          ownership: 'generated',
         },
         {
           path: 'convex/workspaces.ts',
@@ -620,7 +371,9 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
           ownership: 'authored',
         },
       ],
-      afterWrite: async (cwd) => await updateAuthBridgeDefaults(cwd, "role: 'member',"),
+      afterWrite: async (_cwd) => {
+        // Workspace model: userFields in defineAuth should include role: 'member'
+      },
     }
   }
 

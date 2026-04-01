@@ -13,7 +13,6 @@ import {
   addRouteMiddleware,
   useLogger,
 } from '@nuxt/kit'
-import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 
 import { setupConvexDevtools } from './devtools'
@@ -120,11 +119,6 @@ export interface AuthOptions extends ConvexAuthConfigInput {
    * Body size limits for the auth proxy.
    */
   proxy?: AuthProxyOptions
-  /**
-   * Optional app-owned mutation that ensures the app-level user row exists after sign-in.
-   * Format: `<modulePath>.<exportName>` like `auth.ensureUserIfNeeded`.
-   */
-  ensureUserMutation?: string
 }
 
 export interface PermissionsOptions {
@@ -160,32 +154,16 @@ export interface UploadDefaults {
   maxConcurrent?: number
 }
 
-export interface ConvexDebugOptions {
-  /**
-   * Enable detailed auth flow logs on both client and server plugins.
-   * @default false
-   */
-  authFlow?: boolean
-  /**
-   * Enable detailed auth flow logs on the client plugin only.
-   * @default false
-   */
-  clientAuthFlow?: boolean
-  /**
-   * Enable detailed auth flow logs on the server plugin only.
-   * @default false
-   */
-  serverAuthFlow?: boolean
+export interface McpOptions {
+  /** Name shown to MCP clients. */
+  name?: string
+  /** Enable MCP session state. @default false */
+  sessions?: boolean
 }
 
 export interface ModuleOptions {
   /** Convex deployment URL (WebSocket) — e.g., https://your-app.convex.cloud */
   url?: string
-  /**
-   * Convex site URL (HTTP Actions) — e.g., https://your-app.convex.site.
-   * Auto-derived from `url` if not provided.
-   */
-  siteUrl?: string
   /**
    * Enable authentication and configure auth behavior.
    *
@@ -205,8 +183,19 @@ export interface ModuleOptions {
    * ```
    */
   auth?: AuthOptions | boolean
-  /** Config-driven permission context wiring for built-in usePermissions/useAuthGuard. */
-  permissions?: PermissionsOptions
+  /**
+   * Config-driven permission context wiring for built-in usePermissions/useAuthGuard.
+   * String shorthand: `'workspaces.getPermissionContext'` is equivalent to
+   * `{ query: 'workspaces.getPermissionContext' }`.
+   */
+  permissions?: string | PermissionsOptions
+  /**
+   * Enable trusted caller infrastructure for server-to-server auth.
+   * @default false
+   */
+  trustedCallers?: boolean
+  /** MCP (Model Context Protocol) configuration. Enabled when @nuxtjs/mcp-toolkit is installed. */
+  mcp?: McpOptions
   /**
    * Default behavior for query composables.
    *
@@ -226,10 +215,6 @@ export interface ModuleOptions {
    * @default false
    */
   logging?: LogLevel
-  /**
-   * High-verbosity trace channels for debugging the auth flow.
-   */
-  debug?: ConvexDebugOptions
 }
 
 function normalizeConfiguredFunctionPath(value: unknown): string | undefined {
@@ -295,7 +280,7 @@ function collectConvexFunctionPaths(projectRoot: string): string[] {
 }
 
 function createConfiguredFunctionError(
-  kind: 'permissions.query' | 'auth.ensureUserMutation',
+  kind: 'permissions.query',
   configuredPath: string,
   availablePaths: string[],
 ): Error {
@@ -328,7 +313,6 @@ export default defineNuxtModule<ModuleOptions>({
   },
   defaults: {
     url: process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,
-    siteUrl: process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL,
     auth: {
       enabled: true,
       route: '/api/auth',
@@ -351,9 +335,10 @@ export default defineNuxtModule<ModuleOptions>({
         maxRequestBodyBytes: 1_048_576,
         maxResponseBodyBytes: 1_048_576,
       },
-      ensureUserMutation: undefined,
     },
     permissions: undefined,
+    trustedCallers: false,
+    mcp: undefined,
     query: {
       server: true,
       subscribe: true,
@@ -362,11 +347,6 @@ export default defineNuxtModule<ModuleOptions>({
       maxConcurrent: DEFAULT_UPLOAD_MAX_CONCURRENT,
     },
     logging: false,
-    debug: {
-      authFlow: false,
-      clientAuthFlow: false,
-      serverAuthFlow: false,
-    },
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
@@ -380,7 +360,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     const siteUrlResolution = resolveConvexSiteUrl({
       url: options.url,
-      siteUrl: options.siteUrl,
+      siteUrl: process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL,
     })
     const resolvedSiteUrl = siteUrlResolution.siteUrl
 
@@ -396,15 +376,15 @@ export default defineNuxtModule<ModuleOptions>({
 
     const normalizedAuthConfig = normalizeConvexAuthConfig(authOptions)
     const isAuthEnabled = normalizedAuthConfig.enabled
-    const permissionQueryPath = normalizeConfiguredFunctionPath(options.permissions?.query)
-    const ensureUserMutationPath = normalizeConfiguredFunctionPath(authOptions?.ensureUserMutation)
-
+    const permissionQueryPath = normalizeConfiguredFunctionPath(
+      typeof options.permissions === 'string' ? options.permissions : options.permissions?.query,
+    )
     const authRoute = normalizeAuthRoute(authOptions?.route ?? '/api/auth')
 
     // Note: During `nuxt prepare`, env vars may not be loaded yet, so we warn instead of error.
     // Runtime validation happens in the plugins when the actual values are available.
     const hasConfiguredConvexLocation =
-      Boolean(options.url || options.siteUrl) ||
+      Boolean(options.url) ||
       Boolean(
         process.env.NUXT_PUBLIC_CONVEX_URL ||
         process.env.CONVEX_URL ||
@@ -434,7 +414,6 @@ export default defineNuxtModule<ModuleOptions>({
         auth: {
           ...normalizedAuthConfig,
           route: authRoute,
-          ensureUserMutation: ensureUserMutationPath,
           trustedOrigins: authOptions?.trustedOrigins ?? [],
           skipAuthRoutes: authOptions?.skipAuthRoutes ?? [],
           cache: {
@@ -457,32 +436,18 @@ export default defineNuxtModule<ModuleOptions>({
           maxConcurrent: options.upload?.maxConcurrent ?? 3,
         },
         logging: options.logging ?? false,
-        debug: {
-          authFlow: options.debug?.authFlow ?? false,
-          clientAuthFlow: options.debug?.clientAuthFlow ?? false,
-          serverAuthFlow: options.debug?.serverAuthFlow ?? false,
-        },
       },
     )
     nuxt.options.runtimeConfig.public.convex = convexConfig
 
-    const availableConvexFunctions =
-      permissionQueryPath || ensureUserMutationPath
-        ? collectConvexFunctionPaths(nuxt.options.rootDir)
-        : []
+    const availableConvexFunctions = permissionQueryPath
+      ? collectConvexFunctionPaths(nuxt.options.rootDir)
+      : []
 
     if (permissionQueryPath && !availableConvexFunctions.includes(permissionQueryPath)) {
       throw createConfiguredFunctionError(
         'permissions.query',
         permissionQueryPath,
-        availableConvexFunctions,
-      )
-    }
-
-    if (ensureUserMutationPath && !availableConvexFunctions.includes(ensureUserMutationPath)) {
-      throw createConfiguredFunctionError(
-        'auth.ensureUserMutation',
-        ensureUserMutationPath,
         availableConvexFunctions,
       )
     }
@@ -645,40 +610,6 @@ export const { usePermissions, useAuthGuard } = createConfiguredPermissionsCompo
         { name: 'usePermissions', from: permissionsTemplate.dst },
         { name: 'useAuthGuard', from: permissionsTemplate.dst },
       ])
-    }
-
-    if (ensureUserMutationPath) {
-      const parsed = splitConfiguredFunctionPath(ensureUserMutationPath)
-      if (!parsed) {
-        throw new Error(
-          `[better-convex-nuxt] Invalid convex.auth.ensureUserMutation: "${ensureUserMutationPath}". Expected "<modulePath>.<exportName>".`,
-        )
-      }
-
-      const authBootstrapTemplate = addTemplate({
-        filename: 'convex/auth-bootstrap.client.ts',
-        write: true,
-        getContents: () => `
-import { defineNuxtPlugin } from '#app'
-import { api } from '~/convex/_generated/api'
-import { setupConfiguredAuthBootstrap } from '${resolver.resolve('./runtime/client/auth-bootstrap')}'
-
-const configuredMutation = (api as Record<string, any>)['${parsed.modulePath}']['${parsed.exportName}']
-
-export default defineNuxtPlugin({
-  name: 'better-convex-nuxt:auth-bootstrap',
-  dependsOn: ['better-convex-nuxt:client'],
-  setup() {
-    setupConfiguredAuthBootstrap(configuredMutation, '${ensureUserMutationPath}')
-  },
-})
-`,
-      })
-
-      addPlugin({
-        src: authBootstrapTemplate.dst,
-        mode: 'client',
-      })
     }
 
     // 6. Auto-import composables (non-auth, always available)

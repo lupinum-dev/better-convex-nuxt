@@ -7,6 +7,8 @@ export type TrustedCallerIdentity = {
   userId: string
 }
 
+const trustedCallerContextKey = Symbol('better-convex-nuxt.trustedCaller')
+
 const trustedCallerValidators = {
   _trustedCallerKey: v.optional(v.string()),
   _trustedCaller: v.optional(
@@ -34,7 +36,7 @@ export function withTrustedCaller<V extends PropertyValidators>(args: V): V {
   } as V
 }
 
-export function getTrustedCaller(args: unknown): TrustedCallerIdentity | null {
+function extractFromArgs(args: unknown): TrustedCallerIdentity | null {
   if (!isObject(args)) return null
 
   const input = args as TrustedCallerInput
@@ -69,6 +71,49 @@ export function getTrustedCaller(args: unknown): TrustedCallerIdentity | null {
 
   return {
     userId: input._trustedCaller.userId,
+  }
+}
+
+type TrustedCallerContextCarrier = Record<PropertyKey, unknown> & {
+  [trustedCallerContextKey]?: TrustedCallerIdentity | null
+}
+
+function isTrustedCallerContextCarrier(value: unknown): value is TrustedCallerContextCarrier {
+  return isObject(value)
+}
+
+export function setTrustedCallerContext(ctx: unknown, args: unknown): void {
+  if (!isTrustedCallerContextCarrier(ctx)) return
+  ctx[trustedCallerContextKey] = extractFromArgs(args)
+}
+
+export function clearTrustedCallerContext(ctx: unknown): void {
+  if (!isTrustedCallerContextCarrier(ctx)) return
+  ctx[trustedCallerContextKey] = undefined
+}
+
+export function getTrustedCaller(args?: unknown): TrustedCallerIdentity | null {
+  if (args === undefined) {
+    return null
+  }
+
+  if (isTrustedCallerContextCarrier(args) && trustedCallerContextKey in args) {
+    return (args[trustedCallerContextKey] as TrustedCallerIdentity | null | undefined) ?? null
+  }
+
+  return extractFromArgs(args)
+}
+
+export function withTrustedCallerHandler<Args, Return>(
+  handler: (ctx: unknown, args: Args) => Promise<Return>,
+): (ctx: unknown, args: Args) => Promise<Return> {
+  return async (ctx, args) => {
+    setTrustedCallerContext(ctx, args)
+    try {
+      return await handler(ctx, args)
+    } finally {
+      clearTrustedCallerContext(ctx)
+    }
   }
 }
 

@@ -1,7 +1,18 @@
 import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { authorize, can, deny, and, or, requireAuth, requireRecord } from '../../src/runtime/auth'
+import {
+  enforce,
+  can,
+  deny,
+  and,
+  or,
+  requireAuth,
+  requireRecord,
+  ensureTenant,
+  loadTenantResource,
+  withCan,
+} from '../../src/runtime/auth'
 import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
 import { applyVisibility, defineVisibility, getVisibilityQuery } from '../../src/runtime/visibility'
 
@@ -32,27 +43,27 @@ describe('auth primitives', () => {
     expect(can(actor, or(hasRole('admin'), false))).toBe(false)
   })
 
-  it('throws forbidden errors from authorize() and narrows the type', () => {
-    expect(() => authorize(null, 'Read dashboard', false)).toThrow(/Forbidden: Read dashboard/)
+  it('throws forbidden errors from enforce() and narrows the type', () => {
+    expect(() => enforce(null, 'Read dashboard', false)).toThrow(/Forbidden: Read dashboard/)
 
     const actor: { role: string } | null = { role: 'admin' }
-    authorize(actor, 'Read dashboard', (a) => a.role === 'admin')
-    // After authorize, actor is narrowed to non-null — this access is type-safe
+    enforce(actor, 'Read dashboard', (a) => a.role === 'admin')
+    // After enforce, actor is narrowed to non-null — this access is type-safe
     expect(actor.role).toBe('admin')
   })
 
-  it('authorize() includes auth category when actor is null', () => {
+  it('enforce() includes auth category when actor is null', () => {
     try {
-      authorize(null, 'Read dashboard', true)
+      enforce(null, 'Read dashboard', true)
     } catch (error) {
       const data = expectConvexErrorData(error)
       expect(data.category).toBe('auth')
     }
   })
 
-  it('authorize() accepts an optional category', () => {
+  it('enforce() accepts an optional category', () => {
     try {
-      authorize({ role: 'viewer' }, 'Manage users', () => false, 'role')
+      enforce({ role: 'viewer' }, 'Manage users', () => false, 'role')
     } catch (error) {
       expect(expectConvexErrorData(error).category).toBe('role')
     }
@@ -131,6 +142,45 @@ describe('auth primitives', () => {
     requireRecord(doc)
     // After requireRecord, doc is narrowed — this access is type-safe
     expect(doc.name).toBe('test')
+  })
+
+  it('ensureTenant rejects cross-tenant resources and returns matching resources', () => {
+    const actor = { tenantId: 'workspace-1' }
+    const resource = { workspaceId: 'workspace-1', title: 'Project' }
+
+    expect(ensureTenant(actor, resource)).toBe(resource)
+    expect(() => ensureTenant(actor, { workspaceId: 'workspace-2' }, 'Project')).toThrow(
+      /Project not found/,
+    )
+  })
+
+  it('loadTenantResource requires the record before checking tenant', () => {
+    const actor = { tenantId: 'org-1' }
+
+    expect(() => loadTenantResource(actor, null, 'Organization', 'organizationId')).toThrow(
+      /Organization not found/,
+    )
+    expect(
+      loadTenantResource(
+        actor,
+        { organizationId: 'org-1', name: 'Acme' },
+        'Organization',
+        'organizationId',
+      ),
+    ).toEqual({
+      organizationId: 'org-1',
+      name: 'Acme',
+    })
+  })
+
+  it('withCan attaches backend-owned capability flags to a resource', () => {
+    expect(withCan({ id: 'task-1' }, { update: true, remove: false })).toEqual({
+      id: 'task-1',
+      _can: {
+        update: true,
+        remove: false,
+      },
+    })
   })
 
   it('applies visibility queries and arrays', async () => {

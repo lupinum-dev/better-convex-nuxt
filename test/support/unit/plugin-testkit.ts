@@ -160,7 +160,6 @@ export function resetPluginClientTestkit() {
     public: {
       convex: {
         logging: false,
-        debug: {},
       },
     },
   })

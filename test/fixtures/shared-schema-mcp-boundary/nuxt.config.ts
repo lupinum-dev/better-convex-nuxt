@@ -28,6 +28,5 @@ export default defineNuxtConfig({
 
   convex: {
     url: 'https://shared-schema-smoke.convex.cloud',
-    siteUrl: 'https://shared-schema-smoke.convex.site',
   },
 })

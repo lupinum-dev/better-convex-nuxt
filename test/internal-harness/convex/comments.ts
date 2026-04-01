@@ -1,5 +1,5 @@
-import { authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import { enforce } from 'better-convex-nuxt/auth'
+import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 
 import { createComment } from '../shared/schemas/comment'
 import { mutation } from './_generated/server'
@@ -9,9 +9,9 @@ import { loadResource } from './auth/scope'
 
 export const create = mutation({
   args: withTrustedCaller(createComment.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Create comment', canCreateComment)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Create comment', canCreateComment)
     const post = loadResource(actor, await ctx.db.get(args.postId), 'Post')
 
     return await ctx.db.insert('comments', {
@@ -22,5 +22,5 @@ export const create = mutation({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
-  },
+  }),
 })

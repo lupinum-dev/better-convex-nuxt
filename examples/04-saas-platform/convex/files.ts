@@ -9,7 +9,7 @@
  * the client-side object URL before submit. Any later download path must be scoped through the
  * owning comment or task, not raw `_storage`.
  */
-import { authorize } from 'better-convex-nuxt/auth'
+import { enforce } from 'better-convex-nuxt/auth'
 
 import { mutation } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -20,7 +20,7 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     // Upload URLs are actor-gated, but they are not tied to a specific task or project yet.
-    authorize(actor, 'Generate upload URL', isAuthenticated)
+    enforce(actor, 'Generate upload URL', isAuthenticated)
     return await ctx.storage.generateUploadUrl()
   },
 })

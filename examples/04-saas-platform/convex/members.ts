@@ -1,17 +1,17 @@
-import { deny, authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import { deny, enforce, ensureTenant } from 'better-convex-nuxt/auth'
+import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
 import { getActor } from './auth/actor'
 import { canManageMembers } from './auth/checks'
-import { requireRecord, ensureTenant } from './auth/scope'
+import { requireRecord } from './auth/scope'
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Manage members', canManageMembers)
+    enforce(actor, 'Manage members', canManageMembers)
 
     return ctx.db
       .query('users')
@@ -26,9 +26,9 @@ export const changeRole = mutation({
     userId: v.id('users'),
     newRole: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
   }),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Manage members', canManageMembers)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Manage members', canManageMembers)
 
     const target = await ctx.db.get(args.userId)
     requireRecord(target, 'User')
@@ -52,5 +52,5 @@ export const changeRole = mutation({
       description: `Changed ${target.displayName ?? target.authId} to ${args.newRole}.`,
       createdAt: now,
     })
-  },
+  }),
 })

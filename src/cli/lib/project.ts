@@ -229,8 +229,7 @@ const LEGACY_API_PATTERNS = [
   },
   {
     id: 'useEnsureConvexUser',
-    replacement:
-      'Configure convex.auth.ensureUserMutation and let the module bootstrap the user row.',
+    replacement: 'Use defineAuth() which handles user creation automatically via triggers.',
     regex: /\buseEnsureConvexUser\b/,
   },
   {

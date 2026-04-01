@@ -55,9 +55,7 @@ defineProps<{
         {{ mutations.length }}
       </div>
       <div class="text-xs op-50">
-        {{
-          mutations.filter((m) => m.state === 'pending' || m.state === 'optimistic').length
-        }}
+        {{ mutations.filter((m) => m.state === 'pending' || m.state === 'optimistic').length }}
         in-flight
       </div>
     </NCard>

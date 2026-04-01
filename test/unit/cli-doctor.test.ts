@@ -112,17 +112,15 @@ describe('CLI doctor', () => {
     expect(output).toContain('Error: Unknown command')
   })
 
-  it('initializes the auth bridge files', () => {
+  it('initializes the auth files', () => {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-init-auth-'))
     const result = runCli(['init', 'auth', '--cwd', cwd], repoRoot)
     const auth = readFileSync(resolve(cwd, 'convex/auth.ts'), 'utf8')
-    const authBridge = readFileSync(resolve(cwd, 'convex/authBridge.ts'), 'utf8')
     const testSetup = readFileSync(resolve(cwd, 'convex/test.setup.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(auth).toContain('createConvexAuth')
-    expect(authBridge).toContain('createUserIfNeeded')
-    expect(authBridge).toContain('__BCN_DEFAULT_USER_FIELDS__')
+    expect(auth).toContain('defineAuth')
+    expect(auth).toContain('createUserIfNeeded')
     expect(testSetup).toContain('createConvexTestModules')
   })
 
@@ -133,27 +131,24 @@ describe('CLI doctor', () => {
     const users = readFileSync(resolve(cwd, 'convex/users.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(actor).toContain("| { kind: 'user'; userId: string }")
+    expect(actor).toContain('createDefaultGetActor')
+    expect(actor).toContain('DefaultActor')
     expect(users).toContain('getPermissionContext')
   })
 
-  it('initializes the workspace permissions files and updates auth bridge defaults', () => {
+  it('initializes the workspace permissions files', () => {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-init-workspace-permissions-'))
-    expect(runCli(['init', 'auth', '--cwd', cwd], repoRoot).status).toBe(0)
     const result = runCli(['init', 'permissions', '--model', 'workspace', '--cwd', cwd], repoRoot)
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
     const scope = readFileSync(resolve(cwd, 'convex/auth/scope.ts'), 'utf8')
-    const resource = readFileSync(resolve(cwd, 'convex/auth/resource.ts'), 'utf8')
     const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
-    const authBridge = readFileSync(resolve(cwd, 'convex/authBridge.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(actor).toContain('tenantId: string')
+    expect(actor).toContain('createDefaultGetActor')
     expect(scope).toContain('ensureTenant')
-    expect(scope).toContain('loadResource')
-    expect(resource).toContain('withCan')
-    expect(workspaces).toContain('return null')
-    expect(authBridge).toContain("role: 'member',")
+    expect(scope).toContain('loadTenantResource')
+    expect(scope).toContain('withCan')
+    expect(workspaces).toContain('getPermissionContext')
   })
 
   it('initializes the workspace-mcp permissions files', () => {
@@ -164,13 +159,12 @@ describe('CLI doctor', () => {
     )
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
     const scope = readFileSync(resolve(cwd, 'convex/auth/scope.ts'), 'utf8')
-    const resource = readFileSync(resolve(cwd, 'convex/auth/resource.ts'), 'utf8')
     const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(actor).toContain('getTrustedCaller')
-    expect(scope).toContain('loadResource')
-    expect(resource).toContain('withCan')
+    expect(actor).toContain('createDefaultGetActor')
+    expect(scope).toContain('ensureTenant')
+    expect(scope).toContain('withCan')
     expect(workspaces).toContain('getPermissionContext')
   })
 

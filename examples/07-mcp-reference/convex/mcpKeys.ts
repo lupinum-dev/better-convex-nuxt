@@ -1,4 +1,4 @@
-import { authorize, deny } from 'better-convex-nuxt/auth'
+import { enforce, deny } from 'better-convex-nuxt/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -61,7 +61,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Manage MCP keys', canManageMcpKeys)
+    enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const keys = await ctx.db
       .query('mcpKeys')
@@ -79,7 +79,7 @@ export const create = mutation({
   args: createMcpKey.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Manage MCP keys', canManageMcpKeys)
+    enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const boundUser = await getBoundUser(ctx, args.boundAuthId)
     if (!boundUser?.workspaceId || boundUser.workspaceId !== actor.tenantId) {
@@ -106,7 +106,7 @@ export const revoke = mutation({
   args: revokeMcpKey.args,
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Manage MCP keys', canManageMcpKeys)
+    enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const rawKey = await ctx.db.get(args.id)
     if (!rawKey || rawKey.boundWorkspaceId !== actor.tenantId) {

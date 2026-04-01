@@ -1,4 +1,4 @@
-import { deny, authorize, requireAuth } from 'better-convex-nuxt/auth'
+import { deny, enforce, requireAuth } from 'better-convex-nuxt/auth'
 /**
  * Why this file exists:
  * Normal project queries stay tenant-scoped even in the agency example.
@@ -27,7 +27,7 @@ export const create = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create project', hasRole('owner', 'member'))
+    enforce(actor, 'Create project', hasRole('owner', 'member'))
 
     return ctx.db.insert('projects', {
       workspaceId: actor.tenantId,

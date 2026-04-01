@@ -1,5 +1,5 @@
-import { can, deny, authorize } from 'better-convex-nuxt/auth'
-import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import { can, deny, enforce } from 'better-convex-nuxt/auth'
+import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 
 import {
   bulkDeleteRunbooks,
@@ -90,9 +90,9 @@ export const searchPublic = query({
 
 export const listWorkspace = query({
   args: withTrustedCaller(listRunbooks.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Read runbooks', canReadWorkspaceRunbook)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Read runbooks', canReadWorkspaceRunbook)
 
     const runbooks = await ctx.db
       .query('runbooks')
@@ -107,13 +107,13 @@ export const listWorkspace = query({
         publish: can(actor, canPublishRunbook),
       }),
     )
-  },
+  }),
 })
 
 export const get = query({
   args: withTrustedCaller(getRunbook.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const runbook = await ctx.db.get(args.id)
     if (!runbook) return null
 
@@ -131,7 +131,7 @@ export const get = query({
       })
     }
 
-    authorize(actor, 'Read runbooks', canReadWorkspaceRunbook)
+    enforce(actor, 'Read runbooks', canReadWorkspaceRunbook)
     loadResource(actor, runbook, 'Runbook')
 
     return withCan(runbook, {
@@ -139,14 +139,14 @@ export const get = query({
       delete: can(actor, canDeleteRunbook(runbook)),
       publish: can(actor, canPublishRunbook),
     })
-  },
+  }),
 })
 
 export const create = mutation({
   args: withTrustedCaller(createRunbook.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Create runbook', canCreateRunbook)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Create runbook', canCreateRunbook)
 
     const visibility = args.visibility ?? 'draft'
     if (visibility === 'public' && !can(actor, canPublishRunbook)) {
@@ -166,15 +166,15 @@ export const create = mutation({
       updatedAt: now,
       ...(visibility === 'public' ? { publishedAt: now } : {}),
     })
-  },
+  }),
 })
 
 export const update = mutation({
   args: withTrustedCaller(updateRunbook.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const runbook = loadResource(actor, await ctx.db.get(args.id), 'Runbook')
-    authorize(actor, 'Update runbook', canUpdateRunbook(runbook))
+    enforce(actor, 'Update runbook', canUpdateRunbook(runbook))
 
     const nextVisibility = args.visibility ?? runbook.visibility
     if (nextVisibility === 'public' && !can(actor, canPublishRunbook)) {
@@ -192,24 +192,24 @@ export const update = mutation({
         ? { publishedAt: Date.now() }
         : {}),
     })
-  },
+  }),
 })
 
 export const remove = mutation({
   args: withTrustedCaller(deleteRunbook.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
     const runbook = loadResource(actor, await ctx.db.get(args.id), 'Runbook')
-    authorize(actor, 'Delete runbook', canDeleteRunbook(runbook))
+    enforce(actor, 'Delete runbook', canDeleteRunbook(runbook))
     await ctx.db.delete(args.id)
-  },
+  }),
 })
 
 export const bulkRemove = mutation({
   args: withTrustedCaller(bulkDeleteRunbooks.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Bulk delete runbooks', canPublishRunbook)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Bulk delete runbooks', canPublishRunbook)
 
     let deleted = 0
     const skipped: { id: string; reason: string }[] = []
@@ -238,14 +238,14 @@ export const bulkRemove = mutation({
       skipped,
       total: args.ids.length,
     }
-  },
+  }),
 })
 
 export const workspaceOverview = query({
   args: withTrustedCaller(listRunbooks.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    authorize(actor, 'Read runbook overview', canReadWorkspaceRunbook)
+  handler: withTrustedCallerHandler(async (ctx, args) => {
+    const actor = await getActor(ctx)
+    enforce(actor, 'Read runbook overview', canReadWorkspaceRunbook)
 
     const runbooks = await ctx.db
       .query('runbooks')
@@ -260,5 +260,5 @@ export const workspaceOverview = query({
       drafts: runbooks.filter((runbook) => runbook.visibility === 'draft').length,
       recentTitles: runbooks.slice(0, 5).map((runbook) => runbook.title),
     }
-  },
+  }),
 })

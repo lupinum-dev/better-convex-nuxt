@@ -176,7 +176,7 @@ export default defineNuxtPlugin({
           )
 
           // HMR cleanup
-          const hot = (import.meta as Record<string, unknown>).hot as
+          const hot = (import.meta as unknown as Record<string, unknown>).hot as
             | { dispose: (fn: () => void) => void }
             | undefined
           if (hot) {

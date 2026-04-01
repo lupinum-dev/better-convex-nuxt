@@ -8,7 +8,7 @@ description: >
   useCachedQuery, useConvexAuth, useConvexAuthActions, useConvexUpload,
   useConvexStorageUrl, useConvexConnectionState, usePermissions, useAuthGuard,
   serverConvexQuery, serverConvexMutation, serverConvexAction, defineArgs,
-  defineTool, withTrustedCaller, getTrustedCaller, authorize, or the
+  defineTool, withTrustedCaller, getTrustedCaller, enforce, or the
   #convex/mcp and #convex/server aliases.
 ---
 
@@ -83,8 +83,8 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 ### Trusted Caller
 
 - Use `withTrustedCaller(schema.args)` in Convex validators that support server-to-server or MCP actor injection.
-- Resolve the effective actor explicitly with `getActor(ctx, args)` in app code.
-- Use `getTrustedCaller(args)` only when you need the injected identity directly.
+- Resolve the effective actor explicitly with `getActor(ctx)` in app code.
+- Use `getTrustedCaller()` inside trusted-caller-aware Convex handlers once the context wrapper is in place.
 - Old wrapper-style actor APIs are not part of the current foundation.
 
 ### Server Helpers

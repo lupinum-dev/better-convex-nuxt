@@ -1,4 +1,4 @@
-import { authorize, deny } from 'better-convex-nuxt/auth'
+import { enforce, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
@@ -10,7 +10,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Read knowledge bases', canReadKB)
+    enforce(actor, 'Read knowledge bases', canReadKB)
 
     return ctx.db
       .query('knowledgeBases')
@@ -24,7 +24,7 @@ export const get = query({
   args: { id: v.id('knowledgeBases') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Read knowledge bases', canReadKB)
+    enforce(actor, 'Read knowledge bases', canReadKB)
     return loadResource(actor, await ctx.db.get(args.id), 'Knowledge base')
   },
 })
@@ -33,7 +33,7 @@ export const create = mutation({
   args: { title: v.string() },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create knowledge base', canCreateKB)
+    enforce(actor, 'Create knowledge base', canCreateKB)
 
     const now = Date.now()
     return ctx.db.insert('knowledgeBases', {
@@ -51,7 +51,7 @@ export const publish = mutation({
   args: { id: v.id('knowledgeBases') },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Create knowledge base', canCreateKB)
+    enforce(actor, 'Create knowledge base', canCreateKB)
     const kb = loadResource(actor, await ctx.db.get(args.id), 'Knowledge base')
     if (kb.status === 'published') throw deny('Already published.')
     await ctx.db.patch(args.id, { status: 'published', updatedAt: Date.now() })
@@ -62,7 +62,7 @@ export const enroll = mutation({
   args: { knowledgeBaseId: v.id('knowledgeBases'), userId: v.string() },
   handler: async (ctx, args) => {
     const actor = await getActor(ctx)
-    authorize(actor, 'Manage enrollments', canManageEnrollments)
+    enforce(actor, 'Manage enrollments', canManageEnrollments)
     const kb = loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
 
     const existing = await ctx.db

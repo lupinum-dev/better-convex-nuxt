@@ -17,10 +17,7 @@ import type {
 } from '../utils/types'
 
 type RuntimeHookApp = object & {
-  callHook(
-    event: 'convex:connection:changed',
-    payload: ConvexConnectionChangedPayload,
-  ): Promise<unknown>
+  callHook(event: 'convex:connection:changed', payload: ConvexConnectionChangedPayload): unknown
 }
 
 const DEFAULT_CONNECTION_STATE: ConnectionState = {
@@ -123,9 +120,11 @@ function handleConnectionStateChange(
     previousConnection,
   }
   // Hook handlers should never block connection state updates.
-  nuxtApp.callHook('convex:connection:changed', payload)?.catch((error: unknown) => {
-    console.error('[better-convex-nuxt] Error in convex:connection:changed hook handler:', error)
-  })
+  void Promise.resolve(nuxtApp.callHook('convex:connection:changed', payload)).catch(
+    (error: unknown) => {
+      console.error('[better-convex-nuxt] Error in convex:connection:changed hook handler:', error)
+    },
+  )
 }
 
 function ensureConnectionSubscription(

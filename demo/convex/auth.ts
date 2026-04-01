@@ -1,29 +1,20 @@
-import { betterAuth } from 'better-auth'
-import { can } from 'better-convex-nuxt/auth'
+import { can, defineAuth } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
+import { components, internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
+import authConfig from './auth.config'
 import { getActor } from './auth/actor'
 import { canAdminSettings, canCreateFeed, canUploadFile, canViewAll } from './auth/checks'
-import { createConvexAuth } from './authBridge'
 
-export const { authComponent, createAuth, createUserIfNeeded } = createConvexAuth((_ctx, bridge) =>
-  betterAuth({
-    baseURL: bridge.siteUrl,
-    database: bridge.database,
-    socialProviders: {
-      github: {
-        clientId: process.env.GITHUB_CLIENT_ID!,
-        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      },
-    },
-    plugins: [bridge.createConvexPlugin()],
-    session: {
-      expiresIn: 60 * 60 * 24 * 7,
-      updateAge: 60 * 60 * 24,
-    },
-    trustedOrigins: bridge.trustedOrigins,
-  }),
+export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
+  { components, internal, mutation, authConfig },
+  {
+    emailPassword: true,
+    userFields: () => ({
+      role: 'member' as const,
+    }),
+  },
 )
 
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()

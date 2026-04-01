@@ -22,7 +22,6 @@ const useLocalConvex = process.env.USE_LOCAL_CONVEX === 'true'
 const resetLocalBackend = process.env.RESET_LOCAL_BACKEND === 'true'
 const harnessUrl = process.env.SITE_URL || 'http://localhost:3000'
 const localConvexUrl = 'http://127.0.0.1:3210'
-const localConvexSiteUrl = 'http://127.0.0.1:3211'
 const localPrivateBridgeKey =
   process.env.CONVEX_PRIVATE_BRIDGE_KEY || 'internal-harness-private-bridge-key-not-for-production'
 
@@ -65,12 +64,8 @@ export default defineNuxtConfig({
     url: useLocalConvex
       ? localConvexUrl
       : process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,
-    siteUrl: useLocalConvex
-      ? localConvexSiteUrl
-      : process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL,
     auth: {
       enabled: true,
-      ensureUserMutation: 'auth.createUserIfNeeded',
     },
     permissions: {
       query: 'auth.getPermissionContext',

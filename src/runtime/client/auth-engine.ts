@@ -37,7 +37,7 @@ interface RuntimeHookApp {
     event: 'better-convex:auth:refresh' | 'better-convex:auth:invalidate',
     fn: () => void | Promise<void>,
   ): () => void
-  callHook?: (event: 'convex:auth:changed', payload: ConvexAuthChangedPayload) => Promise<unknown>
+  callHook?: (event: 'convex:auth:changed', payload: ConvexAuthChangedPayload) => unknown
 }
 
 type AuthSource = 'skip' | 'hydrated-token' | 'recent-token-cache' | 'exchange'
@@ -264,9 +264,15 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
       user: nextSnapshot.user,
       previousUser: previousSnapshot.user,
     }
-    nuxtApp.callHook?.('convex:auth:changed', payload)?.catch((error: unknown) => {
-      console.error('[better-convex-nuxt] Error in convex:auth:changed hook handler:', error)
-    })
+    if (!nuxtApp.callHook) {
+      return
+    }
+
+    void Promise.resolve(nuxtApp.callHook('convex:auth:changed', payload)).catch(
+      (error: unknown) => {
+        console.error('[better-convex-nuxt] Error in convex:auth:changed hook handler:', error)
+      },
+    )
   }
 
   const commitAuthenticated = (nextToken: string, nextUser: ConvexUser) => {
