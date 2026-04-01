@@ -7,47 +7,8 @@
 import { convexTest } from 'convex-test'
 
 import type { Id } from './_generated/dataModel'
-import type { Role } from './auth/actor'
 import schema from './schema'
 import { modules, fixtures } from './test.setup'
-
-/**
- * Create a test context with an org and single user already set up
- */
-export async function setupTestWithUser(role: Role = 'member') {
-  const t = convexTest(schema, modules)
-
-  // Create org
-  const orgId = await t.run(async (ctx) => {
-    return await ctx.db.insert('organizations', {
-      name: 'Test Org',
-      slug: 'test-org',
-      ownerId: 'user_owner',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    })
-  })
-
-  // Create user
-  const authId = `user_${role}_${Date.now()}`
-
-  const userId = await t.run(async (ctx) => {
-    return await ctx.db.insert('users', {
-      authId,
-      role,
-      organizationId: orgId,
-      displayName: `Test ${role}`,
-      email: `${role}@test.com`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    })
-  })
-
-  // Return authenticated context
-  const asUser = t.withIdentity({ subject: authId })
-
-  return { t, orgId, authId, userId, asUser }
-}
 
 /**
  * Create a test context with multiple users in same org

@@ -7,7 +7,6 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: 'sidebar',
   convexAuth: true,
 })
 </script>

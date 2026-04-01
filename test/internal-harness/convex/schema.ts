@@ -59,27 +59,6 @@ export default defineSchema({
     .index('by_email', ['email']),
 
   // ============================================
-  // INVITES
-  // ============================================
-  invites: defineTable({
-    email: v.string(),
-    role: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
-    organizationId: v.id('organizations'),
-    invitedBy: v.string(), // authId
-    status: v.union(
-      v.literal('pending'),
-      v.literal('accepted'),
-      v.literal('revoked'),
-      v.literal('expired'),
-    ),
-    createdAt: v.number(),
-    expiresAt: v.number(),
-  })
-    .index('by_organization', ['organizationId'])
-    .index('by_email', ['email'])
-    .index('by_status', ['status']),
-
-  // ============================================
   // POSTS (permission system demo)
   // ============================================
   posts: defineTable({

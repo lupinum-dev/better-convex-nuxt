@@ -12,17 +12,7 @@ export const modules = import.meta.glob('./**/*.ts', {
   eager: false,
 })
 
-// Test fixtures for common scenarios
 export const fixtures = {
-  // Permission contexts for unit tests
-  contexts: {
-    owner: { role: 'owner' as const, userId: 'user_owner' },
-    admin: { role: 'admin' as const, userId: 'user_admin' },
-    member: { role: 'member' as const, userId: 'user_member' },
-    viewer: { role: 'viewer' as const, userId: 'user_viewer' },
-  },
-
-  // User data for integration tests
   users: {
     owner: {
       authId: 'user_owner',

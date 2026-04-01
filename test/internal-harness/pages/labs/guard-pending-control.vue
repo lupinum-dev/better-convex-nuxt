@@ -1,8 +1,4 @@
 <script setup lang="ts">
-definePageMeta({
-  layout: 'sidebar',
-})
-
 const convexPending = useState<boolean>('convex:pending', () => false)
 const convexToken = useState<string | null>('convex:token', () => null)
 const convexUser = useState<unknown>('convex:user', () => null)

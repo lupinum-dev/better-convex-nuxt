@@ -1,7 +1,6 @@
 import { defineArgs } from 'better-convex-nuxt/args'
 import { can, authorize } from 'better-convex-nuxt/auth'
 import { withTrustedCaller } from 'better-convex-nuxt/trusted-caller'
-import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
 import { createPost, deletePost, updatePost } from '../shared/schemas/post'
@@ -20,12 +19,6 @@ import { withCan } from './auth/resource'
 
 const listPostsArgs = defineArgs({
   args: {},
-})
-
-const listPostsPaginatedArgs = defineArgs({
-  args: {
-    paginationOpts: paginationOptsValidator,
-  },
 })
 
 const getPostArgs = defineArgs({
@@ -97,31 +90,6 @@ export const list = query({
       .collect()
 
     return posts.map((post) => attachPostPermissions(actor, post))
-  },
-})
-
-export const listPaginated = query({
-  args: withTrustedCaller(listPostsPaginatedArgs.args),
-  handler: async (ctx, args) => {
-    const actor = await getActor(ctx, args)
-    if (!actor?.tenantId) {
-      return { page: [], isDone: true, continueCursor: '' }
-    }
-
-    authorize(actor, 'Read posts', canReadPost)
-
-    const result = await ctx.db
-      .query('posts')
-      .withIndex('by_organization', (q) =>
-        q.eq('organizationId', actor.tenantId as Id<'organizations'>),
-      )
-      .order('desc')
-      .paginate(args.paginationOpts)
-
-    return {
-      ...result,
-      page: result.page.map((post) => attachPostPermissions(actor, post)),
-    }
   },
 })
 

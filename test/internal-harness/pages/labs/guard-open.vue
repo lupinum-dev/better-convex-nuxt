@@ -4,9 +4,3 @@
     <p>This page is not protected.</p>
   </div>
 </template>
-
-<script setup lang="ts">
-definePageMeta({
-  layout: 'sidebar',
-})
-</script>

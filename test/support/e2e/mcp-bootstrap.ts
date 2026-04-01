@@ -2,9 +2,7 @@ export interface BootstrapResponse {
   organizationId: string
   resources: {
     noteId: string
-    taskId: string
     postId: string
-    commentId: string
   }
   keys: Record<'admin' | 'member' | 'viewer' | 'noOrg' | 'revoked', { id: string; key: string }>
 }
@@ -16,7 +14,6 @@ export interface McpStateResponse {
     status: string
     lastUsedAt?: number
   }>
-  counts: Record<string, number>
 }
 
 export async function fetchMcpBootstrap(

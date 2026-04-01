@@ -1,2 +1,2 @@
-/** Default MCP handler for the playground demo. */
+/** Default MCP handler for the internal harness. */
 export default defineMcpHandler({})

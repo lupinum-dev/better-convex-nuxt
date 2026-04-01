@@ -1,29 +1,10 @@
-/**
- * Testing Utilities for E2E Tests
- *
- * IMPORTANT: These functions are only for local playground verification.
- * Local Convex dev does not reliably surface arbitrary env vars inside
- * function runtimes, so test reset is hard-enabled here for now.
- */
-
 import { v } from 'convex/values'
 
 import { components } from './_generated/api'
-import { action, internalQuery, mutation, query } from './_generated/server'
+import { mutation, query } from './_generated/server'
 
-// All tables from schema.ts
-const ALL_TABLES = [
-  'organizations',
-  'users',
-  'invites',
-  'posts',
-  'comments',
-  'tasks',
-  'notes',
-  'mcpKeys',
-] as const
+const ALL_TABLES = ['organizations', 'users', 'posts', 'comments', 'tasks', 'notes', 'mcpKeys'] as const
 
-// Better Auth component tables
 const BETTER_AUTH_TABLES = [
   'user',
   'session',
@@ -46,12 +27,6 @@ function assertTestResetEnabled(confirmationCode: string, expectedCode: string, 
   }
 }
 
-/**
- * Clear all data from the database
- *
- * Safety measure:
- * Requires a confirmation code to prevent accidental calls.
- */
 export const clearAllData = mutation({
   args: {
     confirmationCode: v.string(),
@@ -59,7 +34,6 @@ export const clearAllData = mutation({
   handler: async (ctx, args) => {
     assertTestResetEnabled(args.confirmationCode, 'RESET_DB_FOR_TESTS', 'clearAllData')
 
-    // Clear all app tables
     const stats: Record<string, number> = {}
 
     for (const table of ALL_TABLES) {
@@ -71,11 +45,9 @@ export const clearAllData = mutation({
       }
     }
 
-    // Clear Better Auth component tables
     const authStats: Record<string, number> = {}
     for (const table of BETTER_AUTH_TABLES) {
       try {
-        // Delete all documents using pagination loop
         let totalDeleted = 0
         let hasMore = true
 
@@ -83,7 +55,6 @@ export const clearAllData = mutation({
           const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
             input: { model: table, where: [] },
             paginationOpts: { numItems: 100, cursor: null },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Better Auth component typing
           } as any)
           totalDeleted += result.count
           hasMore = !result.isDone
@@ -91,13 +62,11 @@ export const clearAllData = mutation({
 
         authStats[`auth:${table}`] = totalDeleted
       } catch (error) {
-        // Table might not exist or be empty, continue
-        console.log(`[testing.clearAllData] Could not clear auth table ${table}:`, error)
+        void error
       }
     }
 
     const allStats = { ...stats, ...authStats }
-    console.log('[testing.clearAllData] Cleared database:', allStats)
 
     return {
       success: true,
@@ -183,26 +152,10 @@ export const seedMcpVerification = mutation({
       userId: userRecords.member.authId,
     })
 
-    const taskId = await ctx.db.insert('tasks', {
-      userId: userRecords.member.authId,
-      title: 'Seed task',
-      completed: false,
-      createdAt: now,
-    })
-
     const postId = await ctx.db.insert('posts', {
       title: 'Seed post',
       content: 'Created by testing.seedMcpVerification',
       status: 'draft',
-      ownerId: userRecords.member.authId,
-      organizationId,
-      createdAt: now,
-      updatedAt: now,
-    })
-
-    const commentId = await ctx.db.insert('comments', {
-      postId,
-      content: 'Seed comment',
       ownerId: userRecords.member.authId,
       organizationId,
       createdAt: now,
@@ -280,9 +233,7 @@ export const seedMcpVerification = mutation({
       },
       resources: {
         noteId,
-        taskId,
         postId,
-        commentId,
       },
       keys: {
         admin: { id: keyIds.admin, key: keyDocs.admin.key },
@@ -307,91 +258,6 @@ export const getMcpVerificationState = query({
     )
 
     const keys = await ctx.db.query('mcpKeys').collect()
-    const posts = await ctx.db.query('posts').collect()
-    const comments = await ctx.db.query('comments').collect()
-    const notes = await ctx.db.query('notes').collect()
-    const tasks = await ctx.db.query('tasks').collect()
-
-    return {
-      keys,
-      counts: {
-        notes: notes.length,
-        tasks: tasks.length,
-        posts: posts.length,
-        comments: comments.length,
-      },
-    }
-  },
-})
-
-/**
- * Health check query - verifies database connection
- */
-export const healthCheck = query({
-  args: {},
-  handler: async () => {
-    return {
-      ok: true,
-      timestamp: Date.now(),
-    }
-  },
-})
-
-/**
- * Query that always fails - for testing error handling
- */
-export const alwaysFails = query({
-  args: {},
-  handler: async () => {
-    throw new Error('Intentional test error for E2E testing')
-  },
-})
-
-/**
- * Mutation that always fails - for testing mutation error handling
- */
-export const alwaysFailsMutation = mutation({
-  args: {},
-  handler: async () => {
-    throw new Error('Intentional mutation error for E2E testing')
-  },
-})
-
-/**
- * Internal query for the test action to call
- */
-export const getHealthData = internalQuery({
-  args: {},
-  handler: async () => {
-    return {
-      serverTime: Date.now(),
-      status: 'healthy',
-    }
-  },
-})
-
-/**
- * Simple test action - for testing useConvexAction
- * Returns the input value after a small delay (simulates work)
- */
-export const echo = action({
-  args: { message: v.string() },
-  handler: async (_ctx, args) => {
-    // Simulate some async work
-    await new Promise((resolve) => setTimeout(resolve, 100))
-    return {
-      echoed: args.message,
-      timestamp: Date.now(),
-    }
-  },
-})
-
-/**
- * Action that always fails - for testing action error handling
- */
-export const alwaysFailsAction = action({
-  args: {},
-  handler: async () => {
-    throw new Error('Intentional action error for E2E testing')
+    return { keys }
   },
 })

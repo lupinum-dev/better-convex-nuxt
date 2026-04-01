@@ -44,8 +44,6 @@ export default defineNuxtConfig({
   },
 
   alias: {
-    // The internal harness runs against the local module source, not an installed package.
-    // Mirror the published subpath imports so examples stay copy-pastable for consumers.
     'better-convex-nuxt/composables': runtimeComposablesEntry,
     'better-convex-nuxt/auth': runtimeAuthEntry,
     'better-convex-nuxt/args': runtimeArgsEntry,
@@ -55,21 +53,11 @@ export default defineNuxtConfig({
     'better-convex-nuxt/visibility': runtimeVisibilityEntry,
   },
 
-  pages: true,
-
   nitro: {
     experimental: { asyncContext: true },
   },
 
-  devtools: { enabled: true },
-
   compatibilityDate: '2026-02-26',
-
-  routeRules: {},
-
-  typescript: {
-    strict: true,
-  },
 
   convex: {
     url: useLocalConvex
@@ -85,10 +73,6 @@ export default defineNuxtConfig({
     permissions: {
       query: 'auth.getPermissionContext',
     },
-  },
-
-  vite: {
-    plugins: [],
   },
 
   hooks: {

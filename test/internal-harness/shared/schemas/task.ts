@@ -15,8 +15,3 @@ export const addTask = defineArgs({
     },
   },
 })
-
-export const listTasks = defineArgs({
-  description: 'List your tasks',
-  args: {},
-})
