@@ -2,6 +2,7 @@ import type { ConvexClient } from 'convex/browser'
 import type { Ref } from 'vue'
 
 import type { AuthWaterfall } from '../utils/auth-debug'
+import type { AuthBootstrapDevtoolsState, PermissionDevtoolsState } from '../devtools/state'
 
 /**
  * Lazily loads and sets up the DevTools bridge in dev mode only.
@@ -13,6 +14,8 @@ export function setupDevtoolsBridgeIfDev(
   convexToken: Ref<string | null>,
   convexUser: Ref<unknown>,
   convexAuthWaterfall: Ref<AuthWaterfall | null>,
+  permissionState: Ref<PermissionDevtoolsState>,
+  authBootstrapState: Ref<AuthBootstrapDevtoolsState>,
   devtoolsInstanceId: string,
   nuxtApp: object,
 ): void {
@@ -25,6 +28,14 @@ export function setupDevtoolsBridgeIfDev(
   })
 
   void import('../devtools/bridge-setup').then(({ setupDevToolsBridge }) => {
-    void setupDevToolsBridge(client, convexToken, convexUser, convexAuthWaterfall, devtoolsInstanceId)
+    void setupDevToolsBridge(
+      client,
+      convexToken,
+      convexUser,
+      convexAuthWaterfall,
+      permissionState,
+      authBootstrapState,
+      devtoolsInstanceId,
+    )
   })
 }

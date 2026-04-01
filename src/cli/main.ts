@@ -1,7 +1,7 @@
 import { renderUsage, runCommand, defineCommand } from 'citty'
 
-import { addCommand } from './commands/add.js'
 import { doctorCommand } from './commands/doctor.js'
+import { initCommand } from './commands/init.js'
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
@@ -15,8 +15,8 @@ export function createCliCommand() {
       description: 'CLI tools for better-convex-nuxt',
     },
     subCommands: {
-      add: addCommand,
       doctor: doctorCommand,
+      init: initCommand,
     },
   })
 }

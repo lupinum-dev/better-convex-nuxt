@@ -5,7 +5,8 @@
  * fields, not a Convex user document id.
  */
 import type { AuthIdentity } from 'better-convex-nuxt/auth'
-import { getAuth, getTrustedCaller } from 'better-convex-nuxt/auth'
+import { getAuth } from 'better-convex-nuxt/auth'
+import { getServiceCaller } from 'better-convex-nuxt/service'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'
@@ -18,7 +19,7 @@ export type Actor =
 type TeamTodoCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: TeamTodoCtx, args?: unknown): Promise<Actor> {
-  const trusted = getTrustedCaller(args)
+  const trusted = getServiceCaller(args)
   if (trusted) {
     if (!trusted.tenantId) return null
     return {

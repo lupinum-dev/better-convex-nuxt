@@ -43,7 +43,7 @@
         <button @click="handleSignOut">Sign out</button>
       </header>
 
-      <p v-if="ensureUserRow.pending.value">Preparing your application user...</p>
+      <p v-if="false">Preparing your application user...</p>
 
       <section v-if="!tenantId">
         <h2>Create workspace</h2>
@@ -156,7 +156,6 @@ const contactForm = reactive({
   internalNotes: '',
 })
 
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const createContact = useConvexMutation(api.contacts.create)

@@ -80,7 +80,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
 
 // Factory function to create auth instance per request
-export const createAuth = (ctx: GenericCtx<DataModel>) => {
+export const buildAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth({
     baseURL: siteUrl,
     database: authComponent.adapter(ctx),
@@ -125,12 +125,12 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 }
 
 // Type-only bridge for frontend `inferAdditionalFields<AppAuth>()` usage.
-export type AppAuth = ReturnType<typeof createAuth>
+export type AppAuth = ReturnType<typeof buildAuth>
 
 export const rotateKeys = internalAction({
   args: {},
   handler: async (ctx) => {
-    const auth = createAuth(ctx)
+    const auth = buildAuth(ctx)
     const result = await auth.api.rotateKeys()
     return result
   },

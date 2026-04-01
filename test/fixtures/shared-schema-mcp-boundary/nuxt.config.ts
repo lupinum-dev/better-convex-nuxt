@@ -4,8 +4,8 @@ const moduleEntry = fileURLToPath(new URL('../../../src/module.ts', import.meta.
 const runtimeComposablesEntry = fileURLToPath(
   new URL('../../../src/runtime/composables/index.ts', import.meta.url),
 )
-const runtimeSchemaEntry = fileURLToPath(
-  new URL('../../../src/runtime/schema/index.ts', import.meta.url),
+const runtimeArgsEntry = fileURLToPath(
+  new URL('../../../src/runtime/args/index.ts', import.meta.url),
 )
 const runtimeMcpEntry = fileURLToPath(new URL('../../../src/runtime/mcp/index.ts', import.meta.url))
 const runtimeServerEntry = fileURLToPath(
@@ -17,7 +17,7 @@ export default defineNuxtConfig({
 
   alias: {
     'better-convex-nuxt/composables': runtimeComposablesEntry,
-    'better-convex-nuxt/schema': runtimeSchemaEntry,
+    'better-convex-nuxt/args': runtimeArgsEntry,
     'better-convex-nuxt/mcp': runtimeMcpEntry,
     'better-convex-nuxt/server': runtimeServerEntry,
   },

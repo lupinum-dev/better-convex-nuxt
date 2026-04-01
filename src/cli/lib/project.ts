@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const NUXT_CONFIG_CANDIDATES = [
@@ -26,6 +26,13 @@ export interface ProjectInspection {
   nuxtConfigPath: string | null
   nuxtConfigText: string
   envSources: EnvSource[]
+  sourceFiles: Array<{ path: string, text: string }>
+}
+
+export interface LegacyApiUsage {
+  id: string
+  replacement: string
+  path: string
 }
 
 function readTextIfExists(path: string): string | null {
@@ -73,6 +80,63 @@ function findFirstExisting(cwd: string, candidates: readonly string[]): string |
   return null
 }
 
+function collectProjectSourceFiles(cwd: string): Array<{ path: string, text: string }> {
+  const directories = [
+    'app',
+    'components',
+    'composables',
+    'convex',
+    'layouts',
+    'pages',
+    'plugins',
+    'server',
+    'shared',
+    'test',
+    'tests',
+    'utils',
+  ]
+  const extensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.vue', '.md'])
+  const files: Array<{ path: string, text: string }> = []
+
+  const walk = (directory: string) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name === '.nuxt' || entry.name === '.output') {
+        continue
+      }
+
+      const fullPath = resolve(directory, entry.name)
+      if (entry.isDirectory()) {
+        walk(fullPath)
+        continue
+      }
+
+      if (!entry.isFile()) {
+        continue
+      }
+
+      const extension = fullPath.slice(fullPath.lastIndexOf('.'))
+      if (!extensions.has(extension)) {
+        continue
+      }
+
+      files.push({
+        path: fullPath,
+        text: readFileSync(fullPath, 'utf8'),
+      })
+    }
+  }
+
+  for (const directory of directories) {
+    const fullPath = resolve(cwd, directory)
+    if (!existsSync(fullPath) || !statSync(fullPath).isDirectory()) {
+      continue
+    }
+    walk(fullPath)
+  }
+
+  return files
+}
+
 export function inspectProject(cwd: string): ProjectInspection {
   const resolvedCwd = resolve(cwd)
   const packageJsonPath = resolve(resolvedCwd, 'package.json')
@@ -93,6 +157,7 @@ export function inspectProject(cwd: string): ProjectInspection {
     nuxtConfigPath,
     nuxtConfigText,
     envSources,
+    sourceFiles: collectProjectSourceFiles(resolvedCwd),
   }
 }
 
@@ -142,4 +207,50 @@ export function findConvexUrlSource(project: ProjectInspection): string | null {
   }
 
   return null
+}
+
+const LEGACY_API_PATTERNS = [
+  {
+    id: 'createAuth()',
+    replacement: 'Remove the local permissions factory and configure convex.permissions.query instead.',
+    regex: /\bcreateAuth\s*\(/,
+  },
+  {
+    id: 'useEnsureConvexUser',
+    replacement: 'Configure convex.auth.ensureUserMutation and let the module bootstrap the user row.',
+    regex: /\buseEnsureConvexUser\b/,
+  },
+  {
+    id: 'better-convex-nuxt/schema',
+    replacement: 'Import shared argument helpers from better-convex-nuxt/args.',
+    regex: /better-convex-nuxt\/schema/,
+  },
+  {
+    id: 'withTrustedCaller',
+    replacement: 'Rename service transport helpers to withServiceAuth and getServiceCaller.',
+    regex: /\bwithTrustedCaller\b/,
+  },
+  {
+    id: 'getTrustedCaller',
+    replacement: 'Rename service transport helpers to withServiceAuth and getServiceCaller.',
+    regex: /\bgetTrustedCaller\b/,
+  },
+] as const
+
+export function findLegacyApiUsages(project: ProjectInspection): LegacyApiUsage[] {
+  const matches: LegacyApiUsage[] = []
+
+  for (const file of project.sourceFiles) {
+    for (const pattern of LEGACY_API_PATTERNS) {
+      if (pattern.regex.test(file.text)) {
+        matches.push({
+          id: pattern.id,
+          replacement: pattern.replacement,
+          path: file.path,
+        })
+      }
+    }
+  }
+
+  return matches
 }

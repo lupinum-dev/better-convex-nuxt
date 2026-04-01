@@ -1,7 +1,8 @@
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
-import { can, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
-import { defineArgs } from 'better-convex-nuxt/schema'
+import { can, authorize } from 'better-convex-nuxt/auth'
+import { withServiceAuth } from 'better-convex-nuxt/service'
+import { defineArgs } from 'better-convex-nuxt/args'
 
 import { mutation, query } from './_generated/server'
 import type { Id } from './_generated/dataModel'
@@ -88,7 +89,7 @@ function denyTenantMismatch(
 }
 
 export const list = query({
-  args: withTrustedCaller(listPostsArgs.args),
+  args: withServiceAuth(listPostsArgs.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor?.tenantId) return []
@@ -106,7 +107,7 @@ export const list = query({
 })
 
 export const listPaginated = query({
-  args: withTrustedCaller(listPostsPaginatedArgs.args),
+  args: withServiceAuth(listPostsPaginatedArgs.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor?.tenantId) {
@@ -129,7 +130,7 @@ export const listPaginated = query({
 })
 
 export const get = query({
-  args: withTrustedCaller(getPostArgs.args),
+  args: withServiceAuth(getPostArgs.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor) return null
@@ -145,7 +146,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: withTrustedCaller(createPost.args),
+  args: withServiceAuth(createPost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor) {
@@ -169,7 +170,7 @@ export const create = mutation({
 })
 
 export const update = mutation({
-  args: withTrustedCaller(updatePost.args),
+  args: withServiceAuth(updatePost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const post = await ctx.db.get(args.id)
@@ -193,7 +194,7 @@ export const update = mutation({
 })
 
 export const remove = mutation({
-  args: withTrustedCaller(deletePost.args),
+  args: withServiceAuth(deletePost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const post = await ctx.db.get(args.id)
@@ -212,7 +213,7 @@ export const remove = mutation({
 })
 
 export const publish = mutation({
-  args: withTrustedCaller({ id: v.id('posts') }),
+  args: withServiceAuth({ id: v.id('posts') }),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const post = await ctx.db.get(args.id)

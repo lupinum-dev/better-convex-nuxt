@@ -17,6 +17,8 @@ import type {
   JWTClaims,
   EnhancedAuthState,
   AuthState,
+  PermissionContextState,
+  AuthBootstrapState,
 } from './types'
 import type { AuthWaterfall } from '../utils/auth-debug'
 
@@ -34,6 +36,8 @@ export async function setupDevToolsBridge(
   convexToken: Ref<string | null>,
   convexUser: Ref<unknown>,
   convexAuthWaterfall: Ref<AuthWaterfall | null>,
+  permissionState: Ref<PermissionContextState>,
+  authBootstrapState: Ref<AuthBootstrapState>,
   providedInstanceId?: string,
 ): Promise<void> {
   // Dynamically import DevTools modules to avoid bundling in production
@@ -137,6 +141,10 @@ export async function setupDevToolsBridge(
         return null
       }
     },
+
+    getPermissionContextState: (): PermissionContextState => cloneDevtoolsPayload(toRaw(permissionState.value)),
+
+    getAuthBootstrapState: (): AuthBootstrapState => cloneDevtoolsPayload(toRaw(authBootstrapState.value)),
   }
 
   // Expose on window for direct access (same-origin)

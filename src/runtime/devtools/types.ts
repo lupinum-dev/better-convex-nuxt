@@ -88,6 +88,22 @@ export interface EnhancedAuthState extends AuthState {
   expiresInSeconds?: number
 }
 
+export interface PermissionContextState {
+  queryName: string | null
+  pending: boolean
+  ready: boolean
+  ctx: unknown | null
+  error: string | null
+}
+
+export interface AuthBootstrapState {
+  mutationName: string | null
+  pending: boolean
+  ensured: boolean
+  lastUserId: string | null
+  error: string | null
+}
+
 // ============================================================================
 // Connection State Types
 // ============================================================================
@@ -160,6 +176,10 @@ export interface ConvexDevToolsBridge {
   getAuthWaterfall: () => AuthWaterfall | null
   /** Get auth proxy stats (dev mode only) */
   getAuthProxyStats: () => Promise<AuthProxyStats | null>
+  /** Get configured permission context debug state */
+  getPermissionContextState: () => PermissionContextState
+  /** Get configured auth bootstrap debug state */
+  getAuthBootstrapState: () => AuthBootstrapState
   /** Version of the bridge API */
   version: string
 }

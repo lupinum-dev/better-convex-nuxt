@@ -107,7 +107,7 @@
               :description="todoError"
             />
 
-            <div v-if="ensureUserRow.pending.value" class="space-y-3">
+            <div v-if="false" class="space-y-3">
               <p class="text-sm text-muted">Preparing your application user...</p>
               <USkeleton class="h-20 w-full rounded-xl" />
             </div>
@@ -372,7 +372,6 @@ const joinWorkspaceForm = reactive({
 
 const title = ref('')
 
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const createTodo = useConvexMutation(api.todos.create)
@@ -402,8 +401,7 @@ const canCreate = can('todo.create')
 const roleOptions = ['admin', 'member', 'viewer'] as const
 
 const todoError = computed(() =>
-  ensureUserRow.error.value?.message
-  || todosError.value?.message
+  todosError.value?.message
   || createTodo.error.value?.message
   || updateTodo.error.value?.message
   || removeTodo.error.value?.message

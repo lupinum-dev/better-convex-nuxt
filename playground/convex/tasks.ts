@@ -1,4 +1,5 @@
-import { authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
+import { withServiceAuth } from 'better-convex-nuxt/service'
 import { mutation, query } from './_generated/server'
 import { v } from 'convex/values'
 
@@ -22,7 +23,7 @@ export const publicStats = query({
 })
 
 export const list = query({
-  args: withTrustedCaller(listTasks.args),
+  args: withServiceAuth(listTasks.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     if (!actor) return []
@@ -36,7 +37,7 @@ export const list = query({
 })
 
 export const add = mutation({
-  args: withTrustedCaller(addTask.args),
+  args: withServiceAuth(addTask.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create task', isAuthenticated)

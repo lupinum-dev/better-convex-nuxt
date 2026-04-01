@@ -1,4 +1,5 @@
-import { defineVisibility, deny } from 'better-convex-nuxt/auth'
+import { deny } from 'better-convex-nuxt/auth'
+import { defineVisibility } from 'better-convex-nuxt/visibility'
 
 import type { DatabaseReader } from '../_generated/server'
 import type { Doc } from '../_generated/dataModel'

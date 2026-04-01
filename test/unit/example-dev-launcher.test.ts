@@ -123,7 +123,7 @@ describe('example dev launcher', () => {
       BETTER_AUTH_SECRET: 'replace-me',
       CONVEX_SERVICE_KEY: 'replace-me-with-a-long-random-shared-secret',
       SITE_URL: 'http://127.0.0.1:3000',
-    })
+    }) as Record<string, string>
 
     expect(resolved.SITE_URL).toBe('http://127.0.0.1:3000')
     expect(resolved.BETTER_AUTH_SECRET).not.toMatch(/replace.?me/i)
@@ -142,7 +142,7 @@ describe('example dev launcher', () => {
         BETTER_AUTH_SECRET: 'stable-secret',
         SITE_URL: 'http://127.0.0.1:3000',
       },
-    )
+    ) as Record<string, string>
 
     expect(resolved.BETTER_AUTH_SECRET).toBe('stable-secret')
     expect(resolved.SITE_URL).toBe('http://localhost:4129')
@@ -190,7 +190,7 @@ describe('example dev launcher', () => {
     const cwd = '/repo/examples/01-public-todo'
     const config = readConvexLocalConfig(cwd, {
       existsSyncFn: () => true,
-      readFileSyncFn: () => '{"ports":{"cloud":3210,"site":3211},"deploymentName":"anonymous-agent"}',
+      readFileSyncFn: ((() => '{"ports":{"cloud":3210,"site":3211},"deploymentName":"anonymous-agent"}') as unknown) as typeof import('node:fs').readFileSync,
     })
 
     expect(config).toEqual({
@@ -207,7 +207,7 @@ describe('example dev launcher', () => {
       }),
       isPortFreeFn: async candidate => candidate === 3216 || candidate === 3217,
       findAvailablePortPairFn: async () => 3220,
-    })
+    } as Parameters<typeof selectExamplePortPair>[0])
 
     expect(port).toBe(3216)
   })
@@ -389,7 +389,7 @@ describe('example dev launcher', () => {
       exitFn: processExit,
       disableAiFiles: false,
       prepareModuleForDev: false,
-    })
+    } as Parameters<typeof runExampleDev>[0])
 
     await vi.waitFor(() => {
       expect(clearPortsFn).toHaveBeenCalledWith([4121, undefined, undefined], expect.any(Object))
@@ -435,7 +435,7 @@ describe('example dev launcher', () => {
       exitFn: processExit,
       disableAiFiles: false,
       prepareModuleForDev: false,
-    })
+    } as Parameters<typeof runExampleDev>[0])
 
     await vi.waitFor(() =>
       expect(rmSyncFn).toHaveBeenCalledWith(
@@ -491,7 +491,7 @@ describe('example dev launcher', () => {
       exitFn: processExit,
       disableAiFiles: false,
       prepareModuleForDev: false,
-    })
+    } as Parameters<typeof runExampleDev>[0])
 
     await vi.waitFor(() => {
       expect(convex.listenerCount('exit')).toBeGreaterThan(0)

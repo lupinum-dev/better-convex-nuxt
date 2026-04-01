@@ -4,7 +4,8 @@ import type {
 } from 'convex/server'
 
 import type { AuthIdentity } from 'better-convex-nuxt/auth'
-import { getAuth, getTrustedCaller } from 'better-convex-nuxt/auth'
+import { getAuth } from 'better-convex-nuxt/auth'
+import { getServiceCaller } from 'better-convex-nuxt/service'
 
 import type { DataModel } from '../_generated/dataModel'
 
@@ -19,7 +20,7 @@ type PlaygroundCtx =
   | GenericMutationCtx<DataModel>
 
 export async function getActor(ctx: PlaygroundCtx, args?: unknown): Promise<Actor> {
-  const trusted = getTrustedCaller(args)
+  const trusted = getServiceCaller(args)
   if (trusted) {
     if (
       trusted.role === 'owner'

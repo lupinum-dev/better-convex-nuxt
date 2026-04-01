@@ -3,19 +3,20 @@ import { describe, expect, it } from 'vitest'
 import { ConvexError } from 'convex/values'
 
 import {
-  all,
-  any,
-  applyVisibility,
   authorize,
   can,
-  defineVisibility,
   deny,
-  getVisibilityQuery,
-  not,
+  and,
+  or,
   requireAuth,
   requireRecord,
-  verifyKey,
 } from '../../src/runtime/auth'
+import { verifyServiceKey } from '../../src/runtime/service'
+import {
+  applyVisibility,
+  defineVisibility,
+  getVisibilityQuery,
+} from '../../src/runtime/visibility'
 
 describe('auth primitives', () => {
   it('evaluates boolean composition helpers', () => {
@@ -23,9 +24,9 @@ describe('auth primitives', () => {
     const hasRole = (...roles: string[]) => (value: typeof actor | null) => !!value && roles.includes(value.role)
     const owns = (resource: { ownerId: string }) => (value: typeof actor | null) => !!value && value.userId === resource.ownerId
 
-    expect(can(actor, all(hasRole('member'), owns({ ownerId: 'alice' })))).toBe(true)
-    expect(can(actor, any(hasRole('admin'), owns({ ownerId: 'alice' })))).toBe(true)
-    expect(can(actor, not(hasRole('admin')))).toBe(true)
+    expect(can(actor, and(hasRole('member'), owns({ ownerId: 'alice' })))).toBe(true)
+    expect(can(actor, or(hasRole('admin'), owns({ ownerId: 'alice' })))).toBe(true)
+    expect(can(actor, or(hasRole('admin'), false))).toBe(false)
   })
 
   it('throws forbidden errors from authorize() and narrows the type', () => {
@@ -106,9 +107,9 @@ describe('auth primitives', () => {
   })
 
   it('verifies keys in constant-time-compatible shape', () => {
-    expect(verifyKey('abc', 'abc')).toBe(true)
-    expect(verifyKey('abc', 'def')).toBe(false)
-    expect(verifyKey('', 'def')).toBe(false)
+    expect(verifyServiceKey('abc', 'abc')).toBe(true)
+    expect(verifyServiceKey('abc', 'def')).toBe(false)
+    expect(verifyServiceKey('', 'def')).toBe(false)
   })
 
   it('requireRecord throws ConvexError with NOT_FOUND code', () => {

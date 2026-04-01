@@ -2,7 +2,8 @@
  * Why this file exists:
  * Service actors must fail closed. Example code should never accept a known default key.
  */
-import { deny, verifyKey } from 'better-convex-nuxt/auth'
+import { deny } from 'better-convex-nuxt/auth'
+import { verifyServiceKey } from 'better-convex-nuxt/service'
 
 import type { Id } from '../_generated/dataModel'
 import type { Actor } from './actor'
@@ -14,7 +15,7 @@ export function resolveServiceActor(
 ): Actor {
   const expected = process.env.CONVEX_SERVICE_KEY?.trim()
   if (!expected) throw new Error('CONVEX_SERVICE_KEY must be set for service-auth example flows.')
-  if (!verifyKey(key, expected)) throw deny('Invalid service key.')
+  if (!verifyServiceKey(key, expected)) throw deny('Invalid service key.')
 
   return {
     kind: 'service',

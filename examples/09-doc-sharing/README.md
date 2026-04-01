@@ -26,7 +26,7 @@ It shows:
 ## Module Primitives Used
 
 - `guard`, `can`, `deny`
-- `createAuth` from `better-convex-nuxt/composables`
+- configured `usePermissions()` / `useAuthGuard()`
 - `createTestContext`
 
 ## Files To Read First

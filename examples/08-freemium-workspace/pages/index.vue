@@ -41,7 +41,7 @@ This page shows the split between cheap plan context in the UI and real limit ch
         <button @click="handleSignOut">Sign out</button>
       </header>
 
-      <p v-if="ensureUserRow.pending.value">Preparing your application user...</p>
+      <p v-if="false">Preparing your application user...</p>
 
       <section v-if="!tenantId">
         <form @submit.prevent="handleCreateWorkspace">
@@ -113,7 +113,6 @@ const joinWorkspaceForm = reactive({
 const projectForm = reactive({ name: '' })
 const exportResult = ref('')
 
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const upgradePlan = useConvexMutation(api.workspaces.upgradePlan)

@@ -9,7 +9,7 @@ describe('module auto-import surface', () => {
 
     expect(moduleSource).toMatch(/name:\s*'useConvexUpload'/)
     expect(moduleSource).toMatch(/name:\s*'useConvexAuthActions'/)
-    expect(moduleSource).toMatch(/name:\s*'useEnsureConvexUser'/)
+    expect(moduleSource).not.toMatch(/name:\s*'useEnsureConvexUser'/)
     expect(moduleSource).not.toMatch(/name:\s*'useConvexAuthInternal'/)
     expect(moduleSource).not.toMatch(/name:\s*'useAuthRedirect'/)
     // Removed deprecated composables

@@ -7,7 +7,7 @@ It shows:
 - row-level visibility with `defineVisibility()` and `applyVisibility()`
 - field redaction applied after visibility filtering
 - app-owned manager/team rules in `convex/auth/*`
-- backend-owned permission context exposed to Nuxt through `createAuth` from `better-convex-nuxt/composables`
+- backend-owned permission context exposed to Nuxt through configured `usePermissions()`
 
 ## Auth Shape
 
@@ -29,7 +29,7 @@ It shows:
 
 - `guard`, `can`
 - `defineVisibility`, `applyVisibility`
-- `createAuth` from `better-convex-nuxt/composables`
+- configured `usePermissions()` / `useAuthGuard()`
 - `createTestContext`
 
 ## Files To Read First

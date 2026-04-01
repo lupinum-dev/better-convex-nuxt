@@ -1,19 +1,15 @@
 import { computed, type ComputedRef } from 'vue'
-
-import { api } from '@@/convex/_generated/api'
-
-import { createAuth } from '#imports'
+import {
+  usePermissions as useBuiltInPermissions,
+  useAuthGuard as useBuiltInAuthGuard,
+} from '#imports'
 
 type ResourceWithCan = {
   _can?: Record<string, boolean>
 }
 
-const { usePermissions: useBasePermissions, useAuthGuard: useBaseAuthGuard } = createAuth({
-  query: api.auth.getPermissionContext,
-})
-
 export function useDemoPermissions() {
-  const base = useBasePermissions()
+  const base = useBuiltInPermissions()
 
   function can(permission: string, resource?: ResourceWithCan): ComputedRef<boolean> {
     if (resource) {
@@ -29,7 +25,7 @@ export function useDemoPermissions() {
 }
 
 export function useAuthGuard(permission: string, redirectTo = '/demo') {
-  return useBaseAuthGuard({
+  return useBuiltInAuthGuard({
     can: permission,
     redirectTo,
     loginPath: '/',

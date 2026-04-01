@@ -1,4 +1,5 @@
-import { can, deny, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
+import { can, deny, authorize } from 'better-convex-nuxt/auth'
+import { withServiceAuth } from 'better-convex-nuxt/service'
 import { v } from 'convex/values'
 
 import {
@@ -22,7 +23,7 @@ import { withCan } from './auth/resource'
 import { loadResource } from './auth/scope'
 
 export const listByProject = query({
-  args: withTrustedCaller({ projectId: v.id('projects') }),
+  args: withServiceAuth({ projectId: v.id('projects') }),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read tasks', canReadTask)
@@ -45,7 +46,7 @@ export const listByProject = query({
 })
 
 export const get = query({
-  args: withTrustedCaller({ id: v.id('tasks') }),
+  args: withServiceAuth({ id: v.id('tasks') }),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read task', canReadTask)
@@ -61,7 +62,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: withTrustedCaller(createTask.args),
+  args: withServiceAuth(createTask.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create task', canCreateTask)
@@ -99,7 +100,7 @@ export const create = mutation({
 })
 
 export const moveToColumn = mutation({
-  args: withTrustedCaller(moveTask.args),
+  args: withServiceAuth(moveTask.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
@@ -121,7 +122,7 @@ export const moveToColumn = mutation({
 })
 
 export const assign = mutation({
-  args: withTrustedCaller(assignTask.args),
+  args: withServiceAuth(assignTask.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Assign task', canAssignTask)
@@ -154,7 +155,7 @@ export const assign = mutation({
 })
 
 export const bulkUpdateStatus = mutation({
-  args: withTrustedCaller({
+  args: withServiceAuth({
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
   }),
@@ -196,7 +197,7 @@ export const bulkUpdateStatus = mutation({
 })
 
 export const listForExport = query({
-  args: withTrustedCaller({ projectId: v.id('projects') }),
+  args: withServiceAuth({ projectId: v.id('projects') }),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read tasks', canReadTask)

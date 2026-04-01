@@ -3,10 +3,11 @@ import { describe, expect, it } from 'vitest'
 
 import { useRouter } from '#imports'
 
+import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
 import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { useConvexAuthActions } from '../../src/runtime/composables/useConvexAuthActions'
-import { useEnsureConvexUser } from '../../src/runtime/composables/useEnsureConvexUser'
+import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -82,6 +83,9 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       error: null,
     }))
 
+    if (!authResponse) {
+      throw new Error('Expected auth response')
+    }
     expect(authResponse.data.user.name).toBe('Test')
     expect(authResponse.data.session.token).toBe('abc')
   })
@@ -251,17 +255,18 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
 
       const auth = useConvexAuth()
       const actions = useConvexAuthActions()
-      const ensure = useEnsureConvexUser(ENSURE_USER_MUTATION)
+      setupConfiguredAuthBootstrap(ENSURE_USER_MUTATION, 'auth.createUserIfNeeded')
+      const bootstrap = useAuthBootstrapDevtoolsState()
       const todoArgs = computed(() =>
-        auth.isAuthenticated.value && ensure.ensured.value ? {} : undefined,
+        auth.isAuthenticated.value && bootstrap.value.ensured ? {} : undefined,
       )
       const todos = createConvexQueryState(TODOS_QUERY, todoArgs, {}, true).resultData
 
-      return { auth, actions, ensure, todos }
+      return { auth, actions, bootstrap, todos }
     }, { convex })
 
     expect(result.auth.isAuthenticated.value).toBe(false)
-    expect(result.ensure.ensured.value).toBe(false)
+    expect(result.bootstrap.value.ensured).toBe(false)
     expect(convex.activeListenerCount(TODOS_QUERY, {})).toBe(0)
 
     await expect(
@@ -270,7 +275,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
 
     await waitFor(() => result.auth.isAuthenticated.value === true)
     await waitFor(() => convex.calls.mutation.length === 1)
-    await waitFor(() => result.ensure.ensured.value === true)
+    await waitFor(() => result.bootstrap.value.ensured === true)
     await flush()
     await waitFor(() =>
       convex.calls.onUpdate.some((call) => call.query === TODOS_QUERY),
@@ -287,7 +292,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
 
     await waitFor(() => result.auth.isAnonymous.value === true)
     await waitFor(() => convex.activeListenerCount() === 0)
-    expect(result.ensure.ensured.value).toBe(false)
+    expect(result.bootstrap.value.ensured).toBe(false)
     expect(result.todos.data.value).toBeNull()
   })
 

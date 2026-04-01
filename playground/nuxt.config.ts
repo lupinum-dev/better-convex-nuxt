@@ -6,7 +6,9 @@ const runtimeComposablesEntry = fileURLToPath(
   new URL('../src/runtime/composables/index.ts', import.meta.url),
 )
 const runtimeAuthEntry = fileURLToPath(new URL('../src/runtime/auth/index.ts', import.meta.url))
-const runtimeSchemaEntry = fileURLToPath(new URL('../src/runtime/schema/index.ts', import.meta.url))
+const runtimeArgsEntry = fileURLToPath(new URL('../src/runtime/args/index.ts', import.meta.url))
+const runtimeServiceEntry = fileURLToPath(new URL('../src/runtime/service/index.ts', import.meta.url))
+const runtimeVisibilityEntry = fileURLToPath(new URL('../src/runtime/visibility/index.ts', import.meta.url))
 const runtimeMcpEntry = fileURLToPath(new URL('../src/runtime/mcp/index.ts', import.meta.url))
 const runtimeServerEntry = fileURLToPath(new URL('../src/runtime/server/index.ts', import.meta.url))
 const playgroundRoot = fileURLToPath(new URL('./', import.meta.url))
@@ -42,9 +44,11 @@ export default defineNuxtConfig({
     // Mirror the published subpath imports so examples stay copy-pastable for consumers.
     'better-convex-nuxt/composables': runtimeComposablesEntry,
     'better-convex-nuxt/auth': runtimeAuthEntry,
-    'better-convex-nuxt/schema': runtimeSchemaEntry,
+    'better-convex-nuxt/args': runtimeArgsEntry,
     'better-convex-nuxt/mcp': runtimeMcpEntry,
     'better-convex-nuxt/server': runtimeServerEntry,
+    'better-convex-nuxt/service': runtimeServiceEntry,
+    'better-convex-nuxt/visibility': runtimeVisibilityEntry,
   },
 
   pages: true,
@@ -70,6 +74,13 @@ export default defineNuxtConfig({
     siteUrl: useLocalConvex
       ? localConvexSiteUrl
       : process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL,
+    auth: {
+      enabled: true,
+      ensureUserMutation: 'auth.createUserIfNeeded',
+    },
+    permissions: {
+      query: 'auth.getPermissionContext',
+    },
   },
 
   vite: {

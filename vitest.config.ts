@@ -34,6 +34,9 @@ export default defineConfig({
         resolve: {
           alias: {
             'better-convex-nuxt/auth': fileURLToPath(new URL('./src/runtime/auth/index.ts', import.meta.url)),
+            'better-convex-nuxt/service': fileURLToPath(new URL('./src/runtime/service/index.ts', import.meta.url)),
+            'better-convex-nuxt/visibility': fileURLToPath(new URL('./src/runtime/visibility/index.ts', import.meta.url)),
+            'better-convex-nuxt/args': fileURLToPath(new URL('./src/runtime/args/index.ts', import.meta.url)),
           },
         },
         test: {
@@ -52,8 +55,10 @@ export default defineConfig({
           alias: {
             'better-convex-nuxt/composables': fileURLToPath(new URL('./src/runtime/composables/index.ts', import.meta.url)),
             'better-convex-nuxt/auth': fileURLToPath(new URL('./src/runtime/auth/index.ts', import.meta.url)),
+            'better-convex-nuxt/service': fileURLToPath(new URL('./src/runtime/service/index.ts', import.meta.url)),
+            'better-convex-nuxt/visibility': fileURLToPath(new URL('./src/runtime/visibility/index.ts', import.meta.url)),
             'better-convex-nuxt/mcp': fileURLToPath(new URL('./src/runtime/mcp/index.ts', import.meta.url)),
-            'better-convex-nuxt/schema': fileURLToPath(new URL('./src/runtime/schema/index.ts', import.meta.url)),
+            'better-convex-nuxt/args': fileURLToPath(new URL('./src/runtime/args/index.ts', import.meta.url)),
             'better-convex-nuxt/server': fileURLToPath(new URL('./src/runtime/server/index.ts', import.meta.url)),
             'better-convex-nuxt/testing': fileURLToPath(new URL('./src/runtime/testing/index.ts', import.meta.url)),
           },

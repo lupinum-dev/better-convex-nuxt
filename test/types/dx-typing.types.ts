@@ -1,18 +1,18 @@
 import type { FunctionReference } from 'convex/server'
 
-import type { AuthIdentity, Visibility } from '../../src/runtime/auth'
+import type { AuthIdentity } from '../../src/runtime/auth'
 import {
-  and,
-  applyVisibility,
   authorize,
   can,
   deny,
   requireAuth,
-  verifyKey,
-  defineVisibility,
+  and,
 } from '../../src/runtime/auth'
-import type { PermissionKey } from '../../src/runtime/composables/usePermissions'
-import { createAuth } from '../../src/runtime/composables/usePermissions'
+import type { Visibility } from '../../src/runtime/visibility'
+import { applyVisibility, defineVisibility } from '../../src/runtime/visibility'
+import { verifyServiceKey } from '../../src/runtime/service'
+import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
+import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { createTestContext } from '../../src/runtime/testing'
 
 type Assert<T extends true> = T
@@ -37,7 +37,7 @@ type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
 
 deny('Blocked')
 authorize(null, 'Admin page', false)
-verifyKey('a', 'b')
+verifyServiceKey('a', 'b')
 
 const visibility = defineVisibility(async () => [{ _id: '1' }])
 void applyVisibility(visibility, { userId: 'u1' }, {} as never)
@@ -55,9 +55,10 @@ type PermissionContext = {
 const permissionQuery =
   {} as FunctionReference<'query', 'public', Record<string, never>, PermissionContext | null>
 
-const _auth = createAuth({
-  query: permissionQuery,
-})
+const _auth = createConfiguredPermissionsComposables(
+  permissionQuery,
+  'workspaces.getPermissionContext',
+)
 
 type UsePermissionsApi = ReturnType<typeof _auth.usePermissions>
 type GuardOptions = Parameters<typeof _auth.useAuthGuard>[0]
@@ -88,9 +89,10 @@ type GenericPermissionContext = {
 const genericPermissionQuery =
   {} as FunctionReference<'query', 'public', Record<string, never>, GenericPermissionContext | null>
 
-const _genericAuth = createAuth({
-  query: genericPermissionQuery,
-})
+const _genericAuth = createConfiguredPermissionsComposables(
+  genericPermissionQuery,
+  'auth.getPermissionContext',
+)
 
 type GenericUsePermissionsApi = ReturnType<typeof _genericAuth.usePermissions>
 type GenericGuardOptions = Parameters<typeof _genericAuth.useAuthGuard>[0]

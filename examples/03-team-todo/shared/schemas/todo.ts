@@ -5,7 +5,7 @@
  */
 import { v } from 'convex/values'
 
-import { defineArgs } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/args'
 
 export const createTodo = defineArgs({
   description: 'Create a team todo',

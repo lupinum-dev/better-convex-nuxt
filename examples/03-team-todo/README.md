@@ -8,7 +8,7 @@ It shows:
 - actor resolution
 - tenant-scoped tables
 - app-owned checks in `convex/auth/*`
-- backend-owned permission context exposed to Nuxt through `createAuth` from `better-convex-nuxt/composables`
+- backend-owned permission context exposed to Nuxt through configured `usePermissions()`
 - MCP tools built with `#convex/mcp`
 - first-class tests with `better-convex-nuxt/testing`
 

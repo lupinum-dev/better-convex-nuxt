@@ -1,7 +1,7 @@
 import { mutation, query } from './_generated/server'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
-import { defineArgs } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/args'
 
 import {
   createNote,

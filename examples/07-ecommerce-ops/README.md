@@ -7,13 +7,13 @@ It shows:
 - human actors and service actors
 - idempotent webhook handling
 - refund-state guards that apply to both paths
-- backend-owned permission context exposed to Nuxt through `createAuth` from `better-convex-nuxt/composables`
+- backend-owned permission context exposed to Nuxt through configured `usePermissions()`
 
 ## Auth Shape
 
 - workspace membership
 - roles: `owner`, `admin`, `support`, `viewer`
-- service actor authenticated with `verifyKey()` and an explicit `CONVEX_SERVICE_KEY`
+- service actor authenticated with `verifyServiceKey()` and an explicit `CONVEX_SERVICE_KEY`
 
 ## Easy Problem
 
@@ -25,8 +25,8 @@ It shows:
 
 ## Module Primitives Used
 
-- `guard`, `can`, `deny`, `verifyKey`
-- `createAuth` from `better-convex-nuxt/composables`
+- `guard`, `can`, `deny`, `verifyServiceKey`
+- configured `usePermissions()` / `useAuthGuard()`
 - `createTestContext`
 
 ## Files To Read First

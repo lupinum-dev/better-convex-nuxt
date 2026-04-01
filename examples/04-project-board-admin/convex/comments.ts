@@ -1,4 +1,5 @@
-import { deny, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
+import { deny, authorize } from 'better-convex-nuxt/auth'
+import { withServiceAuth } from 'better-convex-nuxt/service'
 import { v } from 'convex/values'
 
 import { createComment } from '../shared/schemas/comment'
@@ -8,7 +9,7 @@ import { canComment } from './auth/checks'
 import { loadResource } from './auth/scope'
 
 export const listByTask = query({
-  args: withTrustedCaller({ taskId: v.id('tasks') }),
+  args: withServiceAuth({ taskId: v.id('tasks') }),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read comments', canComment)
@@ -24,7 +25,7 @@ export const listByTask = query({
 })
 
 export const create = mutation({
-  args: withTrustedCaller(createComment.args),
+  args: withServiceAuth(createComment.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create comment', canComment)

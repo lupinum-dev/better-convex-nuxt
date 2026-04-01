@@ -1,3 +1,5 @@
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 import {
   defineNuxtModule,
   addPlugin,
@@ -115,6 +117,19 @@ export interface AuthOptions extends ConvexAuthConfigInput {
    * Body size limits for the auth proxy.
    */
   proxy?: AuthProxyOptions
+  /**
+   * Optional app-owned mutation that ensures the app-level user row exists after sign-in.
+   * Format: `<modulePath>.<exportName>` like `auth.ensureUserIfNeeded`.
+   */
+  ensureUserMutation?: string
+}
+
+export interface PermissionsOptions {
+  /**
+   * App-owned query that returns the frontend permission context.
+   * Format: `<modulePath>.<exportName>` like `workspaces.getPermissionContext`.
+   */
+  query: string
 }
 
 /**
@@ -187,6 +202,8 @@ export interface ModuleOptions {
    * ```
    */
   auth?: AuthOptions | boolean
+  /** Config-driven permission context wiring for built-in usePermissions/useAuthGuard. */
+  permissions?: PermissionsOptions
   /**
    * Default behavior for query composables.
    *
@@ -210,6 +227,81 @@ export interface ModuleOptions {
    * High-verbosity trace channels for debugging the auth flow.
    */
   debug?: ConvexDebugOptions
+}
+
+function normalizeConfiguredFunctionPath(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const normalized = value.trim()
+  if (!normalized) return undefined
+  return normalized
+}
+
+function splitConfiguredFunctionPath(path: string): { modulePath: string; exportName: string } | null {
+  const lastDot = path.lastIndexOf('.')
+  if (lastDot <= 0 || lastDot === path.length - 1) return null
+  return {
+    modulePath: path.slice(0, lastDot),
+    exportName: path.slice(lastDot + 1),
+  }
+}
+
+function walkFiles(root: string): string[] {
+  if (!existsSync(root)) return []
+  const files: string[] = []
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (entry.name === '_generated') continue
+    const fullPath = join(root, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...walkFiles(fullPath))
+      continue
+    }
+    if (/\.(ts|tsx|mts|cts|js|mjs|cjs)$/.test(entry.name)) {
+      files.push(fullPath)
+    }
+  }
+  return files
+}
+
+function collectConvexFunctionPaths(projectRoot: string): string[] {
+  const convexDir = join(projectRoot, 'convex')
+  const files = walkFiles(convexDir)
+  const paths = new Set<string>()
+
+  for (const file of files) {
+    const source = readFileSync(file, 'utf8')
+    const relativeFile = relative(convexDir, file).replaceAll(sep, '/').replace(/\.[^.]+$/, '')
+
+    for (const match of source.matchAll(/export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(?:query|mutation|action|internalQuery|internalMutation|internalAction)\s*\(/g)) {
+      const exportName = match[1]
+      if (exportName) {
+        paths.add(`${relativeFile}.${exportName}`)
+      }
+    }
+  }
+
+  return [...paths].sort()
+}
+
+function createConfiguredFunctionError(
+  kind: 'permissions.query' | 'auth.ensureUserMutation',
+  configuredPath: string,
+  availablePaths: string[],
+): Error {
+  const suggestions = availablePaths
+    .filter(candidate =>
+      candidate.includes(configuredPath.split('.').slice(-1)[0] ?? '')
+      || candidate.includes(configuredPath.split('.')[0] ?? ''),
+    )
+    .slice(0, 5)
+
+  const suggestionText = suggestions.length > 0
+    ? ` Did you mean: ${suggestions.join(', ')}?`
+    : ` Available Convex functions: ${availablePaths.slice(0, 20).join(', ')}${availablePaths.length > 20 ? ', ...' : ''}`
+
+  return new Error(
+    `[better-convex-nuxt] Invalid convex.${kind}: "${configuredPath}".` +
+      ` No matching Convex function export was found in /convex.${suggestionText}`,
+  )
 }
 
 export default defineNuxtModule<ModuleOptions>({
@@ -245,7 +337,9 @@ export default defineNuxtModule<ModuleOptions>({
         maxRequestBodyBytes: 1_048_576,
         maxResponseBodyBytes: 1_048_576,
       },
+      ensureUserMutation: undefined,
     },
+    permissions: undefined,
     query: {
       server: true,
       subscribe: true,
@@ -288,6 +382,8 @@ export default defineNuxtModule<ModuleOptions>({
 
     const normalizedAuthConfig = normalizeConvexAuthConfig(authOptions)
     const isAuthEnabled = normalizedAuthConfig.enabled
+    const permissionQueryPath = normalizeConfiguredFunctionPath(options.permissions?.query)
+    const ensureUserMutationPath = normalizeConfiguredFunctionPath(authOptions?.ensureUserMutation)
 
     const authRoute = normalizeAuthRoute(authOptions?.route ?? '/api/auth')
 
@@ -324,6 +420,7 @@ export default defineNuxtModule<ModuleOptions>({
         auth: {
           ...normalizedAuthConfig,
           route: authRoute,
+          ensureUserMutation: ensureUserMutationPath,
           trustedOrigins: authOptions?.trustedOrigins ?? [],
           skipAuthRoutes: authOptions?.skipAuthRoutes ?? [],
           cache: {
@@ -334,6 +431,9 @@ export default defineNuxtModule<ModuleOptions>({
             maxRequestBodyBytes: authOptions?.proxy?.maxRequestBodyBytes ?? 1_048_576,
             maxResponseBodyBytes: authOptions?.proxy?.maxResponseBodyBytes ?? 1_048_576,
           },
+        },
+        permissions: {
+          query: permissionQueryPath ?? null,
         },
         query: {
           server: options.query?.server ?? true,
@@ -351,6 +451,19 @@ export default defineNuxtModule<ModuleOptions>({
       },
     )
     nuxt.options.runtimeConfig.public.convex = convexConfig
+
+    const availableConvexFunctions =
+      permissionQueryPath || ensureUserMutationPath
+        ? collectConvexFunctionPaths(nuxt.options.rootDir)
+        : []
+
+    if (permissionQueryPath && !availableConvexFunctions.includes(permissionQueryPath)) {
+      throw createConfiguredFunctionError('permissions.query', permissionQueryPath, availableConvexFunctions)
+    }
+
+    if (ensureUserMutationPath && !availableConvexFunctions.includes(ensureUserMutationPath)) {
+      throw createConfiguredFunctionError('auth.ensureUserMutation', ensureUserMutationPath, availableConvexFunctions)
+    }
 
     // 2. Register Server Plugin (runs first for SSR token exchange)
     addPlugin({
@@ -480,6 +593,68 @@ export * from '${mcpEntryPath}'
 
     nuxt.options.alias['#convex/mcp'] = mcpAliasTemplate.dst
 
+    if (permissionQueryPath) {
+      const parsed = splitConfiguredFunctionPath(permissionQueryPath)
+      if (!parsed) {
+        throw new Error(
+          `[better-convex-nuxt] Invalid convex.permissions.query: "${permissionQueryPath}". Expected "<modulePath>.<exportName>".`,
+        )
+      }
+
+      const permissionsTemplate = addTemplate({
+        filename: 'convex/permissions.ts',
+        write: true,
+        getContents: () => `
+import { api } from '~/convex/_generated/api'
+import { createConfiguredPermissionsComposables } from '${resolver.resolve('./runtime/composables/configured-permissions')}'
+
+const configuredQuery = (api as Record<string, any>)['${parsed.modulePath}']['${parsed.exportName}']
+
+export const configuredPermissionsQuery = configuredQuery
+
+export const { usePermissions, useAuthGuard } = createConfiguredPermissionsComposables(
+  configuredQuery,
+  '${permissionQueryPath}',
+)
+`,
+      })
+
+      addImports([
+        { name: 'usePermissions', from: permissionsTemplate.dst },
+        { name: 'useAuthGuard', from: permissionsTemplate.dst },
+      ])
+    }
+
+    if (ensureUserMutationPath) {
+      const parsed = splitConfiguredFunctionPath(ensureUserMutationPath)
+      if (!parsed) {
+        throw new Error(
+          `[better-convex-nuxt] Invalid convex.auth.ensureUserMutation: "${ensureUserMutationPath}". Expected "<modulePath>.<exportName>".`,
+        )
+      }
+
+      const authBootstrapTemplate = addTemplate({
+        filename: 'convex/auth-bootstrap.client.ts',
+        write: true,
+        getContents: () => `
+import { defineNuxtPlugin } from '#app'
+import { api } from '~/convex/_generated/api'
+import { setupConfiguredAuthBootstrap } from '${resolver.resolve('./runtime/client/auth-bootstrap')}'
+
+const configuredMutation = (api as Record<string, any>)['${parsed.modulePath}']['${parsed.exportName}']
+
+export default defineNuxtPlugin(() => {
+  setupConfiguredAuthBootstrap(configuredMutation, '${ensureUserMutationPath}')
+})
+`,
+      })
+
+      addPlugin({
+        src: authBootstrapTemplate.dst,
+        mode: 'client',
+      })
+    }
+
     // 6. Auto-import composables (non-auth, always available)
     addImports([
       { name: 'useConvex', from: resolver.resolve('./runtime/composables/useConvex') },
@@ -510,10 +685,6 @@ export * from '${mcpEntryPath}'
         name: 'useConvexStorageUrl',
         from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
       },
-      // Validation — Convex validator → Standard Schema
-      { name: 'useConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
-      { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
-      { name: 'defineArgs', from: resolver.resolve('./runtime/utils/define-convex-schema') },
       // Optimistic update standalone helpers
       { name: 'prependTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
       { name: 'appendTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
@@ -528,10 +699,6 @@ export * from '${mcpEntryPath}'
         {
           name: 'useConvexAuthActions',
           from: resolver.resolve('./runtime/composables/useConvexAuthActions'),
-        },
-        {
-          name: 'useEnsureConvexUser',
-          from: resolver.resolve('./runtime/composables/useEnsureConvexUser'),
         },
       ])
 
@@ -555,8 +722,6 @@ export * from '${mcpEntryPath}'
         name: 'validateConvexArgs',
         from: resolver.resolve('./runtime/server/utils/validate'),
       },
-      { name: 'toConvexSchema', from: resolver.resolve('./runtime/utils/convex-schema') },
-      { name: 'defineArgs', from: resolver.resolve('./runtime/utils/define-convex-schema') },
     ])
 
     // 9. Add types to tsconfig references

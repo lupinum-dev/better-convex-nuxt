@@ -175,7 +175,7 @@
                     :description="appError"
                   />
 
-                  <div v-if="ensureUserRow.pending.value" class="space-y-3">
+                  <div v-if="false" class="space-y-3">
                     <p class="text-sm text-slate-600">Preparing your application user…</p>
                     <USkeleton class="h-20 w-full rounded-2xl" />
                   </div>
@@ -415,7 +415,7 @@
                           <div class="mt-4 rounded-2xl border border-slate-200 bg-white/90 p-4">
                             <p class="text-sm font-semibold text-slate-900">Verify a key</p>
                             <div class="mt-3 flex gap-3">
-                              <UInput v-model="verifyKeyForm.token" class="flex-1" placeholder="Paste mcp_ token" />
+                              <UInput v-model="verifyServiceKeyForm.token" class="flex-1" placeholder="Paste mcp_ token" />
                               <UButton color="neutral" variant="soft" :loading="verifyingKey" @click="handleVerifyKey">
                                 Verify
                               </UButton>
@@ -566,7 +566,7 @@ const createKeyForm = reactive({
   role: 'member' as 'owner' | 'admin' | 'member' | 'viewer',
 })
 
-const verifyKeyForm = reactive({
+const verifyServiceKeyForm = reactive({
   token: '',
 })
 
@@ -576,7 +576,6 @@ const verifyVariant = ref<'success' | 'error'>('success')
 const verifyingKey = ref(false)
 const requestUrl = useRequestURL()
 
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const createRunbookMutation = useConvexMutation(api.runbooks.create)
@@ -630,8 +629,7 @@ const mcpRoleOptions = computed(() => {
 })
 
 const appError = computed(() =>
-  ensureUserRow.error.value?.message
-  || workspaceRunbooksError.value?.message
+  workspaceRunbooksError.value?.message
   || mcpKeysError.value?.message
   || createRunbookMutation.error.value?.message
   || updateRunbookMutation.error.value?.message
@@ -731,7 +729,7 @@ async function handleVerifyKey() {
   verifyingKey.value = true
 
   try {
-    const token = verifyKeyForm.token.trim()
+    const token = verifyServiceKeyForm.token.trim()
     if (!token.startsWith('mcp_')) {
       verifyVariant.value = 'error'
       verifyMessage.value = 'Keys in this example always start with mcp_.'

@@ -1,19 +1,15 @@
 import { computed, type ComputedRef } from 'vue'
-
-import { createAuth } from 'better-convex-nuxt/composables'
-import { api } from '~/convex/_generated/api'
+import {
+  usePermissions as useBuiltInPermissions,
+  useAuthGuard as useBuiltInAuthGuard,
+} from '#imports'
 
 type ResourceWithCan = {
   _can?: Record<string, boolean>
 }
 
-const { usePermissions: useBasePermissions, useAuthGuard: useBaseAuthGuard } = createAuth({
-  query: api.auth.getPermissionContext,
-})
-
 export function usePermissions() {
-  const base = useBasePermissions()
-  useEnsureUserRow(base.ctx, base.pending)
+  const base = useBuiltInPermissions()
 
   function can(permission: string, resource?: ResourceWithCan): ComputedRef<boolean> {
     if (resource) {
@@ -29,7 +25,7 @@ export function usePermissions() {
 }
 
 export function useAuthGuard(permission: string, redirectTo = '/') {
-  return useBaseAuthGuard({
+  return useBuiltInAuthGuard({
     can: permission,
     redirectTo,
     loginPath: '/auth/signin',

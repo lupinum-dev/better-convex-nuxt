@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { EnhancedAuthState, AuthWaterfall, ConvexUser } from '../../types'
+import type {
+  EnhancedAuthState,
+  AuthWaterfall,
+  ConvexUser,
+  PermissionContextState,
+  AuthBootstrapState,
+} from '../../types'
 import JsonViewer from './JsonViewer.vue'
 import AuthWaterfallComponent from './AuthWaterfall.vue'
 
 const props = defineProps<{
   authState: EnhancedAuthState | null
   waterfall?: AuthWaterfall | null
+  permissionState?: PermissionContextState | null
+  authBootstrapState?: AuthBootstrapState | null
 }>()
 
 const user = computed<Partial<ConvexUser>>(() => props.authState?.user || {})
@@ -71,6 +79,26 @@ const expirationDisplay = computed(() => {
     <div v-if="waterfall" class="auth-card">
       <div class="detail-title">SSR Auth Waterfall</div>
       <AuthWaterfallComponent :waterfall="waterfall" />
+    </div>
+
+    <div v-if="permissionState" class="auth-card">
+      <div class="detail-title">Permission Context</div>
+      <div class="token-info">
+        <div class="token-stat">
+          <div class="token-stat-value">{{ permissionState.pending ? 'Loading' : permissionState.ready ? 'Ready' : 'Idle' }}</div>
+          <div class="token-stat-label">Status</div>
+        </div>
+        <div class="token-stat">
+          <div class="token-stat-value">{{ permissionState.queryName || '-' }}</div>
+          <div class="token-stat-label">Query</div>
+        </div>
+      </div>
+      <JsonViewer :data="permissionState" max-height="300px" />
+    </div>
+
+    <div v-if="authBootstrapState" class="auth-card">
+      <div class="detail-title">Auth Bootstrap</div>
+      <JsonViewer :data="authBootstrapState" max-height="300px" />
     </div>
   </div>
 </template>

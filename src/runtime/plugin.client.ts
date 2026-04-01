@@ -10,6 +10,7 @@ import { initConvexClient } from './client/convex-client'
 import { setupDevtoolsBridgeIfDev } from './client/devtools'
 import { initRuntimeConnectionHooks } from './client/runtime-hooks'
 import { initHydrationState } from './client/auth-hydration'
+import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './devtools/state'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors'
 import { STATE_KEY_AUTH_TRACE_ID, STATE_KEY_DEVTOOLS_INSTANCE_ID } from './utils/constants'
 import { createLogger, getLogLevel } from './utils/logger'
@@ -129,11 +130,15 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   if (import.meta.dev) {
     const devtoolsInstanceId = useState<string>(STATE_KEY_DEVTOOLS_INSTANCE_ID).value ?? 'unknown'
+    const permissionState = usePermissionDevtoolsState()
+    const authBootstrapState = useAuthBootstrapDevtoolsState()
     setupDevtoolsBridgeIfDev(
       client,
       hydration.convexToken,
       hydration.convexUser,
       hydration.convexAuthWaterfall,
+      permissionState,
+      authBootstrapState,
       devtoolsInstanceId,
       nuxtApp,
     )

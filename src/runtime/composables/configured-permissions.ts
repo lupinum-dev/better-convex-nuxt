@@ -4,6 +4,7 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter } from '#imports'
 
+import { usePermissionDevtoolsState } from '../devtools/state'
 import { createConvexQueryState } from './useConvexQuery'
 
 export type AuthContext = {
@@ -32,16 +33,10 @@ export type PermissionKey<TContext extends AuthContext = AuthContext> =
     ? string
     : Extract<keyof PermissionRecord<TContext>, string>
 
-export interface CreateAuthOptions<
-  Query extends FunctionReference<'query'> = FunctionReference<'query'>,
-  TPermissions extends string = PermissionKey<InferredAuthContext<Query>>,
+export interface UsePermissionsReturn<
+  TContext extends AuthContext = AuthContext,
+  TPermissions extends string = PermissionKey<TContext>,
 > {
-  query: Query
-  /** Explicit permission keys for type-safe `can()` calls. Use when Convex return types don't preserve literal keys. */
-  permissions?: readonly TPermissions[]
-}
-
-export interface UsePermissionsReturn<TContext extends AuthContext = AuthContext, TPermissions extends string = PermissionKey<TContext>> {
   ctx: ComputedRef<TContext | null>
   role: ComputedRef<TContext['role'] | null>
   plan: ComputedRef<TContext['plan'] | null>
@@ -52,28 +47,61 @@ export interface UsePermissionsReturn<TContext extends AuthContext = AuthContext
   can: (key: TPermissions) => ComputedRef<boolean>
 }
 
-export interface UseAuthGuardOptions<TContext extends AuthContext = AuthContext, TPermissions extends string = PermissionKey<TContext>> {
+export interface UseAuthGuardOptions<
+  TContext extends AuthContext = AuthContext,
+  TPermissions extends string = PermissionKey<TContext>,
+> {
   can?: TPermissions
   check?: (ctx: TContext) => boolean
   redirectTo?: RouteLocationRaw
   loginPath?: RouteLocationRaw
-  message?: string
 }
 
-export function createAuth<
+function usePermissionContextState<
+  Query extends FunctionReference<'query'> = FunctionReference<'query'>,
+  TContext extends AuthContext = InferredAuthContext<Query>,
+>(
+  query: Query,
+  configuredQueryName: string,
+) {
+  const { data, pending, error } = createConvexQueryState(
+    query,
+    {},
+    { shared: `better-convex:permissions:${configuredQueryName}` },
+    true,
+  ).resultData
+  const ctx = computed<TContext | null>(() => data.value as TContext | null)
+  const devtoolsState = usePermissionDevtoolsState()
+
+  if (import.meta.client || import.meta.dev) {
+    watchEffect(() => {
+      devtoolsState.value = {
+        queryName: configuredQueryName,
+        pending: pending.value,
+        ready: !!ctx.value,
+        ctx: ctx.value,
+        error: error.value?.message ?? null,
+      }
+    })
+  }
+
+  return {
+    data,
+    ctx,
+    pending,
+  }
+}
+
+export function createConfiguredPermissionsComposables<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
   TPermissions extends string = PermissionKey<TContext>,
->(options: CreateAuthOptions<Query, TPermissions>) {
-  const { query } = options
-
+>(
+  query: Query,
+  configuredQueryName: string,
+) {
   function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
-    const {
-      data,
-      pending,
-    } = createConvexQueryState(query, {}, undefined, true).resultData
-
-    const ctx = computed<TContext | null>(() => data.value as TContext | null)
+    const { ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
 
     function can(key: TPermissions): ComputedRef<boolean> {
       return computed<boolean>(() => ctx.value?.can?.[key as string] === true)
@@ -99,11 +127,7 @@ export function createAuth<
       loginPath = '/auth/signin',
     } = options
     const router = useRouter()
-    const {
-      data,
-      pending,
-    } = createConvexQueryState(query, {}, undefined, true).resultData
-    const ctx = computed<TContext | null>(() => data.value as TContext | null)
+    const { data, ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
     const ready = computed<boolean>(() => !!ctx.value)
     const passesGuard = computed<boolean>(() => {
       if (!ctx.value) return false

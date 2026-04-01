@@ -15,9 +15,9 @@
           signed-in user.
         </p>
         <p class="text-sm text-muted mt-2">
-          Auth may already be resolved during SSR, but the todo query still waits for the app-level
-          user row. The client uses <code>useEnsureConvexUser()</code> to create or confirm that
-          row before the personal list subscribes.
+          Auth may already be resolved during SSR. After sign-in, the module automatically
+          bootstraps the app-level user row so the personal list can settle without page-level auth
+          glue code.
         </p>
       </template>
 
@@ -110,7 +110,7 @@
             :description="todoError"
           />
 
-          <div v-if="!actorReady || ensureUserRow.pending.value || todosPending" class="space-y-3">
+          <div v-if="!actorReady || todosPending" class="space-y-3">
             <p class="text-sm text-muted">
               Preparing your app user, then subscribing to your personal todo list...
             </p>
@@ -241,13 +241,12 @@ type SignUpSchema = z.output<typeof signUpSchema>
 type SignInSchema = z.output<typeof signInSchema>
 
 const title = ref('')
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createTodo = useConvexMutation(api.todos.create)
 const toggleTodo = useConvexMutation(api.todos.toggle)
 const removeTodo = useConvexMutation(api.todos.remove)
 
-// The authed query only runs once we know the local `users` row exists.
-const actorReady = computed(() => ensureUserRow.ensured.value)
+// The auth bootstrap is module-managed, so private data can subscribe once auth is active.
+const actorReady = computed(() => isAuthenticated.value)
 const todoArgs = computed(() => (isAuthenticated.value && actorReady.value ? {} : undefined))
 const { data: todos, pending: todosPending, error: todosError } = await useConvexQuery(
   api.todos.list,
@@ -255,8 +254,7 @@ const { data: todos, pending: todosPending, error: todosError } = await useConve
 )
 
 const todoError = computed(() =>
-  ensureUserRow.error.value?.message
-  || todosError.value?.message
+  todosError.value?.message
   || createTodo.error.value?.message
   || toggleTodo.error.value?.message
   || removeTodo.error.value?.message
@@ -269,8 +267,6 @@ const debugPhase = computed(() => {
   if (isPending.value) return 'auth:pending'
   if (authAction.pending.value) return 'auth-action:pending'
   if (!isAuthenticated.value) return 'auth:anonymous'
-  if (ensureUserRow.pending.value) return 'bootstrap:ensuring-user'
-  if (!actorReady.value) return 'bootstrap:awaiting-user'
   if (todosPending.value) return 'todos:subscribing'
   return 'todos:ready'
 })

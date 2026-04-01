@@ -40,7 +40,7 @@ This page keeps the LMS UI small so the lesson-access chain stays visible while 
         <button @click="handleSignOut">Sign out</button>
       </header>
 
-      <p v-if="ensureUserRow.pending.value">Preparing your application user...</p>
+      <p v-if="false">Preparing your application user...</p>
 
       <section v-if="!tenantId">
         <form @submit.prevent="handleCreateWorkspace">
@@ -116,7 +116,6 @@ const joinWorkspaceForm = reactive({
   role: 'student' as 'admin' | 'instructor' | 'student',
 })
 
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const seedDemoCourse = useConvexMutation(api.courses.seedDemoCourse)

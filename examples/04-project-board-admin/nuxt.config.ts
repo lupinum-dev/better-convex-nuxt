@@ -21,7 +21,13 @@ export default defineNuxtConfig({
   convex: {
     url: process.env.CONVEX_URL,
     siteUrl: process.env.CONVEX_SITE_URL,
-    auth: true,
+    auth: {
+      enabled: true,
+      ensureUserMutation: 'auth.createUserIfNeeded',
+    },
+    permissions: {
+      query: 'workspaces.getPermissionContext',
+    },
     tenant: {
       field: 'workspaceId',
       index: 'by_workspace',

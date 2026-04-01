@@ -23,7 +23,13 @@ export interface ConvexPublicRuntimeConfig {
   /** Convex site URL (HTTP/Auth) */
   siteUrl?: string
   /** Auth integration config (route, trusted origins, cache, proxy, skip routes) */
-  auth?: ConvexAuthConfigInput
+  auth?: ConvexAuthConfigInput & {
+    ensureUserMutation?: string
+  }
+  /** Built-in permissions wiring */
+  permissions?: {
+    query?: string
+  }
   /** Global query defaults */
   query?: {
     server?: boolean

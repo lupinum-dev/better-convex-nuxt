@@ -1,11 +1,19 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
-import type { EnhancedAuthState, ConnectionState, AuthWaterfall } from '../../types'
+import type {
+  EnhancedAuthState,
+  ConnectionState,
+  AuthWaterfall,
+  PermissionContextState,
+  AuthBootstrapState,
+} from '../../types'
 import { callBridge } from './useBridge'
 
 const authState = ref<EnhancedAuthState | null>(null)
 const connectionState = ref<ConnectionState | null>(null)
 const authWaterfall = ref<AuthWaterfall | null>(null)
+const permissionState = ref<PermissionContextState | null>(null)
+const authBootstrapState = ref<AuthBootstrapState | null>(null)
 
 /**
  * Keys to ignore when comparing auth state (these change frequently but don't affect UI)
@@ -81,14 +89,29 @@ export function useAuth() {
     }
   }
 
+  async function updateConfiguredState() {
+    try {
+      permissionState.value = await callBridge<PermissionContextState>('getPermissionContextState')
+      authBootstrapState.value = await callBridge<AuthBootstrapState>('getAuthBootstrapState')
+    } catch {
+      // Ignore bridge errors
+    }
+  }
+
   onMounted(async () => {
     // Initial fetch
-    await Promise.all([updateConnectionState(), updateAuthState(), updateAuthWaterfall()])
+    await Promise.all([
+      updateConnectionState(),
+      updateAuthState(),
+      updateAuthWaterfall(),
+      updateConfiguredState(),
+    ])
 
     // Poll for updates (reduced frequency since auth doesn't change often)
     intervalId = setInterval(() => {
       void updateConnectionState()
       void updateAuthState()
+      void updateConfiguredState()
     }, 2000) // Increased to 2 seconds
   })
 
@@ -103,5 +126,7 @@ export function useAuth() {
     authState,
     connectionState,
     authWaterfall,
+    permissionState,
+    authBootstrapState,
   }
 }

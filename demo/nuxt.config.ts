@@ -17,6 +17,10 @@ export default defineNuxtConfig({
   convex: {
     auth: {
       enabled: true,
+      ensureUserMutation: 'auth.createUserIfNeeded',
+    },
+    permissions: {
+      query: 'auth.getPermissionContext',
     },
   },
 

@@ -105,7 +105,7 @@
               </div>
             </div>
 
-            <div v-if="ensureUserRow.pending.value" class="space-y-3">
+            <div v-if="false" class="space-y-3">
               <p class="text-sm text-muted">Preparing your application user…</p>
               <USkeleton class="h-20 w-full rounded-xl" />
             </div>
@@ -310,7 +310,6 @@ const projectForm = reactive({
   summary: '',
 })
 
-const ensureUserRow = useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const createProject = useConvexMutation(api.projects.create)

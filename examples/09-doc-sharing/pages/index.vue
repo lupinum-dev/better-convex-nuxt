@@ -116,7 +116,6 @@ const shareView = reactive({
 const createdToken = ref('')
 const selectedPageArgs = ref<{ id: Id<'pages'>, shareToken?: string } | undefined>(undefined)
 
-useEnsureConvexUser(api.auth.createUserIfNeeded)
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
 const seedDemoPages = useConvexMutation(api.pages.seedDemoPages)

@@ -18,7 +18,10 @@ export interface UseConvexAuthActionsReturn<T = unknown> {
    * The wrapped function can be any Better Auth client method that returns a Promise.
    * Returns `undefined` if the action fails — check `error.value` for the error.
    */
-  execute: <R extends T = T>(fn: () => Promise<R>, options?: UseConvexAuthActionsOptions) => Promise<R | undefined>
+  execute: <R extends T = T>(
+    fn: () => Promise<R>,
+    options?: UseConvexAuthActionsOptions,
+  ) => Promise<R | undefined>
   /** Lifecycle status for the latest auth action. */
   status: ComputedRef<MutationStatus>
   /** True while the auth action is in progress. */
@@ -66,7 +69,7 @@ export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<
   const execute = async <R extends T = T>(
     fn: () => Promise<R>,
     options?: UseConvexAuthActionsOptions,
-  ): Promise<R> => {
+  ): Promise<R | undefined> => {
     _status.value = 'pending'
     error.value = null
     data.value = undefined
@@ -88,6 +91,7 @@ export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<
       const wrapped = cause instanceof ConvexCallError ? cause : toConvexError(cause)
       error.value = wrapped
       _status.value = 'error'
+      return undefined
     }
   }
 

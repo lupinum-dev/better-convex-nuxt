@@ -1,4 +1,5 @@
-import { can, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
+import { can, authorize } from 'better-convex-nuxt/auth'
+import { withServiceAuth } from 'better-convex-nuxt/service'
 
 import { createTodo, deleteTodo, listTodos, setTodoCompleted } from '../shared/schemas/todo'
 import { mutation, query } from './_generated/server'
@@ -8,7 +9,7 @@ import { withCan } from './auth/resource'
 import { requireRecord, ensureTenant } from './auth/scope'
 
 export const list = query({
-  args: withTrustedCaller(listTodos.args),
+  args: withServiceAuth(listTodos.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read todos', canReadTodo)
@@ -29,7 +30,7 @@ export const list = query({
 })
 
 export const get = query({
-  args: withTrustedCaller(deleteTodo.args),
+  args: withServiceAuth(deleteTodo.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Read todos', canReadTodo)
@@ -45,7 +46,7 @@ export const get = query({
 })
 
 export const create = mutation({
-  args: withTrustedCaller(createTodo.args),
+  args: withServiceAuth(createTodo.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create todo', canCreateTodo)
@@ -61,7 +62,7 @@ export const create = mutation({
 })
 
 export const setCompleted = mutation({
-  args: withTrustedCaller(setTodoCompleted.args),
+  args: withServiceAuth(setTodoCompleted.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const todo = await ctx.db.get(args.id)
@@ -76,7 +77,7 @@ export const setCompleted = mutation({
 })
 
 export const remove = mutation({
-  args: withTrustedCaller(deleteTodo.args),
+  args: withServiceAuth(deleteTodo.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     const todo = await ctx.db.get(args.id)

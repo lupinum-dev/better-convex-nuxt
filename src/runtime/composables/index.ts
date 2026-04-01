@@ -78,29 +78,3 @@ export {
   type UseConvexAuthActionsOptions,
   type UseConvexAuthActionsReturn,
 } from './useConvexAuthActions'
-export {
-  useEnsureConvexUser,
-  type UseEnsureConvexUserReturn,
-} from './useEnsureConvexUser'
-
-// Validation — Convex validator → Standard Schema conversion
-export { toConvexSchema, useConvexSchema } from '../utils/convex-schema'
-export {
-  defineArgs,
-  type SchemaDefinition,
-  type SchemaFieldMeta,
-  type InputSchemaMeta,
-  type ResolvedSchemaMeta,
-} from '../utils/define-convex-schema'
-export type { ValidateOption } from '../utils/resolve-validator'
-export type { StandardSchemaV1 } from '../utils/standard-schema'
-
-export {
-  createAuth,
-  type AuthContext,
-  type CreateAuthOptions,
-  type InferredAuthContext,
-  type PermissionKey,
-  type UsePermissionsReturn,
-  type UseAuthGuardOptions,
-} from './usePermissions'

@@ -2,18 +2,19 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useRouter } from '#imports'
 
-import { createAuth } from '../../src/runtime/composables/usePermissions'
+import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
-describe('createAuth (Nuxt runtime)', () => {
+describe('configured permissions composables (Nuxt runtime)', () => {
   it('reads auth context and keeps can() reactive from ctx.can', async () => {
     const convex = new MockConvexClient()
     const authQuery = mockFnRef<'query'>('auth:getPermissionContext:reactive')
-    const { usePermissions } = createAuth({
-      query: authQuery,
-    })
+    const { usePermissions } = createConfiguredPermissionsComposables(
+      authQuery,
+      'auth.getPermissionContext.reactive',
+    )
 
     const { result } = await captureInNuxt(
       () => {
@@ -59,7 +60,10 @@ describe('createAuth (Nuxt runtime)', () => {
   it('waits for loading before redirecting unauthenticated users', async () => {
     const convex = new MockConvexClient()
     const authQuery = mockFnRef<'query'>('auth:getPermissionContext:guard-unauth')
-    const { useAuthGuard } = createAuth({ query: authQuery })
+    const { useAuthGuard } = createConfiguredPermissionsComposables(
+      authQuery,
+      'auth.getPermissionContext.guard-unauth',
+    )
 
     const { result } = await captureInNuxt(
       () => {
@@ -86,7 +90,10 @@ describe('createAuth (Nuxt runtime)', () => {
   it('redirects authenticated users who lack the requested capability', async () => {
     const convex = new MockConvexClient()
     const authQuery = mockFnRef<'query'>('auth:getPermissionContext:guard-forbidden')
-    const { useAuthGuard } = createAuth({ query: authQuery })
+    const { useAuthGuard } = createConfiguredPermissionsComposables(
+      authQuery,
+      'auth.getPermissionContext.guard-forbidden',
+    )
 
     const { result } = await captureInNuxt(
       () => {
@@ -123,7 +130,10 @@ describe('createAuth (Nuxt runtime)', () => {
   it('fails closed when the requested capability key is missing', async () => {
     const convex = new MockConvexClient()
     const authQuery = mockFnRef<'query'>('auth:getPermissionContext:guard-missing-key')
-    const { useAuthGuard } = createAuth({ query: authQuery })
+    const { useAuthGuard } = createConfiguredPermissionsComposables(
+      authQuery,
+      'auth.getPermissionContext.guard-missing-key',
+    )
 
     const { result } = await captureInNuxt(
       () => {

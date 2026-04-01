@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { useEnsureConvexUser } from '../../src/runtime/composables/useEnsureConvexUser'
+import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
+import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
@@ -8,8 +9,8 @@ import { installMockAuthEngine } from '../harness/nuxt-auth-engine'
 
 const mutation = mockFnRef<'mutation'>('auth:createUserIfNeeded')
 
-describe('useEnsureConvexUser (Nuxt runtime)', () => {
-  it('calls the mutation only after auth becomes active', async () => {
+describe('configured auth bootstrap (Nuxt runtime)', () => {
+  it('calls the configured mutation only after auth becomes active', async () => {
     const convex = new MockConvexClient()
     convex.setMutationHandler('auth:createUserIfNeeded', async () => ({ ok: true }))
 
@@ -19,10 +20,11 @@ describe('useEnsureConvexUser (Nuxt runtime)', () => {
         initialUser: null,
         initialPending: false,
       })
+      setupConfiguredAuthBootstrap(mutation, 'auth.createUserIfNeeded')
 
       return {
         auth,
-        ensure: useEnsureConvexUser(mutation),
+        bootstrap: useAuthBootstrapDevtoolsState(),
       }
     }, { convex })
 
@@ -36,18 +38,18 @@ describe('useEnsureConvexUser (Nuxt runtime)', () => {
     result.auth.token.value = 'jwt.token'
 
     await waitFor(() => convex.calls.mutation.length === 1)
-    expect(result.ensure.ensured.value).toBe(true)
-    expect(result.ensure.error.value).toBeNull()
+    expect(result.bootstrap.value.ensured).toBe(true)
+    expect(result.bootstrap.value.error).toBeNull()
   })
 
-  it('clears duplicate bootstrap races but preserves the ensured state', async () => {
+  it('treats duplicate bootstrap races as harmless and keeps the ensured state', async () => {
     const convex = new MockConvexClient()
     convex.setMutationHandler('auth:createUserIfNeeded', async () => {
       throw new Error('User already exists')
     })
 
     const { result } = await captureInNuxt(() => {
-      const auth = installMockAuthEngine({
+      installMockAuthEngine({
         initialToken: 'jwt.token',
         initialUser: {
           id: 'user-1',
@@ -56,16 +58,16 @@ describe('useEnsureConvexUser (Nuxt runtime)', () => {
         },
         initialPending: false,
       })
+      setupConfiguredAuthBootstrap(mutation, 'auth.createUserIfNeeded')
 
       return {
-        auth,
-        ensure: useEnsureConvexUser(mutation),
+        bootstrap: useAuthBootstrapDevtoolsState(),
       }
     }, { convex })
 
     await waitFor(() => convex.calls.mutation.length === 1)
-    expect(result.ensure.ensured.value).toBe(true)
-    expect(result.ensure.error.value).toBeNull()
-    expect(result.ensure.pending.value).toBe(false)
+    expect(result.bootstrap.value.ensured).toBe(true)
+    expect(result.bootstrap.value.error).toBeNull()
+    expect(result.bootstrap.value.pending).toBe(false)
   })
 })

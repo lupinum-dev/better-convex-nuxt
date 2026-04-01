@@ -42,11 +42,17 @@
       "auth": [
         "./dist/runtime/auth/index.d.ts"
       ],
+      "args": [
+        "./dist/runtime/args/index.d.ts"
+      ],
       "composables": [
         "./dist/runtime/composables/index.d.ts"
       ],
-      "schema": [
-        "./dist/runtime/schema/index.d.ts"
+      "service": [
+        "./dist/runtime/service/index.d.ts"
+      ],
+      "visibility": [
+        "./dist/runtime/visibility/index.d.ts"
       ],
       "mcp": [
         "./dist/runtime/mcp/index.d.ts"
@@ -68,13 +74,21 @@
       "types": "./dist/runtime/auth/index.d.ts",
       "import": "./dist/runtime/auth/index.js"
     },
+    "./args": {
+      "types": "./dist/runtime/args/index.d.ts",
+      "import": "./dist/runtime/args/index.js"
+    },
     "./composables": {
       "types": "./dist/runtime/composables/index.d.ts",
       "import": "./dist/runtime/composables/index.js"
     },
-    "./schema": {
-      "types": "./dist/runtime/schema/index.d.ts",
-      "import": "./dist/runtime/schema/index.js"
+    "./service": {
+      "types": "./dist/runtime/service/index.d.ts",
+      "import": "./dist/runtime/service/index.js"
+    },
+    "./visibility": {
+      "types": "./dist/runtime/visibility/index.d.ts",
+      "import": "./dist/runtime/visibility/index.js"
     },
     "./mcp": {
       "types": "./dist/runtime/mcp/index.d.ts",

@@ -12,7 +12,7 @@ useBridge()
 // Data composables
 const { queries, selectedQueryId, selectQuery, getSelectedQuery } = useQueries()
 const { mutations, toggleExpanded, isExpanded } = useMutations()
-const { authState, connectionState, authWaterfall } = useAuth()
+const { authState, connectionState, authWaterfall, permissionState, authBootstrapState } = useAuth()
 const { proxyStats, isLoading: proxyLoading, clear: clearProxyStats } = useAuthProxy()
 
 // UI state
@@ -119,7 +119,12 @@ function switchTab(tab: typeof activeTab.value) {
 
       <!-- Auth Tab -->
       <div v-show="activeTab === 'auth'" class="tab-content active" style="overflow-y: auto">
-        <AuthPanel :auth-state="authState" :waterfall="authWaterfall" />
+        <AuthPanel
+          :auth-state="authState"
+          :waterfall="authWaterfall"
+          :permission-state="permissionState"
+          :auth-bootstrap-state="authBootstrapState"
+        />
         <AuthProxyPanel :stats="proxyStats" :loading="proxyLoading" @clear="clearProxyStats" />
       </div>
     </template>

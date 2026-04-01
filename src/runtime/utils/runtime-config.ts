@@ -11,16 +11,22 @@ export interface ConvexRuntimeQueryDefaults {
 
 export interface NormalizedConvexAuthConfig extends ConvexAuthConfig {
   route: string
+  ensureUserMutation?: string
   trustedOrigins: string[]
   skipAuthRoutes: string[]
   cache: { enabled: boolean; ttl: number }
   proxy: { maxRequestBodyBytes: number; maxResponseBodyBytes: number }
 }
 
+export interface NormalizedConvexPermissionsConfig {
+  query: string | null
+}
+
 export interface NormalizedConvexRuntimeConfig {
   url?: string
   siteUrl?: string
   auth: NormalizedConvexAuthConfig
+  permissions: NormalizedConvexPermissionsConfig
   query: ConvexRuntimeQueryDefaults
   upload: { maxConcurrent: number }
   logging: LogLevel | false
@@ -70,6 +76,10 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     auth: {
       ...normalizeConvexAuthConfig(authRaw),
       route: normalizeAuthRoute(typeof authRaw?.route === 'string' ? authRaw.route : undefined),
+      ensureUserMutation:
+        typeof authRaw?.ensureUserMutation === 'string' && authRaw.ensureUserMutation.length > 0
+          ? authRaw.ensureUserMutation
+          : undefined,
       trustedOrigins: Array.isArray(authRaw?.trustedOrigins)
         ? authRaw.trustedOrigins.filter((v): v is string => typeof v === 'string')
         : [],
@@ -93,7 +103,14 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
           const n = Math.trunc(candidate)
           return n > 0 ? n : 1_048_576
         })(),
+        },
       },
+    permissions: {
+      query: typeof raw?.permissions === 'object'
+        && raw.permissions !== null
+        && typeof (raw.permissions as Record<string, unknown>).query === 'string'
+        ? (raw.permissions as Record<string, unknown>).query as string
+        : null,
     },
     query: {
       server: queryRaw?.server !== false,

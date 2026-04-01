@@ -9,6 +9,7 @@ import { summarizeFindings } from '../lib/findings.js'
 import { renderDoctorReport } from '../lib/output.js'
 import {
   findConvexUrlSource,
+  findLegacyApiUsages,
   hasBetterConvexNuxtRegistration,
   hasDependency,
   inspectProject,
@@ -25,6 +26,11 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const project = inspectProject(cwd)
   const isNuxtApp = Boolean(project.packageJsonPath && project.nuxtConfigPath)
   const convexUrlSource = findConvexUrlSource(project)
+  const legacyApiUsages = findLegacyApiUsages(project)
+  const legacyUsageSummary = legacyApiUsages
+    .slice(0, 3)
+    .map(usage => `${usage.id} in ${usage.path}`)
+    .join('\n')
 
   return [
     {
@@ -88,6 +94,17 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       fixHint: convexUrlSource
         ? 'Keep the Convex URL available in the environment or env files.'
         : 'Add CONVEX_URL or NUXT_PUBLIC_CONVEX_URL to .env.local, .env, or the process environment.',
+    },
+    {
+      id: 'legacy-v2-apis',
+      title: 'Removed V2 APIs',
+      status: legacyApiUsages.length === 0 ? 'pass' : 'fail',
+      message: legacyApiUsages.length === 0
+        ? 'No removed V2 imports or APIs were detected.'
+        : `Found removed V2 APIs:\n${legacyUsageSummary}`,
+      fixHint: legacyApiUsages.length === 0
+        ? 'Keep using the V3 auth, service, visibility, and args entrypoints.'
+        : legacyApiUsages[0]?.replacement ?? 'Replace removed V2 APIs with their V3 equivalents.',
     },
   ]
 }

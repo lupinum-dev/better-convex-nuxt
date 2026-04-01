@@ -1,5 +1,6 @@
-import { can, authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
-import { defineArgs } from 'better-convex-nuxt/schema'
+import { can, authorize } from 'better-convex-nuxt/auth'
+import { withServiceAuth } from 'better-convex-nuxt/service'
+import { defineArgs } from 'better-convex-nuxt/args'
 import { v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 
@@ -35,7 +36,7 @@ export const list = query({
 })
 
 export const create = mutation({
-  args: withTrustedCaller(createOrganizationArgs.args),
+  args: withServiceAuth(createOrganizationArgs.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create organization', actor !== null)

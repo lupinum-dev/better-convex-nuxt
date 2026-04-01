@@ -1,4 +1,4 @@
-import { defineArgs } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/args'
 import { v } from 'convex/values'
 
 export const createTask = defineArgs({

@@ -26,21 +26,18 @@ pnpm add @nuxtjs/mcp-toolkit convex-helpers zod
 
 ## CLI
 
-A CLI is included for consumer app checks, auth starters, and additive auth blocks:
+A CLI is included for consumer app checks and V3 scaffolding:
 
 ```bash
 npx better-convex-nuxt doctor
 npx better-convex-nuxt doctor --cwd ./my-app
 npx better-convex-nuxt doctor --json
-npx better-convex-nuxt add --list
-npx better-convex-nuxt add auth
-npx better-convex-nuxt add auth --starter workspace
-npx better-convex-nuxt add auth:crm
+npx better-convex-nuxt init auth
+npx better-convex-nuxt init permissions --model workspace
+npx better-convex-nuxt init permissions --model workspace-mcp
+npx better-convex-nuxt init mcp
 ```
-
-`add auth` is now a starter chooser. Use `--starter personal`, `--starter workspace`, or
-`--starter workspace-mcp` for non-interactive runs. Use `add auth:<block>` for additive vertical
-helpers like CRM, LMS, or freemium blocks.
+`init auth` writes the Better Auth bridge and Convex plumbing. `init permissions` writes the app-owned actor and permission-context patterns. `init mcp` scaffolds MCP auth middleware.
 
 The permission model stays explicit and app-owned. If you want the repo’s lane model, denial
 semantics, and the single-workspace vs memberships guidance in one place, start with
@@ -151,15 +148,15 @@ vi.mock('./_generated/server', async () => await convexServerMock())
 Shared args definitions now have one source of truth and multiple runtime consumers:
 
 - `better-convex-nuxt/composables` for client composables
-- `better-convex-nuxt/schema` for server-safe shared args helpers
+- `better-convex-nuxt/args` for server-safe shared args helpers
 - `better-convex-nuxt/server` for Nitro server helpers
 - `better-convex-nuxt/mcp` for MCP-only helpers
 
-This split is intentional. The goal is one args definition reused across runtimes, not one universal import everywhere. Server files should use `better-convex-nuxt/schema`, not `better-convex-nuxt/composables`, so Nitro never pulls the client-heavy entrypoint into the server graph.
+This split is intentional. The goal is one args definition reused across runtimes, not one universal import everywhere. Server files should use `better-convex-nuxt/args`, not `better-convex-nuxt/composables`, so Nitro never pulls the client-heavy entrypoint into the server graph.
 
 ```ts
 import { v } from 'convex/values'
-import { defineArgs } from 'better-convex-nuxt/schema'
+import { defineArgs } from 'better-convex-nuxt/args'
 
 export const createPost = defineArgs({
   description: 'Create a post',
@@ -189,10 +186,11 @@ Typical usage by runtime:
 ```ts
 import { mutation } from './_generated/server'
 import { defineTool } from '#convex/mcp'
-import { authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
+import { withServiceAuth } from 'better-convex-nuxt/service'
 
 export const create = mutation({
-  args: withTrustedCaller(createPost.args),
+  args: withServiceAuth(createPost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create post', canCreatePost)
@@ -219,12 +217,13 @@ Inside Convex functions, use the validator view directly:
 
 ```ts
 import { mutation } from './_generated/server'
-import { authorize, withTrustedCaller } from 'better-convex-nuxt/auth'
+import { authorize } from 'better-convex-nuxt/auth'
+import { withServiceAuth } from 'better-convex-nuxt/service'
 import { canCreatePost } from './auth/checks'
 import { getActor } from './auth/actor'
 
 export const create = mutation({
-  args: withTrustedCaller(createPost.args),
+  args: withServiceAuth(createPost.args),
   handler: async (ctx, args) => {
     const actor = await getActor(ctx, args)
     authorize(actor, 'Create post', canCreatePost)
@@ -242,9 +241,7 @@ Metadata is optional. Tools still work without it, but agents get better help wh
 
 Use a `shared/` directory when both Convex files and Nuxt server files need the same args definitions. That folder is a runtime boundary, not a framework convention.
 
-The same idea applies to `composables/usePermissions.ts`: it is intentionally tiny so Nuxt can
-auto-import the finished `usePermissions()` composable while your app keeps control of which
-permission-context query it uses through `createAuth()`.
+Permissions follow the same ownership rule: your app owns the permission-context query, and the module wires the frontend reflection through `convex.permissions.query` so `usePermissions()` and `useAuthGuard()` are auto-imported without a local wrapper file.
 
 ### Queries
 

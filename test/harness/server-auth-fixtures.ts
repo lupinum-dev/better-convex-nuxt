@@ -30,6 +30,7 @@ export function createEvent(cookie?: string): H3Event {
 
 export function mockConvexConfig(overrides?: Record<string, unknown>): NormalizedConvexRuntimeConfig {
   const authOverrides = (overrides?.auth ?? {}) as Partial<NormalizedConvexRuntimeConfig['auth']>
+  const permissionsOverrides = (overrides?.permissions ?? {}) as Partial<NormalizedConvexRuntimeConfig['permissions']>
   const queryOverrides = (overrides?.query ?? {}) as Partial<NormalizedConvexRuntimeConfig['query']>
   const uploadOverrides = (overrides?.upload ?? {}) as Partial<NormalizedConvexRuntimeConfig['upload']>
   const debugOverrides = (overrides?.debug ?? {}) as Partial<NormalizedConvexRuntimeConfig['debug']>
@@ -60,6 +61,10 @@ export function mockConvexConfig(overrides?: Record<string, unknown>): Normalize
         maxResponseBodyBytes: 1_048_576,
       },
       ...authOverrides,
+    },
+    permissions: {
+      query: null,
+      ...permissionsOverrides,
     },
     query: {
       server: true,

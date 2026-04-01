@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 
-import { applyVisibility, can, authorize, deny } from 'better-convex-nuxt/auth'
+import { can, authorize, deny } from 'better-convex-nuxt/auth'
+import { applyVisibility } from 'better-convex-nuxt/visibility'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
