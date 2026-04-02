@@ -23,7 +23,6 @@ import type {
   AnyConvexSchema,
   ConvexToolCallFns,
   ConvexToolHandlerCtx,
-  ConvexToolMiddlewareCtx,
   DefineConvexToolOptions,
   InferSchemaData,
   InferSchemaValidators,
@@ -635,7 +634,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
 
   async function runHandlerWithConfirmation(
     args: NormalizedToolArgs<S>,
-    ctx: ConvexToolMiddlewareCtx<TRole>,
+    ctx: ConvexToolHandlerCtx<TRole>,
   ): Promise<McpToolCallbackResult> {
     // Step 7: Preview routing
     if (destructive && preview && !args.confirmed) {

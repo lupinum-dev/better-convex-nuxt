@@ -12,10 +12,9 @@ import { waitFor } from '../support/nuxt/wait-for'
 
 function useConvexQueryState<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
->(query: Query, args?: MaybeRefOrGetter<Args>) {
-  return createConvexQueryState<Query, Args, DataT>(query, args, undefined, true).resultData
+>(query: Query, args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>) {
+  return createConvexQueryState<Query, DataT>(query, args, undefined, true).resultData
 }
 
 describe('devtools instrumentation (Nuxt runtime)', () => {

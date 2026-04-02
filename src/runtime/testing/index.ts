@@ -14,9 +14,11 @@ import type { ViteUserConfig as UserConfig } from 'vitest/config'
 const defaultModules =
   typeof import.meta.glob === 'function' ? import.meta.glob('/convex/**/*.*s') : {}
 
+type ConvexTestModules = Record<string, () => Promise<unknown>>
+
 export function createConvexTestModules(
-  modules?: Record<string, () => Promise<unknown>>,
-): Record<string, () => Promise<unknown>> {
+  modules?: ConvexTestModules,
+): ConvexTestModules {
   return withGeneratedModuleHint(modules ?? defaultModules)
 }
 
@@ -35,8 +37,8 @@ export const convexServerMock = async () => {
 }
 
 function withGeneratedModuleHint(
-  modules: Record<string, () => Promise<unknown>>,
-): Record<string, () => Promise<unknown>> {
+  modules: ConvexTestModules,
+): ConvexTestModules {
   if (
     Object.keys(modules).some(
       (path) => path.includes('/_generated/') || path.includes('./_generated/'),
@@ -106,7 +108,7 @@ export type ConvexTestConfigOptions = UserConfig
 
 export interface CreateTestContextOptions<TSchema extends AnySchemaDefinition> {
   schema: TSchema
-  modules?: Record<string, () => Promise<unknown>>
+  modules?: ConvexTestModules
   trustedCallerKey?: string
   /** Advanced override for non-canonical tenant schemas. Omit for the default `workspaces.workspaceId` model. */
   tenant?: {
@@ -122,8 +124,6 @@ export interface CreateTestContextOptions<TSchema extends AnySchemaDefinition> {
     nameField?: string
     emailField?: string
   }
-  actor?: unknown
-  permissions?: unknown
 }
 
 export interface TestContext<TSchema extends AnySchemaDefinition, TRole extends string = string> {

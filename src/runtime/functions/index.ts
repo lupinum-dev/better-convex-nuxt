@@ -29,7 +29,12 @@ import {
   extractTrustedCallerFromArgs,
   trustedCallerValidators,
 } from '../trusted-caller/shared'
-import { buildStructuredFunctions, type StructuredHandlerDefinition } from './define-handler'
+import {
+  buildStructuredFunctions,
+  type StructuredGuard,
+  type StructuredHandlerDefinition,
+  type StructuredLoadedValue,
+} from './define-handler'
 
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
@@ -43,6 +48,12 @@ export type FunctionsCtxExtension<TActor> = {
 
 type AnyCtxWithActor<DataModel extends GenericDataModel, TActor> = AnyCtx<DataModel> &
   FunctionsCtxExtension<TActor>
+
+type QueryCtxWithActor<DataModel extends GenericDataModel, TActor> = GenericQueryCtx<DataModel> &
+  FunctionsCtxExtension<TActor>
+
+type MutationCtxWithActor<DataModel extends GenericDataModel, TActor> =
+  GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>
 
 type OnSuccessArgs<Ctx> = {
   ctx: Ctx
@@ -58,6 +69,17 @@ type TenantIsolationOptions<DataModel extends GenericDataModel> = {
 type MaybeRules<Ctx, DataModel extends GenericDataModel> =
   | Rules<Ctx, DataModel>
   | ((ctx: Ctx) => Promise<Rules<Ctx, DataModel>> | Rules<Ctx, DataModel>)
+
+type QueryCustomizationCtx<DataModel extends GenericDataModel, TActor> = Record<string, unknown> &
+  FunctionsCtxExtension<TActor> & {
+    db: GenericQueryCtx<DataModel>['db']
+  }
+
+type MutationCustomizationCtx<DataModel extends GenericDataModel, TActor> =
+  Record<string, unknown> &
+    FunctionsCtxExtension<TActor> & {
+      db: GenericMutationCtx<DataModel>['db']
+    }
 
 export interface CreateAppOptions<DataModel extends GenericDataModel, TActor = DefaultActor> {
   trustedCaller?: boolean
@@ -185,22 +207,18 @@ async function resolveRules<DataModel extends GenericDataModel, TActor>(
   return mergeRules(tenantRules, resolvedCustomRules)
 }
 
-type CustomCtxDelta<DataModel extends GenericDataModel, TActor> = FunctionsCtxExtension<TActor> & {
-  db?: GenericQueryCtx<DataModel>['db'] | GenericMutationCtx<DataModel>['db']
-}
-
 type StructuredQueryBuilder<
-  DataModel extends GenericDataModel,
+  TCtx extends object,
   Visibility extends FunctionVisibility,
   TActor,
 > = <
-  TGuard,
+  TGuard extends StructuredGuard<TActor>,
   TArgsValidator extends PropertyValidators,
-  TLoaded extends Record<string, unknown> | undefined = undefined,
+  TLoaded extends StructuredLoadedValue = undefined,
   TResult = unknown,
 >(
   definition: StructuredHandlerDefinition<
-    GenericQueryCtx<DataModel> & FunctionsCtxExtension<TActor>,
+    TCtx,
     TActor,
     TGuard,
     TArgsValidator,
@@ -210,17 +228,17 @@ type StructuredQueryBuilder<
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type StructuredMutationBuilder<
-  DataModel extends GenericDataModel,
+  TCtx extends object,
   Visibility extends FunctionVisibility,
   TActor,
 > = <
-  TGuard,
+  TGuard extends StructuredGuard<TActor>,
   TArgsValidator extends PropertyValidators,
-  TLoaded extends Record<string, unknown> | undefined = undefined,
+  TLoaded extends StructuredLoadedValue = undefined,
   TResult = unknown,
 >(
   definition: StructuredHandlerDefinition<
-    GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>,
+    TCtx,
     TActor,
     TGuard,
     TArgsValidator,
@@ -229,80 +247,92 @@ type StructuredMutationBuilder<
   >,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
-function createCustomization<
-  DataModel extends GenericDataModel,
-  TActor,
-  TCtx extends AnyCtx<DataModel>,
->(
-  kind: 'query' | 'mutation',
+function resolveActor<DataModel extends GenericDataModel, TActor>(
   options: CreateAppOptions<DataModel, TActor>,
-): Customization<
-  TCtx,
-  PropertyValidators,
-  CustomCtxDelta<DataModel, TActor> & Record<PropertyKey, unknown>,
-  Record<string, never>
-> {
-  const actorResolver = (options.actor ?? defineActor.fromAuth<DataModel>().resolve) as (
+): (ctx: AnyCtx<DataModel>) => Promise<TActor | null> {
+  return (options.actor ?? defineActor.fromAuth<DataModel>().resolve) as (
     ctx: AnyCtx<DataModel>,
   ) => Promise<TActor | null>
+}
+
+function createContextWithActor<DataModel extends GenericDataModel, TActor, TCtx extends AnyCtx<DataModel>>(
+  ctx: TCtx,
+  args: Record<string, unknown>,
+  actorResolver: (ctx: AnyCtx<DataModel>) => Promise<TActor | null>,
+  trustedCallerEnabled: boolean,
+): {
+  actor: ActorAccessor<TActor>
+  baseCtx: TCtx & FunctionsCtxExtension<TActor>
+  trustedCallerContext: ReturnType<typeof createTrustedCallerContextDelta>
+} {
+  const trustedCaller = trustedCallerEnabled ? extractTrustedCallerFromArgs(args) : null
+  const trustedCallerContext = createTrustedCallerContextDelta(trustedCaller)
+  const ctxWithTrustedCaller = {
+    ...ctx,
+    ...trustedCallerContext,
+  } as TCtx
+
+  let actorPromise: Promise<TActor | null> | null = null
+  const actor: ActorAccessor<TActor> = async () => {
+    actorPromise ??= actorResolver(ctxWithTrustedCaller)
+    return await actorPromise
+  }
 
   return {
-    args: (options.trustedCaller ?? true) ? trustedCallerValidators : {},
+    actor,
+    baseCtx: {
+      ...ctxWithTrustedCaller,
+      actor,
+    } as TCtx & FunctionsCtxExtension<TActor>,
+    trustedCallerContext,
+  }
+}
+
+function createOnSuccessHandler<Ctx>(
+  handler: ((args: OnSuccessArgs<Ctx>) => Promise<void> | void) | undefined,
+  ctx: Ctx,
+):
+  | ((payload: { args: Record<string, unknown>; result: unknown }) => Promise<void>)
+  | undefined {
+  if (!handler) return undefined
+
+  return async ({ args, result }) => {
+    await handler({
+      ctx,
+      args,
+      result,
+    })
+  }
+}
+
+function createQueryCustomization<DataModel extends GenericDataModel, TActor>(
+  options: CreateAppOptions<DataModel, TActor>,
+): Customization<
+  GenericQueryCtx<DataModel>,
+  PropertyValidators,
+  QueryCustomizationCtx<DataModel, TActor>,
+  Record<string, never>
+> {
+  const actorResolver = resolveActor(options)
+  const trustedCallerEnabled = options.trustedCaller ?? true
+
+  return {
+    args: trustedCallerEnabled ? trustedCallerValidators : {},
     input: async (ctx, args) => {
-      const trustedCaller =
-        (options.trustedCaller ?? true) ? extractTrustedCallerFromArgs(args) : null
-      const trustedCallerContext = createTrustedCallerContextDelta(trustedCaller)
-      const ctxWithTrustedCaller = {
-        ...ctx,
-        ...trustedCallerContext,
-      } as TCtx
-
-      let actorPromise: Promise<TActor | null> | null = null
-      const actor = async () => {
-        actorPromise ??= actorResolver(ctxWithTrustedCaller)
-        return await actorPromise
-      }
-
-      const baseCtx = {
-        ...ctxWithTrustedCaller,
-        actor,
-      } as AnyCtxWithActor<DataModel, TActor>
-
+      const { actor, baseCtx, trustedCallerContext } = createContextWithActor(
+        ctx,
+        args,
+        actorResolver,
+        trustedCallerEnabled,
+      )
       const resolvedRules = await resolveRules(baseCtx, options)
-      let db = ctx.db
-
-      if (resolvedRules) {
-        if (kind === 'query') {
-          db = wrapDatabaseReader(
-            baseCtx,
-            db as GenericQueryCtx<DataModel>['db'],
-            resolvedRules,
-            options.rls?.config,
-          ) as typeof db
-        } else {
-          db = wrapDatabaseWriter(
-            baseCtx,
-            db as GenericMutationCtx<DataModel>['db'],
-            resolvedRules,
-            options.rls?.config,
-          ) as typeof db
-        }
-      }
-
-      if (kind === 'mutation' && options.triggers) {
-        db = options.triggers.wrapDB({
-          ...(baseCtx as GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>),
-          db: db as GenericMutationCtx<DataModel>['db'],
-        }).db as typeof db
-      }
-
-      const finalCtx = {
+      const db = resolvedRules
+        ? wrapDatabaseReader(baseCtx, ctx.db, resolvedRules, options.rls?.config)
+        : ctx.db
+      const finalCtx: QueryCtxWithActor<DataModel, TActor> = {
         ...baseCtx,
         db,
-      } as AnyCtxWithActor<DataModel, TActor>
-
-      const onSuccessHandler =
-        kind === 'query' ? options.onSuccess?.query : options.onSuccess?.mutation
+      }
 
       return {
         ctx: {
@@ -311,15 +341,57 @@ function createCustomization<
           db,
         },
         args: {},
-        onSuccess: onSuccessHandler
-          ? async ({ args: handlerArgs, result }) => {
-              await onSuccessHandler({
-                ctx: finalCtx,
-                args: handlerArgs,
-                result,
-              })
-            }
-          : undefined,
+        onSuccess: createOnSuccessHandler(options.onSuccess?.query, finalCtx),
+      }
+    },
+  }
+}
+
+function createMutationCustomization<DataModel extends GenericDataModel, TActor>(
+  options: CreateAppOptions<DataModel, TActor>,
+): Customization<
+  GenericMutationCtx<DataModel>,
+  PropertyValidators,
+  MutationCustomizationCtx<DataModel, TActor>,
+  Record<string, never>
+> {
+  const actorResolver = resolveActor(options)
+  const trustedCallerEnabled = options.trustedCaller ?? true
+
+  return {
+    args: trustedCallerEnabled ? trustedCallerValidators : {},
+    input: async (ctx, args) => {
+      const { actor, baseCtx, trustedCallerContext } = createContextWithActor(
+        ctx,
+        args,
+        actorResolver,
+        trustedCallerEnabled,
+      )
+      const resolvedRules = await resolveRules(baseCtx, options)
+      let db = resolvedRules
+        ? wrapDatabaseWriter(baseCtx, ctx.db, resolvedRules, options.rls?.config)
+        : ctx.db
+
+      if (options.triggers) {
+        db = options.triggers.wrapDB({
+          ...baseCtx,
+          db,
+        }).db
+      }
+
+      const finalCtx: MutationCtxWithActor<DataModel, TActor> = {
+        ...baseCtx,
+        db,
+      }
+
+      return {
+        ctx: {
+          ...trustedCallerContext,
+          actor,
+          db,
+        },
+        args: {},
+        onSuccess: createOnSuccessHandler(options.onSuccess?.mutation, finalCtx),
       }
     },
   }
@@ -338,14 +410,8 @@ function buildRawFunctions<
   validateTenantIsolationOptions(options.tenantIsolation)
 
   return {
-    query: customQuery(
-      query,
-      createCustomization<DataModel, TActor, GenericQueryCtx<DataModel>>('query', options),
-    ),
-    mutation: customMutation(
-      mutation,
-      createCustomization<DataModel, TActor, GenericMutationCtx<DataModel>>('mutation', options),
-    ),
+    query: customQuery(query, createQueryCustomization(options)),
+    mutation: customMutation(mutation, createMutationCustomization(options)),
   }
 }
 
@@ -361,12 +427,16 @@ export function createApp<
 ) {
   const raw = buildRawFunctions(query, mutation, options)
   const app = buildStructuredFunctions<
-    GenericQueryCtx<DataModel> & FunctionsCtxExtension<TActor>,
-    GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>,
+    QueryCtxWithActor<DataModel, TActor>,
+    MutationCtxWithActor<DataModel, TActor>,
     TActor
   >(raw.query, raw.mutation) as {
-    query: StructuredQueryBuilder<DataModel, QueryVisibility, TActor>
-    mutation: StructuredMutationBuilder<DataModel, MutationVisibility, TActor>
+    query: StructuredQueryBuilder<QueryCtxWithActor<DataModel, TActor>, QueryVisibility, TActor>
+    mutation: StructuredMutationBuilder<
+      MutationCtxWithActor<DataModel, TActor>,
+      MutationVisibility,
+      TActor
+    >
   }
 
   return {

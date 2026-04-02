@@ -26,7 +26,6 @@ export type {
   ConvexToolErrorResult,
   ConvexToolMiddleware,
   ConvexToolHandlerCtx,
-  ConvexToolMiddlewareCtx,
 } from './types'
 
 export type {

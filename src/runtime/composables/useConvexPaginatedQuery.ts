@@ -52,7 +52,7 @@ export type PaginatedQueryStatus =
   | 'exhausted'
   | 'error'
 
-export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem = Item> {
+export interface UseConvexPaginatedQueryOptions<Item, TransformedItem = Item> {
   initialNumItems: number
   /** @default true — run first page server-side during SSR */
   server?: boolean
@@ -109,11 +109,10 @@ function toError(error: unknown): Error {
 
 export function createConvexPaginatedQueryState<
   Query extends PaginatedQueryReference,
-  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
+  args?: MaybeRefOrGetter<PaginatedQueryArgs<Query> | null | undefined>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
   resolveImmediately = false,
 ): BuildConvexPaginatedQueryResult<TransformedItem> {
@@ -132,10 +131,10 @@ export function createConvexPaginatedQueryState<
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
 
   const fnName = getFunctionName(query)
-  const normalizedArgs = computed((): Args => {
-    const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
-    if (rawArgs == null) return {} as Args
-    return rawArgs as Args
+  const normalizedArgs = computed((): PaginatedQueryArgs<Query> => {
+    const rawArgs = args === undefined ? ({} as PaginatedQueryArgs<Query>) : toValue(args)
+    if (rawArgs == null) return {} as PaginatedQueryArgs<Query>
+    return rawArgs as PaginatedQueryArgs<Query>
   })
 
   // null/undefined args = skip. Canonical pattern:
@@ -791,11 +790,10 @@ export function createConvexPaginatedQueryState<
  */
 export function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
-  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
+  args?: MaybeRefOrGetter<PaginatedQueryArgs<Query> | null | undefined>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ): UseConvexPaginatedQueryReturn<TransformedItem> {
   const created = createConvexPaginatedQueryState(query, args, options, true)

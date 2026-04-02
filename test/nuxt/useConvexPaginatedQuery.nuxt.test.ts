@@ -17,14 +17,13 @@ import { waitFor } from '../support/nuxt/wait-for'
 
 function useConvexPaginatedQueryState<
   Query extends PaginatedQueryReference,
-  Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
+  args?: MaybeRefOrGetter<PaginatedQueryArgs<Query> | null | undefined>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ) {
-  return createConvexPaginatedQueryState<Query, Args, TransformedItem>(query, args, options, true)
+  return createConvexPaginatedQueryState<Query, TransformedItem>(query, args, options, true)
     .resultData
 }
 

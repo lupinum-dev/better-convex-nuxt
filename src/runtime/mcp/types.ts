@@ -107,11 +107,9 @@ export interface ConvexToolHandlerCtx<TRole extends string = string> extends Con
   blocked: (preview: string | PreviewResult) => McpToolCallbackResult
 }
 
-export type ConvexToolMiddlewareCtx<TRole extends string = string> = ConvexToolHandlerCtx<TRole>
-
 export type ConvexToolMiddleware<S extends AnyConvexSchema, TRole extends string = string> = (
   args: InferSchemaData<S>,
-  ctx: ConvexToolMiddlewareCtx<TRole>,
+  ctx: ConvexToolHandlerCtx<TRole>,
   next: () => Promise<McpToolCallbackResult>,
 ) => McpToolCallbackResult | Promise<McpToolCallbackResult>
 
@@ -171,7 +169,7 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   /** Preview function for destructive tools. Receives the same args as handler, plus the middleware context. */
   preview?: (
     args: InferSchemaData<S>,
-    ctx: ConvexToolMiddlewareCtx<TRole>,
+    ctx: ConvexToolHandlerCtx<TRole>,
   ) => string | PreviewResult | Promise<string | PreviewResult>
 
   // ── Grouping ──────────────────────────────────────────────

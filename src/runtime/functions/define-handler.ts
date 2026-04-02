@@ -20,9 +20,11 @@ type AnyBuilder = (definition: {
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
 
-type LoadedValue = Record<string, unknown> | undefined
+export type StructuredLoadedValue = Record<string, unknown> | undefined
 
 type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
+
+export type StructuredGuard<TActor> = Guard<TActor | null> | OpenGuard
 
 type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard ? TActor | null : NonNullable<TActor>
 
@@ -56,7 +58,7 @@ type AuthorizeConfig<TCtx, TActor, TGuard, TArgsValidator extends PropertyValida
 type HandlerDefinition<
   TCtx,
   TActor,
-  TGuard,
+  TGuard extends StructuredGuard<TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
@@ -75,7 +77,7 @@ type HandlerDefinition<
 export type StructuredHandlerDefinition<
   TCtx,
   TActor,
-  TGuard,
+  TGuard extends StructuredGuard<TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
@@ -109,9 +111,9 @@ function createStructuredBuilder<TCtx extends object, TActor, TBuilder extends A
   builder: TBuilder,
 ) {
   return function structuredBuilder<
-    TGuard extends Guard<TActor | null> | OpenGuard,
+    TGuard extends StructuredGuard<TActor>,
     TArgsValidator extends PropertyValidators,
-    TLoaded extends LoadedValue = undefined,
+    TLoaded extends StructuredLoadedValue = undefined,
     TResult = unknown,
   >(
     definition: HandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult>,

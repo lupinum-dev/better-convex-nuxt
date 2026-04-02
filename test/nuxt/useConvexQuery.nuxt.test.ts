@@ -16,14 +16,13 @@ import { waitFor } from '../support/nuxt/wait-for'
 
 function useConvexQueryState<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
+  args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
 ) {
-  return createConvexQueryState<Query, Args, DataT>(query, args, options, true).resultData
+  return createConvexQueryState<Query, DataT>(query, args, options, true).resultData
 }
 
 describe('useConvexQuery composables (Nuxt runtime)', () => {

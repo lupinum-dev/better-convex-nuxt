@@ -19,7 +19,7 @@ export type UploadStatus = 'idle' | 'pending' | 'success' | 'error'
 /** Status of an individual item in queue mode */
 export type UploadQueueItemStatus = 'queued' | 'pending' | 'success' | 'error' | 'cancelled'
 
-export interface UploadQueueItem<MutationArgs = Record<string, unknown>> {
+export interface UploadQueueItem<MutationArgs = unknown> {
   id: string
   file: File
   mutationArgs?: MutationArgs
@@ -34,12 +34,12 @@ export interface UploadQueueItem<MutationArgs = Record<string, unknown>> {
   finishedAt: number | null
 }
 
-export interface UploadQueueEnqueueItem<MutationArgs = Record<string, unknown>> {
+export interface UploadQueueEnqueueItem<MutationArgs = unknown> {
   file: File
   mutationArgs?: MutationArgs
 }
 
-export type UploadQueueEnqueueInput<MutationArgs = Record<string, unknown>> =
+export type UploadQueueEnqueueInput<MutationArgs = unknown> =
   | File
   | File[]
   | FileList

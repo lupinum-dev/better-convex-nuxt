@@ -5,8 +5,9 @@ import { useNuxtApp, useRuntimeConfig } from '#imports'
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import type { ValidateOption } from '../utils/resolve-validator'
+import { createConvexCallState } from './internal/convex-call-state'
 import { getRequiredConvexClient } from './useConvex'
-import { createConvexCallState, type UseConvexMutationReturn } from './useConvexMutation'
+import type { UseConvexMutationReturn } from './useConvexMutation'
 
 /**
  * Return value from useConvexAction.

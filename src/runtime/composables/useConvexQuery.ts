@@ -157,11 +157,10 @@ export function executeQueryViaSubscription<Query extends FunctionReference<'que
 
 export function createConvexQueryState<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
+  args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
   resolveImmediately = false,
 ): BuildConvexQueryResult<DataT> {
@@ -218,10 +217,10 @@ export function createConvexQueryState<
   const fnName = getFunctionName(query)
   const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
 
-  const normalizedArgs = computed((): Args => {
-    const rawArgs = args === undefined ? ({} as Args) : (toValue(args) as Args)
-    if (rawArgs == null) return {} as Args
-    return rawArgs as Args
+  const normalizedArgs = computed((): FunctionArgs<Query> => {
+    const rawArgs = args === undefined ? ({} as FunctionArgs<Query>) : toValue(args)
+    if (rawArgs == null) return {} as FunctionArgs<Query>
+    return rawArgs as FunctionArgs<Query>
   })
 
   // null/undefined args = skip. Canonical pattern for conditional queries:
@@ -457,11 +456,10 @@ export function createConvexQueryState<
  */
 export function useConvexQuery<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
+  args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
 ): UseConvexQueryReturn<DataT> {
   const created = createConvexQueryState(query, args, options, true)
