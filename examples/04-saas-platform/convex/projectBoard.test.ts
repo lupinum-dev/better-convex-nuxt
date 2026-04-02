@@ -24,6 +24,7 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
         alice: { role: 'member' },
@@ -58,6 +59,7 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
         viewer: { role: 'viewer' },
@@ -92,6 +94,7 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
       },
@@ -116,12 +119,14 @@ describe('project board example', () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
       },
     })
     const beta = await ctx.seedTenant({
       name: 'Beta',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
       },
@@ -164,10 +169,12 @@ describe('project board example', () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: { owner: { role: 'owner' } },
     })
     const beta = await ctx.seedTenant({
       name: 'Beta',
+      plan: 'free',
       users: { owner: { role: 'owner' } },
     })
 
@@ -177,7 +184,7 @@ describe('project board example', () => {
     })
 
     await expect(beta.users.owner.query(api.projects.get, { id: alphaProject })).rejects.toThrow(
-      'Resource not found.',
+      'Document belongs to a different tenant.',
     )
   })
 
@@ -185,10 +192,12 @@ describe('project board example', () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: { owner: { role: 'owner' } },
     })
     const beta = await ctx.seedTenant({
       name: 'Beta',
+      plan: 'free',
       users: { owner: { role: 'owner' } },
     })
 
@@ -207,13 +216,14 @@ describe('project board example', () => {
         taskId,
         body: 'Cross-tenant comment',
       }),
-    ).rejects.toThrow('Resource not found.')
+    ).rejects.toThrow('Document belongs to a different tenant.')
   })
 
   it('excludes users without a workspace from the scoped member list', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
         member: { role: 'member' },
@@ -248,6 +258,7 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
         alice: { role: 'member' },
@@ -283,6 +294,7 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
         viewer: { role: 'viewer' },
@@ -311,6 +323,7 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
         member: { role: 'member' },
@@ -346,6 +359,7 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
+      plan: 'free',
       users: {
         owner: { role: 'owner' },
         viewer: { role: 'viewer' },

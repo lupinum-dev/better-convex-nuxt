@@ -7,7 +7,6 @@ import {
   deny,
   enforce,
   loadTenantResource as loadResource,
-  open,
   requireRecord,
 } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
@@ -21,8 +20,9 @@ import {
   resolveShareToken,
   shareTokenPrefix,
 } from './auth/shareTokens'
+import { getActor } from './auth/actor'
 import { canAccessArticleOwner, getArticleOwnerScope } from './auth/visibility'
-import { app } from './functions'
+import { app, query } from './functions'
 import { accessLevelValidator, visibilityValidator } from './schema'
 
 export const list = app.query({
@@ -59,44 +59,25 @@ export const list = app.query({
   },
 })
 
-export const viewArticle = app.query({
-  guard: open,
+export const viewArticle = query({
   args: { id: v.id('articles'), shareToken: v.optional(v.string()) },
-  load: async (ctx, args) => {
+  handler: async (ctx, args) => {
     if (args.shareToken) {
       const grant = await resolveShareToken(ctx.db, args.shareToken)
       if (grant.articleId !== args.id) throw deny('Token does not match this article.')
       const article = await ctx.db.get(args.id)
       requireRecord(article, 'Article')
-      return { article, accessLevel: grant.level, via: 'token' as const }
+      return { ...article, _access: grant.level }
     }
 
-    const article = await ctx.db.get(args.id)
-    requireRecord(article, 'Article')
-    return { article, via: 'actor' as const }
-  },
-  authorize: {
-    label: 'Read articles',
-    check: async (actor, loaded, _args, ctx) => {
-      if (loaded.via === 'token') {
-        return true
-      }
+    const actor = await getActor(ctx)
+    enforce(actor, 'Read articles', canReadArticle)
 
-      enforce(actor, 'Read articles', canReadArticle)
-      await requireArticleAccess(ctx.db, actor, loaded.article)
-      return true
-    },
-  },
-  handler: async (ctx, _args, loaded) => {
-    if (loaded.via === 'token') {
-      return { ...loaded.article, _access: loaded.accessLevel }
-    }
+    const article = loadResource(actor, await ctx.db.get(args.id), 'Article')
+    await requireArticleAccess(ctx.db, actor, article)
 
-    const actor = await ctx.actor()
-    if (!actor) throw deny('Not authenticated.')
-
-    const accessLevel = await getInheritedAccessLevel(ctx.db, actor, loaded.article._id)
-    return { ...redactArticle(actor, loaded.article), _access: accessLevel }
+    const accessLevel = await getInheritedAccessLevel(ctx.db, actor, article._id)
+    return { ...redactArticle(actor, article), _access: accessLevel }
   },
 })
 

@@ -1,10 +1,9 @@
-import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'
 import { canInviteMembers } from './auth/checks'
 import { loadResource } from './auth/scope'
-import { app } from './functions'
+import { app, mutation, query } from './functions'
 
 function generateKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -74,9 +73,8 @@ export const revoke = app.mutation({
   },
 })
 
-export const validate = app.query({
+export const validate = query({
   args: { key: v.string() },
-  guard: open,
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
       .query('mcpKeys')
@@ -93,9 +91,8 @@ export const validate = app.query({
   },
 })
 
-export const touch = app.mutation({
+export const touch = mutation({
   args: { key: v.string() },
-  guard: open,
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
       .query('mcpKeys')

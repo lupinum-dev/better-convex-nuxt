@@ -35,8 +35,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_auth_id', ['authId'])
-    .index('by_email', ['email'])
-    .index('by_workspace', ['workspaceId']),
+    .index('by_email', ['email']),
 
   projects: defineTable({
     workspaceId: v.id('workspaces'),

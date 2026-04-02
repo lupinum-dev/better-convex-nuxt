@@ -31,7 +31,7 @@ Workspace → Knowledge Base → Article (hierarchical via parentArticleId)
 | ----------- | -------------- | --------------------------------------------- | ----------- | ------ |
 | owner       | create/publish | full access, skip enrollment                  | manage      | create |
 | admin       | create/publish | full access, skip enrollment                  | manage      | create |
-| editor      | —              | create, see team articles, see internal notes | manage      | create |
+| editor      | create/publish | create, see team articles, see internal notes | manage      | create |
 | contributor | —              | create own, see workspace articles            | —           | —      |
 | viewer      | —              | see workspace articles (if enrolled)          | —           | —      |
 

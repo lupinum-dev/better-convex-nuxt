@@ -3,7 +3,7 @@
  * Direct exports are static actor predicates. Resource-bound checks are factories that return
  * actor predicates after you bind the relevant document.
  */
-import { and, or } from '@lupinum/trellis/auth'
+import { and, defineGuard, or } from '@lupinum/trellis/auth'
 
 import type { Doc } from '../_generated/dataModel'
 import type { Actor } from './actor'
@@ -28,14 +28,23 @@ export const hasFeature = (feature: string) => (actor: Actor) => {
   return features.includes(feature) || features.includes('*')
 }
 
-export const canCreateProject = hasRole('owner', 'admin')
-export const canReadProject = hasRole('owner', 'admin', 'member', 'viewer')
-export const canArchiveProject = hasRole('owner', 'admin')
-export const canExportProjects = and(hasRole('owner', 'admin'), hasFeature('exports'))
+export const canCreateProject = defineGuard('Create project', hasRole('owner', 'admin'))
+export const canReadProject = defineGuard(
+  'Read project',
+  hasRole('owner', 'admin', 'member', 'viewer'),
+)
+export const canArchiveProject = defineGuard('Archive project', hasRole('owner', 'admin'))
+export const canExportProjects = defineGuard(
+  'Export projects',
+  and(hasRole('owner', 'admin'), hasFeature('exports')),
+)
 
-export const canCreateTask = hasRole('owner', 'admin', 'member')
-export const canReadTask = hasRole('owner', 'admin', 'member', 'viewer')
-export const canAssignTask = hasRole('owner', 'admin')
+export const canCreateTask = defineGuard('Create task', hasRole('owner', 'admin', 'member'))
+export const canReadTask = defineGuard(
+  'Read task',
+  hasRole('owner', 'admin', 'member', 'viewer'),
+)
+export const canAssignTask = defineGuard('Assign task', hasRole('owner', 'admin'))
 
 export const canUpdateTask = (task: Doc<'tasks'>) =>
   or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task)))
@@ -43,6 +52,9 @@ export const canUpdateTask = (task: Doc<'tasks'>) =>
 export const canDeleteTask = (task: Doc<'tasks'>) =>
   or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task)))
 
-export const canComment = hasRole('owner', 'admin', 'member', 'viewer')
-export const canManageMembers = hasRole('owner', 'admin')
-export const canViewAudit = hasRole('owner', 'admin')
+export const canComment = defineGuard(
+  'Create comment',
+  hasRole('owner', 'admin', 'member', 'viewer'),
+)
+export const canManageMembers = defineGuard('Manage members', hasRole('owner', 'admin'))
+export const canViewAudit = defineGuard('View audit log', hasRole('owner', 'admin'))

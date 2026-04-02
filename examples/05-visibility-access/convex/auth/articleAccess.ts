@@ -50,8 +50,7 @@ export async function getInheritedAccessLevel(
   articleId: Id<'articles'>,
   maxDepth = 10,
 ): Promise<AccessLevel | null> {
-  const direct = await getAccessLevel(db, actor, articleId)
-  if (direct) return direct
+  let best = await getAccessLevel(db, actor, articleId)
 
   let currentId = articleId
   for (let depth = 0; depth < maxDepth; depth++) {
@@ -59,12 +58,14 @@ export async function getInheritedAccessLevel(
     if (!article?.parentArticleId) break
 
     const parentAccess = await getAccessLevel(db, actor, article.parentArticleId)
-    if (parentAccess) return parentAccess
+    if (parentAccess && (!best || hierarchy[parentAccess] > hierarchy[best])) {
+      best = parentAccess
+    }
 
     currentId = article.parentArticleId
   }
 
-  return null
+  return best
 }
 
 export async function requireArticleAccess(

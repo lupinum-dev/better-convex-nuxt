@@ -10,6 +10,7 @@ import {
   canCreateProject,
   canCreateTask,
   canExportProjects,
+  hasRole,
   canManageMembers,
   canReadProject,
   canViewAudit,

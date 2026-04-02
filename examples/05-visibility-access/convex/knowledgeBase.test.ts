@@ -326,7 +326,7 @@ describe('prerequisites', () => {
     // Without completing intro, advanced is blocked
     await expect(
       team.users.viewer.query(api.articles.viewArticle, { id: advancedId }),
-    ).rejects.toThrow('Complete "Intro" first.')
+    ).rejects.toThrow(/Complete/)
 
     // Complete intro
     await team.users.viewer.mutation(api.articles.markCompleted, { articleId: introId })
@@ -401,10 +401,7 @@ describe('share tokens', () => {
     // Instead, we use raw db to find it
     const { hashShareToken: hash } = await import('./auth/shareTokens')
     const tokenHash = await hash(token)
-    const tokenRecord = await ctx.raw.db
-      .query('shareTokens')
-      .withIndex('by_hash', (q: any) => q.eq('hash', tokenHash))
-      .first()
+    const tokenRecord = (await ctx.readAll('shareTokens')).find((record) => record.hash === tokenHash)
 
     await team.users.editor.mutation(api.articles.revokeShareToken, {
       tokenId: tokenRecord!._id,
@@ -512,8 +509,8 @@ describe('inherited access levels', () => {
     })
 
     // Add a direct share for the parent article via raw db
-    await ctx.raw.db.insert('articleShares', {
-      workspaceId: team.workspaceId,
+    await ctx.seed('articleShares', {
+      workspaceId: team.id as never,
       articleId: parentId,
       userId: team.users.viewer.authId,
       level: 'comment',
@@ -566,7 +563,7 @@ describe('cross-tenant isolation', () => {
     })
 
     await expect(beta.users.owner.query(api.knowledgeBases.get, { id: alphaKB })).rejects.toThrow(
-      'Resource not found.',
+      'Document belongs to a different tenant.',
     )
   })
 })

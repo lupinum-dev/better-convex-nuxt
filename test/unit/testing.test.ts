@@ -8,5 +8,12 @@ describe('convexTestConfig', () => {
 
     expect(config.test?.environment).toBe('edge-runtime')
     expect(config.test?.server?.deps?.inline).toEqual(expect.arrayContaining([expect.any(RegExp)]))
+    expect(config.esbuild?.tsconfigRaw).toMatchObject({
+      compilerOptions: {
+        module: 'ESNext',
+        moduleResolution: 'Bundler',
+        types: expect.arrayContaining(['node', 'vite/client']),
+      },
+    })
   })
 })

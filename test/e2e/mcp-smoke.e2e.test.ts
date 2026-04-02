@@ -12,28 +12,19 @@ import {
 } from '../support/e2e/mcp-bootstrap'
 import { initializeMcpSession, rpc } from '../support/e2e/mcp-client'
 
-let local: Awaited<ReturnType<typeof ensureManagedLocalConvex>> | null = null
-try {
-  local = await ensureManagedLocalConvex({
-    cwd: fileURLToPath(new URL('../internal-harness', import.meta.url)),
-  })
-} catch (error) {
-  console.warn('[e2e] Skipping MCP smoke suite: local Convex backend unavailable.', error)
-}
+const local = await ensureManagedLocalConvex({
+  cwd: fileURLToPath(new URL('../internal-harness', import.meta.url)),
+})
 
-const maybeDescribe = local ? describe : describe.skip
-
-maybeDescribe('MCP route smoke', async () => {
+describe('MCP route smoke', async () => {
   afterAll(async () => {
-    if (local) {
-      await local.release()
-    }
+    await local.release()
   })
 
   await setup({
     rootDir: fileURLToPath(new URL('../internal-harness', import.meta.url)),
     env: {
-      ...local?.env,
+      ...local.env,
       CONVEX_TRUSTED_CALLER_KEY: INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY,
     },
   })
@@ -221,21 +212,12 @@ maybeDescribe('MCP route smoke', async () => {
     const noOrgPayload = noOrgPostList._data as {
       result?: {
         isError?: boolean
-        structuredContent?: {
-          ok?: boolean
-          error?: { category?: string }
-        }
         content?: Array<{ text?: string }>
       }
     }
 
-    expect(
-      noOrgPayload.result?.structuredContent?.ok === false || noOrgPayload.result?.isError === true,
-    ).toBe(true)
-    expect(
-      noOrgPayload.result?.structuredContent?.error?.category === 'auth' ||
-        noOrgPayload.result?.content?.[0]?.text?.includes('Tool list-posts not found') === true,
-    ).toBe(true)
+    expect(noOrgPayload.result?.isError).toBe(true)
+    expect(noOrgPayload.result?.content?.[0]?.text).toContain('Tool list-posts not found')
 
     const viewerCreatePost = await rpc(
       {
@@ -256,22 +238,12 @@ maybeDescribe('MCP route smoke', async () => {
     const viewerPayload = viewerCreatePost._data as {
       result?: {
         isError?: boolean
-        structuredContent?: {
-          ok?: boolean
-          error?: { category?: string }
-        }
         content?: Array<{ text?: string }>
       }
     }
 
-    expect(
-      viewerPayload.result?.structuredContent?.ok === false ||
-        viewerPayload.result?.isError === true,
-    ).toBe(true)
-    expect(
-      viewerPayload.result?.structuredContent?.error?.category === 'auth' ||
-        viewerPayload.result?.content?.[0]?.text?.includes('Tool create-post not found') === true,
-    ).toBe(true)
+    expect(viewerPayload.result?.isError).toBe(true)
+    expect(viewerPayload.result?.content?.[0]?.text).toContain('Tool create-post not found')
   })
 
   it('enforces destructive confirmation, rejects revoked keys, and touches lastUsedAt', async () => {
@@ -349,22 +321,12 @@ maybeDescribe('MCP route smoke', async () => {
     const revokedPayload = revokedCall._data as {
       result?: {
         isError?: boolean
-        structuredContent?: {
-          ok?: boolean
-          error?: { category?: string }
-        }
         content?: Array<{ text?: string }>
       }
     }
 
-    expect(
-      revokedPayload.result?.structuredContent?.ok === false ||
-        revokedPayload.result?.isError === true,
-    ).toBe(true)
-    expect(
-      revokedPayload.result?.structuredContent?.error?.category === 'auth' ||
-        revokedPayload.result?.content?.[0]?.text?.includes('Tool list-posts not found') === true,
-    ).toBe(true)
+    expect(revokedPayload.result?.isError).toBe(true)
+    expect(revokedPayload.result?.content?.[0]?.text).toContain('Tool list-posts not found')
 
     let touchedKey: { lastUsedAt?: number } | undefined
     for (let attempt = 0; attempt < 20; attempt += 1) {

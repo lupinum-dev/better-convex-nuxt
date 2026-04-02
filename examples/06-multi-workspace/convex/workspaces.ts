@@ -9,7 +9,7 @@ import { agencyPermissionKeys, type AgencyPermissionMap } from '../shared/permis
 import { getActor } from './auth/actor'
 import { getMemberships, requireWorkspaceMembership } from './auth/agency'
 import { hasRole } from './auth/checks'
-import { app } from './functions'
+import { app, mutation } from './functions'
 
 type Actor = NonNullable<Awaited<ReturnType<typeof getActor>>>
 
@@ -71,9 +71,8 @@ export const getPermissionContext = app.query(
   }),
 )
 
-export const createWorkspace = app.mutation({
+export const createWorkspace = mutation({
   args: { name: v.string(), slug: v.string() },
-  guard: open,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
@@ -115,12 +114,11 @@ export const createWorkspace = app.mutation({
   },
 })
 
-export const joinWorkspace = app.mutation({
+export const joinWorkspace = mutation({
   args: {
     slug: v.string(),
     role: v.union(v.literal('member'), v.literal('viewer')),
   },
-  guard: open,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
@@ -167,9 +165,8 @@ export const joinWorkspace = app.mutation({
   },
 })
 
-export const switchWorkspace = app.mutation({
+export const switchWorkspace = mutation({
   args: { workspaceId: v.id('workspaces') },
-  guard: open,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
@@ -188,11 +185,12 @@ export const switchWorkspace = app.mutation({
   },
 })
 
-export const seedAgencyPortfolio = app.mutation({
+export const seedAgencyPortfolio = mutation({
   args: {},
-  guard: hasRole('owner', 'member', 'viewer', 'agency_admin', 'agency_manager'),
   handler: async (ctx) => {
-    const actor = await ctx.actor()
+    const actor = await getActor(ctx)
+    if (!actor) throw deny('Not authenticated.')
+
     const now = Date.now()
     const clientA = await ctx.db.insert('workspaces', {
       name: 'Client A',

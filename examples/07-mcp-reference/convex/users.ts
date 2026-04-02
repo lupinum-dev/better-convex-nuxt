@@ -23,12 +23,10 @@ export const listWorkspaceUsersForMcpKeys = app.query({
   handler: async (ctx) => {
     const actor = await ctx.actor()
 
-    const users = await ctx.db
-      .query('users')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
-      .collect()
+    const users = await ctx.db.query('users').collect()
 
     return users
+      .filter((user) => user.workspaceId === actor.tenantId)
       .filter((user) => canIssueKeyRole(actor, user.role))
       .map((user) => ({
         authId: user.authId,

@@ -41,7 +41,6 @@ export default defineSchema({
   })
     .index('by_auth_id', ['authId'])
     .index('by_email', ['email'])
-    .index('by_workspace', ['workspaceId'])
     .index('by_manager', ['managerId']),
 
   knowledgeBases: defineTable({
@@ -101,6 +100,7 @@ export default defineSchema({
     level: accessLevelValidator,
     createdAt: v.number(),
   })
+    .index('by_workspace', ['workspaceId'])
     .index('by_article', ['articleId'])
     .index('by_user_article', ['userId', 'articleId']),
 
@@ -113,5 +113,7 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
     createdAt: v.number(),
-  }).index('by_hash', ['hash']),
+  })
+    .index('by_workspace', ['workspaceId'])
+    .index('by_hash', ['hash']),
 })

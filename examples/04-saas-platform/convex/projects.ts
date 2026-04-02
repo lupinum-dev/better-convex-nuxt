@@ -1,8 +1,13 @@
-import { deny, enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
+import { deny, enforce, loadTenantResource as loadResource, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { archiveProject, createProject } from '../shared/schemas/project'
-import { canArchiveProject, canCreateProject, canReadProject, hasFeature } from './auth/checks'
+import {
+  canArchiveProject,
+  canCreateProject,
+  canExportProjects,
+  canReadProject,
+} from './auth/checks'
 import { ensureWithinLimit } from './auth/limits'
 import { app } from './functions'
 
@@ -93,9 +98,10 @@ export const archive = app.mutation({
 
 export const exportProjects = app.query({
   args: {},
-  guard: hasFeature('exports'),
+  guard: open,
   handler: async (ctx) => {
     const actor = await ctx.actor()
+    enforce(actor, 'Export projects', canExportProjects)
 
     const projects = await ctx.db
       .query('projects')

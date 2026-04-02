@@ -32,8 +32,11 @@ test/internal-harness/convex/
 
 ```bash
 pnpm test:types
+pnpm test:examples
+pnpm test:contracts:repo
 pnpm test:contracts
 pnpm test:internals
+pnpm test:repo
 pnpm test
 pnpm test:auth
 pnpm test:server
@@ -54,6 +57,7 @@ pnpm test:inventory
 - `convex`: backend tests in `test/internal-harness/convex/**`
 - `browser`: browser component tests in `test/browser/**`
 - `e2e`: full-stack suites in `test/e2e/**`
+- `examples`: curated workspace-app suites under `examples/*`
 
 ## Design Rules
 
@@ -75,14 +79,22 @@ Before adding a new auth test, place it in the single suite that owns that behav
 The repo uses two maintainer-facing test lanes in addition to the full suite:
 
 - `pnpm test:contracts`
+  - `pnpm test:contracts:repo`
+  - `pnpm test:examples`
   - public composable/plugin behavior
   - server helpers
   - installer behavior
+  - example consumer coverage
   - doctor/docs/architecture guard tests
 - `pnpm test:internals`
   - extracted pure helpers
   - internal state machines
   - no broad white-box tests for reactive composables
+
+`pnpm test` is the maintainer default gate:
+
+- `pnpm test:repo`
+- `pnpm test:examples`
 
 Rule of thumb:
 
@@ -102,6 +114,8 @@ Rule of thumb:
 
 `pnpm test:e2e` is managed-only. It rebuilds the module, kills conflicting listeners on the configured local Convex ports, boots its own local backend, waits for an explicit internal-harness readiness endpoint, injects the trusted-caller env required by the MCP smoke suite, and tears everything down when the run finishes.
 
+Managed bootstrap failures are test failures. The smoke suites do not downgrade local backend startup problems into skips.
+
 Normal contributors should not prestart Convex for the smoke suite. The only required manual setup is the local Better Auth config inside `test/internal-harness/.env.local`, which is the canonical local env file read by Convex and the harness.
 
 If local auth has not been initialized yet:
@@ -119,5 +133,7 @@ pnpm test:e2e
 
 - `pnpm test:list` lists runnable test entry files only.
 - `pnpm test:inventory` lists the wider repo-owned test tree while excluding fixture `node_modules`.
+- `pnpm test:examples` runs the curated example suites that exercise the package from workspace apps.
 - PR-safe default gate: `pnpm test:types && pnpm lint && pnpm test:contracts`
 - broader integration gate: `pnpm test`
+- release gate: `pnpm run release:verify`

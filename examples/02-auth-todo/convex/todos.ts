@@ -41,13 +41,10 @@ export const toggle = app.mutation({
   args: { id: v.id('todos') },
   guard: isAuthenticated,
   load: async (ctx, args) => {
+    const actor = await ctx.actor()
     const todo = await ctx.db.get(args.id)
-    requireRecord(todo, 'Todo')
+    requireRecord(todo && todo.ownerId === actor.userId ? todo : null, 'Todo')
     return { todo }
-  },
-  authorize: {
-    label: 'Update todo',
-    check: (actor, { todo }) => !!actor && actor.userId === todo.ownerId,
   },
   handler: async (ctx, args, { todo }) => {
     await ctx.db.patch(args.id, {
@@ -60,13 +57,10 @@ export const remove = app.mutation({
   args: { id: v.id('todos') },
   guard: isAuthenticated,
   load: async (ctx, args) => {
+    const actor = await ctx.actor()
     const todo = await ctx.db.get(args.id)
-    requireRecord(todo, 'Todo')
+    requireRecord(todo && todo.ownerId === actor.userId ? todo : null, 'Todo')
     return { todo }
-  },
-  authorize: {
-    label: 'Delete todo',
-    check: (actor, { todo }) => !!actor && actor.userId === todo.ownerId,
   },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)

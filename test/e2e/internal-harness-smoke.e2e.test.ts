@@ -9,32 +9,18 @@ import { startManagedNuxtDev } from '../support/e2e/managed-nuxt-dev'
 
 const harnessRoot = fileURLToPath(new URL('../internal-harness', import.meta.url))
 
-let local: Awaited<ReturnType<typeof ensureManagedLocalConvex>> | null = null
-try {
-  local = await ensureManagedLocalConvex({
-    cwd: harnessRoot,
-  })
-} catch (error) {
-  console.warn(
-    '[e2e] Skipping internal-harness smoke suite: local Convex backend unavailable.',
-    error,
-  )
-}
+const local = await ensureManagedLocalConvex({
+  cwd: harnessRoot,
+})
 
-if (local) {
-  await setup({
-    rootDir: harnessRoot,
-    env: local.env,
-  })
-}
+await setup({
+  rootDir: harnessRoot,
+  env: local.env,
+})
 
-const maybeDescribe = local ? describe : describe.skip
-
-maybeDescribe('internal harness smoke', () => {
+describe('internal harness smoke', () => {
   afterAll(async () => {
-    if (local) {
-      await local.release()
-    }
+    await local.release()
   })
 
   const fetchAny = $fetch as unknown as (

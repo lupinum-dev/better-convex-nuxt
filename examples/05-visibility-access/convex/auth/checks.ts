@@ -19,7 +19,10 @@ export const isOwnerOf = (resource: { ownerId: string }) =>
 export const isStaffActor = (actor: Actor): actor is Exclude<Actor, null> =>
   !!actor && hasRole('owner', 'admin', 'editor')(actor)
 
-export const canCreateKB = defineGuard<Actor>('Create knowledge base', hasRole('owner', 'admin'))
+export const canCreateKB = defineGuard<Actor>(
+  'Create knowledge base',
+  hasRole('owner', 'admin', 'editor'),
+)
 export const canReadKB = defineGuard<Actor>(
   'Read knowledge base',
   hasRole('owner', 'admin', 'editor', 'contributor', 'viewer'),

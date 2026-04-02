@@ -10,11 +10,8 @@ export const list = app.query({
   handler: async (ctx) => {
     const actor = await ctx.actor()
 
-    return ctx.db
-      .query('users')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
-      .order('asc')
-      .collect()
+    const users = await ctx.db.query('users').order('asc').collect()
+    return users.filter((user) => user.workspaceId === actor.tenantId)
   },
 })
 

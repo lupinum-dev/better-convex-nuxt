@@ -142,6 +142,19 @@ export interface TestContext<TSchema extends AnySchemaDefinition, TRole extends 
   asTrustedCaller: (actor: { userId: string }) => TestClient<TSchema>
 }
 
+const DEFAULT_CONVEX_TEST_TSCONFIG = {
+  compilerOptions: {
+    target: 'ES2022',
+    module: 'ESNext',
+    moduleResolution: 'Bundler',
+    strict: true,
+    skipLibCheck: true,
+    esModuleInterop: true,
+    resolveJsonModule: true,
+    types: ['node', 'vite/client'],
+  },
+} as const
+
 function mergeInlineDeps(config: UserConfig): UserConfig {
   const existingInline = Array.isArray(config.test?.server?.deps?.inline)
     ? config.test.server.deps.inline
@@ -156,6 +169,35 @@ function mergeInlineDeps(config: UserConfig): UserConfig {
         deps: {
           ...config.test?.server?.deps,
           inline: [...existingInline, /convex/],
+        },
+      },
+    },
+  }
+}
+
+function mergeStableTestTsconfig(config: UserConfig): UserConfig {
+  const existingRaw =
+    config.esbuild?.tsconfigRaw && typeof config.esbuild.tsconfigRaw === 'object'
+      ? config.esbuild.tsconfigRaw
+      : {}
+
+  const existingCompilerOptions =
+    'compilerOptions' in existingRaw &&
+    existingRaw.compilerOptions &&
+    typeof existingRaw.compilerOptions === 'object'
+      ? existingRaw.compilerOptions
+      : {}
+
+  return {
+    ...config,
+    esbuild: {
+      ...config.esbuild,
+      tsconfigRaw: {
+        ...DEFAULT_CONVEX_TEST_TSCONFIG,
+        ...existingRaw,
+        compilerOptions: {
+          ...DEFAULT_CONVEX_TEST_TSCONFIG.compilerOptions,
+          ...existingCompilerOptions,
         },
       },
     },
@@ -225,7 +267,7 @@ function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
 }
 
 export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserConfig {
-  return mergeInlineDeps(options)
+  return mergeInlineDeps(mergeStableTestTsconfig(options))
 }
 
 export function createTestContext<
