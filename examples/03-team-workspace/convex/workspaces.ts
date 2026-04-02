@@ -4,7 +4,7 @@ import { v } from 'convex/values'
 import { teamWorkspacePermissionKeys, type TeamWorkspacePermissionMap } from '../shared/permissions'
 import { getActor } from './auth/actor'
 import { canCreateTodo, canReadTodo } from './auth/checks'
-import { app, appQuery } from './functions'
+import { app } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 
@@ -18,7 +18,7 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const getPermissionContext = appQuery(
+export const getPermissionContext = app.query(
   definePermissionContext({
     resolve: getActor,
     guards: {

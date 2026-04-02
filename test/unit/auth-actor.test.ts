@@ -1,11 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
-import {
-  createDefaultGetActor,
-  defineActor,
-  defineActorFromMembership,
-  type DefaultActor,
-} from '../../src/runtime/auth'
+import { defineActor, type DefaultActor } from '../../src/runtime/auth'
 
 type FakeUser = {
   _id: string
@@ -22,7 +17,7 @@ type FakeMembership = {
   role: string
 }
 
-type ActorCtx = Parameters<ReturnType<typeof createDefaultGetActor>>[0]
+type ActorCtx = Parameters<ReturnType<typeof defineActor.fromAuth>['resolve']>[0]
 
 function createCtx(options: {
   identity: { subject: string } | null
@@ -146,12 +141,12 @@ describe('defineActor', () => {
     ).resolves.toBeNull()
   })
 
-  it('keeps createDefaultGetActor as a compatibility helper over the new builder', async () => {
-    const getActor = createDefaultGetActor({
+  it('resolves a composed actor directly from the builder chain', async () => {
+    const getActor = defineActor.fromAuth().extend({
       fields: async (_ctx, user) => ({
         plan: user.plan ?? 'free',
       }),
-    })
+    }).resolve
 
     await expect(
       getActor(
@@ -177,12 +172,8 @@ describe('defineActor', () => {
     })
   })
 
-  it('supports membership-backed role resolution through the builder and compat helper', async () => {
+  it('supports membership-backed role resolution through the builder', async () => {
     const actor = defineActor.fromMembership({
-      membershipTable: 'memberships',
-      roleField: 'role',
-    })
-    const getActor = defineActorFromMembership({
       membershipTable: 'memberships',
       roleField: 'role',
     })
@@ -201,12 +192,6 @@ describe('defineActor', () => {
     })
 
     await expect(actor.resolve(ctx)).resolves.toEqual({
-      kind: 'user',
-      userId: 'alice',
-      role: 'admin',
-      tenantId: 'workspace-2',
-    })
-    await expect(getActor(ctx)).resolves.toEqual({
       kind: 'user',
       userId: 'alice',
       role: 'admin',

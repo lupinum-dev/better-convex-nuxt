@@ -7,14 +7,8 @@ export { defineAuth } from './define-auth'
 export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth'
 export { defineGuard, isGuard, isOpenGuard, open } from './define-guard'
 export type { AnyCheck, Check, Guard, GuardKind, OpenGuard } from './define-guard'
-export {
-  defineActor,
-  createDefaultGetActor,
-  defineActorExtension,
-  defineActorFromMembership,
-} from './define-actor'
-export type { ActorBuilder, DefaultActor, DefineActorExtensionOptions } from './define-actor'
-export { definePermissions } from './define-permissions'
+export { defineActor } from './define-actor'
+export type { ActorBuilder, DefaultActor } from './define-actor'
 export { definePermissionContext } from './define-permission-context'
 
 export type AuthIdentity = {
@@ -138,20 +132,4 @@ export function loadTenantResource<T extends Record<string, unknown>>(
 ): T {
   requireRecord(doc, label)
   return ensureTenant(actor, doc, label, tenantField)
-}
-
-/**
- * Inline capability attachment helper.
- *
- * Prefer `defineCapabilities(...).attach(...)` when the same `_can` map should
- * be declared once and reused across multiple handlers.
- */
-export function withCan<T extends Record<string, unknown>, C extends Record<string, boolean>>(
-  resource: T,
-  checks: C,
-): T & { _can: C } {
-  return {
-    ...resource,
-    _can: checks,
-  }
 }

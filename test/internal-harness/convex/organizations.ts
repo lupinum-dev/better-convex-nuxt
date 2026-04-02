@@ -1,8 +1,9 @@
 import { defineArgs } from 'better-convex-nuxt/args'
-import { enforce } from 'better-convex-nuxt/auth'
+import { defineGuard, open } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { appMutation, appQuery } from './functions'
+import type { Actor } from './auth/actor'
+import { app } from './functions'
 import { getUserRowFromActor } from './lib/user_row'
 
 const createOrganizationArgs = defineArgs({
@@ -12,18 +13,21 @@ const createOrganizationArgs = defineArgs({
   },
 })
 
-export const list = appQuery({
+const canCreateOrganization = defineGuard<Actor>('Create organization', (actor) => actor !== null)
+
+export const list = app.query({
   args: {},
+  guard: open,
   handler: async (ctx) => {
     return await ctx.db.query('organizations').order('desc').collect()
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
   args: createOrganizationArgs.args,
+  guard: canCreateOrganization,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create organization', actor !== null)
 
     const user = await getUserRowFromActor(ctx.db, actor)
     if (!user) throw new Error('User not found')

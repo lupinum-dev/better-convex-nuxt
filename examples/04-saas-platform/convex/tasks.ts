@@ -1,10 +1,4 @@
-import {
-  can,
-  deny,
-  enforce,
-  loadTenantResource as loadResource,
-  withCan,
-} from 'better-convex-nuxt/auth'
+import { can, deny, enforce, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
 import { asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 
@@ -15,6 +9,7 @@ import {
   createTask,
   moveTask,
 } from '../shared/schemas/task'
+import { taskCapabilities } from './auth/capabilities'
 import {
   canAssignTask,
   canCreateTask,
@@ -23,13 +18,13 @@ import {
   canUpdateTask,
   hasRole,
 } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const listByProject = appQuery({
+export const listByProject = app.query({
   args: { projectId: v.id('projects') },
+  guard: canReadTask,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
@@ -39,36 +34,27 @@ export const listByProject = appQuery({
       .order('desc')
       .collect()
 
-    return tasks.map((task) =>
-      withCan(task, {
-        update: can(actor, canUpdateTask(task)),
-        delete: can(actor, canDeleteTask(task)),
-      }),
-    )
+    return taskCapabilities.attach(actor, tasks)
   },
 })
 
-export const get = appQuery({
+export const get = app.query({
   args: { id: v.id('tasks') },
+  guard: canReadTask,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read task', canReadTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
-    return withCan(task, {
-      update: can(actor, canUpdateTask(task)),
-      delete: can(actor, canDeleteTask(task)),
-      assign: can(actor, canAssignTask),
-    })
+    return taskCapabilities.attach(actor, task)
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
   args: createTask.args,
+  guard: canCreateTask,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create task', canCreateTask)
 
     const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
@@ -102,8 +88,9 @@ export const create = appMutation({
   },
 })
 
-export const moveToColumn = appMutation({
+export const moveToColumn = app.mutation({
   args: moveTask.args,
+  guard: canReadTask,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
@@ -124,11 +111,11 @@ export const moveToColumn = appMutation({
   },
 })
 
-export const assign = appMutation({
+export const assign = app.mutation({
   args: assignTask.args,
+  guard: canAssignTask,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Assign task', canAssignTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
@@ -157,14 +144,14 @@ export const assign = appMutation({
   },
 })
 
-export const bulkUpdateStatus = appMutation({
+export const bulkUpdateStatus = app.mutation({
   args: {
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
   },
+  guard: hasRole('owner', 'admin', 'member'),
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
 
     const now = Date.now()
     const updates = await asyncMap(args.ids, async (id) => {
@@ -200,11 +187,11 @@ export const bulkUpdateStatus = appMutation({
   },
 })
 
-export const listForExport = appQuery({
+export const listForExport = app.query({
   args: { projectId: v.id('projects') },
+  guard: canReadTask,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 

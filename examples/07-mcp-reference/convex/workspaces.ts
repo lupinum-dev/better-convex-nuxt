@@ -5,7 +5,7 @@ import { mcpReferencePermissionKeys, type McpReferencePermissionMap } from '../s
 import type { Actor } from './auth/actor'
 import { getPermissionActor } from './auth/actor'
 import { canCreateRunbook, canManageMcpKeys, canReadWorkspaceRunbook } from './auth/checks'
-import { app, appQuery } from './functions'
+import { app } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 type PermissionActor = NonNullable<Awaited<ReturnType<typeof getPermissionActor>>>
@@ -20,7 +20,7 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const getPermissionContext = appQuery(
+export const getPermissionContext = app.query(
   definePermissionContext({
     resolve: getPermissionActor,
     guards: {

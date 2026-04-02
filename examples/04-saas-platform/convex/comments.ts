@@ -3,13 +3,13 @@ import { v } from 'convex/values'
 
 import { createComment } from '../shared/schemas/comment'
 import { canComment } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const listByTask = appQuery({
+export const listByTask = app.query({
   args: { taskId: v.id('tasks') },
+  guard: canComment,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read comments', canComment)
 
     loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 
@@ -21,11 +21,11 @@ export const listByTask = appQuery({
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
   args: createComment.args,
+  guard: canComment,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create comment', canComment)
 
     const task = loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 

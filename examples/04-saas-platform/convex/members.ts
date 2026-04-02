@@ -2,13 +2,13 @@ import { deny, enforce, ensureTenant, requireRecord } from 'better-convex-nuxt/a
 import { v } from 'convex/values'
 
 import { canManageMembers } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const list = appQuery({
+export const list = app.query({
   args: {},
+  guard: canManageMembers,
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Manage members', canManageMembers)
 
     return ctx.db
       .query('users')
@@ -18,14 +18,14 @@ export const list = appQuery({
   },
 })
 
-export const changeRole = appMutation({
+export const changeRole = app.mutation({
   args: {
     userId: v.id('users'),
     newRole: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
+  guard: canManageMembers,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Manage members', canManageMembers)
 
     const target = await ctx.db.get(args.userId)
     requireRecord(target, 'User')

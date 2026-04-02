@@ -88,4 +88,4 @@ Use `pnpm convex:dev` only if you explicitly want to run the local backend by ha
 
 Convex files run on Convex's infrastructure, outside Nuxt's auto-import/build scope. That is why
 the app owns tiny files like `convex/auth/actor.ts` and `convex/functions.ts`, even though the
-protected handlers now use `appQuery()` / `appMutation()` instead of raw Convex builders.
+protected handlers now use `app.query()` / `app.mutation()`, with `raw.query()` / `raw.mutation()` kept only for explicit escape hatches.

@@ -2,13 +2,13 @@ import { enforce } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { canViewAudit } from './auth/checks'
-import { appQuery } from './functions'
+import { app } from './functions'
 
-export const stats = appQuery({
+export const stats = app.query({
   args: {},
+  guard: canViewAudit,
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'View audit', canViewAudit)
 
     const [projects, tasks] = await Promise.all([
       ctx.db
@@ -29,11 +29,11 @@ export const stats = appQuery({
   },
 })
 
-export const recentActivity = appQuery({
+export const recentActivity = app.query({
   args: { limit: v.optional(v.number()) },
+  guard: canViewAudit,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'View audit', canViewAudit)
 
     const events = await ctx.db
       .query('auditEvents')

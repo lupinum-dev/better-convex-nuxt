@@ -92,6 +92,16 @@ function isCallNamed(node: any, ...names: string[]): boolean {
   return node?.type === 'CallExpression' && names.includes(getCallName(node.callee) ?? '')
 }
 
+function isBuilderCall(node: any, builderName: string, ...methodNames: string[]): boolean {
+  return (
+    node?.type === 'CallExpression' &&
+    node.callee?.type === 'MemberExpression' &&
+    !node.callee.computed &&
+    isIdentifier(node.callee.object, builderName) &&
+    methodNames.includes(getCallName(node.callee.property) ?? '')
+  )
+}
+
 function isCtxDbQueryCall(node: any): boolean {
   if (!isCallNamed(node, 'query')) return false
   const callee = node.callee
@@ -182,10 +192,6 @@ function isOpenGuardValue(node: any): boolean {
     isIdentifier(node, 'open') ||
     (node?.type === 'MemberExpression' && !node.computed && isIdentifier(node.property, 'open'))
   )
-}
-
-function hasStructuredGuard(callNode: any): boolean {
-  return getHandlerGuardValue(callNode) !== null
 }
 
 function hasProtectedStructuredGuard(callNode: any): boolean {
@@ -795,7 +801,7 @@ const rules: Record<string, RuleModule> = {
       schema: [],
       messages: {
         prefer:
-          'Prefer `appQuery` / `appMutation` over raw Convex builders in tenant-scoped apps unless the file is an intentional escape hatch.',
+          'Prefer `app.query(...)` / `app.mutation(...)` over `raw.query(...)` / `raw.mutation(...)` unless the file is an intentional escape hatch.',
       },
     },
     (context) => ({
@@ -803,7 +809,7 @@ const rules: Record<string, RuleModule> = {
         const filename = getFilename(context)
         if (!/[/\\]convex[/\\]/u.test(filename)) return
         if (/(?:^|[/\\])(?:auth|http|webhooks?)\./u.test(filename)) return
-        if (!isCallNamed(node, 'query', 'mutation')) return
+        if (!isBuilderCall(node, 'raw', 'query', 'mutation')) return
         context.report({
           node,
           messageId: 'prefer',
@@ -863,8 +869,7 @@ const rules: Record<string, RuleModule> = {
     },
     (context) => ({
       CallExpression(node) {
-        if (!isCallNamed(node, 'appQuery', 'appMutation') && !hasStructuredGuard(node)) return
-        if (hasStructuredGuard(node)) return
+        if (!isBuilderCall(node, 'raw', 'query', 'mutation')) return
         const handler = getHandlerFunction(node)
         if (!handler || handler.body?.type !== 'BlockStatement') return
         const actorDeclaration = getActorDeclaration(handler)
@@ -965,7 +970,7 @@ const rules: Record<string, RuleModule> = {
     },
     (context) => ({
       CallExpression(node) {
-        if (!isCallNamed(node, 'appQuery', 'appMutation')) return
+        if (!isBuilderCall(node, 'raw', 'query', 'mutation')) return
         const analysis = getProjectAnalysisForContext(context)
         if (!analysis?.tenantIsolation) return
         const handler = getHandlerFunction(node)

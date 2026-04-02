@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth'
-import { can, defineAuth } from 'better-convex-nuxt/auth'
+import { can, defineAuth, open } from 'better-convex-nuxt/auth'
 
 import { components, internal } from './_generated/api'
 import { mutation } from './_generated/server'
@@ -15,7 +15,7 @@ import {
   canReadPost,
   canViewBilling,
 } from './auth/checks'
-import { appQuery } from './functions'
+import { app } from './functions'
 
 export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
   { components, internal, mutation, authConfig },
@@ -86,7 +86,9 @@ interface DebugInfo {
   context?: Record<string, unknown>
 }
 
-export const getPermissionContext = appQuery({
+export const getPermissionContext = app.query({
+  args: {},
+  guard: open,
   handler: async (ctx) => {
     // #region agent log
     const identity = await ctx.auth.getUserIdentity()

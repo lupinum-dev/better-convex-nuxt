@@ -1,16 +1,15 @@
-import { enforce } from 'better-convex-nuxt/auth'
+import { requireRecord } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { createTodo } from '../shared/schemas/todo'
 import { isAuthenticated } from './auth/checks'
-import { loadOwnedResource } from './auth/scope'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const list = appQuery({
+export const list = app.query({
   args: {},
+  guard: isAuthenticated,
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read todos', isAuthenticated)
 
     // `db` is raw here because this app is user-scoped, not tenant-scoped.
     // The handler enforces ownership by filtering with the guaranteed actor.
@@ -22,11 +21,11 @@ export const list = appQuery({
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
   args: createTodo.args,
+  guard: isAuthenticated,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create todo', isAuthenticated)
 
     // Ownership is explicit in the inserted row.
     return await ctx.db.insert('todos', {
@@ -38,28 +37,38 @@ export const create = appMutation({
   },
 })
 
-export const toggle = appMutation({
+export const toggle = app.mutation({
   args: { id: v.id('todos') },
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    enforce(actor, 'Update todo', isAuthenticated)
-
-    const todo = loadOwnedResource(actor, await ctx.db.get(args.id), 'Todo')
-
+  guard: isAuthenticated,
+  load: async (ctx, args) => {
+    const todo = await ctx.db.get(args.id)
+    requireRecord(todo, 'Todo')
+    return { todo }
+  },
+  authorize: {
+    label: 'Update todo',
+    check: (actor, { todo }) => !!actor && actor.userId === todo.ownerId,
+  },
+  handler: async (ctx, args, { todo }) => {
     await ctx.db.patch(args.id, {
       completed: !todo.completed,
     })
   },
 })
 
-export const remove = appMutation({
+export const remove = app.mutation({
   args: { id: v.id('todos') },
+  guard: isAuthenticated,
+  load: async (ctx, args) => {
+    const todo = await ctx.db.get(args.id)
+    requireRecord(todo, 'Todo')
+    return { todo }
+  },
+  authorize: {
+    label: 'Delete todo',
+    check: (actor, { todo }) => !!actor && actor.userId === todo.ownerId,
+  },
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    enforce(actor, 'Delete todo', isAuthenticated)
-
-    loadOwnedResource(actor, await ctx.db.get(args.id), 'Todo')
-
     await ctx.db.delete(args.id)
   },
 })

@@ -10,21 +10,11 @@ import {
 
 describe('visibility primitives', () => {
   it('attaches explicit capabilities to a single resource and arrays', () => {
-    const capabilities = defineCapabilities<{ ownerId: string; title: string }>()<
-      { userId: string; role: string } | null,
-      {
-        update: (
-          actor: { userId: string; role: string } | null,
-          resource: { ownerId: string },
-        ) => boolean
-        delete: (
-          actor: { userId: string; role: string } | null,
-          resource: { ownerId: string },
-        ) => boolean
-      }
-    >({
-      update: (actor, resource) => !!actor && actor.userId === resource.ownerId,
-      delete: (actor, _resource) => !!actor && actor.role === 'admin',
+    const capabilities = defineCapabilities<{ ownerId: string; title: string }>()({
+      update: (actor: { userId: string; role: string } | null, resource) =>
+        !!actor && actor.userId === resource.ownerId,
+      delete: (actor: { userId: string; role: string } | null, _resource) =>
+        !!actor && actor.role === 'admin',
     })
 
     expect(

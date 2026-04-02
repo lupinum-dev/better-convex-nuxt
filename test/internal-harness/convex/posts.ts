@@ -1,19 +1,13 @@
 import { defineArgs } from 'better-convex-nuxt/args'
-import { can, enforce } from 'better-convex-nuxt/auth'
+import { can, defineGuard, open } from 'better-convex-nuxt/auth'
+import { defineCapabilities } from 'better-convex-nuxt/visibility'
 import { v } from 'convex/values'
 
 import { createPost, deletePost, updatePost } from '../shared/schemas/post'
 import type { Id } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
-import {
-  canCreatePost,
-  canDeletePost,
-  canPublishPost,
-  canReadPost,
-  canUpdatePost,
-} from './auth/checks'
-import { withCan } from './auth/resource'
-import { appMutation, appQuery } from './functions'
+import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
+import { app } from './functions'
 
 const listPostsArgs = defineArgs({
   args: {},
@@ -25,19 +19,13 @@ const getPostArgs = defineArgs({
   },
 })
 
-function attachPostPermissions(
-  actor: Exclude<Actor, null>,
-  post: {
-    ownerId: string
-    [key: string]: unknown
-  },
-) {
-  return withCan(post, {
-    'post.update': can(actor, canUpdatePost(post)),
-    'post.delete': can(actor, canDeletePost(post)),
-    'post.publish': can(actor, canPublishPost),
-  })
-}
+const canCreatePostActor = defineGuard<Actor>('Create post', (actor) => !!actor)
+const canManagePosts = defineGuard<Actor>('post.manage', (actor) => !!actor)
+const postCapabilities = defineCapabilities<{ ownerId: string; [key: string]: unknown }>()({
+  'post.update': (actor, post) => can(actor, canUpdatePost(post)),
+  'post.delete': (actor, post) => can(actor, canDeletePost(post)),
+  'post.publish': (actor) => can(actor, canPublishPost),
+})
 
 function formatActor(actor: Actor): string {
   if (!actor) return 'null'
@@ -71,13 +59,12 @@ function denyTenantMismatch(actor: Actor, post: { organizationId: string }): nev
   )
 }
 
-export const list = appQuery({
+export const list = app.query({
   args: listPostsArgs.args,
+  guard: open,
   handler: async (ctx, _args) => {
     const actor = await ctx.actor()
     if (!actor?.tenantId) return []
-
-    enforce(actor, 'Read posts', canReadPost)
 
     const posts = await ctx.db
       .query('posts')
@@ -87,33 +74,30 @@ export const list = appQuery({
       .order('desc')
       .collect()
 
-    return posts.map((post) => attachPostPermissions(actor, post))
+    return postCapabilities.attach(actor, posts)
   },
 })
 
-export const get = appQuery({
+export const get = app.query({
   args: getPostArgs.args,
+  guard: open,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     if (!actor) return null
-
-    enforce(actor, 'Read post', canReadPost)
 
     const post = await ctx.db.get(args.id)
     if (!post) return null
     if (!actor.tenantId || actor.tenantId !== post.organizationId) return null
 
-    return attachPostPermissions(actor, post)
+    return postCapabilities.attach(actor, post)
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
   args: createPost.args,
+  guard: canCreatePostActor,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    if (!actor) {
-      throw new Error('Authentication required.')
-    }
     if (!can(actor, canCreatePost)) {
       denyPostPermission('create', actor, `Role "${actor.role}" cannot create posts.`)
     }
@@ -131,8 +115,9 @@ export const create = appMutation({
   },
 })
 
-export const update = appMutation({
+export const update = app.mutation({
   args: updatePost.args,
+  guard: canManagePosts,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const post = await ctx.db.get(args.id)
@@ -156,8 +141,9 @@ export const update = appMutation({
   },
 })
 
-export const remove = appMutation({
+export const remove = app.mutation({
   args: deletePost.args,
+  guard: canManagePosts,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const post = await ctx.db.get(args.id)
@@ -176,8 +162,9 @@ export const remove = appMutation({
   },
 })
 
-export const publish = appMutation({
+export const publish = app.mutation({
   args: { id: v.id('posts') },
+  guard: canManagePosts,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const post = await ctx.db.get(args.id)

@@ -4,9 +4,7 @@ import { createJiti } from 'jiti'
 
 const jiti = createJiti(import.meta.url)
 const bcn =
-  /** @type {typeof import('./src/eslint/index.ts')} */ (
-    await jiti.import('./src/eslint/index.ts')
-  )
+  /** @type {typeof import('./src/eslint/index.ts')} */ (await jiti.import('./src/eslint/index.ts'))
 
 // Run `npx @eslint/config-inspector` to inspect the resolved config interactively
 export default createConfigForNuxt({

@@ -118,17 +118,15 @@ export const isOwnerOf = (resource: { ownerId: string }) =>
 
 function personalFunctionsTemplate() {
   return `
-import { createFunctions, defineHandler } from 'better-convex-nuxt/functions'
+import { createApp } from 'better-convex-nuxt/functions'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 
-export const { query: appQuery, mutation: appMutation } = createFunctions(query, mutation, {
+export const { app, raw } = createApp(query, mutation, {
   trustedCaller: false,
   actor: getActor,
 })
-
-export const app = defineHandler(appQuery, appMutation)
 
 export { query, mutation }
 `.trimStart()
@@ -140,9 +138,9 @@ import { definePermissionContext } from 'better-convex-nuxt/auth'
 
 import { isAuthenticated } from './auth/checks'
 import { getActor } from './auth/actor'
-import { appQuery } from './functions'
+import { app } from './functions'
 
-export const getPermissionContext = appQuery(
+export const getPermissionContext = app.query(
   definePermissionContext({
     resolve: getActor,
     guards: {
@@ -183,12 +181,12 @@ export const getActor = actor.resolve
 
 function workspaceFunctionsTemplate({ trustedCaller }: { trustedCaller: boolean }) {
   return `
-import { createFunctions, defineHandler } from 'better-convex-nuxt/functions'
+import { createApp } from 'better-convex-nuxt/functions'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 
-export const { query: appQuery, mutation: appMutation } = createFunctions(query, mutation, {
+export const { app, raw } = createApp(query, mutation, {
   trustedCaller: ${trustedCaller ? 'true' : 'false'},
   actor: getActor,
   // Add tenantIsolation only for tables that actually store the tenant field.
@@ -197,8 +195,6 @@ export const { query: appQuery, mutation: appMutation } = createFunctions(query,
   //   tables: ['todos'],
   // },
 })
-
-export const app = defineHandler(appQuery, appMutation)
 
 export { query, mutation }
 `.trimStart()
@@ -242,11 +238,11 @@ import { defineGuard, definePermissionContext } from 'better-convex-nuxt/auth'
 
 import { getActor } from './auth/actor'
 import { hasMinimumRole, isAuthenticated } from './auth/checks'
-import { appQuery } from './functions'
+import { app } from './functions'
 
 const canCreateTodo = defineGuard('todo.create', hasMinimumRole('member'))
 
-export const getPermissionContext = appQuery(
+export const getPermissionContext = app.query(
   definePermissionContext({
     resolve: getActor,
     guards: {

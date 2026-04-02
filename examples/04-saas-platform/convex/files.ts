@@ -12,9 +12,9 @@
 import { enforce } from 'better-convex-nuxt/auth'
 
 import { isAuthenticated } from './auth/checks'
-import { appMutation } from './functions'
+import { raw } from './functions'
 
-export const generateUploadUrl = appMutation({
+export const generateUploadUrl = raw.mutation({
   args: {},
   handler: async (ctx) => {
     const actor = await ctx.actor()

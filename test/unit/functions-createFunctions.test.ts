@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { createFunctions } from '../../src/runtime/functions'
+import { createApp } from '../../src/runtime/functions'
 
-describe('createFunctions tenant isolation validation', () => {
+describe('createApp tenant isolation validation', () => {
   it('rejects an empty tenantIsolation table list', () => {
     expect(() =>
-      createFunctions(
+      createApp(
         () => null as never,
         () => null as never,
         {
@@ -19,7 +19,7 @@ describe('createFunctions tenant isolation validation', () => {
 
   it('rejects duplicate tenantIsolation tables', () => {
     expect(() =>
-      createFunctions(
+      createApp(
         () => null as never,
         () => null as never,
         {
@@ -33,7 +33,7 @@ describe('createFunctions tenant isolation validation', () => {
 
   it('rejects a blank tenantIsolation field', () => {
     expect(() =>
-      createFunctions(
+      createApp(
         () => null as never,
         () => null as never,
         {

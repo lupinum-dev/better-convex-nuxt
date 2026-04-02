@@ -127,7 +127,7 @@ function createStructuredBuilder<TCtx extends object, TActor>(builder: AnyBuilde
   }
 }
 
-export function defineHandler<
+export function buildStructuredFunctions<
   TQueryCtx extends ActorContext<TActor>,
   TMutationCtx extends ActorContext<TActor>,
   TActor,
@@ -139,7 +139,7 @@ export function defineHandler<
   mutation: ReturnType<typeof createStructuredBuilder<TMutationCtx, TActor>>
 }
 
-export function defineHandler<
+export function buildStructuredFunctions<
   TQueryCtx extends object = Record<string, unknown>,
   TMutationCtx extends object = Record<string, unknown>,
   TActor = never,
@@ -151,7 +151,7 @@ export function defineHandler<
   mutation: ReturnType<typeof createStructuredBuilder<TMutationCtx, TActor>>
 }
 
-export function defineHandler<
+export function buildStructuredFunctions<
   TQueryCtx extends object = Record<string, unknown>,
   TMutationCtx extends object = Record<string, unknown>,
   TActor = never,
@@ -161,5 +161,3 @@ export function defineHandler<
     mutation: createStructuredBuilder<TMutationCtx, TActor>(mutation),
   }
 }
-
-export { defineGuard, open } from '../auth'

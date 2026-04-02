@@ -133,8 +133,8 @@ describe('CLI doctor', () => {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('defineActor')
-    expect(functions).toContain('defineHandler')
-    expect(functions).toContain('createFunctions')
+    expect(functions).toContain('createApp')
+    expect(functions).toContain('export const { app, raw }')
     expect(users).toContain('definePermissionContext')
     expect(users).toContain('getPermissionContext')
   })
@@ -148,8 +148,8 @@ describe('CLI doctor', () => {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('defineActor')
-    expect(functions).toContain('createFunctions')
-    expect(functions).toContain('defineHandler')
+    expect(functions).toContain('createApp')
+    expect(functions).toContain('export const { app, raw }')
     expect(existsSync(resolve(cwd, 'convex/auth/scope.ts'))).toBe(false)
     expect(existsSync(resolve(cwd, 'convex/auth/resource.ts'))).toBe(false)
     expect(workspaces).toContain('definePermissionContext')
@@ -168,8 +168,8 @@ describe('CLI doctor', () => {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('defineActor')
-    expect(functions).toContain('createFunctions')
-    expect(functions).toContain('defineHandler')
+    expect(functions).toContain('createApp')
+    expect(functions).toContain('export const { app, raw }')
     expect(functions).toContain('trustedCaller: true')
     expect(existsSync(resolve(cwd, 'convex/auth/scope.ts'))).toBe(false)
     expect(existsSync(resolve(cwd, 'convex/auth/resource.ts'))).toBe(false)

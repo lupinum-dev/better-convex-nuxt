@@ -11,7 +11,7 @@ import {
   canReadArticle,
   canReadKB,
 } from './auth/checks'
-import { app, appQuery } from './functions'
+import { app } from './functions'
 
 export const listWorkspaces = app.query({
   guard: open,
@@ -22,7 +22,7 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const getPermissionContext = appQuery(
+export const getPermissionContext = app.query(
   definePermissionContext({
     resolve: getActor,
     guards: {

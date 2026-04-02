@@ -1,11 +1,11 @@
-import { requireRecord } from 'better-convex-nuxt/auth'
-import { defineHandler, open } from 'better-convex-nuxt/functions'
+import { open, requireRecord } from 'better-convex-nuxt/auth'
+import { createApp } from 'better-convex-nuxt/functions'
 import { v } from 'convex/values'
 
 import { createTodo } from '../shared/schemas/todo'
 import { mutation, query } from './_generated/server'
 
-const app = defineHandler(query, mutation)
+const { app } = createApp(query, mutation)
 
 export const list = app.query({
   args: {},

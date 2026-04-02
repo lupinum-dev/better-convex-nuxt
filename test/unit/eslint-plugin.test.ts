@@ -115,7 +115,7 @@ describe('better-convex-nuxt ESLint plugin', () => {
   it('uses tenant metadata from convex/functions.ts and flags bare collection reads only', async () => {
     const rootDir = createProjectFixture({
       'convex/functions.ts': `
-        export const x = createFunctions(query, mutation, {
+        export const { app, raw } = createApp(query, mutation, {
           tenantIsolation: {
             tables: ['tasks'],
             field: 'workspaceId',
@@ -138,7 +138,7 @@ describe('better-convex-nuxt ESLint plugin', () => {
 
     const [badResult] = await eslint.lintText(
       `
-      export const list = appQuery({
+      export const list = raw.query({
         args: {},
         handler: async (ctx) => {
           return await ctx.db.query('tasks').collect()
@@ -150,7 +150,8 @@ describe('better-convex-nuxt ESLint plugin', () => {
 
     const [goodResult] = await eslint.lintText(
       `
-      export const listByProject = appQuery({
+      export const listByProject = app.query({
+        guard: open,
         args: {},
         handler: async (ctx, args) => {
           return await ctx.db.query('tasks').withIndex('by_project', (q) => q.eq('projectId', args.projectId)).collect()
@@ -170,13 +171,14 @@ describe('better-convex-nuxt ESLint plugin', () => {
     )
   })
 
-  it('does not flag intentional public app queries for missing enforce()', async () => {
+  it('does not flag intentional public app handlers for missing enforce()', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
     const [result] = await eslint.lintText(
       `
-      export const listPublic = appQuery({
+      export const listPublic = app.query({
+        guard: open,
         args: {},
         handler: async (ctx) => {
           return await ctx.db.query('runbooks').withIndex('by_visibility', (q) => q.eq('visibility', 'public')).collect()
@@ -192,7 +194,7 @@ describe('better-convex-nuxt ESLint plugin', () => {
     )
   })
 
-  it('does not flag guarded defineHandler handlers for missing enforce() or actor narrowing', async () => {
+  it('does not flag guarded app handlers for missing enforce() or actor narrowing', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
@@ -225,7 +227,7 @@ describe('better-convex-nuxt ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const getArticle = appQuery({
+      export const getArticle = raw.query({
         args: { shareToken: v.optional(v.string()), id: v.id('articles') },
         handler: async (ctx, args) => {
           if (args.shareToken) {
@@ -254,7 +256,7 @@ describe('better-convex-nuxt ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const updateTodo = appMutation({
+      export const updateTodo = raw.mutation({
         args: { id: v.id('todos') },
         handler: async (ctx, args) => {
           const actor = await ctx.actor()

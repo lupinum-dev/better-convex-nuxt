@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ConvexError } from 'convex/values'
 
-import { runCheck, type AnyCheck } from './define-guard'
+import { open, runCheck, type AnyCheck } from './define-guard'
 
 type PermissionContextBase<TCan extends Record<string, boolean>> = {
   userId: string | null
@@ -33,6 +33,7 @@ export function definePermissionContext<
 
   return {
     args: {},
+    guard: open,
     handler: async (ctx: any) => {
       const actor = await options.resolve(ctx)
       if (!actor) return null

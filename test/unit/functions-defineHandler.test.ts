@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { defineGuard, open } from '../../src/runtime/auth'
-import { defineHandler } from '../../src/runtime/functions'
+import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
 
 type Actor = { userId: string; role: string } | null
 
@@ -19,9 +19,12 @@ function createBuilder() {
   }) => definition
 }
 
-describe('defineHandler', () => {
+describe('buildStructuredFunctions', () => {
   it('requires a guard and narrows actor for protected handlers at runtime', async () => {
-    const handlers = defineHandler<TestCtx, TestCtx, Actor>(createBuilder(), createBuilder())
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
     const guard = defineGuard<Actor>('dashboard.read', (actor) => !!actor && actor.role === 'admin')
 
     const query = handlers.query({
@@ -50,7 +53,10 @@ describe('defineHandler', () => {
   })
 
   it('rejects protected handlers before business logic runs', async () => {
-    const handlers = defineHandler<TestCtx, TestCtx, Actor>(createBuilder(), createBuilder())
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
     const guard = defineGuard<Actor>('dashboard.read', (actor) => !!actor && actor.role === 'admin')
     let called = false
 
@@ -77,7 +83,10 @@ describe('defineHandler', () => {
   })
 
   it('supports public handlers via open', async () => {
-    const handlers = defineHandler<TestCtx, TestCtx, Actor>(createBuilder(), createBuilder())
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
 
     const query = handlers.query({
       args: {},
@@ -97,7 +106,10 @@ describe('defineHandler', () => {
   })
 
   it('supports separate load and authorize phases', async () => {
-    const handlers = defineHandler<TestCtx, TestCtx, Actor>(createBuilder(), createBuilder())
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
     const guard = defineGuard<Actor>('todo.read', (actor) => !!actor)
 
     const mutation = handlers.mutation({

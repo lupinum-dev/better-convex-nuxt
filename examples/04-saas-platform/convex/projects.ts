@@ -4,13 +4,13 @@ import { v } from 'convex/values'
 import { archiveProject, createProject } from '../shared/schemas/project'
 import { canArchiveProject, canCreateProject, canReadProject, hasFeature } from './auth/checks'
 import { ensureWithinLimit } from './auth/limits'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const list = appQuery({
+export const list = app.query({
   args: {},
+  guard: canReadProject,
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read projects', canReadProject)
 
     return ctx.db
       .query('projects')
@@ -20,22 +20,22 @@ export const list = appQuery({
   },
 })
 
-export const get = appQuery({
+export const get = app.query({
   args: { id: v.id('projects') },
+  guard: canReadProject,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read projects', canReadProject)
 
     const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
     return project
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
   args: createProject.args,
+  guard: canCreateProject,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create project', canCreateProject)
     await ensureWithinLimit(ctx.db, actor, 'projects')
 
     const now = Date.now()
@@ -63,11 +63,11 @@ export const create = appMutation({
   },
 })
 
-export const archive = appMutation({
+export const archive = app.mutation({
   args: archiveProject.args,
+  guard: canArchiveProject,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Archive project', canArchiveProject)
 
     const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
 
@@ -91,11 +91,11 @@ export const archive = appMutation({
   },
 })
 
-export const exportProjects = appQuery({
+export const exportProjects = app.query({
   args: {},
+  guard: hasFeature('exports'),
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Export projects', hasFeature('exports'))
 
     const projects = await ctx.db
       .query('projects')

@@ -16,27 +16,13 @@ type PublicRunbook = {
   ownerId: string
 }
 
-export const workspaceRunbookCapabilities = defineCapabilities<Doc<'runbooks'>>()<
-  NonNullable<Actor>,
-  {
-    update: (actor: NonNullable<Actor>, runbook: Doc<'runbooks'>) => boolean
-    delete: (actor: NonNullable<Actor>, runbook: Doc<'runbooks'>) => boolean
-    publish: (actor: NonNullable<Actor>, runbook: Doc<'runbooks'>) => boolean
-  }
->({
+export const workspaceRunbookCapabilities = defineCapabilities<Doc<'runbooks'>>()({
   update: (actor, runbook) => can(actor, canUpdateRunbook(runbook)),
   delete: (actor, runbook) => can(actor, canDeleteRunbook(runbook)),
   publish: (actor) => can(actor, canPublishRunbook),
 })
 
-export const publicRunbookCapabilities = defineCapabilities<PublicRunbook>()<
-  Actor,
-  {
-    update: (actor: Actor, runbook: PublicRunbook) => boolean
-    delete: (actor: Actor, runbook: PublicRunbook) => boolean
-    publish: (actor: Actor, runbook: PublicRunbook) => boolean
-  }
->({
+export const publicRunbookCapabilities = defineCapabilities<PublicRunbook>()({
   update: (actor, runbook) => !!actor && can(actor, canUpdateRunbook({ ownerId: runbook.ownerId })),
   delete: (actor, runbook) => !!actor && can(actor, canDeleteRunbook({ ownerId: runbook.ownerId })),
   publish: (actor) => !!actor && can(actor, canPublishRunbook),

@@ -1,4 +1,4 @@
-import { can, deny } from 'better-convex-nuxt/auth'
+import { can, definePermissionContext, deny, open } from 'better-convex-nuxt/auth'
 /**
  * Why this file exists:
  * Current-workspace actions stay normal here. The agency dashboard lives in a separate query on purpose.
@@ -6,12 +6,16 @@ import { can, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { agencyPermissionKeys, type AgencyPermissionMap } from '../shared/permissions'
+import { getActor } from './auth/actor'
 import { getMemberships, requireWorkspaceMembership } from './auth/agency'
 import { hasRole } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const listWorkspaces = appQuery({
+type Actor = NonNullable<Awaited<ReturnType<typeof getActor>>>
+
+export const listWorkspaces = app.query({
   args: {},
+  guard: open,
   handler: async (ctx) => {
     // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
     const workspaces = await ctx.db.query('workspaces').order('desc').collect()
@@ -19,12 +23,11 @@ export const listWorkspaces = appQuery({
   },
 })
 
-export const listAccessibleWorkspaces = appQuery({
+export const listAccessibleWorkspaces = app.query({
   args: {},
+  guard: hasRole('owner', 'member', 'viewer', 'agency_admin', 'agency_manager'),
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    if (!actor) throw deny('Not authenticated.')
-
     const memberships = await getMemberships(ctx.db, actor.userId)
     return Promise.all(
       memberships.map(async (membership) => {
@@ -39,36 +42,38 @@ export const listAccessibleWorkspaces = appQuery({
   },
 })
 
-export const getPermissionContext = appQuery({
-  args: {},
-  handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor) return null
+export const getPermissionContext = app.query(
+  definePermissionContext({
+    resolve: getActor,
+    guards: {
+      [agencyPermissionKeys.projectCreate]: hasRole('owner', 'member'),
+      [agencyPermissionKeys.agencyDashboard]: (actor: Actor) =>
+        ['agency_admin', 'agency_manager'].includes(actor.role),
+    } satisfies Record<keyof AgencyPermissionMap, (actor: Actor) => boolean>,
+    extend: async (ctx, actor) => {
+      const user = await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .first()
+      const memberships = await getMemberships(ctx.db, actor.userId)
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
-      .first()
-    const memberships = await getMemberships(ctx.db, actor.userId)
+      return {
+        email: user?.email ?? null,
+        displayName: user?.displayName ?? null,
+        can: {
+          [agencyPermissionKeys.projectCreate]: can(actor, hasRole('owner', 'member')),
+          [agencyPermissionKeys.agencyDashboard]: memberships.some((m) =>
+            ['agency_admin', 'agency_manager'].includes(m.role),
+          ),
+        } satisfies AgencyPermissionMap,
+      }
+    },
+  }),
+)
 
-    return {
-      role: actor.role,
-      userId: actor.userId,
-      tenantId: actor.tenantId,
-      email: user?.email ?? null,
-      displayName: user?.displayName ?? null,
-      can: {
-        [agencyPermissionKeys.projectCreate]: can(actor, hasRole('owner', 'member')),
-        [agencyPermissionKeys.agencyDashboard]: memberships.some((m) =>
-          ['agency_admin', 'agency_manager'].includes(m.role),
-        ),
-      } satisfies AgencyPermissionMap,
-    }
-  },
-})
-
-export const createWorkspace = appMutation({
+export const createWorkspace = app.mutation({
   args: { name: v.string(), slug: v.string() },
+  guard: open,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
@@ -110,11 +115,12 @@ export const createWorkspace = appMutation({
   },
 })
 
-export const joinWorkspace = appMutation({
+export const joinWorkspace = app.mutation({
   args: {
     slug: v.string(),
     role: v.union(v.literal('member'), v.literal('viewer')),
   },
+  guard: open,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
@@ -161,8 +167,9 @@ export const joinWorkspace = appMutation({
   },
 })
 
-export const switchWorkspace = appMutation({
+export const switchWorkspace = app.mutation({
   args: { workspaceId: v.id('workspaces') },
+  guard: open,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
@@ -181,12 +188,11 @@ export const switchWorkspace = appMutation({
   },
 })
 
-export const seedAgencyPortfolio = appMutation({
+export const seedAgencyPortfolio = app.mutation({
   args: {},
+  guard: hasRole('owner', 'member', 'viewer', 'agency_admin', 'agency_manager'),
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    if (!actor) throw deny('Not authenticated.')
-
     const now = Date.now()
     const clientA = await ctx.db.insert('workspaces', {
       name: 'Client A',

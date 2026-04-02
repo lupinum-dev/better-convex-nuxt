@@ -14,7 +14,6 @@ import {
   requireRecord,
   ensureTenant,
   loadTenantResource,
-  withCan,
 } from '../../src/runtime/auth'
 import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
 import { applyVisibility, defineVisibility, getVisibilityQuery } from '../../src/runtime/visibility'
@@ -201,16 +200,6 @@ describe('auth primitives', () => {
     ).toEqual({
       organizationId: 'org-1',
       name: 'Acme',
-    })
-  })
-
-  it('withCan attaches backend-owned capability flags to a resource', () => {
-    expect(withCan({ id: 'task-1' }, { update: true, remove: false })).toEqual({
-      id: 'task-1',
-      _can: {
-        update: true,
-        remove: false,
-      },
     })
   })
 

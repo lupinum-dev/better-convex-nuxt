@@ -8,8 +8,8 @@ describe('functions entrypoint exports', () => {
   })
 
   it('exports the canonical function builder factory', () => {
-    expect(functionsApi).toHaveProperty('createFunctions')
-    expect(functionsApi).toHaveProperty('defineHandler')
-    expect(functionsApi).toHaveProperty('open')
+    expect(functionsApi).toHaveProperty('createApp')
+    expect(functionsApi).not.toHaveProperty('createFunctions')
+    expect(functionsApi).not.toHaveProperty('defineHandler')
   })
 })

@@ -1,7 +1,8 @@
-import { can, deny } from 'better-convex-nuxt/auth'
+import { can, definePermissionContext, deny, open } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { saasPermissionKeys, type SaasPermissionMap } from '../shared/permissions'
+import { getActor } from './auth/actor'
 import {
   canArchiveProject,
   canAssignTask,
@@ -15,13 +16,15 @@ import {
   hasFeature,
 } from './auth/checks'
 import { getUsage } from './auth/limits'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 import { planValidator } from './schema'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
+type Actor = NonNullable<Awaited<ReturnType<typeof getActor>>>
 
-export const listWorkspaces = appQuery({
+export const listWorkspaces = app.query({
   args: {},
+  guard: open,
   handler: async (ctx) => {
     // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
     const workspaces = await ctx.db.query('workspaces').order('desc').collect()
@@ -29,48 +32,57 @@ export const listWorkspaces = appQuery({
   },
 })
 
-export const getPermissionContext = appQuery({
-  args: {},
-  handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor) return null
+export const getPermissionContext = app.query(
+  definePermissionContext({
+    resolve: getActor,
+    guards: {
+      [saasPermissionKeys.projectCreate]: canCreateProject,
+      [saasPermissionKeys.projectRead]: canReadProject,
+      [saasPermissionKeys.projectArchive]: canArchiveProject,
+      [saasPermissionKeys.projectExport]: canExportProjects,
+      [saasPermissionKeys.taskCreate]: canCreateTask,
+      [saasPermissionKeys.taskAssign]: canAssignTask,
+      [saasPermissionKeys.commentCreate]: canComment,
+      [saasPermissionKeys.workspaceMembers]: canManageMembers,
+      [saasPermissionKeys.workspaceAudit]: canViewAudit,
+      [saasPermissionKeys.workspaceExports]: hasFeature('exports'),
+    } satisfies Record<keyof SaasPermissionMap, (actor: Actor) => boolean>,
+    extend: async (ctx, actor) => {
+      const user = await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .first()
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
-      .first()
+      return {
+        plan: actor.plan,
+        email: user?.email ?? null,
+        displayName: user?.displayName ?? null,
+        usage: {
+          projects: await getUsage(ctx.db, actor, 'projects'),
+        },
+        can: {
+          [saasPermissionKeys.projectCreate]: can(actor, canCreateProject),
+          [saasPermissionKeys.projectRead]: can(actor, canReadProject),
+          [saasPermissionKeys.projectArchive]: can(actor, canArchiveProject),
+          [saasPermissionKeys.projectExport]: can(actor, canExportProjects),
+          [saasPermissionKeys.taskCreate]: can(actor, canCreateTask),
+          [saasPermissionKeys.taskAssign]: can(actor, canAssignTask),
+          [saasPermissionKeys.commentCreate]: can(actor, canComment),
+          [saasPermissionKeys.workspaceMembers]: can(actor, canManageMembers),
+          [saasPermissionKeys.workspaceAudit]: can(actor, canViewAudit),
+          [saasPermissionKeys.workspaceExports]: can(actor, hasFeature('exports')),
+        } satisfies SaasPermissionMap,
+      }
+    },
+  }),
+)
 
-    return {
-      role: actor.role,
-      plan: actor.plan,
-      userId: actor.userId,
-      tenantId: actor.tenantId,
-      email: user?.email ?? null,
-      displayName: user?.displayName ?? null,
-      usage: {
-        projects: await getUsage(ctx.db, actor, 'projects'),
-      },
-      can: {
-        [saasPermissionKeys.projectCreate]: can(actor, canCreateProject),
-        [saasPermissionKeys.projectRead]: can(actor, canReadProject),
-        [saasPermissionKeys.projectArchive]: can(actor, canArchiveProject),
-        [saasPermissionKeys.projectExport]: can(actor, canExportProjects),
-        [saasPermissionKeys.taskCreate]: can(actor, canCreateTask),
-        [saasPermissionKeys.taskAssign]: can(actor, canAssignTask),
-        [saasPermissionKeys.commentCreate]: can(actor, canComment),
-        [saasPermissionKeys.workspaceMembers]: can(actor, canManageMembers),
-        [saasPermissionKeys.workspaceAudit]: can(actor, canViewAudit),
-        [saasPermissionKeys.workspaceExports]: can(actor, hasFeature('exports')),
-      } satisfies SaasPermissionMap,
-    }
-  },
-})
-
-export const createWorkspace = appMutation({
+export const createWorkspace = app.mutation({
   args: {
     name: v.string(),
     slug: v.string(),
   },
+  guard: open,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
@@ -109,11 +121,12 @@ export const createWorkspace = appMutation({
   },
 })
 
-export const joinWorkspace = appMutation({
+export const joinWorkspace = app.mutation({
   args: {
     slug: v.string(),
     role: joinRoleValidator,
   },
+  guard: open,
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw deny('Not authenticated.')
@@ -142,13 +155,13 @@ export const joinWorkspace = appMutation({
   },
 })
 
-export const upgradePlan = appMutation({
+export const upgradePlan = app.mutation({
   args: {
     plan: planValidator,
   },
+  guard: hasRole('owner', 'admin'),
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    if (!actor || !['owner', 'admin'].includes(actor.role)) throw deny('Requires workspace admin.')
 
     const workspace = await ctx.db.get(actor.tenantId)
     if (!workspace) throw new Error('Workspace not found.')

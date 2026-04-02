@@ -21,14 +21,13 @@ import type {
 } from 'convex/server'
 import type { PropertyValidators } from 'convex/values'
 
-import { createDefaultGetActor, type DefaultActor } from '../auth/define-actor'
+import { defineActor, type DefaultActor } from '../auth/define-actor'
 import {
   createTrustedCallerContextDelta,
   extractTrustedCallerFromArgs,
   trustedCallerValidators,
 } from '../trusted-caller/shared'
-export { defineHandler } from './define-handler'
-export { open } from '../auth'
+import { buildStructuredFunctions } from './define-handler'
 
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
@@ -58,7 +57,7 @@ type MaybeRules<Ctx, DataModel extends GenericDataModel> =
   | Rules<Ctx, DataModel>
   | ((ctx: Ctx) => Promise<Rules<Ctx, DataModel>> | Rules<Ctx, DataModel>)
 
-export interface CreateFunctionsOptions<DataModel extends GenericDataModel, TActor = DefaultActor> {
+export interface CreateAppOptions<DataModel extends GenericDataModel, TActor = DefaultActor> {
   trustedCaller?: boolean
   actor?: (ctx: AnyCtx<DataModel>) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
@@ -170,7 +169,7 @@ function mergeRules<Ctx, DataModel extends GenericDataModel>(
 
 async function resolveRules<DataModel extends GenericDataModel, TActor>(
   ctx: AnyCtxWithActor<DataModel, TActor>,
-  options: CreateFunctionsOptions<DataModel, TActor>,
+  options: CreateAppOptions<DataModel, TActor>,
 ): Promise<Rules<AnyCtxWithActor<DataModel, TActor>, DataModel> | null> {
   const tenantRules = buildTenantIsolationRules<DataModel, TActor>(options.tenantIsolation)
   const hasTenantRules = Object.keys(tenantRules).length > 0
@@ -194,14 +193,14 @@ function createCustomization<
   TCtx extends AnyCtx<DataModel>,
 >(
   kind: 'query' | 'mutation',
-  options: CreateFunctionsOptions<DataModel, TActor>,
+  options: CreateAppOptions<DataModel, TActor>,
 ): Customization<
   TCtx,
   PropertyValidators,
   CustomCtxDelta<DataModel, TActor> & Record<PropertyKey, unknown>,
   Record<string, never>
 > {
-  const actorResolver = (options.actor ?? createDefaultGetActor<DataModel>()) as (
+  const actorResolver = (options.actor ?? defineActor.fromAuth<DataModel>().resolve) as (
     ctx: AnyCtx<DataModel>,
   ) => Promise<TActor | null>
 
@@ -284,14 +283,7 @@ function createCustomization<
   }
 }
 
-/**
- * Low-level function builder composition.
- *
- * Prefer authoring protected handlers through `defineHandler(appQuery,
- * appMutation)` and keep `createFunctions(...)` in `convex/functions.ts` as the
- * transport and actor/RLS composition seam.
- */
-export function createFunctions<
+function buildRawFunctions<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
   MutationVisibility extends FunctionVisibility,
@@ -299,7 +291,7 @@ export function createFunctions<
 >(
   query: QueryBuilder<DataModel, QueryVisibility>,
   mutation: MutationBuilder<DataModel, MutationVisibility>,
-  options: CreateFunctionsOptions<DataModel, TActor> = {},
+  options: CreateAppOptions<DataModel, TActor> = {},
 ) {
   validateTenantIsolationOptions(options.tenantIsolation)
 
@@ -312,5 +304,23 @@ export function createFunctions<
       mutation,
       createCustomization<DataModel, TActor, GenericMutationCtx<DataModel>>('mutation', options),
     ),
+  }
+}
+
+export function createApp<
+  DataModel extends GenericDataModel,
+  QueryVisibility extends FunctionVisibility,
+  MutationVisibility extends FunctionVisibility,
+  TActor = DefaultActor,
+>(
+  query: QueryBuilder<DataModel, QueryVisibility>,
+  mutation: MutationBuilder<DataModel, MutationVisibility>,
+  options: CreateAppOptions<DataModel, TActor> = {},
+) {
+  const raw = buildRawFunctions(query, mutation, options)
+
+  return {
+    app: buildStructuredFunctions(raw.query, raw.mutation),
+    raw,
   }
 }

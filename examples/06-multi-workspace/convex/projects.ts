@@ -6,10 +6,11 @@ import { deny, enforce, requireAuth } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { hasRole } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const list = appQuery({
+export const list = app.query({
   args: {},
+  guard: hasRole('owner', 'member', 'viewer', 'agency_admin', 'agency_manager'),
   handler: async (ctx) => {
     const actor = await ctx.actor()
     requireAuth(actor)
@@ -22,11 +23,11 @@ export const list = appQuery({
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
   args: { name: v.string() },
+  guard: hasRole('owner', 'member'),
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create project', hasRole('owner', 'member'))
 
     return ctx.db.insert('projects', {
       workspaceId: actor.tenantId,

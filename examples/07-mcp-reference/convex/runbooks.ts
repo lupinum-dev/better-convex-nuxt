@@ -2,9 +2,9 @@ import {
   can,
   deny,
   loadTenantResource as loadResource,
+  open,
   requireRecord,
 } from 'better-convex-nuxt/auth'
-import { open } from 'better-convex-nuxt/functions'
 
 import {
   bulkDeleteRunbooks,
@@ -23,7 +23,7 @@ import {
   canReadWorkspaceRunbook,
   canUpdateRunbook,
 } from './auth/checks'
-import { app, appMutation, appQuery } from './functions'
+import { app } from './functions'
 
 function toPublicRunbook(runbook: {
   _id: string

@@ -1,13 +1,11 @@
 import { addTask } from '../shared/schemas/task'
-import { appMutation } from './functions'
+import { app } from './functions'
 
-export const add = appMutation({
+export const add = app.mutation({
   args: addTask.args,
+  guard: (actor) => actor !== null,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    if (!actor) {
-      throw new Error('Authentication required.')
-    }
 
     return await ctx.db.insert('tasks', {
       userId: actor.userId,

@@ -1,5 +1,5 @@
-import { defineGuard } from 'better-convex-nuxt/auth'
-import { createFunctions, defineHandler, open } from 'better-convex-nuxt/functions'
+import { defineGuard, open } from 'better-convex-nuxt/auth'
+import { createApp } from 'better-convex-nuxt/functions'
 import { Triggers } from 'convex-helpers/server/triggers'
 import { v } from 'convex/values'
 
@@ -17,7 +17,7 @@ triggers.register('notes', async (ctx, change) => {
   await ctx.db.patch(change.id, { title: 'triggered' })
 })
 
-const { query: probeQuery, mutation: probeMutation } = createFunctions(query, mutation, {
+const { app: structured, raw } = createApp(query, mutation, {
   actor: async (ctx) => {
     actorResolverCalls += 1
     return await getActor(ctx)
@@ -28,13 +28,11 @@ const { query: probeQuery, mutation: probeMutation } = createFunctions(query, mu
   },
   triggers,
 })
-
-const structured = defineHandler(probeQuery, probeMutation)
 const canReadStructuredProbe = defineGuard<Actor>('probe.read', (actor) => !!actor)
 const canEditStructuredPost = (ownerId: string) =>
   defineGuard<NonNullable<Actor>>('probe.update', (actor) => actor.userId === ownerId)
 
-export const publicWithoutActor = probeQuery({
+export const publicWithoutActor = raw.query({
   args: {},
   handler: async () => ({
     actorResolverCalls,
@@ -74,7 +72,7 @@ export const resetActorResolverCalls = mutation({
   },
 })
 
-export const actorMemoization = probeQuery({
+export const actorMemoization = raw.query({
   args: {},
   handler: async (ctx) => {
     const before = actorResolverCalls
@@ -90,21 +88,21 @@ export const actorMemoization = probeQuery({
   },
 })
 
-export const echoedArgs = probeQuery({
+export const echoedArgs = raw.query({
   args: {
     title: v.string(),
   },
   handler: async (_ctx, args) => args,
 })
 
-export const unsafeListPosts = probeQuery({
+export const unsafeListPosts = raw.query({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query('posts').order('desc').collect()
   },
 })
 
-export const unsafeRenamePost = probeMutation({
+export const unsafeRenamePost = raw.mutation({
   args: {
     id: v.id('posts'),
     title: v.string(),
@@ -119,7 +117,7 @@ export const unsafeRenamePost = probeMutation({
   },
 })
 
-export const createTriggeredNote = probeMutation({
+export const createTriggeredNote = raw.mutation({
   args: {
     content: v.string(),
   },

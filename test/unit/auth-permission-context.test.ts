@@ -1,9 +1,8 @@
 import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { defineGuard } from '../../src/runtime/auth'
+import { defineGuard, open } from '../../src/runtime/auth'
 import { definePermissionContext } from '../../src/runtime/auth/define-permission-context'
-import { definePermissions } from '../../src/runtime/auth/define-permissions'
 
 describe('permission context primitives', () => {
   it('builds a permission context from guard declarations', async () => {
@@ -64,23 +63,24 @@ describe('permission context primitives', () => {
     })
   })
 
-  it('keeps legacy definePermissions behavior stable', async () => {
-    const query = definePermissions({
+  it('returns a public definition that app.query can consume directly', async () => {
+    const query = definePermissionContext({
       resolve: async () => ({
         userId: 'alice',
         tenantId: 'workspace-1',
         role: 'owner',
         plan: 'pro',
       }),
-      can: () => ({
+      guards: {
         'todo.create': true,
         'workspace.members': true,
-      }),
-      context: async () => ({
+      },
+      extend: async () => ({
         plan: 'pro',
       }),
     })
 
+    expect(query.guard).toBe(open)
     await expect(query.handler({})).resolves.toEqual({
       userId: 'alice',
       tenantId: 'workspace-1',

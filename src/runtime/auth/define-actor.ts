@@ -28,7 +28,7 @@ type ResolveActorRecord<TCtx, TActor, TUser> = (
   ctx: TCtx,
 ) => Promise<ResolvedActorRecord<TActor, TUser> | null>
 
-export interface DefineActorExtensionOptions<TExtra extends Record<string, unknown>> {
+interface ActorExtensionOptions<TExtra extends Record<string, unknown>> {
   fields: (ctx: any, user: any, actor?: any) => Promise<TExtra> | TExtra
 }
 
@@ -36,7 +36,7 @@ export interface ActorBuilder<TCtx, TUser, TActor> {
   readonly type: TActor
   resolve: (ctx: TCtx) => Promise<TActor | null>
   extend: <TExtra extends Record<string, unknown>>(
-    options: DefineActorExtensionOptions<TExtra> & {
+    options: ActorExtensionOptions<TExtra> & {
       fields: (ctx: TCtx, user: TUser, actor: TActor) => Promise<TExtra> | TExtra
     },
   ) => ActorBuilder<TCtx, TUser, TActor & TExtra>
@@ -75,7 +75,7 @@ function createActorBuilder<TCtx, TUser, TActor>(
   }
 
   function extend<TExtra extends Record<string, unknown>>(
-    options: DefineActorExtensionOptions<TExtra> & {
+    options: ActorExtensionOptions<TExtra> & {
       fields: (ctx: TCtx, user: TUser, actor: TActor) => Promise<TExtra> | TExtra
     },
   ): ActorBuilder<TCtx, TUser, TActor & TExtra> {
@@ -111,16 +111,6 @@ function createActorBuilder<TCtx, TUser, TActor>(
     extend,
     filter: filter as ActorBuilder<TCtx, TUser, TActor>['filter'],
   }
-}
-
-/**
- * Define extra fields to merge into the default actor.
- * Compatibility helper for `createDefaultGetActor(...)`.
- */
-export function defineActorExtension<TExtra extends Record<string, unknown>>(
-  options: DefineActorExtensionOptions<TExtra>,
-) {
-  return options
 }
 
 export const defineActor = {
@@ -174,29 +164,4 @@ export const defineActor = {
       },
     )
   },
-}
-
-/**
- * Compatibility helper for the canonical auth-backed actor builder.
- */
-export function createDefaultGetActor<
-  DataModel extends GenericDataModel = GenericDataModel,
-  TExtra extends Record<string, unknown> = Record<string, never>,
->(extension?: DefineActorExtensionOptions<TExtra>) {
-  const builder = extension
-    ? defineActor.fromAuth<DataModel>().extend({
-        fields: extension.fields,
-      })
-    : defineActor.fromAuth<DataModel>()
-
-  return builder.resolve
-}
-
-/**
- * Compatibility helper for multi-workspace membership-backed actor resolution.
- */
-export function defineActorFromMembership<
-  DataModel extends GenericDataModel = GenericDataModel,
->(options: { membershipTable: string; roleField: string; workspaceField?: string }) {
-  return defineActor.fromMembership<DataModel>(options).resolve
 }

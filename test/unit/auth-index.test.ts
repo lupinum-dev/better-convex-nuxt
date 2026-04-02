@@ -11,7 +11,7 @@ describe('auth entrypoint exports', () => {
     visibilityApi = await import('../../src/runtime/visibility/index')
   })
 
-  it('exports the v3 auth primitives and split optional layers', () => {
+  it('exports the canonical auth primitives', () => {
     expect(authApi).toHaveProperty('and')
     expect(authApi).toHaveProperty('or')
     expect(authApi).toHaveProperty('defineActor')
@@ -26,13 +26,13 @@ describe('auth entrypoint exports', () => {
     expect(authApi).toHaveProperty('requireRecord')
     expect(authApi).toHaveProperty('ensureTenant')
     expect(authApi).toHaveProperty('loadTenantResource')
-    expect(authApi).toHaveProperty('withCan')
     expect(authApi).toHaveProperty('defineAuth')
-    expect(authApi).toHaveProperty('definePermissions')
     expect(authApi).toHaveProperty('definePermissionContext')
-    expect(authApi).toHaveProperty('createDefaultGetActor')
-    expect(authApi).toHaveProperty('defineActorExtension')
-    expect(authApi).toHaveProperty('defineActorFromMembership')
+    expect(authApi).not.toHaveProperty('withCan')
+    expect(authApi).not.toHaveProperty('definePermissions')
+    expect(authApi).not.toHaveProperty('createDefaultGetActor')
+    expect(authApi).not.toHaveProperty('defineActorExtension')
+    expect(authApi).not.toHaveProperty('defineActorFromMembership')
     expect(authApi).not.toHaveProperty('createFunctions')
 
     expect(trustedCallerApi).toHaveProperty('getTrustedCaller')

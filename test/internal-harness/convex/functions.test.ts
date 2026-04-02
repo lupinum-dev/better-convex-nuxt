@@ -6,7 +6,7 @@ import schema from './schema'
 import { setupTestWithMultipleUsers, setupTestWithTwoOrgs } from './test.helpers'
 import { modules } from './test.setup'
 
-describe('createFunctions', () => {
+describe('createApp', () => {
   beforeEach(() => {
     process.env.CONVEX_TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
   })
@@ -124,7 +124,7 @@ describe('createFunctions', () => {
     })
   })
 
-  it('supports structured public handlers on top of createFunctions builders', async () => {
+  it('supports structured public handlers alongside raw builders', async () => {
     const t = convexTest(schema, modules)
 
     await expect(t.query(api.functionsProbe.structuredPublicActorEcho, {})).resolves.toEqual({
@@ -132,7 +132,7 @@ describe('createFunctions', () => {
     })
   })
 
-  it('supports structured load and authorize phases on top of createFunctions builders', async () => {
+  it('supports structured load and authorize phases alongside raw builders', async () => {
     const { asOwner, asAdmin } = await setupTestWithMultipleUsers()
 
     const postId = await asOwner.mutation(api.posts.create, {
