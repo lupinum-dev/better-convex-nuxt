@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { defineMcpTool, useMcpServer, useMcpSession } from '#trellis/mcp'
 
-interface PlaygroundSessionData {
+interface InternalHarnessSessionData {
   preferredSearch?: string
   registeredShortcuts?: string[]
 }
@@ -28,7 +28,7 @@ export default defineMcpTool({
   handler: async ({ name, message }) => {
     const shortcutName = normalizeShortcutName(name)
     const mcp = useMcpServer()
-    const session = useMcpSession<PlaygroundSessionData>()
+    const session = useMcpSession<InternalHarnessSessionData>()
     const registeredShortcuts = (await session.get('registeredShortcuts')) ?? []
 
     mcp.registerTool(

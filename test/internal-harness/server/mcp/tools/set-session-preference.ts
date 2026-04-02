@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { defineMcpTool, useMcpSession } from '#trellis/mcp'
 
-interface PlaygroundSessionData {
+interface InternalHarnessSessionData {
   preferredSearch?: string
   registeredShortcuts?: string[]
 }
@@ -16,7 +16,7 @@ export default defineMcpTool({
       .describe('The search term or workflow preference to keep in session state'),
   },
   handler: async ({ preferredSearch }) => {
-    const session = useMcpSession<PlaygroundSessionData>()
+    const session = useMcpSession<InternalHarnessSessionData>()
     await session.set('preferredSearch', preferredSearch)
 
     return {

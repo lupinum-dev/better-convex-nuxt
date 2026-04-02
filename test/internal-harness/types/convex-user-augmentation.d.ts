@@ -1,5 +1,5 @@
 /**
- * Playground-only example: extend ConvexUser returned by useConvexAuth().
+ * Internal-harness-only example: extend ConvexUser returned by useConvexAuth().
  *
  * This demonstrates module augmentation for local development in this repo.
  * The runtime decoder only fills the normalized identity fields.

@@ -9,9 +9,9 @@ export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
 export type Actor = { kind: 'user'; userId: string; role: Role; tenantId?: string } | null
 
-type PlaygroundCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type InternalHarnessCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
-export async function getActor(ctx: PlaygroundCtx): Promise<Actor> {
+export async function getActor(ctx: InternalHarnessCtx): Promise<Actor> {
   const trusted = getTrustedCaller(ctx)
   if (trusted) {
     return await resolveActor(ctx, { subject: trusted.userId })
@@ -20,7 +20,10 @@ export async function getActor(ctx: PlaygroundCtx): Promise<Actor> {
   return await resolveActor(ctx, await getAuth(ctx))
 }
 
-export async function resolveActor(ctx: PlaygroundCtx, auth: AuthIdentity | null): Promise<Actor> {
+export async function resolveActor(
+  ctx: InternalHarnessCtx,
+  auth: AuthIdentity | null,
+): Promise<Actor> {
   if (!auth) return null
 
   const user = await ctx.db

@@ -1,7 +1,6 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { once } from 'node:events'
-
-import { getFreePort, waitForPort } from './ports'
+import { waitForHttpReady } from './http'
+import { spawnManagedProcess } from './managed-process'
+import { getFreePort } from './ports'
 
 export interface ManagedNuxtDevHandle {
   origin: string
@@ -21,9 +20,10 @@ export async function startManagedNuxtDev(
 ): Promise<ManagedNuxtDevHandle> {
   const port = await getFreePort()
   const startupTimeoutMs = options.startupTimeoutMs ?? 45_000
-  const child: ChildProcessWithoutNullStreams = spawn(
-    'pnpm',
-    [
+  const managedProcess = spawnManagedProcess({
+    name: 'Nuxt dev server',
+    command: 'pnpm',
+    args: [
       'exec',
       'nuxi',
       'dev',
@@ -34,27 +34,29 @@ export async function startManagedNuxtDev(
       '--port',
       String(port),
     ],
-    {
-      cwd: options.workspaceRoot,
-      env: {
-        ...process.env,
-        ...options.env,
-      },
-      stdio: 'pipe',
+    cwd: options.workspaceRoot,
+    env: {
+      ...process.env,
+      ...options.env,
     },
-  )
+  })
+  const origin = `http://127.0.0.1:${port}`
 
-  child.stdout.on('data', () => {})
-  child.stderr.on('data', () => {})
-
-  await waitForPort(port, startupTimeoutMs)
+  try {
+    await Promise.race([
+      waitForHttpReady(`${origin}/api/test-ready`, startupTimeoutMs),
+      managedProcess.unexpectedExit,
+    ])
+  } catch (error) {
+    await managedProcess.stop()
+    throw managedProcess.createFailure('Nuxt dev server failed to become ready.', error)
+  }
 
   return {
-    origin: `http://127.0.0.1:${port}`,
+    origin,
     port,
     release: async () => {
-      child.kill('SIGTERM')
-      await once(child, 'exit').catch(() => {})
+      await managedProcess.stop()
     },
   }
 }

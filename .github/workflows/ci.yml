@@ -45,7 +45,7 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
-      - name: Playground prepare
+      - name: Internal harness prepare
         run: npm run dev:prepare
 
       - name: Test
@@ -114,9 +114,11 @@ jobs:
         working-directory: test/fixtures/${{ matrix.fixture }}
         run: npx nypm@latest add "${{ steps.pack.outputs.tarball_path }}"
 
-      - name: Verify packed module resolves
+      - name: Verify packed module imports and CLI
         working-directory: test/fixtures/${{ matrix.fixture }}
-        run: node -e "import('better-convex-nuxt').then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
+        run: |
+          node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/auth')]).then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
+          pnpm exec trellis --help
 
       - name: Consumer build
         working-directory: test/fixtures/${{ matrix.fixture }}

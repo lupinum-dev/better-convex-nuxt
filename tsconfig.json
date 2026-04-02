@@ -1,12 +1,14 @@
 {
-  "extends": "./.nuxt/tsconfig.json",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/cli.mts",
+    "src/cli/**/*.ts"
+  ],
   "exclude": [
     "dist",
-    "node_modules",
-    "test/internal-harness",
-    "docs",
-    "demo",
-    "examples",
-    "src/runtime/server"
+    "node_modules"
   ]
 }

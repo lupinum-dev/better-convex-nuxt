@@ -41,7 +41,11 @@ export default createConfigForNuxt({
       files: ['src/module.ts', 'src/runtime/**/*.ts', 'test/**/*.ts'],
       languageOptions: {
         parserOptions: {
-          projectService: true,
+          project: [
+            './tsconfig.eslint.json',
+            './test/internal-harness/tsconfig.json',
+            './test/internal-harness/server/tsconfig.json',
+          ],
           tsconfigRootDir: import.meta.dirname,
         },
       },

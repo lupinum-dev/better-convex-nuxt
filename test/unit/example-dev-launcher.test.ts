@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  buildExampleRuntimeEnv,
+  buildLocalRuntimeEnv,
   clearPorts,
   convexGeneratedDir,
   convexLocalConfigPath,
@@ -13,19 +13,20 @@ import {
   findAvailablePortPair,
   getDesiredSiteUrl,
   getDesiredNuxtPort,
-  parseEnvFile,
+  readDotenvFile,
   prefixStream,
   readConvexLocalConfig,
-  resolveConvexEnvVars,
+  readLocalEnvFile,
+  resolveGeneratedSecretEnvValues,
   runExampleDev,
-  selectExamplePortPair,
-  serializeEnvFile,
-  shouldResetLocalBackendForMissingSecret,
-  stripManagedConvexEnvVars,
+  selectLocalPortPair,
+  serializeEnvFileContents,
+  shouldResetLocalBackendForMissingGeneratedSecret,
+  stripLocalRuntimeEnvKeys,
   syncConvexLocalConfigPortPair,
   stopChild,
-  waitForConvexEnv,
   waitForConvexReady,
+  writeLocalEnvFile,
 } from '../../scripts/example-dev.mjs'
 
 class FakeStream extends EventEmitter {}
@@ -99,10 +100,10 @@ describe('example dev launcher', () => {
     ])
   })
 
-  it('derives Convex runtime env from the chosen port', () => {
-    const env = buildExampleRuntimeEnv({
+  it('derives local runtime env from the chosen port', () => {
+    const env = buildLocalRuntimeEnv({
       port: 3218,
-      baseEnv: { SITE_URL: 'http://localhost:3000' } as NodeJS.ProcessEnv,
+      siteUrl: 'http://localhost:3000',
     })
 
     expect(env.CONVEX_LOCAL_BACKEND_PORT).toBe('3218')
@@ -121,14 +122,14 @@ describe('example dev launcher', () => {
     expect(getDesiredSiteUrl('/repo/examples/09-doc-sharing')).toBe('http://localhost:4129')
   })
 
-  it('auto-generates secrets for placeholder values in .env.example', () => {
-    const resolved = resolveConvexEnvVars({
+  it('auto-generates local secrets for placeholder values in .env.example', () => {
+    const resolved = resolveGeneratedSecretEnvValues({
       BETTER_AUTH_SECRET: 'replace-me',
       CONVEX_TRUSTED_CALLER_KEY: 'replace-me-with-a-long-random-shared-secret',
       SITE_URL: 'http://127.0.0.1:3000',
     }) as Record<string, string>
 
-    expect(resolved.SITE_URL).toBe('http://127.0.0.1:3000')
+    expect(resolved.SITE_URL).toBeUndefined()
     expect(resolved.BETTER_AUTH_SECRET).not.toMatch(/replace.?me/i)
     expect(resolved.BETTER_AUTH_SECRET).toHaveLength(64) // 32 bytes hex
     expect(resolved.CONVEX_TRUSTED_CALLER_KEY).not.toMatch(/replace.?me/i)
@@ -151,8 +152,8 @@ describe('example dev launcher', () => {
     }
   })
 
-  it('reuses persisted secrets from .env.local when placeholders are resolved', () => {
-    const resolved = resolveConvexEnvVars(
+  it('reuses stored local secrets when placeholders are resolved', () => {
+    const resolved = resolveGeneratedSecretEnvValues(
       {
         BETTER_AUTH_SECRET: 'replace-me',
         SITE_URL: 'http://localhost:4129',
@@ -164,12 +165,12 @@ describe('example dev launcher', () => {
     ) as Record<string, string>
 
     expect(resolved.BETTER_AUTH_SECRET).toBe('stable-secret')
-    expect(resolved.SITE_URL).toBe('http://localhost:4129')
+    expect(resolved.SITE_URL).toBeUndefined()
   })
 
-  it('strips launcher-managed Convex runtime keys from .env.local values', () => {
+  it('strips local runtime keys from persisted env values', () => {
     expect(
-      stripManagedConvexEnvVars({
+      stripLocalRuntimeEnvKeys({
         BETTER_AUTH_SECRET: 'stable-secret',
         SITE_URL: 'http://localhost:3000',
         CONVEX_URL: 'http://127.0.0.1:3210',
@@ -178,39 +179,72 @@ describe('example dev launcher', () => {
       }),
     ).toEqual({
       BETTER_AUTH_SECRET: 'stable-secret',
-      SITE_URL: 'http://localhost:3000',
     })
   })
 
   it('serializes env files without dropping values', () => {
     expect(
-      serializeEnvFile({
-        BETTER_AUTH_SECRET: 'stable-secret',
+      serializeEnvFileContents({
+        BETTER_AUTH_SECRET: 'abc#123',
+        EMPTY_VALUE: '',
         SITE_URL: 'http://localhost:3000',
       }),
-    ).toBe('BETTER_AUTH_SECRET=stable-secret\nSITE_URL=http://localhost:3000')
+    ).toBe('BETTER_AUTH_SECRET="abc#123"\nEMPTY_VALUE=""\nSITE_URL=http://localhost:3000')
   })
 
-  it('resets the local backend only when a generated auth secret has not been persisted yet', () => {
+  it('resets the local backend only when a generated auth secret has not been stored yet', () => {
     expect(
-      shouldResetLocalBackendForMissingSecret(
+      shouldResetLocalBackendForMissingGeneratedSecret(
         { BETTER_AUTH_SECRET: 'replace-me', SITE_URL: 'http://localhost:3000' },
         {},
       ),
     ).toBe(true)
 
     expect(
-      shouldResetLocalBackendForMissingSecret(
+      shouldResetLocalBackendForMissingGeneratedSecret(
         { BETTER_AUTH_SECRET: 'replace-me', SITE_URL: 'http://localhost:3000' },
         { BETTER_AUTH_SECRET: 'stable-secret' },
       ),
     ).toBe(false)
   })
 
-  it('reads Convex deployment env from .env.local', () => {
+  it('reads local env files with standard parsing semantics', () => {
     const cwd = '/repo/examples/01-public-todo'
-    const env = parseEnvFile(cwd, '.env.local')
+    const env = readLocalEnvFile(cwd)
     expect(env).toEqual({})
+  })
+
+  it('keeps quoted and hash-containing dotenv values intact', () => {
+    const env = readDotenvFile('/repo/examples/01-public-todo', '.env.local', {
+      existsSyncFn: () => true,
+      readFileSyncFn: ((() =>
+        'BETTER_AUTH_SECRET="abc#123"\nEMPTY_VALUE=\nSITE_URL=http://localhost:4121\n') as unknown) as typeof import('node:fs').readFileSync,
+    })
+
+    expect(env).toEqual({
+      BETTER_AUTH_SECRET: 'abc#123',
+      EMPTY_VALUE: '',
+      SITE_URL: 'http://localhost:4121',
+    })
+  })
+
+  it('writes local env files to the Convex-compatible path', () => {
+    const writeFileSyncFn = vi.fn()
+
+    writeLocalEnvFile(
+      '/repo/examples/01-public-todo',
+      {
+        CONVEX_URL: 'http://127.0.0.1:3210',
+        BETTER_AUTH_SECRET: 'abc#123',
+      },
+      { writeFileSyncFn },
+    )
+
+    expect(writeFileSyncFn).toHaveBeenCalledWith(
+      '/repo/examples/01-public-todo/.env.local',
+      expect.stringContaining('BETTER_AUTH_SECRET="abc#123"\nCONVEX_URL=http://127.0.0.1:3210\n'),
+      'utf8',
+    )
   })
 
   it('reads project-local Convex config when present', () => {
@@ -228,14 +262,14 @@ describe('example dev launcher', () => {
   })
 
   it('reuses the saved Convex port pair when it is still free', async () => {
-    const port = await selectExamplePortPair({
+    const port = await selectLocalPortPair({
       cwd: '/repo/examples/01-public-todo',
       readConvexLocalConfigFn: () => ({
         ports: { cloud: 3216, site: 3217 },
       }),
       isPortFreeFn: async (candidate) => candidate === 3216 || candidate === 3217,
       findAvailablePortPairFn: async () => 3220,
-    } as Parameters<typeof selectExamplePortPair>[0])
+    } as Parameters<typeof selectLocalPortPair>[0])
 
     expect(port).toBe(3216)
   })
@@ -297,56 +331,6 @@ describe('example dev launcher', () => {
     expect(dirReady).toHaveBeenCalled()
   })
 
-  it('waits for Convex URLs to appear in .env.local', async () => {
-    const env = await waitForConvexEnv('/repo/examples/01-public-todo', {
-      parseEnvFileFn: (() => {
-        let attempts = 0
-        return (): Record<string, string> => {
-          attempts += 1
-          if (attempts < 2) return {}
-          return {
-            CONVEX_URL: 'http://127.0.0.1:3212',
-            CONVEX_SITE_URL: 'http://127.0.0.1:3213',
-          }
-        }
-      })(),
-      timeoutMs: 50,
-      intervalMs: 1,
-    })
-
-    expect((env as Record<string, string | undefined>).CONVEX_URL).toBe('http://127.0.0.1:3212')
-    expect((env as Record<string, string | undefined>).CONVEX_SITE_URL).toBe(
-      'http://127.0.0.1:3213',
-    )
-  })
-
-  it('skips stale .env.local entries that do not match the expected port', async () => {
-    const options: Parameters<typeof waitForConvexEnv>[1] & { expectedUrl: string } = {
-      expectedUrl: ':3214',
-      parseEnvFileFn: (() => {
-        let attempts = 0
-        return (): Record<string, string> => {
-          attempts++
-          if (attempts < 3) {
-            return {
-              CONVEX_URL: 'http://127.0.0.1:3210',
-              CONVEX_SITE_URL: 'http://127.0.0.1:3211',
-            }
-          }
-          return {
-            CONVEX_URL: 'http://127.0.0.1:3214',
-            CONVEX_SITE_URL: 'http://127.0.0.1:3215',
-          }
-        }
-      })(),
-      timeoutMs: 50,
-      intervalMs: 1,
-    }
-    const env = await waitForConvexEnv('/repo', options)
-
-    expect((env as Record<string, string | undefined>).CONVEX_URL).toBe('http://127.0.0.1:3214')
-  })
-
   it('prefixes subprocess output with stable labels', () => {
     const stream = new FakeStream()
     const output: string[] = []
@@ -406,11 +390,12 @@ describe('example dev launcher', () => {
       spawnFn,
       findAvailablePortPairFn: async () => 3214,
       isPortFreeFn: async () => false,
-      waitForConvexEnvFn: () => new Promise(() => {}),
       waitForConvexReadyFn: () => new Promise(() => {}),
       existsSyncFn: () => false,
       rmSyncFn: vi.fn(),
-      writeFileSyncFn: vi.fn(),
+      readExampleDefaultsFileFn: () => ({ BETTER_AUTH_SECRET: 'replace-me' }),
+      readLocalEnvFileFn: () => ({}),
+      writeLocalEnvFileFn: vi.fn(),
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
       clearPortsFn,
@@ -435,6 +420,8 @@ describe('example dev launcher', () => {
           '3214',
           '--local-site-port',
           '3215',
+          '--env-file',
+          '/repo/examples/01-public-todo/.env.local',
         ],
         expect.objectContaining({
           env: expect.objectContaining({ CONVEX_LOCAL_BACKEND_PORT: '3214' }),
@@ -447,11 +434,12 @@ describe('example dev launcher', () => {
     expect(processExit).toHaveBeenCalledWith(1)
   })
 
-  it('removes stale .env.local before starting convex', async () => {
+  it('writes launcher-managed local values into .env.local while preserving app-owned values', async () => {
     const convex = createChildProcess()
-    const rmSyncFn = vi.fn()
     const spawnFn = vi.fn().mockReturnValue(convex)
     const clearPortsFn = vi.fn().mockResolvedValue(undefined)
+    const rmSyncFn = vi.fn()
+    const writeLocalEnvFileFn = vi.fn()
 
     const processExit: (code?: string | number | null) => never = vi.fn(
       ((_) => undefined as never) as (code?: string | number | null) => never,
@@ -461,11 +449,12 @@ describe('example dev launcher', () => {
       spawnFn,
       findAvailablePortPairFn: async () => 3210,
       isPortFreeFn: async () => false,
-      waitForConvexEnvFn: () => new Promise(() => {}),
       waitForConvexReadyFn: () => new Promise(() => {}),
       existsSyncFn: () => true,
       rmSyncFn,
-      writeFileSyncFn: vi.fn(),
+      readExampleDefaultsFileFn: () => ({ BETTER_AUTH_SECRET: 'replace-me' }),
+      readLocalEnvFileFn: () => ({ GITHUB_CLIENT_ID: 'user-owned' }),
+      writeLocalEnvFileFn,
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
       clearPortsFn,
@@ -476,8 +465,16 @@ describe('example dev launcher', () => {
       prepareModuleForDev: false,
     } as Parameters<typeof runExampleDev>[0])
 
-    await vi.waitFor(() =>
-      expect(rmSyncFn).toHaveBeenCalledWith(expect.stringContaining('.env.local')),
+    await vi.waitFor(() => expect(writeLocalEnvFileFn).toHaveBeenCalledTimes(1))
+
+    expect(writeLocalEnvFileFn).toHaveBeenCalledWith(
+      '/repo/examples/01-public-todo',
+      expect.objectContaining({
+        BETTER_AUTH_SECRET: expect.any(String),
+        CONVEX_URL: 'http://127.0.0.1:3210',
+        GITHUB_CLIENT_ID: 'user-owned',
+        SITE_URL: 'http://localhost:4121',
+      }),
     )
 
     convex.emit('exit', 1, null)
@@ -485,17 +482,15 @@ describe('example dev launcher', () => {
     expect(processExit).toHaveBeenCalledWith(1)
   })
 
-  it('preserves non-Convex values when rebuilding .env.local content', () => {
-    const preserved = stripManagedConvexEnvVars({
+  it('preserves app-owned values when filtering local runtime keys', () => {
+    const preserved = stripLocalRuntimeEnvKeys({
       BETTER_AUTH_SECRET: 'stable-secret',
       SITE_URL: 'http://localhost:3000',
       CONVEX_URL: 'http://127.0.0.1:9999',
       CONVEX_SITE_URL: 'http://127.0.0.1:10000',
     })
 
-    expect(serializeEnvFile(preserved)).toBe(
-      'BETTER_AUTH_SECRET=stable-secret\nSITE_URL=http://localhost:3000',
-    )
+    expect(serializeEnvFileContents(preserved)).toBe('BETTER_AUTH_SECRET=stable-secret')
   })
 
   it('fails closed when Convex exits before readiness', async () => {
@@ -511,14 +506,12 @@ describe('example dev launcher', () => {
       spawnFn,
       findAvailablePortPairFn: async () => 3210,
       isPortFreeFn: async () => false,
-      waitForConvexEnvFn: async () => ({
-        CONVEX_URL: 'http://127.0.0.1:3210',
-        CONVEX_SITE_URL: 'http://127.0.0.1:3211',
-      }),
       waitForConvexReadyFn: () => new Promise(() => {}),
       existsSyncFn: () => false,
       rmSyncFn: vi.fn(),
-      writeFileSyncFn: vi.fn(),
+      readExampleDefaultsFileFn: () => ({ BETTER_AUTH_SECRET: 'replace-me' }),
+      readLocalEnvFileFn: () => ({}),
+      writeLocalEnvFileFn: vi.fn(),
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
       clearPortsFn,

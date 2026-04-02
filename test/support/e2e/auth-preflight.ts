@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { parse as parseDotenv } from 'dotenv'
+
 import { fetchWithTimeout, sanitizeBodyPreview } from './http'
 
 interface LocalConvexEnv {
@@ -18,25 +20,9 @@ export interface LocalAuthPreflightOptions {
 
 export async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
   try {
-    const envPath = path.join(cwd, '.env.local')
-    const content = await readFile(envPath, 'utf-8')
-    const lines = content.split('\n')
-
-    const values: Record<string, string> = {}
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
-
-      const [rawKey, ...rest] = trimmed.split('=')
-      if (!rawKey || rest.length === 0) continue
-
-      const key = rawKey.trim()
-      const rawValue = rest.join('=').trim()
-      const value = rawValue.split('#')[0]?.trim()
-      if (!value) continue
-
-      values[key] = value
-    }
+    const localEnvPath = path.join(cwd, '.env.local')
+    const localEnvSource = await readFile(localEnvPath, 'utf-8').catch(() => '')
+    const values = parseDotenv(localEnvSource)
 
     return {
       trustedCallerKey: values.CONVEX_TRUSTED_CALLER_KEY,
@@ -64,7 +50,7 @@ export function deriveSiteUrlFromConvexUrl(urlString: string): string | null {
   }
 }
 
-function buildManagedAuthSetupHelp(cwd: string): string {
+function buildLocalAuthSetupHelp(cwd: string): string {
   return [
     '[e2e][local-auth] Local Better Auth setup is incomplete.',
     'Run these commands and retry:',
@@ -99,7 +85,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
         `[e2e][local-auth] Missing required local Convex env values: ${missing}.`,
         `- resolved CONVEX_URL: ${convexUrl ?? 'missing'}`,
         `- resolved CONVEX_SITE_URL: ${siteUrl ?? 'missing'}`,
-        buildManagedAuthSetupHelp(cwd),
+        buildLocalAuthSetupHelp(cwd),
       ].join('\n'),
     )
   }
@@ -127,7 +113,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
       [
         `[e2e][local-auth] Could not reach Better Auth endpoint: ${getSessionEndpoint}`,
         `- cause: ${error instanceof Error ? error.message : String(error)}`,
-        buildManagedAuthSetupHelp(cwd),
+        buildLocalAuthSetupHelp(cwd),
       ].join('\n'),
     )
   }
@@ -137,7 +123,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
       [
         `[e2e][local-auth] Better Auth HTTP route returned 404 at ${getSessionEndpoint}.`,
         '- likely cause: Better Auth routes are not registered on the local Convex site URL.',
-        buildManagedAuthSetupHelp(cwd),
+        buildLocalAuthSetupHelp(cwd),
       ].join('\n'),
     )
   }
@@ -150,7 +136,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
         `- attempted origin: ${origin}`,
         `- response: ${body || '(empty body)'}`,
         '- likely cause: SITE_URL/trusted origins do not include http://localhost:3000.',
-        buildManagedAuthSetupHelp(cwd),
+        buildLocalAuthSetupHelp(cwd),
       ].join('\n'),
     )
   }
@@ -162,7 +148,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
         `[e2e][local-auth] Better Auth endpoint returned ${response.status} at ${getSessionEndpoint}.`,
         `- response: ${body || '(empty body)'}`,
         '- likely cause: missing/invalid BETTER_AUTH_SECRET or local auth component setup.',
-        buildManagedAuthSetupHelp(cwd),
+        buildLocalAuthSetupHelp(cwd),
       ].join('\n'),
     )
   }

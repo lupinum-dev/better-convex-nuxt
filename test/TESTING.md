@@ -43,6 +43,7 @@ pnpm test:browser
 pnpm test:e2e
 pnpm test:full
 pnpm test:list
+pnpm test:inventory
 ```
 
 ## Vitest Projects
@@ -99,9 +100,9 @@ Rule of thumb:
 
 ## Managed E2E
 
-`pnpm test:e2e` is managed-only. It rebuilds the module, kills conflicting listeners on the configured local Convex ports, boots its own local backend, injects the trusted-caller env required by the MCP smoke suite, and tears everything down when the run finishes.
+`pnpm test:e2e` is managed-only. It rebuilds the module, kills conflicting listeners on the configured local Convex ports, boots its own local backend, waits for an explicit internal-harness readiness endpoint, injects the trusted-caller env required by the MCP smoke suite, and tears everything down when the run finishes.
 
-Normal contributors should not prestart Convex for the smoke suite. The only required manual setup is the local Better Auth config inside `test/internal-harness/.env.local`.
+Normal contributors should not prestart Convex for the smoke suite. The only required manual setup is the local Better Auth config inside `test/internal-harness/.env.local`, which is the canonical local env file read by Convex and the harness.
 
 If local auth has not been initialized yet:
 
@@ -116,6 +117,7 @@ pnpm test:e2e
 
 ## Maintenance
 
-- `pnpm test:list` lists repo-owned test files while excluding `test/fixtures/**/node_modules`.
+- `pnpm test:list` lists runnable test entry files only.
+- `pnpm test:inventory` lists the wider repo-owned test tree while excluding fixture `node_modules`.
 - PR-safe default gate: `pnpm test:types && pnpm lint && pnpm test:contracts`
 - broader integration gate: `pnpm test`

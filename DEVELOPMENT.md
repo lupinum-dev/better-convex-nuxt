@@ -14,10 +14,10 @@ This file is the maintainer source of truth for local workspace setup and contri
 
 ```bash
 pnpm install
-pnpm dev:prepare
 ```
 
-`pnpm dev:prepare` builds the module stubs, prepares Nuxt types, and makes the local package surface available to the internal harness and examples.
+`pnpm install` now prepares the Nuxt type projects needed for editor support, linting, and `pnpm test:types`.
+Use `pnpm dev:prepare` when you need the local module stubs and CLI build for maintainer workflows.
 
 ## Daily Commands
 
@@ -30,7 +30,10 @@ pnpm test:types
 pnpm test:contracts
 pnpm test:internals
 pnpm test
+pnpm test:list
+pnpm test:inventory
 pnpm lint
+pnpm release:verify
 pnpm docs:api-surface
 ```
 
@@ -40,6 +43,10 @@ pnpm docs:api-surface
 - `pnpm dev:build` builds the internal harness without starting it.
 - `pnpm test:contracts` runs the public contract and maintainer guard suites.
 - `pnpm test:internals` runs extracted helper and internal state-machine suites.
+- `pnpm test:list` lists runnable test entry files only.
+- `pnpm test:inventory` lists the wider test tree, including support files and fixtures.
+- `pnpm release:verify` runs the maintainer release gate without publishing anything.
+- `pnpm release` follows the official Nuxt module starter release flow: verify, changelog, publish, push tags.
 - The `vitest/environments` deprecation warning currently comes from the Nuxt/Vitest stack, not a repo-local Trellis import. Recheck on dependency upgrades, especially around `@nuxt/test-utils`.
 
 ## Maintenance Rules
@@ -100,7 +107,12 @@ The root `pnpm dev*` commands all target `test/internal-harness/`.
 
 ## Local Env Layout
 
-Prefer `.env.local` and commands with `--dotenv .env.local`.
+Convex reads `.env.local` directly for local development, so this repo uses one explicit local env file:
+
+- `.env.example`: checked-in example defaults
+- `.env.local`: shared local runtime file used by both Convex and Nuxt
+
+The example launcher rewrites launcher-owned local runtime keys in `.env.local` on each run and preserves app-owned values already present in the file.
 
 Important variables:
 

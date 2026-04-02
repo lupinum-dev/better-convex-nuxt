@@ -9,6 +9,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { parse as parseDotenv } from 'dotenv'
+
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..')
 
@@ -17,92 +19,123 @@ const DEFAULT_PORT_START = 3210
 const DEFAULT_PORT_END = 3298
 const READINESS_TIMEOUT_MS = 25_000
 const SHUTDOWN_GRACE_MS = 3_000
+const EXAMPLE_DEFAULTS_FILE_NAME = '.env.example'
+const LOCAL_ENV_FILE_NAME = '.env.local'
+const LOCAL_ENV_FILE_HEADER = [
+  '# Shared local environment for this example.',
+  '# Convex reads .env.local directly, so the launcher keeps local runtime values here.',
+  '# App-owned values are preserved. Launcher-owned local runtime values are rewritten on each run.',
+].join('\n')
+
+const LOCAL_RUNTIME_ENV_KEYS = new Set([
+  'CONVEX_DEPLOYMENT',
+  'CONVEX_LOCAL_BACKEND_PORT',
+  'CONVEX_URL',
+  'CONVEX_SITE_URL',
+  'NUXT_PUBLIC_CONVEX_URL',
+  'NUXT_PUBLIC_CONVEX_SITE_URL',
+  'SITE_URL',
+])
 
 function colorize(text, code) {
   if (process.env.NO_COLOR) return text
   return `\u001B[${code}m${text}\u001B[0m`
 }
 
-export function buildExampleRuntimeEnv({ port, baseEnv = process.env }) {
-  const url = `http://${DEFAULT_HOST}:${port}`
-  const siteUrl = `http://${DEFAULT_HOST}:${port + 1}`
+export function buildLocalRuntimeEnv({
+  port,
+  siteUrl = `http://localhost:${getDesiredNuxtPort()}`,
+  baseEnv = {},
+}) {
+  const convexUrl = `http://${DEFAULT_HOST}:${port}`
+  const convexSiteUrl = `http://${DEFAULT_HOST}:${port + 1}`
 
   return {
     ...baseEnv,
     CONVEX_LOCAL_BACKEND_PORT: String(port),
-    CONVEX_URL: url,
-    NUXT_PUBLIC_CONVEX_URL: url,
-    CONVEX_SITE_URL: siteUrl,
-    NUXT_PUBLIC_CONVEX_SITE_URL: siteUrl,
+    CONVEX_URL: convexUrl,
+    NUXT_PUBLIC_CONVEX_URL: convexUrl,
+    CONVEX_SITE_URL: convexSiteUrl,
+    NUXT_PUBLIC_CONVEX_SITE_URL: convexSiteUrl,
+    SITE_URL: siteUrl,
   }
 }
 
-export function parseEnvFile(cwd, fileName = '.env.local') {
+export function readDotenvFile(
+  cwd,
+  fileName,
+  { existsSyncFn = existsSync, readFileSyncFn = readFileSync } = {},
+) {
   const filePath = path.join(cwd, fileName)
-  if (!existsSync(filePath)) return {}
+  if (!existsSyncFn(filePath)) return {}
 
-  const values = {}
-  const content = readFileSync(filePath, 'utf8')
-
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-
-    const [rawKey, ...rest] = trimmed.split('=')
-    if (!rawKey || rest.length === 0) continue
-
-    const key = rawKey.trim()
-    const value = rest.join('=').split('#')[0]?.trim()
-    if (!value) continue
-    values[key] = value
-  }
-
-  return values
+  return parseDotenv(readFileSyncFn(filePath, 'utf8'))
 }
 
-export function serializeEnvFile(values) {
+export function readLocalEnvFile(cwd, options = {}) {
+  return readDotenvFile(cwd, LOCAL_ENV_FILE_NAME, options)
+}
+
+export function readExampleDefaultsFile(cwd, options = {}) {
+  return readDotenvFile(cwd, EXAMPLE_DEFAULTS_FILE_NAME, options)
+}
+
+function serializeEnvValue(value) {
+  if (value === '') return '""'
+  if (/^[\w./:@-]+$/.test(value)) return value
+  return JSON.stringify(value)
+}
+
+export function serializeEnvFileContents(values) {
   return Object.entries(values)
-    .map(([key, value]) => `${key}=${value}`)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${serializeEnvValue(value)}`)
     .join('\n')
 }
 
-const MANAGED_CONVEX_ENV_KEYS = new Set([
-  'CONVEX_DEPLOYMENT',
-  'CONVEX_URL',
-  'CONVEX_SITE_URL',
-  'NUXT_PUBLIC_CONVEX_URL',
-  'NUXT_PUBLIC_CONVEX_SITE_URL',
-])
+export function writeLocalEnvFile(
+  cwd,
+  values,
+  { writeFileSyncFn = writeFileSync } = {},
+) {
+  const filePath = path.join(cwd, LOCAL_ENV_FILE_NAME)
+  const serializedValues = serializeEnvFileContents(values)
+  const fileContents = serializedValues
+    ? `${LOCAL_ENV_FILE_HEADER}\n\n${serializedValues}\n`
+    : `${LOCAL_ENV_FILE_HEADER}\n`
 
-export function stripManagedConvexEnvVars(values) {
+  writeFileSyncFn(filePath, fileContents, 'utf8')
+}
+
+export function stripLocalRuntimeEnvKeys(values) {
   return Object.fromEntries(
-    Object.entries(values).filter(([key]) => !MANAGED_CONVEX_ENV_KEYS.has(key)),
+    Object.entries(values).filter(([key]) => !LOCAL_RUNTIME_ENV_KEYS.has(key)),
   )
 }
 
-export function shouldResetLocalBackendForMissingSecret(exampleEnv, preservedEnvLocal) {
-  return (
-    /replace.?me/i.test(exampleEnv.BETTER_AUTH_SECRET ?? '') &&
-    !preservedEnvLocal.BETTER_AUTH_SECRET
-  )
-}
+export function resolveGeneratedSecretEnvValues(exampleDefaults, storedEnv = {}) {
+  const generatedSecretValues = {}
 
-/**
- * Reads `.env.example` and resolves placeholder values to generated secrets.
- * Any value matching /replace.?me/i is replaced with a random 32-byte hex string.
- */
-export function resolveConvexEnvVars(parsed, existing = {}) {
-  const resolved = {}
-  for (const [key, value] of Object.entries(parsed)) {
-    const existingValue = existing[key]
-    if (/replace.?me/i.test(value) && existingValue && !/replace.?me/i.test(existingValue)) {
-      resolved[key] = existingValue
+  for (const [key, value] of Object.entries(exampleDefaults)) {
+    if (!/replace.?me/i.test(value)) continue
+
+    const storedValue = storedEnv[key]
+    if (storedValue && !/replace.?me/i.test(storedValue)) {
+      generatedSecretValues[key] = storedValue
       continue
     }
 
-    resolved[key] = /replace.?me/i.test(value) ? randomBytes(32).toString('hex') : value
+    generatedSecretValues[key] = randomBytes(32).toString('hex')
   }
-  return resolved
+
+  return generatedSecretValues
+}
+
+export function shouldResetLocalBackendForMissingGeneratedSecret(exampleDefaults, localEnv) {
+  return (
+    /replace.?me/i.test(exampleDefaults.BETTER_AUTH_SECRET ?? '') &&
+    !localEnv.BETTER_AUTH_SECRET
+  )
 }
 
 export async function isPortFree(port, host = DEFAULT_HOST) {
@@ -195,7 +228,7 @@ export function writeConvexLocalConfig(cwd, config, { writeFileSyncFn = writeFil
   writeFileSyncFn(convexLocalConfigPath(cwd), `${JSON.stringify(config)}\n`, 'utf8')
 }
 
-export async function selectExamplePortPair({
+export async function selectLocalPortPair({
   cwd,
   findAvailablePortPairFn = findAvailablePortPair,
   isPortFreeFn = isPortFree,
@@ -348,30 +381,6 @@ export async function waitForConvexReady(cwd, port, options = {}) {
   return await waitForGeneratedDir(cwd, options)
 }
 
-export async function waitForConvexEnv(
-  cwd,
-  {
-    timeoutMs = READINESS_TIMEOUT_MS,
-    intervalMs = 100,
-    parseEnvFileFn = parseEnvFile,
-    // When set, stale .env.local entries that don't contain this substring are skipped.
-    // Pass `:${port}` to reject entries written by a previous run on a different port.
-    expectedUrl,
-  } = {},
-) {
-  const deadline = Date.now() + timeoutMs
-
-  while (Date.now() < deadline) {
-    const env = parseEnvFileFn(cwd)
-    if (env.CONVEX_URL && env.CONVEX_SITE_URL) {
-      if (!expectedUrl || env.CONVEX_URL.includes(expectedUrl)) return env
-    }
-    await sleep(intervalMs)
-  }
-
-  throw new Error(`Timed out waiting for Convex environment in ${path.join(cwd, '.env.local')}.`)
-}
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -461,13 +470,8 @@ async function runCheckedCommand({ label, spawnFn, cwd, env, command, args, stdo
 
 async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
   const tmpPath = path.join(tmpdir(), `convex-env-${process.pid}.env`)
-  writeFileSync(
-    tmpPath,
-    Object.entries(vars)
-      .map(([k, v]) => `${k}=${v}`)
-      .join('\n'),
-    'utf8',
-  )
+  writeFileSync(tmpPath, `${serializeEnvFileContents(vars)}\n`, 'utf8')
+
   try {
     await runCheckedCommand({
       label: 'convex',
@@ -489,8 +493,9 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
 }
 
 async function prepareLocalModuleForDev({ spawnFn, stdout, stderr }) {
-  const sysLabel = colorize('system'.padEnd(6), '33')
-  stdout.write(`${sysLabel} preparing local @lupinum/trellis module\n`)
+  const systemLabel = colorize('system'.padEnd(6), '33')
+  stdout.write(`${systemLabel} preparing local @lupinum/trellis module\n`)
+
   await runCheckedCommand({
     label: 'build',
     spawnFn,
@@ -503,16 +508,56 @@ async function prepareLocalModuleForDev({ spawnFn, stdout, stderr }) {
   })
 }
 
+function buildLocalEnvFilePath(cwd) {
+  return path.join(cwd, LOCAL_ENV_FILE_NAME)
+}
+
+function createExampleLocalEnv({
+  cwd,
+  port,
+  readExampleDefaultsFileFn = readExampleDefaultsFile,
+  readLocalEnvFileFn = readLocalEnvFile,
+}) {
+  const exampleDefaults = {
+    ...readExampleDefaultsFileFn(cwd),
+    SITE_URL: getDesiredSiteUrl(cwd),
+  }
+  const existingLocalEnv = readLocalEnvFileFn(cwd)
+  const generatedSecretEnv = resolveGeneratedSecretEnvValues(exampleDefaults, existingLocalEnv)
+  const localRuntimeEnv = buildLocalRuntimeEnv({
+    port,
+    siteUrl: exampleDefaults.SITE_URL,
+  })
+
+  return {
+    exampleDefaults,
+    existingLocalEnv,
+    generatedSecretEnv,
+    localRuntimeEnv,
+    localEnvFileValues: {
+      ...existingLocalEnv,
+      ...generatedSecretEnv,
+      ...localRuntimeEnv,
+    },
+    deploymentEnvVars: stripLocalRuntimeEnvKeys({
+      ...exampleDefaults,
+      ...generatedSecretEnv,
+      ...existingLocalEnv,
+    }),
+  }
+}
+
 export async function runExampleDev({
   cwd = process.cwd(),
   spawnFn = spawn,
   findAvailablePortPairFn = findAvailablePortPair,
   isPortFreeFn = isPortFree,
-  waitForConvexEnvFn = waitForConvexEnv,
   waitForConvexReadyFn = waitForConvexReady,
   existsSyncFn = existsSync,
   rmSyncFn = rmSync,
-  writeFileSyncFn = writeFileSync,
+  readExampleDefaultsFileFn = readExampleDefaultsFile,
+  readLocalEnvFileFn = readLocalEnvFile,
+  writeLocalEnvFileFn = writeLocalEnvFile,
   readConvexLocalConfigFn = readConvexLocalConfig,
   writeConvexLocalConfigFn = writeConvexLocalConfig,
   clearPortsFn = clearPorts,
@@ -530,8 +575,7 @@ export async function runExampleDev({
   const configuredPorts = readConvexLocalConfigFn(cwd)?.ports
   await clearPortsFn([desiredNuxtPort, configuredPorts?.cloud, configuredPorts?.site], { stdout })
 
-  // Reuse configured ports when possible, otherwise move the saved deployment to a free pair.
-  const port = await selectExamplePortPair({
+  const port = await selectLocalPortPair({
     cwd,
     findAvailablePortPairFn,
     isPortFreeFn,
@@ -545,28 +589,21 @@ export async function runExampleDev({
     writeConvexLocalConfigFn,
   })
 
-  const preservedEnvLocal = stripManagedConvexEnvVars(parseEnvFile(cwd))
-  const exampleEnv = {
-    ...parseEnvFile(cwd, '.env.example'),
-    SITE_URL: getDesiredSiteUrl(cwd),
-  }
-
-  // Remove stale Convex runtime entries so waitForConvexEnv cannot return values from a previous run.
-  const envLocalPath = path.join(cwd, '.env.local')
-  if (existsSyncFn(envLocalPath)) {
-    rmSyncFn(envLocalPath)
-  }
-
-  const convexVars = resolveConvexEnvVars(exampleEnv, preservedEnvLocal)
-  const persistentEnvLocal = stripManagedConvexEnvVars({
-    ...preservedEnvLocal,
-    ...convexVars,
+  const exampleLocalEnv = createExampleLocalEnv({
+    cwd,
+    port,
+    readExampleDefaultsFileFn,
+    readLocalEnvFileFn,
   })
-  if (Object.keys(persistentEnvLocal).length > 0) {
-    writeFileSyncFn(envLocalPath, `${serializeEnvFile(persistentEnvLocal)}\n`, 'utf8')
-  }
 
-  if (shouldResetLocalBackendForMissingSecret(exampleEnv, preservedEnvLocal)) {
+  writeLocalEnvFileFn(cwd, exampleLocalEnv.localEnvFileValues)
+
+  if (
+    shouldResetLocalBackendForMissingGeneratedSecret(
+      exampleLocalEnv.exampleDefaults,
+      exampleLocalEnv.existingLocalEnv,
+    )
+  ) {
     const sqlitePath = convexLocalSqlitePath(cwd)
     if (existsSyncFn(sqlitePath)) {
       rmSyncFn(sqlitePath)
@@ -603,6 +640,8 @@ export async function runExampleDev({
       String(port),
       '--local-site-port',
       String(port + 1),
+      '--env-file',
+      buildLocalEnvFilePath(cwd),
     ],
     {
       cwd,
@@ -614,7 +653,6 @@ export async function runExampleDev({
   const flushConvexStdout = prefixStream(convex.stdout, 'convex', '36', stdout)
   const flushConvexStderr = prefixStream(convex.stderr, 'convex', '36', stderr)
 
-  // Initialize as no-ops so shutdown() can call them safely before nuxt is spawned.
   let flushNuxtStdout = () => {}
   let flushNuxtStderr = () => {}
   let nuxt = null
@@ -650,37 +688,40 @@ export async function runExampleDev({
     process.removeListener('SIGTERM', handleSigterm)
   }
 
-  // Attach exit listener immediately to avoid missing exits that happen before the race starts.
   const convexExit = onceExit(convex).then(({ code, signal }) => {
     if (shuttingDown) return
     throw createProcessExitError('Convex', code, signal)
   })
 
   try {
-    const ready = await Promise.race([
-      (async () => {
-        // expectedUrl guards against residual .env.local writes from a concurrent prior run.
-        const env = await waitForConvexEnvFn(cwd, { expectedUrl: `:${port}` })
-        await waitForConvexReadyFn(cwd, port)
-        return env
-      })(),
-      convexExit,
-    ])
+    await Promise.race([waitForConvexReadyFn(cwd, port), convexExit])
 
-    // Push .env.example vars to the Convex deployment, generating secrets for placeholders.
-    if (Object.keys(convexVars).length > 0) {
-      const sysLabel = colorize('system'.padEnd(6), '33')
-      stdout.write(`${sysLabel} configuring Convex env vars from .env.example\n`)
-      await pushConvexEnvVars({ vars: convexVars, cwd, spawnFn, env: convexEnv, stdout, stderr })
+    if (Object.keys(exampleLocalEnv.deploymentEnvVars).length > 0) {
+      const systemLabel = colorize('system'.padEnd(6), '33')
+      stdout.write(`${systemLabel} configuring Convex env vars from example defaults and .env.local\n`)
+      await pushConvexEnvVars({
+        vars: exampleLocalEnv.deploymentEnvVars,
+        cwd,
+        spawnFn,
+        env: convexEnv,
+        stdout,
+        stderr,
+      })
+    }
+
+    const mergedRuntimeEnv = {
+      ...exampleLocalEnv.exampleDefaults,
+      ...exampleLocalEnv.existingLocalEnv,
+      ...exampleLocalEnv.generatedSecretEnv,
+      ...exampleLocalEnv.localRuntimeEnv,
+      PORT: String(desiredNuxtPort),
     }
 
     nuxt = spawnFn('pnpm', ['run', 'dev:nuxt'], {
       cwd,
       env: {
         ...process.env,
-        ...persistentEnvLocal,
-        ...ready,
-        PORT: String(desiredNuxtPort),
+        ...mergedRuntimeEnv,
       },
       stdio: ['inherit', 'pipe', 'pipe'],
     })

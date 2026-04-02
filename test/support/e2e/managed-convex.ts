@@ -1,5 +1,3 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { once } from 'node:events'
 import path from 'node:path'
 
 import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../../internal-harness/shared/dev-trusted-caller-key'
@@ -8,11 +6,12 @@ import {
   deriveSiteUrlFromConvexUrl,
   readLocalConvexEnv,
 } from './auth-preflight'
+import { spawnManagedProcess } from './managed-process'
 import { terminateListeningPorts, waitForPort } from './ports'
 
 interface ManagedLocalConvexHandle {
-  process: ChildProcessWithoutNullStreams
   port: number
+  release: () => Promise<void>
   url: string
 }
 
@@ -95,7 +94,10 @@ export async function ensureManagedLocalConvex(
 
     await terminateListeningPorts([...managedPorts])
 
-    const child = spawn('npx', ['convex', 'dev', '--local'], {
+    const managedProcess = spawnManagedProcess({
+      name: 'Managed local Convex',
+      command: 'npx',
+      args: ['convex', 'dev', '--local'],
       cwd,
       env: {
         ...process.env,
@@ -106,32 +108,34 @@ export async function ensureManagedLocalConvex(
         CONVEX_TRUSTED_CALLER_KEY: trustedCallerKey,
         CONVEX_LOCAL_BACKEND_PORT: String(resolved.port),
       },
-      stdio: 'pipe',
-    })
-
-    child.stdout.on('data', () => {})
-    child.stderr.on('data', () => {})
-    child.once('exit', (code) => {
-      if (code !== null && code !== 0 && activeHandle?.process === child) {
-        activeHandle = null
-      }
     })
 
     activeHandle = {
-      process: child,
       port: resolved.port,
+      release: async () => {
+        await managedProcess.stop()
+      },
       url: resolved.url,
     }
 
-    await waitForPort(resolved.port, timeoutMs)
-    await assertLocalAuthReady({
-      cwd,
-      env: {
-        CONVEX_URL: resolved.url,
-        CONVEX_SITE_URL: siteUrl,
-      },
-      timeoutMs: 10_000,
-    })
+    try {
+      await Promise.race([waitForPort(resolved.port, timeoutMs), managedProcess.unexpectedExit])
+      await Promise.race([
+        assertLocalAuthReady({
+          cwd,
+          env: {
+            CONVEX_URL: resolved.url,
+            CONVEX_SITE_URL: siteUrl,
+          },
+          timeoutMs: 10_000,
+        }),
+        managedProcess.unexpectedExit,
+      ])
+    } catch (error) {
+      activeHandle = null
+      await managedProcess.stop()
+      throw managedProcess.createFailure('Managed local Convex failed to become ready.', error)
+    }
   }
 
   retainers += 1
@@ -141,18 +145,9 @@ export async function ensureManagedLocalConvex(
     retainers -= 1
     if (retainers > 0) return
 
-    const managedChild = activeHandle.process
+    const releaseManagedHandle = activeHandle.release
     activeHandle = null
-    managedChild.kill('SIGTERM')
-
-    const timer = setTimeout(() => {
-      if (!managedChild.killed) {
-        managedChild.kill('SIGKILL')
-      }
-    }, 3_000)
-
-    await once(managedChild, 'exit').catch(() => {})
-    clearTimeout(timer)
+    await releaseManagedHandle()
   }
 
   return {
