@@ -112,6 +112,7 @@ interface AuthEngineState {
   refreshPromise: Promise<void> | null
   signOutPromise: Promise<void> | null
   operationId: number
+  pendingOperationId: number | null
   snapshot: AuthSnapshot
   hooksRegistered: boolean
 }
@@ -188,6 +189,7 @@ function getEngineState(
     refreshPromise: null,
     signOutPromise: null,
     operationId: 0,
+    pendingOperationId: null,
     snapshot: buildAuthSnapshot(token.value, user.value),
     hooksRegistered: false,
   }
@@ -292,6 +294,27 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
 
   const settleInitialAuth = () => {
     resolveInitialAuth?.()
+    if (state.pendingOperationId === null) {
+      pending.value = false
+    }
+  }
+
+  const beginPendingOperation = (operationId: number) => {
+    state.pendingOperationId = operationId
+    pending.value = true
+  }
+
+  const clearPendingOperation = (operationId: number) => {
+    if (state.pendingOperationId !== operationId) {
+      return
+    }
+
+    state.pendingOperationId = null
+    pending.value = false
+  }
+
+  const clearPendingState = () => {
+    state.pendingOperationId = null
     pending.value = false
   }
 
@@ -349,15 +372,15 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     if (!state.transport) {
       const message = rawAuthError.value ?? 'Convex auth client is not initialized'
       commitUnauthenticated(message, { emit: false })
-      pending.value = false
+      clearPendingState()
       throw new Error(message)
     }
 
     const transport = state.transport
     state.refreshPromise = (async () => {
-      pending.value = true
       rawAuthError.value = null
       const operationId = ++state.operationId
+      beginPendingOperation(operationId)
 
       try {
         await withTimeout(
@@ -399,7 +422,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
         commitUnauthenticated(message)
         throw error
       } finally {
-        pending.value = false
+        clearPendingOperation(operationId)
         state.refreshPromise = null
       }
     })()
@@ -417,7 +440,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     })
 
     if (!options?.preservePending) {
-      pending.value = false
+      clearPendingState()
     }
 
     if (!state.transport) {
@@ -436,9 +459,9 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     const transport = state.transport
     const client = transport?.client ?? null
     state.signOutPromise = (async () => {
-      pending.value = true
       rawAuthError.value = null
-      ++state.operationId
+      const operationId = ++state.operationId
+      beginPendingOperation(operationId)
       commitUnauthenticated(null, { clearWasAuthenticated: true })
 
       let firstError: unknown = null
@@ -474,7 +497,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
           throw firstError
         }
       } finally {
-        pending.value = false
+        clearPendingOperation(operationId)
         state.signOutPromise = null
       }
     })()

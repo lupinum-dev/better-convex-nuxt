@@ -117,6 +117,13 @@ export const unsafeRenamePost = raw.mutation({
   },
 })
 
+export const unsafeListMcpKeys = raw.query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query('mcpKeys').order('desc').collect()
+  },
+})
+
 export const createTriggeredNote = raw.mutation({
   args: {
     content: v.string(),

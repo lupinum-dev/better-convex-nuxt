@@ -110,6 +110,37 @@ describe('createApp', () => {
     ).rejects.toThrow('Document belongs to a different tenant.')
   })
 
+  it('fails closed when the actor and document both lack a tenant id', async () => {
+    const t = convexTest(schema, modules)
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert('users', {
+        authId: 'no_org_user',
+        role: 'member',
+        displayName: 'No Org User',
+        email: 'no-org@test.com',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+
+      await ctx.db.insert('mcpKeys', {
+        name: 'No Org Key',
+        key: 'mcp_no_org_key',
+        prefix: 'mcp_no_',
+        role: 'member',
+        userId: 'no_org_user',
+        status: 'active',
+        createdAt: Date.now(),
+      })
+    })
+
+    const asNoOrgUser = t.withIdentity({ subject: 'no_org_user' })
+
+    await expect(asNoOrgUser.query(api.functionsProbe.unsafeListMcpKeys, {})).rejects.toThrow(
+      'Document belongs to a different tenant.',
+    )
+  })
+
   it('wraps mutation db access with triggers when configured', async () => {
     const t = convexTest(schema, modules)
 

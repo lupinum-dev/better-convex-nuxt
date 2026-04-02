@@ -130,6 +130,10 @@ function getTenantId(actor: unknown): unknown {
   return actor.tenantId
 }
 
+function hasTenantScope(value: unknown): boolean {
+  return value !== undefined && value !== null
+}
+
 function createTenantIsolationRule<
   DataModel extends GenericDataModel,
   TActor,
@@ -139,7 +143,11 @@ function createTenantIsolationRule<
     const actorTenantId = getTenantId(await ctx.actor())
     const documentTenantId = doc[field as keyof TDoc]
 
-    if (documentTenantId === actorTenantId) {
+    if (
+      hasTenantScope(actorTenantId) &&
+      hasTenantScope(documentTenantId) &&
+      documentTenantId === actorTenantId
+    ) {
       return true
     }
 
@@ -148,7 +156,7 @@ function createTenantIsolationRule<
     }
 
     throw new Error(
-      `Document belongs to a different tenant.\nReason: ${field} ${String(documentTenantId)}`,
+      `Document belongs to a different tenant.\nActor: ${String(actorTenantId)}\nReason: ${field} ${String(documentTenantId)}`,
     )
   }
 }

@@ -21,6 +21,7 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
   const auth = useConvexAuthController()
   const state = useAuthBootstrapDevtoolsState()
   let lastEnsuredUserId: string | null = null
+  let activeBootstrapRequestId = 0
 
   state.value = {
     mutationName: configuredMutationName,
@@ -33,6 +34,7 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
   watch(
     [auth.isAuthenticated, auth.user],
     async ([authenticated, currentUser]) => {
+      const requestId = ++activeBootstrapRequestId
       if (!authenticated || !currentUser?.id) {
         lastEnsuredUserId = null
         state.value = {
@@ -45,11 +47,24 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
         return
       }
 
-      if (lastEnsuredUserId === currentUser.id || state.value.pending) {
+      if (lastEnsuredUserId === currentUser.id) {
         state.value = {
           ...state.value,
-          ensured: lastEnsuredUserId === currentUser.id,
+          pending: false,
+          ensured: true,
           lastUserId: lastEnsuredUserId,
+          error: null,
+        }
+        return
+      }
+
+      if (!nuxtApp.$convex || typeof nuxtApp.$convex.mutation !== 'function') {
+        state.value = {
+          ...state.value,
+          pending: false,
+          ensured: false,
+          lastUserId: currentUser.id,
+          error: 'Convex client is not initialized.',
         }
         return
       }
@@ -63,7 +78,10 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
       }
 
       try {
-        await nuxtApp.$convex?.mutation(mutationRef, {} as never)
+        await nuxtApp.$convex.mutation(mutationRef, {} as never)
+        if (requestId !== activeBootstrapRequestId) {
+          return
+        }
         lastEnsuredUserId = currentUser.id
         state.value = {
           ...state.value,
@@ -73,6 +91,9 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
           error: null,
         }
       } catch (error) {
+        if (requestId !== activeBootstrapRequestId) {
+          return
+        }
         if (isHarmlessBootstrapError(error)) {
           lastEnsuredUserId = currentUser.id
           state.value = {

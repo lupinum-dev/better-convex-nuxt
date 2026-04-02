@@ -76,4 +76,32 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     expect(result.bootstrap.value.error).toBeNull()
     expect(result.bootstrap.value.pending).toBe(false)
   })
+
+  it('fails closed when the Convex client is unavailable', async () => {
+    const { result } = await captureInNuxt(() => {
+      const auth = installMockAuthEngine({
+        initialToken: null,
+        initialUser: null,
+        initialPending: false,
+      })
+      setupConfiguredAuthBootstrap(mutation, 'auth.createUserIfNeeded')
+
+      return {
+        auth,
+        bootstrap: useAuthBootstrapDevtoolsState(),
+      }
+    }, { convex: {} })
+
+    result.auth.user.value = {
+      id: 'user-1',
+      name: 'Auth User',
+      email: 'auth@example.test',
+    }
+    result.auth.token.value = 'jwt.token'
+
+    await waitFor(() => result.bootstrap.value.error !== null)
+    expect(result.bootstrap.value.ensured).toBe(false)
+    expect(result.bootstrap.value.pending).toBe(false)
+    expect(result.bootstrap.value.error).toBe('Convex client is not initialized.')
+  })
 })

@@ -26,7 +26,8 @@ export interface DefineAuthOptions {
 
   /**
    * Extra fields merged into the app user row on creation.
-   * The base fields (authId, email, displayName, createdAt, updatedAt) are always set.
+   * Reserved module-owned keys (authId, email, displayName, createdAt, updatedAt)
+   * are rejected.
    */
   userFields?: (authUser: {
     authId: string
@@ -74,6 +75,8 @@ export interface DefineAuthDeps {
   authConfig: any
 }
 
+const RESERVED_USER_FIELD_KEYS = ['authId', 'email', 'displayName', 'createdAt', 'updatedAt']
+
 /**
  * Define the auth bridge between Better Auth and Convex.
  *
@@ -109,24 +112,59 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
   const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
   const trustedOrigins = [siteUrl, 'http://127.0.0.1:3000', 'http://localhost:3000']
 
+  function findUserByAuthId(ctx: any, authId: string) {
+    return ctx.db
+      .query('users')
+      .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
+      .first()
+  }
+
+  function getExtraUserFields(input: {
+    authId: string
+    email: string
+    displayName: string
+  }): Record<string, unknown> {
+    if (!options.userFields) {
+      return {}
+    }
+
+    const extra = options.userFields(input)
+    for (const reservedKey of RESERVED_USER_FIELD_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(extra, reservedKey)) {
+        throw new Error(
+          `defineAuth.userFields must not define reserved key "${reservedKey}".`,
+        )
+      }
+    }
+
+    return extra
+  }
+
   function buildUserFields(
     input: { authId: string; email: string; displayName: string },
     now: number,
   ): Record<string, unknown> {
-    const base: Record<string, unknown> = {
+    return {
       authId: input.authId,
       email: input.email,
       displayName: input.displayName,
       createdAt: now,
       updatedAt: now,
+      ...getExtraUserFields(input),
+    }
+  }
+
+  async function ensureUserForAuthIdentity(
+    ctx: any,
+    input: { authId: string; email: string; displayName: string },
+  ): Promise<{ userId: any; created: boolean }> {
+    const existingUser = await findUserByAuthId(ctx, input.authId)
+    if (existingUser) {
+      return { userId: existingUser._id, created: false }
     }
 
-    if (options.userFields) {
-      const extra = options.userFields(input)
-      Object.assign(base, extra)
-    }
-
-    return base
+    const userId = await ctx.db.insert('users', buildUserFields(input, Date.now()))
+    return { userId, created: true }
   }
 
   const authComponent = createClient(deps.components.betterAuth, {
@@ -134,27 +172,17 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
     triggers: {
       user: {
         onCreate: async (ctx: any, doc: AuthUserDoc) => {
-          const now = Date.now()
-          const userId = await ctx.db.insert(
-            'users',
-            buildUserFields(
-              {
-                authId: doc._id,
-                email: doc.email,
-                displayName: doc.name,
-              },
-              now,
-            ),
-          )
-          if (options.onUserCreated) {
+          const { userId, created } = await ensureUserForAuthIdentity(ctx, {
+            authId: doc._id,
+            email: doc.email,
+            displayName: doc.name,
+          })
+          if (created && options.onUserCreated) {
             await options.onUserCreated(ctx, userId)
           }
         },
         onUpdate: async (ctx: any, doc: AuthUserDoc) => {
-          const user = await ctx.db
-            .query('users')
-            .withIndex('by_auth_id', (q: any) => q.eq('authId', doc._id))
-            .first()
+          const user = await findUserByAuthId(ctx, doc._id)
 
           if (!user) return
 
@@ -169,10 +197,7 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
           }
         },
         onDelete: async (ctx: any, doc: AuthUserDoc) => {
-          const user = await ctx.db
-            .query('users')
-            .withIndex('by_auth_id', (q: any) => q.eq('authId', doc._id))
-            .first()
+          const user = await findUserByAuthId(ctx, doc._id)
 
           if (user) {
             await ctx.db.delete(user._id)
@@ -226,27 +251,13 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
         throw new Error('Not authenticated.')
       }
 
-      const existing = await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q: any) => q.eq('authId', identity.subject))
-        .first()
+      const { userId } = await ensureUserForAuthIdentity(ctx, {
+        authId: identity.subject,
+        email: identity.email,
+        displayName: identity.name,
+      })
 
-      if (existing) {
-        return existing._id
-      }
-
-      const now = Date.now()
-      return await ctx.db.insert(
-        'users',
-        buildUserFields(
-          {
-            authId: identity.subject,
-            email: identity.email,
-            displayName: identity.name,
-          },
-          now,
-        ),
-      )
+      return userId
     },
   })
 

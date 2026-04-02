@@ -453,6 +453,34 @@ export function initAuthClient(
     }
   }
 
+  const installSetAuthFlow = async (
+    configure: (handlers: {
+      resolve: () => void
+      reject: (error: unknown) => void
+    }) => void,
+  ): Promise<void> => {
+    await new Promise<void>((resolve, reject) => {
+      let settled = false
+
+      const settle = (fn: () => void) => {
+        if (settled) return
+        settled = true
+        fn()
+      }
+
+      configure({
+        resolve: () =>
+          settle(() => {
+            resolve()
+          }),
+        reject: (error) =>
+          settle(() => {
+            reject(error)
+          }),
+      })
+    })
+  }
+
   return {
     client: authClient,
     fetchAuthState,
@@ -467,23 +495,24 @@ export function initAuthClient(
       skipNextAnonymousSpaBootConvexSetAuthRefresh = false
       lastTokenValidation = 0
       const trigger = options?.trigger ?? 'manual-refresh'
-      await new Promise<void>((resolve) => {
-        let settled = false
+      await installSetAuthFlow(({ resolve, reject }) => {
         const finish = (authenticated: boolean) => {
-          if (settled) return
-          settled = true
           onChange(authenticated, { trigger })
           resolve()
         }
-
         convexClientInstance.setAuth(
           async (input) => {
-            const token = await fetchToken({ ...input, forceRefreshToken: true, trigger })
-            // Some flows have no active subscriptions yet, so Convex may not
-            // invoke `onChange` promptly. Resolve refresh once the forced token
-            // fetch itself settles.
-            finish(Boolean(token))
-            return token
+            try {
+              const token = await fetchToken({ ...input, forceRefreshToken: true, trigger })
+              // Some flows have no active subscriptions yet, so Convex may not
+              // invoke `onChange` promptly. Resolve refresh once the forced token
+              // fetch itself settles.
+              finish(Boolean(token))
+              return token
+            } catch (error) {
+              reject(error)
+              return null
+            }
           },
           () => {
             finish(Boolean(convexToken.value && normalizeHydratedUser(convexUser.value)))
@@ -496,9 +525,12 @@ export function initAuthClient(
       inflightFetch = null
       inflightIsForced = false
       skipNextAnonymousSpaBootConvexSetAuthRefresh = false
-      await new Promise<void>((resolve) => {
+      await installSetAuthFlow(({ resolve }) => {
         convexClientInstance.setAuth(
-          async () => null,
+          async () => {
+            resolve()
+            return null
+          },
           () => resolve(),
         )
       })

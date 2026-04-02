@@ -3,6 +3,17 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { mintJwt } from '../support/auth/jwt-factory'
 import { createAuthHarness } from '../support/auth/auth-harness'
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve
+    reject = innerReject
+  })
+
+  return { promise, resolve, reject }
+}
+
 describe('auth engine', () => {
   const disposables: Array<() => void> = []
 
@@ -67,5 +78,40 @@ describe('auth engine', () => {
     expect(harness.user.value).toBeNull()
     expect(harness.isAnonymous.value).toBe(true)
     expect(harness.isSessionExpired.value).toBe(false)
+  })
+
+  it('keeps pending true while signOut owns the current auth operation', async () => {
+    const signOutDeferred = createDeferred<undefined>()
+    const harness = await createAuthHarness({
+      initialToken: mintJwt({ sub: 'u-pending', email: 'pending@test.com' }),
+      initialUser: { id: 'u-pending', name: 'Pending User', email: 'pending@test.com' },
+      signOutBehavior: () => signOutDeferred.promise,
+    })
+    disposables.push(() => harness.dispose())
+
+    harness.tokenExchange.enqueue({
+      data: { token: mintJwt({ sub: 'u-stale', email: 'stale@test.com' }) },
+      error: null,
+      delayMs: 20,
+    })
+
+    const refreshPromise = harness.engine.refreshAuth()
+    await Promise.resolve()
+
+    const signOutPromise = harness.engine.signOut()
+    await harness.flush()
+    expect(harness.pending.value).toBe(true)
+
+    await refreshPromise
+    await harness.flush()
+    expect(harness.pending.value).toBe(true)
+
+    signOutDeferred.resolve(undefined)
+    await signOutPromise
+    await harness.flush()
+
+    expect(harness.pending.value).toBe(false)
+    expect(harness.token.value).toBeNull()
+    expect(harness.user.value).toBeNull()
   })
 })
