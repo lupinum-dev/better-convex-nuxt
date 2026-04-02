@@ -761,6 +761,34 @@ export function createConvexPaginatedQueryState<
     resolvePromise: () => firstPageResource.resolvePromise,
   }
 }
+/**
+ * Composable for cursor-based paginated queries with real-time updates.
+ *
+ * Fetches the first page during SSR, then keeps a live subscription on the client.
+ * Call `loadMore(n)` to fetch additional pages. All pages are merged into a single
+ * reactive `items` array.
+ *
+ * Status lifecycle: `loading-first-page` -> `ready` -> `loading-more` -> `exhausted`.
+ * Pass `null`/`undefined` args to skip the query (`skipped` status).
+ *
+ * @example Basic pagination
+ * ```vue
+ * <script setup>
+ * import { api } from '~/convex/_generated/api'
+ *
+ * const { items, status, loadMore, hasNextPage } = await useConvexPaginatedQuery(
+ *   api.posts.list,
+ *   { workspaceId: props.workspaceId },
+ *   { initialNumItems: 20 },
+ * )
+ * </script>
+ *
+ * <template>
+ *   <div v-for="post in items" :key="post._id">{{ post.title }}</div>
+ *   <button v-if="hasNextPage" @click="loadMore(20)">Load more</button>
+ * </template>
+ * ```
+ */
 export function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
   Args extends PaginatedQueryArgs<Query> | null | undefined = PaginatedQueryArgs<Query>,

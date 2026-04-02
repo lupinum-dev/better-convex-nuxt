@@ -1,31 +1,48 @@
 # Better Convex Nuxt
 
+The full-stack Convex toolkit for Nuxt — SSR, real-time subscriptions, auth, permissions, and MCP in one module.
+
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, file uploads, permissions, server helpers, and MCP tooling.
-
 - [Documentation](https://better-convex-nuxt.vercel.app)
 - [Examples](./examples/README.md)
 - [Public demo app](./demo)
 
-## Install
+## Why?
+
+- **Structural safety.** A handler without a guard is a type error, not a code review catch. Tenant isolation is declared once, not checked in every query.
+- **Composable primitives.** `useConvexQuery`, `useConvexMutation`, `usePermissions`, `defineGuard`, `defineActor` — each does one thing and composes with everything.
+- **Owned code.** The module provides the hard primitives (auth wiring, SSR hydration, real-time subscriptions, trusted caller detection). Your roles, business rules, and data model are your code, not config.
+- **Progressive disclosure.** A public todo app is one config line. Adding auth is one flag. Adding tenant isolation is one declaration. Adding MCP tools is one more module. No cliffs.
+
+## Features
+
+- SSR with hydration to real-time WebSocket subscriptions
+- Cursor-based pagination with `loadMore()`
+- Better Auth integration (OAuth, email/password, magic links)
+- Route protection and auth middleware
+- File uploads with progress tracking and queue management
+- Permission system with guards, actors, and capabilities
+- Visibility and field-level redaction
+- Server-side queries, mutations, and actions via Nitro
+- Trusted caller infrastructure for server-to-server auth
+- MCP tool definitions with shared schemas
+- Vue DevTools integration
+- First-class testing utilities
+- ESLint plugin
+
+## Quick Start
+
+Requires **Nuxt 4** and **Node 18+**.
 
 ```bash
 pnpm add convex better-convex-nuxt
 ```
 
-If you use MCP tools with shared Convex schemas:
-
-```bash
-pnpm add @nuxtjs/mcp-toolkit convex-helpers zod
-```
-
-## Quick Start
-
-Add the module to `nuxt.config.ts` and point it at your Convex deployment:
+Add the module to `nuxt.config.ts`:
 
 ```ts
 export default defineNuxtConfig({
@@ -36,24 +53,13 @@ export default defineNuxtConfig({
 })
 ```
 
-Use `.env.local` when running Nuxt locally:
-
-```json
-{
-  "scripts": {
-    "dev": "nuxt dev --dotenv .env.local",
-    "build": "nuxt build --dotenv .env.local",
-    "typecheck": "nuxt typecheck --dotenv .env.local"
-  }
-}
-```
-
 ### Query Example
 
 ```vue
 <script setup lang="ts">
 import { api } from '~/convex/_generated/api'
 
+// SSR-rendered on first load, then live WebSocket updates — no refetch needed
 const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: 'active' })
 </script>
 
@@ -77,6 +83,47 @@ async function signInWithGitHub() {
 }
 </script>
 ```
+
+### Mutation with Optimistic Update
+
+```vue
+<script setup lang="ts">
+import { api } from '~/convex/_generated/api'
+
+const addNote = useConvexMutation(api.notes.add, {
+  optimisticUpdate: (ctx, args) => {
+    ctx.query(api.notes.list, {}).update(notes => [...notes, { ...args, _id: 'temp' }])
+  },
+})
+
+await addNote({ title: 'Ship it' })
+</script>
+```
+
+### Permissions Example
+
+```ts
+// convex/posts.ts
+export const remove = app.mutation({
+  args: { id: v.id('posts') },
+  guard: can('post.delete'),
+  load: (ctx, args) => loadTenantResource(ctx.actor, ctx.db, 'posts', args.id),
+  handler: async (ctx, _args, post) => {
+    await ctx.db.delete(post._id)
+  },
+})
+```
+
+## Where To Go Next
+
+- [Get Started](https://better-convex-nuxt.vercel.app/docs/guide/get-started)
+- [Authentication](https://better-convex-nuxt.vercel.app/docs/auth-security/authentication)
+- [Permissions](https://better-convex-nuxt.vercel.app/docs/permissions/setup)
+- [Server Side](https://better-convex-nuxt.vercel.app/docs/server-side/ssr-overview)
+- [MCP Tools](https://better-convex-nuxt.vercel.app/docs/mcp-tools/getting-started)
+- [Testing](https://better-convex-nuxt.vercel.app/docs/testing/getting-started)
+- [Module Options](https://better-convex-nuxt.vercel.app/docs/configuration/module-options)
+- [Deployment Overview](https://better-convex-nuxt.vercel.app/docs/deployment/overview)
 
 ## Package Surface
 
@@ -129,17 +176,6 @@ npx better-convex-nuxt init permissions --model workspace
 npx better-convex-nuxt init permissions --model workspace-mcp
 npx better-convex-nuxt init mcp
 ```
-
-## Where To Go Next
-
-- [Get Started](https://better-convex-nuxt.vercel.app/docs/guide/get-started)
-- [Authentication](https://better-convex-nuxt.vercel.app/docs/auth-security/authentication)
-- [Permissions](https://better-convex-nuxt.vercel.app/docs/permissions/setup)
-- [Server Side](https://better-convex-nuxt.vercel.app/docs/server-side/ssr-overview)
-- [MCP Tools](https://better-convex-nuxt.vercel.app/docs/mcp-tools/getting-started)
-- [Testing](https://better-convex-nuxt.vercel.app/docs/testing/getting-started)
-- [Module Options](https://better-convex-nuxt.vercel.app/docs/configuration/module-options)
-- [Deployment Overview](https://better-convex-nuxt.vercel.app/docs/deployment/overview)
 
 ## Contributing
 

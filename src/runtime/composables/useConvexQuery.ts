@@ -413,6 +413,48 @@ export function createConvexQueryState<
     resolvePromise: () => resource.resolvePromise,
   }
 }
+/**
+ * Composable for fetching Convex query data with SSR and real-time subscriptions.
+ *
+ * Runs the query server-side during SSR (via HTTP), then automatically opens a
+ * WebSocket subscription on the client for live updates. Returns a PromiseLike
+ * result — `await` it in `<script setup>` to block SSR until data is ready.
+ *
+ * Reactive state properties match the Nuxt `useAsyncData` shape:
+ * - `data` — query result (null while pending)
+ * - `status` — 'idle' | 'pending' | 'success' | 'error'
+ * - `pending` — boolean shorthand for status === 'pending'
+ * - `error` — Error | null
+ * - `isStale` — true when keepPreviousData is showing a previous result
+ *
+ * Pass `null` or `undefined` as args (or return them from a getter) to skip
+ * the query entirely — useful for conditional fetching.
+ *
+ * @example Basic SSR query
+ * ```vue
+ * <script setup>
+ * import { api } from '~/convex/_generated/api'
+ *
+ * // SSR-rendered, then live WebSocket updates — no refetch needed
+ * const { data: tasks } = await useConvexQuery(api.tasks.list, { status: 'active' })
+ * </script>
+ * ```
+ *
+ * @example Conditional query with reactive args
+ * ```vue
+ * <script setup>
+ * import { api } from '~/convex/_generated/api'
+ *
+ * const selectedId = ref<string | null>(null)
+ *
+ * // Query runs only when selectedId is non-null; skipped otherwise
+ * const { data: task } = await useConvexQuery(
+ *   api.tasks.get,
+ *   () => selectedId.value ? { id: selectedId.value } : null,
+ * )
+ * </script>
+ * ```
+ */
 export function useConvexQuery<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
@@ -466,4 +508,8 @@ async function executeViaSharedRuntime<Query extends FunctionReference<'query'>>
   })
 }
 
+/**
+ * Imperative (non-composable) query execution for use in Nuxt plugins, middleware,
+ * or other contexts outside `<script setup>`. Runs via the shared live-query runtime.
+ */
 export { executeViaSharedRuntime as executeConvexQuery }

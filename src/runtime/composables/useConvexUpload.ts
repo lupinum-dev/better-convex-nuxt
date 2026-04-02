@@ -625,6 +625,52 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   }
 }
 
+/**
+ * Composable for uploading files to Convex storage with progress tracking.
+ *
+ * Callable directly as a function. Automatically detects single vs. multi-file mode:
+ * pass a `File` for single upload, or `File[]` for queue mode with concurrent uploads.
+ *
+ * Returns reactive state: `status`, `pending`, `progress` (0-100), `error`, and
+ * queue-mode helpers (`items`, `cancelItem`, `cancelAll`, `clearFinished`).
+ *
+ * @example Single file upload
+ * ```vue
+ * <script setup>
+ * import { api } from '~/convex/_generated/api'
+ *
+ * const upload = useConvexUpload(api.uploads.generateUploadUrl)
+ *
+ * async function handleFile(event: Event) {
+ *   const file = (event.target as HTMLInputElement).files?.[0]
+ *   if (file) {
+ *     const storageId = await upload(file)
+ *     await saveMutation({ storageId })
+ *   }
+ * }
+ * </script>
+ * ```
+ *
+ * @example Multi-file queue
+ * ```vue
+ * <script setup>
+ * import { api } from '~/convex/_generated/api'
+ *
+ * const upload = useConvexUpload(api.uploads.generateUploadUrl, { maxConcurrent: 3 })
+ *
+ * async function handleFiles(files: File[]) {
+ *   const storageIds = await upload(files)
+ * }
+ * </script>
+ *
+ * <template>
+ *   <div>Progress: {{ upload.progress.value }}%</div>
+ *   <div v-for="item in upload.items.value" :key="item.id">
+ *     {{ item.file.name }} — {{ item.status }}
+ *   </div>
+ * </template>
+ * ```
+ */
 export function useConvexUpload<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options?: UseConvexUploadOptions,

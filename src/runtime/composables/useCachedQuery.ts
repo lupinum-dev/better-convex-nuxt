@@ -26,6 +26,36 @@ export interface UseCachedQueryReturn<DataT> extends UseConvexQueryReturn<DataT>
   isFromCache: Ref<boolean>
 }
 
+/**
+ * Query composable that seeds initial data from an already-loaded list query.
+ *
+ * Use this on detail pages to avoid a loading flash when navigating from a list.
+ * The cached list data is used as the default value while the detail query loads,
+ * then replaced by the real result once it arrives.
+ *
+ * `isFromCache` is `true` while showing cached data, `false` once the real query resolves.
+ *
+ * @example List-to-detail navigation
+ * ```vue
+ * <script setup>
+ * import { api } from '~/convex/_generated/api'
+ *
+ * const props = defineProps<{ id: string }>()
+ *
+ * const { data: post, isFromCache } = await useCachedQuery(
+ *   api.posts.get,
+ *   () => ({ id: props.id }),
+ *   {
+ *     from: {
+ *       query: api.posts.list,
+ *       args: {},
+ *       find: (posts) => posts.find(p => p._id === props.id),
+ *     },
+ *   },
+ * )
+ * </script>
+ * ```
+ */
 export function useCachedQuery<
   Query extends FunctionReference<'query'>,
   SourceQuery extends FunctionReference<'query'>,
