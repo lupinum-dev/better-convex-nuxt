@@ -2,8 +2,6 @@
  * Unified client-side DevTools store.
  * Replaces query-registry, mutation-registry, and bridge-setup
  * with a single reactive store accessed by the DevTools iframe.
- *
- * Client-only — importing on the server will throw.
  */
 import type { ConvexClient } from 'convex/browser'
 import { toRaw } from 'vue'
@@ -21,13 +19,6 @@ import type {
   ConvexUser,
   JWTClaims,
 } from './types'
-
-if (import.meta.server) {
-  throw new Error(
-    '[better-convex-nuxt] DevTools store must not be imported on server. ' +
-      'This would cause state leakage between SSR requests.',
-  )
-}
 
 const MAX_MUTATIONS = 50
 
@@ -196,11 +187,16 @@ export class ConvexDevtoolsStore {
 
   updateConnectionState(client: ConvexClient): void {
     const state = client.connectionState()
+    const inflightRequests =
+      state.inflightActions > 0 || state.inflightMutations > 0 || state.hasInflightRequests ? 1 : 0
+    const hasEverConnected =
+      this.connectionState.hasEverConnected || state.hasEverConnected || state.isWebSocketConnected
+
     this.connectionState = {
       isConnected: state.isWebSocketConnected,
-      hasEverConnected: state.hasInflightRequests || state.isWebSocketConnected,
-      connectionRetries: 0,
-      inflightRequests: state.hasInflightRequests ? 1 : 0,
+      hasEverConnected,
+      connectionRetries: state.connectionRetries,
+      inflightRequests,
     }
     this._notifyDevtools()
   }
@@ -256,8 +252,11 @@ export class ConvexDevtoolsStore {
     this._bumpScheduled = true
     queueMicrotask(() => {
       this._bumpScheduled = false
-      const host = (window as unknown as { __NUXT_DEVTOOLS_HOST__?: NuxtDevtoolsHost })
-        .__NUXT_DEVTOOLS_HOST__
+      const host = (
+        globalThis as typeof globalThis & {
+          __NUXT_DEVTOOLS_HOST__?: NuxtDevtoolsHost
+        }
+      ).__NUXT_DEVTOOLS_HOST__
       if (host) {
         host.revision.value++
       }

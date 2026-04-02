@@ -76,12 +76,20 @@ export function setupConvexDevtools(nuxt: Nuxt): void {
   onDevToolsInitialized(async () => {
     extendServerRpc<ClientRpcFunctions, ServerRpcFunctions>(DEVTOOLS_RPC_NAMESPACE, {
       async getAuthProxyStats() {
-        const { getAuthProxyStats } = await import('./runtime/devtools/auth-proxy-registry')
-        return getAuthProxyStats()
+        try {
+          const { getAuthProxyStats } = await import('./runtime/devtools/auth-proxy-registry')
+          return await getAuthProxyStats()
+        } catch {
+          return null
+        }
       },
       async clearAuthProxyStats() {
-        const { clearAuthProxyStats } = await import('./runtime/devtools/auth-proxy-registry')
-        return clearAuthProxyStats()
+        try {
+          const { clearAuthProxyStats } = await import('./runtime/devtools/auth-proxy-registry')
+          await clearAuthProxyStats()
+        } catch {
+          // Best-effort diagnostics only.
+        }
       },
     })
   })

@@ -11,12 +11,71 @@ import { createSharedAuthEngine } from './client/auth-engine'
 import { initHydrationState } from './client/auth-hydration'
 import { initConvexClient } from './client/convex-client'
 import { initRuntimeConnectionHooks } from './client/runtime-hooks'
+import { setDevtoolsStore } from './devtools/runtime'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './devtools/state'
+import { ConvexDevtoolsStore } from './devtools/store'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors'
 import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 import type { ConvexUser } from './utils/types'
+
+type HydrationState = ReturnType<typeof initHydrationState>
+type ClientDevtoolsApp = {
+  provide: (name: string, value: unknown) => void
+}
+
+export function setupClientDevtools(
+  nuxtApp: ClientDevtoolsApp,
+  client: ReturnType<typeof initConvexClient>,
+  hydration: HydrationState,
+): ConvexDevtoolsStore {
+  const store = new ConvexDevtoolsStore()
+  setDevtoolsStore(store)
+  nuxtApp.provide('convexDevtoolsStore', store)
+
+  store.updateAuthState(hydration.convexToken, hydration.convexUser)
+  watch(hydration.convexToken, () =>
+    store.updateAuthState(hydration.convexToken, hydration.convexUser),
+  )
+  watch(hydration.convexUser, () =>
+    store.updateAuthState(hydration.convexToken, hydration.convexUser),
+  )
+
+  if (hydration.convexAuthWaterfall.value) {
+    store.setAuthWaterfall(hydration.convexAuthWaterfall.value)
+  }
+  watch(hydration.convexAuthWaterfall, (w: typeof hydration.convexAuthWaterfall.value) =>
+    store.setAuthWaterfall(w),
+  )
+
+  store.updateConnectionState(client)
+  const connectionInterval = import.meta.client
+    ? setInterval(() => store.updateConnectionState(client), 2000)
+    : null
+
+  const permissionState = usePermissionDevtoolsState()
+  const authBootstrapState = useAuthBootstrapDevtoolsState()
+  store.setPermissionContextState(permissionState.value)
+  store.setAuthBootstrapState(authBootstrapState.value)
+  watch(permissionState, (s: typeof permissionState.value) => store.setPermissionContextState(s), {
+    deep: true,
+  })
+  watch(
+    authBootstrapState,
+    (s: typeof authBootstrapState.value) => store.setAuthBootstrapState(s),
+    { deep: true },
+  )
+
+  const hot = (import.meta as unknown as Record<string, unknown>).hot as
+    | { dispose: (fn: () => void) => void }
+    | undefined
+  if (hot && connectionInterval !== null) {
+    hot.dispose(() => clearInterval(connectionInterval))
+  }
+
+  return store
+}
 
 export default defineNuxtPlugin({
   name: 'better-convex-nuxt:client',
@@ -134,56 +193,7 @@ export default defineNuxtPlugin({
     }
 
     if (import.meta.dev) {
-      void Promise.all([import('./devtools/store'), import('./devtools/runtime')]).then(
-        ([{ ConvexDevtoolsStore }, { setDevtoolsStore }]) => {
-          const store = new ConvexDevtoolsStore()
-          setDevtoolsStore(store)
-          nuxtApp.provide('convexDevtoolsStore', store)
-
-          // Wire auth state
-          store.updateAuthState(hydration.convexToken, hydration.convexUser)
-          watch(hydration.convexToken, () =>
-            store.updateAuthState(hydration.convexToken, hydration.convexUser),
-          )
-          watch(hydration.convexUser, () =>
-            store.updateAuthState(hydration.convexToken, hydration.convexUser),
-          )
-
-          // Wire auth waterfall
-          if (hydration.convexAuthWaterfall.value) {
-            store.setAuthWaterfall(hydration.convexAuthWaterfall.value)
-          }
-          watch(hydration.convexAuthWaterfall, (w: typeof hydration.convexAuthWaterfall.value) =>
-            store.setAuthWaterfall(w),
-          )
-
-          // Wire connection state (poll — Convex client doesn't emit events)
-          store.updateConnectionState(client)
-          const connectionInterval = setInterval(() => store.updateConnectionState(client), 2000)
-
-          // Wire permission + auth bootstrap devtools state
-          const permissionState = usePermissionDevtoolsState()
-          const authBootstrapState = useAuthBootstrapDevtoolsState()
-          watch(
-            permissionState,
-            (s: typeof permissionState.value) => store.setPermissionContextState(s),
-            { deep: true },
-          )
-          watch(
-            authBootstrapState,
-            (s: typeof authBootstrapState.value) => store.setAuthBootstrapState(s),
-            { deep: true },
-          )
-
-          // HMR cleanup
-          const hot = (import.meta as unknown as Record<string, unknown>).hot as
-            | { dispose: (fn: () => void) => void }
-            | undefined
-          if (hot) {
-            hot.dispose(() => clearInterval(connectionInterval))
-          }
-        },
-      )
+      setupClientDevtools(nuxtApp, client, hydration)
 
       // Expose subscription cache for console inspection
       void import('./utils/convex-cache').then(({ getSubscriptionCache }) => {

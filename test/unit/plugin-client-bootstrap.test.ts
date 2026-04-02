@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 
+import { ConvexDevtoolsStore } from '../../src/runtime/devtools/store'
 import { mintJwt } from '../support/auth/jwt-factory'
+import { MockConvexClient } from '../support/nuxt/mock-convex-client'
 import {
   authLogMock,
   clientState,
@@ -139,5 +142,23 @@ describe('plugin.client bootstrap', () => {
     const engine = getSharedAuthEngine(nuxtApp)
     expect(engine.isAuthenticated.value).toBe(false)
     expect(engine.rawAuthError.value).toMatch(/convex url not configured/i)
+  })
+
+  it('provides the devtools store during plugin setup without waiting for a later microtask', async () => {
+    const { setupClientDevtools } = await import('../../src/runtime/plugin.client')
+    const nuxtApp = createNuxtAppMock({ serverRendered: false })
+    const client = new MockConvexClient()
+
+    const store = setupClientDevtools(nuxtApp as never, client as never, {
+      convexToken: ref(null),
+      convexUser: ref(null),
+      convexPending: ref(false),
+      convexAuthError: ref(null),
+      convexAuthWaterfall: ref(null),
+      resolveInitialAuth: vi.fn(),
+    } as never)
+
+    expect(store).toBeInstanceOf(ConvexDevtoolsStore)
+    expect(nuxtApp.provide).toHaveBeenCalledWith('convexDevtoolsStore', store)
   })
 })

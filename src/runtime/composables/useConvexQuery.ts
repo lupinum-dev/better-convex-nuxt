@@ -16,7 +16,6 @@ import {
   registerDevtoolsQuery,
   unregisterDevtoolsQuery,
   updateDevtoolsQuery,
-  warmQueryDevtools,
 } from '../devtools/runtime'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getQueryKey, getFunctionName, hashArgs } from '../utils/convex-cache'
@@ -237,10 +236,6 @@ export function createConvexQueryState<
     import.meta.client ? getCurrentScope() : undefined,
   )
 
-  if (import.meta.dev) {
-    warmQueryDevtools()
-  }
-
   const cacheKey = computed(() => {
     if (isSkipped.value) {
       return `convex:skipped:${fnName}`
@@ -287,7 +282,6 @@ export function createConvexQueryState<
     },
     onSubscribe: (currentCacheKey) => {
       logger.query({ name: fnName, event: 'subscribe', args: normalizedArgs.value })
-      if (!import.meta.dev) return
       registerDevtoolsQuery({
         id: currentCacheKey,
         name: fnName,
@@ -307,9 +301,7 @@ export function createConvexQueryState<
     onUnsubscribe: (currentCacheKey, didRelease, reason) => {
       if (!didRelease) return
       logger.query({ name: fnName, event: 'unsubscribe', reason, args: normalizedArgs.value })
-      if (import.meta.dev) {
-        unregisterDevtoolsQuery(currentCacheKey)
-      }
+      unregisterDevtoolsQuery(currentCacheKey)
     },
     onData: (result, source) => {
       if (keepPreviousData && lastReceivedArgsHash && currentArgsHash.value) {
@@ -326,7 +318,7 @@ export function createConvexQueryState<
         })
       }
 
-      if (import.meta.dev && source === 'subscription') {
+      if (source === 'subscription') {
         updateDevtoolsQuery(cacheKey.value, {
           status: 'success',
           data: result,
@@ -340,12 +332,10 @@ export function createConvexQueryState<
     },
     onError: (error) => {
       logger.query({ name: fnName, event: 'error', error })
-      if (import.meta.dev) {
-        updateDevtoolsQuery(cacheKey.value, {
-          status: 'error',
-          error: error.message,
-        })
-      }
+      updateDevtoolsQuery(cacheKey.value, {
+        status: 'error',
+        error: error.message,
+      })
       options?.onError?.(error)
     },
   })

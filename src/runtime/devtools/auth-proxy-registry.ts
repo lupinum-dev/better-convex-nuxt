@@ -5,18 +5,24 @@ const STORAGE_NAMESPACE = 'devtools:convex:auth-proxy'
 const STORAGE_KEY = 'requests'
 
 async function getStorage() {
-  const { useStorage } = await import('nitropack/runtime')
+  const runtime = await import('nitropack/runtime').catch(() => null)
+  const useStorage = runtime?.useStorage
+  if (typeof useStorage !== 'function') {
+    return null
+  }
   return useStorage(STORAGE_NAMESPACE)
 }
 
 async function getRequests(): Promise<AuthProxyRequest[]> {
   const storage = await getStorage()
+  if (!storage) return []
   const requests = await storage.getItem<AuthProxyRequest[]>(STORAGE_KEY)
   return Array.isArray(requests) ? requests : []
 }
 
 async function setRequests(requests: AuthProxyRequest[]): Promise<void> {
   const storage = await getStorage()
+  if (!storage) return
   await storage.setItem(STORAGE_KEY, requests)
 }
 

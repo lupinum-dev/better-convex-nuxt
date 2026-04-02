@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { ref } from 'vue'
 
 export function createDeferred<T>() {
   let resolve!: (value: T) => void
@@ -168,7 +169,7 @@ export function resetPluginClientTestkit() {
     if (!stateStore.has(key)) {
       const value =
         typeof init === 'function' ? (init as () => unknown)() : init === undefined ? null : init
-      stateStore.set(key, { value })
+      stateStore.set(key, ref(value))
     }
     return stateStore.get(key)
   })

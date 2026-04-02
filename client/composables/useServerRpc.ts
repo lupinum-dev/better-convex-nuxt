@@ -18,7 +18,6 @@ export function useServerRpc() {
       DEVTOOLS_RPC_NAMESPACE,
       {},
     )
-    fetchStats()
   })
 
   async function fetchStats() {

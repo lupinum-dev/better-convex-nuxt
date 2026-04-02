@@ -16,17 +16,13 @@ export function setDevtoolsStore(s: ConvexDevtoolsStore): void {
   store = s
 }
 
-export function warmQueryDevtools(): void {
-  // No-op — store is eagerly created in plugin.client.ts
-}
-
 export function registerDevtoolsEntry(
   name: string,
   type: 'mutation' | 'action',
   args: unknown,
   hasOptimisticUpdate = false,
 ): string | null {
-  if (!import.meta.dev || !store) return null
+  if (!store) return null
 
   return store.registerMutation({
     name,
@@ -43,7 +39,7 @@ export function updateDevtoolsEntrySuccess(
   startTime: number,
   result: unknown,
 ): void {
-  if (!import.meta.dev || !store || !id) return
+  if (!store || !id) return
 
   const settledAt = Date.now()
   store.updateMutationState(id, {
@@ -59,7 +55,7 @@ export function updateDevtoolsEntryError(
   startTime: number,
   error: string,
 ): void {
-  if (!import.meta.dev || !store || !id) return
+  if (!store || !id) return
 
   const settledAt = Date.now()
   store.updateMutationState(id, {
@@ -71,16 +67,16 @@ export function updateDevtoolsEntryError(
 }
 
 export function registerDevtoolsQuery(entry: QueryEntry): void {
-  if (!import.meta.dev || !store) return
+  if (!store) return
   store.registerQuery(entry)
 }
 
 export function updateDevtoolsQuery(id: string, update: QueryStatusUpdate): void {
-  if (!import.meta.dev || !store) return
+  if (!store) return
   store.updateQueryStatus(id, update)
 }
 
 export function unregisterDevtoolsQuery(id: string): void {
-  if (!import.meta.dev || !store) return
+  if (!store) return
   store.unregisterQuery(id)
 }
