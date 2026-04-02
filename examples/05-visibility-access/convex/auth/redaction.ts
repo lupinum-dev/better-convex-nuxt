@@ -23,7 +23,7 @@ export function redactArticle<T extends Record<string, unknown>>(actor: Actor, a
   for (const rule of rules) {
     if (rule.visibleTo(actor)) continue
     for (const field of rule.fields) {
-      delete result[field]
+      Reflect.deleteProperty(result, field)
     }
   }
 

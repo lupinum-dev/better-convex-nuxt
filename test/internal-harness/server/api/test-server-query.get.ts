@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const limit = Number(query.limit) || 5
 
   try {
-    const notes = await serverConvexQuery(event, api.notes.list, {})
+    const notes = await serverConvexQuery(event, api.notes.list, {}, { auth: 'none' })
     const limitedNotes = notes.slice(0, limit)
 
     return {

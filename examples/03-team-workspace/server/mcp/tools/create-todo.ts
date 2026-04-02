@@ -11,7 +11,7 @@ export default defineTool({
   name: 'create-todo',
   schema: createTodo,
   auth: 'required',
-  check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
+  check: (actor) => !!actor && ['owner', 'admin', 'member'].includes(actor.role),
   scoped: true,
   handler: async (args, ctx) => {
     const todoId = await ctx.mutation(api.todos.create, args)

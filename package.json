@@ -51,6 +51,9 @@
       "functions": [
         "./dist/runtime/functions/index.d.ts"
       ],
+      "eslint": [
+        "./dist/eslint/index.d.mts"
+      ],
       "trusted-caller": [
         "./dist/runtime/trusted-caller/index.d.ts"
       ],
@@ -88,6 +91,10 @@
     "./functions": {
       "types": "./dist/runtime/functions/index.d.ts",
       "import": "./dist/runtime/functions/index.js"
+    },
+    "./eslint": {
+      "types": "./dist/eslint/index.d.mts",
+      "import": "./dist/eslint/index.mjs"
     },
     "./trusted-caller": {
       "types": "./dist/runtime/trusted-caller/index.d.ts",

@@ -86,6 +86,7 @@ Published npm entrypoints:
 - `better-convex-nuxt/auth`
 - `better-convex-nuxt/args`
 - `better-convex-nuxt/composables`
+- `better-convex-nuxt/eslint`
 - `better-convex-nuxt/functions`
 - `better-convex-nuxt/mcp`
 - `better-convex-nuxt/server`
@@ -101,6 +102,19 @@ Nuxt-generated surfaces:
 - config-driven auto-imports such as `usePermissions()` and `useAuthGuard()`
 
 Those Nuxt-generated surfaces are not npm subpath exports. The generated reference lives at [API Surface](https://better-convex-nuxt.vercel.app/docs/api-reference/api-surface).
+
+## ESLint
+
+Flat config only for the first release:
+
+```ts
+import bcn from 'better-convex-nuxt/eslint'
+
+export default [
+  bcn.configs.recommended,
+  // bcn.configs.strict,
+]
+```
 
 ## CLI
 

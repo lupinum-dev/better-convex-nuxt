@@ -6,8 +6,7 @@ import { getAuth, deny } from 'better-convex-nuxt/auth'
  */
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { Doc, Id } from '../_generated/dataModel'
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 type Db = Ctx['db']

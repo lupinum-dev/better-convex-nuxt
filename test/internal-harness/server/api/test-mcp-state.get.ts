@@ -15,7 +15,12 @@ function assertTestResetEnabled() {
 export default defineEventHandler(async (event) => {
   assertTestResetEnabled()
 
-  return await serverConvexQuery(event, api.testing.getMcpVerificationState, {
-    confirmationCode: 'READ_MCP_VERIFICATION',
-  })
+  return await serverConvexQuery(
+    event,
+    api.testing.getMcpVerificationState,
+    {
+      confirmationCode: 'READ_MCP_VERIFICATION',
+    },
+    { auth: 'none' },
+  )
 })

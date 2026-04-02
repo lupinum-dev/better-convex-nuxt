@@ -8,7 +8,7 @@ export default defineTool({
   auth: 'required',
   scoped: true,
   group: 'workspace',
-  check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
+  check: (actor) => !!actor && ['owner', 'admin', 'member'].includes(actor.role),
   middleware: async (args, ctx, next) => {
     if (
       args.title === undefined &&

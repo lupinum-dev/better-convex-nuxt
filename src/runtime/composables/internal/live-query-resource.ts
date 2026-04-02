@@ -85,6 +85,33 @@ export interface LiveQueryResource<Result> {
   resolvePromise: Promise<void>
 }
 
+const subscriptionLeakState = new Map<string, { timestamps: number[]; warned: boolean }>()
+
+function shouldEmitDevWarning(): boolean {
+  return import.meta.dev || process.env.NODE_ENV !== 'production'
+}
+
+function recordSubscriptionUpdate(cacheKey: string): void {
+  if (!import.meta.client || !shouldEmitDevWarning()) return
+
+  const now = Date.now()
+  const state = subscriptionLeakState.get(cacheKey) ?? {
+    timestamps: [],
+    warned: false,
+  }
+  state.timestamps.push(now)
+  state.timestamps = state.timestamps.filter((timestamp) => now - timestamp <= 10_000)
+
+  if (!state.warned && state.timestamps.length > 100) {
+    state.warned = true
+    console.warn(
+      `[better-convex-nuxt] Query subscription "${cacheKey}" updated more than 100 times in 10 seconds. Check for reactive arg loops or unstable computed args.`,
+    )
+  }
+
+  subscriptionLeakState.set(cacheKey, state)
+}
+
 export async function executeQueryHttp<T>(
   convexUrl: string,
   functionPath: string,
@@ -238,6 +265,7 @@ export function startSharedQuerySubscription<Query extends FunctionReference<'qu
       query,
       args,
       (result: Result) => {
+        recordSubscriptionUpdate(cacheKey)
         localBridge.rawData = result
         localBridge.hasRawData = true
         localBridge.error = null

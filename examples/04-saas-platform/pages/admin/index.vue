@@ -48,8 +48,8 @@
               <UButton
                 v-if="ctx?.plan === 'free'"
                 color="primary"
-                @click="handleUpgrade('pro')"
                 :loading="upgradePlan.pending.value"
+                @click="handleUpgrade('pro')"
               >
                 Upgrade to Pro
               </UButton>
@@ -57,8 +57,8 @@
                 v-if="ctx?.plan !== 'enterprise'"
                 color="neutral"
                 variant="soft"
-                @click="handleUpgrade('enterprise')"
                 :loading="upgradePlan.pending.value"
+                @click="handleUpgrade('enterprise')"
               >
                 Upgrade to Enterprise
               </UButton>

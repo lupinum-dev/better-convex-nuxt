@@ -25,7 +25,12 @@ export default defineEventHandler(async (event) => {
   // ── Database key lookup (mcp_* prefix) ──────────────────────────────
   if (token.startsWith('mcp_')) {
     try {
-      const result = await serverConvexQuery(event, api.mcpKeys.validate, { key: token })
+      const result = await serverConvexQuery(
+        event,
+        api.mcpKeys.validate,
+        { key: token },
+        { auth: 'none' },
+      )
       if (result) {
         event.context.mcpAuth = {
           role: result.role,
@@ -33,7 +38,9 @@ export default defineEventHandler(async (event) => {
           ...(result.tenantId && { tenantId: result.tenantId }),
         }
         // Fire-and-forget: update lastUsedAt
-        serverConvexMutation(event, api.mcpKeys.touch, { key: token }).catch(() => {})
+        serverConvexMutation(event, api.mcpKeys.touch, { key: token }, { auth: 'none' }).catch(
+          () => {},
+        )
       }
     } catch (e) {
       console.error('[mcp-auth] Key validation failed:', e)

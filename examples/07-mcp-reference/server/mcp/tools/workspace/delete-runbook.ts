@@ -8,7 +8,7 @@ export default defineTool({
   auth: 'required',
   scoped: true,
   group: 'workspace',
-  check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
+  check: (actor) => !!actor && ['owner', 'admin', 'member'].includes(actor.role),
   destructive: true,
   preview: async (args, ctx) => {
     const runbook = await ctx.query(api.runbooks.get, { id: args.id })

@@ -5,6 +5,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import { useRouter } from '#imports'
 
 import { usePermissionDevtoolsState } from '../devtools/state'
+import { useConvexAuth } from './useConvexAuth'
 import { createConvexQueryState } from './useConvexQuery'
 
 export type AuthContext = {
@@ -57,6 +58,10 @@ export interface UseAuthGuardOptions<
   loginPath?: RouteLocationRaw
 }
 
+function shouldEmitDevWarning(): boolean {
+  return import.meta.dev || process.env.NODE_ENV !== 'production'
+}
+
 function usePermissionContextState<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
@@ -69,6 +74,8 @@ function usePermissionContextState<
   ).resultData
   const ctx = computed<TContext | null>(() => data.value as TContext | null)
   const devtoolsState = usePermissionDevtoolsState()
+  let delayedNullWarningTimer: ReturnType<typeof setTimeout> | null = null
+  let warnedAboutNullCtx = false
 
   if (import.meta.client || import.meta.dev) {
     watchEffect(() => {
@@ -80,6 +87,39 @@ function usePermissionContextState<
         error: error.value?.message ?? null,
       }
     })
+  }
+
+  if (import.meta.client && shouldEmitDevWarning()) {
+    try {
+      const { isAuthenticated } = useConvexAuth()
+      watchEffect((onCleanup) => {
+        if (delayedNullWarningTimer) {
+          clearTimeout(delayedNullWarningTimer)
+          delayedNullWarningTimer = null
+        }
+
+        if (!isAuthenticated.value || ctx.value || warnedAboutNullCtx) {
+          return
+        }
+
+        delayedNullWarningTimer = setTimeout(() => {
+          if (!isAuthenticated.value || ctx.value || warnedAboutNullCtx) return
+          warnedAboutNullCtx = true
+          console.warn(
+            `[better-convex-nuxt] usePermissions("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`convex.permissions.query\` and actor bootstrap flow.`,
+          )
+        }, 2000)
+
+        onCleanup(() => {
+          if (delayedNullWarningTimer) {
+            clearTimeout(delayedNullWarningTimer)
+            delayedNullWarningTimer = null
+          }
+        })
+      })
+    } catch {
+      // Permissions can be used in tests or setups that do not initialize the auth engine.
+    }
   }
 
   return {

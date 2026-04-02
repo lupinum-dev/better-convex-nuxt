@@ -87,10 +87,10 @@ export function useConvexStorageUrl(
   getUrlQuery: FunctionReference<'query'>,
   storageId: MaybeRef<string | null | undefined>,
 ): ComputedRef<string | null> {
-  const { data } = useConvexQuery(
+  const queryState = useConvexQuery(
     getUrlQuery,
     computed(() => (toValue(storageId) ? { storageId: toValue(storageId)! } : null)),
     {},
   )
-  return computed(() => data.value)
+  return computed(() => queryState.data.value)
 }

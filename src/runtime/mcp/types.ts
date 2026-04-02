@@ -119,7 +119,9 @@ export type ConvexToolMiddleware<S extends AnyConvexSchema, TRole extends string
 // Tool options (public — what users type)
 // ============================================================================
 
-export interface DefineConvexToolOptions<S extends AnyConvexSchema, TRole extends string = string> {
+type ConvexToolAuthMode = 'required' | 'optional' | 'none'
+
+interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends string = string> {
   /** Shared Convex schema — provides input validation and metadata. */
   schema: S
   /** Tool handler. Return plain data — the framework wraps it. */
@@ -142,7 +144,7 @@ export interface DefineConvexToolOptions<S extends AnyConvexSchema, TRole extend
 
   // ── Auth ──────────────────────────────────────────────────
   /** Auth requirement. Default: 'none'. */
-  auth?: 'required' | 'optional' | 'none'
+  auth?: ConvexToolAuthMode
   /** Optional actor check evaluated for both visibility and execution. */
   check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
   /** Enable trusted-caller injection for Convex calls using the resolved actor. Tools are hidden unless actor.tenantId exists. */
@@ -190,3 +192,13 @@ export interface DefineConvexToolOptions<S extends AnyConvexSchema, TRole extend
   /** Cache configuration (passed through to mcp-toolkit). */
   cache?: McpToolCache
 }
+
+export type DefineConvexToolOptions<S extends AnyConvexSchema, TRole extends string = string> =
+  | (Omit<DefineConvexToolBaseOptions<S, TRole>, 'scoped' | 'auth'> & {
+      scoped: true
+      auth: 'required'
+    })
+  | (Omit<DefineConvexToolBaseOptions<S, TRole>, 'scoped'> & {
+      scoped?: false | undefined
+      auth?: ConvexToolAuthMode
+    })

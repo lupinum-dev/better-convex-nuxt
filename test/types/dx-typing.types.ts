@@ -1,9 +1,11 @@
 import type { FunctionReference } from 'convex/server'
 
+import { defineArgs } from '../../src/runtime/args'
 import type { AuthIdentity } from '../../src/runtime/auth'
 import { enforce, can, deny, requireAuth, and } from '../../src/runtime/auth'
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
+import { defineTool } from '../../src/runtime/mcp'
 import { createTestContext } from '../../src/runtime/testing'
 import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
 import type { Visibility } from '../../src/runtime/visibility'
@@ -122,6 +124,32 @@ const _identity = {} as AuthIdentity | null
 void _identity
 const _visibility = {} as Visibility<{ _id: string }, { userId: string }>
 void _visibility
+
+const toolSchema = defineArgs({
+  args: {},
+})
+
+defineTool({
+  schema: toolSchema,
+  auth: 'required',
+  scoped: true,
+  handler: async () => ({ ok: true }),
+})
+
+// @ts-expect-error scoped tools must require auth
+defineTool({
+  schema: toolSchema,
+  auth: 'optional',
+  scoped: true,
+  handler: async () => ({ ok: true }),
+})
+
+// @ts-expect-error scoped tools must require auth explicitly
+defineTool({
+  schema: toolSchema,
+  scoped: true,
+  handler: async () => ({ ok: true }),
+})
 
 const testContext = createTestContext({ schema: {} as never })
 void testContext

@@ -502,10 +502,8 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     )
   }
 
-  if (scoped && auth === 'none') {
-    throw new Error(
-      `defineTool: "scoped: true" requires auth. Set auth to "required" or "optional".`,
-    )
+  if (scoped && auth !== 'required') {
+    throw new Error(`defineTool: "scoped: true" requires auth: "required".`)
   }
 
   if (maxItems && !(maxItems.field in schema.args)) {

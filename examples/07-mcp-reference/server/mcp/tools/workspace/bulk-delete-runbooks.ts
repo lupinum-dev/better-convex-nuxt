@@ -9,7 +9,7 @@ export default defineTool({
   scoped: true,
   group: 'workspace',
   tags: ['bulk', 'dangerous'],
-  check: (actor) => ['owner', 'admin'].includes(actor.role),
+  check: (actor) => !!actor && ['owner', 'admin'].includes(actor.role),
   destructive: true,
   rateLimit: { max: 5, window: '1m' },
   maxItems: { field: 'ids', limit: 10 },

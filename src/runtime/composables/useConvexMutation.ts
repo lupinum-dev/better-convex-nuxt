@@ -105,6 +105,10 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
   validate?: ValidateOption
 }
 
+function shouldEmitDevWarning(): boolean {
+  return import.meta.dev || process.env.NODE_ENV !== 'production'
+}
+
 // ============================================================================
 // Shared execute state for mutations and actions
 // ============================================================================
@@ -172,8 +176,52 @@ export function createConvexCallState<
 
   let activeRequestId = 0
   const _status = ref<MutationStatus>('idle')
-  const error = ref<Error | null>(null) as Ref<Error | null>
+  const rawError = ref<Error | null>(null)
   const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
+  let errorVersion = 0
+  let lastReadErrorVersion = 0
+  let unreadErrorTimer: ReturnType<typeof setTimeout> | null = null
+
+  const clearUnreadErrorTimer = () => {
+    if (unreadErrorTimer) {
+      clearTimeout(unreadErrorTimer)
+      unreadErrorTimer = null
+    }
+  }
+
+  const scheduleUnreadErrorWarning = (nextError: Error | null) => {
+    clearUnreadErrorTimer()
+    if (!import.meta.client || !shouldEmitDevWarning() || !nextError) return
+
+    const scheduledVersion = errorVersion
+    unreadErrorTimer = setTimeout(() => {
+      if (rawError.value !== nextError) return
+      if (lastReadErrorVersion >= scheduledVersion) return
+      console.warn(
+        `[better-convex-nuxt] ${callType} "${fnName}" failed, but \`.error.value\` was never read. Surface mutation errors explicitly in the UI or script.`,
+      )
+    }, 2000)
+  }
+
+  const setTrackedError = (nextError: Error | null) => {
+    rawError.value = nextError
+    if (nextError) {
+      errorVersion += 1
+      scheduleUnreadErrorWarning(nextError)
+      return
+    }
+    clearUnreadErrorTimer()
+  }
+
+  const error = {
+    get value() {
+      lastReadErrorVersion = errorVersion
+      return rawError.value
+    },
+    set value(nextValue: Error | null) {
+      setTrackedError(nextValue)
+    },
+  } as Ref<Error | null>
 
   const status = computed(() => _status.value)
   const pending = computed(() => _status.value === 'pending')
@@ -181,7 +229,7 @@ export function createConvexCallState<
   const reset = () => {
     activeRequestId += 1
     _status.value = 'idle'
-    error.value = null
+    setTrackedError(null)
     data.value = undefined
   }
 
@@ -190,7 +238,7 @@ export function createConvexCallState<
     const currentRequestId = ++activeRequestId
 
     _status.value = 'pending'
-    error.value = null
+    setTrackedError(null)
 
     const callId = registerDevtoolsEntry(fnName, callType, args, hasOptimisticUpdate)
 
@@ -213,7 +261,7 @@ export function createConvexCallState<
           })
           if (currentRequestId === activeRequestId) {
             _status.value = 'error'
-            error.value = err
+            setTrackedError(err)
           }
           try {
             onError?.(err, args)
@@ -255,7 +303,7 @@ export function createConvexCallState<
         )
         if (currentRequestId === activeRequestId) {
           _status.value = 'error'
-          error.value = err
+          setTrackedError(err)
         }
         try {
           onError?.(err, args)
@@ -324,7 +372,7 @@ export function createConvexCallState<
       const err = toConvexError(e)
       if (currentRequestId === activeRequestId) {
         _status.value = 'error'
-        error.value = err
+        setTrackedError(err)
       }
 
       try {

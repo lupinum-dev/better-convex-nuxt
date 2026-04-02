@@ -189,6 +189,30 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     await waitFor(() => convex.activeListenerCount() === 0)
   })
 
+  it('warns when a live subscription updates more than 100 times in 10 seconds', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('counter:get:subscription-storm')
+
+    try {
+      const { result } = await captureInNuxt(() => useConvexQueryState(query, {}), { convex })
+
+      await waitFor(() => convex.calls.onUpdate.length > 0)
+
+      for (let count = 0; count <= 100; count += 1) {
+        convex.emitQueryResult(query, {}, { count })
+      }
+
+      await waitFor(() => warnSpy.mock.calls.length > 0)
+      expect(result.data.value?.count).toBe(100)
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('updated more than 100 times in 10 seconds'),
+      )
+    } finally {
+      warnSpy.mockRestore()
+    }
+  })
+
   it('handles error-before-data for late subscribers and recovers on next data', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('counter:get:error-late')

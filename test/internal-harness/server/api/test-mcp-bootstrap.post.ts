@@ -15,11 +15,21 @@ function assertTestResetEnabled() {
 export default defineEventHandler(async (event) => {
   assertTestResetEnabled()
 
-  await serverConvexMutation(event, api.testing.clearAllData, {
-    confirmationCode: 'RESET_DB_FOR_TESTS',
-  })
+  await serverConvexMutation(
+    event,
+    api.testing.clearAllData,
+    {
+      confirmationCode: 'RESET_DB_FOR_TESTS',
+    },
+    { auth: 'none' },
+  )
 
-  return await serverConvexMutation(event, api.testing.seedMcpVerification, {
-    confirmationCode: 'SEED_MCP_VERIFICATION',
-  })
+  return await serverConvexMutation(
+    event,
+    api.testing.seedMcpVerification,
+    {
+      confirmationCode: 'SEED_MCP_VERIFICATION',
+    },
+    { auth: 'none' },
+  )
 })

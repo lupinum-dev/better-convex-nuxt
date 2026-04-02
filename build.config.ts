@@ -4,6 +4,8 @@ export default defineBuildConfig({
   failOnWarn: false,
   entries: [
     'src/module',
+    'src/cli.mts',
+    'src/eslint/index',
     { builder: 'mkdist', input: 'src/runtime/auth', outDir: 'dist/runtime/auth' },
     { builder: 'mkdist', input: 'src/runtime/composables', outDir: 'dist/runtime/composables' },
     { builder: 'mkdist', input: 'src/runtime/schema', outDir: 'dist/runtime/schema' },

@@ -1,6 +1,3 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
-
 import {
   defineNuxtModule,
   addPlugin,
@@ -15,6 +12,8 @@ import {
 } from '@nuxt/kit'
 import { defu } from 'defu'
 
+import { collectConvexFunctionPaths } from './analysis/project'
+import { collectModuleValidationFindings } from './analysis/validation'
 import { setupConvexDevtools } from './devtools'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants'
@@ -31,7 +30,6 @@ export type { LogLevel } from './runtime/utils/logger'
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 
 const logger = useLogger('better-convex-nuxt')
-const CONVEX_FUNCTION_FILE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs']
 
 /**
  * Normalize the `auth` option shorthand forms into a full AuthOptions object.
@@ -215,6 +213,16 @@ export interface ModuleOptions {
    * @default false
    */
   logging?: LogLevel
+  /**
+   * Build/startup validation behavior.
+   */
+  validation?: {
+    /**
+     * Promote build-time validation warnings to startup/build errors.
+     * @default false
+     */
+    strict?: boolean
+  }
 }
 
 function normalizeConfiguredFunctionPath(value: unknown): string | undefined {
@@ -233,50 +241,6 @@ function splitConfiguredFunctionPath(
     modulePath: path.slice(0, lastDot),
     exportName: path.slice(lastDot + 1),
   }
-}
-
-function walkFiles(root: string): string[] {
-  if (!existsSync(root)) return []
-  const files: string[] = []
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    if (entry.name === '_generated') continue
-    const fullPath = join(root, entry.name)
-    if (entry.isDirectory()) {
-      files.push(...walkFiles(fullPath))
-      continue
-    }
-    if (CONVEX_FUNCTION_FILE_EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
-      files.push(fullPath)
-    }
-  }
-  return files
-}
-
-function collectConvexFunctionPaths(projectRoot: string): string[] {
-  const convexDir = join(projectRoot, 'convex')
-  const files = walkFiles(convexDir)
-  const paths = new Set<string>()
-
-  for (const file of files) {
-    const source = readFileSync(file, 'utf8')
-    const relativeFile = relative(convexDir, file)
-      .replaceAll(sep, '/')
-      .replace(/\.[^.]+$/, '')
-
-    for (const match of source.matchAll(
-      /export\s+const\s+\w+\s*=\s*(?:query|mutation|action|internalQuery|internalMutation|internalAction)\s*\(/g,
-    )) {
-      const exportName = match[0]
-        .replace(/^export\s+const\s+/, '')
-        .replace(/\s*=.*$/, '')
-        .trim()
-      if (exportName) {
-        paths.add(`${relativeFile}.${exportName}`)
-      }
-    }
-  }
-
-  return [...paths].sort()
 }
 
 function createConfiguredFunctionError(
@@ -347,6 +311,9 @@ export default defineNuxtModule<ModuleOptions>({
       maxConcurrent: DEFAULT_UPLOAD_MAX_CONCURRENT,
     },
     logging: false,
+    validation: {
+      strict: false,
+    },
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
@@ -376,6 +343,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     const normalizedAuthConfig = normalizeConvexAuthConfig(authOptions)
     const isAuthEnabled = normalizedAuthConfig.enabled
+    const validationStrict = options.validation?.strict === true
     const permissionQueryPath = normalizeConfiguredFunctionPath(
       typeof options.permissions === 'string' ? options.permissions : options.permissions?.query,
     )
@@ -450,6 +418,17 @@ export default defineNuxtModule<ModuleOptions>({
         permissionQueryPath,
         availableConvexFunctions,
       )
+    }
+
+    for (const finding of collectModuleValidationFindings({
+      rootDir: nuxt.options.rootDir,
+      authEnabled: isAuthEnabled,
+    })) {
+      const message = `[better-convex-nuxt] ${finding.message}`
+      if (validationStrict) {
+        throw new Error(message)
+      }
+      logger.warn(message)
     }
 
     // 2. Register Server Plugin (runs first for SSR token exchange)

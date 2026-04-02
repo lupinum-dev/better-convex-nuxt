@@ -55,6 +55,33 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.data.value).toBeUndefined()
   })
 
+  it('warns in dev when a mutation error is never read', async () => {
+    vi.useFakeTimers()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const convex = new MockConvexClient()
+      const mutation = mockFnRef<'mutation'>('testing:unread-error')
+      convex.setMutationHandler('testing:unread-error', async () => {
+        throw new Error('mutation failed silently')
+      })
+
+      const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+      await expect(result({} as never)).rejects.toThrow('mutation failed silently')
+      expect(result.status.value).toBe('error')
+
+      await vi.advanceTimersByTimeAsync(2_100)
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('failed, but `.error.value` was never read'),
+      )
+    } finally {
+      warnSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
   it('invokes onSuccess and onError callbacks exactly once with args', async () => {
     const convex = new MockConvexClient()
     const successMutation = mockFnRef<'mutation'>('testing:callback-success')

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { useRouter } from '#imports'
 
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
+import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { waitFor } from '../support/nuxt/wait-for'
@@ -166,4 +167,39 @@ describe('configured permissions composables (Nuxt runtime)', () => {
     await waitFor(() => result.pushSpy.mock.calls.length > 0)
     expect(result.pushSpy).toHaveBeenCalledWith('/forbidden')
   })
+
+  it('warns when auth is ready but permission context stays null for more than 2 seconds', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const convex = new MockConvexClient()
+      const authQuery = mockFnRef<'query'>('auth:getPermissionContext:delayed-null')
+      const { usePermissions } = createConfiguredPermissionsComposables(
+        authQuery,
+        'auth.getPermissionContext.delayedNull',
+      )
+
+      const { flush } = await captureInNuxt(
+        () => {
+          installMockAuthEngine({
+            initialToken: 'active.jwt.token',
+            initialUser: { id: 'u-1', name: 'User One', email: 'user@test.com' },
+          })
+
+          return usePermissions()
+        },
+        { convex },
+      )
+
+      await flush()
+      expect(convex.calls.onUpdate.length).toBeGreaterThan(0)
+      await waitFor(() => warnSpy.mock.calls.length > 0, { timeoutMs: 3_500 })
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('stayed null for more than 2 seconds after auth became ready'),
+      )
+    } finally {
+      warnSpy.mockRestore()
+    }
+  }, 10_000)
 })

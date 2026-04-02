@@ -10,7 +10,12 @@ export default defineEventHandler(async (event) => {
   const content = body?.content || 'Created from server-side API route using serverConvexMutation'
 
   try {
-    const noteId = await serverConvexMutation(event, api.notes.add, { title, content })
+    const noteId = await serverConvexMutation(
+      event,
+      api.notes.add,
+      { title, content },
+      { auth: 'none' },
+    )
 
     return {
       success: true,
