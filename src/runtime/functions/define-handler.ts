@@ -1,4 +1,4 @@
-import type { PropertyValidators } from 'convex/values'
+import type { ObjectType, PropertyValidators } from 'convex/values'
 
 import { can, deny, enforce } from '../auth'
 import {
@@ -22,18 +22,20 @@ type AnyBuilder = (definition: {
 
 type LoadedValue = Record<string, unknown> | undefined
 
+type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
+
 type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard ? TActor | null : NonNullable<TActor>
 
 type NarrowedCtx<TCtx, TActor, TGuard> = Omit<TCtx, 'actor'> & {
   actor: () => Promise<ActorForGuard<TActor, TGuard>>
 }
 
-type LoadFn<TCtx, TActor, TGuard, TArgs, TLoaded> = (
+type LoadFn<TCtx, TActor, TGuard, TArgsValidator extends PropertyValidators, TLoaded> = (
   ctx: NarrowedCtx<TCtx, TActor, TGuard>,
-  args: TArgs,
+  args: HandlerArgs<TArgsValidator>,
 ) => MaybePromise<TLoaded>
 
-type AuthorizeConfig<TCtx, TActor, TGuard, TArgs, TLoaded> = {
+type AuthorizeConfig<TCtx, TActor, TGuard, TArgsValidator extends PropertyValidators, TLoaded> = {
   label?: string
   /**
    * Resource-level authorization check, evaluated after `load`.
@@ -46,22 +48,38 @@ type AuthorizeConfig<TCtx, TActor, TGuard, TArgs, TLoaded> = {
   check: (
     actor: ActorForGuard<TActor, TGuard>,
     loaded: TLoaded,
-    args: TArgs,
+    args: HandlerArgs<TArgsValidator>,
     ctx: NarrowedCtx<TCtx, TActor, TGuard>,
   ) => MaybePromise<AnyCheck<ActorForGuard<TActor, TGuard>>>
 }
 
-type HandlerDefinition<TCtx, TActor, TGuard, TArgs, TLoaded, TResult> = {
-  args: PropertyValidators
+type HandlerDefinition<
+  TCtx,
+  TActor,
+  TGuard,
+  TArgsValidator extends PropertyValidators,
+  TLoaded,
+  TResult,
+> = {
+  args: TArgsValidator
   guard: TGuard
-  load?: LoadFn<TCtx, TActor, TGuard, TArgs, TLoaded>
-  authorize?: AuthorizeConfig<TCtx, TActor, TGuard, TArgs, TLoaded>
+  load?: LoadFn<TCtx, TActor, TGuard, TArgsValidator, TLoaded>
+  authorize?: AuthorizeConfig<TCtx, TActor, TGuard, TArgsValidator, TLoaded>
   handler: (
     ctx: NarrowedCtx<TCtx, TActor, TGuard>,
-    args: TArgs,
+    args: HandlerArgs<TArgsValidator>,
     loaded: TLoaded,
   ) => MaybePromise<TResult>
 }
+
+export type StructuredHandlerDefinition<
+  TCtx,
+  TActor,
+  TGuard,
+  TArgsValidator extends PropertyValidators,
+  TLoaded,
+  TResult,
+> = HandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult>
 
 function resolveActorAccessor<TCtx extends object, TActor>(
   ctx: TCtx,
@@ -87,18 +105,22 @@ function getAuthorizationLabel<P>(check: AnyCheck<P>, fallback: string): string 
   return isGuard(check) ? check.label : fallback
 }
 
-function createStructuredBuilder<TCtx extends object, TActor>(builder: AnyBuilder) {
+function createStructuredBuilder<TCtx extends object, TActor, TBuilder extends AnyBuilder>(
+  builder: TBuilder,
+) {
   return function structuredBuilder<
     TGuard extends Guard<TActor | null> | OpenGuard,
-    TArgs extends Record<string, unknown>,
+    TArgsValidator extends PropertyValidators,
     TLoaded extends LoadedValue = undefined,
     TResult = unknown,
-  >(definition: HandlerDefinition<TCtx, TActor, TGuard, TArgs, TLoaded, TResult>) {
+  >(
+    definition: HandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult>,
+  ): ReturnType<TBuilder> {
     return builder({
       args: definition.args,
       handler: async (rawCtx, rawArgs) => {
         const ctx = rawCtx as TCtx
-        const args = rawArgs as TArgs
+        const args = rawArgs as HandlerArgs<TArgsValidator>
         const actor = await resolveActorAccessor<TCtx, TActor>(ctx)()
 
         if (!isOpenGuard(definition.guard)) {
@@ -131,7 +153,7 @@ function createStructuredBuilder<TCtx extends object, TActor>(builder: AnyBuilde
 
         return await definition.handler(handlerCtx, args, loaded)
       },
-    })
+    }) as ReturnType<TBuilder>
   }
 }
 
@@ -139,33 +161,39 @@ export function buildStructuredFunctions<
   TQueryCtx extends ActorContext<TActor>,
   TMutationCtx extends ActorContext<TActor>,
   TActor,
+  TQueryBuilder extends AnyBuilder,
+  TMutationBuilder extends AnyBuilder,
 >(
-  query: AnyBuilder,
-  mutation: AnyBuilder,
+  query: TQueryBuilder,
+  mutation: TMutationBuilder,
 ): {
-  query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TActor>>
-  mutation: ReturnType<typeof createStructuredBuilder<TMutationCtx, TActor>>
+  query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TActor, TQueryBuilder>>
+  mutation: ReturnType<typeof createStructuredBuilder<TMutationCtx, TActor, TMutationBuilder>>
 }
 
 export function buildStructuredFunctions<
   TQueryCtx extends object = Record<string, unknown>,
   TMutationCtx extends object = Record<string, unknown>,
   TActor = never,
+  TQueryBuilder extends AnyBuilder = AnyBuilder,
+  TMutationBuilder extends AnyBuilder = AnyBuilder,
 >(
-  query: AnyBuilder,
-  mutation: AnyBuilder,
+  query: TQueryBuilder,
+  mutation: TMutationBuilder,
 ): {
-  query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TActor>>
-  mutation: ReturnType<typeof createStructuredBuilder<TMutationCtx, TActor>>
+  query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TActor, TQueryBuilder>>
+  mutation: ReturnType<typeof createStructuredBuilder<TMutationCtx, TActor, TMutationBuilder>>
 }
 
 export function buildStructuredFunctions<
   TQueryCtx extends object = Record<string, unknown>,
   TMutationCtx extends object = Record<string, unknown>,
   TActor = never,
->(query: AnyBuilder, mutation: AnyBuilder) {
+  TQueryBuilder extends AnyBuilder = AnyBuilder,
+  TMutationBuilder extends AnyBuilder = AnyBuilder,
+>(query: TQueryBuilder, mutation: TMutationBuilder) {
   return {
-    query: createStructuredBuilder<TQueryCtx, TActor>(query),
-    mutation: createStructuredBuilder<TMutationCtx, TActor>(mutation),
+    query: createStructuredBuilder<TQueryCtx, TActor, TQueryBuilder>(query),
+    mutation: createStructuredBuilder<TMutationCtx, TActor, TMutationBuilder>(mutation),
   }
 }

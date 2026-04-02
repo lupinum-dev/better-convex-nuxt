@@ -1,0 +1,13 @@
+packages:
+  - 'examples/*'
+  - 'demo'
+  - 'test/internal-harness'
+  - 'test/fixtures/doctor-*'
+
+ignoredBuiltDependencies:
+  - '@parcel/watcher'
+  - '@tailwindcss/oxide'
+  - esbuild
+  - isolated-vm
+  - unrs-resolver
+  - vue-demi

@@ -77,6 +77,15 @@ describe('CLI doctor', () => {
     expect(result.report.summary.fail).toBeGreaterThan(0)
   })
 
+  it('fails when the convex dependency is missing', () => {
+    const result = runDoctorJson('doctor-missing-convex')
+    const finding = result.report.findings.find((entry) => entry.id === 'convex-installed')
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(finding?.status).toBe('fail')
+    expect(result.report.summary.fail).toBeGreaterThan(0)
+  })
+
   it('fails when the module is not registered in nuxt.config', () => {
     const result = runDoctorJson('doctor-missing-registration')
     const finding = result.report.findings.find((entry) => entry.id === 'module-registered')

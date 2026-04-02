@@ -162,7 +162,6 @@
     "better-auth": ">=1.5.0 <1.6.0",
     "citty": "^0.1.6",
     "consola": "^3.4.0",
-    "convex": "^1.34.0",
     "defu": "^6.1.4",
     "h3": "1.15.10",
     "ohash": "^2.0.11",
@@ -185,6 +184,7 @@
     "@vitest/browser-playwright": "^4.0.18",
     "ai": "^6.0.142",
     "changelogen": "^0.6.2",
+    "convex": "^1.34.0",
     "convex-helpers": "^0.1.114",
     "convex-test": "^0.0.41",
     "convex-vite-plugin": "^0.4.0",
@@ -210,9 +210,6 @@
   },
   "peerDependenciesMeta": {
     "@nuxtjs/mcp-toolkit": {
-      "optional": true
-    },
-    "convex": {
       "optional": true
     },
     "convex-helpers": {

@@ -1,0 +1,9 @@
+{
+  "name": "doctor-missing-convex",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@lupinum/trellis": "workspace:*",
+    "nuxt": "^4.3.1"
+  }
+}

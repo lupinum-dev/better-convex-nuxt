@@ -9,7 +9,7 @@ import type {
   OptionalRestArgs,
   SchemaDefinition,
 } from 'convex/server'
-import type { UserConfig } from 'vite'
+import type { ViteUserConfig as UserConfig } from 'vitest/config'
 
 const defaultModules =
   typeof import.meta.glob === 'function' ? import.meta.glob('/convex/**/*.*s') : {}

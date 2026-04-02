@@ -17,9 +17,11 @@ import type {
   GenericQueryCtx,
   MutationBuilder,
   QueryBuilder,
+  RegisteredMutation,
+  RegisteredQuery,
   TableNamesInDataModel,
 } from 'convex/server'
-import type { PropertyValidators } from 'convex/values'
+import type { ObjectType, PropertyValidators } from 'convex/values'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor'
 import {
@@ -27,7 +29,7 @@ import {
   extractTrustedCallerFromArgs,
   trustedCallerValidators,
 } from '../trusted-caller/shared'
-import { buildStructuredFunctions } from './define-handler'
+import { buildStructuredFunctions, type StructuredHandlerDefinition } from './define-handler'
 
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
@@ -187,6 +189,46 @@ type CustomCtxDelta<DataModel extends GenericDataModel, TActor> = FunctionsCtxEx
   db?: GenericQueryCtx<DataModel>['db'] | GenericMutationCtx<DataModel>['db']
 }
 
+type StructuredQueryBuilder<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TGuard,
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends Record<string, unknown> | undefined = undefined,
+  TResult = unknown,
+>(
+  definition: StructuredHandlerDefinition<
+    GenericQueryCtx<DataModel> & FunctionsCtxExtension<TActor>,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult
+  >,
+) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type StructuredMutationBuilder<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TGuard,
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends Record<string, unknown> | undefined = undefined,
+  TResult = unknown,
+>(
+  definition: StructuredHandlerDefinition<
+    GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult
+  >,
+) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+
 function createCustomization<
   DataModel extends GenericDataModel,
   TActor,
@@ -318,9 +360,17 @@ export function createApp<
   options: CreateAppOptions<DataModel, TActor> = {},
 ) {
   const raw = buildRawFunctions(query, mutation, options)
+  const app = buildStructuredFunctions<
+    GenericQueryCtx<DataModel> & FunctionsCtxExtension<TActor>,
+    GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>,
+    TActor
+  >(raw.query, raw.mutation) as {
+    query: StructuredQueryBuilder<DataModel, QueryVisibility, TActor>
+    mutation: StructuredMutationBuilder<DataModel, MutationVisibility, TActor>
+  }
 
   return {
-    app: buildStructuredFunctions(raw.query, raw.mutation),
+    app,
     raw,
   }
 }

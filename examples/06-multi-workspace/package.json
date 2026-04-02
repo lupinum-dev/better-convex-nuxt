@@ -16,7 +16,7 @@
     "@iconify-json/lucide": "^1.2.44",
     "@nuxt/ui": "^3.1.3",
     "better-auth": "^1.5.0",
-    "@lupinum/trellis": "link:../..",
+    "@lupinum/trellis": "workspace:*",
     "convex": "^1.34.0",
     "convex-helpers": "^0.1.114",
     "nuxt": "^4.3.1",

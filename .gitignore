@@ -62,5 +62,5 @@ Temporary Items
 
 # Local pnpm workspace shims
 **/pnpm-workspace.yaml
-
+!/pnpm-workspace.yaml
 
