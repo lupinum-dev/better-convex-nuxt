@@ -61,14 +61,14 @@ afterEach(() => {
   delete process.env.NODE_ENV
 })
 
-describe('better-convex-nuxt ESLint plugin', () => {
+describe('@lupinum/trellis ESLint plugin', () => {
   it('autofixes scoped tools to require auth', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir, { fix: true, preset: 'strict' })
 
     const [result] = await eslint.lintText(
       `
-      import { defineTool } from '#convex/mcp'
+      import { defineTool } from '#trellis/mcp'
 
       export default defineTool({
         schema: schema,
@@ -105,10 +105,10 @@ describe('better-convex-nuxt ESLint plugin', () => {
     expect(badResult).toBeDefined()
     expect(goodResult).toBeDefined()
     expect(badResult!.messages.map((message) => message.ruleId)).toContain(
-      'better-convex-nuxt/await-convex-query',
+      '@lupinum/trellis/await-convex-query',
     )
     expect(goodResult!.messages.map((message) => message.ruleId)).not.toContain(
-      'better-convex-nuxt/await-convex-query',
+      '@lupinum/trellis/await-convex-query',
     )
   })
 
@@ -164,10 +164,10 @@ describe('better-convex-nuxt ESLint plugin', () => {
     expect(badResult).toBeDefined()
     expect(goodResult).toBeDefined()
     expect(badResult!.messages.map((message) => message.ruleId)).toContain(
-      'better-convex-nuxt/tenant-scoped-query-requires-index',
+      '@lupinum/trellis/tenant-scoped-query-requires-index',
     )
     expect(goodResult!.messages.map((message) => message.ruleId)).not.toContain(
-      'better-convex-nuxt/tenant-scoped-query-requires-index',
+      '@lupinum/trellis/tenant-scoped-query-requires-index',
     )
   })
 
@@ -190,7 +190,7 @@ describe('better-convex-nuxt ESLint plugin', () => {
 
     expect(result).toBeDefined()
     expect(result!.messages.map((message) => message.ruleId)).not.toContain(
-      'better-convex-nuxt/enforce-required-in-handler',
+      '@lupinum/trellis/enforce-required-in-handler',
     )
   })
 
@@ -214,10 +214,10 @@ describe('better-convex-nuxt ESLint plugin', () => {
 
     expect(result).toBeDefined()
     expect(result!.messages.map((message) => message.ruleId)).not.toContain(
-      'better-convex-nuxt/enforce-required-in-handler',
+      '@lupinum/trellis/enforce-required-in-handler',
     )
     expect(result!.messages.map((message) => message.ruleId)).not.toContain(
-      'better-convex-nuxt/actor-access-after-enforce',
+      '@lupinum/trellis/actor-access-after-enforce',
     )
   })
 
@@ -246,7 +246,7 @@ describe('better-convex-nuxt ESLint plugin', () => {
 
     expect(result).toBeDefined()
     expect(result!.messages.map((message) => message.ruleId)).not.toContain(
-      'better-convex-nuxt/enforce-required-in-handler',
+      '@lupinum/trellis/enforce-required-in-handler',
     )
   })
 
@@ -273,7 +273,7 @@ describe('better-convex-nuxt ESLint plugin', () => {
 
     expect(result).toBeDefined()
     expect(result!.messages.map((message) => message.ruleId)).not.toContain(
-      'better-convex-nuxt/enforce-required-in-handler',
+      '@lupinum/trellis/enforce-required-in-handler',
     )
   })
 

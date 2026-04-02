@@ -1,4 +1,4 @@
-import { deny, open } from 'better-convex-nuxt/auth'
+import { deny, open } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 

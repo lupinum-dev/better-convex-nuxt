@@ -2,7 +2,7 @@ import ConvexModule from '../../../src/module'
 
 export default defineNuxtConfig({
   modules: [ConvexModule],
-  convex: {
+  trellis: {
     url: 'https://test-convex.convex.cloud',
   },
 })

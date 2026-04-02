@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 /**
  * Why this file exists:
  * This is the optimistic update demo. The task card mutates the board immediately, then the

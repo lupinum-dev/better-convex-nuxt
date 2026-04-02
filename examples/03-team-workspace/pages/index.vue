@@ -302,7 +302,7 @@ import { computed, reactive, ref } from 'vue'
  */
 import * as z from 'zod'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
 import { teamWorkspacePermissionKeys } from '~/shared/permissions'
 

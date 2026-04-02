@@ -24,8 +24,8 @@ type RuleModule = {
   create: (context: RuleContext) => Record<string, (node: any) => void>
 }
 
-const TENANT_RULE_NAME = 'better-convex-nuxt'
-const RULE_DOCS_URL = 'https://better-convex-nuxt.vercel.app'
+const TENANT_RULE_NAME = '@lupinum/trellis'
+const RULE_DOCS_URL = 'https://trellis.vercel.app'
 
 function getFilename(context: RuleContext): string {
   return context.filename ?? context.getFilename?.() ?? '<input>'

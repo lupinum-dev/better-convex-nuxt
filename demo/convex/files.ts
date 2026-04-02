@@ -4,7 +4,7 @@
  * Demonstrates file uploads with useConvexUpload and useConvexStorageUrl.
  */
 
-import { can, enforce } from 'better-convex-nuxt/auth'
+import { can, enforce } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'

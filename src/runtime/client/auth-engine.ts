@@ -1,5 +1,5 @@
 /**
- * Centralized auth state machine for better-convex-nuxt.
+ * Centralized auth state machine for @lupinum/trellis.
  *
  * The engine owns reactive auth state and commits it atomically, while the
  * transport owns token fetching. That split keeps token/user/error writes in
@@ -34,10 +34,10 @@ export type AuthTrigger =
 /** Minimal app interface for hook registration and emission. */
 interface RuntimeHookApp {
   hook(
-    event: 'better-convex:auth:refresh' | 'better-convex:auth:invalidate',
+    event: 'trellis:auth:refresh' | 'trellis:auth:invalidate',
     fn: () => void | Promise<void>,
   ): () => void
-  callHook?: (event: 'convex:auth:changed', payload: ConvexAuthChangedPayload) => unknown
+  callHook?: (event: 'trellis:auth:changed', payload: ConvexAuthChangedPayload) => unknown
 }
 
 type AuthSource = 'skip' | 'hydrated-token' | 'recent-token-cache' | 'exchange'
@@ -208,7 +208,7 @@ export function getSharedAuthEngine(nuxtApp: object): SharedAuthEngine {
   const engine = authEngines.get(nuxtApp)
   if (!engine) {
     throw new Error(
-      '[better-convex-nuxt] Auth engine not initialized. ' +
+      '[trellis] Auth engine not initialized. ' +
         'Ensure the Convex client plugin runs before composables.',
     )
   }
@@ -231,7 +231,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
   if (existingEngine) {
     if (import.meta.dev) {
       console.warn(
-        '[better-convex-nuxt] createSharedAuthEngine() called more than once for the same Nuxt app. Reusing the existing engine.',
+        '[trellis] createSharedAuthEngine() called more than once for the same Nuxt app. Reusing the existing engine.',
       )
     }
     return existingEngine
@@ -268,9 +268,9 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
       return
     }
 
-    void Promise.resolve(nuxtApp.callHook('convex:auth:changed', payload)).catch(
+    void Promise.resolve(nuxtApp.callHook('trellis:auth:changed', payload)).catch(
       (error: unknown) => {
-        console.error('[better-convex-nuxt] Error in convex:auth:changed hook handler:', error)
+        console.error('[trellis] Error in trellis:auth:changed hook handler:', error)
       },
     )
   }
@@ -331,7 +331,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
       try {
         result.onCommit?.()
       } catch (error) {
-        console.error('[better-convex-nuxt] Error in auth transport onCommit callback:', error)
+        console.error('[trellis] Error in auth transport onCommit callback:', error)
       }
       return result.token
     }
@@ -383,7 +383,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
           () => {
             if (import.meta.dev) {
               console.warn(
-                `[better-convex-nuxt] Auth refresh timed out after ${AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
+                `[trellis] Auth refresh timed out after ${AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
               )
             }
             return new Error(`Authentication refresh timed out after ${AUTH_REFRESH_TIMEOUT_MS}ms`)
@@ -403,7 +403,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
         if (operationId !== state.operationId) {
           if (import.meta.dev) {
             console.debug(
-              '[better-convex-nuxt] Discarding stale refresh error (superseded by newer operation):',
+              '[trellis] Discarding stale refresh error (superseded by newer operation):',
               error,
             )
           }
@@ -463,7 +463,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
           return
         }
 
-        console.error(`[better-convex-nuxt] Additional auth signOut ${phase} error:`, error)
+        console.error(`[trellis] Additional auth signOut ${phase} error:`, error)
       }
 
       try {
@@ -508,7 +508,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
 
     if (import.meta.dev && !isAuthenticated.value && pending.value) {
       console.warn(
-        `[better-convex-nuxt] Auth state did not settle within ${options?.timeoutMs ?? AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
+        `[trellis] Auth state did not settle within ${options?.timeoutMs ?? AUTH_REFRESH_TIMEOUT_MS}ms. Check auth configuration.`,
       )
     }
 
@@ -532,10 +532,10 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
 
   if (!state.hooksRegistered) {
     state.hooksRegistered = true
-    nuxtApp.hook('better-convex:auth:refresh', async () => {
+    nuxtApp.hook('trellis:auth:refresh', async () => {
       await refreshAuth({ trigger: 'manual-refresh' })
     })
-    nuxtApp.hook('better-convex:auth:invalidate', async () => {
+    nuxtApp.hook('trellis:auth:invalidate', async () => {
       await invalidateAuth({ clearWasAuthenticated: true })
     })
   }

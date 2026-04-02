@@ -413,9 +413,9 @@ describe('toConvexSchema', () => {
     expect(schema['~standard'].version).toBe(1)
   })
 
-  it('returns ~standard.vendor === "better-convex-nuxt"', () => {
+  it('returns ~standard.vendor === "@lupinum/trellis"', () => {
     const schema = toConvexSchema(v.string())
-    expect(schema['~standard'].vendor).toBe('better-convex-nuxt')
+    expect(schema['~standard'].vendor).toBe('@lupinum/trellis')
   })
 
   it('returns SuccessResult with value on valid input', () => {

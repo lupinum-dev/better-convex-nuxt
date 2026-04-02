@@ -1,5 +1,5 @@
 /**
- * Auth transport layer for better-convex-nuxt.
+ * Auth transport layer for @lupinum/trellis.
  *
  * This module owns token resolution but never commits auth state directly.
  * Instead it returns `ClientAuthStateResult` objects for the engine to either

@@ -5,8 +5,8 @@
  */
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import { serverConvexMutation } from '#convex/server'
-import { api } from '~/convex/_generated/api'
+import { serverConvexMutation } from '#trellis/server'
+import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
 
 type WebhookBody = {

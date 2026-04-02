@@ -69,7 +69,7 @@ function usePermissionContextState<
   const { data, pending, error } = createConvexQueryState(
     query,
     {},
-    { shared: `better-convex:permissions:${configuredQueryName}` },
+    { shared: `trellis:permissions:${configuredQueryName}` },
     true,
   ).resultData
   const ctx = computed<TContext | null>(() => data.value as TContext | null)
@@ -106,7 +106,7 @@ function usePermissionContextState<
           if (!isAuthenticated.value || ctx.value || warnedAboutNullCtx) return
           warnedAboutNullCtx = true
           console.warn(
-            `[better-convex-nuxt] usePermissions("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`convex.permissions.query\` and actor bootstrap flow.`,
+            `[trellis] usePermissions("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`trellis.permissions.query\` and actor bootstrap flow.`,
           )
         }, 2000)
 

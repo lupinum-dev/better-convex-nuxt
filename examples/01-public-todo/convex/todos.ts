@@ -1,5 +1,5 @@
-import { open, requireRecord } from 'better-convex-nuxt/auth'
-import { createApp } from 'better-convex-nuxt/functions'
+import { open, requireRecord } from '@lupinum/trellis/auth'
+import { createApp } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
 import { createTodo } from '../shared/schemas/todo'

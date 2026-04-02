@@ -1,4 +1,4 @@
-import { can, defineAuth } from 'better-convex-nuxt/auth'
+import { can, defineAuth } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { components, internal } from './_generated/api'

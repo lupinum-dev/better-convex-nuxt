@@ -78,7 +78,7 @@ export function setupClientDevtools(
 }
 
 export default defineNuxtPlugin({
-  name: 'better-convex-nuxt:client',
+  name: 'trellis:client',
   setup(nuxtApp) {
     const config = useRuntimeConfig()
     const convexConfig = getConvexRuntimeConfig()
@@ -98,7 +98,7 @@ export default defineNuxtPlugin({
     const isAuthEnabled = authConfig.enabled
     const resolvedSiteUrl = convexConfig.siteUrl
     const hydration = initHydrationState()
-    const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () =>
+    const wasAuthenticated = useState<boolean>('trellis:was-authenticated', () =>
       Boolean(hydration.convexToken.value && hydration.convexUser.value),
     )
     const traceId = import.meta.dev

@@ -29,7 +29,7 @@ export function collectModuleValidationFindings(options: {
       findings.push({
         id: 'auth-enabled-consistency',
         message:
-          'Auth-specific composables/components were detected in app code, but `convex.auth.enabled` is false.',
+          'Auth-specific composables/components were detected in app code, but `trellis.auth.enabled` is false.',
       })
     }
   }

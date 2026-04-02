@@ -1,4 +1,4 @@
-import { can, definePermissionContext, deny, open } from 'better-convex-nuxt/auth'
+import { can, definePermissionContext, deny, open } from '@lupinum/trellis/auth'
 /**
  * Why this file exists:
  * Current-workspace actions stay normal here. The agency dashboard lives in a separate query on purpose.

@@ -1,4 +1,4 @@
-import { requireRecord } from 'better-convex-nuxt/auth'
+import { requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { createTodo } from '../shared/schemas/todo'

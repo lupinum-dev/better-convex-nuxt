@@ -55,7 +55,7 @@ describe('resolveSchema', () => {
   it('wraps a Convex validator into Standard Schema', () => {
     const schema = resolveSchema(v.string())
     expect(schema['~standard'].version).toBe(1)
-    expect(schema['~standard'].vendor).toBe('better-convex-nuxt')
+    expect(schema['~standard'].vendor).toBe('@lupinum/trellis')
   })
 
   it('passes through a Standard Schema object unchanged', () => {

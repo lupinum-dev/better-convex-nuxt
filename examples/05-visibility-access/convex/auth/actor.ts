@@ -3,7 +3,7 @@
  * The knowledge base actor includes managerId for team hierarchy visibility, built from the
  * composable actor primitive.
  */
-import { defineActor, type DefaultActor } from 'better-convex-nuxt/auth'
+import { defineActor, type DefaultActor } from '@lupinum/trellis/auth'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'
 

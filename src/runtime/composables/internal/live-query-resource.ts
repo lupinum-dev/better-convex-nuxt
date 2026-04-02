@@ -105,7 +105,7 @@ function recordSubscriptionUpdate(cacheKey: string): void {
   if (!state.warned && state.timestamps.length > 100) {
     state.warned = true
     console.warn(
-      `[better-convex-nuxt] Query subscription "${cacheKey}" updated more than 100 times in 10 seconds. Check for reactive arg loops or unstable computed args.`,
+      `[trellis] Query subscription "${cacheKey}" updated more than 100 times in 10 seconds. Check for reactive arg loops or unstable computed args.`,
     )
   }
 
@@ -142,7 +142,7 @@ export async function executeLiveQuery<Query extends FunctionReference<'query'>,
   const convexUrl = convexConfig.url
 
   if (!convexUrl) {
-    throw new Error('[better-convex-nuxt] Convex URL not configured')
+    throw new Error('[trellis] Convex URL not configured')
   }
 
   const cookieHeader = import.meta.server ? useRequestEvent()?.headers.get('cookie') || '' : ''
@@ -176,7 +176,7 @@ export async function executeLiveQuery<Query extends FunctionReference<'query'>,
 
     const convex = nuxtApp.$convex as ConvexClient | undefined
     if (!convex) {
-      throw new Error('[better-convex-nuxt] Convex client not available')
+      throw new Error('[trellis] Convex client not available')
     }
 
     return await executeQueryViaSubscriptionOnce(convex, query, args)
@@ -286,7 +286,7 @@ export function startSharedQuerySubscription<Query extends FunctionReference<'qu
 
     const entry = getSubscription(nuxtApp, cacheKey)
     if (!entry) {
-      throw new Error('[better-convex-nuxt] Failed to register shared subscription')
+      throw new Error('[trellis] Failed to register shared subscription')
     }
     entry.queryBridge = localBridge
     onSubscribe?.(cacheKey)

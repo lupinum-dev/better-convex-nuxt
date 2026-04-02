@@ -17,7 +17,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   if (import.meta.dev && pageMeta.skipConvexAuth === true && pageMeta.convexAuth) {
     console.warn(
-      '[better-convex-nuxt] Page sets both `skipConvexAuth: true` and `convexAuth`. ' +
+      '[trellis] Page sets both `skipConvexAuth: true` and `convexAuth`. ' +
         '`skipConvexAuth` only skips auth checks for query token fetches; `convexAuth` protects the route.',
       { path: to.fullPath },
     )

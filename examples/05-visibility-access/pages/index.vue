@@ -266,7 +266,7 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 
 const { client, signOut, user } = useConvexAuth()

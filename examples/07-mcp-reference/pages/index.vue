@@ -631,7 +631,7 @@ import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 import { computed, reactive, ref } from 'vue'
 import * as z from 'zod'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
 import { selectMcpBoundUser } from '~/shared/mcp-bound-user'
 import { mcpReferencePermissionKeys } from '~/shared/permissions'

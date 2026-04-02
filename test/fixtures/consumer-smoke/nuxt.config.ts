@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
-  modules: ['better-convex-nuxt'],
-  convex: {
+  modules: ['@lupinum/trellis'],
+  trellis: {
     url: 'https://consumer-smoke.convex.cloud',
   },
 })

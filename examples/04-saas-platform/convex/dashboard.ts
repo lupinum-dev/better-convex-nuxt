@@ -1,4 +1,4 @@
-import { enforce } from 'better-convex-nuxt/auth'
+import { enforce } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { canViewAudit } from './auth/checks'

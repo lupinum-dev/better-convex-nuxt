@@ -5,8 +5,8 @@
  */
 import { createError, defineEventHandler, getQuery, setResponseHeader } from 'h3'
 
-import { serverConvexQuery } from '#convex/server'
-import { api } from '~/convex/_generated/api'
+import { serverConvexQuery } from '#trellis/server'
+import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
 
 export default defineEventHandler(async (event) => {

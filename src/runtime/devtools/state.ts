@@ -18,8 +18,8 @@ export interface AuthBootstrapDevtoolsState {
   error: string | null
 }
 
-const PERMISSIONS_STATE_KEY = 'better-convex:devtools:permissions'
-const AUTH_BOOTSTRAP_STATE_KEY = 'better-convex:devtools:auth-bootstrap'
+const PERMISSIONS_STATE_KEY = 'trellis:devtools:permissions'
+const AUTH_BOOTSTRAP_STATE_KEY = 'trellis:devtools:auth-bootstrap'
 
 export function usePermissionDevtoolsState(): Ref<PermissionDevtoolsState> {
   return useState<PermissionDevtoolsState>(PERMISSIONS_STATE_KEY, () => ({

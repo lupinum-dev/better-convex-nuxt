@@ -1,4 +1,4 @@
-import { defineArgs } from 'better-convex-nuxt/args'
+import { defineArgs } from '@lupinum/trellis/args'
 
 import { createNote, searchNotes } from '../shared/schemas/note'
 import { mutation, query } from './_generated/server'

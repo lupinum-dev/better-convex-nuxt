@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 /**
  * Why this file exists:
  * Bulk operations are where "one-item-at-a-time" demos stop being useful.

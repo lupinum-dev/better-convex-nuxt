@@ -490,7 +490,7 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
 
 async function prepareLocalModuleForDev({ spawnFn, stdout, stderr }) {
   const sysLabel = colorize('system'.padEnd(6), '33')
-  stdout.write(`${sysLabel} preparing local better-convex-nuxt module\n`)
+  stdout.write(`${sysLabel} preparing local @lupinum/trellis module\n`)
   await runCheckedCommand({
     label: 'build',
     spawnFn,

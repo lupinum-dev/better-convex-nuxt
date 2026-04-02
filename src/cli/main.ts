@@ -11,8 +11,8 @@ function getErrorMessage(error: unknown): string {
 export function createCliCommand() {
   return defineCommand({
     meta: {
-      name: 'better-convex-nuxt',
-      description: 'CLI tools for better-convex-nuxt',
+      name: 'trellis',
+      description: 'CLI tools for @lupinum/trellis',
     },
     subCommands: {
       doctor: doctorCommand,

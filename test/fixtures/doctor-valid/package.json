@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "better-convex-nuxt": "workspace:*",
+    "@lupinum/trellis": "workspace:*",
     "convex": "^1.34.0",
     "nuxt": "^4.3.1"
   }

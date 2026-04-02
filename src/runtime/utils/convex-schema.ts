@@ -307,7 +307,7 @@ export function toConvexSchema<V extends GenericValidator>(
   return {
     '~standard': {
       version: 1,
-      vendor: 'better-convex-nuxt',
+      vendor: '@lupinum/trellis',
       validate: (value: unknown) => {
         const issues = validateConvex(validator, value)
         if (issues.length > 0) {

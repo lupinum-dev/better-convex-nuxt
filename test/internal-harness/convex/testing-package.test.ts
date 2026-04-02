@@ -1,11 +1,11 @@
-import { createTestContext } from 'better-convex-nuxt/testing'
+import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 
-describe('better-convex-nuxt/testing', () => {
+describe('@lupinum/trellis/testing', () => {
   it('seeds a tenant and returns authenticated user callers', async () => {
     const ctx = createTestContext({
       schema,

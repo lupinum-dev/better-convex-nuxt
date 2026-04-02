@@ -774,7 +774,7 @@ export function createConvexPaginatedQueryState<
  * @example Basic pagination
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const { items, status, loadMore, hasNextPage } = await useConvexPaginatedQuery(
  *   api.posts.list,

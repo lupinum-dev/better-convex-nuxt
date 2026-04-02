@@ -1,1 +1,1 @@
-export { withCan } from 'better-convex-nuxt/auth'
+export { withCan } from '@lupinum/trellis/auth'

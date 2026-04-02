@@ -1,4 +1,4 @@
-import { and, or } from 'better-convex-nuxt/auth'
+import { and, or } from '@lupinum/trellis/auth'
 
 import type { Actor, Role } from './actor'
 

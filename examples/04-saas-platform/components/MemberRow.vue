@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 /**
  * Why this file exists:
  * Changing roles live is the clearest proof that frontend permission state is reactive end to end.

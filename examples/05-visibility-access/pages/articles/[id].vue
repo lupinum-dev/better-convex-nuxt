@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 
 const route = useRoute()

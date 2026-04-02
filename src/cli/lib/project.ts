@@ -174,7 +174,7 @@ export function hasBetterConvexNuxtRegistration(project: ProjectInspection): boo
   if (!project.nuxtConfigText) return false
 
   const modulesIndex = project.nuxtConfigText.indexOf('modules')
-  const moduleLiteralMatch = project.nuxtConfigText.match(/["']better-convex-nuxt["']/)
+  const moduleLiteralMatch = project.nuxtConfigText.match(/["']@lupinum\/trellis["']/)
   const moduleLiteralIndex = moduleLiteralMatch?.index ?? -1
 
   return modulesIndex !== -1 && moduleLiteralIndex !== -1 && modulesIndex < moduleLiteralIndex
@@ -224,7 +224,7 @@ const LEGACY_API_PATTERNS = [
   {
     id: 'createAuth()',
     replacement:
-      'Remove the local permissions factory and configure convex.permissions.query instead.',
+      'Remove the local permissions factory and configure trellis.permissions.query instead.',
     regex: /\bcreateAuth\s*\(\s*\{/,
   },
   {
@@ -233,9 +233,9 @@ const LEGACY_API_PATTERNS = [
     regex: /\buseEnsureConvexUser\b/,
   },
   {
-    id: 'better-convex-nuxt/schema',
-    replacement: 'Import shared argument helpers from better-convex-nuxt/args.',
-    regex: /better-convex-nuxt\/schema/,
+    id: '@lupinum/trellis/schema',
+    replacement: 'Import shared argument helpers from @lupinum/trellis/args.',
+    regex: /@lupinum\/trellis\/schema/,
   },
   {
     id: 'withServiceAuth',

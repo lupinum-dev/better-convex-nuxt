@@ -83,11 +83,11 @@ Normal contributors should not prestart Convex for the smoke suite. The only req
 If local auth has not been initialized yet:
 
 ```bash
-cd /path/to/better-convex-nuxt/test/internal-harness
+cd /path/to/@lupinum/trellis/test/internal-harness
 npx convex dev --local --once
 npx convex env set SITE_URL http://localhost:3000 --env-file .env.local
 npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
-cd /path/to/better-convex-nuxt
+cd /path/to/@lupinum/trellis
 pnpm test:e2e
 ```
 

@@ -1,10 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 const siteUrl =
-  (process.env.SITE_URL || 'https://better-convex-nuxt-demo.vercel.app/').replace(/\/$/, '') + '/'
+  (process.env.SITE_URL || 'https://trellis-demo.vercel.app/').replace(/\/$/, '') + '/'
 const ogImageUrl = `${siteUrl}og-image.png`
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@nuxt/ui', 'better-convex-nuxt'],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@lupinum/trellis'],
 
   devtools: {
     enabled: true,
@@ -14,7 +14,7 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  convex: {
+  trellis: {
     auth: {
       enabled: true,
     },
@@ -38,13 +38,13 @@ export default defineNuxtConfig({
           content:
             'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
         },
-        { name: 'apple-mobile-web-app-title', content: 'Better Convex Nuxt' },
+        { name: 'apple-mobile-web-app-title', content: 'Trellis' },
         {
           name: 'google-site-verification',
           content: 'mFA4hQqscVMdgB5EefYAjQxRZRBYMDJeJ7Rqbx76ewk',
         },
         { property: 'og:type', content: 'website' },
-        { property: 'og:site_name', content: 'Better Convex Nuxt' },
+        { property: 'og:site_name', content: 'Trellis' },
         { property: 'og:title', content: 'Real-time Nuxt apps with Convex.' },
         {
           property: 'og:description',

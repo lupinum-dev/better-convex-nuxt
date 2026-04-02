@@ -2,7 +2,7 @@
  * Why this file exists:
  * The example keeps the actor app-owned, but now builds it through the composable actor primitive.
  */
-import { defineActor, type DefaultActor } from 'better-convex-nuxt/auth'
+import { defineActor, type DefaultActor } from '@lupinum/trellis/auth'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'
 

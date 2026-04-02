@@ -4,7 +4,7 @@ This is the smallest useful public-only app.
 
 It shows:
 
-- `convex: { url }` and nothing else
+- `trellis: { url }` and nothing else
 - raw Convex `query()` and `mutation()`
 - one `defineArgs()` object reused by Convex handlers
 - `useConvexQuery()` and `useConvexMutation()` in the page

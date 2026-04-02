@@ -1,4 +1,4 @@
-import { getAuth, deny } from 'better-convex-nuxt/auth'
+import { getAuth, deny } from '@lupinum/trellis/auth'
 /**
  * Why this file exists:
  * Agency dashboards are the controlled exception to normal tenant scoping, so they get a

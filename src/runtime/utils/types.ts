@@ -140,7 +140,7 @@ export interface ConvexErrorIssue {
 // ============================================================================
 
 /**
- * Payload for `convex:mutation:success` and `convex:action:success` hooks.
+ * Payload for `trellis:mutation:success` and `trellis:action:success` hooks.
  */
 export interface ConvexCallSuccessPayload<
   TOperation extends ConvexCallOperation = ConvexCallOperation,
@@ -159,7 +159,7 @@ export interface ConvexCallSuccessPayload<
 }
 
 /**
- * Payload for `convex:mutation:error` and `convex:action:error` hooks.
+ * Payload for `trellis:mutation:error` and `trellis:action:error` hooks.
  */
 export interface ConvexCallErrorPayload<
   TOperation extends ConvexCallOperation = ConvexCallOperation,
@@ -177,7 +177,7 @@ export interface ConvexCallErrorPayload<
 }
 
 /**
- * Payload for `convex:unauthorized` hooks.
+ * Payload for `trellis:unauthorized` hooks.
  */
 export interface ConvexUnauthorizedPayload {
   /** The raw error that triggered unauthorized recovery. */
@@ -191,7 +191,7 @@ export interface ConvexUnauthorizedPayload {
 }
 
 /**
- * Payload for `convex:connection:changed`.
+ * Payload for `trellis:connection:changed`.
  */
 export interface ConvexConnectionChangedPayload {
   /** Current derived connection phase. */
@@ -205,7 +205,7 @@ export interface ConvexConnectionChangedPayload {
 }
 
 /**
- * Payload for `convex:auth:changed`.
+ * Payload for `trellis:auth:changed`.
  */
 export interface ConvexAuthChangedPayload {
   /** Current effective auth state. */

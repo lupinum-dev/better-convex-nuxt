@@ -161,7 +161,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     await expect(result.awaitAuthReady({ timeoutMs: 5 })).resolves.toBe(false)
   })
 
-  it('emits convex:auth:changed through the real Nuxt hook system on refresh', async () => {
+  it('emits trellis:auth:changed through the real Nuxt hook system on refresh', async () => {
     const hookPayloads: unknown[] = []
 
     const { result } = await captureInNuxt(() => {
@@ -176,7 +176,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
       })
 
       nuxtApp.hook(
-        'convex:auth:changed' as never,
+        'trellis:auth:changed' as never,
         ((payload: unknown) => {
           hookPayloads.push(payload)
         }) as never,

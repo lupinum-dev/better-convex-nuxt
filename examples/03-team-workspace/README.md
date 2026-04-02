@@ -11,11 +11,11 @@ It shows:
 - tenant-scoped tables on the canonical `workspaceId` / `by_workspace` contract
 - app-owned checks in `convex/auth/*`
 - backend-owned permission context exposed to Nuxt through configured `usePermissions()`
-- MCP tools built with `#convex/mcp`
+- MCP tools built with `#trellis/mcp`
 - webhook idempotency with `ensureNotProcessed` / `markProcessed`
 - trusted caller verification with `resolveWebhookActor` / `verifyTrustedCallerKey`
 - bot user resolution for external callers
-- first-class tests with `better-convex-nuxt/testing`
+- first-class tests with `@lupinum/trellis/testing`
 
 ## Files To Read First
 
@@ -56,7 +56,7 @@ To keep the example focused, MCP auth uses a tiny demo middleware:
 
 - header format: `Authorization: Bearer demo:<email>`
 - middleware resolves that email to a real user in Convex
-- `#convex/mcp` then injects trusted caller auth into the scoped Convex calls
+- `#trellis/mcp` then injects trusted caller auth into the scoped Convex calls
 
 Example:
 
@@ -73,7 +73,7 @@ This example is the trust proof, so it includes a small real test setup.
 
 ```ts
 import { defineConfig } from 'vitest/config'
-import { convexTestConfig } from 'better-convex-nuxt/testing'
+import { convexTestConfig } from '@lupinum/trellis/testing'
 
 export default defineConfig(
   convexTestConfig({
@@ -85,7 +85,7 @@ export default defineConfig(
 ```
 
 ```ts
-import { createTestContext } from 'better-convex-nuxt/testing'
+import { createTestContext } from '@lupinum/trellis/testing'
 import { modules } from './test.setup'
 
 const ctx = createTestContext({ schema, modules })
@@ -106,7 +106,7 @@ The example test file covers:
 - webhook-created todos are visible in the workspace list
 
 `convex/test.setup.ts` is intentionally app-owned. It uses `createConvexTestModules(...)` and
-`convexServerMock` from `better-convex-nuxt/testing`, but the Vite glob and generated-server mock
+`convexServerMock` from `@lupinum/trellis/testing`, but the Vite glob and generated-server mock
 still live in the example app.
 
 `composables/usePermissions.ts` is intentionally tiny. It exists so Nuxt can auto-import

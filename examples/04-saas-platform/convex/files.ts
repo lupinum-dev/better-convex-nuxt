@@ -9,7 +9,7 @@
  * the client-side object URL before submit. Any later download path must be scoped through the
  * owning comment or task, not raw `_storage`.
  */
-import { enforce } from 'better-convex-nuxt/auth'
+import { enforce } from '@lupinum/trellis/auth'
 
 import { isAuthenticated } from './auth/checks'
 import { raw } from './functions'

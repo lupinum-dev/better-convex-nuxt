@@ -76,7 +76,7 @@
  */
 import { computed } from 'vue'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
 import { saasPermissionKeys } from '~/shared/permissions'
 

@@ -96,7 +96,7 @@
  */
 import { computed, ref } from 'vue'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 const toast = useToast()
 

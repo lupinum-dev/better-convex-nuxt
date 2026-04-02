@@ -48,7 +48,7 @@ export const initCommand = defineCommand({
   async run({ args }) {
     const target = normalizeSubject(args.target ? String(args.target) : undefined)
     if (target !== 'permissions' && args.model) {
-      throw new Error('`--model` only applies to `better-convex-nuxt init permissions`.')
+      throw new Error('`--model` only applies to `trellis init permissions`.')
     }
 
     const cwd = resolve(args.cwd || process.cwd())

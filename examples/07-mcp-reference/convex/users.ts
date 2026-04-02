@@ -1,4 +1,4 @@
-import { open } from 'better-convex-nuxt/auth'
+import { open } from '@lupinum/trellis/auth'
 
 import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
 import { app } from './functions'

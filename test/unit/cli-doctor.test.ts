@@ -54,7 +54,7 @@ describe('CLI doctor', () => {
     const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
 
     expect(result.status, output).toBe(0)
-    expect(output).toContain('better-convex-nuxt')
+    expect(output).toContain('@lupinum/trellis')
     expect(output).toContain('doctor')
     expect(output).toContain('init')
     expect(output).toContain('USAGE')
@@ -196,17 +196,17 @@ describe('CLI doctor', () => {
         dependencies: {
           nuxt: '^3.0.0',
           convex: '^1.0.0',
-          'better-convex-nuxt': '^3.0.0',
+          '@lupinum/trellis': '^3.0.0',
         },
       }),
     )
     writeFileSync(
       resolve(cwd, 'nuxt.config.ts'),
-      "export default defineNuxtConfig({ modules: ['better-convex-nuxt'] })\n",
+      "export default defineNuxtConfig({ modules: ['@lupinum/trellis'] })\n",
     )
     writeFileSync(
       resolve(cwd, 'composables/usePermissions.ts'),
-      "import { createAuth } from 'better-convex-nuxt/composables'\nexport const auth = createAuth({ query: {} as never })\n",
+      "import { createAuth } from '@lupinum/trellis/composables'\nexport const auth = createAuth({ query: {} as never })\n",
     )
 
     const result = runCli(['doctor', '--json'], cwd)
@@ -217,6 +217,6 @@ describe('CLI doctor', () => {
 
     expect(result.status, result.stderr).toBe(1)
     expect(finding?.status).toBe('fail')
-    expect(finding?.fixHint).toContain('convex.permissions.query')
+    expect(finding?.fixHint).toContain('trellis.permissions.query')
   })
 })

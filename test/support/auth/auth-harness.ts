@@ -131,7 +131,7 @@ export async function createAuthHarness(options: AuthHarnessOptions = {}): Promi
       const user = useState<ConvexUser | null>(STATE_KEY_USER)
       const pending = useState<boolean>(STATE_KEY_PENDING)
       const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR)
-      const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () =>
+      const wasAuthenticated = useState<boolean>('trellis:was-authenticated', () =>
         Boolean(initialToken && initialUser),
       )
 
@@ -141,8 +141,8 @@ export async function createAuthHarness(options: AuthHarnessOptions = {}): Promi
       rawAuthError.value = initialAuthError
       wasAuthenticated.value = Boolean(initialToken && initialUser)
 
-      nuxtApp.hook('convex:auth:changed', authChangedSpy)
-      nuxtApp.hook('convex:unauthorized', unauthorizedSpy)
+      nuxtApp.hook('trellis:auth:changed', authChangedSpy)
+      nuxtApp.hook('trellis:unauthorized', unauthorizedSpy)
 
       const transport: AuthTransport = {
         client: { signOut: signOutSpy } as never,

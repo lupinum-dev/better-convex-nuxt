@@ -1,4 +1,4 @@
-import { deny, enforce, ensureTenant, requireRecord } from 'better-convex-nuxt/auth'
+import { deny, enforce, ensureTenant, requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { canManageMembers } from './auth/checks'

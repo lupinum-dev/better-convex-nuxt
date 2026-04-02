@@ -12,7 +12,7 @@ let h: Awaited<ReturnType<typeof createAuthHarness>>
 afterEach(() => h?.dispose())
 
 describe('Auth Identity Continuity', () => {
-  it('uses the hydrated SSR identity without emitting convex:auth:changed', async () => {
+  it('uses the hydrated SSR identity without emitting trellis:auth:changed', async () => {
     h = await createAuthHarness({
       initialToken: TEST_USERS.alice.token,
       initialUser: TEST_USERS.alice.user,

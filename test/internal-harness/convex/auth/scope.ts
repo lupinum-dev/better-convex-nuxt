@@ -3,7 +3,7 @@ import {
   ensureTenant as _ensureTenant,
   requireAuth,
   requireRecord,
-} from 'better-convex-nuxt/auth'
+} from '@lupinum/trellis/auth'
 
 export { requireAuth, requireRecord }
 

@@ -1,4 +1,4 @@
-import { defineTool } from '#convex/mcp'
+import { defineTool } from '#trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 import { createPost } from '../../../shared/schemas/post'

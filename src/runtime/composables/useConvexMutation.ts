@@ -125,20 +125,20 @@ function createConvexCallHookHandlers<TCallType extends ConvexCallOperation, Res
   if (callType === 'mutation') {
     return {
       error: (payload: ConvexCallErrorPayload<'mutation'>) => {
-        void nuxtApp.callHook('convex:mutation:error', payload)
+        void nuxtApp.callHook('trellis:mutation:error', payload)
       },
       success: (payload: ConvexCallSuccessPayload<'mutation', Result>) => {
-        void nuxtApp.callHook('convex:mutation:success', payload)
+        void nuxtApp.callHook('trellis:mutation:success', payload)
       },
     } as ConvexCallHookHandlers<TCallType, Result>
   }
 
   return {
     error: (payload: ConvexCallErrorPayload<'action'>) => {
-      void nuxtApp.callHook('convex:action:error', payload)
+      void nuxtApp.callHook('trellis:action:error', payload)
     },
     success: (payload: ConvexCallSuccessPayload<'action', Result>) => {
-      void nuxtApp.callHook('convex:action:success', payload)
+      void nuxtApp.callHook('trellis:action:success', payload)
     },
   } as ConvexCallHookHandlers<TCallType, Result>
 }
@@ -198,7 +198,7 @@ export function createConvexCallState<
       if (rawError.value !== nextError) return
       if (lastReadErrorVersion >= scheduledVersion) return
       console.warn(
-        `[better-convex-nuxt] ${callType} "${fnName}" failed, but \`.error.value\` was never read. Surface mutation errors explicitly in the UI or script.`,
+        `[trellis] ${callType} "${fnName}" failed, but \`.error.value\` was never read. Surface mutation errors explicitly in the UI or script.`,
       )
     }, 2000)
   }
@@ -268,7 +268,7 @@ export function createConvexCallState<
           } catch (callbackError) {
             if (import.meta.dev) {
               console.warn(
-                `[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`,
+                `[trellis] ${callType} onError callback threw in ${fnName}:`,
                 callbackError,
               )
             }
@@ -310,7 +310,7 @@ export function createConvexCallState<
         } catch (callbackError) {
           if (import.meta.dev) {
             console.warn(
-              `[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`,
+              `[trellis] ${callType} onError callback threw in ${fnName}:`,
               callbackError,
             )
           }
@@ -345,7 +345,7 @@ export function createConvexCallState<
       } catch (callbackError) {
         if (import.meta.dev) {
           console.warn(
-            `[better-convex-nuxt] ${callType} onSuccess callback threw in ${fnName}:`,
+            `[trellis] ${callType} onSuccess callback threw in ${fnName}:`,
             callbackError,
           )
         }
@@ -380,7 +380,7 @@ export function createConvexCallState<
       } catch (callbackError) {
         if (import.meta.dev) {
           console.warn(
-            `[better-convex-nuxt] ${callType} onError callback threw in ${fnName}:`,
+            `[trellis] ${callType} onError callback threw in ${fnName}:`,
             callbackError,
           )
         }
@@ -437,7 +437,7 @@ export function createConvexCallState<
  * @example Basic usage with status tracking
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const createPost = useConvexMutation(api.posts.create)
  *
@@ -462,7 +462,7 @@ export function createConvexCallState<
  * @example With optimistic update
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const addNote = useConvexMutation(api.notes.add, {
  *   optimisticUpdate: (ctx, args) => {

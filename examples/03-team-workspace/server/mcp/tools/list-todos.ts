@@ -2,8 +2,8 @@
  * Why this file exists:
  * This is the simplest MCP tool in the example: one schema, one permission, one scoped query.
  */
-import { defineTool } from '#convex/mcp'
-import { api } from '~/convex/_generated/api'
+import { defineTool } from '#trellis/mcp'
+import { api } from '#trellis/api'
 import { listTodos } from '~/shared/schemas/todo'
 
 export default defineTool({

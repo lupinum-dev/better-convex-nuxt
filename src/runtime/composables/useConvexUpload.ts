@@ -637,7 +637,7 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
  * @example Single file upload
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const upload = useConvexUpload(api.uploads.generateUploadUrl)
  *
@@ -654,7 +654,7 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
  * @example Multi-file queue
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const upload = useConvexUpload(api.uploads.generateUploadUrl, { maxConcurrent: 3 })
  *

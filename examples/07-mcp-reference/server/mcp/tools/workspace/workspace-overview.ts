@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { defineTool } from '#convex/mcp'
-import { api } from '~/convex/_generated/api'
+import { defineTool } from '#trellis/mcp'
+import { api } from '#trellis/api'
 import { listRunbooks } from '~/shared/schemas/runbook'
 
 export default defineTool({

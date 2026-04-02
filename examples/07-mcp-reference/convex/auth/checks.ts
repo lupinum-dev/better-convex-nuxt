@@ -3,7 +3,7 @@
  * Direct exports are static actor predicates. Resource-bound checks are factories that return
  * actor predicates after you bind the relevant document.
  */
-import { defineGuard } from 'better-convex-nuxt/auth'
+import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { Doc } from '../_generated/dataModel'
 import type { Actor } from './actor'

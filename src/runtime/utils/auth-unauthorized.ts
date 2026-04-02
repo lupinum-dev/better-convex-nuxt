@@ -87,7 +87,7 @@ export async function handleUnauthorizedAuthFailure(options: {
   recoveryState.activeRecovery = (async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await nuxtApp.callHook('convex:unauthorized' as any, {
+      await nuxtApp.callHook('trellis:unauthorized' as any, {
         error: options.error,
         source: options.source,
         functionName: options.functionName,

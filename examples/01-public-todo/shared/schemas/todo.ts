@@ -1,4 +1,4 @@
-import { defineArgs } from 'better-convex-nuxt/args'
+import { defineArgs } from '@lupinum/trellis/args'
 /**
  * Why this file exists:
  * This args definition lives in `shared/` because both Convex code and Nuxt server code can import it.

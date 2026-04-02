@@ -2,7 +2,7 @@
  * Why this file exists:
  * Article prerequisite chains ensure readers complete foundational content first.
  */
-import { deny } from 'better-convex-nuxt/auth'
+import { deny } from '@lupinum/trellis/auth'
 
 import type { Doc } from '../_generated/dataModel'
 import type { DatabaseReader } from '../_generated/server'

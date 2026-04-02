@@ -4,7 +4,7 @@ import {
   loadTenantResource as loadResource,
   open,
   requireRecord,
-} from 'better-convex-nuxt/auth'
+} from '@lupinum/trellis/auth'
 
 import {
   bulkDeleteRunbooks,

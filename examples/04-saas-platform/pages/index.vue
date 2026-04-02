@@ -332,7 +332,7 @@
  */
 import { computed, reactive, ref } from 'vue'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 import { saasPermissionKeys } from '~/shared/permissions'
 
 const { client, signOut, user } = useConvexAuth()

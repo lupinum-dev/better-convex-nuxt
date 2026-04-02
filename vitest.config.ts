@@ -31,19 +31,19 @@ export default defineConfig({
       {
         resolve: {
           alias: {
-            'better-convex-nuxt/auth': fileURLToPath(
+            '@lupinum/trellis/auth': fileURLToPath(
               new URL('./src/runtime/auth/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/trusted-caller': fileURLToPath(
+            '@lupinum/trellis/trusted-caller': fileURLToPath(
               new URL('./src/runtime/trusted-caller/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/visibility': fileURLToPath(
+            '@lupinum/trellis/visibility': fileURLToPath(
               new URL('./src/runtime/visibility/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/args': fileURLToPath(
+            '@lupinum/trellis/args': fileURLToPath(
               new URL('./src/runtime/args/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/functions': fileURLToPath(
+            '@lupinum/trellis/functions': fileURLToPath(
               new URL('./src/runtime/functions/index.ts', import.meta.url),
             ),
           },
@@ -62,31 +62,31 @@ export default defineConfig({
       {
         resolve: {
           alias: {
-            'better-convex-nuxt/composables': fileURLToPath(
+            '@lupinum/trellis/composables': fileURLToPath(
               new URL('./src/runtime/composables/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/auth': fileURLToPath(
+            '@lupinum/trellis/auth': fileURLToPath(
               new URL('./src/runtime/auth/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/trusted-caller': fileURLToPath(
+            '@lupinum/trellis/trusted-caller': fileURLToPath(
               new URL('./src/runtime/trusted-caller/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/visibility': fileURLToPath(
+            '@lupinum/trellis/visibility': fileURLToPath(
               new URL('./src/runtime/visibility/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/mcp': fileURLToPath(
+            '@lupinum/trellis/mcp': fileURLToPath(
               new URL('./src/runtime/mcp/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/args': fileURLToPath(
+            '@lupinum/trellis/args': fileURLToPath(
               new URL('./src/runtime/args/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/functions': fileURLToPath(
+            '@lupinum/trellis/functions': fileURLToPath(
               new URL('./src/runtime/functions/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/server': fileURLToPath(
+            '@lupinum/trellis/server': fileURLToPath(
               new URL('./src/runtime/server/index.ts', import.meta.url),
             ),
-            'better-convex-nuxt/testing': fileURLToPath(
+            '@lupinum/trellis/testing': fileURLToPath(
               new URL('./src/runtime/testing/index.ts', import.meta.url),
             ),
           },

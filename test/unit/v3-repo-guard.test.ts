@@ -14,7 +14,7 @@ const allowedFiles = new Set([
 
 const bannedPatterns = [
   /\buseEnsureConvexUser\b/,
-  /better-convex-nuxt\/schema/,
+  /@lupinum\/trellis\/schema/,
   /\bcreateAuth\s*\(\s*\{/,
   /CONVEX_SERVICE_KEY/,
   /_serviceKey\b/,

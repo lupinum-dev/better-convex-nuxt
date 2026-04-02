@@ -1,4 +1,4 @@
-import { definePermissionContext, deny, open } from 'better-convex-nuxt/auth'
+import { definePermissionContext, deny, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { teamWorkspacePermissionKeys, type TeamWorkspacePermissionMap } from '../shared/permissions'

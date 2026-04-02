@@ -57,25 +57,25 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     },
     {
       id: 'module-installed',
-      title: 'better-convex-nuxt dependency',
-      status: hasDependency(project, 'better-convex-nuxt') ? 'pass' : 'fail',
-      message: hasDependency(project, 'better-convex-nuxt')
-        ? 'better-convex-nuxt is declared in package.json.'
-        : 'better-convex-nuxt is not declared in dependencies or devDependencies.',
-      fixHint: hasDependency(project, 'better-convex-nuxt')
+      title: '@lupinum/trellis dependency',
+      status: hasDependency(project, '@lupinum/trellis') ? 'pass' : 'fail',
+      message: hasDependency(project, '@lupinum/trellis')
+        ? '@lupinum/trellis is declared in package.json.'
+        : '@lupinum/trellis is not declared in dependencies or devDependencies.',
+      fixHint: hasDependency(project, '@lupinum/trellis')
         ? 'Keep the module installed in the consumer app.'
-        : 'Add better-convex-nuxt to the app package.json.',
+        : 'Add @lupinum/trellis to the app package.json.',
     },
     {
       id: 'module-registered',
       title: 'Nuxt module registration',
       status: hasBetterConvexNuxtRegistration(project) ? 'pass' : 'fail',
       message: hasBetterConvexNuxtRegistration(project)
-        ? 'nuxt.config registers better-convex-nuxt in modules.'
-        : 'Could not find "better-convex-nuxt" inside the nuxt.config modules array.',
+        ? 'nuxt.config registers @lupinum/trellis in modules.'
+        : 'Could not find "@lupinum/trellis" inside the nuxt.config modules array.',
       fixHint: hasBetterConvexNuxtRegistration(project)
         ? 'Keep the module in the Nuxt modules array.'
-        : 'Add "better-convex-nuxt" to modules in nuxt.config.*.',
+        : 'Add "@lupinum/trellis" to modules in nuxt.config.*.',
     },
     {
       id: 'convex-installed',
@@ -128,7 +128,7 @@ export function buildDoctorReport(cwd: string): DoctorReport {
 export const doctorCommand = defineCommand({
   meta: {
     name: 'doctor',
-    description: 'Inspect a Nuxt app for better-convex-nuxt setup issues',
+    description: 'Inspect a Nuxt app for @lupinum/trellis setup issues',
   },
   args: {
     cwd: {

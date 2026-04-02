@@ -1,4 +1,4 @@
-import { defineArgs } from 'better-convex-nuxt/args'
+import { defineArgs } from '@lupinum/trellis/args'
 /**
  * Why this file exists:
  * The task board touches the same inputs from the browser, Nitro routes, and tests.

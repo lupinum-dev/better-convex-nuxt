@@ -11,6 +11,8 @@ import {
   useLogger,
 } from '@nuxt/kit'
 import { defu } from 'defu'
+import { existsSync } from 'node:fs'
+import { resolve as resolvePath } from 'node:path'
 
 import { collectConvexFunctionPaths } from './analysis/project'
 import { collectModuleValidationFindings } from './analysis/validation'
@@ -29,7 +31,7 @@ import type { LogLevel } from './runtime/utils/logger'
 export type { LogLevel } from './runtime/utils/logger'
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 
-const logger = useLogger('better-convex-nuxt')
+const logger = useLogger('trellis')
 
 /**
  * Normalize the `auth` option shorthand forms into a full AuthOptions object.
@@ -108,7 +110,7 @@ export interface AuthOptions extends ConvexAuthConfigInput {
    *
    * @example
    * ```ts
-   * convex: { auth: { cache: { enabled: true, ttl: 60 } } }
+   * trellis: { auth: { cache: { enabled: true, ttl: 60 } } }
    * // For multi-instance: configure nitro.storage with driver: 'redis'
    * ```
    */
@@ -174,10 +176,10 @@ export interface ModuleOptions {
    * @example
    * ```ts
    * // Zero-config auth:
-   * convex: { auth: true }
+   * trellis: { auth: true }
    *
    * // Full control:
-   * convex: { auth: { routeProtection: { redirectTo: '/login', preserveReturnTo: true } } }
+   * trellis: { auth: { routeProtection: { redirectTo: '/login', preserveReturnTo: true } } }
    * ```
    */
   auth?: AuthOptions | boolean
@@ -199,7 +201,7 @@ export interface ModuleOptions {
    *
    * @example
    * ```ts
-   * convex: { query: { server: false } } // Disable SSR globally
+   * trellis: { query: { server: false } } // Disable SSR globally
    * ```
    */
   query?: QueryDefaults
@@ -262,15 +264,15 @@ function createConfiguredFunctionError(
       : ` Available Convex functions: ${availablePaths.slice(0, 20).join(', ')}${availablePaths.length > 20 ? ', ...' : ''}`
 
   return new Error(
-    `[better-convex-nuxt] Invalid convex.${kind}: "${configuredPath}".` +
+    `[trellis] Invalid trellis.${kind}: "${configuredPath}".` +
       ` No matching Convex function export was found in /convex.${suggestionText}`,
   )
 }
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: 'better-convex-nuxt',
-    configKey: 'convex',
+    name: '@lupinum/trellis',
+    configKey: 'trellis',
     compatibility: {
       nuxt: '>=4.0.0',
     },
@@ -369,7 +371,7 @@ export default defineNuxtModule<ModuleOptions>({
     const normalizedAuthCacheTtl = normalizeAuthCacheTtl(authOptions?.cache?.ttl)
     if ((authOptions?.cache?.ttl ?? 60) !== normalizedAuthCacheTtl) {
       logger.warn(
-        `convex.auth.cache.ttl must be between 1 and 60 seconds. Using ${normalizedAuthCacheTtl}s instead.`,
+        `trellis.auth.cache.ttl must be between 1 and 60 seconds. Using ${normalizedAuthCacheTtl}s instead.`,
       )
     }
 
@@ -424,7 +426,7 @@ export default defineNuxtModule<ModuleOptions>({
       rootDir: nuxt.options.rootDir,
       authEnabled: isAuthEnabled,
     })) {
-      const message = `[better-convex-nuxt] ${finding.message}`
+      const message = `[trellis] ${finding.message}`
       if (validationStrict) {
         throw new Error(message)
       }
@@ -467,7 +469,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     // 5. Register Type Augmentation for IDE support
     addTemplate({
-      filename: 'types/better-convex-nuxt.d.ts',
+      filename: 'types/trellis.d.ts',
       getContents: () => `
 import type { ConvexClient } from 'convex/browser'
 import type { createAuthClient } from 'better-auth/vue'
@@ -489,22 +491,22 @@ declare module '#app' {
   }
 
   interface RuntimeNuxtHooks {
-    'better-convex:auth:refresh': () => void | Promise<void>
-    'better-convex:auth:invalidate': () => void | Promise<void>
+    'trellis:auth:refresh': () => void | Promise<void>
+    'trellis:auth:invalidate': () => void | Promise<void>
     /** Fired when a Convex call returns a 401/403. Handle sign-out + redirect here. */
-    'convex:unauthorized': (payload: ConvexUnauthorizedPayload) => void | Promise<void>
+    'trellis:unauthorized': (payload: ConvexUnauthorizedPayload) => void | Promise<void>
     /** Fired after every successful mutation. */
-    'convex:mutation:success': (payload: ConvexCallSuccessPayload<'mutation'>) => void | Promise<void>
+    'trellis:mutation:success': (payload: ConvexCallSuccessPayload<'mutation'>) => void | Promise<void>
     /** Fired after every failed mutation. */
-    'convex:mutation:error': (payload: ConvexCallErrorPayload<'mutation'>) => void | Promise<void>
+    'trellis:mutation:error': (payload: ConvexCallErrorPayload<'mutation'>) => void | Promise<void>
     /** Fired after every successful action. */
-    'convex:action:success': (payload: ConvexCallSuccessPayload<'action'>) => void | Promise<void>
+    'trellis:action:success': (payload: ConvexCallSuccessPayload<'action'>) => void | Promise<void>
     /** Fired after every failed action. */
-    'convex:action:error': (payload: ConvexCallErrorPayload<'action'>) => void | Promise<void>
+    'trellis:action:error': (payload: ConvexCallErrorPayload<'action'>) => void | Promise<void>
     /** Fired when the derived connection phase changes. */
-    'convex:connection:changed': (payload: ConvexConnectionChangedPayload) => void | Promise<void>
+    'trellis:connection:changed': (payload: ConvexConnectionChangedPayload) => void | Promise<void>
     /** Fired when the effective authenticated user changes. */
-    'convex:auth:changed': (payload: ConvexAuthChangedPayload) => void | Promise<void>
+    'trellis:auth:changed': (payload: ConvexAuthChangedPayload) => void | Promise<void>
   }
 
     interface PageMeta {
@@ -514,7 +516,7 @@ declare module '#app' {
      */
       skipConvexAuth?: boolean
       /**
-       * Opt-in route protection powered by better-convex-nuxt.
+       * Opt-in route protection powered by @lupinum/trellis.
        * true = require auth (default redirect), object = custom redirect.
        */
       convexAuth?: boolean | { redirectTo?: RouteLocationRaw }
@@ -532,8 +534,61 @@ export {}
 `,
     })
 
+    // --- Virtual module: #trellis (client composables barrel) ---
+    const trellisBarrelTemplate = addTemplate({
+      filename: 'trellis/index.ts',
+      write: true,
+      getContents: () => `export * from '${resolver.resolve('./runtime/composables/index')}'
+`,
+    })
+    nuxt.options.alias['#trellis'] = trellisBarrelTemplate.dst
+
+    // --- Virtual module: #trellis/api (generated Convex API re-export) ---
+    const trellisApiTemplate = addTemplate({
+      filename: 'trellis/api.ts',
+      write: true,
+      getContents: () => {
+        const candidatePaths = [...new Set([
+          resolvePath(nuxt.options.srcDir, 'convex/_generated/api'),
+          resolvePath(nuxt.options.rootDir, 'convex/_generated/api'),
+        ])]
+        const convexGenApi = candidatePaths.find(
+          (candidate) => existsSync(candidate + '.ts') || existsSync(candidate + '.js'),
+        )
+
+        if (!convexGenApi) {
+          logger.warn(
+            '`#trellis/api` alias registered but convex/_generated/api does not exist yet. ' +
+              'Run `npx convex dev` to generate it.',
+          )
+          return `const error = () =>
+  new Error(
+    '[trellis] \`#trellis/api\` is unavailable because convex/_generated/api has not been generated yet. Run \`npx convex dev\` first.',
+  )
+
+export const api = new Proxy(
+  {},
+  {
+    get() {
+      throw error()
+    },
+    apply() {
+      throw error()
+    },
+  },
+) as never
+`
+        }
+
+        return `export { api } from '${convexGenApi}'
+`
+      },
+    })
+    nuxt.options.alias['#trellis/api'] = trellisApiTemplate.dst
+
+    // --- Virtual module: #trellis/server ---
     const serverAliasTemplate = addTemplate({
-      filename: 'convex/server.ts',
+      filename: 'trellis/server.ts',
       write: true,
       getContents: () => `
 export {
@@ -544,10 +599,11 @@ export {
 `,
     })
 
-    nuxt.options.alias['#convex/server'] = serverAliasTemplate.dst
+    nuxt.options.alias['#trellis/server'] = serverAliasTemplate.dst
 
+    // --- Virtual module: #trellis/mcp ---
     const mcpAliasTemplate = addTemplate({
-      filename: 'convex/mcp.ts',
+      filename: 'trellis/mcp.ts',
       write: true,
       getContents: () => {
         const mcpEntryPath = resolver.resolve('./runtime/mcp/index')
@@ -557,21 +613,21 @@ export * from '${mcpEntryPath}'
       },
     })
 
-    nuxt.options.alias['#convex/mcp'] = mcpAliasTemplate.dst
+    nuxt.options.alias['#trellis/mcp'] = mcpAliasTemplate.dst
 
     if (permissionQueryPath) {
       const parsed = splitConfiguredFunctionPath(permissionQueryPath)
       if (!parsed) {
         throw new Error(
-          `[better-convex-nuxt] Invalid convex.permissions.query: "${permissionQueryPath}". Expected "<modulePath>.<exportName>".`,
+          `[trellis] Invalid trellis.permissions.query: "${permissionQueryPath}". Expected "<modulePath>.<exportName>".`,
         )
       }
 
       const permissionsTemplate = addTemplate({
-        filename: 'convex/permissions.ts',
+        filename: 'trellis/permissions.ts',
         write: true,
         getContents: () => `
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 import { createConfiguredPermissionsComposables } from '${resolver.resolve('./runtime/composables/configured-permissions')}'
 
 const configuredQuery = (api as Record<string, any>)['${parsed.modulePath}']['${parsed.exportName}']
@@ -663,7 +719,7 @@ export const { usePermissions, useAuthGuard } = createConfiguredPermissionsCompo
     // 9. Add types to tsconfig references
     nuxt.hook('prepare:types', (opts) => {
       opts.references.push({
-        path: resolver.resolve(nuxt.options.buildDir, 'types/better-convex-nuxt.d.ts'),
+        path: resolver.resolve(nuxt.options.buildDir, 'types/trellis.d.ts'),
       })
     })
 

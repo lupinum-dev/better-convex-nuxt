@@ -49,7 +49,7 @@ export interface UseConvexActionOptions<Args, Result> {
  * @example Basic usage with status tracking
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const sendEmail = useConvexAction(api.emails.send)
  *

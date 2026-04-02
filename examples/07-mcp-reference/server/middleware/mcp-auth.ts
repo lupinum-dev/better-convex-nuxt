@@ -8,8 +8,8 @@
  */
 import { createHash } from 'node:crypto'
 
-import { serverConvexMutation, serverConvexQuery } from '#convex/server'
-import { api } from '~/convex/_generated/api'
+import { serverConvexMutation, serverConvexQuery } from '#trellis/server'
+import { api } from '#trellis/api'
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')

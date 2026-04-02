@@ -18,7 +18,7 @@ export type TrustedCallerContextCarrier = Record<PropertyKey, unknown> & {
   [trustedCallerContextKey]?: TrustedCallerIdentity | null
 }
 
-export const trustedCallerContextKey = Symbol('better-convex-nuxt.trustedCaller')
+export const trustedCallerContextKey = Symbol('trellis.trustedCaller')
 
 export const trustedCallerValidators = {
   _trustedCallerKey: v.optional(v.string()),

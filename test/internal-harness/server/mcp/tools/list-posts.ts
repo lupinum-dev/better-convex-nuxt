@@ -1,6 +1,6 @@
-import { defineArgs } from 'better-convex-nuxt/args'
+import { defineArgs } from '@lupinum/trellis/args'
 
-import { defineTool } from '#convex/mcp'
+import { defineTool } from '#trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 

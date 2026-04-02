@@ -14,11 +14,11 @@ vi.mock('h3', () => ({
   readBody: readBodyMock,
 }))
 
-vi.mock('#convex/server', () => ({
+vi.mock('#trellis/server', () => ({
   serverConvexMutation: serverConvexMutationMock,
 }))
 
-vi.mock('~/convex/_generated/api', () => ({
+vi.mock('#trellis/api', () => ({
   api: {
     tasks: {
       create: { _path: 'tasks:create' },

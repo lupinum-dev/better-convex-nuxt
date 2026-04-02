@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 /**
  * Why this file exists:
  * Real apps hit file uploads quickly. This component keeps the upload flow isolated so the task

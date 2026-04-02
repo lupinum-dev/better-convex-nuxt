@@ -1,4 +1,4 @@
-import { getAuth } from 'better-convex-nuxt/auth'
+import { getAuth } from '@lupinum/trellis/auth'
 /**
  * Why this file differs from the default tenant-scoped pattern:
  * Agency access resolves authority from `memberships`, not from the user row. The user row only

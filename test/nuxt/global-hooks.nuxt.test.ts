@@ -14,7 +14,7 @@ describe('global hooks (Nuxt runtime)', () => {
   // Mutation hooks
   // -----------------------------------------------------------------------
   describe('mutation hooks', () => {
-    it('fires convex:mutation:success with correct payload', async () => {
+    it('fires trellis:mutation:success with correct payload', async () => {
       const convex = new MockConvexClient()
       const mutation = mockFnRef<'mutation'>('testing:hook-success')
       convex.setMutationHandler('testing:hook-success', async (args) => ({
@@ -26,7 +26,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const { result, nuxtApp } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
-      nuxtApp.hook('convex:mutation:success', hookSpy)
+      nuxtApp.hook('trellis:mutation:success', hookSpy)
 
       await result({ title: 'Test' } as never)
 
@@ -39,7 +39,7 @@ describe('global hooks (Nuxt runtime)', () => {
       expect(typeof payload.duration).toBe('number')
     })
 
-    it('fires convex:mutation:error with ConvexCallError', async () => {
+    it('fires trellis:mutation:error with ConvexCallError', async () => {
       const convex = new MockConvexClient()
       const mutation = mockFnRef<'mutation'>('testing:hook-fail')
       convex.setMutationHandler('testing:hook-fail', async () => {
@@ -50,7 +50,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const { result, nuxtApp } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
-      nuxtApp.hook('convex:mutation:error', hookSpy)
+      nuxtApp.hook('trellis:mutation:error', hookSpy)
 
       await expect(result({} as never)).rejects.toThrow('boom')
 
@@ -76,7 +76,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const { result, nuxtApp } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
-      nuxtApp.hook('convex:mutation:error', hookSpy)
+      nuxtApp.hook('trellis:mutation:error', hookSpy)
 
       await expect(result({} as never)).rejects.toThrow()
 
@@ -90,7 +90,7 @@ describe('global hooks (Nuxt runtime)', () => {
   // Action hooks
   // -----------------------------------------------------------------------
   describe('action hooks', () => {
-    it('fires convex:action:success with correct payload', async () => {
+    it('fires trellis:action:success with correct payload', async () => {
       const convex = new MockConvexClient()
       const action = mockFnRef<'action'>('testing:action-hook-success')
       convex.setActionHandler('testing:action-hook-success', async (args) => ({
@@ -102,7 +102,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const { result, nuxtApp } = await captureInNuxt(() => useConvexAction(action), { convex })
 
-      nuxtApp.hook('convex:action:success', hookSpy)
+      nuxtApp.hook('trellis:action:success', hookSpy)
 
       await result({ to: 'user@test.com' } as never)
 
@@ -114,7 +114,7 @@ describe('global hooks (Nuxt runtime)', () => {
       expect(payload.result).toEqual({ sent: true, to: 'user@test.com' })
     })
 
-    it('fires convex:action:error with ConvexCallError', async () => {
+    it('fires trellis:action:error with ConvexCallError', async () => {
       const convex = new MockConvexClient()
       const action = mockFnRef<'action'>('testing:action-hook-fail')
       convex.setActionHandler('testing:action-hook-fail', async () => {
@@ -125,7 +125,7 @@ describe('global hooks (Nuxt runtime)', () => {
 
       const { result, nuxtApp } = await captureInNuxt(() => useConvexAction(action), { convex })
 
-      nuxtApp.hook('convex:action:error', hookSpy)
+      nuxtApp.hook('trellis:action:error', hookSpy)
 
       await expect(result({} as never)).rejects.toThrow('action boom')
 
@@ -153,8 +153,8 @@ describe('global hooks (Nuxt runtime)', () => {
       const { result } = await captureInNuxt(
         () => {
           const nuxt = useNuxtApp()
-          nuxt.hook('convex:mutation:success', listener1)
-          nuxt.hook('convex:mutation:success', listener2)
+          nuxt.hook('trellis:mutation:success', listener1)
+          nuxt.hook('trellis:mutation:success', listener2)
           return useConvexMutation(mutation)
         },
         { convex },
@@ -187,7 +187,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:mutation:success', hookSpy)
+      nuxtApp.hook('trellis:mutation:success', hookSpy)
 
       await result({} as never)
       // Success hooks are fire-and-forget (void callHook) — wait for the floating promise
@@ -212,7 +212,7 @@ describe('global hooks (Nuxt runtime)', () => {
         { convex },
       )
 
-      nuxtApp.hook('convex:mutation:error', hookSpy)
+      nuxtApp.hook('trellis:mutation:error', hookSpy)
 
       await expect(result({} as never)).rejects.toThrow('dual fail')
 
@@ -222,14 +222,14 @@ describe('global hooks (Nuxt runtime)', () => {
   })
 
   describe('connection and auth hooks', () => {
-    it('registers convex:connection:changed with the expected payload shape', async () => {
+    it('registers trellis:connection:changed with the expected payload shape', async () => {
       const convex = new MockConvexClient()
       const hookSpy = vi.fn()
 
       const { wrapper } = await captureInNuxt(
         () => {
           const nuxtApp = useNuxtApp()
-          nuxtApp.hook('convex:connection:changed', hookSpy)
+          nuxtApp.hook('trellis:connection:changed', hookSpy)
           return useConvexConnectionState()
         },
         { convex },

@@ -1,5 +1,5 @@
-import { defineArgs } from 'better-convex-nuxt/args'
-import { defineGuard, open } from 'better-convex-nuxt/auth'
+import { defineArgs } from '@lupinum/trellis/args'
+import { defineGuard, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Actor } from './auth/actor'

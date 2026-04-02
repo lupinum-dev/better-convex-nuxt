@@ -1,4 +1,4 @@
-import { createApp } from 'better-convex-nuxt/functions'
+import { createApp } from '@lupinum/trellis/functions'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'

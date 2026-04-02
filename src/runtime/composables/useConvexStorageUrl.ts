@@ -19,7 +19,7 @@ import { useConvexQuery } from './useConvexQuery'
  * @example Basic usage
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * // From a document or upload
  * const storageId = ref<string | null>(null)
@@ -35,7 +35,7 @@ import { useConvexQuery } from './useConvexQuery'
  * @example With useConvexUpload
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const {
  *   upload,
@@ -64,7 +64,7 @@ import { useConvexQuery } from './useConvexQuery'
  * @example With document data
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const props = defineProps<{ documentId: string }>()
  *

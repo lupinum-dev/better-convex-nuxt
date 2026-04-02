@@ -1,4 +1,4 @@
-import { getAuth } from 'better-convex-nuxt/auth'
+import { getAuth } from '@lupinum/trellis/auth'
 /**
  * Why this file differs from the later tenant-scoped examples:
  * Example 02 is still auth-only. `userId` here is the auth-subject string stored in `users.authId`,

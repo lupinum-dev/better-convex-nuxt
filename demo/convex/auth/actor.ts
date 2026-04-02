@@ -1,4 +1,4 @@
-import { getAuth } from 'better-convex-nuxt/auth'
+import { getAuth } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'

@@ -2,7 +2,7 @@
  * Connection state hooks for the Convex WebSocket client.
  *
  * One shared subscription per NuxtApp mirrors the Convex connection state into
- * Vue refs and emits `convex:connection:changed` only when the derived phase changes.
+ * Vue refs and emits `trellis:connection:changed` only when the derived phase changes.
  *
  * @module runtime-hooks
  */
@@ -17,7 +17,7 @@ import type {
 } from '../utils/types'
 
 type RuntimeHookApp = object & {
-  callHook(event: 'convex:connection:changed', payload: ConvexConnectionChangedPayload): unknown
+  callHook(event: 'trellis:connection:changed', payload: ConvexConnectionChangedPayload): unknown
 }
 
 const DEFAULT_CONNECTION_STATE: ConnectionState = {
@@ -120,9 +120,9 @@ function handleConnectionStateChange(
     previousConnection,
   }
   // Hook handlers should never block connection state updates.
-  void Promise.resolve(nuxtApp.callHook('convex:connection:changed', payload)).catch(
+  void Promise.resolve(nuxtApp.callHook('trellis:connection:changed', payload)).catch(
     (error: unknown) => {
-      console.error('[better-convex-nuxt] Error in convex:connection:changed hook handler:', error)
+      console.error('[trellis] Error in trellis:connection:changed hook handler:', error)
     },
   )
 }

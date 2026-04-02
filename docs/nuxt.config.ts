@@ -1,5 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-const siteUrl = process.env.SITE_URL || 'https://better-convex-nuxt.vercel.app/'
+const siteUrl = process.env.SITE_URL || 'https://trellis.vercel.app/'
 
 export default defineNuxtConfig({
   modules: [
@@ -21,7 +21,7 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  site: { url: siteUrl, name: 'Better Convex Nuxt' },
+  site: { url: siteUrl, name: 'Trellis' },
   content: {
     build: {
       markdown: {
@@ -51,12 +51,12 @@ export default defineNuxtConfig({
           content:
             'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
         },
-        { name: 'apple-mobile-web-app-title', content: 'Better Convex Nuxt' },
+        { name: 'apple-mobile-web-app-title', content: 'Trellis' },
         {
           name: 'google-site-verification',
           content: 'mFA4hQqscVMdgB5EefYAjQxRZRBYMDJeJ7Rqbx76ewk',
         },
-        { property: 'og:site_name', content: 'Better Convex Nuxt' },
+        { property: 'og:site_name', content: 'Trellis' },
         { property: 'og:title', content: 'Real-time Nuxt apps with Convex.' },
         {
           property: 'og:description',
@@ -126,13 +126,13 @@ export default defineNuxtConfig({
 
   llms: {
     domain: siteUrl,
-    title: 'Better Convex Nuxt',
+    title: 'Trellis',
     description:
       'Nuxt module for Convex with Better Auth - real-time queries, SSR, authentication, and fine-grained permissions.',
     full: {
-      title: 'Better Convex Nuxt - Full Documentation',
+      title: 'Trellis - Full Documentation',
       description:
-        'Complete documentation for Better Convex Nuxt module including API reference, authentication, and permissions.',
+        'Complete documentation for Trellis including API reference, authentication, and permissions.',
     },
     sections: [
       {
@@ -248,7 +248,7 @@ export default defineNuxtConfig({
   },
 
   mcp: {
-    name: 'better-convex-nuxt',
+    name: 'Trellis',
   },
   sitemap: {
     sources: ['/api/__sitemap__/urls'],

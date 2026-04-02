@@ -2,7 +2,7 @@
 
 ## Thesis
 
-`better-convex-nuxt` should stop feeling like "the one blessed app shape" and start feeling like a set of composable safety primitives.
+`@lupinum/trellis` should stop feeling like "the one blessed app shape" and start feeling like a set of composable safety primitives.
 
 That does **not** mean "add more layers."
 
@@ -464,7 +464,7 @@ Implemented experimentally.
 
 Current repo state:
 
-- `defineCapabilities(...)` exists in `better-convex-nuxt/visibility`
+- `defineCapabilities(...)` exists in `@lupinum/trellis/visibility`
 - attachment is explicit through `.attach(actor, value)`
 - works for single resources and arrays
 - intentionally does not try to walk nested payloads magically
@@ -576,7 +576,7 @@ Implemented experimentally.
 
 Current repo state:
 
-- `defineRedaction(...)` exists in `better-convex-nuxt/visibility`
+- `defineRedaction(...)` exists in `@lupinum/trellis/visibility`
 - redaction is reusable and explicit
 - works for single resources and arrays
 
@@ -632,7 +632,7 @@ The best shape may not literally be one `defineTest(...)` call.
 Possible options:
 
 - a Vitest helper that emits both config and runtime setup
-- a `better-convex-nuxt/testing/vitest` entrypoint
+- a `@lupinum/trellis/testing/vitest` entrypoint
 - a helper macro around `convexTestConfig(...)`
 
 ### Important pushback
@@ -684,22 +684,22 @@ If the diagnosis is right, then v2 should cut over.
 
 If the redesign succeeds, the public surface should read roughly like this:
 
-- `better-convex-nuxt/auth`
+- `@lupinum/trellis/auth`
   - `defineActor`
   - `defineGuard`
   - `definePermissionContext`
   - `deny`
   - `can`
   - `requireRecord`
-- `better-convex-nuxt/functions`
+- `@lupinum/trellis/functions`
   - `defineHandler`
   - `defineScope`
   - `defineMiddleware`
-- `better-convex-nuxt/visibility`
+- `@lupinum/trellis/visibility`
   - `defineVisibility`
   - `defineRedaction`
   - `defineCapabilities`
-- `better-convex-nuxt/testing`
+- `@lupinum/trellis/testing`
   - `defineTest`
   - `convexTestConfig`
 

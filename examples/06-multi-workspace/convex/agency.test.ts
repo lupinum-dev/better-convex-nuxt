@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { createTestContext } from 'better-convex-nuxt/testing'
+import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 

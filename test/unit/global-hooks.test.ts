@@ -53,7 +53,7 @@ describe('global hooks (unit)', () => {
   // -----------------------------------------------------------------------
   // Mutation success
   // -----------------------------------------------------------------------
-  describe('convex:mutation:success', () => {
+  describe('trellis:mutation:success', () => {
     it('fires with correct payload after a successful mutation', async () => {
       const callable = createConvexCallState({
         fnName: 'posts:create',
@@ -67,7 +67,7 @@ describe('global hooks (unit)', () => {
       await callable({ title: 'Hello' } as never)
 
       expect(callHookMock).toHaveBeenCalledWith(
-        'convex:mutation:success',
+        'trellis:mutation:success',
         expect.objectContaining({
           functionPath: 'posts:create',
           operation: 'mutation',
@@ -77,7 +77,7 @@ describe('global hooks (unit)', () => {
       )
       // Duration is a number >= 0
       const payload = callHookMock.mock.calls.find(
-        ([name]) => name === 'convex:mutation:success',
+        ([name]) => name === 'trellis:mutation:success',
       )?.[1]
       expect(payload.duration).toBeGreaterThanOrEqual(0)
     })
@@ -96,7 +96,7 @@ describe('global hooks (unit)', () => {
       })
 
       callHookMock.mockImplementation(async (name: string) => {
-        if (name === 'convex:mutation:success') callOrder.push('hook')
+        if (name === 'trellis:mutation:success') callOrder.push('hook')
       })
 
       await callable({} as never)
@@ -107,7 +107,7 @@ describe('global hooks (unit)', () => {
   // -----------------------------------------------------------------------
   // Mutation error
   // -----------------------------------------------------------------------
-  describe('convex:mutation:error', () => {
+  describe('trellis:mutation:error', () => {
     it('fires with ConvexCallError after a failed mutation', async () => {
       const callable = createConvexCallState({
         fnName: 'posts:create',
@@ -123,7 +123,7 @@ describe('global hooks (unit)', () => {
       await expect(callable({ title: 'Bad' } as never)).rejects.toThrow('mutation failed')
 
       expect(callHookMock).toHaveBeenCalledWith(
-        'convex:mutation:error',
+        'trellis:mutation:error',
         expect.objectContaining({
           functionPath: 'posts:create',
           operation: 'mutation',
@@ -131,7 +131,7 @@ describe('global hooks (unit)', () => {
         }),
       )
       const payload = callHookMock.mock.calls.find(
-        ([name]) => name === 'convex:mutation:error',
+        ([name]) => name === 'trellis:mutation:error',
       )?.[1]
       expect(payload.error).toBeInstanceOf(ConvexCallError)
       expect(payload.duration).toBeGreaterThanOrEqual(0)
@@ -153,7 +153,7 @@ describe('global hooks (unit)', () => {
       })
 
       callHookMock.mockImplementation(async (name: string) => {
-        if (name === 'convex:mutation:error') callOrder.push('hook')
+        if (name === 'trellis:mutation:error') callOrder.push('hook')
       })
 
       await expect(callable({} as never)).rejects.toThrow()
@@ -164,7 +164,7 @@ describe('global hooks (unit)', () => {
   // -----------------------------------------------------------------------
   // Action success
   // -----------------------------------------------------------------------
-  describe('convex:action:success', () => {
+  describe('trellis:action:success', () => {
     it('fires with operation "action"', async () => {
       const callable = createConvexCallState({
         fnName: 'emails:send',
@@ -178,7 +178,7 @@ describe('global hooks (unit)', () => {
       await callable({ to: 'user@example.com' } as never)
 
       expect(callHookMock).toHaveBeenCalledWith(
-        'convex:action:success',
+        'trellis:action:success',
         expect.objectContaining({
           functionPath: 'emails:send',
           operation: 'action',
@@ -192,7 +192,7 @@ describe('global hooks (unit)', () => {
   // -----------------------------------------------------------------------
   // Action error
   // -----------------------------------------------------------------------
-  describe('convex:action:error', () => {
+  describe('trellis:action:error', () => {
     it('fires with operation "action"', async () => {
       const callable = createConvexCallState({
         fnName: 'emails:send',
@@ -208,13 +208,13 @@ describe('global hooks (unit)', () => {
       await expect(callable({} as never)).rejects.toThrow('action failed')
 
       expect(callHookMock).toHaveBeenCalledWith(
-        'convex:action:error',
+        'trellis:action:error',
         expect.objectContaining({
           functionPath: 'emails:send',
           operation: 'action',
         }),
       )
-      const payload = callHookMock.mock.calls.find(([name]) => name === 'convex:action:error')?.[1]
+      const payload = callHookMock.mock.calls.find(([name]) => name === 'trellis:action:error')?.[1]
       expect(payload.error).toBeInstanceOf(ConvexCallError)
     })
   })
@@ -240,7 +240,7 @@ describe('global hooks (unit)', () => {
       await expect(callable({} as never)).rejects.toThrow()
 
       const payload = callHookMock.mock.calls.find(
-        ([name]) => name === 'convex:mutation:error',
+        ([name]) => name === 'trellis:mutation:error',
       )?.[1]
       expect(payload.error.category).toBe('auth')
       expect(payload.error.isRecoverable).toBe(true)
@@ -253,7 +253,7 @@ describe('global hooks (unit)', () => {
   describe('resilience', () => {
     it('does not block or break mutation return when success hook throws', async () => {
       callHookMock.mockImplementation(async (name: string) => {
-        if (name === 'convex:mutation:success') throw new Error('hook crashed')
+        if (name === 'trellis:mutation:success') throw new Error('hook crashed')
       })
 
       const callable = createConvexCallState({
@@ -272,7 +272,7 @@ describe('global hooks (unit)', () => {
 
     it('does not swallow the original error when error hook throws', async () => {
       callHookMock.mockImplementation(async (name: string) => {
-        if (name === 'convex:mutation:error') throw new Error('hook crashed')
+        if (name === 'trellis:mutation:error') throw new Error('hook crashed')
       })
 
       const callable = createConvexCallState({

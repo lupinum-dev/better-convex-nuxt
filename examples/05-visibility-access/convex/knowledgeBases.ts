@@ -1,4 +1,4 @@
-import { deny, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
+import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { canCreateKB, canManageEnrollments, canReadKB } from './auth/checks'

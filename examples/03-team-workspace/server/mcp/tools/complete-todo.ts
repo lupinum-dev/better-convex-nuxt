@@ -2,8 +2,8 @@
  * Why this file exists:
  * This tool reuses the same schema as the UI and shows permission-aware updates.
  */
-import { defineTool } from '#convex/mcp'
-import { api } from '~/convex/_generated/api'
+import { defineTool } from '#trellis/mcp'
+import { api } from '#trellis/api'
 import { setTodoCompleted } from '~/shared/schemas/todo'
 
 export default defineTool({

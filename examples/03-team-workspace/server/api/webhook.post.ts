@@ -3,8 +3,8 @@
  * Nitro route that receives external webhook payloads and forwards them to the Convex mutation.
  * The mutation handles its own auth (trusted caller key) and idempotency.
  */
-import { serverConvexMutation } from '#convex/server'
-import { api } from '~/convex/_generated/api'
+import { serverConvexMutation } from '#trellis/server'
+import { api } from '#trellis/api'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)

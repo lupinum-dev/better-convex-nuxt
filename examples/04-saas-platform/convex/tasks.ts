@@ -1,4 +1,4 @@
-import { can, deny, enforce, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
+import { can, deny, enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 

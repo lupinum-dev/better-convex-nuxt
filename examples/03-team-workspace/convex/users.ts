@@ -3,7 +3,7 @@
  * The MCP demo middleware resolves `Bearer demo:<email>` into a real actor by calling this query.
  * That keeps the example's MCP auth setup tiny while still exercising the real permission pipeline.
  */
-import { open } from 'better-convex-nuxt/auth'
+import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { app } from './functions'

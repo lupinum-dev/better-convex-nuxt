@@ -81,7 +81,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   const convexUser = useState<ConvexUser | null>(STATE_KEY_USER, () => null)
   const convexAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
   const convexPending = useState<boolean>(STATE_KEY_PENDING, () => true)
-  const wasAuthenticated = useState<boolean>('better-convex:was-authenticated', () => false)
+  const wasAuthenticated = useState<boolean>('trellis:was-authenticated', () => false)
   // authWaterfall is dev-only — skip allocation in production to avoid serializing dead state
   const convexAuthWaterfall = import.meta.dev
     ? useState<AuthWaterfall | null>(STATE_KEY_AUTH_WATERFALL, () => null)
@@ -114,7 +114,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
   if (import.meta.dev && hydratedAuth.decodeFailed) {
     console.warn(
-      '[better-convex-nuxt] JWT decode failed during SSR hydration. Auth state was cleared to unauthenticated because the token is invalid for client use. Configure Better Auth to include user claims in the JWT.',
+      '[trellis] JWT decode failed during SSR hydration. Auth state was cleared to unauthenticated because the token is invalid for client use. Configure Better Auth to include user claims in the JWT.',
     )
   }
 

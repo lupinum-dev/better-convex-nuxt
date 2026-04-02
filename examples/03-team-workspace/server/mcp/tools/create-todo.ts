@@ -3,8 +3,8 @@
  * This tool shows the "happy path" of MCP integration:
  * tool authors call `ctx.mutation(...)` and the trusted-caller plumbing stays hidden.
  */
-import { defineTool } from '#convex/mcp'
-import { api } from '~/convex/_generated/api'
+import { defineTool } from '#trellis/mcp'
+import { api } from '#trellis/api'
 import { createTodo } from '~/shared/schemas/todo'
 
 export default defineTool({

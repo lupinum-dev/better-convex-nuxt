@@ -1,4 +1,4 @@
-import { open } from 'better-convex-nuxt/auth'
+import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'

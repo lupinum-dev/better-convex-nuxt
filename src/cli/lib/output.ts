@@ -38,7 +38,7 @@ export function renderDoctorReport(report: DoctorReport, options: RenderDoctorRe
     return
   }
 
-  intro('better-convex-nuxt')
+  intro('trellis')
   note(report.cwd, 'doctor target')
 
   process.stdout.write('\n')

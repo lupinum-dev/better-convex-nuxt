@@ -2,7 +2,7 @@
  * Why this file exists:
  * Knowledge base access depends on enrollment, not just the user's workspace role.
  */
-import { deny } from 'better-convex-nuxt/auth'
+import { deny } from '@lupinum/trellis/auth'
 
 import type { Doc, Id } from '../_generated/dataModel'
 import type { DatabaseReader } from '../_generated/server'

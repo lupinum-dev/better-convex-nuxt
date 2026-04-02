@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '@@/convex/_generated/api'
+import { api } from '#trellis/api'
 import { ROLE_INFO, ROLES, type Role } from '@@/convex/auth/checks'
 
 const { ctx, pending: isPendingPermissions, isAuthenticated } = useDemoPermissions()

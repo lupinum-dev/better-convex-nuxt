@@ -2,7 +2,7 @@
  * Why this file exists:
  * Cross-client reporting must be explicit. This query is the intentional tenant-bypass path.
  */
-import { deny } from 'better-convex-nuxt/auth'
+import { deny } from '@lupinum/trellis/auth'
 
 import { query } from './_generated/server'
 import { getAgencyActor, getMemberships, requireAnyAgencyRole } from './auth/agency'

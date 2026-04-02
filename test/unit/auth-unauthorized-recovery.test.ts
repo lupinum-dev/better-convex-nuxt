@@ -66,7 +66,7 @@ describe('auth unauthorized recovery', () => {
     expect(callHookMock).not.toHaveBeenCalled()
   })
 
-  it('emits convex:unauthorized hook for unauthorized failures on other routes', async () => {
+  it('emits trellis:unauthorized hook for unauthorized failures on other routes', async () => {
     useNuxtAppMock.mockReturnValue({
       callHook: callHookMock,
       $router: {
@@ -87,7 +87,7 @@ describe('auth unauthorized recovery', () => {
 
     expect(handled).toBe(true)
     expect(callHookMock).toHaveBeenCalledWith(
-      'convex:unauthorized',
+      'trellis:unauthorized',
       expect.objectContaining({
         source: 'query',
         functionName: 'notes:list',

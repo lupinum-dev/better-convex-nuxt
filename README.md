@@ -1,4 +1,4 @@
-# Better Convex Nuxt
+# Trellis
 
 The full-stack Convex toolkit for Nuxt — SSR, real-time subscriptions, auth, permissions, and MCP in one module.
 
@@ -7,7 +7,7 @@ The full-stack Convex toolkit for Nuxt — SSR, real-time subscriptions, auth, p
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-- [Documentation](https://better-convex-nuxt.vercel.app)
+- [Documentation](https://trellis.vercel.app)
 - [Examples](./examples/README.md)
 - [Public demo app](./demo)
 
@@ -39,15 +39,15 @@ The full-stack Convex toolkit for Nuxt — SSR, real-time subscriptions, auth, p
 Requires **Nuxt 4** and **Node 18+**.
 
 ```bash
-pnpm add convex better-convex-nuxt
+pnpm add convex @lupinum/trellis
 ```
 
 Add the module to `nuxt.config.ts`:
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['better-convex-nuxt'],
-  convex: {
+  modules: ['@lupinum/trellis'],
+  trellis: {
     url: process.env.CONVEX_URL,
   },
 })
@@ -57,7 +57,7 @@ export default defineNuxtConfig({
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 // SSR-rendered on first load, then live WebSocket updates — no refetch needed
 const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: 'active' })
@@ -88,7 +88,7 @@ async function signInWithGitHub() {
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 const addNote = useConvexMutation(api.notes.add, {
   optimisticUpdate: (ctx, args) => {
@@ -116,46 +116,46 @@ export const remove = app.mutation({
 
 ## Where To Go Next
 
-- [Get Started](https://better-convex-nuxt.vercel.app/docs/guide/get-started)
-- [Authentication](https://better-convex-nuxt.vercel.app/docs/auth-security/authentication)
-- [Permissions](https://better-convex-nuxt.vercel.app/docs/permissions/setup)
-- [Server Side](https://better-convex-nuxt.vercel.app/docs/server-side/ssr-overview)
-- [MCP Tools](https://better-convex-nuxt.vercel.app/docs/mcp-tools/getting-started)
-- [Testing](https://better-convex-nuxt.vercel.app/docs/testing/getting-started)
-- [Module Options](https://better-convex-nuxt.vercel.app/docs/configuration/module-options)
-- [Deployment Overview](https://better-convex-nuxt.vercel.app/docs/deployment/overview)
+- [Get Started](https://trellis.vercel.app/docs/guide/get-started)
+- [Authentication](https://trellis.vercel.app/docs/auth-security/authentication)
+- [Permissions](https://trellis.vercel.app/docs/permissions/setup)
+- [Server Side](https://trellis.vercel.app/docs/server-side/ssr-overview)
+- [MCP Tools](https://trellis.vercel.app/docs/mcp-tools/getting-started)
+- [Testing](https://trellis.vercel.app/docs/testing/getting-started)
+- [Module Options](https://trellis.vercel.app/docs/configuration/module-options)
+- [Deployment Overview](https://trellis.vercel.app/docs/deployment/overview)
 
 ## Package Surface
 
 Published npm entrypoints:
 
-- `better-convex-nuxt`
-- `better-convex-nuxt/auth`
-- `better-convex-nuxt/args`
-- `better-convex-nuxt/composables`
-- `better-convex-nuxt/eslint`
-- `better-convex-nuxt/functions`
-- `better-convex-nuxt/mcp`
-- `better-convex-nuxt/server`
-- `better-convex-nuxt/testing`
-- `better-convex-nuxt/trusted-caller`
-- `better-convex-nuxt/visibility`
+- `@lupinum/trellis`
+- `@lupinum/trellis/auth`
+- `@lupinum/trellis/args`
+- `@lupinum/trellis/composables`
+- `@lupinum/trellis/eslint`
+- `@lupinum/trellis/functions`
+- `@lupinum/trellis/mcp`
+- `@lupinum/trellis/server`
+- `@lupinum/trellis/testing`
+- `@lupinum/trellis/trusted-caller`
+- `@lupinum/trellis/visibility`
 
 Nuxt-generated surfaces:
 
-- `#convex/mcp`
-- `#convex/server`
+- `#trellis/mcp`
+- `#trellis/server`
 - server auto-imports such as `serverConvexClearAuthCache` and `validateConvexArgs`
 - config-driven auto-imports such as `usePermissions()` and `useAuthGuard()`
 
-Those Nuxt-generated surfaces are not npm subpath exports. The generated reference lives at [API Surface](https://better-convex-nuxt.vercel.app/docs/api-reference/api-surface).
+Those Nuxt-generated surfaces are not npm subpath exports. The generated reference lives at [API Surface](https://trellis.vercel.app/docs/api-reference/api-surface).
 
 ## ESLint
 
 Flat config only for the first release:
 
 ```ts
-import bcn from 'better-convex-nuxt/eslint'
+import bcn from '@lupinum/trellis/eslint'
 
 export default [
   bcn.configs.recommended,
@@ -168,13 +168,13 @@ export default [
 The package ships a small CLI for consumer checks and scaffolding:
 
 ```bash
-npx better-convex-nuxt doctor
-npx better-convex-nuxt doctor --cwd ./my-app
-npx better-convex-nuxt doctor --json
-npx better-convex-nuxt init auth
-npx better-convex-nuxt init permissions --model workspace
-npx better-convex-nuxt init permissions --model workspace-mcp
-npx better-convex-nuxt init mcp
+npx trellis doctor
+npx trellis doctor --cwd ./my-app
+npx trellis doctor --json
+npx trellis init auth
+npx trellis init permissions --model workspace
+npx trellis init permissions --model workspace-mcp
+npx trellis init mcp
 ```
 
 ## Contributing
@@ -193,11 +193,11 @@ Maintainer notes live in [DEVELOPMENT.md](./DEVELOPMENT.md).
 
 [MIT](./LICENSE)
 
-[npm-version-src]: https://img.shields.io/npm/v/better-convex-nuxt/latest.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-version-href]: https://npmjs.com/package/better-convex-nuxt
-[npm-downloads-src]: https://img.shields.io/npm/dm/better-convex-nuxt.svg?style=flat&colorA=020420&colorB=00DC82
-[npm-downloads-href]: https://npm.chart.dev/better-convex-nuxt
-[license-src]: https://img.shields.io/npm/l/better-convex-nuxt.svg?style=flat&colorA=020420&colorB=00DC82
-[license-href]: https://npmjs.com/package/better-convex-nuxt
+[npm-version-src]: https://img.shields.io/npm/v/%40lupinum%2Ftrellis/latest.svg?style=flat&colorA=020420&colorB=00DC82
+[npm-version-href]: https://npmjs.com/package/@lupinum/trellis
+[npm-downloads-src]: https://img.shields.io/npm/dm/%40lupinum%2Ftrellis.svg?style=flat&colorA=020420&colorB=00DC82
+[npm-downloads-href]: https://npm.chart.dev/@lupinum/trellis
+[license-src]: https://img.shields.io/npm/l/%40lupinum%2Ftrellis.svg?style=flat&colorA=020420&colorB=00DC82
+[license-href]: https://npmjs.com/package/@lupinum/trellis
 [nuxt-src]: https://img.shields.io/badge/Nuxt-020420?logo=nuxt
 [nuxt-href]: https://nuxt.com

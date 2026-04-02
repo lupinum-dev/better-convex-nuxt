@@ -2,7 +2,7 @@
  * Why this file exists:
  * External systems retry, so webhook-side authorization also needs replay protection.
  */
-import { deny } from 'better-convex-nuxt/auth'
+import { deny } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'

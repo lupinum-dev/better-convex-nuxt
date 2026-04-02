@@ -1,4 +1,4 @@
-import { deny, enforce, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
+import { deny, enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { createComment } from '../shared/schemas/comment'

@@ -1,6 +1,6 @@
-import type { AuthIdentity } from 'better-convex-nuxt/auth'
-import { getAuth } from 'better-convex-nuxt/auth'
-import { getTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import type { AuthIdentity } from '@lupinum/trellis/auth'
+import { getAuth } from '@lupinum/trellis/auth'
+import { getTrustedCaller } from '@lupinum/trellis/trusted-caller'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'

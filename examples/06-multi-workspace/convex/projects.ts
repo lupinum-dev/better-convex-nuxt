@@ -1,4 +1,4 @@
-import { deny, enforce, requireAuth } from 'better-convex-nuxt/auth'
+import { deny, enforce, requireAuth } from '@lupinum/trellis/auth'
 /**
  * Why this file exists:
  * Normal project queries stay tenant-scoped even in the agency example.

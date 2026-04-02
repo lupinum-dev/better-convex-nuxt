@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 /**
  * Why this file exists:
  * The task detail page needs one place where comments, uploads, and nested permissions meet.

@@ -1,6 +1,6 @@
-import { defineArgs } from 'better-convex-nuxt/args'
-import { can, defineGuard, open } from 'better-convex-nuxt/auth'
-import { defineCapabilities } from 'better-convex-nuxt/visibility'
+import { defineArgs } from '@lupinum/trellis/args'
+import { can, defineGuard, open } from '@lupinum/trellis/auth'
+import { defineCapabilities } from '@lupinum/trellis/visibility'
 import { v } from 'convex/values'
 
 import { createPost, deletePost, updatePost } from '../shared/schemas/post'

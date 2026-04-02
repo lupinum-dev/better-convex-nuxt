@@ -30,7 +30,7 @@ trailing-icon: i-lucide-arrow-right
 Get Started
 :::
 
-:u-input-copy{value="pnpm add better-convex-nuxt"}
+:u-input-copy{value="pnpm add @lupinum/trellis"}
 
 #default
 ::tabs{class="xl:-mt-10 bg-white dark:bg-neutral-900"}
@@ -38,7 +38,7 @@ Get Started
 
 ```vue
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 // Real-time subscription with SSR support
 const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
@@ -63,7 +63,7 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
 
 ```vue
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 const createTask = useConvexMutation(api.tasks.create, {
   // Instant UI feedback with optimistic updates
@@ -115,7 +115,7 @@ async function handleOAuth() {
 
 ```vue
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 const props = defineProps<{ id: string }>()
 const { can, role } = usePermissions()

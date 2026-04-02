@@ -1,41 +1,41 @@
 ---
-name: better-convex-nuxt
+name: trellis
 description: >
-  Use this skill when working with the better-convex-nuxt module, its package subpaths,
+  Use this skill when working with Trellis, its package subpaths,
   Nuxt auto-imports, or its auth, permissions, server, testing, or MCP patterns.
-  Activate whenever a Nuxt project uses better-convex-nuxt or APIs such as
+  Activate whenever a Nuxt project uses @lupinum/trellis or APIs such as
   useConvexQuery, useConvexMutation, useConvexAction, useConvexPaginatedQuery,
   useCachedQuery, useConvexAuth, useConvexAuthActions, useConvexUpload,
   useConvexStorageUrl, useConvexConnectionState, usePermissions, useAuthGuard,
   serverConvexQuery, serverConvexMutation, serverConvexAction, defineArgs,
   defineTool, withTrustedCaller, getTrustedCaller, enforce, or the
-  #convex/mcp and #convex/server aliases.
+  #trellis/mcp and #trellis/server aliases.
 ---
 
-# better-convex-nuxt
+# Trellis
 
 Nuxt module for Convex with SSR queries, realtime subscriptions, Better Auth integration, app-owned permissions, server helpers, uploads, testing helpers, and MCP tooling.
 
-Docs: https://better-convex-nuxt.vercel.app
+Docs: https://trellis.vercel.app
 
 ## Public Surface
 
 Published package imports:
 
-- `better-convex-nuxt`
-- `better-convex-nuxt/auth`
-- `better-convex-nuxt/args`
-- `better-convex-nuxt/composables`
-- `better-convex-nuxt/mcp`
-- `better-convex-nuxt/server`
-- `better-convex-nuxt/testing`
-- `better-convex-nuxt/trusted-caller`
-- `better-convex-nuxt/visibility`
+- `@lupinum/trellis`
+- `@lupinum/trellis/auth`
+- `@lupinum/trellis/args`
+- `@lupinum/trellis/composables`
+- `@lupinum/trellis/mcp`
+- `@lupinum/trellis/server`
+- `@lupinum/trellis/testing`
+- `@lupinum/trellis/trusted-caller`
+- `@lupinum/trellis/visibility`
 
 Nuxt-generated surfaces:
 
-- `#convex/mcp`
-- `#convex/server`
+- `#trellis/mcp`
+- `#trellis/server`
 - server auto-imports from `#imports`
 - config-driven auto-imports like `usePermissions()` and `useAuthGuard()`
 
@@ -61,7 +61,7 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 
 - `useConvexAuth()` exposes auth state and the Better Auth client.
 - `useConvexAuthActions()` wraps Better Auth client calls and refreshes Convex auth afterward.
-- Auth components are global only when `convex.auth` is enabled:
+- Auth components are global only when `trellis.auth` is enabled:
   - `<ConvexAuthenticated>`
   - `<ConvexUnauthenticated>`
   - `<ConvexAuthLoading>`
@@ -70,13 +70,13 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 ### Permissions
 
 - The app owns the permission-context query.
-- The module wires frontend reflection through `convex.permissions.query`.
+- The module wires frontend reflection through `trellis.permissions.query`.
 - `usePermissions()` and `useAuthGuard()` are generated auto-imports, not package exports.
 - Prefer backend-owned `_can` data for resource-specific authorization. Use `useAuthGuard()` for page-level capability gating.
 
 ### Shared Args
 
-- Define shared input schemas with `defineArgs()` from `better-convex-nuxt/args`.
+- Define shared input schemas with `defineArgs()` from `@lupinum/trellis/args`.
 - Reuse the same schema across Convex handlers, Nitro routes, and MCP tools.
 - Shared args are schema-only. Hidden trusted-caller transport belongs in `withTrustedCaller(...)`, not in `defineArgs()`.
 
@@ -89,7 +89,7 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 
 ### Server Helpers
 
-- Package export: `better-convex-nuxt/server`
+- Package export: `@lupinum/trellis/server`
   - `serverConvexQuery`
   - `serverConvexMutation`
   - `serverConvexAction`
@@ -100,13 +100,13 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 
 ### MCP
 
-- Use `defineTool()` from `#convex/mcp` for Convex-backed MCP tools.
+- Use `defineTool()` from `#trellis/mcp` for Convex-backed MCP tools.
 - Use generic MCP primitives from the same alias when you need prompts, resources, handlers, sessions, or dynamic tools.
 - `scoped: true` is the trusted-caller-aware MCP path. It still requires explicit actor resolution in the Convex handler.
 
 ### Testing
 
-- Use `convexTestConfig()` and `createTestContext()` from `better-convex-nuxt/testing`.
+- Use `convexTestConfig()` and `createTestContext()` from `@lupinum/trellis/testing`.
 - Keep `convex/test.setup.ts` in the consumer app.
 - `asTrustedCaller()` is the test-only way to exercise trusted-caller paths.
 

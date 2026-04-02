@@ -3,7 +3,7 @@
  * The unified access chain for articles: enrollment → prerequisites → publish state → access level.
  * Combines patterns from the LMS lesson access and doc sharing page access.
  */
-import { deny, requireRecord } from 'better-convex-nuxt/auth'
+import { deny, requireRecord } from '@lupinum/trellis/auth'
 
 import type { Doc, Id } from '../_generated/dataModel'
 import type { DatabaseReader } from '../_generated/server'

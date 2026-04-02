@@ -38,13 +38,13 @@ export default defineAppConfig({
     },
   },
   seo: {
-    siteName: 'Better Convex Nuxt',
+    siteName: 'Trellis',
   },
   header: {
-    title: 'Better Convex Nuxt',
+    title: 'Trellis',
     to: '/',
     logo: {
-      alt: 'Better Convex Nuxt',
+      alt: 'Trellis',
       light: '',
       dark: '',
     },
@@ -54,13 +54,13 @@ export default defineAppConfig({
       {
         icon: 'i-lucide-play',
         label: 'Demo',
-        to: 'https://better-convex-nuxt-demo.vercel.app/',
+        to: 'https://trellis-demo.vercel.app/',
         target: '_blank',
         'aria-label': 'Live Demo',
       },
       {
         icon: 'i-simple-icons-github',
-        to: 'https://github.com/lupinum-dev/better-convex-nuxt',
+        to: 'https://github.com/lupinum-dev/trellis',
         target: '_blank',
         'aria-label': 'GitHub',
       },
@@ -72,15 +72,15 @@ export default defineAppConfig({
     links: [
       {
         icon: 'i-simple-icons-github',
-        to: 'https://github.com/lupinum-dev/better-convex-nuxt',
+        to: 'https://github.com/lupinum-dev/trellis',
         target: '_blank',
-        'aria-label': 'Better Convex Nuxt on GitHub',
+        'aria-label': 'Trellis on GitHub',
       },
       {
         icon: 'i-simple-icons-npm',
-        to: 'https://www.npmjs.com/package/better-convex-nuxt',
+        to: 'https://www.npmjs.com/package/@lupinum/trellis',
         target: '_blank',
-        'aria-label': 'Better Convex Nuxt on npm',
+        'aria-label': 'Trellis on npm',
       },
     ],
   },
@@ -88,12 +88,12 @@ export default defineAppConfig({
     title: 'Table of Contents',
     bottom: {
       title: 'Resources',
-      edit: 'https://github.com/lupinum-dev/better-convex-nuxt/edit/main/docs/content',
+      edit: 'https://github.com/lupinum-dev/trellis/edit/main/docs/content',
       links: [
         {
           icon: 'i-lucide-star',
           label: 'Star on GitHub',
-          to: 'https://github.com/lupinum-dev/better-convex-nuxt',
+          to: 'https://github.com/lupinum-dev/trellis',
           target: '_blank',
         },
         {

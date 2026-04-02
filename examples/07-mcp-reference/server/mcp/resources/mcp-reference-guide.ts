@@ -1,4 +1,4 @@
-import { defineMcpResource } from '#convex/mcp'
+import { defineMcpResource } from '#trellis/mcp'
 
 export default defineMcpResource({
   name: 'mcp-reference-guide',

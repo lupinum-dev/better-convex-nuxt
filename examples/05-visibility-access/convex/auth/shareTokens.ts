@@ -3,7 +3,7 @@
  * Public share links are a second auth path for articles. They use hashed tokens with expiry
  * and revocation support.
  */
-import { deny } from 'better-convex-nuxt/auth'
+import { deny } from '@lupinum/trellis/auth'
 
 import type { Id } from '../_generated/dataModel'
 import type { DatabaseReader } from '../_generated/server'

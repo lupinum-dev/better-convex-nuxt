@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { convexServerMock, createConvexTestModules } from 'better-convex-nuxt/testing'
+import { convexServerMock, createConvexTestModules } from '@lupinum/trellis/testing'
 import { vi } from 'vitest'
 
 export const modules = createConvexTestModules(

@@ -4,7 +4,7 @@
  * Auth is explicitly disabled so readers can see the "no auth" baseline first.
  */
 export default defineNuxtConfig({
-  modules: ['better-convex-nuxt', '@nuxt/ui'],
+  modules: ['@lupinum/trellis', '@nuxt/ui'],
   css: ['~/assets/css/main.css'],
 
   compatibilityDate: '2026-03-30',
@@ -17,7 +17,7 @@ export default defineNuxtConfig({
     strict: true,
   },
 
-  convex: {
+  trellis: {
     url: process.env.CONVEX_URL,
     auth: false,
   },

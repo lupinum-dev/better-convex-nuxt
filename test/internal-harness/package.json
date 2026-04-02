@@ -1,5 +1,5 @@
 {
-  "name": "better-convex-nuxt-internal-harness",
+  "name": "@lupinum/trellis-internal-harness",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "@convex-dev/better-auth": "^0.11.3",
     "@nuxtjs/mcp-toolkit": "latest",
     "better-auth": "^1.5.0",
-    "better-convex-nuxt": "link:../..",
+    "@lupinum/trellis": "link:../..",
     "convex": "^1.34.0",
     "nuxt": "^4.3.1",
     "secure-exec": "^0.1.0",

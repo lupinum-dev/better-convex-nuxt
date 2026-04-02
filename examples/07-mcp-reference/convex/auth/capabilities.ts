@@ -1,5 +1,5 @@
-import { can } from 'better-convex-nuxt/auth'
-import { defineCapabilities } from 'better-convex-nuxt/visibility'
+import { can } from '@lupinum/trellis/auth'
+import { defineCapabilities } from '@lupinum/trellis/visibility'
 
 import type { Doc } from '../_generated/dataModel'
 import type { Actor } from './actor'

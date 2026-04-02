@@ -1,4 +1,4 @@
-import { requireRecord } from 'better-convex-nuxt/auth'
+import { requireRecord } from '@lupinum/trellis/auth'
 
 import { createTodo, deleteTodo, listTodos, setTodoCompleted } from '../shared/schemas/todo'
 import { todoCapabilities } from './auth/capabilities'

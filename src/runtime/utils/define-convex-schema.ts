@@ -192,7 +192,7 @@ export function defineArgs<V extends PropertyValidators>(definition: {
   const objectValidator = v.object(definition.args)
   const standardProps: StandardSchemaV1Props<T> = {
     version: 1,
-    vendor: 'better-convex-nuxt',
+    vendor: '@lupinum/trellis',
     validate: (value: unknown) => {
       const issues = validateConvex(objectValidator, value)
       if (issues.length > 0) {

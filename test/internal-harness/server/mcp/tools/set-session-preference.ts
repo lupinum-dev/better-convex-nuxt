@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { defineMcpTool, useMcpSession } from '#convex/mcp'
+import { defineMcpTool, useMcpSession } from '#trellis/mcp'
 
 interface PlaygroundSessionData {
   preferredSearch?: string

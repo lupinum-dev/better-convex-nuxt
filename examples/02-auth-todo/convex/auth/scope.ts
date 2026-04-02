@@ -1,4 +1,4 @@
-import { deny, requireRecord } from 'better-convex-nuxt/auth'
+import { deny, requireRecord } from '@lupinum/trellis/auth'
 
 export { requireRecord }
 

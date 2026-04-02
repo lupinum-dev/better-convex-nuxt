@@ -2,7 +2,7 @@ import { createError } from 'h3'
 import { useEvent } from 'nitropack/runtime'
 import { z } from 'zod'
 
-import { defineMcpTool, useMcpServer, useMcpSession } from '#convex/mcp'
+import { defineMcpTool, useMcpServer, useMcpSession } from '#trellis/mcp'
 
 interface ReferenceSessionData {
   preferredFocus?: string

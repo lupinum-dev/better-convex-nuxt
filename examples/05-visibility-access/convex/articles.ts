@@ -9,7 +9,7 @@ import {
   loadTenantResource as loadResource,
   open,
   requireRecord,
-} from 'better-convex-nuxt/auth'
+} from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { getInheritedAccessLevel, requireArticleAccess } from './auth/articleAccess'

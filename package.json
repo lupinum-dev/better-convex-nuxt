@@ -1,5 +1,5 @@
 {
-  "name": "better-convex-nuxt",
+  "name": "@lupinum/trellis",
   "version": "0.3.4",
   "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
   "keywords": [
@@ -16,18 +16,18 @@
     "vue3",
     "websocket"
   ],
-  "homepage": "https://better-convex-nuxt.vercel.app",
+  "homepage": "https://trellis.vercel.app",
   "bugs": {
-    "url": "https://github.com/lupinum-dev/better-convex-nuxt/issues"
+    "url": "https://github.com/lupinum-dev/trellis/issues"
   },
   "license": "MIT",
   "author": "Matthias Amon <ma4m0>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lupinum-dev/better-convex-nuxt.git"
+    "url": "git+https://github.com/lupinum-dev/trellis.git"
   },
   "bin": {
-    "better-convex-nuxt": "./dist/cli.mjs"
+    "trellis": "./dist/cli.mjs"
   },
   "files": [
     "dist"
@@ -133,7 +133,7 @@
     "harness:convex:dashboard": "docker run --rm -p 6791:6791 -e NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:3210 ghcr.io/get-convex/convex-dashboard:latest",
     "release": "pnpm run lint && pnpm run test && pnpm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
     "lint": "pnpm run check:no-legacy-auth-api && pnpm run check:no-canonical-trusted-caller-wrappers && pnpm run check:no-legacy-query-api && pnpm run check:no-query-composables-in-middleware && pnpm run check:no-use-route-in-middleware && pnpm run check:no-middleware-query-docs && pnpm run check:docs:api-surface && pnpm run check:docs:links && eslint .",
-    "check:no-legacy-auth-api": "sh -c '! rg -n \"defineActorConfig|createPermissions|usePermissionGuard|permissions\\\\.config|actor\\\\.config|better-convex-nuxt/convex|scopedQuery|scopedMutation|\\bauthorize\\s*\\(\" README.md docs src test examples demo'",
+    "check:no-legacy-auth-api": "sh -c '! rg -n \"defineActorConfig|createPermissions|usePermissionGuard|permissions\\\\.config|actor\\\\.config|@lupinum/trellis/convex|scopedQuery|scopedMutation|\\bauthorize\\s*\\(\" README.md docs src test examples demo'",
     "check:no-canonical-trusted-caller-wrappers": "sh -c '! rg -n \"withTrustedCallerHandler\\\\(\" README.md docs/content/docs/7.permissions docs/content/docs/13.mcp-tools examples test/internal-harness'",
     "check:no-legacy-query-api": "sh -c \"! rg -n 'createFunctions\\\\(|defineHandler\\\\(|appQuery\\\\(|appMutation\\\\(|definePermissions\\\\(|withCan\\\\(|createDefaultGetActor\\\\(|defineActorExtension\\\\(|defineActorFromMembership\\\\(' src examples docs README.md -g '!dist' -g '!docs/content/docs/7.permissions/10.migration-to-create-app.md'\"",
     "check:no-query-composables-in-middleware": "sh -c '! rg -n \"useConvexQuery\\\\(|useConvexPaginatedQuery\\\\(\" test/internal-harness/middleware test/internal-harness/plugins'",

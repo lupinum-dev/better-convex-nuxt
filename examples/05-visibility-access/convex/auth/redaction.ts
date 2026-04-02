@@ -2,7 +2,7 @@
  * Why this file exists:
  * Sensitive article fields are stripped for non-editor roles.
  */
-import { defineRedaction } from 'better-convex-nuxt/visibility'
+import { defineRedaction } from '@lupinum/trellis/visibility'
 
 import type { Actor } from './actor'
 import { hasRole } from './checks'

@@ -2,7 +2,7 @@
  * Why this file exists:
  * Static predicates for role and ownership checks across the knowledge base domain.
  */
-import { defineGuard } from 'better-convex-nuxt/auth'
+import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { Doc } from '../_generated/dataModel'
 import type { Actor } from './actor'

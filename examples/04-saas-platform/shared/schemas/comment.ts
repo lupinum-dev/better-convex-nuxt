@@ -1,4 +1,4 @@
-import { defineArgs } from 'better-convex-nuxt/args'
+import { defineArgs } from '@lupinum/trellis/args'
 /**
  * Why this file exists:
  * Comments demonstrate uploads plus nested authorization, so the input shape gets reused in

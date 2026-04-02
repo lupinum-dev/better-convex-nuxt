@@ -1,7 +1,7 @@
 Philosophy
 Vue taught us that APIs should feel like they disappear. You don't "use Vue" — you just write components and they're reactive. Vite taught us the build tool should be invisible. Nuxt taught us that conventions eliminate decisions that don't matter.
 Radix taught us something different: give people unstyled, accessible primitives that handle the hard parts, then get out of the way. Shadcn said: don't even install it as a dependency — copy it, own it, change it.
-better-convex-nuxt tries to be both at once.
+@lupinum/trellis tries to be both at once.
 The four principles
 Structural safety. The API shape makes unsafe things hard to express — not just documented as "don't do this." A handler without a guard is a type error, not a code review catch. A public endpoint says guard: open, not nothing. Tenant isolation is declared once, not checked in every query. The absence of a security decision is visible, not silent.
 Composable primitives. defineActor, defineGuard, defineHandler, defineCapabilities, defineRedaction, definePermissionContext, defineArgs — each does one thing and composes with everything. On the frontend, useConvexQuery, useConvexMutation, usePermissions, useConvexAuth follow the same rule. Use one. Use all of them. They don't know about each other, and they don't need to.

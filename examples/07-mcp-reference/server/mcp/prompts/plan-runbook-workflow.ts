@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { defineMcpPrompt } from '#convex/mcp'
+import { defineMcpPrompt } from '#trellis/mcp'
 
 export default defineMcpPrompt({
   name: 'plan-runbook-workflow',

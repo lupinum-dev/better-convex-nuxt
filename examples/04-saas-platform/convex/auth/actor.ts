@@ -3,7 +3,7 @@
  * The board example keeps its plan-aware actor app-owned, but composes it through the shipped
  * actor builder instead of custom wrapper helpers.
  */
-import { defineActor, type DefaultActor } from 'better-convex-nuxt/auth'
+import { defineActor, type DefaultActor } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'

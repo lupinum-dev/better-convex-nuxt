@@ -25,7 +25,7 @@ describe('plugin.client refresh', () => {
     const plugin = await loadClientPlugin()
     await plugin(createNuxtAppMock({ serverRendered: true }) as never)
 
-    const refreshHook = hookRegistry.get('better-convex:auth:refresh')
+    const refreshHook = hookRegistry.get('trellis:auth:refresh')
     expect(refreshHook).toBeTypeOf('function')
 
     await expect(refreshHook?.()).resolves.toBeUndefined()
@@ -67,7 +67,7 @@ describe('plugin.client refresh', () => {
     const plugin = await loadClientPlugin()
     await plugin(createNuxtAppMock({ serverRendered: true }) as never)
 
-    const refreshHook = hookRegistry.get('better-convex:auth:refresh')
+    const refreshHook = hookRegistry.get('trellis:auth:refresh')
     expect(refreshHook).toBeTypeOf('function')
 
     await expect(refreshHook?.()).resolves.toBeUndefined()
@@ -103,7 +103,7 @@ describe('plugin.client refresh', () => {
     stateStore.get('convex:user')!.value = { id: 'u1' }
     stateStore.get('convex:authError')!.value = 'stale error'
 
-    const invalidate = hookRegistry.get('better-convex:auth:invalidate')
+    const invalidate = hookRegistry.get('trellis:auth:invalidate')
     expect(invalidate).toBeTypeOf('function')
 
     await invalidate?.()

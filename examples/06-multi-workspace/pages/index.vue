@@ -305,7 +305,7 @@ This page keeps current-workspace actions and cross-client reporting in the same
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 import { agencyPermissionKeys } from '~/shared/permissions'
 
 const { client, user, signOut } = useConvexAuth()

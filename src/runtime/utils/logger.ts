@@ -1,5 +1,5 @@
 /**
- * Semantic logger for better-convex-nuxt
+ * Semantic logger for @lupinum/trellis
  *
  * Levels:
  * - false: No logs (production default)

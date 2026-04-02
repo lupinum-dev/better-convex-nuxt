@@ -4,7 +4,7 @@
  * but adds server routes, uploads, and admin workflows on top of the same canonical workspace model.
  */
 export default defineNuxtConfig({
-  modules: ['better-convex-nuxt', '@nuxt/ui'],
+  modules: ['@lupinum/trellis', '@nuxt/ui'],
 
   css: ['~/assets/css/main.css'],
 
@@ -18,7 +18,7 @@ export default defineNuxtConfig({
     strict: true,
   },
 
-  convex: {
+  trellis: {
     url: process.env.CONVEX_URL,
     auth: {
       enabled: true,

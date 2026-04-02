@@ -16,17 +16,17 @@ export default defineNuxtConfig({
   modules: [moduleEntry, '@nuxtjs/mcp-toolkit'],
 
   alias: {
-    'better-convex-nuxt/composables': runtimeComposablesEntry,
-    'better-convex-nuxt/args': runtimeArgsEntry,
-    'better-convex-nuxt/mcp': runtimeMcpEntry,
-    'better-convex-nuxt/server': runtimeServerEntry,
+    '@lupinum/trellis/composables': runtimeComposablesEntry,
+    '@lupinum/trellis/args': runtimeArgsEntry,
+    '@lupinum/trellis/mcp': runtimeMcpEntry,
+    '@lupinum/trellis/server': runtimeServerEntry,
   },
 
   nitro: {
     experimental: { asyncContext: true },
   },
 
-  convex: {
+  trellis: {
     url: 'https://shared-schema-smoke.convex.cloud',
   },
 })

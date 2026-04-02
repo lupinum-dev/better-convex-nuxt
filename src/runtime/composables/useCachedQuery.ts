@@ -38,7 +38,7 @@ export interface UseCachedQueryReturn<DataT> extends UseConvexQueryReturn<DataT>
  * @example List-to-detail navigation
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const props = defineProps<{ id: string }>()
  *

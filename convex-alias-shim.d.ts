@@ -1,8 +1,18 @@
-declare module '#convex/mcp' {
-  export * from 'better-convex-nuxt/mcp'
+declare module '#trellis' {
+  export * from './src/runtime/composables/index'
 }
 
-declare module '#convex/server' {
+declare module '#trellis/api' {
+  import type { api as convexApi } from './convex/_generated/api'
+
+  export const api: typeof convexApi
+}
+
+declare module '#trellis/mcp' {
+  export * from '@lupinum/trellis/mcp'
+}
+
+declare module '#trellis/server' {
   import type {
     serverConvexAction as serverConvexActionFn,
     serverConvexMutation as serverConvexMutationFn,

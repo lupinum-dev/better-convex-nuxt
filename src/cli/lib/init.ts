@@ -19,7 +19,7 @@ export interface InitTemplateSet {
 
 function authTsTemplate() {
   return `
-import { defineAuth } from 'better-convex-nuxt/auth'
+import { defineAuth } from '@lupinum/trellis/auth'
 
 import { components, internal } from './_generated/api'
 import { mutation } from './_generated/server'
@@ -79,7 +79,7 @@ function testSetupTemplate() {
 
 import { vi } from 'vitest'
 
-import { convexServerMock, createConvexTestModules } from 'better-convex-nuxt/testing'
+import { convexServerMock, createConvexTestModules } from '@lupinum/trellis/testing'
 
 export const modules = createConvexTestModules(import.meta.glob('./**/*.ts', {
   eager: false,
@@ -91,7 +91,7 @@ vi.mock('./_generated/server', async () => await convexServerMock())
 
 function personalActorTemplate() {
   return `
-import { defineActor } from 'better-convex-nuxt/auth'
+import { defineActor } from '@lupinum/trellis/auth'
 
 const actor = defineActor.fromAuth()
 
@@ -103,7 +103,7 @@ export const getActor = actor.resolve
 
 function personalChecksTemplate() {
   return `
-import { defineGuard } from 'better-convex-nuxt/auth'
+import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { Actor } from './actor'
 
@@ -118,7 +118,7 @@ export const isOwnerOf = (resource: { ownerId: string }) =>
 
 function personalFunctionsTemplate() {
   return `
-import { createApp } from 'better-convex-nuxt/functions'
+import { createApp } from '@lupinum/trellis/functions'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -134,7 +134,7 @@ export { query, mutation }
 
 function personalPermissionQueryTemplate() {
   return `
-import { definePermissionContext } from 'better-convex-nuxt/auth'
+import { definePermissionContext } from '@lupinum/trellis/auth'
 
 import { isAuthenticated } from './auth/checks'
 import { getActor } from './auth/actor'
@@ -154,7 +154,7 @@ export const getPermissionContext = app.query(
 
 function workspaceActorTemplate() {
   return `
-import { defineActor, type DefaultActor } from 'better-convex-nuxt/auth'
+import { defineActor, type DefaultActor } from '@lupinum/trellis/auth'
 
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
@@ -181,7 +181,7 @@ export const getActor = actor.resolve
 
 function workspaceFunctionsTemplate({ trustedCaller }: { trustedCaller: boolean }) {
   return `
-import { createApp } from 'better-convex-nuxt/functions'
+import { createApp } from '@lupinum/trellis/functions'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -202,7 +202,7 @@ export { query, mutation }
 
 function workspaceChecksTemplate() {
   return `
-import { defineGuard } from 'better-convex-nuxt/auth'
+import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { Actor, Role } from './actor'
 
@@ -234,7 +234,7 @@ export const canManageWorkspace = defineGuard<Actor>(
 
 function workspacePermissionQueryTemplate() {
   return `
-import { defineGuard, definePermissionContext } from 'better-convex-nuxt/auth'
+import { defineGuard, definePermissionContext } from '@lupinum/trellis/auth'
 
 import { getActor } from './auth/actor'
 import { hasMinimumRole, isAuthenticated } from './auth/checks'
@@ -261,7 +261,7 @@ import { createHash } from 'node:crypto'
 
 import { defineEventHandler, getHeader, createError } from 'h3'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 export default defineEventHandler(async (event) => {
   const header = getHeader(event, 'authorization')

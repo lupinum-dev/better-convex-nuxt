@@ -3,8 +3,8 @@
  * Trusted webhook callers must resolve to a real user row so todo permissions and ownership stay
  * on the same actor model as browser callers.
  */
-import { deny } from 'better-convex-nuxt/auth'
-import { verifyTrustedCallerKey } from 'better-convex-nuxt/trusted-caller'
+import { deny } from '@lupinum/trellis/auth'
+import { verifyTrustedCallerKey } from '@lupinum/trellis/trusted-caller'
 import type { GenericDatabaseReader, GenericMutationCtx } from 'convex/server'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'

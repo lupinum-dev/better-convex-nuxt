@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in better-convex-nuxt! This guide covers the development setup, testing, and contribution workflow.
+Thanks for your interest in @lupinum/trellis! This guide covers the development setup, testing, and contribution workflow.
 
 ## Prerequisites
 

@@ -1,5 +1,5 @@
-import { defineGuard, open } from 'better-convex-nuxt/auth'
-import { createApp } from 'better-convex-nuxt/functions'
+import { defineGuard, open } from '@lupinum/trellis/auth'
+import { createApp } from '@lupinum/trellis/functions'
 import { Triggers } from 'convex-helpers/server/triggers'
 import { v } from 'convex/values'
 

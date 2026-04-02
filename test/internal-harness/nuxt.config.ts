@@ -40,18 +40,18 @@ export default defineNuxtConfig({
   modules: ['../../src/module', '@nuxtjs/mcp-toolkit'],
 
   mcp: {
-    name: 'better-convex-nuxt-internal-harness',
+    name: 'trellis-internal-harness',
     sessions: true,
   },
 
   alias: {
-    'better-convex-nuxt/composables': runtimeComposablesEntry,
-    'better-convex-nuxt/auth': runtimeAuthEntry,
-    'better-convex-nuxt/args': runtimeArgsEntry,
-    'better-convex-nuxt/mcp': runtimeMcpEntry,
-    'better-convex-nuxt/server': runtimeServerEntry,
-    'better-convex-nuxt/trusted-caller': runtimeTrustedCallerEntry,
-    'better-convex-nuxt/visibility': runtimeVisibilityEntry,
+    '@lupinum/trellis/composables': runtimeComposablesEntry,
+    '@lupinum/trellis/auth': runtimeAuthEntry,
+    '@lupinum/trellis/args': runtimeArgsEntry,
+    '@lupinum/trellis/mcp': runtimeMcpEntry,
+    '@lupinum/trellis/server': runtimeServerEntry,
+    '@lupinum/trellis/trusted-caller': runtimeTrustedCallerEntry,
+    '@lupinum/trellis/visibility': runtimeVisibilityEntry,
   },
 
   nitro: {
@@ -60,7 +60,7 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2026-02-26',
 
-  convex: {
+  trellis: {
     url: useLocalConvex
       ? localConvexUrl
       : process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,
@@ -78,7 +78,7 @@ export default defineNuxtConfig({
       config.plugins = [
         ...(config.plugins ?? []),
         convexLocal({
-          instanceName: 'better-convex-nuxt-internal-harness',
+          instanceName: 'trellis-internal-harness',
           stateIdSuffix: 'internal-harness-local-v1',
           port: 3210,
           siteProxyPort: 3211,

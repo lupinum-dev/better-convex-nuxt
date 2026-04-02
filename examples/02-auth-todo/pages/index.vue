@@ -178,7 +178,7 @@ import { computed, ref, watch } from 'vue'
  */
 import * as z from 'zod'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 const { client, isAuthenticated, isPending, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()

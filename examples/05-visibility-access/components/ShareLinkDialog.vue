@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 
-import { api } from '~/convex/_generated/api'
+import { api } from '#trellis/api'
 
 const props = defineProps<{
   articleId: string

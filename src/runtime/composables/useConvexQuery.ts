@@ -118,7 +118,7 @@ function getFingerprint(value: unknown): string {
   } catch (e) {
     if (import.meta.dev) {
       console.warn(
-        '[better-convex-nuxt] Failed to fingerprint shared query args — duplicate-key detection is degraded:',
+        '[trellis] Failed to fingerprint shared query args — duplicate-key detection is degraded:',
         e,
       )
     }
@@ -433,7 +433,7 @@ export function createConvexQueryState<
  * @example Basic SSR query
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * // SSR-rendered, then live WebSocket updates — no refetch needed
  * const { data: tasks } = await useConvexQuery(api.tasks.list, { status: 'active' })
@@ -443,7 +443,7 @@ export function createConvexQueryState<
  * @example Conditional query with reactive args
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#trellis/api'
  *
  * const selectedId = ref<string | null>(null)
  *

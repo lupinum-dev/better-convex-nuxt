@@ -2,7 +2,7 @@
  * Why this file exists:
  * Plan entitlements answer "may they use the feature?" Limits answer "is there room right now?"
  */
-import { deny } from 'better-convex-nuxt/auth'
+import { deny } from '@lupinum/trellis/auth'
 import type { GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'
