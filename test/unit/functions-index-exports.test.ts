@@ -9,5 +9,7 @@ describe('functions entrypoint exports', () => {
 
   it('exports the canonical function builder factory', () => {
     expect(functionsApi).toHaveProperty('createFunctions')
+    expect(functionsApi).toHaveProperty('defineHandler')
+    expect(functionsApi).toHaveProperty('open')
   })
 })

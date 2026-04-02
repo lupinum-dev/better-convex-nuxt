@@ -1,51 +1,43 @@
-import { can, enforce, ensureTenant, requireRecord, withCan } from 'better-convex-nuxt/auth'
+import { requireRecord } from 'better-convex-nuxt/auth'
 
 import { createTodo, deleteTodo, listTodos, setTodoCompleted } from '../shared/schemas/todo'
+import { todoCapabilities } from './auth/capabilities'
 import { canCreateTodo, canDeleteTodo, canReadTodo, canUpdateTodo } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const list = appQuery({
+export const list = app.query({
   args: listTodos.args,
-  handler: async (ctx, args) => {
+  guard: canReadTodo,
+  handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read todos', canReadTodo)
-
     const todos = await ctx.db
       .query('todos')
       .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
 
-    return todos.map((todo) =>
-      withCan(todo, {
-        update: can(actor, canUpdateTodo(todo)),
-        delete: can(actor, canDeleteTodo(todo)),
-      }),
-    )
+    return todoCapabilities.attach(actor, todos)
   },
 })
 
-export const get = appQuery({
+export const get = app.query({
   args: deleteTodo.args,
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    enforce(actor, 'Read todos', canReadTodo)
-
+  guard: canReadTodo,
+  load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
-    ensureTenant(actor, todo)
-    return withCan(todo, {
-      update: can(actor, canUpdateTodo(todo)),
-      delete: can(actor, canDeleteTodo(todo)),
-    })
+    return { todo }
+  },
+  handler: async (ctx, _args, { todo }) => {
+    return todoCapabilities.attach(await ctx.actor(), todo)
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
   args: createTodo.args,
+  guard: canCreateTodo,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create todo', canCreateTodo)
 
     return ctx.db.insert('todos', {
       title: args.title,
@@ -57,29 +49,36 @@ export const create = appMutation({
   },
 })
 
-export const setCompleted = appMutation({
+export const setCompleted = app.mutation({
   args: setTodoCompleted.args,
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+  guard: canReadTodo,
+  load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
-    ensureTenant(actor, todo)
-    enforce(actor, 'Update todo', canUpdateTodo(todo))
-
+    return { todo }
+  },
+  authorize: {
+    check: (_actor, { todo }) => canUpdateTodo(todo),
+  },
+  handler: async (ctx, args) => {
     await ctx.db.patch(args.id, {
       completed: args.completed,
     })
   },
 })
 
-export const remove = appMutation({
+export const remove = app.mutation({
   args: deleteTodo.args,
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+  guard: canReadTodo,
+  load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
-    ensureTenant(actor, todo)
-    enforce(actor, 'Delete todo', canDeleteTodo(todo))
+    return { todo }
+  },
+  authorize: {
+    check: (_actor, { todo }) => canDeleteTodo(todo),
+  },
+  handler: async (ctx, args) => {
     await ctx.db.delete(args.id)
   },
 })

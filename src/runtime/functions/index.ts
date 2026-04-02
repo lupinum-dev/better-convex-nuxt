@@ -27,6 +27,8 @@ import {
   extractTrustedCallerFromArgs,
   trustedCallerValidators,
 } from '../trusted-caller/shared'
+export { defineHandler } from './define-handler'
+export { open } from '../auth'
 
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
@@ -282,6 +284,13 @@ function createCustomization<
   }
 }
 
+/**
+ * Low-level function builder composition.
+ *
+ * Prefer authoring protected handlers through `defineHandler(appQuery,
+ * appMutation)` and keep `createFunctions(...)` in `convex/functions.ts` as the
+ * transport and actor/RLS composition seam.
+ */
 export function createFunctions<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,

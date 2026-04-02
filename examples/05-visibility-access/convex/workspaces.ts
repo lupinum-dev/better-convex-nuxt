@@ -1,7 +1,8 @@
-import { can, deny } from 'better-convex-nuxt/auth'
+import { definePermissionContext, deny, open } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { knowledgeBasePermissionKeys, type KnowledgeBasePermissionMap } from '../shared/permissions'
+import { getActor } from './auth/actor'
 import {
   canCreateArticle,
   canCreateKB,
@@ -10,9 +11,10 @@ import {
   canReadArticle,
   canReadKB,
 } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app, appQuery } from './functions'
 
-export const listWorkspaces = appQuery({
+export const listWorkspaces = app.query({
+  guard: open,
   args: {},
   handler: async (ctx) => {
     const workspaces = await ctx.db.query('workspaces').order('desc').collect()
@@ -20,36 +22,33 @@ export const listWorkspaces = appQuery({
   },
 })
 
-export const getPermissionContext = appQuery({
-  args: {},
-  handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor) return null
+export const getPermissionContext = appQuery(
+  definePermissionContext({
+    resolve: getActor,
+    guards: {
+      [knowledgeBasePermissionKeys.kbCreate]: canCreateKB,
+      [knowledgeBasePermissionKeys.kbRead]: canReadKB,
+      [knowledgeBasePermissionKeys.articleCreate]: canCreateArticle,
+      [knowledgeBasePermissionKeys.articleRead]: canReadArticle,
+      [knowledgeBasePermissionKeys.enrollmentManage]: canManageEnrollments,
+      [knowledgeBasePermissionKeys.shareCreate]: canCreateShareToken,
+    } satisfies Record<keyof KnowledgeBasePermissionMap, typeof canReadKB>,
+    extend: async (ctx, actor) => {
+      const user = await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .first()
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
-      .first()
+      return {
+        email: user?.email ?? null,
+        displayName: user?.displayName ?? null,
+      }
+    },
+  }),
+)
 
-    return {
-      role: actor.role,
-      userId: actor.userId,
-      tenantId: actor.tenantId,
-      email: user?.email ?? null,
-      displayName: user?.displayName ?? null,
-      can: {
-        [knowledgeBasePermissionKeys.kbCreate]: can(actor, canCreateKB),
-        [knowledgeBasePermissionKeys.kbRead]: can(actor, canReadKB),
-        [knowledgeBasePermissionKeys.articleCreate]: can(actor, canCreateArticle),
-        [knowledgeBasePermissionKeys.articleRead]: can(actor, canReadArticle),
-        [knowledgeBasePermissionKeys.enrollmentManage]: can(actor, canManageEnrollments),
-        [knowledgeBasePermissionKeys.shareCreate]: can(actor, canCreateShareToken),
-      } satisfies KnowledgeBasePermissionMap,
-    }
-  },
-})
-
-export const createWorkspace = appMutation({
+export const createWorkspace = app.mutation({
+  guard: open,
   args: { name: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -93,7 +92,8 @@ const joinRoleValidator = v.union(
   v.literal('viewer'),
 )
 
-export const joinWorkspace = appMutation({
+export const joinWorkspace = app.mutation({
+  guard: open,
   args: {
     slug: v.string(),
     role: joinRoleValidator,

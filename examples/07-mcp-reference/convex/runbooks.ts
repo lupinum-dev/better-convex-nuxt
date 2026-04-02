@@ -1,10 +1,10 @@
 import {
   can,
   deny,
-  enforce,
   loadTenantResource as loadResource,
-  withCan,
+  requireRecord,
 } from 'better-convex-nuxt/auth'
+import { open } from 'better-convex-nuxt/functions'
 
 import {
   bulkDeleteRunbooks,
@@ -15,6 +15,7 @@ import {
   searchRunbooks,
   updateRunbook,
 } from '../shared/schemas/runbook'
+import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './auth/capabilities'
 import {
   canCreateRunbook,
   canDeleteRunbook,
@@ -22,7 +23,7 @@ import {
   canReadWorkspaceRunbook,
   canUpdateRunbook,
 } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app, appMutation, appQuery } from './functions'
 
 function toPublicRunbook(runbook: {
   _id: string
@@ -64,8 +65,9 @@ function matchesTerm(
   return haystack.includes(term)
 }
 
-export const listPublic = appQuery({
+export const listPublic = app.query({
   args: listRunbooks.args,
+  guard: open,
   handler: async (ctx) => {
     const runbooks = await ctx.db
       .query('runbooks')
@@ -76,8 +78,9 @@ export const listPublic = appQuery({
   },
 })
 
-export const searchPublic = appQuery({
+export const searchPublic = app.query({
   args: searchRunbooks.args,
+  guard: open,
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
     const candidates = await ctx.db
@@ -90,65 +93,64 @@ export const searchPublic = appQuery({
   },
 })
 
-export const listWorkspace = appQuery({
+export const listWorkspace = app.query({
   args: listRunbooks.args,
-  handler: async (ctx, args) => {
+  guard: canReadWorkspaceRunbook,
+  handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read runbooks', canReadWorkspaceRunbook)
-
     const runbooks = await ctx.db
       .query('runbooks')
       .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .collect()
 
-    return runbooks.map((runbook) =>
-      withCan(runbook, {
-        update: can(actor, canUpdateRunbook(runbook)),
-        delete: can(actor, canDeleteRunbook(runbook)),
-        publish: can(actor, canPublishRunbook),
-      }),
+    return workspaceRunbookCapabilities.attach(actor, runbooks)
+  },
+})
+
+export const get = app.query({
+  args: getRunbook.args,
+  guard: open,
+  load: async (ctx, args) => {
+    const runbook = await ctx.db.get(args.id)
+    if (!runbook) return { runbook: null }
+    return { runbook }
+  },
+  authorize: {
+    label: 'runbook.read',
+    check: (actor, { runbook }) => {
+      if (!runbook) return true
+      if (runbook.visibility === 'public') return true
+      return (
+        !!actor && actor.tenantId === runbook.workspaceId && can(actor, canReadWorkspaceRunbook)
+      )
+    },
+  },
+  handler: async (ctx, _args, { runbook }) => {
+    if (!runbook) return null
+
+    if (runbook.visibility === 'public') {
+      const withCapabilities = publicRunbookCapabilities.attach(await ctx.actor(), {
+        ...toPublicRunbook(runbook),
+        ownerId: runbook.ownerId,
+      })
+
+      const { ownerId: _ownerId, ...publicRunbook } = withCapabilities
+      return publicRunbook
+    }
+
+    return workspaceRunbookCapabilities.attach(
+      await ctx.actor(),
+      loadResource(await ctx.actor(), runbook, 'Runbook'),
     )
   },
 })
 
-export const get = appQuery({
-  args: getRunbook.args,
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const runbook = await ctx.db.get(args.id)
-    if (!runbook) return null
-
-    if (runbook.visibility === 'public') {
-      return withCan(toPublicRunbook(runbook), {
-        update:
-          !!actor &&
-          actor.tenantId === runbook.workspaceId &&
-          can(actor, canUpdateRunbook(runbook)),
-        delete:
-          !!actor &&
-          actor.tenantId === runbook.workspaceId &&
-          can(actor, canDeleteRunbook(runbook)),
-        publish: !!actor && actor.tenantId === runbook.workspaceId && can(actor, canPublishRunbook),
-      })
-    }
-
-    enforce(actor, 'Read runbooks', canReadWorkspaceRunbook)
-    loadResource(actor, runbook, 'Runbook')
-
-    return withCan(runbook, {
-      update: can(actor, canUpdateRunbook(runbook)),
-      delete: can(actor, canDeleteRunbook(runbook)),
-      publish: can(actor, canPublishRunbook),
-    })
-  },
-})
-
-export const create = appMutation({
+export const create = app.mutation({
   args: createRunbook.args,
+  guard: canCreateRunbook,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create runbook', canCreateRunbook)
 
     const visibility = args.visibility ?? 'draft'
     if (visibility === 'public' && !can(actor, canPublishRunbook)) {
@@ -171,13 +173,19 @@ export const create = appMutation({
   },
 })
 
-export const update = appMutation({
+export const update = app.mutation({
   args: updateRunbook.args,
-  handler: async (ctx, args) => {
+  guard: canReadWorkspaceRunbook,
+  load: async (ctx, args) => {
+    const runbook = await ctx.db.get(args.id)
+    requireRecord(runbook, 'Runbook')
+    return { runbook }
+  },
+  authorize: {
+    check: (_actor, { runbook }) => canUpdateRunbook(runbook),
+  },
+  handler: async (ctx, args, { runbook }) => {
     const actor = await ctx.actor()
-    const runbook = loadResource(actor, await ctx.db.get(args.id), 'Runbook')
-    enforce(actor, 'Update runbook', canUpdateRunbook(runbook))
-
     const nextVisibility = args.visibility ?? runbook.visibility
     if (nextVisibility === 'public' && !can(actor, canPublishRunbook)) {
       throw deny('Only owners and admins can publish runbooks.')
@@ -197,21 +205,27 @@ export const update = appMutation({
   },
 })
 
-export const remove = appMutation({
+export const remove = app.mutation({
   args: deleteRunbook.args,
+  guard: canReadWorkspaceRunbook,
+  load: async (ctx, args) => {
+    const runbook = await ctx.db.get(args.id)
+    requireRecord(runbook, 'Runbook')
+    return { runbook }
+  },
+  authorize: {
+    check: (_actor, { runbook }) => canDeleteRunbook(runbook),
+  },
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const runbook = loadResource(actor, await ctx.db.get(args.id), 'Runbook')
-    enforce(actor, 'Delete runbook', canDeleteRunbook(runbook))
     await ctx.db.delete(args.id)
   },
 })
 
-export const bulkRemove = appMutation({
+export const bulkRemove = app.mutation({
   args: bulkDeleteRunbooks.args,
+  guard: canPublishRunbook,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Bulk delete runbooks', canPublishRunbook)
 
     let deleted = 0
     const skipped: { id: string; reason: string }[] = []
@@ -243,12 +257,11 @@ export const bulkRemove = appMutation({
   },
 })
 
-export const workspaceOverview = appQuery({
+export const workspaceOverview = app.query({
   args: listRunbooks.args,
-  handler: async (ctx, args) => {
+  guard: canReadWorkspaceRunbook,
+  handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read runbook overview', canReadWorkspaceRunbook)
-
     const runbooks = await ctx.db
       .query('runbooks')
       .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))

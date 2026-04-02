@@ -14,6 +14,10 @@ describe('auth entrypoint exports', () => {
   it('exports the v3 auth primitives and split optional layers', () => {
     expect(authApi).toHaveProperty('and')
     expect(authApi).toHaveProperty('or')
+    expect(authApi).toHaveProperty('defineActor')
+    expect(authApi).toHaveProperty('defineGuard')
+    expect(authApi).toHaveProperty('isGuard')
+    expect(authApi).toHaveProperty('open')
     expect(authApi).toHaveProperty('enforce')
     expect(authApi).toHaveProperty('can')
     expect(authApi).toHaveProperty('deny')
@@ -25,6 +29,7 @@ describe('auth entrypoint exports', () => {
     expect(authApi).toHaveProperty('withCan')
     expect(authApi).toHaveProperty('defineAuth')
     expect(authApi).toHaveProperty('definePermissions')
+    expect(authApi).toHaveProperty('definePermissionContext')
     expect(authApi).toHaveProperty('createDefaultGetActor')
     expect(authApi).toHaveProperty('defineActorExtension')
     expect(authApi).toHaveProperty('defineActorFromMembership')

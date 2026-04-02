@@ -4,6 +4,8 @@ import { dirname, resolve } from 'node:path'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { collectConvexFunctionPaths } from '../../src/analysis/project'
+
 const { loggerWarnMock, loggerInfoMock } = vi.hoisted(() => ({
   loggerWarnMock: vi.fn(),
   loggerInfoMock: vi.fn(),
@@ -112,5 +114,30 @@ describe('module validation', () => {
         createNuxt(rootDir),
       ),
     ).toThrow(/missing the "by_workspace" index/i)
+  })
+
+  it('collects Convex exports declared through custom and structured builders', () => {
+    const rootDir = createFixture({
+      'convex/functions.ts': `
+        export const app = defineHandler(appQuery, appMutation)
+      `,
+      'convex/todos.ts': `
+        export const list = app.query({
+          args: {},
+          guard: open,
+          handler: async () => []
+        })
+
+        export const getPermissionContext = appQuery({
+          args: {},
+          handler: async () => null
+        })
+      `,
+    })
+
+    expect(collectConvexFunctionPaths(rootDir)).toEqual([
+      'todos.getPermissionContext',
+      'todos.list',
+    ])
   })
 })

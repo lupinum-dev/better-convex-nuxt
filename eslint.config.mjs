@@ -3,7 +3,10 @@ import { createConfigForNuxt } from '@nuxt/eslint-config/flat'
 import { createJiti } from 'jiti'
 
 const jiti = createJiti(import.meta.url)
-const bcn = await jiti.import('./src/eslint/index.ts')
+const bcn =
+  /** @type {typeof import('./src/eslint/index.ts')} */ (
+    await jiti.import('./src/eslint/index.ts')
+  )
 
 // Run `npx @eslint/config-inspector` to inspect the resolved config interactively
 export default createConfigForNuxt({

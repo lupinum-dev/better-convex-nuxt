@@ -1,9 +1,11 @@
-import { createFunctions } from 'better-convex-nuxt/functions'
+import { defineGuard } from 'better-convex-nuxt/auth'
+import { createFunctions, defineHandler, open } from 'better-convex-nuxt/functions'
 import { Triggers } from 'convex-helpers/server/triggers'
 import { v } from 'convex/values'
 
 import type { DataModel } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
+import type { Actor } from './auth/actor'
 import { getActor } from './auth/actor'
 
 let actorResolverCalls = 0
@@ -27,10 +29,40 @@ const { query: probeQuery, mutation: probeMutation } = createFunctions(query, mu
   triggers,
 })
 
+const structured = defineHandler(probeQuery, probeMutation)
+const canReadStructuredProbe = defineGuard<Actor>('probe.read', (actor) => !!actor)
+const canEditStructuredPost = (ownerId: string) =>
+  defineGuard<NonNullable<Actor>>('probe.update', (actor) => actor.userId === ownerId)
+
 export const publicWithoutActor = probeQuery({
   args: {},
   handler: async () => ({
     actorResolverCalls,
+  }),
+})
+
+export const structuredPublicActorEcho = structured.query({
+  args: {},
+  guard: open,
+  handler: async (ctx) => ({
+    actor: await ctx.actor(),
+  }),
+})
+
+export const structuredPostOwner = structured.query({
+  args: {
+    id: v.id('posts'),
+  },
+  guard: canReadStructuredProbe,
+  load: async (ctx, args) => ({
+    post: await ctx.db.get(args.id),
+  }),
+  authorize: {
+    label: 'probe.update',
+    check: (_actor, loaded) => !!loaded.post && canEditStructuredPost(loaded.post.ownerId),
+  },
+  handler: async (_ctx, _args, loaded) => ({
+    ownerId: loaded.post?.ownerId ?? null,
   }),
 })
 

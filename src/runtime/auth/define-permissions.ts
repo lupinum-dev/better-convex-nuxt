@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Define a permission context query that the module wires to `usePermissions`.
+ * Compatibility helper for permission context queries.
  *
- * Generates a Convex query handler that resolves the actor, evaluates
- * permission checks, and returns the context shape expected by the
- * `usePermissions` composable.
+ * Prefer `definePermissionContext(...)` for new code so the guard registry stays
+ * declarative, inspectable, and easier to keep in sync with the frontend.
  *
  * @example
  * ```ts

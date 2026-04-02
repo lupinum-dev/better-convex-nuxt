@@ -1,11 +1,11 @@
-import { enforce, deny } from 'better-convex-nuxt/auth'
+import { deny, open } from 'better-convex-nuxt/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import { createMcpKey, revokeMcpKey } from '../shared/schemas/mcp-key'
 import type { DataModel, Doc } from './_generated/dataModel'
 import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
@@ -56,11 +56,11 @@ function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
   }
 }
 
-export const list = appQuery({
+export const list = app.query({
+  guard: canManageMcpKeys,
   args: {},
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const keys = await ctx.db
       .query('mcpKeys')
@@ -74,11 +74,11 @@ export const list = appQuery({
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
+  guard: canManageMcpKeys,
   args: createMcpKey.args,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const boundUser = await getBoundUser(ctx, args.boundAuthId)
     if (!boundUser?.workspaceId || boundUser.workspaceId !== actor.tenantId) {
@@ -101,11 +101,11 @@ export const create = appMutation({
   },
 })
 
-export const revoke = appMutation({
+export const revoke = app.mutation({
+  guard: canManageMcpKeys,
   args: revokeMcpKey.args,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const rawKey = await ctx.db.get(args.id)
     if (!rawKey || rawKey.boundWorkspaceId !== actor.tenantId) {
@@ -128,7 +128,8 @@ export const revoke = appMutation({
   },
 })
 
-export const validate = appQuery({
+export const validate = app.query({
+  guard: open,
   args: {
     hash: createMcpKey.args.hash,
   },
@@ -152,7 +153,8 @@ export const validate = appQuery({
   },
 })
 
-export const touch = appMutation({
+export const touch = app.mutation({
+  guard: open,
   args: {
     id: v.id('mcpKeys'),
     seenAt: v.number(),

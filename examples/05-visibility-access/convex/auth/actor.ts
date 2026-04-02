@@ -1,14 +1,9 @@
 /**
  * Why this file exists:
- * The knowledge base actor includes managerId for team hierarchy visibility, but still delegates
- * the standard lookup path to the shipped actor helper.
+ * The knowledge base actor includes managerId for team hierarchy visibility, built from the
+ * composable actor primitive.
  */
-import {
-  createDefaultGetActor,
-  defineActorExtension,
-  type DefaultActor,
-} from 'better-convex-nuxt/auth'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import { defineActor, type DefaultActor } from 'better-convex-nuxt/auth'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
@@ -18,19 +13,17 @@ type KnowledgeBaseActor = DefaultActor & {
   managerId?: string
 }
 
-type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
-const resolveActor = createDefaultGetActor<DataModel, { managerId?: string }>(
-  defineActorExtension({
+const actor = defineActor
+  .fromAuth<DataModel>()
+  .extend({
     fields: async (_ctx, user) => ({
+      role: user.role as Doc<'users'>['role'],
+      tenantId: user.workspaceId as Id<'workspaces'> | undefined,
       managerId: user.managerId,
     }),
-  }),
-)
+  })
+  .filter((value): value is KnowledgeBaseActor => !!value.tenantId)
 
 export type Actor = KnowledgeBaseActor | null
 
-export async function getActor(ctx: Ctx): Promise<Actor> {
-  const actor = await resolveActor(ctx)
-  if (!actor?.tenantId) return null
-  return actor as KnowledgeBaseActor
-}
+export const getActor = actor.resolve

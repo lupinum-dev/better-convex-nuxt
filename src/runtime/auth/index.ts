@@ -1,15 +1,21 @@
 import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { ConvexError } from 'convex/values'
 
+import { runCheck, type AnyCheck, type Check } from './define-guard'
+
 export { defineAuth } from './define-auth'
 export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth'
+export { defineGuard, isGuard, isOpenGuard, open } from './define-guard'
+export type { AnyCheck, Check, Guard, GuardKind, OpenGuard } from './define-guard'
 export {
+  defineActor,
   createDefaultGetActor,
   defineActorExtension,
   defineActorFromMembership,
 } from './define-actor'
-export type { DefaultActor, DefineActorExtensionOptions } from './define-actor'
+export type { ActorBuilder, DefaultActor, DefineActorExtensionOptions } from './define-actor'
 export { definePermissions } from './define-permissions'
+export { definePermissionContext } from './define-permission-context'
 
 export type AuthIdentity = {
   subject: string
@@ -24,16 +30,9 @@ export type AuthErrorData = {
   source?: string
 }
 
-type Check<P = unknown> = (principal: P) => boolean
-type AnyCheck<P> = Check<P> | boolean
-
 type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
-
-function runCheck<P>(principal: P, check: AnyCheck<P>): boolean {
-  return typeof check === 'function' ? (check as Check<P>)(principal) : check
-}
 
 function toForbiddenError(
   reason: string,
@@ -141,6 +140,12 @@ export function loadTenantResource<T extends Record<string, unknown>>(
   return ensureTenant(actor, doc, label, tenantField)
 }
 
+/**
+ * Inline capability attachment helper.
+ *
+ * Prefer `defineCapabilities(...).attach(...)` when the same `_can` map should
+ * be declared once and reused across multiple handlers.
+ */
 export function withCan<T extends Record<string, unknown>, C extends Record<string, boolean>>(
   resource: T,
   checks: C,

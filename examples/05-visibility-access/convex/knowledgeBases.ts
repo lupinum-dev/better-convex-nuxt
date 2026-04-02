@@ -1,14 +1,14 @@
-import { deny, enforce, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
+import { deny, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { canCreateKB, canManageEnrollments, canReadKB } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app } from './functions'
 
-export const list = appQuery({
+export const list = app.query({
+  guard: canReadKB,
   args: {},
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Read knowledge bases', canReadKB)
 
     return ctx.db
       .query('knowledgeBases')
@@ -18,20 +18,22 @@ export const list = appQuery({
   },
 })
 
-export const get = appQuery({
+export const get = app.query({
+  guard: canReadKB,
   args: { id: v.id('knowledgeBases') },
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    enforce(actor, 'Read knowledge bases', canReadKB)
-    return loadResource(actor, await ctx.db.get(args.id), 'Knowledge base')
+  load: async (ctx, args) => ({
+    knowledgeBase: loadResource(await ctx.actor(), await ctx.db.get(args.id), 'Knowledge base'),
+  }),
+  handler: async (_ctx, _args, { knowledgeBase }) => {
+    return knowledgeBase
   },
 })
 
-export const create = appMutation({
+export const create = app.mutation({
+  guard: canCreateKB,
   args: { title: v.string() },
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Create knowledge base', canCreateKB)
 
     const now = Date.now()
     return ctx.db.insert('knowledgeBases', {
@@ -45,27 +47,36 @@ export const create = appMutation({
   },
 })
 
-export const publish = appMutation({
+export const publish = app.mutation({
+  guard: canCreateKB,
   args: { id: v.id('knowledgeBases') },
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    enforce(actor, 'Create knowledge base', canCreateKB)
-    const kb = loadResource(actor, await ctx.db.get(args.id), 'Knowledge base')
-    if (kb.status === 'published') throw deny('Already published.')
+  load: async (ctx, args) => ({
+    knowledgeBase: loadResource(await ctx.actor(), await ctx.db.get(args.id), 'Knowledge base'),
+  }),
+  handler: async (ctx, args, { knowledgeBase }) => {
+    if (knowledgeBase.status === 'published') throw deny('Already published.')
     await ctx.db.patch(args.id, { status: 'published', updatedAt: Date.now() })
   },
 })
 
-export const enroll = appMutation({
+export const enroll = app.mutation({
+  guard: canManageEnrollments,
   args: { knowledgeBaseId: v.id('knowledgeBases'), userId: v.string() },
-  handler: async (ctx, args) => {
+  load: async (ctx, args) => ({
+    knowledgeBase: loadResource(
+      await ctx.actor(),
+      await ctx.db.get(args.knowledgeBaseId),
+      'Knowledge base',
+    ),
+  }),
+  handler: async (ctx, args, { knowledgeBase }) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Manage enrollments', canManageEnrollments)
-    const kb = loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
 
     const existing = await ctx.db
       .query('enrollments')
-      .withIndex('by_user_kb', (q) => q.eq('userId', args.userId).eq('knowledgeBaseId', kb._id))
+      .withIndex('by_user_kb', (q) =>
+        q.eq('userId', args.userId).eq('knowledgeBaseId', knowledgeBase._id),
+      )
       .first()
 
     if (existing?.status === 'active') return existing._id
@@ -78,7 +89,7 @@ export const enroll = appMutation({
     return ctx.db.insert('enrollments', {
       workspaceId: actor.tenantId,
       userId: args.userId,
-      knowledgeBaseId: kb._id,
+      knowledgeBaseId: knowledgeBase._id,
       status: 'active',
       createdAt: Date.now(),
     })

@@ -1,13 +1,17 @@
-import { can, deny } from 'better-convex-nuxt/auth'
+import { definePermissionContext, deny, open } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { mcpReferencePermissionKeys, type McpReferencePermissionMap } from '../shared/permissions'
+import type { Actor } from './auth/actor'
+import { getPermissionActor } from './auth/actor'
 import { canCreateRunbook, canManageMcpKeys, canReadWorkspaceRunbook } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app, appQuery } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
+type PermissionActor = NonNullable<Awaited<ReturnType<typeof getPermissionActor>>>
 
-export const listWorkspaces = appQuery({
+export const listWorkspaces = app.query({
+  guard: open,
   args: {},
   handler: async (ctx) => {
     // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
@@ -16,39 +20,33 @@ export const listWorkspaces = appQuery({
   },
 })
 
-export const getPermissionContext = appQuery({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return null
+export const getPermissionContext = appQuery(
+  definePermissionContext({
+    resolve: getPermissionActor,
+    guards: {
+      [mcpReferencePermissionKeys.runbookRead]: (actor) =>
+        !!actor.tenantId && canReadWorkspaceRunbook(actor as Actor),
+      [mcpReferencePermissionKeys.runbookCreate]: (actor) =>
+        !!actor.tenantId && canCreateRunbook(actor as Actor),
+      [mcpReferencePermissionKeys.mcpManage]: (actor) =>
+        !!actor.tenantId && canManageMcpKeys(actor as Actor),
+    } satisfies Record<keyof McpReferencePermissionMap, (actor: PermissionActor) => boolean>,
+    extend: async (ctx, actor) => {
+      const user = await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .first()
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
+      return {
+        email: user?.email ?? null,
+        displayName: user?.displayName ?? null,
+      }
+    },
+  }),
+)
 
-    if (!user) return null
-
-    const actor = await ctx.actor()
-
-    return {
-      role: user.role,
-      userId: user.authId,
-      tenantId: user.workspaceId ?? null,
-      email: user.email ?? null,
-      displayName: user.displayName ?? null,
-      can: {
-        [mcpReferencePermissionKeys.runbookRead]: actor
-          ? can(actor, canReadWorkspaceRunbook)
-          : false,
-        [mcpReferencePermissionKeys.runbookCreate]: actor ? can(actor, canCreateRunbook) : false,
-        [mcpReferencePermissionKeys.mcpManage]: actor ? can(actor, canManageMcpKeys) : false,
-      } satisfies McpReferencePermissionMap,
-    }
-  },
-})
-
-export const createWorkspace = appMutation({
+export const createWorkspace = app.mutation({
+  guard: open,
   args: {
     name: v.string(),
     slug: v.string(),
@@ -127,7 +125,8 @@ export const createWorkspace = appMutation({
   },
 })
 
-export const joinWorkspace = appMutation({
+export const joinWorkspace = app.mutation({
+  guard: open,
   args: {
     slug: v.string(),
     role: joinRoleValidator,

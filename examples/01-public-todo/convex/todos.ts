@@ -1,20 +1,24 @@
+import { requireRecord } from 'better-convex-nuxt/auth'
+import { defineHandler, open } from 'better-convex-nuxt/functions'
 import { v } from 'convex/values'
 
 import { createTodo } from '../shared/schemas/todo'
 import { mutation, query } from './_generated/server'
 
-export const list = query({
+const app = defineHandler(query, mutation)
+
+export const list = app.query({
   args: {},
+  guard: open,
   handler: async (ctx) => {
-    // `db` is the raw Convex database here because this app has no auth or tenant rules.
     return await ctx.db.query('todos').order('desc').collect()
   },
 })
 
-export const create = mutation({
+export const create = app.mutation({
   args: createTodo.args,
+  guard: open,
   handler: async (ctx, args) => {
-    // The page passes plain business args, and the handler inserts plain business fields.
     return await ctx.db.insert('todos', {
       title: args.title,
       completed: false,
@@ -23,22 +27,24 @@ export const create = mutation({
   },
 })
 
-export const toggle = mutation({
+export const toggle = app.mutation({
   args: { id: v.id('todos') },
-  handler: async (ctx, args) => {
+  guard: open,
+  load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
-    if (!todo) {
-      throw new Error('Todo not found.')
-    }
-
+    requireRecord(todo, 'Todo')
+    return { todo }
+  },
+  handler: async (ctx, args, { todo }) => {
     await ctx.db.patch(args.id, {
       completed: !todo.completed,
     })
   },
 })
 
-export const remove = mutation({
+export const remove = app.mutation({
   args: { id: v.id('todos') },
+  guard: open,
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)
   },

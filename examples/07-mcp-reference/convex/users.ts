@@ -1,9 +1,10 @@
-import { enforce } from 'better-convex-nuxt/auth'
+import { open } from 'better-convex-nuxt/auth'
 
 import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
-import { appQuery } from './functions'
+import { app } from './functions'
 
-export const getCurrentUser = appQuery({
+export const getCurrentUser = app.query({
+  guard: open,
   args: {},
   handler: async (ctx) => {
     const actor = await ctx.actor()
@@ -16,11 +17,11 @@ export const getCurrentUser = appQuery({
   },
 })
 
-export const listWorkspaceUsersForMcpKeys = appQuery({
+export const listWorkspaceUsersForMcpKeys = app.query({
+  guard: canManageMcpKeys,
   args: {},
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const users = await ctx.db
       .query('users')

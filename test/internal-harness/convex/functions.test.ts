@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
 import schema from './schema'
-import { setupTestWithTwoOrgs } from './test.helpers'
+import { setupTestWithMultipleUsers, setupTestWithTwoOrgs } from './test.helpers'
 import { modules } from './test.setup'
 
 describe('createFunctions', () => {
@@ -122,5 +122,45 @@ describe('createFunctions', () => {
       content: 'hello',
       title: 'triggered',
     })
+  })
+
+  it('supports structured public handlers on top of createFunctions builders', async () => {
+    const t = convexTest(schema, modules)
+
+    await expect(t.query(api.functionsProbe.structuredPublicActorEcho, {})).resolves.toEqual({
+      actor: null,
+    })
+  })
+
+  it('supports structured load and authorize phases on top of createFunctions builders', async () => {
+    const { asOwner, asAdmin } = await setupTestWithMultipleUsers()
+
+    const postId = await asOwner.mutation(api.posts.create, {
+      title: 'Owned by owner',
+      content: 'body',
+    })
+
+    await expect(
+      asOwner.query(api.functionsProbe.structuredPostOwner, { id: postId }),
+    ).resolves.toEqual({
+      ownerId: 'user_owner',
+    })
+
+    await expect(
+      asAdmin.query(api.functionsProbe.structuredPostOwner, { id: postId }),
+    ).rejects.toThrow('Forbidden: probe.update')
+  })
+
+  it('runs tenant isolation before structured authorize on cross-tenant loads', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    const postId = await asUser1.mutation(api.posts.create, {
+      title: 'Owned by user 1',
+      content: 'body',
+    })
+
+    await expect(
+      asUser2.query(api.functionsProbe.structuredPostOwner, { id: postId }),
+    ).rejects.toThrow('Document belongs to a different tenant.')
   })
 })

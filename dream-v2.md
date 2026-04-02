@@ -25,6 +25,39 @@ The problem is that the center of gravity is still `createFunctions(...)`, which
 
 That is the gap.
 
+## Status
+
+This document is now serving as a working scorecard, not just a wish list.
+
+### Implemented experimentally
+
+- `defineActor`
+- `defineGuard`
+- `open`
+- `defineHandler`
+- `defineCapabilities`
+- `defineRedaction`
+- `definePermissionContext`
+
+### Checked and deferred
+
+- `defineScope`
+- stronger `defineVisibility` planning
+- handler middleware
+- `defineTest`
+
+### Important finding from real tests
+
+When `defineHandler(...)` is layered on top of `createFunctions(...)`, tenant isolation runs before structured `authorize` on cross-tenant resource loads.
+
+That is good.
+
+It means:
+
+- scope-like isolation remains the first defense line
+- resource authorization still matters inside the tenant
+- the final handler model should preserve that ordering intentionally
+
 ## What v2 Should Preserve
 
 These are load-bearing and should survive a redesign.
@@ -208,6 +241,16 @@ High.
 
 This is mostly a repackaging and strengthening of APIs that already exist.
 
+### Status
+
+Checked, not implemented.
+
+Reason:
+
+- current `createDefaultGetActor()`, `defineActorExtension(...)`, and `defineActorFromMembership(...)` already cover part of the need
+- the missing work is mostly API reshaping, not missing capability
+- this should be revisited only after the handler model settles
+
 ## 2. `defineGuard`
 
 ### Goal
@@ -226,13 +269,15 @@ Current checks are plain functions, which is good for local use, but weak for:
 ### Direction
 
 ```ts
-export const canCreateTodo = defineGuard('todo.create', (actor) =>
-  !!actor && actor.role !== 'viewer',
+export const canCreateTodo = defineGuard(
+  'todo.create',
+  (actor) => !!actor && actor.role !== 'viewer',
 )
 
 export const canUpdateTodo = (todo: Doc<'todos'>) =>
-  defineGuard('todo.update', (actor) =>
-    !!actor && (actor.role === 'owner' || actor.userId === todo.ownerId),
+  defineGuard(
+    'todo.update',
+    (actor) => !!actor && (actor.role === 'owner' || actor.userId === todo.ownerId),
   )
 ```
 
@@ -252,6 +297,17 @@ Trying to collapse both into one "permissions registry" will create lies.
 High.
 
 The hard part is API design, not implementation.
+
+### Status
+
+Implemented experimentally.
+
+Current repo state:
+
+- `defineGuard(...)` exists
+- guards are callable, labeled, and inspectable
+- `.and()`, `.or()`, and `.not()` exist
+- `open` exists as the explicit public-access guard
 
 ## 3. `defineHandler`
 
@@ -297,6 +353,23 @@ Medium-high.
 
 This is a real redesign. It likely becomes the new center of the package and should replace, not wrap, `createFunctions(...)`.
 
+### Status
+
+Implemented experimentally and verified against a real actor-aware builder path.
+
+Current repo state:
+
+- `defineHandler(...)` exists
+- `guard` is mandatory
+- `open` handles the explicit public case
+- `load` and `authorize` are separate phases
+- unit tests cover the structural flow
+- internal harness tests prove it composes on top of `createFunctions(...)`
+
+Current limitation:
+
+- this is still an adapter over existing builders, not the final cutover model
+
 ## 4. `defineScope`
 
 ### Goal
@@ -335,6 +408,16 @@ Medium.
 
 The write-safety part is straightforward.
 The read ergonomics need careful design.
+
+### Status
+
+Checked, not implemented.
+
+Reason:
+
+- the real problem is not config shape, it is how much transparent DB behavior Convex can support without becoming brittle
+- the real-builder tests showed that existing tenant isolation ordering is already meaningful
+- this should land only after deciding whether v2 keeps wrapping DB access or moves to explicit scoped helpers
 
 ## 5. `defineCapabilities`
 
@@ -375,6 +458,17 @@ High.
 
 This is a focused primitive with clear value.
 
+### Status
+
+Implemented experimentally.
+
+Current repo state:
+
+- `defineCapabilities(...)` exists in `better-convex-nuxt/visibility`
+- attachment is explicit through `.attach(actor, value)`
+- works for single resources and arrays
+- intentionally does not try to walk nested payloads magically
+
 ## 6. `definePermissionContext`
 
 ### Goal
@@ -410,6 +504,17 @@ High.
 
 This is an evolution of the current `definePermissions(...)`.
 
+### Status
+
+Implemented experimentally.
+
+Current repo state:
+
+- `definePermissionContext(...)` exists
+- `definePermissions(...)` remains for backward compatibility
+- both produce the existing `usePermissions()` payload shape
+- tests cover guard-based generation and legacy behavior stability
+
 ## 7. `defineVisibility`
 
 ### Goal
@@ -443,6 +548,16 @@ Medium.
 
 Useful, but this should come after handlers, guards, and capabilities.
 
+### Status
+
+Checked, not implemented beyond the existing `defineVisibility(...)`.
+
+Reason:
+
+- the current primitive still works
+- the planner/pushdown story needs more evidence before it becomes public API
+- it is better to defer than to ship fake index awareness
+
 ## 8. `defineRedaction`
 
 ### Goal
@@ -454,6 +569,16 @@ Make field-level stripping a reusable primitive instead of ad hoc helper functio
 High.
 
 This is small, clean, and obviously useful.
+
+### Status
+
+Implemented experimentally.
+
+Current repo state:
+
+- `defineRedaction(...)` exists in `better-convex-nuxt/visibility`
+- redaction is reusable and explicit
+- works for single resources and arrays
 
 ## 9. `defineMiddleware`
 
@@ -484,6 +609,16 @@ Do not turn it into a second policy system. Auth and scope should stay first-cla
 
 Medium-high.
 
+### Status
+
+Checked, not implemented.
+
+Reason:
+
+- the need is real, especially because MCP tools already have middleware
+- but the correct interaction with `guard`, `load`, `authorize`, and future scope primitives should be designed together
+- shipping middleware first would risk making it a second policy system
+
 ## 10. `defineTest`
 
 ### Goal
@@ -512,6 +647,16 @@ The real goal is "no repeated user-maintained wiring."
 Medium.
 
 Very worth exploring, but the implementation constraints are external.
+
+### Status
+
+Checked, not implemented.
+
+Reason:
+
+- the boilerplate problem is real
+- but the final shape depends on Vitest and generated-module mocking constraints
+- this should be solved after the runtime surface is more settled
 
 ## What v2 Should Not Do
 

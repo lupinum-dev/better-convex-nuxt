@@ -132,10 +132,10 @@ describe('CLI doctor', () => {
     const users = readFileSync(resolve(cwd, 'convex/users.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(actor).toContain('createDefaultGetActor')
-    expect(actor).toContain('DefaultActor')
+    expect(actor).toContain('defineActor')
+    expect(functions).toContain('defineHandler')
     expect(functions).toContain('createFunctions')
-    expect(functions).toContain('appQuery')
+    expect(users).toContain('definePermissionContext')
     expect(users).toContain('getPermissionContext')
   })
 
@@ -147,11 +147,12 @@ describe('CLI doctor', () => {
     const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(actor).toContain('createDefaultGetActor')
+    expect(actor).toContain('defineActor')
     expect(functions).toContain('createFunctions')
-    expect(functions).toContain('appMutation')
+    expect(functions).toContain('defineHandler')
     expect(existsSync(resolve(cwd, 'convex/auth/scope.ts'))).toBe(false)
     expect(existsSync(resolve(cwd, 'convex/auth/resource.ts'))).toBe(false)
+    expect(workspaces).toContain('definePermissionContext')
     expect(workspaces).toContain('getPermissionContext')
   })
 
@@ -166,11 +167,13 @@ describe('CLI doctor', () => {
     const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(actor).toContain('createDefaultGetActor')
+    expect(actor).toContain('defineActor')
     expect(functions).toContain('createFunctions')
+    expect(functions).toContain('defineHandler')
     expect(functions).toContain('trustedCaller: true')
     expect(existsSync(resolve(cwd, 'convex/auth/scope.ts'))).toBe(false)
     expect(existsSync(resolve(cwd, 'convex/auth/resource.ts'))).toBe(false)
+    expect(workspaces).toContain('definePermissionContext')
     expect(workspaces).toContain('getPermissionContext')
   })
 

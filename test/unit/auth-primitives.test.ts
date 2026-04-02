@@ -6,6 +6,9 @@ import {
   can,
   deny,
   and,
+  defineGuard,
+  isGuard,
+  open,
   or,
   requireAuth,
   requireRecord,
@@ -41,6 +44,34 @@ describe('auth primitives', () => {
     expect(can(actor, and(hasRole('member'), owns({ ownerId: 'alice' })))).toBe(true)
     expect(can(actor, or(hasRole('admin'), owns({ ownerId: 'alice' })))).toBe(true)
     expect(can(actor, or(hasRole('admin'), false))).toBe(false)
+  })
+
+  it('creates labeled guards that compose structurally', () => {
+    const actor = { role: 'member', userId: 'alice' }
+
+    const isMember = defineGuard<typeof actor | null>(
+      'role:member',
+      (value) => value?.role === 'member',
+    )
+    const ownsResource = defineGuard<typeof actor | null>(
+      'owner',
+      (value) => value?.userId === 'alice',
+    )
+    const canEdit = isMember.and(ownsResource)
+    const cannotEdit = canEdit.not()
+
+    expect(isGuard(isMember)).toBe(true)
+    expect(isMember.label).toBe('role:member')
+    expect(canEdit.kind).toBe('and')
+    expect(canEdit.label).toBe('role:member && owner')
+    expect(can(actor, canEdit)).toBe(true)
+    expect(can(null, canEdit)).toBe(false)
+    expect(can(actor, cannotEdit)).toBe(false)
+  })
+
+  it('exports an explicit open guard for public flows', () => {
+    expect(open.label).toBe('open')
+    expect(can(null, open)).toBe(true)
   })
 
   it('throws forbidden errors from enforce() and narrows the type', () => {

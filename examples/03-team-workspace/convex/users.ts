@@ -1,13 +1,15 @@
-import { v } from 'convex/values'
-
 /**
  * Why this file exists:
  * The MCP demo middleware resolves `Bearer demo:<email>` into a real actor by calling this query.
  * That keeps the example's MCP auth setup tiny while still exercising the real permission pipeline.
  */
-import { appQuery } from './functions'
+import { open } from 'better-convex-nuxt/auth'
+import { v } from 'convex/values'
 
-export const resolveMcpActorByEmail = appQuery({
+import { app } from './functions'
+
+export const resolveMcpActorByEmail = app.query({
+  guard: open,
   args: {
     email: v.string(),
   },

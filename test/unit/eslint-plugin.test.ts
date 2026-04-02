@@ -192,6 +192,33 @@ describe('better-convex-nuxt ESLint plugin', () => {
     )
   })
 
+  it('does not flag guarded defineHandler handlers for missing enforce() or actor narrowing', async () => {
+    const rootDir = createProjectFixture({})
+    const eslint = await createEslint(rootDir)
+
+    const [result] = await eslint.lintText(
+      `
+      export const listWorkspace = app.query({
+        guard: canReadWorkspaceRunbook,
+        args: {},
+        handler: async (ctx) => {
+          const actor = await ctx.actor()
+          return await ctx.db.query('runbooks').withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId)).collect()
+        },
+      })
+      `,
+      { filePath: resolve(rootDir, 'convex/runbooks.ts') },
+    )
+
+    expect(result).toBeDefined()
+    expect(result!.messages.map((message) => message.ruleId)).not.toContain(
+      'better-convex-nuxt/enforce-required-in-handler',
+    )
+    expect(result!.messages.map((message) => message.ruleId)).not.toContain(
+      'better-convex-nuxt/actor-access-after-enforce',
+    )
+  })
+
   it('does not flag db access in public branches that happen before ctx.actor() is resolved', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)

@@ -1,13 +1,15 @@
-import { can, deny } from 'better-convex-nuxt/auth'
+import { definePermissionContext, deny, open } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { teamWorkspacePermissionKeys, type TeamWorkspacePermissionMap } from '../shared/permissions'
+import { getActor } from './auth/actor'
 import { canCreateTodo, canReadTodo } from './auth/checks'
-import { appMutation, appQuery } from './functions'
+import { app, appQuery } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 
-export const listWorkspaces = appQuery({
+export const listWorkspaces = app.query({
+  guard: open,
   args: {},
   handler: async (ctx) => {
     // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
@@ -16,36 +18,36 @@ export const listWorkspaces = appQuery({
   },
 })
 
-export const getPermissionContext = appQuery({
-  args: {},
-  handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor) return null
+export const getPermissionContext = appQuery(
+  definePermissionContext({
+    resolve: getActor,
+    guards: {
+      [teamWorkspacePermissionKeys.todoRead]: canReadTodo,
+      [teamWorkspacePermissionKeys.todoCreate]: canCreateTodo,
+    } satisfies Record<keyof TeamWorkspacePermissionMap, typeof canReadTodo>,
+    extend: async (ctx, actor) => {
+      const user = await ctx.db
+        .query('users')
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .first()
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
-      .first()
+      if (!user) {
+        return {
+          email: null,
+          displayName: null,
+        }
+      }
 
-    if (!user) return null
+      return {
+        email: user.email,
+        displayName: user.displayName,
+      }
+    },
+  }),
+)
 
-    const permissions = {
-      [teamWorkspacePermissionKeys.todoRead]: can(actor, canReadTodo),
-      [teamWorkspacePermissionKeys.todoCreate]: can(actor, canCreateTodo),
-    } satisfies TeamWorkspacePermissionMap
-
-    return {
-      role: user.role,
-      userId: user.authId,
-      tenantId: user.workspaceId,
-      email: user.email,
-      displayName: user.displayName,
-      can: permissions,
-    }
-  },
-})
-
-export const createWorkspace = appMutation({
+export const createWorkspace = app.mutation({
+  guard: open,
   args: {
     name: v.string(),
     slug: v.string(),
@@ -87,7 +89,8 @@ export const createWorkspace = appMutation({
   },
 })
 
-export const joinWorkspace = appMutation({
+export const joinWorkspace = app.mutation({
+  guard: open,
   args: {
     slug: v.string(),
     role: joinRoleValidator,

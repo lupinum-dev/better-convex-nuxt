@@ -19,25 +19,103 @@ type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
 
-/**
- * Options for extending the default actor with additional fields.
- *
- * @example
- * ```ts
- * export default defineActorExtension({
- *   fields: async (ctx, user) => ({
- *     plan: (await ctx.db.get(user.workspaceId))?.plan ?? 'free',
- *   }),
- * })
- * ```
- */
+type ResolvedActorRecord<TActor, TUser> = {
+  actor: TActor
+  user: TUser
+}
+
+type ResolveActorRecord<TCtx, TActor, TUser> = (
+  ctx: TCtx,
+) => Promise<ResolvedActorRecord<TActor, TUser> | null>
+
 export interface DefineActorExtensionOptions<TExtra extends Record<string, unknown>> {
-  fields: (ctx: any, user: any) => Promise<TExtra>
+  fields: (ctx: any, user: any, actor?: any) => Promise<TExtra> | TExtra
+}
+
+export interface ActorBuilder<TCtx, TUser, TActor> {
+  readonly type: TActor
+  resolve: (ctx: TCtx) => Promise<TActor | null>
+  extend: <TExtra extends Record<string, unknown>>(
+    options: DefineActorExtensionOptions<TExtra> & {
+      fields: (ctx: TCtx, user: TUser, actor: TActor) => Promise<TExtra> | TExtra
+    },
+  ) => ActorBuilder<TCtx, TUser, TActor & TExtra>
+  filter: {
+    <TNarrow extends TActor>(
+      predicate: (actor: TActor) => actor is TNarrow,
+    ): ActorBuilder<TCtx, TUser, TNarrow>
+    (predicate: (actor: TActor) => boolean): ActorBuilder<TCtx, TUser, TActor>
+  }
+}
+
+async function resolveAuthIdentity<DataModel extends GenericDataModel>(
+  ctx: AnyCtx<DataModel>,
+): Promise<AuthIdentity | null> {
+  const trusted = getTrustedCaller(ctx)
+  return trusted ? { subject: trusted.userId } : await getAuth(ctx)
+}
+
+async function resolveDefaultUser<DataModel extends GenericDataModel>(
+  ctx: AnyCtx<DataModel>,
+): Promise<Record<string, unknown> | null> {
+  const auth = await resolveAuthIdentity(ctx)
+  if (!auth) return null
+
+  return await (ctx.db as any)
+    .query('users')
+    .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
+    .first()
+}
+
+function createActorBuilder<TCtx, TUser, TActor>(
+  resolveRecord: ResolveActorRecord<TCtx, TActor, TUser>,
+): ActorBuilder<TCtx, TUser, TActor> {
+  function resolve(ctx: TCtx) {
+    return resolveRecord(ctx).then((resolved) => resolved?.actor ?? null)
+  }
+
+  function extend<TExtra extends Record<string, unknown>>(
+    options: DefineActorExtensionOptions<TExtra> & {
+      fields: (ctx: TCtx, user: TUser, actor: TActor) => Promise<TExtra> | TExtra
+    },
+  ): ActorBuilder<TCtx, TUser, TActor & TExtra> {
+    return createActorBuilder<TCtx, TUser, TActor & TExtra>(async (ctx) => {
+      const resolved = await resolveRecord(ctx)
+      if (!resolved) return null
+
+      const extra = await options.fields(ctx, resolved.user, resolved.actor)
+      return {
+        user: resolved.user,
+        actor: {
+          ...resolved.actor,
+          ...extra,
+        },
+      }
+    })
+  }
+
+  function filter<TNarrow extends TActor>(
+    predicate: ((actor: TActor) => boolean) | ((actor: TActor) => actor is TNarrow),
+  ): ActorBuilder<TCtx, TUser, TNarrow> {
+    return createActorBuilder<TCtx, TUser, TNarrow>(async (ctx) => {
+      const resolved = await resolveRecord(ctx)
+      if (!resolved) return null
+      if (!predicate(resolved.actor)) return null
+      return resolved as ResolvedActorRecord<TNarrow, TUser>
+    })
+  }
+
+  return {
+    type: null as unknown as TActor,
+    resolve,
+    extend,
+    filter: filter as ActorBuilder<TCtx, TUser, TActor>['filter'],
+  }
 }
 
 /**
  * Define extra fields to merge into the default actor.
- * The extension is applied after the base actor is resolved.
+ * Compatibility helper for `createDefaultGetActor(...)`.
  */
 export function defineActorExtension<TExtra extends Record<string, unknown>>(
   options: DefineActorExtensionOptions<TExtra>,
@@ -45,92 +123,80 @@ export function defineActorExtension<TExtra extends Record<string, unknown>>(
   return options
 }
 
+export const defineActor = {
+  fromAuth<DataModel extends GenericDataModel = GenericDataModel>() {
+    return createActorBuilder<AnyCtx<DataModel>, Record<string, unknown>, DefaultActor>(
+      async (ctx) => {
+        const user = await resolveDefaultUser(ctx)
+        if (!user) return null
+
+        return {
+          user,
+          actor: {
+            kind: 'user',
+            userId: String(user.authId),
+            role: typeof user.role === 'string' ? user.role : 'member',
+            ...(user.workspaceId ? { tenantId: String(user.workspaceId) } : {}),
+          },
+        }
+      },
+    )
+  },
+
+  fromMembership<DataModel extends GenericDataModel = GenericDataModel>(options: {
+    membershipTable: string
+    roleField: string
+    workspaceField?: string
+  }) {
+    const { membershipTable, roleField, workspaceField = 'workspaceId' } = options
+
+    return createActorBuilder<AnyCtx<DataModel>, Record<string, unknown>, DefaultActor>(
+      async (ctx) => {
+        const user = await resolveDefaultUser(ctx)
+        if (!user) return null
+
+        const membership = await (ctx.db as any)
+          .query(membershipTable)
+          .withIndex('by_user', (q: any) => q.eq('userId', user._id))
+          .first()
+
+        if (!membership) return null
+
+        return {
+          user,
+          actor: {
+            kind: 'user',
+            userId: String(user.authId),
+            role: String(membership[roleField]),
+            tenantId: membership[workspaceField] ? String(membership[workspaceField]) : undefined,
+          },
+        }
+      },
+    )
+  },
+}
+
 /**
- * Create a default `getActor` function using module conventions.
- *
- * Convention:
- * - User table has `authId` field + `by_auth_id` index
- * - If user has `role`, it's included in the actor
- * - If user has `workspaceId`, it becomes `tenantId`
- *
- * @param extension - Optional actor extension from `defineActorExtension`
+ * Compatibility helper for the canonical auth-backed actor builder.
  */
 export function createDefaultGetActor<
   DataModel extends GenericDataModel = GenericDataModel,
   TExtra extends Record<string, unknown> = Record<string, never>,
 >(extension?: DefineActorExtensionOptions<TExtra>) {
-  return async function getActor(ctx: AnyCtx<DataModel>): Promise<(DefaultActor & TExtra) | null> {
-    const trusted = getTrustedCaller(ctx)
-    const auth: AuthIdentity | null = trusted ? { subject: trusted.userId } : await getAuth(ctx)
+  const builder = extension
+    ? defineActor.fromAuth<DataModel>().extend({
+        fields: extension.fields,
+      })
+    : defineActor.fromAuth<DataModel>()
 
-    if (!auth) return null
-
-    const user = await (ctx.db as any)
-      .query('users')
-      .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
-      .first()
-
-    if (!user) return null
-
-    const base: DefaultActor = {
-      kind: 'user',
-      userId: user.authId,
-      role: user.role ?? 'member',
-      ...(user.workspaceId ? { tenantId: user.workspaceId } : {}),
-    }
-
-    if (extension) {
-      const extra = await extension.fields(ctx, user)
-      return { ...base, ...extra } as DefaultActor & TExtra
-    }
-
-    return base as DefaultActor & TExtra
-  }
+  return builder.resolve
 }
 
 /**
- * Create an actor resolver for multi-workspace apps where the role
- * comes from a membership table rather than the user row.
- *
- * @example
- * ```ts
- * export const getActor = defineActorFromMembership({
- *   membershipTable: 'memberships',
- *   roleField: 'role',
- * })
- * ```
+ * Compatibility helper for multi-workspace membership-backed actor resolution.
  */
 export function defineActorFromMembership<
   DataModel extends GenericDataModel = GenericDataModel,
 >(options: { membershipTable: string; roleField: string; workspaceField?: string }) {
-  const { membershipTable, roleField, workspaceField = 'workspaceId' } = options
-
-  return async function getActor(ctx: AnyCtx<DataModel>): Promise<DefaultActor | null> {
-    const trusted = getTrustedCaller(ctx)
-    const auth: AuthIdentity | null = trusted ? { subject: trusted.userId } : await getAuth(ctx)
-
-    if (!auth) return null
-
-    const user = await (ctx.db as any)
-      .query('users')
-      .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
-      .first()
-
-    if (!user) return null
-
-    // Look up membership to get role and workspace
-    const membership = await (ctx.db as any)
-      .query(membershipTable)
-      .withIndex('by_user', (q: any) => q.eq('userId', user._id))
-      .first()
-
-    if (!membership) return null
-
-    return {
-      kind: 'user',
-      userId: user.authId,
-      role: membership[roleField],
-      tenantId: membership[workspaceField],
-    }
-  }
+  return defineActor.fromMembership<DataModel>(options).resolve
 }

@@ -151,16 +151,46 @@ function getProjectAnalysisForContext(context: RuleContext) {
 }
 
 function getHandlerFunction(callNode: any): any | null {
-  const objectArg = callNode.arguments?.[0]
+  const objectArg = getHandlerOptionsObject(callNode)
+  if (!objectArg) return null
   const handlerProperty = getObjectProperty(objectArg, 'handler')
   if (!handlerProperty) return null
   return handlerProperty.value
 }
 
-function getHandlerArgsProperty(callNode: any): any | null {
+function getHandlerOptionsObject(callNode: any): any | null {
   const objectArg = callNode.arguments?.[0]
+  if (objectArg?.type !== 'ObjectExpression') return null
+  return objectArg
+}
+
+function getHandlerArgsProperty(callNode: any): any | null {
+  const objectArg = getHandlerOptionsObject(callNode)
+  if (!objectArg) return null
   const argsProperty = getObjectProperty(objectArg, 'args')
   return argsProperty?.value ?? null
+}
+
+function getHandlerGuardValue(callNode: any): any | null {
+  const objectArg = getHandlerOptionsObject(callNode)
+  if (!objectArg) return null
+  return getObjectProperty(objectArg, 'guard')?.value ?? null
+}
+
+function isOpenGuardValue(node: any): boolean {
+  return (
+    isIdentifier(node, 'open') ||
+    (node?.type === 'MemberExpression' && !node.computed && isIdentifier(node.property, 'open'))
+  )
+}
+
+function hasStructuredGuard(callNode: any): boolean {
+  return getHandlerGuardValue(callNode) !== null
+}
+
+function hasProtectedStructuredGuard(callNode: any): boolean {
+  const guard = getHandlerGuardValue(callNode)
+  return guard !== null && !isOpenGuardValue(guard)
 }
 
 function getFirstArgTableMap(callNode: any): Map<string, string> {
@@ -574,7 +604,7 @@ const rules: Record<string, RuleModule> = {
         if (!actorDeclaration) return
         const actorName = actorDeclaration.name
 
-        let secured = false
+        let secured = hasProtectedStructuredGuard(node)
         for (const statement of handler.body.body.slice(actorDeclaration.index + 1)) {
           if (
             statementContainsCall(statement, 'enforce', actorName) ||
@@ -833,7 +863,8 @@ const rules: Record<string, RuleModule> = {
     },
     (context) => ({
       CallExpression(node) {
-        if (!isCallNamed(node, 'appQuery', 'appMutation')) return
+        if (!isCallNamed(node, 'appQuery', 'appMutation') && !hasStructuredGuard(node)) return
+        if (hasStructuredGuard(node)) return
         const handler = getHandlerFunction(node)
         if (!handler || handler.body?.type !== 'BlockStatement') return
         const actorDeclaration = getActorDeclaration(handler)

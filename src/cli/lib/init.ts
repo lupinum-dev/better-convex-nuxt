@@ -91,29 +91,34 @@ vi.mock('./_generated/server', async () => await convexServerMock())
 
 function personalActorTemplate() {
   return `
-import { createDefaultGetActor } from 'better-convex-nuxt/auth'
-import type { DefaultActor } from 'better-convex-nuxt/auth'
+import { defineActor } from 'better-convex-nuxt/auth'
 
-export type Actor = DefaultActor | null
+const actor = defineActor.fromAuth()
 
-export const getActor = createDefaultGetActor()
+export type Actor = typeof actor.type | null
+
+export const getActor = actor.resolve
 `.trimStart()
 }
 
 function personalChecksTemplate() {
   return `
+import { defineGuard } from 'better-convex-nuxt/auth'
+
 import type { Actor } from './actor'
 
-export const isAuthenticated = (actor: Actor) => actor !== null
+export const isAuthenticated = defineGuard<Actor>('authenticated', (actor) => actor !== null)
 
 export const isOwnerOf = (resource: { ownerId: string }) =>
-  (actor: Actor) => !!actor && actor.kind === 'user' && actor.userId === resource.ownerId
+  defineGuard<Actor>(\`owner:\${resource.ownerId}\`, (actor) =>
+    !!actor && actor.kind === 'user' && actor.userId === resource.ownerId
+  )
 `.trimStart()
 }
 
 function personalFunctionsTemplate() {
   return `
-import { createFunctions } from 'better-convex-nuxt/functions'
+import { createFunctions, defineHandler } from 'better-convex-nuxt/functions'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -123,50 +128,62 @@ export const { query: appQuery, mutation: appMutation } = createFunctions(query,
   actor: getActor,
 })
 
+export const app = defineHandler(appQuery, appMutation)
+
 export { query, mutation }
 `.trimStart()
 }
 
 function personalPermissionQueryTemplate() {
   return `
+import { definePermissionContext } from 'better-convex-nuxt/auth'
+
+import { isAuthenticated } from './auth/checks'
+import { getActor } from './auth/actor'
 import { appQuery } from './functions'
 
-export const getPermissionContext = appQuery({
-  args: {},
-  handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor) {
-      return null
-    }
-
-    return {
-      userId: actor.userId,
-      can: {
-        'profile.read': true,
-        'todo.create': true,
-      },
-    }
-  },
-})
+export const getPermissionContext = appQuery(
+  definePermissionContext({
+    resolve: getActor,
+    guards: {
+      'profile.read': isAuthenticated,
+      'todo.create': isAuthenticated,
+    },
+  }),
+)
 `.trimStart()
 }
 
 function workspaceActorTemplate() {
   return `
-import { createDefaultGetActor } from 'better-convex-nuxt/auth'
-import type { DefaultActor } from 'better-convex-nuxt/auth'
+import { defineActor, type DefaultActor } from 'better-convex-nuxt/auth'
 
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
-export type Actor = DefaultActor | null
+type WorkspaceActor = DefaultActor & {
+  role: Role
+  tenantId: string
+}
 
-export const getActor = createDefaultGetActor()
+const actor = defineActor
+  .fromAuth()
+  .extend({
+    fields: async (_ctx, user) => ({
+      role: (user.role ?? 'member') as Role,
+      tenantId: user.workspaceId as string | undefined,
+    }),
+  })
+  .filter((value): value is WorkspaceActor => !!value.tenantId)
+
+export type Actor = typeof actor.type | null
+
+export const getActor = actor.resolve
 `.trimStart()
 }
 
 function workspaceFunctionsTemplate({ trustedCaller }: { trustedCaller: boolean }) {
   return `
-import { createFunctions } from 'better-convex-nuxt/functions'
+import { createFunctions, defineHandler } from 'better-convex-nuxt/functions'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
@@ -181,20 +198,22 @@ export const { query: appQuery, mutation: appMutation } = createFunctions(query,
   // },
 })
 
+export const app = defineHandler(appQuery, appMutation)
+
 export { query, mutation }
 `.trimStart()
 }
 
 function workspaceChecksTemplate() {
   return `
-import { and } from 'better-convex-nuxt/auth'
+import { defineGuard } from 'better-convex-nuxt/auth'
 
 import type { Actor, Role } from './actor'
 
-export const isAuthenticated = (actor: Actor) => actor !== null
+export const isAuthenticated = defineGuard<Actor>('authenticated', (actor) => actor !== null)
 
 export const hasMinimumRole = (minimum: Role) =>
-  (actor: Actor) => {
+  defineGuard<Actor>(\`role>=\${minimum}\`, (actor) => {
     if (!actor) return false
 
     const ranks: Record<Role, number> = {
@@ -205,39 +224,38 @@ export const hasMinimumRole = (minimum: Role) =>
     }
 
     return ranks[actor.role] >= ranks[minimum]
-  }
+  })
 
 export const isWorkspaceMember = (tenantId: string) =>
-  (actor: Actor) => !!actor && actor.tenantId === tenantId
+  defineGuard<Actor>(\`workspace:\${tenantId}\`, (actor) => !!actor && actor.tenantId === tenantId)
 
-export const canManageWorkspace = and(isAuthenticated, hasMinimumRole('admin'))
+export const canManageWorkspace = defineGuard<Actor>(
+  'manage-workspace',
+  hasMinimumRole('admin'),
+)
 `.trimStart()
 }
 
 function workspacePermissionQueryTemplate() {
   return `
+import { defineGuard, definePermissionContext } from 'better-convex-nuxt/auth'
+
+import { getActor } from './auth/actor'
+import { hasMinimumRole, isAuthenticated } from './auth/checks'
 import { appQuery } from './functions'
 
-export const getPermissionContext = appQuery({
-  args: {},
-  handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor) {
-      return null
-    }
+const canCreateTodo = defineGuard('todo.create', hasMinimumRole('member'))
 
-    return {
-      userId: actor.userId,
-      tenantId: actor.tenantId,
-      role: actor.role,
-      can: {
-        'workspace.read': true,
-        'workspace.members': actor.role === 'owner' || actor.role === 'admin',
-        'todo.create': actor.role !== 'viewer',
-      },
-    }
-  },
-})
+export const getPermissionContext = appQuery(
+  definePermissionContext({
+    resolve: getActor,
+    guards: {
+      'workspace.read': isAuthenticated,
+      'workspace.members': hasMinimumRole('admin'),
+      'todo.create': canCreateTodo,
+    },
+  }),
+)
 `.trimStart()
 }
 
