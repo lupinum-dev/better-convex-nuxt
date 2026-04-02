@@ -155,58 +155,58 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@clack/prompts": "^1.1.0",
-    "@convex-dev/better-auth": "^0.11.3",
+    "@clack/prompts": "^1.2.0",
+    "@convex-dev/better-auth": "^0.11.4",
     "@nuxt/devtools-kit": "^3.2.2",
-    "@nuxt/kit": "^4.3.1",
+    "@nuxt/kit": "^4.4.2",
     "better-auth": ">=1.5.0 <1.6.0",
-    "citty": "^0.1.6",
+    "citty": "^0.2.2",
     "consola": "^3.4.0",
-    "defu": "^6.1.4",
-    "h3": "1.15.10",
+    "defu": "^6.1.6",
+    "h3": "1.15.11",
     "ohash": "^2.0.11",
     "sirv": "^3.0.1",
     "ufo": "^1.5.4"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
-    "@nuxt/devtools": "^3.2.2",
-    "@nuxt/devtools-ui-kit": "^3.2.2",
+    "@nuxt/devtools": "^3.2.4",
+    "@nuxt/devtools-ui-kit": "^3.2.4",
     "@nuxt/eslint-config": "^1.15.2",
     "@nuxt/module-builder": "^1.0.2",
-    "@nuxt/schema": "^4.3.1",
+    "@nuxt/schema": "^4.4.2",
     "@nuxt/test-utils": "^4.0.0",
-    "@nuxtjs/mcp-toolkit": "^0.12.0",
-    "@nuxtjs/robots": "5.7.1",
-    "@playwright/test": "^1.58.2",
-    "@types/node": "latest",
-    "@vitejs/plugin-vue": "^6.0.4",
-    "@vitest/browser-playwright": "^4.0.18",
-    "ai": "^6.0.142",
+    "@nuxtjs/mcp-toolkit": "^0.13.3",
+    "@nuxtjs/robots": "6.0.6",
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.5.0",
+    "@vitejs/plugin-vue": "^6.0.5",
+    "@vitest/browser-playwright": "^4.1.2",
+    "ai": "^6.0.143",
     "changelogen": "^0.6.2",
-    "convex": "^1.34.0",
+    "convex": "^1.34.1",
     "convex-helpers": "^0.1.114",
-    "convex-test": "^0.0.41",
+    "convex-test": "^0.0.46",
     "convex-vite-plugin": "^0.4.0",
-    "eslint": "^9.39.3",
-    "happy-dom": "^20.8.3",
+    "eslint": "^9.39.4",
+    "happy-dom": "^20.8.9",
     "husky": "^9.1.7",
-    "lint-staged": "^16.3.2",
+    "lint-staged": "^16.4.0",
     "nuxt": "^4.4.2",
-    "oxfmt": "^0.36.0",
-    "playwright-core": "^1.58.2",
+    "oxfmt": "^0.43.0",
+    "playwright-core": "^1.59.1",
     "secure-exec": "^0.2.1",
     "typescript": "~5.9.3",
-    "vitest": "^4.0.18",
-    "vitest-browser-vue": "^2.0.2",
-    "vue-tsc": "^3.2.5",
-    "zod": "^4.3.0"
+    "vitest": "^4.1.2",
+    "vitest-browser-vue": "^2.1.0",
+    "vue-tsc": "^3.2.6",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "@nuxtjs/mcp-toolkit": "^0.12.0",
+    "@nuxtjs/mcp-toolkit": "^0.13.3",
     "convex": "^1.32.0",
     "convex-helpers": "^0.1.114",
-    "zod": "^4.3.0"
+    "zod": "^4.3.6"
   },
   "peerDependenciesMeta": {
     "@nuxtjs/mcp-toolkit": {
@@ -225,7 +225,7 @@
   "packageManager": "pnpm@10.30.3+sha512.c961d1e0a2d8e354ecaa5166b822516668b7f44cb5bd95122d590dd81922f606f5473b6d23ec4a5be05e7fcd18e8488d47d978bbe981872f1145d06e9a740017",
   "pnpm": {
     "overrides": {
-      "h3": "1.15.10"
+      "h3": "1.15.11"
     }
   }
 }

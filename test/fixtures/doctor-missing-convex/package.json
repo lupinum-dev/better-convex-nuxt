@@ -4,6 +4,6 @@
   "type": "module",
   "dependencies": {
     "@lupinum/trellis": "workspace:*",
-    "nuxt": "^4.3.1"
+    "nuxt": "^4.4.2"
   }
 }

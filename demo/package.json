@@ -11,21 +11,21 @@
     "typecheck": "nuxt typecheck --dotenv .env.local"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.10.13",
-    "@iconify-json/lucide": "^1.2.95",
-    "@iconify-json/simple-icons": "^1.2.71",
-    "@nuxt/ui": "^4.5.0",
-    "better-auth": "1.4.20",
+    "@convex-dev/better-auth": "^0.11.4",
+    "@iconify-json/lucide": "^1.2.101",
+    "@iconify-json/simple-icons": "^1.2.76",
+    "@nuxt/ui": "^4.6.0",
+    "better-auth": "^1.5.6",
     "@lupinum/trellis": "workspace:*",
-    "convex": "^1.32.0",
-    "nuxt": "^4.3.1"
+    "convex": "^1.34.1",
+    "nuxt": "^4.4.2"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
-    "@types/node": "^25.3.2",
-    "eslint": "^9.39.2",
+    "@types/node": "^25.5.0",
+    "eslint": "^9.39.4",
     "typescript": "^5.9.3",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.2.6"
   },
   "packageManager": "pnpm@10.26.1"
 }

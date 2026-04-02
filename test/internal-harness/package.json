@@ -7,13 +7,13 @@
     "build": "nuxi build --dotenv .env.local"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.11.3",
-    "@nuxtjs/mcp-toolkit": "latest",
-    "better-auth": "^1.5.0",
+    "@convex-dev/better-auth": "^0.11.4",
+    "@nuxtjs/mcp-toolkit": "^0.13.3",
+    "better-auth": "^1.5.6",
     "@lupinum/trellis": "workspace:*",
-    "convex": "^1.34.0",
-    "nuxt": "^4.3.1",
-    "secure-exec": "^0.1.0",
-    "zod": "^4.3.0"
+    "convex": "^1.34.1",
+    "nuxt": "^4.4.2",
+    "secure-exec": "^0.2.1",
+    "zod": "^4.3.6"
   }
 }
