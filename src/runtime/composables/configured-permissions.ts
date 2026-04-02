@@ -69,7 +69,7 @@ function usePermissionContextState<
   const { data, pending, error } = createConvexQueryState(
     query,
     {},
-    { shared: `trellis:permissions:${configuredQueryName}` },
+    undefined,
     true,
   ).resultData
   const ctx = computed<TContext | null>(() => data.value as TContext | null)

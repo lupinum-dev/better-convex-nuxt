@@ -164,6 +164,10 @@ export function useSharedConnectionStateStore(
   return ensureConnectionSubscription(nuxtApp, client, logger)
 }
 
+export function getSharedConnectionStateStore(nuxtApp: RuntimeHookApp): ConnectionStateStore {
+  return getConnectionStateStore(nuxtApp)
+}
+
 export function releaseSharedConnectionStateStore(nuxtApp: RuntimeHookApp) {
   const store = getConnectionStateStore(nuxtApp)
   if (store.subscriberCount > 0 || store.runtimeInitialized || !store.unsubscribe) return

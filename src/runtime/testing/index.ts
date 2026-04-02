@@ -185,29 +185,43 @@ function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
     }
   }
 
-  return {
+  const client = {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
       const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
-      return await raw.query(fn, payload as OptionalRestArgs<Query>[0])
+      const query = raw.query as unknown as (
+        ref: Query,
+        args?: OptionalRestArgs<Query>[0],
+      ) => Promise<FunctionReturnType<Query>>
+      return await query(fn, payload as OptionalRestArgs<Query>[0])
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
       const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
-      return await raw.mutation(fn, payload as OptionalRestArgs<Mutation>[0])
+      const mutation = raw.mutation as unknown as (
+        ref: Mutation,
+        args?: OptionalRestArgs<Mutation>[0],
+      ) => Promise<FunctionReturnType<Mutation>>
+      return await mutation(fn, payload as OptionalRestArgs<Mutation>[0])
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
       const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
-      return await raw.action(fn, payload as OptionalRestArgs<Action>[0])
+      const action = raw.action as unknown as (
+        ref: Action,
+        args?: OptionalRestArgs<Action>[0],
+      ) => Promise<FunctionReturnType<Action>>
+      return await action(fn, payload as OptionalRestArgs<Action>[0])
     },
   }
+
+  return client as unknown as TestClient<TSchema>
 }
 
 export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserConfig {

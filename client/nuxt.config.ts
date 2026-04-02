@@ -14,6 +14,7 @@ export default defineNuxtConfig({
     baseURL: DEVTOOLS_UI_PATH,
   },
   compatibilityDate: '2024-08-19',
+  // @ts-expect-error Nuxt accepts nitro here, but this bare config type loses the key.
   nitro: {
     output: {
       publicDir: resolver.resolve('../dist/client'),
@@ -28,7 +29,6 @@ export default defineNuxtConfig({
       },
     },
   },
-  // @ts-expect-error provided by @nuxt/devtools-ui-kit
   unocss: {
     icons: true,
     shortcuts: {

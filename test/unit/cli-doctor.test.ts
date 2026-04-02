@@ -98,11 +98,61 @@ describe('CLI doctor', () => {
   it('warns when the Convex URL source is missing', () => {
     const result = runDoctorJson('doctor-missing-env')
     const finding = result.report.findings.find((entry) => entry.id === 'convex-url-configured')
+    const siteUrlFinding = result.report.findings.find((entry) => entry.id === 'site-url-configured')
+    const authRoutesFinding = result.report.findings.find(
+      (entry) => entry.id === 'better-auth-routes-registered',
+    )
 
     expect(result.status, result.stderr).toBe(0)
     expect(finding?.status).toBe('warn')
+    expect(siteUrlFinding?.status).toBe('warn')
+    expect(authRoutesFinding?.status).toBe('warn')
     expect(result.report.summary.warn).toBeGreaterThan(0)
     expect(result.report.summary.fail).toBe(0)
+  })
+
+  it('warns when trusted-caller surfaces are present without a shared key', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-doctor-trusted-caller-'))
+    mkdirSync(resolve(cwd, 'server/api'), { recursive: true })
+    writeFileSync(
+      resolve(cwd, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          nuxt: '^4.0.0',
+          convex: '^1.0.0',
+          '@lupinum/trellis': '^3.0.0',
+        },
+      }),
+    )
+    writeFileSync(
+      resolve(cwd, 'nuxt.config.ts'),
+      "export default defineNuxtConfig({ modules: ['@lupinum/trellis'] })\n",
+    )
+    writeFileSync(
+      resolve(cwd, '.env.local'),
+      [
+        'CONVEX_URL=https://doctor-valid.convex.cloud',
+        'CONVEX_SITE_URL=https://doctor-valid.convex.site',
+        'SITE_URL=http://localhost:3000',
+        'BETTER_AUTH_SECRET=test-secret',
+      ].join('\n'),
+    )
+    writeFileSync(
+      resolve(cwd, 'server/api/mcp.ts'),
+      "import { defineConvexTool } from '@lupinum/trellis/mcp'\nexport default defineConvexTool({ description: 'x', args: {}, handler: async () => null })\n",
+    )
+
+    const result = runCli(['doctor', '--json'], cwd)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string }>
+      summary: { fail: number; warn: number }
+    }
+    const finding = report.findings.find((entry) => entry.id === 'trusted-caller-key-configured')
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(finding?.status).toBe('warn')
+    expect(report.summary.fail).toBe(0)
+    expect(report.summary.warn).toBeGreaterThan(0)
   })
 
   it('returns stable ANSI-free JSON output', () => {

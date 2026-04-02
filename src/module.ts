@@ -1,22 +1,13 @@
-import {
-  defineNuxtModule,
-  addPlugin,
-  createResolver,
-  addTemplate,
-  addImports,
-  addServerHandler,
-  addServerImports,
-  addComponentsDir,
-  addRouteMiddleware,
-  useLogger,
-} from '@nuxt/kit'
+import { defineNuxtModule, createResolver, useLogger } from '@nuxt/kit'
 import { defu } from 'defu'
-import { existsSync } from 'node:fs'
-import { resolve as resolvePath } from 'node:path'
 
 import { collectConvexFunctionPaths } from './analysis/project'
 import { collectModuleValidationFindings } from './analysis/validation'
 import { setupConvexDevtools } from './devtools'
+import { installAdvancedTrellis } from './installers/advanced'
+import { installAuthTrellis } from './installers/auth'
+import { installCoreTrellis } from './installers/core'
+import { installPermissionTrellis } from './installers/permissions'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants'
 import {
@@ -433,187 +424,16 @@ export default defineNuxtModule<ModuleOptions>({
       logger.warn(message)
     }
 
-    // 2. Register Server Plugin (runs first for SSR token exchange)
-    addPlugin({
-      src: resolver.resolve('./runtime/plugin.server'),
-      mode: 'server',
-    })
-
-    // 3. Register Client Plugin (client-only via filename convention)
-    addPlugin(resolver.resolve('./runtime/plugin.client'))
+    installCoreTrellis({ nuxt, resolver, logger })
 
     if (isAuthEnabled) {
-      addRouteMiddleware({
-        name: 'convex-auth',
-        path: resolver.resolve('./runtime/middleware/convex-auth.global'),
-        global: true,
+      installAuthTrellis({
+        resolver,
+        authRoute,
       })
     }
 
-    // 4. Register Auth Proxy Route (when auth is enabled)
-    // The proxy is needed even in SPA mode because:
-    // - Better Auth cookies must be set on the app's domain (not Convex's domain)
-    // - Cross-origin cookie setting is blocked by browsers
-    if (isAuthEnabled) {
-      // Register both exact and wildcard routes so requests without a trailing
-      // slash (e.g. POST /api/auth) are not missed by the /** glob in Nitro.
-      addServerHandler({
-        route: authRoute,
-        handler: resolver.resolve('./runtime/server/api/auth/[...]'),
-      })
-      addServerHandler({
-        route: `${authRoute}/**`,
-        handler: resolver.resolve('./runtime/server/api/auth/[...]'),
-      })
-    }
-
-    // 5. Register Type Augmentation for IDE support
-    addTemplate({
-      filename: 'types/trellis.d.ts',
-      getContents: () => `
-import type { ConvexClient } from 'convex/browser'
-import type { createAuthClient } from 'better-auth/vue'
-import type { RouteLocationRaw } from 'vue-router'
-import type {
-  ConvexAuthChangedPayload,
-  ConvexCallErrorPayload,
-  ConvexCallSuccessPayload,
-  ConvexConnectionChangedPayload,
-  ConvexUnauthorizedPayload,
-} from '${resolver.resolve('./runtime/utils/types')}'
-
-type AuthClient = ReturnType<typeof createAuthClient>
-
-declare module '#app' {
-  interface NuxtApp {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-  }
-
-  interface RuntimeNuxtHooks {
-    'trellis:auth:refresh': () => void | Promise<void>
-    'trellis:auth:invalidate': () => void | Promise<void>
-    /** Fired when a Convex call returns a 401/403. Handle sign-out + redirect here. */
-    'trellis:unauthorized': (payload: ConvexUnauthorizedPayload) => void | Promise<void>
-    /** Fired after every successful mutation. */
-    'trellis:mutation:success': (payload: ConvexCallSuccessPayload<'mutation'>) => void | Promise<void>
-    /** Fired after every failed mutation. */
-    'trellis:mutation:error': (payload: ConvexCallErrorPayload<'mutation'>) => void | Promise<void>
-    /** Fired after every successful action. */
-    'trellis:action:success': (payload: ConvexCallSuccessPayload<'action'>) => void | Promise<void>
-    /** Fired after every failed action. */
-    'trellis:action:error': (payload: ConvexCallErrorPayload<'action'>) => void | Promise<void>
-    /** Fired when the derived connection phase changes. */
-    'trellis:connection:changed': (payload: ConvexConnectionChangedPayload) => void | Promise<void>
-    /** Fired when the effective authenticated user changes. */
-    'trellis:auth:changed': (payload: ConvexAuthChangedPayload) => void | Promise<void>
-  }
-
-    interface PageMeta {
-    /**
-     * Skip Convex auth check for this page.
-     * Useful for marketing pages that don't need authentication.
-     */
-      skipConvexAuth?: boolean
-      /**
-       * Opt-in route protection powered by @lupinum/trellis.
-       * true = require auth (default redirect), object = custom redirect.
-       */
-      convexAuth?: boolean | { redirectTo?: RouteLocationRaw }
-    }
-  }
-
-declare module 'vue' {
-  interface ComponentCustomProperties {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-  }
-}
-
-export {}
-`,
-    })
-
-    // --- Virtual module: #trellis (client composables barrel) ---
-    const trellisBarrelTemplate = addTemplate({
-      filename: 'trellis/index.ts',
-      write: true,
-      getContents: () => `export * from '${resolver.resolve('./runtime/composables/index')}'
-`,
-    })
-    nuxt.options.alias['#trellis'] = trellisBarrelTemplate.dst
-
-    // --- Virtual module: #trellis/api (generated Convex API re-export) ---
-    const trellisApiTemplate = addTemplate({
-      filename: 'trellis/api.ts',
-      write: true,
-      getContents: () => {
-        const candidatePaths = [...new Set([
-          resolvePath(nuxt.options.srcDir, 'convex/_generated/api'),
-          resolvePath(nuxt.options.rootDir, 'convex/_generated/api'),
-        ])]
-        const convexGenApi = candidatePaths.find(
-          (candidate) => existsSync(candidate + '.ts') || existsSync(candidate + '.js'),
-        )
-
-        if (!convexGenApi) {
-          logger.warn(
-            '`#trellis/api` alias registered but convex/_generated/api does not exist yet. ' +
-              'Run `npx convex dev` to generate it.',
-          )
-          return `const error = () =>
-  new Error(
-    '[trellis] \`#trellis/api\` is unavailable because convex/_generated/api has not been generated yet. Run \`npx convex dev\` first.',
-  )
-
-export const api = new Proxy(
-  {},
-  {
-    get() {
-      throw error()
-    },
-    apply() {
-      throw error()
-    },
-  },
-) as never
-`
-        }
-
-        return `export { api } from '${convexGenApi}'
-`
-      },
-    })
-    nuxt.options.alias['#trellis/api'] = trellisApiTemplate.dst
-
-    // --- Virtual module: #trellis/server ---
-    const serverAliasTemplate = addTemplate({
-      filename: 'trellis/server.ts',
-      write: true,
-      getContents: () => `
-export {
-  serverConvexQuery,
-  serverConvexMutation,
-  serverConvexAction,
-} from '${resolver.resolve('./runtime/server/index')}'
-`,
-    })
-
-    nuxt.options.alias['#trellis/server'] = serverAliasTemplate.dst
-
-    // --- Virtual module: #trellis/mcp ---
-    const mcpAliasTemplate = addTemplate({
-      filename: 'trellis/mcp.ts',
-      write: true,
-      getContents: () => {
-        const mcpEntryPath = resolver.resolve('./runtime/mcp/index')
-        return `
-export * from '${mcpEntryPath}'
-`
-      },
-    })
-
-    nuxt.options.alias['#trellis/mcp'] = mcpAliasTemplate.dst
+    installAdvancedTrellis({ nuxt, resolver })
 
     if (permissionQueryPath) {
       const parsed = splitConfiguredFunctionPath(permissionQueryPath)
@@ -623,105 +443,11 @@ export * from '${mcpEntryPath}'
         )
       }
 
-      const permissionsTemplate = addTemplate({
-        filename: 'trellis/permissions.ts',
-        write: true,
-        getContents: () => `
-import { api } from '#trellis/api'
-import { createConfiguredPermissionsComposables } from '${resolver.resolve('./runtime/composables/configured-permissions')}'
-
-const configuredQuery = (api as Record<string, any>)['${parsed.modulePath}']['${parsed.exportName}']
-
-export const configuredPermissionsQuery = configuredQuery
-
-export const { usePermissions, useAuthGuard } = createConfiguredPermissionsComposables(
-  configuredQuery,
-  '${permissionQueryPath}',
-)
-`,
-      })
-
-      addImports([
-        { name: 'usePermissions', from: permissionsTemplate.dst },
-        { name: 'useAuthGuard', from: permissionsTemplate.dst },
-      ])
-    }
-
-    // 6. Auto-import composables (non-auth, always available)
-    addImports([
-      { name: 'useConvex', from: resolver.resolve('./runtime/composables/useConvex') },
-      {
-        name: 'useConvexMutation',
-        from: resolver.resolve('./runtime/composables/useConvexMutation'),
-      },
-      { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
-      { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
-      { name: 'useCachedQuery', from: resolver.resolve('./runtime/composables/useCachedQuery') },
-      {
-        name: 'executeConvexQuery',
-        from: resolver.resolve('./runtime/composables/useConvexQuery'),
-      },
-      {
-        name: 'useConvexPaginatedQuery',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'useConvexConnectionState',
-        from: resolver.resolve('./runtime/composables/useConvexConnectionState'),
-      },
-      {
-        name: 'useConvexUpload',
-        from: resolver.resolve('./runtime/composables/useConvexUpload'),
-      },
-      {
-        name: 'useConvexStorageUrl',
-        from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
-      },
-      // Optimistic update standalone helpers
-      { name: 'prependTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
-      { name: 'appendTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
-      { name: 'removeFrom', from: resolver.resolve('./runtime/composables/optimistic-updates') },
-      { name: 'updateIn', from: resolver.resolve('./runtime/composables/optimistic-updates') },
-    ])
-
-    // 6b. Auth composables and components (only when auth enabled)
-    if (isAuthEnabled) {
-      addImports([
-        { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
-        {
-          name: 'useConvexAuthActions',
-          from: resolver.resolve('./runtime/composables/useConvexAuthActions'),
-        },
-      ])
-
-      // Register auth components
-      addComponentsDir({
-        path: resolver.resolve('./runtime/components'),
-        global: true,
+      installPermissionTrellis({
+        resolver,
+        permissionQueryPath,
       })
     }
-
-    // 7. Auto-import server utilities
-    addServerImports([
-      { name: 'serverConvexQuery', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'serverConvexMutation', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'serverConvexAction', from: resolver.resolve('./runtime/server/utils/convex') },
-      {
-        name: 'serverConvexClearAuthCache',
-        from: resolver.resolve('./runtime/server/utils/auth-cache'),
-      },
-      {
-        name: 'validateConvexArgs',
-        from: resolver.resolve('./runtime/server/utils/validate'),
-      },
-    ])
-
-    // 9. Add types to tsconfig references
-    nuxt.hook('prepare:types', (opts) => {
-      opts.references.push({
-        path: resolver.resolve(nuxt.options.buildDir, 'types/trellis.d.ts'),
-      })
-    })
 
     // 10. Setup Nuxt DevTools integration (dev mode only)
     if (nuxt.options.dev) {

@@ -35,6 +35,11 @@ export interface LegacyApiUsage {
   path: string
 }
 
+export interface EnvKeySource {
+  key: string
+  source: string
+}
+
 function readTextIfExists(path: string): string | null {
   if (!existsSync(path)) return null
   return readFileSync(path, 'utf8')
@@ -194,6 +199,24 @@ function hasEnvAssignment(line: string, key: 'CONVEX_URL' | 'NUXT_PUBLIC_CONVEX_
   return remainder.slice(1).trim().length > 0
 }
 
+function hasAnyEnvAssignment(line: string, keys: readonly string[]): string | null {
+  for (const key of keys) {
+    const trimmedLine = line.trim()
+    const withoutExport = trimmedLine.startsWith('export ')
+      ? trimmedLine.slice('export '.length).trimStart()
+      : trimmedLine
+
+    if (!withoutExport.startsWith(key)) continue
+
+    const remainder = withoutExport.slice(key.length).trimStart()
+    if (!remainder.startsWith('=')) continue
+    if (remainder.slice(1).trim().length === 0) continue
+    return key
+  }
+
+  return null
+}
+
 export function findConvexUrlSource(project: ProjectInspection): string | null {
   if (typeof process.env.CONVEX_URL === 'string' && process.env.CONVEX_URL.trim()) {
     return 'process.env.CONVEX_URL'
@@ -218,6 +241,61 @@ export function findConvexUrlSource(project: ProjectInspection): string | null {
   }
 
   return null
+}
+
+export function findEnvKeySource(project: ProjectInspection, keys: readonly string[]): EnvKeySource | null {
+  for (const key of keys) {
+    const value = process.env[key]
+    if (typeof value === 'string' && value.trim()) {
+      return { key, source: `process.env.${key}` }
+    }
+  }
+
+  for (const envSource of project.envSources) {
+    for (const line of envSource.text.split(/\r?\n/)) {
+      const matchedKey = hasAnyEnvAssignment(line, keys)
+      if (matchedKey) {
+        return { key: matchedKey, source: envSource.path }
+      }
+    }
+  }
+
+  return null
+}
+
+export function isAuthExplicitlyDisabled(project: ProjectInspection): boolean {
+  return /trellis\s*:\s*\{[\s\S]*?\bauth\s*:\s*false\b/.test(project.nuxtConfigText)
+}
+
+export function findConvexHttpSource(project: ProjectInspection): { path: string; text: string } | null {
+  return (
+    project.sourceFiles.find((file) => /[/\\]convex[/\\]http\.(?:ts|js|mts|mjs|cjs)$/.test(file.path)) ??
+    null
+  )
+}
+
+export function hasBetterAuthRouteRegistration(project: ProjectInspection): boolean {
+  const convexHttpSource = findConvexHttpSource(project)
+  if (!convexHttpSource) return false
+
+  return (
+    /\bauthComponent\b/.test(convexHttpSource.text) &&
+    /\.registerRoutes\s*\(/.test(convexHttpSource.text)
+  )
+}
+
+export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
+  if (
+    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(/.test(project.nuxtConfigText)
+  ) {
+    return true
+  }
+
+  return project.sourceFiles.some((file) =>
+    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|withTrustedCallerHandler\s*\(|trustedCallerKey\b/.test(
+      file.text,
+    ),
+  )
 }
 
 const LEGACY_API_PATTERNS = [

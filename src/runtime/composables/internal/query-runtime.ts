@@ -1,0 +1,331 @@
+import type { ConvexClient } from 'convex/browser'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import {
+  computed,
+  getCurrentInstance,
+  getCurrentScope,
+  ref,
+  toValue,
+  watch,
+  type MaybeRefOrGetter,
+  type Ref,
+} from 'vue'
+
+import { useRuntimeConfig } from '#imports'
+
+import {
+  appendDevtoolsEvent,
+  registerDevtoolsQuery,
+  unregisterDevtoolsQuery,
+  updateDevtoolsQuery,
+} from '../../devtools/runtime'
+import { assertConvexComposableScope } from '../../utils/composable-scope'
+import { getQueryKey, getFunctionName, hashArgs } from '../../utils/convex-cache'
+import { getSharedLogger, getLogLevel } from '../../utils/logger'
+import { executeQueryViaSubscriptionOnce } from '../../utils/one-shot-subscription'
+import { getConvexRuntimeConfig } from '../../utils/runtime-config'
+import type { QueryStatus } from '../../utils/types'
+import {
+  createLiveQueryResource,
+  executeLiveQuery,
+  executeQueryHttp,
+} from './live-query-resource'
+
+export { getQueryKey, executeQueryHttp }
+
+export interface UseConvexQueryOptions<RawT, DataT = RawT> {
+  server?: boolean
+  subscribe?: boolean
+  default?: () => RawT | undefined
+  transform?: (input: RawT) => DataT
+  keepPreviousData?: boolean
+}
+
+export interface UseConvexQueryData<DataT> {
+  data: Ref<DataT | null>
+  error: Ref<Error | null>
+  refresh: () => Promise<void>
+  clear: () => void
+  pending: Ref<boolean>
+  status: Ref<QueryStatus>
+  isStale: Ref<boolean>
+}
+
+export interface UseConvexQueryReturn<DataT>
+  extends UseConvexQueryData<DataT>, PromiseLike<UseConvexQueryData<DataT>> {}
+
+interface BuildConvexQueryResult<DataT> {
+  resultData: UseConvexQueryData<DataT>
+  resolvePromise: () => Promise<void>
+}
+
+export function executeQueryViaSubscription<Query extends FunctionReference<'query'>>(
+  convex: ConvexClient,
+  query: Query,
+  args: FunctionArgs<Query>,
+  options?: { timeoutMs?: number },
+): Promise<FunctionReturnType<Query>> {
+  return executeQueryViaSubscriptionOnce(convex, query, args, options)
+}
+
+export function createConvexQueryState<
+  Query extends FunctionReference<'query'>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
+  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+  resolveImmediately = false,
+): BuildConvexQueryResult<DataT> {
+  type RawT = FunctionReturnType<Query>
+
+  const config = useRuntimeConfig()
+  const convexConfig = getConvexRuntimeConfig()
+  const defaults = convexConfig.query
+  const server = options?.server ?? defaults?.server ?? true
+  const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
+  const keepPreviousData = options?.keepPreviousData ?? false
+  const fnName = getFunctionName(query)
+  const logger = getSharedLogger(getLogLevel(config.public.convex ?? {}))
+
+  const normalizedArgs = computed((): FunctionArgs<Query> => {
+    const rawArgs = args === undefined ? ({} as FunctionArgs<Query>) : toValue(args)
+    if (rawArgs == null) return {} as FunctionArgs<Query>
+    return rawArgs as FunctionArgs<Query>
+  })
+
+  const isSkipped = computed(() => {
+    const rawArgs = args === undefined ? {} : toValue(args)
+    return rawArgs == null
+  })
+
+  assertConvexComposableScope(
+    'useConvexQuery',
+    import.meta.client,
+    import.meta.client ? getCurrentScope() : undefined,
+    import.meta.client ? getCurrentInstance() : undefined,
+  )
+
+  const cacheKey = computed(() => {
+    if (isSkipped.value) {
+      return `convex:skipped:${fnName}`
+    }
+    return getQueryKey(query, normalizedArgs.value ?? {})
+  })
+
+  let lastSettledData: Ref<RawT | null> | null = null
+  let lastSettledArgsHash: Ref<string | null> | null = null
+  let lastReceivedArgsHash: Ref<string | null> | null = null
+  if (keepPreviousData) {
+    lastSettledData = ref<RawT | null>(null)
+    lastSettledArgsHash = ref<string | null>(null)
+    lastReceivedArgsHash = ref<string | null>(null)
+  }
+  const currentArgsHash = computed(() =>
+    isSkipped.value ? null : hashArgs(normalizedArgs.value ?? {}),
+  )
+
+  const resource = createLiveQueryResource<Query, RawT>({
+    query,
+    args: normalizedArgs as typeof normalizedArgs,
+    cacheKey,
+    isSkipped,
+    server,
+    subscribe,
+    authMode: 'auto',
+    resolveImmediately,
+    dedupe: 'defer',
+    defaultValue: () => {
+      if (keepPreviousData && lastSettledData?.value !== null) {
+        return lastSettledData!.value
+      }
+      const fallback = options?.default?.()
+      return fallback == null ? null : (fallback as RawT)
+    },
+    onShare: (refCount) => {
+      logger.query({
+        name: fnName,
+        event: 'share',
+        refCount,
+        args: normalizedArgs.value,
+      })
+    },
+    onSubscribe: (currentCacheKey) => {
+      logger.query({ name: fnName, event: 'subscribe', args: normalizedArgs.value })
+      registerDevtoolsQuery({
+        id: currentCacheKey,
+        name: fnName,
+        args: normalizedArgs.value,
+        status: 'pending',
+        dataSource: 'websocket',
+        data: null,
+        hasSubscription: subscribe,
+        options: {
+          immediate: resolveImmediately,
+          server,
+          subscribe,
+          auth: 'auto',
+        },
+      })
+    },
+    onUnsubscribe: (currentCacheKey, didRelease, reason) => {
+      if (!didRelease) return
+      logger.query({ name: fnName, event: 'unsubscribe', reason, args: normalizedArgs.value })
+      unregisterDevtoolsQuery(currentCacheKey)
+    },
+    onData: (result, source) => {
+      if (keepPreviousData && lastReceivedArgsHash && currentArgsHash.value) {
+        lastReceivedArgsHash.value = currentArgsHash.value
+      }
+
+      if (source === 'subscription') {
+        logger.query({
+          name: fnName,
+          event: 'update',
+          count: Array.isArray(result) ? result.length : 1,
+          args: normalizedArgs.value,
+          data: result,
+        })
+        updateDevtoolsQuery(cacheKey.value, {
+          status: 'success',
+          data: result,
+          dataSource: 'websocket',
+          hasSubscription: subscribe,
+        })
+      }
+    },
+    onError: (error) => {
+      logger.query({ name: fnName, event: 'error', error })
+      updateDevtoolsQuery(cacheKey.value, {
+        status: 'error',
+        error: error.message,
+      })
+    },
+  })
+
+  watch(
+    isSkipped,
+    (skipped) => {
+      if (!skipped) return
+      logger.query({
+        name: fnName,
+        event: 'skip',
+        reason: 'nullish-args',
+      })
+      appendDevtoolsEvent({
+        kind: 'query',
+        phase: 'skip',
+        operationId: `skipped:${fnName}`,
+        name: fnName,
+        reason: 'nullish-args',
+      })
+    },
+    { immediate: true },
+  )
+
+  if (keepPreviousData && lastSettledData) {
+    watch(
+      [
+        () => resource.asyncData.data.value,
+        () => resource.pending.value,
+        () => currentArgsHash.value,
+      ],
+      ([value, pending, argsHash]) => {
+        if (value != null && !pending && argsHash) {
+          lastSettledData!.value = value
+          lastSettledArgsHash!.value = argsHash
+        }
+      },
+      { immediate: true },
+    )
+  }
+
+  const applyTransform = (raw: RawT): DataT => {
+    return options?.transform ? options.transform(raw) : (raw as DataT)
+  }
+
+  const data = computed<DataT | null>(() =>
+    resource.asyncData.data.value != null ? applyTransform(resource.asyncData.data.value) : null,
+  )
+  const isStale = computed(() => {
+    if (!keepPreviousData || !lastSettledData || !lastSettledArgsHash || !lastReceivedArgsHash) {
+      return false
+    }
+    if (isSkipped.value || resource.pending.value === false) return false
+    if (resource.asyncData.error.value) return false
+
+    const currentArgsKey = currentArgsHash.value
+    if (!currentArgsKey || lastSettledArgsHash.value === null) return false
+    if (lastSettledArgsHash.value === currentArgsKey) return false
+    if (lastReceivedArgsHash.value === currentArgsKey) return false
+
+    return resource.asyncData.data.value !== null && resource.asyncData.data.value !== undefined
+  })
+
+  return {
+    resultData: {
+      data,
+      error: resource.asyncData.error as Ref<Error | null>,
+      refresh: resource.asyncData.refresh,
+      clear: resource.asyncData.clear,
+      pending: resource.pending as Ref<boolean>,
+      status: resource.status as Ref<QueryStatus>,
+      isStale: isStale as Ref<boolean>,
+    },
+    resolvePromise: () => resource.resolvePromise,
+  }
+}
+
+export function useConvexQuery<
+  Query extends FunctionReference<'query'>,
+  DataT = FunctionReturnType<Query>,
+>(
+  query: Query,
+  args?: MaybeRefOrGetter<FunctionArgs<Query> | null | undefined>,
+  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+): UseConvexQueryReturn<DataT> {
+  const created = createConvexQueryState(query, args, options, true)
+  const result = created.resultData as UseConvexQueryReturn<DataT>
+  const resolvedResult = { ...created.resultData } as UseConvexQueryData<DataT>
+  result.then = (onFulfilled, onRejected) =>
+    created
+      .resolvePromise()
+      .then(
+        () =>
+          new Promise<UseConvexQueryData<DataT>>((resolve) => {
+            if (import.meta.server || !result.pending.value) {
+              resolve(resolvedResult)
+              return
+            }
+
+            const stop = watch(
+              () => result.pending.value,
+              (pending) => {
+                if (pending) return
+                stop()
+                resolve(resolvedResult)
+              },
+            )
+          }),
+      )
+      .then(onFulfilled, onRejected)
+  return result
+}
+
+async function executeViaSharedRuntime<Query extends FunctionReference<'query'>>(
+  query: Query,
+  args: FunctionArgs<Query>,
+  options: {
+    subscribe?: boolean
+  } = {},
+): Promise<FunctionReturnType<Query>> {
+  const convexConfig = getConvexRuntimeConfig()
+  return await executeLiveQuery<Query, FunctionReturnType<Query>>({
+    query,
+    args,
+    subscribe: options.subscribe ?? convexConfig.query.subscribe ?? true,
+    authMode: 'auto',
+  })
+}
+
+export { executeViaSharedRuntime as executeConvexQuery }

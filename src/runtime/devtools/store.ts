@@ -46,6 +46,14 @@ function clonePayload<T>(value: T): T {
   }
 }
 
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value) ?? 'null'
+}
+
+function areSerializedValuesEqual(previous: unknown, next: unknown): boolean {
+  return stableStringify(previous) === stableStringify(next)
+}
+
 export class ConvexDevtoolsStore {
   // --- Data ---
   readonly queries = new Map<string, QueryRegistryEntry>()
@@ -188,7 +196,7 @@ export class ConvexDevtoolsStore {
       }
     }
 
-    this.authState = {
+    const nextAuthState: EnhancedAuthState = {
       isAuthenticated: !!(hasToken && hasUser),
       isPending: false,
       user: plainUser,
@@ -198,6 +206,10 @@ export class ConvexDevtoolsStore {
       expiresAt,
       expiresInSeconds,
     }
+    if (areSerializedValuesEqual(this.authState, nextAuthState)) {
+      return
+    }
+    this.authState = nextAuthState
     this._notifyDevtools()
   }
 
@@ -208,27 +220,48 @@ export class ConvexDevtoolsStore {
     const hasEverConnected =
       this.connectionState.hasEverConnected || state.hasEverConnected || state.isWebSocketConnected
 
-    this.connectionState = {
+    const nextConnectionState: ConnectionState = {
       isConnected: state.isWebSocketConnected,
       hasEverConnected,
       connectionRetries: state.connectionRetries,
       inflightRequests,
     }
+    if (
+      this.connectionState.isConnected === nextConnectionState.isConnected &&
+      this.connectionState.hasEverConnected === nextConnectionState.hasEverConnected &&
+      this.connectionState.connectionRetries === nextConnectionState.connectionRetries &&
+      this.connectionState.inflightRequests === nextConnectionState.inflightRequests
+    ) {
+      return
+    }
+    this.connectionState = nextConnectionState
     this._notifyDevtools()
   }
 
   setAuthWaterfall(waterfall: AuthWaterfall | null): void {
-    this.authWaterfall = waterfall ? clonePayload(toRaw(waterfall)) : null
+    const nextWaterfall = waterfall ? clonePayload(toRaw(waterfall)) : null
+    if (areSerializedValuesEqual(this.authWaterfall, nextWaterfall)) {
+      return
+    }
+    this.authWaterfall = nextWaterfall
     this._notifyDevtools()
   }
 
   setPermissionContextState(state: PermissionContextState): void {
-    this.permissionContextState = clonePayload(toRaw(state))
+    const nextState = clonePayload(toRaw(state))
+    if (areSerializedValuesEqual(this.permissionContextState, nextState)) {
+      return
+    }
+    this.permissionContextState = nextState
     this._notifyDevtools()
   }
 
   setAuthBootstrapState(state: AuthBootstrapState): void {
-    this.authBootstrapState = clonePayload(toRaw(state))
+    const nextState = clonePayload(toRaw(state))
+    if (areSerializedValuesEqual(this.authBootstrapState, nextState)) {
+      return
+    }
+    this.authBootstrapState = nextState
     this._notifyDevtools()
   }
 

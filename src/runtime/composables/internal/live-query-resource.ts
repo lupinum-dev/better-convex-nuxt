@@ -1,57 +1,20 @@
-import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference } from 'convex/server'
-import type { ComputedRef, Ref } from 'vue'
+import { getCurrentInstance, getCurrentScope, onUnmounted, type ComputedRef, type Ref } from 'vue'
 
 import {
   computed,
   onScopeDispose,
   useAsyncData,
-  useNuxtApp,
-  useRequestEvent,
-  useState,
   watch,
 } from '#imports'
 
-import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized'
-import {
-  computeQueryStatus,
-  ensureQueryBridge,
-  fetchAuthToken,
-  getSubscription,
-  registerSubscription,
-  releaseSubscription,
-  createQueryBridge,
-  getFunctionName,
-  parseConvexResponse,
-  type QueryStatus,
-} from '../../utils/convex-cache'
-import { executeQueryViaSubscriptionOnce } from '../../utils/one-shot-subscription'
-import { getConvexRuntimeConfig } from '../../utils/runtime-config'
+import { computeQueryStatus, type QueryStatus } from '../../utils/convex-cache'
 import type { ConvexClientAuthMode } from '../../utils/types'
-
-export interface LiveQueryTransportOptions<Query extends FunctionReference<'query'>> {
-  query: Query
-  functionName?: string
-  args: FunctionArgs<Query>
-  subscribe: boolean
-  authMode: ConvexClientAuthMode
-}
-
-export interface SharedQuerySubscriptionOptions<Query extends FunctionReference<'query'>, Result> {
-  query: Query
-  args: FunctionArgs<Query>
-  cacheKey: string
-  functionName?: string
-  onData: (result: Result) => void
-  onError: (error: Error) => void
-  onShare?: (refCount: number) => void
-  onSubscribe?: (cacheKey: string) => void
-}
-
-export interface SharedQuerySubscriptionHandle {
-  sync: () => void
-  release: () => boolean
-}
+import { executeLiveQuery, executeQueryHttp } from './live-query-transport'
+import {
+  startSharedQuerySubscription,
+  type SharedQuerySubscriptionHandle,
+} from './shared-query-subscription'
 
 export type LiveQueryUnsubscribeReason = 'args-changed' | 'args-skipped' | 'scope-dispose'
 
@@ -85,229 +48,7 @@ export interface LiveQueryResource<Result> {
   resolvePromise: Promise<void>
 }
 
-const subscriptionLeakState = new Map<string, { timestamps: number[]; warned: boolean }>()
-
-function shouldEmitDevWarning(): boolean {
-  return import.meta.dev || process.env.NODE_ENV !== 'production'
-}
-
-function recordSubscriptionUpdate(cacheKey: string): void {
-  if (!import.meta.client || !shouldEmitDevWarning()) return
-
-  const now = Date.now()
-  const state = subscriptionLeakState.get(cacheKey) ?? {
-    timestamps: [],
-    warned: false,
-  }
-  state.timestamps.push(now)
-  state.timestamps = state.timestamps.filter((timestamp) => now - timestamp <= 10_000)
-
-  if (!state.warned && state.timestamps.length > 100) {
-    state.warned = true
-    console.warn(
-      `[trellis] Query subscription "${cacheKey}" updated more than 100 times in 10 seconds. Check for reactive arg loops or unstable computed args.`,
-    )
-  }
-
-  subscriptionLeakState.set(cacheKey, state)
-}
-
-export async function executeQueryHttp<T>(
-  convexUrl: string,
-  functionPath: string,
-  args: Record<string, unknown>,
-  authToken?: string,
-): Promise<T> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (authToken) {
-    headers.Authorization = `Bearer ${authToken}`
-  }
-
-  const response = await $fetch(`${convexUrl}/api/query`, {
-    method: 'POST',
-    headers,
-    body: { path: functionPath, args: args ?? {} },
-  })
-
-  return parseConvexResponse<T>(response)
-}
-
-export async function executeLiveQuery<Query extends FunctionReference<'query'>, Result>(
-  options: LiveQueryTransportOptions<Query>,
-): Promise<Result> {
-  const { query, args, subscribe, authMode } = options
-  const functionName = options.functionName ?? getFunctionName(query)
-  const nuxtApp = useNuxtApp()
-  const convexConfig = getConvexRuntimeConfig()
-  const convexUrl = convexConfig.url
-
-  if (!convexUrl) {
-    throw new Error('[trellis] Convex URL not configured')
-  }
-
-  const cookieHeader = import.meta.server ? useRequestEvent()?.headers.get('cookie') || '' : ''
-  const cachedToken = useState<string | null>('convex:token')
-
-  try {
-    if (import.meta.server) {
-      const authToken = await fetchAuthToken({
-        auth: authMode,
-        cookieHeader,
-        siteUrl: convexConfig.siteUrl,
-        cachedToken,
-      })
-      return await executeQueryHttp<Result>(
-        convexUrl,
-        functionName,
-        (args ?? {}) as Record<string, unknown>,
-        authToken,
-      )
-    }
-
-    if (!subscribe) {
-      const authToken = authMode === 'none' ? undefined : (cachedToken.value ?? undefined)
-      return await executeQueryHttp<Result>(
-        convexUrl,
-        functionName,
-        (args ?? {}) as Record<string, unknown>,
-        authToken,
-      )
-    }
-
-    const convex = nuxtApp.$convex as ConvexClient | undefined
-    if (!convex) {
-      throw new Error('[trellis] Convex client not available')
-    }
-
-    return await executeQueryViaSubscriptionOnce(convex, query, args)
-  } catch (error) {
-    if (import.meta.client) {
-      void handleUnauthorizedAuthFailure({
-        error,
-        source: 'query',
-        functionName,
-      })
-    }
-    throw error instanceof Error ? error : new Error(String(error))
-  }
-}
-
-export function startSharedQuerySubscription<Query extends FunctionReference<'query'>, Result>(
-  options: SharedQuerySubscriptionOptions<Query, Result>,
-): SharedQuerySubscriptionHandle {
-  const { query, args, cacheKey, onData, onError, onShare, onSubscribe } = options
-  const functionName = options.functionName ?? getFunctionName(query)
-  const nuxtApp = useNuxtApp()
-  const convex = nuxtApp.$convex as ConvexClient | undefined
-
-  if (!import.meta.client || !convex) {
-    return {
-      sync: () => {},
-      release: () => false,
-    }
-  }
-
-  let stopDataWatch: (() => void) | null = null
-  let stopErrorWatch: (() => void) | null = null
-
-  const cleanupBridgeWatchers = () => {
-    stopDataWatch?.()
-    stopDataWatch = null
-    stopErrorWatch?.()
-    stopErrorWatch = null
-  }
-
-  const attachBridge = () => {
-    const entry = getSubscription(nuxtApp, cacheKey)
-    if (!entry) return
-    const bridge = ensureQueryBridge(entry)
-
-    const syncData = () => {
-      if (!bridge.hasRawData) return
-      onData(bridge.rawData as Result)
-    }
-
-    const syncError = () => {
-      if (!bridge.error) return
-      onError(bridge.error)
-    }
-
-    cleanupBridgeWatchers()
-    stopDataWatch = watch(() => bridge.dataVersion.value, syncData)
-    stopErrorWatch = watch(() => bridge.errorVersion.value, syncError)
-
-    syncData()
-    syncError()
-  }
-
-  const existingEntry = getSubscription(nuxtApp, cacheKey)
-  if (existingEntry) {
-    existingEntry.refCount++
-    onShare?.(existingEntry.refCount)
-    onSubscribe?.(cacheKey)
-    attachBridge()
-
-    return {
-      sync: attachBridge,
-      release: () => {
-        cleanupBridgeWatchers()
-        return releaseSubscription(nuxtApp, cacheKey)
-      },
-    }
-  }
-
-  const localBridge = createQueryBridge()
-  let unsubscribe: (() => void) | null = null
-  let registered = false
-
-  try {
-    unsubscribe = convex.onUpdate(
-      query,
-      args,
-      (result: Result) => {
-        recordSubscriptionUpdate(cacheKey)
-        localBridge.rawData = result
-        localBridge.hasRawData = true
-        localBridge.error = null
-        localBridge.dataVersion.value += 1
-      },
-      (error: Error) => {
-        void handleUnauthorizedAuthFailure({
-          error,
-          source: 'query',
-          functionName,
-        })
-        localBridge.error = error
-        localBridge.errorVersion.value += 1
-      },
-    )
-    registerSubscription(nuxtApp, cacheKey, unsubscribe)
-    registered = true
-
-    const entry = getSubscription(nuxtApp, cacheKey)
-    if (!entry) {
-      throw new Error('[trellis] Failed to register shared subscription')
-    }
-    entry.queryBridge = localBridge
-    onSubscribe?.(cacheKey)
-    attachBridge()
-  } catch (error) {
-    cleanupBridgeWatchers()
-    if (unsubscribe && !registered) {
-      unsubscribe()
-      unsubscribe = null
-    }
-    onError(error instanceof Error ? error : new Error(String(error)))
-  }
-
-  return {
-    sync: attachBridge,
-    release: () => {
-      cleanupBridgeWatchers()
-      return releaseSubscription(nuxtApp, cacheKey)
-    },
-  }
-}
+export { executeLiveQuery, executeQueryHttp }
 
 export function createLiveQueryResource<Query extends FunctionReference<'query'>, Result>(
   options: LiveQueryResourceOptions<Query, Result>,
@@ -408,9 +149,15 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
       }, 0)
     })
 
-    onScopeDispose(() => {
+    const cleanup = () => {
       releaseSubscriptionHandle('scope-dispose')
-    })
+    }
+
+    if (getCurrentScope()) {
+      onScopeDispose(cleanup)
+    } else if (getCurrentInstance()) {
+      onUnmounted(cleanup)
+    }
   }
 
   const pending = computed((): boolean => {

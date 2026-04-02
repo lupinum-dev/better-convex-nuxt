@@ -731,5 +731,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
 export function defineTool<S extends AnyConvexSchema, TRole extends string = string>(
   options: DefineConvexToolOptions<S, TRole>,
 ): McpToolDefinition {
-  return _buildToolDefinition(options as DefineConvexToolFullOptions<S, TRole>) as McpToolDefinition
+  return _buildToolDefinition(
+    options as DefineConvexToolFullOptions<S, TRole>,
+  ) as unknown as McpToolDefinition
 }

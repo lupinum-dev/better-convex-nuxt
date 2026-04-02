@@ -48,6 +48,7 @@ export interface AuthHarnessOptions {
 }
 
 export interface AuthHarness {
+  engine: SharedAuthEngine
   token: Ref<string | null>
   user: Ref<ConvexUser | null>
   pending: Ref<boolean>
@@ -207,6 +208,7 @@ export async function createAuthHarness(options: AuthHarnessOptions = {}): Promi
   }
 
   const harness: AuthHarness = {
+    engine: captured.result.engine as SharedAuthEngine,
     token: captured.result.token,
     user: captured.result.user,
     pending: captured.result.pending,

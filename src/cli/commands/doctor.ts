@@ -9,10 +9,15 @@ import { summarizeFindings } from '../lib/findings.js'
 import { renderDoctorReport } from '../lib/output.js'
 import {
   findConvexUrlSource,
+  findEnvKeySource,
+  findConvexHttpSource,
   findLegacyApiUsages,
   hasBetterConvexNuxtRegistration,
+  hasBetterAuthRouteRegistration,
   hasDependency,
   inspectProject,
+  isAuthExplicitlyDisabled,
+  usesTrustedCallerSurfaces,
 } from '../lib/project.js'
 
 export interface DoctorCommandOptions {
@@ -26,6 +31,18 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const project = inspectProject(cwd)
   const isNuxtApp = Boolean(project.packageJsonPath && project.nuxtConfigPath)
   const convexUrlSource = findConvexUrlSource(project)
+  const authDisabled = isAuthExplicitlyDisabled(project)
+  const authExpected = isNuxtApp && !authDisabled
+  const siteUrlSource = findEnvKeySource(project, ['SITE_URL', 'NUXT_PUBLIC_SITE_URL'])
+  const convexSiteUrlSource = findEnvKeySource(project, [
+    'CONVEX_SITE_URL',
+    'NUXT_PUBLIC_CONVEX_SITE_URL',
+  ])
+  const betterAuthSecretSource = findEnvKeySource(project, ['BETTER_AUTH_SECRET'])
+  const convexHttpSource = findConvexHttpSource(project)
+  const hasAuthRoutes = hasBetterAuthRouteRegistration(project)
+  const trustedCallerExpected = usesTrustedCallerSurfaces(project)
+  const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_CALLER_KEY'])
   const legacyApiUsages = findLegacyApiUsages(project)
   const legacyUsageSummary = legacyApiUsages
     .slice(0, 3)
@@ -35,6 +52,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   return [
     {
       id: 'nuxt-app-root',
+      category: 'core',
       title: 'Nuxt app structure',
       status: isNuxtApp ? 'pass' : 'fail',
       message: isNuxtApp
@@ -46,6 +64,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     },
     {
       id: 'nuxt-installed',
+      category: 'core',
       title: 'Nuxt dependency',
       status: hasDependency(project, 'nuxt') ? 'pass' : 'fail',
       message: hasDependency(project, 'nuxt')
@@ -57,6 +76,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     },
     {
       id: 'module-installed',
+      category: 'core',
       title: '@lupinum/trellis dependency',
       status: hasDependency(project, '@lupinum/trellis') ? 'pass' : 'fail',
       message: hasDependency(project, '@lupinum/trellis')
@@ -68,6 +88,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     },
     {
       id: 'module-registered',
+      category: 'core',
       title: 'Nuxt module registration',
       status: hasBetterConvexNuxtRegistration(project) ? 'pass' : 'fail',
       message: hasBetterConvexNuxtRegistration(project)
@@ -79,6 +100,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     },
     {
       id: 'convex-installed',
+      category: 'core',
       title: 'Convex dependency',
       status: hasDependency(project, 'convex') ? 'pass' : 'fail',
       message: hasDependency(project, 'convex')
@@ -90,6 +112,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     },
     {
       id: 'convex-url-configured',
+      category: 'core',
       title: 'Convex URL source',
       status: convexUrlSource ? 'pass' : 'warn',
       message: convexUrlSource
@@ -100,7 +123,86 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         : 'Add CONVEX_URL or NUXT_PUBLIC_CONVEX_URL to .env.local, .env, or the process environment.',
     },
     {
+      id: 'site-url-configured',
+      category: 'auth',
+      title: 'SITE_URL source',
+      status: authExpected ? (siteUrlSource ? 'pass' : 'warn') : 'pass',
+      message: !authExpected
+        ? 'Auth is explicitly disabled in nuxt.config.'
+        : siteUrlSource
+          ? `Found SITE_URL configuration in ${siteUrlSource.source}.`
+          : 'No SITE_URL or NUXT_PUBLIC_SITE_URL source was found.',
+      fixHint: !authExpected
+        ? 'No action needed unless you enable auth later.'
+        : siteUrlSource
+          ? 'Keep SITE_URL aligned with your app origin.'
+          : 'Add SITE_URL (or NUXT_PUBLIC_SITE_URL) for Better Auth callbacks and trusted-origin checks.',
+    },
+    {
+      id: 'convex-site-url-configured',
+      category: 'auth',
+      title: 'Convex site URL source',
+      status: authExpected ? (convexSiteUrlSource ? 'pass' : 'warn') : 'pass',
+      message: !authExpected
+        ? 'Auth is explicitly disabled in nuxt.config.'
+        : convexSiteUrlSource
+          ? `Found Convex site URL configuration in ${convexSiteUrlSource.source}.`
+          : 'No CONVEX_SITE_URL or NUXT_PUBLIC_CONVEX_SITE_URL source was found.',
+      fixHint: !authExpected
+        ? 'No action needed unless you enable auth later.'
+        : convexSiteUrlSource
+          ? 'Keep convex.siteUrl pointed at your Convex HTTP Actions origin.'
+          : 'Add CONVEX_SITE_URL (or NUXT_PUBLIC_CONVEX_SITE_URL) when auth token exchange cannot be auto-derived reliably.',
+    },
+    {
+      id: 'better-auth-secret-configured',
+      category: 'auth',
+      title: 'BETTER_AUTH_SECRET source',
+      status: authExpected ? (betterAuthSecretSource ? 'pass' : 'warn') : 'pass',
+      message: !authExpected
+        ? 'Auth is explicitly disabled in nuxt.config.'
+        : betterAuthSecretSource
+          ? `Found BETTER_AUTH_SECRET configuration in ${betterAuthSecretSource.source}.`
+          : 'No BETTER_AUTH_SECRET source was found in the local environment or env files.',
+      fixHint: !authExpected
+        ? 'No action needed unless you enable auth later.'
+        : betterAuthSecretSource
+          ? 'Keep BETTER_AUTH_SECRET synced with the Convex Better Auth deployment.'
+          : 'Set BETTER_AUTH_SECRET in the Convex Dashboard and your local environment when using Better Auth.',
+    },
+    {
+      id: 'better-auth-routes-registered',
+      category: 'auth',
+      title: 'Better Auth route registration',
+      status: authExpected ? (hasAuthRoutes ? 'pass' : 'warn') : 'pass',
+      message: !authExpected
+        ? 'Auth is explicitly disabled in nuxt.config.'
+        : hasAuthRoutes
+          ? `Found Better Auth route registration in ${convexHttpSource?.path ?? 'convex/http.ts'}.`
+          : convexHttpSource
+            ? `Found ${convexHttpSource.path}, but it does not appear to call authComponent.registerRoutes(...).`
+            : 'Could not find convex/http.ts with Better Auth route registration.',
+      fixHint: !authExpected
+        ? 'No action needed unless you enable auth later.'
+        : 'Register your Better Auth bridge in convex/http.ts so the Nuxt auth proxy can exchange session cookies for Convex JWTs.',
+    },
+    {
+      id: 'trusted-caller-key-configured',
+      category: 'advanced',
+      title: 'Trusted caller key source',
+      status: trustedCallerExpected ? (trustedCallerKeySource ? 'pass' : 'warn') : 'pass',
+      message: !trustedCallerExpected
+        ? 'No trusted-caller or MCP surfaces were detected in the app source.'
+        : trustedCallerKeySource
+          ? `Found CONVEX_TRUSTED_CALLER_KEY in ${trustedCallerKeySource.source}.`
+          : 'Trusted-caller or MCP surfaces were detected, but no CONVEX_TRUSTED_CALLER_KEY source was found.',
+      fixHint: !trustedCallerExpected
+        ? 'No action needed unless you add MCP or trusted-caller flows later.'
+        : 'Set CONVEX_TRUSTED_CALLER_KEY in the local environment and the Convex deployment that serves trusted-caller traffic.',
+    },
+    {
       id: 'legacy-v2-apis',
+      category: 'migration',
       title: 'Removed V2 APIs',
       status: legacyApiUsages.length === 0 ? 'pass' : 'fail',
       message:

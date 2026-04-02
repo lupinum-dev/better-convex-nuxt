@@ -1,26 +1,133 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { installAdvancedTrellis } from '../../src/installers/advanced'
+import { installAuthTrellis } from '../../src/installers/auth'
+import { installCoreTrellis } from '../../src/installers/core'
+import { installPermissionTrellis } from '../../src/installers/permissions'
 
-import { describe, expect, it } from 'vitest'
+const nuxtKitMocks = vi.hoisted(() => ({
+  addImports: vi.fn(),
+  addServerImports: vi.fn(),
+  addPlugin: vi.fn(),
+  addTemplate: vi.fn(({ filename }: { filename: string }) => ({
+    dst: `/virtual/${filename}`,
+  })),
+  addComponentsDir: vi.fn(),
+  addRouteMiddleware: vi.fn(),
+  addServerHandler: vi.fn(),
+}))
 
-describe('module auto-import surface', () => {
-  it('includes the consolidated upload/query helpers and excludes removed/internal exports', () => {
-    const moduleSource = readFileSync(resolve(process.cwd(), 'src/module.ts'), 'utf8')
+vi.mock('@nuxt/kit', () => ({
+  addImports: nuxtKitMocks.addImports,
+  addServerImports: nuxtKitMocks.addServerImports,
+  addPlugin: nuxtKitMocks.addPlugin,
+  addTemplate: nuxtKitMocks.addTemplate,
+  addComponentsDir: nuxtKitMocks.addComponentsDir,
+  addRouteMiddleware: nuxtKitMocks.addRouteMiddleware,
+  addServerHandler: nuxtKitMocks.addServerHandler,
+}))
 
-    expect(moduleSource).toMatch(/name:\s*'useConvexUpload'/)
-    expect(moduleSource).toMatch(/name:\s*'useConvexAuthActions'/)
-    expect(moduleSource).not.toMatch(/name:\s*'useEnsureConvexUser'/)
-    expect(moduleSource).not.toMatch(/name:\s*'useConvexAuthInternal'/)
-    expect(moduleSource).not.toMatch(/name:\s*'useAuthRedirect'/)
-    // Removed deprecated composables
-    expect(moduleSource).not.toMatch(/name:\s*'useConvexFileUpload'/)
-    expect(moduleSource).not.toMatch(/name:\s*'useConvexUploadQueue'/)
-    expect(moduleSource).not.toMatch(/name:\s*'defineSharedConvexQuery'/)
-    expect(moduleSource).not.toMatch(/name:\s*'useConvexStorageUrlRef'/)
-    expect(moduleSource).not.toMatch(/name:\s*'toCallResult'/)
-    expect(moduleSource).not.toMatch(/name:\s*'useConvexCall'/)
-    expect(moduleSource).not.toMatch(/name:\s*'getQueryKey'/)
-    expect(moduleSource).not.toMatch(/name:\s*'useConvexRpc'/)
-    expect(moduleSource).not.toMatch(/name:\s*'defineConvexMcpTool'/)
+function createResolver() {
+  return {
+    resolve: (path: string) => `/resolved${path}`,
+  }
+}
+
+function createNuxt() {
+  return {
+    options: {
+      alias: {} as Record<string, string>,
+      buildDir: '/build',
+      rootDir: '/root',
+      srcDir: '/src',
+    },
+    hook: vi.fn(),
+  }
+}
+
+describe('installer auto-import surface', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('registers the core, auth, permissions, and alias surfaces through Nuxt Kit', () => {
+    const nuxt = createNuxt()
+    const resolver = createResolver()
+
+    installCoreTrellis({
+      nuxt: nuxt as never,
+      resolver: resolver as never,
+      logger: { warn: vi.fn() },
+    })
+    installAuthTrellis({
+      resolver: resolver as never,
+      authRoute: '/api/auth',
+    })
+    installPermissionTrellis({
+      resolver: resolver as never,
+      permissionQueryPath: 'workspaces.getPermissionContext',
+    })
+    installAdvancedTrellis({
+      nuxt: nuxt as never,
+      resolver: resolver as never,
+    })
+
+    const importedNames = nuxtKitMocks.addImports.mock.calls.flatMap(([entries]) =>
+      (entries as Array<{ name: string }>).map((entry) => entry.name),
+    )
+    const serverImportedNames = nuxtKitMocks.addServerImports.mock.calls.flatMap(([entries]) =>
+      (entries as Array<{ name: string }>).map((entry) => entry.name),
+    )
+
+    expect(importedNames).toEqual(
+      expect.arrayContaining([
+        'useConvexQuery',
+        'useConvexPaginatedQuery',
+        'useConvexMutation',
+        'useConvexAction',
+        'useConvexUpload',
+        'useConvexAuth',
+        'useConvexAuthActions',
+        'usePermissions',
+        'useAuthGuard',
+      ]),
+    )
+    expect(importedNames).not.toEqual(
+      expect.arrayContaining([
+        'useEnsureConvexUser',
+        'useConvexAuthInternal',
+        'useConvexFileUpload',
+        'useConvexUploadQueue',
+        'defineSharedConvexQuery',
+      ]),
+    )
+
+    expect(serverImportedNames).toEqual(
+      expect.arrayContaining([
+        'serverConvexQuery',
+        'serverConvexMutation',
+        'serverConvexAction',
+        'serverConvexClearAuthCache',
+        'validateConvexArgs',
+      ]),
+    )
+
+    expect(nuxtKitMocks.addRouteMiddleware).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'convex-auth',
+        global: true,
+      }),
+    )
+    expect(nuxtKitMocks.addServerHandler).toHaveBeenCalledTimes(2)
+    expect(nuxtKitMocks.addComponentsDir).toHaveBeenCalledWith(
+      expect.objectContaining({
+        global: true,
+      }),
+    )
+    expect(nuxt.options.alias).toMatchObject({
+      '#trellis': '/virtual/trellis/index.ts',
+      '#trellis/api': '/virtual/trellis/api.ts',
+      '#trellis/server': '/virtual/trellis/server.ts',
+      '#trellis/mcp': '/virtual/trellis/mcp.ts',
+    })
   })
 })

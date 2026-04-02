@@ -172,7 +172,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    await waitFor(() => convex.calls.onUpdate.length >= 2)
+    await waitFor(() => convex.calls.onUpdate.length > 0)
 
     convex.emitQueryResult(query, {}, { count: 0 })
     await waitFor(() => result.parent.data.value === 0 && result.child.data.value === 'count:0')
@@ -425,7 +425,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
   })
 
   // ==========================================================================
-  // v0.4.0: Promise-like return, null-args skip, onData/onError
+  // Promise-like return and null-args skip behavior
   // ==========================================================================
 
   it('returns a Promise-like object while remaining synchronously usable', async () => {
@@ -570,115 +570,39 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.queryResult.data.value).toBeNull()
   })
 
-  it('onData callback fires on each update with transformed data', async () => {
+  it('exposes transformed data updates without query-level callbacks', async () => {
     const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:on-data')
-    const onData = vi.fn()
+    const query = mockFnRef<'query'>('notes:list:transformed')
 
-    await captureInNuxt(
+    const { result } = await captureInNuxt(
       () =>
-        useConvexQueryState(
-          query,
-          {},
-          {
-            transform: (items: Array<{ _id: string }>) => items.map((i) => i._id),
-            onData,
-          },
-        ),
+        useConvexQueryState(query, {}, {
+          transform: (items: Array<{ _id: string }>) => items.map((i) => i._id),
+        }),
       { convex },
     )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
 
-    convex.emitQueryResultByPath('notes:list:on-data', [{ _id: 'n1' }])
-    await waitFor(() => onData.mock.calls.length >= 1)
-    expect(onData).toHaveBeenCalledWith(['n1'])
+    convex.emitQueryResultByPath('notes:list:transformed', [{ _id: 'n1' }])
+    await waitFor(() => result.data.value?.[0] === 'n1')
 
-    convex.emitQueryResultByPath('notes:list:on-data', [{ _id: 'n1' }, { _id: 'n2' }])
-    await waitFor(() => onData.mock.calls.length >= 2)
-    expect(onData).toHaveBeenCalledWith(['n1', 'n2'])
+    convex.emitQueryResultByPath('notes:list:transformed', [{ _id: 'n1' }, { _id: 'n2' }])
+    await waitFor(() => result.data.value?.length === 2)
+    expect(result.data.value).toEqual(['n1', 'n2'])
   })
 
-  it('onError callback fires on query error', async () => {
+  it('surfaces query errors through reactive state', async () => {
     const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:on-error')
-    const onError = vi.fn()
+    const query = mockFnRef<'query'>('notes:list:error-state')
 
-    await captureInNuxt(() => useConvexQueryState(query, {}, { onError }), { convex })
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, {}, {}), { convex })
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
 
-    const err = new Error('upstream down')
-    convex.emitQueryError(query, {}, err)
-    await waitFor(() => onError.mock.calls.length >= 1)
-    expect(onError.mock.calls.length).toBeGreaterThanOrEqual(1)
-    expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error)
-    expect((onError.mock.calls[0]?.[0] as Error).message).toBe('upstream down')
-  })
-
-  it('shared option returns same state for same key within one app', async () => {
-    const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:shared-same-key')
-
-    const { result } = await captureInNuxt(
-      () => {
-        const first = useConvexQueryState(query, {}, { shared: 'notes' })
-        const second = useConvexQueryState(query, {}, { shared: 'notes' })
-        return { first, second }
-      },
-      { convex },
-    )
-
-    expect(result.first.data).toBe(result.second.data)
-    expect(result.first.pending).toBe(result.second.pending)
-    expect(result.first.error).toBe(result.second.error)
-  })
-
-  it('shared option throws for same key with different query', async () => {
-    const convex = new MockConvexClient()
-    const query1 = mockFnRef<'query'>('notes:list:shared-diff-query')
-    const query2 = mockFnRef<'query'>('tasks:list:shared-diff-query')
-
-    await expect(
-      captureInNuxt(
-        () => {
-          useConvexQueryState(query1, {}, { shared: 'collision' })
-          useConvexQueryState(query2, {}, { shared: 'collision' })
-        },
-        { convex },
-      ),
-    ).rejects.toThrow(/Duplicate key "collision"/)
-  })
-
-  it('shared option throws for same key with different static args', async () => {
-    const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:shared-diff-args')
-
-    await expect(
-      captureInNuxt(
-        () => {
-          useConvexQueryState(query, { orgId: 'a' }, { shared: 'notes-by-org' })
-          useConvexQueryState(query, { orgId: 'b' }, { shared: 'notes-by-org' })
-        },
-        { convex },
-      ),
-    ).rejects.toThrow(/Duplicate key "notes-by-org"/)
-  })
-
-  it('shared option allows dynamic args (getter) without throwing', async () => {
-    const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:shared-dynamic')
-
-    const { result } = await captureInNuxt(
-      () => {
-        useConvexQueryState(query, () => ({ orgId: 'a' }), { shared: 'dynamic-notes' })
-        // Different getter should NOT throw — dynamic fingerprints skip validation
-        return useConvexQueryState(query, () => ({ orgId: 'b' }), { shared: 'dynamic-notes' })
-      },
-      { convex },
-    )
-
-    expect(result).toBeDefined()
+    convex.emitQueryError(query, {}, new Error('upstream down'))
+    await waitFor(() => result.error.value?.message === 'upstream down')
+    expect(result.status.value).toBe('error')
   })
 
   it('keeps shared subscription alive until the final consumer scope stops', async () => {
@@ -688,7 +612,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const first = await captureInNuxt(() => useConvexQueryState(query, {}), { convex })
     const second = await captureInNuxt(() => useConvexQueryState(query, {}), { convex })
 
-    await waitFor(() => convex.calls.onUpdate.length >= 2)
+    await waitFor(() => convex.calls.onUpdate.length > 0)
     convex.emitQueryResult(query, {}, { count: 1 })
     await waitFor(
       () => first.result.data.value?.count === 1 && second.result.data.value?.count === 1,

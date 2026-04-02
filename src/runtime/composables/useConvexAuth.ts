@@ -1,10 +1,10 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
 
-import { readonly } from '#imports'
+import { useNuxtApp } from '#imports'
 
 import type { ConvexUser } from '../utils/types'
-import { useConvexAuthController } from './internal/useConvexAuthController'
+import { getConvexAuthRuntime } from './internal/auth-runtime'
 
 // Re-export for convenience
 export type { ConvexUser } from '../utils/types'
@@ -69,17 +69,5 @@ export interface UseConvexAuthReturn {
  * After it resolves, inspect `isAuthenticated`, `isAnonymous`, or `isSessionExpired` to decide what to do next.
  */
 export function useConvexAuth(): UseConvexAuthReturn {
-  const auth = useConvexAuthController()
-
-  return {
-    user: readonly(auth.user),
-    isAuthenticated: auth.isAuthenticated,
-    isPending: readonly(auth.pending),
-    isAnonymous: auth.isAnonymous,
-    isSessionExpired: auth.isSessionExpired,
-    client: auth.client,
-    refreshAuth: () => auth.refreshAuth({ trigger: 'manual-refresh' }),
-    authError: readonly(auth.authError),
-    signOut: auth.signOut,
-  }
+  return getConvexAuthRuntime(useNuxtApp())
 }

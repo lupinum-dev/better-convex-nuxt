@@ -22,6 +22,7 @@ export default defineNuxtConfig({
     '@lupinum/trellis/server': runtimeServerEntry,
   },
 
+  // @ts-expect-error Nuxt accepts nitro here, but this bare fixture config loses the key.
   nitro: {
     experimental: { asyncContext: true },
   },

@@ -4,8 +4,9 @@ export function assertConvexComposableScope(
   composable: ConvexScopeComposableName,
   isClient: boolean,
   scope: unknown,
+  instance?: unknown,
 ): void {
-  if (!isClient || scope) {
+  if (!isClient || scope || instance) {
     return
   }
 
