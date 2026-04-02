@@ -1,5 +1,5 @@
 export type DoctorFindingStatus = 'pass' | 'warn' | 'fail'
-export type DoctorFindingCategory = 'core' | 'auth' | 'advanced' | 'migration'
+export type DoctorFindingCategory = 'core' | 'auth' | 'advanced'
 
 export interface DoctorFinding {
   id: string

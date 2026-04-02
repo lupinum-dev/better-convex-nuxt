@@ -34,11 +34,26 @@ import {
 import {
   collectPaginatedResults,
   derivePaginatedStatus,
-  getNextPageInput,
   shouldPaginatedResultsBeStale,
   shouldUsePreviousPaginatedResults,
   type PaginatedQueryStatus,
 } from './pagination-state'
+import {
+  createPaginatedWatchSource,
+  createSkippedPaginatedCacheKey,
+  markRuntimePaginationPagesRefreshing,
+  resolveRuntimePaginationError,
+  shouldPersistSettledPaginatedResults,
+  updateRuntimePaginationPage,
+  type RuntimePageState,
+  type StablePaginationOpts,
+} from './pagination-page-state'
+import {
+  createLoadMoreBootstrap,
+  createPaginationOperationContext,
+  createPaginationResetState,
+  createStablePaginatedSubscriptionKey,
+} from './pagination-runtime-state'
 import {
   startSharedQuerySubscription,
   type SharedQuerySubscriptionHandle,
@@ -85,19 +100,7 @@ interface BuildConvexPaginatedQueryResult<Item> {
   resultData: UseConvexPaginatedQueryData<Item>
   resolvePromise: () => Promise<void>
 }
-
-interface StablePaginationOpts {
-  numItems: number
-  cursor: string | null
-}
-
-interface PageState<T> {
-  paginationOpts: { numItems: number; cursor: string | null; id: number }
-  result: PaginationResult<T> | null
-  error: Error | null
-  pending: boolean
-  subscription: SharedQuerySubscriptionHandle | null
-}
+type PageState<T> = RuntimePageState<T, SharedQuerySubscriptionHandle>
 
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
@@ -182,14 +185,13 @@ export function createConvexPaginatedQueryState<
 
   const firstPageCacheKey = computed(() => {
     if (isSkipped.value) {
-      return `convex-paginated:skipped:${fnName}`
+      return createSkippedPaginatedCacheKey(fnName)
     }
     return `convex-paginated:${getQueryKey(query, buildPageArgs({ numItems: initialNumItems, cursor: null }))}`
   })
 
   const firstPageWatchSource = computed(
-    () =>
-      `${argsHash.value}:${isSkipped.value ? 'skipped' : 'enabled'}:${currentPaginationId.value}`,
+    () => createPaginatedWatchSource(argsHash.value, isSkipped.value, currentPaginationId.value),
   )
 
   const firstPageArgs = computed(() => {
@@ -269,12 +271,12 @@ export function createConvexPaginatedQueryState<
     },
   })
 
-  const getStableSubscriptionKey = (paginationOpts: StablePaginationOpts): string => {
-    if (isSkipped.value) {
-      return `paginated:${firstPageCacheKey.value}:idle`
-    }
-    return `paginated:${getQueryKey(query, buildPageArgs(paginationOpts))}`
-  }
+  const getStableSubscriptionKey = (paginationOpts: StablePaginationOpts): string =>
+    createStablePaginatedSubscriptionKey({
+      isSkipped: isSkipped.value,
+      firstPageCacheKey: firstPageCacheKey.value,
+      queryKey: getQueryKey(query, buildPageArgs(paginationOpts)),
+    })
 
   const releasePageSubscription = (
     page: PageState<Item> | undefined,
@@ -285,6 +287,13 @@ export function createConvexPaginatedQueryState<
     const didRelease = page.subscription.release()
     page.subscription = null
     if (!didRelease) return
+    const operation = createPaginationOperationContext(
+      page.paginationOpts,
+      getStableSubscriptionKey({
+        numItems: page.paginationOpts.numItems,
+        cursor: page.paginationOpts.cursor,
+      }),
+    )
     logger.query({
       name: fnName,
       event: 'unsubscribe',
@@ -294,18 +303,11 @@ export function createConvexPaginatedQueryState<
     appendDevtoolsEvent({
       kind: 'query',
       phase: 'unsubscribe',
-      operationId: getStableSubscriptionKey({
-        numItems: page.paginationOpts.numItems,
-        cursor: page.paginationOpts.cursor,
-      }),
+      operationId: operation.operationId,
       name: fnName,
       args: pageArgs,
       reason: getReleaseReason(reason),
-      meta: {
-        paginated: true,
-        numItems: page.paginationOpts.numItems,
-        cursor: page.paginationOpts.cursor,
-      },
+      meta: operation.meta,
     })
   }
 
@@ -318,11 +320,7 @@ export function createConvexPaginatedQueryState<
   }
 
   const updatePage = (pageIndex: number, updater: (page: PageState<Item>) => PageState<Item>) => {
-    const current = pages.value[pageIndex]
-    if (!current) return
-    const nextPages = [...pages.value]
-    nextPages[pageIndex] = updater(current)
-    pages.value = nextPages
+    pages.value = updateRuntimePaginationPage(pages.value, pageIndex, updater)
   }
 
   const startPageSubscription = (pageIndex: number) => {
@@ -333,13 +331,18 @@ export function createConvexPaginatedQueryState<
 
     releasePageSubscription(page, 'args-changed')
     const pageArgs = buildPageArgs(page.paginationOpts)
-    page.subscription = startSharedQuerySubscription<Query, PaginationResult<Item>>({
-      query,
-      args: pageArgs,
-      cacheKey: getStableSubscriptionKey({
+    const operation = createPaginationOperationContext(
+      page.paginationOpts,
+      getStableSubscriptionKey({
         numItems: page.paginationOpts.numItems,
         cursor: page.paginationOpts.cursor,
       }),
+      pageIndex,
+    )
+    page.subscription = startSharedQuerySubscription<Query, PaginationResult<Item>>({
+      query,
+      args: pageArgs,
+      cacheKey: operation.operationId,
       functionName: fnName,
       onShare: (refCount) => {
         logger.query({ name: fnName, event: 'share', refCount, args: pageArgs })
@@ -349,19 +352,11 @@ export function createConvexPaginatedQueryState<
         appendDevtoolsEvent({
           kind: 'query',
           phase: 'subscribe',
-          operationId: getStableSubscriptionKey({
-            numItems: page.paginationOpts.numItems,
-            cursor: page.paginationOpts.cursor,
-          }),
+          operationId: operation.operationId,
           name: fnName,
           args: pageArgs,
           dataSource: 'websocket',
-          meta: {
-            paginated: true,
-            page: pageIndex + 2,
-            numItems: page.paginationOpts.numItems,
-            cursor: page.paginationOpts.cursor,
-          },
+          meta: operation.meta,
         })
       },
       onData: (result) => {
@@ -375,20 +370,12 @@ export function createConvexPaginatedQueryState<
         appendDevtoolsEvent({
           kind: 'query',
           phase: 'update',
-          operationId: getStableSubscriptionKey({
-            numItems: page.paginationOpts.numItems,
-            cursor: page.paginationOpts.cursor,
-          }),
+          operationId: operation.operationId,
           name: fnName,
           args: pageArgs,
           payload: result,
           dataSource: 'websocket',
-          meta: {
-            paginated: true,
-            page: pageIndex + 2,
-            numItems: page.paginationOpts.numItems,
-            cursor: page.paginationOpts.cursor,
-          },
+          meta: operation.meta,
         })
         updatePage(pageIndex, (current) => ({
           ...current,
@@ -402,19 +389,11 @@ export function createConvexPaginatedQueryState<
         appendDevtoolsEvent({
           kind: 'query',
           phase: 'error',
-          operationId: getStableSubscriptionKey({
-            numItems: page.paginationOpts.numItems,
-            cursor: page.paginationOpts.cursor,
-          }),
+          operationId: operation.operationId,
           name: fnName,
           args: pageArgs,
           error: error.message,
-          meta: {
-            paginated: true,
-            page: pageIndex + 2,
-            numItems: page.paginationOpts.numItems,
-            cursor: page.paginationOpts.cursor,
-          },
+          meta: operation.meta,
         })
         updatePage(pageIndex, (current) => ({
           ...current,
@@ -439,48 +418,35 @@ export function createConvexPaginatedQueryState<
   }
 
   const loadMore = (numItems: number) => {
-    if (isSkipped.value) return
-
-    const lastLoadedPage = getNextPageInput({
+    const loadMoreState = createLoadMoreBootstrap<Item, SharedQuerySubscriptionHandle>({
+      isSkipped: isSkipped.value,
       firstPage: firstPageResource.asyncData.data.value,
-      extraPages: pages.value,
+      pages: pages.value,
+      numItems,
+      paginationId: currentPaginationId.value,
     })
-    const pendingLastPage =
-      pages.value.length > 0 ? pages.value[pages.value.length - 1]?.pending : false
-
-    if (!lastLoadedPage || pendingLastPage || lastLoadedPage.isDone) {
+    if (!loadMoreState) {
       return
     }
 
-    const newPage: PageState<Item> = {
-      paginationOpts: {
-        numItems,
-        cursor: lastLoadedPage.continueCursor,
-        id: currentPaginationId.value,
-      },
-      result: null,
-      error: null,
-      pending: true,
-      subscription: null,
-    }
-
-    const pageIndex = pages.value.length
+    const { newPage, pageIndex } = loadMoreState
     pages.value = [...pages.value, newPage]
-    appendDevtoolsEvent({
-      kind: 'query',
-      phase: 'load-more',
-      operationId: getStableSubscriptionKey({
+    const operation = createPaginationOperationContext(
+      newPage.paginationOpts,
+      getStableSubscriptionKey({
         numItems: newPage.paginationOpts.numItems,
         cursor: newPage.paginationOpts.cursor,
       }),
+      pageIndex,
+    )
+    const pageArgs = buildPageArgs(newPage.paginationOpts)
+    appendDevtoolsEvent({
+      kind: 'query',
+      phase: 'load-more',
+      operationId: operation.operationId,
       name: fnName,
-      args: buildPageArgs(newPage.paginationOpts),
-      meta: {
-        paginated: true,
-        page: pageIndex + 2,
-        numItems,
-        cursor: newPage.paginationOpts.cursor,
-      },
+      args: pageArgs,
+      meta: operation.meta,
     })
 
     void runPageQuery(newPage.paginationOpts)
@@ -488,19 +454,11 @@ export function createConvexPaginatedQueryState<
         appendDevtoolsEvent({
           kind: 'query',
           phase: 'success',
-          operationId: getStableSubscriptionKey({
-            numItems: newPage.paginationOpts.numItems,
-            cursor: newPage.paginationOpts.cursor,
-          }),
+          operationId: operation.operationId,
           name: fnName,
-          args: buildPageArgs(newPage.paginationOpts),
+          args: pageArgs,
           payload: result,
-          meta: {
-            paginated: true,
-            page: pageIndex + 2,
-            numItems,
-            cursor: newPage.paginationOpts.cursor,
-          },
+          meta: operation.meta,
         })
         updatePage(pageIndex, (current) => ({
           ...current,
@@ -515,19 +473,11 @@ export function createConvexPaginatedQueryState<
         appendDevtoolsEvent({
           kind: 'query',
           phase: 'error',
-          operationId: getStableSubscriptionKey({
-            numItems: newPage.paginationOpts.numItems,
-            cursor: newPage.paginationOpts.cursor,
-          }),
+          operationId: operation.operationId,
           name: fnName,
-          args: buildPageArgs(newPage.paginationOpts),
+          args: pageArgs,
           error: toError(error).message,
-          meta: {
-            paginated: true,
-            page: pageIndex + 2,
-            numItems,
-            cursor: newPage.paginationOpts.cursor,
-          },
+          meta: operation.meta,
         })
         updatePage(pageIndex, (current) => ({
           ...current,
@@ -584,14 +534,13 @@ export function createConvexPaginatedQueryState<
   })
 
   const error = computed((): Error | null => {
-    if (globalError.value) return globalError.value
-    if (firstPageResource.asyncData.error.value) {
-      return toError(firstPageResource.asyncData.error.value)
-    }
-    for (const page of pages.value) {
-      if (page.error) return page.error
-    }
-    return null
+    return resolveRuntimePaginationError(
+      globalError.value,
+      firstPageResource.asyncData.error.value
+        ? toError(firstPageResource.asyncData.error.value)
+        : null,
+      pages.value,
+    )
   })
 
   const isStale = computed(() =>
@@ -610,7 +559,7 @@ export function createConvexPaginatedQueryState<
     watch(
       [() => status.value, () => transformedResults.value, () => argsHash.value],
       ([nextStatus, nextResults, nextArgsHash]) => {
-        if (isSkipped.value || nextStatus === 'loading-first-page') return
+        if (!shouldPersistSettledPaginatedResults(isSkipped.value, nextStatus)) return
         lastSettledResults.value = nextResults
         lastSettledArgsHash!.value = nextArgsHash
       },
@@ -643,9 +592,10 @@ export function createConvexPaginatedQueryState<
       if (next === prev) return
 
       cleanupAllPageSubscriptions(isSkipped.value ? 'args-skipped' : 'args-changed')
-      pages.value = []
-      globalError.value = null
-      currentPaginationId.value = generatePaginationId()
+      const resetState = createPaginationResetState(generatePaginationId())
+      pages.value = resetState.pages
+      globalError.value = resetState.globalError
+      currentPaginationId.value = resetState.paginationId
 
       if (isSkipped.value) {
         return
@@ -662,11 +612,7 @@ export function createConvexPaginatedQueryState<
     globalError.value = null
     ;(firstPageResource.asyncData.error as Ref<Error | null>).value = null
 
-    const currentPages = pages.value.map((page) => ({
-      ...page,
-      pending: true,
-      error: null,
-    }))
+    const currentPages = markRuntimePaginationPagesRefreshing(pages.value)
     pages.value = currentPages
 
     try {
@@ -698,9 +644,10 @@ export function createConvexPaginatedQueryState<
 
   async function reset(): Promise<void> {
     cleanupAllPageSubscriptions('reset')
-    pages.value = []
-    globalError.value = null
-    currentPaginationId.value = generatePaginationId()
+    const resetState = createPaginationResetState(generatePaginationId())
+    pages.value = resetState.pages
+    globalError.value = resetState.globalError
+    currentPaginationId.value = resetState.paginationId
     ;(firstPageResource.asyncData.error as Ref<Error | null>).value = null
 
     if (isSkipped.value) {

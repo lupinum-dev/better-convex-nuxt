@@ -30,6 +30,12 @@ import {
   executeLiveQuery,
   executeQueryHttp,
 } from './live-query-resource'
+import {
+  createSkippedQueryCacheKey,
+  resolveQueryDefaultValue,
+  shouldMarkQueryDataAsStale,
+  shouldPersistLastSettledQuery,
+} from './query-state'
 
 export { getQueryKey, executeQueryHttp }
 
@@ -108,7 +114,7 @@ export function createConvexQueryState<
 
   const cacheKey = computed(() => {
     if (isSkipped.value) {
-      return `convex:skipped:${fnName}`
+      return createSkippedQueryCacheKey(fnName)
     }
     return getQueryKey(query, normalizedArgs.value ?? {})
   })
@@ -135,13 +141,12 @@ export function createConvexQueryState<
     authMode: 'auto',
     resolveImmediately,
     dedupe: 'defer',
-    defaultValue: () => {
-      if (keepPreviousData && lastSettledData?.value !== null) {
-        return lastSettledData!.value
-      }
-      const fallback = options?.default?.()
-      return fallback == null ? null : (fallback as RawT)
-    },
+    defaultValue: () =>
+      resolveQueryDefaultValue<RawT>({
+        keepPreviousData,
+        lastSettledData: lastSettledData?.value ?? null,
+        fallback: options?.default,
+      }),
     onShare: (refCount) => {
       logger.query({
         name: fnName,
@@ -231,7 +236,13 @@ export function createConvexQueryState<
         () => currentArgsHash.value,
       ],
       ([value, pending, argsHash]) => {
-        if (value != null && !pending && argsHash) {
+        if (
+          shouldPersistLastSettledQuery<RawT>({
+            value,
+            pending,
+            argsHash,
+          })
+        ) {
           lastSettledData!.value = value
           lastSettledArgsHash!.value = argsHash
         }
@@ -247,20 +258,18 @@ export function createConvexQueryState<
   const data = computed<DataT | null>(() =>
     resource.asyncData.data.value != null ? applyTransform(resource.asyncData.data.value) : null,
   )
-  const isStale = computed(() => {
-    if (!keepPreviousData || !lastSettledData || !lastSettledArgsHash || !lastReceivedArgsHash) {
-      return false
-    }
-    if (isSkipped.value || resource.pending.value === false) return false
-    if (resource.asyncData.error.value) return false
-
-    const currentArgsKey = currentArgsHash.value
-    if (!currentArgsKey || lastSettledArgsHash.value === null) return false
-    if (lastSettledArgsHash.value === currentArgsKey) return false
-    if (lastReceivedArgsHash.value === currentArgsKey) return false
-
-    return resource.asyncData.data.value !== null && resource.asyncData.data.value !== undefined
-  })
+  const isStale = computed(() =>
+    shouldMarkQueryDataAsStale({
+      keepPreviousData,
+      isSkipped: isSkipped.value,
+      pending: resource.pending.value,
+      hasError: resource.asyncData.error.value != null,
+      currentArgsHash: currentArgsHash.value,
+      lastSettledArgsHash: lastSettledArgsHash?.value ?? null,
+      lastReceivedArgsHash: lastReceivedArgsHash?.value ?? null,
+      hasData: resource.asyncData.data.value != null,
+    }),
+  )
 
   return {
     resultData: {

@@ -10,6 +10,22 @@ import { isFileTypeAllowed } from '../../utils/mime-type'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config'
 import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../../utils/upload-core'
 import { useConvex } from '../useConvex'
+import {
+  applyUploadQueueProgress,
+  cancelQueuedUploadItems,
+  clearFinishedUploadItems,
+  collectUploadQueueResults,
+  createUploadQueueItems,
+  deriveUploadQueueSummary,
+  getNextQueuedUploadItem,
+  markUploadQueueItemPending,
+  normalizeMaxConcurrent,
+  settleUploadQueueItemCancelled,
+  settleUploadQueueItemError,
+  settleUploadQueueItemSuccess,
+  shouldResetUploadQueueHalt,
+  updateUploadQueueItem,
+} from './upload-queue-state'
 
 export type { UploadProgressInfo } from '../../utils/upload-core'
 
@@ -256,12 +272,6 @@ function createQueueItemId(): string {
   return `upload-item-${Date.now()}-${queueItemSequence}`
 }
 
-function normalizeMaxConcurrent(value: number): number {
-  if (!Number.isFinite(value)) return 3
-  const n = Math.trunc(value)
-  return n > 0 ? n : 1
-}
-
 export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   generateUploadUrlMutation: Mutation,
   options: UseConvexUploadOptions & { maxConcurrent: number },
@@ -284,48 +294,17 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   let scheduling = false
   let hasBeenBusy = false
 
-  const queuedCount = computed(() => items.value.filter((i) => i.status === 'queued').length)
-  const pendingCount = computed(() => items.value.filter((i) => i.status === 'pending').length)
-  const successCount = computed(() => items.value.filter((i) => i.status === 'success').length)
-  const errorCount = computed(() => items.value.filter((i) => i.status === 'error').length)
-  const cancelledCount = computed(
-    () => items.value.filter((i) => i.status === 'cancelled').length,
+  const summary = computed(() =>
+    deriveUploadQueueSummary(items.value, haltedByError.value),
   )
-
-  const isRunning = computed(
-    () => pendingCount.value > 0 || (!haltedByError.value && queuedCount.value > 0),
-  )
-  const hasErrors = computed(() => errorCount.value > 0)
-
-  const aggregateProgress = computed(() => {
-    if (items.value.length === 0) return 0
-    let totalBytes = 0
-    let uploadedBytes = 0
-    for (const item of items.value) {
-      const itemTotal = Math.max(0, item.totalBytes || item.file.size || 0)
-      totalBytes += itemTotal
-      if (item.status === 'queued') continue
-      if (item.status === 'success') {
-        uploadedBytes += itemTotal
-        continue
-      }
-      uploadedBytes += Math.max(0, Math.min(item.loadedBytes, itemTotal || item.loadedBytes))
-    }
-    if (totalBytes <= 0) {
-      return items.value.some((i) => i.status === 'queued' || i.status === 'pending') ? 0 : 100
-    }
-    return Math.min(100, Math.floor((uploadedBytes / totalBytes) * 100))
-  })
-
-  const mutateItem = (id: string, updater: (item: QueueItem) => QueueItem): QueueItem | null => {
-    let updated: QueueItem | null = null
-    items.value = items.value.map((item) => {
-      if (item.id !== id) return item
-      updated = updater(item)
-      return updated
-    })
-    return updated
-  }
+  const queuedCount = computed(() => summary.value.queuedCount)
+  const pendingCount = computed(() => summary.value.pendingCount)
+  const successCount = computed(() => summary.value.successCount)
+  const errorCount = computed(() => summary.value.errorCount)
+  const cancelledCount = computed(() => summary.value.cancelledCount)
+  const isRunning = computed(() => summary.value.isRunning)
+  const hasErrors = computed(() => summary.value.hasErrors)
+  const aggregateProgress = computed(() => summary.value.aggregateProgress)
 
   const maybeEmitQueueIdle = () => {
     if (isRunning.value) {
@@ -370,12 +349,7 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   const runItem = async (itemId: string): Promise<void> => {
     const controller = new AbortController()
     activeById.set(itemId, controller)
-    mutateItem(itemId, (item) => ({
-      ...item,
-      status: 'pending',
-      startedAt: Date.now(),
-      error: null,
-    }))
+    items.value = markUploadQueueItemPending(items.value, itemId, Date.now())
 
     try {
       const item = items.value.find((entry) => entry.id === itemId)
@@ -393,39 +367,33 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
       const storageId = await uploadFileViaXhr(postUrl, item.file, {
         signal: controller.signal,
         onProgress: (info) => {
-          mutateItem(itemId, (cur) => ({
-            ...cur,
-            progress: info.percent,
-            loadedBytes: info.loaded,
-            totalBytes: info.total > 0 ? info.total : cur.totalBytes,
-          }))
+          items.value = applyUploadQueueProgress(items.value, itemId, info)
         },
       })
 
-      const successItem = mutateItem(itemId, (cur) => ({
-        ...cur,
-        status: 'success',
+      const { items: nextItems, updated: successItem } = settleUploadQueueItemSuccess(
+        items.value,
+        itemId,
         storageId,
-        progress: 100,
-        loadedBytes: cur.totalBytes,
-        error: null,
-        finishedAt: Date.now(),
-      }))
+        Date.now(),
+      )
+      items.value = nextItems
       if (successItem) options.onSuccess?.(storageId, successItem.file)
       resolveItemDeferred(itemId, storageId)
     } catch (err) {
       const now = Date.now()
       if (err instanceof DOMException && err.name === 'AbortError') {
-        mutateItem(itemId, (cur) => ({ ...cur, status: 'cancelled', error: null, finishedAt: now }))
+        items.value = settleUploadQueueItemCancelled(items.value, itemId, now).items
         rejectItemDeferred(itemId, new Error('Upload cancelled'))
       } else {
         const normalizedError = err instanceof Error ? err : new Error(String(err))
-        const erroredItem = mutateItem(itemId, (cur) => ({
-          ...cur,
-          status: 'error',
-          error: normalizedError,
-          finishedAt: now,
-        }))
+        const { items: nextItems, updated: erroredItem } = settleUploadQueueItemError(
+          items.value,
+          itemId,
+          normalizedError,
+          now,
+        )
+        items.value = nextItems
         if (erroredItem) options.onError?.(normalizedError, erroredItem.file)
         rejectItemDeferred(itemId, normalizedError)
 
@@ -447,7 +415,7 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
     try {
       while (!haltedByError.value) {
         if (activeById.size >= maxConcurrent) break
-        const nextQueued = items.value.find((item) => item.status === 'queued')
+        const nextQueued = getNextQueuedUploadItem(items.value)
         if (!nextQueued) break
         void runItem(nextQueued.id)
       }
@@ -486,41 +454,21 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
     const entries = normalizeEnqueueInput(input, mutationArgs)
     if (entries.length === 0) return []
 
-    if (haltedByError.value && pendingCount.value === 0) {
+    if (shouldResetUploadQueueHalt(haltedByError.value, pendingCount.value)) {
       haltedByError.value = false
     }
 
-    const now = Date.now()
-    const newItems: QueueItem[] = entries.map((entry) => ({
-      id: createQueueItemId(),
-      file: entry.file,
-      mutationArgs: entry.mutationArgs,
-      status: 'queued',
-      progress: 0,
-      loadedBytes: 0,
-      totalBytes: entry.file.size,
-      error: null,
-      createdAt: now,
-      startedAt: null,
-      finishedAt: null,
-    }))
+    const newItems = createUploadQueueItems<MutationArgs, QueueItem>(
+      entries,
+      Date.now(),
+      createQueueItemId,
+    )
 
     items.value = [...items.value, ...newItems]
     void schedule()
 
     const settled = await Promise.allSettled(newItems.map((item) => getItemDeferred(item.id).promise))
-
-    const storageIds: string[] = []
-    const failures: Error[] = []
-    for (const result of settled) {
-      if (result.status === 'fulfilled') {
-        storageIds.push(result.value)
-      } else {
-        failures.push(
-          result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
-        )
-      }
-    }
+    const { storageIds, failures } = collectUploadQueueResults(settled)
 
     if (failures.length > 0) {
       throw failures.length === 1
@@ -537,24 +485,27 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
       controller.abort()
       return
     }
-    mutateItem(id, (item) => {
-      if (item.status !== 'queued') return item
+    const { items: nextItems, updated } = updateUploadQueueItem(items.value, id, (item) => {
+      if (item.status !== 'queued') return item as QueueItem
       rejectItemDeferred(id, new Error('Upload cancelled'))
-      return { ...item, status: 'cancelled', finishedAt: Date.now() }
+      return {
+        ...item,
+        status: 'cancelled',
+        finishedAt: Date.now(),
+      }
     })
+    items.value = nextItems
+    if (!updated || updated.status !== 'cancelled') return
     void schedule()
     maybeEmitQueueIdle()
   }
 
   const cancelAll = (): void => {
-    const now = Date.now()
-    items.value = items.value.map((item) => {
-      if (item.status === 'queued') {
-        rejectItemDeferred(item.id, new Error('Upload cancelled'))
-        return { ...item, status: 'cancelled', finishedAt: now }
-      }
-      return item
-    })
+    const { items: nextItems, cancelledIds } = cancelQueuedUploadItems(items.value, Date.now())
+    items.value = nextItems
+    for (const id of cancelledIds) {
+      rejectItemDeferred(id, new Error('Upload cancelled'))
+    }
     for (const controller of activeById.values()) {
       controller.abort()
     }
@@ -562,9 +513,7 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   }
 
   const clearFinished = (): void => {
-    items.value = items.value.filter(
-      (item) => item.status !== 'success' && item.status !== 'error' && item.status !== 'cancelled',
-    )
+    items.value = clearFinishedUploadItems(items.value)
   }
 
   const reset = (): void => {

@@ -45,8 +45,6 @@ function categoryLabel(category: DoctorFindingCategory): string {
       return 'Auth and deployment'
     case 'advanced':
       return 'Advanced surfaces'
-    case 'migration':
-      return 'Migration and compatibility'
   }
 }
 
@@ -66,10 +64,10 @@ export function renderDoctorReport(report: DoctorReport, options: RenderDoctorRe
       acc[finding.category].push(finding)
       return acc
     },
-    { core: [], auth: [], advanced: [], migration: [] },
+    { core: [], auth: [], advanced: [] },
   )
 
-  const sections = (['core', 'auth', 'advanced', 'migration'] as const)
+  const sections = (['core', 'auth', 'advanced'] as const)
     .filter((category) => grouped[category].length > 0)
     .map((category) =>
       [

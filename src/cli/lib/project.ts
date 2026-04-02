@@ -29,12 +29,6 @@ export interface ProjectInspection {
   sourceFiles: Array<{ path: string; text: string }>
 }
 
-export interface LegacyApiUsage {
-  id: string
-  replacement: string
-  path: string
-}
-
 export interface EnvKeySource {
   key: string
   source: string
@@ -296,51 +290,4 @@ export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
       file.text,
     ),
   )
-}
-
-const LEGACY_API_PATTERNS = [
-  {
-    id: 'createAuth()',
-    replacement:
-      'Remove the local permissions factory and configure trellis.permissions.query instead.',
-    regex: /\bcreateAuth\s*\(\s*\{/,
-  },
-  {
-    id: 'useEnsureConvexUser',
-    replacement: 'Use defineAuth() which handles user creation automatically via triggers.',
-    regex: /\buseEnsureConvexUser\b/,
-  },
-  {
-    id: '@lupinum/trellis/schema',
-    replacement: 'Import shared argument helpers from @lupinum/trellis/args.',
-    regex: /@lupinum\/trellis\/schema/,
-  },
-  {
-    id: 'withServiceAuth',
-    replacement: 'Rename service transport helpers to withTrustedCaller and getTrustedCaller.',
-    regex: /\bwithServiceAuth\b/,
-  },
-  {
-    id: 'getServiceCaller',
-    replacement: 'Rename service transport helpers to withTrustedCaller and getTrustedCaller.',
-    regex: /\bgetServiceCaller\b/,
-  },
-] as const
-
-export function findLegacyApiUsages(project: ProjectInspection): LegacyApiUsage[] {
-  const matches: LegacyApiUsage[] = []
-
-  for (const file of project.sourceFiles) {
-    for (const pattern of LEGACY_API_PATTERNS) {
-      if (pattern.regex.test(file.text)) {
-        matches.push({
-          id: pattern.id,
-          replacement: pattern.replacement,
-          path: file.path,
-        })
-      }
-    }
-  }
-
-  return matches
 }

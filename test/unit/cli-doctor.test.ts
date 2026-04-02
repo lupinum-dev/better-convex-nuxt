@@ -246,36 +246,4 @@ describe('CLI doctor', () => {
     expect(middleware).toContain('event.context.mcpAuth')
   })
 
-  it('fails doctor when removed V2 APIs are still present', () => {
-    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-doctor-legacy-'))
-    mkdirSync(resolve(cwd, 'composables'), { recursive: true })
-    writeFileSync(
-      resolve(cwd, 'package.json'),
-      JSON.stringify({
-        dependencies: {
-          nuxt: '^3.0.0',
-          convex: '^1.0.0',
-          '@lupinum/trellis': '^3.0.0',
-        },
-      }),
-    )
-    writeFileSync(
-      resolve(cwd, 'nuxt.config.ts'),
-      "export default defineNuxtConfig({ modules: ['@lupinum/trellis'] })\n",
-    )
-    writeFileSync(
-      resolve(cwd, 'composables/usePermissions.ts'),
-      "import { createAuth } from '@lupinum/trellis/composables'\nexport const auth = createAuth({ query: {} as never })\n",
-    )
-
-    const result = runCli(['doctor', '--json'], cwd)
-    const report = JSON.parse(result.stdout) as {
-      findings: Array<{ id: string; status: string; fixHint: string }>
-    }
-    const finding = report.findings.find((entry) => entry.id === 'legacy-v2-apis')
-
-    expect(result.status, result.stderr).toBe(1)
-    expect(finding?.status).toBe('fail')
-    expect(finding?.fixHint).toContain('trellis.permissions.query')
-  })
 })

@@ -31,6 +31,9 @@ test/internal-harness/convex/
 ## Commands
 
 ```bash
+pnpm test:types
+pnpm test:contracts
+pnpm test:internals
 pnpm test
 pnpm test:auth
 pnpm test:server
@@ -66,6 +69,26 @@ pnpm test:list
 
 Before adding a new auth test, place it in the single suite that owns that behavior; do not duplicate the same invariant in both behavior and OWASP suites.
 
+## Maintenance Split
+
+The repo uses two maintainer-facing test lanes in addition to the full suite:
+
+- `pnpm test:contracts`
+  - public composable/plugin behavior
+  - server helpers
+  - installer behavior
+  - doctor/docs/architecture guard tests
+- `pnpm test:internals`
+  - extracted pure helpers
+  - internal state machines
+  - no broad white-box tests for reactive composables
+
+Rule of thumb:
+
+- if a test protects user-facing behavior, keep it in contract coverage
+- if a test protects extracted pure logic, keep it in internal coverage
+- if a branch is hard to test cleanly, extract a pure helper first instead of poking deeper into the reactive runtime
+
 ## Support Layout
 
 - `test/support/auth`: auth harnesses, JWT factories, token exchange mocks, server auth fixtures
@@ -94,3 +117,5 @@ pnpm test:e2e
 ## Maintenance
 
 - `pnpm test:list` lists repo-owned test files while excluding `test/fixtures/**/node_modules`.
+- PR-safe default gate: `pnpm test:types && pnpm lint && pnpm test:contracts`
+- broader integration gate: `pnpm test`

@@ -11,7 +11,6 @@ import {
   findConvexUrlSource,
   findEnvKeySource,
   findConvexHttpSource,
-  findLegacyApiUsages,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
   hasDependency,
@@ -43,11 +42,6 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const hasAuthRoutes = hasBetterAuthRouteRegistration(project)
   const trustedCallerExpected = usesTrustedCallerSurfaces(project)
   const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_CALLER_KEY'])
-  const legacyApiUsages = findLegacyApiUsages(project)
-  const legacyUsageSummary = legacyApiUsages
-    .slice(0, 3)
-    .map((usage) => `${usage.id} in ${usage.path}`)
-    .join('\n')
 
   return [
     {
@@ -199,21 +193,6 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       fixHint: !trustedCallerExpected
         ? 'No action needed unless you add MCP or trusted-caller flows later.'
         : 'Set CONVEX_TRUSTED_CALLER_KEY in the local environment and the Convex deployment that serves trusted-caller traffic.',
-    },
-    {
-      id: 'legacy-v2-apis',
-      category: 'migration',
-      title: 'Removed V2 APIs',
-      status: legacyApiUsages.length === 0 ? 'pass' : 'fail',
-      message:
-        legacyApiUsages.length === 0
-          ? 'No removed V2 imports or APIs were detected.'
-          : `Found removed V2 APIs:\n${legacyUsageSummary}`,
-      fixHint:
-        legacyApiUsages.length === 0
-          ? 'Keep using the V3 auth, service, visibility, and args entrypoints.'
-          : (legacyApiUsages[0]?.replacement ??
-            'Replace removed V2 APIs with their V3 equivalents.'),
     },
   ]
 }

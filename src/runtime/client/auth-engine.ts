@@ -20,6 +20,13 @@ import { computed, type ComputedRef, type Ref } from 'vue'
 import { waitForPendingClear } from '../utils/auth-pending'
 import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants'
 import type { ConvexAuthChangedPayload, ConvexUser } from '../utils/types'
+import {
+  buildAuthSnapshot,
+  createAuthChangedPayload,
+  hasAuthSnapshotChanged,
+  isCurrentAuthOperation,
+  type AuthSnapshot,
+} from './auth-engine-state'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 export type AuthTrigger =
@@ -100,12 +107,6 @@ export interface AuthTransport {
   invalidate: () => Promise<void>
 }
 
-interface AuthSnapshot {
-  isAuthenticated: boolean
-  user: ConvexUser | null
-  userId: string | null
-}
-
 interface AuthEngineState {
   transport: AuthTransport | null
   refreshPromise: Promise<void> | null
@@ -152,16 +153,6 @@ export interface CreateSharedAuthEngineOptions {
 const authEngineStates = new WeakMap<object, AuthEngineState>()
 const authEngines = new WeakMap<object, SharedAuthEngine>()
 
-function buildSnapshot(token: string | null, user: ConvexUser | null): AuthSnapshot {
-  const isAuthenticated = Boolean(token && user)
-
-  return {
-    isAuthenticated,
-    user: isAuthenticated ? user : null,
-    userId: isAuthenticated ? user!.id : null,
-  }
-}
-
 function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -197,7 +188,7 @@ function getEngineState(
     refreshPromise: null,
     signOutPromise: null,
     operationId: 0,
-    snapshot: buildSnapshot(token.value, user.value),
+    snapshot: buildAuthSnapshot(token.value, user.value),
     hooksRegistered: false,
   }
   authEngineStates.set(nuxtApp, created)
@@ -250,20 +241,14 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     const previousSnapshot = state.snapshot
     state.snapshot = nextSnapshot
 
-    const changed =
-      previousSnapshot.isAuthenticated !== nextSnapshot.isAuthenticated ||
-      previousSnapshot.userId !== nextSnapshot.userId
-
-    if (!changed) {
+    if (!hasAuthSnapshotChanged(previousSnapshot, nextSnapshot)) {
       return
     }
 
-    const payload: ConvexAuthChangedPayload = {
-      isAuthenticated: nextSnapshot.isAuthenticated,
-      previousIsAuthenticated: previousSnapshot.isAuthenticated,
-      user: nextSnapshot.user,
-      previousUser: previousSnapshot.user,
-    }
+    const payload: ConvexAuthChangedPayload = createAuthChangedPayload(
+      previousSnapshot,
+      nextSnapshot,
+    )
     if (!nuxtApp.callHook) {
       return
     }
@@ -280,7 +265,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     user.value = nextUser
     rawAuthError.value = null
     wasAuthenticated.value = true
-    emitIfChanged(buildSnapshot(nextToken, nextUser))
+    emitIfChanged(buildAuthSnapshot(nextToken, nextUser))
   }
 
   const commitUnauthenticated = (
@@ -297,7 +282,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
       wasAuthenticated.value = false
     }
 
-    const nextSnapshot = buildSnapshot(null, null)
+    const nextSnapshot = buildAuthSnapshot(null, null)
     if (options?.emit === false) {
       state.snapshot = nextSnapshot
       return
@@ -319,7 +304,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
 
     const operationId = state.operationId
     const result = await state.transport.fetchAuthState(input)
-    if (operationId !== state.operationId) {
+    if (!isCurrentAuthOperation(operationId, state.operationId)) {
       // A newer refresh, invalidate, signOut, or transport swap already won.
       settleInitialAuth()
       return null
@@ -390,7 +375,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
           },
         )
 
-        if (operationId !== state.operationId) {
+        if (!isCurrentAuthOperation(operationId, state.operationId)) {
           return
         }
 
@@ -400,7 +385,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
 
         return
       } catch (error) {
-        if (operationId !== state.operationId) {
+        if (!isCurrentAuthOperation(operationId, state.operationId)) {
           if (import.meta.dev) {
             console.debug(
               '[trellis] Discarding stale refresh error (superseded by newer operation):',
@@ -516,7 +501,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
   }
 
   const initialize = (options?: { error?: string | null; resolveInitialAuth?: boolean }) => {
-    state.snapshot = buildSnapshot(token.value, user.value)
+    state.snapshot = buildAuthSnapshot(token.value, user.value)
     if (options?.error !== undefined) {
       rawAuthError.value = options.error
     }
@@ -528,7 +513,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
   if (options.transport) {
     configureTransport(options.transport)
   }
-  state.snapshot = buildSnapshot(token.value, user.value)
+  state.snapshot = buildAuthSnapshot(token.value, user.value)
 
   if (!state.hooksRegistered) {
     state.hooksRegistered = true

@@ -1,0 +1,238 @@
+import type { ConvexAuthConfigInput } from '../runtime/utils/auth-config'
+import type { LogLevel } from '../runtime/utils/logger'
+
+export interface AuthCacheOptions {
+  /**
+   * Enable SSR auth token caching.
+   * When enabled, Convex JWT tokens are cached to reduce TTFB on subsequent SSR requests.
+   * Uses Nitro Storage (memory by default, configurable to Redis for multi-instance deployments).
+   * @default false
+   */
+  enabled: boolean
+  /**
+   * Cache TTL in seconds.
+   * @default 60 (1 minute)
+   */
+  ttl?: number
+}
+
+export interface AuthProxyOptions {
+  /**
+   * Maximum allowed request body size for auth proxy.
+   * @default 1_048_576 (1 MiB)
+   */
+  maxRequestBodyBytes?: number
+  /**
+   * Maximum allowed upstream response body size for auth proxy.
+   * @default 1_048_576 (1 MiB)
+   */
+  maxResponseBodyBytes?: number
+}
+
+/**
+ * Auth configuration. All auth-related settings live here.
+ */
+export interface AuthOptions extends ConvexAuthConfigInput {
+  /**
+   * Custom route path for the auth proxy.
+   * @default '/api/auth'
+   */
+  route?: string
+  /**
+   * Additional trusted origins for CORS validation on the auth proxy.
+   * Same-origin requests are always allowed.
+   * Supports wildcards (e.g., 'https://preview-*.vercel.app').
+   * @default []
+   */
+  trustedOrigins?: string[]
+  /**
+   * Routes that skip auth token fetches.
+   * Supports glob patterns (e.g., '/docs/**').
+   * Also use definePageMeta({ skipConvexAuth: true }) for per-page control.
+   * @default []
+   */
+  skipAuthRoutes?: string[]
+  /**
+   * SSR auth token caching (opt-in).
+   * Caches Convex JWT tokens server-side to reduce TTFB on subsequent requests.
+   *
+   * @example
+   * ```ts
+   * trellis: { auth: { cache: { enabled: true, ttl: 60 } } }
+   * // For multi-instance: configure nitro.storage with driver: 'redis'
+   * ```
+   */
+  cache?: AuthCacheOptions
+  /**
+   * Body size limits for the auth proxy.
+   */
+  proxy?: AuthProxyOptions
+}
+
+export interface PermissionsOptions {
+  /**
+   * App-owned query that returns the frontend permission context.
+   * Format: `<modulePath>.<exportName>` like `workspaces.getPermissionContext`.
+   */
+  query: string
+}
+
+/**
+ * Default options for query composables (useConvexQuery, useConvexPaginatedQuery).
+ * These can be overridden on a per-query basis.
+ */
+export interface QueryDefaults {
+  /**
+   * Run query on server during SSR.
+   * @default true
+   */
+  server?: boolean
+  /**
+   * Subscribe to real-time updates via WebSocket.
+   * @default true
+   */
+  subscribe?: boolean
+}
+
+export interface UploadDefaults {
+  /**
+   * Maximum number of concurrent uploads.
+   * @default 3
+   */
+  maxConcurrent?: number
+}
+
+export interface McpOptions {
+  /** Name shown to MCP clients. */
+  name?: string
+  /** Enable MCP session state. @default false */
+  sessions?: boolean
+}
+
+export interface ModuleOptions {
+  /** Convex deployment URL (WebSocket) — e.g., https://your-app.convex.cloud */
+  url?: string
+  /**
+   * Enable authentication and configure auth behavior.
+   *
+   * Shorthand forms:
+   * - `auth: true` — enable auth with all defaults
+   *
+   * Full object form for advanced configuration:
+   * - `auth: { routeProtection: { redirectTo: '/login' }, cache: { enabled: true } }`
+   *
+   * @example
+   * ```ts
+   * // Zero-config auth:
+   * trellis: { auth: true }
+   *
+   * // Full control:
+   * trellis: { auth: { routeProtection: { redirectTo: '/login', preserveReturnTo: true } } }
+   * ```
+   */
+  auth?: AuthOptions | boolean
+  /**
+   * Config-driven permission context wiring for built-in usePermissions/useAuthGuard.
+   * String shorthand: `'workspaces.getPermissionContext'` is equivalent to
+   * `{ query: 'workspaces.getPermissionContext' }`.
+   */
+  permissions?: string | PermissionsOptions
+  /**
+   * Enable trusted caller infrastructure for server-to-server auth.
+   * @default false
+   */
+  trustedCallers?: boolean
+  /** MCP (Model Context Protocol) configuration. Enabled when @nuxtjs/mcp-toolkit is installed. */
+  mcp?: McpOptions
+  /**
+   * Default behavior for query composables.
+   *
+   * @example
+   * ```ts
+   * trellis: { query: { server: false } } // Disable SSR globally
+   * ```
+   */
+  query?: QueryDefaults
+  /** Default options for upload composables. */
+  upload?: UploadDefaults
+  /**
+   * Enable module logging.
+   * - false: No logs (production default)
+   * - 'info': Simple logs for everyday use
+   * - 'debug': Detailed logs with timing for deep debugging
+   * @default false
+   */
+  logging?: LogLevel
+  /**
+   * Build/startup validation behavior.
+   */
+  validation?: {
+    /**
+     * Promote build-time validation warnings to startup/build errors.
+     * @default false
+     */
+    strict?: boolean
+  }
+}
+
+/**
+ * Normalize the `auth` option shorthand forms into a full AuthOptions object.
+ * - `true` → `{ enabled: true }`
+ * - `false` / `undefined` → `{ enabled: false }`
+ * - Full object → passed through unchanged
+ */
+export function normalizeAuthShorthand(auth: AuthOptions | boolean | undefined): AuthOptions {
+  if (auth === true) return { enabled: true }
+  if (auth === false || auth === undefined) return { enabled: false }
+  return auth
+}
+
+export function normalizeAuthCacheTtl(input: unknown): number {
+  if (typeof input !== 'number' || !Number.isFinite(input)) return 60
+  const normalized = Math.trunc(input)
+  if (normalized < 1) return 1
+  if (normalized > 60) return 60
+  return normalized
+}
+
+export function normalizeConfiguredFunctionPath(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const normalized = value.trim()
+  if (!normalized) return undefined
+  return normalized
+}
+
+export function splitConfiguredFunctionPath(
+  path: string,
+): { modulePath: string; exportName: string } | null {
+  const lastDot = path.lastIndexOf('.')
+  if (lastDot <= 0 || lastDot === path.length - 1) return null
+  return {
+    modulePath: path.slice(0, lastDot),
+    exportName: path.slice(lastDot + 1),
+  }
+}
+
+export function createConfiguredFunctionError(
+  kind: 'permissions.query',
+  configuredPath: string,
+  availablePaths: string[],
+): Error {
+  const suggestions = availablePaths
+    .filter(
+      (candidate) =>
+        candidate.includes(configuredPath.split('.').slice(-1)[0] ?? '') ||
+        candidate.includes(configuredPath.split('.')[0] ?? ''),
+    )
+    .slice(0, 5)
+
+  const suggestionText =
+    suggestions.length > 0
+      ? ` Did you mean: ${suggestions.join(', ')}?`
+      : ` Available Convex functions: ${availablePaths.slice(0, 20).join(', ')}${availablePaths.length > 20 ? ', ...' : ''}`
+
+  return new Error(
+    `[trellis] Invalid trellis.${kind}: "${configuredPath}".` +
+      ` No matching Convex function export was found in /convex.${suggestionText}`,
+  )
+}

@@ -26,6 +26,9 @@ pnpm dev
 pnpm dev:local
 pnpm dev:local:reset
 pnpm dev:build
+pnpm test:types
+pnpm test:contracts
+pnpm test:internals
 pnpm test
 pnpm lint
 pnpm docs:api-surface
@@ -35,6 +38,51 @@ pnpm docs:api-surface
 - `pnpm dev:local` forces the internal harness onto local Convex ports.
 - `pnpm dev:local:reset` does the same and resets the local backend state first.
 - `pnpm dev:build` builds the internal harness without starting it.
+- `pnpm test:contracts` runs the public contract and maintainer guard suites.
+- `pnpm test:internals` runs extracted helper and internal state-machine suites.
+- The `vitest/environments` deprecation warning currently comes from the Nuxt/Vitest stack, not a repo-local Trellis import. Recheck on dependency upgrades, especially around `@nuxt/test-utils`.
+
+## Maintenance Rules
+
+This repo is maintained as a long-lived platform. Default rules:
+
+1. Protect the public Nuxt + Convex + Better Auth path first.
+2. Prefer `delete > simplify > replace > add`.
+3. Do not add new top-level public runtime surfaces unless one replaces an existing surface.
+4. Extract pure helpers before adding reactive orchestration.
+5. Advanced features must remain isolated from core behavior when disabled.
+
+When touching public APIs, update all of:
+
+- generated API surface
+- `docs/content/docs/12.api-reference/0.which-api.md`
+- `docs/content/docs/1.guide/7.common-patterns.md`
+- the relevant contract tests
+
+When adding a new abstraction, it must do at least one of:
+
+- reduce LOC in a hotspot
+- improve direct testability
+- remove duplication across multiple call paths
+
+If it does none of those, do not add it.
+
+## Release Discipline
+
+- patch releases prefer bug fixes, simplifications, docs, and tooling hardening
+- minor releases that expand surface must also ship examples and tests
+- major releases require an explicit migration document
+- `trellis doctor` should stay focused on deployment and auth footguns, not style preferences
+
+## Hotspots
+
+Current files that need active pressure to shrink rather than grow:
+
+- `src/runtime/composables/internal/query-runtime.ts`
+- `src/runtime/composables/internal/pagination-runtime.ts`
+- `src/runtime/composables/internal/upload-runtime.ts`
+- `src/runtime/client/auth-engine.ts`
+- `src/module.ts`
 
 ## Internal Harness
 
