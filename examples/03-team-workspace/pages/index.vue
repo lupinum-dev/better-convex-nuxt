@@ -106,11 +106,6 @@
               :description="todoError"
             />
 
-            <div v-if="false" class="space-y-3">
-              <p class="text-sm text-muted">Preparing your application user...</p>
-              <USkeleton class="h-20 w-full rounded-xl" />
-            </div>
-
             <template v-if="ready && !tenantId">
               <div class="grid gap-4 md:grid-cols-2">
                 <UCard>
@@ -309,6 +304,7 @@ import * as z from 'zod'
 
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
+import { teamWorkspacePermissionKeys } from '~/shared/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -407,7 +403,7 @@ const displayName = computed(
     'Signed in user',
 )
 
-const canCreate = can('todo.create')
+const canCreate = can(teamWorkspacePermissionKeys.todoCreate)
 const roleOptions = ['admin', 'member', 'viewer'] as const
 
 const todoError = computed(

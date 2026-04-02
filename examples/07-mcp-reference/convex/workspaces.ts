@@ -1,6 +1,7 @@
 import { can, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
+import { mcpReferencePermissionKeys, type McpReferencePermissionMap } from '../shared/permissions'
 import { canCreateRunbook, canManageMcpKeys, canReadWorkspaceRunbook } from './auth/checks'
 import { appMutation, appQuery } from './functions'
 
@@ -37,10 +38,12 @@ export const getPermissionContext = appQuery({
       email: user.email ?? null,
       displayName: user.displayName ?? null,
       can: {
-        'runbook.read': actor ? can(actor, canReadWorkspaceRunbook) : false,
-        'runbook.create': actor ? can(actor, canCreateRunbook) : false,
-        'mcp.manage': actor ? can(actor, canManageMcpKeys) : false,
-      },
+        [mcpReferencePermissionKeys.runbookRead]: actor
+          ? can(actor, canReadWorkspaceRunbook)
+          : false,
+        [mcpReferencePermissionKeys.runbookCreate]: actor ? can(actor, canCreateRunbook) : false,
+        [mcpReferencePermissionKeys.mcpManage]: actor ? can(actor, canManageMcpKeys) : false,
+      } satisfies McpReferencePermissionMap,
     }
   },
 })

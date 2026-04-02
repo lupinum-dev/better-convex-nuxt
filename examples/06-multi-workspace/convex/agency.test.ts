@@ -4,6 +4,7 @@ import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import { agencyPermissionKeys } from '../shared/permissions'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -145,8 +146,8 @@ describe('agency example', () => {
     const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
     const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
 
-    expect(ownerCtx?.can['project.create']).toBe(true)
-    expect(viewerCtx?.can['project.create']).toBe(false)
+    expect(ownerCtx?.can[agencyPermissionKeys.projectCreate]).toBe(true)
+    expect(viewerCtx?.can[agencyPermissionKeys.projectCreate]).toBe(false)
   })
 
   it('returns null context and denies the agency dashboard for anonymous callers', async () => {

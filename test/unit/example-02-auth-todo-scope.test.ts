@@ -9,8 +9,8 @@ describe('example 02 auth scope helpers', () => {
 
   it('loads owned docs and hides foreign docs behind not found', () => {
     const actor = { userId: 'alice' }
-    const ownTodo = { _id: 'todo-1', userId: 'alice', title: 'Mine' }
-    const foreignTodo = { _id: 'todo-2', userId: 'bob', title: 'Not mine' }
+    const ownTodo = { _id: 'todo-1', ownerId: 'alice', title: 'Mine' }
+    const foreignTodo = { _id: 'todo-2', ownerId: 'bob', title: 'Not mine' }
 
     expect(loadOwnedResource(actor, ownTodo, 'Todo')).toEqual(ownTodo)
     expect(() => loadOwnedResource(actor, foreignTodo, 'Todo')).toThrow('Todo not found.')

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { createTestContext } from '../../../dist/runtime/testing/index.js'
 import schema from '../convex/schema'
 import { modules } from '../convex/test.setup'
+import { mcpReferencePermissionKeys } from '../shared/permissions'
 
 const api = anyApi
 
@@ -41,9 +42,9 @@ describe('mcp reference example', () => {
       email: 'onboarding@example.com',
       displayName: 'Onboarding User',
       can: {
-        'runbook.read': false,
-        'runbook.create': false,
-        'mcp.manage': false,
+        [mcpReferencePermissionKeys.runbookRead]: false,
+        [mcpReferencePermissionKeys.runbookCreate]: false,
+        [mcpReferencePermissionKeys.mcpManage]: false,
       },
     })
     expect(userId).toBeTruthy()

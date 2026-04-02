@@ -1,8 +1,7 @@
-import { deny, enforce, ensureTenant } from 'better-convex-nuxt/auth'
+import { deny, enforce, ensureTenant, requireRecord } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { canManageMembers } from './auth/checks'
-import { requireRecord } from './auth/scope'
 import { appMutation, appQuery } from './functions'
 
 export const list = appQuery({

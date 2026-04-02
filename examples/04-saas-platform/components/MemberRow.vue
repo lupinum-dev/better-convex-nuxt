@@ -5,13 +5,14 @@ import { api } from '~/convex/_generated/api'
  * Changing roles live is the clearest proof that frontend permission state is reactive end to end.
  */
 import type { Doc } from '~/convex/_generated/dataModel'
+import { saasPermissionKeys } from '~/shared/permissions'
 
 const props = defineProps<{
   member: Doc<'users'>
 }>()
 
 const { can } = usePermissions()
-const canManageMembers = can('workspace.members')
+const canManageMembers = can(saasPermissionKeys.workspaceMembers)
 const changeRole = useConvexMutation(api.members.changeRole)
 const memberKey = computed(() => props.member.email || props.member.authId)
 

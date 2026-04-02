@@ -106,19 +106,20 @@ import { computed, reactive, ref } from 'vue'
 
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
+import { saasPermissionKeys } from '~/shared/permissions'
 
 definePageMeta({
   convexAuth: true,
 })
 
 useAuthGuard({
-  can: 'project.read',
+  can: saasPermissionKeys.projectRead,
   redirectTo: '/',
 })
 
 const route = useRoute()
 const { can } = usePermissions()
-const canAudit = can('workspace.audit')
+const canAudit = can(saasPermissionKeys.workspaceAudit)
 const projectId = computed(() => route.params.id as Id<'projects'>)
 
 const taskForm = reactive({
@@ -128,7 +129,7 @@ const taskForm = reactive({
 const selectedIds = ref<Id<'tasks'>[]>([])
 
 const createTask = useConvexMutation(api.tasks.create)
-const canCreateTask = can('task.create')
+const canCreateTask = can(saasPermissionKeys.taskCreate)
 
 const { data: project } = await useConvexQuery(
   api.projects.get,

@@ -115,13 +115,14 @@
 import { computed, reactive } from 'vue'
 
 import { api } from '~/convex/_generated/api'
+import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 
 const route = useRoute()
 const kbId = route.params.kbId as string
 
 const { can } = usePermissions()
-const canManage = can('enrollment.manage')
-const canCreateArticles = can('article.create')
+const canManage = can(knowledgeBasePermissionKeys.enrollmentManage)
+const canCreateArticles = can(knowledgeBasePermissionKeys.articleCreate)
 
 const { data: kb } = await useConvexQuery(api.knowledgeBases.get, { id: kbId as any })
 const { data: articles } = await useConvexQuery(api.articles.list, {

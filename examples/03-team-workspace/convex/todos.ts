@@ -1,9 +1,7 @@
-import { can, enforce, ensureTenant } from 'better-convex-nuxt/auth'
+import { can, enforce, ensureTenant, requireRecord, withCan } from 'better-convex-nuxt/auth'
 
 import { createTodo, deleteTodo, listTodos, setTodoCompleted } from '../shared/schemas/todo'
 import { canCreateTodo, canDeleteTodo, canReadTodo, canUpdateTodo } from './auth/checks'
-import { withCan } from './auth/resource'
-import { requireRecord } from './auth/scope'
 import { appMutation, appQuery } from './functions'
 
 export const list = appQuery({

@@ -16,9 +16,9 @@ export default defineSchema({
   }).index('by_auth_id', ['authId']),
 
   todos: defineTable({
-    userId: v.string(),
+    ownerId: v.string(),
     title: v.string(),
     completed: v.boolean(),
     createdAt: v.number(),
-  }).index('by_user', ['userId']),
+  }).index('by_owner', ['ownerId']),
 })

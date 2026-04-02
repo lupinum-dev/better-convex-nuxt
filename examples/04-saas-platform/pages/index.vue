@@ -142,11 +142,6 @@
               </div>
             </div>
 
-            <div v-if="false" class="space-y-3">
-              <p class="text-sm text-muted">Preparing your application user…</p>
-              <USkeleton class="h-20 w-full rounded-xl" />
-            </div>
-
             <template v-if="ready && !tenantId">
               <div class="grid gap-4 md:grid-cols-2">
                 <UCard>
@@ -338,11 +333,12 @@
 import { computed, reactive, ref } from 'vue'
 
 import { api } from '~/convex/_generated/api'
+import { saasPermissionKeys } from '~/shared/permissions'
 
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ready, role, tenantId, ctx } = usePermissions()
-const canAudit = can('workspace.audit')
+const canAudit = can(saasPermissionKeys.workspaceAudit)
 
 const signUpForm = reactive({
   name: '',
@@ -388,7 +384,7 @@ const {
 const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
-const canCreateProject = can('project.create')
+const canCreateProject = can(saasPermissionKeys.projectCreate)
 const roleOptions = ['admin', 'member', 'viewer'] as const
 
 async function handleSignUp() {

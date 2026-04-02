@@ -86,4 +86,6 @@ Use `pnpm convex:dev` only if you explicitly want to run the local backend by ha
 5. Open the admin page and change another member from `member` to `viewer`.
 6. Verify the member loses task-creation access live.
 
-Convex files run on Convex's infrastructure, outside Nuxt's auto-import/build scope. That is why the app owns tiny files like `convex/auth/actor.ts` and imports raw `query()` / `mutation()` directly instead of relying on framework builders.
+Convex files run on Convex's infrastructure, outside Nuxt's auto-import/build scope. That is why
+the app owns tiny files like `convex/auth/actor.ts` and `convex/functions.ts`, even though the
+protected handlers now use `appQuery()` / `appMutation()` instead of raw Convex builders.

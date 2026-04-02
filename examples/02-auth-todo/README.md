@@ -43,3 +43,6 @@ This example now includes a small Convex test harness as the personal-auth start
 - `vitest.config.ts` uses `convexTestConfig(...)`
 - `convex/test.setup.ts` keeps the Vite module glob and generated-server mock in app code
 - `convex/todos.test.ts` proves that one user cannot mutate another user's todo
+
+Ownership uses `ownerId` here on purpose. Moving from personal auth to tenant scoping later should
+add `workspaceId`, not force a rename of the ownership field.

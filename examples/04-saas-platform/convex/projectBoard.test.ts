@@ -9,6 +9,7 @@ import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import { saasPermissionKeys } from '../shared/permissions'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -354,10 +355,10 @@ describe('project board example', () => {
     const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
     const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
 
-    expect(ownerCtx?.can['task.create']).toBe(true)
-    expect(ownerCtx?.can['workspace.members']).toBe(true)
-    expect(viewerCtx?.can['task.create']).toBe(false)
-    expect(viewerCtx?.can['workspace.members']).toBe(false)
+    expect(ownerCtx?.can[saasPermissionKeys.taskCreate]).toBe(true)
+    expect(ownerCtx?.can[saasPermissionKeys.workspaceMembers]).toBe(true)
+    expect(viewerCtx?.can[saasPermissionKeys.taskCreate]).toBe(false)
+    expect(viewerCtx?.can[saasPermissionKeys.workspaceMembers]).toBe(false)
   })
 
   it('returns null context and rejects protected mutations for anonymous callers', async () => {
@@ -384,7 +385,7 @@ describe('plan entitlements', () => {
 
     const permCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
     expect(permCtx.plan).toBe('free')
-    expect(permCtx.can['workspace.exports']).toBe(false)
+    expect(permCtx.can[saasPermissionKeys.workspaceExports]).toBe(false)
   })
 
   it('blocks free workspaces at the project limit', async () => {
@@ -455,7 +456,7 @@ describe('plan entitlements', () => {
     const freeCtx = await free.users.owner.query(api.workspaces.getPermissionContext, {})
     const proCtx = await pro.users.owner.query(api.workspaces.getPermissionContext, {})
 
-    expect(freeCtx?.can['workspace.exports']).toBe(false)
-    expect(proCtx?.can['workspace.exports']).toBe(true)
+    expect(freeCtx?.can[saasPermissionKeys.workspaceExports]).toBe(false)
+    expect(proCtx?.can[saasPermissionKeys.workspaceExports]).toBe(true)
   })
 })

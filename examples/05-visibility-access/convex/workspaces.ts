@@ -1,6 +1,7 @@
 import { can, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
+import { knowledgeBasePermissionKeys, type KnowledgeBasePermissionMap } from '../shared/permissions'
 import {
   canCreateArticle,
   canCreateKB,
@@ -37,13 +38,13 @@ export const getPermissionContext = appQuery({
       email: user?.email ?? null,
       displayName: user?.displayName ?? null,
       can: {
-        'kb.create': can(actor, canCreateKB),
-        'kb.read': can(actor, canReadKB),
-        'article.create': can(actor, canCreateArticle),
-        'article.read': can(actor, canReadArticle),
-        'enrollment.manage': can(actor, canManageEnrollments),
-        'share.create': can(actor, canCreateShareToken),
-      },
+        [knowledgeBasePermissionKeys.kbCreate]: can(actor, canCreateKB),
+        [knowledgeBasePermissionKeys.kbRead]: can(actor, canReadKB),
+        [knowledgeBasePermissionKeys.articleCreate]: can(actor, canCreateArticle),
+        [knowledgeBasePermissionKeys.articleRead]: can(actor, canReadArticle),
+        [knowledgeBasePermissionKeys.enrollmentManage]: can(actor, canManageEnrollments),
+        [knowledgeBasePermissionKeys.shareCreate]: can(actor, canCreateShareToken),
+      } satisfies KnowledgeBasePermissionMap,
     }
   },
 })

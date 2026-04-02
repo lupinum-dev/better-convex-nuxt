@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
@@ -128,11 +128,14 @@ describe('CLI doctor', () => {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-init-personal-permissions-'))
     const result = runCli(['init', 'permissions', '--model', 'personal', '--cwd', cwd], repoRoot)
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
+    const functions = readFileSync(resolve(cwd, 'convex/functions.ts'), 'utf8')
     const users = readFileSync(resolve(cwd, 'convex/users.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('createDefaultGetActor')
     expect(actor).toContain('DefaultActor')
+    expect(functions).toContain('createFunctions')
+    expect(functions).toContain('appQuery')
     expect(users).toContain('getPermissionContext')
   })
 
@@ -140,14 +143,15 @@ describe('CLI doctor', () => {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-init-workspace-permissions-'))
     const result = runCli(['init', 'permissions', '--model', 'workspace', '--cwd', cwd], repoRoot)
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
-    const scope = readFileSync(resolve(cwd, 'convex/auth/scope.ts'), 'utf8')
+    const functions = readFileSync(resolve(cwd, 'convex/functions.ts'), 'utf8')
     const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('createDefaultGetActor')
-    expect(scope).toContain('ensureTenant')
-    expect(scope).toContain('loadTenantResource')
-    expect(scope).toContain('withCan')
+    expect(functions).toContain('createFunctions')
+    expect(functions).toContain('appMutation')
+    expect(existsSync(resolve(cwd, 'convex/auth/scope.ts'))).toBe(false)
+    expect(existsSync(resolve(cwd, 'convex/auth/resource.ts'))).toBe(false)
     expect(workspaces).toContain('getPermissionContext')
   })
 
@@ -158,13 +162,15 @@ describe('CLI doctor', () => {
       repoRoot,
     )
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
-    const scope = readFileSync(resolve(cwd, 'convex/auth/scope.ts'), 'utf8')
+    const functions = readFileSync(resolve(cwd, 'convex/functions.ts'), 'utf8')
     const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('createDefaultGetActor')
-    expect(scope).toContain('ensureTenant')
-    expect(scope).toContain('withCan')
+    expect(functions).toContain('createFunctions')
+    expect(functions).toContain('trustedCaller: true')
+    expect(existsSync(resolve(cwd, 'convex/auth/scope.ts'))).toBe(false)
+    expect(existsSync(resolve(cwd, 'convex/auth/resource.ts'))).toBe(false)
     expect(workspaces).toContain('getPermissionContext')
   })
 

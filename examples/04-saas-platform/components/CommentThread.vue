@@ -6,6 +6,7 @@ import { api } from '~/convex/_generated/api'
  * Keeping that flow in its own component makes the page easier to read.
  */
 import type { Id } from '~/convex/_generated/dataModel'
+import { saasPermissionKeys } from '~/shared/permissions'
 
 const props = defineProps<{
   taskId: Id<'tasks'>
@@ -15,7 +16,7 @@ const { can } = usePermissions()
 const body = ref('')
 const attachmentStorageId = ref<Id<'_storage'> | null>(null)
 const createComment = useConvexMutation(api.comments.create)
-const canCreateComment = can('comment.create')
+const canCreateComment = can(saasPermissionKeys.commentCreate)
 
 const {
   data: comments,

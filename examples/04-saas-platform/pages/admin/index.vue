@@ -137,13 +137,14 @@
 import { computed } from 'vue'
 
 import { api } from '~/convex/_generated/api'
+import { saasPermissionKeys } from '~/shared/permissions'
 
 definePageMeta({
   convexAuth: true,
 })
 
 useAuthGuard({
-  can: 'workspace.audit',
+  can: saasPermissionKeys.workspaceAudit,
   redirectTo: '/',
 })
 

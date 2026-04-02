@@ -10,6 +10,7 @@ import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import { teamWorkspacePermissionKeys } from '../shared/permissions'
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
 import { ensureWebhookBotUser } from './auth/trustedCaller'
 import schema from './schema'
@@ -132,9 +133,9 @@ describe('team todo example', () => {
     const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
     const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
 
-    expect(ownerCtx?.can['todo.create']).toBe(true)
-    expect(viewerCtx?.can['todo.create']).toBe(false)
-    expect(viewerCtx?.can['todo.read']).toBe(true)
+    expect(ownerCtx?.can[teamWorkspacePermissionKeys.todoCreate]).toBe(true)
+    expect(viewerCtx?.can[teamWorkspacePermissionKeys.todoCreate]).toBe(false)
+    expect(viewerCtx?.can[teamWorkspacePermissionKeys.todoRead]).toBe(true)
   })
 
   it('returns null context and denies protected todo queries for anonymous callers', async () => {

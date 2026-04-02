@@ -1,4 +1,10 @@
-import { can, deny, enforce } from 'better-convex-nuxt/auth'
+import {
+  can,
+  deny,
+  enforce,
+  loadTenantResource as loadResource,
+  withCan,
+} from 'better-convex-nuxt/auth'
 import { asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 
@@ -17,8 +23,6 @@ import {
   canUpdateTask,
   hasRole,
 } from './auth/checks'
-import { withCan } from './auth/resource'
-import { loadResource } from './auth/scope'
 import { appMutation, appQuery } from './functions'
 
 export const listByProject = appQuery({

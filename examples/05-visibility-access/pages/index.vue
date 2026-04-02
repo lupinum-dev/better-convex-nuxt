@@ -267,6 +267,7 @@
 import { computed, reactive } from 'vue'
 
 import { api } from '~/convex/_generated/api'
+import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -292,7 +293,7 @@ const kbArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: knowledgeBases } = await useConvexQuery(api.knowledgeBases.list, kbArgs)
 
 const displayName = computed(() => user.value?.name || user.value?.email || 'Signed in')
-const canCreate = can('kb.create')
+const canCreate = can(knowledgeBasePermissionKeys.kbCreate)
 const roleOptions = ['admin', 'editor', 'contributor', 'viewer'] as const
 
 async function handleSignUp() {

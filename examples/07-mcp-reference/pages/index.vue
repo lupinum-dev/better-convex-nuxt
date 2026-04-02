@@ -175,13 +175,8 @@
                     :description="appError"
                   />
 
-                  <div v-if="false" class="space-y-3">
-                    <p class="text-sm text-slate-600">Preparing your application user…</p>
-                    <USkeleton class="h-20 w-full rounded-2xl" />
-                  </div>
-
                   <UAlert
-                    v-else-if="!permissionsPending && !ready"
+                    v-if="!permissionsPending && !ready"
                     color="warning"
                     variant="soft"
                     icon="i-lucide-triangle-alert"
@@ -639,6 +634,7 @@ import * as z from 'zod'
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
 import { selectMcpBoundUser } from '~/shared/mcp-bound-user'
+import { mcpReferencePermissionKeys } from '~/shared/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -728,8 +724,8 @@ const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
   {},
 )
 
-const canCreateRunbook = can('runbook.create')
-const canManageMcp = can('mcp.manage')
+const canCreateRunbook = can(mcpReferencePermissionKeys.runbookCreate)
+const canManageMcp = can(mcpReferencePermissionKeys.mcpManage)
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
 const mcpKeyArgs = computed(() => (tenantId.value && canManageMcp.value ? {} : undefined))

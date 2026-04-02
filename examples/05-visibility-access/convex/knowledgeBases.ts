@@ -1,8 +1,7 @@
-import { enforce, deny } from 'better-convex-nuxt/auth'
+import { deny, enforce, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { canCreateKB, canManageEnrollments, canReadKB } from './auth/checks'
-import { loadResource } from './auth/scope'
 import { appMutation, appQuery } from './functions'
 
 export const list = appQuery({

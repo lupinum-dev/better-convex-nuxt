@@ -101,7 +101,7 @@ import { api } from '~/convex/_generated/api'
 const toast = useToast()
 
 // One live query powers the whole page.
-const { data: todos, pending, error } = await useConvexQuery(api.todos.list, {}, { server: true })
+const { data: todos, pending, error } = await useConvexQuery(api.todos.list, {})
 
 // The mutation composables are callable functions with reactive state attached.
 const createTodo = useConvexMutation(api.todos.create)

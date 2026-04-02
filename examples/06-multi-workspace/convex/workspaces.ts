@@ -5,6 +5,7 @@ import { can, deny } from 'better-convex-nuxt/auth'
  */
 import { v } from 'convex/values'
 
+import { agencyPermissionKeys, type AgencyPermissionMap } from '../shared/permissions'
 import { getMemberships, requireWorkspaceMembership } from './auth/agency'
 import { hasRole } from './auth/checks'
 import { appMutation, appQuery } from './functions'
@@ -57,11 +58,11 @@ export const getPermissionContext = appQuery({
       email: user?.email ?? null,
       displayName: user?.displayName ?? null,
       can: {
-        'project.create': can(actor, hasRole('owner', 'member')),
-        'agency.dashboard': memberships.some((m) =>
+        [agencyPermissionKeys.projectCreate]: can(actor, hasRole('owner', 'member')),
+        [agencyPermissionKeys.agencyDashboard]: memberships.some((m) =>
           ['agency_admin', 'agency_manager'].includes(m.role),
         ),
-      },
+      } satisfies AgencyPermissionMap,
     }
   },
 })

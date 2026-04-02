@@ -16,7 +16,7 @@ export const list = appQuery({
     // The handler enforces ownership by filtering with the guaranteed actor.
     return await ctx.db
       .query('todos')
-      .withIndex('by_user', (q) => q.eq('userId', actor.userId))
+      .withIndex('by_owner', (q) => q.eq('ownerId', actor.userId))
       .order('desc')
       .collect()
   },
@@ -30,7 +30,7 @@ export const create = appMutation({
 
     // Ownership is explicit in the inserted row.
     return await ctx.db.insert('todos', {
-      userId: actor.userId,
+      ownerId: actor.userId,
       title: args.title,
       completed: false,
       createdAt: Date.now(),

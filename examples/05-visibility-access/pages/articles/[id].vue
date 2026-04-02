@@ -61,13 +61,14 @@
 
 <script setup lang="ts">
 import { api } from '~/convex/_generated/api'
+import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 
 const route = useRoute()
 const articleId = route.params.id as string
 const shareToken = route.query.token as string | undefined
 
 const { can } = usePermissions()
-const canShare = can('share.create')
+const canShare = can(knowledgeBasePermissionKeys.shareCreate)
 
 const { data: article, error } = await useConvexQuery(
   api.articles.viewArticle,

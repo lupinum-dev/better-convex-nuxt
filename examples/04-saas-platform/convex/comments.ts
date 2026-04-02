@@ -1,9 +1,8 @@
-import { deny, enforce } from 'better-convex-nuxt/auth'
+import { deny, enforce, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { createComment } from '../shared/schemas/comment'
 import { canComment } from './auth/checks'
-import { loadResource } from './auth/scope'
 import { appMutation, appQuery } from './functions'
 
 export const listByTask = appQuery({

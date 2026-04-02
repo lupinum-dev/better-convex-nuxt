@@ -1,4 +1,10 @@
-import { can, deny, enforce } from 'better-convex-nuxt/auth'
+import {
+  can,
+  deny,
+  enforce,
+  loadTenantResource as loadResource,
+  withCan,
+} from 'better-convex-nuxt/auth'
 
 import {
   bulkDeleteRunbooks,
@@ -16,8 +22,6 @@ import {
   canReadWorkspaceRunbook,
   canUpdateRunbook,
 } from './auth/checks'
-import { withCan } from './auth/resource'
-import { loadResource } from './auth/scope'
 import { appMutation, appQuery } from './functions'
 
 function toPublicRunbook(runbook: {

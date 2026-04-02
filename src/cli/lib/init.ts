@@ -106,8 +106,8 @@ import type { Actor } from './actor'
 
 export const isAuthenticated = (actor: Actor) => actor !== null
 
-export const isOwnerOf = (resource: { userId: string }) =>
-  (actor: Actor) => !!actor && actor.kind === 'user' && actor.userId === resource.userId
+export const isOwnerOf = (resource: { ownerId: string }) =>
+  (actor: Actor) => !!actor && actor.kind === 'user' && actor.userId === resource.ownerId
 `.trimStart()
 }
 
@@ -211,12 +211,6 @@ export const isWorkspaceMember = (tenantId: string) =>
   (actor: Actor) => !!actor && actor.tenantId === tenantId
 
 export const canManageWorkspace = and(isAuthenticated, hasMinimumRole('admin'))
-`.trimStart()
-}
-
-function workspaceScopeTemplate() {
-  return `
-export { ensureTenant, loadTenantResource, requireRecord, withCan } from 'better-convex-nuxt/auth'
 `.trimStart()
 }
 
@@ -404,11 +398,6 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
           path: 'convex/functions.ts',
           content: workspaceFunctionsTemplate({ trustedCaller: model === 'workspace-mcp' }),
           ownership: 'authored',
-        },
-        {
-          path: 'convex/auth/scope.ts',
-          content: workspaceScopeTemplate(),
-          ownership: 'generated',
         },
         {
           path: 'convex/workspaces.ts',

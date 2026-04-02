@@ -261,8 +261,6 @@ const todoError = computed(
     '',
 )
 
-const DEBUG_AUTH_TODO_VERBOSE = false
-
 const debugPhase = computed(() => {
   if (isPending.value) return 'auth:pending'
   if (authAction.pending.value) return 'auth-action:pending'
@@ -277,7 +275,6 @@ if (import.meta.dev) {
     ([phase, userId, todoCount, error], previous) => {
       const [previousPhase, previousUserId, previousTodoCount, previousError] = previous ?? []
       if (
-        !DEBUG_AUTH_TODO_VERBOSE &&
         phase === previousPhase &&
         userId === previousUserId &&
         todoCount === previousTodoCount &&

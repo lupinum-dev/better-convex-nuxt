@@ -1,56 +1,39 @@
 /**
- * Why this file differs from the default tenant-scoped pattern:
- * The board example supports trusted callers from server-side routes, so the actor can resolve
- * from either Better Auth or explicit trusted args. `userId` is the auth-subject string stored on
- * owner fields, not a Convex user document id.
+ * Why this file exists:
+ * The board example keeps its plan-aware actor app-owned, but now builds it on top of the shipped
+ * default actor helper.
  */
-import type { AuthIdentity } from 'better-convex-nuxt/auth'
-import { getAuth } from 'better-convex-nuxt/auth'
-import { getTrustedCaller } from 'better-convex-nuxt/trusted-caller'
+import {
+  createDefaultGetActor,
+  defineActorExtension,
+  type DefaultActor,
+} from 'better-convex-nuxt/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
-export type Actor = {
-  kind: 'user'
-  userId: string
+type ProjectBoardActor = DefaultActor & {
   role: Doc<'users'>['role']
   tenantId: Id<'workspaces'>
   plan: Doc<'workspaces'>['plan']
-} | null
-
-type ProjectBoardCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
-
-export async function getActor(ctx: ProjectBoardCtx): Promise<Actor> {
-  const trusted = getTrustedCaller(ctx)
-  if (trusted) {
-    return await resolveActor(ctx, { subject: trusted.userId })
-  }
-
-  return await resolveActor(ctx, await getAuth(ctx))
 }
 
-export async function resolveActor(
-  ctx: ProjectBoardCtx,
-  auth: AuthIdentity | null,
-): Promise<Actor> {
-  if (!auth) return null
+type ProjectBoardCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+const resolveActor = createDefaultGetActor<DataModel, { plan: Doc<'workspaces'>['plan'] }>(
+  defineActorExtension({
+    fields: async (ctx, user) => {
+      const workspace = user.workspaceId ? await ctx.db.get(user.workspaceId) : null
+      return {
+        plan: (workspace?.plan ?? 'free') as Doc<'workspaces'>['plan'],
+      }
+    },
+  }),
+)
 
-  const user = await ctx.db
-    .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
-    .first()
+export type Actor = ProjectBoardActor | null
 
-  if (!user?.workspaceId) return null
-
-  const workspace = await ctx.db.get(user.workspaceId)
-  if (!workspace) return null
-
-  return {
-    kind: 'user',
-    userId: user.authId,
-    role: user.role,
-    tenantId: user.workspaceId,
-    plan: workspace.plan,
-  }
+export async function getActor(ctx: ProjectBoardCtx): Promise<Actor> {
+  const actor = await resolveActor(ctx)
+  if (!actor?.tenantId) return null
+  return actor as ProjectBoardActor
 }

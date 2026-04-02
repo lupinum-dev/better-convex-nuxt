@@ -71,6 +71,31 @@ export interface CreateFunctionsOptions<DataModel extends GenericDataModel, TAct
   }
 }
 
+function validateTenantIsolationOptions<DataModel extends GenericDataModel>(
+  options: TenantIsolationOptions<DataModel> | undefined,
+): void {
+  if (!options) return
+
+  if (options.tables.length === 0) {
+    throw new Error('tenantIsolation.tables must include at least one table.')
+  }
+
+  const seen = new Set<string>()
+  for (const table of options.tables) {
+    if (typeof table !== 'string' || table.trim().length === 0) {
+      throw new Error('tenantIsolation.tables must only contain non-empty table names.')
+    }
+    if (seen.has(table)) {
+      throw new Error(`tenantIsolation.tables contains a duplicate table: "${table}".`)
+    }
+    seen.add(table)
+  }
+
+  if (options.field !== undefined && options.field.trim().length === 0) {
+    throw new Error('tenantIsolation.field must be a non-empty string when provided.')
+  }
+}
+
 function hasTenantId(value: unknown): value is { tenantId?: unknown } {
   return typeof value === 'object' && value !== null && 'tenantId' in value
 }
@@ -267,6 +292,8 @@ export function createFunctions<
   mutation: MutationBuilder<DataModel, MutationVisibility>,
   options: CreateFunctionsOptions<DataModel, TActor> = {},
 ) {
+  validateTenantIsolationOptions(options.tenantIsolation)
+
   return {
     query: customQuery(
       query,

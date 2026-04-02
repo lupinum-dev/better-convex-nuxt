@@ -78,6 +78,7 @@ import { computed } from 'vue'
 
 import { api } from '~/convex/_generated/api'
 import type { Id } from '~/convex/_generated/dataModel'
+import { saasPermissionKeys } from '~/shared/permissions'
 
 definePageMeta({
   convexAuth: true,
@@ -88,7 +89,7 @@ const { can } = usePermissions()
 
 const taskId = computed(() => route.params.id as Id<'tasks'>)
 const projectId = route.query.projectId as Id<'projects'>
-const canAssign = can('task.assign')
+const canAssign = can(saasPermissionKeys.taskAssign)
 
 const { data: task } = await useCachedQuery(
   api.tasks.get,

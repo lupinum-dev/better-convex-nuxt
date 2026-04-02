@@ -1,6 +1,7 @@
 import { can, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
+import { teamWorkspacePermissionKeys, type TeamWorkspacePermissionMap } from '../shared/permissions'
 import { canCreateTodo, canReadTodo } from './auth/checks'
 import { appMutation, appQuery } from './functions'
 
@@ -28,16 +29,18 @@ export const getPermissionContext = appQuery({
 
     if (!user) return null
 
+    const permissions = {
+      [teamWorkspacePermissionKeys.todoRead]: can(actor, canReadTodo),
+      [teamWorkspacePermissionKeys.todoCreate]: can(actor, canCreateTodo),
+    } satisfies TeamWorkspacePermissionMap
+
     return {
       role: user.role,
       userId: user.authId,
       tenantId: user.workspaceId,
       email: user.email,
       displayName: user.displayName,
-      can: {
-        'todo.read': can(actor, canReadTodo),
-        'todo.create': can(actor, canCreateTodo),
-      },
+      can: permissions,
     }
   },
 })

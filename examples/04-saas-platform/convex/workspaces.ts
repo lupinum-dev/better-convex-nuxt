@@ -1,6 +1,7 @@
 import { can, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
+import { saasPermissionKeys, type SaasPermissionMap } from '../shared/permissions'
 import {
   canArchiveProject,
   canAssignTask,
@@ -50,17 +51,17 @@ export const getPermissionContext = appQuery({
         projects: await getUsage(ctx.db, actor, 'projects'),
       },
       can: {
-        'project.create': can(actor, canCreateProject),
-        'project.read': can(actor, canReadProject),
-        'project.archive': can(actor, canArchiveProject),
-        'project.export': can(actor, canExportProjects),
-        'task.create': can(actor, canCreateTask),
-        'task.assign': can(actor, canAssignTask),
-        'comment.create': can(actor, canComment),
-        'workspace.members': can(actor, canManageMembers),
-        'workspace.audit': can(actor, canViewAudit),
-        'workspace.exports': can(actor, hasFeature('exports')),
-      },
+        [saasPermissionKeys.projectCreate]: can(actor, canCreateProject),
+        [saasPermissionKeys.projectRead]: can(actor, canReadProject),
+        [saasPermissionKeys.projectArchive]: can(actor, canArchiveProject),
+        [saasPermissionKeys.projectExport]: can(actor, canExportProjects),
+        [saasPermissionKeys.taskCreate]: can(actor, canCreateTask),
+        [saasPermissionKeys.taskAssign]: can(actor, canAssignTask),
+        [saasPermissionKeys.commentCreate]: can(actor, canComment),
+        [saasPermissionKeys.workspaceMembers]: can(actor, canManageMembers),
+        [saasPermissionKeys.workspaceAudit]: can(actor, canViewAudit),
+        [saasPermissionKeys.workspaceExports]: can(actor, hasFeature('exports')),
+      } satisfies SaasPermissionMap,
     }
   },
 })

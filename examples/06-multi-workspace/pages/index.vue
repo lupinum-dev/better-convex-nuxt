@@ -306,12 +306,13 @@ This page keeps current-workspace actions and cross-client reporting in the same
 import { computed, reactive } from 'vue'
 
 import { api } from '~/convex/_generated/api'
+import { agencyPermissionKeys } from '~/shared/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ctx, role, tenantId } = usePermissions()
-const canCreateProject = can('project.create')
-const canDashboard = can('agency.dashboard')
+const canCreateProject = can(agencyPermissionKeys.projectCreate)
+const canDashboard = can(agencyPermissionKeys.agencyDashboard)
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })

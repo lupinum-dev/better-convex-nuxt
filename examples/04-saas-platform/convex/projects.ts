@@ -1,10 +1,9 @@
-import { deny, enforce } from 'better-convex-nuxt/auth'
+import { deny, enforce, loadTenantResource as loadResource } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import { archiveProject, createProject } from '../shared/schemas/project'
 import { canArchiveProject, canCreateProject, canReadProject, hasFeature } from './auth/checks'
 import { ensureWithinLimit } from './auth/limits'
-import { loadResource } from './auth/scope'
 import { appMutation, appQuery } from './functions'
 
 export const list = appQuery({

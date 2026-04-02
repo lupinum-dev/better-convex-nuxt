@@ -3,7 +3,12 @@
  * Articles combine all advanced access patterns: visibility, redaction, enrollment,
  * prerequisites, share tokens, and inherited access levels.
  */
-import { enforce, deny } from 'better-convex-nuxt/auth'
+import {
+  deny,
+  enforce,
+  loadTenantResource as loadResource,
+  requireRecord,
+} from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import {
@@ -14,7 +19,6 @@ import {
 import { canCreateArticle, canCreateShareToken, canReadArticle, isStaffActor } from './auth/checks'
 import { requireEnrollment } from './auth/enrollment'
 import { redactArticle } from './auth/redaction'
-import { loadResource, requireRecord } from './auth/scope'
 import {
   createShareTokenValue,
   hashShareToken,

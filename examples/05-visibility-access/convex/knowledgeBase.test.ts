@@ -10,6 +10,7 @@ import { createTestContext } from 'better-convex-nuxt/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import { knowledgeBasePermissionKeys } from '../shared/permissions'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -38,11 +39,11 @@ describe('workspace onboarding', () => {
     const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
     const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
 
-    expect(ownerCtx?.can['kb.create']).toBe(true)
-    expect(ownerCtx?.can['share.create']).toBe(true)
-    expect(viewerCtx?.can['kb.create']).toBe(false)
-    expect(viewerCtx?.can['share.create']).toBe(false)
-    expect(viewerCtx?.can['kb.read']).toBe(true)
+    expect(ownerCtx?.can[knowledgeBasePermissionKeys.kbCreate]).toBe(true)
+    expect(ownerCtx?.can[knowledgeBasePermissionKeys.shareCreate]).toBe(true)
+    expect(viewerCtx?.can[knowledgeBasePermissionKeys.kbCreate]).toBe(false)
+    expect(viewerCtx?.can[knowledgeBasePermissionKeys.shareCreate]).toBe(false)
+    expect(viewerCtx?.can[knowledgeBasePermissionKeys.kbRead]).toBe(true)
   })
 })
 
