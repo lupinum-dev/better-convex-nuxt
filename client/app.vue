@@ -12,6 +12,7 @@ const activeTab = ref<'overview' | 'data' | 'auth' | 'advanced'>('overview')
 // Derived data
 const queries = computed(() => snapshot.value?.queries ?? [])
 const mutations = computed(() => snapshot.value?.mutations ?? [])
+const events = computed(() => snapshot.value?.events ?? [])
 const authState = computed(() => snapshot.value?.authState ?? null)
 const connectionState = computed(() => snapshot.value?.connectionState ?? null)
 const authWaterfall = computed(() => snapshot.value?.authWaterfall ?? null)
@@ -31,45 +32,42 @@ function onTabAuth() {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-base text-base">
-    <!-- Header -->
-    <NNavbar>
-      <template #actions>
-        <div class="flex items-center justify-between w-full">
-          <div class="flex items-center gap-2 font-bold">
-            <NIcon icon="i-carbon-data-connected" class="text-lg" />
-            Convex
+  <div class="h-screen min-h-0 flex flex-col bg-base text-base">
+    <div class="flex-shrink-0 border-b border-base px-4 py-3">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2 font-bold">
+          <NIcon icon="i-carbon-data-connected" class="text-lg" />
+          Convex
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+          <div class="flex items-center gap-1.5">
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="connectionState?.isConnected ? 'bg-green-500' : 'bg-red-500'"
+            />
+            <span class="op-60">{{
+              connectionState?.isConnected ? 'Connected' : 'Disconnected'
+            }}</span>
           </div>
-          <div class="flex items-center gap-3 text-xs">
-            <div class="flex items-center gap-1.5">
-              <span
-                class="w-2 h-2 rounded-full"
-                :class="connectionState?.isConnected ? 'bg-green-500' : 'bg-red-500'"
-              />
-              <span class="op-60">{{
-                connectionState?.isConnected ? 'Connected' : 'Disconnected'
-              }}</span>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span
-                class="w-2 h-2 rounded-full"
-                :class="authState?.isAuthenticated ? 'bg-green-500' : 'bg-gray-400'"
-              />
-              <span class="op-60">
-                {{
-                  authState?.isAuthenticated
-                    ? authState.user?.name || 'Authenticated'
-                    : 'Not authenticated'
-                }}
-              </span>
-            </div>
+          <div class="flex items-center gap-1.5">
+            <span
+              class="w-2 h-2 rounded-full"
+              :class="authState?.isAuthenticated ? 'bg-green-500' : 'bg-gray-400'"
+            />
+            <span class="op-60">
+              {{
+                authState?.isAuthenticated
+                  ? authState.user?.name || 'Authenticated'
+                  : 'Not authenticated'
+              }}
+            </span>
           </div>
         </div>
-      </template>
-    </NNavbar>
+      </div>
+    </div>
 
     <!-- Tabs -->
-    <div class="flex border-b border-base px-2">
+    <div class="flex flex-shrink-0 border-b border-base px-2">
       <button
         v-for="tab in ['overview', 'data', 'auth', 'advanced'] as const"
         :key="tab"
@@ -92,7 +90,7 @@ function onTabAuth() {
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-y-auto">
+    <div class="flex-1 min-h-0">
       <!-- No connection -->
       <div v-if="!snapshot" class="flex items-center justify-center h-full op-50">
         <div class="text-center">
@@ -113,7 +111,13 @@ function onTabAuth() {
         />
 
         <!-- Data Tab -->
-        <DataPanel v-show="activeTab === 'data'" :queries="queries" :mutations="mutations" />
+        <DataPanel
+          v-show="activeTab === 'data'"
+          class="h-full"
+          :queries="queries"
+          :mutations="mutations"
+          :events="events"
+        />
 
         <!-- Auth Tab -->
         <AuthPanel

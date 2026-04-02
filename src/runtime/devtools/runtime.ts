@@ -1,10 +1,11 @@
 import type { ConvexDevtoolsStore } from './store'
-import type { QueryRegistryEntry } from './types'
+import type { DevtoolsEvent, QueryRegistryEntry } from './types'
 
 type QueryEntry = Omit<QueryRegistryEntry, 'lastUpdated' | 'updateCount'> & { updateCount?: number }
 type QueryStatusUpdate = Partial<
   Pick<QueryRegistryEntry, 'status' | 'data' | 'error' | 'dataSource' | 'hasSubscription'>
 >
+type DevtoolsEventInput = Omit<DevtoolsEvent, 'id' | 'timestamp'> & { timestamp?: number }
 
 let store: ConvexDevtoolsStore | null = null
 
@@ -24,7 +25,7 @@ export function registerDevtoolsEntry(
 ): string | null {
   if (!store) return null
 
-  return store.registerMutation({
+  const id = store.registerMutation({
     name,
     type,
     args,
@@ -32,6 +33,14 @@ export function registerDevtoolsEntry(
     hasOptimisticUpdate,
     startedAt: Date.now(),
   })
+  store.appendEvent({
+    kind: type,
+    phase: type === 'mutation' && hasOptimisticUpdate ? 'optimistic' : 'pending',
+    operationId: id,
+    name,
+    args,
+  })
+  return id
 }
 
 export function updateDevtoolsEntrySuccess(
@@ -46,6 +55,17 @@ export function updateDevtoolsEntrySuccess(
     state: 'success',
     result,
     settledAt,
+    duration: settledAt - startTime,
+  })
+  const existing = store.mutations.get(id)
+  if (!existing) return
+  store.appendEvent({
+    kind: existing.type,
+    phase: 'success',
+    operationId: id,
+    name: existing.name,
+    args: existing.args,
+    payload: result,
     duration: settledAt - startTime,
   })
 }
@@ -64,19 +84,84 @@ export function updateDevtoolsEntryError(
     settledAt,
     duration: settledAt - startTime,
   })
+  const existing = store.mutations.get(id)
+  if (!existing) return
+  store.appendEvent({
+    kind: existing.type,
+    phase: 'error',
+    operationId: id,
+    name: existing.name,
+    args: existing.args,
+    error,
+    duration: settledAt - startTime,
+  })
 }
 
 export function registerDevtoolsQuery(entry: QueryEntry): void {
   if (!store) return
   store.registerQuery(entry)
+  store.appendEvent({
+    kind: 'query',
+    phase: 'subscribe',
+    operationId: entry.id,
+    name: entry.name,
+    args: entry.args,
+    dataSource: entry.dataSource,
+    meta: entry.options
+      ? {
+          immediate: entry.options.immediate,
+          server: entry.options.server,
+          subscribe: entry.options.subscribe,
+          auth: entry.options.auth,
+        }
+      : undefined,
+  })
 }
 
 export function updateDevtoolsQuery(id: string, update: QueryStatusUpdate): void {
   if (!store) return
+  const existing = store.queries.get(id)
   store.updateQueryStatus(id, update)
+  const next = store.queries.get(id)
+  if (!existing || !next) return
+
+  const phase =
+    update.status === 'error'
+      ? 'error'
+      : update.dataSource === 'websocket' && Object.hasOwn(update, 'data')
+        ? 'update'
+        : update.status === 'success'
+          ? 'success'
+          : 'update'
+
+  store.appendEvent({
+    kind: 'query',
+    phase,
+    operationId: id,
+    name: next.name,
+    args: next.args,
+    payload: Object.hasOwn(update, 'data') ? update.data : undefined,
+    error: update.error,
+    dataSource: update.dataSource ?? next.dataSource,
+  })
 }
 
 export function unregisterDevtoolsQuery(id: string): void {
   if (!store) return
+  const existing = store.queries.get(id)
   store.unregisterQuery(id)
+  if (!existing) return
+  store.appendEvent({
+    kind: 'query',
+    phase: 'unsubscribe',
+    operationId: id,
+    name: existing.name,
+    args: existing.args,
+    dataSource: existing.dataSource,
+  })
+}
+
+export function appendDevtoolsEvent(event: DevtoolsEventInput): void {
+  if (!store) return
+  store.appendEvent(event)
 }

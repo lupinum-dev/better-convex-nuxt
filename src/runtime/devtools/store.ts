@@ -10,6 +10,7 @@ import { decodeJwtPayload } from '../utils/convex-shared'
 import type {
   QueryRegistryEntry,
   MutationEntry,
+  DevtoolsEvent,
   EnhancedAuthState,
   ConnectionState,
   AuthWaterfall,
@@ -21,6 +22,7 @@ import type {
 } from './types'
 
 const MAX_MUTATIONS = 50
+const MAX_EVENTS = 500
 
 interface NuxtDevtoolsHost {
   revision: { value: number }
@@ -47,6 +49,7 @@ export class ConvexDevtoolsStore {
   // --- Data ---
   readonly queries = new Map<string, QueryRegistryEntry>()
   readonly mutations = new Map<string, MutationEntry>()
+  readonly events: DevtoolsEvent[] = []
 
   authState: EnhancedAuthState = {
     isAuthenticated: false,
@@ -145,6 +148,18 @@ export class ConvexDevtoolsStore {
     this._notifyDevtools()
   }
 
+  appendEvent(event: Omit<DevtoolsEvent, 'id' | 'timestamp'> & { timestamp?: number }): string {
+    const id = generateId()
+    this.events.push({
+      ...clonePayload(event),
+      id,
+      timestamp: event.timestamp ?? Date.now(),
+    })
+    this._evictEventsIfNeeded()
+    this._notifyDevtools()
+    return id
+  }
+
   // =====================================================================
   // Auth Operations
   // =====================================================================
@@ -224,6 +239,7 @@ export class ConvexDevtoolsStore {
     return clonePayload({
       queries: Array.from(this.queries.values()),
       mutations: Array.from(this.mutations.values()).sort((a, b) => b.startedAt - a.startedAt),
+      events: [...this.events],
       authState: this.authState,
       connectionState: this.connectionState,
       authWaterfall: this.authWaterfall,
@@ -245,6 +261,11 @@ export class ConvexDevtoolsStore {
     for (const [id] of toRemove) {
       this.mutations.delete(id)
     }
+  }
+
+  private _evictEventsIfNeeded(): void {
+    if (this.events.length <= MAX_EVENTS) return
+    this.events.splice(0, this.events.length - MAX_EVENTS)
   }
 
   private _notifyDevtools(): void {

@@ -13,6 +13,7 @@ import {
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import {
+  appendDevtoolsEvent,
   registerDevtoolsQuery,
   unregisterDevtoolsQuery,
   updateDevtoolsQuery,
@@ -347,6 +348,13 @@ export function createConvexQueryState<
       logger.query({
         name: fnName,
         event: 'skip',
+        reason: 'nullish-args',
+      })
+      appendDevtoolsEvent({
+        kind: 'query',
+        phase: 'skip',
+        operationId: `skipped:${fnName}`,
+        name: fnName,
         reason: 'nullish-args',
       })
     },

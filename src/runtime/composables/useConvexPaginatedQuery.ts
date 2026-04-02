@@ -14,6 +14,12 @@ import {
 
 import { useRuntimeConfig } from '#imports'
 
+import {
+  appendDevtoolsEvent,
+  registerDevtoolsQuery,
+  unregisterDevtoolsQuery,
+  updateDevtoolsQuery,
+} from '../devtools/runtime'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getFunctionName, getQueryKey, hashArgs } from '../utils/convex-cache'
@@ -206,6 +212,21 @@ export function createConvexPaginatedQueryState<
     dedupe: 'defer',
     onSubscribe: () => {
       logger.query({ name: fnName, event: 'subscribe', args: firstPageArgs.value ?? undefined })
+      registerDevtoolsQuery({
+        id: firstPageCacheKey.value,
+        name: fnName,
+        args: normalizedArgs.value,
+        status: 'pending',
+        dataSource: 'websocket',
+        data: null,
+        hasSubscription: subscribe,
+        options: {
+          immediate: resolveImmediately,
+          server,
+          subscribe,
+          auth: 'auto',
+        },
+      })
     },
     onUnsubscribe: (_cacheKey, didRelease, reason) => {
       if (!didRelease) return
@@ -215,6 +236,7 @@ export function createConvexPaginatedQueryState<
         reason,
         args: firstPageArgs.value ?? undefined,
       })
+      unregisterDevtoolsQuery(firstPageCacheKey.value)
     },
     onShare: (refCount) => {
       logger.query({
@@ -233,9 +255,19 @@ export function createConvexPaginatedQueryState<
         args: firstPageArgs.value ?? undefined,
         data: result,
       })
+      updateDevtoolsQuery(firstPageCacheKey.value, {
+        status: 'success',
+        data: result,
+        dataSource: 'websocket',
+        hasSubscription: subscribe,
+      })
     },
     onError: (error) => {
       logger.query({ name: fnName, event: 'error', error, args: firstPageArgs.value ?? undefined })
+      updateDevtoolsQuery(firstPageCacheKey.value, {
+        status: 'error',
+        error: error.message,
+      })
     },
   })
 
@@ -260,6 +292,22 @@ export function createConvexPaginatedQueryState<
       event: 'unsubscribe',
       reason: getReleaseReason(reason),
       args,
+    })
+    appendDevtoolsEvent({
+      kind: 'query',
+      phase: 'unsubscribe',
+      operationId: getStableSubscriptionKey({
+        numItems: page.paginationOpts.numItems,
+        cursor: page.paginationOpts.cursor,
+      }),
+      name: fnName,
+      args,
+      reason: getReleaseReason(reason),
+      meta: {
+        paginated: true,
+        numItems: page.paginationOpts.numItems,
+        cursor: page.paginationOpts.cursor,
+      },
     })
   }
 
@@ -300,6 +348,23 @@ export function createConvexPaginatedQueryState<
       },
       onSubscribe: () => {
         logger.query({ name: fnName, event: 'subscribe', args: pageArgs })
+        appendDevtoolsEvent({
+          kind: 'query',
+          phase: 'subscribe',
+          operationId: getStableSubscriptionKey({
+            numItems: page.paginationOpts.numItems,
+            cursor: page.paginationOpts.cursor,
+          }),
+          name: fnName,
+          args: pageArgs,
+          dataSource: 'websocket',
+          meta: {
+            paginated: true,
+            page: pageIndex + 2,
+            numItems: page.paginationOpts.numItems,
+            cursor: page.paginationOpts.cursor,
+          },
+        })
       },
       onData: (result) => {
         logger.query({
@@ -308,6 +373,24 @@ export function createConvexPaginatedQueryState<
           count: result.page.length,
           args: pageArgs,
           data: result,
+        })
+        appendDevtoolsEvent({
+          kind: 'query',
+          phase: 'update',
+          operationId: getStableSubscriptionKey({
+            numItems: page.paginationOpts.numItems,
+            cursor: page.paginationOpts.cursor,
+          }),
+          name: fnName,
+          args: pageArgs,
+          payload: result,
+          dataSource: 'websocket',
+          meta: {
+            paginated: true,
+            page: pageIndex + 2,
+            numItems: page.paginationOpts.numItems,
+            cursor: page.paginationOpts.cursor,
+          },
         })
         updatePage(pageIndex, (current) => ({
           ...current,
@@ -318,6 +401,23 @@ export function createConvexPaginatedQueryState<
       },
       onError: (error) => {
         logger.query({ name: fnName, event: 'error', error, args: pageArgs })
+        appendDevtoolsEvent({
+          kind: 'query',
+          phase: 'error',
+          operationId: getStableSubscriptionKey({
+            numItems: page.paginationOpts.numItems,
+            cursor: page.paginationOpts.cursor,
+          }),
+          name: fnName,
+          args: pageArgs,
+          error: error.message,
+          meta: {
+            paginated: true,
+            page: pageIndex + 2,
+            numItems: page.paginationOpts.numItems,
+            cursor: page.paginationOpts.cursor,
+          },
+        })
         updatePage(pageIndex, (current) => ({
           ...current,
           pending: false,
@@ -368,9 +468,42 @@ export function createConvexPaginatedQueryState<
 
     const pageIndex = pages.value.length
     pages.value = [...pages.value, newPage]
+    appendDevtoolsEvent({
+      kind: 'query',
+      phase: 'load-more',
+      operationId: getStableSubscriptionKey({
+        numItems: newPage.paginationOpts.numItems,
+        cursor: newPage.paginationOpts.cursor,
+      }),
+      name: fnName,
+      args: buildPageArgs(newPage.paginationOpts),
+      meta: {
+        paginated: true,
+        page: pageIndex + 2,
+        numItems,
+        cursor: newPage.paginationOpts.cursor,
+      },
+    })
 
     void runPageQuery(newPage.paginationOpts)
       .then((result) => {
+        appendDevtoolsEvent({
+          kind: 'query',
+          phase: 'success',
+          operationId: getStableSubscriptionKey({
+            numItems: newPage.paginationOpts.numItems,
+            cursor: newPage.paginationOpts.cursor,
+          }),
+          name: fnName,
+          args: buildPageArgs(newPage.paginationOpts),
+          payload: result,
+          meta: {
+            paginated: true,
+            page: pageIndex + 2,
+            numItems,
+            cursor: newPage.paginationOpts.cursor,
+          },
+        })
         updatePage(pageIndex, (current) => ({
           ...current,
           result,
@@ -381,6 +514,23 @@ export function createConvexPaginatedQueryState<
       })
       .catch((error) => {
         void handleUnauthorizedAuthFailure({ error, source: 'query', functionName: fnName })
+        appendDevtoolsEvent({
+          kind: 'query',
+          phase: 'error',
+          operationId: getStableSubscriptionKey({
+            numItems: newPage.paginationOpts.numItems,
+            cursor: newPage.paginationOpts.cursor,
+          }),
+          name: fnName,
+          args: buildPageArgs(newPage.paginationOpts),
+          error: toError(error).message,
+          meta: {
+            paginated: true,
+            page: pageIndex + 2,
+            numItems,
+            cursor: newPage.paginationOpts.cursor,
+          },
+        })
         updatePage(pageIndex, (current) => ({
           ...current,
           pending: false,
@@ -500,6 +650,16 @@ export function createConvexPaginatedQueryState<
     (skipped) => {
       if (!skipped) return
       logSkip()
+      appendDevtoolsEvent({
+        kind: 'query',
+        phase: 'skip',
+        operationId: `skipped:${fnName}`,
+        name: fnName,
+        reason: 'nullish-args',
+        meta: {
+          paginated: true,
+        },
+      })
     },
     { immediate: true },
   )

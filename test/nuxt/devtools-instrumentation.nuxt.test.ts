@@ -40,6 +40,14 @@ describe('devtools instrumentation (Nuxt runtime)', () => {
         args: {},
       }),
     ])
+    expect(store.getSnapshot().events).toEqual([
+      expect.objectContaining({
+        kind: 'query',
+        phase: 'subscribe',
+        name: 'notes:list:devtools',
+        operationId: store.getSnapshot().queries[0]?.id,
+      }),
+    ])
 
     convex.emitQueryResult(query, {}, [{ _id: 'n1', title: 'Tracked' }])
 
@@ -51,6 +59,14 @@ describe('devtools instrumentation (Nuxt runtime)', () => {
         status: 'success',
         data: [{ _id: 'n1', title: 'Tracked' }],
         updateCount: 1,
+      }),
+    )
+    expect(store.getSnapshot().events.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: 'query',
+        phase: 'update',
+        name: 'notes:list:devtools',
+        payload: [{ _id: 'n1', title: 'Tracked' }],
       }),
     )
   })
@@ -82,8 +98,19 @@ describe('devtools instrumentation (Nuxt runtime)', () => {
         args: { title: 'Ship it' },
       }),
     )
+    expect(store.getSnapshot().events.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: 'mutation',
+        phase: 'pending',
+        name: 'notes:create:devtools',
+        args: { title: 'Ship it' },
+      }),
+    )
 
-    resolveMutation?.({ ok: true, title: 'Ship it' })
+    const completeMutation = resolveMutation as ((value: { ok: true; title: string }) => void) | null
+    if (completeMutation) {
+      completeMutation({ ok: true, title: 'Ship it' })
+    }
     await execution
     await waitFor(() => store.getSnapshot().mutations[0]?.state === 'success')
 
@@ -92,6 +119,14 @@ describe('devtools instrumentation (Nuxt runtime)', () => {
         name: 'notes:create:devtools',
         state: 'success',
         result: { ok: true, title: 'Ship it' },
+      }),
+    )
+    expect(store.getSnapshot().events.at(-1)).toEqual(
+      expect.objectContaining({
+        kind: 'mutation',
+        phase: 'success',
+        name: 'notes:create:devtools',
+        payload: { ok: true, title: 'Ship it' },
       }),
     )
   })

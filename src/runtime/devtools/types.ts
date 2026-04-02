@@ -51,6 +51,38 @@ export interface MutationEntry {
 }
 
 // ============================================================================
+// Event Timeline Types
+// ============================================================================
+
+export type DevtoolsEventKind = 'query' | 'mutation' | 'action'
+export type DevtoolsEventPhase =
+  | 'subscribe'
+  | 'update'
+  | 'success'
+  | 'error'
+  | 'unsubscribe'
+  | 'optimistic'
+  | 'pending'
+  | 'skip'
+  | 'load-more'
+
+export interface DevtoolsEvent {
+  id: string
+  timestamp: number
+  kind: DevtoolsEventKind
+  phase: DevtoolsEventPhase
+  operationId: string
+  name: string
+  args?: unknown
+  payload?: unknown
+  error?: string
+  reason?: string
+  duration?: number
+  dataSource?: DataSource
+  meta?: Record<string, unknown>
+}
+
+// ============================================================================
 // JWT and Auth Types
 // ============================================================================
 
@@ -144,6 +176,7 @@ export interface AuthProxyStats {
 export interface ConvexDevtoolsSnapshot {
   queries: QueryRegistryEntry[]
   mutations: MutationEntry[]
+  events: DevtoolsEvent[]
   authState: EnhancedAuthState
   connectionState: ConnectionState
   authWaterfall: AuthWaterfall | null
