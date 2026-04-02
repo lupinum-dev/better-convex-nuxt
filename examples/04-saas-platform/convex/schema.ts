@@ -1,3 +1,4 @@
+import { literals } from 'convex-helpers/validators'
 /**
  * Why this file exists:
  * This schema stays pure Convex. The framework infers scoped tables from `workspaceId`
@@ -8,16 +9,11 @@ import { v } from 'convex/values'
 
 import { taskPriorityValidator, taskStatusValidator } from '../shared/schemas/task'
 
-export const roleValidator = v.union(
-  v.literal('owner'),
-  v.literal('admin'),
-  v.literal('member'),
-  v.literal('viewer'),
-)
+export const roleValidator = literals('owner', 'admin', 'member', 'viewer')
 
-export const planValidator = v.union(v.literal('free'), v.literal('pro'), v.literal('enterprise'))
+export const planValidator = literals('free', 'pro', 'enterprise')
 
-export const projectStatusValidator = v.union(v.literal('active'), v.literal('archived'))
+export const projectStatusValidator = literals('active', 'archived')
 
 export default defineSchema({
   workspaces: defineTable({

@@ -4,9 +4,8 @@ import { v } from 'convex/values'
 
 import { createMcpKey, revokeMcpKey } from '../shared/schemas/mcp-key'
 import type { DataModel, Doc } from './_generated/dataModel'
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
+import { appMutation, appQuery } from './functions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
@@ -57,10 +56,10 @@ function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
   }
 }
 
-export const list = query({
+export const list = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const keys = await ctx.db
@@ -75,10 +74,10 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = appMutation({
   args: createMcpKey.args,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const boundUser = await getBoundUser(ctx, args.boundAuthId)
@@ -102,10 +101,10 @@ export const create = mutation({
   },
 })
 
-export const revoke = mutation({
+export const revoke = appMutation({
   args: revokeMcpKey.args,
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const rawKey = await ctx.db.get(args.id)
@@ -129,7 +128,7 @@ export const revoke = mutation({
   },
 })
 
-export const validate = query({
+export const validate = appQuery({
   args: {
     hash: createMcpKey.args.hash,
   },
@@ -153,7 +152,7 @@ export const validate = query({
   },
 })
 
-export const touch = mutation({
+export const touch = appMutation({
   args: {
     id: v.id('mcpKeys'),
     seenAt: v.number(),

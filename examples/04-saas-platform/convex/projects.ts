@@ -1,18 +1,16 @@
 import { deny, enforce } from 'better-convex-nuxt/auth'
-import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
 
 import { archiveProject, createProject } from '../shared/schemas/project'
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import { canArchiveProject, canCreateProject, canReadProject, hasFeature } from './auth/checks'
 import { ensureWithinLimit } from './auth/limits'
 import { loadResource } from './auth/scope'
+import { appMutation, appQuery } from './functions'
 
-export const list = query({
+export const list = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Read projects', canReadProject)
 
     return ctx.db
@@ -23,21 +21,21 @@ export const list = query({
   },
 })
 
-export const get = query({
-  args: withTrustedCaller({ id: v.id('projects') }),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const get = appQuery({
+  args: { id: v.id('projects') },
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Read projects', canReadProject)
 
     const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
     return project
-  }),
+  },
 })
 
-export const create = mutation({
-  args: withTrustedCaller(createProject.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const create = appMutation({
+  args: createProject.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Create project', canCreateProject)
     await ensureWithinLimit(ctx.db, actor, 'projects')
 
@@ -63,13 +61,13 @@ export const create = mutation({
     })
 
     return projectId
-  }),
+  },
 })
 
-export const archive = mutation({
-  args: withTrustedCaller(archiveProject.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const archive = appMutation({
+  args: archiveProject.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Archive project', canArchiveProject)
 
     const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
@@ -91,13 +89,13 @@ export const archive = mutation({
       description: `Archived "${project.name}".`,
       createdAt: now,
     })
-  }),
+  },
 })
 
-export const exportProjects = query({
+export const exportProjects = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Export projects', hasFeature('exports'))
 
     const projects = await ctx.db

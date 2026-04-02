@@ -111,15 +111,30 @@ export const isOwnerOf = (resource: { userId: string }) =>
 `.trimStart()
 }
 
-function personalPermissionQueryTemplate() {
+function personalFunctionsTemplate() {
   return `
-import { query } from './_generated/server'
+import { createFunctions } from 'better-convex-nuxt/functions'
+
+import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 
-export const getPermissionContext = query({
+export const { query: appQuery, mutation: appMutation } = createFunctions(query, mutation, {
+  trustedCaller: false,
+  actor: getActor,
+})
+
+export { query, mutation }
+`.trimStart()
+}
+
+function personalPermissionQueryTemplate() {
+  return `
+import { appQuery } from './functions'
+
+export const getPermissionContext = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) {
       return null
     }
@@ -146,6 +161,27 @@ export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 export type Actor = DefaultActor | null
 
 export const getActor = createDefaultGetActor()
+`.trimStart()
+}
+
+function workspaceFunctionsTemplate({ trustedCaller }: { trustedCaller: boolean }) {
+  return `
+import { createFunctions } from 'better-convex-nuxt/functions'
+
+import { mutation, query } from './_generated/server'
+import { getActor } from './auth/actor'
+
+export const { query: appQuery, mutation: appMutation } = createFunctions(query, mutation, {
+  trustedCaller: ${trustedCaller ? 'true' : 'false'},
+  actor: getActor,
+  // Add tenantIsolation only for tables that actually store the tenant field.
+  // Example:
+  // tenantIsolation: {
+  //   tables: ['todos'],
+  // },
+})
+
+export { query, mutation }
 `.trimStart()
 }
 
@@ -186,13 +222,12 @@ export { ensureTenant, loadTenantResource, requireRecord, withCan } from 'better
 
 function workspacePermissionQueryTemplate() {
   return `
-import { query } from './_generated/server'
-import { getActor } from './auth/actor'
+import { appQuery } from './functions'
 
-export const getPermissionContext = query({
+export const getPermissionContext = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) {
       return null
     }
@@ -333,6 +368,11 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
         files: [
           { path: 'convex/auth/actor.ts', content: personalActorTemplate(), ownership: 'authored' },
           {
+            path: 'convex/functions.ts',
+            content: personalFunctionsTemplate(),
+            ownership: 'authored',
+          },
+          {
             path: 'convex/auth/checks.ts',
             content: personalChecksTemplate(),
             ownership: 'authored',
@@ -358,6 +398,11 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
         {
           path: 'convex/auth/checks.ts',
           content: workspaceChecksTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/functions.ts',
+          content: workspaceFunctionsTemplate({ trustedCaller: model === 'workspace-mcp' }),
           ownership: 'authored',
         },
         {

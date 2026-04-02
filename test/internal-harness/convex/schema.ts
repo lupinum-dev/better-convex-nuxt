@@ -1,13 +1,9 @@
+import { literals } from 'convex-helpers/validators'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 // Role type for type-safe role validation
-const roleValidator = v.union(
-  v.literal('owner'),
-  v.literal('admin'),
-  v.literal('member'),
-  v.literal('viewer'),
-)
+const roleValidator = literals('owner', 'admin', 'member', 'viewer')
 
 export default defineSchema({
   // ============================================
@@ -64,7 +60,7 @@ export default defineSchema({
   posts: defineTable({
     title: v.string(),
     content: v.string(),
-    status: v.union(v.literal('draft'), v.literal('published'), v.literal('archived')),
+    status: literals('draft', 'published', 'archived'),
 
     // Ownership - required for permission checks
     ownerId: v.string(), // authId of creator
@@ -140,7 +136,7 @@ export default defineSchema({
     organizationId: v.optional(v.id('organizations')),
 
     // Status
-    status: v.union(v.literal('active'), v.literal('revoked')),
+    status: literals('active', 'revoked'),
     lastUsedAt: v.optional(v.number()),
 
     // Timestamps

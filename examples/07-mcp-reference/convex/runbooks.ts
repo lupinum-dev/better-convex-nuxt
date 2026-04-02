@@ -1,5 +1,4 @@
 import { can, deny, enforce } from 'better-convex-nuxt/auth'
-import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 
 import {
   bulkDeleteRunbooks,
@@ -10,8 +9,6 @@ import {
   searchRunbooks,
   updateRunbook,
 } from '../shared/schemas/runbook'
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import {
   canCreateRunbook,
   canDeleteRunbook,
@@ -21,6 +18,7 @@ import {
 } from './auth/checks'
 import { withCan } from './auth/resource'
 import { loadResource } from './auth/scope'
+import { appMutation, appQuery } from './functions'
 
 function toPublicRunbook(runbook: {
   _id: string
@@ -62,7 +60,7 @@ function matchesTerm(
   return haystack.includes(term)
 }
 
-export const listPublic = query({
+export const listPublic = appQuery({
   args: listRunbooks.args,
   handler: async (ctx) => {
     const runbooks = await ctx.db
@@ -74,7 +72,7 @@ export const listPublic = query({
   },
 })
 
-export const searchPublic = query({
+export const searchPublic = appQuery({
   args: searchRunbooks.args,
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
@@ -88,10 +86,10 @@ export const searchPublic = query({
   },
 })
 
-export const listWorkspace = query({
-  args: withTrustedCaller(listRunbooks.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const listWorkspace = appQuery({
+  args: listRunbooks.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Read runbooks', canReadWorkspaceRunbook)
 
     const runbooks = await ctx.db
@@ -107,13 +105,13 @@ export const listWorkspace = query({
         publish: can(actor, canPublishRunbook),
       }),
     )
-  }),
+  },
 })
 
-export const get = query({
-  args: withTrustedCaller(getRunbook.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const get = appQuery({
+  args: getRunbook.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     const runbook = await ctx.db.get(args.id)
     if (!runbook) return null
 
@@ -139,13 +137,13 @@ export const get = query({
       delete: can(actor, canDeleteRunbook(runbook)),
       publish: can(actor, canPublishRunbook),
     })
-  }),
+  },
 })
 
-export const create = mutation({
-  args: withTrustedCaller(createRunbook.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const create = appMutation({
+  args: createRunbook.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Create runbook', canCreateRunbook)
 
     const visibility = args.visibility ?? 'draft'
@@ -166,13 +164,13 @@ export const create = mutation({
       updatedAt: now,
       ...(visibility === 'public' ? { publishedAt: now } : {}),
     })
-  }),
+  },
 })
 
-export const update = mutation({
-  args: withTrustedCaller(updateRunbook.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const update = appMutation({
+  args: updateRunbook.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     const runbook = loadResource(actor, await ctx.db.get(args.id), 'Runbook')
     enforce(actor, 'Update runbook', canUpdateRunbook(runbook))
 
@@ -192,23 +190,23 @@ export const update = mutation({
         ? { publishedAt: Date.now() }
         : {}),
     })
-  }),
+  },
 })
 
-export const remove = mutation({
-  args: withTrustedCaller(deleteRunbook.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const remove = appMutation({
+  args: deleteRunbook.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     const runbook = loadResource(actor, await ctx.db.get(args.id), 'Runbook')
     enforce(actor, 'Delete runbook', canDeleteRunbook(runbook))
     await ctx.db.delete(args.id)
-  }),
+  },
 })
 
-export const bulkRemove = mutation({
-  args: withTrustedCaller(bulkDeleteRunbooks.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const bulkRemove = appMutation({
+  args: bulkDeleteRunbooks.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Bulk delete runbooks', canPublishRunbook)
 
     let deleted = 0
@@ -238,13 +236,13 @@ export const bulkRemove = mutation({
       skipped,
       total: args.ids.length,
     }
-  }),
+  },
 })
 
-export const workspaceOverview = query({
-  args: withTrustedCaller(listRunbooks.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const workspaceOverview = appQuery({
+  args: listRunbooks.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Read runbook overview', canReadWorkspaceRunbook)
 
     const runbooks = await ctx.db
@@ -260,5 +258,5 @@ export const workspaceOverview = query({
       drafts: runbooks.filter((runbook) => runbook.visibility === 'draft').length,
       recentTitles: runbooks.slice(0, 5).map((runbook) => runbook.title),
     }
-  }),
+  },
 })

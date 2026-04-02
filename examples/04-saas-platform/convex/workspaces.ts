@@ -1,8 +1,6 @@
 import { can, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import {
   canArchiveProject,
   canAssignTask,
@@ -16,11 +14,12 @@ import {
   hasFeature,
 } from './auth/checks'
 import { getUsage } from './auth/limits'
+import { appMutation, appQuery } from './functions'
 import { planValidator } from './schema'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 
-export const listWorkspaces = query({
+export const listWorkspaces = appQuery({
   args: {},
   handler: async (ctx) => {
     // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
@@ -29,10 +28,10 @@ export const listWorkspaces = query({
   },
 })
 
-export const getPermissionContext = query({
+export const getPermissionContext = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) return null
 
     const user = await ctx.db
@@ -66,7 +65,7 @@ export const getPermissionContext = query({
   },
 })
 
-export const createWorkspace = mutation({
+export const createWorkspace = appMutation({
   args: {
     name: v.string(),
     slug: v.string(),
@@ -109,7 +108,7 @@ export const createWorkspace = mutation({
   },
 })
 
-export const joinWorkspace = mutation({
+export const joinWorkspace = appMutation({
   args: {
     slug: v.string(),
     role: joinRoleValidator,
@@ -142,12 +141,12 @@ export const joinWorkspace = mutation({
   },
 })
 
-export const upgradePlan = mutation({
+export const upgradePlan = appMutation({
   args: {
     plan: planValidator,
   },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor || !['owner', 'admin'].includes(actor.role)) throw deny('Requires workspace admin.')
 
     const workspace = await ctx.db.get(actor.tenantId)

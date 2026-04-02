@@ -5,12 +5,11 @@ import { can, deny } from 'better-convex-nuxt/auth'
  */
 import { v } from 'convex/values'
 
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import { getMemberships, requireWorkspaceMembership } from './auth/agency'
 import { hasRole } from './auth/checks'
+import { appMutation, appQuery } from './functions'
 
-export const listWorkspaces = query({
+export const listWorkspaces = appQuery({
   args: {},
   handler: async (ctx) => {
     // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
@@ -19,10 +18,10 @@ export const listWorkspaces = query({
   },
 })
 
-export const listAccessibleWorkspaces = query({
+export const listAccessibleWorkspaces = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) throw deny('Not authenticated.')
 
     const memberships = await getMemberships(ctx.db, actor.userId)
@@ -39,10 +38,10 @@ export const listAccessibleWorkspaces = query({
   },
 })
 
-export const getPermissionContext = query({
+export const getPermissionContext = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) return null
 
     const user = await ctx.db
@@ -67,7 +66,7 @@ export const getPermissionContext = query({
   },
 })
 
-export const createWorkspace = mutation({
+export const createWorkspace = appMutation({
   args: { name: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -110,7 +109,7 @@ export const createWorkspace = mutation({
   },
 })
 
-export const joinWorkspace = mutation({
+export const joinWorkspace = appMutation({
   args: {
     slug: v.string(),
     role: v.union(v.literal('member'), v.literal('viewer')),
@@ -161,7 +160,7 @@ export const joinWorkspace = mutation({
   },
 })
 
-export const switchWorkspace = mutation({
+export const switchWorkspace = appMutation({
   args: { workspaceId: v.id('workspaces') },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -181,10 +180,10 @@ export const switchWorkspace = mutation({
   },
 })
 
-export const seedAgencyPortfolio = mutation({
+export const seedAgencyPortfolio = appMutation({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) throw deny('Not authenticated.')
 
     const now = Date.now()

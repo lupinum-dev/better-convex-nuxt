@@ -1,3 +1,4 @@
+import { literals } from 'convex-helpers/validators'
 /**
  * Why this file exists:
  * The full example needs four tables:
@@ -9,12 +10,7 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-const roleValidator = v.union(
-  v.literal('owner'),
-  v.literal('admin'),
-  v.literal('member'),
-  v.literal('viewer'),
-)
+const roleValidator = literals('owner', 'admin', 'member', 'viewer')
 
 export default defineSchema({
   workspaces: defineTable({

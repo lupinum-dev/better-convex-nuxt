@@ -43,6 +43,9 @@ export default defineConfig({
             'better-convex-nuxt/args': fileURLToPath(
               new URL('./src/runtime/args/index.ts', import.meta.url),
             ),
+            'better-convex-nuxt/functions': fileURLToPath(
+              new URL('./src/runtime/functions/index.ts', import.meta.url),
+            ),
           },
         },
         test: {
@@ -76,6 +79,9 @@ export default defineConfig({
             ),
             'better-convex-nuxt/args': fileURLToPath(
               new URL('./src/runtime/args/index.ts', import.meta.url),
+            ),
+            'better-convex-nuxt/functions': fileURLToPath(
+              new URL('./src/runtime/functions/index.ts', import.meta.url),
             ),
             'better-convex-nuxt/server': fileURLToPath(
               new URL('./src/runtime/server/index.ts', import.meta.url),

@@ -125,7 +125,7 @@ describe('posts', () => {
       expect(post?.title).toBe('Test')
     })
 
-    it('returns null for posts in different org', async () => {
+    it('surfaces a tenant isolation violation for posts in different orgs during development', async () => {
       const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
       // User 1 creates a post
@@ -134,9 +134,9 @@ describe('posts', () => {
         content: 'Content',
       })
 
-      // User 2 cannot see it
-      const post = await asUser2.query(api.posts.get, { id: postId })
-      expect(post).toBeNull()
+      await expect(asUser2.query(api.posts.get, { id: postId })).rejects.toThrow(
+        'Document belongs to a different tenant.',
+      )
     })
   })
 

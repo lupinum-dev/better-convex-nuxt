@@ -1,3 +1,4 @@
+import { literals } from 'convex-helpers/validators'
 /**
  * Why this file exists:
  * Example 07 is the full MCP reference app. The schema keeps the business domain deliberately
@@ -10,16 +11,11 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-const roleValidator = v.union(
-  v.literal('owner'),
-  v.literal('admin'),
-  v.literal('member'),
-  v.literal('viewer'),
-)
+const roleValidator = literals('owner', 'admin', 'member', 'viewer')
 
-const visibilityValidator = v.union(v.literal('public'), v.literal('workspace'), v.literal('draft'))
+const visibilityValidator = literals('public', 'workspace', 'draft')
 
-const keyStatusValidator = v.union(v.literal('active'), v.literal('revoked'))
+const keyStatusValidator = literals('active', 'revoked')
 
 export default defineSchema({
   workspaces: defineTable({

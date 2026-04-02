@@ -5,9 +5,9 @@ import { v } from 'convex/values'
  * The MCP demo middleware resolves `Bearer demo:<email>` into a real actor by calling this query.
  * That keeps the example's MCP auth setup tiny while still exercising the real permission pipeline.
  */
-import { query } from './_generated/server'
+import { appQuery } from './functions'
 
-export const resolveMcpActorByEmail = query({
+export const resolveMcpActorByEmail = appQuery({
   args: {
     email: v.string(),
   },

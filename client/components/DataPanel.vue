@@ -37,21 +37,19 @@ const filteredMutations = computed(() => {
 
 const filteredEvents = computed(() => {
   const term = search.value.toLowerCase()
-  return [...props.events]
-    .reverse()
-    .filter((event) => {
-      if (historyFilter.value === 'queries' && event.kind !== 'query') return false
-      if (historyFilter.value === 'mutations' && event.kind !== 'mutation') return false
-      if (historyFilter.value === 'actions' && event.kind !== 'action') return false
-      if (historyFilter.value === 'errors' && event.phase !== 'error') return false
-      if (!term) return true
-      return (
-        event.name.toLowerCase().includes(term) ||
-        event.phase.toLowerCase().includes(term) ||
-        event.kind.toLowerCase().includes(term) ||
-        event.error?.toLowerCase().includes(term) === true
-      )
-    })
+  return [...props.events].reverse().filter((event) => {
+    if (historyFilter.value === 'queries' && event.kind !== 'query') return false
+    if (historyFilter.value === 'mutations' && event.kind !== 'mutation') return false
+    if (historyFilter.value === 'actions' && event.kind !== 'action') return false
+    if (historyFilter.value === 'errors' && event.phase !== 'error') return false
+    if (!term) return true
+    return (
+      event.name.toLowerCase().includes(term) ||
+      event.phase.toLowerCase().includes(term) ||
+      event.kind.toLowerCase().includes(term) ||
+      event.error?.toLowerCase().includes(term) === true
+    )
+  })
 })
 
 const selectedQuery = computed(() =>
@@ -268,22 +266,35 @@ function getEventPhaseClass(phase: DevtoolsEventPhase): string {
 
     <template #right>
       <div v-if="selectedEvent" class="p-4 overflow-y-auto h-full">
-        <SectionBlock text="Event Info" icon="i-carbon-information" container-class="font-mono text-xs">
+        <SectionBlock
+          text="Event Info"
+          icon="i-carbon-information"
+          container-class="font-mono text-xs"
+        >
           <div class="space-y-2">
             <div class="flex gap-2">
-              <span class="op-60 w-24">Name</span><span class="text-green-500">{{ selectedEvent.name }}</span>
+              <span class="op-60 w-24">Name</span
+              ><span class="text-green-500">{{ selectedEvent.name }}</span>
             </div>
             <div class="flex gap-2">
-              <span class="op-60 w-24">Kind</span><NBadge :n="`xs ${getEventKindClass(selectedEvent.kind)}`">{{ selectedEvent.kind }}</NBadge>
+              <span class="op-60 w-24">Kind</span
+              ><NBadge :n="`xs ${getEventKindClass(selectedEvent.kind)}`">{{
+                selectedEvent.kind
+              }}</NBadge>
             </div>
             <div class="flex gap-2">
-              <span class="op-60 w-24">Phase</span><NBadge :n="`xs ${getEventPhaseClass(selectedEvent.phase)}`">{{ selectedEvent.phase }}</NBadge>
+              <span class="op-60 w-24">Phase</span
+              ><NBadge :n="`xs ${getEventPhaseClass(selectedEvent.phase)}`">{{
+                selectedEvent.phase
+              }}</NBadge>
             </div>
             <div class="flex gap-2">
-              <span class="op-60 w-24">Time</span><span>{{ formatTimestamp(selectedEvent.timestamp) }}</span>
+              <span class="op-60 w-24">Time</span
+              ><span>{{ formatTimestamp(selectedEvent.timestamp) }}</span>
             </div>
             <div class="flex gap-2">
-              <span class="op-60 w-24">Operation</span><span class="truncate">{{ selectedEvent.operationId }}</span>
+              <span class="op-60 w-24">Operation</span
+              ><span class="truncate">{{ selectedEvent.operationId }}</span>
             </div>
             <div v-if="selectedEvent.dataSource" class="flex gap-2">
               <span class="op-60 w-24">Source</span><span>{{ selectedEvent.dataSource }}</span>
@@ -292,21 +303,38 @@ function getEventPhaseClass(phase: DevtoolsEventPhase): string {
               <span class="op-60 w-24">Reason</span><span>{{ selectedEvent.reason }}</span>
             </div>
             <div v-if="selectedEvent.duration !== undefined" class="flex gap-2">
-              <span class="op-60 w-24">Duration</span><span>{{ formatDuration(selectedEvent.duration) }}</span>
+              <span class="op-60 w-24">Duration</span
+              ><span>{{ formatDuration(selectedEvent.duration) }}</span>
             </div>
           </div>
         </SectionBlock>
 
         <SectionBlock text="Arguments" icon="i-carbon-code">
-          <NCodeBlock :code="JSON.stringify(selectedEvent.args ?? null, null, 2)" lang="json" class="text-xs" />
+          <NCodeBlock
+            :code="JSON.stringify(selectedEvent.args ?? null, null, 2)"
+            lang="json"
+            class="text-xs"
+          />
         </SectionBlock>
 
         <SectionBlock v-if="selectedEvent.meta" text="Meta" icon="i-carbon-settings">
-          <NCodeBlock :code="JSON.stringify(selectedEvent.meta, null, 2)" lang="json" class="text-xs" />
+          <NCodeBlock
+            :code="JSON.stringify(selectedEvent.meta, null, 2)"
+            lang="json"
+            class="text-xs"
+          />
         </SectionBlock>
 
-        <SectionBlock v-if="selectedEvent.payload !== undefined" text="Payload" icon="i-carbon-data-vis-1">
-          <NCodeBlock :code="JSON.stringify(selectedEvent.payload, null, 2)" lang="json" class="text-xs" />
+        <SectionBlock
+          v-if="selectedEvent.payload !== undefined"
+          text="Payload"
+          icon="i-carbon-data-vis-1"
+        >
+          <NCodeBlock
+            :code="JSON.stringify(selectedEvent.payload, null, 2)"
+            lang="json"
+            class="text-xs"
+          />
         </SectionBlock>
 
         <SectionBlock v-if="selectedEvent.error" text="Error" icon="i-carbon-warning">
@@ -460,7 +488,13 @@ function getEventPhaseClass(phase: DevtoolsEventPhase): string {
       <div v-else class="flex items-center justify-center h-full op-40">
         <div class="text-center text-xs">
           <NIcon icon="i-carbon-touch-1" class="text-2xl mb-2" />
-          <div>{{ mode === 'history' ? 'Select an event to inspect the timeline' : 'Select an item to view details' }}</div>
+          <div>
+            {{
+              mode === 'history'
+                ? 'Select an event to inspect the timeline'
+                : 'Select an item to view details'
+            }}
+          </div>
         </div>
       </div>
     </template>

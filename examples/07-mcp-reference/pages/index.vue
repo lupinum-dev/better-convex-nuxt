@@ -620,7 +620,7 @@ curl {{ endpointBase }}/mcp \
                 </p>
                 <p>
                   The app UI uses browser auth. MCP clients use bearer tokens stored as hashes in
-                  Convex. Both paths converge on the same `getActor(ctx)` permission flow in Convex.
+                  Convex. Both paths converge on the same `ctx.actor()` permission flow in Convex.
                 </p>
               </div>
             </UCard>

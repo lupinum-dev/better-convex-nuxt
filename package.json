@@ -48,6 +48,9 @@
       "composables": [
         "./dist/runtime/composables/index.d.ts"
       ],
+      "functions": [
+        "./dist/runtime/functions/index.d.ts"
+      ],
       "trusted-caller": [
         "./dist/runtime/trusted-caller/index.d.ts"
       ],
@@ -81,6 +84,10 @@
     "./composables": {
       "types": "./dist/runtime/composables/index.d.ts",
       "import": "./dist/runtime/composables/index.js"
+    },
+    "./functions": {
+      "types": "./dist/runtime/functions/index.d.ts",
+      "import": "./dist/runtime/functions/index.js"
     },
     "./trusted-caller": {
       "types": "./dist/runtime/trusted-caller/index.d.ts",
@@ -118,8 +125,9 @@
     "harness:convex:codegen": "pnpm --dir test/internal-harness exec convex codegen",
     "harness:convex:dashboard": "docker run --rm -p 6791:6791 -e NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:3210 ghcr.io/get-convex/convex-dashboard:latest",
     "release": "pnpm run lint && pnpm run test && pnpm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
-    "lint": "pnpm run check:no-legacy-auth-api && pnpm run check:no-legacy-query-api && pnpm run check:no-query-composables-in-middleware && pnpm run check:no-use-route-in-middleware && pnpm run check:no-middleware-query-docs && pnpm run check:docs:api-surface && pnpm run check:docs:links && eslint .",
-    "check:no-legacy-auth-api": "sh -c '! rg -n \"createFunctions|defineActorConfig|createPermissions|usePermissionGuard|permissions\\\\.config|actor\\\\.config|better-convex-nuxt/convex|scopedQuery|scopedMutation|\\bauthorize\\s*\\(\" README.md docs src test examples demo'",
+    "lint": "pnpm run check:no-legacy-auth-api && pnpm run check:no-canonical-trusted-caller-wrappers && pnpm run check:no-legacy-query-api && pnpm run check:no-query-composables-in-middleware && pnpm run check:no-use-route-in-middleware && pnpm run check:no-middleware-query-docs && pnpm run check:docs:api-surface && pnpm run check:docs:links && eslint .",
+    "check:no-legacy-auth-api": "sh -c '! rg -n \"defineActorConfig|createPermissions|usePermissionGuard|permissions\\\\.config|actor\\\\.config|better-convex-nuxt/convex|scopedQuery|scopedMutation|\\bauthorize\\s*\\(\" README.md docs src test examples demo'",
+    "check:no-canonical-trusted-caller-wrappers": "sh -c '! rg -n \"withTrustedCallerHandler\\\\(\" README.md docs/content/docs/7.permissions docs/content/docs/13.mcp-tools examples test/internal-harness'",
     "check:no-legacy-query-api": "echo 'No legacy query API names to check'",
     "check:no-query-composables-in-middleware": "sh -c '! rg -n \"useConvexQuery\\\\(|useConvexPaginatedQuery\\\\(\" test/internal-harness/middleware test/internal-harness/plugins'",
     "check:no-use-route-in-middleware": "sh -c '! rg -n \"useRoute\\\\(\" test/internal-harness/middleware'",

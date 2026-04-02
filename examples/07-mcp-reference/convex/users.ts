@@ -1,13 +1,12 @@
 import { enforce } from 'better-convex-nuxt/auth'
 
-import { query } from './_generated/server'
-import { getActor } from './auth/actor'
 import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
+import { appQuery } from './functions'
 
-export const getCurrentUser = query({
+export const getCurrentUser = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) return null
 
     return await ctx.db
@@ -17,10 +16,10 @@ export const getCurrentUser = query({
   },
 })
 
-export const listWorkspaceUsersForMcpKeys = query({
+export const listWorkspaceUsersForMcpKeys = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Manage MCP keys', canManageMcpKeys)
 
     const users = await ctx.db

@@ -1,5 +1,5 @@
 import { can, deny, enforce } from 'better-convex-nuxt/auth'
-import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
+import { asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 
 import {
@@ -9,8 +9,6 @@ import {
   createTask,
   moveTask,
 } from '../shared/schemas/task'
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import {
   canAssignTask,
   canCreateTask,
@@ -21,11 +19,12 @@ import {
 } from './auth/checks'
 import { withCan } from './auth/resource'
 import { loadResource } from './auth/scope'
+import { appMutation, appQuery } from './functions'
 
-export const listByProject = query({
-  args: withTrustedCaller({ projectId: v.id('projects') }),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const listByProject = appQuery({
+  args: { projectId: v.id('projects') },
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
@@ -42,13 +41,13 @@ export const listByProject = query({
         delete: can(actor, canDeleteTask(task)),
       }),
     )
-  }),
+  },
 })
 
-export const get = query({
-  args: withTrustedCaller({ id: v.id('tasks') }),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const get = appQuery({
+  args: { id: v.id('tasks') },
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Read task', canReadTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
@@ -58,13 +57,13 @@ export const get = query({
       delete: can(actor, canDeleteTask(task)),
       assign: can(actor, canAssignTask),
     })
-  }),
+  },
 })
 
-export const create = mutation({
-  args: withTrustedCaller(createTask.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const create = appMutation({
+  args: createTask.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Create task', canCreateTask)
 
     const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
@@ -96,13 +95,13 @@ export const create = mutation({
     })
 
     return taskId
-  }),
+  },
 })
 
-export const moveToColumn = mutation({
-  args: withTrustedCaller(moveTask.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const moveToColumn = appMutation({
+  args: moveTask.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
     enforce(actor, 'Update task', canUpdateTask(task))
 
@@ -118,13 +117,13 @@ export const moveToColumn = mutation({
       description: `Moved "${task.title}" to ${args.status}.`,
       createdAt: now,
     })
-  }),
+  },
 })
 
-export const assign = mutation({
-  args: withTrustedCaller(assignTask.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const assign = appMutation({
+  args: assignTask.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Assign task', canAssignTask)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
@@ -151,35 +150,36 @@ export const assign = mutation({
       description: `Assigned "${task.title}" to ${args.assigneeId ?? 'nobody'}.`,
       createdAt: now,
     })
-  }),
+  },
 })
 
-export const bulkUpdateStatus = mutation({
-  args: withTrustedCaller({
+export const bulkUpdateStatus = appMutation({
+  args: {
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
-  }),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+  },
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Bulk update', hasRole('owner', 'admin', 'member'))
 
     const now = Date.now()
-    const results = { updated: 0, skipped: [] as string[] }
-
-    for (const id of args.ids) {
+    const updates = await asyncMap(args.ids, async (id) => {
       const task = await ctx.db.get(id)
       if (!task || task.workspaceId !== actor.tenantId) {
-        results.skipped.push(id)
-        continue
+        return { id, updated: false as const }
       }
 
       if (!can(actor, canUpdateTask(task))) {
-        results.skipped.push(id)
-        continue
+        return { id, updated: false as const }
       }
 
       await ctx.db.patch(id, { status: args.status, updatedAt: now })
-      results.updated++
+      return { id, updated: true as const }
+    })
+
+    const results = {
+      updated: updates.filter((entry) => entry.updated).length,
+      skipped: updates.filter((entry) => !entry.updated).map((entry) => entry.id),
     }
 
     await ctx.db.insert('auditEvents', {
@@ -193,13 +193,13 @@ export const bulkUpdateStatus = mutation({
     })
 
     return results
-  }),
+  },
 })
 
-export const listForExport = query({
-  args: withTrustedCaller({ projectId: v.id('projects') }),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const listForExport = appQuery({
+  args: { projectId: v.id('projects') },
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Read tasks', canReadTask)
 
     loadResource(actor, await ctx.db.get(args.projectId), 'Project')
@@ -209,5 +209,5 @@ export const listForExport = query({
       .withIndex('by_project', (q) => q.eq('projectId', args.projectId))
       .order('desc')
       .collect()
-  }),
+  },
 })

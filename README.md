@@ -86,6 +86,7 @@ Published npm entrypoints:
 - `better-convex-nuxt/auth`
 - `better-convex-nuxt/args`
 - `better-convex-nuxt/composables`
+- `better-convex-nuxt/functions`
 - `better-convex-nuxt/mcp`
 - `better-convex-nuxt/server`
 - `better-convex-nuxt/testing`

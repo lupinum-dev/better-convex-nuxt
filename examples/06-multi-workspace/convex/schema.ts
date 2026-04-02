@@ -1,12 +1,13 @@
+import { literals } from 'convex-helpers/validators'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-export const membershipRoleValidator = v.union(
-  v.literal('owner'),
-  v.literal('member'),
-  v.literal('viewer'),
-  v.literal('agency_admin'),
-  v.literal('agency_manager'),
+export const membershipRoleValidator = literals(
+  'owner',
+  'member',
+  'viewer',
+  'agency_admin',
+  'agency_manager',
 )
 
 export default defineSchema({
@@ -43,7 +44,7 @@ export default defineSchema({
   projects: defineTable({
     workspaceId: v.id('workspaces'),
     name: v.string(),
-    status: v.union(v.literal('active'), v.literal('paused')),
+    status: literals('active', 'paused'),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_workspace', ['workspaceId']),

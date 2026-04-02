@@ -149,14 +149,18 @@ describe('plugin.client bootstrap', () => {
     const nuxtApp = createNuxtAppMock({ serverRendered: false })
     const client = new MockConvexClient()
 
-    const store = setupClientDevtools(nuxtApp as never, client as never, {
-      convexToken: ref(null),
-      convexUser: ref(null),
-      convexPending: ref(false),
-      convexAuthError: ref(null),
-      convexAuthWaterfall: ref(null),
-      resolveInitialAuth: vi.fn(),
-    } as never)
+    const store = setupClientDevtools(
+      nuxtApp as never,
+      client as never,
+      {
+        convexToken: ref(null),
+        convexUser: ref(null),
+        convexPending: ref(false),
+        convexAuthError: ref(null),
+        convexAuthWaterfall: ref(null),
+        resolveInitialAuth: vi.fn(),
+      } as never,
+    )
 
     expect(store).toBeInstanceOf(ConvexDevtoolsStore)
     expect(nuxtApp.provide).toHaveBeenCalledWith('convexDevtoolsStore', store)

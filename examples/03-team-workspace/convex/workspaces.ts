@@ -1,13 +1,12 @@
 import { can, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import { canCreateTodo, canReadTodo } from './auth/checks'
+import { appMutation, appQuery } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 
-export const listWorkspaces = query({
+export const listWorkspaces = appQuery({
   args: {},
   handler: async (ctx) => {
     // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
@@ -16,10 +15,10 @@ export const listWorkspaces = query({
   },
 })
 
-export const getPermissionContext = query({
+export const getPermissionContext = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) return null
 
     const user = await ctx.db
@@ -43,7 +42,7 @@ export const getPermissionContext = query({
   },
 })
 
-export const createWorkspace = mutation({
+export const createWorkspace = appMutation({
   args: {
     name: v.string(),
     slug: v.string(),
@@ -85,7 +84,7 @@ export const createWorkspace = mutation({
   },
 })
 
-export const joinWorkspace = mutation({
+export const joinWorkspace = appMutation({
   args: {
     slug: v.string(),
     role: joinRoleValidator,

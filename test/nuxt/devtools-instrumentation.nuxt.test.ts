@@ -2,8 +2,8 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import { describe, expect, it } from 'vitest'
 import type { MaybeRefOrGetter } from 'vue'
 
-import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
+import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { setDevtoolsStore } from '../../src/runtime/devtools/runtime'
 import { ConvexDevtoolsStore } from '../../src/runtime/devtools/store'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
@@ -14,10 +14,7 @@ function useConvexQueryState<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
->(
-  query: Query,
-  args?: MaybeRefOrGetter<Args>,
-) {
+>(query: Query, args?: MaybeRefOrGetter<Args>) {
   return createConvexQueryState<Query, Args, DataT>(query, args, undefined, true).resultData
 }
 
@@ -107,7 +104,9 @@ describe('devtools instrumentation (Nuxt runtime)', () => {
       }),
     )
 
-    const completeMutation = resolveMutation as ((value: { ok: true; title: string }) => void) | null
+    const completeMutation = resolveMutation as
+      | ((value: { ok: true; title: string }) => void)
+      | null
     if (completeMutation) {
       completeMutation({ ok: true, title: 'Ship it' })
     }

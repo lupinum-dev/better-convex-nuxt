@@ -1,15 +1,14 @@
 import { enforce, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import { canCreateKB, canManageEnrollments, canReadKB } from './auth/checks'
 import { loadResource } from './auth/scope'
+import { appMutation, appQuery } from './functions'
 
-export const list = query({
+export const list = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Read knowledge bases', canReadKB)
 
     return ctx.db
@@ -20,19 +19,19 @@ export const list = query({
   },
 })
 
-export const get = query({
+export const get = appQuery({
   args: { id: v.id('knowledgeBases') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Read knowledge bases', canReadKB)
     return loadResource(actor, await ctx.db.get(args.id), 'Knowledge base')
   },
 })
 
-export const create = mutation({
+export const create = appMutation({
   args: { title: v.string() },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Create knowledge base', canCreateKB)
 
     const now = Date.now()
@@ -47,10 +46,10 @@ export const create = mutation({
   },
 })
 
-export const publish = mutation({
+export const publish = appMutation({
   args: { id: v.id('knowledgeBases') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Create knowledge base', canCreateKB)
     const kb = loadResource(actor, await ctx.db.get(args.id), 'Knowledge base')
     if (kb.status === 'published') throw deny('Already published.')
@@ -58,10 +57,10 @@ export const publish = mutation({
   },
 })
 
-export const enroll = mutation({
+export const enroll = appMutation({
   args: { knowledgeBaseId: v.id('knowledgeBases'), userId: v.string() },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Manage enrollments', canManageEnrollments)
     const kb = loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
 

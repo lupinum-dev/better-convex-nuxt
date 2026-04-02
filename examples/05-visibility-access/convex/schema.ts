@@ -1,3 +1,4 @@
+import { literals } from 'convex-helpers/validators'
 /**
  * Why this file exists:
  * The knowledge base domain naturally combines every advanced access pattern:
@@ -11,27 +12,13 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-export const roleValidator = v.union(
-  v.literal('owner'),
-  v.literal('admin'),
-  v.literal('editor'),
-  v.literal('contributor'),
-  v.literal('viewer'),
-)
+export const roleValidator = literals('owner', 'admin', 'editor', 'contributor', 'viewer')
 
-export const visibilityValidator = v.union(
-  v.literal('private'),
-  v.literal('team'),
-  v.literal('workspace'),
-)
+export const visibilityValidator = literals('private', 'team', 'workspace')
 
-export const statusValidator = v.union(v.literal('draft'), v.literal('published'))
+export const statusValidator = literals('draft', 'published')
 
-export const accessLevelValidator = v.union(
-  v.literal('view'),
-  v.literal('comment'),
-  v.literal('edit'),
-)
+export const accessLevelValidator = literals('view', 'comment', 'edit')
 
 export default defineSchema({
   workspaces: defineTable({
@@ -91,7 +78,7 @@ export default defineSchema({
     workspaceId: v.id('workspaces'),
     userId: v.string(),
     knowledgeBaseId: v.id('knowledgeBases'),
-    status: v.union(v.literal('active'), v.literal('canceled')),
+    status: literals('active', 'canceled'),
     createdAt: v.number(),
   })
     .index('by_workspace', ['workspaceId'])

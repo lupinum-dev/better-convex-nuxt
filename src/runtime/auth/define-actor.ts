@@ -60,7 +60,7 @@ export function createDefaultGetActor<
   TExtra extends Record<string, unknown> = Record<string, never>,
 >(extension?: DefineActorExtensionOptions<TExtra>) {
   return async function getActor(ctx: AnyCtx<DataModel>): Promise<(DefaultActor & TExtra) | null> {
-    const trusted = getTrustedCaller()
+    const trusted = getTrustedCaller(ctx)
     const auth: AuthIdentity | null = trusted ? { subject: trusted.userId } : await getAuth(ctx)
 
     if (!auth) return null
@@ -106,7 +106,7 @@ export function defineActorFromMembership<
   const { membershipTable, roleField, workspaceField = 'workspaceId' } = options
 
   return async function getActor(ctx: AnyCtx<DataModel>): Promise<DefaultActor | null> {
-    const trusted = getTrustedCaller()
+    const trusted = getTrustedCaller(ctx)
     const auth: AuthIdentity | null = trusted ? { subject: trusted.userId } : await getAuth(ctx)
 
     if (!auth) return null

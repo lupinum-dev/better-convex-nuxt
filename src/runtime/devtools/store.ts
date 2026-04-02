@@ -6,6 +6,7 @@
 import type { ConvexClient } from 'convex/browser'
 import { toRaw } from 'vue'
 import type { Ref } from 'vue'
+
 import { decodeJwtPayload } from '../utils/convex-shared'
 import type {
   QueryRegistryEntry,

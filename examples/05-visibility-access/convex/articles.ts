@@ -6,8 +6,6 @@
 import { enforce, deny } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import {
   type AccessLevel,
   getInheritedAccessLevel,
@@ -25,12 +23,13 @@ import {
   shareTokenPrefix,
 } from './auth/shareTokens'
 import { canAccessArticleOwner, getArticleOwnerScope } from './auth/visibility'
+import { appMutation, appQuery } from './functions'
 import { accessLevelValidator, visibilityValidator } from './schema'
 
-export const list = query({
+export const list = appQuery({
   args: { knowledgeBaseId: v.id('knowledgeBases') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Read articles', canReadArticle)
 
     const kb = loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
@@ -56,7 +55,7 @@ export const list = query({
   },
 })
 
-export const viewArticle = query({
+export const viewArticle = appQuery({
   args: { id: v.id('articles'), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
     if (args.shareToken) {
@@ -67,7 +66,7 @@ export const viewArticle = query({
       return { ...article, _access: grant.level }
     }
 
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Read articles', canReadArticle)
 
     const article = loadResource(actor, await ctx.db.get(args.id), 'Article')
@@ -78,7 +77,7 @@ export const viewArticle = query({
   },
 })
 
-export const create = mutation({
+export const create = appMutation({
   args: {
     knowledgeBaseId: v.id('knowledgeBases'),
     title: v.string(),
@@ -90,7 +89,7 @@ export const create = mutation({
     availableAfter: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Create article', canCreateArticle)
     loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
 
@@ -113,10 +112,10 @@ export const create = mutation({
   },
 })
 
-export const publish = mutation({
+export const publish = appMutation({
   args: { id: v.id('articles') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Create article', canCreateArticle)
     const article = loadResource(actor, await ctx.db.get(args.id), 'Article')
     if (article.status === 'published') throw deny('Already published.')
@@ -124,10 +123,10 @@ export const publish = mutation({
   },
 })
 
-export const markCompleted = mutation({
+export const markCompleted = appMutation({
   args: { articleId: v.id('articles') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Read articles', canReadArticle)
     loadResource(actor, await ctx.db.get(args.articleId), 'Article')
 
@@ -155,14 +154,14 @@ export const markCompleted = mutation({
   },
 })
 
-export const createShareToken = mutation({
+export const createShareToken = appMutation({
   args: {
     articleId: v.id('articles'),
     level: accessLevelValidator,
     expiresInMs: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Create share token', canCreateShareToken)
     loadResource(actor, await ctx.db.get(args.articleId), 'Article')
 
@@ -183,10 +182,10 @@ export const createShareToken = mutation({
   },
 })
 
-export const revokeShareToken = mutation({
+export const revokeShareToken = appMutation({
   args: { tokenId: v.id('shareTokens') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Create share token', canCreateShareToken)
     const token = loadResource(actor, await ctx.db.get(args.tokenId), 'Share token')
     if (token.revokedAt) throw deny('Already revoked.')
@@ -194,10 +193,10 @@ export const revokeShareToken = mutation({
   },
 })
 
-export const seedDemoArticles = mutation({
+export const seedDemoArticles = appMutation({
   args: { knowledgeBaseId: v.id('knowledgeBases') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Create article', canCreateArticle)
     loadResource(actor, await ctx.db.get(args.knowledgeBaseId), 'Knowledge base')
 

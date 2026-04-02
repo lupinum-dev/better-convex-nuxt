@@ -11,14 +11,13 @@
  */
 import { enforce } from 'better-convex-nuxt/auth'
 
-import { mutation } from './_generated/server'
-import { getActor } from './auth/actor'
 import { isAuthenticated } from './auth/checks'
+import { appMutation } from './functions'
 
-export const generateUploadUrl = mutation({
+export const generateUploadUrl = appMutation({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     // Upload URLs are actor-gated, but they are not tied to a specific task or project yet.
     enforce(actor, 'Generate upload URL', isAuthenticated)
     return await ctx.storage.generateUploadUrl()

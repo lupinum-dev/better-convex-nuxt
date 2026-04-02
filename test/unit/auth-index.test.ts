@@ -28,6 +28,7 @@ describe('auth entrypoint exports', () => {
     expect(authApi).toHaveProperty('createDefaultGetActor')
     expect(authApi).toHaveProperty('defineActorExtension')
     expect(authApi).toHaveProperty('defineActorFromMembership')
+    expect(authApi).not.toHaveProperty('createFunctions')
 
     expect(trustedCallerApi).toHaveProperty('getTrustedCaller')
     expect(trustedCallerApi).toHaveProperty('verifyTrustedCallerKey')

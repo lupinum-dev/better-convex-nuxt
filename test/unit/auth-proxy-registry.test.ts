@@ -14,9 +14,8 @@ describe('auth proxy registry', () => {
       useStorage: undefined,
     }))
 
-    const { clearAuthProxyStats, getAuthProxyStats, recordAuthProxyRequest } = await import(
-      '../../src/runtime/devtools/auth-proxy-registry'
-    )
+    const { clearAuthProxyStats, getAuthProxyStats, recordAuthProxyRequest } =
+      await import('../../src/runtime/devtools/auth-proxy-registry')
 
     await expect(
       recordAuthProxyRequest({

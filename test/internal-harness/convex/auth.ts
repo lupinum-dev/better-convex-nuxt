@@ -2,9 +2,8 @@ import { betterAuth } from 'better-auth'
 import { can, defineAuth } from 'better-convex-nuxt/auth'
 
 import { components, internal } from './_generated/api'
-import { mutation, query } from './_generated/server'
+import { mutation } from './_generated/server'
 import authConfig from './auth.config'
-import { getActor } from './auth/actor'
 import {
   canCreateComment,
   canCreatePost,
@@ -16,6 +15,7 @@ import {
   canReadPost,
   canViewBilling,
 } from './auth/checks'
+import { appQuery } from './functions'
 
 export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
   { components, internal, mutation, authConfig },
@@ -86,7 +86,7 @@ interface DebugInfo {
   context?: Record<string, unknown>
 }
 
-export const getPermissionContext = query({
+export const getPermissionContext = appQuery({
   handler: async (ctx) => {
     // #region agent log
     const identity = await ctx.auth.getUserIdentity()
@@ -119,7 +119,7 @@ export const getPermissionContext = query({
       // #endregion
     }
 
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor) {
       return { _debug: { ...debugInfo, reason: 'actor resolution failed' } } as {
         _debug: DebugInfo

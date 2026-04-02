@@ -1,17 +1,15 @@
 import { deny, enforce } from 'better-convex-nuxt/auth'
-import { withTrustedCaller, withTrustedCallerHandler } from 'better-convex-nuxt/trusted-caller'
 import { v } from 'convex/values'
 
 import { createComment } from '../shared/schemas/comment'
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import { canComment } from './auth/checks'
 import { loadResource } from './auth/scope'
+import { appMutation, appQuery } from './functions'
 
-export const listByTask = query({
-  args: withTrustedCaller({ taskId: v.id('tasks') }),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const listByTask = appQuery({
+  args: { taskId: v.id('tasks') },
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Read comments', canComment)
 
     loadResource(actor, await ctx.db.get(args.taskId), 'Task')
@@ -21,13 +19,13 @@ export const listByTask = query({
       .withIndex('by_task', (q) => q.eq('taskId', args.taskId))
       .order('asc')
       .collect()
-  }),
+  },
 })
 
-export const create = mutation({
-  args: withTrustedCaller(createComment.args),
-  handler: withTrustedCallerHandler(async (ctx, args) => {
-    const actor = await getActor(ctx)
+export const create = appMutation({
+  args: createComment.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
     enforce(actor, 'Create comment', canComment)
 
     const task = loadResource(actor, await ctx.db.get(args.taskId), 'Task')
@@ -59,5 +57,5 @@ export const create = mutation({
     })
 
     return commentId
-  }),
+  },
 })

@@ -2,10 +2,9 @@ import { enforce } from 'better-convex-nuxt/auth'
 import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'
-import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
 import { canInviteMembers } from './auth/checks'
 import { loadResource } from './auth/scope'
+import { appMutation, appQuery } from './functions'
 
 function generateKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -16,10 +15,10 @@ function generateKey(): string {
   return result
 }
 
-export const list = query({
+export const list = appQuery({
   args: {},
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     if (!actor?.tenantId) return []
 
     return await ctx.db
@@ -32,13 +31,13 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = appMutation({
   args: {
     name: v.string(),
     role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Create MCP key', canInviteMembers)
     if (!actor.tenantId) throw new Error('No organization selected')
 
@@ -60,10 +59,10 @@ export const create = mutation({
   },
 })
 
-export const revoke = mutation({
+export const revoke = appMutation({
   args: { id: v.id('mcpKeys') },
   handler: async (ctx, args) => {
-    const actor = await getActor(ctx)
+    const actor = await ctx.actor()
     enforce(actor, 'Revoke MCP key', canInviteMembers)
     loadResource(actor, await ctx.db.get(args.id), 'MCP key')
 
@@ -74,7 +73,7 @@ export const revoke = mutation({
   },
 })
 
-export const validate = query({
+export const validate = appQuery({
   args: { key: v.string() },
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
@@ -92,7 +91,7 @@ export const validate = query({
   },
 })
 
-export const touch = mutation({
+export const touch = appMutation({
   args: { key: v.string() },
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
