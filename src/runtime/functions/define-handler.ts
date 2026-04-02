@@ -35,6 +35,14 @@ type LoadFn<TCtx, TActor, TGuard, TArgs, TLoaded> = (
 
 type AuthorizeConfig<TCtx, TActor, TGuard, TArgs, TLoaded> = {
   label?: string
+  /**
+   * Resource-level authorization check, evaluated after `load`.
+   *
+   * Return one of:
+   * - `boolean` — inline one-off check: `(actor, { todo }) => actor.userId === todo.ownerId`
+   * - `Guard` — from a factory for labeled, composable checks: `(_actor, { todo }) => canUpdateTodo(todo)`
+   * - `Check` function — a reusable predicate without a label
+   */
   check: (
     actor: ActorForGuard<TActor, TGuard>,
     loaded: TLoaded,

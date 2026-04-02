@@ -13,6 +13,8 @@ function createCtx() {
   return createTestContext({ schema, modules })
 }
 
+// This example uses manual user seeding because it's auth-only (no tenants).
+// For the seedTenant() pattern with named users and workspace isolation, see example 03.
 describe('auth todo example', () => {
   it('keeps todos user-scoped', async () => {
     const ctx = createCtx()

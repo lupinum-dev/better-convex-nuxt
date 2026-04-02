@@ -51,6 +51,7 @@ export const create = app.mutation({
 
 export const setCompleted = app.mutation({
   args: setTodoCompleted.args,
+  // Entry gate: actor can see todos. authorize below checks update rights on this specific todo.
   guard: canReadTodo,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
@@ -69,6 +70,7 @@ export const setCompleted = app.mutation({
 
 export const remove = app.mutation({
   args: deleteTodo.args,
+  // Entry gate: actor can see todos. authorize below checks delete rights on this specific todo.
   guard: canReadTodo,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)

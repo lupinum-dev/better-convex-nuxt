@@ -10,9 +10,9 @@ Progressive disclosure. A public todo app is one config line and a few composabl
 What this means in practice
 On the backend, the handler body is business logic. Everything else — who's calling, can they do this, does this resource exist, does it belong to their tenant, what can the frontend do with the result — lives in the function signature.
 On the frontend, the page is UI logic. Auth state, permission checks, real-time subscriptions, optimistic updates — those are composables that disappear into your <script setup>.
-On the server, Nitro routes call the same Convex queries and mutations as the browser — with the same permission checks, through the same actor pipeline. No duplicated access logic.
+On the server, Nitro routes call the same Convex functions as the browser. Because those functions carry their own guards and actor resolution, the same permission checks run regardless of whether the call originates from a browser subscription or a server-side HTTP request. No duplicated access logic.
 In tests, you seed a tenant, name your users, and assert the authorization boundary. The test reads like a spec, not like infrastructure.
-Across MCP tools, the same shared schemas and permission checks apply. An AI agent hitting your MCP endpoint goes through the same safety pipeline as a browser user clicking a button.
+Across MCP tools, the same shared schemas and permission checks apply. An AI agent hitting your MCP endpoint goes through the same handler guards as a browser user clicking a button. The MCP layer adds its own rate limiting and confirmation gates before reaching those shared handlers.
 The test
 Pick any file in your app. You should be able to answer these questions without reading other files:
 
@@ -20,4 +20,4 @@ Pick any file in your app. You should be able to answer these questions without 
 - A page: What data does it need? What permissions gate the UI?
 - A test: What's the scenario? What's the boundary being proven?
 - An MCP tool: What does it do? Who's allowed? Is it destructive?
-  If you can answer from the file itself, the design is working. If you need to chase through three other files to understand the safety story, something belongs in the signature that's hiding in the implementation
+  If you can answer from the file itself — with at most one hop to a named guard definition — the design is working. If you need to chase through three other files to understand the safety story, something belongs in the signature that's hiding in the implementation

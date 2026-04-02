@@ -2,6 +2,10 @@
 
 Seven examples, progressive difficulty, every one using full Nuxt UI.
 
+## First-Time Reader Path
+
+Read **01 → 02 → 03** in order. Each builds on the previous, adding one major concept per step. Examples 04–07 are reference implementations — pick whichever matches your use case.
+
 ## Which One To Open First?
 
 | Example                | Best for                     | Shows                                                                                                                             |
