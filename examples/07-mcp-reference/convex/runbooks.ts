@@ -2,7 +2,6 @@ import {
   can,
   deny,
   loadTenantResource as loadResource,
-  open,
   requireRecord,
 } from '@lupinum/trellis/auth'
 
@@ -23,7 +22,8 @@ import {
   canReadWorkspaceRunbook,
   canUpdateRunbook,
 } from './auth/checks'
-import { app } from './functions'
+import { getActor } from './auth/actor'
+import { app, query } from './functions'
 
 function toPublicRunbook(runbook: {
   _id: string
@@ -65,9 +65,8 @@ function matchesTerm(
   return haystack.includes(term)
 }
 
-export const listPublic = app.query({
+export const listPublic = query({
   args: listRunbooks.args,
-  guard: open,
   handler: async (ctx) => {
     const runbooks = await ctx.db
       .query('runbooks')
@@ -78,9 +77,8 @@ export const listPublic = app.query({
   },
 })
 
-export const searchPublic = app.query({
+export const searchPublic = query({
   args: searchRunbooks.args,
-  guard: open,
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
     const candidates = await ctx.db
@@ -108,29 +106,16 @@ export const listWorkspace = app.query({
   },
 })
 
-export const get = app.query({
+export const get = query({
   args: getRunbook.args,
-  guard: open,
-  load: async (ctx, args) => {
+  handler: async (ctx, args) => {
     const runbook = await ctx.db.get(args.id)
-    if (!runbook) return { runbook: null }
-    return { runbook }
-  },
-  authorize: {
-    label: 'runbook.read',
-    check: (actor, { runbook }) => {
-      if (!runbook) return true
-      if (runbook.visibility === 'public') return true
-      return (
-        !!actor && actor.tenantId === runbook.workspaceId && can(actor, canReadWorkspaceRunbook)
-      )
-    },
-  },
-  handler: async (ctx, _args, { runbook }) => {
     if (!runbook) return null
 
+    const actor = await getActor(ctx)
+
     if (runbook.visibility === 'public') {
-      const withCapabilities = publicRunbookCapabilities.attach(await ctx.actor(), {
+      const withCapabilities = publicRunbookCapabilities.attach(actor, {
         ...toPublicRunbook(runbook),
         ownerId: runbook.ownerId,
       })
@@ -139,10 +124,11 @@ export const get = app.query({
       return publicRunbook
     }
 
-    return workspaceRunbookCapabilities.attach(
-      await ctx.actor(),
-      loadResource(await ctx.actor(), runbook, 'Runbook'),
-    )
+    if (!actor || actor.tenantId !== runbook.workspaceId || !can(actor, canReadWorkspaceRunbook)) {
+      deny('Forbidden: Read runbooks')
+    }
+
+    return workspaceRunbookCapabilities.attach(actor, loadResource(actor, runbook, 'Runbook'))
   },
 })
 

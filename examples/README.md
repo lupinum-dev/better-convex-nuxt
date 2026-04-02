@@ -60,7 +60,7 @@ multi-workspace authorization.
 
 ## Local Run Flow
 
-Every example is a small consumer app with its own `package.json`.
+Every example is a small workspace app inside this repo with its own `package.json`.
 
 1. `cd` into the example folder.
 2. Copy `.env.example` to `.env.local` if that example has app-owned env vars.
@@ -69,6 +69,9 @@ Every example is a small consumer app with its own `package.json`.
 
 `pnpm dev` starts an anonymous local Convex deployment, waits for Convex to write the local deployment
 env plus codegen output, then starts Nuxt with the resulting `CONVEX_URL` and `CONVEX_SITE_URL`.
+
+If you copy an example out of this repo, replace `@lupinum/trellis: workspace:*` with a published
+version or a packed local tarball before installing.
 
 ## Environment Variables
 

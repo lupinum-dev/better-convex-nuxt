@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config'
 
-import { convexTestConfig } from '../../dist/runtime/testing/index.js'
+import { convexTestConfig } from '@lupinum/trellis/testing'
 
 export default defineConfig(
   convexTestConfig({

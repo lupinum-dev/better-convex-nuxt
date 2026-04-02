@@ -26,7 +26,7 @@ It shows:
 5. `shared/schemas/todo.ts`
 6. `convex/todos.ts`
 7. `convex/webhooks.ts`
-8. `composables/usePermissions.ts`
+8. `pages/index.vue`
 9. `server/mcp/tools/*.ts`
 10. `server/api/webhook.post.ts`
 11. `convex/todos.test.ts`
@@ -109,8 +109,8 @@ The example test file covers:
 `convexServerMock` from `@lupinum/trellis/testing`, but the Vite glob and generated-server mock
 still live in the example app.
 
-`composables/usePermissions.ts` is intentionally tiny. It exists so Nuxt can auto-import
-`usePermissions()` everywhere else in the app while the raw permission `ctx` query stays in Convex-land.
+This example uses the module-provided `usePermissions()` composable directly in the page. There is
+no app-local wrapper because the point here is the default integration path.
 
 `shared/` is also intentional. Both Convex code and Nitro/MCP code import the same args definitions,
 so the folder marks a runtime boundary rather than a Nuxt convention.
