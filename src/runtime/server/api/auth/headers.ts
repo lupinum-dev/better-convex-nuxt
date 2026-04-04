@@ -29,12 +29,18 @@ export interface AuthProxyForwardHeadersOptions {
 }
 
 function resolveForwardedClientIp(event: H3Event): string | null {
-  const forwarded = event.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  if (forwarded) {
-    return forwarded
+  const trustedClientAddress = event.context?.clientAddress
+  if (trustedClientAddress) {
+    return trustedClientAddress
   }
 
-  return event.context?.clientAddress ?? event.node?.req?.socket?.remoteAddress ?? null
+  const remoteAddress = event.node?.req?.socket?.remoteAddress
+  if (remoteAddress) {
+    return remoteAddress
+  }
+
+  const forwarded = event.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  return forwarded || null
 }
 
 export function buildAuthProxyForwardHeaders(
@@ -50,7 +56,8 @@ export function buildAuthProxyForwardHeaders(
 
   headers.set('x-forwarded-host', originalHost)
   headers.set('x-forwarded-proto', originalProto)
-  if (!headers.has('x-forwarded-for') && clientIp) {
+  headers.delete('x-forwarded-for')
+  if (clientIp) {
     headers.set('x-forwarded-for', clientIp)
   }
 

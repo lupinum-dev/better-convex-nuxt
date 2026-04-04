@@ -197,6 +197,39 @@ describe('plugin.server token exchange failure policy', () => {
     expect(stateStore.get('convex:user')?.value).toBeNull()
   })
 
+  it('prefers Nitro-resolved clientAddress over raw x-forwarded-for for SSR token exchange', async () => {
+    useRequestEventMock.mockReturnValue({
+      path: '/dashboard',
+      method: 'GET',
+      context: { clientAddress: '198.51.100.7' },
+      node: { req: { url: '/dashboard', socket: { remoteAddress: '127.0.0.1' } } },
+      headers: new Headers({
+        cookie: 'better-auth.session_token=abc',
+        'x-forwarded-for': '203.0.113.9',
+      }),
+    })
+    fetchWithTimeoutMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/api/auth/convex/token')) {
+        return createResponse(401, { error: 'unauthorized' })
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+      nuxtApp: unknown,
+    ) => Promise<void>
+    await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
+
+    expect(fetchWithTimeoutMock).toHaveBeenCalledWith(
+      'https://demo.convex.site/api/auth/convex/token',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-forwarded-for': '198.51.100.7',
+        }),
+      }),
+    )
+  })
+
   it('fails closed during SSR when a token exchanges successfully but cannot be decoded', async () => {
     decodeUserFromJwtMock.mockReturnValue(null)
     fetchWithTimeoutMock.mockImplementation(async (url: string) => {

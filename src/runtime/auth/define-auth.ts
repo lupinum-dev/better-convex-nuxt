@@ -27,6 +27,11 @@ export type AuthUserDoc = {
  *
  * Controls how the auth bridge between Better Auth and Convex is set up,
  * including user sync triggers and the bootstrap mutation.
+ *
+ * This API is intentionally narrow: it configures authentication plumbing,
+ * not app-domain authorization. Use Better Auth for identity/session features
+ * and keep tenant membership, business roles, and domain permissions in your
+ * application model.
  */
 export interface DefineAuthOptions {
   /** Enable email/password auth. @default true */
@@ -55,7 +60,8 @@ export interface DefineAuthOptions {
   /**
    * Full escape hatch: provide a custom Better Auth builder.
    * When set, the module hands you the adapter and gets out of the way.
-   * emailPassword is ignored.
+   * Use this for auth-centric Better Auth configuration such as social
+   * providers, admin, or other auth-side plugins. emailPassword is ignored.
    */
   custom?: (ctx: any, bridge: ConvexAuthBridge) => any
 }
@@ -86,9 +92,9 @@ export interface DefineAuthDeps {
   /** `components` from './_generated/api' */
   components: { betterAuth: unknown }
   /** `internal` from './_generated/api' */
-  internal: { auth: unknown }
+  internal: Record<string, unknown>
   /** `mutation` from './_generated/server' */
-  mutation: (definition: { args: Record<string, unknown>; handler: (...args: any[]) => any }) => any
+  mutation: (...args: any[]) => any
   /** Default export from './auth.config' */
   authConfig: unknown
 }
@@ -124,8 +130,8 @@ function buildTrustedOrigins(siteUrl: string): string[] {
  * Define the auth bridge between Better Auth and Convex.
  *
  * Encapsulates user sync triggers, the bootstrap mutation, and the
- * Better Auth adapter. You configure what you need; the module handles
- * the plumbing.
+ * Better Auth adapter. You configure what you need on the authentication
+ * side; the module handles the plumbing.
  *
  * @example
  * ```ts
@@ -158,6 +164,13 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
     process.env.JWKS && process.env.JWKS !== LOCAL_JWKS_BOOTSTRAP_SENTINEL
       ? process.env.JWKS
       : undefined
+  const authFunctions = deps.internal.auth
+
+  if (!authFunctions) {
+    throw new Error(
+      '[trellis] defineAuth() requires `internal.auth` from your generated Convex API.',
+    )
+  }
 
   function findUserByAuthId(ctx: any, authId: string) {
     return ctx.db
@@ -213,7 +226,7 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
   }
 
   const authComponent = createClient(deps.components.betterAuth, {
-    authFunctions: deps.internal.auth,
+    authFunctions,
     triggers: {
       user: {
         onCreate: async (ctx: any, doc: AuthUserDoc) => {
@@ -283,6 +296,11 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
           database: authComponent.adapter(ctx),
           emailAndPassword: {
             enabled: options.emailPassword !== false,
+          },
+          // The Convex adapter already persists Better Auth data, so rate limits
+          // should use durable shared storage instead of per-instance memory.
+          rateLimit: {
+            storage: 'database',
           },
           plugins: [bridge.createConvexPlugin()],
           trustedOrigins: bridge.trustedOrigins,

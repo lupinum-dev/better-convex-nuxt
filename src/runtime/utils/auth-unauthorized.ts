@@ -1,5 +1,6 @@
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
+import { getSharedAuthEngine } from '../client/auth-engine'
 import { isConvexUnauthorizedError } from './auth-unauthorized-core'
 import { UNAUTHORIZED_REDIRECT_DEBOUNCE_MS } from './constants'
 import { normalizeConvexRuntimeConfig } from './runtime-config'
@@ -55,6 +56,17 @@ export async function handleUnauthorizedAuthFailure(options: {
   if (options.source === 'query' && !unauthorized.includeQueries) return false
 
   const nuxtApp = useNuxtApp()
+
+  // Skip redirect when the user is currently authenticated. A 401/403 from
+  // Convex while authenticated means a business-logic permission denial (e.g.
+  // "not an admin"), not a session expiry. Redirecting to the login page in
+  // that case would be a false positive.
+  try {
+    const engine = getSharedAuthEngine(nuxtApp)
+    if (engine.isAuthenticated.value) return false
+  } catch {
+    // Engine not initialized — fall through to redirect logic.
+  }
   const router = nuxtApp.$router as
     | { currentRoute?: { value?: { path?: string; fullPath?: string } } }
     | undefined

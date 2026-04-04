@@ -78,19 +78,19 @@
     },
     "./auth": {
       "types": "./dist/runtime/auth/index.d.ts",
-      "import": "./dist/runtime/auth/index.js"
+      "import": "./dist/runtime/auth/index.mjs"
     },
     "./args": {
       "types": "./dist/runtime/args/index.d.ts",
-      "import": "./dist/runtime/args/index.js"
+      "import": "./dist/runtime/args/index.mjs"
     },
     "./composables": {
       "types": "./dist/runtime/composables/index.d.ts",
-      "import": "./dist/runtime/composables/index.js"
+      "import": "./dist/runtime/composables/index.mjs"
     },
     "./functions": {
       "types": "./dist/runtime/functions/index.d.ts",
-      "import": "./dist/runtime/functions/index.js"
+      "import": "./dist/runtime/functions/index.mjs"
     },
     "./eslint": {
       "types": "./dist/eslint/index.d.mts",
@@ -98,23 +98,23 @@
     },
     "./trusted-caller": {
       "types": "./dist/runtime/trusted-caller/index.d.ts",
-      "import": "./dist/runtime/trusted-caller/index.js"
+      "import": "./dist/runtime/trusted-caller/index.mjs"
     },
     "./visibility": {
       "types": "./dist/runtime/visibility/index.d.ts",
-      "import": "./dist/runtime/visibility/index.js"
+      "import": "./dist/runtime/visibility/index.mjs"
     },
     "./mcp": {
       "types": "./dist/runtime/mcp/index.d.ts",
-      "import": "./dist/runtime/mcp/index.js"
+      "import": "./dist/runtime/mcp/index.mjs"
     },
     "./server": {
       "types": "./dist/runtime/server/index.d.ts",
-      "import": "./dist/runtime/server/index.js"
+      "import": "./dist/runtime/server/index.mjs"
     },
     "./testing": {
       "types": "./dist/runtime/testing/index.d.ts",
-      "import": "./dist/runtime/testing/index.js"
+      "import": "./dist/runtime/testing/index.mjs"
     }
   },
   "scripts": {
@@ -126,7 +126,7 @@
     "dev:local": "INTERNAL_HARNESS_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=internal-harness-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true pnpm run dev:prepare && INTERNAL_HARNESS_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=internal-harness-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true nuxi dev --cwd test/internal-harness --dotenv .env.local",
     "dev:local:reset": "INTERNAL_HARNESS_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=internal-harness-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true RESET_LOCAL_BACKEND=true pnpm run dev:prepare && INTERNAL_HARNESS_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=internal-harness-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true RESET_LOCAL_BACKEND=true nuxi dev --cwd test/internal-harness --dotenv .env.local",
     "dev:build": "nuxi build --cwd test/internal-harness --dotenv .env.local",
-    "dev:prepare": "pnpm run prepare:types && nuxt-module-build build --stub && pnpm run build:cli",
+    "dev:prepare": "pnpm run prepare:types && nuxt-module-build build && pnpm run build:cli",
     "docs:api-surface": "node scripts/generate-api-surface.mjs",
     "check:docs:api-surface": "node scripts/generate-api-surface.mjs --check",
     "check:docs:links": "node scripts/check-doc-links.mjs",

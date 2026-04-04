@@ -174,6 +174,37 @@ describe('defineAuth', () => {
     )
   })
 
+  it('lets custom auth compose auth-side Better Auth plugins with the Convex bridge', async () => {
+    const deps = createDefineAuthDeps()
+    const { getAuthConfigProvider } = await import('@convex-dev/better-auth/auth-config')
+    deps.authConfig = {
+      providers: [getAuthConfigProvider()],
+    }
+    const custom = vi.fn((_ctx, bridge) => ({
+      plugins: [
+        bridge.createConvexPlugin({ foo: 'bar' }),
+        { kind: 'admin-plugin' },
+      ],
+      trustedOrigins: bridge.trustedOrigins,
+    }))
+
+    const { createAuth } = defineAuth(deps, { custom })
+    const result = createAuth({})
+
+    expect(custom).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        siteUrl: 'http://localhost:3000',
+        database: expect.anything(),
+        trustedOrigins: expect.any(Array),
+        createConvexPlugin: expect.any(Function),
+      }),
+    )
+    expect(result.trustedOrigins).toEqual(['http://localhost:3000', 'http://127.0.0.1:3000'])
+    expect(result.plugins).toHaveLength(2)
+    expect(result.plugins?.[1]).toEqual({ kind: 'admin-plugin' })
+  })
+
   it('does not call onUserDeleted when no app user row existed', async () => {
     const deps = createDefineAuthDeps()
     const onUserDeleted = vi.fn()
@@ -320,5 +351,17 @@ describe('defineAuth', () => {
     }
 
     expect(() => defineAuth(deps).createAuth({})).not.toThrow()
+  })
+
+  it('uses database-backed Better Auth rate limiting in the default path', async () => {
+    const deps = createDefineAuthDeps()
+    const { getAuthConfigProvider } = await import('@convex-dev/better-auth/auth-config')
+    deps.authConfig = {
+      providers: [getAuthConfigProvider()],
+    }
+
+    const auth = defineAuth(deps).createAuth({}) as { options?: { rateLimit?: { storage?: string } } }
+
+    expect(auth.options?.rateLimit?.storage).toBe('database')
   })
 })

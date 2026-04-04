@@ -46,11 +46,12 @@ describe('auth proxy header helpers', () => {
     expect(headers['x-forwarded-for']).toBe('127.0.0.1')
   })
 
-  it('preserves an existing forwarded client IP chain', () => {
+  it('overrides client-supplied forwarded IP headers with the trusted request address', () => {
     const event = {
       headers: new Headers({
         'x-forwarded-for': '203.0.113.10, 10.0.0.2',
       }),
+      context: { clientAddress: '198.51.100.24' },
       node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
     } as never
     const headers = buildAuthProxyForwardHeaders(event, {
@@ -58,7 +59,21 @@ describe('auth proxy header helpers', () => {
       originalHost: 'app.example.com:3000',
     })
 
-    expect(headers['x-forwarded-for']).toBe('203.0.113.10, 10.0.0.2')
+    expect(headers['x-forwarded-for']).toBe('198.51.100.24')
+  })
+
+  it('falls back to x-forwarded-for only when Nitro has no trusted client address', () => {
+    const event = {
+      headers: new Headers({
+        'x-forwarded-for': '203.0.113.10, 10.0.0.2',
+      }),
+    } as never
+    const headers = buildAuthProxyForwardHeaders(event, {
+      requestUrl: new URL('https://preview.example.com/api/auth/get-session?x=1'),
+      originalHost: 'app.example.com:3000',
+    })
+
+    expect(headers['x-forwarded-for']).toBe('203.0.113.10')
   })
 
   it('skips unsafe proxy response headers', () => {

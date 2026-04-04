@@ -34,4 +34,22 @@ describe('package subpath exports', () => {
     expect(packageJson.typesVersions['*']).not.toHaveProperty('scoping')
     expect(packageJson.typesVersions['*']).not.toHaveProperty('schema')
   })
+
+  it('maps runtime subpath imports to built ESM entry files', () => {
+    const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'))
+
+    expect(packageJson.exports['./auth'].import).toBe('./dist/runtime/auth/index.mjs')
+    expect(packageJson.exports['./args'].import).toBe('./dist/runtime/args/index.mjs')
+    expect(packageJson.exports['./composables'].import).toBe('./dist/runtime/composables/index.mjs')
+    expect(packageJson.exports['./functions'].import).toBe('./dist/runtime/functions/index.mjs')
+    expect(packageJson.exports['./mcp'].import).toBe('./dist/runtime/mcp/index.mjs')
+    expect(packageJson.exports['./trusted-caller'].import).toBe(
+      './dist/runtime/trusted-caller/index.mjs',
+    )
+    expect(packageJson.exports['./visibility'].import).toBe(
+      './dist/runtime/visibility/index.mjs',
+    )
+    expect(packageJson.exports['./server'].import).toBe('./dist/runtime/server/index.mjs')
+    expect(packageJson.exports['./testing'].import).toBe('./dist/runtime/testing/index.mjs')
+  })
 })

@@ -7,10 +7,15 @@ import {
 
 const useNuxtAppMock = vi.fn()
 const useRuntimeConfigMock = vi.fn()
+const getSharedAuthEngineMock = vi.fn()
 
 vi.mock('#imports', () => ({
   useNuxtApp: () => useNuxtAppMock(),
   useRuntimeConfig: () => useRuntimeConfigMock(),
+}))
+
+vi.mock('../../src/runtime/client/auth-engine', () => ({
+  getSharedAuthEngine: (...args: unknown[]) => getSharedAuthEngineMock(...args),
 }))
 
 describe('auth unauthorized recovery', () => {
@@ -33,6 +38,10 @@ describe('auth unauthorized recovery', () => {
           },
         },
       },
+    })
+    // Default: user is not authenticated (session expired)
+    getSharedAuthEngineMock.mockReturnValue({
+      isAuthenticated: { value: false },
     })
   })
 
@@ -94,5 +103,92 @@ describe('auth unauthorized recovery', () => {
         redirectTo: '/auth/signin?redirect=%2Fprotected',
       }),
     )
+  })
+
+  it('skips redirect when user is authenticated (business-logic 403, not session expiry)', async () => {
+    getSharedAuthEngineMock.mockReturnValue({
+      isAuthenticated: { value: true },
+    })
+
+    useNuxtAppMock.mockReturnValue({
+      callHook: callHookMock,
+      $router: {
+        currentRoute: {
+          value: {
+            path: '/admin/settings',
+            fullPath: '/admin/settings',
+          },
+        },
+      },
+    })
+
+    const handled = await handleUnauthorizedAuthFailure({
+      error: Object.assign(new Error('Forbidden'), { status: 403 }),
+      source: 'mutation',
+      functionName: 'admin:deleteUser',
+    })
+
+    expect(handled).toBe(false)
+    expect(callHookMock).not.toHaveBeenCalled()
+  })
+
+  it('still redirects for 401 when user is not authenticated', async () => {
+    getSharedAuthEngineMock.mockReturnValue({
+      isAuthenticated: { value: false },
+    })
+
+    useNuxtAppMock.mockReturnValue({
+      callHook: callHookMock,
+      $router: {
+        currentRoute: {
+          value: {
+            path: '/dashboard',
+            fullPath: '/dashboard',
+          },
+        },
+      },
+    })
+
+    const handled = await handleUnauthorizedAuthFailure({
+      error: Object.assign(new Error('Unauthorized'), { status: 401 }),
+      source: 'mutation',
+      functionName: 'notes:create',
+    })
+
+    expect(handled).toBe(true)
+    expect(callHookMock).toHaveBeenCalledWith(
+      'trellis:unauthorized',
+      expect.objectContaining({
+        source: 'mutation',
+        functionName: 'notes:create',
+      }),
+    )
+  })
+
+  it('falls through to redirect when auth engine is not initialized', async () => {
+    getSharedAuthEngineMock.mockImplementation(() => {
+      throw new Error('Auth engine not initialized')
+    })
+
+    useNuxtAppMock.mockReturnValue({
+      callHook: callHookMock,
+      $router: {
+        currentRoute: {
+          value: {
+            path: '/dashboard',
+            fullPath: '/dashboard',
+          },
+        },
+      },
+    })
+
+    const handled = await handleUnauthorizedAuthFailure({
+      error: Object.assign(new Error('Unauthorized'), { status: 401 }),
+      source: 'query',
+      functionName: 'notes:list',
+    })
+
+    expect(handled).toBe(true)
+    expect(callHookMock).toHaveBeenCalled()
   })
 })

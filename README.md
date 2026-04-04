@@ -22,7 +22,7 @@ The full-stack Convex toolkit for Nuxt — SSR, real-time subscriptions, auth, p
 
 - SSR with hydration to real-time WebSocket subscriptions
 - Cursor-based pagination with `loadMore()`
-- Better Auth integration (OAuth, email/password, magic links)
+- Better Auth integration for identity, sessions, OAuth, email/password, and magic links
 - Route protection and auth middleware
 - File uploads with progress tracking and queue management
 - Permission system with guards, actors, and capabilities

@@ -73,6 +73,20 @@ function getHeader(event: H3Event, name: string): string | null {
   return typeof raw === 'string' ? raw : null
 }
 
+function resolveForwardedClientIp(event: H3Event): string | null {
+  const trustedClientAddress = event.context?.clientAddress
+  if (trustedClientAddress) {
+    return trustedClientAddress
+  }
+
+  const remoteAddress = event.node?.req?.socket?.remoteAddress
+  if (remoteAddress) {
+    return remoteAddress
+  }
+
+  return getHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim() ?? null
+}
+
 function buildServerTokenExchangeHeaders(event: H3Event, cookieHeader: string): Record<string, string> {
   const headers: Record<string, string> = { Cookie: cookieHeader }
   const forwardedHost = getHeader(event, 'x-forwarded-host') ?? getHeader(event, 'host')
@@ -80,11 +94,7 @@ function buildServerTokenExchangeHeaders(event: H3Event, cookieHeader: string): 
     getHeader(event, 'x-forwarded-proto') ??
     getHeader(event, 'x-forwarded-protocol') ??
     getHeader(event, 'x-forwarded-scheme')
-  const forwardedFor =
-    getHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim() ??
-    event.context?.clientAddress ??
-    event.node?.req?.socket?.remoteAddress ??
-    null
+  const forwardedFor = resolveForwardedClientIp(event)
 
   if (forwardedHost) {
     headers['x-forwarded-host'] = forwardedHost

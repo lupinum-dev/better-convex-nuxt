@@ -16,6 +16,7 @@ import {
   findAvailablePortPair,
   getDesiredSiteUrl,
   getDesiredNuxtPort,
+  materializeLocalStaticJwks,
   readStaticJwksFromLocalBackend,
   readDotenvFile,
   prefixStream,
@@ -61,6 +62,15 @@ function createChildProcess(): FakeChildProcess {
   return child
 }
 
+function createSucceededChildProcess(): FakeChildProcess {
+  const child = createChildProcess()
+  queueMicrotask(() => {
+    child.exitCode = 0
+    child.emit('exit', 0, null)
+  })
+  return child
+}
+
 describe('example dev launcher', () => {
   afterEach(() => {
     vi.restoreAllMocks()
@@ -99,18 +109,48 @@ describe('example dev launcher', () => {
   })
 
   it('waits until local Better Auth JWKS rows exist', async () => {
-    let attempts = 0
+    let hasRows = false
+    const materializeLocalStaticJwksFn = vi.fn(async (siteUrl?: string) => {
+      expect(siteUrl).toBe('http://127.0.0.1:3213')
+      hasRows = true
+    })
 
     await expect(
       waitForLocalStaticJwks('/repo/examples/02-auth-todo', {
         timeoutMs: 50,
         intervalMs: 1,
-        readStaticJwksFromLocalBackendFn: () => {
-          attempts += 1
-          return attempts >= 3 ? '[{"id":"jwks-row-1"}]' : null
-        },
+        siteUrl: 'http://127.0.0.1:3213',
+        readStaticJwksFromLocalBackendFn: () => (hasRows ? '[{"id":"jwks-row-1"}]' : null),
+        materializeLocalStaticJwksFn,
       }),
     ).resolves.toBe('[{"id":"jwks-row-1"}]')
+
+    expect(materializeLocalStaticJwksFn).toHaveBeenCalledTimes(1)
+  })
+
+  it('warms the local Better Auth JWKS endpoint without failing on readiness races', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('site not ready'))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
+    await expect(
+      materializeLocalStaticJwks('http://127.0.0.1:3213', { fetchFn }),
+    ).resolves.toBeUndefined()
+    await expect(
+      materializeLocalStaticJwks('http://127.0.0.1:3213', { fetchFn }),
+    ).resolves.toBeUndefined()
+
+    expect(fetchFn).toHaveBeenNthCalledWith(
+      1,
+      new URL('/api/auth/convex/jwks', 'http://127.0.0.1:3213'),
+      {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+        },
+      },
+    )
   })
 
   it('chooses the first free backend/site port pair', async () => {
@@ -529,7 +569,12 @@ describe('example dev launcher', () => {
 
   it('passes the pre-selected port to convex dev via local port flags', async () => {
     const convex = createChildProcess()
-    const spawnFn = vi.fn().mockReturnValue(convex)
+    const spawnFn = vi.fn((command, args) => {
+      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+        return createSucceededChildProcess()
+      }
+      return convex
+    })
     const clearPortsFn = vi.fn().mockResolvedValue(undefined)
     const writeLocalEnvFileFn = vi.fn()
 
@@ -573,7 +618,11 @@ describe('example dev launcher', () => {
           '3215',
         ],
         expect.objectContaining({
-          env: expect.objectContaining({ CONVEX_LOCAL_BACKEND_PORT: '3214' }),
+          env: expect.objectContaining({
+            BETTER_AUTH_SECRET: expect.any(String),
+            CONVEX_LOCAL_BACKEND_PORT: '3214',
+            SITE_URL: 'http://127.0.0.1:4121',
+          }),
         }),
       )
     })
@@ -592,7 +641,12 @@ describe('example dev launcher', () => {
 
   it('bootstraps .env.local with app-owned values only before Convex configures the deployment', async () => {
     const convex = createChildProcess()
-    const spawnFn = vi.fn().mockReturnValue(convex)
+    const spawnFn = vi.fn((command, args) => {
+      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+        return createSucceededChildProcess()
+      }
+      return convex
+    })
     const clearPortsFn = vi.fn().mockResolvedValue(undefined)
     const rmSyncFn = vi.fn()
     const writeLocalEnvFileFn = vi.fn()
@@ -648,18 +702,18 @@ describe('example dev launcher', () => {
   it('writes final launcher-managed runtime values after Convex selects the local deployment', async () => {
     const convex = createChildProcess()
     const nuxt = createChildProcess()
-    const spawnFn = vi
-      .fn()
-      .mockReturnValueOnce(convex)
-      .mockImplementationOnce(() => {
-        const child = createChildProcess()
-        queueMicrotask(() => {
-          child.exitCode = 0
-          child.emit('exit', 0, null)
-        })
-        return child
-      })
-      .mockReturnValueOnce(nuxt)
+    const spawnFn = vi.fn((command, args) => {
+      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+        return createSucceededChildProcess()
+      }
+      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'dev') {
+        return convex
+      }
+      if (command === 'pnpm' && args[0] === 'run' && args[1] === 'dev:nuxt') {
+        return nuxt
+      }
+      return createSucceededChildProcess()
+    })
     const clearPortsFn = vi.fn().mockResolvedValue(undefined)
     const writeLocalEnvFileFn = vi.fn()
     const readLocalEnvFileFn = vi
@@ -726,38 +780,28 @@ describe('example dev launcher', () => {
     expect(processExit).toHaveBeenCalledWith(1)
   })
 
-  it('pushes static JWKS into local Convex env for auth examples', async () => {
+  it('bootstraps auth examples with a dynamic JWKS sentinel before local startup', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'trellis-auth-example-'))
     mkdirSync(join(cwd, 'convex'), { recursive: true })
     writeFileSync(join(cwd, 'convex', 'auth.config.ts'), 'export default {}', 'utf8')
 
     const convex = createChildProcess()
     const nuxt = createChildProcess()
-    const envSet = createChildProcess()
-    let pushedEnvFile = ''
-    let pushedEnvContents = ''
-    const spawnFn = vi.fn((command, args) => {
+    const pushedEnvContents: string[] = []
+    let convexDevEnv: Record<string, string> | undefined
+    const spawnFn = vi.fn((command, args, options) => {
       if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'dev') {
+        convexDevEnv = options?.env as Record<string, string>
         return convex
       }
       if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
-        pushedEnvFile = String(args[6])
-        pushedEnvContents = readFileSync(pushedEnvFile, 'utf8')
-        queueMicrotask(() => {
-          envSet.exitCode = 0
-          envSet.emit('exit', 0, null)
-        })
-        return envSet
+        pushedEnvContents.push(readFileSync(String(args[6]), 'utf8'))
+        return createSucceededChildProcess()
       }
       if (command === 'pnpm' && args[0] === 'run' && args[1] === 'dev:nuxt') {
         return nuxt
       }
-      const child = createChildProcess()
-      queueMicrotask(() => {
-        child.exitCode = 0
-        child.emit('exit', 0, null)
-      })
-      return child
+      return createSucceededChildProcess()
     })
     const readLocalEnvFileFn = vi
       .fn()
@@ -773,8 +817,6 @@ describe('example dev launcher', () => {
       findAvailablePortPairFn: async () => 3212,
       isPortFreeFn: async () => false,
       waitForConvexReadyFn: async () => undefined,
-      waitForLocalStaticJwksFn: async () =>
-        '[{"id":"jwks-row-1","createdAt":1,"publicKey":"{\\"kty\\":\\"RSA\\"}","privateKey":"\\"secret\\""}]',
       existsSyncFn: () => false,
       rmSyncFn: vi.fn(),
       readExampleDefaultsFileFn: () => ({ BETTER_AUTH_SECRET: 'replace-me' }),
@@ -790,8 +832,14 @@ describe('example dev launcher', () => {
       prepareModuleForDev: false,
     } as Parameters<typeof runExampleDev>[0])
 
-    await vi.waitFor(() => expect(pushedEnvFile).not.toBe(''))
-    expect(pushedEnvContents).toContain('JWKS=')
+    await vi.waitFor(() => expect(pushedEnvContents).toHaveLength(1))
+    expect(convexDevEnv).toMatchObject({
+      BETTER_AUTH_SECRET: expect.any(String),
+      JWKS: '__TRELLIS_LOCAL_JWKS_BOOTSTRAP__',
+      SITE_URL: 'http://127.0.0.1:4126',
+    })
+    expect(pushedEnvContents[0]).toContain('BETTER_AUTH_SECRET=')
+    expect(pushedEnvContents[0]).toContain('JWKS=__TRELLIS_LOCAL_JWKS_BOOTSTRAP__')
 
     nuxt.emit('exit', 1, null)
     await pending
@@ -811,7 +859,12 @@ describe('example dev launcher', () => {
 
   it('fails closed when Convex exits before readiness', async () => {
     const convex = createChildProcess()
-    const spawnFn = vi.fn().mockReturnValue(convex)
+    const spawnFn = vi.fn((command, args) => {
+      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+        return createSucceededChildProcess()
+      }
+      return convex
+    })
     const clearPortsFn = vi.fn().mockResolvedValue(undefined)
 
     const processExit: (code?: string | number | null) => never = vi.fn(
@@ -846,6 +899,6 @@ describe('example dev launcher', () => {
     await pending
 
     expect(processExit).toHaveBeenCalledWith(1)
-    expect(spawnFn).toHaveBeenCalledTimes(1)
+    expect(spawnFn).toHaveBeenCalledTimes(2)
   })
 })

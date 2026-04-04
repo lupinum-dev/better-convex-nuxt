@@ -33,6 +33,7 @@ const LOCAL_RUNTIME_ENV_KEYS = new Set([
   'CONVEX_LOCAL_BACKEND_PORT',
   'CONVEX_URL',
   'CONVEX_SITE_URL',
+  'JWKS',
   'NUXT_PUBLIC_CONVEX_URL',
   'NUXT_PUBLIC_CONVEX_SITE_URL',
   'SITE_URL',
@@ -528,12 +529,33 @@ export function readStaticJwksFromLocalBackend(
   }
 }
 
+export async function materializeLocalStaticJwks(
+  siteUrl,
+  { fetchFn = globalThis.fetch } = {},
+) {
+  if (typeof siteUrl !== 'string' || siteUrl.length === 0) return
+  if (typeof fetchFn !== 'function') return
+
+  try {
+    await fetchFn(new URL('/api/auth/convex/jwks', siteUrl), {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+      },
+    })
+  } catch {
+    // Ignore local site readiness races while the backend starts.
+  }
+}
+
 export async function waitForLocalStaticJwks(
   cwd,
   {
     timeoutMs = READINESS_TIMEOUT_MS,
     intervalMs = 100,
+    siteUrl,
     readStaticJwksFromLocalBackendFn = readStaticJwksFromLocalBackend,
+    materializeLocalStaticJwksFn = materializeLocalStaticJwks,
   } = {},
 ) {
   const deadline = Date.now() + timeoutMs
@@ -541,6 +563,12 @@ export async function waitForLocalStaticJwks(
   while (Date.now() < deadline) {
     const jwks = readStaticJwksFromLocalBackendFn(cwd)
     if (jwks) return jwks
+
+    await materializeLocalStaticJwksFn(siteUrl)
+
+    const materializedJwks = readStaticJwksFromLocalBackendFn(cwd)
+    if (materializedJwks) return materializedJwks
+
     await sleep(intervalMs)
   }
 
@@ -793,8 +821,20 @@ export async function runExampleDev({
     readExampleDefaultsFileFn,
     readLocalEnvFileFn,
   })
+  const shouldBootstrapJwks = shouldBootstrapStaticJwks(cwd)
+  const bootstrapJwksEnv = shouldBootstrapJwks
+    ? {
+        JWKS:
+          typeof exampleLocalEnv.existingLocalEnv.JWKS === 'string'
+            ? exampleLocalEnv.existingLocalEnv.JWKS
+            : LOCAL_JWKS_BOOTSTRAP_SENTINEL,
+      }
+    : {}
 
-  writeLocalEnvFileFn(cwd, exampleLocalEnv.bootstrapLocalEnvFileValues)
+  writeLocalEnvFileFn(cwd, {
+    ...exampleLocalEnv.bootstrapLocalEnvFileValues,
+    ...bootstrapJwksEnv,
+  })
 
   if (
     shouldResetLocalBackendForSourceFingerprint(
@@ -812,21 +852,27 @@ export async function runExampleDev({
     }
   }
 
+  const bootstrapDeploymentEnvVars = shouldBootstrapJwks
+    ? {
+        ...exampleLocalEnv.deploymentEnvVars,
+        ...bootstrapJwksEnv,
+      }
+    : exampleLocalEnv.deploymentEnvVars
+
   const convexEnv = {
     ...process.env,
+    ...bootstrapDeploymentEnvVars,
     CONVEX_AGENT_MODE: 'anonymous',
     CONVEX_LOCAL_BACKEND_PORT: String(port),
     NODE_ENV: process.env.NODE_ENV || 'development',
   }
 
-  if (shouldBootstrapStaticJwks(cwd)) {
+  if (Object.keys(bootstrapDeploymentEnvVars).length > 0) {
+    const systemLabel = colorize('system'.padEnd(6), '33')
+    stdout.write(`${systemLabel} configuring Convex env vars from example defaults and .env.local\n`)
+
     await pushConvexEnvVars({
-      vars: {
-        JWKS:
-          typeof exampleLocalEnv.existingLocalEnv.JWKS === 'string'
-            ? exampleLocalEnv.existingLocalEnv.JWKS
-            : LOCAL_JWKS_BOOTSTRAP_SENTINEL,
-      },
+      vars: bootstrapDeploymentEnvVars,
       cwd,
       spawnFn,
       env: convexEnv,
@@ -922,29 +968,8 @@ export async function runExampleDev({
     writeLocalEnvFileFn(cwd, {
       ...exampleLocalEnv.localEnvFileValues,
       ...convexDeployment,
+      ...bootstrapJwksEnv,
     })
-
-    const staticJwks = shouldBootstrapStaticJwks(cwd)
-      ? await Promise.race([waitForLocalStaticJwksFn(cwd), convexExit])
-      : null
-    const deploymentEnvVars = staticJwks
-      ? { ...exampleLocalEnv.deploymentEnvVars, JWKS: staticJwks }
-      : exampleLocalEnv.deploymentEnvVars
-
-    if (Object.keys(deploymentEnvVars).length > 0) {
-      const systemLabel = colorize('system'.padEnd(6), '33')
-      stdout.write(
-        `${systemLabel} configuring Convex env vars from example defaults and .env.local\n`,
-      )
-      await pushConvexEnvVars({
-        vars: deploymentEnvVars,
-        cwd,
-        spawnFn,
-        env: convexEnv,
-        stdout,
-        stderr,
-      })
-    }
 
     const mergedRuntimeEnv = {
       ...exampleLocalEnv.exampleDefaults,
