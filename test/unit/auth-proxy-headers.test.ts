@@ -32,7 +32,10 @@ describe('auth proxy header helpers', () => {
   })
 
   it('injects forwarded host and proto', () => {
-    const event = { headers: new Headers() } as never
+    const event = {
+      headers: new Headers(),
+      node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
+    } as never
     const headers = buildAuthProxyForwardHeaders(event, {
       requestUrl: new URL('https://preview.example.com/api/auth/get-session?x=1'),
       originalHost: 'app.example.com:3000',
@@ -40,6 +43,22 @@ describe('auth proxy header helpers', () => {
 
     expect(headers['x-forwarded-host']).toBe('app.example.com:3000')
     expect(headers['x-forwarded-proto']).toBe('https')
+    expect(headers['x-forwarded-for']).toBe('127.0.0.1')
+  })
+
+  it('preserves an existing forwarded client IP chain', () => {
+    const event = {
+      headers: new Headers({
+        'x-forwarded-for': '203.0.113.10, 10.0.0.2',
+      }),
+      node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
+    } as never
+    const headers = buildAuthProxyForwardHeaders(event, {
+      requestUrl: new URL('https://preview.example.com/api/auth/get-session?x=1'),
+      originalHost: 'app.example.com:3000',
+    })
+
+    expect(headers['x-forwarded-for']).toBe('203.0.113.10, 10.0.0.2')
   })
 
   it('skips unsafe proxy response headers', () => {

@@ -28,6 +28,15 @@ export interface AuthProxyForwardHeadersOptions {
   originalHost?: string | null
 }
 
+function resolveForwardedClientIp(event: H3Event): string | null {
+  const forwarded = event.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  if (forwarded) {
+    return forwarded
+  }
+
+  return event.context?.clientAddress ?? event.node?.req?.socket?.remoteAddress ?? null
+}
+
 export function buildAuthProxyForwardHeaders(
   event: H3Event,
   options: AuthProxyForwardHeadersOptions,
@@ -37,9 +46,13 @@ export function buildAuthProxyForwardHeaders(
   // beyond the session token, and this proxy handles generic auth endpoints.
   const originalHost = options.originalHost || options.requestUrl.host
   const originalProto = options.requestUrl.protocol.replace(':', '')
+  const clientIp = resolveForwardedClientIp(event)
 
   headers.set('x-forwarded-host', originalHost)
   headers.set('x-forwarded-proto', originalProto)
+  if (!headers.has('x-forwarded-for') && clientIp) {
+    headers.set('x-forwarded-for', clientIp)
+  }
 
   return Object.fromEntries(headers.entries())
 }
