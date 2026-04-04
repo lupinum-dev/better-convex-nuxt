@@ -19,6 +19,7 @@ const DEFAULT_PORT_START = 3210
 const DEFAULT_PORT_END = 3298
 const READINESS_TIMEOUT_MS = 25_000
 const SHUTDOWN_GRACE_MS = 3_000
+const LOCAL_JWKS_BOOTSTRAP_SENTINEL = '__TRELLIS_LOCAL_JWKS_BOOTSTRAP__'
 const EXAMPLE_DEFAULTS_FILE_NAME = '.env.example'
 const LOCAL_ENV_FILE_NAME = '.env.local'
 const LOCAL_ENV_FILE_HEADER = [
@@ -106,11 +107,7 @@ export function serializeEnvFileContents(values) {
     .join('\n')
 }
 
-export function writeLocalEnvFile(
-  cwd,
-  values,
-  { writeFileSyncFn = writeFileSync } = {},
-) {
+export function writeLocalEnvFile(cwd, values, { writeFileSyncFn = writeFileSync } = {}) {
   const filePath = path.join(cwd, LOCAL_ENV_FILE_NAME)
   const serializedValues = serializeEnvFileContents(values)
   const fileContents = serializedValues
@@ -146,8 +143,7 @@ export function resolveGeneratedSecretEnvValues(exampleDefaults, storedEnv = {})
 
 export function shouldResetLocalBackendForMissingGeneratedSecret(exampleDefaults, localEnv) {
   return (
-    /replace.?me/i.test(exampleDefaults.BETTER_AUTH_SECRET ?? '') &&
-    !localEnv.BETTER_AUTH_SECRET
+    /replace.?me/i.test(exampleDefaults.BETTER_AUTH_SECRET ?? '') && !localEnv.BETTER_AUTH_SECRET
   )
 }
 
@@ -213,10 +209,7 @@ export function getDesiredSiteUrl(cwd = process.cwd()) {
 
 function collectExampleSourceFiles(
   rootDir,
-  {
-    existsSyncFn = existsSync,
-    readdirSyncFn = readdirSync,
-  } = {},
+  { existsSyncFn = existsSync, readdirSyncFn = readdirSync } = {},
 ) {
   if (!existsSyncFn(rootDir)) return []
 
@@ -242,11 +235,7 @@ function collectExampleSourceFiles(
 
 export function buildExampleSourceFingerprint(
   cwd,
-  {
-    existsSyncFn = existsSync,
-    readdirSyncFn = readdirSync,
-    readFileSyncFn = readFileSync,
-  } = {},
+  { existsSyncFn = existsSync, readdirSyncFn = readdirSync, readFileSyncFn = readFileSync } = {},
 ) {
   const hash = createHash('sha256')
   hash.update(SOURCE_FINGERPRINT_VERSION)
@@ -267,10 +256,7 @@ export function buildExampleSourceFingerprint(
   return hash.digest('hex')
 }
 
-export function shouldResetLocalBackendForSourceFingerprint(
-  currentFingerprint,
-  storedFingerprint,
-) {
+export function shouldResetLocalBackendForSourceFingerprint(currentFingerprint, storedFingerprint) {
   return typeof storedFingerprint !== 'string' || storedFingerprint !== currentFingerprint
 }
 
@@ -347,9 +333,7 @@ export function syncConvexLocalConfigPortPair(
 
   writeConvexLocalConfigFn(cwd, {
     ...config,
-    ...(typeof exampleSourceFingerprint === 'string'
-      ? { exampleSourceFingerprint }
-      : {}),
+    ...(typeof exampleSourceFingerprint === 'string' ? { exampleSourceFingerprint } : {}),
     ports: {
       ...config.ports,
       cloud: port,
@@ -464,6 +448,103 @@ export async function waitForGeneratedDir(
 export async function waitForConvexReady(cwd, port, options = {}) {
   await waitForPort(port, options)
   return await waitForGeneratedDir(cwd, options)
+}
+
+function shouldBootstrapStaticJwks(cwd) {
+  return existsSync(path.join(cwd, 'convex', 'auth.config.ts'))
+}
+
+export function readStaticJwksFromLocalBackend(
+  cwd,
+  { spawnSyncFn = spawnSync, sqlitePath = convexLocalSqlitePath(cwd) } = {},
+) {
+  const result = spawnSyncFn(
+    'sqlite3',
+    [
+      '-json',
+      sqlitePath,
+      [
+        'select json_value',
+        'from documents',
+        'where deleted = 0',
+        "and json_extract(json_value, '$.publicKey') is not null",
+        "and json_extract(json_value, '$.privateKey') is not null",
+        'order by ts desc;',
+      ].join(' '),
+    ],
+    {
+      encoding: 'utf8',
+      stdio: 'pipe',
+    },
+  )
+
+  if (result.status !== 0) return null
+
+  try {
+    const rows = JSON.parse(result.stdout || '[]')
+    if (!Array.isArray(rows) || rows.length === 0) return null
+
+    const jwks = rows.flatMap((row) => {
+      if (!row || typeof row !== 'object' || typeof row.json_value !== 'string') {
+        return []
+      }
+
+      try {
+        const doc = JSON.parse(row.json_value)
+        if (
+          !doc ||
+          typeof doc !== 'object' ||
+          typeof doc._id !== 'string' ||
+          typeof doc.publicKey !== 'string' ||
+          typeof doc.privateKey !== 'string'
+        ) {
+          return []
+        }
+
+        return [
+          {
+            id: doc._id,
+            publicKey: doc.publicKey,
+            privateKey: doc.privateKey,
+            createdAt:
+              typeof doc.createdAt === 'number'
+                ? doc.createdAt
+                : typeof doc._creationTime === 'number'
+                  ? doc._creationTime
+                  : Date.now(),
+            ...(typeof doc.expiresAt === 'number' ? { expiresAt: doc.expiresAt } : {}),
+            ...(typeof doc.alg === 'string' ? { alg: doc.alg } : {}),
+            ...(typeof doc.crv === 'string' ? { crv: doc.crv } : {}),
+          },
+        ]
+      } catch {
+        return []
+      }
+    })
+
+    return jwks.length > 0 ? JSON.stringify(jwks) : null
+  } catch {
+    return null
+  }
+}
+
+export async function waitForLocalStaticJwks(
+  cwd,
+  {
+    timeoutMs = READINESS_TIMEOUT_MS,
+    intervalMs = 100,
+    readStaticJwksFromLocalBackendFn = readStaticJwksFromLocalBackend,
+  } = {},
+) {
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    const jwks = readStaticJwksFromLocalBackendFn(cwd)
+    if (jwks) return jwks
+    await sleep(intervalMs)
+  }
+
+  throw new Error(`Timed out waiting for Better Auth JWKS in ${convexLocalSqlitePath(cwd)}.`)
 }
 
 function sleep(ms) {
@@ -666,6 +747,7 @@ export async function runExampleDev({
   findAvailablePortPairFn = findAvailablePortPair,
   isPortFreeFn = isPortFree,
   waitForConvexReadyFn = waitForConvexReady,
+  waitForLocalStaticJwksFn = waitForLocalStaticJwks,
   existsSyncFn = existsSync,
   rmSyncFn = rmSync,
   readExampleDefaultsFileFn = readExampleDefaultsFile,
@@ -734,6 +816,23 @@ export async function runExampleDev({
     ...process.env,
     CONVEX_AGENT_MODE: 'anonymous',
     CONVEX_LOCAL_BACKEND_PORT: String(port),
+    NODE_ENV: process.env.NODE_ENV || 'development',
+  }
+
+  if (shouldBootstrapStaticJwks(cwd)) {
+    await pushConvexEnvVars({
+      vars: {
+        JWKS:
+          typeof exampleLocalEnv.existingLocalEnv.JWKS === 'string'
+            ? exampleLocalEnv.existingLocalEnv.JWKS
+            : LOCAL_JWKS_BOOTSTRAP_SENTINEL,
+      },
+      cwd,
+      spawnFn,
+      env: convexEnv,
+      stdout,
+      stderr,
+    })
   }
 
   if (disableAiFiles && !areConvexAiFilesDisabled(cwd, convexEnv)) {
@@ -825,11 +924,20 @@ export async function runExampleDev({
       ...convexDeployment,
     })
 
-    if (Object.keys(exampleLocalEnv.deploymentEnvVars).length > 0) {
+    const staticJwks = shouldBootstrapStaticJwks(cwd)
+      ? await Promise.race([waitForLocalStaticJwksFn(cwd), convexExit])
+      : null
+    const deploymentEnvVars = staticJwks
+      ? { ...exampleLocalEnv.deploymentEnvVars, JWKS: staticJwks }
+      : exampleLocalEnv.deploymentEnvVars
+
+    if (Object.keys(deploymentEnvVars).length > 0) {
       const systemLabel = colorize('system'.padEnd(6), '33')
-      stdout.write(`${systemLabel} configuring Convex env vars from example defaults and .env.local\n`)
+      stdout.write(
+        `${systemLabel} configuring Convex env vars from example defaults and .env.local\n`,
+      )
       await pushConvexEnvVars({
-        vars: exampleLocalEnv.deploymentEnvVars,
+        vars: deploymentEnvVars,
         cwd,
         spawnFn,
         env: convexEnv,

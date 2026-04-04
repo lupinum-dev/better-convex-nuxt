@@ -39,6 +39,8 @@ export interface ResolvedRequestAuth {
   tokenExchangeStatus: number | null
   tokenExchangeError: Error | null
   isMisconfigError: boolean
+  /** True when a session cookie is present but the auth endpoint returned 401/403 (revoked session, secret mismatch, etc.) */
+  isSessionRejected: boolean
   trace: AuthResolutionTrace
 }
 
@@ -54,6 +56,53 @@ function getCookieHeader(event: H3Event): string {
   const raw = nodeHeaders?.cookie
   if (Array.isArray(raw)) return raw.join('; ')
   return typeof raw === 'string' ? raw : ''
+}
+
+function getHeader(event: H3Event, name: string): string | null {
+  const lowerName = name.toLowerCase()
+  const directHeader = (event as { headers?: { get?: (header: string) => string | null } }).headers
+  if (directHeader?.get) {
+    return directHeader.get(lowerName) ?? directHeader.get(name) ?? null
+  }
+
+  const nodeHeaders = (
+    event as { node?: { req?: { headers?: Record<string, string | string[] | undefined> } } }
+  ).node?.req?.headers
+  const raw = nodeHeaders?.[lowerName]
+  if (Array.isArray(raw)) return raw[0] ?? null
+  return typeof raw === 'string' ? raw : null
+}
+
+function buildServerTokenExchangeHeaders(event: H3Event, cookieHeader: string): Record<string, string> {
+  const headers: Record<string, string> = { Cookie: cookieHeader }
+  const forwardedHost = getHeader(event, 'x-forwarded-host') ?? getHeader(event, 'host')
+  const explicitProto =
+    getHeader(event, 'x-forwarded-proto') ??
+    getHeader(event, 'x-forwarded-protocol') ??
+    getHeader(event, 'x-forwarded-scheme')
+  const forwardedFor =
+    getHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim() ??
+    event.context?.clientAddress ??
+    event.node?.req?.socket?.remoteAddress ??
+    null
+
+  if (forwardedHost) {
+    headers['x-forwarded-host'] = forwardedHost
+  }
+  if (explicitProto) {
+    headers['x-forwarded-proto'] = explicitProto
+  } else if (forwardedHost) {
+    // Infer protocol from socket only when a proxy chain is present (forwarded host exists)
+    const encrypted =
+      (event as { node?: { req?: { socket?: { encrypted?: boolean } } } }).node?.req?.socket
+        ?.encrypted ?? false
+    headers['x-forwarded-proto'] = encrypted ? 'https' : 'http'
+  }
+  if (forwardedFor) {
+    headers['x-forwarded-for'] = forwardedFor
+  }
+
+  return headers
 }
 
 function buildPhase(
@@ -123,6 +172,7 @@ async function resolveRequestAuthUncached(
       tokenExchangeStatus: null,
       tokenExchangeError: null,
       isMisconfigError: false,
+      isSessionRejected: false,
       trace: buildTrace('error', false, error),
     }
   }
@@ -141,6 +191,7 @@ async function resolveRequestAuthUncached(
       tokenExchangeStatus: null,
       tokenExchangeError: null,
       isMisconfigError: false,
+      isSessionRejected: false,
       trace: buildTrace('unauthenticated', false),
     }
   }
@@ -185,6 +236,7 @@ async function resolveRequestAuthUncached(
           tokenExchangeStatus: null,
           tokenExchangeError: null,
           isMisconfigError: false,
+          isSessionRejected: false,
           trace: buildTrace('authenticated', true),
         }
       }
@@ -204,16 +256,26 @@ async function resolveRequestAuthUncached(
     const exchangeStart = Date.now()
     let tokenExchangeStatus: number | null = null
     let tokenExchangeError: Error | null = null
+    let tokenExchangeBody: string | null = null
     let tokenResponse: { token?: string } | null = null
 
     try {
       const response = await fetchWithTimeout(`${config.siteUrl}/api/auth/convex/token`, {
-        headers: { Cookie: cookieHeader },
+        headers: buildServerTokenExchangeHeaders(event, cookieHeader),
         timeoutMs: SERVER_FETCH_TIMEOUT_MS,
       })
       tokenExchangeStatus = response.status
       if (response.ok) {
-        tokenResponse = (await response.json().catch(() => null)) as { token?: string } | null
+        try {
+          tokenResponse = (await response.json()) as { token?: string } | null
+        } catch {
+          tokenExchangeError = new Error(
+            'Token endpoint returned 200 but response was not valid JSON',
+          )
+        }
+      } else {
+        // Read upstream error body for diagnostic context
+        tokenExchangeBody = await response.text().catch(() => null)
       }
     } catch (error) {
       tokenExchangeError = error instanceof Error ? error : new Error(String(error))
@@ -270,6 +332,7 @@ async function resolveRequestAuthUncached(
         tokenExchangeStatus,
         tokenExchangeError,
         isMisconfigError: false,
+        isSessionRejected: false,
         trace: buildTrace('authenticated', cacheHit),
       }
     }
@@ -278,20 +341,26 @@ async function resolveRequestAuthUncached(
       Boolean(tokenExchangeError) ||
       tokenExchangeStatus === 404 ||
       (tokenExchangeStatus !== null && tokenExchangeStatus >= 500)
+    const isSessionRejected =
+      !isMisconfigError &&
+      (tokenExchangeStatus === 401 || tokenExchangeStatus === 403)
+    const bodyDetail = tokenExchangeBody ? ` ${tokenExchangeBody.slice(0, 500)}` : ''
     const error = isMisconfigError
       ? buildTokenExchangeFailureMessage({
           siteUrl: config.siteUrl,
           status: tokenExchangeStatus ?? undefined,
           error: tokenExchangeError ?? undefined,
-        })
-      : null
+        }) + bodyDetail
+      : isSessionRejected
+        ? `Session cookie present but rejected by auth endpoint (HTTP ${tokenExchangeStatus}).${bodyDetail} The session may have been revoked or the auth secret may have changed.`
+        : null
 
     phases.push(
       buildPhase(
         'token-exchange',
         exchangeStart,
         waterfallStart,
-        isMisconfigError ? 'error' : 'miss',
+        isMisconfigError || isSessionRejected ? 'error' : 'miss',
         tokenExchangeStatus ? `HTTP ${tokenExchangeStatus}` : 'No token returned',
       ),
     )
@@ -309,8 +378,9 @@ async function resolveRequestAuthUncached(
       tokenExchangeStatus,
       tokenExchangeError,
       isMisconfigError,
+      isSessionRejected,
       trace: buildTrace(
-        isMisconfigError ? 'error' : 'unauthenticated',
+        isMisconfigError || isSessionRejected ? 'error' : 'unauthenticated',
         cacheHit,
         error ?? undefined,
       ),
@@ -335,6 +405,7 @@ async function resolveRequestAuthUncached(
       tokenExchangeStatus: null,
       tokenExchangeError: normalizedError,
       isMisconfigError: true,
+      isSessionRejected: false,
       trace: buildTrace('error', cacheHit, normalizedError.message),
     }
   }

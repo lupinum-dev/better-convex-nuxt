@@ -267,7 +267,11 @@ export default defineEventHandler(async (event: H3Event) => {
       clearsBetterAuthSessionCookie(cookies)
 
     if (shouldClearSessionCache && incomingSessionToken) {
-      await serverConvexClearAuthCache(incomingSessionToken)
+      try {
+        await serverConvexClearAuthCache(incomingSessionToken)
+      } catch (error) {
+        console.warn('[auth-proxy] Failed to clear cached auth state after upstream logout:', error)
+      }
     }
 
     // Dev mode: log the request

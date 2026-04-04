@@ -27,9 +27,9 @@ export interface UseConvexAuthActionsReturn<T = unknown> {
   /** True while the auth action is in progress. */
   pending: ComputedRef<boolean>
   /** Result from the last successful auth action. */
-  data: Ref<T | undefined>
+  data: Readonly<Ref<T | undefined>>
   /** Error from the last auth action, or null. */
-  error: Ref<Error | null>
+  error: Readonly<Ref<Error | null>>
   /** Reset state back to idle. Clears error and data. */
   reset: () => void
 }
@@ -79,7 +79,13 @@ export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<
         throw wrapBetterAuthError(betterAuthError, 'auth')
       }
 
-      await refreshAuthAfterAction()
+      try {
+        await refreshAuthAfterAction()
+      } catch (refreshError) {
+        // Auth action succeeded but post-action refresh failed.
+        // The auth state will self-correct on next navigation.
+        console.warn('[useConvexAuthActions] Post-action auth refresh failed:', refreshError)
+      }
       data.value = result as T
       _status.value = 'success'
       await redirectAfterAuth(options?.redirectTo)

@@ -78,3 +78,6 @@ export {
   type UseConvexAuthActionsOptions,
   type UseConvexAuthActionsReturn,
 } from './useConvexAuthActions'
+export { useConvexSignIn } from './useConvexSignIn'
+export { useConvexSignUp } from './useConvexSignUp'
+export { useConvexPasswordReset } from './useConvexPasswordReset'

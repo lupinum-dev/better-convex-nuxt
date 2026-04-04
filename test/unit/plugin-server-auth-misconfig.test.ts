@@ -63,6 +63,7 @@ type MockResponse = {
   status: number
   ok: boolean
   json: () => Promise<unknown>
+  text: () => Promise<string>
 }
 
 function createResponse(status: number, body: unknown): MockResponse {
@@ -70,6 +71,7 @@ function createResponse(status: number, body: unknown): MockResponse {
     status,
     ok: status >= 200 && status < 300,
     json: async () => body,
+    text: async () => JSON.stringify(body),
   }
 }
 
@@ -167,12 +169,12 @@ describe('plugin.server token exchange failure policy', () => {
     expect(fetchWithTimeoutMock).toHaveBeenCalledWith(
       'https://demo.convex.site/api/auth/convex/token',
       expect.objectContaining({
-        headers: { Cookie: 'better-auth.session_token=abc' },
+        headers: expect.objectContaining({ Cookie: 'better-auth.session_token=abc' }),
       }),
     )
   })
 
-  it('keeps 401 token exchange as graceful unauthenticated (no throw)', async () => {
+  it('classifies 401 token exchange as session-rejected with a diagnostic error', async () => {
     fetchWithTimeoutMock.mockImplementation(async (url: string) => {
       if (url.endsWith('/api/auth/convex/token')) {
         return createResponse(401, { error: 'unauthorized' })
@@ -180,17 +182,19 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const { getSharedAuthEngine } = await import('../../src/runtime/client/auth-engine')
+    await import('../../src/runtime/client/auth-engine')
     const plugin = (await import('../../src/runtime/plugin.server')).default as (
       nuxtApp: unknown,
     ) => Promise<void>
     const nuxtApp = createNuxtAppMock()
     await expect(plugin(nuxtApp)).resolves.toBeUndefined()
 
-    expect(stateStore.get('convex:authError')?.value).toBeNull()
+    // 401 with a session cookie is now classified as a session rejection
+    // rather than silently treated as unauthenticated
+    const authError = stateStore.get('convex:authError')?.value
+    expect(authError).toMatch(/Session cookie present but rejected/)
     expect(stateStore.get('convex:token')?.value).toBeNull()
     expect(stateStore.get('convex:user')?.value).toBeNull()
-    expect(getSharedAuthEngine(nuxtApp).rawAuthError.value).toBeNull()
   })
 
   it('fails closed during SSR when a token exchanges successfully but cannot be decoded', async () => {

@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -15,6 +16,7 @@ import {
   findAvailablePortPair,
   getDesiredSiteUrl,
   getDesiredNuxtPort,
+  readStaticJwksFromLocalBackend,
   readDotenvFile,
   prefixStream,
   readConvexLocalConfig,
@@ -29,6 +31,7 @@ import {
   syncConvexLocalConfigPortPair,
   stopChild,
   waitForConvexReady,
+  waitForLocalStaticJwks,
   writeLocalEnvFile,
 } from '../../scripts/example-dev.mjs'
 
@@ -61,6 +64,53 @@ function createChildProcess(): FakeChildProcess {
 describe('example dev launcher', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('normalizes local Better Auth JWKS rows into static JWKS env JSON', () => {
+    const jwks = readStaticJwksFromLocalBackend('/repo/examples/02-auth-todo', {
+      spawnSyncFn: (() => ({
+        status: 0,
+        stdout: JSON.stringify([
+          {
+            json_value: JSON.stringify({
+              _id: 'jwks-row-1',
+              _creationTime: 12,
+              createdAt: 11,
+              publicKey: '{"kty":"RSA","n":"abc","e":"AQAB"}',
+              privateKey: '"secret"',
+              alg: 'RS256',
+            }),
+          },
+        ]),
+      })) as typeof import('node:child_process').spawnSync,
+    })
+
+    expect(jwks).toBe(
+      JSON.stringify([
+        {
+          id: 'jwks-row-1',
+          publicKey: '{"kty":"RSA","n":"abc","e":"AQAB"}',
+          privateKey: '"secret"',
+          createdAt: 11,
+          alg: 'RS256',
+        },
+      ]),
+    )
+  })
+
+  it('waits until local Better Auth JWKS rows exist', async () => {
+    let attempts = 0
+
+    await expect(
+      waitForLocalStaticJwks('/repo/examples/02-auth-todo', {
+        timeoutMs: 50,
+        intervalMs: 1,
+        readStaticJwksFromLocalBackendFn: () => {
+          attempts += 1
+          return attempts >= 3 ? '[{"id":"jwks-row-1"}]' : null
+        },
+      }),
+    ).resolves.toBe('[{"id":"jwks-row-1"}]')
   })
 
   it('chooses the first free backend/site port pair', async () => {
@@ -275,7 +325,7 @@ describe('example dev launcher', () => {
       readFileSyncFn: (target: string) =>
         target === '/repo/examples/01-public-todo/shared/schemas/todo.ts'
           ? 'export const y = 2\n'
-          : fileContents[target] ?? '',
+          : (fileContents[target] ?? ''),
     })
 
     expect(initial).toBe(repeated)
@@ -291,8 +341,8 @@ describe('example dev launcher', () => {
   it('keeps quoted and hash-containing dotenv values intact', () => {
     const env = readDotenvFile('/repo/examples/01-public-todo', '.env.local', {
       existsSyncFn: () => true,
-      readFileSyncFn: ((() =>
-        'BETTER_AUTH_SECRET="abc#123"\nEMPTY_VALUE=\nSITE_URL=http://localhost:4121\n') as unknown) as typeof import('node:fs').readFileSync,
+      readFileSyncFn: (() =>
+        'BETTER_AUTH_SECRET="abc#123"\nEMPTY_VALUE=\nSITE_URL=http://localhost:4121\n') as unknown as typeof import('node:fs').readFileSync,
     })
 
     expect(env).toEqual({
@@ -598,7 +648,8 @@ describe('example dev launcher', () => {
   it('writes final launcher-managed runtime values after Convex selects the local deployment', async () => {
     const convex = createChildProcess()
     const nuxt = createChildProcess()
-    const spawnFn = vi.fn()
+    const spawnFn = vi
+      .fn()
       .mockReturnValueOnce(convex)
       .mockImplementationOnce(() => {
         const child = createChildProcess()
@@ -673,6 +724,78 @@ describe('example dev launcher', () => {
     nuxt.emit('exit', 1, null)
     await pending
     expect(processExit).toHaveBeenCalledWith(1)
+  })
+
+  it('pushes static JWKS into local Convex env for auth examples', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'trellis-auth-example-'))
+    mkdirSync(join(cwd, 'convex'), { recursive: true })
+    writeFileSync(join(cwd, 'convex', 'auth.config.ts'), 'export default {}', 'utf8')
+
+    const convex = createChildProcess()
+    const nuxt = createChildProcess()
+    const envSet = createChildProcess()
+    let pushedEnvFile = ''
+    let pushedEnvContents = ''
+    const spawnFn = vi.fn((command, args) => {
+      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'dev') {
+        return convex
+      }
+      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+        pushedEnvFile = String(args[6])
+        pushedEnvContents = readFileSync(pushedEnvFile, 'utf8')
+        queueMicrotask(() => {
+          envSet.exitCode = 0
+          envSet.emit('exit', 0, null)
+        })
+        return envSet
+      }
+      if (command === 'pnpm' && args[0] === 'run' && args[1] === 'dev:nuxt') {
+        return nuxt
+      }
+      const child = createChildProcess()
+      queueMicrotask(() => {
+        child.exitCode = 0
+        child.emit('exit', 0, null)
+      })
+      return child
+    })
+    const readLocalEnvFileFn = vi
+      .fn()
+      .mockReturnValueOnce({})
+      .mockReturnValueOnce({ CONVEX_DEPLOYMENT: 'anonymous:anonymous-agent' })
+    const processExit: (code?: string | number | null) => never = vi.fn(
+      ((_) => undefined as never) as (code?: string | number | null) => never,
+    )
+
+    const pending = runExampleDev({
+      cwd,
+      spawnFn,
+      findAvailablePortPairFn: async () => 3212,
+      isPortFreeFn: async () => false,
+      waitForConvexReadyFn: async () => undefined,
+      waitForLocalStaticJwksFn: async () =>
+        '[{"id":"jwks-row-1","createdAt":1,"publicKey":"{\\"kty\\":\\"RSA\\"}","privateKey":"\\"secret\\""}]',
+      existsSyncFn: () => false,
+      rmSyncFn: vi.fn(),
+      readExampleDefaultsFileFn: () => ({ BETTER_AUTH_SECRET: 'replace-me' }),
+      readLocalEnvFileFn,
+      writeLocalEnvFileFn: vi.fn(),
+      readConvexLocalConfigFn: () => null,
+      writeConvexLocalConfigFn: vi.fn(),
+      clearPortsFn: vi.fn().mockResolvedValue(undefined),
+      stdout: process.stdout,
+      stderr: process.stderr,
+      exitFn: processExit,
+      disableAiFiles: false,
+      prepareModuleForDev: false,
+    } as Parameters<typeof runExampleDev>[0])
+
+    await vi.waitFor(() => expect(pushedEnvFile).not.toBe(''))
+    expect(pushedEnvContents).toContain('JWKS=')
+
+    nuxt.emit('exit', 1, null)
+    await pending
+    rmSync(cwd, { recursive: true, force: true })
   })
 
   it('preserves app-owned values when filtering local runtime keys', () => {

@@ -35,6 +35,23 @@ describe('auth proxy handler hardening', () => {
     expect(serverConvexClearAuthCacheMock).toHaveBeenCalledWith('session123')
   })
 
+  it('does not fail the proxy response when cache eviction throws after upstream logout', async () => {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue(
+      createResponseWithCookies(200, ['better-auth.session_token=; Max-Age=0; Path=/; HttpOnly']),
+    )
+    serverConvexClearAuthCacheMock.mockRejectedValueOnce(new Error('Redis unavailable'))
+
+    const handler = await loadAuthProxyHandler()
+    const event = createEvent('/api/auth/sign-out', {
+      cookie: 'better-auth.session_token=session123',
+    })
+
+    await expect(handler(event)).resolves.toBe('{"ok":true}')
+
+    expect(serverConvexClearAuthCacheMock).toHaveBeenCalledTimes(1)
+    expect(serverConvexClearAuthCacheMock).toHaveBeenCalledWith('session123')
+  })
+
   it.each(['/api/auth/convex/token', '/api/auth/get-session'])(
     'fails closed when %s redirects to a different origin',
     async (pathname) => {

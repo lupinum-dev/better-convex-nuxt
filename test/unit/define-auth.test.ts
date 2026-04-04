@@ -152,11 +152,173 @@ describe('defineAuth', () => {
       {},
       expect.objectContaining({
         siteUrl: 'http://127.0.0.1:4122',
-        trustedOrigins: expect.arrayContaining([
-          'http://127.0.0.1:4122',
-          'http://localhost:4122',
-        ]),
+        trustedOrigins: expect.arrayContaining(['http://127.0.0.1:4122', 'http://localhost:4122']),
       }),
     )
+  })
+
+  it('does not trust localhost loopback origins for a production site url', async () => {
+    const deps = createDefineAuthDeps()
+    const custom = vi.fn(() => ({ kind: 'custom-auth' }))
+    vi.stubEnv('SITE_URL', 'https://app.example.com')
+
+    const { createAuth } = defineAuth(deps, { custom })
+    createAuth({})
+
+    expect(custom).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        siteUrl: 'https://app.example.com',
+        trustedOrigins: ['https://app.example.com'],
+      }),
+    )
+  })
+
+  it('does not call onUserDeleted when no app user row existed', async () => {
+    const deps = createDefineAuthDeps()
+    const onUserDeleted = vi.fn()
+    const { authComponent } = defineAuth(deps, { onUserDeleted })
+
+    const deleteFn = vi.fn()
+    const ctx = {
+      db: {
+        query: vi.fn(() => createQueryBuilder(null)), // user not found
+        delete: deleteFn,
+      },
+    }
+
+    // The real triggersApi() wraps handlers in internalMutationGeneric, so args
+    // must be { doc, model } to match the actual Convex trigger calling convention.
+    await authComponent.triggersApi().onDelete(ctx, {
+      doc: { _id: 'ghost-auth-id', email: 'ghost@test.com', name: 'Ghost' },
+      model: 'user',
+    })
+
+    expect(deleteFn).not.toHaveBeenCalled()
+    expect(onUserDeleted).not.toHaveBeenCalled()
+  })
+
+  it('calls onUserDeleted only when the app user row was deleted', async () => {
+    const deps = createDefineAuthDeps()
+    const onUserDeleted = vi.fn()
+    const { authComponent } = defineAuth(deps, { onUserDeleted })
+
+    const deleteFn = vi.fn()
+    const ctx = {
+      db: {
+        query: vi.fn(() =>
+          createQueryBuilder({ _id: 'user_to_delete', authId: 'auth-user' }),
+        ),
+        delete: deleteFn,
+      },
+    }
+
+    await authComponent.triggersApi().onDelete(ctx, {
+      doc: { _id: 'auth-user', email: 'user@test.com', name: 'User' },
+      model: 'user',
+    })
+
+    expect(deleteFn).toHaveBeenCalledWith('user_to_delete')
+    expect(onUserDeleted).toHaveBeenCalledWith(ctx, 'auth-user')
+  })
+
+  it('createUserIfNeeded falls back to empty string when identity.email or .name is absent', async () => {
+    const deps = createDefineAuthDeps()
+    const { createUserIfNeeded } = defineAuth(deps)
+
+    const insert = vi.fn(async () => 'new_user_id')
+    const ctx = {
+      auth: {
+        // Simulates an auth provider that omits email and name (e.g. anonymous)
+        getUserIdentity: vi.fn(async () => ({
+          subject: 'anon-user',
+          email: undefined,
+          name: undefined,
+        })),
+      },
+      db: {
+        query: vi.fn(() => createQueryBuilder(null)), // no existing user
+        insert,
+      },
+    }
+
+    const userId = await createUserIfNeeded.handler(ctx)
+    expect(userId).toBe('new_user_id')
+    const insertedDoc = insert.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(insertedDoc.email).toBe('')
+    expect(insertedDoc.displayName).toBe('')
+  })
+
+  it('patches email, displayName and updatedAt when the auth user is updated', async () => {
+    const deps = createDefineAuthDeps()
+    const onUserUpdated = vi.fn()
+    const { authComponent } = defineAuth(deps, { onUserUpdated })
+
+    const patchFn = vi.fn()
+    const ctx = {
+      db: {
+        query: vi.fn(() =>
+          createQueryBuilder({ _id: 'user_existing', authId: 'auth-user' }),
+        ),
+        patch: patchFn,
+      },
+    }
+
+    // The real createClient wraps triggers in internalMutationGeneric.
+    // onUpdate expects { oldDoc, newDoc, model } — the wrapper calls
+    // config.triggers[model].onUpdate(ctx, newDoc, oldDoc).
+    await authComponent.triggersApi().onUpdate(ctx, {
+      oldDoc: { _id: 'auth-user', email: 'old@test.com', name: 'Old Name' },
+      newDoc: { _id: 'auth-user', email: 'new@test.com', name: 'New Name' },
+      model: 'user',
+    })
+
+    expect(patchFn).toHaveBeenCalledWith(
+      'user_existing',
+      expect.objectContaining({
+        email: 'new@test.com',
+        displayName: 'New Name',
+      }),
+    )
+    expect(onUserUpdated).toHaveBeenCalledWith(ctx, 'user_existing')
+  })
+
+  it('does not call onUserUpdated when no app user row exists for the auth id', async () => {
+    const deps = createDefineAuthDeps()
+    const onUserUpdated = vi.fn()
+    const { authComponent } = defineAuth(deps, { onUserUpdated })
+
+    const patchFn = vi.fn()
+    const ctx = {
+      db: {
+        query: vi.fn(() => createQueryBuilder(null)), // user not found
+        patch: patchFn,
+      },
+    }
+
+    await authComponent.triggersApi().onUpdate(ctx, {
+      oldDoc: { _id: 'ghost-auth-id', email: 'ghost@test.com', name: 'Ghost' },
+      newDoc: { _id: 'ghost-auth-id', email: 'ghost@test.com', name: 'Ghost' },
+      model: 'user',
+    })
+
+    expect(patchFn).not.toHaveBeenCalled()
+    expect(onUserUpdated).not.toHaveBeenCalled()
+  })
+
+  it('passes static JWKS to the Convex plugin when configured', async () => {
+    const deps = createDefineAuthDeps()
+    vi.stubEnv(
+      'JWKS',
+      '[{"id":"key-1","publicKey":"{\\"kty\\":\\"RSA\\"}","privateKey":"\\"secret\\"","createdAt":1}]',
+    )
+    vi.stubEnv('CONVEX_SITE_URL', 'http://127.0.0.1:3211')
+
+    const { getAuthConfigProvider } = await import('@convex-dev/better-auth/auth-config')
+    deps.authConfig = {
+      providers: [getAuthConfigProvider({ jwks: process.env.JWKS })],
+    }
+
+    expect(() => defineAuth(deps).createAuth({})).not.toThrow()
   })
 })

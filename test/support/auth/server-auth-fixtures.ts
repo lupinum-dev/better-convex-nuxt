@@ -22,7 +22,15 @@ export function createEvent(cookie?: string): H3Event {
     __is_event__: true,
     context: {},
     node: {
-      req: { headers: cookie ? { cookie } : {} },
+      req: {
+        headers: {
+          ...(cookie ? { cookie } : {}),
+          host: '127.0.0.1:4122',
+        },
+        socket: {
+          remoteAddress: '127.0.0.1',
+        },
+      },
       res: {},
     },
   } as unknown as H3Event

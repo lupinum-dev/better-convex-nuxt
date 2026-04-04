@@ -1,14 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { GenericDataModel, GenericMutationCtx } from 'convex/server'
+
+type MutationCtx = GenericMutationCtx<GenericDataModel>
 
 /**
  * Auth user document as provided by Better Auth triggers.
  * This represents the Better Auth internal user, not the app user.
+ *
+ * Fields match the Convex component's `user` table schema. Plugin-contributed
+ * fields (e.g. `twoFactorEnabled`) are marked optional since they are only
+ * present when the corresponding Better Auth plugin is active.
  */
 export type AuthUserDoc = {
   _id: string
+  _creationTime: number
   email: string
+  emailVerified: boolean
   name: string
-  image?: string
+  image?: string | null
+  createdAt: number
+  updatedAt: number
 }
 
 /**
@@ -20,9 +31,6 @@ export type AuthUserDoc = {
 export interface DefineAuthOptions {
   /** Enable email/password auth. @default true */
   emailPassword?: boolean
-
-  /** OAuth providers to enable (e.g. ['github', 'google']). */
-  oauth?: string[]
 
   /**
    * Extra fields merged into the app user row on creation.
@@ -36,27 +44,37 @@ export interface DefineAuthOptions {
   }) => Record<string, unknown>
 
   /** Hook called after a user row is created in the users table. */
-  onUserCreated?: (ctx: any, userId: any) => Promise<void>
+  onUserCreated?: (ctx: MutationCtx, userId: string) => Promise<void>
 
   /** Hook called after a user row is updated from auth sync. */
-  onUserUpdated?: (ctx: any, userId: any) => Promise<void>
+  onUserUpdated?: (ctx: MutationCtx, userId: string) => Promise<void>
 
-  /** Hook called after a user row is deleted from auth sync. */
-  onUserDeleted?: (ctx: any, authId: string) => Promise<void>
+  /** Hook called after a user row is deleted from auth sync. Only fires when a matching app user row was found and deleted. */
+  onUserDeleted?: (ctx: MutationCtx, authId: string) => Promise<void>
 
   /**
    * Full escape hatch: provide a custom Better Auth builder.
    * When set, the module hands you the adapter and gets out of the way.
-   * emailPassword and oauth options are ignored.
+   * emailPassword is ignored.
    */
   custom?: (ctx: any, bridge: ConvexAuthBridge) => any
 }
 
+/**
+ * Bridge object passed to the `custom` escape hatch in `defineAuth`.
+ *
+ * Provides the building blocks needed to configure a custom Better Auth
+ * instance without coupling to the module's internal wiring.
+ */
 export type ConvexAuthBridge = {
+  /** The site URL derived from `process.env.SITE_URL` (fallback: `http://localhost:3000`). */
   siteUrl: string
+  /** Origins trusted for CORS/CSRF, derived from `siteUrl`. */
   trustedOrigins: string[]
-  database: any
-  createConvexPlugin: (overrides?: Record<string, unknown>) => any
+  /** Per-request Better Auth database adapter backed by Convex. Obtained from `authComponent.adapter(ctx)`. */
+  database: unknown
+  /** Creates a configured `convex()` Better Auth plugin. Pass optional overrides to customize. */
+  createConvexPlugin: (overrides?: Record<string, unknown>) => unknown
 }
 
 /**
@@ -66,30 +84,33 @@ export type ConvexAuthBridge = {
  */
 export interface DefineAuthDeps {
   /** `components` from './_generated/api' */
-  components: any
+  components: { betterAuth: unknown }
   /** `internal` from './_generated/api' */
-  internal: any
+  internal: { auth: unknown }
   /** `mutation` from './_generated/server' */
-  mutation: any
-  /** Auth config from './auth.config' */
-  authConfig: any
+  mutation: (definition: { args: Record<string, unknown>; handler: (...args: any[]) => any }) => any
+  /** Default export from './auth.config' */
+  authConfig: unknown
 }
 
 const RESERVED_USER_FIELD_KEYS = ['authId', 'email', 'displayName', 'createdAt', 'updatedAt']
+const LOCAL_JWKS_BOOTSTRAP_SENTINEL = '__TRELLIS_LOCAL_JWKS_BOOTSTRAP__'
 
 function buildTrustedOrigins(siteUrl: string): string[] {
-  const trustedOrigins = new Set(['http://127.0.0.1:3000', 'http://localhost:3000'])
+  const trustedOrigins = new Set<string>()
 
   try {
     const origin = new URL(siteUrl)
     trustedOrigins.add(origin.origin)
 
-    if (origin.protocol === 'http:' && (origin.hostname === '127.0.0.1' || origin.hostname === 'localhost')) {
+    if (
+      origin.protocol === 'http:' &&
+      (origin.hostname === '127.0.0.1' || origin.hostname === 'localhost')
+    ) {
       const alternateHost = origin.hostname === '127.0.0.1' ? 'localhost' : '127.0.0.1'
       trustedOrigins.add(
-        new URL(
-          `${origin.protocol}//${alternateHost}${origin.port ? `:${origin.port}` : ''}`,
-        ).origin,
+        new URL(`${origin.protocol}//${alternateHost}${origin.port ? `:${origin.port}` : ''}`)
+          .origin,
       )
     }
   } catch {
@@ -133,6 +154,10 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
 
   const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
   const trustedOrigins = buildTrustedOrigins(siteUrl)
+  const staticJwks =
+    process.env.JWKS && process.env.JWKS !== LOCAL_JWKS_BOOTSTRAP_SENTINEL
+      ? process.env.JWKS
+      : undefined
 
   function findUserByAuthId(ctx: any, authId: string) {
     return ctx.db
@@ -153,9 +178,7 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
     const extra = options.userFields(input)
     for (const reservedKey of RESERVED_USER_FIELD_KEYS) {
       if (Object.prototype.hasOwnProperty.call(extra, reservedKey)) {
-        throw new Error(
-          `defineAuth.userFields must not define reserved key "${reservedKey}".`,
-        )
+        throw new Error(`defineAuth.userFields must not define reserved key "${reservedKey}".`)
       }
     }
 
@@ -223,10 +246,10 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
 
           if (user) {
             await ctx.db.delete(user._id)
-          }
 
-          if (options.onUserDeleted) {
-            await options.onUserDeleted(ctx, doc._id)
+            if (options.onUserDeleted) {
+              await options.onUserDeleted(ctx, doc._id)
+            }
           }
         },
       },
@@ -239,6 +262,7 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
     createConvexPlugin: (overrides) =>
       convex({
         authConfig: deps.authConfig,
+        ...(staticJwks ? { jwks: staticJwks } : {}),
         ...(overrides ?? {}),
       }),
   }
@@ -275,8 +299,10 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
 
       const { userId } = await ensureUserForAuthIdentity(ctx, {
         authId: identity.subject,
-        email: identity.email,
-        displayName: identity.name,
+        // Convex UserIdentity.email and .name are optional — guard against
+        // providers that omit them (e.g. anonymous auth, some OIDC configs).
+        email: identity.email ?? '',
+        displayName: identity.name ?? '',
       })
 
       return userId
