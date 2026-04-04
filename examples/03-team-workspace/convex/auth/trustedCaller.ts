@@ -7,7 +7,7 @@ import { deny } from '@lupinum/trellis/auth'
 import { verifyTrustedCallerKey } from '@lupinum/trellis/trusted-caller'
 import type { GenericDatabaseReader, GenericMutationCtx } from 'convex/server'
 
-import type { DataModel, Doc, Id } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
 import type { Actor } from './actor'
 
 type Db = GenericDatabaseReader<DataModel>
@@ -47,7 +47,7 @@ export async function ensureWebhookBotUser(
     workspaceId,
     createdAt: now,
     updatedAt: now,
-  } satisfies Doc<'users'>)
+  })
 }
 
 async function getWebhookBotUser(db: Db, workspaceId: Id<'workspaces'>) {
@@ -61,7 +61,7 @@ export async function resolveWebhookActor(
   ctx: MutationCtx,
   key: string,
   workspaceId: Id<'workspaces'>,
-): Promise<Actor> {
+): Promise<NonNullable<Actor>> {
   const expected = process.env.CONVEX_TRUSTED_CALLER_KEY?.trim()
   if (!expected) {
     throw new Error('CONVEX_TRUSTED_CALLER_KEY must be set for trusted caller example flows.')

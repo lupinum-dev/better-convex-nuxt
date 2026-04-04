@@ -21,6 +21,8 @@ const actor = defineActor
   })
   .filter((value): value is TeamTodoActor => !!value.tenantId)
 
-export type Actor = TeamTodoActor | null
+export type Actor = TeamTodoActor
 
-export const getActor = actor.resolve
+export async function getActor(ctx: Parameters<typeof actor.resolve>[0]): Promise<Actor | null> {
+  return await actor.resolve(ctx)
+}

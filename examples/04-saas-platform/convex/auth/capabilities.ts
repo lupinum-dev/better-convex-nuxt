@@ -6,7 +6,7 @@ import type { Actor } from './actor'
 import { canAssignTask, canDeleteTask, canUpdateTask } from './checks'
 
 export const taskCapabilities = defineCapabilities<Doc<'tasks'>>()({
-  update: (actor, task) => can(actor, canUpdateTask(task)),
-  delete: (actor, task) => can(actor, canDeleteTask(task)),
-  assign: (actor) => can(actor, canAssignTask),
+  update: (actor: Actor, task) => can(actor, canUpdateTask(task)),
+  delete: (actor: Actor, task) => can(actor, canDeleteTask(task)),
+  assign: (actor: Actor) => can(actor, canAssignTask),
 })

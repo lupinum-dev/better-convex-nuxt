@@ -6,6 +6,6 @@ import type { Actor } from './actor'
 import { canDeleteTodo, canUpdateTodo } from './checks'
 
 export const todoCapabilities = defineCapabilities<Doc<'todos'>>()({
-  update: (actor, todo) => can(actor, canUpdateTodo(todo)),
-  delete: (actor, todo) => can(actor, canDeleteTodo(todo)),
+  update: (actor: Actor, todo) => can(actor, canUpdateTodo(todo)),
+  delete: (actor: Actor, todo) => can(actor, canDeleteTodo(todo)),
 })

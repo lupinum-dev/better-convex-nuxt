@@ -28,7 +28,7 @@ export const getPermissionContext = app.query(
     extend: async (ctx, actor) => {
       const user = await ctx.db
         .query('users')
-        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
+        .withIndex('by_auth_id', (q: any) => q.eq('authId', actor.userId))
         .first()
 
       if (!user) {

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
-import { existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import { createHash, randomBytes } from 'node:crypto'
+import { existsSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -35,6 +35,19 @@ const LOCAL_RUNTIME_ENV_KEYS = new Set([
   'NUXT_PUBLIC_CONVEX_URL',
   'NUXT_PUBLIC_CONVEX_SITE_URL',
   'SITE_URL',
+])
+const SOURCE_FINGERPRINT_VERSION = 'v1'
+const SOURCE_FINGERPRINT_EXTENSIONS = new Set([
+  '.cjs',
+  '.cts',
+  '.js',
+  '.json',
+  '.jsx',
+  '.mjs',
+  '.mts',
+  '.ts',
+  '.tsx',
+  '.vue',
 ])
 
 function colorize(text, code) {
@@ -198,6 +211,69 @@ export function getDesiredSiteUrl(cwd = process.cwd()) {
   return `http://${DEFAULT_HOST}:${getDesiredNuxtPort(cwd)}`
 }
 
+function collectExampleSourceFiles(
+  rootDir,
+  {
+    existsSyncFn = existsSync,
+    readdirSyncFn = readdirSync,
+  } = {},
+) {
+  if (!existsSyncFn(rootDir)) return []
+
+  const entries = readdirSyncFn(rootDir, { withFileTypes: true })
+  const files = []
+
+  for (const entry of entries) {
+    const absolutePath = path.join(rootDir, entry.name)
+
+    if (entry.isDirectory()) {
+      if (entry.name === '_generated' || entry.name === 'node_modules') continue
+      files.push(...collectExampleSourceFiles(absolutePath, { existsSyncFn, readdirSyncFn }))
+      continue
+    }
+
+    if (!entry.isFile()) continue
+    if (!SOURCE_FINGERPRINT_EXTENSIONS.has(path.extname(entry.name))) continue
+    files.push(absolutePath)
+  }
+
+  return files.sort()
+}
+
+export function buildExampleSourceFingerprint(
+  cwd,
+  {
+    existsSyncFn = existsSync,
+    readdirSyncFn = readdirSync,
+    readFileSyncFn = readFileSync,
+  } = {},
+) {
+  const hash = createHash('sha256')
+  hash.update(SOURCE_FINGERPRINT_VERSION)
+
+  for (const relativeRoot of ['convex', 'shared']) {
+    const absoluteRoot = path.join(cwd, relativeRoot)
+    for (const absolutePath of collectExampleSourceFiles(absoluteRoot, {
+      existsSyncFn,
+      readdirSyncFn,
+    })) {
+      hash.update(path.relative(cwd, absolutePath))
+      hash.update('\0')
+      hash.update(readFileSyncFn(absolutePath))
+      hash.update('\0')
+    }
+  }
+
+  return hash.digest('hex')
+}
+
+export function shouldResetLocalBackendForSourceFingerprint(
+  currentFingerprint,
+  storedFingerprint,
+) {
+  return typeof storedFingerprint !== 'string' || storedFingerprint !== currentFingerprint
+}
+
 export function convexGeneratedDir(cwd) {
   return path.join(cwd, 'convex', '_generated')
 }
@@ -254,17 +330,26 @@ export function syncConvexLocalConfigPortPair(
   cwd,
   port,
   {
+    exampleSourceFingerprint,
     readConvexLocalConfigFn = readConvexLocalConfig,
     writeConvexLocalConfigFn = writeConvexLocalConfig,
   } = {},
 ) {
   const config = readConvexLocalConfigFn(cwd)
-  if (!config?.ports) return
+  if (!config) return
 
-  if (config.ports.cloud === port && config.ports.site === port + 1) return
+  const hasMatchingPorts = config.ports?.cloud === port && config.ports?.site === port + 1
+  const hasMatchingFingerprint =
+    typeof exampleSourceFingerprint !== 'string' ||
+    config.exampleSourceFingerprint === exampleSourceFingerprint
+
+  if (hasMatchingPorts && hasMatchingFingerprint) return
 
   writeConvexLocalConfigFn(cwd, {
     ...config,
+    ...(typeof exampleSourceFingerprint === 'string'
+      ? { exampleSourceFingerprint }
+      : {}),
     ports: {
       ...config.ports,
       cloud: port,
@@ -596,8 +681,10 @@ export async function runExampleDev({
     await prepareLocalModuleForDev({ spawnFn, stdout, stderr })
   }
 
+  const exampleSourceFingerprint = buildExampleSourceFingerprint(cwd)
   const desiredNuxtPort = getDesiredNuxtPort(cwd)
-  const configuredPorts = readConvexLocalConfigFn(cwd)?.ports
+  const storedConvexLocalConfig = readConvexLocalConfigFn(cwd)
+  const configuredPorts = storedConvexLocalConfig?.ports
   await clearPortsFn([desiredNuxtPort, configuredPorts?.cloud, configuredPorts?.site], { stdout })
 
   const port = await selectLocalPortPair({
@@ -610,6 +697,7 @@ export async function runExampleDev({
   await clearPortsFn([port, port + 1], { stdout })
 
   syncConvexLocalConfigPortPair(cwd, port, {
+    exampleSourceFingerprint,
     readConvexLocalConfigFn,
     writeConvexLocalConfigFn,
   })
@@ -624,6 +712,10 @@ export async function runExampleDev({
   writeLocalEnvFileFn(cwd, exampleLocalEnv.bootstrapLocalEnvFileValues)
 
   if (
+    shouldResetLocalBackendForSourceFingerprint(
+      exampleSourceFingerprint,
+      storedConvexLocalConfig?.exampleSourceFingerprint,
+    ) ||
     shouldResetLocalBackendForMissingGeneratedSecret(
       exampleLocalEnv.exampleDefaults,
       exampleLocalEnv.existingLocalEnv,

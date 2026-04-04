@@ -5,38 +5,88 @@ import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import { agencyPermissionKeys } from '../shared/permissions'
+import type { Doc, Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
 
 const api = anyApi
+type MembershipRole = Doc<'memberships'>['role']
+type SeededUser = {
+  id: Id<'users'>
+  authId: string
+  role: MembershipRole
+  query: ReturnType<ReturnType<typeof createCtx>['raw']['withIdentity']>['query']
+  mutation: ReturnType<ReturnType<typeof createCtx>['raw']['withIdentity']>['mutation']
+}
 
 function createCtx() {
   return createTestContext({ schema, modules })
 }
 
+async function seedWorkspace(
+  ctx: ReturnType<typeof createCtx>,
+  {
+    name,
+    users,
+  }: {
+    name: string
+    users: Record<string, { role: MembershipRole }>
+  },
+): Promise<{ id: Id<'workspaces'>; users: Record<string, SeededUser> }> {
+  const slug = name.toLowerCase()
+  const ownerEntry = Object.entries(users).find(([, user]) => user.role === 'owner') ?? Object.entries(users)[0]
+  if (!ownerEntry) throw new Error('seedWorkspace requires at least one user.')
+
+  const now = Date.now()
+  const workspaceId = await ctx.seed('workspaces', {
+    name,
+    slug,
+    ownerId: `${slug}-${ownerEntry[0]}`,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  const seededUsers = {} as Record<string, SeededUser>
+  for (const [key, user] of Object.entries(users)) {
+    const authId = `${slug}-${key}`
+    const userId = await ctx.seed('users', {
+      authId,
+      email: `${authId}@example.test`,
+      displayName: key,
+      workspaceId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    await ctx.seed('memberships', {
+      userId: authId,
+      workspaceId,
+      role: user.role,
+      createdAt: now,
+    })
+
+    const caller = ctx.raw.withIdentity({ subject: authId })
+    seededUsers[key] = {
+      id: userId,
+      authId,
+      role: user.role,
+      query: caller.query,
+      mutation: caller.mutation,
+    }
+  }
+
+  return { id: workspaceId, users: seededUsers }
+}
+
 describe('agency example', () => {
   it('keeps client users tenant-scoped', async () => {
     const ctx = createCtx()
-    const alpha = await ctx.seedTenant({
+    const alpha = await seedWorkspace(ctx, {
       name: 'Alpha',
-      users: { owner: {} },
+      users: { owner: { role: 'owner' } },
     })
-    const beta = await ctx.seedTenant({
+    const beta = await seedWorkspace(ctx, {
       name: 'Beta',
-      users: { owner: {} },
-    })
-
-    await ctx.seed('memberships', {
-      userId: alpha.users.owner.authId,
-      workspaceId: alpha.id,
-      role: 'owner',
-      createdAt: Date.now(),
-    })
-    await ctx.seed('memberships', {
-      userId: beta.users.owner.authId,
-      workspaceId: beta.id,
-      role: 'owner',
-      createdAt: Date.now(),
+      users: { owner: { role: 'owner' } },
     })
 
     await alpha.users.owner.mutation(api.projects.create, { name: 'Alpha project' })
@@ -117,30 +167,21 @@ describe('agency example', () => {
     const agent = ctx.raw.withIdentity({ subject: 'agent-1' })
     const portfolio = await agent.query(api.dashboard.portfolio, {})
     expect(portfolio).toHaveLength(2)
-    expect(portfolio.map((entry) => entry.workspace.name).sort()).toEqual(['Client A', 'Client B'])
+    expect(
+      portfolio
+        .map((entry: (typeof portfolio)[number]) => entry.workspace.name)
+        .sort(),
+    ).toEqual(['Client A', 'Client B'])
   })
 
   it('returns permission context booleans for owners and viewers inside a workspace', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team = await seedWorkspace(ctx, {
       name: 'Alpha',
       users: {
-        owner: {},
-        viewer: {},
+        owner: { role: 'owner' },
+        viewer: { role: 'viewer' },
       },
-    })
-
-    await ctx.seed('memberships', {
-      userId: team.users.owner.authId,
-      workspaceId: team.id,
-      role: 'owner',
-      createdAt: Date.now(),
-    })
-    await ctx.seed('memberships', {
-      userId: team.users.viewer.authId,
-      workspaceId: team.id,
-      role: 'viewer',
-      createdAt: Date.now(),
     })
 
     const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
@@ -159,11 +200,11 @@ describe('agency example', () => {
 
   it('prevents duplicate memberships when joining the same workspace twice', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team = await seedWorkspace(ctx, {
       name: 'Alpha',
       users: {
-        owner: {},
-        member: {},
+        owner: { role: 'owner' },
+        member: { role: 'member' },
       },
     })
 
@@ -182,7 +223,7 @@ describe('agency example', () => {
     })
 
     const memberships = await ctx.readAll('memberships')
-    const joinedMemberships = memberships.filter((membership) => {
+    const joinedMemberships = memberships.filter((membership: Doc<'memberships'>) => {
       return (
         membership.userId === team.users.member.authId && membership.workspaceId === workspaceId
       )

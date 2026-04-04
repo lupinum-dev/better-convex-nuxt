@@ -17,13 +17,15 @@ type PublicRunbook = {
 }
 
 export const workspaceRunbookCapabilities = defineCapabilities<Doc<'runbooks'>>()({
-  update: (actor, runbook) => can(actor, canUpdateRunbook(runbook)),
-  delete: (actor, runbook) => can(actor, canDeleteRunbook(runbook)),
-  publish: (actor) => can(actor, canPublishRunbook),
+  update: (actor: Actor, runbook) => can(actor, canUpdateRunbook(runbook)),
+  delete: (actor: Actor, runbook) => can(actor, canDeleteRunbook(runbook)),
+  publish: (actor: Actor) => can(actor, canPublishRunbook),
 })
 
 export const publicRunbookCapabilities = defineCapabilities<PublicRunbook>()({
-  update: (actor, runbook) => !!actor && can(actor, canUpdateRunbook({ ownerId: runbook.ownerId })),
-  delete: (actor, runbook) => !!actor && can(actor, canDeleteRunbook({ ownerId: runbook.ownerId })),
-  publish: (actor) => !!actor && can(actor, canPublishRunbook),
+  update: (actor: Actor | null, runbook) =>
+    !!actor && can(actor, canUpdateRunbook({ ownerId: runbook.ownerId })),
+  delete: (actor: Actor | null, runbook) =>
+    !!actor && can(actor, canDeleteRunbook({ ownerId: runbook.ownerId })),
+  publish: (actor: Actor | null) => !!actor && can(actor, canPublishRunbook),
 })

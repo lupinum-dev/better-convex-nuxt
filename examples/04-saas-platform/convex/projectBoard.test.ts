@@ -243,7 +243,7 @@ describe('project board example', () => {
     const members = await team.users.owner.query(api.members.list, {})
 
     expect(members).toHaveLength(2)
-    expect(members.find((member) => member.authId === 'floating-user')).toBeUndefined()
+    expect(members.find((member: (typeof members)[number]) => member.authId === 'floating-user')).toBeUndefined()
   })
 
   it('does not expose a raw storage-url query anymore', async () => {

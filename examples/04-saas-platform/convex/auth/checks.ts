@@ -14,16 +14,13 @@ const planFeatures: Record<Doc<'workspaces'>['plan'], string[]> = {
   enterprise: ['*'],
 }
 
-export const isAuthenticated = (actor: Actor) => actor !== null
 export const hasRole =
   (...roles: Doc<'users'>['role'][]) =>
-  (actor: Actor) =>
-    !!actor && roles.includes(actor.role)
+  defineGuard<Actor>(`role:${roles.join('|')}`, (actor) => roles.includes(actor.role))
 export const isOwnerOf = (resource: { ownerId: string }) => (actor: Actor) =>
-  !!actor && actor.userId === resource.ownerId
+  actor.userId === resource.ownerId
 
 export const hasFeature = (feature: string) => (actor: Actor) => {
-  if (!actor) return false
   const features = planFeatures[actor.plan ?? 'free'] ?? []
   return features.includes(feature) || features.includes('*')
 }

@@ -9,9 +9,7 @@
  * the client-side object URL before submit. Any later download path must be scoped through the
  * owning comment or task, not raw `_storage`.
  */
-import { enforce } from '@lupinum/trellis/auth'
-
-import { isAuthenticated } from './auth/checks'
+import { requireAuth } from '@lupinum/trellis/auth'
 import { raw } from './functions'
 
 export const generateUploadUrl = raw.mutation({
@@ -19,7 +17,7 @@ export const generateUploadUrl = raw.mutation({
   handler: async (ctx) => {
     const actor = await ctx.actor()
     // Upload URLs are actor-gated, but they are not tied to a specific task or project yet.
-    enforce(actor, 'Generate upload URL', isAuthenticated)
-    return await ctx.storage.generateUploadUrl()
+    requireAuth(actor)
+    return await (ctx as unknown as { storage: { generateUploadUrl(): Promise<string> } }).storage.generateUploadUrl()
   },
 })

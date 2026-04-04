@@ -13,11 +13,11 @@ export type Actor = {
   userId: string
   role: Doc<'memberships'>['role']
   tenantId: Id<'workspaces'>
-} | null
+}
 
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
-export async function getActor(ctx: Ctx): Promise<Actor> {
+export async function getActor(ctx: Ctx): Promise<Actor | null> {
   const auth = await getAuth(ctx)
   if (!auth) return null
 

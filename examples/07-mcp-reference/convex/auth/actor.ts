@@ -20,7 +20,9 @@ const permissionActor = defineActor.fromAuth<DataModel>().extend({
 
 const actor = permissionActor.filter((value): value is McpReferenceActor => !!value.tenantId)
 
-export type Actor = McpReferenceActor | null
+export type Actor = McpReferenceActor
 
-export const getActor = actor.resolve
+export async function getActor(ctx: Parameters<typeof actor.resolve>[0]): Promise<Actor | null> {
+  return await actor.resolve(ctx)
+}
 export const getPermissionActor = permissionActor.resolve

@@ -27,8 +27,8 @@ const actor = defineActor
   })
   .filter((value): value is ProjectBoardActor => !!value?.tenantId)
 
-export type Actor = ProjectBoardActor | null
+export type Actor = ProjectBoardActor
 
-export async function getActor(ctx: ProjectBoardCtx): Promise<Actor> {
+export async function getActor(ctx: ProjectBoardCtx): Promise<Actor | null> {
   return await actor.resolve(ctx)
 }

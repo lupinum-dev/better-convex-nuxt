@@ -1,8 +1,8 @@
-import { requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { createTodo } from '../shared/schemas/todo'
 import { isAuthenticated } from './auth/checks'
+import { loadOwnedResource } from './auth/scope'
 import { app } from './functions'
 
 export const list = app.query({
@@ -43,8 +43,7 @@ export const toggle = app.mutation({
   load: async (ctx, args) => {
     const actor = await ctx.actor()
     const todo = await ctx.db.get(args.id)
-    requireRecord(todo && todo.ownerId === actor.userId ? todo : null, 'Todo')
-    return { todo }
+    return { todo: loadOwnedResource(actor, todo, 'Todo') }
   },
   handler: async (ctx, args, { todo }) => {
     await ctx.db.patch(args.id, {
@@ -59,8 +58,7 @@ export const remove = app.mutation({
   load: async (ctx, args) => {
     const actor = await ctx.actor()
     const todo = await ctx.db.get(args.id)
-    requireRecord(todo && todo.ownerId === actor.userId ? todo : null, 'Todo')
-    return { todo }
+    return { todo: loadOwnedResource(actor, todo, 'Todo') }
   },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)

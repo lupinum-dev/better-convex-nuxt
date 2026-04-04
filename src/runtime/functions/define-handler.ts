@@ -24,7 +24,10 @@ export type StructuredLoadedValue = Record<string, unknown> | undefined
 
 type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
 
-export type StructuredGuard<TActor> = Guard<TActor | null> | OpenGuard
+export type StructuredGuard<TActor> =
+  | Guard<NonNullable<TActor>>
+  | Guard<TActor | null>
+  | OpenGuard
 
 type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard ? TActor | null : NonNullable<TActor>
 
@@ -126,7 +129,11 @@ function createStructuredBuilder<TCtx extends object, TActor, TBuilder extends A
         const actor = await resolveActorAccessor<TCtx, TActor>(ctx)()
 
         if (!isOpenGuard(definition.guard)) {
-          enforce(actor, definition.guard.label, definition.guard)
+          enforce<TActor | null>(
+            actor,
+            definition.guard.label,
+            definition.guard as AnyCheck<NonNullable<TActor | null>>,
+          )
         }
 
         const handlerCtx = createActorContext<TCtx, TActor, TGuard>(

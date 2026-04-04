@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  buildExampleSourceFingerprint,
   buildLocalRuntimeEnv,
   clearPorts,
   convexGeneratedDir,
@@ -22,6 +23,7 @@ import {
   selectLocalPortPair,
   serializeEnvFileContents,
   shouldResetLocalBackendForMissingGeneratedSecret,
+  shouldResetLocalBackendForSourceFingerprint,
   stripLocalRuntimeEnvKeys,
   syncConvexLocalConfigPortPair,
   stopChild,
@@ -208,6 +210,57 @@ describe('example dev launcher', () => {
     ).toBe(false)
   })
 
+  it('resets the local backend when the stored example fingerprint is stale', () => {
+    expect(shouldResetLocalBackendForSourceFingerprint('current', 'old')).toBe(true)
+    expect(shouldResetLocalBackendForSourceFingerprint('current', 'current')).toBe(false)
+    expect(shouldResetLocalBackendForSourceFingerprint('current', undefined)).toBe(true)
+  })
+
+  it('builds a stable fingerprint from example source files only', () => {
+    const cwd = '/repo/examples/01-public-todo'
+    const fileContents: Record<string, string> = {
+      '/repo/examples/01-public-todo/convex/schema.ts': 'export default 1\n',
+      '/repo/examples/01-public-todo/convex/todos.ts': 'export const x = 1\n',
+      '/repo/examples/01-public-todo/shared/schemas/todo.ts': 'export const y = 1\n',
+      '/repo/examples/01-public-todo/convex/_generated/api.ts': 'ignored\n',
+    }
+    const directoryEntries: Record<
+      string,
+      Array<{ name: string; isDirectory: () => boolean; isFile: () => boolean }>
+    > = {
+      '/repo/examples/01-public-todo/convex': [
+        { name: '_generated', isDirectory: () => true, isFile: () => false },
+        { name: 'schema.ts', isDirectory: () => false, isFile: () => true },
+        { name: 'todos.ts', isDirectory: () => false, isFile: () => true },
+      ],
+      '/repo/examples/01-public-todo/shared': [
+        { name: 'schemas', isDirectory: () => true, isFile: () => false },
+      ],
+      '/repo/examples/01-public-todo/shared/schemas': [
+        { name: 'todo.ts', isDirectory: () => false, isFile: () => true },
+      ],
+    }
+
+    const baseOptions = {
+      existsSyncFn: (target: string) => target in directoryEntries || target in fileContents,
+      readdirSyncFn: (target: string) => directoryEntries[target] ?? [],
+      readFileSyncFn: (target: string) => fileContents[target] ?? '',
+    }
+
+    const initial = buildExampleSourceFingerprint(cwd, baseOptions)
+    const repeated = buildExampleSourceFingerprint(cwd, baseOptions)
+    const changed = buildExampleSourceFingerprint(cwd, {
+      ...baseOptions,
+      readFileSyncFn: (target: string) =>
+        target === '/repo/examples/01-public-todo/shared/schemas/todo.ts'
+          ? 'export const y = 2\n'
+          : fileContents[target] ?? '',
+    })
+
+    expect(initial).toBe(repeated)
+    expect(changed).not.toBe(initial)
+  })
+
   it('reads local env files with standard parsing semantics', () => {
     const cwd = '/repo/examples/01-public-todo'
     const env = readLocalEnvFile(cwd)
@@ -292,6 +345,32 @@ describe('example dev launcher', () => {
       `${JSON.stringify({
         ports: { cloud: 3222, site: 3223 },
         deploymentName: 'anonymous-agent',
+      })}\n`,
+      'utf8',
+    )
+  })
+
+  it('updates the saved fingerprint even when the configured ports stay the same', () => {
+    const writeFileSyncFn = vi.fn()
+
+    syncConvexLocalConfigPortPair('/repo/examples/01-public-todo', 3210, {
+      exampleSourceFingerprint: 'new-fingerprint',
+      readConvexLocalConfigFn: () => ({
+        ports: { cloud: 3210, site: 3211 },
+        deploymentName: 'anonymous-agent',
+        exampleSourceFingerprint: 'old-fingerprint',
+      }),
+      writeConvexLocalConfigFn: (cwd, config) => {
+        writeFileSyncFn(convexLocalConfigPath(cwd), `${JSON.stringify(config)}\n`, 'utf8')
+      },
+    })
+
+    expect(writeFileSyncFn).toHaveBeenCalledWith(
+      expect.stringContaining('.convex/local/default/config.json'),
+      `${JSON.stringify({
+        ports: { cloud: 3210, site: 3211 },
+        deploymentName: 'anonymous-agent',
+        exampleSourceFingerprint: 'new-fingerprint',
       })}\n`,
       'utf8',
     )
