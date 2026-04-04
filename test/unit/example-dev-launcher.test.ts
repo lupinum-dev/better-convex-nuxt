@@ -10,6 +10,7 @@ import {
   clearPorts,
   convexGeneratedDir,
   convexLocalConfigPath,
+  createExampleLocalEnv,
   createSignalHandler,
   findAvailablePortPair,
   getDesiredSiteUrl,
@@ -192,6 +193,26 @@ describe('example dev launcher', () => {
         SITE_URL: 'http://localhost:3000',
       }),
     ).toBe('BETTER_AUTH_SECRET="abc#123"\nEMPTY_VALUE=""\nSITE_URL=http://localhost:3000')
+  })
+
+  it('pushes the desired SITE_URL into Convex deployment env vars', () => {
+    const env = createExampleLocalEnv({
+      cwd: '/repo/examples/02-auth-todo',
+      port: 3212,
+      readExampleDefaultsFileFn: () => ({
+        BETTER_AUTH_SECRET: 'replace-me',
+        SITE_URL: 'http://localhost:3000',
+      }),
+      readLocalEnvFileFn: () => ({
+        BETTER_AUTH_SECRET: 'stable-secret',
+        SITE_URL: 'http://localhost:9999',
+      }),
+    })
+
+    expect(env.deploymentEnvVars).toMatchObject({
+      BETTER_AUTH_SECRET: 'stable-secret',
+      SITE_URL: 'http://127.0.0.1:4122',
+    })
   })
 
   it('resets the local backend only when a generated auth secret has not been stored yet', () => {
@@ -579,6 +600,14 @@ describe('example dev launcher', () => {
     const nuxt = createChildProcess()
     const spawnFn = vi.fn()
       .mockReturnValueOnce(convex)
+      .mockImplementationOnce(() => {
+        const child = createChildProcess()
+        queueMicrotask(() => {
+          child.exitCode = 0
+          child.emit('exit', 0, null)
+        })
+        return child
+      })
       .mockReturnValueOnce(nuxt)
     const clearPortsFn = vi.fn().mockResolvedValue(undefined)
     const writeLocalEnvFileFn = vi.fn()
@@ -612,6 +641,12 @@ describe('example dev launcher', () => {
     } as Parameters<typeof runExampleDev>[0])
 
     await vi.waitFor(() => expect(writeLocalEnvFileFn).toHaveBeenCalledTimes(2))
+
+    expect(spawnFn).toHaveBeenCalledWith(
+      'pnpm',
+      ['exec', 'convex', 'env', 'set', '--force', '--from-file', expect.any(String)],
+      expect.any(Object),
+    )
 
     expect(spawnFn).toHaveBeenCalledWith(
       'pnpm',

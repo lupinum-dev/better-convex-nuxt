@@ -77,6 +77,28 @@ export interface DefineAuthDeps {
 
 const RESERVED_USER_FIELD_KEYS = ['authId', 'email', 'displayName', 'createdAt', 'updatedAt']
 
+function buildTrustedOrigins(siteUrl: string): string[] {
+  const trustedOrigins = new Set(['http://127.0.0.1:3000', 'http://localhost:3000'])
+
+  try {
+    const origin = new URL(siteUrl)
+    trustedOrigins.add(origin.origin)
+
+    if (origin.protocol === 'http:' && (origin.hostname === '127.0.0.1' || origin.hostname === 'localhost')) {
+      const alternateHost = origin.hostname === '127.0.0.1' ? 'localhost' : '127.0.0.1'
+      trustedOrigins.add(
+        new URL(
+          `${origin.protocol}//${alternateHost}${origin.port ? `:${origin.port}` : ''}`,
+        ).origin,
+      )
+    }
+  } catch {
+    trustedOrigins.add(siteUrl)
+  }
+
+  return [...trustedOrigins]
+}
+
 /**
  * Define the auth bridge between Better Auth and Convex.
  *
@@ -110,7 +132,7 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
   }
 
   const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
-  const trustedOrigins = [siteUrl, 'http://127.0.0.1:3000', 'http://localhost:3000']
+  const trustedOrigins = buildTrustedOrigins(siteUrl)
 
   function findUserByAuthId(ctx: any, authId: string) {
     return ctx.db

@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const defineAuthMocks = vi.hoisted(() => ({
   betterAuthMock: vi.fn(() => ({ kind: 'better-auth-instance' })),
@@ -49,6 +49,10 @@ describe('defineAuth', () => {
       triggersApi: () => options.triggers.user,
     }))
     defineAuthMocks.convexPluginMock.mockReturnValue({ kind: 'convex-plugin' })
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('rejects reserved module-owned user fields', async () => {
@@ -134,5 +138,25 @@ describe('defineAuth', () => {
 
     await expect(createUserIfNeeded.handler(ctx)).resolves.toBe('user_existing')
     expect(insert).not.toHaveBeenCalled()
+  })
+
+  it('trusts both localhost and 127.0.0.1 for the same local dev port', async () => {
+    const deps = createDefineAuthDeps()
+    const custom = vi.fn(() => ({ kind: 'custom-auth' }))
+    vi.stubEnv('SITE_URL', 'http://127.0.0.1:4122')
+
+    const { createAuth } = defineAuth(deps, { custom })
+    createAuth({})
+
+    expect(custom).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        siteUrl: 'http://127.0.0.1:4122',
+        trustedOrigins: expect.arrayContaining([
+          'http://127.0.0.1:4122',
+          'http://localhost:4122',
+        ]),
+      }),
+    )
   })
 })

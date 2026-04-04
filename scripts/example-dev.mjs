@@ -611,7 +611,7 @@ async function prepareLocalModuleForDev({ spawnFn, stdout, stderr }) {
   })
 }
 
-function createExampleLocalEnv({
+export function createExampleLocalEnv({
   cwd,
   port,
   readExampleDefaultsFileFn = readExampleDefaultsFile,
@@ -649,11 +649,14 @@ function createExampleLocalEnv({
       ...generatedSecretEnv,
       ...localRuntimeEnv,
     },
-    deploymentEnvVars: stripLocalRuntimeEnvKeys({
-      ...exampleDefaults,
-      ...generatedSecretEnv,
-      ...existingLocalEnv,
-    }),
+    deploymentEnvVars: {
+      ...stripLocalRuntimeEnvKeys({
+        ...exampleDefaults,
+        ...generatedSecretEnv,
+        ...existingLocalEnv,
+      }),
+      SITE_URL: exampleDefaults.SITE_URL,
+    },
   }
 }
 
