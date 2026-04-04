@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
+import type { DataModelFromSchemaDefinition } from 'convex/server'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
@@ -8,6 +9,7 @@ import schema from './schema'
 import { modules } from './test.setup'
 
 const api = anyApi
+type Todo = DataModelFromSchemaDefinition<typeof schema>['todos']['document']
 
 function createCtx() {
   return createTestContext({ schema, modules })
@@ -24,7 +26,7 @@ describe('public todo example', () => {
       title: 'Write docs',
     })
 
-    let todos = await ctx.raw.query(api.todos.list, {})
+    let todos: Todo[] = await ctx.raw.query(api.todos.list, {})
     expect(todos).toHaveLength(2)
     expect(todos[0]?.title).toBe('Write docs')
     expect(todos[1]?.title).toBe('Ship public demo')

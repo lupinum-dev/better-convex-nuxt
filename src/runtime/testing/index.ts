@@ -176,9 +176,12 @@ function mergeInlineDeps(config: UserConfig): UserConfig {
 }
 
 function mergeStableTestTsconfig(config: UserConfig): UserConfig {
+  const esbuildConfig =
+    config.esbuild && typeof config.esbuild === 'object' ? config.esbuild : undefined
+
   const existingRaw =
-    config.esbuild?.tsconfigRaw && typeof config.esbuild.tsconfigRaw === 'object'
-      ? config.esbuild.tsconfigRaw
+    esbuildConfig?.tsconfigRaw && typeof esbuildConfig.tsconfigRaw === 'object'
+      ? esbuildConfig.tsconfigRaw
       : {}
 
   const existingCompilerOptions =
@@ -191,7 +194,7 @@ function mergeStableTestTsconfig(config: UserConfig): UserConfig {
   return {
     ...config,
     esbuild: {
-      ...config.esbuild,
+      ...(esbuildConfig ?? {}),
       tsconfigRaw: {
         ...DEFAULT_CONVEX_TEST_TSCONFIG,
         ...existingRaw,
