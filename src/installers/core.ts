@@ -7,11 +7,10 @@ import { resolve as resolvePath } from 'node:path'
 interface InstallCoreOptions {
   nuxt: Nuxt
   resolver: ReturnType<typeof createResolver>
-  logger: { warn: (message: string) => void }
 }
 
 export function installCoreTrellis(options: InstallCoreOptions): void {
-  const { nuxt, resolver, logger } = options
+  const { nuxt, resolver } = options
 
   addPlugin({
     src: resolver.resolve('./runtime/plugin.server'),
@@ -92,10 +91,6 @@ export {}
       )
 
       if (!convexGenApi) {
-        logger.warn(
-          '`#trellis/api` alias registered but convex/_generated/api does not exist yet. ' +
-            'Run `npx convex dev` to generate it.',
-        )
         return `const error = () =>
   new Error(
     '[trellis] \`#trellis/api\` is unavailable because convex/_generated/api has not been generated yet. Run \`npx convex dev\` first.',

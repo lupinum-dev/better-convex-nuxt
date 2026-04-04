@@ -103,7 +103,7 @@ describe('example dev launcher', () => {
   it('derives local runtime env from the chosen port', () => {
     const env = buildLocalRuntimeEnv({
       port: 3218,
-      siteUrl: 'http://localhost:3000',
+      siteUrl: 'http://127.0.0.1:3000',
     })
 
     expect(env.CONVEX_LOCAL_BACKEND_PORT).toBe('3218')
@@ -111,7 +111,7 @@ describe('example dev launcher', () => {
     expect(env.NUXT_PUBLIC_CONVEX_URL).toBe('http://127.0.0.1:3218')
     expect(env.CONVEX_SITE_URL).toBe('http://127.0.0.1:3219')
     expect(env.NUXT_PUBLIC_CONVEX_SITE_URL).toBe('http://127.0.0.1:3219')
-    expect((env as Record<string, string | undefined>).SITE_URL).toBe('http://localhost:3000')
+    expect((env as Record<string, string | undefined>).SITE_URL).toBe('http://127.0.0.1:3000')
   })
 
   it('maps example numbers to deterministic Nuxt ports', () => {
@@ -119,7 +119,7 @@ describe('example dev launcher', () => {
     expect(getDesiredNuxtPort('/repo/examples/02-auth-todo')).toBe(4122)
     expect(getDesiredNuxtPort('/repo/examples/09-doc-sharing')).toBe(4129)
     expect(getDesiredNuxtPort('/repo/examples/10-agency-portal')).toBe(4130)
-    expect(getDesiredSiteUrl('/repo/examples/09-doc-sharing')).toBe('http://localhost:4129')
+    expect(getDesiredSiteUrl('/repo/examples/09-doc-sharing')).toBe('http://127.0.0.1:4129')
   })
 
   it('auto-generates local secrets for placeholder values in .env.example', () => {
@@ -381,6 +381,7 @@ describe('example dev launcher', () => {
     const convex = createChildProcess()
     const spawnFn = vi.fn().mockReturnValue(convex)
     const clearPortsFn = vi.fn().mockResolvedValue(undefined)
+    const writeLocalEnvFileFn = vi.fn()
 
     const processExit: (code?: string | number | null) => never = vi.fn(
       ((_) => undefined as never) as (code?: string | number | null) => never,
@@ -395,7 +396,7 @@ describe('example dev launcher', () => {
       rmSyncFn: vi.fn(),
       readExampleDefaultsFileFn: () => ({ BETTER_AUTH_SECRET: 'replace-me' }),
       readLocalEnvFileFn: () => ({}),
-      writeLocalEnvFileFn: vi.fn(),
+      writeLocalEnvFileFn,
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
       clearPortsFn,
@@ -420,8 +421,6 @@ describe('example dev launcher', () => {
           '3214',
           '--local-site-port',
           '3215',
-          '--env-file',
-          '/repo/examples/01-public-todo/.env.local',
         ],
         expect.objectContaining({
           env: expect.objectContaining({ CONVEX_LOCAL_BACKEND_PORT: '3214' }),
@@ -429,12 +428,19 @@ describe('example dev launcher', () => {
       )
     })
 
+    expect(writeLocalEnvFileFn).toHaveBeenCalledWith(
+      '/repo/examples/01-public-todo',
+      expect.objectContaining({
+        BETTER_AUTH_SECRET: expect.any(String),
+      }),
+    )
+
     convex.emit('exit', 1, null)
     await pending
     expect(processExit).toHaveBeenCalledWith(1)
   })
 
-  it('writes launcher-managed local values into .env.local while preserving app-owned values', async () => {
+  it('bootstraps .env.local with app-owned values only before Convex configures the deployment', async () => {
     const convex = createChildProcess()
     const spawnFn = vi.fn().mockReturnValue(convex)
     const clearPortsFn = vi.fn().mockResolvedValue(undefined)
@@ -453,7 +459,11 @@ describe('example dev launcher', () => {
       existsSyncFn: () => true,
       rmSyncFn,
       readExampleDefaultsFileFn: () => ({ BETTER_AUTH_SECRET: 'replace-me' }),
-      readLocalEnvFileFn: () => ({ GITHUB_CLIENT_ID: 'user-owned' }),
+      readLocalEnvFileFn: () => ({
+        CONVEX_DEPLOYMENT: 'anonymous:stale-local-deployment',
+        CONVEX_URL: 'http://127.0.0.1:9999',
+        GITHUB_CLIENT_ID: 'user-owned',
+      }),
       writeLocalEnvFileFn,
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
@@ -467,17 +477,86 @@ describe('example dev launcher', () => {
 
     await vi.waitFor(() => expect(writeLocalEnvFileFn).toHaveBeenCalledTimes(1))
 
-    expect(writeLocalEnvFileFn).toHaveBeenCalledWith(
-      '/repo/examples/01-public-todo',
+    const [, writtenEnv] = writeLocalEnvFileFn.mock.calls[0] as [string, Record<string, string>]
+
+    expect(writeLocalEnvFileFn).toHaveBeenCalledWith('/repo/examples/01-public-todo', writtenEnv)
+    expect(writtenEnv).toMatchObject({
+      BETTER_AUTH_SECRET: expect.any(String),
+      GITHUB_CLIENT_ID: 'user-owned',
+    })
+    expect(writtenEnv).toMatchObject({
+      CONVEX_DEPLOYMENT: 'anonymous:stale-local-deployment',
+    })
+    expect(writtenEnv).not.toHaveProperty('CONVEX_URL')
+    expect(writtenEnv).not.toHaveProperty('SITE_URL')
+
+    convex.emit('exit', 1, null)
+    await pending
+    expect(processExit).toHaveBeenCalledWith(1)
+  })
+
+  it('writes final launcher-managed runtime values after Convex selects the local deployment', async () => {
+    const convex = createChildProcess()
+    const nuxt = createChildProcess()
+    const spawnFn = vi.fn()
+      .mockReturnValueOnce(convex)
+      .mockReturnValueOnce(nuxt)
+    const clearPortsFn = vi.fn().mockResolvedValue(undefined)
+    const writeLocalEnvFileFn = vi.fn()
+    const readLocalEnvFileFn = vi
+      .fn()
+      .mockReturnValueOnce({})
+      .mockReturnValueOnce({ CONVEX_DEPLOYMENT: 'anonymous:anonymous-agent' })
+
+    const processExit: (code?: string | number | null) => never = vi.fn(
+      ((_) => undefined as never) as (code?: string | number | null) => never,
+    )
+    const pending = runExampleDev({
+      cwd: '/repo/examples/01-public-todo',
+      spawnFn,
+      findAvailablePortPairFn: async () => 3210,
+      isPortFreeFn: async () => false,
+      waitForConvexReadyFn: async () => undefined,
+      existsSyncFn: () => false,
+      rmSyncFn: vi.fn(),
+      readExampleDefaultsFileFn: () => ({}),
+      readLocalEnvFileFn,
+      writeLocalEnvFileFn,
+      readConvexLocalConfigFn: () => null,
+      writeConvexLocalConfigFn: vi.fn(),
+      clearPortsFn,
+      stdout: process.stdout,
+      stderr: process.stderr,
+      exitFn: processExit,
+      disableAiFiles: false,
+      prepareModuleForDev: false,
+    } as Parameters<typeof runExampleDev>[0])
+
+    await vi.waitFor(() => expect(writeLocalEnvFileFn).toHaveBeenCalledTimes(2))
+
+    expect(spawnFn).toHaveBeenCalledWith(
+      'pnpm',
+      ['run', 'dev:nuxt'],
       expect.objectContaining({
-        BETTER_AUTH_SECRET: expect.any(String),
-        CONVEX_URL: 'http://127.0.0.1:3210',
-        GITHUB_CLIENT_ID: 'user-owned',
-        SITE_URL: 'http://localhost:4121',
+        env: expect.objectContaining({
+          HOST: '127.0.0.1',
+          NUXT_HOST: '127.0.0.1',
+          PORT: '4121',
+        }),
       }),
     )
 
-    convex.emit('exit', 1, null)
+    const [, finalEnv] = writeLocalEnvFileFn.mock.calls[1] as [string, Record<string, string>]
+    expect(finalEnv).toMatchObject({
+      CONVEX_DEPLOYMENT: 'anonymous:anonymous-agent',
+      CONVEX_URL: 'http://127.0.0.1:3210',
+      CONVEX_SITE_URL: 'http://127.0.0.1:3211',
+      NUXT_PUBLIC_CONVEX_URL: 'http://127.0.0.1:3210',
+      NUXT_PUBLIC_CONVEX_SITE_URL: 'http://127.0.0.1:3211',
+      SITE_URL: 'http://127.0.0.1:4121',
+    })
+
+    nuxt.emit('exit', 1, null)
     await pending
     expect(processExit).toHaveBeenCalledWith(1)
   })

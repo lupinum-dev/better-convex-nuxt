@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
@@ -44,7 +44,7 @@ function colorize(text, code) {
 
 export function buildLocalRuntimeEnv({
   port,
-  siteUrl = `http://localhost:${getDesiredNuxtPort()}`,
+  siteUrl = `http://${DEFAULT_HOST}:${getDesiredNuxtPort()}`,
   baseEnv = {},
 }) {
   const convexUrl = `http://${DEFAULT_HOST}:${port}`
@@ -195,7 +195,7 @@ export function getDesiredNuxtPort(cwd = process.cwd()) {
 }
 
 export function getDesiredSiteUrl(cwd = process.cwd()) {
-  return `http://localhost:${getDesiredNuxtPort(cwd)}`
+  return `http://${DEFAULT_HOST}:${getDesiredNuxtPort(cwd)}`
 }
 
 export function convexGeneratedDir(cwd) {
@@ -492,6 +492,24 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
   }
 }
 
+function areConvexAiFilesDisabled(cwd, env = process.env) {
+  try {
+    const result = spawnSync('pnpm', ['exec', 'convex', 'ai-files', 'status'], {
+      cwd,
+      env,
+      encoding: 'utf8',
+      stdio: 'pipe',
+    })
+    if (result.status !== 0) {
+      return false
+    }
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    return output.includes('Convex AI files: disabled')
+  } catch {
+    return false
+  }
+}
+
 async function prepareLocalModuleForDev({ spawnFn, stdout, stderr }) {
   const systemLabel = colorize('system'.padEnd(6), '33')
   stdout.write(`${systemLabel} preparing local @lupinum/trellis module\n`)
@@ -508,10 +526,6 @@ async function prepareLocalModuleForDev({ spawnFn, stdout, stderr }) {
   })
 }
 
-function buildLocalEnvFilePath(cwd) {
-  return path.join(cwd, LOCAL_ENV_FILE_NAME)
-}
-
 function createExampleLocalEnv({
   cwd,
   port,
@@ -523,6 +537,11 @@ function createExampleLocalEnv({
     SITE_URL: getDesiredSiteUrl(cwd),
   }
   const existingLocalEnv = readLocalEnvFileFn(cwd)
+  const appOwnedLocalEnv = stripLocalRuntimeEnvKeys(existingLocalEnv)
+  const existingConvexDeployment =
+    typeof existingLocalEnv.CONVEX_DEPLOYMENT === 'string'
+      ? { CONVEX_DEPLOYMENT: existingLocalEnv.CONVEX_DEPLOYMENT }
+      : {}
   const generatedSecretEnv = resolveGeneratedSecretEnvValues(exampleDefaults, existingLocalEnv)
   const localRuntimeEnv = buildLocalRuntimeEnv({
     port,
@@ -532,10 +551,16 @@ function createExampleLocalEnv({
   return {
     exampleDefaults,
     existingLocalEnv,
+    appOwnedLocalEnv,
     generatedSecretEnv,
     localRuntimeEnv,
+    bootstrapLocalEnvFileValues: {
+      ...appOwnedLocalEnv,
+      ...existingConvexDeployment,
+      ...generatedSecretEnv,
+    },
     localEnvFileValues: {
-      ...existingLocalEnv,
+      ...appOwnedLocalEnv,
       ...generatedSecretEnv,
       ...localRuntimeEnv,
     },
@@ -596,7 +621,7 @@ export async function runExampleDev({
     readLocalEnvFileFn,
   })
 
-  writeLocalEnvFileFn(cwd, exampleLocalEnv.localEnvFileValues)
+  writeLocalEnvFileFn(cwd, exampleLocalEnv.bootstrapLocalEnvFileValues)
 
   if (
     shouldResetLocalBackendForMissingGeneratedSecret(
@@ -616,7 +641,7 @@ export async function runExampleDev({
     CONVEX_LOCAL_BACKEND_PORT: String(port),
   }
 
-  if (disableAiFiles) {
+  if (disableAiFiles && !areConvexAiFilesDisabled(cwd, convexEnv)) {
     await runCheckedCommand({
       label: 'convex',
       spawnFn,
@@ -640,8 +665,6 @@ export async function runExampleDev({
       String(port),
       '--local-site-port',
       String(port + 1),
-      '--env-file',
-      buildLocalEnvFilePath(cwd),
     ],
     {
       cwd,
@@ -696,6 +719,17 @@ export async function runExampleDev({
   try {
     await Promise.race([waitForConvexReadyFn(cwd, port), convexExit])
 
+    const convexManagedLocalEnv = readLocalEnvFileFn(cwd)
+    const convexDeployment =
+      typeof convexManagedLocalEnv.CONVEX_DEPLOYMENT === 'string'
+        ? { CONVEX_DEPLOYMENT: convexManagedLocalEnv.CONVEX_DEPLOYMENT }
+        : {}
+
+    writeLocalEnvFileFn(cwd, {
+      ...exampleLocalEnv.localEnvFileValues,
+      ...convexDeployment,
+    })
+
     if (Object.keys(exampleLocalEnv.deploymentEnvVars).length > 0) {
       const systemLabel = colorize('system'.padEnd(6), '33')
       stdout.write(`${systemLabel} configuring Convex env vars from example defaults and .env.local\n`)
@@ -711,9 +745,10 @@ export async function runExampleDev({
 
     const mergedRuntimeEnv = {
       ...exampleLocalEnv.exampleDefaults,
-      ...exampleLocalEnv.existingLocalEnv,
+      ...exampleLocalEnv.appOwnedLocalEnv,
       ...exampleLocalEnv.generatedSecretEnv,
       ...exampleLocalEnv.localRuntimeEnv,
+      HOST: DEFAULT_HOST,
       PORT: String(desiredNuxtPort),
     }
 
@@ -722,6 +757,7 @@ export async function runExampleDev({
       env: {
         ...process.env,
         ...mergedRuntimeEnv,
+        NUXT_HOST: DEFAULT_HOST,
       },
       stdio: ['inherit', 'pipe', 'pipe'],
     })

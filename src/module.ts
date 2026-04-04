@@ -112,7 +112,7 @@ export default defineNuxtModule<ModuleOptions>({
       logger.warn(warning)
     }
 
-    installCoreTrellis({ nuxt, resolver, logger })
+    installCoreTrellis({ nuxt, resolver })
 
     if (setup.isAuthEnabled) {
       installAuthTrellis({

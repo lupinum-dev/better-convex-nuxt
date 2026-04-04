@@ -56,7 +56,6 @@ describe('installer auto-import surface', () => {
     installCoreTrellis({
       nuxt: nuxt as never,
       resolver: resolver as never,
-      logger: { warn: vi.fn() },
     })
     installAuthTrellis({
       resolver: resolver as never,
