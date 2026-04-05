@@ -66,13 +66,45 @@ function usePermissionContextState<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
 >(query: Query, configuredQueryName: string) {
+  let authState:
+    | ReturnType<typeof useConvexAuth>
+    | null = null
+
+  try {
+    authState = useConvexAuth()
+  } catch {
+    authState = null
+  }
+
   const { data, pending, error } = createConvexQueryState(
     query,
     {},
     undefined,
     true,
   ).resultData
-  const ctx = computed<TContext | null>(() => data.value as TContext | null)
+  const rawCtx = computed<TContext | null>(() => data.value as TContext | null)
+  const ctx = computed<TContext | null>(() => {
+    const value = rawCtx.value
+    if (!authState) {
+      return value
+    }
+
+    if (authState.isPending.value || !authState.isAuthenticated.value) {
+      return null
+    }
+
+    const authUserId = authState.user.value?.id
+    const contextUserId = value?.userId
+    if (
+      typeof authUserId === 'string' &&
+      typeof contextUserId === 'string' &&
+      contextUserId !== authUserId
+    ) {
+      return null
+    }
+
+    return value
+  })
   const devtoolsState = usePermissionDevtoolsState()
   let delayedNullWarningTimer: ReturnType<typeof setTimeout> | null = null
   let warnedAboutNullCtx = false
@@ -91,19 +123,18 @@ function usePermissionContextState<
 
   if (import.meta.client && shouldEmitDevWarning()) {
     try {
-      const { isAuthenticated } = useConvexAuth()
       watchEffect((onCleanup) => {
         if (delayedNullWarningTimer) {
           clearTimeout(delayedNullWarningTimer)
           delayedNullWarningTimer = null
         }
 
-        if (!isAuthenticated.value || ctx.value || warnedAboutNullCtx) {
+        if (!authState?.isAuthenticated.value || authState.isPending.value || ctx.value || warnedAboutNullCtx) {
           return
         }
 
         delayedNullWarningTimer = setTimeout(() => {
-          if (!isAuthenticated.value || ctx.value || warnedAboutNullCtx) return
+          if (!authState?.isAuthenticated.value || authState.isPending.value || ctx.value || warnedAboutNullCtx) return
           warnedAboutNullCtx = true
           console.warn(
             `[trellis] usePermissions("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`trellis.permissions.query\` and actor bootstrap flow.`,

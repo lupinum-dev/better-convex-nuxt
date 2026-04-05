@@ -202,4 +202,58 @@ describe('configured permissions composables (Nuxt runtime)', () => {
       warnSpy.mockRestore()
     }
   }, 10_000)
+
+  it('fails closed while permission context still belongs to a previous authenticated user', async () => {
+    const convex = new MockConvexClient()
+    const authQuery = mockFnRef<'query'>('auth:getPermissionContext:stale-auth-user')
+    const { usePermissions } = createConfiguredPermissionsComposables(
+      authQuery,
+      'auth.getPermissionContext.staleAuthUser',
+    )
+
+    const { result } = await captureInNuxt(
+      () => {
+        installMockAuthEngine({
+          initialToken: 'active.jwt.token',
+          initialUser: { id: 'user-current', name: 'Current User', email: 'current@test.com' },
+        })
+
+        const permissions = usePermissions()
+        return {
+          ...permissions,
+          canRead: permissions.can('todo.read'),
+        }
+      },
+      { convex },
+    )
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+
+    convex.emitQueryResultByPath('auth:getPermissionContext:stale-auth-user', {
+      role: 'owner',
+      userId: 'user-previous',
+      tenantId: 'tenant-previous',
+      can: {
+        'todo.read': true,
+      },
+    })
+
+    await waitFor(() => result.pending.value === false)
+    expect(result.ready.value).toBe(false)
+    expect(result.tenantId.value).toBeNull()
+    expect(result.canRead.value).toBe(false)
+
+    convex.emitQueryResultByPath('auth:getPermissionContext:stale-auth-user', {
+      role: 'owner',
+      userId: 'user-current',
+      tenantId: 'tenant-current',
+      can: {
+        'todo.read': true,
+      },
+    })
+
+    await waitFor(() => result.ready.value)
+    expect(result.tenantId.value).toBe('tenant-current')
+    expect(result.canRead.value).toBe(true)
+  })
 })
