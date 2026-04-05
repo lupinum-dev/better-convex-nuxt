@@ -1,4 +1,9 @@
-import { can, deny, enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
+import {
+  can,
+  deny,
+  enforce,
+  loadTenantResource as loadResource,
+} from '@lupinum/trellis/auth'
 import { asyncMap } from 'convex-helpers'
 import { v } from 'convex/values'
 
@@ -190,6 +195,36 @@ export const bulkUpdateStatus = app.mutation({
     })
 
     return results
+  },
+})
+
+export const remove = app.mutation({
+  args: { id: v.id('tasks') },
+  guard: canReadTask,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
+    enforce(actor, 'Delete task', canDeleteTask(task))
+    const workspaceId = requireWorkspaceTenant(actor)
+
+    const comments = await ctx.db
+      .query('comments')
+      .withIndex('by_task', (q) => q.eq('taskId', args.id))
+      .collect()
+    for (const comment of comments) {
+      await ctx.db.delete(comment._id)
+    }
+    await ctx.db.delete(args.id)
+
+    await ctx.db.insert('auditEvents', {
+      workspaceId,
+      actorId: actor.userId,
+      entityType: 'task',
+      entityId: args.id,
+      action: 'task.deleted',
+      description: `Deleted task "${task.title}".`,
+      createdAt: Date.now(),
+    })
   },
 })
 

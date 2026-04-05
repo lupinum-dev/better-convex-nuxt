@@ -3,7 +3,7 @@ import { api } from '#trellis/api'
 /**
  * Why this file exists:
  * Bulk operations are where "one-item-at-a-time" demos stop being useful.
- * This keeps the partial-success response visible instead of hiding it behind toasts.
+ * The partial-success response surfaces clearly through a toast.
  */
 import type { Id } from '~/convex/_generated/dataModel'
 
@@ -15,8 +15,10 @@ const emit = defineEmits<{
   cleared: []
 }>()
 
-const bulkUpdate = useConvexMutation(api.tasks.bulkUpdateStatus)
-const summary = ref('')
+const toast = useToast()
+const bulkUpdate = useConvexMutation(api.tasks.bulkUpdateStatus, {
+  onError: (error) => toast.add({ title: 'Bulk update failed', description: error.message, color: 'error' }),
+})
 
 async function markDone() {
   const result = await bulkUpdate({
@@ -24,10 +26,11 @@ async function markDone() {
     status: 'done',
   })
 
-  summary.value = result.skipped.length
+  const message = result.skipped.length
     ? `${result.updated} updated, ${result.skipped.length} skipped.`
     : `Updated ${result.updated} task(s).`
 
+  toast.add({ title: message, color: 'success', icon: 'i-lucide-check-check' })
   emit('cleared')
 }
 </script>
@@ -48,7 +51,5 @@ async function markDone() {
     >
       Mark selected as done
     </UButton>
-
-    <p v-if="summary" class="text-sm text-muted">{{ summary }}</p>
   </div>
 </template>

@@ -20,7 +20,7 @@
               immediately from the already-fetched board list.
             </p>
           </div>
-          <UBadge v-if="task" variant="subtle" size="lg">{{ task.status }}</UBadge>
+          <UBadge v-if="task" variant="subtle" size="lg" :color="statusColor">{{ statusLabel }}</UBadge>
         </div>
       </UCard>
 
@@ -37,31 +37,27 @@
             </div>
             <div>
               <p class="text-sm text-muted">Owner</p>
-              <p class="font-medium">{{ task?.ownerId }}</p>
+              <p class="font-medium">{{ resolveName(task?.ownerId) }}</p>
             </div>
             <div>
               <p class="text-sm text-muted">Assignee</p>
-              <p class="font-medium">{{ task?.assigneeId || 'Unassigned' }}</p>
+              <p class="font-medium">{{ resolveName(task?.assigneeId) }}</p>
             </div>
 
             <div v-if="canAssign && members?.length" class="space-y-1 pt-2">
               <label class="text-sm font-medium text-highlighted">Assign task</label>
-              <select
-                :value="task?.assigneeId || ''"
-                class="w-full rounded-md border border-default bg-default px-3 py-2 text-sm"
-                @change="handleAssigneeChange"
-              >
-                <option value="">Unassigned</option>
-                <option v-for="member in members" :key="member._id" :value="member.authId">
-                  {{ member.displayName || member.authId }}
-                </option>
-              </select>
+              <USelect
+                :model-value="task?.assigneeId"
+                :items="assigneeOptions"
+                placeholder="Unassigned"
+                @update:model-value="handleAssign"
+              />
             </div>
           </div>
         </UCard>
 
         <UCard>
-          <CommentThread v-if="task" :task-id="task._id" />
+          <CommentThread v-if="task" :task-id="task._id" :member-names="memberNames" />
         </UCard>
       </div>
     </div>
@@ -85,6 +81,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const toast = useToast()
 const { can } = usePermissions()
 
 const taskId = computed(() => route.params.id as Id<'tasks'>)
@@ -108,17 +105,45 @@ const { data: members } = await useConvexQuery(
   computed(() => (canAssign.value ? {} : undefined)),
 )
 
-const assignTask = useConvexMutation(api.tasks.assign)
+const memberNames = computed(() => {
+  const map = new Map<string, string>()
+  for (const m of members.value ?? []) {
+    map.set(m.authId, m.displayName || m.email || m.authId)
+  }
+  return map
+})
 
-async function handleAssign(assigneeId: string | undefined) {
-  await assignTask({
-    id: taskId.value,
-    assigneeId,
-  })
+const assigneeOptions = computed(() =>
+  (members.value ?? []).map((m) => ({
+    label: m.displayName || m.email || m.authId,
+    value: m.authId,
+  })),
+)
+
+const statusColor = computed(() => {
+  if (task.value?.status === 'done') return 'success'
+  if (task.value?.status === 'in_progress') return 'info'
+  return 'neutral'
+})
+
+const statusLabel = computed(() =>
+  (task.value?.status ?? '').replace('_', ' ').replace(/^\w/, (c) => c.toUpperCase()),
+)
+
+function resolveName(authId: string | undefined) {
+  if (!authId) return 'Unassigned'
+  return memberNames.value.get(authId) ?? `Member ${authId.slice(0, 8)}…`
 }
 
-async function handleAssigneeChange(event: Event) {
-  const select = event.target as HTMLSelectElement
-  await handleAssign(select.value || undefined)
+const assignTask = useConvexMutation(api.tasks.assign, {
+  onSuccess: () => toast.add({ title: 'Assignee updated', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not assign task', description: error.message, color: 'error' }),
+})
+
+async function handleAssign(value: string | undefined) {
+  await assignTask({
+    id: taskId.value,
+    assigneeId: value,
+  })
 }
 </script>

@@ -1,4 +1,5 @@
 import { deny, enforce, loadTenantResource as loadResource, open } from '@lupinum/trellis/auth'
+import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
 import { archiveProject, createProject } from '../shared/schemas/project'
@@ -13,9 +14,9 @@ import { ensureWithinLimit } from './auth/limits'
 import { app } from './functions'
 
 export const list = app.query({
-  args: {},
+  args: { paginationOpts: paginationOptsValidator },
   guard: canReadProject,
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
 
@@ -23,7 +24,7 @@ export const list = app.query({
       .query('projects')
       .withIndex('by_workspace', (q) => q.eq('workspaceId', workspaceId))
       .order('desc')
-      .collect()
+      .paginate(args.paginationOpts)
   },
 })
 

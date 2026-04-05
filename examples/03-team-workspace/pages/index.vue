@@ -106,6 +106,51 @@
               :description="todoError"
             />
 
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">Permission matrix</h3>
+                <p class="text-sm text-muted mt-1">
+                  What each role can do. Your current role is highlighted.
+                </p>
+              </template>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-b border-default">
+                      <th class="text-left py-2 pr-4 font-medium text-muted">Action</th>
+                      <th
+                        v-for="r in allRoles"
+                        :key="r"
+                        class="text-center py-2 px-3 font-medium"
+                        :class="r === role ? 'text-primary' : 'text-muted'"
+                      >
+                        {{ r }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="row in permissionMatrix"
+                      :key="row.label"
+                      class="border-b border-default last:border-0"
+                    >
+                      <td class="py-2 pr-4 text-highlighted">{{ row.label }}</td>
+                      <td
+                        v-for="r in allRoles"
+                        :key="r"
+                        class="text-center py-2 px-3"
+                        :class="r === role ? 'font-semibold' : ''"
+                      >
+                        <span v-if="row.roles.includes(r)" class="text-success">yes</span>
+                        <span v-else class="text-muted">—</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </UCard>
+
             <template v-if="ready && !tenantId">
               <div class="grid gap-4 md:grid-cols-2">
                 <UCard>
@@ -405,6 +450,15 @@ const displayName = computed(
 
 const canCreate = can(teamWorkspacePermissionKeys.todoCreate)
 const roleOptions = ['admin', 'member', 'viewer'] as const
+const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
+const permissionMatrix = [
+  { label: 'Create todo', roles: ['owner', 'admin', 'member'] },
+  { label: 'Read todos', roles: ['owner', 'admin', 'member', 'viewer'] },
+  { label: 'Update any todo', roles: ['owner', 'admin'] },
+  { label: 'Update own todo', roles: ['owner', 'admin', 'member'] },
+  { label: 'Delete any todo', roles: ['owner', 'admin'] },
+  { label: 'Delete own todo', roles: ['owner', 'admin', 'member'] },
+]
 
 const todoError = computed(
   () =>

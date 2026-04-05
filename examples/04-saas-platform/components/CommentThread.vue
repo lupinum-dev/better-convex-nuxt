@@ -10,13 +10,22 @@ import { saasPermissionKeys } from '~/shared/permissions'
 
 const props = defineProps<{
   taskId: Id<'tasks'>
+  memberNames?: Map<string, string>
 }>()
 
+const toast = useToast()
 const { can } = usePermissions()
 const body = ref('')
 const attachmentStorageId = ref<Id<'_storage'> | null>(null)
-const createComment = useConvexMutation(api.comments.create)
+const createComment = useConvexMutation(api.comments.create, {
+  onSuccess: () => toast.add({ title: 'Comment added', color: 'success', icon: 'i-lucide-message-square-plus' }),
+  onError: (error) => toast.add({ title: 'Could not post comment', description: error.message, color: 'error' }),
+})
 const canCreateComment = can(saasPermissionKeys.commentCreate)
+
+function resolveName(authId: string) {
+  return props.memberNames?.get(authId) ?? `Member ${authId.slice(0, 8)}…`
+}
 
 const {
   data: comments,
@@ -62,7 +71,7 @@ async function handleSubmit() {
       >
         <p>{{ comment.body }}</p>
         <p class="text-sm text-muted mt-2">
-          by {{ comment.ownerId }}
+          by {{ resolveName(comment.ownerId) }}
           <span v-if="comment.attachmentStorageId"> · attachment saved</span>
         </p>
       </div>

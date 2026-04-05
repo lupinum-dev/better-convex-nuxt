@@ -11,16 +11,20 @@ const props = defineProps<{
   member: Doc<'users'>
 }>()
 
+const toast = useToast()
 const { can } = usePermissions()
 const canManageMembers = can(saasPermissionKeys.workspaceMembers)
-const changeRole = useConvexMutation(api.members.changeRole)
+const changeRole = useConvexMutation(api.members.changeRole, {
+  onSuccess: () => toast.add({ title: 'Role updated', color: 'success', icon: 'i-lucide-shield-check' }),
+  onError: (error) => toast.add({ title: 'Could not change role', description: error.message, color: 'error' }),
+})
 const memberKey = computed(() => props.member.email || props.member.authId)
+const roleItems = ['admin', 'member', 'viewer']
 
-async function handleRoleChange(event: Event) {
-  const select = event.target as HTMLSelectElement
+async function handleRoleSelect(value: string) {
   await changeRole({
     userId: props.member._id,
-    newRole: select.value as 'admin' | 'member' | 'viewer',
+    newRole: value as 'admin' | 'member' | 'viewer',
   })
 }
 </script>
@@ -34,17 +38,15 @@ async function handleRoleChange(event: Event) {
       <p class="text-sm text-muted truncate">{{ props.member.email || props.member.authId }}</p>
     </div>
 
-    <select
+    <USelect
       v-if="canManageMembers && props.member.role !== 'owner'"
       :data-testid="`member-role-${memberKey}`"
-      :value="props.member.role"
-      class="min-w-28 rounded-md border border-default bg-default px-3 py-1.5 text-sm"
-      @change="handleRoleChange"
-    >
-      <option value="admin">admin</option>
-      <option value="member">member</option>
-      <option value="viewer">viewer</option>
-    </select>
+      :model-value="props.member.role"
+      :items="roleItems"
+      size="sm"
+      class="min-w-28"
+      @update:model-value="handleRoleSelect"
+    />
 
     <UBadge v-else variant="subtle" color="neutral">{{ props.member.role }}</UBadge>
   </div>

@@ -11,6 +11,7 @@ defineProps<{
   projectId: Id<'projects'>
   tasks: Doc<'tasks'>[]
   selectedIds: Id<'tasks'>[]
+  memberNames?: Map<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -34,10 +35,14 @@ const emit = defineEmits<{
         :project-id="projectId"
         :task="task"
         :selected="selectedIds.includes(task._id)"
+        :member-names="memberNames"
         @toggle-selected="emit('toggleSelected', $event)"
       />
 
-      <p v-if="!tasks.length" class="text-sm text-muted text-center py-4">No tasks</p>
+      <div v-if="!tasks.length" class="text-center py-8">
+        <span class="iconify i-lucide-inbox text-2xl text-muted" />
+        <p class="text-sm text-muted mt-1">No tasks</p>
+      </div>
     </div>
   </UCard>
 </template>

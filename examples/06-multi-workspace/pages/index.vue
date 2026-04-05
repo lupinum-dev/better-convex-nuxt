@@ -120,6 +120,51 @@ This page keeps current-workspace actions and cross-client reporting in the same
               </UButton>
             </div>
 
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">Permission matrix</h3>
+                <p class="text-sm text-muted mt-1">
+                  What each role can do. Your current role is highlighted.
+                </p>
+              </template>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-b border-default">
+                      <th class="text-left py-2 pr-4 font-medium text-muted">Action</th>
+                      <th
+                        v-for="r in allRoles"
+                        :key="r"
+                        class="text-center py-2 px-3 font-medium"
+                        :class="r === role ? 'text-primary' : 'text-muted'"
+                      >
+                        {{ r }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="row in permissionMatrix"
+                      :key="row.label"
+                      class="border-b border-default last:border-0"
+                    >
+                      <td class="py-2 pr-4 text-highlighted">{{ row.label }}</td>
+                      <td
+                        v-for="r in allRoles"
+                        :key="r"
+                        class="text-center py-2 px-3"
+                        :class="r === role ? 'font-semibold' : ''"
+                      >
+                        <span v-if="row.roles.includes(r)" class="text-success">yes</span>
+                        <span v-else class="text-muted">—</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </UCard>
+
             <!-- Workspace onboarding -->
             <template v-if="!tenantId">
               <div class="grid gap-4 md:grid-cols-2">
@@ -313,6 +358,13 @@ const authAction = useConvexAuthActions()
 const { can, ctx, role, tenantId } = usePermissions()
 const canCreateProject = can(agencyPermissionKeys.projectCreate)
 const canDashboard = can(agencyPermissionKeys.agencyDashboard)
+const allRoles = ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'] as const
+const permissionMatrix = [
+  { label: 'Create project', roles: ['owner', 'member'] },
+  { label: 'Read projects', roles: ['owner', 'member', 'viewer'] },
+  { label: 'Agency dashboard', roles: ['agency_admin', 'agency_manager'] },
+  { label: 'Switch workspace', roles: ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'] },
+]
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })

@@ -98,6 +98,9 @@
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <h2 class="text-xl font-semibold">{{ displayName }}</h2>
+                <p v-if="currentWorkspace" class="text-sm text-muted">
+                  {{ currentWorkspace.name }}
+                </p>
                 <div class="flex items-center gap-2 mt-1">
                   <p class="text-sm text-muted">
                     Role:
@@ -122,7 +125,7 @@
 
               <div class="flex gap-2">
                 <UButton
-                  v-if="tenantId"
+                  v-if="canAudit"
                   to="/admin"
                   color="neutral"
                   variant="ghost"
@@ -141,6 +144,51 @@
                 </UButton>
               </div>
             </div>
+
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">Permission matrix</h3>
+                <p class="text-sm text-muted mt-1">
+                  What each role can do in this workspace. Your current role is highlighted.
+                </p>
+              </template>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-b border-default">
+                      <th class="text-left py-2 pr-4 font-medium text-muted">Action</th>
+                      <th
+                        v-for="r in allRoles"
+                        :key="r"
+                        class="text-center py-2 px-3 font-medium"
+                        :class="r === role ? 'text-primary' : 'text-muted'"
+                      >
+                        {{ r }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="row in permissionMatrix"
+                      :key="row.label"
+                      class="border-b border-default last:border-0"
+                    >
+                      <td class="py-2 pr-4 text-highlighted">{{ row.label }}</td>
+                      <td
+                        v-for="r in allRoles"
+                        :key="r"
+                        class="text-center py-2 px-3"
+                        :class="r === role ? 'font-semibold' : ''"
+                      >
+                        <span v-if="row.roles.includes(r)" class="text-success">yes</span>
+                        <span v-else class="text-muted">—</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </UCard>
 
             <template v-if="ready && !tenantId">
               <div class="grid gap-4 md:grid-cols-2">
@@ -237,8 +285,7 @@
                     <div>
                       <h3 class="text-lg font-semibold">Projects</h3>
                       <p class="text-sm text-muted mt-1">
-                        This list is paginated because real lists get long. The page still stays
-                        live after the first load.
+                        Paginated and live — the list stays reactive even after loading more pages.
                       </p>
                     </div>
                     <UButton
@@ -279,25 +326,64 @@
                       data-testid="project-submit"
                       type="submit"
                       :loading="createProject.pending.value"
+                      :disabled="atProjectLimit"
                       leading-icon="i-lucide-plus"
                     >
                       Create project
                     </UButton>
                   </form>
+                  <p v-if="canCreateProject && atProjectLimit" class="text-xs text-warning">
+                    Plan limit reached.
+                    <NuxtLink to="/admin" class="underline">Upgrade your plan</NuxtLink>
+                    to add more projects.
+                  </p>
 
-                  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <UAlert
+                    v-if="projectError"
+                    color="error"
+                    variant="soft"
+                    icon="i-lucide-circle-alert"
+                    :description="projectError.message"
+                  />
+
+                  <div
+                    v-if="projectStatus === 'loading-first-page'"
+                    class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                  >
+                    <USkeleton v-for="i in 3" :key="i" class="h-24 rounded-xl" />
+                  </div>
+                  <div v-else-if="projects?.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <NuxtLink
                       v-for="project in projects"
                       :key="project._id"
                       :data-testid="`project-link-${project._id}`"
-                      class="block rounded-xl border border-default bg-elevated p-4 hover:border-primary transition-colors"
+                      class="block rounded-xl border border-default p-4 transition-colors"
+                      :class="
+                        project.status === 'archived'
+                          ? 'bg-default opacity-60'
+                          : 'bg-elevated hover:border-primary'
+                      "
                       :to="`/projects/${project._id}`"
                     >
-                      <p class="font-semibold text-highlighted">{{ project.name }}</p>
-                      <p class="text-sm text-muted mt-1">
+                      <div class="flex items-center justify-between gap-2 mb-1">
+                        <p class="font-semibold text-highlighted truncate">{{ project.name }}</p>
+                        <UBadge
+                          v-if="project.status === 'archived'"
+                          size="xs"
+                          color="neutral"
+                          variant="subtle"
+                        >
+                          archived
+                        </UBadge>
+                      </div>
+                      <p class="text-sm text-muted">
                         {{ project.summary || 'No summary yet.' }}
                       </p>
                     </NuxtLink>
+                  </div>
+                  <div v-else class="text-center py-12">
+                    <span class="iconify i-lucide-folder-open text-4xl text-muted" />
+                    <p class="text-muted mt-2">No projects yet.</p>
                   </div>
 
                   <div class="flex justify-center">
@@ -335,6 +421,7 @@ import { computed, reactive, ref } from 'vue'
 import { api } from '#trellis/api'
 import { saasPermissionKeys } from '~/shared/permissions'
 
+const toast = useToast()
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { can, ready, role, tenantId, ctx } = usePermissions()
@@ -366,9 +453,28 @@ const projectForm = reactive({
   summary: '',
 })
 
-const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
-const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
-const createProject = useConvexMutation(api.projects.create)
+const createWorkspace = useConvexMutation(api.workspaces.createWorkspace, {
+  onSuccess: () => toast.add({ title: 'Workspace created', color: 'success', icon: 'i-lucide-building' }),
+  onError: (error) => toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
+})
+const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace, {
+  onSuccess: () => toast.add({ title: 'Joined workspace', color: 'success', icon: 'i-lucide-user-plus' }),
+  onError: (error) => toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
+})
+const createProject = useConvexMutation(api.projects.create, {
+  onSuccess: () => toast.add({ title: 'Project created', color: 'success', icon: 'i-lucide-folder-plus' }),
+  onError: (error) => {
+    const isLimitError = error.message.includes('Plan limit')
+    toast.add({
+      title: 'Cannot create project',
+      description: error.message,
+      color: 'error',
+      actions: isLimitError
+        ? [{ label: 'Go to Admin', color: 'error' as const, onClick: () => navigateTo('/admin') }]
+        : undefined,
+    })
+  },
+})
 
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
 
@@ -377,6 +483,7 @@ const {
   results: projects,
   status: projectStatus,
   loadMore: loadMoreProjects,
+  error: projectError,
 } = await useConvexPaginatedQuery(api.projects.list, projectArgs, {
   initialNumItems: 12,
 })
@@ -384,8 +491,24 @@ const {
 const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
+const currentWorkspace = computed(() => workspaceOptions.value?.find((w) => w._id === tenantId.value))
 const canCreateProject = can(saasPermissionKeys.projectCreate)
+const atProjectLimit = computed(() => ctx.value?.usage?.projects?.remaining === 0)
 const roleOptions = ['admin', 'member', 'viewer'] as const
+const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
+const permissionMatrix = [
+  { label: 'Create project', roles: ['owner', 'admin'] },
+  { label: 'Read projects', roles: ['owner', 'admin', 'member', 'viewer'] },
+  { label: 'Archive project', roles: ['owner', 'admin'] },
+  { label: 'Export projects', roles: ['owner', 'admin'] },
+  { label: 'Create task', roles: ['owner', 'admin', 'member'] },
+  { label: 'Assign task', roles: ['owner', 'admin'] },
+  { label: 'Update own task', roles: ['owner', 'admin', 'member'] },
+  { label: 'Delete own task', roles: ['owner', 'admin', 'member'] },
+  { label: 'Comment', roles: ['owner', 'admin', 'member', 'viewer'] },
+  { label: 'Manage members', roles: ['owner', 'admin'] },
+  { label: 'View audit log', roles: ['owner', 'admin'] },
+]
 
 async function handleSignUp() {
   await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })

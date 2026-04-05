@@ -114,6 +114,51 @@
               </UButton>
             </div>
 
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">Permission matrix</h3>
+                <p class="text-sm text-muted mt-1">
+                  What each role can do. Your current role is highlighted.
+                </p>
+              </template>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="border-b border-default">
+                      <th class="text-left py-2 pr-4 font-medium text-muted">Action</th>
+                      <th
+                        v-for="r in allRoles"
+                        :key="r"
+                        class="text-center py-2 px-3 font-medium"
+                        :class="r === role ? 'text-primary' : 'text-muted'"
+                      >
+                        {{ r }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="row in permissionMatrix"
+                      :key="row.label"
+                      class="border-b border-default last:border-0"
+                    >
+                      <td class="py-2 pr-4 text-highlighted">{{ row.label }}</td>
+                      <td
+                        v-for="r in allRoles"
+                        :key="r"
+                        class="text-center py-2 px-3"
+                        :class="r === role ? 'font-semibold' : ''"
+                      >
+                        <span v-if="row.roles.includes(r)" class="text-success">yes</span>
+                        <span v-else class="text-muted">—</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </UCard>
+
             <!-- Workspace onboarding -->
             <template v-if="ready && !tenantId">
               <div class="grid gap-4 md:grid-cols-2">
@@ -295,6 +340,17 @@ const { data: knowledgeBases } = await useConvexQuery(api.knowledgeBases.list, k
 const displayName = computed(() => user.value?.name || user.value?.email || 'Signed in')
 const canCreate = can(knowledgeBasePermissionKeys.kbCreate)
 const roleOptions = ['admin', 'editor', 'contributor', 'viewer'] as const
+const allRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const
+const permissionMatrix = [
+  { label: 'Create knowledge base', roles: ['owner', 'admin', 'editor'] },
+  { label: 'Read knowledge base', roles: ['owner', 'admin', 'editor', 'contributor', 'viewer'] },
+  { label: 'Create article', roles: ['owner', 'admin', 'editor', 'contributor'] },
+  { label: 'Read articles', roles: ['owner', 'admin', 'editor', 'contributor', 'viewer'] },
+  { label: 'Update any article', roles: ['owner', 'admin'] },
+  { label: 'Update own article', roles: ['owner', 'admin', 'editor', 'contributor'] },
+  { label: 'Manage enrollments', roles: ['owner', 'admin', 'editor'] },
+  { label: 'Create share token', roles: ['owner', 'admin', 'editor'] },
+]
 
 async function handleSignUp() {
   await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })

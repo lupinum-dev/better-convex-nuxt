@@ -17,6 +17,16 @@
 
           <div class="flex gap-2">
             <UButton
+              v-if="canArchive && project?.status === 'active'"
+              color="warning"
+              variant="soft"
+              leading-icon="i-lucide-archive"
+              :loading="archiveProject.pending.value"
+              @click="archiveProject({ id: projectId })"
+            >
+              Archive
+            </UButton>
+            <UButton
               color="neutral"
               variant="ghost"
               leading-icon="i-lucide-download"
@@ -75,6 +85,7 @@
           :project-id="projectId"
           :tasks="backlogTasks"
           :selected-ids="selectedIds"
+          :member-names="memberNames"
           @toggle-selected="toggleSelected"
         />
         <BoardColumn
@@ -82,6 +93,7 @@
           :project-id="projectId"
           :tasks="inProgressTasks"
           :selected-ids="selectedIds"
+          :member-names="memberNames"
           @toggle-selected="toggleSelected"
         />
         <BoardColumn
@@ -89,6 +101,7 @@
           :project-id="projectId"
           :tasks="doneTasks"
           :selected-ids="selectedIds"
+          :member-names="memberNames"
           @toggle-selected="toggleSelected"
         />
       </div>
@@ -118,8 +131,10 @@ useAuthGuard({
 })
 
 const route = useRoute()
+const toast = useToast()
 const { can } = usePermissions()
 const canAudit = can(saasPermissionKeys.workspaceAudit)
+const canArchive = can(saasPermissionKeys.projectArchive)
 const projectId = computed(() => route.params.id as Id<'projects'>)
 
 const taskForm = reactive({
@@ -128,8 +143,19 @@ const taskForm = reactive({
 })
 const selectedIds = ref<Id<'tasks'>[]>([])
 
-const createTask = useConvexMutation(api.tasks.create)
+const createTask = useConvexMutation(api.tasks.create, {
+  onSuccess: () => toast.add({ title: 'Task created', color: 'success', icon: 'i-lucide-check' }),
+  onError: (error) => toast.add({ title: 'Could not create task', description: error.message, color: 'error' }),
+})
+const archiveProject = useConvexMutation(api.projects.archive, {
+  onSuccess: () => {
+    toast.add({ title: 'Project archived', color: 'success', icon: 'i-lucide-archive' })
+    navigateTo('/')
+  },
+  onError: (error) => toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
+})
 const canCreateTask = can(saasPermissionKeys.taskCreate)
+const canManageMembers = can(saasPermissionKeys.workspaceMembers)
 
 const { data: project } = await useConvexQuery(
   api.projects.get,
@@ -140,6 +166,19 @@ const { data: tasks } = await useConvexQuery(
   api.tasks.listByProject,
   computed(() => ({ projectId: projectId.value })),
 )
+
+const { data: members } = await useConvexQuery(
+  api.members.list,
+  computed(() => (canManageMembers.value ? {} : undefined)),
+)
+
+const memberNames = computed(() => {
+  const map = new Map<string, string>()
+  for (const m of members.value ?? []) {
+    map.set(m.authId, m.displayName || m.email || m.authId)
+  }
+  return map
+})
 
 const backlogTasks = computed(() => tasks.value?.filter((task) => task.status === 'backlog') ?? [])
 const inProgressTasks = computed(

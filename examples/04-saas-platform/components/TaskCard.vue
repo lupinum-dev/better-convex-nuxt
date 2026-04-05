@@ -13,16 +13,29 @@ const props = defineProps<{
   projectId: Id<'projects'>
   task: TaskWithCan
   selected: boolean
+  memberNames?: Map<string, string>
 }>()
 
 const emit = defineEmits<{
   toggleSelected: [id: Id<'tasks'>]
 }>()
 
+const toast = useToast()
+
+const priorityColor = computed(() => {
+  if (props.task.priority === 'high') return 'error'
+  if (props.task.priority === 'medium') return 'warning'
+  return 'neutral'
+})
+
 function nextStatus() {
   if (props.task.status === 'backlog') return 'in_progress'
   if (props.task.status === 'in_progress') return 'done'
   return 'done'
+}
+
+function resolveName(authId: string) {
+  return props.memberNames?.get(authId) ?? `Member ${authId.slice(0, 8)}…`
 }
 
 const moveTask = useConvexMutation(api.tasks.moveToColumn, {
@@ -35,6 +48,12 @@ const moveTask = useConvexMutation(api.tasks.moveToColumn, {
           [],
       )
   },
+  onError: (error) => toast.add({ title: 'Could not move task', description: error.message, color: 'error' }),
+})
+
+const deleteTask = useConvexMutation(api.tasks.remove, {
+  onSuccess: () => toast.add({ title: 'Task deleted', color: 'success', icon: 'i-lucide-trash-2' }),
+  onError: (error) => toast.add({ title: 'Could not delete task', description: error.message, color: 'error' }),
 })
 </script>
 
@@ -59,20 +78,32 @@ const moveTask = useConvexMutation(api.tasks.moveToColumn, {
     </NuxtLink>
 
     <p class="text-sm text-muted">
-      <UBadge size="xs" variant="subtle" color="neutral">{{ props.task.priority }}</UBadge>
-      <span v-if="props.task.assigneeId" class="ml-2">assigned to {{ props.task.assigneeId }}</span>
+      <UBadge size="xs" variant="subtle" :color="priorityColor">{{ props.task.priority }}</UBadge>
+      <span v-if="props.task.assigneeId" class="ml-2">{{ resolveName(props.task.assigneeId) }}</span>
     </p>
 
-    <UButton
-      v-if="props.task._can.update && props.task.status !== 'done'"
-      :data-testid="`task-move-${props.task._id}`"
-      size="xs"
-      variant="soft"
-      color="neutral"
-      leading-icon="i-lucide-arrow-right"
-      @click="moveTask({ id: props.task._id, status: nextStatus() })"
-    >
-      Move to {{ nextStatus().replace('_', ' ') }}
-    </UButton>
+    <div class="flex gap-1.5">
+      <UButton
+        v-if="props.task._can.update && props.task.status !== 'done'"
+        :data-testid="`task-move-${props.task._id}`"
+        size="xs"
+        variant="soft"
+        color="neutral"
+        leading-icon="i-lucide-arrow-right"
+        @click="moveTask({ id: props.task._id, status: nextStatus() })"
+      >
+        Move to {{ nextStatus().replace('_', ' ') }}
+      </UButton>
+      <UButton
+        v-if="props.task._can.delete"
+        size="xs"
+        variant="soft"
+        color="error"
+        leading-icon="i-lucide-trash-2"
+        @click="deleteTask({ id: props.task._id })"
+      >
+        Delete
+      </UButton>
+    </div>
   </article>
 </template>
