@@ -95,3 +95,46 @@ export const enroll = app.mutation({
     })
   },
 })
+
+export const enrollByEmail = app.mutation({
+  guard: canManageEnrollments,
+  args: { knowledgeBaseId: v.id('knowledgeBases'), email: v.string() },
+  load: async (ctx, args) => ({
+    knowledgeBase: loadResource(
+      await ctx.actor(),
+      await ctx.db.get(args.knowledgeBaseId),
+      'Knowledge base',
+    ),
+  }),
+  handler: async (ctx, args, { knowledgeBase }) => {
+    const actor = await ctx.actor()
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', args.email))
+      .first()
+    if (!user) throw new Error(`No user found with email "${args.email}".`)
+
+    const existing = await ctx.db
+      .query('enrollments')
+      .withIndex('by_user_kb', (q) =>
+        q.eq('userId', user.authId).eq('knowledgeBaseId', knowledgeBase._id),
+      )
+      .first()
+
+    if (existing?.status === 'active') return existing._id
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { status: 'active' })
+      return existing._id
+    }
+
+    return ctx.db.insert('enrollments', {
+      workspaceId: actor.tenantId,
+      userId: user.authId,
+      knowledgeBaseId: knowledgeBase._id,
+      status: 'active',
+      createdAt: Date.now(),
+    })
+  },
+})

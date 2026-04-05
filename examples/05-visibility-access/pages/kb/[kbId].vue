@@ -5,7 +5,9 @@
     <UCard class="w-full max-w-4xl">
       <template #header>
         <div class="flex items-center gap-2">
-          <NuxtLink to="/" class="text-sm text-muted hover:text-highlighted">&larr; Back</NuxtLink>
+          <UButton to="/" variant="link" leading-icon="i-lucide-arrow-left" class="mb-2">
+            Back to home
+          </UButton>
         </div>
         <div class="flex items-center gap-3 mt-2">
           <h1 class="text-2xl font-bold">{{ kb?.title ?? 'Loading...' }}</h1>
@@ -53,8 +55,13 @@
 
             <form class="flex gap-3 items-end" @submit.prevent="handleEnroll">
               <div class="flex-1 space-y-1">
-                <label class="text-sm font-medium text-highlighted">User auth ID</label>
-                <UInput v-model="enrollForm.userId" placeholder="User auth ID" required />
+                <label class="text-sm font-medium text-highlighted">User email</label>
+                <UInput
+                  v-model="enrollForm.email"
+                  type="email"
+                  placeholder="user@example.com"
+                  required
+                />
               </div>
               <UButton
                 type="submit"
@@ -79,13 +86,26 @@
               </div>
               <div class="space-y-1">
                 <label class="text-sm font-medium text-highlighted">Body</label>
-                <UInput v-model="articleForm.body" required />
+                <UTextarea v-model="articleForm.body" :rows="3" required />
               </div>
               <div class="flex gap-3">
                 <div class="space-y-1">
                   <label class="text-sm font-medium text-highlighted">Visibility</label>
                   <USelect v-model="articleForm.visibility" :items="visibilityOptions" />
                 </div>
+                <div v-if="articles?.length" class="flex-1 space-y-1">
+                  <label class="text-sm font-medium text-highlighted">Parent article</label>
+                  <USelect
+                    :model-value="articleForm.parentArticleId"
+                    :items="parentArticleOptions"
+                    placeholder="None"
+                    @update:model-value="articleForm.parentArticleId = $event"
+                  />
+                </div>
+              </div>
+              <div class="space-y-1">
+                <label class="text-sm font-medium text-highlighted">Internal notes (optional)</label>
+                <UInput v-model="articleForm.internalNotes" placeholder="Visible to editors only" />
               </div>
               <UButton
                 type="submit"
@@ -98,12 +118,23 @@
           </UCard>
 
           <!-- Articles list -->
-          <div v-if="!articles?.length" class="text-sm text-muted py-4 text-center">
-            No articles visible to you.
+          <div
+            v-if="!articles?.length"
+            class="flex flex-col items-center gap-2 py-8 text-muted"
+          >
+            <UIcon name="i-lucide-file-text" class="w-8 h-8" />
+            <p class="text-sm">No articles visible to you.</p>
           </div>
 
           <div class="grid gap-3 sm:grid-cols-2">
-            <ArticleCard v-for="article in articles" :key="article._id" :article="article" />
+            <ArticleCard
+              v-for="article in articles"
+              :key="article._id"
+              :article="article"
+              :kb-id="kbId"
+              :can-publish="canCreateArticles"
+              @publish="handlePublishArticle"
+            />
           </div>
         </div>
       </ConvexAuthenticated>
@@ -118,6 +149,7 @@ import { api } from '#trellis/api'
 import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 
 const route = useRoute()
+const toast = useToast()
 const kbId = route.params.kbId as string
 
 const { can } = usePermissions()
@@ -129,19 +161,40 @@ const { data: articles } = await useConvexQuery(api.articles.list, {
   knowledgeBaseId: kbId as any,
 })
 
-const publishKB = useConvexMutation(api.knowledgeBases.publish)
-const seedArticles = useConvexMutation(api.articles.seedDemoArticles)
-const enrollUser = useConvexMutation(api.knowledgeBases.enroll)
-const createArticle = useConvexMutation(api.articles.create)
+const publishKB = useConvexMutation(api.knowledgeBases.publish, {
+  onSuccess: () => toast.add({ title: 'Knowledge base published', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
+})
+const seedArticles = useConvexMutation(api.articles.seedDemoArticles, {
+  onSuccess: () => toast.add({ title: 'Demo articles seeded', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not seed articles', description: error.message, color: 'error' }),
+})
+const enrollUser = useConvexMutation(api.knowledgeBases.enrollByEmail, {
+  onSuccess: () => toast.add({ title: 'User enrolled', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not enroll user', description: error.message, color: 'error' }),
+})
+const createArticle = useConvexMutation(api.articles.create, {
+  onSuccess: () => toast.add({ title: 'Article created', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not create article', description: error.message, color: 'error' }),
+})
+const publishArticle = useConvexMutation(api.articles.publish, {
+  onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not publish article', description: error.message, color: 'error' }),
+})
 
-const enrollForm = reactive({ userId: '' })
+const enrollForm = reactive({ email: '' })
 const articleForm = reactive({
   title: '',
   body: '',
   visibility: 'workspace' as 'private' | 'team' | 'workspace',
+  parentArticleId: undefined as string | undefined,
+  internalNotes: '',
 })
 
 const visibilityOptions = ['workspace', 'team', 'private'] as const
+const parentArticleOptions = computed(() =>
+  (articles.value ?? []).map((a) => ({ label: a.title, value: a._id })),
+)
 
 async function handlePublish() {
   await publishKB({ id: kbId as any })
@@ -152,8 +205,12 @@ async function handleSeed() {
 }
 
 async function handleEnroll() {
-  await enrollUser({ knowledgeBaseId: kbId as any, userId: enrollForm.userId })
-  enrollForm.userId = ''
+  await enrollUser({ knowledgeBaseId: kbId as any, email: enrollForm.email })
+  enrollForm.email = ''
+}
+
+async function handlePublishArticle(articleId: string) {
+  await publishArticle({ id: articleId as any })
 }
 
 async function handleCreateArticle() {
@@ -162,8 +219,12 @@ async function handleCreateArticle() {
     title: articleForm.title,
     body: articleForm.body,
     visibility: articleForm.visibility,
+    parentArticleId: articleForm.parentArticleId as any,
+    internalNotes: articleForm.internalNotes || undefined,
   })
   articleForm.title = ''
   articleForm.body = ''
+  articleForm.internalNotes = ''
+  articleForm.parentArticleId = undefined
 }
 </script>

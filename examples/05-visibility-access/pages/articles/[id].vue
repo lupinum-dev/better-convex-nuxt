@@ -4,10 +4,15 @@
   >
     <UCard class="w-full max-w-3xl">
       <template #header>
-        <NuxtLink to="/" class="text-sm text-muted hover:text-highlighted">&larr; Back</NuxtLink>
+        <UButton :to="backLink" variant="link" leading-icon="i-lucide-arrow-left" class="mb-2">
+          {{ kbId ? 'Back to knowledge base' : 'Back to home' }}
+        </UButton>
         <div class="flex items-center gap-3 mt-2">
           <h1 class="text-2xl font-bold">{{ article?.title ?? 'Loading...' }}</h1>
           <AccessBadge v-if="article" :level="article._access" />
+          <UBadge v-if="article?.status === 'draft'" color="warning" variant="subtle" size="xs">
+            draft
+          </UBadge>
         </div>
       </template>
 
@@ -37,7 +42,17 @@
         <!-- Actions -->
         <div class="flex flex-wrap gap-2">
           <UButton
-            v-if="article._access !== 'edit'"
+            v-if="canPublish && article.status === 'draft'"
+            color="success"
+            variant="soft"
+            leading-icon="i-lucide-check"
+            :loading="publishArticle.pending.value"
+            @click="handlePublish"
+          >
+            Publish article
+          </UButton>
+          <UButton
+            v-if="article.status === 'published' && article._access !== 'edit'"
             color="success"
             variant="soft"
             leading-icon="i-lucide-check-circle"
@@ -64,11 +79,16 @@ import { api } from '#trellis/api'
 import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 
 const route = useRoute()
+const toast = useToast()
 const articleId = route.params.id as string
 const shareToken = route.query.token as string | undefined
+const kbId = route.query.kbId as string | undefined
+
+const backLink = computed(() => (kbId ? `/kb/${kbId}` : '/'))
 
 const { can } = usePermissions()
 const canShare = can(knowledgeBasePermissionKeys.shareCreate)
+const canPublish = can(knowledgeBasePermissionKeys.articleCreate)
 
 const { data: article, error } = await useConvexQuery(
   api.articles.viewArticle,
@@ -78,9 +98,21 @@ const { data: article, error } = await useConvexQuery(
   })),
 )
 
-const markCompleted = useConvexMutation(api.articles.markCompleted)
+const markCompleted = useConvexMutation(api.articles.markCompleted, {
+  onSuccess: () => toast.add({ title: 'Marked as completed', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not mark completed', description: error.message, color: 'error' }),
+})
+
+const publishArticle = useConvexMutation(api.articles.publish, {
+  onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
+})
 
 async function handleComplete() {
   await markCompleted({ articleId: articleId as any })
+}
+
+async function handlePublish() {
+  await publishArticle({ id: articleId as any })
 }
 </script>

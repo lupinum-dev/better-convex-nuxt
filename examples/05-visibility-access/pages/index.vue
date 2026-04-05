@@ -97,10 +97,17 @@
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <h2 class="text-xl font-semibold">{{ displayName }}</h2>
-                <p class="text-sm text-muted">
-                  Role:
-                  <span class="font-semibold text-highlighted">{{ role || 'loading...' }}</span>
-                </p>
+                <template v-if="tenantId">
+                  <p class="text-sm text-muted">
+                    Role:
+                    <span class="font-semibold text-highlighted">{{ role || 'loading...' }}</span>
+                  </p>
+                  <p v-if="currentWorkspaceName" class="text-sm text-muted">
+                    Workspace:
+                    <span class="font-semibold text-highlighted">{{ currentWorkspaceName }}</span>
+                  </p>
+                </template>
+                <p v-else class="text-sm text-muted">No workspace yet — create or join one below.</p>
               </div>
 
               <UButton
@@ -160,7 +167,7 @@
             </UCard>
 
             <!-- Workspace onboarding -->
-            <template v-if="ready && !tenantId">
+            <template v-if="!tenantId">
               <div class="grid gap-4 md:grid-cols-2">
                 <UCard>
                   <template #header>
@@ -275,8 +282,9 @@
                     </UButton>
                   </form>
 
-                  <div v-if="!knowledgeBases?.length" class="text-sm text-muted py-4 text-center">
-                    No knowledge bases yet.
+                  <div v-if="!knowledgeBases?.length" class="flex flex-col items-center gap-2 py-8 text-muted">
+                    <UIcon name="i-lucide-book-open" class="w-8 h-8" />
+                    <p class="text-sm">No knowledge bases yet.</p>
                   </div>
 
                   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -316,7 +324,8 @@ import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, ready, role, tenantId } = usePermissions()
+const toast = useToast()
+const { can, ctx, ready, role, tenantId } = usePermissions()
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
@@ -328,16 +337,29 @@ const joinWorkspaceForm = reactive({
 })
 const kbForm = reactive({ title: '' })
 
-const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
-const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
-const createKB = useConvexMutation(api.knowledgeBases.create)
+const createWorkspace = useConvexMutation(api.workspaces.createWorkspace, {
+  onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
+})
+const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace, {
+  onSuccess: () => toast.add({ title: 'Joined workspace', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
+})
+const createKB = useConvexMutation(api.knowledgeBases.create, {
+  onSuccess: () => toast.add({ title: 'Knowledge base created', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not create knowledge base', description: error.message, color: 'error' }),
+})
 
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
 
 const kbArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: knowledgeBases } = await useConvexQuery(api.knowledgeBases.list, kbArgs)
 
-const displayName = computed(() => user.value?.name || user.value?.email || 'Signed in')
+const displayName = computed(() => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in')
+const currentWorkspaceName = computed(() => {
+  if (!tenantId.value || !workspaceOptions.value) return null
+  return workspaceOptions.value.find((w) => w._id === tenantId.value)?.name ?? null
+})
 const canCreate = can(knowledgeBasePermissionKeys.kbCreate)
 const roleOptions = ['admin', 'editor', 'contributor', 'viewer'] as const
 const allRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const

@@ -37,11 +37,15 @@ const props = defineProps<{
   articleId: string
 }>()
 
+const toast = useToast()
 const level = ref<'view' | 'comment' | 'edit'>('view')
 const expiresIn = ref('none')
 const generatedToken = ref<string | null>(null)
 
-const createToken = useConvexMutation(api.articles.createShareToken)
+const createToken = useConvexMutation(api.articles.createShareToken, {
+  onSuccess: () => toast.add({ title: 'Share link generated', color: 'success' }),
+  onError: (error) => toast.add({ title: 'Could not create share link', description: error.message, color: 'error' }),
+})
 
 const levelOptions = ['view', 'comment', 'edit']
 const expiryOptions = [
@@ -67,7 +71,8 @@ async function handleCreate() {
   generatedToken.value = token
 }
 
-function copyLink() {
-  navigator.clipboard.writeText(shareUrl.value)
+async function copyLink() {
+  await navigator.clipboard.writeText(shareUrl.value)
+  toast.add({ title: 'Link copied to clipboard', color: 'success' })
 }
 </script>
