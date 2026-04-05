@@ -22,14 +22,16 @@ export async function ensureWithinLimit(
   resource: keyof typeof usageLimits,
 ): Promise<void> {
   if (!actor) throw deny('Not authenticated.')
+  if (!actor.tenantId) throw deny('Not assigned to a workspace.')
 
   const limit =
     usageLimits[resource].limits[actor.plan as keyof typeof usageLimits.projects.limits] ?? Infinity
   if (limit === Infinity) return
 
+  const tenantId = actor.tenantId!
   const rows = await db
     .query(resource)
-    .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+    .withIndex('by_workspace', (q) => q.eq('workspaceId', tenantId))
     .collect()
 
   if (rows.length >= limit) {
@@ -38,13 +40,14 @@ export async function ensureWithinLimit(
 }
 
 export async function getUsage(db: Db, actor: Actor, resource: keyof typeof usageLimits) {
-  if (!actor) return null
+  if (!actor || !actor.tenantId) return null
 
+  const tenantId = actor.tenantId
   const max =
     usageLimits[resource].limits[actor.plan as keyof typeof usageLimits.projects.limits] ?? Infinity
   const rows = await db
     .query(resource)
-    .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+    .withIndex('by_workspace', (q) => q.eq('workspaceId', tenantId))
     .collect()
 
   return {

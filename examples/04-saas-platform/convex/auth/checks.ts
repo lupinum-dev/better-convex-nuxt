@@ -5,8 +5,13 @@
  */
 import { and, defineGuard, or } from '@lupinum/trellis/auth'
 
-import type { Doc } from '../_generated/dataModel'
+import type { Doc, Id } from '../_generated/dataModel'
 import type { Actor } from './actor'
+
+export function requireWorkspaceTenant(actor: { tenantId?: Id<'workspaces'> | null }) {
+  if (!actor.tenantId) throw new Error('Current actor is not assigned to a workspace.')
+  return actor.tenantId
+}
 
 const planFeatures: Record<Doc<'workspaces'>['plan'], string[]> = {
   free: ['projects'],
@@ -14,6 +19,7 @@ const planFeatures: Record<Doc<'workspaces'>['plan'], string[]> = {
   enterprise: ['*'],
 }
 
+export const hasWorkspace = defineGuard<Actor>('Workspace member', (actor) => !!actor?.tenantId)
 export const hasRole =
   (...roles: Doc<'users'>['role'][]) =>
   defineGuard<Actor>(`role:${roles.join('|')}`, (actor) => roles.includes(actor.role))
@@ -25,33 +31,51 @@ export const hasFeature = (feature: string) => (actor: Actor) => {
   return features.includes(feature) || features.includes('*')
 }
 
-export const canCreateProject = defineGuard('Create project', hasRole('owner', 'admin'))
+export const canCreateProject = defineGuard(
+  'Create project',
+  hasWorkspace.and(hasRole('owner', 'admin')),
+)
 export const canReadProject = defineGuard(
   'Read project',
-  hasRole('owner', 'admin', 'member', 'viewer'),
+  hasWorkspace.and(hasRole('owner', 'admin', 'member', 'viewer')),
 )
-export const canArchiveProject = defineGuard('Archive project', hasRole('owner', 'admin'))
+export const canArchiveProject = defineGuard(
+  'Archive project',
+  hasWorkspace.and(hasRole('owner', 'admin')),
+)
 export const canExportProjects = defineGuard(
   'Export projects',
-  and(hasRole('owner', 'admin'), hasFeature('exports')),
+  hasWorkspace.and(and(hasRole('owner', 'admin'), hasFeature('exports'))),
 )
 
-export const canCreateTask = defineGuard('Create task', hasRole('owner', 'admin', 'member'))
+export const canCreateTask = defineGuard(
+  'Create task',
+  hasWorkspace.and(hasRole('owner', 'admin', 'member')),
+)
 export const canReadTask = defineGuard(
   'Read task',
-  hasRole('owner', 'admin', 'member', 'viewer'),
+  hasWorkspace.and(hasRole('owner', 'admin', 'member', 'viewer')),
 )
-export const canAssignTask = defineGuard('Assign task', hasRole('owner', 'admin'))
+export const canAssignTask = defineGuard(
+  'Assign task',
+  hasWorkspace.and(hasRole('owner', 'admin')),
+)
 
 export const canUpdateTask = (task: Doc<'tasks'>) =>
-  or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task)))
+  hasWorkspace.and(or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task))))
 
 export const canDeleteTask = (task: Doc<'tasks'>) =>
-  or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task)))
+  hasWorkspace.and(or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task))))
 
 export const canComment = defineGuard(
   'Create comment',
-  hasRole('owner', 'admin', 'member', 'viewer'),
+  hasWorkspace.and(hasRole('owner', 'admin', 'member', 'viewer')),
 )
-export const canManageMembers = defineGuard('Manage members', hasRole('owner', 'admin'))
-export const canViewAudit = defineGuard('View audit log', hasRole('owner', 'admin'))
+export const canManageMembers = defineGuard(
+  'Manage members',
+  hasWorkspace.and(hasRole('owner', 'admin')),
+)
+export const canViewAudit = defineGuard(
+  'View audit log',
+  hasWorkspace.and(hasRole('owner', 'admin')),
+)

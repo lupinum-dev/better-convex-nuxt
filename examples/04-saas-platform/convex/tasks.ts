@@ -17,6 +17,8 @@ import {
   canReadTask,
   canUpdateTask,
   hasRole,
+  hasWorkspace,
+  requireWorkspaceTenant,
 } from './auth/checks'
 import { app } from './functions'
 
@@ -55,6 +57,7 @@ export const create = app.mutation({
   guard: canCreateTask,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
 
     const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
 
@@ -69,13 +72,13 @@ export const create = app.mutation({
       status: 'backlog',
       priority: args.priority ?? 'medium',
       ownerId: actor.userId,
-      workspaceId: actor.tenantId,
+      workspaceId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor.tenantId,
+      workspaceId,
       actorId: actor.userId,
       entityType: 'task',
       entityId: taskId,
@@ -96,11 +99,12 @@ export const moveToColumn = app.mutation({
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
     enforce(actor, 'Update task', canUpdateTask(task))
 
+    const workspaceId = requireWorkspaceTenant(actor)
     const now = Date.now()
     await ctx.db.patch(args.id, { status: args.status, updatedAt: now })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor.tenantId,
+      workspaceId,
       actorId: actor.userId,
       entityType: 'task',
       entityId: args.id,
@@ -116,6 +120,7 @@ export const assign = app.mutation({
   guard: canAssignTask,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
 
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
 
@@ -124,7 +129,7 @@ export const assign = app.mutation({
         .query('users')
         .withIndex('by_auth_id', (q) => q.eq('authId', args.assigneeId!))
         .first()
-      if (!assignee || assignee.workspaceId !== actor.tenantId) {
+      if (!assignee || assignee.workspaceId !== workspaceId) {
         throw deny('Assignee must already belong to this workspace.')
       }
     }
@@ -133,7 +138,7 @@ export const assign = app.mutation({
     await ctx.db.patch(args.id, { assigneeId: args.assigneeId, updatedAt: now })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor.tenantId,
+      workspaceId,
       actorId: actor.userId,
       entityType: 'task',
       entityId: args.id,
@@ -149,14 +154,15 @@ export const bulkUpdateStatus = app.mutation({
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
   },
-  guard: hasRole('owner', 'admin', 'member'),
+  guard: hasWorkspace.and(hasRole('owner', 'admin', 'member')),
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
 
     const now = Date.now()
     const updates = await asyncMap(args.ids, async (id) => {
       const task = await ctx.db.get(id)
-      if (!task || task.workspaceId !== actor.tenantId) {
+      if (!task || task.workspaceId !== workspaceId) {
         return { id, updated: false as const }
       }
 
@@ -174,7 +180,7 @@ export const bulkUpdateStatus = app.mutation({
     }
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor.tenantId,
+      workspaceId,
       actorId: actor.userId,
       entityType: 'task',
       entityId: results.skipped.join(',') || 'bulk',

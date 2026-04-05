@@ -113,11 +113,14 @@ export async function getAuth<DataModel extends GenericDataModel>(
 }
 
 export function ensureTenant<T extends Record<string, unknown>>(
-  actor: { tenantId: string },
+  actor: { tenantId?: string | null },
   resource: T,
   label = 'Resource',
   tenantField = 'workspaceId',
 ): T {
+  if (!actor.tenantId) {
+    throw toForbiddenError('Actor has no tenant assignment.')
+  }
   if ((resource as Record<string, unknown>)[tenantField] !== actor.tenantId) {
     throw toForbiddenError(`${label} not found.`)
   }
@@ -125,7 +128,7 @@ export function ensureTenant<T extends Record<string, unknown>>(
 }
 
 export function loadTenantResource<T extends Record<string, unknown>>(
-  actor: { tenantId: string },
+  actor: { tenantId?: string | null },
   doc: T | null | undefined,
   label = 'Resource',
   tenantField = 'workspaceId',

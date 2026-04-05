@@ -2,7 +2,7 @@ import { deny, enforce, loadTenantResource as loadResource } from '@lupinum/trel
 import { v } from 'convex/values'
 
 import { createComment } from '../shared/schemas/comment'
-import { canComment } from './auth/checks'
+import { canComment, requireWorkspaceTenant } from './auth/checks'
 import { app } from './functions'
 
 export const listByTask = app.query({
@@ -26,6 +26,7 @@ export const create = app.mutation({
   guard: canComment,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
 
     const task = loadResource(actor, await ctx.db.get(args.taskId), 'Task')
 
@@ -40,13 +41,13 @@ export const create = app.mutation({
       body: args.body,
       attachmentStorageId: args.attachmentStorageId,
       ownerId: actor.userId,
-      workspaceId: actor.tenantId,
+      workspaceId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor.tenantId,
+      workspaceId,
       actorId: actor.userId,
       entityType: 'comment',
       entityId: commentId,

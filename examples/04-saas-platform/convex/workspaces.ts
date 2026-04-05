@@ -11,10 +11,12 @@ import {
   canCreateTask,
   canExportProjects,
   hasRole,
+  hasWorkspace,
   canManageMembers,
   canReadProject,
   canViewAudit,
   hasFeature,
+  requireWorkspaceTenant,
 } from './auth/checks'
 import { getUsage } from './auth/limits'
 import { app } from './functions'
@@ -54,13 +56,20 @@ export const getPermissionContext = app.query(
         .withIndex('by_auth_id', (q: any) => q.eq('authId', actor.userId))
         .first()
 
+      if (!user) {
+        return {
+          email: null,
+          displayName: null,
+        }
+      }
+
       return {
         plan: actor.plan,
-        email: user?.email ?? null,
-        displayName: user?.displayName ?? null,
-        usage: {
-          projects: await getUsage(ctx.db, actor, 'projects'),
-        },
+        email: user.email ?? null,
+        displayName: user.displayName ?? null,
+        usage: actor.tenantId
+          ? { projects: await getUsage(ctx.db, actor, 'projects') }
+          : undefined,
         can: {
           [saasPermissionKeys.projectCreate]: can(actor, canCreateProject),
           [saasPermissionKeys.projectRead]: can(actor, canReadProject),
@@ -160,11 +169,12 @@ export const upgradePlan = app.mutation({
   args: {
     plan: planValidator,
   },
-  guard: hasRole('owner', 'admin'),
+  guard: hasWorkspace.and(hasRole('owner', 'admin')),
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
 
-    const workspace = await ctx.db.get(actor.tenantId)
+    const workspace = await ctx.db.get(workspaceId)
     if (!workspace) throw new Error('Workspace not found.')
 
     await ctx.db.patch(workspace._id, {

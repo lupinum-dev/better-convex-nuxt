@@ -899,6 +899,6 @@ describe('example dev launcher', () => {
     await pending
 
     expect(processExit).toHaveBeenCalledWith(1)
-    expect(spawnFn).toHaveBeenCalledTimes(2)
+    expect(spawnFn).toHaveBeenCalledTimes(1)
   })
 })

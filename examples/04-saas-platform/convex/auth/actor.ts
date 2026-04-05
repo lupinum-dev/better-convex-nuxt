@@ -10,7 +10,7 @@ import type { DataModel, Doc, Id } from '../_generated/dataModel'
 
 type ProjectBoardActor = DefaultActor & {
   role: Doc<'users'>['role']
-  tenantId: Id<'workspaces'>
+  tenantId?: Id<'workspaces'>
   plan: Doc<'workspaces'>['plan']
 }
 
@@ -25,10 +25,9 @@ const actor = defineActor
       }
     },
   })
-  .filter((value): value is ProjectBoardActor => !!value?.tenantId)
 
 export type Actor = ProjectBoardActor
 
 export async function getActor(ctx: ProjectBoardCtx): Promise<Actor | null> {
-  return await actor.resolve(ctx)
+  return await actor.resolve(ctx) as Actor | null
 }

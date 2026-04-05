@@ -867,33 +867,6 @@ export async function runExampleDev({
     NODE_ENV: process.env.NODE_ENV || 'development',
   }
 
-  if (Object.keys(bootstrapDeploymentEnvVars).length > 0) {
-    const systemLabel = colorize('system'.padEnd(6), '33')
-    stdout.write(`${systemLabel} configuring Convex env vars from example defaults and .env.local\n`)
-
-    await pushConvexEnvVars({
-      vars: bootstrapDeploymentEnvVars,
-      cwd,
-      spawnFn,
-      env: convexEnv,
-      stdout,
-      stderr,
-    })
-  }
-
-  if (disableAiFiles && !areConvexAiFilesDisabled(cwd, convexEnv)) {
-    await runCheckedCommand({
-      label: 'convex',
-      spawnFn,
-      cwd,
-      env: convexEnv,
-      command: 'pnpm',
-      args: ['exec', 'convex', 'ai-files', 'disable'],
-      stdout,
-      stderr,
-    })
-  }
-
   const convex = spawnFn(
     'pnpm',
     [
@@ -970,6 +943,38 @@ export async function runExampleDev({
       ...convexDeployment,
       ...bootstrapJwksEnv,
     })
+
+    const postReadyConvexEnv = {
+      ...convexEnv,
+      ...convexDeployment,
+    }
+
+    if (Object.keys(bootstrapDeploymentEnvVars).length > 0) {
+      const systemLabel = colorize('system'.padEnd(6), '33')
+      stdout.write(`${systemLabel} configuring Convex env vars from example defaults and .env.local\n`)
+
+      await pushConvexEnvVars({
+        vars: bootstrapDeploymentEnvVars,
+        cwd,
+        spawnFn,
+        env: postReadyConvexEnv,
+        stdout,
+        stderr,
+      })
+    }
+
+    if (disableAiFiles && !areConvexAiFilesDisabled(cwd, postReadyConvexEnv)) {
+      await runCheckedCommand({
+        label: 'convex',
+        spawnFn,
+        cwd,
+        env: postReadyConvexEnv,
+        command: 'pnpm',
+        args: ['exec', 'convex', 'ai-files', 'disable'],
+        stdout,
+        stderr,
+      })
+    }
 
     const mergedRuntimeEnv = {
       ...exampleLocalEnv.exampleDefaults,

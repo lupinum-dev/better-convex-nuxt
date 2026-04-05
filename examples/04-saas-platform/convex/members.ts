@@ -1,7 +1,7 @@
 import { deny, enforce, ensureTenant, requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { canManageMembers } from './auth/checks'
+import { canManageMembers, requireWorkspaceTenant } from './auth/checks'
 import { app } from './functions'
 
 export const list = app.query({
@@ -9,9 +9,10 @@ export const list = app.query({
   guard: canManageMembers,
   handler: async (ctx) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
 
     const users = await ctx.db.query('users').order('asc').collect()
-    return users.filter((user) => user.workspaceId === actor.tenantId)
+    return users.filter((user) => user.workspaceId === workspaceId)
   },
 })
 
@@ -23,6 +24,7 @@ export const changeRole = app.mutation({
   guard: canManageMembers,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
 
     const target = await ctx.db.get(args.userId)
     requireRecord(target, 'User')
@@ -38,7 +40,7 @@ export const changeRole = app.mutation({
     const now = Date.now()
     await ctx.db.patch(args.userId, { role: args.newRole, updatedAt: now })
     await ctx.db.insert('auditEvents', {
-      workspaceId: actor.tenantId,
+      workspaceId,
       actorId: actor.userId,
       entityType: 'user',
       entityId: target.authId,
