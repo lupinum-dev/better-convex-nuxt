@@ -1,18 +1,25 @@
 import { requireRecord } from '@lupinum/trellis/auth'
 
 import { createTodo, deleteTodo, listTodos, setTodoCompleted } from '../shared/schemas/todo'
+import type { Id } from './_generated/dataModel'
 import { todoCapabilities } from './auth/capabilities'
 import { canCreateTodo, canDeleteTodo, canReadTodo, canUpdateTodo } from './auth/checks'
 import { app } from './functions'
+
+function requireWorkspaceTenant(actor: { tenantId?: Id<'workspaces'> | null }) {
+  if (!actor.tenantId) throw new Error('Current actor is not assigned to a workspace.')
+  return actor.tenantId
+}
 
 export const list = app.query({
   args: listTodos.args,
   guard: canReadTodo,
   handler: async (ctx) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
     const todos = await ctx.db
       .query('todos')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', workspaceId))
       .order('desc')
       .collect()
 
@@ -38,12 +45,13 @@ export const create = app.mutation({
   guard: canCreateTodo,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    const workspaceId = requireWorkspaceTenant(actor)
 
     return ctx.db.insert('todos', {
       title: args.title,
       completed: false,
       ownerId: actor.userId,
-      workspaceId: actor.tenantId,
+      workspaceId,
       createdAt: Date.now(),
     })
   },

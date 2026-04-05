@@ -144,6 +144,36 @@ describe('team todo example', () => {
     await expect(ctx.raw.query(api.workspaces.getPermissionContext, {})).resolves.toBeNull()
     await expect(ctx.raw.query(api.todos.list, {})).rejects.toThrow('Forbidden: Read todos')
   })
+
+  it('returns onboarding permission context for signed-in users without a workspace', async () => {
+    const ctx = createCtx()
+    const now = Date.now()
+    const authId = 'onboarding-user'
+
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.insert('users', {
+        authId,
+        role: 'member',
+        email: 'onboarding@example.test',
+        displayName: 'Onboarding User',
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+
+    const onboardingUser = ctx.raw.withIdentity({ subject: authId })
+    const permissionCtx = await onboardingUser.query(api.workspaces.getPermissionContext, {})
+
+    expect(permissionCtx).toMatchObject({
+      userId: authId,
+      role: 'member',
+      tenantId: null,
+      email: 'onboarding@example.test',
+      displayName: 'Onboarding User',
+    })
+    expect(permissionCtx?.can[teamWorkspacePermissionKeys.todoCreate]).toBe(false)
+    expect(permissionCtx?.can[teamWorkspacePermissionKeys.todoRead]).toBe(false)
+  })
 })
 
 describe('webhook idempotency', () => {
