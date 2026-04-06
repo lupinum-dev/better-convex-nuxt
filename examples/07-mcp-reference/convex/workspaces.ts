@@ -5,7 +5,7 @@ import { mcpReferencePermissionKeys, type McpReferencePermissionMap } from '../s
 import type { Actor } from './auth/actor'
 import { getPermissionActor } from './auth/actor'
 import { canCreateRunbook, canManageMcpKeys, canReadWorkspaceRunbook } from './auth/checks'
-import { app } from './functions'
+import { app, mutation } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 type PermissionActor = NonNullable<Awaited<ReturnType<typeof getPermissionActor>>>
@@ -45,8 +45,7 @@ export const getPermissionContext = app.query(
   }),
 )
 
-export const createWorkspace = app.mutation({
-  guard: open,
+export const createWorkspace = mutation({
   args: {
     name: v.string(),
     slug: v.string(),
@@ -125,8 +124,7 @@ export const createWorkspace = app.mutation({
   },
 })
 
-export const joinWorkspace = app.mutation({
-  guard: open,
+export const joinWorkspace = mutation({
   args: {
     slug: v.string(),
     role: joinRoleValidator,

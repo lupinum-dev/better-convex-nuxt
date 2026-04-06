@@ -234,6 +234,9 @@
   "pnpm": {
     "overrides": {
       "h3": "1.15.11"
+    },
+    "patchedDependencies": {
+      "@nuxtjs/mcp-toolkit": "patches/@nuxtjs__mcp-toolkit.patch"
     }
   }
 }

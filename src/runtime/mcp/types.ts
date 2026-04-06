@@ -91,6 +91,21 @@ export interface ConvexToolCallFns {
     fn: Action,
     args?: FunctionArgs<Action>,
   ) => Promise<FunctionReturnType<Action>>
+  /** Call a raw Convex query without trusted-caller injection. Use for functions defined with the raw `query` builder (not `app.query`). */
+  rawQuery: <Query extends FunctionReference<'query'>>(
+    fn: Query,
+    args?: FunctionArgs<Query>,
+  ) => Promise<FunctionReturnType<Query>>
+  /** Call a raw Convex mutation without trusted-caller injection. Use for functions defined with the raw `mutation` builder (not `app.mutation`). */
+  rawMutation: <Mutation extends FunctionReference<'mutation'>>(
+    fn: Mutation,
+    args?: FunctionArgs<Mutation>,
+  ) => Promise<FunctionReturnType<Mutation>>
+  /** Call a raw Convex action without trusted-caller injection. Use for functions defined with the raw `action` builder (not `app.action`). */
+  rawAction: <Action extends FunctionReference<'action'>>(
+    fn: Action,
+    args?: FunctionArgs<Action>,
+  ) => Promise<FunctionReturnType<Action>>
 }
 
 export interface ConvexToolHandlerCtx<TRole extends string = string> extends ConvexToolCallFns {

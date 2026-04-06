@@ -11,7 +11,7 @@ export default defineTool({
   check: (actor) => !!actor && ['owner', 'admin', 'member'].includes(actor.role),
   destructive: true,
   preview: async (args, ctx) => {
-    const runbook = await ctx.query(api.runbooks.get, { id: args.id })
+    const runbook = await ctx.query(api.runbooks.getWorkspace, { id: args.id })
     if (!runbook) {
       return ctx.blocked('Runbook not found.')
     }

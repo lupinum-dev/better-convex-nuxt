@@ -132,6 +132,18 @@ export const get = query({
   },
 })
 
+export const getWorkspace = app.query({
+  args: getRunbook.args,
+  guard: canReadWorkspaceRunbook,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const runbook = await ctx.db.get(args.id)
+    if (!runbook) return null
+
+    return workspaceRunbookCapabilities.attach(actor, loadResource(actor, runbook, 'Runbook'))
+  },
+})
+
 export const create = app.mutation({
   args: createRunbook.args,
   guard: canCreateRunbook,

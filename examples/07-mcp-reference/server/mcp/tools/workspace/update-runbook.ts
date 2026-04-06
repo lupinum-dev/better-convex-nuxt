@@ -20,7 +20,7 @@ export default defineTool({
       return ctx.error('validation', 'Provide at least one field to update.')
     }
 
-    const existing = await ctx.query(api.runbooks.get, { id: args.id })
+    const existing = await ctx.query(api.runbooks.getWorkspace, { id: args.id })
     if (!existing) {
       return ctx.error('not_found', `Runbook "${args.id}" not found.`)
     }

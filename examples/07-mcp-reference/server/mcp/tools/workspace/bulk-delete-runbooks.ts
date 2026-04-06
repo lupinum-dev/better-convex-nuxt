@@ -18,7 +18,7 @@ export default defineTool({
     return await next()
   },
   preview: async (args, ctx) => {
-    const runbooks = await Promise.all(args.ids.map((id) => ctx.query(api.runbooks.get, { id })))
+    const runbooks = await Promise.all(args.ids.map((id) => ctx.query(api.runbooks.getWorkspace, { id })))
     const found = runbooks.filter(Boolean)
 
     if (found.length === 0) {

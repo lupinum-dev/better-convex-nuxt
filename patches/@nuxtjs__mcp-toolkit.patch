@@ -1,0 +1,42 @@
+diff --git a/dist/runtime/server/mcp/codemode/executor.js b/dist/runtime/server/mcp/codemode/executor.js
+index 7bb0891a722327c40e531785e48cc2daebd551ea..523e3a48f25ae6cf34503782e27eb06e7e0f3a2f 100644
+--- a/dist/runtime/server/mcp/codemode/executor.js
++++ b/dist/runtime/server/mcp/codemode/executor.js
+@@ -1,5 +1,6 @@
+ import { createServer } from "node:http";
+ import { randomBytes } from "node:crypto";
++import { AsyncLocalStorage } from "node:async_hooks";
+ import { normalizeCode } from "./normalize-code.js";
+ export { normalizeCode };
+ const ERROR_PREFIX = "__ERROR__";
+@@ -85,7 +86,7 @@ function ensureRpcServer() {
+           res.end(JSON.stringify({ error: `Unknown tool: ${name}` }));
+           return;
+         }
+-        const result = await fn(args);
++        const result = state.runInCallerContext ? await state.runInCallerContext(fn, args) : await fn(args);
+         res.writeHead(200, { "Content-Type": "application/json" });
+         res.end(JSON.stringify({ result }));
+       } catch (err) {
+@@ -188,6 +189,7 @@ export async function execute(code, fns, options) {
+   const secureExec = await loadSecureExec();
+   const rpc = await ensureRpcServer();
+   rpc.fns = fns;
++  rpc.runInCallerContext = AsyncLocalStorage.snapshot();
+   const toolNames = Object.keys(fns);
+   const sandboxCode = buildSandboxCode(code, toolNames, rpc.port, rpc.token);
+   let returnedResult = { value: void 0, received: false };
+diff --git a/dist/runtime/server/mcp/codemode/index.js b/dist/runtime/server/mcp/codemode/index.js
+index b0cfc4a4f87b6b4e73f44420f08deaba297e6e5d..4b434ec2bd6b920296c515724c5d2319bc201f1a 100644
+--- a/dist/runtime/server/mcp/codemode/index.js
++++ b/dist/runtime/server/mcp/codemode/index.js
+@@ -195,6 +195,9 @@ function buildDispatchFunctions(tools, toolNameMap) {
+       const args = input ?? {};
+       const rawResult = tool.inputSchema && Object.keys(tool.inputSchema).length > 0 ? await tool.handler(args, {}) : await tool.handler({});
+       const result = normalizeToolResult(rawResult);
++      if (result.structuredContent != null) {
++        return result.structuredContent;
++      }
+       if (result.content) {
+         const textContent = result.content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
+         try {

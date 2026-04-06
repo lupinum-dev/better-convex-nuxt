@@ -414,6 +414,39 @@ function createToolCallFns(
         { auth: 'none' },
       )
     },
+    rawQuery: async <Query extends FunctionReference<'query'>>(
+      fn: Query,
+      args?: FunctionArgs<Query>,
+    ): Promise<FunctionReturnType<Query>> => {
+      return await serverConvexQuery(
+        event,
+        fn,
+        (args ?? {}) as FunctionArgs<Query>,
+        { auth: 'none' },
+      )
+    },
+    rawMutation: async <Mutation extends FunctionReference<'mutation'>>(
+      fn: Mutation,
+      args?: FunctionArgs<Mutation>,
+    ): Promise<FunctionReturnType<Mutation>> => {
+      return await serverConvexMutation(
+        event,
+        fn,
+        (args ?? {}) as FunctionArgs<Mutation>,
+        { auth: 'none' },
+      )
+    },
+    rawAction: async <Action extends FunctionReference<'action'>>(
+      fn: Action,
+      args?: FunctionArgs<Action>,
+    ): Promise<FunctionReturnType<Action>> => {
+      return await serverConvexAction(
+        event,
+        fn,
+        (args ?? {}) as FunctionArgs<Action>,
+        { auth: 'none' },
+      )
+    },
   }
 }
 
