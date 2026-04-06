@@ -9,7 +9,7 @@ import { agencyPermissionKeys, type AgencyPermissionMap } from '../shared/permis
 import { getActor } from './auth/actor'
 import { getMemberships, requireWorkspaceMembership } from './auth/agency'
 import { hasRole } from './auth/checks'
-import { app, mutation } from './functions'
+import { app, query, mutation } from './functions'
 
 type Actor = NonNullable<Awaited<ReturnType<typeof getActor>>>
 
@@ -23,11 +23,11 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const listAccessibleWorkspaces = app.query({
+export const listAccessibleWorkspaces = query({
   args: {},
-  guard: hasRole('owner', 'member', 'viewer', 'agency_admin', 'agency_manager'),
   handler: async (ctx) => {
-    const actor = await ctx.actor()
+    const actor = await getActor(ctx)
+    if (!actor) return []
     const memberships = await getMemberships(ctx.db, actor.userId)
     return Promise.all(
       memberships.map(async (membership) => {
@@ -35,14 +35,14 @@ export const listAccessibleWorkspaces = app.query({
         return {
           workspaceId: membership.workspaceId,
           role: membership.role,
-          name: workspace?.name ?? membership.workspaceId,
+          name: workspace?.name ?? String(membership.workspaceId),
         }
       }),
     )
   },
 })
 
-export const getPermissionContext = app.query(
+export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
     guards: {
@@ -117,7 +117,13 @@ export const createWorkspace = mutation({
 export const joinWorkspace = mutation({
   args: {
     slug: v.string(),
-    role: v.union(v.literal('member'), v.literal('viewer')),
+    role: v.union(
+      v.literal('owner'),
+      v.literal('member'),
+      v.literal('viewer'),
+      v.literal('agency_admin'),
+      v.literal('agency_manager'),
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -236,5 +242,34 @@ export const seedAgencyPortfolio = mutation({
     })
 
     return { clientA, clientB }
+  },
+})
+
+export const listMembers = app.query({
+  args: {},
+  guard: hasRole('owner', 'member', 'viewer', 'agency_admin', 'agency_manager'),
+  handler: async (ctx) => {
+    const actor = await ctx.actor()
+
+    const memberships = await ctx.db
+      .query('memberships')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+      .collect()
+
+    return Promise.all(
+      memberships.map(async (membership) => {
+        const user = await ctx.db
+          .query('users')
+          .withIndex('by_auth_id', (q) => q.eq('authId', membership.userId))
+          .first()
+        return {
+          _id: membership._id,
+          userId: membership.userId,
+          role: membership.role,
+          displayName: user?.displayName ?? null,
+          email: user?.email ?? null,
+        }
+      }),
+    )
   },
 })

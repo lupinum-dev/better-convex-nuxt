@@ -38,3 +38,16 @@ export const create = app.mutation({
     })
   },
 })
+
+export const toggleStatus = app.mutation({
+  args: { id: v.id('projects') },
+  guard: hasRole('owner', 'member'),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id)
+    if (!project) throw new Error('Project not found.')
+
+    const newStatus = project.status === 'active' ? 'paused' : 'active'
+    await ctx.db.patch(args.id, { status: newStatus, updatedAt: Date.now() })
+    return newStatus
+  },
+})

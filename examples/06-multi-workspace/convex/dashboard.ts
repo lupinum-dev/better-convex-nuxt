@@ -16,23 +16,25 @@ export const portfolio = query({
     await requireAnyAgencyRole(ctx.db, actor.userId, 'agency_admin', 'agency_manager')
 
     const memberships = await getMemberships(ctx.db, actor.userId)
-    const clientIds = memberships
-      .filter((m) => ['agency_admin', 'agency_manager'].includes(m.role))
-      .map((m) => m.workspaceId)
+    const agencyMemberships = memberships.filter((m) =>
+      ['agency_admin', 'agency_manager'].includes(m.role),
+    )
 
     return Promise.all(
-      clientIds.map(async (workspaceId) => {
-        const workspace = await ctx.db.get(workspaceId)
+      agencyMemberships.map(async (membership) => {
+        const workspace = await ctx.db.get(membership.workspaceId)
         const projects = await ctx.db
           .query('projects')
-          .withIndex('by_workspace', (q) => q.eq('workspaceId', workspaceId))
+          .withIndex('by_workspace', (q) => q.eq('workspaceId', membership.workspaceId))
           .collect()
         return {
           workspace: {
-            id: workspaceId,
-            name: workspace?.name ?? workspaceId,
+            id: membership.workspaceId,
+            name: workspace?.name ?? String(membership.workspaceId),
           },
+          role: membership.role,
           activeProjects: projects.filter((project) => project.status === 'active').length,
+          totalProjects: projects.length,
         }
       }),
     )
