@@ -775,6 +775,7 @@ export async function runExampleDev({
   findAvailablePortPairFn = findAvailablePortPair,
   isPortFreeFn = isPortFree,
   waitForConvexReadyFn = waitForConvexReady,
+  // eslint-disable-next-line no-unused-vars
   waitForLocalStaticJwksFn = waitForLocalStaticJwks,
   existsSyncFn = existsSync,
   rmSyncFn = rmSync,
