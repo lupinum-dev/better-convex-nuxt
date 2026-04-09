@@ -1,8 +1,25 @@
+import type { createAuthClient } from 'better-auth/vue'
+import type { ComputedRef, Ref } from 'vue'
 import { readonly } from 'vue'
 
 import { getSharedAuthEngine } from '../../client/auth-engine'
+import type { ConvexUser } from '../../utils/types'
 
-export function getConvexAuthRuntime(nuxtApp: object) {
+type AuthClient = ReturnType<typeof createAuthClient>
+
+export interface ConvexAuthRuntime {
+  user: Readonly<Ref<ConvexUser | null>>
+  isAuthenticated: ComputedRef<boolean>
+  isPending: Readonly<Ref<boolean>>
+  isAnonymous: ComputedRef<boolean>
+  isSessionExpired: ComputedRef<boolean>
+  client: AuthClient | null
+  refreshAuth: () => Promise<void>
+  authError: Readonly<Ref<Error | null>>
+  signOut: () => Promise<void>
+}
+
+export function getConvexAuthRuntime(nuxtApp: object): ConvexAuthRuntime {
   const auth = getSharedAuthEngine(nuxtApp)
 
   return {

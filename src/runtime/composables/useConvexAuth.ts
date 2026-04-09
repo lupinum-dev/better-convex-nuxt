@@ -4,7 +4,10 @@ import type { ComputedRef, Ref } from 'vue'
 import { useNuxtApp } from '#imports'
 
 import type { ConvexUser } from '../utils/types'
-import { getConvexAuthRuntime } from './internal/auth-runtime'
+import {
+  getConvexAuthRuntime,
+  type ConvexAuthRuntime,
+} from './internal/auth-runtime'
 
 // Re-export for convenience
 export type { ConvexUser } from '../utils/types'
@@ -35,6 +38,8 @@ export interface UseConvexAuthReturn {
    */
   signOut: () => Promise<void>
 }
+
+export type { ConvexAuthRuntime }
 
 /**
  * Composable for accessing Convex authentication state.

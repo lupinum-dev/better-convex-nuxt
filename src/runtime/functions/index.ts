@@ -32,6 +32,11 @@ import {
 import {
   buildStructuredFunctions,
 } from './define-handler'
+import type {
+  StructuredGuard,
+  StructuredHandlerDefinition,
+  StructuredLoadedValue,
+} from './define-handler'
 export type {
   StructuredGuard,
   StructuredHandlerDefinition,
@@ -72,16 +77,13 @@ type MaybeRules<Ctx, DataModel extends GenericDataModel> =
   | Rules<Ctx, DataModel>
   | ((ctx: Ctx) => Promise<Rules<Ctx, DataModel>> | Rules<Ctx, DataModel>)
 
-type QueryCustomizationCtx<DataModel extends GenericDataModel, TActor> = Record<string, unknown> &
-  FunctionsCtxExtension<TActor> & {
-    db: GenericQueryCtx<DataModel>['db']
-  }
+type QueryCustomizationCtx<DataModel extends GenericDataModel, TActor> =
+  GenericQueryCtx<DataModel> &
+  FunctionsCtxExtension<TActor>
 
 type MutationCustomizationCtx<DataModel extends GenericDataModel, TActor> =
-  Record<string, unknown> &
-    FunctionsCtxExtension<TActor> & {
-      db: GenericMutationCtx<DataModel>['db']
-    }
+  GenericMutationCtx<DataModel> &
+  FunctionsCtxExtension<TActor>
 
 export interface CreateAppOptions<DataModel extends GenericDataModel, TActor = DefaultActor> {
   trustedCaller?: boolean
@@ -345,11 +347,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TActor>(
       }
 
       return {
-        ctx: {
-          ...trustedCallerContext,
-          actor,
-          db,
-        },
+        ctx: finalCtx,
         args: {},
         onSuccess: createOnSuccessHandler(options.onSuccess?.query, finalCtx),
       }
@@ -395,11 +393,7 @@ function createMutationCustomization<DataModel extends GenericDataModel, TActor>
       }
 
       return {
-        ctx: {
-          ...trustedCallerContext,
-          actor,
-          db,
-        },
+        ctx: finalCtx,
         args: {},
         onSuccess: createOnSuccessHandler(options.onSuccess?.mutation, finalCtx),
       }

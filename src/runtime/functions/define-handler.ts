@@ -1,4 +1,4 @@
-import type { ObjectType, PropertyValidators } from 'convex/values'
+import type { ObjectType, PropertyValidators, Validator } from 'convex/values'
 
 import { can, deny, enforce } from '../auth'
 import {
@@ -17,6 +17,7 @@ type ActorContext<TActor> = {
 
 type AnyBuilder = (definition: {
   args: PropertyValidators
+  returns?: Validator<any, any, any>
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
 
@@ -67,6 +68,7 @@ type HandlerDefinition<
   TResult,
 > = {
   args: TArgsValidator
+  returns?: Validator<TResult, any, any>
   guard: TGuard
   load?: LoadFn<TCtx, TActor, TGuard, TArgsValidator, TLoaded>
   authorize?: AuthorizeConfig<TCtx, TActor, TGuard, TArgsValidator, TLoaded>
@@ -123,6 +125,7 @@ function createStructuredBuilder<TCtx extends object, TActor, TBuilder extends A
   ): ReturnType<TBuilder> {
     return builder({
       args: definition.args,
+      returns: definition.returns,
       handler: async (rawCtx, rawArgs) => {
         const ctx = rawCtx as TCtx
         const args = rawArgs as HandlerArgs<TArgsValidator>
