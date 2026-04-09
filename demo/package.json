@@ -6,7 +6,7 @@
     "build": "nuxt build --dotenv .env.local",
     "dev": "nuxt dev --dotenv .env.local",
     "preview": "nuxt preview --dotenv .env.local",
-    "postinstall": "nuxt prepare",
+    "postinstall": "nuxt prepare || true",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck --dotenv .env.local"
   },
