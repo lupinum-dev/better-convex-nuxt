@@ -31,9 +31,11 @@ import {
 } from '../trusted-caller/shared'
 import {
   buildStructuredFunctions,
-  type StructuredGuard,
-  type StructuredHandlerDefinition,
-  type StructuredLoadedValue,
+} from './define-handler'
+export type {
+  StructuredGuard,
+  StructuredHandlerDefinition,
+  StructuredLoadedValue,
 } from './define-handler'
 
 type AnyCtx<DataModel extends GenericDataModel> =
