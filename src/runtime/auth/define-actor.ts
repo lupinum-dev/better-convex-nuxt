@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import { getTrustedCaller } from '../trusted-caller'
+import { getTrustedCaller } from '../trusted-caller/index'
 import { getAuth, type AuthIdentity } from './index'
 
 /**

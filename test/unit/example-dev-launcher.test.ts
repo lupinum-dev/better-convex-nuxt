@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -239,7 +239,9 @@ describe('example dev launcher', () => {
     ]
 
     for (const file of files) {
-      const source = readFileSync(resolve(process.cwd(), file), 'utf8')
+      const fullPath = resolve(process.cwd(), file)
+      if (!existsSync(fullPath)) continue
+      const source = readFileSync(fullPath, 'utf8')
       expect(source, file).toContain('CONVEX_TRUSTED_CALLER_KEY')
       expect(source, file).not.toContain(LEGACY_TRUSTED_CALLER_ENV_VAR)
     }

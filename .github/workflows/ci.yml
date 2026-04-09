@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
 
       - run: npm i -g --force corepack@latest && corepack enable
 
@@ -35,7 +35,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
 
       - run: npm i -g --force corepack@latest && corepack enable
 
@@ -48,6 +48,9 @@ jobs:
       - name: Internal harness prepare
         run: npm run dev:prepare
 
+      - name: Generate Convex codegen
+        run: npm run harness:convex:codegen
+
       - name: Test
         run: npm run test
 
@@ -59,7 +62,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
 
       - run: npm i -g --force corepack@latest && corepack enable
 
@@ -92,7 +95,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 22
 
       - run: npm i -g --force corepack@latest && corepack enable
 
