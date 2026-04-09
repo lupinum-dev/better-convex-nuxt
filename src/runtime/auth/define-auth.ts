@@ -38,6 +38,12 @@ export interface DefineAuthOptions {
   emailPassword?: boolean
 
   /**
+   * Optional Better Auth rate-limit storage override.
+   * Omit to keep Better Auth's default behavior.
+   */
+  rateLimit?: { storage: 'memory' | 'database' } | false
+
+  /**
    * Extra fields merged into the app user row on creation.
    * Reserved module-owned keys (authId, email, displayName, createdAt, updatedAt)
    * are rejected.
@@ -291,20 +297,21 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { betterAuth } = require('better-auth') as { betterAuth: any }
 
-        return betterAuth({
+        const authOptions: Record<string, unknown> = {
           baseURL: bridge.siteUrl,
           database: authComponent.adapter(ctx),
           emailAndPassword: {
             enabled: options.emailPassword !== false,
           },
-          // The Convex adapter already persists Better Auth data, so rate limits
-          // should use durable shared storage instead of per-instance memory.
-          rateLimit: {
-            storage: 'database',
-          },
           plugins: [bridge.createConvexPlugin()],
           trustedOrigins: bridge.trustedOrigins,
-        })
+        }
+
+        if (options.rateLimit && options.rateLimit.storage) {
+          authOptions.rateLimit = options.rateLimit
+        }
+
+        return betterAuth(authOptions)
       }
 
   const createUserIfNeeded = deps.mutation({

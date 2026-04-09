@@ -44,6 +44,10 @@ describe('defineAuth', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    defineAuthMocks.betterAuthMock.mockImplementation((options) => ({
+      kind: 'better-auth-instance',
+      options,
+    }))
     defineAuthMocks.createClientMock.mockImplementation((_component, options) => ({
       adapter: vi.fn(() => ({ kind: 'adapter' })),
       triggersApi: () => options.triggers.user,
@@ -353,7 +357,7 @@ describe('defineAuth', () => {
     expect(() => defineAuth(deps).createAuth({})).not.toThrow()
   })
 
-  it('uses database-backed Better Auth rate limiting in the default path', async () => {
+  it('does not force a Better Auth rate-limit storage backend by default', async () => {
     const deps = createDefineAuthDeps()
     const { getAuthConfigProvider } = await import('@convex-dev/better-auth/auth-config')
     deps.authConfig = {
@@ -361,6 +365,32 @@ describe('defineAuth', () => {
     }
 
     const auth = defineAuth(deps).createAuth({}) as { options?: { rateLimit?: { storage?: string } } }
+
+    expect(auth.options?.rateLimit).toBeUndefined()
+  })
+
+  it('passes through an explicit memory rate-limit override', async () => {
+    const deps = createDefineAuthDeps()
+    const { getAuthConfigProvider } = await import('@convex-dev/better-auth/auth-config')
+    deps.authConfig = {
+      providers: [getAuthConfigProvider()],
+    }
+    const auth = defineAuth(deps, {
+      rateLimit: { storage: 'memory' },
+    }).createAuth({}) as { options?: { rateLimit?: { storage?: string } } }
+
+    expect(auth.options?.rateLimit?.storage).toBe('memory')
+  })
+
+  it('passes through an explicit database rate-limit override', async () => {
+    const deps = createDefineAuthDeps()
+    const { getAuthConfigProvider } = await import('@convex-dev/better-auth/auth-config')
+    deps.authConfig = {
+      providers: [getAuthConfigProvider()],
+    }
+    const auth = defineAuth(deps, {
+      rateLimit: { storage: 'database' },
+    }).createAuth({}) as { options?: { rateLimit?: { storage?: string } } }
 
     expect(auth.options?.rateLimit?.storage).toBe('database')
   })
