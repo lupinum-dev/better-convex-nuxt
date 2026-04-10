@@ -331,7 +331,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TActor>(
   return {
     args: trustedCallerEnabled ? trustedCallerValidators : {},
     input: async (ctx, args) => {
-      const { actor, baseCtx, trustedCallerContext } = createContextWithActor(
+      const { baseCtx } = createContextWithActor(
         ctx,
         args,
         actorResolver,
@@ -369,7 +369,7 @@ function createMutationCustomization<DataModel extends GenericDataModel, TActor>
   return {
     args: trustedCallerEnabled ? trustedCallerValidators : {},
     input: async (ctx, args) => {
-      const { actor, baseCtx, trustedCallerContext } = createContextWithActor(
+      const { baseCtx } = createContextWithActor(
         ctx,
         args,
         actorResolver,

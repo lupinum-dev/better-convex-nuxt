@@ -1,4 +1,4 @@
-import type { ObjectType, PropertyValidators, Validator } from 'convex/values'
+import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
 import { can, deny, enforce } from '../auth'
 import {
@@ -17,7 +17,7 @@ type ActorContext<TActor> = {
 
 type AnyBuilder = (definition: {
   args: PropertyValidators
-  returns?: Validator<any, any, any>
+  returns?: GenericValidator
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
 
@@ -68,7 +68,7 @@ type HandlerDefinition<
   TResult,
 > = {
   args: TArgsValidator
-  returns?: Validator<TResult, any, any>
+  returns?: GenericValidator
   guard: TGuard
   load?: LoadFn<TCtx, TActor, TGuard, TArgsValidator, TLoaded>
   authorize?: AuthorizeConfig<TCtx, TActor, TGuard, TArgsValidator, TLoaded>

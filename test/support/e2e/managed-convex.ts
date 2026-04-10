@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../../internal-harness/shared/dev-trusted-caller-key'
 import {
@@ -27,6 +28,7 @@ export interface EnsureManagedLocalConvexOptions {
 
 let activeHandle: ManagedLocalConvexHandle | null = null
 let retainers = 0
+const convexCliPath = fileURLToPath(new URL('../../../node_modules/convex/bin/main.js', import.meta.url))
 
 function parseManagedConvexUrl(urlString: string): { port: number; url: string } {
   let url: URL
@@ -96,8 +98,8 @@ export async function ensureManagedLocalConvex(
 
     const managedProcess = spawnManagedProcess({
       name: 'Managed local Convex',
-      command: 'npx',
-      args: ['convex', 'dev', '--local'],
+      command: process.execPath,
+      args: [convexCliPath, 'dev', '--local'],
       cwd,
       env: {
         ...process.env,

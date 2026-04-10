@@ -140,7 +140,7 @@ When you need a dedicated local backend for auth, MCP, or E2E:
 
 ```bash
 cd test/internal-harness
-npx convex dev --local
+pnpm exec convex dev --local
 ```
 
 Typical local defaults in this repo:
@@ -152,8 +152,8 @@ Typical local defaults in this repo:
 If auth setup is missing:
 
 ```bash
-npx convex env set SITE_URL http://localhost:3000 --env-file .env.local
-npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
+pnpm exec convex env set SITE_URL http://localhost:3000 --env-file .env.local
+pnpm exec convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
 ```
 
 ## Demo And Docs

@@ -122,9 +122,9 @@ If local auth has not been initialized yet:
 
 ```bash
 cd /path/to/@lupinum/trellis/test/internal-harness
-npx convex dev --local --once
-npx convex env set SITE_URL http://localhost:3000 --env-file .env.local
-npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
+pnpm exec convex dev --local --once
+pnpm exec convex env set SITE_URL http://localhost:3000 --env-file .env.local
+pnpm exec convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
 cd /path/to/@lupinum/trellis
 pnpm test:e2e
 ```

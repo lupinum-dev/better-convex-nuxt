@@ -55,9 +55,9 @@ function buildLocalAuthSetupHelp(cwd: string): string {
     '[e2e][local-auth] Local Better Auth setup is incomplete.',
     'Run these commands and retry:',
     `  cd ${cwd}`,
-    '  npx convex dev --local --once',
-    '  npx convex env set SITE_URL http://localhost:3000 --env-file .env.local',
-    '  npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local',
+    '  pnpm exec convex dev --local --once',
+    '  pnpm exec convex env set SITE_URL http://localhost:3000 --env-file .env.local',
+    '  pnpm exec convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local',
     `  cd ${process.cwd()} && pnpm test:e2e`,
   ].join('\n')
 }

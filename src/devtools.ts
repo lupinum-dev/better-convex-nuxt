@@ -15,6 +15,7 @@ import {
   DEVTOOLS_UI_PORT,
   DEVTOOLS_RPC_NAMESPACE,
 } from './runtime/devtools/constants'
+import { resolveNuxtCliArgs } from './devtools/nuxt-cli'
 import type { ServerRpcFunctions, ClientRpcFunctions } from './runtime/devtools/types'
 
 export function setupConvexDevtools(nuxt: Nuxt): void {
@@ -44,8 +45,7 @@ export function setupConvexDevtools(nuxt: Nuxt): void {
     nuxt.hook('app:resolve', () => {
       startSubprocess(
         {
-          command: 'npx',
-          args: ['nuxi', 'dev', '--port', DEVTOOLS_UI_PORT.toString()],
+          ...resolveNuxtCliArgs(import.meta.url, 'dev', ['--port', DEVTOOLS_UI_PORT.toString()]),
           cwd: resolver.resolve('../client'),
           stdio: 'pipe',
           env: {
