@@ -118,8 +118,10 @@
     }
   },
   "scripts": {
+    "build": "pnpm run prepack",
     "build:cli": "tsc -p tsconfig.cli.json && node -e \"require('node:fs').chmodSync('dist/cli.mjs', 0o755)\"",
     "build:client": "nuxi generate client",
+    "check": "pnpm run lint && pnpm run test:types && pnpm run test:contracts",
     "prepare:types": "nuxt-module-build prepare",
     "prepack": "nuxt-module-build build && pnpm run build:client && pnpm run build:cli",
     "dev": "pnpm run dev:prepare && nuxi dev --cwd test/internal-harness --dotenv .env.local",
