@@ -162,7 +162,7 @@
     "test:full": "pnpm run test && pnpm run test:e2e",
     "test:watch": "vitest watch --project=unit --project=nuxt --project=server",
     "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit",
-    "postinstall": "pnpm run prepare:types",
+    "postinstall": "nuxt-module-build prepare || true",
     "prepare": "husky"
   },
   "dependencies": {
