@@ -39,10 +39,12 @@ interface ConnectionStateStore {
   disconnectedAt: number | null
 }
 
-const connectionStateStores = new WeakMap<object, ConnectionStateStore>()
+// Store on app object directly to survive Vite SSR module duplication with symlinked deps.
+const CONNECTION_STATE_KEY = '__trellis_connection_state__' as const
 
 function getConnectionStateStore(app: object): ConnectionStateStore {
-  const existing = connectionStateStores.get(app)
+  const store = app as Record<string, unknown>
+  const existing = store[CONNECTION_STATE_KEY] as ConnectionStateStore | undefined
   if (existing) return existing
 
   const created: ConnectionStateStore = {
@@ -52,7 +54,7 @@ function getConnectionStateStore(app: object): ConnectionStateStore {
     runtimeInitialized: false,
     disconnectedAt: null,
   }
-  connectionStateStores.set(app, created)
+  store[CONNECTION_STATE_KEY] = created
   return created
 }
 

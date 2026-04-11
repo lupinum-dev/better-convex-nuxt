@@ -151,8 +151,13 @@ export interface CreateSharedAuthEngineOptions {
   resolveInitialAuth?: () => void
 }
 
-const authEngineStates = new WeakMap<object, AuthEngineState>()
-const authEngines = new WeakMap<object, SharedAuthEngine>()
+// Store on nuxtApp directly instead of module-level WeakMaps so that Vite SSR
+// module duplication (common with symlinked file: deps) cannot split the
+// write-side (plugin) from the read-side (composable) into separate scopes.
+const AUTH_ENGINE_KEY = '__trellis_auth_engine__' as const
+const AUTH_ENGINE_STATE_KEY = '__trellis_auth_engine_state__' as const
+
+type NuxtAppStore = Record<string, unknown>
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -179,7 +184,8 @@ function getEngineState(
   token: Ref<string | null>,
   user: Ref<ConvexUser | null>,
 ): AuthEngineState {
-  const existing = authEngineStates.get(nuxtApp)
+  const store = nuxtApp as NuxtAppStore
+  const existing = store[AUTH_ENGINE_STATE_KEY] as AuthEngineState | undefined
   if (existing) {
     return existing
   }
@@ -193,12 +199,12 @@ function getEngineState(
     snapshot: buildAuthSnapshot(token.value, user.value),
     hooksRegistered: false,
   }
-  authEngineStates.set(nuxtApp, created)
+  store[AUTH_ENGINE_STATE_KEY] = created
   return created
 }
 
 export function getSharedAuthEngine(nuxtApp: object): SharedAuthEngine {
-  const engine = authEngines.get(nuxtApp)
+  const engine = (nuxtApp as NuxtAppStore)[AUTH_ENGINE_KEY] as SharedAuthEngine | undefined
   if (!engine) {
     throw new Error(
       '[trellis] Auth engine not initialized. ' +
@@ -220,7 +226,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     resolveInitialAuth,
   } = options
 
-  const existingEngine = authEngines.get(nuxtApp)
+  const existingEngine = (nuxtApp as unknown as NuxtAppStore)[AUTH_ENGINE_KEY] as SharedAuthEngine | undefined
   if (existingEngine) {
     if (import.meta.dev) {
       console.warn(
@@ -569,6 +575,6 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     initialize,
   }
 
-  authEngines.set(nuxtApp, engine)
+  ;(nuxtApp as unknown as NuxtAppStore)[AUTH_ENGINE_KEY] = engine
   return engine
 }

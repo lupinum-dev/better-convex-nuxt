@@ -17,9 +17,8 @@ export type { QueryStatus } from './types'
 // Get the NuxtApp type from useNuxtApp return type
 type NuxtApp = ReturnType<typeof useNuxtApp>
 
-// Module-level WeakMap for automatic GC when NuxtApp is destroyed
-// This replaces the previous pattern of patching nuxtApp._convexSubscriptions
-const subscriptionRegistry = new WeakMap<object, SubscriptionCache>()
+// Store on nuxtApp directly to survive Vite SSR module duplication with symlinked deps.
+const SUBSCRIPTION_CACHE_KEY = '__trellis_subscription_cache__' as const
 
 // ============================================================================
 // Types
@@ -142,10 +141,11 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
  * ```
  */
 export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
-  if (!subscriptionRegistry.has(nuxtApp)) {
-    subscriptionRegistry.set(nuxtApp, new Map())
+  const store = nuxtApp as unknown as Record<string, unknown>
+  if (!store[SUBSCRIPTION_CACHE_KEY]) {
+    store[SUBSCRIPTION_CACHE_KEY] = new Map()
   }
-  return subscriptionRegistry.get(nuxtApp)!
+  return store[SUBSCRIPTION_CACHE_KEY] as SubscriptionCache
 }
 
 /**
