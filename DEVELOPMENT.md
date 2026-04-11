@@ -1,6 +1,6 @@
 # Development Setup
 
-This file is the maintainer source of truth for local workspace setup and contributor-only app surfaces.
+This file is the maintainer source of truth for Trellis-local development.
 
 ## Repo Surfaces
 
@@ -16,8 +16,9 @@ This file is the maintainer source of truth for local workspace setup and contri
 pnpm install
 ```
 
-`pnpm install` now prepares the Nuxt type projects needed for editor support, linting, and `pnpm test:types`.
-Use `pnpm dev:prepare` when you need the local module stubs and CLI build for maintainer workflows.
+`pnpm install` prepares the Nuxt type projects needed for editor support, linting, and `pnpm test:types`.
+
+`pnpm dev:prepare` is now intentionally narrow. It prepares the internal harness and module type surfaces. It does not rebuild the publishable package or CLI.
 
 ## Daily Commands
 
@@ -26,6 +27,7 @@ pnpm dev
 pnpm dev:local
 pnpm dev:local:reset
 pnpm dev:build
+pnpm check:cli
 pnpm test:types
 pnpm test:contracts
 pnpm test:internals
@@ -41,6 +43,7 @@ pnpm docs:api-surface
 - `pnpm dev:local` forces the internal harness onto local Convex ports.
 - `pnpm dev:local:reset` does the same and resets the local backend state first.
 - `pnpm dev:build` builds the internal harness without starting it.
+- `pnpm check:cli` is the explicit CLI smoke path. CLI maintenance is not coupled to normal harness startup.
 - `pnpm test:contracts` runs the public contract and maintainer guard suites.
 - `pnpm test:internals` runs extracted helper and internal state-machine suites.
 - `pnpm test:list` lists runnable test entry files only.
@@ -103,7 +106,9 @@ Use it for:
 - root E2E and eval flows
 - backend harness tests under `test/internal-harness/convex`
 
-The root `pnpm dev*` commands all target `test/internal-harness/`.
+The root `pnpm dev*` commands in `/WORK` do not target this harness anymore. The canonical cross-repo integration surface is `/Users/matthias/Git/0_libs/WORK/consumer-site`.
+
+Use the harness for focused Trellis development. Use `consumer-site` to validate downstream integration.
 
 ## Local Env Layout
 

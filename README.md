@@ -180,11 +180,11 @@ npx trellis init mcp
 ## Contributing
 
 ```bash
-pnpm install
-pnpm dev:prepare
+corepack pnpm install
 pnpm dev
+pnpm check
+pnpm check:cli
 pnpm test
-pnpm lint
 ```
 
 Maintainer notes live in [DEVELOPMENT.md](./DEVELOPMENT.md).
