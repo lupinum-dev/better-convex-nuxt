@@ -7,6 +7,7 @@ const rootPath = ROOT.pathname
 const targetDirectories = [
   'src/analysis',
   'src/devtools',
+  'src/eslint',
   'src/installers',
   'src/module-internals',
   'src/runtime',

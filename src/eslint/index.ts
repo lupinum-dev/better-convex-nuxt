@@ -5,7 +5,7 @@ import {
   hasTenantCollectionMethod,
   isNullishBooleanLiteral,
   resolveAnalyzerTenantOverride,
-} from '../analysis/project'
+} from '../analysis/project.js'
 
 type RuleContext = {
   filename?: string

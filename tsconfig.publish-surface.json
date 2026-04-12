@@ -14,6 +14,7 @@
     "src/cli/**/*.ts",
     "src/devtools.ts",
     "src/devtools/**/*.ts",
+    "src/eslint/**/*.ts",
     "src/installers/**/*.ts",
     "src/module.ts",
     "src/module-internals/**/*.ts"
