@@ -126,7 +126,7 @@
     "check:publish-surface": "node scripts/check-publish-specifiers.mjs && tsc -p tsconfig.publish-surface.json --noEmit",
     "prepare:types": "nuxt-module-build prepare",
     "prepare:harness": "pnpm run prepare:types && pnpm --dir test/internal-harness exec nuxi prepare",
-    "prepack": "nuxt-module-build build && pnpm run build:client && pnpm run build:cli",
+    "prepack": "nuxt-module-build build && node scripts/fix-dts-specifiers.mjs && pnpm run build:client && pnpm run build:cli",
     "dev": "pnpm run dev:prepare && nuxi dev --cwd test/internal-harness --dotenv .env.local",
     "dev:local": "INTERNAL_HARNESS_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=internal-harness-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true pnpm run dev:prepare && INTERNAL_HARNESS_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=internal-harness-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true nuxi dev --cwd test/internal-harness --dotenv .env.local",
     "dev:local:reset": "INTERNAL_HARNESS_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=internal-harness-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true RESET_LOCAL_BACKEND=true pnpm run dev:prepare && INTERNAL_HARNESS_ENABLE_PRIVATE_BRIDGE_REFERENCE=true CONVEX_PRIVATE_BRIDGE_KEY=internal-harness-private-bridge-key-not-for-production USE_LOCAL_CONVEX=true RESET_LOCAL_BACKEND=true nuxi dev --cwd test/internal-harness --dotenv .env.local",
