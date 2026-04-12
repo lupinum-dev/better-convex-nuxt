@@ -7,8 +7,8 @@ import {
   trustedCallerContextKey,
   trustedCallerValidators,
   type TrustedCallerIdentity,
-} from './shared'
-import { verifyTrustedCallerKey as verifyTrustedCallerKeyInternal } from './shared'
+} from './shared.js'
+import { verifyTrustedCallerKey as verifyTrustedCallerKeyInternal } from './shared.js'
 
 export function withTrustedCaller<V extends PropertyValidators>(args: V): V {
   return {

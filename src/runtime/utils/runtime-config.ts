@@ -1,8 +1,8 @@
 import { useRuntimeConfig } from '#imports'
 
-import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config'
-import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config'
-import type { LogLevel } from './logger'
+import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config.js'
+import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
+import type { LogLevel } from './logger.js'
 
 export interface ConvexRuntimeQueryDefaults {
   server: boolean
@@ -124,5 +124,5 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
 }
 
 export function getConvexRuntimeConfig(): NormalizedConvexRuntimeConfig {
-  return normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
+  return normalizeConvexRuntimeConfig(useRuntimeConfig().public?.convex)
 }

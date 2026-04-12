@@ -1,5 +1,5 @@
-import { useConvexAuth } from './useConvexAuth'
-import { useConvexAuthActions, type UseConvexAuthActionsOptions } from './useConvexAuthActions'
+import { useConvexAuth } from './useConvexAuth.js'
+import { useConvexAuthActions, type UseConvexAuthActionsOptions } from './useConvexAuthActions.js'
 
 /**
  * Composable for email/password sign-up via Better Auth.

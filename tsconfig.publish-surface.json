@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "verbatimModuleSyntax": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/analysis/**/*.ts",
+    "src/runtime/types.d.ts",
+    "types/**/*.d.ts",
+    "src/cli.mts",
+    "src/cli/**/*.ts",
+    "src/devtools.ts",
+    "src/devtools/**/*.ts",
+    "src/installers/**/*.ts",
+    "src/module.ts",
+    "src/module-internals/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "docs",
+    "demo",
+    "examples",
+    "test",
+    "src/runtime/server"
+  ]
+}

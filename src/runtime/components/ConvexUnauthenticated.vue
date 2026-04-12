@@ -10,7 +10,7 @@
  * </ConvexUnauthenticated>
  * ```
  */
-import { useConvexAuth } from '../composables/useConvexAuth'
+import { useConvexAuth } from '../composables/useConvexAuth.js'
 
 defineSlots<{
   default(): unknown

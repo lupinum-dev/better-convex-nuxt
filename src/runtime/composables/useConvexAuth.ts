@@ -3,14 +3,14 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import type { ConvexUser } from '../utils/types'
+import type { ConvexUser } from '../utils/types.js'
 import {
   getConvexAuthRuntime,
   type ConvexAuthRuntime,
-} from './internal/auth-runtime'
+} from './internal/auth-runtime.js'
 
 // Re-export for convenience
-export type { ConvexUser } from '../utils/types'
+export type { ConvexUser } from '../utils/types.js'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 

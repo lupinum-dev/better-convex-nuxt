@@ -1,7 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, toValue, type ComputedRef, type MaybeRef } from 'vue'
 
-import { useConvexQuery } from './useConvexQuery'
+import { useConvexQuery } from './useConvexQuery.js'
 
 /**
  * Composable to retrieve a signed URL for a file in Convex storage.

@@ -1,4 +1,4 @@
-import type { FunctionArgs, PaginationResult } from 'convex/server'
+import type { FunctionArgs } from 'convex/server'
 import {
   computed,
   getCurrentInstance,
@@ -20,24 +20,24 @@ import {
   registerDevtoolsQuery,
   unregisterDevtoolsQuery,
   updateDevtoolsQuery,
-} from '../../devtools/runtime'
-import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized'
-import { assertConvexComposableScope } from '../../utils/composable-scope'
-import { getFunctionName, getQueryKey, hashArgs } from '../../utils/convex-cache'
-import { getLogLevel, getSharedLogger } from '../../utils/logger'
-import { getConvexRuntimeConfig } from '../../utils/runtime-config'
-import { generatePaginationId } from '../../utils/shared-helpers'
+} from '../../devtools/runtime.js'
+import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
+import { assertConvexComposableScope } from '../../utils/composable-scope.js'
+import { getFunctionName, getQueryKey, hashArgs } from '../../utils/convex-cache.js'
+import { getLogLevel, getSharedLogger } from '../../utils/logger.js'
+import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
+import { generatePaginationId } from '../../utils/shared-helpers.js'
 import {
   createLiveQueryResource,
   executeLiveQuery,
-} from './live-query-resource'
+} from './live-query-resource.js'
 import {
   collectPaginatedResults,
   derivePaginatedStatus,
   shouldPaginatedResultsBeStale,
   shouldUsePreviousPaginatedResults,
   type PaginatedQueryStatus,
-} from './pagination-state'
+} from './pagination-state.js'
 import {
   createPaginatedWatchSource,
   createSkippedPaginatedCacheKey,
@@ -47,29 +47,30 @@ import {
   updateRuntimePaginationPage,
   type RuntimePageState,
   type StablePaginationOpts,
-} from './pagination-page-state'
+} from './pagination-page-state.js'
 import {
   createLoadMoreBootstrap,
   createPaginationOperationContext,
   createPaginationResetState,
   createStablePaginatedSubscriptionKey,
-} from './pagination-runtime-state'
+} from './pagination-runtime-state.js'
 import {
   startSharedQuerySubscription,
   type SharedQuerySubscriptionHandle,
-} from './shared-query-subscription'
+} from './shared-query-subscription.js'
 import type {
   PaginatedQueryReference,
   PaginatedQueryArgs,
   PaginatedQueryItem,
-} from '../optimistic-updates'
-export type { PaginatedQueryStatus } from './pagination-state'
+  PaginatedQueryResult,
+} from '../optimistic-updates.js'
+export type { PaginatedQueryStatus } from './pagination-state.js'
 
 export {
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
-} from '../optimistic-updates'
+} from '../optimistic-updates.js'
 
 export interface UseConvexPaginatedQueryOptions<Item, TransformedItem = Item> {
   initialNumItems: number
@@ -199,7 +200,7 @@ export function createConvexPaginatedQueryState<
     return buildPageArgs(initialPaginationOpts.value)
   })
 
-  const firstPageResource = createLiveQueryResource<Query, PaginationResult<Item>>({
+  const firstPageResource = createLiveQueryResource<Query, PaginatedQueryResult<Item>>({
     query,
     args: firstPageArgs as typeof firstPageArgs,
     cacheKey: firstPageCacheKey,
@@ -339,7 +340,7 @@ export function createConvexPaginatedQueryState<
       }),
       pageIndex,
     )
-    page.subscription = startSharedQuerySubscription<Query, PaginationResult<Item>>({
+    page.subscription = startSharedQuerySubscription<Query, PaginatedQueryResult<Item>>({
       query,
       args: pageArgs,
       cacheKey: operation.operationId,
@@ -407,8 +408,8 @@ export function createConvexPaginatedQueryState<
   const runPageQuery = async (
     paginationOpts: PageState<Item>['paginationOpts'],
     opts: { subscribe?: boolean } = {},
-  ): Promise<PaginationResult<Item>> => {
-    return await executeLiveQuery<Query, PaginationResult<Item>>({
+  ): Promise<PaginatedQueryResult<Item>> => {
+    return await executeLiveQuery<Query, PaginatedQueryResult<Item>>({
       query,
       args: buildPageArgs(paginationOpts),
       subscribe: opts.subscribe ?? subscribe,

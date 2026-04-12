@@ -8,8 +8,8 @@ import type { PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
-import type { SchemaDefinition } from '../utils/define-convex-schema'
-import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types'
+import type { SchemaDefinition } from '../utils/define-convex-schema.js'
+import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
 
 // ============================================================================
 // Schema helpers (re-exported for convenience)

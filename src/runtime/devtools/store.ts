@@ -7,7 +7,7 @@ import type { ConvexClient } from 'convex/browser'
 import { toRaw } from 'vue'
 import type { Ref } from 'vue'
 
-import { decodeJwtPayload } from '../utils/convex-shared'
+import { decodeJwtPayload } from '../utils/convex-shared.js'
 import type {
   QueryRegistryEntry,
   MutationEntry,
@@ -20,7 +20,7 @@ import type {
   ConvexDevtoolsSnapshot,
   ConvexUser,
   JWTClaims,
-} from './types'
+} from './types.js'
 
 const MAX_MUTATIONS = 50
 const MAX_EVENTS = 500

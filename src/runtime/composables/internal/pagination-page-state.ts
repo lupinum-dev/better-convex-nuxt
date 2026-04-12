@@ -1,4 +1,4 @@
-import type { PaginationResult } from 'convex/server'
+import type { PaginatedQueryResult } from '../optimistic-updates.js'
 
 export interface StablePaginationOpts {
   numItems: number
@@ -11,7 +11,7 @@ export interface RuntimePaginationOpts extends StablePaginationOpts {
 
 export interface RuntimePageState<T, TSubscription = unknown> {
   paginationOpts: RuntimePaginationOpts
-  result: PaginationResult<T> | null
+  result: PaginatedQueryResult<T> | null
   error: Error | null
   pending: boolean
   subscription: TSubscription | null

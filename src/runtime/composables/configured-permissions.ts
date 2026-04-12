@@ -4,9 +4,9 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter } from '#imports'
 
-import { usePermissionDevtoolsState } from '../devtools/state'
-import { useConvexAuth } from './useConvexAuth'
-import { createConvexQueryState } from './useConvexQuery'
+import { usePermissionDevtoolsState } from '../devtools/state.js'
+import { useConvexAuth } from './useConvexAuth.js'
+import { createConvexQueryState } from './useConvexQuery.js'
 
 export type AuthContext = {
   role?: string | null

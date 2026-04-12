@@ -9,26 +9,26 @@ import {
   appendResponseHeader,
 } from 'h3'
 
-import type { AuthProxyRequest } from '../../../devtools/types'
+import type { AuthProxyRequest } from '../../../devtools/types.js'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
   buildBlockedOriginMessage,
   buildMissingSiteUrlMessage,
-} from '../../../utils/auth-errors'
-import { clearsBetterAuthSessionCookie, getBetterAuthSessionToken } from '../../../utils/auth-token'
-import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
-import { serverConvexClearAuthCache } from '../../utils/auth-cache'
-import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
+} from '../../../utils/auth-errors.js'
+import { clearsBetterAuthSessionCookie, getBetterAuthSessionToken } from '../../../utils/auth-token.js'
+import { getConvexRuntimeConfig } from '../../../utils/runtime-config.js'
+import { serverConvexClearAuthCache } from '../../utils/auth-cache.js'
+import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http.js'
 import {
   getRequestBodySizeError,
   getResponseBodySizeError,
   readRequestBodyWithLimit,
   readResponseBodyWithLimit,
-} from './body-size'
-import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers'
-import { fetchWithCanonicalRedirects } from './redirect-utils'
-import { getAuthRoutePattern, isOriginAllowed } from './security'
+} from './body-size.js'
+import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers.js'
+import { fetchWithCanonicalRedirects } from './redirect-utils.js'
+import { getAuthRoutePattern, isOriginAllowed } from './security.js'
 
 const GENERIC_CORS_ALLOW_METHODS = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
 const CRITICAL_AUTH_ENDPOINT_ALLOW_METHODS = ['GET', 'OPTIONS'] as const
@@ -70,7 +70,7 @@ function isMalformedAuthSubpath(path: string): boolean {
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
-  const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry')
+  const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry.js')
   await recordAuthProxyRequest(request)
 }
 

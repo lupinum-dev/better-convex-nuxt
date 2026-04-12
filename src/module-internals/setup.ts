@@ -1,25 +1,25 @@
 import { defu } from 'defu'
 
-import { collectConvexFunctionPaths } from '../analysis/project'
-import { collectModuleValidationFindings } from '../analysis/validation'
-import { normalizeConvexAuthConfig } from '../runtime/utils/auth-config'
+import { collectConvexFunctionPaths } from '../analysis/project.js'
+import { collectModuleValidationFindings } from '../analysis/validation.js'
+import { normalizeConvexAuthConfig } from '../runtime/utils/auth-config.js'
 import {
   getSiteUrlResolutionHint,
   isValidAbsoluteUrl,
   normalizeAuthRoute,
   resolveConvexSiteUrl,
-} from '../runtime/utils/convex-config'
-import type { NormalizedConvexRuntimeConfig } from '../runtime/utils/runtime-config'
+} from '../runtime/utils/convex-config.js'
+import type { NormalizedConvexRuntimeConfig } from '../runtime/utils/runtime-config.js'
 import type {
   AuthOptions,
   ModuleOptions,
-} from './options'
+} from './options.js'
 import {
   createConfiguredFunctionError,
   normalizeAuthCacheTtl,
   normalizeAuthShorthand,
   normalizeConfiguredFunctionPath,
-} from './options'
+} from './options.js'
 
 type RuntimePublicConvexConfig = Record<string, unknown>
 

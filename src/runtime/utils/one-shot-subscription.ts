@@ -1,7 +1,7 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 
-import { SUBSCRIPTION_TIMEOUT_MS } from './constants'
+import { SUBSCRIPTION_TIMEOUT_MS } from './constants.js'
 
 export function executeQueryViaSubscriptionOnce<Query extends FunctionReference<'query'>>(
   convex: ConvexClient,

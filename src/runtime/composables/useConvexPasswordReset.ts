@@ -1,5 +1,5 @@
-import { useConvexAuth } from './useConvexAuth'
-import { useConvexAuthActions, type UseConvexAuthActionsOptions } from './useConvexAuthActions'
+import { useConvexAuth } from './useConvexAuth.js'
+import { useConvexAuthActions, type UseConvexAuthActionsOptions } from './useConvexAuthActions.js'
 
 /** Subset of the Better Auth client used by password-reset flows (available when emailAndPassword is enabled). */
 interface PasswordResetClient {

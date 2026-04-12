@@ -2,12 +2,12 @@ import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex
 import type { H3Event } from 'h3'
 import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 
-import { ConvexCallError, toConvexError } from '../../utils/call-result'
-import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
-import { createLogger, getLogLevel } from '../../utils/logger'
-import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
-import type { ConvexServerAuthMode } from '../../utils/types'
-import { resolveRequestAuthToken } from './auth-resolver'
+import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
+import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared.js'
+import { createLogger, getLogLevel } from '../../utils/logger.js'
+import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
+import type { ConvexServerAuthMode } from '../../utils/types.js'
+import { resolveRequestAuthToken } from './auth-resolver.js'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
 type ServerConvexHelperName = 'serverConvexQuery' | 'serverConvexMutation' | 'serverConvexAction'

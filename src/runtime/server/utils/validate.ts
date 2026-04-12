@@ -7,8 +7,8 @@
 import type { GenericValidator, Infer } from 'convex/values'
 import { createError } from 'h3'
 
-import { toConvexSchema } from '../../utils/convex-schema'
-import type { StandardSchemaV1Result } from '../../utils/standard-schema'
+import { toConvexSchema } from '../../utils/convex-schema.js'
+import type { StandardSchemaV1Result } from '../../utils/standard-schema.js'
 
 /**
  * Create an H3-compatible validation function from a Convex validator.

@@ -8,13 +8,13 @@ export {
   imageResult,
 } from '@nuxtjs/mcp-toolkit/server'
 
-export { defineTool } from './define-convex-tool'
+export { defineTool } from './define-convex-tool.js'
 
-export { useMcpServer } from './use-mcp-server'
+export { useMcpServer } from './use-mcp-server.js'
 
-export { useMcpSession } from './use-mcp-session'
+export { useMcpSession } from './use-mcp-session.js'
 
-export { wrapError, wrapSuccess, wrapPreview, withSummary } from './result-envelope'
+export { wrapError, wrapSuccess, wrapPreview, withSummary } from './result-envelope.js'
 
 export type {
   DefineConvexToolOptions as DefineToolOptions,
@@ -26,7 +26,7 @@ export type {
   ConvexToolErrorResult,
   ConvexToolMiddleware,
   ConvexToolHandlerCtx,
-} from './types'
+} from './types.js'
 
 export type {
   McpPromptExtra,

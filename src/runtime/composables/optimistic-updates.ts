@@ -10,15 +10,20 @@ import type {
   FunctionReference,
   FunctionArgs,
   FunctionReturnType,
-  PaginationResult,
   PaginationOptions,
 } from 'convex/server'
 
-import { argsMatch as sharedArgsMatch } from '../utils/shared-helpers'
+import { argsMatch as sharedArgsMatch } from '../utils/shared-helpers.js'
 
 // ============================================================================
 // Types for Paginated Queries
 // ============================================================================
+
+export interface PaginatedQueryResult<Item> {
+  page: Item[]
+  isDone: boolean
+  continueCursor: string | null
+}
 
 /**
  * A FunctionReference that is usable with paginated query optimistic updates.
@@ -33,7 +38,7 @@ export type PaginatedQueryReference = FunctionReference<
   'public',
   { paginationOpts: PaginationOptions },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  PaginationResult<any>
+  PaginatedQueryResult<any>
 >
 
 /**
@@ -129,9 +134,9 @@ export interface OptimisticMatchedQueryHandle<Query extends FunctionReference<'q
 export interface OptimisticMatchedPaginatedHandle<Query extends PaginatedQueryReference> {
   update: (
     updater: (
-      current: PaginationResult<PaginatedQueryItem<Query>>,
+      current: PaginatedQueryResult<PaginatedQueryItem<Query>>,
       args: FunctionArgs<Query>,
-    ) => PaginationResult<PaginatedQueryItem<Query>>,
+    ) => PaginatedQueryResult<PaginatedQueryItem<Query>>,
   ) => void
 }
 
@@ -231,7 +236,7 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
       /** Apply an operation to all matching paginated query entries in the store. */
       function forEachMatchingPage(
         callback: (
-          paginatedValue: PaginationResult<PaginatedQueryItem<Q>>,
+          paginatedValue: PaginatedQueryResult<PaginatedQueryItem<Q>>,
           pageArgs: FunctionArgs<Q>,
         ) => void,
       ): void {
@@ -245,7 +250,7 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
             )
           )
             continue
-          callback(value as PaginationResult<PaginatedQueryItem<Q>>, pageArgs)
+          callback(value as PaginatedQueryResult<PaginatedQueryItem<Q>>, pageArgs)
         }
       }
 
@@ -316,7 +321,7 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
             store.setQuery(
               query,
               args as FunctionArgs<Q>,
-              updater(value as PaginationResult<PaginatedQueryItem<Q>>, args as FunctionArgs<Q>),
+              updater(value as PaginatedQueryResult<PaginatedQueryItem<Q>>, args as FunctionArgs<Q>),
             )
           }
         },

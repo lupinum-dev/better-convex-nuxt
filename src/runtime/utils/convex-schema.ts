@@ -9,7 +9,7 @@
 
 import type { GenericValidator, Infer } from 'convex/values'
 
-import type { StandardSchemaV1 } from './standard-schema'
+import type { StandardSchemaV1 } from './standard-schema.js'
 
 // ============================================================================
 // Validation issue type (internal to walker)

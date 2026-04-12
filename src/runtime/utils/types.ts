@@ -171,7 +171,7 @@ export interface ConvexCallErrorPayload<
   /** The arguments passed to the call. */
   args: Record<string, unknown>
   /** The ConvexCallError instance. */
-  error: import('./call-result').ConvexCallError
+  error: import('./call-result.js').ConvexCallError
   /** Wall-clock duration in milliseconds. */
   duration: number
 }

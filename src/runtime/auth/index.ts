@@ -1,15 +1,15 @@
 import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { ConvexError } from 'convex/values'
 
-import { runCheck, type AnyCheck, type Check } from './define-guard'
+import { runCheck, type AnyCheck, type Check } from './define-guard.js'
 
-export { defineAuth } from './define-auth'
-export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth'
-export { defineGuard, isGuard, isOpenGuard, open } from './define-guard'
-export type { AnyCheck, Check, Guard, GuardKind, OpenGuard } from './define-guard'
-export { defineActor } from './define-actor'
-export type { ActorBuilder, DefaultActor } from './define-actor'
-export { definePermissionContext } from './define-permission-context'
+export { defineAuth } from './define-auth.js'
+export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth.js'
+export { defineGuard, isGuard, isOpenGuard, open } from './define-guard.js'
+export type { AnyCheck, Check, Guard, GuardKind, OpenGuard } from './define-guard.js'
+export { defineActor } from './define-actor.js'
+export type { ActorBuilder, DefaultActor } from './define-actor.js'
+export { definePermissionContext } from './define-permission-context.js'
 
 export type AuthIdentity = {
   subject: string

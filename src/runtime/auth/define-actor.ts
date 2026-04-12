@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import { getTrustedCaller } from '../trusted-caller/index'
-import { getAuth, type AuthIdentity } from './index'
+import { getTrustedCaller } from '../trusted-caller/index.js'
+import { getAuth, type AuthIdentity } from './index.js'
 
 /**
  * The default actor shape provided by the module.

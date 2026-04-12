@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ConvexError } from 'convex/values'
 
-import { open, runCheck, type AnyCheck } from './define-guard'
+import { open, runCheck, type AnyCheck } from './define-guard.js'
 
 type PermissionContextBase<TCan extends Record<string, boolean>> = {
   userId: string | null

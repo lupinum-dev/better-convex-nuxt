@@ -1,4 +1,4 @@
-import { analyzeProject, collectProjectSourceFiles, findSchemaTable } from './project'
+import { analyzeProject, collectProjectSourceFiles, findSchemaTable } from './project.js'
 
 export interface ModuleValidationFinding {
   id: string

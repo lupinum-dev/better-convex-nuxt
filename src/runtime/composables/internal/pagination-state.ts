@@ -1,4 +1,4 @@
-import type { PaginationResult } from 'convex/server'
+import type { PaginatedQueryResult } from '../optimistic-updates.js'
 
 export type PaginatedQueryStatus =
   | 'skipped'
@@ -9,7 +9,7 @@ export type PaginatedQueryStatus =
   | 'error'
 
 export interface PaginationStatePage<T> {
-  result: PaginationResult<T> | null
+  result: PaginatedQueryResult<T> | null
   error: Error | null
   pending: boolean
 }
@@ -17,7 +17,7 @@ export interface PaginationStatePage<T> {
 export interface DerivePaginatedStatusInput<T> {
   isSkipped: boolean
   isManualRefreshPending: boolean
-  firstPage: PaginationResult<T> | null
+  firstPage: PaginatedQueryResult<T> | null
   firstPagePending: boolean
   firstPageError: Error | null
   extraPages: PaginationStatePage<T>[]
@@ -44,7 +44,7 @@ export interface PaginatedStaleInput<T> {
 }
 
 export interface NextPageInput<T> {
-  firstPage: PaginationResult<T> | null
+  firstPage: PaginatedQueryResult<T> | null
   extraPages: PaginationStatePage<T>[]
 }
 
@@ -80,7 +80,7 @@ export function derivePaginatedStatus<T>(
 }
 
 export function collectPaginatedResults<T>(
-  firstPage: PaginationResult<T> | null,
+  firstPage: PaginatedQueryResult<T> | null,
   extraPages: PaginationStatePage<T>[],
 ): T[] {
   const items: T[] = []
@@ -117,7 +117,7 @@ export function shouldPaginatedResultsBeStale<T>(input: PaginatedStaleInput<T>):
   return input.results.length > 0
 }
 
-export function getNextPageInput<T>(input: NextPageInput<T>): PaginationResult<T> | null {
+export function getNextPageInput<T>(input: NextPageInput<T>): PaginatedQueryResult<T> | null {
   const lastExtraPage = input.extraPages.length > 0 ? input.extraPages[input.extraPages.length - 1] : null
   return lastExtraPage?.result ?? input.firstPage
 }

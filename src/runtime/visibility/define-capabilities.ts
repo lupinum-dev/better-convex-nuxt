@@ -1,4 +1,4 @@
-import { can } from '../auth'
+import { can } from '../auth/index.js'
 
 export type CapabilityResolver<TActor, TResource> = (actor: TActor, resource: TResource) => boolean
 

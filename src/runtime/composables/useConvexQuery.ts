@@ -11,7 +11,7 @@ import {
   type UseConvexQueryData,
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,
-} from './internal/query-runtime'
+} from './internal/query-runtime.js'
 
 export {
   createConvexQueryState,

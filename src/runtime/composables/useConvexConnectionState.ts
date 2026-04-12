@@ -1,7 +1,7 @@
 import {
   useConvexConnectionState as useConvexConnectionStateRuntime,
   type ConnectionState,
-} from './internal/connection-runtime'
+} from './internal/connection-runtime.js'
 
 export type { ConnectionState }
 

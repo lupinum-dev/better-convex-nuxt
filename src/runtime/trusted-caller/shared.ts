@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import type { PropertyValidators } from 'convex/values'
 
-import { deny } from '../auth'
+import { deny } from '../auth/index.js'
 
 export type TrustedCallerIdentity = {
   userId: string

@@ -95,7 +95,7 @@ export type ConvexAuthBridge = {
  * because they're code-generated per project.
  */
 export interface DefineAuthDeps {
-  /** `components` from './_generated/api' */
+  /** `components` from './_generated/api.js' */
   components: { betterAuth: unknown }
   /** `internal` from './_generated/api' */
   internal: Record<string, unknown>
@@ -142,9 +142,9 @@ function buildTrustedOrigins(siteUrl: string): string[] {
  * @example
  * ```ts
  * import { defineAuth } from '@lupinum/trellis/auth'
- * import { components, internal } from './_generated/api'
- * import { mutation } from './_generated/server'
- * import authConfig from './auth.config'
+ * import { components, internal } from './_generated/api.js'
+ * import { mutation } from './_generated/server.js'
+ * import authConfig from './auth.config.js'
  *
  * export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
  *   { components, internal, mutation, authConfig },

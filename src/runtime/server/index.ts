@@ -3,4 +3,4 @@ export {
   serverConvexMutation,
   serverConvexAction,
   type ServerConvexOptions,
-} from './utils/convex'
+} from './utils/convex.js'

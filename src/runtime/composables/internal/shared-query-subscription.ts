@@ -3,7 +3,7 @@ import type { FunctionArgs, FunctionReference } from 'convex/server'
 
 import { useNuxtApp, watch } from '#imports'
 
-import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized'
+import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
 import {
   createQueryBridge,
   ensureQueryBridge,
@@ -11,7 +11,7 @@ import {
   getSubscription,
   registerSubscription,
   releaseSubscription,
-} from '../../utils/convex-cache'
+} from '../../utils/convex-cache.js'
 
 export interface SharedQuerySubscriptionOptions<Query extends FunctionReference<'query'>, Result> {
   query: Query

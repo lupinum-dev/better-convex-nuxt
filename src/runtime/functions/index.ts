@@ -23,25 +23,25 @@ import type {
 } from 'convex/server'
 import type { ObjectType, PropertyValidators } from 'convex/values'
 
-import { defineActor, type DefaultActor } from '../auth/define-actor'
+import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import {
   createTrustedCallerContextDelta,
   extractTrustedCallerFromArgs,
   trustedCallerValidators,
-} from '../trusted-caller/shared'
+} from '../trusted-caller/shared.js'
 import {
   buildStructuredFunctions,
-} from './define-handler'
+} from './define-handler.js'
 import type {
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
-} from './define-handler'
+} from './define-handler.js'
 export type {
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
-} from './define-handler'
+} from './define-handler.js'
 
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>

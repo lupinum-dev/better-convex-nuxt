@@ -8,14 +8,14 @@
 
 import type { GenericValidator } from 'convex/values'
 
-import { toConvexSchema } from './convex-schema'
+import { toConvexSchema } from './convex-schema.js'
 import type {
   StandardSchemaV1,
   StandardSchemaV1PathSegment,
   StandardSchemaV1Result,
   StandardSchemaV1SuccessResult,
-} from './standard-schema'
-import type { ConvexErrorIssue } from './types'
+} from './standard-schema.js'
+import type { ConvexErrorIssue } from './types.js'
 
 // ============================================================================
 // Type for the validate option

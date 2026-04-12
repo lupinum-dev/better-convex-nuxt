@@ -10,7 +10,7 @@ import {
   type UseConvexPaginatedQueryData,
   type UseConvexPaginatedQueryOptions,
   type UseConvexPaginatedQueryReturn,
-} from './internal/pagination-runtime'
+} from './internal/pagination-runtime.js'
 
 export {
   createConvexPaginatedQueryState,

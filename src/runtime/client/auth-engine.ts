@@ -17,16 +17,16 @@
 import type { createAuthClient } from 'better-auth/vue'
 import { computed, type ComputedRef, type Ref } from 'vue'
 
-import { waitForPendingClear } from '../utils/auth-pending'
-import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants'
-import type { ConvexAuthChangedPayload, ConvexUser } from '../utils/types'
+import { waitForPendingClear } from '../utils/auth-pending.js'
+import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants.js'
+import type { ConvexAuthChangedPayload, ConvexUser } from '../utils/types.js'
 import {
   buildAuthSnapshot,
   createAuthChangedPayload,
   hasAuthSnapshotChanged,
   isCurrentAuthOperation,
   type AuthSnapshot,
-} from './auth-engine-state'
+} from './auth-engine-state.js'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 export type AuthTrigger =

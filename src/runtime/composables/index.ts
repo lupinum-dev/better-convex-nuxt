@@ -1,12 +1,12 @@
-export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
-export { useConvex } from './useConvex'
-export { ConvexCallError } from '../utils/call-result'
-export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'
+export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth.js'
+export { useConvex } from './useConvex.js'
+export { ConvexCallError } from '../utils/call-result.js'
+export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState.js'
 export {
   useConvexMutation,
   type UseConvexMutationReturn,
   type UseConvexMutationOptions,
-} from './useConvexMutation'
+} from './useConvexMutation.js'
 // Optimistic update builder types and helpers — exported directly from source to avoid re-export hop
 export {
   type OptimisticContext,
@@ -16,7 +16,7 @@ export {
   appendTo,
   removeFrom,
   updateIn,
-} from './optimistic-updates'
+} from './optimistic-updates.js'
 
 // Re-export Convex types for convenience
 export type { OptimisticLocalStore } from 'convex/browser'
@@ -24,19 +24,19 @@ export {
   useConvexAction,
   type UseConvexActionReturn,
   type UseConvexActionOptions,
-} from './useConvexAction'
+} from './useConvexAction.js'
 export {
   useConvexQuery,
   getQueryKey,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,
-} from './useConvexQuery'
+} from './useConvexQuery.js'
 export {
   useCachedQuery,
   type UseCachedQueryOptions,
   type UseCachedQueryReturn,
-} from './useCachedQuery'
+} from './useCachedQuery.js'
 export type {
   QueryStatus,
   MutationStatus,
@@ -46,7 +46,7 @@ export type {
   ConvexConnectionPhase,
   ConvexConnectionChangedPayload,
   ConvexAuthChangedPayload,
-} from '../utils/types'
+} from '../utils/types.js'
 export {
   useConvexPaginatedQuery,
   type PaginatedQueryStatus,
@@ -56,7 +56,7 @@ export {
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
-} from './useConvexPaginatedQuery'
+} from './useConvexPaginatedQuery.js'
 
 export {
   useConvexUpload,
@@ -68,16 +68,16 @@ export {
   type UploadQueueEnqueueItem,
   type UploadQueueEnqueueInput,
   type UploadProgressInfo,
-} from './useConvexUpload'
+} from './useConvexUpload.js'
 
-export { useConvexStorageUrl } from './useConvexStorageUrl'
+export { useConvexStorageUrl } from './useConvexStorageUrl.js'
 
 // Auth flow composables (available when auth enabled)
 export {
   useConvexAuthActions,
   type UseConvexAuthActionsOptions,
   type UseConvexAuthActionsReturn,
-} from './useConvexAuthActions'
-export { useConvexSignIn } from './useConvexSignIn'
-export { useConvexSignUp } from './useConvexSignUp'
-export { useConvexPasswordReset } from './useConvexPasswordReset'
+} from './useConvexAuthActions.js'
+export { useConvexSignIn } from './useConvexSignIn.js'
+export { useConvexSignUp } from './useConvexSignUp.js'
+export { useConvexPasswordReset } from './useConvexPasswordReset.js'

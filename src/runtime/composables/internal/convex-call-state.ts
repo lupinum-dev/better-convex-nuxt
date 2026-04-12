@@ -6,18 +6,18 @@ import {
   registerDevtoolsEntry,
   updateDevtoolsEntrySuccess,
   updateDevtoolsEntryError,
-} from '../../devtools/runtime'
-import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized'
-import { ConvexCallError, toConvexError } from '../../utils/call-result'
-import type { Logger } from '../../utils/logger'
-import { resolveSchema, runValidation, type ValidateOption } from '../../utils/resolve-validator'
+} from '../../devtools/runtime.js'
+import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
+import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
+import type { Logger } from '../../utils/logger.js'
+import { resolveSchema, runValidation, type ValidateOption } from '../../utils/resolve-validator.js'
 import type {
   ConvexCallErrorPayload,
   ConvexCallOperation,
   ConvexCallSuccessPayload,
   MutationStatus,
-} from '../../utils/types'
-import type { UseConvexMutationReturn } from '../useConvexMutation'
+} from '../../utils/types.js'
+import type { UseConvexMutationReturn } from '../useConvexMutation.js'
 
 function shouldEmitDevWarning(): boolean {
   return import.meta.dev || process.env.NODE_ENV !== 'production'

@@ -1,5 +1,5 @@
-import type { ConvexAuthConfigInput } from '../runtime/utils/auth-config'
-import type { LogLevel } from '../runtime/utils/logger'
+import type { ConvexAuthConfigInput } from '../runtime/utils/auth-config.js'
+import type { LogLevel } from '../runtime/utils/logger.js'
 
 export interface AuthCacheOptions {
   /**

@@ -1,25 +1,25 @@
 import { defineNuxtModule, createResolver, useLogger } from '@nuxt/kit'
 
-import { setupConvexDevtools } from './devtools'
-import { installAdvancedTrellis } from './installers/advanced'
-import { installAuthTrellis } from './installers/auth'
-import { installCoreTrellis } from './installers/core'
-import { installPermissionTrellis } from './installers/permissions'
+import { setupConvexDevtools } from './devtools.js'
+import { installAdvancedTrellis } from './installers/advanced.js'
+import { installAuthTrellis } from './installers/auth.js'
+import { installCoreTrellis } from './installers/core.js'
+import { installPermissionTrellis } from './installers/permissions.js'
 import {
   buildPublicConvexRuntimeConfig,
   collectModuleStartupWarnings,
   collectValidationMessages,
   deriveModuleSetupState,
   resolvePermissionQuerySetup,
-} from './module-internals/setup'
-import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants'
+} from './module-internals/setup.js'
+import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants.js'
 import type {
   ModuleOptions,
-} from './module-internals/options'
+} from './module-internals/options.js'
 
 // Re-export LogLevel from logger for external use
-export type { LogLevel } from './runtime/utils/logger'
-export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
+export type { LogLevel } from './runtime/utils/logger.js'
+export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection.js'
 export type {
   AuthCacheOptions,
   AuthOptions,
@@ -29,7 +29,7 @@ export type {
   PermissionsOptions,
   QueryDefaults,
   UploadDefaults,
-} from './module-internals/options'
+} from './module-internals/options.js'
 
 const logger = useLogger('trellis')
 

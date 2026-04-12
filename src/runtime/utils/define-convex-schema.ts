@@ -2,13 +2,13 @@ import { v } from 'convex/values'
 import type { GenericValidator, Infer, ObjectType, PropertyValidators } from 'convex/values'
 import { z } from 'zod'
 
-import { validateConvex } from './convex-schema'
+import { validateConvex } from './convex-schema.js'
 import type {
   StandardSchemaV1,
   StandardSchemaV1Props,
   StandardSchemaV1Result,
   StandardSchemaV1SuccessResult,
-} from './standard-schema'
+} from './standard-schema.js'
 
 type ValidatorNode = GenericValidator & {
   kind?: string

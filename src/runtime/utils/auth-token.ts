@@ -1,8 +1,8 @@
 import {
   BETTER_AUTH_SECURE_SESSION_COOKIE_NAME,
   BETTER_AUTH_SESSION_COOKIE_NAME,
-} from './constants'
-import type { ConvexClientAuthMode } from './types'
+} from './constants.js'
+import type { ConvexClientAuthMode } from './types.js'
 
 export interface SharedAuthTokenState {
   value: string | null

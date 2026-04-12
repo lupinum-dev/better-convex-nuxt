@@ -1,10 +1,10 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 
-import { wrapBetterAuthError } from '../utils/auth-errors'
-import { ConvexCallError, toConvexError } from '../utils/call-result'
-import type { MutationStatus } from '../utils/types'
-import { useConvexAuthController } from './internal/useConvexAuthController'
-import { useAuthRedirect } from './useAuthRedirect'
+import { wrapBetterAuthError } from '../utils/auth-errors.js'
+import { ConvexCallError, toConvexError } from '../utils/call-result.js'
+import type { MutationStatus } from '../utils/types.js'
+import { useConvexAuthController } from './internal/useConvexAuthController.js'
+import { useAuthRedirect } from './useAuthRedirect.js'
 
 export interface UseConvexAuthActionsOptions {
   /** Where to redirect after a successful auth flow. Overridden by `?redirect=` query param. */

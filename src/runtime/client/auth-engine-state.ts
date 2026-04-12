@@ -1,4 +1,4 @@
-import type { ConvexAuthChangedPayload, ConvexUser } from '../utils/types'
+import type { ConvexAuthChangedPayload, ConvexUser } from '../utils/types.js'
 
 export interface AuthSnapshot {
   isAuthenticated: boolean

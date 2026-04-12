@@ -1,11 +1,10 @@
-import type { PaginationResult } from 'convex/server'
-
+import type { PaginatedQueryResult } from '../optimistic-updates.js'
 import type {
   RuntimePageState,
   StablePaginationOpts,
-} from './pagination-page-state'
-import { createRuntimePaginationPage } from './pagination-page-state'
-import { getNextPageInput } from './pagination-state'
+} from './pagination-page-state.js'
+import { createRuntimePaginationPage } from './pagination-page-state.js'
+import { getNextPageInput } from './pagination-state.js'
 
 export interface PaginationOperationContext {
   operationId: string
@@ -19,7 +18,7 @@ export interface PaginationOperationContext {
 
 export interface LoadMoreBootstrapInput<T, TSubscription = unknown> {
   isSkipped: boolean
-  firstPage: PaginationResult<T> | null
+  firstPage: PaginatedQueryResult<T> | null
   pages: RuntimePageState<T, TSubscription>[]
   numItems: number
   paginationId: number

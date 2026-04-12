@@ -6,19 +6,19 @@ import { watch } from 'vue'
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
-import { initAuthClient } from './client/auth-client'
-import { createSharedAuthEngine } from './client/auth-engine'
-import { initHydrationState } from './client/auth-hydration'
-import { initConvexClient } from './client/convex-client'
-import { initRuntimeConnectionHooks } from './client/runtime-hooks'
-import { setDevtoolsStore } from './devtools/runtime'
-import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './devtools/state'
-import { ConvexDevtoolsStore } from './devtools/store'
-import { buildMissingSiteUrlMessage } from './utils/auth-errors'
-import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants'
-import { createLogger, getLogLevel } from './utils/logger'
-import { getConvexRuntimeConfig } from './utils/runtime-config'
-import type { ConvexUser } from './utils/types'
+import { initAuthClient } from './client/auth-client.js'
+import { createSharedAuthEngine } from './client/auth-engine.js'
+import { initHydrationState } from './client/auth-hydration.js'
+import { initConvexClient } from './client/convex-client.js'
+import { initRuntimeConnectionHooks } from './client/runtime-hooks.js'
+import { setDevtoolsStore } from './devtools/runtime.js'
+import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './devtools/state.js'
+import { ConvexDevtoolsStore } from './devtools/store.js'
+import { buildMissingSiteUrlMessage } from './utils/auth-errors.js'
+import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
+import { createLogger, getLogLevel } from './utils/logger.js'
+import { getConvexRuntimeConfig } from './utils/runtime-config.js'
+import type { ConvexUser } from './utils/types.js'
 
 type HydrationState = ReturnType<typeof initHydrationState>
 type ClientDevtoolsApp = {
@@ -196,7 +196,7 @@ export default defineNuxtPlugin({
       setupClientDevtools(nuxtApp, client, hydration)
 
       // Expose subscription cache for console inspection
-      void import('./utils/convex-cache').then(({ getSubscriptionCache }) => {
+      void import('./utils/convex-cache.js').then(({ getSubscriptionCache }) => {
         ;(window as unknown as Record<string, unknown>).__CONVEX_SUBSCRIPTIONS__ = () =>
           getSubscriptionCache(nuxtApp as Parameters<typeof getSubscriptionCache>[0])
       })

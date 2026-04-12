@@ -5,10 +5,10 @@ import type {
   Query,
 } from 'convex/server'
 
-export { defineCapabilities } from './define-capabilities'
-export type { Capabilities, CapabilityMap, CapabilityResolver } from './define-capabilities'
-export { defineRedaction } from './define-redaction'
-export type { Redaction, RedactionRule } from './define-redaction'
+export { defineCapabilities } from './define-capabilities.js'
+export type { Capabilities, CapabilityMap, CapabilityResolver } from './define-capabilities.js'
+export { defineRedaction } from './define-redaction.js'
+export type { Redaction, RedactionRule } from './define-redaction.js'
 
 type QueryLike<T = unknown> = Pick<Query<GenericTableInfo>, 'collect'> & T
 type VisibilityResolver<T, P> = (

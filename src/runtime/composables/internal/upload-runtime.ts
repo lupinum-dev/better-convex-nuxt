@@ -3,13 +3,13 @@ import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type 
 
 import { useRuntimeConfig } from '#imports'
 
-import { DEFAULT_UPLOAD_MAX_CONCURRENT } from '../../utils/constants'
-import { getFunctionName } from '../../utils/convex-cache'
-import { getSharedLogger, getLogLevel } from '../../utils/logger'
-import { isFileTypeAllowed } from '../../utils/mime-type'
-import { getConvexRuntimeConfig } from '../../utils/runtime-config'
-import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../../utils/upload-core'
-import { useConvex } from '../useConvex'
+import { DEFAULT_UPLOAD_MAX_CONCURRENT } from '../../utils/constants.js'
+import { getFunctionName } from '../../utils/convex-cache.js'
+import { getSharedLogger, getLogLevel } from '../../utils/logger.js'
+import { isFileTypeAllowed } from '../../utils/mime-type.js'
+import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
+import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../../utils/upload-core.js'
+import { useConvex } from '../useConvex.js'
 import {
   applyUploadQueueProgress,
   cancelQueuedUploadItems,
@@ -25,9 +25,9 @@ import {
   settleUploadQueueItemSuccess,
   shouldResetUploadQueueHalt,
   updateUploadQueueItem,
-} from './upload-queue-state'
+} from './upload-queue-state.js'
 
-export type { UploadProgressInfo } from '../../utils/upload-core'
+export type { UploadProgressInfo } from '../../utils/upload-core.js'
 
 export type UploadStatus = 'idle' | 'pending' | 'success' | 'error'
 export type UploadQueueItemStatus = 'queued' | 'pending' | 'success' | 'error' | 'cancelled'

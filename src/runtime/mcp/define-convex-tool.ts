@@ -12,13 +12,13 @@ import type { H3Event } from 'h3'
 import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
-import { serverConvexAction, serverConvexMutation, serverConvexQuery } from '../server/utils/convex'
-import { toConvexError } from '../utils/call-result'
-import type { SchemaFieldMeta } from '../utils/define-convex-schema'
-import type { ConvexToolOperation } from '../utils/types'
-import { cleanErrorMessage, inferCategoryFromMessage } from './error-helpers'
-import { globalRateLimiter, parseWindowString } from './rate-limiter'
-import { withSummary, wrapError, wrapPreview, wrapSuccess } from './result-envelope'
+import { serverConvexAction, serverConvexMutation, serverConvexQuery } from '../server/utils/convex.js'
+import { toConvexError } from '../utils/call-result.js'
+import type { SchemaFieldMeta } from '../utils/define-convex-schema.js'
+import type { ConvexToolOperation } from '../utils/types.js'
+import { cleanErrorMessage, inferCategoryFromMessage } from './error-helpers.js'
+import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
+import { withSummary, wrapError, wrapPreview, wrapSuccess } from './result-envelope.js'
 import type {
   AnyConvexSchema,
   ConvexToolCallFns,
@@ -28,7 +28,7 @@ import type {
   InferSchemaValidators,
   McpAuthIdentity,
   PreviewResult,
-} from './types'
+} from './types.js'
 
 // ============================================================================
 // Internal options (adds factory-injected fields — not part of public API)

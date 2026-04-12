@@ -14,9 +14,9 @@ import {
   DEVTOOLS_UI_PATH,
   DEVTOOLS_UI_PORT,
   DEVTOOLS_RPC_NAMESPACE,
-} from './runtime/devtools/constants'
-import { resolveNuxtCliArgs } from './devtools/nuxt-cli'
-import type { ServerRpcFunctions, ClientRpcFunctions } from './runtime/devtools/types'
+} from './runtime/devtools/constants.js'
+import { resolveNuxtCliArgs } from './devtools/nuxt-cli.js'
+import type { ServerRpcFunctions, ClientRpcFunctions } from './runtime/devtools/types.js'
 
 export function setupConvexDevtools(nuxt: Nuxt): void {
   const resolver = createResolver(import.meta.url)
@@ -77,7 +77,7 @@ export function setupConvexDevtools(nuxt: Nuxt): void {
     extendServerRpc<ClientRpcFunctions, ServerRpcFunctions>(DEVTOOLS_RPC_NAMESPACE, {
       async getAuthProxyStats() {
         try {
-          const { getAuthProxyStats } = await import('./runtime/devtools/auth-proxy-registry')
+          const { getAuthProxyStats } = await import('./runtime/devtools/auth-proxy-registry.js')
           return await getAuthProxyStats()
         } catch {
           return null
@@ -85,7 +85,7 @@ export function setupConvexDevtools(nuxt: Nuxt): void {
       },
       async clearAuthProxyStats() {
         try {
-          const { clearAuthProxyStats } = await import('./runtime/devtools/auth-proxy-registry')
+          const { clearAuthProxyStats } = await import('./runtime/devtools/auth-proxy-registry.js')
           await clearAuthProxyStats()
         } catch {
           // Best-effort diagnostics only.

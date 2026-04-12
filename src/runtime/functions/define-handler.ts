@@ -1,13 +1,13 @@
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
-import { can, deny, enforce } from '../auth'
+import { can, deny, enforce } from '../auth/index.js'
 import {
   isGuard,
   isOpenGuard,
   type AnyCheck,
   type Guard,
   type OpenGuard,
-} from '../auth/define-guard'
+} from '../auth/define-guard.js'
 
 type MaybePromise<T> = T | Promise<T>
 

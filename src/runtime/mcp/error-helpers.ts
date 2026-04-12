@@ -1,4 +1,4 @@
-import type { ConvexErrorCategory } from '../utils/types'
+import type { ConvexErrorCategory } from '../utils/types.js'
 
 /**
  * Strip internal noise from error messages so MCP agents see clean output.

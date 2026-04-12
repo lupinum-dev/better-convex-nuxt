@@ -1,8 +1,8 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 
-import type { ValidateOption } from '../utils/resolve-validator'
-import { useConvexAction as useRuntimeConvexAction } from './internal/command-runtime'
-import type { UseConvexMutationReturn } from './useConvexMutation'
+import type { ValidateOption } from '../utils/resolve-validator.js'
+import { useConvexAction as useRuntimeConvexAction } from './internal/command-runtime.js'
+import type { UseConvexMutationReturn } from './useConvexMutation.js'
 
 /**
  * Return value from useConvexAction.

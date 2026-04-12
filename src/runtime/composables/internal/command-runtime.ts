@@ -3,13 +3,13 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import { getFunctionName } from '../../utils/convex-cache'
-import { getSharedLogger, getLogLevel } from '../../utils/logger'
-import type { ValidateOption } from '../../utils/resolve-validator'
-import { createOptimisticContext } from '../optimistic-updates'
-import { createConvexCallState } from './convex-call-state'
-import { getRequiredConvexClient } from '../useConvex'
-import type { UseConvexMutationReturn } from '../useConvexMutation'
+import { getFunctionName } from '../../utils/convex-cache.js'
+import { getSharedLogger, getLogLevel } from '../../utils/logger.js'
+import type { ValidateOption } from '../../utils/resolve-validator.js'
+import { createOptimisticContext } from '../optimistic-updates.js'
+import { createConvexCallState } from './convex-call-state.js'
+import { getRequiredConvexClient } from '../useConvex.js'
+import type { UseConvexMutationReturn } from '../useConvexMutation.js'
 
 export interface UseConvexMutationOptions<Args, Result> {
   optimisticUpdate?: (ctx: ReturnType<typeof createOptimisticContext>, args: Args) => void

@@ -18,24 +18,24 @@ import {
   registerDevtoolsQuery,
   unregisterDevtoolsQuery,
   updateDevtoolsQuery,
-} from '../../devtools/runtime'
-import { assertConvexComposableScope } from '../../utils/composable-scope'
-import { getQueryKey, getFunctionName, hashArgs } from '../../utils/convex-cache'
-import { getSharedLogger, getLogLevel } from '../../utils/logger'
-import { executeQueryViaSubscriptionOnce } from '../../utils/one-shot-subscription'
-import { getConvexRuntimeConfig } from '../../utils/runtime-config'
-import type { QueryStatus } from '../../utils/types'
+} from '../../devtools/runtime.js'
+import { assertConvexComposableScope } from '../../utils/composable-scope.js'
+import { getQueryKey, getFunctionName, hashArgs } from '../../utils/convex-cache.js'
+import { getSharedLogger, getLogLevel } from '../../utils/logger.js'
+import { executeQueryViaSubscriptionOnce } from '../../utils/one-shot-subscription.js'
+import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
+import type { QueryStatus } from '../../utils/types.js'
 import {
   createLiveQueryResource,
   executeLiveQuery,
   executeQueryHttp,
-} from './live-query-resource'
+} from './live-query-resource.js'
 import {
   createSkippedQueryCacheKey,
   resolveQueryDefaultValue,
   shouldMarkQueryDataAsStale,
   shouldPersistLastSettledQuery,
-} from './query-state'
+} from './query-state.js'
 
 export { getQueryKey, executeQueryHttp }
 

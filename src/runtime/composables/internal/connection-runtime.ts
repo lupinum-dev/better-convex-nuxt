@@ -16,10 +16,10 @@ import {
   releaseSharedConnectionStateStore,
   syncConnectionStateSnapshot,
   useSharedConnectionStateStore,
-} from '../../client/runtime-hooks'
-import { getSharedLogger, getLogLevel } from '../../utils/logger'
+} from '../../client/runtime-hooks.js'
+import { getSharedLogger, getLogLevel } from '../../utils/logger.js'
 
-export type { ConnectionState } from '../../utils/types'
+export type { ConnectionState } from '../../utils/types.js'
 
 export function useConvexConnectionState() {
   const nuxtApp = useNuxtApp()

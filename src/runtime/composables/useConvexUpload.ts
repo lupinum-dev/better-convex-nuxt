@@ -12,7 +12,7 @@ import {
   type UseConvexUploadReturn,
   useUploadQueue,
   useUploadSingle,
-} from './internal/upload-runtime'
+} from './internal/upload-runtime.js'
 
 export type {
   UploadProgressInfo,

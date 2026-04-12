@@ -8,13 +8,13 @@ import {
   watch,
 } from '#imports'
 
-import { computeQueryStatus, type QueryStatus } from '../../utils/convex-cache'
-import type { ConvexClientAuthMode } from '../../utils/types'
-import { executeLiveQuery, executeQueryHttp } from './live-query-transport'
+import { computeQueryStatus, type QueryStatus } from '../../utils/convex-cache.js'
+import type { ConvexClientAuthMode } from '../../utils/types.js'
+import { executeLiveQuery, executeQueryHttp } from './live-query-transport.js'
 import {
   startSharedQuerySubscription,
   type SharedQuerySubscriptionHandle,
-} from './shared-query-subscription'
+} from './shared-query-subscription.js'
 
 export type LiveQueryUnsubscribeReason = 'args-changed' | 'args-skipped' | 'scope-dispose'
 

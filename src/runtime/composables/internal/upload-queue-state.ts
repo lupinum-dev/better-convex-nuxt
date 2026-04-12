@@ -1,4 +1,4 @@
-import type { UploadProgressInfo } from '../../utils/upload-core'
+import type { UploadProgressInfo } from '../../utils/upload-core.js'
 
 export type UploadQueueStateItemStatus =
   | 'queued'

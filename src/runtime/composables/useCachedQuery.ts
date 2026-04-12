@@ -8,7 +8,7 @@ import {
   useConvexQuery,
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,
-} from './useConvexQuery'
+} from './useConvexQuery.js'
 
 export interface UseCachedQueryOptions<
   Query extends FunctionReference<'query'>,

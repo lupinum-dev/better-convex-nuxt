@@ -2,7 +2,7 @@ import { shallowRef, type ShallowRef } from 'vue'
 
 import type { useNuxtApp } from '#app'
 
-import { resolveClientAuthToken } from './auth-token'
+import { resolveClientAuthToken } from './auth-token.js'
 
 // Re-export shared utilities
 export {
@@ -11,8 +11,8 @@ export {
   getFunctionName,
   hashArgs,
   getQueryKey,
-} from './convex-shared'
-export type { QueryStatus } from './types'
+} from './convex-shared.js'
+export type { QueryStatus } from './types.js'
 
 // Get the NuxtApp type from useNuxtApp return type
 type NuxtApp = ReturnType<typeof useNuxtApp>

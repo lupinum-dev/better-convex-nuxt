@@ -9,12 +9,12 @@
 import type { ConvexClient } from 'convex/browser'
 import { ref, type Ref } from 'vue'
 
-import type { Logger } from '../utils/logger'
+import type { Logger } from '../utils/logger.js'
 import type {
   ConvexConnectionChangedPayload,
   ConvexConnectionPhase,
   ConnectionState,
-} from '../utils/types'
+} from '../utils/types.js'
 
 type RuntimeHookApp = object & {
   callHook(event: 'trellis:connection:changed', payload: ConvexConnectionChangedPayload): unknown

@@ -1,12 +1,17 @@
-import type { AuthProxyRequest, AuthProxyStats } from './types'
+import type { AuthProxyRequest, AuthProxyStats } from './types.js'
 
 const MAX_REQUESTS = 20
 const STORAGE_NAMESPACE = 'devtools:convex:auth-proxy'
 const STORAGE_KEY = 'requests'
 
+interface RuntimeStorage {
+  getItem<T>(key: string): Promise<T | null>
+  setItem<T>(key: string, value: T): Promise<void>
+}
+
 async function getStorage() {
   const runtime = await import('nitropack/runtime').catch(() => null)
-  const useStorage = runtime?.useStorage
+  const useStorage = (runtime as { useStorage?: (namespace: string) => RuntimeStorage } | null)?.useStorage
   if (typeof useStorage !== 'function') {
     return null
   }

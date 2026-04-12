@@ -10,9 +10,9 @@
  *
  * @module auth-hydration
  */
-import { buildAuthTokenDecodeFailureMessage } from '../../utils/auth-errors'
-import type { ConvexUser } from '../../utils/types'
-import type { ResolvedRequestAuth } from './auth-resolver'
+import { buildAuthTokenDecodeFailureMessage } from '../../utils/auth-errors.js'
+import type { ConvexUser } from '../../utils/types.js'
+import type { ResolvedRequestAuth } from './auth-resolver.js'
 
 /**
  * Hydration-safe auth snapshot sent from server to client.

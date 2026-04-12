@@ -1,4 +1,4 @@
-import { fetchWithTimeout } from '../../utils/http'
+import { fetchWithTimeout } from '../../utils/http.js'
 
 export function normalizePathname(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, '')

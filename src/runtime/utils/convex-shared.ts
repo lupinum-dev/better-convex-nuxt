@@ -1,7 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 import { hash } from 'ohash'
 
-import type { QueryStatus, ConvexUser } from './types'
+import type { QueryStatus, ConvexUser } from './types.js'
 
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')

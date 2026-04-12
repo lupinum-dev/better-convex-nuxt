@@ -1,4 +1,4 @@
-import type { ConvexErrorCategory, ConvexErrorIssue } from './types'
+import type { ConvexErrorCategory, ConvexErrorIssue } from './types.js'
 
 /**
  * A proper Error subclass for Convex-originated errors.

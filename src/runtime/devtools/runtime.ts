@@ -1,5 +1,5 @@
-import type { ConvexDevtoolsStore } from './store'
-import type { DevtoolsEvent, QueryRegistryEntry } from './types'
+import type { ConvexDevtoolsStore } from './store.js'
+import type { DevtoolsEvent, QueryRegistryEntry } from './types.js'
 
 type QueryEntry = Omit<QueryRegistryEntry, 'lastUpdated' | 'updateCount'> & { updateCount?: number }
 type QueryStatusUpdate = Partial<
