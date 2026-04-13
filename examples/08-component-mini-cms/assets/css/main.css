@@ -1,0 +1,102 @@
+:root {
+  --mini-shell: #f7f3ea;
+  --mini-panel: rgba(255, 252, 245, 0.82);
+  --mini-ink: #1f1b16;
+  --mini-muted: #6c5f55;
+  --mini-accent: #9f3f24;
+  --mini-accent-soft: rgba(159, 63, 36, 0.12);
+  --mini-border: rgba(66, 51, 39, 0.14);
+}
+
+body {
+  font-family:
+    'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  background:
+    radial-gradient(circle at top left, rgba(207, 128, 86, 0.18), transparent 28rem),
+    linear-gradient(180deg, #fffdf8 0%, var(--mini-shell) 100%);
+  color: var(--mini-ink);
+}
+
+.mini-shell {
+  min-height: 100vh;
+  padding: 2rem 1.25rem 3rem;
+}
+
+.mini-frame {
+  max-width: 80rem;
+  margin: 0 auto;
+}
+
+.mini-hero {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mini-hero h1,
+.mini-hero h2 {
+  letter-spacing: -0.04em;
+}
+
+.mini-kicker {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--mini-accent);
+  font-weight: 700;
+}
+
+.mini-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 960px) {
+  .mini-grid {
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  }
+}
+
+.mini-panel {
+  background: var(--mini-panel);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--mini-border);
+  border-radius: 1.25rem;
+  box-shadow: 0 20px 60px rgba(60, 39, 20, 0.08);
+}
+
+.mini-code {
+  font-family:
+    'SFMono-Regular', 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas,
+    monospace;
+  font-size: 0.82rem;
+  background: rgba(31, 27, 22, 0.06);
+  border-radius: 0.6rem;
+  padding: 0.1rem 0.45rem;
+}
+
+.mini-list-item {
+  border: 1px solid var(--mini-border);
+  border-radius: 1rem;
+  padding: 0.9rem 1rem;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.mini-list-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(159, 63, 36, 0.25);
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.mini-list-item[data-active='true'] {
+  border-color: rgba(159, 63, 36, 0.4);
+  background: var(--mini-accent-soft);
+}
+
+.mini-prose {
+  white-space: pre-wrap;
+  line-height: 1.7;
+}

@@ -1,0 +1,12 @@
+node_modules
+.nuxt
+.output
+.data
+dist
+coverage
+.env.local
+convex/_generated
+convex/components/miniCms/_generated
+convex.json
+convex/tsconfig.json
+convex/components/miniCms/tsconfig.json

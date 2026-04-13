@@ -1,10 +1,10 @@
 # Runnable Examples
 
-Seven examples, progressive difficulty, every one using full Nuxt UI.
+Eight examples, progressive difficulty, every one using full Nuxt UI.
 
 ## First-Time Reader Path
 
-Read **01 → 02 → 03** in order. Each builds on the previous, adding one major concept per step. Examples 04–07 are reference implementations — pick whichever matches your use case.
+Read **01 → 02 → 03** in order. Each builds on the previous, adding one major concept per step. Examples 04–08 are reference implementations — pick whichever matches your use case. `07` and `08` are reference examples, not part of the first-reader path.
 
 ## Which One To Open First?
 
@@ -17,6 +17,7 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 | `05-visibility-access` | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy       |
 | `06-multi-workspace`   | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                   |
 | `07-mcp-reference`     | Full MCP implementation      | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode                                   |
+| `08-component-mini-cms`| Local component + MCP seam   | Local Convex components, principal forwarding, root browser wrappers, `createComponentBridge(...)`, `projectTool(...)`          |
 
 ## Concept Coverage Matrix
 
@@ -44,6 +45,9 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 | MCP tools, prompts, resources                     | 03, 07  |
 | MCP sessions + dynamic tools                      | 07      |
 | MCP key auth (hashed at rest)                     | 07      |
+| Local Convex components                           | 08      |
+| Component bridge inventory                        | 08      |
+| MCP projection over component-backed operations   | 08      |
 
 ## Canonical Default
 
@@ -84,6 +88,7 @@ version or a packed local tarball before installing.
 | `05-visibility-access` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
 | `06-multi-workspace`   | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                              |
 | `07-mcp-reference`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY` |
+| `08-component-mini-cms`| `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `DEMO_MCP_TOKEN` |
 
 ## Why The Code Is Comment-Heavy
 
