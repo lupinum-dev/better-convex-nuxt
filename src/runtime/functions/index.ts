@@ -87,6 +87,12 @@ type MutationCustomizationCtx<DataModel extends GenericDataModel, TActor> =
 
 export interface CreateAppOptions<DataModel extends GenericDataModel, TActor = DefaultActor> {
   trustedCaller?: boolean
+  /**
+   * Explicit trusted caller key to use for verification. Useful when running inside
+   * a Convex component where `process.env` is not accessible — read the key at module
+   * initialization time in the root app and pass it here.
+   */
+  trustedCallerKey?: string
   actor?: (ctx: AnyCtx<DataModel>) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
   rls?: {
@@ -272,12 +278,13 @@ function createContextWithActor<DataModel extends GenericDataModel, TActor, TCtx
   args: Record<string, unknown>,
   actorResolver: (ctx: AnyCtx<DataModel>) => Promise<TActor | null>,
   trustedCallerEnabled: boolean,
+  trustedCallerKey?: string,
 ): {
   actor: ActorAccessor<TActor>
   baseCtx: TCtx & FunctionsCtxExtension<TActor>
   trustedCallerContext: ReturnType<typeof createTrustedCallerContextDelta>
 } {
-  const trustedCaller = trustedCallerEnabled ? extractTrustedCallerFromArgs(args) : null
+  const trustedCaller = trustedCallerEnabled ? extractTrustedCallerFromArgs(args, trustedCallerKey) : null
   const trustedCallerContext = createTrustedCallerContextDelta(trustedCaller)
   const ctxWithTrustedCaller = {
     ...ctx,
@@ -336,6 +343,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TActor>(
         args,
         actorResolver,
         trustedCallerEnabled,
+        options.trustedCallerKey,
       )
       const resolvedRules = await resolveRules(baseCtx, options)
       const db = resolvedRules
@@ -374,6 +382,7 @@ function createMutationCustomization<DataModel extends GenericDataModel, TActor>
         args,
         actorResolver,
         trustedCallerEnabled,
+        options.trustedCallerKey,
       )
       const resolvedRules = await resolveRules(baseCtx, options)
       let db = resolvedRules

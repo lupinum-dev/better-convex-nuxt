@@ -20,7 +20,12 @@ describe('trusted caller helpers', () => {
       title: v.string(),
     })
 
-    expect(Object.keys(args)).toEqual(['title', '_trustedCallerKey', '_trustedCaller'])
+    expect(Object.keys(args)).toEqual([
+      'title',
+      '_trustedCallerKey',
+      '_trustedCaller',
+      '_trustedCallerExpectedKey',
+    ])
   })
 
   it('returns the trusted caller identity when the trusted caller key matches', () => {
@@ -71,6 +76,37 @@ describe('trusted caller helpers', () => {
     expect(getTrustedCaller(ctx)).toBeNull()
   })
 
+  it('accepts an explicit expected key override when process.env is unavailable', () => {
+    const ctx: Record<string, unknown> = {}
+
+    setTrustedCallerContext(
+      ctx,
+      {
+        _trustedCallerKey: 'component-key',
+        _trustedCaller: {
+          userId: 'u_component',
+        },
+      },
+      'component-key',
+    )
+
+    expect(getTrustedCaller(ctx)).toEqual({ userId: 'u_component' })
+  })
+
+  it('skips blank expected-key args and falls back to the configured environment key', () => {
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-key'
+
+    expect(
+      getTrustedCaller({
+        _trustedCallerKey: 'trusted-key',
+        _trustedCaller: {
+          userId: 'u_env',
+        },
+        _trustedCallerExpectedKey: '   ',
+      }),
+    ).toEqual({ userId: 'u_env' })
+  })
+
   it('wraps handlers so trusted caller payload stays out of actor call sites', async () => {
     process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-key'
 
@@ -89,5 +125,24 @@ describe('trusted caller helpers', () => {
     ).resolves.toEqual({ userId: 'u_wrapped' })
 
     expect(getTrustedCaller({})).toBeNull()
+  })
+
+  it('wraps handlers with an explicit expected key override', async () => {
+    const handler = withTrustedCallerHandler(
+      async (ctx) => getTrustedCaller(ctx),
+      'component-key',
+    )
+
+    await expect(
+      handler(
+        {},
+        {
+          _trustedCallerKey: 'component-key',
+          _trustedCaller: {
+            userId: 'u_override',
+          },
+        },
+      ),
+    ).resolves.toEqual({ userId: 'u_override' })
   })
 })

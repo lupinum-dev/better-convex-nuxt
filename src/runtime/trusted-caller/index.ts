@@ -17,9 +17,9 @@ export function withTrustedCaller<V extends PropertyValidators>(args: V): V {
   } as V
 }
 
-export function setTrustedCallerContext(ctx: unknown, args: unknown): void {
+export function setTrustedCallerContext(ctx: unknown, args: unknown, expectedKeyOverride?: string): void {
   if (!isTrustedCallerContextCarrier(ctx)) return
-  const trustedCaller = extractTrustedCallerFromArgs(args)
+  const trustedCaller = extractTrustedCallerFromArgs(args, expectedKeyOverride)
   ctx[trustedCallerContextKey] =
     createTrustedCallerContextDelta(trustedCaller)[trustedCallerContextKey]
 }
@@ -43,9 +43,10 @@ export function getTrustedCaller(args?: unknown): TrustedCallerIdentity | null {
 
 export function withTrustedCallerHandler<Args, Return>(
   handler: (ctx: unknown, args: Args) => Promise<Return>,
+  expectedKeyOverride?: string,
 ): (ctx: unknown, args: Args) => Promise<Return> {
   return async (ctx, args) => {
-    setTrustedCallerContext(ctx, args)
+    setTrustedCallerContext(ctx, args, expectedKeyOverride)
     try {
       return await handler(ctx, args)
     } finally {

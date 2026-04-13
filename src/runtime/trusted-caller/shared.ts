@@ -27,6 +27,13 @@ export const trustedCallerValidators = {
       userId: v.string(),
     }),
   ),
+  /**
+   * Expected key injected by root-app bridge functions before calling into a component.
+   * Convex components cannot access `process.env`, so the bridge reads
+   * `process.env.CONVEX_TRUSTED_CALLER_KEY` and passes it here as an arg.
+   * The bridge always overwrites this field, so external callers cannot forge it.
+   */
+  _trustedCallerExpectedKey: v.optional(v.string()),
 } satisfies PropertyValidators
 
 export function isObject(value: unknown): value is Record<string, unknown> {
@@ -41,22 +48,24 @@ export function isTrustedCallerContextCarrier(
 
 export function verifyTrustedCallerKey(provided: string, expected: string): boolean {
   if (!provided || !expected) return false
-  let mismatch = provided.length === expected.length ? 0 : 1
-  const maxLength = Math.max(provided.length, expected.length)
-
-  for (let index = 0; index < maxLength; index++) {
-    const left = provided.charCodeAt(index) || 0
-    const right = expected.charCodeAt(index) || 0
-    mismatch |= left ^ right
+  // Encode to UTF-8 bytes — avoids charCodeAt NaN issues and ensures consistent encoding.
+  // node:crypto is not available in Convex V8 isolates; XOR over Uint8Array is the
+  // closest constant-time approximation possible in that environment.
+  const enc = new TextEncoder()
+  const a = enc.encode(provided)
+  const b = enc.encode(expected)
+  if (a.byteLength !== b.byteLength) return false
+  let mismatch = 0
+  for (let i = 0; i < a.byteLength; i++) {
+    mismatch |= a[i]! ^ b[i]!
   }
-
   return mismatch === 0
 }
 
-export function extractTrustedCallerFromArgs(args: unknown): TrustedCallerIdentity | null {
+export function extractTrustedCallerFromArgs(args: unknown, expectedKeyOverride?: string): TrustedCallerIdentity | null {
   if (!isObject(args)) return null
 
-  const input = args as TrustedCallerInput
+  const input = args as TrustedCallerInput & { _trustedCallerExpectedKey?: unknown }
   const hasTransport = input._trustedCallerKey !== undefined || input._trustedCaller !== undefined
   if (!hasTransport) return null
 
@@ -71,7 +80,16 @@ export function extractTrustedCallerFromArgs(args: unknown): TrustedCallerIdenti
     })
   }
 
-  const expectedKey = process.env.CONVEX_TRUSTED_CALLER_KEY?.trim()
+  // Resolution order:
+  // 1. Explicit override (passed via createApp options)
+  // 2. _trustedCallerExpectedKey arg (injected by root-app bridge into component calls,
+  //    since Convex components cannot access process.env)
+  // 3. process.env (works in root-app functions)
+  // Each tier is skipped when blank — ?? only skips null/undefined, not empty strings.
+  const nonBlank = (s: string | undefined): string | undefined => s?.trim() || undefined
+  const argKey = nonBlank(typeof input._trustedCallerExpectedKey === 'string' ? input._trustedCallerExpectedKey : undefined)
+  const expectedKey = nonBlank(expectedKeyOverride) ?? argKey ?? nonBlank(process.env.CONVEX_TRUSTED_CALLER_KEY)
+
   if (!expectedKey) {
     throw deny('Trusted caller auth is not configured. Set CONVEX_TRUSTED_CALLER_KEY.', {
       source: 'trusted-caller',
