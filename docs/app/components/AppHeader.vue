@@ -80,7 +80,7 @@ const navItems = computed<NavigationMenuItem[]>(() => [
           :kbds="['meta', 'K']"
           :popper="{ strategy: 'absolute' }"
         >
-          <UContentSearchButton :label="null" />
+          <UContentSearchButton />
         </UTooltip>
 
         <UColorModeButton v-if="header?.colorMode" />

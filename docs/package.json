@@ -26,6 +26,7 @@
     "nuxt": "^4.4.2",
     "nuxt-llms": "0.2.0",
     "nuxt-og-image": "^6.3.2",
+    "satori": "^0.26.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

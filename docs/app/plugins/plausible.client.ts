@@ -39,7 +39,7 @@ export default defineNuxtPlugin({
             }
 
           // Initialize Plausible
-          window.plausible.init()
+          window.plausible.init({})
 
           return { plausible: window.plausible }
         },

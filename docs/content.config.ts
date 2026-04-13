@@ -28,6 +28,7 @@ export default defineContentConfig({
     landing: defineCollection({
       type: 'page',
       source: 'index.md',
+      schema: docsSchema,
     }),
     docs: defineCollection({
       type: 'page',
