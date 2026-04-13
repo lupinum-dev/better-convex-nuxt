@@ -1,19 +1,14 @@
 import { api } from '#trellis/api'
-import { defineTool } from '#trellis/mcp'
 import { listRunbooks } from '~/shared/schemas/runbook'
+import { projectTool } from '../../runtime'
 
-export default defineTool({
-  name: 'list-workspace-runbooks',
+export default projectTool({
   schema: listRunbooks,
-  auth: 'required',
-  scoped: true,
+  call: api.runbooks.listWorkspace,
+  capability: 'readWorkspaceRunbooks',
   group: 'workspace',
   operation: 'query',
-  handler: async (_args, ctx) => {
-    const runbooks = await ctx.query(api.runbooks.listWorkspace, {})
-    return ctx.ok(
-      { runbooks },
-      `Loaded ${runbooks.length} workspace runbook${runbooks.length === 1 ? '' : 's'}.`,
-    )
+  meta: {
+    name: 'list-workspace-runbooks',
   },
 })

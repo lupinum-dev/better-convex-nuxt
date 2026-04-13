@@ -7,10 +7,6 @@ import { setupTestWithMultipleUsers, setupTestWithTwoOrgs } from './test.helpers
 import { modules } from './test.setup'
 
 describe('createApp', () => {
-  beforeEach(() => {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
-  })
-
   it('does not resolve the actor when a handler never calls ctx.actor()', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
@@ -37,8 +33,7 @@ describe('createApp', () => {
 
     await expect(
       t.query(api.functionsProbe.actorMemoization, {
-        _trustedCallerKey: 'test-trusted-caller-key',
-        _trustedCaller: { userId: 'memo_user' },
+        principal: { kind: 'user', userId: 'memo_user' },
       }),
     ).resolves.toMatchObject({
       before: 0,
@@ -53,8 +48,7 @@ describe('createApp', () => {
 
     await expect(
       t.query(api.functionsProbe.actorMemoization, {
-        _trustedCallerKey: 'test-trusted-caller-key',
-        _trustedCaller: { userId: 'memo_user' },
+        principal: { kind: 'user', userId: 'memo_user' },
       }),
     ).resolves.toMatchObject({
       before: 1,
@@ -63,31 +57,18 @@ describe('createApp', () => {
     })
   })
 
-  it('strips hidden trusted-caller args before the handler sees args', async () => {
+  it('strips hidden principal args before the handler sees args', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
 
     await expect(
       t.query(api.functionsProbe.echoedArgs, {
         title: 'hello',
-        _trustedCallerKey: 'test-trusted-caller-key',
-        _trustedCaller: { userId: 'echo_user' },
+        principal: { kind: 'user', userId: 'echo_user' },
       }),
     ).resolves.toEqual({
       title: 'hello',
     })
-  })
-
-  it('rejects invalid trusted caller credentials through the builder path', async () => {
-    const t = convexTest(schema, modules)
-    await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
-
-    await expect(
-      t.query(api.functionsProbe.actorMemoization, {
-        _trustedCallerKey: 'wrong-key',
-        _trustedCaller: { userId: 'memo_user' },
-      }),
-    ).rejects.toThrow('Invalid trusted caller credentials.')
   })
 
   it('uses tenant isolation as defense in depth for unsafe reads and writes', async () => {

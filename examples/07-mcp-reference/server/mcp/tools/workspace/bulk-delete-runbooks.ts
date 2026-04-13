@@ -1,41 +1,22 @@
 import { api } from '#trellis/api'
-import { defineTool } from '#trellis/mcp'
 import { bulkDeleteRunbooks } from '~/shared/schemas/runbook'
+import { projectTool } from '../../runtime'
 
-export default defineTool({
-  name: 'bulk-delete-runbooks',
+export default projectTool({
   schema: bulkDeleteRunbooks,
-  auth: 'required',
-  scoped: true,
+  call: api.runbooks.bulkRemove,
+  preview: api.runbooks.previewBulkRemove,
+  capability: 'deleteWorkspaceRunbooks',
   group: 'workspace',
   tags: ['bulk', 'dangerous'],
-  check: (actor) => !!actor && ['owner', 'admin'].includes(actor.role),
-  destructive: true,
+  meta: {
+    name: 'bulk-delete-runbooks',
+    destructive: true,
+  },
   rateLimit: { max: 5, window: '1m' },
   maxItems: { field: 'ids', limit: 10 },
   middleware: async (args, ctx, next) => {
-    console.log(`[mcp] bulk-delete-runbooks actor=${ctx.actor?.userId} count=${args.ids.length}`)
+    console.log(`[mcp] bulk-delete-runbooks count=${args.ids.length}`)
     return await next()
-  },
-  preview: async (args, ctx) => {
-    const runbooks = await Promise.all(
-      args.ids.map((id) => ctx.query(api.runbooks.getWorkspace, { id })),
-    )
-    const found = runbooks.filter(Boolean)
-
-    if (found.length === 0) {
-      return ctx.blocked('None of the selected runbooks exist.')
-    }
-
-    return ctx.preview({
-      summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map((runbook) => `"${runbook!.title}"`).join(', ')}`,
-      warn:
-        found.length !== args.ids.length ? 'Some ids were missing and will be skipped.' : undefined,
-      affects: { runbooks: found.length },
-    })
-  },
-  handler: async (args, ctx) => {
-    const result = await ctx.mutation(api.runbooks.bulkRemove, args)
-    return ctx.ok(result, `Deleted ${result.deleted} runbook${result.deleted === 1 ? '' : 's'}.`)
   },
 })

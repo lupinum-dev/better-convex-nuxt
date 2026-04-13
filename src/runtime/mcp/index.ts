@@ -9,6 +9,7 @@ export {
 } from '@nuxtjs/mcp-toolkit/server'
 
 export { defineTool } from './define-convex-tool.js'
+export { defineMcpRuntime } from './define-mcp-runtime.js'
 
 export { useMcpServer } from './use-mcp-server.js'
 
@@ -29,6 +30,12 @@ export type {
   ConvexToolMiddleware,
   ConvexToolHandlerCtx,
 } from './types.js'
+
+export type {
+  DefineMcpRuntimeOptions,
+  McpConvexCaller,
+  ProjectToolOptions,
+} from './define-mcp-runtime.js'
 
 export type {
   McpPromptExtra,

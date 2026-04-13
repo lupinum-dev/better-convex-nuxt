@@ -4,17 +4,14 @@ import { api } from '#trellis/api'
  * This tool shows the "happy path" of MCP integration:
  * tool authors call `ctx.mutation(...)` and the trusted-caller plumbing stays hidden.
  */
-import { defineTool } from '#trellis/mcp'
 import { createTodo } from '~/shared/schemas/todo'
+import { projectTool } from '../runtime'
 
-export default defineTool({
-  name: 'create-todo',
+export default projectTool({
   schema: createTodo,
-  auth: 'required',
-  check: (actor) => !!actor && ['owner', 'admin', 'member'].includes(actor.role),
-  scoped: true,
-  handler: async (args, ctx) => {
-    const todoId = await ctx.mutation(api.todos.create, args)
-    return ctx.ok({ id: todoId }, `Created todo "${args.title}"`)
+  call: api.todos.create,
+  capability: 'createTodo',
+  meta: {
+    name: 'create-todo',
   },
 })

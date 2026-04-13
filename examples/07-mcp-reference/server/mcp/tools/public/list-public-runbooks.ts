@@ -1,18 +1,14 @@
 import { api } from '#trellis/api'
-import { defineTool } from '#trellis/mcp'
 import { listRunbooks } from '~/shared/schemas/runbook'
+import { projectTool } from '../../runtime'
 
-export default defineTool({
-  name: 'list-public-runbooks',
+export default projectTool({
   schema: listRunbooks,
+  call: api.runbooks.listPublic,
+  operation: 'query',
   group: 'public',
   tags: ['read-only', 'public'],
-  operation: 'query',
-  handler: async (_args, ctx) => {
-    const runbooks = await ctx.query(api.runbooks.listPublic, {})
-    return ctx.ok(
-      { runbooks },
-      `Found ${runbooks.length} public runbook${runbooks.length === 1 ? '' : 's'}.`,
-    )
+  meta: {
+    name: 'list-public-runbooks',
   },
 })

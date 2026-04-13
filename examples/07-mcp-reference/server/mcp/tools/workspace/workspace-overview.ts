@@ -1,14 +1,13 @@
 import { z } from 'zod'
 
 import { api } from '#trellis/api'
-import { defineTool } from '#trellis/mcp'
 import { listRunbooks } from '~/shared/schemas/runbook'
+import { projectTool } from '../../runtime'
 
-export default defineTool({
-  name: 'workspace-overview',
+export default projectTool({
   schema: listRunbooks,
-  auth: 'required',
-  scoped: true,
+  call: api.runbooks.workspaceOverview,
+  capability: 'readWorkspaceRunbooks',
   group: 'workspace',
   operation: 'query',
   outputSchema: {
@@ -18,11 +17,7 @@ export default defineTool({
     drafts: z.number(),
     recentTitles: z.array(z.string()),
   },
-  handler: async (_args, ctx) => {
-    const overview = await ctx.query(api.runbooks.workspaceOverview, {})
-    return ctx.ok(
-      overview,
-      `Workspace has ${overview.total} runbook${overview.total === 1 ? '' : 's'}.`,
-    )
+  meta: {
+    name: 'workspace-overview',
   },
 })

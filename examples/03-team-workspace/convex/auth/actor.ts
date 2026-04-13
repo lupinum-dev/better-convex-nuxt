@@ -1,25 +1,56 @@
-/**
- * Why this file exists:
- * The example keeps the actor app-owned, but now builds it through the composable actor primitive.
- */
-import { defineActor, type DefaultActor } from '@lupinum/trellis/auth'
+import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { DataModel, Doc, Id } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
+import type { Role, TeamTodoPrincipal } from './principal'
 
-type TeamTodoActor = DefaultActor & {
-  role: Doc<'users'>['role']
+type TeamTodoCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+
+export type { Role } from './principal'
+
+export type Actor = DefaultActor & {
+  role: Role
   tenantId?: Id<'workspaces'>
 }
 
-const actor = defineActor.fromAuth<DataModel>().extend({
-  fields: async (_ctx, user) => ({
-    role: user.role as Doc<'users'>['role'],
+async function loadActorByAuthId(ctx: TeamTodoCtx, authId: string): Promise<Actor | null> {
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
+    .first()
+
+  if (!user) return null
+
+  return {
+    kind: 'user',
+    userId: user.authId,
+    role: user.role as Role,
     tenantId: user.workspaceId as Id<'workspaces'> | undefined,
-  }),
-})
+  }
+}
 
-export type Actor = TeamTodoActor
+export async function getActorFromPrincipal(
+  ctx: TeamTodoCtx,
+  _args: Record<string, unknown>,
+  principal: TeamTodoPrincipal,
+): Promise<Actor | null> {
+  switch (principal.kind) {
+    case 'anonymous':
+      return null
+    case 'mcp':
+      return {
+        kind: 'user',
+        userId: principal.userId,
+        role: principal.role,
+        tenantId: principal.tenantId,
+      }
+    case 'user':
+      return await loadActorByAuthId(ctx, principal.userId)
+  }
+}
 
-export async function getActor(ctx: Parameters<typeof actor.resolve>[0]): Promise<Actor | null> {
-  return await actor.resolve(ctx)
+export async function getActor(ctx: TeamTodoCtx): Promise<Actor | null> {
+  const auth = await getAuth(ctx)
+  if (!auth) return null
+  return await loadActorByAuthId(ctx, auth.subject)
 }

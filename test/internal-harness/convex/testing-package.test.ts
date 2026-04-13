@@ -38,7 +38,7 @@ describe('@lupinum/trellis/testing', () => {
     )
   })
 
-  it('injects trusted caller auth with the same permission rules as browser callers', async () => {
+  it('forwards principals with the same permission rules as browser callers', async () => {
     const ctx = createTestContext({
       schema,
       modules,
@@ -51,7 +51,8 @@ describe('@lupinum/trellis/testing', () => {
       },
     })
 
-    const trustedCaller = ctx.asTrustedCaller({
+    const trustedCaller = ctx.asPrincipal({
+      kind: 'user',
       userId: team.users.viewer.authId,
     })
 

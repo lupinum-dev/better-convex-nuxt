@@ -83,7 +83,7 @@ describe('mcp reference example', () => {
     )
   })
 
-  it('applies the same create permission rules to trusted callers', async () => {
+  it('applies the same create permission rules to forwarded principals', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
@@ -95,7 +95,8 @@ describe('mcp reference example', () => {
 
     await expect(
       ctx
-        .asTrustedCaller({
+        .asPrincipal({
+          kind: 'user',
           userId: team.users.viewer.authId,
         })
         .mutation(api.runbooks.create, {
@@ -109,7 +110,8 @@ describe('mcp reference example', () => {
 
     await expect(
       ctx
-        .asTrustedCaller({
+        .asPrincipal({
+          kind: 'user',
           userId: team.users.member.authId,
         })
         .mutation(api.runbooks.create, {

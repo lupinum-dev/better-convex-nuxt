@@ -123,8 +123,7 @@ import { createApp } from '@lupinum/trellis/functions'
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 
-export const { app, raw } = createApp(query, mutation, {
-  trustedCaller: false,
+export const { app, raw } = createApp({ query, mutation }, {
   actor: getActor,
 })
 
@@ -179,15 +178,14 @@ export const getActor = actor.resolve
 `.trimStart()
 }
 
-function workspaceFunctionsTemplate({ trustedCaller }: { trustedCaller: boolean }) {
+function workspaceFunctionsTemplate() {
   return `
 import { createApp } from '@lupinum/trellis/functions'
 
 import { mutation, query } from './_generated/server'
 import { getActor } from './auth/actor'
 
-export const { app, raw } = createApp(query, mutation, {
-  trustedCaller: ${trustedCaller ? 'true' : 'false'},
+export const { app, raw } = createApp({ query, mutation }, {
   actor: getActor,
   // Add tenantIsolation only for tables that actually store the tenant field.
   // Example:
@@ -410,7 +408,7 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
         },
         {
           path: 'convex/functions.ts',
-          content: workspaceFunctionsTemplate({ trustedCaller: model === 'workspace-mcp' }),
+          content: workspaceFunctionsTemplate(),
           ownership: 'authored',
         },
         {

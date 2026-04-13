@@ -1,34 +1,17 @@
-import type { AuthIdentity } from '@lupinum/trellis/auth'
 import { getAuth } from '@lupinum/trellis/auth'
-import { getTrustedCaller } from '@lupinum/trellis/trusted-caller'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'
-
-export type Role = 'owner' | 'admin' | 'member' | 'viewer'
+import type { InternalHarnessPrincipal, Role } from './principal'
 
 export type Actor = { kind: 'user'; userId: string; role: Role; tenantId?: string } | null
 
 type InternalHarnessCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
-export async function getActor(ctx: InternalHarnessCtx): Promise<Actor> {
-  const trusted = getTrustedCaller(ctx)
-  if (trusted) {
-    return await resolveActor(ctx, { subject: trusted.userId })
-  }
-
-  return await resolveActor(ctx, await getAuth(ctx))
-}
-
-export async function resolveActor(
-  ctx: InternalHarnessCtx,
-  auth: AuthIdentity | null,
-): Promise<Actor> {
-  if (!auth) return null
-
+async function loadActorByAuthId(ctx: InternalHarnessCtx, authId: string): Promise<Actor> {
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
+    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
     .first()
 
   if (!user) return null
@@ -39,4 +22,30 @@ export async function resolveActor(
     role: user.role,
     ...(user.organizationId ? { tenantId: user.organizationId } : {}),
   }
+}
+
+export async function getActorFromPrincipal(
+  ctx: InternalHarnessCtx,
+  _args: Record<string, unknown>,
+  principal: InternalHarnessPrincipal,
+): Promise<Actor> {
+  switch (principal.kind) {
+    case 'anonymous':
+      return null
+    case 'mcp':
+      return {
+        kind: 'user',
+        userId: principal.userId,
+        role: principal.role,
+        ...(principal.tenantId ? { tenantId: principal.tenantId } : {}),
+      }
+    case 'user':
+      return await loadActorByAuthId(ctx, principal.userId)
+  }
+}
+
+export async function getActor(ctx: InternalHarnessCtx): Promise<Actor> {
+  const auth = await getAuth(ctx)
+  if (!auth) return null
+  return await loadActorByAuthId(ctx, auth.subject)
 }

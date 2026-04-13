@@ -6,10 +6,6 @@ import schema from './schema'
 import { modules } from './test.setup'
 
 describe('organizations', () => {
-  beforeEach(() => {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
-  })
-
   it('assigns the current browser-auth user as owner when creating an organization', async () => {
     const t = convexTest(schema, modules)
 
@@ -43,7 +39,7 @@ describe('organizations', () => {
     })
   })
 
-  it('assigns the trusted caller user as owner when creating an organization', async () => {
+  it('assigns the forwarded principal user as owner when creating an organization', async () => {
     const t = convexTest(schema, modules)
 
     await t.run(async (ctx) => {
@@ -60,8 +56,8 @@ describe('organizations', () => {
     const orgId = await t.mutation(api.organizations.create, {
       name: 'Service Org',
       slug: 'service-org',
-      _trustedCallerKey: 'test-trusted-caller-key',
-      _trustedCaller: {
+      principal: {
+        kind: 'user',
         userId: 'service_user',
       },
     })
@@ -79,15 +75,15 @@ describe('organizations', () => {
     })
   })
 
-  it('fails cleanly when the trusted caller has no backing user row', async () => {
+  it('fails cleanly when the forwarded principal has no backing user row', async () => {
     const t = convexTest(schema, modules)
 
     await expect(
       t.mutation(api.organizations.create, {
         name: 'Missing User Org',
         slug: 'missing-user-org',
-        _trustedCallerKey: 'test-trusted-caller-key',
-        _trustedCaller: {
+        principal: {
+          kind: 'user',
           userId: 'missing_user',
         },
       }),

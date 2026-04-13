@@ -5,7 +5,7 @@ import { v } from 'convex/values'
 import { createTodo } from '../shared/schemas/todo'
 import { mutation, query } from './_generated/server'
 
-const { app } = createApp(query, mutation)
+const { app } = createApp({ query, mutation })
 
 export const list = app.query({
   args: {},

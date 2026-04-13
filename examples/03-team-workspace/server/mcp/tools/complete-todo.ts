@@ -3,24 +3,14 @@ import { api } from '#trellis/api'
  * Why this file exists:
  * This tool reuses the same schema as the UI and shows permission-aware updates.
  */
-import { defineTool } from '#trellis/mcp'
 import { setTodoCompleted } from '~/shared/schemas/todo'
+import { projectTool } from '../runtime'
 
-export default defineTool({
-  name: 'complete-todo',
+export default projectTool({
   schema: setTodoCompleted,
-  auth: 'required',
-  check: (actor) => !!actor && ['owner', 'admin', 'member'].includes(actor.role),
-  scoped: true,
-  handler: async (args, ctx) => {
-    await ctx.mutation(api.todos.setCompleted, {
-      id: args.id,
-      completed: args.completed,
-    })
-
-    return ctx.ok(
-      { id: args.id, completed: args.completed },
-      args.completed ? 'Marked todo complete' : 'Marked todo incomplete',
-    )
+  call: api.todos.setCompleted,
+  capability: 'completeTodo',
+  meta: {
+    name: 'complete-todo',
   },
 })

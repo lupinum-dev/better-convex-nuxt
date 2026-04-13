@@ -92,3 +92,21 @@ export const remove = app.mutation({
     await ctx.db.delete(args.id)
   },
 })
+
+export const previewRemove = app.query({
+  args: deleteTodo.args,
+  guard: canReadTodo,
+  load: async (ctx, args) => {
+    const todo = await ctx.db.get(args.id)
+    requireRecord(todo, 'Todo')
+    return { todo }
+  },
+  authorize: {
+    check: (_actor, { todo }) => canDeleteTodo(todo),
+  },
+  handler: async (_ctx, _args, { todo }) => ({
+    summary: `Will permanently delete "${todo.title}"`,
+    warn: 'This cannot be undone',
+    affects: { todos: 1 },
+  }),
+})

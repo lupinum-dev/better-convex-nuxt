@@ -87,7 +87,7 @@ describe('module validation', () => {
   it('throws in strict mode for tenant isolation schema mismatches', async () => {
     const rootDir = createFixture({
       'convex/functions.ts': `
-        export const { app } = createApp(query, mutation, {
+        export const { app } = createApp({ query, mutation }, {
           tenantIsolation: {
             tables: ['tasks'],
           },
@@ -119,7 +119,7 @@ describe('module validation', () => {
   it('collects Convex exports declared through custom and structured builders', () => {
     const rootDir = createFixture({
       'convex/functions.ts': `
-        export const { app, raw } = createApp(query, mutation)
+        export const { app, raw } = createApp({ query, mutation })
       `,
       'convex/todos.ts': `
         export const list = app.query({

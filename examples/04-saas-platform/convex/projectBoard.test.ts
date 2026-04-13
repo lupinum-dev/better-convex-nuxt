@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
  * Example 04 is meant to show real month-two patterns, not just UI polish.
- * These tests prove tenant isolation, guard behavior, bulk semantics, and trusted-caller parity.
+ * These tests prove tenant isolation, guard behavior, bulk semantics, and principal-forwarding parity.
  */
 /// <reference types="vite/client" />
 
@@ -292,7 +292,7 @@ describe('project board example', () => {
     expect(result.skipped).toHaveLength(1)
   })
 
-  it('trusted callers obey the same permission rules as browser users', async () => {
+  it('forwarded principals obey the same permission rules as browser users', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
@@ -308,7 +308,8 @@ describe('project board example', () => {
       summary: 'Service auth',
     })
 
-    const trustedCaller = ctx.asTrustedCaller({
+    const trustedCaller = ctx.asPrincipal({
+      kind: 'user',
       userId: team.users.viewer.authId,
     })
 

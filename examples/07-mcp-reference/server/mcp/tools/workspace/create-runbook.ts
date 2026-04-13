@@ -1,14 +1,12 @@
 import { api } from '#trellis/api'
-import { defineTool } from '#trellis/mcp'
 import { createRunbook } from '~/shared/schemas/runbook'
+import { projectTool } from '../../runtime'
 
-export default defineTool({
-  name: 'create-runbook',
+export default projectTool({
   schema: createRunbook,
-  auth: 'required',
-  scoped: true,
+  call: api.runbooks.create,
+  capability: 'writeWorkspaceRunbooks',
   group: 'workspace',
-  check: (actor) => !!actor && ['owner', 'admin', 'member'].includes(actor.role),
   maxItems: { field: 'tags', limit: 6 },
   middleware: async (args, ctx, next) => {
     if (!args.content.trim().startsWith('# ')) {
@@ -16,8 +14,7 @@ export default defineTool({
     }
     return await next()
   },
-  handler: async (args, ctx) => {
-    const id = await ctx.mutation(api.runbooks.create, args)
-    return ctx.ok({ id }, `Created runbook "${args.title}".`)
+  meta: {
+    name: 'create-runbook',
   },
 })

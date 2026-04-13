@@ -214,6 +214,24 @@ export const remove = app.mutation({
   },
 })
 
+export const previewRemove = app.query({
+  args: deleteRunbook.args,
+  guard: canReadWorkspaceRunbook,
+  load: async (ctx, args) => {
+    const runbook = await ctx.db.get(args.id)
+    requireRecord(runbook, 'Runbook')
+    return { runbook }
+  },
+  authorize: {
+    check: (_actor, { runbook }) => canDeleteRunbook(runbook),
+  },
+  handler: async (_ctx, _args, { runbook }) => ({
+    summary: `Will permanently delete "${runbook.title}".`,
+    warn: 'This cannot be undone.',
+    affects: { runbooks: 1 },
+  }),
+})
+
 export const bulkRemove = app.mutation({
   args: bulkDeleteRunbooks.args,
   guard: canPublishRunbook,
@@ -246,6 +264,33 @@ export const bulkRemove = app.mutation({
       deleted,
       skipped,
       total: args.ids.length,
+    }
+  },
+})
+
+export const previewBulkRemove = app.query({
+  args: bulkDeleteRunbooks.args,
+  guard: canPublishRunbook,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const runbooks = await Promise.all(args.ids.map((id) => ctx.db.get(id)))
+    const found = runbooks.filter(
+      (runbook): runbook is NonNullable<(typeof runbooks)[number]> =>
+        !!runbook && runbook.workspaceId === actor.tenantId && can(actor, canDeleteRunbook(runbook)),
+    )
+
+    if (found.length === 0) {
+      return {
+        summary: 'None of the selected runbooks can be deleted.',
+        blocked: true,
+      }
+    }
+
+    return {
+      summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map((runbook) => `"${runbook.title}"`).join(', ')}`,
+      warn:
+        found.length !== args.ids.length ? 'Some ids were missing and will be skipped.' : undefined,
+      affects: { runbooks: found.length },
     }
   },
 })

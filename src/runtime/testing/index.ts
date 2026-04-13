@@ -135,7 +135,7 @@ export interface TestContext<TSchema extends AnySchemaDefinition, TRole extends 
     id: string
     users: Record<string, SeededTenantUser<TSchema, TRole>>
   }>
-  asTrustedCaller: (actor: { userId: string }) => TestClient<TSchema>
+  asPrincipal: (principal: Record<string, unknown>) => TestClient<TSchema>
 }
 
 const DEFAULT_CONVEX_TEST_TSCONFIG = {
@@ -211,18 +211,14 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
+function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   raw: TestConvex<TSchema>,
-  trustedCallerKey: string,
-  actor: { userId: string },
+  principal: Record<string, unknown>,
 ): TestClient<TSchema> {
-  function withTrustedCallerArgs<TArgs extends Record<string, unknown> | undefined>(args: TArgs) {
+  function withPrincipalArgs<TArgs extends Record<string, unknown> | undefined>(args: TArgs) {
     return {
       ...(args ?? {}),
-      _trustedCallerKey: trustedCallerKey,
-      _trustedCaller: {
-        userId: actor.userId,
-      },
+      principal,
     }
   }
 
@@ -231,7 +227,7 @@ function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined)
       const query = raw.query as unknown as (
         ref: Query,
         args?: OptionalRestArgs<Query>[0],
@@ -242,7 +238,7 @@ function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined)
       const mutation = raw.mutation as unknown as (
         ref: Mutation,
         args?: OptionalRestArgs<Mutation>[0],
@@ -253,7 +249,7 @@ function createTrustedCallerClient<TSchema extends AnySchemaDefinition>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      const payload = withTrustedCallerArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined)
       const action = raw.action as unknown as (
         ref: Action,
         args?: OptionalRestArgs<Action>[0],
@@ -275,9 +271,9 @@ export function createTestContext<
 >(options: CreateTestContextOptions<TSchema>): TestContext<TSchema, TRole> {
   const modules = withGeneratedModuleHint(options.modules ?? defaultModules)
   const raw = convexTest(options.schema, modules) as unknown as TestConvex<TSchema>
-  const trustedCallerKey =
-    options.trustedCallerKey ?? process.env.CONVEX_TRUSTED_CALLER_KEY ?? 'test-trusted-caller-key'
-  process.env.CONVEX_TRUSTED_CALLER_KEY = trustedCallerKey
+  if (options.trustedCallerKey) {
+    process.env.CONVEX_TRUSTED_CALLER_KEY = options.trustedCallerKey
+  }
 
   const tenantTable = options.tenant?.table ?? 'workspaces'
   const tenantField = options.tenant?.field ?? 'workspaceId'
@@ -371,8 +367,8 @@ export function createTestContext<
     }
   }
 
-  function asTrustedCaller(actor: { userId: string }): TestClient<TSchema> {
-    return createTrustedCallerClient(raw, trustedCallerKey, actor)
+  function asPrincipal(principal: Record<string, unknown>): TestClient<TSchema> {
+    return createPrincipalClient(raw, principal)
   }
 
   return {
@@ -380,6 +376,6 @@ export function createTestContext<
     seed,
     readAll,
     seedTenant,
-    asTrustedCaller,
+    asPrincipal,
   }
 }

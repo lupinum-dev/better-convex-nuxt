@@ -22,45 +22,59 @@ import type {
   TableNamesInDataModel,
 } from 'convex/server'
 import type { ObjectType, PropertyValidators } from 'convex/values'
+import { v } from 'convex/values'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
-import {
-  createTrustedCallerContextDelta,
-  extractTrustedCallerFromArgs,
-  trustedCallerValidators,
-} from '../trusted-caller/shared.js'
 import { buildStructuredFunctions } from './define-handler.js'
 import type {
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
 } from './define-handler.js'
+import { createComponentBridge } from './create-component-bridge.js'
+import { defineOperation, previewOf, type OperationDefinition } from './define-operation.js'
+import { definePrincipal, type DefaultPrincipal, type PrincipalDefinition } from './define-principal.js'
+
 export type {
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
 } from './define-handler.js'
+export { createComponentBridge } from './create-component-bridge.js'
+export { defineOperation, previewOf } from './define-operation.js'
+export type { OperationDefinition } from './define-operation.js'
+export { definePrincipal } from './define-principal.js'
+export type { DefaultPrincipal, PrincipalDefinition } from './define-principal.js'
 
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
 
+export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
 
-export type FunctionsCtxExtension<TActor> = {
+export type FunctionsCtxExtension<TPrincipal, TActor> = {
+  principal: PrincipalAccessor<TPrincipal>
   actor: ActorAccessor<TActor>
 }
 
-type AnyCtxWithActor<DataModel extends GenericDataModel, TActor> = AnyCtx<DataModel> &
-  FunctionsCtxExtension<TActor>
-
-type QueryCtxWithActor<DataModel extends GenericDataModel, TActor> = GenericQueryCtx<DataModel> &
-  FunctionsCtxExtension<TActor>
-
-type MutationCtxWithActor<
+type AnyCtxWithRuntime<
   DataModel extends GenericDataModel,
+  TPrincipal,
   TActor,
-> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>
+> = AnyCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+
+type QueryCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TActor,
+> = GenericQueryCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+
+type MutationCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TActor,
+> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
 
 type OnSuccessArgs<Ctx> = {
   ctx: Ctx
@@ -79,33 +93,56 @@ type MaybeRules<Ctx, DataModel extends GenericDataModel> =
 
 type QueryCustomizationCtx<
   DataModel extends GenericDataModel,
+  TPrincipal,
   TActor,
-> = GenericQueryCtx<DataModel> & FunctionsCtxExtension<TActor>
+> = GenericQueryCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
 
 type MutationCustomizationCtx<
   DataModel extends GenericDataModel,
+  TPrincipal,
   TActor,
-> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>
+> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
 
-export interface CreateAppOptions<DataModel extends GenericDataModel, TActor = DefaultActor> {
-  trustedCaller?: boolean
-  /**
-   * Explicit trusted caller key to use for verification. Useful when running inside
-   * a Convex component where `process.env` is not accessible — read the key at module
-   * initialization time in the root app and pass it here.
-   */
-  trustedCallerKey?: string
-  actor?: (ctx: AnyCtx<DataModel>, args: Record<string, unknown>) => Promise<TActor | null>
-  contextArgs?: PropertyValidators
+type AppBuilders<
+  DataModel extends GenericDataModel,
+  QueryVisibility extends FunctionVisibility,
+  MutationVisibility extends FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility = 'internal',
+  InternalMutationVisibility extends FunctionVisibility = 'internal',
+> = {
+  query: QueryBuilder<DataModel, QueryVisibility>
+  mutation: MutationBuilder<DataModel, MutationVisibility>
+  internalQuery?: QueryBuilder<DataModel, InternalQueryVisibility>
+  internalMutation?: MutationBuilder<DataModel, InternalMutationVisibility>
+}
+
+export interface CreateAppOptions<
+  DataModel extends GenericDataModel,
+  TPrincipal = DefaultPrincipal,
+  TActor = DefaultActor,
+> {
+  principal?: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
+  actor?: (
+    ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+    args: Record<string, unknown>,
+    principal: TPrincipal,
+  ) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
   rls?: {
-    rules: MaybeRules<AnyCtxWithActor<DataModel, TActor>, DataModel>
+    rules: MaybeRules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
     config?: RLSConfig
   }
-  triggers?: Triggers<DataModel, GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>>
+  triggers?: Triggers<
+    DataModel,
+    GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+  >
   onSuccess?: {
-    query?: (args: OnSuccessArgs<AnyCtxWithActor<DataModel, TActor>>) => Promise<void> | void
-    mutation?: (args: OnSuccessArgs<AnyCtxWithActor<DataModel, TActor>>) => Promise<void> | void
+    query?: (
+      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>>,
+    ) => Promise<void> | void
+    mutation?: (
+      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>>,
+    ) => Promise<void> | void
   }
 }
 
@@ -149,10 +186,11 @@ function hasTenantScope(value: unknown): boolean {
 
 function createTenantIsolationRule<
   DataModel extends GenericDataModel,
+  TPrincipal,
   TActor,
   TDoc extends Record<string, unknown>,
 >(field: string) {
-  return async (ctx: AnyCtxWithActor<DataModel, TActor>, doc: TDoc) => {
+  return async (ctx: AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, doc: TDoc) => {
     const actorTenantId = getTenantId(await ctx.actor())
     const documentTenantId = doc[field as keyof TDoc]
 
@@ -174,16 +212,25 @@ function createTenantIsolationRule<
   }
 }
 
-function buildTenantIsolationRules<DataModel extends GenericDataModel, TActor>(
+function buildTenantIsolationRules<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TActor,
+>(
   options: TenantIsolationOptions<DataModel> | undefined,
-): Rules<AnyCtxWithActor<DataModel, TActor>, DataModel> {
-  const rules = {} as Rules<AnyCtxWithActor<DataModel, TActor>, DataModel>
+): Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> {
+  const rules = {} as Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
   if (!options) return rules
 
   const field = options.field ?? 'workspaceId'
 
   for (const table of options.tables) {
-    const tenantRule = createTenantIsolationRule<DataModel, TActor, Record<string, unknown>>(field)
+    const tenantRule = createTenantIsolationRule<
+      DataModel,
+      TPrincipal,
+      TActor,
+      Record<string, unknown>
+    >(field)
     rules[table] = {
       read: tenantRule,
       modify: tenantRule,
@@ -212,11 +259,17 @@ function mergeRules<Ctx, DataModel extends GenericDataModel>(
   return merged
 }
 
-async function resolveRules<DataModel extends GenericDataModel, TActor>(
-  ctx: AnyCtxWithActor<DataModel, TActor>,
-  options: CreateAppOptions<DataModel, TActor>,
-): Promise<Rules<AnyCtxWithActor<DataModel, TActor>, DataModel> | null> {
-  const tenantRules = buildTenantIsolationRules<DataModel, TActor>(options.tenantIsolation)
+async function resolveRules<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TActor,
+>(
+  ctx: AnyCtxWithRuntime<DataModel, TPrincipal, TActor>,
+  options: CreateAppOptions<DataModel, TPrincipal, TActor>,
+): Promise<Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> | null> {
+  const tenantRules = buildTenantIsolationRules<DataModel, TPrincipal, TActor>(
+    options.tenantIsolation,
+  )
   const hasTenantRules = Object.keys(tenantRules).length > 0
   const rlsRules = options.rls?.rules
 
@@ -250,52 +303,84 @@ type StructuredMutationBuilder<
   definition: StructuredHandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult>,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
-function resolveActor<DataModel extends GenericDataModel, TActor>(
-  options: CreateAppOptions<DataModel, TActor>,
-): (ctx: AnyCtx<DataModel>, args: Record<string, unknown>) => Promise<TActor | null> {
-  return (options.actor ?? defineActor.fromAuth<DataModel>().resolve) as (
-    ctx: AnyCtx<DataModel>,
+type RuntimeBundle<
+  DataModel extends GenericDataModel,
+  TCtx extends AnyCtx<DataModel>,
+  TPrincipal,
+  TActor,
+> = {
+  principal: PrincipalAccessor<TPrincipal>
+  actor: ActorAccessor<TActor>
+  baseCtx: TCtx & FunctionsCtxExtension<TPrincipal, TActor>
+}
+
+function resolvePrincipal<DataModel extends GenericDataModel, TPrincipal>(
+  principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal> | undefined,
+): PrincipalDefinition<AnyCtx<DataModel>, TPrincipal> {
+  return (principalDefinition ??
+    definePrincipal.fromAuth<DataModel>()) as PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
+}
+
+function resolveActor<DataModel extends GenericDataModel, TPrincipal, TActor>(
+  actorResolver:
+    | ((
+        ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+        args: Record<string, unknown>,
+        principal: TPrincipal,
+      ) => Promise<TActor | null>)
+    | undefined,
+): (
+  ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+  args: Record<string, unknown>,
+  principal: TPrincipal,
+) => Promise<TActor | null> {
+  return (actorResolver ??
+    (async (ctx) => await defineActor.fromAuth<DataModel>().resolve(ctx))) as (
+    ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
     args: Record<string, unknown>,
+    principal: TPrincipal,
   ) => Promise<TActor | null>
 }
 
-function createContextWithActor<
+function createContextWithRuntime<
   DataModel extends GenericDataModel,
-  TActor,
   TCtx extends AnyCtx<DataModel>,
+  TPrincipal,
+  TActor,
 >(
   ctx: TCtx,
   args: Record<string, unknown>,
-  actorResolver: (ctx: AnyCtx<DataModel>, args: Record<string, unknown>) => Promise<TActor | null>,
-  trustedCallerEnabled: boolean,
-  trustedCallerKey?: string,
-): {
-  actor: ActorAccessor<TActor>
-  baseCtx: TCtx & FunctionsCtxExtension<TActor>
-  trustedCallerContext: ReturnType<typeof createTrustedCallerContextDelta>
-} {
-  const trustedCaller = trustedCallerEnabled
-    ? extractTrustedCallerFromArgs(args, trustedCallerKey)
-    : null
-  const trustedCallerContext = createTrustedCallerContextDelta(trustedCaller)
-  const ctxWithTrustedCaller = {
+  principalResolver: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+  actorResolver: (
+    ctx: TCtx & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+    args: Record<string, unknown>,
+    principal: TPrincipal,
+  ) => Promise<TActor | null>,
+): RuntimeBundle<DataModel, TCtx, TPrincipal, TActor> {
+  let principalPromise: Promise<TPrincipal> | null = null
+  const principal: PrincipalAccessor<TPrincipal> = async () => {
+    principalPromise ??= Promise.resolve(principalResolver.resolve(ctx, args))
+    return await principalPromise
+  }
+
+  const ctxWithPrincipal = {
     ...ctx,
-    ...trustedCallerContext,
-  } as TCtx
+    principal,
+  } as TCtx & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>
 
   let actorPromise: Promise<TActor | null> | null = null
   const actor: ActorAccessor<TActor> = async () => {
-    actorPromise ??= actorResolver(ctxWithTrustedCaller, args)
+    actorPromise ??= actorResolver(ctxWithPrincipal, args, await principal())
     return await actorPromise
   }
 
   return {
+    principal,
     actor,
     baseCtx: {
-      ...ctxWithTrustedCaller,
+      ...ctxWithPrincipal,
       actor,
-    } as TCtx & FunctionsCtxExtension<TActor>,
-    trustedCallerContext,
+    } as TCtx & FunctionsCtxExtension<TPrincipal, TActor>,
   }
 }
 
@@ -314,36 +399,34 @@ function createOnSuccessHandler<Ctx>(
   }
 }
 
-function createQueryCustomization<DataModel extends GenericDataModel, TActor>(
-  options: CreateAppOptions<DataModel, TActor>,
+function createQueryCustomization<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TActor,
+>(
+  options: CreateAppOptions<DataModel, TPrincipal, TActor>,
 ): Customization<
   GenericQueryCtx<DataModel>,
   PropertyValidators,
-  QueryCustomizationCtx<DataModel, TActor>,
+  QueryCustomizationCtx<DataModel, TPrincipal, TActor>,
   Record<string, never>
 > {
-  const actorResolver = resolveActor(options)
-  const trustedCallerEnabled = options.trustedCaller ?? true
+  const principalDefinition = resolvePrincipal(options.principal)
+  const actorResolver = resolveActor(options.actor)
+  const principalArgs: PropertyValidators = principalDefinition.validator
+    ? { principal: v.optional(principalDefinition.validator) }
+    : {}
 
   return {
-    args: {
-      ...(trustedCallerEnabled ? trustedCallerValidators : {}),
-      ...(options.contextArgs ?? {}),
-    },
+    args: principalArgs,
     input: async (ctx, args) => {
-      const { baseCtx } = createContextWithActor(
-        ctx,
-        args,
-        actorResolver,
-        trustedCallerEnabled,
-        options.trustedCallerKey,
-      )
+      const { baseCtx } = createContextWithRuntime(ctx, args, principalDefinition, actorResolver)
       const resolvedRules = await resolveRules(baseCtx, options)
       const db = resolvedRules
         ? wrapDatabaseReader(baseCtx, ctx.db, resolvedRules, options.rls?.config)
         : ctx.db
-      const finalCtx: QueryCtxWithActor<DataModel, TActor> = {
-        ...baseCtx,
+      const finalCtx: QueryCtxWithRuntime<DataModel, TPrincipal, TActor> = {
+        ...((baseCtx as unknown) as QueryCtxWithRuntime<DataModel, TPrincipal, TActor>),
         db,
       }
 
@@ -356,30 +439,28 @@ function createQueryCustomization<DataModel extends GenericDataModel, TActor>(
   }
 }
 
-function createMutationCustomization<DataModel extends GenericDataModel, TActor>(
-  options: CreateAppOptions<DataModel, TActor>,
+function createMutationCustomization<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TActor,
+>(
+  options: CreateAppOptions<DataModel, TPrincipal, TActor>,
 ): Customization<
   GenericMutationCtx<DataModel>,
   PropertyValidators,
-  MutationCustomizationCtx<DataModel, TActor>,
+  MutationCustomizationCtx<DataModel, TPrincipal, TActor>,
   Record<string, never>
 > {
-  const actorResolver = resolveActor(options)
-  const trustedCallerEnabled = options.trustedCaller ?? true
+  const principalDefinition = resolvePrincipal(options.principal)
+  const actorResolver = resolveActor(options.actor)
+  const principalArgs: PropertyValidators = principalDefinition.validator
+    ? { principal: v.optional(principalDefinition.validator) }
+    : {}
 
   return {
-    args: {
-      ...(trustedCallerEnabled ? trustedCallerValidators : {}),
-      ...(options.contextArgs ?? {}),
-    },
+    args: principalArgs,
     input: async (ctx, args) => {
-      const { baseCtx } = createContextWithActor(
-        ctx,
-        args,
-        actorResolver,
-        trustedCallerEnabled,
-        options.trustedCallerKey,
-      )
+      const { baseCtx } = createContextWithRuntime(ctx, args, principalDefinition, actorResolver)
       const resolvedRules = await resolveRules(baseCtx, options)
       let db = resolvedRules
         ? wrapDatabaseWriter(baseCtx, ctx.db, resolvedRules, options.rls?.config)
@@ -387,13 +468,13 @@ function createMutationCustomization<DataModel extends GenericDataModel, TActor>
 
       if (options.triggers) {
         db = options.triggers.wrapDB({
-          ...baseCtx,
+          ...((baseCtx as unknown) as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
           db,
         }).db
       }
 
-      const finalCtx: MutationCtxWithActor<DataModel, TActor> = {
-        ...baseCtx,
+      const finalCtx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor> = {
+        ...((baseCtx as unknown) as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
         db,
       }
 
@@ -410,17 +491,42 @@ function buildRawFunctions<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
   MutationVisibility extends FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility,
+  InternalMutationVisibility extends FunctionVisibility,
+  TPrincipal,
   TActor = DefaultActor,
 >(
-  query: QueryBuilder<DataModel, QueryVisibility>,
-  mutation: MutationBuilder<DataModel, MutationVisibility>,
-  options: CreateAppOptions<DataModel, TActor> = {},
+  builders: AppBuilders<
+    DataModel,
+    QueryVisibility,
+    MutationVisibility,
+    InternalQueryVisibility,
+    InternalMutationVisibility
+  >,
+  options: CreateAppOptions<DataModel, TPrincipal, TActor> = {},
 ) {
   validateTenantIsolationOptions(options.tenantIsolation)
 
+  if (!!builders.internalQuery !== !!builders.internalMutation) {
+    throw new Error(
+      'createApp(...) requires both internalQuery and internalMutation when either internal builder is provided.',
+    )
+  }
+
+  const queryCustomization = createQueryCustomization(options)
+  const mutationCustomization = createMutationCustomization(options)
+
   return {
-    query: customQuery(query, createQueryCustomization(options)),
-    mutation: customMutation(mutation, createMutationCustomization(options)),
+    query: customQuery(builders.query, queryCustomization),
+    mutation: customMutation(builders.mutation, mutationCustomization),
+    internal: {
+      query: builders.internalQuery
+        ? customQuery(builders.internalQuery, queryCustomization)
+        : undefined,
+      mutation: builders.internalMutation
+        ? customMutation(builders.internalMutation, mutationCustomization)
+        : undefined,
+    },
   }
 }
 
@@ -428,28 +534,94 @@ export function createApp<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
   MutationVisibility extends FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility = 'internal',
+  InternalMutationVisibility extends FunctionVisibility = 'internal',
+  TPrincipal = DefaultPrincipal,
   TActor = DefaultActor,
 >(
-  query: QueryBuilder<DataModel, QueryVisibility>,
-  mutation: MutationBuilder<DataModel, MutationVisibility>,
-  options: CreateAppOptions<DataModel, TActor> = {},
+  builders: AppBuilders<
+    DataModel,
+    QueryVisibility,
+    MutationVisibility,
+    InternalQueryVisibility,
+    InternalMutationVisibility
+  >,
+  options: CreateAppOptions<DataModel, TPrincipal, TActor> = {},
 ) {
-  const raw = buildRawFunctions(query, mutation, options)
+  const raw = buildRawFunctions(builders, options)
   const app = buildStructuredFunctions<
-    QueryCtxWithActor<DataModel, TActor>,
-    MutationCtxWithActor<DataModel, TActor>,
+    QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+    MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
     TActor
   >(raw.query, raw.mutation) as {
-    query: StructuredQueryBuilder<QueryCtxWithActor<DataModel, TActor>, QueryVisibility, TActor>
+    query: StructuredQueryBuilder<
+      QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+      QueryVisibility,
+      TActor
+    >
     mutation: StructuredMutationBuilder<
-      MutationCtxWithActor<DataModel, TActor>,
+      MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
       MutationVisibility,
       TActor
     >
   }
 
+  const structuredInternal =
+    raw.internal.query && raw.internal.mutation
+      ? (buildStructuredFunctions<
+          QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+          MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+          TActor
+        >(raw.internal.query, raw.internal.mutation) as {
+          query: StructuredQueryBuilder<
+            QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+            InternalQueryVisibility,
+            TActor
+          >
+          mutation: StructuredMutationBuilder<
+            MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+            InternalMutationVisibility,
+            TActor
+          >
+        })
+      : undefined
+
   return {
-    app,
-    raw,
+    app: {
+      query: app.query,
+      mutation: app.mutation,
+      ...(structuredInternal
+        ? {
+            internal: {
+              query: structuredInternal.query,
+              mutation: structuredInternal.mutation,
+            },
+          }
+        : {}),
+    },
+    raw: {
+      query: raw.query,
+      mutation: raw.mutation,
+      ...(raw.internal.query || raw.internal.mutation
+        ? {
+            internal: {
+              query: raw.internal.query,
+              mutation: raw.internal.mutation,
+            },
+          }
+        : {}),
+    },
+    createComponentBridge: () =>
+      createComponentBridge(
+        {
+          query: builders.query,
+          mutation: builders.mutation,
+          internalQuery: builders.internalQuery!,
+          internalMutation: builders.internalMutation!,
+        },
+        {
+          principal: resolvePrincipal(options.principal),
+        },
+      ),
   }
 }

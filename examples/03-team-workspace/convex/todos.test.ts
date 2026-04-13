@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
  * Example 03 is meant to prove the safety model, not just describe it.
- * These tests exercise tenant isolation, ownership rules, and trusted-caller parity against
+ * These tests exercise tenant isolation, ownership rules, and principal-forwarding parity against
  * the same scoped handlers used by the browser UI and the MCP tools.
  */
 /// <reference types="vite/client" />
@@ -100,7 +100,7 @@ describe('team todo example', () => {
     expect(betaTodos[0]?.title).toBe('Beta only')
   })
 
-  it('applies the same permission rules to trusted callers', async () => {
+  it('applies the same permission rules to forwarded principals', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
@@ -109,7 +109,8 @@ describe('team todo example', () => {
       },
     })
 
-    const trustedCaller = ctx.asTrustedCaller({
+    const trustedCaller = ctx.asPrincipal({
+      kind: 'user',
       userId: team.users.viewer.authId,
     })
 

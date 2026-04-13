@@ -115,7 +115,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
   it('uses tenant metadata from convex/functions.ts and flags bare collection reads only', async () => {
     const rootDir = createProjectFixture({
       'convex/functions.ts': `
-        export const { app, raw } = createApp(query, mutation, {
+        export const { app, raw } = createApp({ query, mutation }, {
           tenantIsolation: {
             tables: ['tasks'],
             field: 'workspaceId',

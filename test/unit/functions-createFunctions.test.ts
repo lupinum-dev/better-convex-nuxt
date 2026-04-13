@@ -6,8 +6,7 @@ describe('createApp tenant isolation validation', () => {
   it('rejects an empty tenantIsolation table list', () => {
     expect(() =>
       createApp(
-        () => null as never,
-        () => null as never,
+        { query: () => null as never, mutation: () => null as never },
         {
           tenantIsolation: {
             tables: [],
@@ -20,8 +19,7 @@ describe('createApp tenant isolation validation', () => {
   it('rejects duplicate tenantIsolation tables', () => {
     expect(() =>
       createApp(
-        () => null as never,
-        () => null as never,
+        { query: () => null as never, mutation: () => null as never },
         {
           tenantIsolation: {
             tables: ['todos', 'todos'] as never[],
@@ -34,8 +32,7 @@ describe('createApp tenant isolation validation', () => {
   it('rejects a blank tenantIsolation field', () => {
     expect(() =>
       createApp(
-        () => null as never,
-        () => null as never,
+        { query: () => null as never, mutation: () => null as never },
         {
           tenantIsolation: {
             tables: ['todos'] as never[],

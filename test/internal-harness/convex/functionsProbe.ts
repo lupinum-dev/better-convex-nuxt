@@ -6,7 +6,8 @@ import { v } from 'convex/values'
 import type { DataModel } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
 import type { Actor } from './auth/actor'
-import { getActor } from './auth/actor'
+import { getActorFromPrincipal } from './auth/actor'
+import { principal } from './auth/principal'
 
 let actorResolverCalls = 0
 
@@ -17,10 +18,11 @@ triggers.register('notes', async (ctx, change) => {
   await ctx.db.patch(change.id, { title: 'triggered' })
 })
 
-const { app: structured, raw } = createApp(query, mutation, {
-  actor: async (ctx) => {
+const { app: structured, raw } = createApp({ query, mutation }, {
+  principal,
+  actor: async (ctx, args, resolvedPrincipal) => {
     actorResolverCalls += 1
-    return await getActor(ctx)
+    return await getActorFromPrincipal(ctx, args, resolvedPrincipal)
   },
   tenantIsolation: {
     tables: ['posts', 'comments', 'mcpKeys'],

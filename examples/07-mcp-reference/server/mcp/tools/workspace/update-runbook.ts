@@ -1,14 +1,12 @@
 import { api } from '#trellis/api'
-import { defineTool } from '#trellis/mcp'
 import { updateRunbook } from '~/shared/schemas/runbook'
+import { projectTool } from '../../runtime'
 
-export default defineTool({
-  name: 'update-runbook',
+export default projectTool({
   schema: updateRunbook,
-  auth: 'required',
-  scoped: true,
+  call: api.runbooks.update,
+  capability: 'writeWorkspaceRunbooks',
   group: 'workspace',
-  check: (actor) => !!actor && ['owner', 'admin', 'member'].includes(actor.role),
   middleware: async (args, ctx, next) => {
     if (
       args.title === undefined &&
@@ -27,8 +25,7 @@ export default defineTool({
 
     return await next()
   },
-  handler: async (args, ctx) => {
-    await ctx.mutation(api.runbooks.update, args)
-    return ctx.ok({ updated: true, id: args.id }, 'Updated runbook.')
+  meta: {
+    name: 'update-runbook',
   },
 })
