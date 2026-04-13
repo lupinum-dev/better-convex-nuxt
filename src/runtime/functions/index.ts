@@ -29,9 +29,7 @@ import {
   extractTrustedCallerFromArgs,
   trustedCallerValidators,
 } from '../trusted-caller/shared.js'
-import {
-  buildStructuredFunctions,
-} from './define-handler.js'
+import { buildStructuredFunctions } from './define-handler.js'
 import type {
   StructuredGuard,
   StructuredHandlerDefinition,
@@ -59,8 +57,10 @@ type AnyCtxWithActor<DataModel extends GenericDataModel, TActor> = AnyCtx<DataMo
 type QueryCtxWithActor<DataModel extends GenericDataModel, TActor> = GenericQueryCtx<DataModel> &
   FunctionsCtxExtension<TActor>
 
-type MutationCtxWithActor<DataModel extends GenericDataModel, TActor> =
-  GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>
+type MutationCtxWithActor<
+  DataModel extends GenericDataModel,
+  TActor,
+> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>
 
 type OnSuccessArgs<Ctx> = {
   ctx: Ctx
@@ -77,13 +77,15 @@ type MaybeRules<Ctx, DataModel extends GenericDataModel> =
   | Rules<Ctx, DataModel>
   | ((ctx: Ctx) => Promise<Rules<Ctx, DataModel>> | Rules<Ctx, DataModel>)
 
-type QueryCustomizationCtx<DataModel extends GenericDataModel, TActor> =
-  GenericQueryCtx<DataModel> &
-  FunctionsCtxExtension<TActor>
+type QueryCustomizationCtx<
+  DataModel extends GenericDataModel,
+  TActor,
+> = GenericQueryCtx<DataModel> & FunctionsCtxExtension<TActor>
 
-type MutationCustomizationCtx<DataModel extends GenericDataModel, TActor> =
-  GenericMutationCtx<DataModel> &
-  FunctionsCtxExtension<TActor>
+type MutationCustomizationCtx<
+  DataModel extends GenericDataModel,
+  TActor,
+> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TActor>
 
 export interface CreateAppOptions<DataModel extends GenericDataModel, TActor = DefaultActor> {
   trustedCaller?: boolean
@@ -226,24 +228,13 @@ async function resolveRules<DataModel extends GenericDataModel, TActor>(
   return mergeRules(tenantRules, resolvedCustomRules)
 }
 
-type StructuredQueryBuilder<
-  TCtx extends object,
-  Visibility extends FunctionVisibility,
-  TActor,
-> = <
+type StructuredQueryBuilder<TCtx extends object, Visibility extends FunctionVisibility, TActor> = <
   TGuard extends StructuredGuard<TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
   TResult = unknown,
 >(
-  definition: StructuredHandlerDefinition<
-    TCtx,
-    TActor,
-    TGuard,
-    TArgsValidator,
-    TLoaded,
-    TResult
-  >,
+  definition: StructuredHandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult>,
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type StructuredMutationBuilder<
@@ -256,14 +247,7 @@ type StructuredMutationBuilder<
   TLoaded extends StructuredLoadedValue = undefined,
   TResult = unknown,
 >(
-  definition: StructuredHandlerDefinition<
-    TCtx,
-    TActor,
-    TGuard,
-    TArgsValidator,
-    TLoaded,
-    TResult
-  >,
+  definition: StructuredHandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult>,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
 function resolveActor<DataModel extends GenericDataModel, TActor>(
@@ -275,7 +259,11 @@ function resolveActor<DataModel extends GenericDataModel, TActor>(
   ) => Promise<TActor | null>
 }
 
-function createContextWithActor<DataModel extends GenericDataModel, TActor, TCtx extends AnyCtx<DataModel>>(
+function createContextWithActor<
+  DataModel extends GenericDataModel,
+  TActor,
+  TCtx extends AnyCtx<DataModel>,
+>(
   ctx: TCtx,
   args: Record<string, unknown>,
   actorResolver: (ctx: AnyCtx<DataModel>, args: Record<string, unknown>) => Promise<TActor | null>,
@@ -286,7 +274,9 @@ function createContextWithActor<DataModel extends GenericDataModel, TActor, TCtx
   baseCtx: TCtx & FunctionsCtxExtension<TActor>
   trustedCallerContext: ReturnType<typeof createTrustedCallerContextDelta>
 } {
-  const trustedCaller = trustedCallerEnabled ? extractTrustedCallerFromArgs(args, trustedCallerKey) : null
+  const trustedCaller = trustedCallerEnabled
+    ? extractTrustedCallerFromArgs(args, trustedCallerKey)
+    : null
   const trustedCallerContext = createTrustedCallerContextDelta(trustedCaller)
   const ctxWithTrustedCaller = {
     ...ctx,
@@ -312,9 +302,7 @@ function createContextWithActor<DataModel extends GenericDataModel, TActor, TCtx
 function createOnSuccessHandler<Ctx>(
   handler: ((args: OnSuccessArgs<Ctx>) => Promise<void> | void) | undefined,
   ctx: Ctx,
-):
-  | ((payload: { args: Record<string, unknown>; result: unknown }) => Promise<void>)
-  | undefined {
+): ((payload: { args: Record<string, unknown>; result: unknown }) => Promise<void>) | undefined {
   if (!handler) return undefined
 
   return async ({ args, result }) => {

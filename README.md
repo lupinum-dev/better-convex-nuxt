@@ -92,7 +92,7 @@ import { api } from '#trellis/api'
 
 const addNote = useConvexMutation(api.notes.add, {
   optimisticUpdate: (ctx, args) => {
-    ctx.query(api.notes.list, {}).update(notes => [...notes, { ...args, _id: 'temp' }])
+    ctx.query(api.notes.list, {}).update((notes) => [...notes, { ...args, _id: 'temp' }])
   },
 })
 

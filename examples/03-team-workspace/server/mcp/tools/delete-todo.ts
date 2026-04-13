@@ -1,10 +1,10 @@
+import { api } from '#trellis/api'
 /**
  * Why this file exists:
  * Destructive tools should preview the change first.
  * This example keeps that flow small enough to understand in one read.
  */
 import { defineTool } from '#trellis/mcp'
-import { api } from '#trellis/api'
 import { deleteTodo } from '~/shared/schemas/todo'
 
 export default defineTool({

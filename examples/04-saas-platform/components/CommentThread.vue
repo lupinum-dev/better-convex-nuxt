@@ -18,8 +18,10 @@ const { can } = usePermissions()
 const body = ref('')
 const attachmentStorageId = ref<Id<'_storage'> | null>(null)
 const createComment = useConvexMutation(api.comments.create, {
-  onSuccess: () => toast.add({ title: 'Comment added', color: 'success', icon: 'i-lucide-message-square-plus' }),
-  onError: (error) => toast.add({ title: 'Could not post comment', description: error.message, color: 'error' }),
+  onSuccess: () =>
+    toast.add({ title: 'Comment added', color: 'success', icon: 'i-lucide-message-square-plus' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not post comment', description: error.message, color: 'error' }),
 })
 const canCreateComment = can(saasPermissionKeys.commentCreate)
 

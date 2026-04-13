@@ -529,10 +529,7 @@ export function readStaticJwksFromLocalBackend(
   }
 }
 
-export async function materializeLocalStaticJwks(
-  siteUrl,
-  { fetchFn = globalThis.fetch } = {},
-) {
+export async function materializeLocalStaticJwks(siteUrl, { fetchFn = globalThis.fetch } = {}) {
   if (typeof siteUrl !== 'string' || siteUrl.length === 0) return
   if (typeof fetchFn !== 'function') return
 
@@ -952,7 +949,9 @@ export async function runExampleDev({
 
     if (Object.keys(bootstrapDeploymentEnvVars).length > 0) {
       const systemLabel = colorize('system'.padEnd(6), '33')
-      stdout.write(`${systemLabel} configuring Convex env vars from example defaults and .env.local\n`)
+      stdout.write(
+        `${systemLabel} configuring Convex env vars from example defaults and .env.local\n`,
+      )
 
       await pushConvexEnvVars({
         vars: bootstrapDeploymentEnvVars,

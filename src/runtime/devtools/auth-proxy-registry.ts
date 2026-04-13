@@ -11,7 +11,8 @@ interface RuntimeStorage {
 
 async function getStorage() {
   const runtime = await import('nitropack/runtime').catch(() => null)
-  const useStorage = (runtime as { useStorage?: (namespace: string) => RuntimeStorage } | null)?.useStorage
+  const useStorage = (runtime as { useStorage?: (namespace: string) => RuntimeStorage } | null)
+    ?.useStorage
   if (typeof useStorage !== 'function') {
     return null
   }

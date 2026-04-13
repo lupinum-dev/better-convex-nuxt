@@ -97,11 +97,13 @@ const roleOptions = [
 
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace, {
   onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
 })
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace, {
   onSuccess: () => toast.add({ title: 'Joined workspace', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
 })
 
 const { data: workspaces } = await useConvexQuery(api.workspaces.listWorkspaces, {})

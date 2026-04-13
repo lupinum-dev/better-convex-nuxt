@@ -28,7 +28,9 @@ export interface EnsureManagedLocalConvexOptions {
 
 let activeHandle: ManagedLocalConvexHandle | null = null
 let retainers = 0
-const convexCliPath = fileURLToPath(new URL('../../../node_modules/convex/bin/main.js', import.meta.url))
+const convexCliPath = fileURLToPath(
+  new URL('../../../node_modules/convex/bin/main.js', import.meta.url),
+)
 
 function parseManagedConvexUrl(urlString: string): { port: number; url: string } {
   let url: URL

@@ -1,9 +1,4 @@
-import {
-  can,
-  deny,
-  loadTenantResource as loadResource,
-  requireRecord,
-} from '@lupinum/trellis/auth'
+import { can, deny, loadTenantResource as loadResource, requireRecord } from '@lupinum/trellis/auth'
 
 import {
   bulkDeleteRunbooks,
@@ -14,6 +9,7 @@ import {
   searchRunbooks,
   updateRunbook,
 } from '../shared/schemas/runbook'
+import { getActor } from './auth/actor'
 import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './auth/capabilities'
 import {
   canCreateRunbook,
@@ -22,7 +18,6 @@ import {
   canReadWorkspaceRunbook,
   canUpdateRunbook,
 } from './auth/checks'
-import { getActor } from './auth/actor'
 import { app, query } from './functions'
 
 function toPublicRunbook(runbook: {

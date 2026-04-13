@@ -128,10 +128,7 @@ describe('trusted caller helpers', () => {
   })
 
   it('wraps handlers with an explicit expected key override', async () => {
-    const handler = withTrustedCallerHandler(
-      async (ctx) => getTrustedCaller(ctx),
-      'component-key',
-    )
+    const handler = withTrustedCallerHandler(async (ctx) => getTrustedCaller(ctx), 'component-key')
 
     await expect(
       handler(

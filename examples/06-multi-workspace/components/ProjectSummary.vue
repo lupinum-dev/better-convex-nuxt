@@ -18,9 +18,7 @@
           <span class="text-muted ml-1">paused</span>
         </span>
       </div>
-      <UButton to="/projects" trailing-icon="i-lucide-arrow-right">
-        View projects
-      </UButton>
+      <UButton to="/projects" trailing-icon="i-lucide-arrow-right"> View projects </UButton>
     </div>
   </UCard>
 </template>
@@ -30,10 +28,10 @@ const props = defineProps<{
   projects: Array<{ status: string }> | null
 }>()
 
-const activeCount = computed(() =>
-  (props.projects ?? []).filter((p) => p.status === 'active').length,
+const activeCount = computed(
+  () => (props.projects ?? []).filter((p) => p.status === 'active').length,
 )
-const pausedCount = computed(() =>
-  (props.projects ?? []).filter((p) => p.status === 'paused').length,
+const pausedCount = computed(
+  () => (props.projects ?? []).filter((p) => p.status === 'paused').length,
 )
 </script>

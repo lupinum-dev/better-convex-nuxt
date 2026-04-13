@@ -1,8 +1,5 @@
 import type { PaginatedQueryResult } from '../optimistic-updates.js'
-import type {
-  RuntimePageState,
-  StablePaginationOpts,
-} from './pagination-page-state.js'
+import type { RuntimePageState, StablePaginationOpts } from './pagination-page-state.js'
 import { createRuntimePaginationPage } from './pagination-page-state.js'
 import { getNextPageInput } from './pagination-state.js'
 

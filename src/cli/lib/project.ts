@@ -237,7 +237,10 @@ export function findConvexUrlSource(project: ProjectInspection): string | null {
   return null
 }
 
-export function findEnvKeySource(project: ProjectInspection, keys: readonly string[]): EnvKeySource | null {
+export function findEnvKeySource(
+  project: ProjectInspection,
+  keys: readonly string[],
+): EnvKeySource | null {
   for (const key of keys) {
     const value = process.env[key]
     if (typeof value === 'string' && value.trim()) {
@@ -261,10 +264,13 @@ export function isAuthExplicitlyDisabled(project: ProjectInspection): boolean {
   return /trellis\s*:\s*\{[\s\S]*?\bauth\s*:\s*false\b/.test(project.nuxtConfigText)
 }
 
-export function findConvexHttpSource(project: ProjectInspection): { path: string; text: string } | null {
+export function findConvexHttpSource(
+  project: ProjectInspection,
+): { path: string; text: string } | null {
   return (
-    project.sourceFiles.find((file) => /[/\\]convex[/\\]http\.(?:ts|js|mts|mjs|cjs)$/.test(file.path)) ??
-    null
+    project.sourceFiles.find((file) =>
+      /[/\\]convex[/\\]http\.(?:ts|js|mts|mjs|cjs)$/.test(file.path),
+    ) ?? null
   )
 }
 
@@ -279,9 +285,7 @@ export function hasBetterAuthRouteRegistration(project: ProjectInspection): bool
 }
 
 export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
-  if (
-    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(/.test(project.nuxtConfigText)
-  ) {
+  if (/#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(/.test(project.nuxtConfigText)) {
     return true
   }
 

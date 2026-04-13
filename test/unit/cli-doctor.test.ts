@@ -98,7 +98,9 @@ describe('CLI doctor', () => {
   it('warns when the Convex URL source is missing', () => {
     const result = runDoctorJson('doctor-missing-env')
     const finding = result.report.findings.find((entry) => entry.id === 'convex-url-configured')
-    const siteUrlFinding = result.report.findings.find((entry) => entry.id === 'site-url-configured')
+    const siteUrlFinding = result.report.findings.find(
+      (entry) => entry.id === 'site-url-configured',
+    )
     const authRoutesFinding = result.report.findings.find(
       (entry) => entry.id === 'better-auth-routes-registered',
     )
@@ -245,5 +247,4 @@ describe('CLI doctor', () => {
     expect(middleware).toContain('serverConvexQuery')
     expect(middleware).toContain('event.context.mcpAuth')
   })
-
 })

@@ -10,10 +10,7 @@ import {
   resolveConvexSiteUrl,
 } from '../runtime/utils/convex-config.js'
 import type { NormalizedConvexRuntimeConfig } from '../runtime/utils/runtime-config.js'
-import type {
-  AuthOptions,
-  ModuleOptions,
-} from './options.js'
+import type { AuthOptions, ModuleOptions } from './options.js'
 import {
   createConfiguredFunctionError,
   normalizeAuthCacheTtl,
@@ -69,9 +66,9 @@ export function deriveModuleSetupState(
       Boolean(options.url) ||
       Boolean(
         env.NUXT_PUBLIC_CONVEX_URL ||
-          env.CONVEX_URL ||
-          env.NUXT_PUBLIC_CONVEX_SITE_URL ||
-          env.CONVEX_SITE_URL,
+        env.CONVEX_URL ||
+        env.NUXT_PUBLIC_CONVEX_SITE_URL ||
+        env.CONVEX_SITE_URL,
       ),
   }
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { api } from '#trellis/api'
 import { ROLE_INFO, ROLES, type Role } from '@@/convex/auth/checks'
+
+import { api } from '#trellis/api'
 
 const { ctx, pending: isPendingPermissions, isAuthenticated } = useDemoPermissions()
 const { execute: setRole, status: mutationStatus } = useConvexMutation(api.auth.setOwnRole)

@@ -1,8 +1,9 @@
-import type { Nuxt } from '@nuxt/schema'
-import type { createResolver } from '@nuxt/kit'
-import { addImports, addPlugin, addServerImports, addTemplate } from '@nuxt/kit'
 import { existsSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
+
+import type { createResolver } from '@nuxt/kit'
+import { addImports, addPlugin, addServerImports, addTemplate } from '@nuxt/kit'
+import type { Nuxt } from '@nuxt/schema'
 
 interface InstallCoreOptions {
   nuxt: Nuxt
@@ -82,10 +83,12 @@ export {}
     filename: 'trellis/api.ts',
     write: true,
     getContents: () => {
-      const candidatePaths = [...new Set([
-        resolvePath(nuxt.options.srcDir, 'convex/_generated/api'),
-        resolvePath(nuxt.options.rootDir, 'convex/_generated/api'),
-      ])]
+      const candidatePaths = [
+        ...new Set([
+          resolvePath(nuxt.options.srcDir, 'convex/_generated/api'),
+          resolvePath(nuxt.options.rootDir, 'convex/_generated/api'),
+        ]),
+      ]
       const convexGenApi = candidatePaths.find(
         (candidate) => existsSync(candidate + '.ts') || existsSync(candidate + '.js'),
       )
@@ -107,10 +110,22 @@ export const api = new Proxy(
     },
   },
 ) as never
+
+export const internal = new Proxy(
+  {},
+  {
+    get() {
+      throw error()
+    },
+    apply() {
+      throw error()
+    },
+  },
+) as never
 `
       }
 
-      return `export { api } from '${convexGenApi}'
+      return `export { api, internal } from '${convexGenApi}'
 `
     },
   })

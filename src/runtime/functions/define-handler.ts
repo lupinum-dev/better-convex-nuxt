@@ -1,6 +1,5 @@
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
-import { can, deny, enforce } from '../auth/index.js'
 import {
   isGuard,
   isOpenGuard,
@@ -8,6 +7,7 @@ import {
   type Guard,
   type OpenGuard,
 } from '../auth/define-guard.js'
+import { can, deny, enforce } from '../auth/index.js'
 
 type MaybePromise<T> = T | Promise<T>
 
@@ -25,10 +25,7 @@ export type StructuredLoadedValue = Record<string, unknown> | undefined
 
 type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
 
-export type StructuredGuard<TActor> =
-  | Guard<NonNullable<TActor>>
-  | Guard<TActor | null>
-  | OpenGuard
+export type StructuredGuard<TActor> = Guard<NonNullable<TActor>> | Guard<TActor | null> | OpenGuard
 
 type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard ? TActor | null : NonNullable<TActor>
 

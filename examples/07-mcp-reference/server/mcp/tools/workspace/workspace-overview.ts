@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { defineTool } from '#trellis/mcp'
 import { api } from '#trellis/api'
+import { defineTool } from '#trellis/mcp'
 import { listRunbooks } from '~/shared/schemas/runbook'
 
 export default defineTool({

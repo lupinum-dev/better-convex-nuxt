@@ -576,9 +576,13 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () =>
-        useConvexQueryState(query, {}, {
-          transform: (items: Array<{ _id: string }>) => items.map((i) => i._id),
-        }),
+        useConvexQueryState(
+          query,
+          {},
+          {
+            transform: (items: Array<{ _id: string }>) => items.map((i) => i._id),
+          },
+        ),
       { convex },
     )
 

@@ -1,11 +1,6 @@
 import type { UploadProgressInfo } from '../../utils/upload-core.js'
 
-export type UploadQueueStateItemStatus =
-  | 'queued'
-  | 'pending'
-  | 'success'
-  | 'error'
-  | 'cancelled'
+export type UploadQueueStateItemStatus = 'queued' | 'pending' | 'success' | 'error' | 'cancelled'
 
 export interface UploadQueueStateItemBase {
   id: string
@@ -122,10 +117,13 @@ export function deriveUploadQueueSummary<T extends UploadQueueStateItemBase>(
   }
 }
 
-export function createUploadQueueItems<MutationArgs, TItem extends UploadQueueStateItemBase & {
-  file: File
-  mutationArgs?: MutationArgs
-}>(
+export function createUploadQueueItems<
+  MutationArgs,
+  TItem extends UploadQueueStateItemBase & {
+    file: File
+    mutationArgs?: MutationArgs
+  },
+>(
   entries: UploadQueueEnqueueStateItem<MutationArgs>[],
   now: number,
   createId: () => string,
@@ -266,9 +264,10 @@ export function shouldResetUploadQueueHalt(haltedByError: boolean, pendingCount:
   return haltedByError && pendingCount === 0
 }
 
-export function collectUploadQueueResults(
-  settled: PromiseSettledResult<string>[],
-): { storageIds: string[]; failures: Error[] } {
+export function collectUploadQueueResults(settled: PromiseSettledResult<string>[]): {
+  storageIds: string[]
+  failures: Error[]
+} {
   const storageIds: string[] = []
   const failures: Error[] = []
 

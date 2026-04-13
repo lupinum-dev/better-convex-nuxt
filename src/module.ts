@@ -5,6 +5,7 @@ import { installAdvancedTrellis } from './installers/advanced.js'
 import { installAuthTrellis } from './installers/auth.js'
 import { installCoreTrellis } from './installers/core.js'
 import { installPermissionTrellis } from './installers/permissions.js'
+import type { ModuleOptions } from './module-internals/options.js'
 import {
   buildPublicConvexRuntimeConfig,
   collectModuleStartupWarnings,
@@ -13,9 +14,6 @@ import {
   resolvePermissionQuerySetup,
 } from './module-internals/setup.js'
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants.js'
-import type {
-  ModuleOptions,
-} from './module-internals/options.js'
 
 // Re-export LogLevel from logger for external use
 export type { LogLevel } from './runtime/utils/logger.js'

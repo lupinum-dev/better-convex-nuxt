@@ -10,12 +10,12 @@ import { createResolver, extendViteConfig } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
 import { joinURL } from 'ufo'
 
+import { resolveNuxtCliArgs } from './devtools/nuxt-cli.js'
 import {
   DEVTOOLS_UI_PATH,
   DEVTOOLS_UI_PORT,
   DEVTOOLS_RPC_NAMESPACE,
 } from './runtime/devtools/constants.js'
-import { resolveNuxtCliArgs } from './devtools/nuxt-cli.js'
 import type { ServerRpcFunctions, ClientRpcFunctions } from './runtime/devtools/types.js'
 
 export function setupConvexDevtools(nuxt: Nuxt): void {

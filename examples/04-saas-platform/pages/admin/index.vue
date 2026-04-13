@@ -154,8 +154,10 @@ const { data: stats } = await useConvexQuery(api.dashboard.stats, {})
 const { data: recentActivity } = await useConvexQuery(api.dashboard.recentActivity, { limit: 12 })
 const { data: members } = await useConvexQuery(api.members.list, {})
 const upgradePlan = useConvexMutation(api.workspaces.upgradePlan, {
-  onSuccess: (_result, args) => toast.add({ title: `Upgraded to ${args.plan}`, color: 'success', icon: 'i-lucide-sparkles' }),
-  onError: (error) => toast.add({ title: 'Upgrade failed', description: error.message, color: 'error' }),
+  onSuccess: (_result, args) =>
+    toast.add({ title: `Upgraded to ${args.plan}`, color: 'success', icon: 'i-lucide-sparkles' }),
+  onError: (error) =>
+    toast.add({ title: 'Upgrade failed', description: error.message, color: 'error' }),
 })
 
 const usagePercent = computed(() => {

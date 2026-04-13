@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { mintJwt } from '../support/auth/jwt-factory'
 import { createAuthHarness } from '../support/auth/auth-harness'
+import { mintJwt } from '../support/auth/jwt-factory'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void

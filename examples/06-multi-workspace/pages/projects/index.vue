@@ -53,11 +53,15 @@ const currentWorkspaceName = computed(() => {
 
 const roleBadgeColor = computed(() => {
   switch (role.value) {
-    case 'owner': return 'success'
-    case 'member': return 'info'
+    case 'owner':
+      return 'success'
+    case 'member':
+      return 'info'
     case 'agency_admin':
-    case 'agency_manager': return 'warning'
-    default: return 'neutral'
+    case 'agency_manager':
+      return 'warning'
+    default:
+      return 'neutral'
   }
 })
 </script>

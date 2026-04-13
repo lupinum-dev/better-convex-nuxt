@@ -44,7 +44,8 @@ const generatedToken = ref<string | null>(null)
 
 const createToken = useConvexMutation(api.articles.createShareToken, {
   onSuccess: () => toast.add({ title: 'Share link generated', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not create share link', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not create share link', description: error.message, color: 'error' }),
 })
 
 const levelOptions = ['view', 'comment', 'edit']

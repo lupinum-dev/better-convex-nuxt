@@ -17,11 +17,7 @@
           <label class="text-sm font-medium text-highlighted">Project name</label>
           <UInput v-model="projectName" placeholder="Client rebrand" required />
         </div>
-        <UButton
-          type="submit"
-          :loading="createProject.pending.value"
-          leading-icon="i-lucide-plus"
-        >
+        <UButton type="submit" :loading="createProject.pending.value" leading-icon="i-lucide-plus">
           Create project
         </UButton>
       </form>
@@ -77,11 +73,13 @@ const projectName = ref('')
 
 const createProject = useConvexMutation(api.projects.create, {
   onSuccess: () => toast.add({ title: 'Project created', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not create project', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not create project', description: error.message, color: 'error' }),
 })
 const toggleStatus = useConvexMutation(api.projects.toggleStatus, {
   onSuccess: () => toast.add({ title: 'Project status updated', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not update status', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not update status', description: error.message, color: 'error' }),
 })
 
 async function handleCreate() {

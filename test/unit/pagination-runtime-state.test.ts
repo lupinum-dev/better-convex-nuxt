@@ -25,9 +25,7 @@ describe('pagination-runtime-state', () => {
       }),
     ).toBe('paginated:tasks.list:hash')
 
-    expect(
-      createPaginationOperationContext({ numItems: 10, cursor: 'next' }, 'op-1', 2),
-    ).toEqual({
+    expect(createPaginationOperationContext({ numItems: 10, cursor: 'next' }, 'op-1', 2)).toEqual({
       operationId: 'op-1',
       meta: {
         paginated: true,

@@ -6,12 +6,7 @@
  */
 
 import type { OptimisticLocalStore } from 'convex/browser'
-import type {
-  FunctionReference,
-  FunctionArgs,
-  FunctionReturnType,
-  PaginationOptions,
-} from 'convex/server'
+import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
 
 import { argsMatch as sharedArgsMatch } from '../utils/shared-helpers.js'
 
@@ -36,7 +31,7 @@ export interface PaginatedQueryResult<Item> {
 export type PaginatedQueryReference = FunctionReference<
   'query',
   'public',
-  { paginationOpts: PaginationOptions },
+  Record<string, unknown>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   PaginatedQueryResult<any>
 >
@@ -321,7 +316,10 @@ export function createOptimisticContext(store: OptimisticLocalStore): Optimistic
             store.setQuery(
               query,
               args as FunctionArgs<Q>,
-              updater(value as PaginatedQueryResult<PaginatedQueryItem<Q>>, args as FunctionArgs<Q>),
+              updater(
+                value as PaginatedQueryResult<PaginatedQueryItem<Q>>,
+                args as FunctionArgs<Q>,
+              ),
             )
           }
         },

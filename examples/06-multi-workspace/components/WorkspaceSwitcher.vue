@@ -17,12 +17,7 @@
         @click="$emit('switch', ws.workspaceId)"
       >
         {{ ws.name }}
-        <UBadge
-          :color="roleBadgeColor(ws.role)"
-          variant="subtle"
-          size="xs"
-          class="ml-1"
-        >
+        <UBadge :color="roleBadgeColor(ws.role)" variant="subtle" size="xs" class="ml-1">
           {{ ws.role }}
         </UBadge>
       </UButton>
@@ -61,11 +56,15 @@ defineEmits<{
 
 function roleBadgeColor(role: string) {
   switch (role) {
-    case 'owner': return 'success'
-    case 'member': return 'info'
+    case 'owner':
+      return 'success'
+    case 'member':
+      return 'info'
     case 'agency_admin':
-    case 'agency_manager': return 'warning'
-    default: return 'neutral'
+    case 'agency_manager':
+      return 'warning'
+    default:
+      return 'neutral'
   }
 }
 </script>

@@ -291,10 +291,7 @@ export function createConvexCallState<
         onError?.(err, args)
       } catch (callbackError) {
         if (import.meta.dev) {
-          console.warn(
-            `[trellis] ${callType} onError callback threw in ${fnName}:`,
-            callbackError,
-          )
+          console.warn(`[trellis] ${callType} onError callback threw in ${fnName}:`, callbackError)
         }
       }
 

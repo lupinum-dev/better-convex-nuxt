@@ -46,9 +46,7 @@ describe('package subpath exports', () => {
     expect(packageJson.exports['./trusted-caller'].import).toBe(
       './dist/runtime/trusted-caller/index.mjs',
     )
-    expect(packageJson.exports['./visibility'].import).toBe(
-      './dist/runtime/visibility/index.mjs',
-    )
+    expect(packageJson.exports['./visibility'].import).toBe('./dist/runtime/visibility/index.mjs')
     expect(packageJson.exports['./server'].import).toBe('./dist/runtime/server/index.mjs')
     expect(packageJson.exports['./testing'].import).toBe('./dist/runtime/testing/index.mjs')
   })

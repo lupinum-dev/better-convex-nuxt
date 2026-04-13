@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+
 import ts from 'typescript'
 
 const ROOT = new URL('..', import.meta.url)
@@ -13,16 +14,10 @@ const targetDirectories = [
   'src/runtime',
   'src/cli',
 ]
-const targetFiles = [
-  'src/devtools.ts',
-  'src/module.ts',
-  'src/cli.mts',
-]
+const targetFiles = ['src/devtools.ts', 'src/module.ts', 'src/cli.mts']
 const supportedSourceFiles = new Set(['.ts', '.mts', '.vue'])
 const allowedExplicitExtensions = ['.js', '.mjs', '.cjs', '.json', '.vue']
-const ignoredFiles = new Set([
-  'src/cli/lib/init.ts',
-])
+const ignoredFiles = new Set(['src/cli/lib/init.ts'])
 
 function walk(directory) {
   const entries = []
@@ -84,17 +79,29 @@ for (const filePath of collectFiles()) {
   const blocks = getScriptBlocks(filePath, source)
 
   for (const block of blocks) {
-    const sourceFile = ts.createSourceFile(filePath, block.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+    const sourceFile = ts.createSourceFile(
+      filePath,
+      block.content,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS,
+    )
 
     function record(specifier, nodeStart) {
       if (!shouldCheck(specifier) || hasAllowedExtension(specifier)) return
       const { line } = sourceFile.getLineAndCharacterOfPosition(nodeStart)
       const relativePath = relative(rootPath, filePath).replaceAll('\\', '/')
-      errors.push(`${relativePath}:${line + 1} uses extensionless publish-surface import "${specifier}"`)
+      errors.push(
+        `${relativePath}:${line + 1} uses extensionless publish-surface import "${specifier}"`,
+      )
     }
 
     function visit(node) {
-      if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+      if (
+        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+        node.moduleSpecifier &&
+        ts.isStringLiteral(node.moduleSpecifier)
+      ) {
         record(node.moduleSpecifier.text, node.moduleSpecifier.getStart(sourceFile))
       }
       if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {

@@ -226,7 +226,9 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     resolveInitialAuth,
   } = options
 
-  const existingEngine = (nuxtApp as unknown as NuxtAppStore)[AUTH_ENGINE_KEY] as SharedAuthEngine | undefined
+  const existingEngine = (nuxtApp as unknown as NuxtAppStore)[AUTH_ENGINE_KEY] as
+    | SharedAuthEngine
+    | undefined
   if (existingEngine) {
     if (import.meta.dev) {
       console.warn(

@@ -352,7 +352,10 @@
                   >
                     <USkeleton v-for="i in 3" :key="i" class="h-24 rounded-xl" />
                   </div>
-                  <div v-else-if="projects?.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div
+                    v-else-if="projects?.length"
+                    class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                  >
                     <NuxtLink
                       v-for="project in projects"
                       :key="project._id"
@@ -454,15 +457,20 @@ const projectForm = reactive({
 })
 
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace, {
-  onSuccess: () => toast.add({ title: 'Workspace created', color: 'success', icon: 'i-lucide-building' }),
-  onError: (error) => toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
+  onSuccess: () =>
+    toast.add({ title: 'Workspace created', color: 'success', icon: 'i-lucide-building' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
 })
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace, {
-  onSuccess: () => toast.add({ title: 'Joined workspace', color: 'success', icon: 'i-lucide-user-plus' }),
-  onError: (error) => toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
+  onSuccess: () =>
+    toast.add({ title: 'Joined workspace', color: 'success', icon: 'i-lucide-user-plus' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
 })
 const createProject = useConvexMutation(api.projects.create, {
-  onSuccess: () => toast.add({ title: 'Project created', color: 'success', icon: 'i-lucide-folder-plus' }),
+  onSuccess: () =>
+    toast.add({ title: 'Project created', color: 'success', icon: 'i-lucide-folder-plus' }),
   onError: (error) => {
     const isLimitError = error.message.includes('Plan limit')
     toast.add({
@@ -491,7 +499,9 @@ const {
 const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
-const currentWorkspace = computed(() => workspaceOptions.value?.find((w) => w._id === tenantId.value))
+const currentWorkspace = computed(() =>
+  workspaceOptions.value?.find((w) => w._id === tenantId.value),
+)
 const canCreateProject = can(saasPermissionKeys.projectCreate)
 const atProjectLimit = computed(() => ctx.value?.usage?.projects?.remaining === 0)
 const roleOptions = ['admin', 'member', 'viewer'] as const

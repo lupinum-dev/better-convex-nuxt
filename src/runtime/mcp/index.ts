@@ -17,7 +17,9 @@ export { useMcpSession } from './use-mcp-session.js'
 export { wrapError, wrapSuccess, wrapPreview, withSummary } from './result-envelope.js'
 
 export type {
+  AnyConvexSchema,
   DefineConvexToolOptions as DefineToolOptions,
+  InferSchemaData,
   McpAuthIdentity,
   PreviewResult,
   ConvexToolResult,

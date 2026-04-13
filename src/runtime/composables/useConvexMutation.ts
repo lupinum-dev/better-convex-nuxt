@@ -1,9 +1,10 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { Ref, ComputedRef } from 'vue'
+
 import type { ValidateOption } from '../utils/resolve-validator.js'
 import type { MutationStatus } from '../utils/types.js'
-import type { OptimisticContext } from './optimistic-updates.js'
 import { useConvexMutation as useRuntimeConvexMutation } from './internal/command-runtime.js'
+import type { OptimisticContext } from './optimistic-updates.js'
 
 // Re-export optimistic update builder types
 export {

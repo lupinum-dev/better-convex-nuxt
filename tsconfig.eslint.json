@@ -16,12 +16,5 @@
     "test/**/*.d.ts",
     "test/**/*.vue"
   ],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "test/internal-harness",
-    "docs",
-    "demo",
-    "examples"
-  ]
+  "exclude": ["dist", "node_modules", "test/internal-harness", "docs", "demo", "examples"]
 }

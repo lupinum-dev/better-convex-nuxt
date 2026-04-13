@@ -3,7 +3,8 @@
     <template #header>
       <h3 class="text-lg font-semibold">Workspace members</h3>
       <p class="text-sm text-muted mt-1">
-        Members and their roles in the current workspace. Role is stored per membership, not per user.
+        Members and their roles in the current workspace. Role is stored per membership, not per
+        user.
       </p>
     </template>
 
@@ -47,11 +48,15 @@ defineProps<{
 
 function roleBadgeColor(role: string) {
   switch (role) {
-    case 'owner': return 'success'
-    case 'member': return 'info'
+    case 'owner':
+      return 'success'
+    case 'member':
+      return 'info'
     case 'agency_admin':
-    case 'agency_manager': return 'warning'
-    default: return 'neutral'
+    case 'agency_manager':
+      return 'warning'
+    default:
+      return 'neutral'
   }
 }
 </script>

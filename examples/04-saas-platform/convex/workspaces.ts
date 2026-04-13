@@ -67,9 +67,7 @@ export const getPermissionContext = app.query(
         plan: actor.plan,
         email: user.email ?? null,
         displayName: user.displayName ?? null,
-        usage: actor.tenantId
-          ? { projects: await getUsage(ctx.db, actor, 'projects') }
-          : undefined,
+        usage: actor.tenantId ? { projects: await getUsage(ctx.db, actor, 'projects') } : undefined,
         can: {
           [saasPermissionKeys.projectCreate]: can(actor, canCreateProject),
           [saasPermissionKeys.projectRead]: can(actor, canReadProject),

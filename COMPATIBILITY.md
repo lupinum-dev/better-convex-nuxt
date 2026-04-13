@@ -6,15 +6,15 @@ This document tracks the current dependency line used by the package and the con
 
 The repository is currently on `0.3.x` and `package.json` is at `0.3.4`.
 
-| Dependency                | Used By Package     | Consumer-Owned Range / Notes        |
-| ------------------------- | ------------------- | ----------------------------------- |
-| `convex`                  | `^1.34.1`           | optional peer at `^1.32.0`          |
+| Dependency                | Used By Package     | Consumer-Owned Range / Notes                |
+| ------------------------- | ------------------- | ------------------------------------------- |
+| `convex`                  | `^1.34.1`           | optional peer at `^1.32.0`                  |
 | `better-auth`             | `1.5.6`             | pinned; compatibility window stays `<1.6.0` |
-| `@convex-dev/better-auth` | `^0.11.4`           | internal package dependency         |
-| `@nuxtjs/mcp-toolkit`     | dev + optional peer | required only for MCP features      |
-| `convex-helpers`          | dev + optional peer | required only for shared-schema MCP |
-| `zod`                     | dev + optional peer | required only for shared-schema MCP |
-| Nuxt                      | not bundled         | expected in the consumer app        |
+| `@convex-dev/better-auth` | `^0.11.4`           | internal package dependency                 |
+| `@nuxtjs/mcp-toolkit`     | dev + optional peer | required only for MCP features              |
+| `convex-helpers`          | dev + optional peer | required only for shared-schema MCP         |
+| `zod`                     | dev + optional peer | required only for shared-schema MCP         |
+| Nuxt                      | not bundled         | expected in the consumer app                |
 
 ## Consumer Expectations
 

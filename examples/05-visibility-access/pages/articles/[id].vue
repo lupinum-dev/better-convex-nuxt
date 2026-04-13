@@ -100,12 +100,14 @@ const { data: article, error } = await useConvexQuery(
 
 const markCompleted = useConvexMutation(api.articles.markCompleted, {
   onSuccess: () => toast.add({ title: 'Marked as completed', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not mark completed', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not mark completed', description: error.message, color: 'error' }),
 })
 
 const publishArticle = useConvexMutation(api.articles.publish, {
   onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
 })
 
 async function handleComplete() {

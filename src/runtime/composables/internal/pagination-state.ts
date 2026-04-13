@@ -71,7 +71,8 @@ export function derivePaginatedStatus<T>(
     return 'loading-more'
   }
 
-  const lastPage = input.extraPages.length > 0 ? input.extraPages[input.extraPages.length - 1] : null
+  const lastPage =
+    input.extraPages.length > 0 ? input.extraPages[input.extraPages.length - 1] : null
   if (lastPage?.result?.isDone || input.firstPage.isDone) {
     return 'exhausted'
   }
@@ -118,6 +119,7 @@ export function shouldPaginatedResultsBeStale<T>(input: PaginatedStaleInput<T>):
 }
 
 export function getNextPageInput<T>(input: NextPageInput<T>): PaginatedQueryResult<T> | null {
-  const lastExtraPage = input.extraPages.length > 0 ? input.extraPages[input.extraPages.length - 1] : null
+  const lastExtraPage =
+    input.extraPages.length > 0 ? input.extraPages[input.extraPages.length - 1] : null
   return lastExtraPage?.result ?? input.firstPage
 }

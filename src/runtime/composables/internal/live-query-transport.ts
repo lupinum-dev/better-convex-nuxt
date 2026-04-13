@@ -4,11 +4,7 @@ import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { useNuxtApp, useRequestEvent, useState } from '#imports'
 
 import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
-import {
-  fetchAuthToken,
-  getFunctionName,
-  parseConvexResponse,
-} from '../../utils/convex-cache.js'
+import { fetchAuthToken, getFunctionName, parseConvexResponse } from '../../utils/convex-cache.js'
 import { executeQueryViaSubscriptionOnce } from '../../utils/one-shot-subscription.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import type { ConvexClientAuthMode } from '../../utils/types.js'

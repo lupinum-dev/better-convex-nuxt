@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { api } from '#trellis/api'
 import type { Id } from '@@/convex/_generated/dataModel'
+
+import { api } from '#trellis/api'
 
 const props = defineProps<{
   storageId: Id<'_storage'>

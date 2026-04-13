@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 
+import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createTestContext } from '@lupinum/trellis/testing'
 import schema from '../convex/schema'
 import { modules } from '../convex/test.setup'
 import { mcpReferencePermissionKeys } from '../shared/permissions'

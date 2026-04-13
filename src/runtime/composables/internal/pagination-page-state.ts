@@ -76,9 +76,6 @@ export function resolveRuntimePaginationError<T, TSubscription = unknown>(
   return null
 }
 
-export function shouldPersistSettledPaginatedResults(
-  isSkipped: boolean,
-  status: string,
-): boolean {
+export function shouldPersistSettledPaginatedResults(isSkipped: boolean, status: string): boolean {
   return !isSkipped && status !== 'loading-first-page'
 }

@@ -87,7 +87,10 @@ function resolveForwardedClientIp(event: H3Event): string | null {
   return getHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim() ?? null
 }
 
-function buildServerTokenExchangeHeaders(event: H3Event, cookieHeader: string): Record<string, string> {
+function buildServerTokenExchangeHeaders(
+  event: H3Event,
+  cookieHeader: string,
+): Record<string, string> {
   const headers: Record<string, string> = { Cookie: cookieHeader }
   const forwardedHost = getHeader(event, 'x-forwarded-host') ?? getHeader(event, 'host')
   const explicitProto =
@@ -352,8 +355,7 @@ async function resolveRequestAuthUncached(
       tokenExchangeStatus === 404 ||
       (tokenExchangeStatus !== null && tokenExchangeStatus >= 500)
     const isSessionRejected =
-      !isMisconfigError &&
-      (tokenExchangeStatus === 401 || tokenExchangeStatus === 403)
+      !isMisconfigError && (tokenExchangeStatus === 401 || tokenExchangeStatus === 403)
     const bodyDetail = tokenExchangeBody ? ` ${tokenExchangeBody.slice(0, 500)}` : ''
     const error = isMisconfigError
       ? buildTokenExchangeFailureMessage({

@@ -4,15 +4,12 @@
   >
     <UCard class="w-full max-w-lg">
       <template #header>
-        <p
-          class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400"
-        >
+        <p class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400">
           Example 01
         </p>
         <h1 class="text-3xl font-bold mt-1">Public Todo</h1>
         <p class="text-sm text-muted mt-2">
-          A single query renders the list. Three mutations change it. No auth
-          required.
+          A single query renders the list. Three mutations change it. No auth required.
         </p>
       </template>
 
@@ -26,11 +23,7 @@
             required
             :disabled="createTodo.pending.value"
           />
-          <UButton
-            type="submit"
-            :loading="createTodo.pending.value"
-            leading-icon="i-lucide-plus"
-          >
+          <UButton type="submit" :loading="createTodo.pending.value" leading-icon="i-lucide-plus">
             Add
           </UButton>
         </form>
@@ -59,10 +52,7 @@
         </div>
 
         <!-- Empty state -->
-        <p
-          v-else-if="!todoItems.length"
-          class="text-muted text-sm text-center py-8"
-        >
+        <p v-else-if="!todoItems.length" class="text-muted text-sm text-center py-8">
           No todos yet. Add the first one above.
         </p>
 
@@ -104,47 +94,43 @@
  * The goal is to show "query data, call mutation, watch the list update" with as little noise as possible.
  * Presentation layer uses Nuxt UI — all Convex logic is identical to the raw version.
  */
-import { computed, ref } from "vue";
+import { computed, ref } from 'vue'
 
-import { api } from "#trellis/api";
+import { api } from '#trellis/api'
 
-const toast = useToast();
+const toast = useToast()
 
 // One live query powers the whole page.
-const {
-  data: todos,
-  pending,
-  error,
-} = await useConvexQuery(api.todos.list, {});
+const { data: todos, pending, error } = await useConvexQuery(api.todos.list, {})
 
 // The mutation composables are callable functions with reactive state attached.
-const createTodo = useConvexMutation(api.todos.create);
-const toggleTodo = useConvexMutation(api.todos.toggle);
-const removeTodo = useConvexMutation(api.todos.remove);
+const createTodo = useConvexMutation(api.todos.create)
+const toggleTodo = useConvexMutation(api.todos.toggle)
+const removeTodo = useConvexMutation(api.todos.remove)
 
-const title = ref("");
-const todoItems = computed(() => todos.value ?? []);
+const title = ref('')
+const todoItems = computed(() => todos.value ?? [])
 
-const queryError = computed(() => error.value?.message ?? "");
+const queryError = computed(() => error.value?.message ?? '')
 const mutationError = computed(
   () =>
     createTodo.error.value?.message ||
     toggleTodo.error.value?.message ||
     removeTodo.error.value?.message ||
-    "",
-);
+    '',
+)
 
 async function handleCreate() {
   // The mutation only needs the business arg defined by the shared schema.
-  await createTodo({ title: title.value });
+  await createTodo({ title: title.value })
 
   // The query updates automatically after the mutation settles, so the page does not refetch manually.
-  title.value = "";
+  title.value = ''
 
   toast.add({
-    title: "Todo added",
-    color: "success",
-    icon: "i-lucide-circle-check",
-  });
+    title: 'Todo added',
+    color: 'success',
+    icon: 'i-lucide-circle-check',
+  })
 }
 </script>

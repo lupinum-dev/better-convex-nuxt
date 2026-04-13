@@ -104,7 +104,9 @@
                 </div>
               </div>
               <div class="space-y-1">
-                <label class="text-sm font-medium text-highlighted">Internal notes (optional)</label>
+                <label class="text-sm font-medium text-highlighted"
+                  >Internal notes (optional)</label
+                >
                 <UInput v-model="articleForm.internalNotes" placeholder="Visible to editors only" />
               </div>
               <UButton
@@ -118,10 +120,7 @@
           </UCard>
 
           <!-- Articles list -->
-          <div
-            v-if="!articles?.length"
-            class="flex flex-col items-center gap-2 py-8 text-muted"
-          >
+          <div v-if="!articles?.length" class="flex flex-col items-center gap-2 py-8 text-muted">
             <UIcon name="i-lucide-file-text" class="w-8 h-8" />
             <p class="text-sm">No articles visible to you.</p>
           </div>
@@ -163,23 +162,28 @@ const { data: articles } = await useConvexQuery(api.articles.list, {
 
 const publishKB = useConvexMutation(api.knowledgeBases.publish, {
   onSuccess: () => toast.add({ title: 'Knowledge base published', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
 })
 const seedArticles = useConvexMutation(api.articles.seedDemoArticles, {
   onSuccess: () => toast.add({ title: 'Demo articles seeded', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not seed articles', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not seed articles', description: error.message, color: 'error' }),
 })
 const enrollUser = useConvexMutation(api.knowledgeBases.enrollByEmail, {
   onSuccess: () => toast.add({ title: 'User enrolled', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not enroll user', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not enroll user', description: error.message, color: 'error' }),
 })
 const createArticle = useConvexMutation(api.articles.create, {
   onSuccess: () => toast.add({ title: 'Article created', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not create article', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not create article', description: error.message, color: 'error' }),
 })
 const publishArticle = useConvexMutation(api.articles.publish, {
   onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not publish article', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not publish article', description: error.message, color: 'error' }),
 })
 
 const enrollForm = reactive({ email: '' })

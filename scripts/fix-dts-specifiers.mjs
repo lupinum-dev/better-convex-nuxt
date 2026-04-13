@@ -21,7 +21,7 @@ function walk(directory) {
 }
 
 function shouldRewrite(filePath) {
-  return [...supportedExtensions].some(extension => filePath.endsWith(extension))
+  return [...supportedExtensions].some((extension) => filePath.endsWith(extension))
 }
 
 let rewritten = 0

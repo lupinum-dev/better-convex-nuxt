@@ -1,5 +1,5 @@
-import { defineTool } from '#trellis/mcp'
 import { api } from '#trellis/api'
+import { defineTool } from '#trellis/mcp'
 import { bulkDeleteRunbooks } from '~/shared/schemas/runbook'
 
 export default defineTool({
@@ -18,7 +18,9 @@ export default defineTool({
     return await next()
   },
   preview: async (args, ctx) => {
-    const runbooks = await Promise.all(args.ids.map((id) => ctx.query(api.runbooks.getWorkspace, { id })))
+    const runbooks = await Promise.all(
+      args.ids.map((id) => ctx.query(api.runbooks.getWorkspace, { id })),
+    )
     const found = runbooks.filter(Boolean)
 
     if (found.length === 0) {

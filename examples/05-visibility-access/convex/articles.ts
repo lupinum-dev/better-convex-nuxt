@@ -11,6 +11,7 @@ import {
 } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
+import { getActor } from './auth/actor'
 import { getInheritedAccessLevel, requireArticleAccess } from './auth/articleAccess'
 import { canCreateArticle, canCreateShareToken, canReadArticle, isStaffActor } from './auth/checks'
 import { redactArticle } from './auth/redaction'
@@ -20,7 +21,6 @@ import {
   resolveShareToken,
   shareTokenPrefix,
 } from './auth/shareTokens'
-import { getActor } from './auth/actor'
 import { canAccessArticleOwner, getArticleOwnerScope } from './auth/visibility'
 import { app, query } from './functions'
 import { accessLevelValidator, visibilityValidator } from './schema'

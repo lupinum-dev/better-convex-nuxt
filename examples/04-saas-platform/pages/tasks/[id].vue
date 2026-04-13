@@ -20,7 +20,9 @@
               immediately from the already-fetched board list.
             </p>
           </div>
-          <UBadge v-if="task" variant="subtle" size="lg" :color="statusColor">{{ statusLabel }}</UBadge>
+          <UBadge v-if="task" variant="subtle" size="lg" :color="statusColor">{{
+            statusLabel
+          }}</UBadge>
         </div>
       </UCard>
 
@@ -137,7 +139,8 @@ function resolveName(authId: string | undefined) {
 
 const assignTask = useConvexMutation(api.tasks.assign, {
   onSuccess: () => toast.add({ title: 'Assignee updated', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not assign task', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not assign task', description: error.message, color: 'error' }),
 })
 
 async function handleAssign(value: string | undefined) {

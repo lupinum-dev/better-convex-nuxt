@@ -16,9 +16,7 @@ const defaultModules =
 
 type ConvexTestModules = Record<string, () => Promise<unknown>>
 
-export function createConvexTestModules(
-  modules?: ConvexTestModules,
-): ConvexTestModules {
+export function createConvexTestModules(modules?: ConvexTestModules): ConvexTestModules {
   return withGeneratedModuleHint(modules ?? defaultModules)
 }
 
@@ -36,9 +34,7 @@ export const convexServerMock = async () => {
   }
 }
 
-function withGeneratedModuleHint(
-  modules: ConvexTestModules,
-): ConvexTestModules {
+function withGeneratedModuleHint(modules: ConvexTestModules): ConvexTestModules {
   if (
     Object.keys(modules).some(
       (path) => path.includes('/_generated/') || path.includes('./_generated/'),

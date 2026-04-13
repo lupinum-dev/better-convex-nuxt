@@ -19,13 +19,5 @@
     "src/module.ts",
     "src/module-internals/**/*.ts"
   ],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "docs",
-    "demo",
-    "examples",
-    "test",
-    "src/runtime/server"
-  ]
+  "exclude": ["dist", "node_modules", "docs", "demo", "examples", "test", "src/runtime/server"]
 }

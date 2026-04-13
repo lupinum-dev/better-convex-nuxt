@@ -15,8 +15,10 @@ const toast = useToast()
 const { can } = usePermissions()
 const canManageMembers = can(saasPermissionKeys.workspaceMembers)
 const changeRole = useConvexMutation(api.members.changeRole, {
-  onSuccess: () => toast.add({ title: 'Role updated', color: 'success', icon: 'i-lucide-shield-check' }),
-  onError: (error) => toast.add({ title: 'Could not change role', description: error.message, color: 'error' }),
+  onSuccess: () =>
+    toast.add({ title: 'Role updated', color: 'success', icon: 'i-lucide-shield-check' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not change role', description: error.message, color: 'error' }),
 })
 const memberKey = computed(() => props.member.email || props.member.authId)
 const roleItems = ['admin', 'member', 'viewer']

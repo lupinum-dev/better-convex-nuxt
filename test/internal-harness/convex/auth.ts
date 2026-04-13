@@ -1,5 +1,5 @@
-import { betterAuth } from 'better-auth'
 import { can, defineAuth, open } from '@lupinum/trellis/auth'
+import { betterAuth } from 'better-auth'
 
 import { components, internal } from './_generated/api'
 import { mutation } from './_generated/server'

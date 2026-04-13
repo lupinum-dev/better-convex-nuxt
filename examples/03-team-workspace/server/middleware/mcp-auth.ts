@@ -1,10 +1,10 @@
+import { api } from '#trellis/api'
 /**
  * Why this file exists:
  * The example needs a tiny way to authenticate MCP requests without teaching API key issuance too.
  * `Authorization: Bearer demo:<email>` is intentionally demo-only and should not be copied to production.
  */
 import { serverConvexQuery } from '#trellis/server'
-import { api } from '#trellis/api'
 
 export default defineEventHandler(async (event) => {
   if (!event.path?.startsWith('/mcp')) return

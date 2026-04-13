@@ -62,7 +62,10 @@ export function verifyTrustedCallerKey(provided: string, expected: string): bool
   return mismatch === 0
 }
 
-export function extractTrustedCallerFromArgs(args: unknown, expectedKeyOverride?: string): TrustedCallerIdentity | null {
+export function extractTrustedCallerFromArgs(
+  args: unknown,
+  expectedKeyOverride?: string,
+): TrustedCallerIdentity | null {
   if (!isObject(args)) return null
 
   const input = args as TrustedCallerInput & { _trustedCallerExpectedKey?: unknown }
@@ -87,8 +90,13 @@ export function extractTrustedCallerFromArgs(args: unknown, expectedKeyOverride?
   // 3. process.env (works in root-app functions)
   // Each tier is skipped when blank — ?? only skips null/undefined, not empty strings.
   const nonBlank = (s: string | undefined): string | undefined => s?.trim() || undefined
-  const argKey = nonBlank(typeof input._trustedCallerExpectedKey === 'string' ? input._trustedCallerExpectedKey : undefined)
-  const expectedKey = nonBlank(expectedKeyOverride) ?? argKey ?? nonBlank(process.env.CONVEX_TRUSTED_CALLER_KEY)
+  const argKey = nonBlank(
+    typeof input._trustedCallerExpectedKey === 'string'
+      ? input._trustedCallerExpectedKey
+      : undefined,
+  )
+  const expectedKey =
+    nonBlank(expectedKeyOverride) ?? argKey ?? nonBlank(process.env.CONVEX_TRUSTED_CALLER_KEY)
 
   if (!expectedKey) {
     throw deny('Trusted caller auth is not configured. Set CONVEX_TRUSTED_CALLER_KEY.', {

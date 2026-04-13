@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { registerSubscription } from '../../src/runtime/utils/convex-cache'
+
 import {
   __getTrackedSubscriptionLeakKeysForTests,
   __recordSubscriptionUpdateForTests,
   clearSubscriptionLeakTracking,
   releaseTrackedSharedSubscription,
 } from '../../src/runtime/composables/internal/shared-query-subscription'
+import { registerSubscription } from '../../src/runtime/utils/convex-cache'
 
 vi.mock('#imports', () => ({
   useNuxtApp: vi.fn(),

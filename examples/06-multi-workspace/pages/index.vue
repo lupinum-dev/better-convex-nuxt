@@ -217,7 +217,10 @@ const permissionMatrix = [
   { label: 'Read projects', roles: ['owner', 'member', 'viewer'] },
   { label: 'Toggle project status', roles: ['owner', 'member'] },
   { label: 'Agency dashboard', roles: ['agency_admin', 'agency_manager'] },
-  { label: 'Switch workspace', roles: ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'] },
+  {
+    label: 'Switch workspace',
+    roles: ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'],
+  },
 ]
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
@@ -225,11 +228,13 @@ const signInForm = reactive({ email: '', password: '' })
 
 const switchWorkspace = useConvexMutation(api.workspaces.switchWorkspace, {
   onSuccess: () => toast.add({ title: 'Workspace switched', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not switch workspace', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not switch workspace', description: error.message, color: 'error' }),
 })
 const seedAgencyPortfolio = useConvexMutation(api.workspaces.seedAgencyPortfolio, {
   onSuccess: () => toast.add({ title: 'Agency portfolio seeded', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not seed portfolio', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not seed portfolio', description: error.message, color: 'error' }),
 })
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))

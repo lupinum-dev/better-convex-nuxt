@@ -17,7 +17,11 @@ export function withTrustedCaller<V extends PropertyValidators>(args: V): V {
   } as V
 }
 
-export function setTrustedCallerContext(ctx: unknown, args: unknown, expectedKeyOverride?: string): void {
+export function setTrustedCallerContext(
+  ctx: unknown,
+  args: unknown,
+  expectedKeyOverride?: string,
+): void {
   if (!isTrustedCallerContextCarrier(ctx)) return
   const trustedCaller = extractTrustedCallerFromArgs(args, expectedKeyOverride)
   ctx[trustedCallerContextKey] =

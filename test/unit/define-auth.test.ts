@@ -185,10 +185,7 @@ describe('defineAuth', () => {
       providers: [getAuthConfigProvider()],
     }
     const custom = vi.fn((_ctx, bridge) => ({
-      plugins: [
-        bridge.createConvexPlugin({ foo: 'bar' }),
-        { kind: 'admin-plugin' },
-      ],
+      plugins: [bridge.createConvexPlugin({ foo: 'bar' }), { kind: 'admin-plugin' }],
       trustedOrigins: bridge.trustedOrigins,
     }))
 
@@ -241,9 +238,7 @@ describe('defineAuth', () => {
     const deleteFn = vi.fn()
     const ctx = {
       db: {
-        query: vi.fn(() =>
-          createQueryBuilder({ _id: 'user_to_delete', authId: 'auth-user' }),
-        ),
+        query: vi.fn(() => createQueryBuilder({ _id: 'user_to_delete', authId: 'auth-user' })),
         delete: deleteFn,
       },
     }
@@ -292,9 +287,7 @@ describe('defineAuth', () => {
     const patchFn = vi.fn()
     const ctx = {
       db: {
-        query: vi.fn(() =>
-          createQueryBuilder({ _id: 'user_existing', authId: 'auth-user' }),
-        ),
+        query: vi.fn(() => createQueryBuilder({ _id: 'user_existing', authId: 'auth-user' })),
         patch: patchFn,
       },
     }
@@ -364,7 +357,9 @@ describe('defineAuth', () => {
       providers: [getAuthConfigProvider()],
     }
 
-    const auth = defineAuth(deps).createAuth({}) as { options?: { rateLimit?: { storage?: string } } }
+    const auth = defineAuth(deps).createAuth({}) as {
+      options?: { rateLimit?: { storage?: string } }
+    }
 
     expect(auth.options?.rateLimit).toBeUndefined()
   })

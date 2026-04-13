@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 
 import { useUploadQueue } from '../../src/runtime/composables/internal/upload-runtime'
-import {
-  requestUploadUrl,
-  uploadFileViaXhr,
-} from '../../src/runtime/utils/upload-core'
+import { requestUploadUrl, uploadFileViaXhr } from '../../src/runtime/utils/upload-core'
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: vi.fn(() => ({ public: { convex: {} } })),

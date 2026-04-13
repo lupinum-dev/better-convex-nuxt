@@ -11,14 +11,12 @@ type TeamTodoActor = DefaultActor & {
   tenantId?: Id<'workspaces'>
 }
 
-const actor = defineActor
-  .fromAuth<DataModel>()
-  .extend({
-    fields: async (_ctx, user) => ({
-      role: user.role as Doc<'users'>['role'],
-      tenantId: user.workspaceId as Id<'workspaces'> | undefined,
-    }),
-  })
+const actor = defineActor.fromAuth<DataModel>().extend({
+  fields: async (_ctx, user) => ({
+    role: user.role as Doc<'users'>['role'],
+    tenantId: user.workspaceId as Id<'workspaces'> | undefined,
+  }),
+})
 
 export type Actor = TeamTodoActor
 

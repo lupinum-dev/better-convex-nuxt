@@ -401,7 +401,9 @@ describe('share tokens', () => {
     // Instead, we use raw db to find it
     const { hashShareToken: hash } = await import('./auth/shareTokens')
     const tokenHash = await hash(token)
-    const tokenRecord = (await ctx.readAll('shareTokens')).find((record) => record.hash === tokenHash)
+    const tokenRecord = (await ctx.readAll('shareTokens')).find(
+      (record) => record.hash === tokenHash,
+    )
 
     await team.users.editor.mutation(api.articles.revokeShareToken, {
       tokenId: tokenRecord!._id,

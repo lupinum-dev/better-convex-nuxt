@@ -1,6 +1,6 @@
-import type { Nuxt } from '@nuxt/schema'
 import type { createResolver } from '@nuxt/kit'
 import { addTemplate } from '@nuxt/kit'
+import type { Nuxt } from '@nuxt/schema'
 
 interface InstallAdvancedOptions {
   nuxt: Nuxt

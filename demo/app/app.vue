@@ -12,11 +12,10 @@ const description =
   'Interactive playground to experience @lupinum/trellis features in action. Real-time updates, optimistic mutations, pagination, and more.'
 
 const siteUrl =
-  (
-    useAppConfig().site?.url ||
-    process.env.SITE_URL ||
-    'https://trellis-demo.vercel.app/'
-  ).replace(/\/$/, '') + '/'
+  (useAppConfig().site?.url || process.env.SITE_URL || 'https://trellis-demo.vercel.app/').replace(
+    /\/$/,
+    '',
+  ) + '/'
 const ogImageUrl = `${siteUrl}og-image.png`
 
 useSeoMeta({

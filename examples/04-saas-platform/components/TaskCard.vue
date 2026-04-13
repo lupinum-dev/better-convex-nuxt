@@ -48,12 +48,14 @@ const moveTask = useConvexMutation(api.tasks.moveToColumn, {
           [],
       )
   },
-  onError: (error) => toast.add({ title: 'Could not move task', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not move task', description: error.message, color: 'error' }),
 })
 
 const deleteTask = useConvexMutation(api.tasks.remove, {
   onSuccess: () => toast.add({ title: 'Task deleted', color: 'success', icon: 'i-lucide-trash-2' }),
-  onError: (error) => toast.add({ title: 'Could not delete task', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not delete task', description: error.message, color: 'error' }),
 })
 </script>
 
@@ -79,7 +81,9 @@ const deleteTask = useConvexMutation(api.tasks.remove, {
 
     <p class="text-sm text-muted">
       <UBadge size="xs" variant="subtle" :color="priorityColor">{{ props.task.priority }}</UBadge>
-      <span v-if="props.task.assigneeId" class="ml-2">{{ resolveName(props.task.assigneeId) }}</span>
+      <span v-if="props.task.assigneeId" class="ml-2">{{
+        resolveName(props.task.assigneeId)
+      }}</span>
     </p>
 
     <div class="flex gap-1.5">

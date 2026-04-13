@@ -145,14 +145,16 @@ const selectedIds = ref<Id<'tasks'>[]>([])
 
 const createTask = useConvexMutation(api.tasks.create, {
   onSuccess: () => toast.add({ title: 'Task created', color: 'success', icon: 'i-lucide-check' }),
-  onError: (error) => toast.add({ title: 'Could not create task', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not create task', description: error.message, color: 'error' }),
 })
 const archiveProject = useConvexMutation(api.projects.archive, {
   onSuccess: () => {
     toast.add({ title: 'Project archived', color: 'success', icon: 'i-lucide-archive' })
     navigateTo('/')
   },
-  onError: (error) => toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
 })
 const canCreateTask = can(saasPermissionKeys.taskCreate)
 const canManageMembers = can(saasPermissionKeys.workspaceMembers)

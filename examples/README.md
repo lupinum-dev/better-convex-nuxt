@@ -8,15 +8,15 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 
 ## Which One To Open First?
 
-| Example                | Best for                     | Shows                                                                                                                             |
-| ---------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `01-public-todo`       | First look                   | raw `query` / `mutation`, `defineArgs`                                                                                            |
-| `02-auth-todo`         | Auth-only apps               | Better Auth wiring, raw Convex handlers                                                                                           |
+| Example                | Best for                     | Shows                                                                                                                            |
+| ---------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `01-public-todo`       | First look                   | raw `query` / `mutation`, `defineArgs`                                                                                           |
+| `02-auth-todo`         | Auth-only apps               | Better Auth wiring, raw Convex handlers                                                                                          |
 | `03-team-workspace`    | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, `#trellis/mcp`, webhook idempotency, trusted callers, `@lupinum/trellis/testing` |
-| `04-saas-platform`     | Month-two product work       | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows     |
-| `05-visibility-access` | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy        |
-| `06-multi-workspace`   | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                    |
-| `07-mcp-reference`     | Full MCP implementation      | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode                                    |
+| `04-saas-platform`     | Month-two product work       | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows    |
+| `05-visibility-access` | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy       |
+| `06-multi-workspace`   | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                   |
+| `07-mcp-reference`     | Full MCP implementation      | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode                                   |
 
 ## Concept Coverage Matrix
 

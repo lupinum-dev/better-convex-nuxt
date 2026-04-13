@@ -66,9 +66,7 @@ function usePermissionContextState<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
 >(query: Query, configuredQueryName: string) {
-  let authState:
-    | ReturnType<typeof useConvexAuth>
-    | null = null
+  let authState: ReturnType<typeof useConvexAuth> | null = null
 
   try {
     authState = useConvexAuth()
@@ -76,12 +74,7 @@ function usePermissionContextState<
     authState = null
   }
 
-  const { data, pending, error } = createConvexQueryState(
-    query,
-    {},
-    undefined,
-    true,
-  ).resultData
+  const { data, pending, error } = createConvexQueryState(query, {}, undefined, true).resultData
   const rawCtx = computed<TContext | null>(() => data.value as TContext | null)
   const ctx = computed<TContext | null>(() => {
     const value = rawCtx.value
@@ -129,12 +122,23 @@ function usePermissionContextState<
           delayedNullWarningTimer = null
         }
 
-        if (!authState?.isAuthenticated.value || authState.isPending.value || ctx.value || warnedAboutNullCtx) {
+        if (
+          !authState?.isAuthenticated.value ||
+          authState.isPending.value ||
+          ctx.value ||
+          warnedAboutNullCtx
+        ) {
           return
         }
 
         delayedNullWarningTimer = setTimeout(() => {
-          if (!authState?.isAuthenticated.value || authState.isPending.value || ctx.value || warnedAboutNullCtx) return
+          if (
+            !authState?.isAuthenticated.value ||
+            authState.isPending.value ||
+            ctx.value ||
+            warnedAboutNullCtx
+          )
+            return
           warnedAboutNullCtx = true
           console.warn(
             `[trellis] usePermissions("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`trellis.permissions.query\` and actor bootstrap flow.`,

@@ -15,19 +15,17 @@ type ProjectBoardActor = DefaultActor & {
 }
 
 type ProjectBoardCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
-const actor = defineActor
-  .fromAuth<DataModel>()
-  .extend({
-    fields: async (ctx, user) => {
-      const workspace = user.workspaceId ? await ctx.db.get(user.workspaceId) : null
-      return {
-        plan: (workspace?.plan ?? 'free') as Doc<'workspaces'>['plan'],
-      }
-    },
-  })
+const actor = defineActor.fromAuth<DataModel>().extend({
+  fields: async (ctx, user) => {
+    const workspace = user.workspaceId ? await ctx.db.get(user.workspaceId) : null
+    return {
+      plan: (workspace?.plan ?? 'free') as Doc<'workspaces'>['plan'],
+    }
+  },
+})
 
 export type Actor = ProjectBoardActor
 
 export async function getActor(ctx: ProjectBoardCtx): Promise<Actor | null> {
-  return await actor.resolve(ctx) as Actor | null
+  return (await actor.resolve(ctx)) as Actor | null
 }

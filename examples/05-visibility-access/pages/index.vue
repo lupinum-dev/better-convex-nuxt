@@ -107,7 +107,9 @@
                     <span class="font-semibold text-highlighted">{{ currentWorkspaceName }}</span>
                   </p>
                 </template>
-                <p v-else class="text-sm text-muted">No workspace yet — create or join one below.</p>
+                <p v-else class="text-sm text-muted">
+                  No workspace yet — create or join one below.
+                </p>
               </div>
 
               <UButton
@@ -282,7 +284,10 @@
                     </UButton>
                   </form>
 
-                  <div v-if="!knowledgeBases?.length" class="flex flex-col items-center gap-2 py-8 text-muted">
+                  <div
+                    v-if="!knowledgeBases?.length"
+                    class="flex flex-col items-center gap-2 py-8 text-muted"
+                  >
                     <UIcon name="i-lucide-book-open" class="w-8 h-8" />
                     <p class="text-sm">No knowledge bases yet.</p>
                   </div>
@@ -339,15 +344,22 @@ const kbForm = reactive({ title: '' })
 
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace, {
   onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
 })
 const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace, {
   onSuccess: () => toast.add({ title: 'Joined workspace', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
 })
 const createKB = useConvexMutation(api.knowledgeBases.create, {
   onSuccess: () => toast.add({ title: 'Knowledge base created', color: 'success' }),
-  onError: (error) => toast.add({ title: 'Could not create knowledge base', description: error.message, color: 'error' }),
+  onError: (error) =>
+    toast.add({
+      title: 'Could not create knowledge base',
+      description: error.message,
+      color: 'error',
+    }),
 })
 
 const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
@@ -355,7 +367,9 @@ const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorks
 const kbArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: knowledgeBases } = await useConvexQuery(api.knowledgeBases.list, kbArgs)
 
-const displayName = computed(() => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in')
+const displayName = computed(
+  () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
+)
 const currentWorkspaceName = computed(() => {
   if (!tenantId.value || !workspaceOptions.value) return null
   return workspaceOptions.value.find((w) => w._id === tenantId.value)?.name ?? null

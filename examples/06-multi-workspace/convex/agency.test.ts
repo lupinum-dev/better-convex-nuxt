@@ -34,7 +34,8 @@ async function seedWorkspace(
   },
 ): Promise<{ id: Id<'workspaces'>; users: Record<string, SeededUser> }> {
   const slug = name.toLowerCase()
-  const ownerEntry = Object.entries(users).find(([, user]) => user.role === 'owner') ?? Object.entries(users)[0]
+  const ownerEntry =
+    Object.entries(users).find(([, user]) => user.role === 'owner') ?? Object.entries(users)[0]
   if (!ownerEntry) throw new Error('seedWorkspace requires at least one user.')
 
   const now = Date.now()
@@ -168,9 +169,7 @@ describe('agency example', () => {
     const portfolio = await agent.query(api.dashboard.portfolio, {})
     expect(portfolio).toHaveLength(2)
     expect(
-      portfolio
-        .map((entry: (typeof portfolio)[number]) => entry.workspace.name)
-        .sort(),
+      portfolio.map((entry: (typeof portfolio)[number]) => entry.workspace.name).sort(),
     ).toEqual(['Client A', 'Client B'])
   })
 

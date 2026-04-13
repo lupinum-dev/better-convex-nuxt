@@ -10,8 +10,9 @@
  * owning comment or task, not raw `_storage`.
  */
 import { requireAuth } from '@lupinum/trellis/auth'
-import type { GenericMutationCtx } from 'convex/server'
 import type { ActorAccessor } from '@lupinum/trellis/functions'
+import type { GenericMutationCtx } from 'convex/server'
+
 import type { DataModel } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
 import { raw } from './functions'
@@ -24,6 +25,8 @@ export const generateUploadUrl = raw.mutation({
     const actor = await ctx.actor()
     // Upload URLs are actor-gated, but they are not tied to a specific task or project yet.
     requireAuth(actor)
-    return await (ctx as unknown as { storage: { generateUploadUrl(): Promise<string> } }).storage.generateUploadUrl()
+    return await (
+      ctx as unknown as { storage: { generateUploadUrl(): Promise<string> } }
+    ).storage.generateUploadUrl()
   },
 })

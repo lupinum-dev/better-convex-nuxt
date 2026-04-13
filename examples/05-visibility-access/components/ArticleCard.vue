@@ -1,9 +1,8 @@
 <template>
-  <div class="rounded-xl border border-default bg-elevated p-4 hover:border-primary transition-colors">
-    <NuxtLink
-      :to="`/articles/${article._id}?kbId=${kbId}`"
-      class="block"
-    >
+  <div
+    class="rounded-xl border border-default bg-elevated p-4 hover:border-primary transition-colors"
+  >
+    <NuxtLink :to="`/articles/${article._id}?kbId=${kbId}`" class="block">
       <div class="flex items-center gap-2">
         <p class="font-semibold text-highlighted">{{ article.title }}</p>
         <UBadge :color="visibilityColor" variant="subtle" size="xs">

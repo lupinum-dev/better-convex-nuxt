@@ -8,7 +8,11 @@ import { getFunctionName } from '../../utils/convex-cache.js'
 import { getSharedLogger, getLogLevel } from '../../utils/logger.js'
 import { isFileTypeAllowed } from '../../utils/mime-type.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
-import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../../utils/upload-core.js'
+import {
+  requestUploadUrl,
+  uploadFileViaXhr,
+  type UploadProgressInfo,
+} from '../../utils/upload-core.js'
 import { useConvex } from '../useConvex.js'
 import {
   applyUploadQueueProgress,
@@ -294,9 +298,7 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
   let scheduling = false
   let hasBeenBusy = false
 
-  const summary = computed(() =>
-    deriveUploadQueueSummary(items.value, haltedByError.value),
-  )
+  const summary = computed(() => deriveUploadQueueSummary(items.value, haltedByError.value))
   const queuedCount = computed(() => summary.value.queuedCount)
   const pendingCount = computed(() => summary.value.pendingCount)
   const successCount = computed(() => summary.value.successCount)
@@ -467,7 +469,9 @@ export function useUploadQueue<Mutation extends FunctionReference<'mutation'>>(
     items.value = [...items.value, ...newItems]
     void schedule()
 
-    const settled = await Promise.allSettled(newItems.map((item) => getItemDeferred(item.id).promise))
+    const settled = await Promise.allSettled(
+      newItems.map((item) => getItemDeferred(item.id).promise),
+    )
     const { storageIds, failures } = collectUploadQueueResults(settled)
 
     if (failures.length > 0) {

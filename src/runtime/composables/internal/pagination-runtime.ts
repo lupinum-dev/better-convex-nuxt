@@ -27,17 +27,13 @@ import { getFunctionName, getQueryKey, hashArgs } from '../../utils/convex-cache
 import { getLogLevel, getSharedLogger } from '../../utils/logger.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import { generatePaginationId } from '../../utils/shared-helpers.js'
-import {
-  createLiveQueryResource,
-  executeLiveQuery,
-} from './live-query-resource.js'
-import {
-  collectPaginatedResults,
-  derivePaginatedStatus,
-  shouldPaginatedResultsBeStale,
-  shouldUsePreviousPaginatedResults,
-  type PaginatedQueryStatus,
-} from './pagination-state.js'
+import type {
+  PaginatedQueryReference,
+  PaginatedQueryArgs,
+  PaginatedQueryItem,
+  PaginatedQueryResult,
+} from '../optimistic-updates.js'
+import { createLiveQueryResource, executeLiveQuery } from './live-query-resource.js'
 import {
   createPaginatedWatchSource,
   createSkippedPaginatedCacheKey,
@@ -55,15 +51,16 @@ import {
   createStablePaginatedSubscriptionKey,
 } from './pagination-runtime-state.js'
 import {
+  collectPaginatedResults,
+  derivePaginatedStatus,
+  shouldPaginatedResultsBeStale,
+  shouldUsePreviousPaginatedResults,
+  type PaginatedQueryStatus,
+} from './pagination-state.js'
+import {
   startSharedQuerySubscription,
   type SharedQuerySubscriptionHandle,
 } from './shared-query-subscription.js'
-import type {
-  PaginatedQueryReference,
-  PaginatedQueryArgs,
-  PaginatedQueryItem,
-  PaginatedQueryResult,
-} from '../optimistic-updates.js'
 export type { PaginatedQueryStatus } from './pagination-state.js'
 
 export {
@@ -191,8 +188,8 @@ export function createConvexPaginatedQueryState<
     return `convex-paginated:${getQueryKey(query, buildPageArgs({ numItems: initialNumItems, cursor: null }))}`
   })
 
-  const firstPageWatchSource = computed(
-    () => createPaginatedWatchSource(argsHash.value, isSkipped.value, currentPaginationId.value),
+  const firstPageWatchSource = computed(() =>
+    createPaginatedWatchSource(argsHash.value, isSkipped.value, currentPaginationId.value),
   )
 
   const firstPageArgs = computed(() => {
@@ -488,18 +485,19 @@ export function createConvexPaginatedQueryState<
       })
   }
 
-  const status = computed((): PaginatedQueryStatus =>
-    derivePaginatedStatus({
-      isSkipped: isSkipped.value,
-      isManualRefreshPending: isManualRefreshPending.value,
-      firstPage: firstPageResource.asyncData.data.value,
-      firstPagePending: firstPageResource.pending.value,
-      firstPageError: firstPageResource.asyncData.error.value ?? null,
-      extraPages: pages.value,
-      globalError: globalError.value,
-      serverEnabled: server,
-      isServerRuntime: import.meta.server,
-    }),
+  const status = computed(
+    (): PaginatedQueryStatus =>
+      derivePaginatedStatus({
+        isSkipped: isSkipped.value,
+        isManualRefreshPending: isManualRefreshPending.value,
+        firstPage: firstPageResource.asyncData.data.value,
+        firstPagePending: firstPageResource.pending.value,
+        firstPageError: firstPageResource.asyncData.error.value ?? null,
+        extraPages: pages.value,
+        globalError: globalError.value,
+        serverEnabled: server,
+        isServerRuntime: import.meta.server,
+      }),
   )
 
   const rawResults = computed((): Item[] => {

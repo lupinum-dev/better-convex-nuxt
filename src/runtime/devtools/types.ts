@@ -1,4 +1,8 @@
-import type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult } from '../utils/auth-debug.js'
+import type {
+  AuthWaterfall,
+  AuthWaterfallPhase,
+  WaterfallPhaseResult,
+} from '../utils/auth-debug.js'
 
 export type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult }
 

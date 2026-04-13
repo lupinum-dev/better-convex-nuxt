@@ -79,12 +79,9 @@ describe('initAuthClient', () => {
     })
 
     await expect(
-      transport.refresh(
-        async () => {
-          throw new Error('token fetch failed')
-        },
-        vi.fn(),
-      ),
+      transport.refresh(async () => {
+        throw new Error('token fetch failed')
+      }, vi.fn()),
     ).rejects.toThrow('token fetch failed')
   })
 })

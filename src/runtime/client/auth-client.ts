@@ -454,10 +454,7 @@ export function initAuthClient(
   }
 
   const installSetAuthFlow = async (
-    configure: (handlers: {
-      resolve: () => void
-      reject: (error: unknown) => void
-    }) => void,
+    configure: (handlers: { resolve: () => void; reject: (error: unknown) => void }) => void,
   ): Promise<void> => {
     await new Promise<void>((resolve, reject) => {
       let settled = false
