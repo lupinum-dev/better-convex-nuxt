@@ -1,7 +1,7 @@
-import { defineMcpRuntime } from '#trellis/mcp'
-import { createServerConvexCaller } from '#trellis/server'
 import type { H3Event } from 'h3'
 
+import { defineMcpRuntime } from '#trellis/mcp'
+import { createServerConvexCaller } from '#trellis/server'
 import type { Id } from '~/convex/_generated/dataModel'
 import type { McpReferencePrincipal, Role } from '~/convex/auth/principal'
 
@@ -40,7 +40,9 @@ export const mcpRuntime = defineMcpRuntime({
       principal.kind === 'agent' && (principal.role === 'owner' || principal.role === 'admin'),
   }),
   principalKey: (principal) =>
-    principal.kind === 'agent' ? `${principal.userId}:${principal.tenantId ?? 'none'}` : principal.kind,
+    principal.kind === 'agent'
+      ? `${principal.userId}:${principal.tenantId ?? 'none'}`
+      : principal.kind,
 })
 
 export const projectTool = mcpRuntime.projectTool

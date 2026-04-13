@@ -25,15 +25,18 @@ import type { ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
+import { createComponentBridge } from './create-component-bridge.js'
 import { buildStructuredFunctions } from './define-handler.js'
 import type {
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
 } from './define-handler.js'
-import { createComponentBridge } from './create-component-bridge.js'
-import { defineOperation, previewOf, type OperationDefinition } from './define-operation.js'
-import { definePrincipal, type DefaultPrincipal, type PrincipalDefinition } from './define-principal.js'
+import {
+  definePrincipal,
+  type DefaultPrincipal,
+  type PrincipalDefinition,
+} from './define-principal.js'
 
 export type {
   StructuredGuard,
@@ -58,11 +61,8 @@ export type FunctionsCtxExtension<TPrincipal, TActor> = {
   actor: ActorAccessor<TActor>
 }
 
-type AnyCtxWithRuntime<
-  DataModel extends GenericDataModel,
-  TPrincipal,
-  TActor,
-> = AnyCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+type AnyCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> = AnyCtx<DataModel> &
+  FunctionsCtxExtension<TPrincipal, TActor>
 
 type QueryCtxWithRuntime<
   DataModel extends GenericDataModel,
@@ -212,11 +212,7 @@ function createTenantIsolationRule<
   }
 }
 
-function buildTenantIsolationRules<
-  DataModel extends GenericDataModel,
-  TPrincipal,
-  TActor,
->(
+function buildTenantIsolationRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
   options: TenantIsolationOptions<DataModel> | undefined,
 ): Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> {
   const rules = {} as Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
@@ -259,11 +255,7 @@ function mergeRules<Ctx, DataModel extends GenericDataModel>(
   return merged
 }
 
-async function resolveRules<
-  DataModel extends GenericDataModel,
-  TPrincipal,
-  TActor,
->(
+async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
   ctx: AnyCtxWithRuntime<DataModel, TPrincipal, TActor>,
   options: CreateAppOptions<DataModel, TPrincipal, TActor>,
 ): Promise<Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> | null> {
@@ -317,8 +309,10 @@ type RuntimeBundle<
 function resolvePrincipal<DataModel extends GenericDataModel, TPrincipal>(
   principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal> | undefined,
 ): PrincipalDefinition<AnyCtx<DataModel>, TPrincipal> {
-  return (principalDefinition ??
-    definePrincipal.fromAuth<DataModel>()) as PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
+  return (principalDefinition ?? definePrincipal.fromAuth<DataModel>()) as PrincipalDefinition<
+    AnyCtx<DataModel>,
+    TPrincipal
+  >
 }
 
 function resolveActor<DataModel extends GenericDataModel, TPrincipal, TActor>(
@@ -399,11 +393,7 @@ function createOnSuccessHandler<Ctx>(
   }
 }
 
-function createQueryCustomization<
-  DataModel extends GenericDataModel,
-  TPrincipal,
-  TActor,
->(
+function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
   options: CreateAppOptions<DataModel, TPrincipal, TActor>,
 ): Customization<
   GenericQueryCtx<DataModel>,
@@ -426,7 +416,7 @@ function createQueryCustomization<
         ? wrapDatabaseReader(baseCtx, ctx.db, resolvedRules, options.rls?.config)
         : ctx.db
       const finalCtx: QueryCtxWithRuntime<DataModel, TPrincipal, TActor> = {
-        ...((baseCtx as unknown) as QueryCtxWithRuntime<DataModel, TPrincipal, TActor>),
+        ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TPrincipal, TActor>),
         db,
       }
 
@@ -439,11 +429,7 @@ function createQueryCustomization<
   }
 }
 
-function createMutationCustomization<
-  DataModel extends GenericDataModel,
-  TPrincipal,
-  TActor,
->(
+function createMutationCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
   options: CreateAppOptions<DataModel, TPrincipal, TActor>,
 ): Customization<
   GenericMutationCtx<DataModel>,
@@ -468,13 +454,13 @@ function createMutationCustomization<
 
       if (options.triggers) {
         db = options.triggers.wrapDB({
-          ...((baseCtx as unknown) as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
+          ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
           db,
         }).db
       }
 
       const finalCtx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor> = {
-        ...((baseCtx as unknown) as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
+        ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
         db,
       }
 

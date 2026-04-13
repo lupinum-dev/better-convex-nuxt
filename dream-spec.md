@@ -130,15 +130,15 @@ Introduce a first-class principal model in Trellis:
 ```ts
 type Principal =
   | { kind: 'anonymous' }
-  | { kind: 'user', userId: string, sessionId?: string }
-  | { kind: 'service', service: string }
+  | { kind: 'user'; userId: string; sessionId?: string }
+  | { kind: 'service'; service: string }
   | {
-      kind: 'agent',
-      agent: string,
-      credentialId: string,
-      sessionId?: string,
-      runId?: string,
-      onBehalfOf?: { kind: 'user', userId: string } | { kind: 'tenant', tenantId: string },
+      kind: 'agent'
+      agent: string
+      credentialId: string
+      sessionId?: string
+      runId?: string
+      onBehalfOf?: { kind: 'user'; userId: string } | { kind: 'tenant'; tenantId: string }
     }
 ```
 

@@ -1,12 +1,7 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 
-import {
-  serverConvexAction,
-  serverConvexMutation,
-  serverConvexQuery,
-  type ServerConvexOptions,
-} from './utils/convex.js'
+import { serverConvexAction, serverConvexMutation, serverConvexQuery } from './utils/convex.js'
 
 export {
   serverConvexQuery,
@@ -20,7 +15,8 @@ export function createServerConvexCaller(event: H3Event) {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       args: FunctionArgs<Query>,
-    ): Promise<FunctionReturnType<Query>> => await serverConvexQuery(event, fn, args, { auth: 'none' }),
+    ): Promise<FunctionReturnType<Query>> =>
+      await serverConvexQuery(event, fn, args, { auth: 'none' }),
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       args: FunctionArgs<Mutation>,
@@ -29,6 +25,7 @@ export function createServerConvexCaller(event: H3Event) {
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       args: FunctionArgs<Action>,
-    ): Promise<FunctionReturnType<Action>> => await serverConvexAction(event, fn, args, { auth: 'none' }),
+    ): Promise<FunctionReturnType<Action>> =>
+      await serverConvexAction(event, fn, args, { auth: 'none' }),
   }
 }

@@ -1,7 +1,6 @@
 import { internal } from '#trellis/api'
-
-import { createPage } from '~/shared/schemas/page'
 import { projectTool } from '~/server/lib/mcp-runtime'
+import { createPage } from '~/shared/schemas/page'
 
 export default projectTool({
   schema: createPage,

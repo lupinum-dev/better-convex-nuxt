@@ -18,18 +18,21 @@ triggers.register('notes', async (ctx, change) => {
   await ctx.db.patch(change.id, { title: 'triggered' })
 })
 
-const { app: structured, raw } = createApp({ query, mutation }, {
-  principal,
-  actor: async (ctx, args, resolvedPrincipal) => {
-    actorResolverCalls += 1
-    return await getActorFromPrincipal(ctx, args, resolvedPrincipal)
+const { app: structured, raw } = createApp(
+  { query, mutation },
+  {
+    principal,
+    actor: async (ctx, args, resolvedPrincipal) => {
+      actorResolverCalls += 1
+      return await getActorFromPrincipal(ctx, args, resolvedPrincipal)
+    },
+    tenantIsolation: {
+      tables: ['posts', 'comments', 'mcpKeys'],
+      field: 'organizationId',
+    },
+    triggers,
   },
-  tenantIsolation: {
-    tables: ['posts', 'comments', 'mcpKeys'],
-    field: 'organizationId',
-  },
-  triggers,
-})
+)
 const canReadStructuredProbe = defineGuard<Actor>('probe.read', (actor) => !!actor)
 const canEditStructuredPost = (ownerId: string) =>
   defineGuard<NonNullable<Actor>>('probe.update', (actor) => actor.userId === ownerId)

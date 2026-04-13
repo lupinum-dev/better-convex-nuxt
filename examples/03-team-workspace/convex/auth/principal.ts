@@ -28,12 +28,7 @@ export const teamTodoPrincipalValidator = v.union(
   v.object({
     kind: v.literal('agent'),
     userId: v.string(),
-    role: v.union(
-      v.literal('owner'),
-      v.literal('admin'),
-      v.literal('member'),
-      v.literal('viewer'),
-    ),
+    role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
     tenantId: v.optional(v.id('workspaces')),
     provider: v.optional(v.literal('mcp')),
   }),

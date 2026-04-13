@@ -1,5 +1,6 @@
 import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import type { GenericValidator } from 'convex/values'
+
 import { getAuth } from '../auth/index.js'
 
 type MaybePromise<T> = T | Promise<T>

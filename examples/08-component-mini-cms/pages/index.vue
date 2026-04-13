@@ -16,13 +16,7 @@
             <UButton to="/studio" color="neutral" variant="soft" trailing-icon="i-lucide-pencil">
               Open studio
             </UButton>
-            <UButton
-              to="/mcp"
-              color="primary"
-              trailing-icon="i-lucide-bot"
-            >
-              MCP endpoint
-            </UButton>
+            <UButton to="/mcp" color="primary" trailing-icon="i-lucide-bot"> MCP endpoint </UButton>
           </div>
         </div>
       </header>
@@ -76,7 +70,7 @@
                 {{ selectedPage?.title || 'No published page yet' }}
               </h2>
             </div>
-            <span class="mini-code" v-if="selectedPage">/{{ selectedPage.slug }}</span>
+            <span v-if="selectedPage" class="mini-code">/{{ selectedPage.slug }}</span>
           </div>
 
           <div v-if="pagePending" class="mt-6 space-y-3">
@@ -86,7 +80,8 @@
 
           <template v-else-if="selectedPage">
             <p class="mt-3 text-sm text-[var(--mini-muted)]">
-              Published {{ formatDate(selectedPage.publishedAt) }} · Author {{ selectedPage.authorId }}
+              Published {{ formatDate(selectedPage.publishedAt) }} · Author
+              {{ selectedPage.authorId }}
             </p>
             <article class="mini-prose mt-6 text-base">
               {{ selectedPage.body }}

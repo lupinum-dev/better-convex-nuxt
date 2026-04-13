@@ -276,7 +276,9 @@ export const previewBulkRemove = app.query({
     const runbooks = await Promise.all(args.ids.map((id) => ctx.db.get(id)))
     const found = runbooks.filter(
       (runbook): runbook is NonNullable<(typeof runbooks)[number]> =>
-        !!runbook && runbook.workspaceId === actor.tenantId && can(actor, canDeleteRunbook(runbook)),
+        !!runbook &&
+        runbook.workspaceId === actor.tenantId &&
+        can(actor, canDeleteRunbook(runbook)),
     )
 
     if (found.length === 0) {

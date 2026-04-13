@@ -1,7 +1,6 @@
 import { internal } from '#trellis/api'
-
-import { listPublishedPages } from '~/shared/schemas/page'
 import { projectTool } from '~/server/lib/mcp-runtime'
+import { listPublishedPages } from '~/shared/schemas/page'
 
 export default projectTool({
   schema: listPublishedPages,

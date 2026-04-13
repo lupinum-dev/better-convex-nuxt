@@ -1,8 +1,6 @@
 import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { components } from './_generated/api'
-import { app } from './functions'
 import {
   createPage as createPageSchema,
   getPublishedPage as getPublishedPageSchema,
@@ -13,6 +11,8 @@ import {
   saveDraft as saveDraftSchema,
   studioPageValidator,
 } from '../shared/schemas/page'
+import { components } from './_generated/api'
+import { app } from './functions'
 
 const publishedPageListValidator = v.array(publishedPageValidator)
 const studioPageListValidator = v.array(studioPageValidator)

@@ -33,7 +33,9 @@ describe('future agent conventions', () => {
 
     expect(multiCaller).toContain('They do **not** replace Convex business authorization')
     expect(mcpAuth).toContain('They do **not** replace Convex business authorization')
-    expect(mcpAuth).toContain('the protected Convex handler still owns the real permission decision')
+    expect(mcpAuth).toContain(
+      'the protected Convex handler still owns the real permission decision',
+    )
   })
 
   it('keeps root internal refs and bridge refs as the automation surface', () => {

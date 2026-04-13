@@ -1,4 +1,8 @@
-import { customMutation, customQuery, type Customization } from 'convex-helpers/server/customFunctions'
+import {
+  customMutation,
+  customQuery,
+  type Customization,
+} from 'convex-helpers/server/customFunctions'
 import type {
   FunctionVisibility,
   FunctionReference,
@@ -14,7 +18,11 @@ import type {
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
-import { definePrincipal, type DefaultPrincipal, type PrincipalDefinition } from './define-principal.js'
+import {
+  definePrincipal,
+  type DefaultPrincipal,
+  type PrincipalDefinition,
+} from './define-principal.js'
 
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
@@ -26,11 +34,15 @@ type BridgeCtxExtension<TPrincipal> = {
   principal: PrincipalAccessor<TPrincipal>
 }
 
-type QueryCtxWithPrincipal<DataModel extends GenericDataModel, TPrincipal> = GenericQueryCtx<DataModel> &
-  BridgeCtxExtension<TPrincipal>
+type QueryCtxWithPrincipal<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+> = GenericQueryCtx<DataModel> & BridgeCtxExtension<TPrincipal>
 
-type MutationCtxWithPrincipal<DataModel extends GenericDataModel, TPrincipal> =
-  GenericMutationCtx<DataModel> & BridgeCtxExtension<TPrincipal>
+type MutationCtxWithPrincipal<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+> = GenericMutationCtx<DataModel> & BridgeCtxExtension<TPrincipal>
 
 type CreateComponentBridgeBuilders<
   DataModel extends GenericDataModel,
@@ -59,13 +71,15 @@ type QueryBridgeBatchDefinition<TRef extends QueryRef = QueryRef> = BridgeDefini
   operation: 'query'
 }
 
-type MutationBridgeBatchDefinition<TRef extends MutationRef = MutationRef> = BridgeDefinition<TRef> & {
-  operation: 'mutation'
-}
+type MutationBridgeBatchDefinition<TRef extends MutationRef = MutationRef> =
+  BridgeDefinition<TRef> & {
+    operation: 'mutation'
+  }
 
-type InternalQueryBridgeBatchDefinition<TRef extends QueryRef = QueryRef> = BridgeDefinition<TRef> & {
-  operation: 'internalQuery'
-}
+type InternalQueryBridgeBatchDefinition<TRef extends QueryRef = QueryRef> =
+  BridgeDefinition<TRef> & {
+    operation: 'internalQuery'
+  }
 
 type InternalMutationBridgeBatchDefinition<TRef extends MutationRef = MutationRef> =
   BridgeDefinition<TRef> & {
@@ -92,21 +106,13 @@ type BridgeBatchResult<
     args: infer TArgs extends PropertyValidators
     component: infer TRef extends QueryRef
   }
-    ? RegisteredQuery<
-        QueryVisibility,
-        ObjectType<TArgs>,
-        Promise<FunctionReturnType<TRef>>
-      >
+    ? RegisteredQuery<QueryVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
     : TDefinitions[Key] extends {
           operation: 'mutation'
           args: infer TArgs extends PropertyValidators
           component: infer TRef extends MutationRef
         }
-      ? RegisteredMutation<
-          MutationVisibility,
-          ObjectType<TArgs>,
-          Promise<FunctionReturnType<TRef>>
-        >
+      ? RegisteredMutation<MutationVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
       : TDefinitions[Key] extends {
             operation: 'internalQuery'
             args: infer TArgs extends PropertyValidators
@@ -210,7 +216,8 @@ export function createComponentBridge<
   } = {},
 ) {
   const principalDefinition =
-    options.principal ?? definePrincipal.fromAuth<DataModel>() as PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
+    options.principal ??
+    (definePrincipal.fromAuth<DataModel>() as PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>)
   const customization = createBridgeCustomization<DataModel, TPrincipal>(principalDefinition)
 
   const query = customQuery(builders.query, customization.query)

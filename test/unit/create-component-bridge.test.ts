@@ -2,8 +2,14 @@ import { v } from 'convex/values'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const { customMutationMock, customQueryMock } = vi.hoisted(() => ({
-  customQueryMock: vi.fn((_builder, customization) => definition => ({ customization, definition })),
-  customMutationMock: vi.fn((_builder, customization) => definition => ({ customization, definition })),
+  customQueryMock: vi.fn((_builder, customization) => (definition) => ({
+    customization,
+    definition,
+  })),
+  customMutationMock: vi.fn((_builder, customization) => (definition) => ({
+    customization,
+    definition,
+  })),
 }))
 
 vi.mock('convex-helpers/server/customFunctions', () => ({
@@ -34,7 +40,8 @@ describe('createComponentBridge', () => {
             kind: v.literal('service'),
             service: v.string(),
           }),
-          resolve: async (_ctx, args) => (args as { principal?: typeof principal }).principal ?? principal,
+          resolve: async (_ctx, args) =>
+            (args as { principal?: typeof principal }).principal ?? principal,
         }),
       },
     )
@@ -43,15 +50,25 @@ describe('createComponentBridge', () => {
       component: 'component.query' as never,
       args: { slug: v.string() },
     }) as {
-      customization: { input: (ctx: unknown, args: unknown) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }> }
-      definition: { handler: (ctx: { principal: () => Promise<typeof principal>, runQuery: (component: string, args: unknown) => Promise<unknown> }, args: { slug: string }) => Promise<unknown> }
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+      definition: {
+        handler: (
+          ctx: {
+            principal: () => Promise<typeof principal>
+            runQuery: (component: string, args: unknown) => Promise<unknown>
+          },
+          args: { slug: string },
+        ) => Promise<unknown>
+      }
     }
 
     const runQuery = vi.fn(async () => ({ ok: true }))
-    const customized = await registered.customization.input(
-      { runQuery },
-      { principal },
-    )
+    const customized = await registered.customization.input({ runQuery }, { principal })
 
     await registered.definition.handler(
       {
@@ -84,7 +101,8 @@ describe('createComponentBridge', () => {
             kind: v.literal('service'),
             service: v.string(),
           }),
-          resolve: async (_ctx, args) => (args as { principal?: typeof principal }).principal ?? principal,
+          resolve: async (_ctx, args) =>
+            (args as { principal?: typeof principal }).principal ?? principal,
         }),
       },
     )
@@ -96,15 +114,25 @@ describe('createComponentBridge', () => {
         args: { slug: v.string() },
       },
     }).loadDocs as {
-      customization: { input: (ctx: unknown, args: unknown) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }> }
-      definition: { handler: (ctx: { principal: () => Promise<typeof principal>, runQuery: (component: string, args: unknown) => Promise<unknown> }, args: { slug: string }) => Promise<unknown> }
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+      definition: {
+        handler: (
+          ctx: {
+            principal: () => Promise<typeof principal>
+            runQuery: (component: string, args: unknown) => Promise<unknown>
+          },
+          args: { slug: string },
+        ) => Promise<unknown>
+      }
     }
 
     const runQuery = vi.fn(async () => ({ ok: true }))
-    const customized = await registered.customization.input(
-      { runQuery },
-      { principal },
-    )
+    const customized = await registered.customization.input({ runQuery }, { principal })
 
     await registered.definition.handler(
       {

@@ -668,9 +668,7 @@ If both are present, both must pass.
 Semantics:
 
 ```ts
-visible =
-  capabilityCheck &&
-  enabledCheck
+visible = capabilityCheck && enabledCheck
 ```
 
 ### `capability`
@@ -697,8 +695,7 @@ Example:
 
 ```ts
 enabled: ({ runtime }) =>
-  runtime.flags.contentPublishing !== false &&
-  runtime.mcpMode !== 'readOnly'
+  runtime.flags.contentPublishing !== false && runtime.mcpMode !== 'readOnly'
 ```
 
 ### Why
@@ -861,8 +858,7 @@ export default projectTool({
   schema: publishPostArgs,
   capability: 'publishPost',
   enabled: ({ runtime }) =>
-    runtime.flags.contentPublishing !== false &&
-    runtime.mcpMode !== 'readOnly',
+    runtime.flags.contentPublishing !== false && runtime.mcpMode !== 'readOnly',
   meta: {
     name: 'publish-post',
     description: 'Publish a post',

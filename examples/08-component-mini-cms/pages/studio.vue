@@ -114,12 +114,19 @@
               :description="uiError"
             />
 
-            <form class="space-y-3 rounded-2xl border border-default p-4" @submit.prevent="handleCreatePage">
+            <form
+              class="space-y-3 rounded-2xl border border-default p-4"
+              @submit.prevent="handleCreatePage"
+            >
               <div class="grid gap-3 md:grid-cols-2">
                 <UInput v-model="createForm.title" placeholder="New page title" required />
                 <UInput v-model="createForm.slug" placeholder="new-page-slug" required />
               </div>
-              <UButton type="submit" :loading="createPage.pending.value" leading-icon="i-lucide-plus">
+              <UButton
+                type="submit"
+                :loading="createPage.pending.value"
+                leading-icon="i-lucide-plus"
+              >
                 Create draft
               </UButton>
             </form>
@@ -141,14 +148,19 @@
                     <p class="text-lg font-semibold">{{ page.title }}</p>
                     <p class="mt-1 text-sm text-[var(--mini-muted)]">/{{ page.slug }}</p>
                   </div>
-                  <UBadge :color="page.status === 'published' ? 'success' : 'neutral'" variant="soft">
+                  <UBadge
+                    :color="page.status === 'published' ? 'success' : 'neutral'"
+                    variant="soft"
+                  >
                     {{ page.status }}
                   </UBadge>
                 </div>
               </button>
             </div>
 
-            <p v-else class="text-sm text-[var(--mini-muted)]">Create the first draft to start editing.</p>
+            <p v-else class="text-sm text-[var(--mini-muted)]">
+              Create the first draft to start editing.
+            </p>
           </div>
         </section>
 
@@ -159,7 +171,10 @@
                 <p class="mini-kicker">Selected draft</p>
                 <h2 class="mt-2 text-3xl font-semibold">{{ selectedPage.title }}</h2>
               </div>
-              <UBadge :color="selectedPage.status === 'published' ? 'success' : 'neutral'" variant="soft">
+              <UBadge
+                :color="selectedPage.status === 'published' ? 'success' : 'neutral'"
+                variant="soft"
+              >
                 {{ selectedPage.status }}
               </UBadge>
             </div>
@@ -183,7 +198,11 @@
               </div>
 
               <div class="flex flex-col gap-3 md:flex-row">
-                <UButton type="submit" :loading="saveDraft.pending.value" leading-icon="i-lucide-save">
+                <UButton
+                  type="submit"
+                  :loading="saveDraft.pending.value"
+                  leading-icon="i-lucide-save"
+                >
                   Save draft
                 </UButton>
                 <UButton
@@ -202,7 +221,9 @@
             <div class="mt-6 grid gap-4 md:grid-cols-2">
               <div class="rounded-2xl border border-default p-4">
                 <p class="mini-kicker">Draft</p>
-                <p class="mini-prose mt-3 text-sm">{{ editorForm.draftBody || 'Draft body is empty.' }}</p>
+                <p class="mini-prose mt-3 text-sm">
+                  {{ editorForm.draftBody || 'Draft body is empty.' }}
+                </p>
               </div>
 
               <div class="rounded-2xl border border-default p-4">
@@ -214,7 +235,10 @@
             </div>
           </template>
 
-          <div v-else class="h-full flex items-center justify-center text-sm text-[var(--mini-muted)]">
+          <div
+            v-else
+            class="h-full flex items-center justify-center text-sm text-[var(--mini-muted)]"
+          >
             Select a draft to edit it.
           </div>
         </section>
@@ -238,13 +262,37 @@ const authAction = useConvexAuthActions()
 
 const signUpFields: AuthFormField[] = [
   { name: 'name', type: 'text', label: 'Name', placeholder: 'Editor name', required: true },
-  { name: 'email', type: 'email', label: 'Email', placeholder: 'editor@example.com', required: true },
-  { name: 'password', type: 'password', label: 'Password', placeholder: 'Create a password', required: true },
+  {
+    name: 'email',
+    type: 'email',
+    label: 'Email',
+    placeholder: 'editor@example.com',
+    required: true,
+  },
+  {
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'Create a password',
+    required: true,
+  },
 ]
 
 const signInFields: AuthFormField[] = [
-  { name: 'email', type: 'email', label: 'Email', placeholder: 'editor@example.com', required: true },
-  { name: 'password', type: 'password', label: 'Password', placeholder: 'Your password', required: true },
+  {
+    name: 'email',
+    type: 'email',
+    label: 'Email',
+    placeholder: 'editor@example.com',
+    required: true,
+  },
+  {
+    name: 'password',
+    type: 'password',
+    label: 'Password',
+    placeholder: 'Your password',
+    required: true,
+  },
 ]
 
 const signUpSchema = z.object({
@@ -273,10 +321,11 @@ const editorForm = reactive({
 })
 
 const studioArgs = computed(() => (isAuthenticated.value ? {} : undefined))
-const { data: pages, pending: pagesPending, error: pagesError } = await useConvexQuery(
-  api.pages.listStudio,
-  studioArgs,
-)
+const {
+  data: pages,
+  pending: pagesPending,
+  error: pagesError,
+} = await useConvexQuery(api.pages.listStudio, studioArgs)
 
 const selectedId = ref<string | undefined>()
 
@@ -295,7 +344,9 @@ watch(
   { immediate: true },
 )
 
-const selectedPage = computed(() => pages.value?.find((page) => page._id === selectedId.value) ?? null)
+const selectedPage = computed(
+  () => pages.value?.find((page) => page._id === selectedId.value) ?? null,
+)
 
 watch(
   selectedPage,

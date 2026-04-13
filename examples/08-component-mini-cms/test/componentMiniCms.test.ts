@@ -92,9 +92,11 @@ describe('example 08 component mini cms', () => {
       name: 'Browser User',
     })
 
-    const id = await (withIdentity as {
-      mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
-    }).mutation(api.pages.create, {
+    const id = await (
+      withIdentity as {
+        mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
+      }
+    ).mutation(api.pages.create, {
       slug: 'forwarded-agent',
       title: 'Forwarded agent page',
       draftBody: 'Created by the forwarded principal',

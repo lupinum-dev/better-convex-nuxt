@@ -121,7 +121,7 @@
     "build": "pnpm run prepack",
     "build:cli": "tsc -p tsconfig.cli.json && node -e \"require('node:fs').chmodSync('dist/cli.mjs', 0o755)\"",
     "build:client": "nuxi generate client",
-    "check": "pnpm run lint && pnpm run check:publish-surface && pnpm run test:types && pnpm run test:contracts && pnpm run check:cli",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run check:publish-surface && pnpm run test:types && pnpm run test:contracts && pnpm run check:cli",
     "check:cli": "pnpm run build:cli && node dist/cli.mjs --help >/dev/null",
     "check:publish-surface": "node scripts/check-publish-specifiers.mjs && tsc -p tsconfig.publish-surface.json --noEmit",
     "prepare:types": "nuxt-module-build prepare",

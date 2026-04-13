@@ -1,9 +1,6 @@
 import { createComponentBridge } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import { components } from './_generated/api'
-import { internalMutation, internalQuery, mutation, query } from './_generated/server'
-import { principal } from './auth/principal'
 import {
   createPage,
   listDraftPages,
@@ -14,6 +11,9 @@ import {
   saveDraft,
   studioPageValidator,
 } from '../shared/schemas/page'
+import { components } from './_generated/api'
+import { internalMutation, internalQuery, mutation, query } from './_generated/server'
+import { principal } from './auth/principal'
 
 const bridge = createComponentBridge(
   {

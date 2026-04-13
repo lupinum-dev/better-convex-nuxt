@@ -59,27 +59,27 @@ const publicMutationRef = {} as FunctionReference<
   { id: string }
 >
 
-const publicQuery = bridge.query({
+const _runtimePublicQuery = bridge.query({
   component: publicQueryRef,
   args: { slug: v.string() },
 })
 
-const internalQuery = bridge.internalQuery({
+const _runtimeInternalQuery = bridge.internalQuery({
   component: queryRef,
   args: { slug: v.string() },
 })
 
-const publicMutation = bridge.mutation({
+const _runtimePublicMutation = bridge.mutation({
   component: publicMutationRef,
   args: { id: v.string() },
 })
 
-const internalMutation = bridge.internalMutation({
+const _runtimeInternalMutation = bridge.internalMutation({
   component: mutationRef,
   args: { id: v.string() },
 })
 
-const batchBridge = bridge.from({
+const _runtimeBatchBridge = bridge.from({
   publicList: {
     operation: 'query',
     component: publicQueryRef,
@@ -93,26 +93,38 @@ const batchBridge = bridge.from({
 })
 
 type _publicQuery = Assert<
-  IsEqual<typeof publicQuery, RegisteredQuery<'public', { slug: string }, Promise<{ slug: string }>>>
+  IsEqual<
+    typeof _runtimePublicQuery,
+    RegisteredQuery<'public', { slug: string }, Promise<{ slug: string }>>
+  >
 >
 type _internalQuery = Assert<
-  IsEqual<typeof internalQuery, RegisteredQuery<'internal', { slug: string }, Promise<{ ok: true }>>>
+  IsEqual<
+    typeof _runtimeInternalQuery,
+    RegisteredQuery<'internal', { slug: string }, Promise<{ ok: true }>>
+  >
 >
 type _publicMutation = Assert<
-  IsEqual<typeof publicMutation, RegisteredMutation<'public', { id: string }, Promise<{ id: string }>>>
+  IsEqual<
+    typeof _runtimePublicMutation,
+    RegisteredMutation<'public', { id: string }, Promise<{ id: string }>>
+  >
 >
 type _internalMutation = Assert<
-  IsEqual<typeof internalMutation, RegisteredMutation<'internal', { id: string }, Promise<{ ok: true }>>>
+  IsEqual<
+    typeof _runtimeInternalMutation,
+    RegisteredMutation<'internal', { id: string }, Promise<{ ok: true }>>
+  >
 >
 type _batchPublicQuery = Assert<
   IsEqual<
-    typeof batchBridge.publicList,
+    typeof _runtimeBatchBridge.publicList,
     RegisteredQuery<'public', { slug: string }, Promise<{ slug: string }>>
   >
 >
 type _batchInternalMutation = Assert<
   IsEqual<
-    typeof batchBridge.internalPublish,
+    typeof _runtimeBatchBridge.internalPublish,
     RegisteredMutation<'internal', { id: string }, Promise<{ ok: true }>>
   >
 >

@@ -26,12 +26,7 @@ export const internalHarnessPrincipalValidator = v.union(
   v.object({
     kind: v.literal('agent'),
     userId: v.string(),
-    role: v.union(
-      v.literal('owner'),
-      v.literal('admin'),
-      v.literal('member'),
-      v.literal('viewer'),
-    ),
+    role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
     tenantId: v.optional(v.string()),
     provider: v.optional(v.literal('mcp')),
   }),

@@ -1,7 +1,6 @@
+import { queryCollection } from '@nuxt/content/server'
 import type { H3Event } from 'h3'
 import { defineEventHandler } from 'h3'
-
-import { queryCollection } from '@nuxt/content/server'
 
 type SitemapMeta = {
   loc?: string

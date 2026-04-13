@@ -9,8 +9,7 @@
 }
 
 body {
-  font-family:
-    'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
   background:
     radial-gradient(circle at top left, rgba(207, 128, 86, 0.18), transparent 28rem),
     linear-gradient(180deg, #fffdf8 0%, var(--mini-shell) 100%);
@@ -67,8 +66,7 @@ body {
 
 .mini-code {
   font-family:
-    'SFMono-Regular', 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas,
-    monospace;
+    'SFMono-Regular', 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
   font-size: 0.82rem;
   background: rgba(31, 27, 22, 0.06);
   border-radius: 0.6rem;

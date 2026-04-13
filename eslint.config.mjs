@@ -11,7 +11,8 @@ export default createConfigForNuxt({
   features: {
     // Rules for module authors
     tooling: true,
-    // Rules for formatting
+    // Formatting is owned by oxfmt. Keep ESLint non-stylistic so the two tools
+    // cannot rewrite the same files in different ways.
     stylistic: false,
   },
   dirs: {

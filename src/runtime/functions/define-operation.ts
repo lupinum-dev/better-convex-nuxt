@@ -64,7 +64,6 @@ export function previewOf<
     guard: operation.guard,
     load: operation.load,
     authorize: operation.authorize,
-    handler: async (ctx, args, loaded) =>
-      await operation.preview!(ctx as TCtx, args, loaded),
+    handler: async (ctx, args, loaded) => await operation.preview!(ctx as TCtx, args, loaded),
   }
 }

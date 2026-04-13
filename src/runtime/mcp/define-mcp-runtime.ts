@@ -4,8 +4,8 @@ import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
-import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
 import { defineTool } from './define-convex-tool.js'
+import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
 import type { AnyConvexSchema, ConvexToolMiddleware, PreviewResult } from './types.js'
 
 type MaybePromise<T> = T | Promise<T>
@@ -70,9 +70,8 @@ export interface DefineMcpRuntimeOptions<
 
 type AnySchema = AnyConvexSchema
 
-type CapabilityKey<TCapabilities> = TCapabilities extends Record<string, boolean>
-  ? keyof TCapabilities & string
-  : string
+type CapabilityKey<TCapabilities> =
+  TCapabilities extends Record<string, boolean> ? keyof TCapabilities & string : string
 
 type ProjectToolMeta = {
   name?: string
@@ -138,7 +137,11 @@ export interface ProjectToolOptions<
 
 function defaultPrincipalKey(principal: unknown): string {
   if (principal === null || principal === undefined) return 'anonymous'
-  if (typeof principal === 'string' || typeof principal === 'number' || typeof principal === 'boolean') {
+  if (
+    typeof principal === 'string' ||
+    typeof principal === 'number' ||
+    typeof principal === 'boolean'
+  ) {
     return String(principal)
   }
 
@@ -166,12 +169,21 @@ async function callByOperation<TRef extends AnyFunctionRef>(
 ): Promise<FunctionReturnType<TRef>> {
   switch (operation) {
     case 'query':
-      return await convex.query(ref as AnyQueryRef, args as FunctionArgs<AnyQueryRef>) as FunctionReturnType<TRef>
+      return (await convex.query(
+        ref as AnyQueryRef,
+        args as FunctionArgs<AnyQueryRef>,
+      )) as FunctionReturnType<TRef>
     case 'action':
-      return await convex.action(ref as AnyActionRef, args as FunctionArgs<AnyActionRef>) as FunctionReturnType<TRef>
+      return (await convex.action(
+        ref as AnyActionRef,
+        args as FunctionArgs<AnyActionRef>,
+      )) as FunctionReturnType<TRef>
     case 'mutation':
     default:
-      return await convex.mutation(ref as AnyMutationRef, args as FunctionArgs<AnyMutationRef>) as FunctionReturnType<TRef>
+      return (await convex.mutation(
+        ref as AnyMutationRef,
+        args as FunctionArgs<AnyMutationRef>,
+      )) as FunctionReturnType<TRef>
   }
 }
 
@@ -179,14 +191,15 @@ export function defineMcpRuntime<
   TPrincipal,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
   TRuntime = Record<string, never>,
->(
-  options: DefineMcpRuntimeOptions<TPrincipal, TCapabilities, TRuntime>,
-) {
-  const requestCache = new WeakMap<H3Event, Promise<ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>>>()
+>(options: DefineMcpRuntimeOptions<TPrincipal, TCapabilities, TRuntime>) {
+  const requestCache = new WeakMap<
+    H3Event,
+    Promise<ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>>
+  >()
 
-  const resolve = async (event: H3Event): Promise<
-    ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>
-  > => {
+  const resolve = async (
+    event: H3Event,
+  ): Promise<ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>> => {
     let cached = requestCache.get(event)
     if (!cached) {
       cached = (async () => {

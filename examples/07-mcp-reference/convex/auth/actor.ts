@@ -16,7 +16,10 @@ type PermissionActor = DefaultActor & {
   tenantId?: Id<'workspaces'>
 }
 
-async function loadActorByAuthId(ctx: McpReferenceCtx, authId: string): Promise<PermissionActor | null> {
+async function loadActorByAuthId(
+  ctx: McpReferenceCtx,
+  authId: string,
+): Promise<PermissionActor | null> {
   const user = await ctx.db
     .query('users')
     .withIndex('by_auth_id', (q) => q.eq('authId', authId))

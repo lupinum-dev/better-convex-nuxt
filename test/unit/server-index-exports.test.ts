@@ -55,13 +55,17 @@ describe('server entrypoint exports', () => {
     const event = { __is_event__: true } as never
     const caller = serverApi.createServerConvexCaller(event)
 
-    await expect(caller.query({ _path: 'notes:list' } as never, { limit: 1 } as never)).resolves.toEqual({
+    await expect(
+      caller.query({ _path: 'notes:list' } as never, { limit: 1 } as never),
+    ).resolves.toEqual({
       ok: 'query',
     })
     await expect(
       caller.mutation({ _path: 'notes:create' } as never, { title: 'Hello' } as never),
     ).resolves.toEqual({ ok: 'mutation' })
-    await expect(caller.action({ _path: 'notes:sync' } as never, { id: 'n1' } as never)).resolves.toEqual({
+    await expect(
+      caller.action({ _path: 'notes:sync' } as never, { id: 'n1' } as never),
+    ).resolves.toEqual({
       ok: 'action',
     })
 
