@@ -105,12 +105,15 @@ That is the Vite/Vue/Nuxt version of this design:
 - shared schemas across browser/backend/MCP are a real advantage.
 - capabilities and redaction are the right shape for visibility.
 - `ginko-cms` improved materially when it moved from ambient auth and shared-secret assumptions toward explicit principal forwarding.
+- `ginko-cms` independently evolved toward the principal model this spec proposes. `CmsPrincipal = CmsAnonymousPrincipal | CmsUserPrincipal | CmsMcpPrincipal` emerged organically in `shared/principal.ts`, with `getBrowserPrincipal()` and `getMcpPrincipal()` in the Convex bridge. The downstream built what Trellis should have provided.
 
 ### What broke down
 
-- MCP identity was too user-shaped.
-- trusted-caller transport leaked into architecture.
-- MCP tools had their own access-control DSL (`auth`, `check`, `scoped`, `resolveAuth`) separate from handler auth.
+- MCP identity was too user-shaped. `McpAuthIdentity` is `{ role, userId, tenantId? }` — there is no way to represent a non-user caller.
+- trusted-caller transport leaked into architecture. `_trustedCallerKey`, `_trustedCaller`, and `_trustedCallerExpectedKey` appear in Convex function args. Business handlers touch shared secrets.
+- MCP tools had their own access-control DSL (`auth`, `check`, `scoped`, `resolveAuth`) separate from handler auth (`guard/load/authorize`). Two mental models for the same problem.
+- `ginko-cms` bypassed Trellis's MCP auth entirely — `defineCmsMcpTool` sets `auth: 'none'` and `scoped: false`, does its own auth via `requireMcpAuth()`, and uses a deploy-key admin client to call internal Convex functions. The framework's MCP auth was not usable for its primary downstream.
+- The Convex component boundary forced a 470-line auto-generated bridge file (`ginkoCmsMcp.ts`) that wraps every component function with `mcpKeyId` injection. This is the largest source of MCP boilerplate in `ginko-cms`, and the spec must address it.
 - workflow state existed only as low-level session KV, not as a modeled run identity.
 - agent permissions were executable, but not easily discoverable.
 
@@ -153,6 +156,18 @@ Rules:
 - actor resolution must be app-owned.
 - no caller supplies a final actor directly.
 
+### Design constraint: Convex delivers principal via args
+
+Convex handlers receive `(ctx, args)`. The only information channels are `ctx.auth` (browser sessions) and function arguments. There is no ambient request context, no HTTP headers, no middleware chain inside Convex.
+
+This means:
+
+- In **root-app Convex functions**: principal can come from `ctx.auth` (browser) or from args (server/MCP calls). `definePrincipal.resolve(ctx, args)` unifies both paths.
+- In **component Convex functions**: principal always comes from args, because components cannot access `ctx.auth` or `process.env`. The root app must bridge.
+- `definePrincipal` is not a transport layer — it is the app's contract for **interpreting what transport delivered** into args. The transport populates `args.principal`; the resolver reads it.
+
+This is not an open question. It is a constraint of the Convex runtime. `ginko-cms` already works this way: `contextArgs: cmsPrincipalValidators` injects the principal field, and `getActor(ctx, args)` reads `args.principal`.
+
 ### Hypothesis
 
 If Trellis models `principal` explicitly, then:
@@ -192,79 +207,141 @@ Reject this change if:
 
 ## Change 2: Unify handlers and MCP tools under one `operation` model
 
+### The hard design question
+
+Convex handlers get `ctx.db` — direct database access. MCP tool handlers get `ctx.query()/ctx.mutation()` — remote function calls over HTTP. These are fundamentally different execution contexts.
+
+A `defineOperation` that contains a single `handler` body cannot serve both without forcing apps into a repository pattern they don't want. This was the missing piece in the initial draft.
+
+### Resolution: the operation IS the Convex definition; MCP is a projection
+
+The operation contains the full Convex-side definition: args, guard, load, authorize, handler. The handler runs in Convex with DB access. `mcp.tool()` creates a thin projection that calls the registered Convex function and formats the response.
+
+This matches what `ginko-cms` already does organically: the Convex component handler has the full `guard/load/authorize/handler` pipeline, and MCP tools are thin wrappers that call the Convex function and format responses. The MCP tool does not duplicate business logic — it delegates.
+
 ### Spec
 
-Introduce a shared operation definition layer:
+Define the operation as a Convex-side unit:
 
 ```ts
-const createPost = defineOperation({
-  args: createPostArgs,
-  guard: canCreatePost,
+const publishPost = defineOperation({
+  args: publishPostArgs,
+  guard: canPublishPost,
   load: async (ctx, args) => { ... },
   authorize: { check: (actor, loaded) => ... },
-  preview: async (ctx, args, loaded) => ...,
   handler: async (ctx, args, loaded) => { ... },
 })
 ```
 
-Then expose thin adapters:
+Register it as a Convex function:
 
 ```ts
-app.query(createPostReadOperation)
-app.mutation(createPost)
-mcp.tool(createPost)
-server.action(createPost)
+export const publish = app.mutation(publishPost)
 ```
 
-Adapter responsibilities:
+Project it as an MCP tool — the adapter calls the registered Convex function, no handler body needed:
 
-- browser/server adapters choose transport shape
-- MCP adapter adds result envelope, confirmation gate, tool metadata
-- backend app adapter binds to Convex builder
+```ts
+export default mcp.tool(publish, {
+  name: 'publish-post',
+  destructive: true,
+  preview: async (args, ctx) => `Publish "${args.title}"`,
+})
+```
+
+For public/read operations with no guard:
+
+```ts
+const listPosts = defineOperation({
+  args: listPostsArgs,
+  guard: open,
+  handler: async (ctx, args) => { ... },
+})
+
+export const list = app.query(listPosts)
+export default mcp.tool(list, { name: 'list-posts' })
+```
+
+This spec intentionally does **not** lock in `mcp.tool(functionRef)` as the only valid public API.
+The important requirement is architectural:
+
+- the MCP surface projects an existing protected Convex operation
+- the MCP surface does not duplicate business handler bodies
+- metadata stays explicit enough to review and debug
+
+The final API might be:
+
+- `mcp.tool(functionRef, metadata)`
+- `mcp.project(operation, functionRef, metadata)`
+- or another thin projection helper
+
+The MCP adapter's responsibilities:
+
+- resolve principal from MCP auth, forward to Convex function via principal args
+- wrap response in structured envelope (`ok/error`)
+- add confirmation gate for destructive tools
+- derive tool visibility from operation's guard metadata
+- add tool-specific metadata (name, annotations, input examples)
 
 What disappears:
 
-- separate MCP auth DSL for the same business operation
+- separate MCP auth DSL (`auth`, `check`, `scoped`, `resolveAuth`) for the same business operation
 - duplicated safety concepts expressed differently in handlers vs tools
+- hand-written MCP handler bodies that just call Convex functions
+- in `ginko-cms`: much of the 470-line auto-generated `ginkoCmsMcp.ts` bridge file and the `defineCmsMcpTool` wrapper
+
+### Non-Convex MCP tools
+
+Tools that are not Convex-backed (filesystem operations, external API calls, MCP-native functionality) cannot use `defineOperation`. A standalone tool definition API remains necessary for these. The current `defineTool()` shape is appropriate here — it just stops being the primary path for Convex-backed business operations.
 
 ### Hypothesis
 
 If Trellis uses one operation model, then:
 
 - app and MCP access control become the same design problem
-- MCP tools become smaller and less bespoke
+- MCP tools become generated projections, not hand-written wrappers
 - permission bugs caused by drift between handler and tool definitions decrease
+- the largest boilerplate in downstream packages (MCP bridge files) can shrink dramatically
 
 ### Gains
 
 - one mental model
 - one review surface
-- easier code sharing
-- smaller downstream MCP wrappers
+- MCP tools as thin metadata/projection, not duplicated business code
+- smaller downstream packages
 
 ### Tradeoffs
 
 - some existing `defineTool()` ergonomics will need rethinking
-- tools that are not Convex-backed still need a generic path
+- non-Convex MCP tools use a separate path
 - migration will be a hard cut for current MCP helper APIs
+- the final MCP projection API must resolve principal and call Convex functions — this transport work needs to be correct and debuggable
 
 ### Rejection criteria
 
 Reject if:
 
 - the shared operation abstraction becomes too generic and loses clarity
-- generic MCP-only tools become awkward
+- non-Convex MCP tools become awkward or second-class
 - adapters require too much hidden magic to stay ergonomic
+- public/guard-free operations gain ceremony compared to today's `app.query({...})`
 
 ### Proof requirements
 
-- one real business action can be exposed as browser mutation and MCP tool from the same definition
-- tool-specific concerns remain additive, not dominant
-- the new API deletes net code in a real downstream package
+- one real business action can be exposed as browser mutation and MCP tool from the same operation definition
+- the MCP tool requires only metadata (name, destructive flag), not a handler body
+- tool-specific concerns (preview, confirmation) remain additive, not dominant
+- the new API deletes net code in `ginko-cms`
+- bridge code becomes materially smaller even if some component-boundary mapping still remains
+- a public read operation (no auth, no guard) works with no more ceremony than today
 
 ---
 
 ## Change 3: Demote trusted caller from architecture to transport
+
+### Current state: ginko-cms already validates this
+
+`ginko-cms` disabled Trellis's trusted-caller (`trustedCaller: false`) and built its own principal forwarding via `contextArgs: cmsPrincipalValidators`. The component's `getActor(ctx, args)` reads `args.principal` — it never touches `_trustedCallerKey` or shared secrets. This proof requirement is already passing in production code.
 
 ### Spec
 
@@ -289,6 +366,29 @@ Not:
 inject _trustedCaller into business args
 ```
 
+### The Convex component boundary
+
+The component boundary is `ginko-cms`'s largest practical constraint. Components cannot access `process.env` or browser auth. The root app must bridge every call.
+
+Today this means:
+
+1. The root app reads browser auth or MCP auth → constructs a principal
+2. The root app calls the component function with the principal in args
+3. The component resolves actor from the principal
+
+In the current system, this bridging is split across:
+
+- `convex/ginkoCms/_principal.ts` — `browserComponentQuery`, `browserComponentMutation`, `internalMcpComponentQuery`, `internalMcpComponentMutation`
+- `convex/ginkoCmsMcp.ts` — 470 lines of auto-generated wrappers, one per MCP operation
+- `src/runtime/server/mcp/_shared/internal-convex.ts` — deploy-key admin client for MCP → Convex calls
+
+The dream-state version:
+
+- `createApp` accepts `principal` and `contextArgs` at the Trellis level
+- the MCP adapter constructs and forwards the principal automatically
+- component bridge functions are generated from operation definitions, or reduced to thin mappings when the MCP projection API handles the call directly
+- no shared secrets in business args — the deploy key or trusted-caller verification stays in the transport adapter
+
 ### Hypothesis
 
 If trusted caller stops being a first-class business concept, then:
@@ -296,18 +396,21 @@ If trusted caller stops being a first-class business concept, then:
 - components and internal wrappers become simpler
 - shared-secret transport can be replaced per environment without redesign
 - apps can move between server auth strategies without rewriting authorization logic
+- the bridge file boilerplate in component-based packages shrinks dramatically, even if some root-app forwarding remains unavoidable
 
 ### Gains
 
 - clearer separation of concerns
 - less secret leakage into business interfaces
 - less Convex-args auth ceremony
+- fewer auto-generated bridge files
 
 ### Tradeoffs
 
 - transport layers need more explicit responsibility
 - old examples/docs become obsolete
 - some current convenience helpers disappear
+- the Convex component boundary still requires principal in args — this is a Convex constraint, not a Trellis design choice
 
 ### Rejection criteria
 
@@ -315,15 +418,23 @@ Reject if:
 
 - explicit principal transport creates more duplication than current trusted-caller injection
 - component/server boundaries still require secrets in args
+- the component bridge file cannot be significantly reduced
 
 ### Proof requirements
 
 - a full MCP flow can authenticate and execute without any business handler reading trusted-caller args
 - a root-app -> component call can use explicit principal forwarding without shared-secret verification in component business code
+- `ginko-cms`'s bridge file (`ginkoCmsMcp.ts`) is reduced to a thin, non-auth-aware mapping, or absorbed into a Trellis-owned projection path
 
 ---
 
 ## Change 4: Add `AgentRun` as the single workflow-state primitive
+
+**Status: Deferred until a real use case forces the shape.**
+
+Changes 1–3 and 5 are all driven by demonstrated pain in the current codebase. `AgentRun` is not — `ginko-cms` does not use `useMcpSession()`, and no downstream has yet built ad hoc run tracking that this would replace. The primitive is directionally right, but designing it without a forcing function risks building the wrong abstraction.
+
+Include this change when a real multi-step agent workflow in `ginko-cms` or a consumer app demonstrates the need. Until then, keep `useMcpSession()` as the low-level escape hatch.
 
 ### Spec
 
@@ -514,8 +625,13 @@ Reject if:
 ## Backend runtime
 
 ```ts
+// Principal resolution: interprets what transport delivered into args
 const principal = definePrincipal({
-  resolve: async (ctx, args) => { ... },
+  resolve: async (ctx, args) => {
+    // Browser: derive from ctx.auth
+    // Server/MCP: read from args.principal (populated by transport adapter)
+    // Component: always from args.principal
+  },
 })
 
 const actor = defineActor({
@@ -529,38 +645,58 @@ const { app, mcp } = createApp(query, mutation, {
 })
 ```
 
-## Shared operation
+## Protected operation (guard + load + authorize + handler)
 
 ```ts
 export const publishPost = defineOperation({
   args: publishPostArgs,
   guard: canPublishPost,
-  load: async (ctx, args) => { ... },
-  authorize: {
-    check: (actor, loaded) => ...
+  load: async (ctx, args) => {
+    const post = await ctx.db.get(args.postId)
+    return { post }
   },
-  preview: async (ctx, args, loaded) => ({
-    summary: `Publish "${loaded.post.title}"`,
-  }),
+  authorize: {
+    check: (actor, loaded) => isOwner(actor, loaded.post),
+  },
   handler: async (ctx, args, loaded) => { ... },
 })
 ```
 
-## Adapters
+## Public operation (no auth, no guard)
 
 ```ts
-export const publish = app.mutation(publishPost)
-export default mcp.tool(publishPost, {
-  name: 'publish-post',
-  destructive: true,
+export const listPosts = defineOperation({
+  args: listPostsArgs,
+  guard: open,
+  handler: async (ctx, args) => { ... },
 })
 ```
 
-## Workflow state
+## Convex registration + MCP projection
 
 ```ts
-const run = useAgentRun()
-await run.set('draftPlan', plan)
+// Convex: register as a mutation (handler runs here with ctx.db)
+export const publish = app.mutation(publishPost)
+
+// MCP: thin projection — calls the Convex function, no handler body needed
+export default mcp.tool(publish, {
+  name: 'publish-post',
+  destructive: true,
+  preview: async (args, ctx) => `Publish "${args.title}"`,
+})
+
+// Public read — equally simple
+export default mcp.tool(list, { name: 'list-posts' })
+```
+
+## Non-Convex MCP tool (standalone, for tools that don't wrap Convex operations)
+
+```ts
+export default defineTool({
+  name: 'check-dns',
+  schema: checkDnsSchema,
+  handler: async (args, ctx) => { ... },
+})
 ```
 
 ## Discoverability
@@ -594,12 +730,13 @@ This spec assumes a hard cut, not a compatibility layer.
 
 - replace old MCP auth model with principal-based model
 - remove `scoped` and user-shaped MCP auth assumptions
-- add `useAgentRun`
-
-### Phase 4
-
 - integrate capability introspection
 - move docs/examples to agent-first language
+
+### Phase 4 (deferred until use-case-driven)
+
+- add `useAgentRun` when a real multi-step agent workflow forces the shape
+- replace in-memory MCP infrastructure with storage-backed interfaces when production agent traffic demands it
 
 ### Hard-cut rule
 
@@ -623,6 +760,13 @@ Rebuild the current `ginko-cms` MCP stack against the new primitives and verify:
 - no secrets in business args
 - explicit principal-derived actor resolution
 - no separate MCP auth DSL
+
+Behavior targets:
+
+- bridge code is materially smaller
+- MCP auth is resolved by Trellis primitives instead of package-local wrappers
+- individual MCP tool files become metadata/projection only, not duplicated handler logic
+- downstream principal types can either collapse into Trellis `Principal` or become thin app aliases over it
 
 Success metric:
 
@@ -656,31 +800,54 @@ Interview the API using the Trellis philosophy test:
 
 If the answer is no, the design is wrong.
 
+## Proof track E: Component boundary
+
+Verify that Convex component packages can use the new primitives without excessive bridging:
+
+- a component can accept `Principal` as a standard arg type
+- the root app can forward principal to a component without auto-generating per-function wrappers
+- the MCP projection API can target a component function through the root app without a large manual bridge layer
+- the pattern works for both public (no principal) and authenticated (principal required) operations
+
 ---
 
 ## 10. Open Questions
 
-These are real design questions, not placeholders:
+### Resolved
 
-1. Should `principal` be resolved entirely in transport, or can Convex handlers derive it from args plus context?
-2. Should `service` and `agent` remain separate principal kinds, or should `agent` be a specialization of `service`?
-3. Should capability introspection be explicit opt-in or always derivable from named guards?
-4. Should `useAgentRun()` be MCP-only at first, or generic across scheduled/internal workflows?
-5. Should `defineOperation` be the only way to define protected actions, or should low-level structured handlers remain publicly available?
+1. ~~Should `principal` be resolved entirely in transport, or can Convex handlers derive it from args plus context?~~
+   **Resolved: Convex handlers derive principal from args.** This is a constraint of the Convex runtime, not a design choice. Transport populates `args.principal`; `definePrincipal.resolve(ctx, args)` interprets it. See Change 1, "Design constraint."
+
+2. ~~Should `defineOperation` be the only way to define protected actions, or should low-level structured handlers remain publicly available?~~
+   **Resolved: both remain available.** This follows Trellis's progressive disclosure philosophy. Simple apps that only use browser access should not be forced into the operation model. `defineOperation` is for operations that need to be projected into multiple surfaces. Direct `app.query`/`app.mutation` with `guard/load/authorize` remains the simple path.
+
+### Open
+
+3. Should `service` and `agent` remain separate principal kinds, or should `agent` be a specialization of `service`? (Leaning toward separate: a service is machine-to-machine with no session; an agent has a session, may act on behalf of someone, and has different authorization profiles.)
+4. Should capability introspection be explicit opt-in or always derivable from named guards?
+5. Should `useAgentRun()` be MCP-only at first, or generic across scheduled/internal workflows? (Deferred — see Change 4.)
+6. What is the right public MCP projection API? Is it `mcp.tool(functionRef, metadata)`, `mcp.project(operation, functionRef, metadata)`, or something else?
+7. How should the MCP projection API resolve principal and call the Convex function? Does it use the deploy key (like `ginko-cms` today), the trusted-caller transport, or a new mechanism?
+8. Can the MCP projection API derive tool metadata (description, arg schema, annotations) from the operation definition, or does some metadata always need to be specified at the tool site?
+9. Should the component bridge pattern (`browserComponentQuery`, `internalMcpComponentQuery`) be absorbed into Trellis, or remain app-owned? `ginko-cms` built these independently — if other component-based packages need them, Trellis should own them.
 
 ---
 
 ## 11. Decision Summary
 
-### We should do
+### We should do now
 
-- principal-first runtime
-- actor as app-owned projection
-- shared operation model
-- trusted caller as transport detail
-- single workflow-state primitive
+- principal-first runtime (empirically validated by `ginko-cms`)
+- actor as app-owned projection (already working in `ginko-cms`)
+- shared operation model with MCP as projection
+- trusted caller as transport detail (already proven by `ginko-cms` disabling it)
 - capability discoverability
-- storage-backed infrastructure interfaces
+- drastically reduce component bridge boilerplate, without assuming it can always disappear completely
+
+### We should do when use cases demand it
+
+- `AgentRun` workflow-state primitive (deferred until a forcing function appears)
+- storage-backed infrastructure interfaces (deferred until production agent traffic)
 
 ### We should not do
 
@@ -689,6 +856,7 @@ These are real design questions, not placeholders:
 - more secret-based business interfaces
 - dual-path long-term API compatibility
 - agent abstractions that bypass app-owned authorization
+- a single handler body that tries to work in both Convex and Nitro contexts
 
 ---
 
