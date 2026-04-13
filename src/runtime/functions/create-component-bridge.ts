@@ -2,11 +2,14 @@ import { customMutation, customQuery, type Customization } from 'convex-helpers/
 import type {
   FunctionVisibility,
   FunctionReference,
+  FunctionReturnType,
   GenericDataModel,
   GenericMutationCtx,
   GenericQueryCtx,
   MutationBuilder,
   QueryBuilder,
+  RegisteredMutation,
+  RegisteredQuery,
 } from 'convex/server'
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
@@ -50,6 +53,81 @@ type BridgeDefinition<TRef extends AnyFunctionRef> = {
   args: PropertyValidators
   returns?: GenericValidator
   component: TRef
+}
+
+type QueryBridgeBatchDefinition<TRef extends QueryRef = QueryRef> = BridgeDefinition<TRef> & {
+  operation: 'query'
+}
+
+type MutationBridgeBatchDefinition<TRef extends MutationRef = MutationRef> = BridgeDefinition<TRef> & {
+  operation: 'mutation'
+}
+
+type InternalQueryBridgeBatchDefinition<TRef extends QueryRef = QueryRef> = BridgeDefinition<TRef> & {
+  operation: 'internalQuery'
+}
+
+type InternalMutationBridgeBatchDefinition<TRef extends MutationRef = MutationRef> =
+  BridgeDefinition<TRef> & {
+    operation: 'internalMutation'
+  }
+
+type BridgeBatchDefinition =
+  | QueryBridgeBatchDefinition
+  | MutationBridgeBatchDefinition
+  | InternalQueryBridgeBatchDefinition
+  | InternalMutationBridgeBatchDefinition
+
+type BridgeBatchDefinitions = Record<string, BridgeBatchDefinition>
+
+type BridgeBatchResult<
+  TDefinitions extends BridgeBatchDefinitions,
+  QueryVisibility extends FunctionVisibility,
+  MutationVisibility extends FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility,
+  InternalMutationVisibility extends FunctionVisibility,
+> = {
+  [Key in keyof TDefinitions]: TDefinitions[Key] extends {
+    operation: 'query'
+    args: infer TArgs extends PropertyValidators
+    component: infer TRef extends QueryRef
+  }
+    ? RegisteredQuery<
+        QueryVisibility,
+        ObjectType<TArgs>,
+        Promise<FunctionReturnType<TRef>>
+      >
+    : TDefinitions[Key] extends {
+          operation: 'mutation'
+          args: infer TArgs extends PropertyValidators
+          component: infer TRef extends MutationRef
+        }
+      ? RegisteredMutation<
+          MutationVisibility,
+          ObjectType<TArgs>,
+          Promise<FunctionReturnType<TRef>>
+        >
+      : TDefinitions[Key] extends {
+            operation: 'internalQuery'
+            args: infer TArgs extends PropertyValidators
+            component: infer TRef extends QueryRef
+          }
+        ? RegisteredQuery<
+            InternalQueryVisibility,
+            ObjectType<TArgs>,
+            Promise<FunctionReturnType<TRef>>
+          >
+        : TDefinitions[Key] extends {
+              operation: 'internalMutation'
+              args: infer TArgs extends PropertyValidators
+              component: infer TRef extends MutationRef
+            }
+          ? RegisteredMutation<
+              InternalMutationVisibility,
+              ObjectType<TArgs>,
+              Promise<FunctionReturnType<TRef>>
+            >
+          : never
 }
 
 function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
@@ -140,53 +218,96 @@ export function createComponentBridge<
   const internalQuery = customQuery(builders.internalQuery, customization.query)
   const internalMutation = customMutation(builders.internalMutation, customization.mutation)
 
+  const registerQuery = <TRef extends QueryRef>(definition: BridgeDefinition<TRef>) =>
+    query({
+      args: definition.args,
+      returns: definition.returns,
+      handler: async (ctx, args: ObjectType<typeof definition.args>) =>
+        await ctx.runQuery(definition.component, {
+          ...args,
+          principal: await ctx.principal(),
+        } as never),
+    })
+
+  const registerMutation = <TRef extends MutationRef>(definition: BridgeDefinition<TRef>) =>
+    mutation({
+      args: definition.args,
+      returns: definition.returns,
+      handler: async (ctx, args: ObjectType<typeof definition.args>) =>
+        await ctx.runMutation(definition.component, {
+          ...args,
+          principal: await ctx.principal(),
+        } as never),
+    })
+
+  const registerInternalQuery = <TRef extends QueryRef>(definition: BridgeDefinition<TRef>) =>
+    internalQuery({
+      args: definition.args,
+      returns: definition.returns,
+      handler: async (ctx, args: ObjectType<typeof definition.args>) =>
+        await ctx.runQuery(definition.component, {
+          ...args,
+          principal: await ctx.principal(),
+        } as never),
+    })
+
+  const registerInternalMutation = <TRef extends MutationRef>(definition: BridgeDefinition<TRef>) =>
+    internalMutation({
+      args: definition.args,
+      returns: definition.returns,
+      handler: async (ctx, args: ObjectType<typeof definition.args>) =>
+        await ctx.runMutation(definition.component, {
+          ...args,
+          principal: await ctx.principal(),
+        } as never),
+    })
+
   return {
     query<TRef extends QueryRef>(definition: BridgeDefinition<TRef>) {
-      return query({
-        args: definition.args,
-        returns: definition.returns,
-        handler: async (ctx, args: ObjectType<typeof definition.args>) =>
-          await ctx.runQuery(definition.component, {
-            ...args,
-            principal: await ctx.principal(),
-          } as never),
-      })
+      return registerQuery(definition)
     },
 
     mutation<TRef extends MutationRef>(definition: BridgeDefinition<TRef>) {
-      return mutation({
-        args: definition.args,
-        returns: definition.returns,
-        handler: async (ctx, args: ObjectType<typeof definition.args>) =>
-          await ctx.runMutation(definition.component, {
-            ...args,
-            principal: await ctx.principal(),
-          } as never),
-      })
+      return registerMutation(definition)
     },
 
     internalQuery<TRef extends QueryRef>(definition: BridgeDefinition<TRef>) {
-      return internalQuery({
-        args: definition.args,
-        returns: definition.returns,
-        handler: async (ctx, args: ObjectType<typeof definition.args>) =>
-          await ctx.runQuery(definition.component, {
-            ...args,
-            principal: await ctx.principal(),
-          } as never),
-      })
+      return registerInternalQuery(definition)
     },
 
     internalMutation<TRef extends MutationRef>(definition: BridgeDefinition<TRef>) {
-      return internalMutation({
-        args: definition.args,
-        returns: definition.returns,
-        handler: async (ctx, args: ObjectType<typeof definition.args>) =>
-          await ctx.runMutation(definition.component, {
-            ...args,
-            principal: await ctx.principal(),
-          } as never),
+      return registerInternalMutation(definition)
+    },
+
+    from<TDefinitions extends BridgeBatchDefinitions>(
+      definitions: TDefinitions,
+    ): BridgeBatchResult<
+      TDefinitions,
+      QueryVisibility,
+      MutationVisibility,
+      InternalQueryVisibility,
+      InternalMutationVisibility
+    > {
+      const entries = Object.entries(definitions).map(([name, definition]) => {
+        switch (definition.operation) {
+          case 'query':
+            return [name, registerQuery(definition)]
+          case 'mutation':
+            return [name, registerMutation(definition)]
+          case 'internalQuery':
+            return [name, registerInternalQuery(definition)]
+          case 'internalMutation':
+            return [name, registerInternalMutation(definition)]
+        }
       })
+
+      return Object.fromEntries(entries) as BridgeBatchResult<
+        TDefinitions,
+        QueryVisibility,
+        MutationVisibility,
+        InternalQueryVisibility,
+        InternalMutationVisibility
+      >
     },
   }
 }

@@ -79,6 +79,19 @@ const internalMutation = bridge.internalMutation({
   args: { id: v.string() },
 })
 
+const batchBridge = bridge.from({
+  publicList: {
+    operation: 'query',
+    component: publicQueryRef,
+    args: { slug: v.string() },
+  },
+  internalPublish: {
+    operation: 'internalMutation',
+    component: mutationRef,
+    args: { id: v.string() },
+  },
+})
+
 type _publicQuery = Assert<
   IsEqual<typeof publicQuery, RegisteredQuery<'public', { slug: string }, Promise<{ slug: string }>>>
 >
@@ -91,6 +104,18 @@ type _publicMutation = Assert<
 type _internalMutation = Assert<
   IsEqual<typeof internalMutation, RegisteredMutation<'internal', { id: string }, Promise<{ ok: true }>>>
 >
+type _batchPublicQuery = Assert<
+  IsEqual<
+    typeof batchBridge.publicList,
+    RegisteredQuery<'public', { slug: string }, Promise<{ slug: string }>>
+  >
+>
+type _batchInternalMutation = Assert<
+  IsEqual<
+    typeof batchBridge.internalPublish,
+    RegisteredMutation<'internal', { id: string }, Promise<{ ok: true }>>
+  >
+>
 
 bridge.query({
   // @ts-expect-error query bridge must reject mutation refs
@@ -102,4 +127,22 @@ bridge.internalMutation({
   // @ts-expect-error mutation bridge must reject query refs
   component: queryRef,
   args: { slug: v.string() },
+})
+
+bridge.from({
+  // @ts-expect-error query batch bridge must reject mutation refs
+  invalidQuery: {
+    operation: 'query',
+    component: mutationRef,
+    args: { id: v.string() },
+  },
+})
+
+bridge.from({
+  // @ts-expect-error mutation batch bridge must reject query refs
+  invalidMutation: {
+    operation: 'internalMutation',
+    component: queryRef,
+    args: { slug: v.string() },
+  },
 })

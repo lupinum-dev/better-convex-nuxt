@@ -187,6 +187,9 @@ npx trellis init permissions --model workspace-mcp
 npx trellis init mcp
 ```
 
+These commands generate plain app-owned files such as `convex/auth/principal.ts`,
+`convex/auth/actor.ts`, `convex/functions.ts`, and `server/mcp/runtime.ts`. Edit them directly.
+
 ## Contributing
 
 ```bash

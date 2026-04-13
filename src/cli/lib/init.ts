@@ -153,28 +153,137 @@ export const getPermissionContext = app.query(
 
 function workspaceActorTemplate() {
   return `
-import { defineActor, type DefaultActor } from '@lupinum/trellis/auth'
+import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-export type Role = 'owner' | 'admin' | 'member' | 'viewer'
+import type { DataModel, Id } from '../_generated/dataModel'
+import type { Role, WorkspacePrincipal } from './principal'
 
-type WorkspaceActor = DefaultActor & {
+type WorkspaceCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+
+export type Actor = DefaultActor & {
   role: Role
-  tenantId: string
+  tenantId: Id<'workspaces'>
 }
 
-const actor = defineActor
-  .fromAuth()
-  .extend({
-    fields: async (_ctx, user) => ({
-      role: (user.role ?? 'member') as Role,
-      tenantId: user.workspaceId as string | undefined,
-    }),
-  })
-  .filter((value): value is WorkspaceActor => !!value.tenantId)
+export type PermissionActor = DefaultActor & {
+  role: Role
+  tenantId?: Id<'workspaces'>
+}
 
-export type Actor = typeof actor.type | null
+async function loadActorByAuthId(ctx: WorkspaceCtx, authId: string): Promise<PermissionActor | null> {
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
+    .first()
 
-export const getActor = actor.resolve
+  if (!user) return null
+
+  return {
+    kind: 'user',
+    userId: user.authId,
+    role: user.role as Role,
+    tenantId: user.workspaceId as Id<'workspaces'> | undefined,
+  }
+}
+
+export async function getActorFromPrincipal(
+  ctx: WorkspaceCtx,
+  _args: Record<string, unknown>,
+  principal: WorkspacePrincipal,
+): Promise<Actor | null> {
+  switch (principal.kind) {
+    case 'anonymous':
+      return null
+    case 'agent':
+      return principal.tenantId
+        ? {
+            kind: 'user',
+            userId: principal.userId,
+            role: principal.role,
+            tenantId: principal.tenantId,
+          }
+        : null
+    case 'user': {
+      const actor = await loadActorByAuthId(ctx, principal.userId)
+      return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
+    }
+  }
+}
+
+export async function getPermissionActor(ctx: WorkspaceCtx): Promise<PermissionActor | null> {
+  const auth = await getAuth(ctx)
+  if (!auth) return null
+  return await loadActorByAuthId(ctx, auth.subject)
+}
+
+export async function getActor(ctx: WorkspaceCtx): Promise<Actor | null> {
+  const actor = await getPermissionActor(ctx)
+  return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
+}
+`.trimStart()
+}
+
+function workspacePrincipalTemplate() {
+  return `
+import { getAuth } from '@lupinum/trellis/auth'
+import { definePrincipal } from '@lupinum/trellis/functions'
+import { v } from 'convex/values'
+
+import type { Doc, Id } from '../_generated/dataModel'
+
+export type Role = Doc<'users'>['role']
+
+export type WorkspacePrincipal =
+  | { kind: 'anonymous' }
+  | { kind: 'user'; userId: string }
+  | {
+      kind: 'agent'
+      userId: string
+      role: Role
+      tenantId?: Id<'workspaces'>
+      provider?: 'mcp'
+    }
+
+export const workspacePrincipalValidator = v.union(
+  v.object({
+    kind: v.literal('anonymous'),
+  }),
+  v.object({
+    kind: v.literal('user'),
+    userId: v.string(),
+  }),
+  v.object({
+    kind: v.literal('agent'),
+    userId: v.string(),
+    role: v.union(
+      v.literal('owner'),
+      v.literal('admin'),
+      v.literal('member'),
+      v.literal('viewer'),
+    ),
+    tenantId: v.optional(v.id('workspaces')),
+    provider: v.optional(v.literal('mcp')),
+  }),
+)
+
+export const principal = definePrincipal({
+  validator: workspacePrincipalValidator,
+  resolve: async (ctx, args): Promise<WorkspacePrincipal> => {
+    const forwarded = (args as { principal?: WorkspacePrincipal }).principal
+    if (forwarded) return forwarded
+
+    const auth = await getAuth(ctx)
+    if (!auth) {
+      return { kind: 'anonymous' }
+    }
+
+    return {
+      kind: 'user',
+      userId: auth.subject,
+    }
+  },
+})
 `.trimStart()
 }
 
@@ -183,10 +292,12 @@ function workspaceFunctionsTemplate() {
 import { createApp } from '@lupinum/trellis/functions'
 
 import { mutation, query } from './_generated/server'
-import { getActor } from './auth/actor'
+import { getActorFromPrincipal } from './auth/actor'
+import { principal } from './auth/principal'
 
 export const { app, raw } = createApp({ query, mutation }, {
-  actor: getActor,
+  principal,
+  actor: getActorFromPrincipal,
   // Add tenantIsolation only for tables that actually store the tenant field.
   // Example:
   // tenantIsolation: {
@@ -202,13 +313,22 @@ function workspaceChecksTemplate() {
   return `
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { Actor, Role } from './actor'
+import type { PermissionActor } from './actor'
+import type { Role } from './principal'
 
-export const isAuthenticated = defineGuard<Actor>('authenticated', (actor) => actor !== null)
+export const isAuthenticated = defineGuard<PermissionActor>(
+  'authenticated',
+  (actor) => actor !== null,
+)
+
+export const hasWorkspace = defineGuard<PermissionActor>(
+  'workspace-member',
+  (actor) => !!actor?.tenantId,
+)
 
 export const hasMinimumRole = (minimum: Role) =>
-  defineGuard<Actor>(\`role>=\${minimum}\`, (actor) => {
-    if (!actor) return false
+  defineGuard<PermissionActor>(\`role>=\${minimum}\`, (actor) => {
+    if (!actor?.tenantId) return false
 
     const ranks: Record<Role, number> = {
       owner: 4,
@@ -221,11 +341,14 @@ export const hasMinimumRole = (minimum: Role) =>
   })
 
 export const isWorkspaceMember = (tenantId: string) =>
-  defineGuard<Actor>(\`workspace:\${tenantId}\`, (actor) => !!actor && actor.tenantId === tenantId)
+  defineGuard<PermissionActor>(
+    \`workspace:\${tenantId}\`,
+    (actor) => !!actor?.tenantId && actor.tenantId === tenantId,
+  )
 
-export const canManageWorkspace = defineGuard<Actor>(
+export const canManageWorkspace = defineGuard<PermissionActor>(
   'manage-workspace',
-  hasMinimumRole('admin'),
+  hasWorkspace.and(hasMinimumRole('admin')),
 )
 `.trimStart()
 }
@@ -234,18 +357,18 @@ function workspacePermissionQueryTemplate() {
   return `
 import { defineGuard, definePermissionContext } from '@lupinum/trellis/auth'
 
-import { getActor } from './auth/actor'
-import { hasMinimumRole, isAuthenticated } from './auth/checks'
+import { getPermissionActor } from './auth/actor'
+import { hasMinimumRole, hasWorkspace, isAuthenticated } from './auth/checks'
 import { app } from './functions'
 
-const canCreateTodo = defineGuard('todo.create', hasMinimumRole('member'))
+const canCreateTodo = defineGuard('todo.create', hasWorkspace.and(hasMinimumRole('member')))
 
 export const getPermissionContext = app.query(
   definePermissionContext({
-    resolve: getActor,
+    resolve: getPermissionActor,
     guards: {
       'workspace.read': isAuthenticated,
-      'workspace.members': hasMinimumRole('admin'),
+      'workspace.members': hasWorkspace.and(hasMinimumRole('admin')),
       'todo.create': canCreateTodo,
     },
   }),
@@ -260,6 +383,7 @@ import { createHash } from 'node:crypto'
 import { defineEventHandler, getHeader, createError } from 'h3'
 
 import { api } from '#trellis/api'
+import { serverConvexQuery } from '@lupinum/trellis/server'
 
 export default defineEventHandler(async (event) => {
   const header = getHeader(event, 'authorization')
@@ -280,6 +404,59 @@ export default defineEventHandler(async (event) => {
 
   event.context.mcpAuth = key
 })
+`.trimStart()
+}
+
+function mcpRuntimeTemplate() {
+  return `
+import { defineMcpRuntime } from '@lupinum/trellis/mcp'
+import { createServerConvexCaller } from '@lupinum/trellis/server'
+import type { H3Event } from 'h3'
+
+import type { Id } from '~/convex/_generated/dataModel'
+import type { WorkspacePrincipal } from '~/convex/auth/principal'
+
+type McpAuthContext = {
+  userId?: string
+  role?: 'owner' | 'admin' | 'member' | 'viewer'
+  tenantId?: string
+}
+
+function getMcpPrincipal(event: H3Event): WorkspacePrincipal {
+  const auth = event.context.mcpAuth as McpAuthContext | undefined
+  if (!auth?.userId || !auth.role) {
+    return { kind: 'anonymous' }
+  }
+
+  return {
+    kind: 'agent',
+    userId: auth.userId,
+    role: auth.role,
+    tenantId: auth.tenantId as Id<'workspaces'> | undefined,
+    provider: 'mcp',
+  }
+}
+
+function canWrite(role: NonNullable<McpAuthContext['role']>) {
+  return role === 'owner' || role === 'admin' || role === 'member'
+}
+
+export const mcpRuntime = defineMcpRuntime<WorkspacePrincipal>({
+  callConvex: async (event) => createServerConvexCaller(event),
+  resolvePrincipal: async (event) => getMcpPrincipal(event),
+  resolveCapabilities: async ({ principal }) => ({
+    // Map projected tool names to booleans here.
+    // Keep this coarse. Convex still owns business authorization.
+    // Example:
+    // listTodos: principal.kind === 'agent' && !!principal.tenantId,
+    // createTodo: principal.kind === 'agent' && canWrite(principal.role),
+  }),
+  principalKey: (principal) =>
+    principal.kind === 'agent' ? \`\${principal.userId}:\${principal.tenantId ?? 'none'}\` : principal.kind,
+})
+
+// Project root internal refs or bridge refs from tool files.
+export const projectTool = mcpRuntime.projectTool
 `.trimStart()
 }
 
@@ -397,6 +574,11 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
       description: 'Scaffold workspace permission policy files',
       files: [
         {
+          path: 'convex/auth/principal.ts',
+          content: workspacePrincipalTemplate(),
+          ownership: 'authored',
+        },
+        {
           path: 'convex/auth/actor.ts',
           content: workspaceActorTemplate(),
           ownership: 'authored',
@@ -431,6 +613,11 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
         {
           path: 'server/middleware/mcp-auth.ts',
           content: mcpMiddlewareTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'server/mcp/runtime.ts',
+          content: mcpRuntimeTemplate(),
           ownership: 'authored',
         },
       ],

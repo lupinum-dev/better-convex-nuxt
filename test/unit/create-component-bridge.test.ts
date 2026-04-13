@@ -66,5 +66,57 @@ describe('createComponentBridge', () => {
       principal,
     })
   })
-})
 
+  it('forwards the resolved principal unchanged when bridge entries are declared in batch', async () => {
+    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+
+    const principal = { kind: 'service', service: 'mcp' } as const
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({
+            kind: v.literal('service'),
+            service: v.string(),
+          }),
+          resolve: async (_ctx, args) => (args as { principal?: typeof principal }).principal ?? principal,
+        }),
+      },
+    )
+
+    const registered = bridge.from({
+      loadDocs: {
+        operation: 'internalQuery',
+        component: 'component.query' as never,
+        args: { slug: v.string() },
+      },
+    }).loadDocs as {
+      customization: { input: (ctx: unknown, args: unknown) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }> }
+      definition: { handler: (ctx: { principal: () => Promise<typeof principal>, runQuery: (component: string, args: unknown) => Promise<unknown> }, args: { slug: string }) => Promise<unknown> }
+    }
+
+    const runQuery = vi.fn(async () => ({ ok: true }))
+    const customized = await registered.customization.input(
+      { runQuery },
+      { principal },
+    )
+
+    await registered.definition.handler(
+      {
+        ...customized.ctx,
+        runQuery,
+      },
+      { slug: 'docs' },
+    )
+
+    expect(runQuery).toHaveBeenCalledWith('component.query', {
+      slug: 'docs',
+      principal,
+    })
+  })
+})
