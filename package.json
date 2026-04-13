@@ -162,7 +162,8 @@
     "test:server": "vitest run --project=server",
     "test:full": "pnpm run test && pnpm run test:e2e",
     "test:watch": "vitest watch --project=unit --project=nuxt --project=server",
-    "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit",
+    "test:types:contracts": "tsc -p tsconfig.types.json --noEmit",
+    "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts",
     "prepare": "husky"
   },
   "dependencies": {
