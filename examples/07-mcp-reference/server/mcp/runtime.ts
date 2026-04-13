@@ -18,10 +18,11 @@ function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   }
 
   return {
-    kind: 'mcp',
+    kind: 'agent',
     userId: auth.userId,
     role: auth.role,
     tenantId: auth.tenantId as Id<'workspaces'> | undefined,
+    provider: 'mcp',
   }
 }
 
@@ -37,13 +38,13 @@ export const mcpRuntime = defineMcpRuntime({
   }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
-    readWorkspaceRunbooks: principal.kind === 'mcp' && !!principal.tenantId,
-    writeWorkspaceRunbooks: principal.kind === 'mcp' && canWrite(principal.role),
+    readWorkspaceRunbooks: principal.kind === 'agent' && !!principal.tenantId,
+    writeWorkspaceRunbooks: principal.kind === 'agent' && canWrite(principal.role),
     deleteWorkspaceRunbooks:
-      principal.kind === 'mcp' && (principal.role === 'owner' || principal.role === 'admin'),
+      principal.kind === 'agent' && (principal.role === 'owner' || principal.role === 'admin'),
   }),
   principalKey: (principal) =>
-    principal.kind === 'mcp' ? `${principal.userId}:${principal.tenantId ?? 'none'}` : principal.kind,
+    principal.kind === 'agent' ? `${principal.userId}:${principal.tenantId ?? 'none'}` : principal.kind,
 })
 
 export const projectTool = mcpRuntime.projectTool

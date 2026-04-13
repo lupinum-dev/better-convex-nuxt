@@ -18,10 +18,11 @@ function getMcpPrincipal(event: H3Event): TeamTodoPrincipal {
   }
 
   return {
-    kind: 'mcp',
+    kind: 'agent',
     userId: auth.userId,
     role: auth.role,
     tenantId: auth.tenantId as Id<'workspaces'> | undefined,
+    provider: 'mcp',
   }
 }
 
@@ -37,13 +38,13 @@ export const mcpRuntime = defineMcpRuntime({
   }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
-    listTodos: principal.kind === 'mcp' && !!principal.tenantId,
-    createTodo: principal.kind === 'mcp' && canWrite(principal.role),
-    completeTodo: principal.kind === 'mcp' && canWrite(principal.role),
-    deleteTodo: principal.kind === 'mcp' && canWrite(principal.role),
+    listTodos: principal.kind === 'agent' && !!principal.tenantId,
+    createTodo: principal.kind === 'agent' && canWrite(principal.role),
+    completeTodo: principal.kind === 'agent' && canWrite(principal.role),
+    deleteTodo: principal.kind === 'agent' && canWrite(principal.role),
   }),
   principalKey: (principal) =>
-    principal.kind === 'mcp' ? `${principal.userId}:${principal.tenantId ?? 'none'}` : principal.kind,
+    principal.kind === 'agent' ? `${principal.userId}:${principal.tenantId ?? 'none'}` : principal.kind,
 })
 
 export const projectTool = mcpRuntime.projectTool

@@ -8,10 +8,11 @@ export type InternalHarnessPrincipal =
   | { kind: 'anonymous' }
   | { kind: 'user'; userId: string }
   | {
-      kind: 'mcp'
+      kind: 'agent'
       userId: string
       role: Role
       tenantId?: string
+      provider?: 'mcp'
     }
 
 export const internalHarnessPrincipalValidator = v.union(
@@ -23,7 +24,7 @@ export const internalHarnessPrincipalValidator = v.union(
     userId: v.string(),
   }),
   v.object({
-    kind: v.literal('mcp'),
+    kind: v.literal('agent'),
     userId: v.string(),
     role: v.union(
       v.literal('owner'),
@@ -32,6 +33,7 @@ export const internalHarnessPrincipalValidator = v.union(
       v.literal('viewer'),
     ),
     tenantId: v.optional(v.string()),
+    provider: v.optional(v.literal('mcp')),
   }),
 )
 

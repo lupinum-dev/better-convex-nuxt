@@ -14,6 +14,7 @@ The full-stack Convex toolkit for Nuxt: SSR, real-time subscriptions, auth, perm
 ## Why?
 
 - **One set of business rules.** Whether a request comes from a browser, a server route, or an AI agent, it hits the same Convex handlers with the same permission checks. Transport changes; authorization does not.
+- **Future-proof agent seam.** MCP is one adapter, not the business layer. Future agent protocols should still resolve a principal and call the same root internal Convex refs.
 - **Structural safety.** A handler without a guard is a type error, not a code review catch. Tenant isolation is declared once, not checked in every query.
 - **Framework-owned infrastructure.** Auth wiring, SSR hydration, real-time subscriptions, and MCP protocol handling are built in. Your roles, business rules, and data model are your code — not configuration.
 - **Progressive disclosure.** A public todo app is one config line. Adding auth is one flag. Adding protected operations, component bridges, or MCP tools is one more layer, not a rewrite.

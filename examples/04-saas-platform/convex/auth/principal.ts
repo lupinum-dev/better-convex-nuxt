@@ -10,10 +10,11 @@ export type ProjectBoardPrincipal =
   | { kind: 'anonymous' }
   | { kind: 'user'; userId: string }
   | {
-      kind: 'mcp'
+      kind: 'agent'
       userId: string
       role: Role
       tenantId?: Id<'workspaces'>
+      provider?: 'mcp'
     }
 
 export const projectBoardPrincipalValidator = v.union(
@@ -25,7 +26,7 @@ export const projectBoardPrincipalValidator = v.union(
     userId: v.string(),
   }),
   v.object({
-    kind: v.literal('mcp'),
+    kind: v.literal('agent'),
     userId: v.string(),
     role: v.union(
       v.literal('owner'),
@@ -34,6 +35,7 @@ export const projectBoardPrincipalValidator = v.union(
       v.literal('viewer'),
     ),
     tenantId: v.optional(v.id('workspaces')),
+    provider: v.optional(v.literal('mcp')),
   }),
 )
 

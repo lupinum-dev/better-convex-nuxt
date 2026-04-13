@@ -40,7 +40,7 @@ export async function getActorFromPrincipal(
   switch (principal.kind) {
     case 'anonymous':
       return null
-    case 'mcp':
+    case 'agent':
       return principal.tenantId
         ? {
             kind: 'user',
