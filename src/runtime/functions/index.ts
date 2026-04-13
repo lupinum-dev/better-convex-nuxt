@@ -93,7 +93,8 @@ export interface CreateAppOptions<DataModel extends GenericDataModel, TActor = D
    * initialization time in the root app and pass it here.
    */
   trustedCallerKey?: string
-  actor?: (ctx: AnyCtx<DataModel>) => Promise<TActor | null>
+  actor?: (ctx: AnyCtx<DataModel>, args: Record<string, unknown>) => Promise<TActor | null>
+  contextArgs?: PropertyValidators
   tenantIsolation?: TenantIsolationOptions<DataModel>
   rls?: {
     rules: MaybeRules<AnyCtxWithActor<DataModel, TActor>, DataModel>
@@ -267,16 +268,17 @@ type StructuredMutationBuilder<
 
 function resolveActor<DataModel extends GenericDataModel, TActor>(
   options: CreateAppOptions<DataModel, TActor>,
-): (ctx: AnyCtx<DataModel>) => Promise<TActor | null> {
+): (ctx: AnyCtx<DataModel>, args: Record<string, unknown>) => Promise<TActor | null> {
   return (options.actor ?? defineActor.fromAuth<DataModel>().resolve) as (
     ctx: AnyCtx<DataModel>,
+    args: Record<string, unknown>,
   ) => Promise<TActor | null>
 }
 
 function createContextWithActor<DataModel extends GenericDataModel, TActor, TCtx extends AnyCtx<DataModel>>(
   ctx: TCtx,
   args: Record<string, unknown>,
-  actorResolver: (ctx: AnyCtx<DataModel>) => Promise<TActor | null>,
+  actorResolver: (ctx: AnyCtx<DataModel>, args: Record<string, unknown>) => Promise<TActor | null>,
   trustedCallerEnabled: boolean,
   trustedCallerKey?: string,
 ): {
@@ -293,7 +295,7 @@ function createContextWithActor<DataModel extends GenericDataModel, TActor, TCtx
 
   let actorPromise: Promise<TActor | null> | null = null
   const actor: ActorAccessor<TActor> = async () => {
-    actorPromise ??= actorResolver(ctxWithTrustedCaller)
+    actorPromise ??= actorResolver(ctxWithTrustedCaller, args)
     return await actorPromise
   }
 
@@ -336,7 +338,10 @@ function createQueryCustomization<DataModel extends GenericDataModel, TActor>(
   const trustedCallerEnabled = options.trustedCaller ?? true
 
   return {
-    args: trustedCallerEnabled ? trustedCallerValidators : {},
+    args: {
+      ...(trustedCallerEnabled ? trustedCallerValidators : {}),
+      ...(options.contextArgs ?? {}),
+    },
     input: async (ctx, args) => {
       const { baseCtx } = createContextWithActor(
         ctx,
@@ -375,7 +380,10 @@ function createMutationCustomization<DataModel extends GenericDataModel, TActor>
   const trustedCallerEnabled = options.trustedCaller ?? true
 
   return {
-    args: trustedCallerEnabled ? trustedCallerValidators : {},
+    args: {
+      ...(trustedCallerEnabled ? trustedCallerValidators : {}),
+      ...(options.contextArgs ?? {}),
+    },
     input: async (ctx, args) => {
       const { baseCtx } = createContextWithActor(
         ctx,
