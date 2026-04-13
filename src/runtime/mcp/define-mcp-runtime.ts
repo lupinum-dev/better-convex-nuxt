@@ -3,7 +3,7 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
-import type { ConvexToolOperation } from '../utils/types.js'
+import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
 import { defineTool } from './define-convex-tool.js'
 import type { AnyConvexSchema, ConvexToolMiddleware, PreviewResult } from './types.js'
@@ -14,6 +14,13 @@ type AnyQueryRef = FunctionReference<'query', 'public' | 'internal'>
 type AnyMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
 type AnyActionRef = FunctionReference<'action', 'public' | 'internal'>
 type AnyFunctionRef = AnyQueryRef | AnyMutationRef | AnyActionRef
+type ProjectionPreviewResult = string | PreviewResult
+type PreviewResolver<S extends AnySchema, TPrincipal, TCapabilities, TRuntime> = (ctx: {
+  args: import('./types.js').InferSchemaData<S>
+  principal: TPrincipal
+  capabilities: TCapabilities
+  runtime: TRuntime
+}) => MaybePromise<ProjectionPreviewResult>
 
 export interface McpConvexCaller {
   query: <Query extends AnyQueryRef>(
@@ -79,12 +86,20 @@ export interface ProjectToolOptions<
   TCapabilities extends ProjectionCapabilitySnapshot | null,
   TRuntime,
   TCall extends AnyFunctionRef = AnyMutationRef,
+  TPreview extends AnyFunctionRef | undefined = undefined,
 > {
   schema: S
   call: TCall
   operation?: ConvexToolOperation
-  preview?: AnyFunctionRef
+  preview?: TPreview | PreviewResolver<S, TPrincipal, TCapabilities, TRuntime>
   previewOperation?: ConvexToolOperation
+  previewResult?: (ctx: {
+    args: import('./types.js').InferSchemaData<S>
+    result: TPreview extends AnyFunctionRef ? FunctionReturnType<TPreview> : unknown
+    principal: TPrincipal
+    capabilities: TCapabilities
+    runtime: TRuntime
+  }) => string | PreviewResult
   capability?: CapabilityKey<TCapabilities>
   enabled?: (
     ctx: ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>,
@@ -93,6 +108,29 @@ export interface ProjectToolOptions<
   rateLimit?: { max: number; window: string }
   maxItems?: { field: keyof import('./types.js').InferSchemaData<S> & string; limit: number }
   middleware?: ConvexToolMiddleware<S>
+  mapResult?: (ctx: {
+    args: import('./types.js').InferSchemaData<S>
+    result: FunctionReturnType<TCall>
+    principal: TPrincipal
+    capabilities: TCapabilities
+    runtime: TRuntime
+  }) => unknown
+  summary?: (ctx: {
+    args: import('./types.js').InferSchemaData<S>
+    result: FunctionReturnType<TCall>
+    principal: TPrincipal
+    capabilities: TCapabilities
+    runtime: TRuntime
+  }) => string | undefined
+  respond?: (ctx: {
+    args: import('./types.js').InferSchemaData<S>
+    result: FunctionReturnType<TCall>
+    principal: TPrincipal
+    capabilities: TCapabilities
+    runtime: TRuntime
+    ok: (data: unknown, summary?: string) => unknown
+    error: (code: ConvexErrorCategory, message: string) => unknown
+  }) => unknown
   outputSchema?: ZodRawShape
   group?: string
   tags?: string[]
@@ -187,8 +225,9 @@ export function defineMcpRuntime<
   const projectTool = <
     S extends AnySchema,
     TCall extends AnyFunctionRef = AnyMutationRef,
+    TPreview extends AnyFunctionRef | undefined = undefined,
   >(
-    tool: ProjectToolOptions<S, TPrincipal, TCapabilities, TRuntime, TCall>,
+    tool: ProjectToolOptions<S, TPrincipal, TCapabilities, TRuntime, TCall, TPreview>,
   ): McpToolDefinition => {
     const operation = tool.operation ?? 'mutation'
     const previewOperation = tool.previewOperation ?? 'query'
@@ -247,19 +286,40 @@ export function defineMcpRuntime<
       preview: tool.preview
         ? async (args, ctx): Promise<string | PreviewResult> => {
             const projectionCtx = await resolve(ctx.event)
-            return await callByOperation(
+            if (typeof tool.preview === 'function') {
+              return await tool.preview({
+                args,
+                principal: projectionCtx.principal,
+                capabilities: projectionCtx.capabilities,
+                runtime: projectionCtx.runtime,
+              })
+            }
+
+            const result = await callByOperation(
               projectionCtx.convex,
               previewOperation,
-              tool.preview!,
+              tool.preview as Exclude<TPreview, undefined>,
               Object.assign({}, args as Record<string, unknown>, {
                 principal: projectionCtx.principal,
-              }) as FunctionArgs<typeof tool.preview>,
-            ) as string | PreviewResult
+              }) as FunctionArgs<Exclude<TPreview, undefined>>,
+            )
+
+            if (!tool.previewResult) {
+              return result as string | PreviewResult
+            }
+
+            return tool.previewResult({
+              args,
+              result,
+              principal: projectionCtx.principal,
+              capabilities: projectionCtx.capabilities,
+              runtime: projectionCtx.runtime,
+            })
           }
         : undefined,
       handler: async (args, ctx) => {
         const projectionCtx = await resolve(ctx.event)
-        return await callByOperation(
+        const result = await callByOperation(
           projectionCtx.convex,
           operation,
           tool.call,
@@ -267,6 +327,38 @@ export function defineMcpRuntime<
             principal: projectionCtx.principal,
           }) as FunctionArgs<TCall>,
         )
+
+        if (tool.respond) {
+          return tool.respond({
+            args,
+            result,
+            principal: projectionCtx.principal,
+            capabilities: projectionCtx.capabilities,
+            runtime: projectionCtx.runtime,
+            ok: (data, summary) => (summary ? ctx.ok(data, summary) : data),
+            error: (code, message) => ctx.error(code, message),
+          })
+        }
+
+        const mapped = tool.mapResult
+          ? tool.mapResult({
+              args,
+              result,
+              principal: projectionCtx.principal,
+              capabilities: projectionCtx.capabilities,
+              runtime: projectionCtx.runtime,
+            })
+          : result
+
+        const summary = tool.summary?.({
+          args,
+          result,
+          principal: projectionCtx.principal,
+          capabilities: projectionCtx.capabilities,
+          runtime: projectionCtx.runtime,
+        })
+
+        return summary ? ctx.ok(mapped, summary) : mapped
       },
     })
   }

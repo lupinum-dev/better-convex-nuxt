@@ -2,7 +2,6 @@ import { customMutation, customQuery, type Customization } from 'convex-helpers/
 import type {
   FunctionVisibility,
   FunctionReference,
-  FunctionReturnType,
   GenericDataModel,
   GenericMutationCtx,
   GenericQueryCtx,
@@ -136,22 +135,10 @@ export function createComponentBridge<
     options.principal ?? definePrincipal.fromAuth<DataModel>() as PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
   const customization = createBridgeCustomization<DataModel, TPrincipal>(principalDefinition)
 
-  const query = customQuery(
-    builders.query as QueryBuilder<DataModel, FunctionVisibility>,
-    customization.query,
-  )
-  const mutation = customMutation(
-    builders.mutation as MutationBuilder<DataModel, FunctionVisibility>,
-    customization.mutation,
-  )
-  const internalQuery = customQuery(
-    builders.internalQuery as QueryBuilder<DataModel, FunctionVisibility>,
-    customization.query,
-  )
-  const internalMutation = customMutation(
-    builders.internalMutation as MutationBuilder<DataModel, FunctionVisibility>,
-    customization.mutation,
-  )
+  const query = customQuery(builders.query, customization.query)
+  const mutation = customMutation(builders.mutation, customization.mutation)
+  const internalQuery = customQuery(builders.internalQuery, customization.query)
+  const internalMutation = customMutation(builders.internalMutation, customization.mutation)
 
   return {
     query<TRef extends QueryRef>(definition: BridgeDefinition<TRef>) {
