@@ -101,7 +101,7 @@ export async function ensureManagedLocalConvex(
     const managedProcess = spawnManagedProcess({
       name: 'Managed local Convex',
       command: process.execPath,
-      args: [convexCliPath, 'dev', '--local'],
+      args: [convexCliPath, 'dev', '--local', '--local-force-upgrade'],
       cwd,
       env: {
         ...process.env,

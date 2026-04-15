@@ -10,6 +10,7 @@ import {
 } from './shared.js'
 import { verifyTrustedCallerKey as verifyTrustedCallerKeyInternal } from './shared.js'
 
+/** Add trusted-caller transport fields to a Convex args validator. Advanced use only. */
 export function withTrustedCaller<V extends PropertyValidators>(args: V): V {
   return {
     ...args,
@@ -17,6 +18,7 @@ export function withTrustedCaller<V extends PropertyValidators>(args: V): V {
   } as V
 }
 
+/** Extract and attach the trusted caller onto a context carrier at the transport edge. */
 export function setTrustedCallerContext(
   ctx: unknown,
   args: unknown,
@@ -28,11 +30,13 @@ export function setTrustedCallerContext(
     createTrustedCallerContextDelta(trustedCaller)[trustedCallerContextKey]
 }
 
+/** Clear a previously attached trusted caller from the context carrier. */
 export function clearTrustedCallerContext(ctx: unknown): void {
   if (!isTrustedCallerContextCarrier(ctx)) return
   ctx[trustedCallerContextKey] = undefined
 }
 
+/** Read the trusted caller from args or an already-populated context carrier. */
 export function getTrustedCaller(args?: unknown): TrustedCallerIdentity | null {
   if (args === undefined) {
     return null
@@ -45,6 +49,7 @@ export function getTrustedCaller(args?: unknown): TrustedCallerIdentity | null {
   return extractTrustedCallerFromArgs(args)
 }
 
+/** Wrap a handler with trusted-caller extraction and cleanup. */
 export function withTrustedCallerHandler<Args, Return>(
   handler: (ctx: unknown, args: Args) => Promise<Return>,
   expectedKeyOverride?: string,
@@ -59,6 +64,7 @@ export function withTrustedCallerHandler<Args, Return>(
   }
 }
 
+/** Compare a provided trusted-caller key with the expected shared secret. */
 export function verifyTrustedCallerKey(provided: string, expected: string): boolean {
   return verifyTrustedCallerKeyInternal(provided, expected)
 }

@@ -16,6 +16,12 @@ const defaultModules =
 
 type ConvexTestModules = Record<string, () => Promise<unknown>>
 
+/**
+ * Normalize a Convex module glob for Trellis testing helpers.
+ *
+ * This is an advanced testing surface intended for apps that want security- and
+ * tenant-aware integration tests against real Convex handlers.
+ */
 export function createConvexTestModules(modules?: ConvexTestModules): ConvexTestModules {
   return withGeneratedModuleHint(modules ?? defaultModules)
 }
@@ -265,6 +271,13 @@ export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserCon
   return mergeInlineDeps(mergeStableTestTsconfig(options))
 }
 
+/**
+ * Create a high-level test harness for protected Trellis apps.
+ *
+ * Use this when your tests should seed tenants and users, execute the real
+ * protected handlers, and assert authorization boundaries without inventing a
+ * duplicate test-only permission model.
+ */
 export function createTestContext<
   TSchema extends AnySchemaDefinition,
   TRole extends string = string,

@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/trellis",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
   "keywords": [
     "authentication",

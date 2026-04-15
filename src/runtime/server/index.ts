@@ -10,6 +10,22 @@ export {
   type ServerConvexOptions,
 } from './utils/convex.js'
 
+/**
+ * Server-side convenience wrapper over the `serverConvex*` helpers.
+ *
+ * Use this when one Nitro request needs several Convex calls with the same H3
+ * event and you want a small, request-scoped caller object instead of passing
+ * `event` every time.
+ *
+ * The returned helpers intentionally use `auth: 'none'`. Forward an explicit
+ * principal into protected root refs when business authorization matters.
+ *
+ * @example
+ * ```ts
+ * const convex = createServerConvexCaller(event)
+ * const post = await convex.query(internal.posts.getForAutomation, { id, principal })
+ * ```
+ */
 export function createServerConvexCaller(event: H3Event) {
   return {
     query: async <Query extends FunctionReference<'query'>>(

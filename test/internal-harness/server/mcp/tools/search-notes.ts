@@ -10,7 +10,7 @@ export default defineTool({
   auth: 'optional',
   inputExamples: [{ query: 'meeting' }, { query: 'TODO' }, { query: 'project update' }],
   handler: async (args, ctx) => {
-    const results = await ctx.query(api.notes.search, { query: args.query })
+    const results = await ctx.rawQuery(api.notes.search, { query: args.query })
 
     return ctx.ok(
       { results, total: results.length },

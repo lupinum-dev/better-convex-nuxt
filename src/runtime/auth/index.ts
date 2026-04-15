@@ -45,14 +45,20 @@ export function and<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
   return (principal: P) => checks.every((check) => runCheck(principal, check))
 }
 
+/** Combine multiple checks and allow access when any check passes. */
 export function or<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
   return (principal: P) => checks.some((check) => runCheck(principal, check))
 }
 
+/**
+ * Throw a structured forbidden error from inside a guard, authorize phase, or
+ * protected handler.
+ */
 export function deny(reason: string, options?: { source?: string; category?: string }): never {
   throw toForbiddenError(reason, options?.source, options?.category)
 }
 
+/** Assert that a principal exists and passes the given check. */
 export function enforce<P>(
   principal: P,
   label: string,
@@ -74,6 +80,7 @@ export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
   }
 }
 
+/** Assert that the caller is authenticated before continuing. */
 export function requireAuth<P>(
   principal: P,
   reason = 'Not authenticated.',
@@ -92,6 +99,7 @@ export function requireRecord<T>(doc: T | null | undefined, label?: string): ass
   }
 }
 
+/** Read the authenticated identity from a Convex query or mutation context. */
 export async function getAuth<DataModel extends GenericDataModel>(
   ctx: AnyCtx<DataModel>,
 ): Promise<AuthIdentity | null> {
@@ -104,6 +112,7 @@ export async function getAuth<DataModel extends GenericDataModel>(
   }
 }
 
+/** Assert that a loaded resource belongs to the actor's tenant and return it. */
 export function ensureTenant<T extends Record<string, unknown>>(
   actor: { tenantId?: string | null },
   resource: T,
@@ -119,6 +128,7 @@ export function ensureTenant<T extends Record<string, unknown>>(
   return resource
 }
 
+/** Load a tenant-owned resource and fail with the correct error semantics when missing or foreign. */
 export function loadTenantResource<T extends Record<string, unknown>>(
   actor: { tenantId?: string | null },
   doc: T | null | undefined,

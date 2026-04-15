@@ -185,6 +185,13 @@ async function callByOperation<TRef extends AnyFunctionRef>(
   }
 }
 
+/**
+ * Build an MCP projection runtime over protected Convex refs.
+ *
+ * This is an advanced API. Use it when MCP should remain a protocol adapter
+ * over your existing principal-first Trellis runtime rather than owning the
+ * business authorization logic itself.
+ */
 export function defineMcpRuntime<
   TPrincipal,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,

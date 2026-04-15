@@ -516,6 +516,17 @@ function buildRawFunctions<
   }
 }
 
+/**
+ * Build the protected Trellis backend runtime for a principal-first app.
+ *
+ * This is an advanced API. Use it when your Convex backend owns a real actor
+ * and permission model and you want one canonical seam for protected queries,
+ * mutations, and optional internal automation refs.
+ *
+ * Ordinary Nuxt app code should start with the module, composables, auth, and
+ * server helpers first. Reach for `createApp(...)` once you are defining the
+ * backend runtime contract itself.
+ */
 export function createApp<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,

@@ -139,17 +139,17 @@ export default projectTool({
 
 Published npm entrypoints:
 
-- `@lupinum/trellis`
-- `@lupinum/trellis/auth`
+- `@lupinum/trellis` 
+- `@lupinum/trellis/auth` 
 - `@lupinum/trellis/args`
 - `@lupinum/trellis/composables`
-- `@lupinum/trellis/eslint`
-- `@lupinum/trellis/functions`
-- `@lupinum/trellis/mcp`
 - `@lupinum/trellis/server`
+- `@lupinum/trellis/visibility` 
+- `@lupinum/trellis/functions` 
+- `@lupinum/trellis/mcp` 
 - `@lupinum/trellis/testing`
-- `@lupinum/trellis/trusted-caller`
-- `@lupinum/trellis/visibility`
+- `@lupinum/trellis/trusted-caller` 
+- `@lupinum/trellis/eslint` 
 
 Nuxt-generated surfaces:
 
@@ -162,14 +162,14 @@ Those Nuxt-generated surfaces are not npm subpath exports. The generated referen
 
 ## ESLint
 
-Flat config only for the first release:
+Flat config:
 
 ```ts
-import bcn from '@lupinum/trellis/eslint'
+import trellis from '@lupinum/trellis/eslint'
 
 export default [
-  bcn.configs.recommended,
-  // bcn.configs.strict,
+  trellis.configs.recommended,
+  // trellis.configs.strict,
 ]
 ```
 

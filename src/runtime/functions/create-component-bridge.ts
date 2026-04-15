@@ -101,40 +101,40 @@ type BridgeBatchResult<
   InternalQueryVisibility extends FunctionVisibility,
   InternalMutationVisibility extends FunctionVisibility,
 > = {
-  [Key in keyof TDefinitions]: TDefinitions[Key] extends {
-    operation: 'query'
-    args: infer TArgs extends PropertyValidators
-    component: infer TRef extends QueryRef
-  }
+    [Key in keyof TDefinitions]: TDefinitions[Key] extends {
+      operation: 'query'
+      args: infer TArgs extends PropertyValidators
+      component: infer TRef extends QueryRef
+    }
     ? RegisteredQuery<QueryVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
     : TDefinitions[Key] extends {
-          operation: 'mutation'
-          args: infer TArgs extends PropertyValidators
-          component: infer TRef extends MutationRef
-        }
-      ? RegisteredMutation<MutationVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
-      : TDefinitions[Key] extends {
-            operation: 'internalQuery'
-            args: infer TArgs extends PropertyValidators
-            component: infer TRef extends QueryRef
-          }
-        ? RegisteredQuery<
-            InternalQueryVisibility,
-            ObjectType<TArgs>,
-            Promise<FunctionReturnType<TRef>>
-          >
-        : TDefinitions[Key] extends {
-              operation: 'internalMutation'
-              args: infer TArgs extends PropertyValidators
-              component: infer TRef extends MutationRef
-            }
-          ? RegisteredMutation<
-              InternalMutationVisibility,
-              ObjectType<TArgs>,
-              Promise<FunctionReturnType<TRef>>
-            >
-          : never
-}
+      operation: 'mutation'
+      args: infer TArgs extends PropertyValidators
+      component: infer TRef extends MutationRef
+    }
+    ? RegisteredMutation<MutationVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
+    : TDefinitions[Key] extends {
+      operation: 'internalQuery'
+      args: infer TArgs extends PropertyValidators
+      component: infer TRef extends QueryRef
+    }
+    ? RegisteredQuery<
+      InternalQueryVisibility,
+      ObjectType<TArgs>,
+      Promise<FunctionReturnType<TRef>>
+    >
+    : TDefinitions[Key] extends {
+      operation: 'internalMutation'
+      args: infer TArgs extends PropertyValidators
+      component: infer TRef extends MutationRef
+    }
+    ? RegisteredMutation<
+      InternalMutationVisibility,
+      ObjectType<TArgs>,
+      Promise<FunctionReturnType<TRef>>
+    >
+    : never
+  }
 
 function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
   principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
@@ -196,6 +196,15 @@ function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipa
   }
 }
 
+/**
+ * Root seam that forwards explicit principals into component refs.
+ *
+ * This is an advanced API. Use it when non-browser callers such as Nitro routes,
+ * MCP tools, or automations need a durable inventory of root refs that should
+ * stay stable even if the internal component layout changes.
+ *
+ * It forwards identity; it does not replace business authorization.
+ */
 export function createComponentBridge<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,

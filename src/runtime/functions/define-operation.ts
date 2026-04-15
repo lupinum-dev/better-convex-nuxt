@@ -29,6 +29,13 @@ export type OperationDefinition<
   previewReturns?: GenericValidator
 }
 
+/**
+ * Define a reusable protected business operation.
+ *
+ * Use this when one business action should own its guard/load/authorize/handler
+ * logic in one place and potentially be reused across multiple registration
+ * points or transports.
+ */
 export function defineOperation<
   TCtx,
   TActor,
@@ -43,6 +50,12 @@ export function defineOperation<
   return definition
 }
 
+/**
+ * Expose the preview phase of an operation as a standalone structured handler.
+ *
+ * Use this for confirmation flows where a destructive mutation should be
+ * preceded by a read-only preview step.
+ */
 export function previewOf<
   TCtx,
   TActor,

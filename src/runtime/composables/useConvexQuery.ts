@@ -24,7 +24,24 @@ export {
 export type { UseConvexQueryData, UseConvexQueryOptions, UseConvexQueryReturn }
 
 /**
- * Thin public wrapper over the shared query runtime.
+ * Query composable for Nuxt apps using Trellis.
+ *
+ * Use this when a Vue component or composable needs SSR-aware data fetching
+ * that hydrates into the live Convex subscription model. This is the default
+ * read path for app code.
+ *
+ * Prefer `useConvexQuery()` over one-shot helpers when you want reactive state
+ * such as `status`, `pending`, `error`, `refresh`, and `isStale`.
+ *
+ * Use `executeConvexQuery()` instead when you want a single request result
+ * without long-lived composable state.
+ *
+ * @example
+ * ```ts
+ * const { data, status, isStale, refresh } = await useConvexQuery(api.tasks.list, {
+ *   status: 'active',
+ * })
+ * ```
  */
 export function useConvexQuery<
   Query extends FunctionReference<'query'>,

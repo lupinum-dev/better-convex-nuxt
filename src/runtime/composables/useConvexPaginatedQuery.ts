@@ -24,7 +24,22 @@ export {
 }
 
 /**
- * Thin public wrapper over the shared pagination runtime.
+ * Paginated query composable for SSR-first Nuxt pages.
+ *
+ * Use this when the backend query exposes cursor-based pagination and the UI
+ * should manage `loadMore()`, exhaustion state, and live refreshes through one
+ * reactive surface.
+ *
+ * Prefer this over hand-rolled cursor state whenever the list should stay
+ * aligned with Trellis' live subscription and stale-data semantics.
+ *
+ * @example
+ * ```ts
+ * const { results, loadMore, hasNextPage, status } = await useConvexPaginatedQuery(
+ *   api.messages.list,
+ *   { channelId },
+ * )
+ * ```
  */
 export function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,

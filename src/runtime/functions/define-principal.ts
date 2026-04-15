@@ -23,6 +23,13 @@ export interface PrincipalDefinition<TCtx extends object, TPrincipal> {
   resolve: (ctx: TCtx, args: Record<string, unknown>) => MaybePromise<TPrincipal>
 }
 
+/**
+ * Define how a transport resolves its caller identity.
+ *
+ * Principals answer "who is calling according to this transport?" They are not
+ * your business actor model. Resolve the principal here, then derive actors and
+ * permissions later inside the protected app runtime.
+ */
 export function definePrincipal<TCtx extends object, TPrincipal>(options: {
   validator?: GenericValidator
   resolve: (ctx: TCtx, args: Record<string, unknown>) => MaybePromise<TPrincipal>
