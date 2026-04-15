@@ -55,7 +55,7 @@ export const listStudioPages = defineArgs({
 })
 
 export const listDraftPages = defineArgs({
-  description: 'List draft pages for agent tooling',
+  description: 'List draft pages for MCP tooling',
   args: {},
 })
 

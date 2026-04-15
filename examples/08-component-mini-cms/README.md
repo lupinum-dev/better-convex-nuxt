@@ -55,6 +55,7 @@ Use this example when you want to understand:
 - principal forwarding
 - root app wrappers versus component business logic
 - `projectTool(...)` over internal bridge refs
+- transport-shaped `mcp` principals instead of business-role data in the protocol layer
 
 Use [`07-mcp-reference`](../07-mcp-reference/README.md) when you want the full MCP protocol
 surface, key management, resources, and prompts.

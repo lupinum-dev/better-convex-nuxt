@@ -170,8 +170,8 @@ export const createPage = app.mutation({
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const authorId =
-      actor.kind === 'agent'
-        ? actor.agentId
+      actor.kind === 'mcp'
+        ? `mcp:${actor.mcpKeyId}`
         : actor.kind === 'editor'
           ? actor.userId
           : (() => {

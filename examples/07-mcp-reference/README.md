@@ -17,6 +17,7 @@ It is intentionally compact on the business side and broad on the MCP side.
 - dynamic per-session tool registration with `useMcpServer()`
 - a separate code-mode endpoint
 - real MCP bearer keys stored as hashes at rest
+- transport-shaped `mcp` principals forwarded into the same protected Convex handlers as the UI
 
 ## Business Domain
 
@@ -100,6 +101,7 @@ curl http://localhost:3000/mcp/runbook-agent \
 - MCP keys are stored as SHA-256 hashes in Convex, not plaintext.
 - The full bearer token is only shown once in the UI after creation.
 - MCP key validation happens in Nitro middleware and maps into `event.context.mcpAuth`.
+- MCP middleware only resolves MCP transport identity; workspace role and tenant access still come from Convex actor resolution.
 - Scoped MCP tools still call the same Convex handlers as the UI.
 - `lastUsedAt` updates are debounced to once per minute per key to avoid unnecessary write contention.
 

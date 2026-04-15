@@ -1,14 +1,14 @@
 /**
  * Why this file exists:
- * The MCP demo middleware resolves `Bearer demo:<email>` into a real actor by calling this query.
- * That keeps the example's MCP auth setup tiny while still exercising the real permission pipeline.
+ * The MCP demo middleware resolves `Bearer demo:<email>` into a real app user by calling this query.
+ * That keeps the example's MCP auth setup tiny while still forwarding only transport identity into Convex.
  */
 import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { app } from './functions'
 
-export const resolveMcpActorByEmail = app.query({
+export const resolveMcpUserByEmail = app.query({
   guard: open,
   args: {
     email: v.string(),
@@ -24,9 +24,7 @@ export const resolveMcpActorByEmail = app.query({
     }
 
     return {
-      role: user.role,
       userId: user.authId,
-      tenantId: user.workspaceId,
     }
   },
 })

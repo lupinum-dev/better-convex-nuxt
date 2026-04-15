@@ -12,7 +12,7 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 | ----------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `01-public-todo`        | First look                   | minimal `createApp(...)`, `defineArgs`, simple query/mutation flow                                                                           |
 | `02-auth-todo`          | Auth-only apps               | Better Auth wiring, actor resolution, personal ownership handlers                                                                            |
-| `03-team-workspace`     | Canonical protected app      | `convex/auth/*`, backend-owned context, `_can`, agent principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing`        |
+| `03-team-workspace`     | Canonical protected app      | `convex/auth/*`, backend-owned context, `_can`, transport-shaped MCP principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing` |
 | `04-saas-platform`      | Month-two product work       | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows                |
 | `05-visibility-access`  | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy                   |
 | `06-multi-workspace`    | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                               |
@@ -27,7 +27,7 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 | Better Auth + session management                  | 02+     |
 | Tenant isolation (`workspaceId` + `by_workspace`) | 03+     |
 | Role-based authorization (`guard`, `can`, `deny`) | 03+     |
-| Explicit principal forwarding                     | 03, 08  |
+| Explicit principal forwarding                     | 03, 07, 08 |
 | Idempotency (replay protection)                   | 03      |
 | Pagination + optimistic updates                   | 04      |
 | Plan entitlements + usage limits                  | 04      |

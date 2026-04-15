@@ -2,20 +2,13 @@ import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import type { Doc, Id } from '../_generated/dataModel'
+import type { Doc } from '../_generated/dataModel'
 
 export type Role = Doc<'users'>['role']
 
 export type ProjectBoardPrincipal =
   | { kind: 'anonymous' }
   | { kind: 'user'; userId: string }
-  | {
-      kind: 'agent'
-      userId: string
-      role: Role
-      tenantId?: Id<'workspaces'>
-      provider?: 'mcp'
-    }
 
 export const projectBoardPrincipalValidator = v.union(
   v.object({
@@ -24,13 +17,6 @@ export const projectBoardPrincipalValidator = v.union(
   v.object({
     kind: v.literal('user'),
     userId: v.string(),
-  }),
-  v.object({
-    kind: v.literal('agent'),
-    userId: v.string(),
-    role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
-    tenantId: v.optional(v.id('workspaces')),
-    provider: v.optional(v.literal('mcp')),
   }),
 )
 

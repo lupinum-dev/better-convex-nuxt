@@ -5,7 +5,7 @@ import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../shared/principal'
 import type { DataModel } from '../_generated/dataModel'
 
-export type RootActor = { kind: 'user'; userId: string } | { kind: 'agent'; agentId: string }
+export type RootActor = { kind: 'user'; userId: string } | { kind: 'mcp'; mcpKeyId: string }
 
 type RootCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
@@ -37,7 +37,7 @@ export async function getActorFromPrincipal(
       return null
     case 'user':
       return resolved
-    case 'agent':
+    case 'mcp':
       return resolved
   }
 }

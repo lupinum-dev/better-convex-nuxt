@@ -55,8 +55,9 @@ The launcher starts a local Convex deployment, waits for `_generated`, and then 
 To keep the example focused, MCP auth uses a tiny demo middleware:
 
 - header format: `Authorization: Bearer demo:<email>`
-- middleware resolves that email to a real user in Convex
-- `#trellis/mcp` then injects trusted caller auth into the scoped Convex calls
+- middleware resolves that email to a real app user in Convex
+- the MCP runtime forwards a transport-shaped `mcp` principal into the same protected handlers
+- role and tenant access still come from the actor lookup inside Convex, not from the middleware
 
 Example:
 

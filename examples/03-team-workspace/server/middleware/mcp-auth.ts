@@ -15,14 +15,14 @@ export default defineEventHandler(async (event) => {
   const email = header.slice('Bearer demo:'.length).trim()
   if (!email) return
 
-  const actor = await serverConvexQuery(
+  const user = await serverConvexQuery(
     event,
-    api.users.resolveMcpActorByEmail,
+    api.users.resolveMcpUserByEmail,
     { email },
     { auth: 'none' },
   )
 
-  if (actor) {
-    event.context.mcpAuth = actor
+  if (user) {
+    event.context.mcpAuth = user
   }
 })

@@ -25,17 +25,17 @@ export function getMcpPrincipal(event: H3Event): MiniCmsPrincipal {
   }
 
   return {
-    kind: 'agent',
-    agentId: 'demo-agent',
+    kind: 'mcp',
+    mcpKeyId: 'demo-key',
   }
 }
 
 export function getCapabilitiesForPrincipal(principal: MiniCmsPrincipal): CapabilitySnapshot {
   return {
     listPublishedPages: true,
-    listDraftPages: principal.kind === 'agent',
-    createPage: principal.kind === 'agent',
-    saveDraft: principal.kind === 'agent',
-    publishPage: principal.kind === 'agent',
+    listDraftPages: principal.kind === 'mcp',
+    createPage: principal.kind === 'mcp',
+    saveDraft: principal.kind === 'mcp',
+    publishPage: principal.kind === 'mcp',
   }
 }

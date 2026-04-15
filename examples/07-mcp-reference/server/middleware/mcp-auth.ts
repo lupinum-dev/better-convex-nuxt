@@ -34,9 +34,8 @@ export default defineEventHandler(async (event) => {
   if (!validated) return
 
   event.context.mcpAuth = {
-    role: validated.role,
+    keyId: validated.id,
     userId: validated.userId,
-    tenantId: validated.tenantId,
   }
 
   serverConvexMutation(

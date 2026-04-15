@@ -2,20 +2,14 @@ import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import type { Doc, Id } from '../_generated/dataModel'
+import type { Doc } from '../_generated/dataModel'
 
 export type Role = Doc<'users'>['role']
 
 export type McpReferencePrincipal =
   | { kind: 'anonymous' }
   | { kind: 'user'; userId: string }
-  | {
-      kind: 'agent'
-      userId: string
-      role: Role
-      tenantId?: Id<'workspaces'>
-      provider?: 'mcp'
-    }
+  | { kind: 'mcp'; mcpKeyId: string; userId: string }
 
 export const mcpReferencePrincipalValidator = v.union(
   v.object({
@@ -26,11 +20,9 @@ export const mcpReferencePrincipalValidator = v.union(
     userId: v.string(),
   }),
   v.object({
-    kind: v.literal('agent'),
+    kind: v.literal('mcp'),
+    mcpKeyId: v.string(),
     userId: v.string(),
-    role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
-    tenantId: v.optional(v.id('workspaces')),
-    provider: v.optional(v.literal('mcp')),
   }),
 )
 

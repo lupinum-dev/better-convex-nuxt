@@ -15,8 +15,8 @@ export const mcpRuntime = defineMcpRuntime<MiniCmsPrincipal, CapabilitySnapshot>
         return 'anonymous'
       case 'user':
         return `user:${principal.userId}`
-      case 'agent':
-        return `agent:${principal.agentId}`
+      case 'mcp':
+        return `mcp:${principal.mcpKeyId}`
     }
   },
 })

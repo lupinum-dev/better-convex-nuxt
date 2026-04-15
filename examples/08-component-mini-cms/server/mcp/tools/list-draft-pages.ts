@@ -10,6 +10,6 @@ export default projectTool({
   group: 'pages',
   meta: {
     name: 'list-draft-pages',
-    description: 'List the draft pages visible to the demo agent.',
+    description: 'List the draft pages visible to the authenticated MCP caller.',
   },
 })

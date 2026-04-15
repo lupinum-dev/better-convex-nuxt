@@ -24,7 +24,7 @@
             <h2 class="text-2xl font-semibold">Auth and MCP</h2>
             <p class="text-sm text-[var(--mini-muted)]">
               Browser users become <span class="mini-code">user</span> principals via Better Auth.
-              MCP callers become <span class="mini-code">agent</span> principals from the bearer
+              MCP callers become <span class="mini-code">mcp</span> principals from the bearer
               token.
             </p>
             <p class="text-sm text-[var(--mini-muted)]">

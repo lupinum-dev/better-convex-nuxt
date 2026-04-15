@@ -101,23 +101,23 @@ describe('example 08 component mini cms', () => {
       title: 'Forwarded agent page',
       draftBody: 'Created by the forwarded principal',
       principal: {
-        kind: 'agent',
-        agentId: 'agent-from-mcp',
+        kind: 'mcp',
+        mcpKeyId: 'demo-key',
       },
     })
 
     const draftPages = await ctx
-      .asPrincipal({ kind: 'agent', agentId: 'agent-from-mcp' })
+      .asPrincipal({ kind: 'mcp', mcpKeyId: 'demo-key' })
       .query(internal.miniCmsBridge.listDraftPages, {})
 
     expect(draftPages.find((page: { _id: string }) => page._id === id)).toMatchObject({
-      authorId: 'agent-from-mcp',
+      authorId: 'mcp:demo-key',
     })
   })
 
   it('forwards principal unchanged through the internal component bridge', async () => {
     const ctx = createCtx()
-    const agent = ctx.asPrincipal({ kind: 'agent', agentId: 'bridge-agent' })
+    const agent = ctx.asPrincipal({ kind: 'mcp', mcpKeyId: 'bridge-key' })
 
     const id = await agent.mutation(internal.miniCmsBridge.createPage, {
       slug: 'bridge-owned',
@@ -127,14 +127,14 @@ describe('example 08 component mini cms', () => {
 
     const drafts = await agent.query(internal.miniCmsBridge.listDraftPages, {})
     expect(drafts.find((page: { _id: string }) => page._id === id)).toMatchObject({
-      authorId: 'bridge-agent',
+      authorId: 'mcp:bridge-key',
       slug: 'bridge-owned',
     })
   })
 
   it('returns the publish preview from the component operation', async () => {
     const ctx = createCtx()
-    const agent = ctx.asPrincipal({ kind: 'agent', agentId: 'preview-agent' })
+    const agent = ctx.asPrincipal({ kind: 'mcp', mcpKeyId: 'preview-key' })
 
     const id = await agent.mutation(internal.miniCmsBridge.createPage, {
       slug: 'launch-notes',
@@ -149,7 +149,7 @@ describe('example 08 component mini cms', () => {
     })
   })
 
-  it('uses a smaller anonymous MCP capability snapshot than the agent snapshot', () => {
+  it('uses a smaller anonymous MCP capability snapshot than the MCP-authenticated snapshot', () => {
     expect(getCapabilitiesForPrincipal({ kind: 'anonymous' })).toEqual({
       listPublishedPages: true,
       listDraftPages: false,
@@ -158,7 +158,7 @@ describe('example 08 component mini cms', () => {
       publishPage: false,
     })
 
-    expect(getCapabilitiesForPrincipal({ kind: 'agent', agentId: 'demo-agent' })).toEqual({
+    expect(getCapabilitiesForPrincipal({ kind: 'mcp', mcpKeyId: 'demo-key' })).toEqual({
       listPublishedPages: true,
       listDraftPages: true,
       createPage: true,

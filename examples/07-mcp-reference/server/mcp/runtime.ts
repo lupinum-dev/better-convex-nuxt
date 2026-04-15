@@ -1,47 +1,53 @@
 import type { H3Event } from 'h3'
 
+import { api } from '#trellis/api'
 import { defineMcpRuntime } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
-import type { Id } from '~/convex/_generated/dataModel'
-import type { McpReferencePrincipal, Role } from '~/convex/auth/principal'
+import type { McpReferencePrincipal } from '~/convex/auth/principal'
+
+import { mcpReferencePermissionKeys } from '../../shared/permissions'
 
 type McpAuthContext = {
-  role?: Role
+  keyId?: string
   userId?: string
-  tenantId?: string
 }
 
 function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
-  if (!auth?.role || !auth.userId) {
+  if (!auth?.keyId || !auth.userId) {
     return { kind: 'anonymous' }
   }
 
   return {
-    kind: 'agent',
+    kind: 'mcp',
+    mcpKeyId: auth.keyId,
     userId: auth.userId,
-    role: auth.role,
-    tenantId: auth.tenantId as Id<'workspaces'> | undefined,
-    provider: 'mcp',
   }
-}
-
-function canWrite(role: Role) {
-  return role === 'owner' || role === 'admin' || role === 'member'
 }
 
 export const mcpRuntime = defineMcpRuntime({
   callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
-  resolveCapabilities: async ({ principal }) => ({
-    readWorkspaceRunbooks: principal.kind === 'agent' && !!principal.tenantId,
-    writeWorkspaceRunbooks: principal.kind === 'agent' && canWrite(principal.role),
-    deleteWorkspaceRunbooks:
-      principal.kind === 'agent' && (principal.role === 'owner' || principal.role === 'admin'),
-  }),
+  resolveCapabilities: async ({ principal, convex }) => {
+    if (principal.kind !== 'mcp') {
+      return {
+        readWorkspaceRunbooks: false,
+        writeWorkspaceRunbooks: false,
+        deleteWorkspaceRunbooks: false,
+      }
+    }
+
+    const permissions = await convex.query(api.workspaces.getPermissionContext, {})
+
+    return {
+      readWorkspaceRunbooks: permissions?.can[mcpReferencePermissionKeys.runbookRead] === true,
+      writeWorkspaceRunbooks: permissions?.can[mcpReferencePermissionKeys.runbookCreate] === true,
+      deleteWorkspaceRunbooks: permissions?.role === 'owner' || permissions?.role === 'admin',
+    }
+  },
   principalKey: (principal) =>
-    principal.kind === 'agent'
-      ? `${principal.userId}:${principal.tenantId ?? 'none'}`
+    principal.kind === 'mcp'
+      ? `mcp:${principal.mcpKeyId}`
       : principal.kind,
 })
 
