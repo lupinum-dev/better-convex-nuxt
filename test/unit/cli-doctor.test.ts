@@ -282,4 +282,16 @@ describe('CLI doctor', () => {
     expect(auth).toContain('defineGinkoAuth')
     expect(principal).toContain('createCmsComponentBridge')
   })
+
+  it('generates bridge files from a direct manifest path', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-bridge-manifest-'))
+    const manifestPath = resolve(repoRoot, '../ginko-cms/convex/manifest.js')
+    mkdirSync(resolve(cwd, 'convex'), { recursive: true })
+    const result = runCli(['bridge', 'generate', manifestPath, '--cwd', cwd], repoRoot)
+    const auth = readFileSync(resolve(cwd, 'convex/auth.ts'), 'utf8')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(auth).toContain('@trellis-bridge-package: @lupinum/ginko-cms')
+    expect(auth).toContain('defineGinkoAuth')
+  })
 })

@@ -21,11 +21,11 @@ export async function renderComponentBridgeFiles(
   manifest: ComponentBridgeManifest,
 ): Promise<ComponentBridgeGeneratedFile[]> {
   const rendered =
-    typeof manifest.renderFiles === 'function'
-      ? await manifest.renderFiles()
-      : manifest.renderFiles
+    typeof manifest.renderFiles === 'function' ? await manifest.renderFiles() : manifest.renderFiles
 
-  const files = [...rendered].sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+  const files = [...rendered].sort((left, right) =>
+    left.relativePath.localeCompare(right.relativePath),
+  )
   const seen = new Set<string>()
   for (const file of files) {
     if (seen.has(file.relativePath)) {

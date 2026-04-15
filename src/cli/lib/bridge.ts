@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -14,7 +15,9 @@ function isBareSpecifier(specifier: string): boolean {
 
 async function importModule(specifier: string, cwd: string) {
   if (isBareSpecifier(specifier)) {
-    return await import(specifier)
+    const require = createRequire(resolve(cwd, 'package.json'))
+    const resolved = require.resolve(specifier)
+    return await import(pathToFileURL(resolved).href)
   }
 
   return await import(pathToFileURL(resolve(cwd, specifier)).href)
@@ -24,10 +27,21 @@ export async function loadBridgeManifest(
   packageSpecifier: string,
   cwd: string,
 ): Promise<ComponentBridgeManifest> {
+  const directManifestSpecifier =
+    packageSpecifier.endsWith('/convex/manifest') ||
+    packageSpecifier.endsWith('/convex/manifest.js') ||
+    packageSpecifier.endsWith('/convex/manifest.mjs') ||
+    packageSpecifier.endsWith('/manifest.js') ||
+    packageSpecifier.endsWith('/manifest.mjs')
+
   const candidates = [
-    `${packageSpecifier}/convex/manifest`,
-    `${packageSpecifier}/convex/manifest.js`,
-    `${packageSpecifier}/convex/manifest.mjs`,
+    ...(directManifestSpecifier
+      ? [packageSpecifier]
+      : [
+          `${packageSpecifier}/convex/manifest`,
+          `${packageSpecifier}/convex/manifest.js`,
+          `${packageSpecifier}/convex/manifest.mjs`,
+        ]),
   ]
 
   let lastError: unknown = null
@@ -37,7 +51,7 @@ export async function loadBridgeManifest(
       const manifest =
         module.default?.packageName || module.default?.renderFiles
           ? module.default
-          : module.ginkoCmsBridgeManifest ?? module.bridgeManifest ?? module.manifest
+          : (module.ginkoCmsBridgeManifest ?? module.bridgeManifest ?? module.manifest)
       if (!manifest) {
         throw new Error(`Module "${candidate}" does not export a bridge manifest.`)
       }

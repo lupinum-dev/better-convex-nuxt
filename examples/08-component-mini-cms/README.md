@@ -10,7 +10,7 @@ It is intentionally a small slice of the `ginko-cms` architecture:
 - MCP tools project root internal bridge refs instead of duplicating behavior
 
 This example is local-only. It does **not** cover packaged-component publishing or NPM package
-authoring.
+authoring, but it is the direct architectural precursor to the packaged `ginko-cms` flow.
 
 ## What it demonstrates
 
@@ -60,3 +60,9 @@ Use [`07-mcp-reference`](../07-mcp-reference/README.md) when you want the full M
 surface, key management, resources, and prompts.
 
 Use `ginko-cms` when you want the publishable packaged-component version of this architecture.
+
+Use the Trellis package-component docs when you want the manifest-driven host bridge workflow:
+
+- package exports `convex/manifest`
+- host runs `trellis bridge generate <package>`
+- module validates generated bridge files instead of patching host code at runtime
