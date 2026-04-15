@@ -438,7 +438,7 @@ function canWrite(role: NonNullable<McpAuthContext['role']>) {
 }
 
 export const mcpRuntime = defineMcpRuntime<WorkspacePrincipal>({
-  callConvex: async (event) => createServerConvexCaller(event),
+  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
     // Map projected tool names to booleans here.

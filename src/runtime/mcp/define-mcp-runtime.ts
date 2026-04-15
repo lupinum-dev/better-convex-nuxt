@@ -52,7 +52,7 @@ export interface DefineMcpRuntimeOptions<
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
   TRuntime = Record<string, never>,
 > {
-  callConvex: (event: H3Event) => MaybePromise<McpConvexCaller>
+  callConvex: (event: H3Event, principal: TPrincipal) => MaybePromise<McpConvexCaller>
   resolvePrincipal: (event: H3Event) => MaybePromise<TPrincipal>
   resolveCapabilities?: (ctx: {
     event: H3Event
@@ -209,7 +209,7 @@ export function defineMcpRuntime<
     if (!cached) {
       cached = (async () => {
         const principal = await options.resolvePrincipal(event)
-        const convex = await options.callConvex(event)
+        const convex = await options.callConvex(event, principal)
         const capabilities = options.resolveCapabilities
           ? await options.resolveCapabilities({
               event,

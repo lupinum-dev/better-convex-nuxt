@@ -1,5 +1,6 @@
 import { renderUsage, runCommand, defineCommand } from 'citty'
 
+import { bridgeCommand } from './commands/bridge.js'
 import { doctorCommand } from './commands/doctor.js'
 import { initCommand } from './commands/init.js'
 
@@ -15,6 +16,7 @@ export function createCliCommand() {
       description: 'CLI tools for @lupinum/trellis',
     },
     subCommands: {
+      bridge: bridgeCommand,
       doctor: doctorCommand,
       init: initCommand,
     },

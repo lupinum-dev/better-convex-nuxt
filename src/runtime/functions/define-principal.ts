@@ -16,6 +16,16 @@ export type DefaultPrincipal =
       userId: string
       sessionId?: string
     }
+  | {
+      kind: 'mcp'
+      mcpKeyId: string
+      roleHint?: string
+    }
+  | {
+      kind: 'service'
+      serviceId: string
+      scopes?: string[]
+    }
 
 export interface PrincipalDefinition<TCtx extends object, TPrincipal> {
   readonly type: TPrincipal

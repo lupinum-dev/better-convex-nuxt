@@ -6,7 +6,7 @@ import type { MiniCmsPrincipal } from '~/shared/principal'
 import { getCapabilitiesForPrincipal, getMcpPrincipal, type CapabilitySnapshot } from './mcp-auth'
 
 export const mcpRuntime = defineMcpRuntime<MiniCmsPrincipal, CapabilitySnapshot>({
-  callConvex: async (event) => createServerConvexCaller(event),
+  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => getCapabilitiesForPrincipal(principal),
   principalKey: (principal) => {

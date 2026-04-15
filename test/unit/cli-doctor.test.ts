@@ -55,6 +55,7 @@ describe('CLI doctor', () => {
 
     expect(result.status, output).toBe(0)
     expect(output).toContain('@lupinum/trellis')
+    expect(output).toContain('bridge')
     expect(output).toContain('doctor')
     expect(output).toContain('init')
     expect(output).toContain('USAGE')
@@ -266,5 +267,19 @@ describe('CLI doctor', () => {
     expect(runtime).toContain('resolvePrincipal')
     expect(runtime).toContain('resolveCapabilities')
     expect(runtime).toContain('Project root internal refs or bridge refs')
+  })
+
+  it('generates bridge files from a package manifest', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-bridge-generate-'))
+    const packagePath = resolve(repoRoot, '../ginko-cms')
+    mkdirSync(resolve(cwd, 'convex'), { recursive: true })
+    const result = runCli(['bridge', 'generate', packagePath, '--cwd', cwd], repoRoot)
+    const auth = readFileSync(resolve(cwd, 'convex/auth.ts'), 'utf8')
+    const principal = readFileSync(resolve(cwd, 'convex/ginkoCms/_principal.ts'), 'utf8')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(auth).toContain('@trellis-bridge-package: @lupinum/ginko-cms')
+    expect(auth).toContain('defineGinkoAuth')
+    expect(principal).toContain('createCmsComponentBridge')
   })
 })

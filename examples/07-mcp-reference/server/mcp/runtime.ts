@@ -31,7 +31,7 @@ function canWrite(role: Role) {
 }
 
 export const mcpRuntime = defineMcpRuntime({
-  callConvex: async (event) => createServerConvexCaller(event),
+  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
     readWorkspaceRunbooks: principal.kind === 'agent' && !!principal.tenantId,
