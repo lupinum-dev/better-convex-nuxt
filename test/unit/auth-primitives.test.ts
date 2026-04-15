@@ -2,6 +2,7 @@ import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
 import {
+  authenticated,
   enforce,
   can,
   deny,
@@ -15,6 +16,7 @@ import {
   ensureTenant,
   loadTenantResource,
 } from '../../src/runtime/auth'
+import { isAnonymousPrincipal } from '../../src/runtime/auth/principal-state'
 import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
 import { applyVisibility, defineVisibility, getVisibilityQuery } from '../../src/runtime/visibility'
 
@@ -73,6 +75,12 @@ describe('auth primitives', () => {
     expect(can(null, open)).toBe(true)
   })
 
+  it('treats authenticated as a non-composable sentinel guard', () => {
+    expect(() => authenticated.and(() => true)).toThrow(/cannot be composed with and/)
+    expect(() => authenticated.or(() => true)).toThrow(/cannot be composed with or/)
+    expect(() => authenticated.not()).toThrow(/cannot be negated/)
+  })
+
   it('throws forbidden errors from enforce() and narrows the type', () => {
     expect(() => enforce(null, 'Read dashboard', false)).toThrow(/Forbidden: Read dashboard/)
 
@@ -121,6 +129,17 @@ describe('auth primitives', () => {
     requireAuth(actor)
     expect(actor.userId).toBe('alice')
     expect(() => requireAuth(null)).toThrow(/Not authenticated\./)
+    expect(() => requireAuth({ kind: 'anonymous' as const })).toThrow(/Not authenticated\./)
+  })
+
+  it('identifies anonymous principal states directly', () => {
+    expect(isAnonymousPrincipal(undefined)).toBe(true)
+    expect(isAnonymousPrincipal(null)).toBe(true)
+    expect(isAnonymousPrincipal({ kind: 'anonymous' })).toBe(true)
+    expect(isAnonymousPrincipal({ kind: 'user', userId: 'alice' })).toBe(false)
+    expect(isAnonymousPrincipal({ userId: 'alice' })).toBe(false)
+    expect(isAnonymousPrincipal('user')).toBe(false)
+    expect(isAnonymousPrincipal(123)).toBe(false)
   })
 
   it('fails closed in can() for ConvexError but rethrows programming bugs', () => {

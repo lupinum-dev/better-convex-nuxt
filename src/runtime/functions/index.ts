@@ -273,26 +273,46 @@ async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TAct
   return mergeRules(tenantRules, resolvedCustomRules)
 }
 
-type StructuredQueryBuilder<TCtx extends object, Visibility extends FunctionVisibility, TActor> = <
-  TGuard extends StructuredGuard<TActor>,
-  TArgsValidator extends PropertyValidators,
-  TLoaded extends StructuredLoadedValue = undefined,
-  TResult = unknown,
->(
-  definition: StructuredHandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult>,
-) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
-
-type StructuredMutationBuilder<
-  TCtx extends object,
+type StructuredQueryBuilder<
+  TCtx extends { principal: () => Promise<unknown> },
   Visibility extends FunctionVisibility,
   TActor,
 > = <
-  TGuard extends StructuredGuard<TActor>,
+  TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['principal']>>, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
   TResult = unknown,
 >(
-  definition: StructuredHandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult>,
+  definition: StructuredHandlerDefinition<
+    TCtx,
+    Awaited<ReturnType<TCtx['principal']>>,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult
+  >,
+) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type StructuredMutationBuilder<
+  TCtx extends { principal: () => Promise<unknown> },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['principal']>>, TActor>,
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TResult = unknown,
+>(
+  definition: StructuredHandlerDefinition<
+    TCtx,
+    Awaited<ReturnType<TCtx['principal']>>,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult
+  >,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type RuntimeBundle<
@@ -549,6 +569,7 @@ export function createApp<
   const app = buildStructuredFunctions<
     QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
     MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+    TPrincipal,
     TActor
   >(raw.query, raw.mutation) as {
     query: StructuredQueryBuilder<
@@ -568,6 +589,7 @@ export function createApp<
       ? (buildStructuredFunctions<
           QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
           MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+          TPrincipal,
           TActor
         >(raw.internal.query, raw.internal.mutation) as {
           query: StructuredQueryBuilder<

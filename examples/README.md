@@ -4,15 +4,15 @@ Eight examples, progressive difficulty, every one using full Nuxt UI.
 
 ## First-Time Reader Path
 
-Read **01 → 02 → 03** in order. Each builds on the previous, adding one major concept per step. Examples 04–08 are reference implementations — pick whichever matches your use case. `07` and `08` are reference examples, not part of the first-reader path.
+Read **01 → 02 → 03** in order. Each builds on the previous, adding one major concept per step. `03-team-workspace` is the repo's canonical protected-app reference. Examples 04–08 are reference implementations — pick whichever matches your use case. `05` and beyond are better treated as pattern catalogs than first-reader steps.
 
 ## Which One To Open First?
 
 | Example                 | Best for                     | Shows                                                                                                                                        |
 | ----------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-public-todo`        | First look                   | raw `query` / `mutation`, `defineArgs`                                                                                                       |
-| `02-auth-todo`          | Auth-only apps               | Better Auth wiring, raw Convex handlers                                                                                                      |
-| `03-team-workspace`     | Full-stack multi-tenant apps | `convex/auth/*`, backend-owned context, `_can`, agent principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing`        |
+| `01-public-todo`        | First look                   | minimal `createApp(...)`, `defineArgs`, simple query/mutation flow                                                                           |
+| `02-auth-todo`          | Auth-only apps               | Better Auth wiring, actor resolution, personal ownership handlers                                                                            |
+| `03-team-workspace`     | Canonical protected app      | `convex/auth/*`, backend-owned context, `_can`, agent principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing`        |
 | `04-saas-platform`      | Month-two product work       | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows                |
 | `05-visibility-access`  | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy                   |
 | `06-multi-workspace`    | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                               |

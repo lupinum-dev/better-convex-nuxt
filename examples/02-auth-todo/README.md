@@ -8,7 +8,7 @@ It shows:
 - Better Auth wired through Convex
 - app-owned `convex/auth/actor.ts`
 - a tiny `convex/auth/scope.ts` helper for not-found + ownership checks
-- raw Convex `query()` and `mutation()`
+- Trellis-backed handlers without a tenant model
 - explicit ownership checks in handlers
 - auth-aware page rendering with `ConvexAuthenticated`, `ConvexUnauthenticated`, and `ConvexAuthLoading`
 - the same app-owned `convex/test.setup.ts` bridge used by the larger examples
@@ -41,7 +41,7 @@ do not set `CONVEX_URL` manually for this example.
 This example now includes a small Convex test harness as the personal-auth starter reference:
 
 - `vitest.config.ts` uses `convexTestConfig(...)`
-- `convex/test.setup.ts` keeps the Vite module glob and generated-server mock in app code
+- `convex/test.setup.ts` keeps the Vite module glob in app code
 - `convex/todos.test.ts` proves that one user cannot mutate another user's todo
 
 Ownership uses `ownerId` here on purpose. Moving from personal auth to tenant scoping later should

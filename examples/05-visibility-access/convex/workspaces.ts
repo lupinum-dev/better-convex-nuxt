@@ -1,4 +1,4 @@
-import { definePermissionContext, deny, open } from '@lupinum/trellis/auth'
+import { authenticated, definePermissionContext, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { knowledgeBasePermissionKeys, type KnowledgeBasePermissionMap } from '../shared/permissions'
@@ -48,11 +48,10 @@ export const getPermissionContext = app.query(
 )
 
 export const createWorkspace = app.mutation({
-  guard: open,
+  guard: authenticated,
   args: { name: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw deny('Not authenticated.')
+    const principal = await ctx.principal()
 
     const existing = await ctx.db
       .query('workspaces')
@@ -62,7 +61,7 @@ export const createWorkspace = app.mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))
       .first()
     if (!user) throw new Error('Current user row not found.')
 
@@ -70,7 +69,7 @@ export const createWorkspace = app.mutation({
     const workspaceId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
-      ownerId: identity.subject,
+      ownerId: principal.userId,
       createdAt: now,
       updatedAt: now,
     })
@@ -93,15 +92,14 @@ const joinRoleValidator = v.union(
 )
 
 export const joinWorkspace = app.mutation({
-  guard: open,
+  guard: authenticated,
   args: {
     slug: v.string(),
     role: joinRoleValidator,
     managerEmail: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw deny('Not authenticated.')
+    const principal = await ctx.principal()
 
     const workspace = await ctx.db
       .query('workspaces')
@@ -111,7 +109,7 @@ export const joinWorkspace = app.mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))
       .first()
     if (!user) throw new Error('Current user row not found.')
 

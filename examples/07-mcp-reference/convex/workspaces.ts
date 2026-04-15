@@ -1,11 +1,11 @@
-import { definePermissionContext, deny, open } from '@lupinum/trellis/auth'
+import { authenticated, definePermissionContext, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { mcpReferencePermissionKeys, type McpReferencePermissionMap } from '../shared/permissions'
 import type { Actor } from './auth/actor'
 import { getPermissionActor } from './auth/actor'
 import { canCreateRunbook, canManageMcpKeys, canReadWorkspaceRunbook } from './auth/checks'
-import { app, mutation } from './functions'
+import { app } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 type PermissionActor = NonNullable<Awaited<ReturnType<typeof getPermissionActor>>>
@@ -45,14 +45,14 @@ export const getPermissionContext = app.query(
   }),
 )
 
-export const createWorkspace = mutation({
+export const createWorkspace = app.mutation({
+  guard: authenticated,
   args: {
     name: v.string(),
     slug: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw deny('Not authenticated.')
+    const principal = await ctx.principal()
 
     const existing = await ctx.db
       .query('workspaces')
@@ -63,7 +63,7 @@ export const createWorkspace = mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))
       .first()
 
     if (!user) throw new Error('Current user row not found.')
@@ -72,7 +72,7 @@ export const createWorkspace = mutation({
     const tenantId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
-      ownerId: identity.subject,
+      ownerId: principal.userId,
       createdAt: now,
       updatedAt: now,
     })
@@ -89,7 +89,7 @@ export const createWorkspace = mutation({
       ].join('\n'),
       visibility: 'public',
       tags: ['public', 'onboarding'],
-      ownerId: identity.subject,
+      ownerId: principal.userId,
       workspaceId: tenantId,
       createdAt: now,
       updatedAt: now,
@@ -124,14 +124,14 @@ export const createWorkspace = mutation({
   },
 })
 
-export const joinWorkspace = mutation({
+export const joinWorkspace = app.mutation({
+  guard: authenticated,
   args: {
     slug: v.string(),
     role: joinRoleValidator,
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw deny('Not authenticated.')
+    const principal = await ctx.principal()
 
     const workspace = await ctx.db
       .query('workspaces')
@@ -142,7 +142,7 @@ export const joinWorkspace = mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))
       .first()
 
     if (!user) throw new Error('Current user row not found.')

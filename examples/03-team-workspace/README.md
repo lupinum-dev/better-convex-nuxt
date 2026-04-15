@@ -105,9 +105,8 @@ The example test file covers:
 - source + event ID form the replay key
 - webhook-created todos are visible in the workspace list
 
-`convex/test.setup.ts` is intentionally app-owned. It uses `createConvexTestModules(...)` and
-`convexServerMock` from `@lupinum/trellis/testing`, but the Vite glob and generated-server mock
-still live in the example app.
+`convex/test.setup.ts` is intentionally app-owned. It keeps the Vite module glob in the example
+app while `convexTestConfig(...)` now wires the generated-server bridge automatically.
 
 This example uses the module-provided `usePermissions()` composable directly in the page. There is
 no app-local wrapper because the point here is the default integration path.

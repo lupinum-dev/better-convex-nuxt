@@ -2,11 +2,26 @@ import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'conv
 import { ConvexError } from 'convex/values'
 
 import { runCheck, type AnyCheck, type Check } from './define-guard.js'
+import { isAnonymousPrincipal, type AuthenticatedPrincipal } from './principal-state.js'
 
 export { defineAuth } from './define-auth.js'
 export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth.js'
-export { defineGuard, isGuard, isOpenGuard, open } from './define-guard.js'
-export type { AnyCheck, Check, Guard, GuardKind, OpenGuard } from './define-guard.js'
+export {
+  authenticated,
+  defineGuard,
+  isAuthenticatedGuard,
+  isGuard,
+  isOpenGuard,
+  open,
+} from './define-guard.js'
+export type {
+  AnyCheck,
+  AuthenticatedGuard,
+  Check,
+  Guard,
+  GuardKind,
+  OpenGuard,
+} from './define-guard.js'
 export { defineActor } from './define-actor.js'
 export type { ActorBuilder, DefaultActor } from './define-actor.js'
 export { definePermissionContext } from './define-permission-context.js'
@@ -84,8 +99,8 @@ export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
 export function requireAuth<P>(
   principal: P,
   reason = 'Not authenticated.',
-): asserts principal is NonNullable<P> {
-  if (principal == null) {
+): asserts principal is AuthenticatedPrincipal<P> & NonNullable<P> {
+  if (principal == null || isAnonymousPrincipal(principal)) {
     throw toForbiddenError(reason)
   }
 }

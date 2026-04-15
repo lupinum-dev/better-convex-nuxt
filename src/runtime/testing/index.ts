@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+import { dirname, resolve } from 'node:path'
+
 import { convexTest, type TestConvex } from 'convex-test'
 import type {
   DataModelFromSchemaDefinition,
@@ -15,6 +17,8 @@ const defaultModules =
   typeof import.meta.glob === 'function' ? import.meta.glob('/convex/**/*.*s') : {}
 
 type ConvexTestModules = Record<string, () => Promise<unknown>>
+
+const GENERATED_SERVER_VIRTUAL_PREFIX = '\0trellis:generated-server:'
 
 /**
  * Normalize a Convex module glob for Trellis testing helpers.
@@ -37,6 +41,41 @@ export const convexServerMock = async () => {
     internalMutation: server.internalMutationGeneric,
     internalAction: server.internalActionGeneric,
     httpAction: server.httpActionGeneric,
+  }
+}
+
+/**
+ * Replace relative `./_generated/server` imports with a virtual module during
+ * tests so app code can keep using normal Convex imports without a per-project
+ * `vi.mock(...)` stanza.
+ */
+function createGeneratedServerPlugin() {
+  return {
+    name: 'trellis-generated-server-mock',
+    enforce: 'pre' as const,
+    resolveId(source: string, importer?: string) {
+      if (source === './_generated/server' || source.endsWith('/_generated/server')) {
+        const resolved = importer ? resolve(dirname(importer), source) : source
+        return `${GENERATED_SERVER_VIRTUAL_PREFIX}${resolved}`
+      }
+
+      return null
+    },
+    load(id: string) {
+      if (!id.startsWith(GENERATED_SERVER_VIRTUAL_PREFIX)) return null
+
+      return [
+        "export {",
+        '  queryGeneric as query,',
+        '  mutationGeneric as mutation,',
+        '  actionGeneric as action,',
+        '  internalQueryGeneric as internalQuery,',
+        '  internalMutationGeneric as internalMutation,',
+        '  internalActionGeneric as internalAction,',
+        '  httpActionGeneric as httpAction,',
+        "} from 'convex/server'",
+      ].join('\n')
+    },
   }
 }
 
@@ -268,7 +307,14 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
 }
 
 export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserConfig {
-  return mergeInlineDeps(mergeStableTestTsconfig(options))
+  const plugins = Array.isArray(options.plugins) ? options.plugins : options.plugins ? [options.plugins] : []
+
+  return mergeInlineDeps(
+    mergeStableTestTsconfig({
+      ...options,
+      plugins: [createGeneratedServerPlugin(), ...plugins],
+    }),
+  )
 }
 
 /**

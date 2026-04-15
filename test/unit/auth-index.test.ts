@@ -16,6 +16,7 @@ describe('auth entrypoint exports', () => {
     expect(authApi).toHaveProperty('or')
     expect(authApi).toHaveProperty('defineActor')
     expect(authApi).toHaveProperty('defineGuard')
+    expect(authApi).toHaveProperty('authenticated')
     expect(authApi).toHaveProperty('isGuard')
     expect(authApi).toHaveProperty('open')
     expect(authApi).toHaveProperty('enforce')

@@ -18,13 +18,22 @@ type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPrevie
 
 export type OperationDefinition<
   TCtx,
+  TPrincipal,
   TActor,
-  TGuard extends StructuredGuard<TActor>,
+  TGuard extends StructuredGuard<TPrincipal, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
   TPreview = unknown,
-> = StructuredHandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult> & {
+> = StructuredHandlerDefinition<
+  TCtx,
+  TPrincipal,
+  TActor,
+  TGuard,
+  TArgsValidator,
+  TLoaded,
+  TResult
+> & {
   preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
   previewReturns?: GenericValidator
 }
@@ -38,15 +47,25 @@ export type OperationDefinition<
  */
 export function defineOperation<
   TCtx,
+  TPrincipal,
   TActor,
-  TGuard extends StructuredGuard<TActor>,
+  TGuard extends StructuredGuard<TPrincipal, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
   TResult = unknown,
   TPreview = unknown,
 >(
-  definition: OperationDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult, TPreview>,
-): OperationDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult, TPreview> {
+  definition: OperationDefinition<
+    TCtx,
+    TPrincipal,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult,
+    TPreview
+  >,
+): OperationDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TResult, TPreview> {
   return definition
 }
 
@@ -58,15 +77,25 @@ export function defineOperation<
  */
 export function previewOf<
   TCtx,
+  TPrincipal,
   TActor,
-  TGuard extends StructuredGuard<TActor>,
+  TGuard extends StructuredGuard<TPrincipal, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
   TResult = unknown,
   TPreview = unknown,
 >(
-  operation: OperationDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TResult, TPreview>,
-): StructuredHandlerDefinition<TCtx, TActor, TGuard, TArgsValidator, TLoaded, TPreview> {
+  operation: OperationDefinition<
+    TCtx,
+    TPrincipal,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult,
+    TPreview
+  >,
+): StructuredHandlerDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TPreview> {
   if (!operation.preview) {
     throw new Error('previewOf() requires an operation with a preview handler.')
   }

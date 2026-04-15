@@ -5,7 +5,7 @@ This is the smallest useful public-only app.
 It shows:
 
 - `trellis: { url }` and nothing else
-- raw Convex `query()` and `mutation()`
+- the smallest Trellis-backed `createApp(...)` runtime
 - one `defineArgs()` object reused by Convex handlers
 - `useConvexQuery()` and `useConvexMutation()` in the page
 

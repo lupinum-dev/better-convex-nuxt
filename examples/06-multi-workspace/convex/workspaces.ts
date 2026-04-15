@@ -1,4 +1,4 @@
-import { can, definePermissionContext, deny, open } from '@lupinum/trellis/auth'
+import { can, definePermissionContext, deny, getAuth, open } from '@lupinum/trellis/auth'
 /**
  * Why this file exists:
  * Current-workspace actions stay normal here. The agency dashboard lives in a separate query on purpose.
@@ -9,7 +9,7 @@ import { agencyPermissionKeys, type AgencyPermissionMap } from '../shared/permis
 import { getActor } from './auth/actor'
 import { getMemberships, requireWorkspaceMembership } from './auth/agency'
 import { hasRole } from './auth/checks'
-import { app, query, mutation } from './functions'
+import { app, mutation, query } from './functions'
 
 type Actor = NonNullable<Awaited<ReturnType<typeof getActor>>>
 
@@ -74,7 +74,9 @@ export const getPermissionContext = query(
 export const createWorkspace = mutation({
   args: { name: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    // Intentional escape hatch: onboarding creates a new tenant and membership,
+    // so it cannot run through tenant-isolated app.mutation.
+    const identity = await getAuth(ctx)
     if (!identity) throw deny('Not authenticated.')
 
     const user = await ctx.db
@@ -126,7 +128,9 @@ export const joinWorkspace = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    // Intentional escape hatch: joining may assign a different active workspace
+    // than the current tenant context, so it bypasses tenant-isolated handlers.
+    const identity = await getAuth(ctx)
     if (!identity) throw deny('Not authenticated.')
 
     const user = await ctx.db
@@ -174,7 +178,7 @@ export const joinWorkspace = mutation({
 export const switchWorkspace = mutation({
   args: { workspaceId: v.id('workspaces') },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await getAuth(ctx)
     if (!identity) throw deny('Not authenticated.')
 
     const user = await ctx.db

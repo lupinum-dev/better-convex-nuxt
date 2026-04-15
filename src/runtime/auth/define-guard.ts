@@ -1,7 +1,7 @@
 export type Check<P = unknown> = (principal: P) => boolean
 export type AnyCheck<P = unknown> = Check<P> | boolean
 
-export type GuardKind = 'base' | 'and' | 'or' | 'not'
+export type GuardKind = 'base' | 'and' | 'or' | 'not' | 'authenticated'
 
 export type Guard<P = unknown> = Check<P> & {
   _type: 'guard'
@@ -15,6 +15,13 @@ export type Guard<P = unknown> = Check<P> & {
 
 export type OpenGuard = Guard<unknown> & {
   _open: true
+}
+
+export type AuthenticatedGuard = Guard<unknown> & {
+  _authenticated: true
+  and: (...checks: Array<AnyCheck<unknown>>) => never
+  or: (...checks: Array<AnyCheck<unknown>>) => never
+  not: () => never
 }
 
 export function runCheck<P>(principal: P, check: AnyCheck<P>): boolean {
@@ -33,10 +40,14 @@ export function isOpenGuard(value: unknown): value is OpenGuard {
   return isGuard(value) && (value as { _open?: unknown })._open === true
 }
 
+export function isAuthenticatedGuard(value: unknown): value is AuthenticatedGuard {
+  return isGuard(value) && (value as { _authenticated?: unknown })._authenticated === true
+}
+
 function describeCheck<P>(check: AnyCheck<P>): string {
   if (isGuard(check)) return check.label
   if (typeof check === 'boolean') return String(check)
-  return 'anonymous'
+  return '(unnamed check)'
 }
 
 function createGuard<P>(
@@ -80,3 +91,23 @@ export function defineGuard<P>(label: string, check: AnyCheck<P>): Guard<P> {
 export const open = Object.assign(defineGuard<unknown>('open', true), {
   _open: true as const,
 }) as OpenGuard
+
+/**
+ * Sentinel guard for pre-actor authenticated flows.
+ *
+ * The boolean check here is intentionally inert. Enforcement happens in the
+ * structured handler runtime via `requireAuth(...)`, not through `runCheck(...)`.
+ */
+export const authenticated = Object.assign(defineGuard<unknown>('authenticated', true), {
+  _authenticated: true as const,
+  kind: 'authenticated' as const,
+  and: () => {
+    throw new Error('authenticated is a sentinel guard and cannot be composed with and().')
+  },
+  or: () => {
+    throw new Error('authenticated is a sentinel guard and cannot be composed with or().')
+  },
+  not: () => {
+    throw new Error('authenticated is a sentinel guard and cannot be negated.')
+  },
+}) as AuthenticatedGuard

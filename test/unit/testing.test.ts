@@ -15,5 +15,12 @@ describe('convexTestConfig', () => {
         types: expect.arrayContaining(['node', 'vite/client']),
       },
     })
+    expect(config.plugins).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'trellis-generated-server-mock',
+        }),
+      ]),
+    )
   })
 })

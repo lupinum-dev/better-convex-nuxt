@@ -77,15 +77,11 @@ function testSetupTemplate() {
   return `
 /// <reference types="vite/client" />
 
-import { vi } from 'vitest'
-
-import { convexServerMock, createConvexTestModules } from '@lupinum/trellis/testing'
+import { createConvexTestModules } from '@lupinum/trellis/testing'
 
 export const modules = createConvexTestModules(import.meta.glob('./**/*.ts', {
   eager: false,
 }))
-
-vi.mock('./_generated/server', async () => await convexServerMock())
 `.trimStart()
 }
 
