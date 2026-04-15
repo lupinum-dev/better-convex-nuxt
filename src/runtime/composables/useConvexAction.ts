@@ -1,35 +1,9 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 
-import type { ValidateOption } from '../utils/resolve-validator.js'
 import { useConvexAction as useRuntimeConvexAction } from './internal/command-runtime.js'
-import type { UseConvexMutationReturn } from './useConvexMutation.js'
+import type { UseConvexActionOptions, UseConvexActionReturn } from './internal/command-types.js'
 
-/**
- * Return value from useConvexAction.
- * Identical shape to UseConvexMutationReturn (no optimisticUpdate on the output).
- */
-export type UseConvexActionReturn<Args, Result> = UseConvexMutationReturn<Args, Result>
-
-/**
- * Options for useConvexAction
- */
-export interface UseConvexActionOptions<Args, Result> {
-  /**
-   * Pre-validate args before sending to the server.
-   * Accepts a Convex validator or any Standard Schema v1 producer.
-   */
-  validate?: ValidateOption
-  /**
-   * Called after a successful action.
-   * Errors thrown here are logged and ignored.
-   */
-  onSuccess?: (result: Result, args: Args) => void
-  /**
-   * Called after a failed action.
-   * Errors thrown here are logged and ignored.
-   */
-  onError?: (error: Error, args: Args) => void
-}
+export type { UseConvexActionOptions, UseConvexActionReturn }
 
 /**
  * Composable for calling Convex actions with automatic state tracking.

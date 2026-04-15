@@ -1,16 +1,7 @@
 import { vi } from 'vitest'
 import { ref } from 'vue'
 
-export function createDeferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((innerResolve, innerReject) => {
-    resolve = innerResolve
-    reject = innerReject
-  })
-
-  return { promise, resolve, reject }
-}
+export { createDeferred } from './deferred'
 
 export const stateStore = new Map<string, { value: unknown }>()
 

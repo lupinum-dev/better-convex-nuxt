@@ -29,7 +29,7 @@ const requiredActor = {} as Actor
 requireAuth(requiredActor)
 type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
 
-deny('Blocked')
+deny('Blocked', { source: 'dx-typing' })
 enforce(null, 'Admin page', false)
 verifyTrustedCallerKey('a', 'b')
 

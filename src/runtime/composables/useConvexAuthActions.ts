@@ -79,13 +79,7 @@ export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<
         throw wrapBetterAuthError(betterAuthError, 'auth')
       }
 
-      try {
-        await refreshAuthAfterAction()
-      } catch (refreshError) {
-        // Auth action succeeded but post-action refresh failed.
-        // The auth state will self-correct on next navigation.
-        console.warn('[useConvexAuthActions] Post-action auth refresh failed:', refreshError)
-      }
+      await refreshAuthAfterAction()
       data.value = result as T
       _status.value = 'success'
       await redirectAfterAuth(options?.redirectTo)

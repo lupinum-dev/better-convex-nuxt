@@ -45,12 +45,6 @@ export const SUBSCRIPTION_TIMEOUT_MS = 10_000
 /** Debounce window to prevent multiple rapid unauthorized redirects. */
 export const UNAUTHORIZED_REDIRECT_DEBOUNCE_MS = 1_500
 
-/**
- * Grace period after client mount before showing offline UI.
- * Prevents a flash of "offline" state during initial WebSocket setup.
- */
-export const CONNECTION_HYDRATION_GRACE_MS = 500
-
 // ============================================================
 // Upload defaults
 // ============================================================

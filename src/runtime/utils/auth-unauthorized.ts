@@ -71,13 +71,10 @@ export async function handleUnauthorizedAuthFailure(options: {
     | { currentRoute?: { value?: { path?: string; fullPath?: string } } }
     | undefined
   const routerRoute = router?.currentRoute?.value
-  const compatRoute = (nuxtApp as { _route?: { path?: string; fullPath?: string } })._route
   const locationLike = (globalThis as { location?: Location }).location
   const currentRoute = routerRoute ?? {
-    path: compatRoute?.path ?? locationLike?.pathname ?? '/',
-    fullPath:
-      compatRoute?.fullPath ??
-      `${locationLike?.pathname ?? '/'}${locationLike?.search ?? ''}${locationLike?.hash ?? ''}`,
+    path: locationLike?.pathname ?? '/',
+    fullPath: `${locationLike?.pathname ?? '/'}${locationLike?.search ?? ''}${locationLike?.hash ?? ''}`,
   }
   const redirectTo = unauthorized.redirectTo
   const redirectPath = normalizeRedirectTargetPath(redirectTo)

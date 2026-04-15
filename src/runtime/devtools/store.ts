@@ -8,6 +8,7 @@ import { toRaw } from 'vue'
 import type { Ref } from 'vue'
 
 import { decodeJwtPayload } from '../utils/convex-shared.js'
+import type { ConvexUser as RuntimeConvexUser } from '../utils/types.js'
 import type {
   QueryRegistryEntry,
   MutationEntry,
@@ -18,7 +19,7 @@ import type {
   PermissionContextState,
   AuthBootstrapState,
   ConvexDevtoolsSnapshot,
-  ConvexUser,
+  ConvexUser as DevtoolsConvexUser,
   JWTClaims,
 } from './types.js'
 
@@ -52,6 +53,15 @@ function stableStringify(value: unknown): string {
 
 function areSerializedValuesEqual(previous: unknown, next: unknown): boolean {
   return stableStringify(previous) === stableStringify(next)
+}
+
+function toDevtoolsUser(user: RuntimeConvexUser | null): DevtoolsConvexUser | null {
+  if (!user) return null
+  return {
+    ...clonePayload(user),
+    createdAt: typeof user.createdAt === 'string' ? new Date(user.createdAt) : undefined,
+    updatedAt: typeof user.updatedAt === 'string' ? new Date(user.updatedAt) : undefined,
+  }
 }
 
 export class ConvexDevtoolsStore {
@@ -173,11 +183,14 @@ export class ConvexDevtoolsStore {
   // Auth Operations
   // =====================================================================
 
-  updateAuthState(convexToken: Ref<string | null>, convexUser: Ref<unknown>): void {
-    const rawUser = toRaw(convexUser.value) as ConvexUser | null
+  updateAuthState(
+    convexToken: Ref<string | null>,
+    convexUser: Ref<RuntimeConvexUser | null>,
+  ): void {
+    const rawUser = toRaw(convexUser.value)
     const hasToken = !!convexToken.value
     const hasUser = !!(rawUser && typeof rawUser === 'object' && (rawUser.id || rawUser.email))
-    const plainUser = hasUser ? clonePayload(rawUser) : null
+    const plainUser = hasUser ? toDevtoolsUser(rawUser) : null
     const token = convexToken.value
 
     let claims: JWTClaims | undefined
@@ -214,9 +227,22 @@ export class ConvexDevtoolsStore {
   }
 
   updateConnectionState(client: ConvexClient): void {
-    const state = client.connectionState()
+    const state = client.connectionState() as {
+      hasInflightRequests: boolean
+      connectionRetries: number
+      hasEverConnected: boolean
+      isWebSocketConnected: boolean
+      inflightActions?: number
+      inflightMutations?: number
+      pendingActions?: number
+      pendingMutations?: number
+    }
     const inflightRequests =
-      state.inflightActions > 0 || state.inflightMutations > 0 || state.hasInflightRequests ? 1 : 0
+      (state.pendingActions ?? state.inflightActions ?? 0) > 0 ||
+      (state.pendingMutations ?? state.inflightMutations ?? 0) > 0 ||
+      state.hasInflightRequests
+        ? 1
+        : 0
     const hasEverConnected =
       this.connectionState.hasEverConnected || state.hasEverConnected || state.isWebSocketConnected
 

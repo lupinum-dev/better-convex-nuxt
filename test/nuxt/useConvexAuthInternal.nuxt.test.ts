@@ -7,22 +7,12 @@ import { useConvexAuthController } from '../../src/runtime/composables/internal/
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
+import { createDeferred } from '../support/unit/deferred'
 
 const AUTH_USER = {
   id: 'u-auth',
   name: 'Auth User',
   email: 'auth@test.com',
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((innerResolve, innerReject) => {
-    resolve = innerResolve
-    reject = innerReject
-  })
-
-  return { promise, resolve, reject }
 }
 
 function buildMockTransport(options?: {

@@ -55,7 +55,7 @@ interface AuthClientOptions {
   authRoute: string
   skipRoutes: string[]
   convexToken: Ref<string | null>
-  convexUser: Ref<unknown>
+  convexUser: Ref<ConvexUser | null>
   logger: Logger
   nuxtApp: MinimalNuxtApp
   router: Router

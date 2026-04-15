@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { computed } from 'vue'
 
 import { useRouter } from '#imports'
@@ -195,8 +195,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     expect(result.data.value).toBeUndefined()
   })
 
-  it('reports success even when post-action refreshAuth fails (refresh failure is non-fatal)', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('fails the auth action when post-action refreshAuth fails', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine({
         fetchAuthState: async (_input) => ({
@@ -209,17 +208,14 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
       return useConvexAuthActions()
     })
 
-    await result.execute(async () => ({ data: { user: { id: 'u1' } }, error: null }))
+    await expect(
+      result.execute(async () => ({ data: { user: { id: 'u1' } }, error: null })),
+    ).resolves.toBeUndefined()
 
-    // The auth action succeeded — refresh failure is caught and logged, not propagated
-    expect(result.status.value).toBe('success')
-    expect(result.error.value).toBeNull()
+    expect(result.status.value).toBe('error')
+    expect(result.error.value).toBeInstanceOf(ConvexCallError)
     expect(result.pending.value).toBe(false)
-    expect(warnSpy).toHaveBeenCalledWith(
-      '[useConvexAuthActions] Post-action auth refresh failed:',
-      expect.any(Error),
-    )
-    warnSpy.mockRestore()
+    expect(result.data.value).toBeUndefined()
   })
 
   it('allows a successful auth action to settle anonymous after refresh without treating it as an error', async () => {

@@ -24,7 +24,7 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
 
     convex.updateConnectionState({
       hasInflightRequests: true,
-      inflightMutations: 1,
+      pendingMutations: 1,
     })
 
     expect(hookSpy).not.toHaveBeenCalled()
@@ -52,7 +52,7 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
     })
 
     convex.updateConnectionState({
-      inflightActions: 2,
+      pendingActions: 2,
     })
 
     expect(hookSpy).toHaveBeenCalledTimes(1)
@@ -142,7 +142,7 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
     expect(result.second.isConnected.value).toBe(true)
     expect(result.first.isReconnecting.value).toBe(false)
     expect(result.first.pendingMutations.value).toBe(0)
-    expect(result.second.state.value.inflightActions).toBe(0)
+    expect(result.second.state.value.pendingActions).toBe(0)
 
     wrapper.unmount()
     expect(convex.connectionSubscriberCount()).toBe(0)

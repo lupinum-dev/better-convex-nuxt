@@ -5,11 +5,7 @@ import { useNuxtApp } from '#imports'
 
 import { useConvexAuthController } from '../composables/internal/useConvexAuthController.js'
 import { useAuthBootstrapDevtoolsState } from '../devtools/state.js'
-
-function isHarmlessBootstrapError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? '')
-  return /already|duplicate|exists/i.test(message)
-}
+import { toErrorMessage } from '../utils/value-helpers.js'
 
 export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference<'mutation'>>(
   mutationRef: TMutation,
@@ -22,6 +18,20 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
   const state = useAuthBootstrapDevtoolsState()
   let lastEnsuredUserId: string | null = null
   let activeBootstrapRequestId = 0
+  const setState = (input: {
+    pending: boolean
+    ensured: boolean
+    lastUserId: string | null
+    error: string | null
+  }) => {
+    state.value = {
+      mutationName: configuredMutationName,
+      pending: input.pending,
+      ensured: input.ensured,
+      lastUserId: input.lastUserId,
+      error: input.error,
+    }
+  }
 
   state.value = {
     mutationName: configuredMutationName,
@@ -37,45 +47,26 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
       const requestId = ++activeBootstrapRequestId
       if (!authenticated || !currentUser?.id) {
         lastEnsuredUserId = null
-        state.value = {
-          ...state.value,
-          pending: false,
-          ensured: false,
-          lastUserId: null,
-          error: null,
-        }
+        setState({ pending: false, ensured: false, lastUserId: null, error: null })
         return
       }
 
       if (lastEnsuredUserId === currentUser.id) {
-        state.value = {
-          ...state.value,
-          pending: false,
-          ensured: true,
-          lastUserId: lastEnsuredUserId,
-          error: null,
-        }
+        setState({ pending: false, ensured: true, lastUserId: lastEnsuredUserId, error: null })
         return
       }
 
       if (!nuxtApp.$convex || typeof nuxtApp.$convex.mutation !== 'function') {
-        state.value = {
-          ...state.value,
+        setState({
           pending: false,
           ensured: false,
           lastUserId: currentUser.id,
           error: 'Convex client is not initialized.',
-        }
+        })
         return
       }
 
-      state.value = {
-        ...state.value,
-        pending: true,
-        ensured: false,
-        lastUserId: currentUser.id,
-        error: null,
-      }
+      setState({ pending: true, ensured: false, lastUserId: currentUser.id, error: null })
 
       try {
         await nuxtApp.$convex.mutation(mutationRef, {} as never)
@@ -83,36 +74,17 @@ export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference
           return
         }
         lastEnsuredUserId = currentUser.id
-        state.value = {
-          ...state.value,
-          pending: false,
-          ensured: true,
-          lastUserId: currentUser.id,
-          error: null,
-        }
+        setState({ pending: false, ensured: true, lastUserId: currentUser.id, error: null })
       } catch (error) {
         if (requestId !== activeBootstrapRequestId) {
           return
         }
-        if (isHarmlessBootstrapError(error)) {
-          lastEnsuredUserId = currentUser.id
-          state.value = {
-            ...state.value,
-            pending: false,
-            ensured: true,
-            lastUserId: currentUser.id,
-            error: null,
-          }
-          return
-        }
-
-        state.value = {
-          ...state.value,
+        setState({
           pending: false,
           ensured: false,
           lastUserId: currentUser.id,
-          error: error instanceof Error ? error.message : String(error),
-        }
+          error: toErrorMessage(error),
+        })
       }
     },
     { immediate: true },

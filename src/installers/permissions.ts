@@ -19,7 +19,7 @@ export function installPermissionTrellis(options: InstallPermissionsOptions): vo
 import { api } from '#trellis/api'
 import { createConfiguredPermissionsComposables } from '${resolver.resolve('./runtime/composables/configured-permissions')}'
 
-const configuredQuery = (api as Record<string, any>)['${modulePath}']['${exportName}']
+const configuredQuery = api['${modulePath}']['${exportName}']
 
 export const configuredPermissionsQuery = configuredQuery
 

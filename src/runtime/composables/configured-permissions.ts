@@ -115,13 +115,22 @@ function usePermissionContextState<
   }
 
   if (import.meta.client && shouldEmitDevWarning()) {
-    try {
-      watchEffect((onCleanup) => {
-        if (delayedNullWarningTimer) {
-          clearTimeout(delayedNullWarningTimer)
-          delayedNullWarningTimer = null
-        }
+    watchEffect((onCleanup) => {
+      if (delayedNullWarningTimer) {
+        clearTimeout(delayedNullWarningTimer)
+        delayedNullWarningTimer = null
+      }
 
+      if (
+        !authState?.isAuthenticated.value ||
+        authState.isPending.value ||
+        ctx.value ||
+        warnedAboutNullCtx
+      ) {
+        return
+      }
+
+      delayedNullWarningTimer = setTimeout(() => {
         if (
           !authState?.isAuthenticated.value ||
           authState.isPending.value ||
@@ -130,31 +139,19 @@ function usePermissionContextState<
         ) {
           return
         }
+        warnedAboutNullCtx = true
+        console.warn(
+          `[trellis] usePermissions("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`trellis.permissions.query\` and actor bootstrap flow.`,
+        )
+      }, 2000)
 
-        delayedNullWarningTimer = setTimeout(() => {
-          if (
-            !authState?.isAuthenticated.value ||
-            authState.isPending.value ||
-            ctx.value ||
-            warnedAboutNullCtx
-          )
-            return
-          warnedAboutNullCtx = true
-          console.warn(
-            `[trellis] usePermissions("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`trellis.permissions.query\` and actor bootstrap flow.`,
-          )
-        }, 2000)
-
-        onCleanup(() => {
-          if (delayedNullWarningTimer) {
-            clearTimeout(delayedNullWarningTimer)
-            delayedNullWarningTimer = null
-          }
-        })
+      onCleanup(() => {
+        if (delayedNullWarningTimer) {
+          clearTimeout(delayedNullWarningTimer)
+          delayedNullWarningTimer = null
+        }
       })
-    } catch {
-      // Permissions can be used in tests or setups that do not initialize the auth engine.
-    }
+    })
   }
 
   return {

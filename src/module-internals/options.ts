@@ -202,17 +202,6 @@ export function normalizeConfiguredFunctionPath(value: unknown): string | undefi
   return normalized
 }
 
-export function splitConfiguredFunctionPath(
-  path: string,
-): { modulePath: string; exportName: string } | null {
-  const lastDot = path.lastIndexOf('.')
-  if (lastDot <= 0 || lastDot === path.length - 1) return null
-  return {
-    modulePath: path.slice(0, lastDot),
-    exportName: path.slice(lastDot + 1),
-  }
-}
-
 export function createConfiguredFunctionError(
   kind: 'permissions.query',
   configuredPath: string,

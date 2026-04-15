@@ -3,6 +3,7 @@ import { useRuntimeConfig } from '#imports'
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config.js'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
 import type { LogLevel } from './logger.js'
+import { asRecord } from './value-helpers.js'
 
 export interface ConvexRuntimeQueryDefaults {
   server: boolean
@@ -29,10 +30,6 @@ export interface NormalizedConvexRuntimeConfig {
   query: ConvexRuntimeQueryDefaults
   upload: { maxConcurrent: number }
   logging: LogLevel | false
-}
-
-function asRecord(input: unknown): Record<string, unknown> | null {
-  return input && typeof input === 'object' ? (input as Record<string, unknown>) : null
 }
 
 function normalizeAuthCacheTtl(input: unknown): number {
@@ -70,10 +67,10 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       ...normalizeConvexAuthConfig(authRaw),
       route: normalizeAuthRoute(typeof authRaw?.route === 'string' ? authRaw.route : undefined),
       trustedOrigins: Array.isArray(authRaw?.trustedOrigins)
-        ? authRaw.trustedOrigins.filter((v): v is string => typeof v === 'string')
+        ? authRaw.trustedOrigins.filter((v: unknown): v is string => typeof v === 'string')
         : [],
       skipAuthRoutes: Array.isArray(authRaw?.skipAuthRoutes)
-        ? authRaw.skipAuthRoutes.filter((v): v is string => typeof v === 'string')
+        ? authRaw.skipAuthRoutes.filter((v: unknown): v is string => typeof v === 'string')
         : [],
       cache: {
         enabled: cacheRaw?.enabled === true,

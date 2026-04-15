@@ -27,8 +27,8 @@ const DEFAULT_CONNECTION_STATE: ConnectionState = {
   hasEverConnected: false,
   connectionCount: 0,
   connectionRetries: 0,
-  inflightMutations: 0,
-  inflightActions: 0,
+  pendingMutations: 0,
+  pendingActions: 0,
 }
 
 interface ConnectionStateStore {
@@ -59,8 +59,32 @@ function getConnectionStateStore(app: object): ConnectionStateStore {
 }
 
 function supportsConnectionHooks(client: ConvexClient | undefined): client is ConvexClient & {
-  connectionState: () => ConnectionState
-  subscribeToConnectionState: (cb: (state: ConnectionState) => void) => () => void
+  connectionState: () => {
+    hasInflightRequests: boolean
+    isWebSocketConnected: boolean
+    timeOfOldestInflightRequest: Date | null
+    hasEverConnected: boolean
+    connectionCount: number
+    connectionRetries: number
+    inflightMutations?: number
+    inflightActions?: number
+    pendingMutations?: number
+    pendingActions?: number
+  }
+  subscribeToConnectionState: (
+    cb: (state: {
+      hasInflightRequests: boolean
+      isWebSocketConnected: boolean
+      timeOfOldestInflightRequest: Date | null
+      hasEverConnected: boolean
+      connectionCount: number
+      connectionRetries: number
+      inflightMutations?: number
+      inflightActions?: number
+      pendingMutations?: number
+      pendingActions?: number
+    }) => void,
+  ) => () => void
 } {
   return Boolean(
     client &&
@@ -71,9 +95,26 @@ function supportsConnectionHooks(client: ConvexClient | undefined): client is Co
   )
 }
 
-function cloneConnectionState(state: ConnectionState): ConnectionState {
+function normalizeConnectionState(state: {
+  hasInflightRequests: boolean
+  isWebSocketConnected: boolean
+  timeOfOldestInflightRequest: Date | null
+  hasEverConnected: boolean
+  connectionCount: number
+  connectionRetries: number
+  inflightMutations?: number
+  inflightActions?: number
+  pendingMutations?: number
+  pendingActions?: number
+}): ConnectionState {
   return {
-    ...state,
+    hasInflightRequests: state.hasInflightRequests,
+    isWebSocketConnected: state.isWebSocketConnected,
+    hasEverConnected: state.hasEverConnected,
+    connectionCount: state.connectionCount,
+    connectionRetries: state.connectionRetries,
+    pendingMutations: state.pendingMutations ?? state.inflightMutations ?? 0,
+    pendingActions: state.pendingActions ?? state.inflightActions ?? 0,
     timeOfOldestInflightRequest: state.timeOfOldestInflightRequest
       ? new Date(state.timeOfOldestInflightRequest)
       : null,
@@ -92,8 +133,17 @@ function handleConnectionStateChange(
   logger: Logger,
   nextState: ConnectionState,
 ) {
-  const previousConnection = cloneConnectionState(store.state.value)
-  const connection = cloneConnectionState(nextState)
+  const previousConnection = normalizeConnectionState({
+    hasInflightRequests: store.state.value.hasInflightRequests,
+    isWebSocketConnected: store.state.value.isWebSocketConnected,
+    timeOfOldestInflightRequest: store.state.value.timeOfOldestInflightRequest,
+    hasEverConnected: store.state.value.hasEverConnected,
+    connectionCount: store.state.value.connectionCount,
+    connectionRetries: store.state.value.connectionRetries,
+    inflightMutations: store.state.value.pendingMutations,
+    inflightActions: store.state.value.pendingActions,
+  })
+  const connection = nextState
   const previousState = getConnectionPhase(previousConnection)
   const state = getConnectionPhase(connection)
 
@@ -141,9 +191,9 @@ function ensureConnectionSubscription(
 
   if (store.unsubscribe) return store
 
-  store.state.value = cloneConnectionState(client.connectionState())
+  store.state.value = normalizeConnectionState(client.connectionState())
   store.unsubscribe = client.subscribeToConnectionState((newState) => {
-    handleConnectionStateChange(nuxtApp, store, logger, newState)
+    handleConnectionStateChange(nuxtApp, store, logger, normalizeConnectionState(newState))
   })
 
   return store
@@ -184,5 +234,5 @@ export function syncConnectionStateSnapshot(
 ) {
   if (!import.meta.client || !supportsConnectionHooks(client)) return
   const store = getConnectionStateStore(nuxtApp)
-  store.state.value = cloneConnectionState(client.connectionState())
+  store.state.value = normalizeConnectionState(client.connectionState())
 }

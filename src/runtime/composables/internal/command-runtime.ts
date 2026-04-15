@@ -5,26 +5,15 @@ import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../../utils/convex-cache.js'
 import { getSharedLogger, getLogLevel } from '../../utils/logger.js'
-import type { ValidateOption } from '../../utils/resolve-validator.js'
 import { createOptimisticContext } from '../optimistic-updates.js'
 import { getRequiredConvexClient } from '../useConvex.js'
-import type { UseConvexMutationReturn } from '../useConvexMutation.js'
+import type {
+  UseConvexActionOptions,
+  UseConvexActionReturn,
+  UseConvexMutationOptions,
+  UseConvexMutationReturn,
+} from './command-types.js'
 import { createConvexCallState } from './convex-call-state.js'
-
-export interface UseConvexMutationOptions<Args, Result> {
-  optimisticUpdate?: (ctx: ReturnType<typeof createOptimisticContext>, args: Args) => void
-  onSuccess?: (result: Result, args: Args) => void
-  onError?: (error: Error, args: Args) => void
-  validate?: ValidateOption
-}
-
-export interface UseConvexActionOptions<Args, Result> {
-  validate?: ValidateOption
-  onSuccess?: (result: Result, args: Args) => void
-  onError?: (error: Error, args: Args) => void
-}
-
-export type UseConvexActionReturn<Args, Result> = UseConvexMutationReturn<Args, Result>
 
 export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   mutation: Mutation,

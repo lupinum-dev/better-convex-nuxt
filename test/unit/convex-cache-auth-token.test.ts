@@ -43,6 +43,24 @@ describe('fetchAuthToken', () => {
       headers: { Cookie: 'better-auth.session_token=abc' },
     })
   })
+
+  it('surfaces token exchange failures instead of degrading to anonymous', async () => {
+    vi.stubGlobal(
+      '$fetch',
+      vi.fn(async () => {
+        throw new Error('exchange exploded')
+      }),
+    )
+
+    await expect(
+      fetchAuthToken({
+        auth: 'auto',
+        cookieHeader: 'better-auth.session_token=abc',
+        siteUrl: 'https://demo.convex.site',
+        cachedToken: { value: null },
+      }),
+    ).rejects.toThrow('Failed to exchange Convex auth token. exchange exploded')
+  })
 })
 
 describe('clearsBetterAuthSessionCookie', () => {

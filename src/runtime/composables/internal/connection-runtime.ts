@@ -57,7 +57,7 @@ export function useConvexConnectionState() {
   const isReconnecting = computed(
     () => state.value.hasEverConnected && !state.value.isWebSocketConnected,
   )
-  const pendingMutations = computed(() => state.value.inflightMutations)
+  const pendingMutations = computed(() => state.value.pendingMutations)
   const isHydratingConnection = ref(true)
   let hydrationTimer: ReturnType<typeof setTimeout> | null = null
   if (import.meta.client) {

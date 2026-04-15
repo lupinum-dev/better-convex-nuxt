@@ -14,6 +14,7 @@ import {
   resolvePermissionQuerySetup,
 } from './module-internals/setup.js'
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants.js'
+import { asRecord } from './runtime/utils/value-helpers.js'
 
 // Re-export LogLevel from logger for external use
 export type { LogLevel } from './runtime/utils/logger.js'
@@ -89,7 +90,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     nuxt.options.runtimeConfig.public.convex = buildPublicConvexRuntimeConfig(
       options,
-      nuxt.options.runtimeConfig.public.convex as Record<string, unknown> | undefined,
+      asRecord(nuxt.options.runtimeConfig.public.convex) ?? undefined,
       setup,
     ) as typeof nuxt.options.runtimeConfig.public.convex
 

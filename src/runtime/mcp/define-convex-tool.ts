@@ -38,11 +38,6 @@ import type {
 // Internal options (adds factory-injected fields — not part of public API)
 // ============================================================================
 
-type DefineConvexToolFullOptions<
-  S extends AnyConvexSchema,
-  TRole extends string = string,
-> = DefineConvexToolOptions<S, TRole>
-
 // ============================================================================
 // Input schema types
 // ============================================================================
@@ -481,7 +476,7 @@ function isValidCallToolResult(value: unknown): value is McpToolCallbackResult {
 // ============================================================================
 
 function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = string>(
-  options: DefineConvexToolFullOptions<S, TRole>,
+  options: DefineConvexToolOptions<S, TRole>,
 ): McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape> {
   type BuiltToolDefinition = McpToolDefinition<ConvexToolInputSchema<S>, ZodRawShape>
 
@@ -759,7 +754,5 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
 export function defineTool<S extends AnyConvexSchema, TRole extends string = string>(
   options: DefineConvexToolOptions<S, TRole>,
 ): McpToolDefinition {
-  return _buildToolDefinition(
-    options as DefineConvexToolFullOptions<S, TRole>,
-  ) as unknown as McpToolDefinition
+  return _buildToolDefinition(options) as unknown as McpToolDefinition
 }

@@ -15,7 +15,7 @@ type AnyMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
 type AnyActionRef = FunctionReference<'action', 'public' | 'internal'>
 type AnyFunctionRef = AnyQueryRef | AnyMutationRef | AnyActionRef
 type ProjectionPreviewResult = string | PreviewResult
-type PreviewResolver<S extends AnySchema, TPrincipal, TCapabilities, TRuntime> = (ctx: {
+type PreviewResolver<S extends AnyConvexSchema, TPrincipal, TCapabilities, TRuntime> = (ctx: {
   args: import('./types.js').InferSchemaData<S>
   principal: TPrincipal
   capabilities: TCapabilities
@@ -68,8 +68,6 @@ export interface DefineMcpRuntimeOptions<
   principalKey?: (principal: TPrincipal) => string
 }
 
-type AnySchema = AnyConvexSchema
-
 type CapabilityKey<TCapabilities> =
   TCapabilities extends Record<string, boolean> ? keyof TCapabilities & string : string
 
@@ -80,7 +78,7 @@ type ProjectToolMeta = {
 }
 
 export interface ProjectToolOptions<
-  S extends AnySchema,
+  S extends AnyConvexSchema,
   TPrincipal,
   TCapabilities extends ProjectionCapabilitySnapshot | null,
   TRuntime,
@@ -236,7 +234,7 @@ export function defineMcpRuntime<
   }
 
   const projectTool = <
-    S extends AnySchema,
+    S extends AnyConvexSchema,
     TCall extends AnyFunctionRef = AnyMutationRef,
     TPreview extends AnyFunctionRef | undefined = undefined,
   >(

@@ -19,13 +19,6 @@ import {
   usesTrustedCallerSurfaces,
 } from '../lib/project.js'
 
-export interface DoctorCommandOptions {
-  cwd?: string
-  json?: boolean
-  verbose?: boolean
-  color?: boolean
-}
-
 function createDoctorFindings(cwd: string): DoctorFinding[] {
   const project = inspectProject(cwd)
   const isNuxtApp = Boolean(project.packageJsonPath && project.nuxtConfigPath)

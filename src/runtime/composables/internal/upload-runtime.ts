@@ -28,33 +28,26 @@ import {
   settleUploadQueueItemError,
   settleUploadQueueItemSuccess,
   shouldResetUploadQueueHalt,
+  type UploadQueueEnqueueStateItem,
+  type UploadQueueStateItemStatus,
+  type UploadQueueStateItemBase,
   updateUploadQueueItem,
 } from './upload-queue-state.js'
 
 export type { UploadProgressInfo } from '../../utils/upload-core.js'
 
 export type UploadStatus = 'idle' | 'pending' | 'success' | 'error'
-export type UploadQueueItemStatus = 'queued' | 'pending' | 'success' | 'error' | 'cancelled'
+export type UploadQueueItemStatus = UploadQueueStateItemStatus
 
-export interface UploadQueueItem<MutationArgs = unknown> {
+export interface UploadQueueItem<MutationArgs = unknown> extends UploadQueueStateItemBase {
   id: string
   file: File
   mutationArgs?: MutationArgs
-  status: UploadQueueItemStatus
-  progress: number
-  loadedBytes: number
-  totalBytes: number
   storageId?: string
-  error: Error | null
-  createdAt: number
-  startedAt: number | null
-  finishedAt: number | null
 }
 
-export interface UploadQueueEnqueueItem<MutationArgs = unknown> {
-  file: File
-  mutationArgs?: MutationArgs
-}
+export type UploadQueueEnqueueItem<MutationArgs = unknown> =
+  UploadQueueEnqueueStateItem<MutationArgs>
 
 export type UploadQueueEnqueueInput<MutationArgs = unknown> =
   | File

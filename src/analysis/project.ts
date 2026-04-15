@@ -58,39 +58,6 @@ function readTextIfExists(path: string): string | null {
   return readFileSync(path, 'utf8')
 }
 
-function skipTrivia(source: string, index: number): number {
-  let cursor = index
-  while (cursor < source.length) {
-    const char = source[cursor]
-    const next = source[cursor + 1]
-    if (char == null) break
-
-    if (/\s/u.test(char)) {
-      cursor++
-      continue
-    }
-
-    if (char === '/' && next === '/') {
-      cursor += 2
-      while (cursor < source.length && source[cursor] !== '\n') cursor++
-      continue
-    }
-
-    if (char === '/' && next === '*') {
-      cursor += 2
-      while (cursor < source.length && !(source[cursor] === '*' && source[cursor + 1] === '/')) {
-        cursor++
-      }
-      cursor += 2
-      continue
-    }
-
-    break
-  }
-
-  return cursor
-}
-
 function findMatchingToken(source: string, start: number, open: string, close: string): number {
   let depth = 0
   let cursor = start
@@ -352,7 +319,7 @@ export function collectProjectSourceFiles(rootDir: string): Array<{ path: string
 }
 
 export function resolveAnalyzerTenantOverride(
-  settings: Record<string, unknown> | undefined,
+  settings: { tenantIsolation?: unknown } | undefined,
 ): AnalyzerTenantIsolationOverride | undefined {
   const raw = settings?.tenantIsolation
   if (!raw || typeof raw !== 'object') return undefined
@@ -382,18 +349,4 @@ export function isNullishBooleanLiteral(raw: string | null | undefined): boolean
   if (!raw) return false
   const normalized = raw.trim()
   return normalized === 'false' || normalized === '{{ false }}'
-}
-
-export function readBraceObjectLiteral(source: string, marker: string): string | null {
-  const markerIndex = source.indexOf(marker)
-  if (markerIndex === -1) return null
-
-  const colonIndex = source.indexOf(':', markerIndex)
-  if (colonIndex === -1) return null
-
-  const objectStart = skipTrivia(source, colonIndex + 1)
-  if (source[objectStart] !== '{') return null
-  const objectEnd = findMatchingToken(source, objectStart, '{', '}')
-  if (objectEnd === -1) return null
-  return source.slice(objectStart, objectEnd + 1)
 }

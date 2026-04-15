@@ -45,7 +45,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     expect(result.bootstrap.value.error).toBeNull()
   })
 
-  it('treats duplicate bootstrap races as harmless and keeps the ensured state', async () => {
+  it('fails closed when the bootstrap mutation errors', async () => {
     const convex = new MockConvexClient()
     convex.setMutationHandler('auth:createUserIfNeeded', async () => {
       throw new Error('User already exists')
@@ -72,8 +72,8 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     )
 
     await waitFor(() => convex.calls.mutation.length === 1)
-    expect(result.bootstrap.value.ensured).toBe(true)
-    expect(result.bootstrap.value.error).toBeNull()
+    expect(result.bootstrap.value.ensured).toBe(false)
+    expect(result.bootstrap.value.error).toBe('User already exists')
     expect(result.bootstrap.value.pending).toBe(false)
   })
 

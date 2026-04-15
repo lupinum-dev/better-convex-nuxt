@@ -86,13 +86,15 @@ async function resolveAuthToken(
   return await resolveRequestAuthToken(event, config, options)
 }
 
-async function executeConvexOperation<T>(
+async function executeConvexOperation<
+  Fn extends FunctionReference<'query' | 'mutation' | 'action'>,
+>(
   event: H3Event,
   operationType: ConvexOperationType,
   functionPath: string,
-  args: Record<string, unknown> | undefined,
+  args: FunctionArgs<Fn> | undefined,
   options?: ServerConvexOptions,
-): Promise<T> {
+): Promise<FunctionReturnType<Fn>> {
   const runtimeConfig = useRuntimeConfig(event)
   const convexConfig = normalizeConvexRuntimeConfig(runtimeConfig.public.convex)
   const convexUrl = convexConfig.url
@@ -119,7 +121,7 @@ async function executeConvexOperation<T>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  let requestArgs = args ?? {}
+  let requestArgs: FunctionArgs<Fn> | Record<string, unknown> = args ?? {}
 
   const logSuccess = (duration: number) => {
     if (operationType === 'query') {
@@ -201,7 +203,7 @@ async function executeConvexOperation<T>(
     }
 
     const json = await response.json()
-    const result = parseConvexResponse<T>(json)
+    const result = parseConvexResponse<FunctionReturnType<Fn>>(json)
 
     const duration = Date.now() - startTime
     logSuccess(duration)
@@ -304,11 +306,11 @@ export async function serverConvexQuery<Query extends FunctionReference<'query'>
     options,
   ])
   const functionPath = getFunctionName(parsed.fn)
-  return await executeConvexOperation<FunctionReturnType<Query>>(
+  return await executeConvexOperation<Query>(
     parsed.event,
     'query',
     functionPath,
-    parsed.args as Record<string, unknown> | undefined,
+    parsed.args,
     parsed.options,
   )
 }
@@ -326,11 +328,11 @@ export async function serverConvexMutation<Mutation extends FunctionReference<'m
     options,
   ])
   const functionPath = getFunctionName(parsed.fn)
-  return await executeConvexOperation<FunctionReturnType<Mutation>>(
+  return await executeConvexOperation<Mutation>(
     parsed.event,
     'mutation',
     functionPath,
-    parsed.args as Record<string, unknown> | undefined,
+    parsed.args,
     parsed.options,
   )
 }
@@ -348,11 +350,11 @@ export async function serverConvexAction<Action extends FunctionReference<'actio
     options,
   ])
   const functionPath = getFunctionName(parsed.fn)
-  return await executeConvexOperation<FunctionReturnType<Action>>(
+  return await executeConvexOperation<Action>(
     parsed.event,
     'action',
     functionPath,
-    parsed.args as Record<string, unknown> | undefined,
+    parsed.args,
     parsed.options,
   )
 }

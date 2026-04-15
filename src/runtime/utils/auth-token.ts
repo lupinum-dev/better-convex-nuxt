@@ -3,6 +3,7 @@ import {
   BETTER_AUTH_SESSION_COOKIE_NAME,
 } from './constants.js'
 import type { ConvexClientAuthMode } from './types.js'
+import { toErrorMessage } from './value-helpers.js'
 
 export interface SharedAuthTokenState {
   value: string | null
@@ -77,11 +78,7 @@ export async function exchangeConvexAuthToken(
   cookieHeader: string,
 ): Promise<string | undefined> {
   const url = `${siteUrl}/api/auth/convex/token` as string
-  const fetchJson = $fetch as unknown as (
-    request: string,
-    options?: { headers?: Record<string, string> },
-  ) => Promise<{ token?: string } | null>
-  const response = await fetchJson(url, {
+  const response = await $fetch<{ token?: string } | null>(url, {
     headers: { Cookie: cookieHeader },
   })
 
@@ -109,13 +106,13 @@ export async function resolveClientAuthToken(
     return undefined
   }
 
-  try {
-    const token = await exchangeConvexAuthToken(siteUrl, cookieHeader)
-    if (token) {
-      cachedToken.value = token
-    }
-    return token
-  } catch {
-    return undefined
+  const token = await exchangeConvexAuthToken(siteUrl, cookieHeader).catch((error: unknown) => {
+    throw new Error(`Failed to exchange Convex auth token. ${toErrorMessage(error)}`, {
+      cause: error,
+    })
+  })
+  if (token) {
+    cachedToken.value = token
   }
+  return token
 }

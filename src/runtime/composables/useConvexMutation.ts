@@ -1,10 +1,7 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import type { Ref, ComputedRef } from 'vue'
 
-import type { ValidateOption } from '../utils/resolve-validator.js'
-import type { MutationStatus } from '../utils/types.js'
 import { useConvexMutation as useRuntimeConvexMutation } from './internal/command-runtime.js'
-import type { OptimisticContext } from './optimistic-updates.js'
+import type { UseConvexMutationOptions, UseConvexMutationReturn } from './internal/command-types.js'
 
 // Re-export optimistic update builder types
 export {
@@ -13,78 +10,7 @@ export {
   type OptimisticPaginatedHandle,
 } from './optimistic-updates.js'
 
-/**
- * Return value from useConvexMutation / useConvexAction.
- *
- * Callable directly as a function, with reactive state properties attached:
- * ```ts
- * const createPost = useConvexMutation(api.posts.create)
- * await createPost({ title: 'Hello' })  // callable directly
- * createPost.pending.value              // state access
- * createPost.error.value                // error access
- * ```
- */
-export type UseConvexMutationReturn<Args, Result> = ((args: Args) => Promise<Result>) & {
-  /** Result data from the last successful call. */
-  data: Ref<Result | undefined>
-  /** Call status: 'idle' | 'pending' | 'success' | 'error' */
-  status: ComputedRef<MutationStatus>
-  /** True when call is in progress. */
-  pending: ComputedRef<boolean>
-  /** Error from the last call attempt, or null. */
-  error: Ref<Error | null>
-  /** Reset state back to idle. Clears error and data. */
-  reset: () => void
-}
-
-/**
- * Options for useConvexMutation
- */
-export interface UseConvexMutationOptions<Args, Result> {
-  /**
-   * Optimistic update callback. Receives a typed context (`ctx`) and mutation args.
-   * Called immediately before the mutation is sent to the server.
-   * Automatically rolled back when the server response arrives.
-   *
-   * @example
-   * ```ts
-   * const addNote = useConvexMutation(api.notes.add, {
-   *   optimisticUpdate: (ctx, args) => {
-   *     // Update a regular query
-   *     ctx.query(api.notes.list, {}).update(notes => [...notes, { ...args, _id: 'temp' }])
-   *
-   *     // Update a paginated query
-   *     ctx.paginatedQuery(api.notes.listPaginated, {}).insertAtTop({ ...args, _id: 'temp' })
-   *   }
-   * })
-   * ```
-   */
-  optimisticUpdate?: (ctx: OptimisticContext, args: Args) => void
-  /**
-   * Called after a successful mutation.
-   * Errors thrown here are logged and ignored.
-   */
-  onSuccess?: (result: Result, args: Args) => void
-  /**
-   * Called after a failed mutation.
-   * Errors thrown here are logged and ignored.
-   */
-  onError?: (error: Error, args: Args) => void
-  /**
-   * Pre-validate args before sending to the server.
-   * Accepts a Convex validator or any Standard Schema v1 producer (Zod, Valibot, ArkType).
-   * On failure: error is set instantly with `category: 'validation'` and `issues` array,
-   * no network request is made.
-   *
-   * @example
-   * ```ts
-   * const createPost = useConvexMutation(api.posts.create, {
-   *   validate: v.object({ title: v.string(), body: v.string() }),
-   * })
-   * ```
-   */
-  validate?: ValidateOption
-}
+export type { UseConvexMutationOptions, UseConvexMutationReturn }
 
 // ============================================================================
 // useConvexMutation composable

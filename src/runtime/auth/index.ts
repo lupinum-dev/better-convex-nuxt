@@ -49,16 +49,8 @@ export function or<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
   return (principal: P) => checks.some((check) => runCheck(principal, check))
 }
 
-export function deny(reason: string, source?: string): never
-export function deny(reason: string, options: { source?: string; category?: string }): never
-export function deny(
-  reason: string,
-  sourceOrOptions?: string | { source?: string; category?: string },
-): never {
-  if (typeof sourceOrOptions === 'object') {
-    throw toForbiddenError(reason, sourceOrOptions.source, sourceOrOptions.category)
-  }
-  throw toForbiddenError(reason, sourceOrOptions)
+export function deny(reason: string, options?: { source?: string; category?: string }): never {
+  throw toForbiddenError(reason, options?.source, options?.category)
 }
 
 export function enforce<P>(

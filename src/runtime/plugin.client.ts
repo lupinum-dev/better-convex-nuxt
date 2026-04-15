@@ -18,7 +18,6 @@ import { buildMissingSiteUrlMessage } from './utils/auth-errors.js'
 import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
 import { createLogger, getLogLevel } from './utils/logger.js'
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
-import type { ConvexUser } from './utils/types.js'
 
 type HydrationState = ReturnType<typeof initHydrationState>
 type ClientDevtoolsApp = {
@@ -82,8 +81,7 @@ export default defineNuxtPlugin({
   setup(nuxtApp) {
     const config = useRuntimeConfig()
     const convexConfig = getConvexRuntimeConfig()
-    const publicConvex = config.public.convex as Record<string, unknown> | undefined
-    const logLevel = getLogLevel(publicConvex)
+    const logLevel = getLogLevel(config.public.convex)
     const logger = createLogger(logLevel)
     const endInit = logger.time('plugin:init (client)')
 
@@ -107,7 +105,7 @@ export default defineNuxtPlugin({
     const authEngine = createSharedAuthEngine({
       nuxtApp,
       token: hydration.convexToken,
-      user: hydration.convexUser as typeof hydration.convexUser & { value: ConvexUser | null },
+      user: hydration.convexUser,
       pending: hydration.convexPending,
       rawAuthError: hydration.convexAuthError,
       wasAuthenticated,

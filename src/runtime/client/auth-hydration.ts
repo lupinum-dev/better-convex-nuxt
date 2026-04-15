@@ -11,10 +11,11 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from '../utils/constants.js'
+import type { ConvexUser } from '../utils/types.js'
 
 export interface HydrationState {
   convexToken: Ref<string | null>
-  convexUser: Ref<unknown>
+  convexUser: Ref<ConvexUser | null>
   convexAuthWaterfall: Ref<AuthWaterfall | null>
   convexAuthError: Ref<string | null>
   convexPending: Ref<boolean>
@@ -27,7 +28,7 @@ export interface HydrationState {
  */
 export function initHydrationState(): HydrationState {
   const convexToken = useState<string | null>(STATE_KEY_TOKEN)
-  const convexUser = useState<unknown>(STATE_KEY_USER)
+  const convexUser = useState<ConvexUser | null>(STATE_KEY_USER)
   const convexAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR)
   const convexPending = useState(STATE_KEY_PENDING, () => true)
 

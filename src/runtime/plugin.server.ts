@@ -9,9 +9,6 @@
  *
  * This ensures authenticated state is available on first render with zero flash.
  */
-
-import type { Ref } from 'vue'
-
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 
 import { createSharedAuthEngine } from './client/auth-engine.js'
@@ -32,8 +29,7 @@ import type { ConvexUser } from './utils/types.js'
 export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
-  const publicConvex = config.public.convex as Record<string, unknown> | undefined
-  const logLevel = getLogLevel(publicConvex)
+  const logLevel = getLogLevel(config.public.convex)
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (server)')
   // Check if auth is enabled
@@ -89,7 +85,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   const authEngine = createSharedAuthEngine({
     nuxtApp,
     token: convexToken,
-    user: convexUser as Ref<ConvexUser | null>,
+    user: convexUser,
     pending: convexPending,
     rawAuthError: convexAuthError,
     wasAuthenticated,

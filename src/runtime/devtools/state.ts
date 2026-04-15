@@ -2,21 +2,10 @@ import type { Ref } from 'vue'
 
 import { useState } from '#app'
 
-export interface PermissionDevtoolsState {
-  queryName: string | null
-  pending: boolean
-  ready: boolean
-  ctx: unknown | null
-  error: string | null
-}
+import type { AuthBootstrapState, PermissionContextState } from './types.js'
 
-export interface AuthBootstrapDevtoolsState {
-  mutationName: string | null
-  pending: boolean
-  ensured: boolean
-  lastUserId: string | null
-  error: string | null
-}
+export type PermissionDevtoolsState = PermissionContextState
+export type AuthBootstrapDevtoolsState = AuthBootstrapState
 
 const PERMISSIONS_STATE_KEY = 'trellis:devtools:permissions'
 const AUTH_BOOTSTRAP_STATE_KEY = 'trellis:devtools:auth-bootstrap'

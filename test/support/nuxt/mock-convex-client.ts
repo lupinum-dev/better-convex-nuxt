@@ -19,8 +19,8 @@ export interface MockConnectionState {
   hasEverConnected: boolean
   connectionCount: number
   connectionRetries: number
-  inflightMutations: number
-  inflightActions: number
+  pendingMutations: number
+  pendingActions: number
 }
 
 const DEFAULT_CONNECTION_STATE: MockConnectionState = {
@@ -30,8 +30,8 @@ const DEFAULT_CONNECTION_STATE: MockConnectionState = {
   hasEverConnected: false,
   connectionCount: 0,
   connectionRetries: 0,
-  inflightMutations: 0,
-  inflightActions: 0,
+  pendingMutations: 0,
+  pendingActions: 0,
 }
 
 function fnPath(fn: unknown): string {

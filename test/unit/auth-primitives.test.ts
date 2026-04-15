@@ -103,16 +103,6 @@ describe('auth primitives', () => {
     expect(() => deny('No dashboard for you.')).toThrow(/No dashboard for you/)
   })
 
-  it('deny() accepts a source string (backward compat)', () => {
-    try {
-      deny('Nope', 'test-source')
-    } catch (error) {
-      const data = expectConvexErrorData(error)
-      expect(data.source).toBe('test-source')
-      expect(data.category).toBeUndefined()
-    }
-  })
-
   it('deny() accepts an options object with category', () => {
     try {
       deny('Plan limit reached', { category: 'plan', source: 'billing' })

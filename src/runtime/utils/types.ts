@@ -47,9 +47,9 @@ export interface ConnectionState {
   /** Number of connection retry attempts */
   connectionRetries: number
   /** Number of pending mutations */
-  inflightMutations: number
+  pendingMutations: number
   /** Number of pending actions */
-  inflightActions: number
+  pendingActions: number
 }
 
 // ============================================================================
@@ -83,16 +83,6 @@ export type ConvexClientAuthMode = 'auto' | 'none'
  * Server-side auth mode for server helper calls.
  */
 export type ConvexServerAuthMode = 'auto' | 'required' | 'none' | 'trusted'
-
-/**
- * Make specific properties optional in a type
- */
-export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
-
-/**
- * Extract the element type from an array type
- */
-export type ArrayElement<T> = T extends readonly (infer E)[] ? E : never
 
 // ============================================================================
 // Error Types

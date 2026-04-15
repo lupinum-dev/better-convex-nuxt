@@ -17,7 +17,7 @@ import type {
   ConvexCallSuccessPayload,
   MutationStatus,
 } from '../../utils/types.js'
-import type { UseConvexMutationReturn } from '../useConvexMutation.js'
+import type { UseConvexMutationReturn } from './command-types.js'
 
 function shouldEmitDevWarning(): boolean {
   return import.meta.dev || process.env.NODE_ENV !== 'production'
