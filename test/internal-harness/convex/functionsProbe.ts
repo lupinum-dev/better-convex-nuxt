@@ -1,24 +1,38 @@
 import { defineGuard, open } from '@lupinum/trellis/auth'
 import { createApp } from '@lupinum/trellis/functions'
+import type { FunctionsCtxExtension } from '@lupinum/trellis/functions'
 import { Triggers } from 'convex-helpers/server/triggers'
+import type { GenericMutationCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { DataModel } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
 import type { Actor } from './auth/actor'
 import { getActorFromPrincipal } from './auth/actor'
+import type { InternalHarnessPrincipal } from './auth/principal'
 import { principal } from './auth/principal'
 
 let actorResolverCalls = 0
 
-const triggers = new Triggers<DataModel>()
+const triggers = new Triggers<
+  DataModel,
+  GenericMutationCtx<DataModel> & FunctionsCtxExtension<InternalHarnessPrincipal, Actor>
+>()
 
 triggers.register('notes', async (ctx, change) => {
   if (change.operation !== 'insert' || !change.newDoc || change.newDoc.title) return
   await ctx.db.patch(change.id, { title: 'triggered' })
 })
 
-const { app: structured, raw } = createApp(
+const { app: structured, raw } = createApp<
+  DataModel,
+  'public',
+  'public',
+  'internal',
+  'internal',
+  InternalHarnessPrincipal,
+  Actor
+>(
   { query, mutation },
   {
     principal,
@@ -62,10 +76,11 @@ export const structuredPostOwner = structured.query({
   }),
   authorize: {
     label: 'probe.update',
-    check: (_actor, loaded) => !!loaded.post && canEditStructuredPost(loaded.post.ownerId),
+    check: (_actor, loaded) =>
+      loaded?.post ? canEditStructuredPost(loaded.post.ownerId) : false,
   },
   handler: async (_ctx, _args, loaded) => ({
-    ownerId: loaded.post?.ownerId ?? null,
+    ownerId: loaded?.post?.ownerId ?? null,
   }),
 })
 

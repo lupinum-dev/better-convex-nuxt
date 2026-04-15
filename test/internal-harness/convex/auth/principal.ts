@@ -1,8 +1,13 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
+import type { DataModel } from '../_generated/dataModel'
+
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
+
+type InternalHarnessPrincipalCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export type InternalHarnessPrincipal =
   | { kind: 'anonymous' }
@@ -32,7 +37,7 @@ export const internalHarnessPrincipalValidator = v.union(
   }),
 )
 
-export const principal = definePrincipal({
+export const principal = definePrincipal<InternalHarnessPrincipalCtx, InternalHarnessPrincipal>({
   validator: internalHarnessPrincipalValidator,
   resolve: async (ctx, args): Promise<InternalHarnessPrincipal> => {
     const forwarded = (args as { principal?: InternalHarnessPrincipal }).principal

@@ -8,16 +8,16 @@ import {
 export { requireAuth, requireRecord }
 
 // Test harness uses organizationId instead of workspaceId
-export function ensureTenant<T extends { organizationId: string }>(
-  actor: { tenantId: string },
+export function ensureTenant<T extends { organizationId?: string | null }>(
+  actor: { tenantId?: string | null },
   resource: T,
   label = 'Resource',
 ): T {
   return _ensureTenant(actor, resource, label, 'organizationId')
 }
 
-export function loadResource<T extends { organizationId: string }>(
-  actor: { tenantId: string },
+export function loadResource<T extends { organizationId?: string | null }>(
+  actor: { tenantId?: string | null },
   doc: T | null | undefined,
   label = 'Resource',
 ): T {

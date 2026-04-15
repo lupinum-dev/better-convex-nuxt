@@ -21,7 +21,14 @@ const getPostArgs = defineArgs({
 
 const canCreatePostActor = defineGuard<Actor>('Create post', (actor) => !!actor)
 const canManagePosts = defineGuard<Actor>('post.manage', (actor) => !!actor)
-const postCapabilities = defineCapabilities<{ ownerId: string; [key: string]: unknown }>()({
+const postCapabilities = defineCapabilities<{ ownerId: string; [key: string]: unknown }>()<
+  Actor,
+  {
+    'post.update': (actor: Actor, post: { ownerId: string; [key: string]: unknown }) => boolean
+    'post.delete': (actor: Actor, post: { ownerId: string; [key: string]: unknown }) => boolean
+    'post.publish': (actor: Actor, post: { ownerId: string; [key: string]: unknown }) => boolean
+  }
+>({
   'post.update': (actor, post) => can(actor, canUpdatePost(post)),
   'post.delete': (actor, post) => can(actor, canDeletePost(post)),
   'post.publish': (actor) => can(actor, canPublishPost),

@@ -1,9 +1,17 @@
+import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'
+import type { Actor } from './auth/actor'
 import { canInviteMembers } from './auth/checks'
 import { loadResource } from './auth/scope'
 import { app, mutation, query } from './functions'
+
+const canListMcpKeys = defineGuard<Actor>('mcp-key.list', (actor) => actor !== null)
+const canManageMcpKeys = defineGuard<Actor>(
+  'mcp-key.manage',
+  (actor) => !!actor?.tenantId && canInviteMembers(actor),
+)
 
 function generateKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -16,7 +24,7 @@ function generateKey(): string {
 
 export const list = app.query({
   args: {},
-  guard: (actor) => actor !== null,
+  guard: canListMcpKeys,
   handler: async (ctx) => {
     const actor = await ctx.actor()
     if (!actor?.tenantId) return []
@@ -36,7 +44,7 @@ export const create = app.mutation({
     name: v.string(),
     role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
-  guard: canInviteMembers,
+  guard: canManageMcpKeys,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     if (!actor.tenantId) throw new Error('No organization selected')
@@ -61,9 +69,10 @@ export const create = app.mutation({
 
 export const revoke = app.mutation({
   args: { id: v.id('mcpKeys') },
-  guard: canInviteMembers,
+  guard: canManageMcpKeys,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    if (!actor.tenantId) throw new Error('No organization selected')
     loadResource(actor, await ctx.db.get(args.id), 'MCP key')
 
     await ctx.db.patch(args.id, {

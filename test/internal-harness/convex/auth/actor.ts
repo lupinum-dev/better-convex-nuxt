@@ -4,6 +4,8 @@ import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import type { DataModel } from '../_generated/dataModel'
 import type { InternalHarnessPrincipal, Role } from './principal'
 
+export type { Role } from './principal'
+
 export type Actor = { kind: 'user'; userId: string; role: Role; tenantId?: string } | null
 
 type InternalHarnessCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>

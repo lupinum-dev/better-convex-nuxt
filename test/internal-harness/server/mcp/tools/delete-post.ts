@@ -2,7 +2,6 @@ import { defineTool } from '#trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 import { deletePost } from '../../../shared/schemas/post'
-import { toHarnessMcpPrincipal } from '../../support/mcp-principal'
 
 export default defineTool({
   schema: deletePost,
@@ -12,10 +11,7 @@ export default defineTool({
   scoped: true,
   destructive: true,
   preview: async (args, ctx) => {
-    const post = await ctx.rawQuery(api.posts.get, {
-      id: args.id,
-      principal: toHarnessMcpPrincipal(ctx),
-    })
+    const post = await ctx.query(api.posts.get, { id: args.id })
     if (!post) {
       return {
         summary: 'Post not found',
@@ -29,10 +25,7 @@ export default defineTool({
     }
   },
   handler: async (args, ctx) => {
-    await ctx.rawMutation(api.posts.remove, {
-      ...args,
-      principal: toHarnessMcpPrincipal(ctx),
-    })
+    await ctx.mutation(api.posts.remove, args)
     return ctx.ok({ deleted: true, id: args.id })
   },
 })

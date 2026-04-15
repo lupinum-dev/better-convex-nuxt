@@ -1,4 +1,5 @@
 import { can, defineAuth, open } from '@lupinum/trellis/auth'
+import type { BetterAuthPlugin } from 'better-auth'
 import { betterAuth } from 'better-auth'
 
 import { components, internal } from './_generated/api'
@@ -42,7 +43,7 @@ export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
         plugins: [
           bridge.createConvexPlugin({
             jwt: {
-              definePayload: ({ user }) => ({
+              definePayload: ({ user }: { user: { name: string; email: string; emailVerified: boolean; image?: string | null; id: string } }) => ({
                 name: user.name,
                 email: user.email,
                 emailVerified: user.emailVerified,
@@ -51,7 +52,7 @@ export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
                 role: 'member',
               }),
             },
-          }),
+          }) as BetterAuthPlugin,
         ],
         session: {
           expiresIn: 60 * 60 * 24 * 7,

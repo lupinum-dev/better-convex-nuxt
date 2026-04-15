@@ -164,7 +164,8 @@
     "test:full": "pnpm run test && pnpm run test:e2e",
     "test:watch": "vitest watch --project=unit --project=nuxt --project=server",
     "test:types:contracts": "tsc -p tsconfig.types.json --noEmit",
-    "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts",
+    "test:types:harness-server": "tsc -p test/internal-harness/server/tsconfig.json --noEmit",
+    "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts && pnpm run test:types:harness-server",
     "prepare": "husky"
   },
   "dependencies": {
