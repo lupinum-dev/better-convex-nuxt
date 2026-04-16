@@ -2,23 +2,10 @@
 
 > **Status: Final.** This is the implementation spec for the dev team.
 >
-> **Supersedes:** spec-v2.md, spec-v2.1.md, and all earlier drafts.
->
-> **Changes from v2.1:**
-> - Confirmation execution runs in a single atomic Convex mutation (closes TOCTOU gap).
-> - Execute path explicitly re-runs `load` before re-authorization and handler.
-> - `preview` splits into `display` (UI) and `confirm` (semantic invariants hashed for tokens).
-> - `tool.fromOperation()` uses string reference + projected refs + generated manifest for clean Convex/Nuxt boundary.
-> - `ctx.runAsService()` helper added for HTTP-action-to-internal flows.
-> - `systemPrincipal` precedence fully specified — public client + no auth → anonymous, not service.
-> - `defineMcpApp`'s internal `convex` client auto-forwards MCP envelopes.
-> - Implementation notes section added for the dev team (Part IV).
->
 > **Reading order for implementers:**
 > 1. Parts I and II to understand the public API.
-> 2. Part III to understand what each part projects to in the user's code.
-> 3. Part IV for runtime implementation notes before writing code.
-> 4. Part V for migration and Part VI for rationale when decisions are questioned.
+> 2. Part III for runtime implementation notes before writing code.
+> 3. Part IV for project management and Part V for rationale when decisions are questioned.
 
 ---
 
@@ -86,16 +73,16 @@ v2.2 is not:
 
 ```txt
 @lupinum/trellis/auth        — principals, actors, guards, permission context, tenant rules
-@lupinum/trellis/functions   — defineFunctions, defineOperation, previewOf, ctx contract
+@lupinum/trellis/functions   — defineFunctions, defineOperation, ctx contract
 @lupinum/trellis/visibility  — defineCapabilities, defineRedaction, defineVisibility
 @lupinum/trellis/mcp         — defineMcpApp, tool, resource, prompt, mcpKeyAuth
-@lupinum/trellis/components  — createComponentBridge, bridge.from, manifest helpers
+@lupinum/trellis/components  — defineComponentBridge, bridge.from, manifest helpers
 @lupinum/trellis/args        — defineArgs
 @lupinum/trellis/testing     — test helpers
 @lupinum/trellis/nuxt        — Nuxt module and composables
 ```
 
-`definePrincipal` and `defineSystemPrincipal` live in `@lupinum/trellis/auth` (they're authorization concepts). They're re-exported from `@lupinum/trellis/functions` for migration convenience.
+`definePrincipal` and `defineSystemPrincipal` live in `@lupinum/trellis/auth` (they're authorization concepts).
 
 ## 6. Core server API — `defineFunctions`
 
@@ -135,11 +122,11 @@ export const {
     internalMutation: rawInternalMutation,
   },
   {
-    principal,
-    systemPrincipal,      // for non-request execution contexts — see §6.5
-    actor: resolveActor,
-    rls: tenantRules,
-    triggers: auditTriggers,
+    principal,                        // required
+    actor: resolveActor,              // required — see §6.4
+    systemPrincipal,                  // optional, defaults to { kind: 'service', service: 'system' }
+    rls: tenantRules,                 // optional — omit for apps without multi-tenancy
+    triggers: auditTriggers,          // optional — omit if no triggers needed yet
   },
 )
 ```
@@ -166,11 +153,30 @@ Earlier drafts conflated these. v2.2 separates them: `internalQuery` / `internal
 
 **Do not** use `publicMutation` for webhooks or trusted server-to-server calls. Those go through `httpAction` handlers that validate the payload and call an `internalMutation` with a service principal via `ctx.runAsService()` (§10.3). Putting webhooks on `publicMutation` is a security footgun — the public client convention means anyone can call it.
 
-### 6.4 Public-only apps stay simple — with a dev warning
+### 6.4 Startup validation
 
-If no actor resolver is configured, `query` and `mutation` behave like their public variants — `ctx.actor` is `null` and RLS degrades to whatever rules the user supplied.
+`defineFunctions` validates its config at startup. **Required** fields throw if missing; **optional** fields have safe defaults.
 
-This keeps small examples small. But `defineFunctions` emits a dev-mode warning when no actor resolver is configured, pointing at the migration path. **The docs teach `publicQuery` for public surfaces from day one**, even in the smallest examples. The runtime convenience exists for low-friction starts; the mental model in the docs stays consistent.
+| Field | Required? | Missing behavior |
+|---|---|---|
+| `principal` | **Yes** | Throws — no way to determine who is calling |
+| `actor` | **Yes** | Throws — `query`/`mutation` would have no actor to enforce against |
+| `systemPrincipal` | No | Defaults to `{ kind: 'service', service: 'system' }` |
+| `rls` | No | No tenant scoping — `ctx.db` is unwrapped. `unsafeDb` and `rawDb` are aliases for `db`. |
+| `triggers` | No | No triggers fire. `ctx.db` writes go straight to Convex. |
+
+There is no silent fallback where `query` degrades to `publicQuery` behavior. This is a greenfield framework. The cost of typing `publicQuery` in a hello-world example is one word. The cost of a runtime fallback that silently drops authorization is a class of bugs where developers think they have auth and don't.
+
+**Minimal setup** (auth only, no multi-tenancy):
+
+```ts
+export const { query, mutation, publicQuery, ... } = defineFunctions(
+  { query: rawQuery, mutation: rawMutation, ... },
+  { principal, actor: resolveActor },
+)
+```
+
+Add `rls` and `triggers` when the app needs multi-tenancy or audit logging. The framework scales up; it doesn't demand the full model on day one.
 
 ### 6.5 Service principals for non-request contexts
 
@@ -199,7 +205,19 @@ Default if omitted: `{ kind: 'service', service: 'system' }`.
 3. **Request origin with no ambient auth** → `{ kind: 'anonymous' }`. This is for public client calls where the user isn't logged in.
 4. **Non-request execution context with no auth** → `systemPrincipal.resolve(ctx)`. Scheduler, cron, CLI, dashboard, HTTP actions calling internals.
 
-**Critical:** public unauthenticated client calls resolve to `anonymous`, not `service`. The service fallback is reserved for non-request contexts. The framework detects this via Convex runtime hints (`ctx.scheduler` presence, request origin metadata, action context, etc.).
+**Critical:** public unauthenticated client calls resolve to `anonymous`, not `service`. The service fallback is reserved for non-request contexts.
+
+**How the framework distinguishes request from non-request contexts:**
+
+The detection is not a heuristic — it is structural. Trellis tracks the execution origin at the `defineFunctions` builder level:
+
+- **`query` / `mutation` / `publicQuery` / `publicMutation`** — these are public-client builders. Always a request context. No auth → `anonymous`. Never falls through to `systemPrincipal`.
+- **`internalQuery` / `internalMutation`** — these check for a forwarded principal envelope first. If no envelope and no ambient auth, these resolve via `systemPrincipal`. This is correct: internal functions are called by schedulers, cron, actions, the CLI, and the dashboard — all non-request contexts.
+- **Action-to-internal calls** — a Convex action calling `ctx.runMutation(internal.foo.bar, args)` does **not** automatically forward the original request's auth. The internal function sees no ambient auth and no envelope, so it resolves via `systemPrincipal`. If the action needs to preserve the user's identity, it must use `ctx.runAsService()` with an explicit envelope or pass the principal via args. This is deliberate: implicit auth propagation across the action→mutation boundary would hide the trust decision.
+
+The key insight: the builder type (`query` vs `internalQuery`) determines the resolution path at definition time, not at call time. There is no runtime heuristic.
+
+**Consequence:** you cannot accidentally escalate from `anonymous` to `service` by calling a public function from a non-request context, because public builders never consult `systemPrincipal`.
 
 ### 6.6 Service actor scoping — docs guidance
 
@@ -219,6 +237,8 @@ case 'service': {
 ```
 
 Deny-by-default RLS plus narrow service actors means scheduled jobs can only touch what they need, and admin backfills pass through the audit trail.
+
+**Enforcement note:** `allowedTables` is a convention, not a runtime-enforced constraint. RLS rules in `defineTenantRules` scope by tenant field, not by table whitelist on the actor. If your RLS `override` rules inspect `ctx.actor.allowedTables`, enforcement is real. If they don't, `allowedTables` is advisory metadata. The examples show the enforcement pattern — but the framework doesn't magically read `allowedTables` from the actor and restrict `ctx.db`. This is deliberate: actor shapes are user-defined, and Trellis doesn't prescribe their structure beyond `kind`.
 
 ## 7. The ctx contract
 
@@ -274,6 +294,27 @@ Actor resolution often reads `users`, `memberships`, or `workspaceMembers` *befo
 
 The framework internally uses `raw.db` during principal and actor resolution, then swaps in the wrapped `db` for the handler. User code never thinks about this — the `ctx` passed to `resolveActor` is already raw.
 
+### 7.4 Error semantics
+
+The framework must have predictable, distinguishable error behavior. Silence is never the right default for authorization failures.
+
+| Failure | Behavior | Client sees |
+|---|---|---|
+| `resolveActor` throws | Mutation/query fails. Error propagates. | Convex error with `"Actor resolution failed"` wrapper. |
+| `resolveActor` returns `null` in `query`/`mutation` | Framework throws before handler runs. | `"Unauthorized: actor required"` |
+| `resolveActor` returns `null` in `publicQuery`/`publicMutation` | `ctx.actor` is `null`. Handler runs. | Normal response (handler branches on actor). |
+| `ctx.enforce(guard)` — guard returns `false` | Throws `TrellisGuardError` with guard name. | `"Forbidden: guard 'delete-runbook' denied"` |
+| `ctx.enforce(guard)` — guard throws | Error propagates with guard name in wrapper. | `"Guard 'delete-runbook' failed: <original message>"` |
+| RLS denies a read | Row is silently excluded from results. | Fewer rows (or empty result). This is standard RLS behavior. |
+| RLS denies a write | Throws. | `"RLS denied write to table 'todos'"` |
+| Trigger callback throws | Thrown from the `ctx.db` call that caused it (convex-helpers semantics). Mutation rolls back. | Convex error with trigger context. |
+| `applyVisibility` — capability resolver throws | That capability defaults to `false`. Error is logged. Remaining capabilities still evaluate. | Capability absent from `__can` map. |
+| `applyVisibility` — redaction resolver throws | Redaction fails safe: field is redacted. Error is logged. | Field absent from response. |
+
+**Debug mode.** When `logging: 'debug'` is set in `defineFunctions` options, the framework logs: principal resolution result, actor resolution result, every `ctx.enforce` call with guard name and outcome, and every RLS deny with table name and document ID. This is off in production by default.
+
+**Error types.** Trellis exports `TrellisGuardError`, `TrellisRLSError`, and `TrellisAuthError` for programmatic catch handling. All extend `ConvexError` so they serialize cleanly across the Convex boundary.
+
 ## 8. Handler shape — procedural, one right way
 
 Every regular `query`, `mutation`, `publicQuery`, `publicMutation`, `internalQuery`, `internalMutation` uses the same shape: `args` and `handler`.
@@ -312,6 +353,18 @@ v2.2 replaces that with an eslint rule enforcing that every `mutation` handler c
 ### 8.2 Structured authorization lives in `defineOperation`
 
 If you want `guard/load/authorize/preview/handler` shape, that's what `defineOperation` is for (§12). Operations are reusable multi-surface business actions where structure genuinely helps. Destructive MCP tools are required to be operation-backed, which means the runtime *does* have structural access to guard/authorize metadata for the security-critical paths.
+
+### 8.3 Convex runtime interactions
+
+**Real-time subscriptions.** Convex queries are live subscriptions. When RLS rules filter rows via `ctx.db`, Convex's dependency tracking ensures subscriptions re-evaluate when underlying data changes. If a user loses workspace membership, queries re-run, actor resolution returns a different result, and RLS filters change — the client sees updated data reactively. This works because convex-helpers' `wrapDatabaseReader` intercepts reads at the `ctx.db` level, and Convex tracks all reads (including those in the actor resolver) as subscription dependencies. No Trellis-specific subscription logic needed.
+
+**Pagination.** Convex's `.paginate()` and the convex-helpers `paginator`/`getPage` helpers work with RLS-wrapped `ctx.db`. RLS filters apply per-read, which means paginated results may return fewer items than `numItems` if some rows are denied. This is standard RLS behavior. Docs should note this and recommend using `paginator` from convex-helpers (which supports multiple paginations per query) over `.paginate()` when precise page sizes matter.
+
+**Scheduled functions.** When a Trellis-wrapped handler calls `ctx.scheduler.runAfter(delay, internal.foo.bar, args)`, the scheduled function is a new execution context with no ambient auth. It resolves via `systemPrincipal` — the original user context is **not** forwarded. This is deliberate: implicit principal propagation into deferred execution would hide the trust boundary. If a scheduled function needs to act as a specific user, pass the user ID in args and resolve it explicitly in the handler.
+
+**File storage.** Convex file storage (`ctx.storage`) is not wrapped by Trellis. Storage URLs are accessible to anyone who has them. If a file's `storageId` lives in an RLS-protected row, the row is hidden but the URL still works. Docs should warn: gate file access in your handler logic, not via RLS alone.
+
+**Performance.** Actor resolution runs on every query/mutation invocation, including subscription re-evaluations. There is no caching layer. If the resolver reads two tables (`users` + `workspaceMembers`), that is two extra reads per invocation. RLS wrapping adds a filter predicate per `ctx.db` read. Trigger registration adds overhead per write. Write efficient resolvers — keep them to one indexed lookup where possible.
 
 ## 9. Principals
 
@@ -425,7 +478,7 @@ export const recordPayment = internalMutation({
 
 | Context | Envelope key | Consumed by | Resolver behavior |
 |---|---|---|---|
-| Bridge call into component | `trellis:component-principal:v1` | `createComponentBridge` builder | Populates `ctx.principal` before handler |
+| Bridge call into component | `trellis:component-principal:v1` | `defineComponentBridge` builder | Populates `ctx.principal` before handler |
 | MCP tool call into Convex | `trellis:mcp-forwarded:v1` | MCP adapter inside `defineMcpApp` | Populates `ctx.principal` before handler |
 | HTTP action → internal | `trellis:trusted-caller:v1` | `httpAction` + `internalMutation` | Populates `ctx.principal` with service |
 | Scheduler / cron / CLI | (none — non-request context) | `systemPrincipal` | Resolves to `{ kind: 'service' }` |
@@ -540,11 +593,45 @@ convex-helpers RLS defaults to *allow* for tables without rules. If Trellis didn
 - Unlisted tables are denied by default. Use `override` to allow reads/writes with explicit policies.
 - Service principals typically resolve to actors with specific allowed-table scopes; RLS checks those scopes.
 
-### 14.3 Tooling migration
+### 14.3 Workspace switching pattern
 
-The current analyzer parses `tenantIsolation` metadata from `convex/functions.ts` and the eslint rules use that metadata. `defineTenantRules` replaces that metadata path — the analyzer needs updating to parse the new call shape, and the eslint rules need to follow.
+The actor resolver example uses `.first()` — returning the first workspace. Real apps have users in multiple workspaces. Trellis does **not** prescribe a workspace switching mechanism; it provides the hook.
 
-Budget for this is in §22. Codemods handle the function-shape rename; analyzer and eslint work is separate.
+The recommended pattern: pass `workspaceId` as an arg or read it from a session/header, and use it in the actor resolver:
+
+```ts
+resolve: async (ctx, args, principal) => {
+  // args.__workspaceId is injected by the Nuxt module from a cookie/header.
+  const membership = await ctx.db
+    .query('workspaceMembers')
+    .withIndex('by_user_workspace', q =>
+      q.eq('userId', principal.userId).eq('workspaceId', args.__workspaceId))
+    .first()
+  if (!membership) return null
+  return { userId: principal.userId, tenantId: membership.workspaceId, role: membership.role }
+}
+```
+
+The `customQuery` input step from convex-helpers supports consuming extra arguments (like `__workspaceId`) that don't reach the handler. Validate in spike A.
+
+### 14.4 Unscoped tables (global config, feature flags)
+
+Tables that legitimately have no tenant scoping use `override` with a policy that ignores tenant context:
+
+```ts
+override: {
+  featureFlags: {
+    read: () => true,              // all actors can read
+    insert: (ctx) => ctx.actor?.kind === 'service',  // only services write
+  },
+  appConfig: {
+    read: () => true,
+    insert: () => false,           // immutable via RLS; use rawDb for admin writes
+  },
+}
+```
+
+Deny-by-default means you must explicitly allow unscoped tables. This is correct — it forces you to think about who reads global data.
 
 ## 15. Visibility
 
@@ -595,7 +682,7 @@ Capabilities may need fields that redaction removes (`ownerId`, `workspaceId`, `
 `defineOperation` is the one place the structured `guard/load/authorize/preview/handler` shape exists. For reusable multi-surface business operations.
 
 ```ts
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation } from '@lupinum/trellis/functions'
 
 export const deleteRunbook = defineOperation({
   kind: 'destructive',
@@ -630,8 +717,8 @@ export const deleteRunbook = defineOperation({
 })
 
 // Project to Convex functions for each surface.
-export const previewDeleteRunbook = query(previewOf(deleteRunbook))
-export const removeRunbook = mutation(deleteRunbook)
+export const previewDeleteRunbook = query(deleteRunbook.preview)
+export const removeRunbook = mutation(deleteRunbook.execute)
 ```
 
 ### 16.1 Why `display` and `confirm` are split
@@ -647,7 +734,15 @@ When execute recomputes the preview, only the `confirm` hash needs to match. Dis
 
 Guidelines for authors: put anything the user would want to know *has changed* between preview and execute into `confirm`. Put anything that's just a nice presentation into `display`.
 
-### 16.2 What operations are for
+### 16.2 `load` and `preview` must be pure reads
+
+The atomic execute mutation (§17.3) re-runs `load` and `preview` inside the execute transaction to get fresh data and verify invariants. This means both functions run **twice** per destructive action: once during preview, once during execute.
+
+**Contract:** `load` and `preview` must be side-effect-free. No writes, no counter increments, no external calls, no resource consumption. They are read-only projections of the current database state.
+
+The preview path enforces this naturally — it runs inside a `query` (read-only). But the execute path runs inside a `mutation` where `load` *could* technically write. The framework does **not** enforce read-only access for `load`/`preview` inside execute. This is a contract, not a runtime guard. An eslint rule that flags `ctx.db.insert`/`ctx.db.patch`/`ctx.db.delete` inside `load` or `preview` functions is planned.
+
+### 16.3 What operations are for — and when to reach for them
 
 One business action — "delete this runbook" — often needs to project to multiple surfaces:
 
@@ -658,11 +753,13 @@ One business action — "delete this runbook" — often needs to project to mult
 
 Without `defineOperation`, you'd write the guard, load, and authorize logic three times.
 
-### 16.3 Destructive MCP tools must be operation-backed
+**Rule of thumb:** reach for `defineOperation` when the action will be an MCP tool, when you need preview/confirm flow, or when the same business logic projects to more than one surface. Otherwise, use `mutation({ args, handler })`.
+
+### 16.4 Destructive MCP tools must be operation-backed
 
 See §17.4. This is the load-bearing constraint for the runtime's destructive-path safety guarantees.
 
-### 16.4 Not for everyday mutations
+### 16.5 Not for everyday mutations
 
 Regular mutations don't use `defineOperation`. They use `mutation({ args, handler })` with inline `ctx.enforce()`. Operations are for genuinely-reusable business actions.
 
@@ -843,6 +940,8 @@ No global override. The choice is per-tool and visible in code.
 
 Both hashes use canonical JSON serialization with sorted keys, excluding framework-internal fields (`__preview`, `__confirmationToken`, `__principal`). `previewHash` is computed from the operation's `confirm` block only (§16.1), never the full preview output.
 
+**`confirm` values must be JSON-serializable primitives** — strings, numbers, booleans, arrays, and plain objects. Convex `Id` values serialize as strings (safe). Do not put `Date` objects, `BigInt`, or custom classes into `confirm` — canonicalization will break or produce unstable hashes.
+
 ### 17.8 Agent audit — via component, redacted by default
 
 `agentEvents: { enabled: true }` requires the `@lupinum/trellis-agent-audit` Convex component. **This dependency is required for destructive tools** — the component owns both the event log *and* the `jti` redemption log powering replay protection.
@@ -924,10 +1023,6 @@ These keep full power from earlier versions — they just live inside one cohere
 
 Apps can expose alternate MCP handlers with reduced toolsets — a `code-mode` endpoint exposing only `safe`-tagged tools, for example. Configured from a single MCP app definition.
 
-### 17.12 Deprecation, not removal
-
-Old MCP primitives — `defineMcpRuntime`, `projectTool`, `defineMcpTool`, `defineTool`, `defineMcpPrompt`, `defineMcpResource`, and `useMcpServer` / `useMcpSession` as *starting points* — are deprecated in v2.2 and removed in v3. They continue to work during the v2.x cycle. `defineMcpApp` ships additively. `useMcpServer` and `useMcpSession` remain internally available for advanced session scenarios via `extend`.
-
 ## 18. Component bridges
 
 Explicit wrappers via `bridge.from()`. No magical runtime interception.
@@ -936,10 +1031,10 @@ Explicit wrappers via `bridge.from()`. No magical runtime interception.
 
 ```ts
 // In a component package
-import { createComponentBridge } from '@lupinum/trellis/components'
+import { defineComponentBridge } from '@lupinum/trellis/components'
 
 export const { query, mutation, internalQuery, internalMutation } =
-  createComponentBridge({
+  defineComponentBridge({
     principalShape: v.object({
       userId: v.string(),
       tenantId: v.string(),
@@ -1044,7 +1139,7 @@ usePermissions  useAuthGuard
 useConvexUpload
 ```
 
-Deferable cleanups for a later minor release:
+Open design questions for a later pass:
 
 - Namespace auth components: `<Auth.Authenticated>` / `<Auth.Anonymous>` instead of `ConvexAuthenticated` / `ConvexUnauthenticated`.
 - Normalize composable naming — the `Convex` prefix is inconsistent with `useCachedQuery`.
@@ -1079,100 +1174,7 @@ No conceptual rewrite — alignment with the new builder names and value-based c
 
 ---
 
-# Part III — Migration
-
-## 22. Deprecations
-
-Deprecated in v2.2, removed in v3. Codemods ship with v2.2.
-
-| Old | New |
-|---|---|
-| `createApp` | `defineFunctions` |
-| `app.query` / `app.mutation` with `guard/load/authorize/handler` | `query` / `mutation` with procedural `handler` (or `defineOperation` for multi-surface) |
-| `anonQuery` / `anonMutation` | `publicQuery` / `publicMutation` |
-| `tenantIsolation: { tables }` | `defineTenantRules` with `defaultPolicy: 'deny'` |
-| `await ctx.actor()` / `await ctx.principal()` | `ctx.actor` / `ctx.principal` (value access) |
-| Single `rawDb` bypassing everything | Three doors: `db`, `unsafeDb`, `rawDb` |
-| Actorless unwrapped internal builders | Trellis-wrapped internals; `raw.internalMutation` for unwrapped escape hatch |
-| Old MCP primitives | `defineMcpApp`; `tool.fromOperation` for destructive tools |
-| `tool({ destructive: true, call: anyRef })` | `tool.fromOperation({ operation, preview, execute })` |
-| In-memory `globalRateLimiter` in production | `@convex-dev/rate-limiter` component |
-| `trustedCallers: true` in Nuxt config | Service principals in the principal union + `ctx.runAsService` |
-| Unified `preview` output hashed as a single blob | `preview` returns `{ display, confirm }`; only `confirm` is hashed |
-| Hand-rolled confirmation flow in MCP tools | Runtime-enforced atomic execute mutation (§17.3) |
-
-Explicitly **not** deprecated: guards, permission context, capabilities, redaction, `defineOperation`, component bridges, `defineArgs`.
-
-## 23. Migration example — a destructive operation end-to-end
-
-**Old — unstructured handler, ad-hoc MCP flow:**
-
-```ts
-// Old mutation with ad-hoc guard
-export const removeRunbook = app.mutation({
-  args: { id: v.id('runbooks'), _confirmed: v.optional(v.boolean()) },
-  guard: isAuthenticated,
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const runbook = await ctx.db.get(args.id)
-    if (!canDeleteRunbook(runbook, actor)) throw new Error('forbidden')
-    if (!args._confirmed) {
-      return { preview: `Delete "${runbook.title}"` }
-    }
-    await ctx.db.delete(args.id)
-    return { deleted: true }
-  },
-})
-
-// Old MCP tool
-defineMcpTool('delete-runbook', {
-  call: api.runbooks.removeRunbook,
-})
-```
-
-**New — operation-backed with runtime-enforced flow:**
-
-```ts
-// convex/runbooks.ts
-export const deleteRunbook = defineOperation({
-  kind: 'destructive',
-  args: { id: v.id('runbooks') },
-  guard: isAuthenticated,
-  load: async (ctx, args) => ({ runbook: await ctx.db.get(args.id) }),
-  authorize: ({ runbook }) => canDeleteRunbook(runbook),
-  preview: async (_ctx, _args, { runbook }) => ({
-    display: {
-      summary: `Delete "${runbook.title}"`,
-      warn: 'This cannot be undone',
-    },
-    confirm: {
-      operation: 'deleteRunbook',
-      targetId: runbook._id,
-    },
-  }),
-  handler: async (ctx, _args, { runbook }) => {
-    await ctx.db.delete(runbook._id)
-  },
-})
-
-export const previewDeleteRunbook = query(previewOf(deleteRunbook))
-export const executeDeleteRunbook = mutation(deleteRunbook)  // operation-aware wrapper
-
-// server/mcp.ts
-'delete-runbook': tool.fromOperation({
-  operation: 'runbooks.deleteRunbook',
-  preview: api.runbooks.previewDeleteRunbook,
-  execute: api.runbooks.executeDeleteRunbook,
-  capability: 'deleteRunbook',
-  rateLimit: { max: 5, window: '1m', per: 'principal' },
-}),
-```
-
-What the user gets: atomic execute transaction, preview-hash drift detection, `jti` replay protection, automatic audit, bound confirmation tokens, session binding when enabled. Zero user code.
-
----
-
-# Part IV — Implementation notes for the dev team
+# Part III — Implementation notes for the dev team
 
 This part is for the engineers building Trellis v2.2. Skip if you're just using the library.
 
@@ -1202,6 +1204,8 @@ function deriveKey(purpose: string): Uint8Array {
 
 Purposes: `'trellis:component-principal:v1'`, `'trellis:mcp-forwarded:v1'`, `'trellis:mcp-confirmation:v1'`, `'trellis:trusted-caller:v1'`.
 
+**Runtime constraint:** All crypto runs inside Convex's default V8 runtime (not `"use node"` files). Use `@noble/hashes` for HKDF (pure JS, no Node dependencies). Use `jose` for JWT sign/verify (uses `crypto.subtle` / Web Crypto API, which Convex's runtime supports). Do **not** use Node's `crypto` module — it requires `"use node"` and cannot coexist with query/mutation definitions.
+
 ### 25.2 Envelope format
 
 JWT with HS256. Claims:
@@ -1227,7 +1231,7 @@ Every verify call checks:
 
 1. Valid JWT signature under the purpose-specific key.
 2. `aud` exact match.
-3. `callee` exact match against the expected callee (bridge passes the component namespace; MCP passes the target function name).
+3. `callee` exact match against the expected callee. Use the string form from `_generated/api` (e.g., `"runbooks:removeRunbook"`) — this is the public contract. Do **not** rely on `fn._name` or other internal properties of Convex function references.
 4. `exp` not past.
 5. For confirmation tokens only: `argsHash`, `previewHash`, and (if sessions enabled) `sessionId`.
 
@@ -1243,6 +1247,8 @@ At Convex build time (via a TypeScript AST walk or a Convex codegen hook), Trell
 - Projected function refs (by convention: `previewXxx` query and `executeXxx` mutation, or explicit `previewOf` / `mutation(operation)` projections).
 
 Output: `.trellis/operations-manifest.ts` with a typed `operationsManifest` export.
+
+**Static analyzability constraint:** `defineOperation` calls must be statically analyzable top-level `const` exports. Re-exports (`export { op } from './operations'`) are followed. Aliased imports (`import { defineOperation as defOp }`) are resolved via the TypeScript compiler API. Conditional or dynamic exports are not supported and will be silently missed — the startup validation in §26.2 catches these as missing manifest entries.
 
 ### 26.2 Validation at MCP startup
 
@@ -1356,32 +1362,17 @@ function httpAction(handler: (ctx: HttpActionCtx, req: Request) => Promise<Respo
 
 The internal mutation's principal resolver recognizes the `trellis:trusted-caller:v1` envelope, verifies it, and populates `ctx.principal` with the service principal.
 
-## 29. Analyzer and eslint updates
-
-Two separate work streams:
-
-### 29.1 Analyzer migration
-
-Currently parses `tenantIsolation` metadata from `convex/functions.ts`. Needs to parse `defineTenantRules(...)` instead. The new call shape is explicit enough that the AST walk is straightforward — but budget a week for this, including regression tests.
-
-### 29.2 New eslint rules
+## 29. Eslint rules
 
 - **`trellis/enforce-required`** — every non-internal `mutation` handler must call `ctx.enforce()` at least once OR be `defineOperation`-backed. Catches the common case of forgetting authorization.
 - **`trellis/no-direct-component-call`** — flags `ctx.runMutation(components.*.*)` / `ctx.runQuery(components.*.*)` and suggests the bridge wrapper.
+- **`trellis/no-unsafe-db-without-comment`** — requires a comment explaining why above any `unsafeDb` usage. `unsafeDb` bypasses tenant isolation while appearing safe (triggers still run, audit still logs). This false assurance makes it the most likely door to produce silent cross-tenant leaks.
 - **`trellis/no-raw-db-without-comment`** — requires a comment explaining why above any `rawDb` usage. Soft enforcement; don't over-engineer.
 - **`trellis/destructive-requires-operation`** — flags `tool({ destructive: true, ... })` without `tool.fromOperation`. TypeScript also catches this; eslint provides a better error message.
 
-### 29.3 Codemods
-
-- `createApp` → `defineFunctions` with the right option shape.
-- `anonQuery` / `anonMutation` → `publicQuery` / `publicMutation`.
-- `await ctx.actor()` / `await ctx.principal()` → `ctx.actor` / `ctx.principal`.
-- `tenantIsolation: {...}` → `defineTenantRules({...})`.
-- Old structured handlers (`guard`/`load`/`authorize`/`handler` on `app.mutation`) → procedural `handler` with inline `ctx.enforce`, OR `defineOperation` with projection. Heuristic: if the handler has a `load` step, suggest `defineOperation`; otherwise convert to procedural.
-
 ---
 
-# Part V — Project management
+# Part IV — Project management
 
 ## 30. Timeline
 
@@ -1395,19 +1386,16 @@ Code total: **~8 weeks.**
 
 ### 30.2 Polish time
 
-- **Codemods.** `createApp` → `defineFunctions`, `anonQuery` → `publicQuery`, async accessors → values, `tenantIsolation` → `defineTenantRules`, structured handlers → procedural / `defineOperation`, destructive tools → `tool.fromOperation`. **~1.5 weeks.**
-- **Analyzer/eslint.** Metadata parser migration + four new eslint rules. **~1 week.**
-- **Example rewrites.** Examples 01–08, each a chance to validate spec against real usage. **~2 weeks.**
-- **Docs.** Migration guide, procedural examples, `defineOperation` patterns, destructive-tool guide, subfeature docs for MCP, three-door db with trigger composition, bridge authoring guide, service-actor scoping guide, testing guide. **~2 weeks.**
+- **Eslint rules.** Four new rules (§29.2). **~1 week.**
+- **Examples.** Examples 01–08, each a chance to validate spec against real usage. **~2 weeks.**
+- **Docs.** Procedural examples, `defineOperation` patterns, destructive-tool guide, subfeature docs for MCP, three-door db with trigger composition, bridge authoring guide, service-actor scoping guide, testing guide. **~2 weeks.**
 - **Buffer.** **~1 week.**
 
-Polish total: **~7.5 weeks.**
+Polish total: **~6 weeks.**
 
-**Realistic end-to-end: 15–16 weeks** to a v2.2 ready for general adoption.
+**Realistic end-to-end: ~14 weeks** to a v2.2 ready for general adoption.
 
 ### 30.3 Ship order — validate before committing
-
-Ship the agent layer additively against current Trellis first. `defineMcpApp` lives alongside existing primitives. No breaking changes during the spike phase.
 
 **Three implementation spikes, run before freezing the API:**
 
@@ -1443,7 +1431,7 @@ Optional feature, framed as convenience not contract (§18.3). Validate in spike
 
 ---
 
-# Part VI — Rationale
+# Part V — Rationale
 
 ## 32. Decision log
 
@@ -1509,14 +1497,26 @@ Component-backed `jti` redemption makes replay impossible by default. Tools that
 ### 32.20 MCP's internal convex client auto-forwards
 Inside `defineMcpApp`, the `convex` client attaches `trellis:mcp-forwarded:v1` envelopes automatically. User code doesn't construct envelopes by hand. Consistency is the runtime's job.
 
-### 32.21 Public-only fallback with dev warning
-`query` behaves like `publicQuery` when no actor resolver is configured. Helps tiny examples. Emits a dev warning so beginners aren't surprised when auth is added. Docs teach `publicQuery` from day one regardless.
+### 32.21 No actor resolver → startup error, no silent fallback
+If no `resolveActor` is configured, `defineFunctions` throws at startup. No silent degradation where `query` behaves like `publicQuery`. The cost of typing `publicQuery` is one word; the cost of a runtime fallback that silently drops authorization is a class of bugs. Greenfield doesn't need the convenience.
 
 ### 32.22 Don't oversell the linter
 Eslint rules catch the common case of forgotten authorization. They don't replace structural guarantees. Docs say this plainly. For security-critical paths, use `defineOperation`.
 
-### 32.23 Polish time is half the real timeline
-Earlier drafts optimistically budgeted code and underestimated migration, codemods, analyzer updates, examples, and docs. Honest estimate: 8 weeks code + 7.5 weeks polish = ~15–16 weeks end-to-end.
+### 32.23 Graduated on-ramp — `rls` and `triggers` optional
+Requiring the full model (principal + actor + RLS + triggers) before writing one query is a learning cliff. Making `rls` and `triggers` optional lets developers start with auth-only and add multi-tenancy when they need it. The framework scales up; it shouldn't demand the full model on day one.
+
+### 32.24 Request vs. non-request is structural, not heuristic
+Builder type determines the resolution path at definition time. `query`/`mutation`/`publicQuery`/`publicMutation` never consult `systemPrincipal`. `internalQuery`/`internalMutation` do. No runtime heuristic, no "detect via ctx.scheduler presence." This makes it impossible to accidentally escalate from `anonymous` to `service`.
+
+### 32.25 Error semantics must be specified
+A framework that silently drops authorization failures (empty results from RLS) and loudly fails on others (guard throws) with no documented distinction will confuse every user. Error types, debug logging, and fail-safe defaults for visibility pipelines are not optional.
+
+### 32.26 Operation projections are symmetric
+`query(previewOf(op))` vs `mutation(op)` is asymmetric and confusing. `query(op.preview)` and `mutation(op.execute)` read consistently and make the operation the source of truth for both projections.
+
+### 32.27 Polish time matters
+Earlier drafts optimistically budgeted code and underestimated eslint rules, examples, and docs. Honest estimate: 8 weeks code + 6 weeks polish = ~14 weeks end-to-end.
 
 ## 33. Final decisions summary
 
@@ -1547,7 +1547,15 @@ One-page reference:
 23. Sessions, resources, prompts stay as first-class MCP subfeatures.
 24. `trustedCallers` config removed; trusted callers are service principals.
 25. `publicMutation` is a client surface, not a webhook pattern; webhooks use `httpAction`.
-26. Polish time is half the real timeline (~15–16 weeks end-to-end).
+26. No actor resolver → startup error, no silent fallback.
+27. `rls` and `triggers` optional in `defineFunctions` — graduated on-ramp.
+28. Request vs. non-request detection is structural (builder type), not heuristic.
+29. `load`/`preview` must be pure reads — contract, not runtime guard.
+30. Error semantics specified — `TrellisGuardError`, `TrellisRLSError`, `TrellisAuthError`.
+31. `unsafeDb` gets the same eslint comment requirement as `rawDb`.
+32. Service actor `allowedTables` is convention, not runtime-enforced.
+33. Operation projections use symmetric `op.preview` / `op.execute`.
+34. Polish time is significant (~14 weeks end-to-end).
 
 ## 34. Bottom line
 
