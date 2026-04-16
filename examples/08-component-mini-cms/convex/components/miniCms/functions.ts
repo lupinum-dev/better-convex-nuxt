@@ -7,7 +7,7 @@ import { mutation, query } from './_generated/server'
 export type MiniCmsActor =
   | { kind: 'viewer' }
   | { kind: 'editor'; userId: string }
-  | { kind: 'mcp'; mcpKeyId: string }
+  | { kind: 'agent'; agentId: string }
 
 export const principal = definePrincipal({
   validator: miniCmsPrincipalValidator,
@@ -25,8 +25,8 @@ export async function getActorFromPrincipal(
       return { kind: 'viewer' }
     case 'user':
       return { kind: 'editor', userId: resolved.userId }
-    case 'mcp':
-      return { kind: 'mcp', mcpKeyId: resolved.mcpKeyId }
+    case 'agent':
+      return { kind: 'agent', agentId: resolved.agentId }
   }
 }
 

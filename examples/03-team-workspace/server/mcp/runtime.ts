@@ -18,8 +18,9 @@ function getMcpPrincipal(event: H3Event): TeamTodoPrincipal {
   }
 
   return {
-    kind: 'mcp',
+    kind: 'agent',
     userId: auth.userId,
+    provider: 'mcp',
   }
 }
 
@@ -27,7 +28,7 @@ export const mcpRuntime = defineMcpRuntime({
   callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal, convex }) => {
-    if (principal.kind !== 'mcp') {
+    if (principal.kind !== 'agent') {
       return {
         listTodos: false,
         createTodo: false,
@@ -46,8 +47,8 @@ export const mcpRuntime = defineMcpRuntime({
     }
   },
   principalKey: (principal) =>
-    principal.kind === 'mcp'
-      ? `mcp:${principal.mcpKeyId ?? principal.userId}`
+    principal.kind === 'agent'
+      ? `agent:${principal.agentId ?? principal.userId}`
       : principal.kind,
 })
 

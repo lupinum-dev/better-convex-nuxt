@@ -12,12 +12,12 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 | ----------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `01-public-todo`        | First look                   | minimal `createApp(...)`, `defineArgs`, simple query/mutation flow                                                                           |
 | `02-auth-todo`          | Auth-only apps               | Better Auth wiring, actor resolution, personal ownership handlers                                                                            |
-| `03-team-workspace`     | Canonical protected app      | `convex/auth/*`, backend-owned context, `_can`, transport-shaped MCP principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing` |
+| `03-team-workspace`     | Canonical protected app      | `convex/auth/*`, backend-owned context, `_can`, transport-shaped agent principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing` |
 | `04-saas-platform`      | Month-two product work       | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows                |
 | `05-visibility-access`  | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy                   |
 | `06-multi-workspace`    | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                               |
 | `07-mcp-reference`      | Full MCP implementation      | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode, root internal refs as the automation surface |
-| `08-component-mini-cms` | Local component + MCP seam   | Local Convex components, principal forwarding, root browser wrappers, `createComponentBridge(...)`, `projectTool(...)`                       |
+| `08-component-mini-cms` | Local component + MCP seam   | Local Convex components, principal forwarding, root browser wrappers, `createComponentBridge(...)`, `projectTool(...)`; primary reference for `ginko-cms`-style integrations |
 
 ## Concept Coverage Matrix
 

@@ -27,6 +27,9 @@ Attachment note for this pass:
 
 ## Files To Read First
 
+If this is your first pass, stop after the first three files. The rest are expansion surfaces, not
+the core permission model.
+
 1. `convex/auth/checks.ts`
 2. `convex/tasks.ts`
 3. `pages/projects/[id].vue`

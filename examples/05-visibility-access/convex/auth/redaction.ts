@@ -11,11 +11,14 @@ export const articleRedaction = defineRedaction<Record<string, unknown>, Actor>(
   rules: [
     {
       fields: ['internalNotes', 'draftFeedback'],
-      visibleTo: (actor) => hasRole('owner', 'admin', 'editor')(actor),
+      visibleTo: (actor) => !!actor && hasRole('owner', 'admin', 'editor')(actor),
     },
   ],
 })
 
-export function redactArticle<T extends Record<string, unknown>>(actor: Actor, article: T): T {
+export function redactArticle<T extends Record<string, unknown>>(
+  actor: Actor | null,
+  article: T,
+): T {
   return articleRedaction.apply(actor, article) as T
 }

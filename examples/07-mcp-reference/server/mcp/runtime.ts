@@ -19,9 +19,10 @@ function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   }
 
   return {
-    kind: 'mcp',
-    mcpKeyId: auth.keyId,
+    kind: 'agent',
+    agentId: auth.keyId,
     userId: auth.userId,
+    provider: 'mcp',
   }
 }
 
@@ -29,7 +30,7 @@ export const mcpRuntime = defineMcpRuntime({
   callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal, convex }) => {
-    if (principal.kind !== 'mcp') {
+    if (principal.kind !== 'agent') {
       return {
         readWorkspaceRunbooks: false,
         writeWorkspaceRunbooks: false,
@@ -46,8 +47,8 @@ export const mcpRuntime = defineMcpRuntime({
     }
   },
   principalKey: (principal) =>
-    principal.kind === 'mcp'
-      ? `mcp:${principal.mcpKeyId}`
+    principal.kind === 'agent'
+      ? `agent:${principal.agentId}`
       : principal.kind,
 })
 

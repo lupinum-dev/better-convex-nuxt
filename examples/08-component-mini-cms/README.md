@@ -1,6 +1,8 @@
 # Example 08: Component Mini CMS
 
 This is the canonical Trellis example for a **local Convex component** plus **MCP projection**.
+If you are trying to understand the architecture behind `ginko-cms`, start here before reading the
+packaged module.
 
 It is intentionally a small slice of the `ginko-cms` architecture:
 
@@ -55,7 +57,7 @@ Use this example when you want to understand:
 - principal forwarding
 - root app wrappers versus component business logic
 - `projectTool(...)` over internal bridge refs
-- transport-shaped `mcp` principals instead of business-role data in the protocol layer
+- transport-shaped `agent` principals instead of business-role data in the protocol layer
 
 Use [`07-mcp-reference`](../07-mcp-reference/README.md) when you want the full MCP protocol
 surface, key management, resources, and prompts.

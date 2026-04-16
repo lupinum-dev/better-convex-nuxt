@@ -43,7 +43,7 @@ export async function getActorFromPrincipal(
   switch (principal.kind) {
     case 'anonymous':
       return null
-    case 'mcp': {
+    case 'agent': {
       const actor = await loadActorByAuthId(ctx, principal.userId)
       return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
     }

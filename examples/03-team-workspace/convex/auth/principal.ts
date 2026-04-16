@@ -9,7 +9,7 @@ export type Role = Doc<'users'>['role']
 export type TeamTodoPrincipal =
   | { kind: 'anonymous' }
   | { kind: 'user'; userId: string }
-  | { kind: 'mcp'; userId: string; mcpKeyId?: string }
+  | { kind: 'agent'; userId: string; agentId?: string; provider?: 'mcp' }
 
 export const teamTodoPrincipalValidator = v.union(
   v.object({
@@ -20,9 +20,10 @@ export const teamTodoPrincipalValidator = v.union(
     userId: v.string(),
   }),
   v.object({
-    kind: v.literal('mcp'),
+    kind: v.literal('agent'),
     userId: v.string(),
-    mcpKeyId: v.optional(v.string()),
+    agentId: v.optional(v.string()),
+    provider: v.optional(v.literal('mcp')),
   }),
 )
 

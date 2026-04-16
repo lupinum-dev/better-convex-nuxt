@@ -67,7 +67,7 @@ export const viewArticle = query({
       if (grant.articleId !== args.id) throw deny('Token does not match this article.')
       const article = await ctx.db.get(args.id)
       requireRecord(article, 'Article')
-      return { ...article, _access: grant.level }
+      return { ...redactArticle(null, article), _access: grant.level }
     }
 
     const actor = await getActor(ctx)

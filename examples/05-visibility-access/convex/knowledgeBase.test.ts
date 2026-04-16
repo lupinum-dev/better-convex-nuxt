@@ -352,6 +352,7 @@ describe('share tokens', () => {
       title: 'Shared article',
       body: 'External access',
       visibility: 'workspace',
+      internalNotes: 'Editors only',
     })
     await team.users.editor.mutation(api.articles.publish, { id: articleId })
 
@@ -369,6 +370,7 @@ describe('share tokens', () => {
     })
     expect(article.title).toBe('Shared article')
     expect(article._access).toBe('view')
+    expect(article.internalNotes).toBeUndefined()
   })
 
   it('rejects a revoked share token', async () => {

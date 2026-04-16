@@ -101,23 +101,24 @@ describe('example 08 component mini cms', () => {
       title: 'Forwarded agent page',
       draftBody: 'Created by the forwarded principal',
       principal: {
-        kind: 'mcp',
-        mcpKeyId: 'demo-key',
+        kind: 'agent',
+        agentId: 'demo-key',
+        provider: 'mcp',
       },
     })
 
     const draftPages = await ctx
-      .asPrincipal({ kind: 'mcp', mcpKeyId: 'demo-key' })
+      .asPrincipal({ kind: 'agent', agentId: 'demo-key', provider: 'mcp' })
       .query(internal.miniCmsBridge.listDraftPages, {})
 
     expect(draftPages.find((page: { _id: string }) => page._id === id)).toMatchObject({
-      authorId: 'mcp:demo-key',
+      authorId: 'agent:demo-key',
     })
   })
 
   it('forwards principal unchanged through the internal component bridge', async () => {
     const ctx = createCtx()
-    const agent = ctx.asPrincipal({ kind: 'mcp', mcpKeyId: 'bridge-key' })
+    const agent = ctx.asPrincipal({ kind: 'agent', agentId: 'bridge-key', provider: 'mcp' })
 
     const id = await agent.mutation(internal.miniCmsBridge.createPage, {
       slug: 'bridge-owned',
@@ -127,14 +128,14 @@ describe('example 08 component mini cms', () => {
 
     const drafts = await agent.query(internal.miniCmsBridge.listDraftPages, {})
     expect(drafts.find((page: { _id: string }) => page._id === id)).toMatchObject({
-      authorId: 'mcp:bridge-key',
+      authorId: 'agent:bridge-key',
       slug: 'bridge-owned',
     })
   })
 
   it('returns the publish preview from the component operation', async () => {
     const ctx = createCtx()
-    const agent = ctx.asPrincipal({ kind: 'mcp', mcpKeyId: 'preview-key' })
+    const agent = ctx.asPrincipal({ kind: 'agent', agentId: 'preview-key', provider: 'mcp' })
 
     const id = await agent.mutation(internal.miniCmsBridge.createPage, {
       slug: 'launch-notes',
@@ -158,7 +159,9 @@ describe('example 08 component mini cms', () => {
       publishPage: false,
     })
 
-    expect(getCapabilitiesForPrincipal({ kind: 'mcp', mcpKeyId: 'demo-key' })).toEqual({
+    expect(
+      getCapabilitiesForPrincipal({ kind: 'agent', agentId: 'demo-key', provider: 'mcp' }),
+    ).toEqual({
       listPublishedPages: true,
       listDraftPages: true,
       createPage: true,
