@@ -2,48 +2,73 @@
 
 Inspired by: **Trello**
 
-## Why this example exists
+This is the first real `examples-next` app.
 
-This is the cleanest test of whether Trellis can support a collaborative SaaS app without feeling heavy.
+It stays intentionally plain in the UI:
 
-It looks simple.
-It is not.
+- Nuxt page + local components
+- layout-only CSS
+- no color system
+- no border-heavy design
+- no UI library surface
 
-It pressures:
+The point is to prove backend and runtime concepts, not styling.
 
-- workspace tenancy
-- role-based membership
-- real-time updates
-- ordered lists and cards
-- optimistic mutations
-- cross-user collaboration
-- activity/audit trails
+## What this implementation covers
 
-If Trellis cannot make this feel smooth, it is not yet a general app layer.
+- Better Auth sign up / sign in
+- app-owned user rows and actor resolution
+- workspace creation and demo join flow
+- tenant-scoped kanban tables (`boards`, `columns`, `cards`)
+- role-gated mutations
+- ordered card movement between columns
+- destructive board archive preview using `defineOperation(...)` + `previewOf(...)`
 
-## What Trellis must make easy
+## Why this matters
 
-- tenant-scoped boards, lists, and cards
-- role-based actions like create list, move card, archive board
-- operation-backed destructive actions like archive/delete board
-- comments and activity streams on the same protected model
-- public invite or join flows without breaking tenant safety
+This is the smallest example that still proves Trellis can handle:
 
-## Agent story
+- protected app auth
+- tenancy
+- real-time board queries
+- app-owned business rules
+- a real destructive preview flow
 
-Agents should be able to:
+If this cannot feel clean, the framework is not ready for more ambitious app families.
 
-- list boards and cards they can access
-- summarize stale work
-- propose reprioritization
-- move cards only through safe mutations
-- archive boards only through operation-backed destructive tools
+## Run It
 
-## What this example validates
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
 
-- default protected queries/mutations
-- tenancy and `ctx.db.crossTenant`
-- operations for destructive actions
-- real-time UI + optimistic updates
-- agent exposure over the same domain model
+## Demo Flow
 
+1. Create account A and create workspace `alpha`
+2. Add a few cards across the seeded columns
+3. Create account B and join `alpha` as `viewer`
+4. Confirm account B can read the board but cannot create or move cards
+5. Sign back in as account A and preview archive of the board
+
+## Files To Read First
+
+1. `convex/schema.ts`
+2. `convex/auth/principal.ts`
+3. `convex/auth/actor.ts`
+4. `convex/auth/checks.ts`
+5. `convex/workspaces.ts`
+6. `convex/boards.ts`
+7. `composables/useKanbanBoard.ts`
+8. `pages/index.vue`
+
+## Next Improvements
+
+This first cut is deliberately narrow.
+
+Possible follow-ups:
+
+- card comments
+- list creation and reordering
+- board members and invitations
+- MCP projection over the archive operation
+- activity log

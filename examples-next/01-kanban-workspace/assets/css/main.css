@@ -1,0 +1,130 @@
+:root {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.stack-lg {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.inline {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.cluster {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.split {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.auth-grid,
+.workspace-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.board-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.column {
+  min-width: 0;
+}
+
+.card-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.card-actions,
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.meta {
+  opacity: 0.75;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+label span {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+input,
+select,
+textarea,
+button {
+  width: 100%;
+  max-width: 100%;
+}
+
+button {
+  width: auto;
+}
+
+.empty {
+  min-height: 5rem;
+}
+
+@media (min-width: 800px) {
+  .auth-grid,
+  .workspace-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .board-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+

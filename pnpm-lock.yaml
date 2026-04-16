@@ -188,6 +188,34 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(typescript@5.9.3)
 
+  examples-next/01-kanban-workspace:
+    dependencies:
+      '@convex-dev/better-auth':
+        specifier: ^0.11.4
+        version: 0.11.4(@standard-schema/spec@1.1.0)(better-auth@1.5.6(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.4)(vue@3.5.32(typescript@5.9.3)))(convex@1.34.1(react@19.2.3))(hono@4.12.9)(react@19.2.3)(typescript@5.9.3)
+      '@lupinum/trellis':
+        specifier: workspace:*
+        version: link:../..
+      better-auth:
+        specifier: ^1.5.6
+        version: 1.5.6(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.4)(vue@3.5.32(typescript@5.9.3))
+      convex:
+        specifier: ^1.34.1
+        version: 1.34.1(react@19.2.3)
+      convex-helpers:
+        specifier: ^0.1.114
+        version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.34.1(react@19.2.3))(hono@4.12.9)(react@19.2.3)(typescript@5.9.3)(zod@4.3.6)
+      nuxt:
+        specifier: ^4.4.2
+        version: 4.4.2(@babel/core@7.29.0)(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@parcel/watcher@2.5.6)(@types/node@25.5.2)(@vitejs/devtools@0.1.13(@pnpm/logger@1001.0.1)(db0@0.3.4(better-sqlite3@12.8.0))(ioredis@5.10.1)(typescript@5.9.3)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.8.3)))(@vue/compiler-sfc@3.5.32)(better-sqlite3@12.8.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.8.0))(eslint@10.2.0(jiti@2.6.1))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.60.1))(rollup@4.60.1)(srvx@0.11.14)(terser@5.46.1)(typescript@5.9.3)(vite@7.3.1(@types/node@25.5.2)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.8.3))(vue-tsc@3.2.6(typescript@5.9.3))(yaml@2.8.3)
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vue-tsc:
+        specifier: ^3.2.6
+        version: 3.2.6(typescript@5.9.3)
+
   examples/01-public-todo:
     dependencies:
       '@iconify-json/lucide':
