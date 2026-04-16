@@ -295,12 +295,31 @@ const rawDb = ctx.db                                   // raw
 
 When a write fires a trigger, which db does the trigger callback see?
 
-- **Trigger fired by `ctx.db`** → RLS check happens first, then trigger fires with `ctx.innerDb` = raw db. Trigger can write to any table (audit logs, denormalized fields).
-- **Trigger fired by `ctx.unsafeDb`** → no RLS check, trigger fires with `ctx.innerDb` = raw db.
+- **Trigger fired by `ctx.db`** → RLS check happens first on the originating write. If allowed, the trigger fires. Inside the callback, `ctx.db` = `triggers(raw)` and `ctx.innerDb` = raw db. **Neither has RLS.**
+- **Trigger fired by `ctx.unsafeDb`** → no RLS check on the originating write. Same callback db shapes as above.
 - **Trigger fired by `ctx.rawDb`** → does not fire. `rawDb` bypasses the trigger layer entirely.
 - **Inside any trigger callback, `ctx.innerDb`** (convex-helpers convention) performs writes that don't fire further triggers. Use this to avoid recursion.
 
-Audit triggers that want to record writes from both `db` and `unsafeDb` paths should use `ctx.innerDb` inside their callback (to avoid recursion) and should run in both paths. Policy bypass should not mean "skip the audit trail" — that's the whole reason `unsafeDb` and `rawDb` are separate doors.
+**Known tradeoff: triggers run without RLS.** This is inherent to the composition model. The originating write is RLS-checked, but the trigger callback sees raw db. This is correct for audit logging (triggers need to write to tables not in the RLS rules). But it means **denormalization triggers can accidentally cross tenant boundaries** — a trigger that patches a related document has no automatic tenant scoping.
+
+**Guidance for trigger authors:**
+
+- **Audit/log triggers** — use `ctx.innerDb` freely. These tables aren't tenant-scoped.
+- **Denormalization triggers** — validate tenant scope explicitly. The `change` argument carries the triggering document; use its tenant field to scope any related writes:
+  ```ts
+  triggers.register('posts', async (ctx, change) => {
+    if (change.newDoc) {
+      // Explicit scope check — don't blindly patch cross-tenant
+      const related = await ctx.innerDb.get(change.newDoc.categoryId)
+      if (related?.workspaceId === change.newDoc.workspaceId) {
+        await ctx.innerDb.patch(related._id, { postCount: /* ... */ })
+      }
+    }
+  })
+  ```
+- **Triggers needing full RLS** — re-wrap inside the callback: `const scopedDb = wrapDatabaseWriter(ctx, ctx.innerDb, rules)`. This is rare and requires access to the rules; prefer explicit scope checks.
+
+Policy bypass should not mean "skip the audit trail" — that's the whole reason `unsafeDb` and `rawDb` are separate doors.
 
 ### 7.3 Resolution uses raw access internally
 
