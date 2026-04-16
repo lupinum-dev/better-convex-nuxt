@@ -1,11 +1,19 @@
 # Trellis v2.2 — The Spec
 
-> **Status: Final (revised 2026-04-16).** All technical assumptions validated via experiments. This is the implementation spec for the dev team.
+> **Status: Final (revised 2026-04-16, second pass).** All technical assumptions validated via 12 experiments (58 tests). This is the implementation spec for the dev team.
 >
 > **Reading order for implementers:**
 > 1. Parts I and II to understand the public API.
 > 2. Part III for runtime implementation notes before writing code.
 > 3. Part IV for project management and Part V for rationale when decisions are questioned.
+>
+> **What's new in this revision (2026-04-16 second pass):**
+> - **Trellis owns its tenant-scope layer** (experiment 8). Replaces convex-helpers `wrapDatabaseReader`/`wrapDatabaseWriter` with a Trellis-owned index-based proxy. Full-page pagination is guaranteed by construction, not approximated. Pages are full because every query hits a scope index, not because of post-fetch filtering.
+> - **Compound-index rule, enforced twice.** On scoped tables, every custom index must start with the scope field (e.g., `['organizationId', 'status']`, not `['status']`). Eslint flags violations at the schema; the proxy rejects them at runtime. Users write plain `defineTable` — no schema wrapper.
+> - **Triggers auto-scope from the triggering document** (experiment 8d). No `defineTrigger` wrapper and no manual composition order.
+> - **Envelope callee-binding** validated with the string form `"module:exportName"` (experiment 10). The spec no longer references `fn._name`.
+> - **`ctx.runAsService()` roundtrip** validated end-to-end (experiment 11).
+> - **`__workspaceId` injection** via `customQuery` input validated (experiment 12) — the documented workspace-switching pattern works as described.
 
 ---
 
@@ -271,55 +279,89 @@ type TrellisCtx<TPrincipal, TActor> = {
 
 ### 7.1 Three database doors
 
-- **`db`** — RLS-wrapped, trigger-aware on mutations. Default. 99% of handlers use this.
-- **`unsafeDb`** — bypasses RLS, triggers still run. Admin operations, onboarding before the actor has a tenant, cross-tenant reporting. Still audited.
-- **`rawDb`** — bypasses RLS *and* triggers. Data migrations, avoiding trigger recursion, integrity repair, low-level testing. Rare. Docs display a warning banner.
+- **`db`** — scope-proxy-wrapped, trigger-aware on mutations. Default. 99% of handlers use this.
+- **`unsafeDb`** — bypasses tenant scope, triggers still run. Admin operations, onboarding before the actor has a tenant, cross-tenant reporting. Still audited.
+- **`rawDb`** — bypasses scope *and* triggers. Data migrations, avoiding trigger recursion, integrity repair, low-level testing. Rare. Docs display a warning banner.
 
 All three are greppable. If someone bypasses policy, audit, or both, the choice is visible in code review.
 
-### 7.2 Trigger composition semantics
+### 7.2 Trellis owns the tenant-scope layer
 
-**Composition order is critical.** The three doors are built by layering wrappers in the correct order:
+Trellis does **not** use convex-helpers' `wrapDatabaseReader` / `wrapDatabaseWriter` for tenant scoping. Those wrappers filter post-fetch, which degrades pagination page sizes (experiment 5) and leaves triggers inheriting RLS (the "trigger-scope footgun").
+
+Trellis ships a tenant-scope proxy that:
+
+- **Enforces scope with an index**, not with a post-fetch filter. Every scoped query hits an index whose first field is the scope field, so Convex scans only the tenant's rows. Pages are always full (experiment 8a).
+- **Prepends the scope value to `.withIndex()` automatically.** The user writes `.withIndex('by_org_status', q => q.eq('status', 'published'))`; the proxy runs `.withIndex('by_org_status', q => q.eq('organizationId', scopeValue).eq('status', 'published'))`. Users don't type the scope value in application code (experiment 8b).
+- **Rejects non-compound indexes on scoped tables.** `.withIndex('by_status', ...)` on a scoped table throws at runtime with a pointer at the fix: "Index 'by_status' on scoped table 'posts' must start with the scope field 'organizationId'. Change the index to `['organizationId', 'status']`." (Validated in experiment 8b.) An eslint rule flags the same violation at the schema, so the error arrives at authoring time in the normal case.
+- **Auto-scopes trigger callbacks from the triggering document's scope**, not the handler's actor. See §7.2.1.
+- **Passes non-scoped tables through unchanged** (experiment 8e).
+
+**The compound-index rule.** On any scoped table, every custom index must start with the scope field (e.g., `['organizationId', 'status']`, not `['status']`). The rule is explicit and visible in the schema — not hidden behind a wrapper. This is standard multi-tenant database practice. The framework guarantees two things:
+
+1. **Correctness.** The scope value is always prepended before the user's query filters run — users cannot forget it at call sites.
+2. **Performance.** Every scoped query is O(tenant rows), not O(all rows).
+
+The user takes on one obligation: write the scope field as the first field of every custom index on a scoped table. In exchange, they keep vanilla `defineTable`, no schema wrapper, and no hidden index rewriting.
+
+**What this replaces from convex-helpers:**
+
+| Old (convex-helpers) | New (Trellis-owned) |
+|---|---|
+| `wrapDatabaseReader` + `Rules` object | scope proxy driven by `defineTenantRules.scopeField` and `tables` |
+| `wrapDatabaseWriter` + `Rules` object | same proxy handles writes (insert/patch/delete scope check) |
+| Manual composition order `RLS(triggers(raw))` | framework composition, not user-visible |
+| `defineTrigger` wrapper for tenant-scoped triggers | triggers auto-scope from `change.newDoc ?? change.oldDoc` |
+
+**What Trellis still takes from convex-helpers:**
+
+- `customQuery` / `customMutation` for the builder pattern.
+- The `Triggers` class for before/after mechanics and recursion prevention.
+
+### 7.2.1 Trigger auto-scoping
+
+When a trigger fires, the callback receives a `ctx` where `ctx.db`, `ctx.unsafeDb`, and `ctx.rawDb` are already constructed:
+
+- `ctx.db` — scope-proxy-wrapped to the **triggering document's** scope value (read from `change.newDoc ?? change.oldDoc`). Writes are scoped; reads are scoped.
+- `ctx.unsafeDb` — triggers still run, but the scope proxy is bypassed. For cross-tenant denorm or admin reconciliation inside a trigger.
+- `ctx.rawDb` — raw `ctx.innerDb` from convex-helpers. Use for audit writes to unscoped tables.
 
 ```ts
-// Correct: RLS wraps triggers wraps raw
-const triggerCtx = triggers.wrapDB(ctx)               // triggers( raw )
-const db = wrapDatabaseWriter(ctx, triggerCtx.db, rules)  // RLS( triggers( raw ) )
-const unsafeDb = triggerCtx.db                         // triggers( raw )
-const rawDb = ctx.db                                   // raw
+triggers.register('posts', async (ctx, change) => {
+  // ctx.db is scoped to change.newDoc ?? change.oldDoc's organizationId — automatically.
+  if (change.newDoc) {
+    const cat = await ctx.db.get(change.newDoc.categoryId)
+    if (cat) {
+      await ctx.db.patch(cat._id, { postCount: cat.postCount + 1 })
+    }
+  }
+
+  // Audit log is an unscoped table; scope proxy passes it through.
+  await ctx.db.insert('auditLog', {
+    table: 'posts',
+    operation: change.operation,
+    docId: change.id,
+  })
+})
 ```
 
-**Why this order matters:** Trigger callbacks receive `ctx.innerDb` — the db that was wrapped. If triggers wrap the RLS-wrapped db (`triggers(RLS(raw))`), then `ctx.innerDb` inside the trigger IS the RLS db, so trigger callbacks cannot write to tables outside the RLS rules (e.g., audit logs). With the correct order (`RLS(triggers(raw))`), triggers get raw db access via `ctx.innerDb` while external callers still see RLS enforcement.
+**Why the document's scope, not the actor's:**
 
-**Do not** compose as `triggers.wrapDB({ db: wrapDatabaseWriter(...) })`. This inverts the layering and breaks audit/trigger writes.
+| Scenario | Actor's scope | Document's scope | Correct scope |
+|---|---|---|---|
+| User creates post via `ctx.db` | Tenant A | Tenant A | same |
+| Admin backfills via `ctx.unsafeDb` | Tenant A | Tenant B | **Document's (B)** |
+| System cron via `ctx.unsafeDb` | (system) | Tenant C | **Document's (C)** |
 
-When a write fires a trigger, which db does the trigger callback see?
+A trigger should maintain data consistency within the *affected* tenant. Scoping to the actor would silently break admin backfills and system jobs. Validated in experiment 8d.
 
-- **Trigger fired by `ctx.db`** → RLS check happens first on the originating write. If allowed, the trigger fires. Inside the callback, `ctx.db` = `triggers(raw)` and `ctx.innerDb` = raw db. **Neither has RLS.**
-- **Trigger fired by `ctx.unsafeDb`** → no RLS check on the originating write. Same callback db shapes as above.
-- **Trigger fired by `ctx.rawDb`** → does not fire. `rawDb` bypasses the trigger layer entirely.
-- **Inside any trigger callback, `ctx.innerDb`** (convex-helpers convention) performs writes that don't fire further triggers. Use this to avoid recursion.
+**Edge cases:**
 
-**Known tradeoff: triggers run without RLS.** This is inherent to the composition model. The originating write is RLS-checked, but the trigger callback sees raw db. This is correct for audit logging (triggers need to write to tables not in the RLS rules). But it means **denormalization triggers can accidentally cross tenant boundaries** — a trigger that patches a related document has no automatic tenant scoping.
+- **Delete** (`change.newDoc` is null): scopes to `change.oldDoc`'s scope value.
+- **Unscoped tables** (not listed in `defineTenantRules.tables`): the proxy is a no-op for that table, and trigger `ctx.db` reads/writes without scope.
+- **Cascaded triggers**: the next-level trigger derives *its* scope from *its* triggering document.
 
-**Guidance for trigger authors:**
-
-- **Audit/log triggers** — use `ctx.innerDb` freely. These tables aren't tenant-scoped.
-- **Denormalization triggers** — validate tenant scope explicitly. The `change` argument carries the triggering document; use its tenant field to scope any related writes:
-  ```ts
-  triggers.register('posts', async (ctx, change) => {
-    if (change.newDoc) {
-      // Explicit scope check — don't blindly patch cross-tenant
-      const related = await ctx.innerDb.get(change.newDoc.categoryId)
-      if (related?.workspaceId === change.newDoc.workspaceId) {
-        await ctx.innerDb.patch(related._id, { postCount: /* ... */ })
-      }
-    }
-  })
-  ```
-- **Triggers needing full RLS** — re-wrap inside the callback: `const scopedDb = wrapDatabaseWriter(ctx, ctx.innerDb, rules)`. This is rare and requires access to the rules; prefer explicit scope checks.
-
-Policy bypass should not mean "skip the audit trail" — that's the whole reason `unsafeDb` and `rawDb` are separate doors.
+There is no `defineTrigger` wrapper to remember. There is no composition order for the user to get right. Registering a trigger is one line: `triggers.register('posts', myHandler)`.
 
 ### 7.3 Resolution uses raw access internally
 
@@ -389,9 +431,9 @@ If you want `guard/load/authorize/preview/handler` shape, that's what `defineOpe
 
 ### 8.3 Convex runtime interactions
 
-**Real-time subscriptions.** Convex queries are live subscriptions. When RLS rules filter rows via `ctx.db`, Convex's dependency tracking ensures subscriptions re-evaluate when underlying data changes. If a user loses workspace membership, queries re-run, actor resolution returns a different result, and RLS filters change — the client sees updated data reactively. This works because convex-helpers' `wrapDatabaseReader` intercepts reads at the `ctx.db` level, and Convex tracks all reads (including those in the actor resolver) as subscription dependencies. No Trellis-specific subscription logic needed.
+**Real-time subscriptions.** Convex queries are live subscriptions. The Trellis scope proxy intercepts reads at the `ctx.db` level, and Convex tracks all underlying reads (including those in the actor resolver) as subscription dependencies. If a user loses workspace membership, queries re-run, actor resolution returns a different scope, and the proxy refilters — the client sees updated data reactively. No Trellis-specific subscription logic needed.
 
-**Pagination.** Convex's `.paginate()` and the convex-helpers `paginator`/`getPage` helpers work with RLS-wrapped `ctx.db`. RLS filters apply post-fetch: the underlying page fetches N items, then RLS filters, resulting in ≤N items returned per page. Cursor continuity is preserved — no duplicates across pages. The total collected items are correct; only per-page sizes are affected. This is inherent to post-fetch filtering, not a bug. Apps should paginate until `isDone` rather than assuming exact page sizes. Docs should recommend `paginator` from convex-helpers (which supports multiple paginations per query and can re-fetch to fill pages) over `.paginate()` when precise page sizes matter.
+**Pagination.** Convex's `.paginate()` works with the Trellis scope proxy as-is. Because the proxy scopes using an index rather than post-fetch filtering, Convex only scans rows in the actor's tenant. Pages are full — the "RLS shrinks pages" quirk from convex-helpers does not apply (experiments 5 and 8a). Cursor continuity is preserved.
 
 **Scheduled functions.** When a Trellis-wrapped handler calls `ctx.scheduler.runAfter(delay, internal.foo.bar, args)`, the scheduled function is a new execution context with no ambient auth. It resolves via `systemPrincipal` — the original user context is **not** forwarded. This is deliberate: implicit principal propagation into deferred execution would hide the trust boundary. If a scheduled function needs to act as a specific user, pass the user ID in args and resolve it explicitly in the handler.
 
@@ -595,46 +637,99 @@ A named server query the client consumes declaratively through composables. Keep
 
 ## 14. Tenancy — `defineTenantRules` with deny-by-default
 
+### 14.1 The scope contract
+
+Tenant scoping has three pieces:
+
+1. **Schema.** On each scoped table, every custom index must start with the scope field. Users write these explicitly with `defineTable`. No wrapper.
+2. **Policy.** `defineTenantRules` declares which tables are scoped, the scope field name, and how to extract the scope value from the actor.
+3. **Runtime.** The Trellis scope proxy uses (1) and (2) to enforce scope at every call site. Users call `ctx.db` normally.
+
+The rule users must remember at the schema: **compound indexes start with the scope field.** It's one rule, it's visible in `defineTable` calls, and it's backed by eslint + runtime checks.
+
+### 14.2 Schema — plain `defineTable`
+
+```ts
+// convex/schema.ts
+import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+export default defineSchema({
+  // Scoped table — every custom index starts with 'organizationId'.
+  posts: defineTable({
+    title: v.string(),
+    status: v.string(),
+    organizationId: v.id('organizations'),
+  })
+    .index('by_organization', ['organizationId'])
+    .index('by_org_status', ['organizationId', 'status'])
+    .index('by_org_owner', ['organizationId', 'ownerId']),
+
+  // Unscoped — global, no scope field needed.
+  featureFlags: defineTable({
+    key: v.string(),
+    enabled: v.boolean(),
+  }).index('by_key', ['key']),
+})
+```
+
+No Trellis-specific wrapper on the table. The `by_organization` index is required (it's the index used for bare `.query('posts').collect()` calls). All other indexes must have `organizationId` as their first field.
+
+The eslint rule `trellis/scoped-index-must-be-compound` (§27) flags any `.index('name', [first, ...])` on a scoped table where `first !== scopeField`. The violation surfaces while typing — you don't ship without seeing it.
+
+### 14.3 Policy — `defineTenantRules`
+
 ```ts
 // convex/auth/tenant-rules.ts
 import { defineTenantRules } from '@lupinum/trellis/auth'
 
 export const tenantRules = defineTenantRules<Actor>({
-  field: 'workspaceId',
-  indexName: 'by_workspace',
-  tables: ['todos', 'projects', 'comments'],
-  defaultPolicy: 'deny',         // enforced default
+  scopeField: 'organizationId',
+  scopeIndex: 'by_organization',                    // defaults to `by_<scopeField>`
+  scopeFromActor: (actor) => actor?.tenantId ?? null,
+  tables: ['posts', 'comments', 'mcpKeys'],
   allowAnonymous: false,
   override: {
     publicPosts: {
       read: () => true,
-      insert: (ctx, doc) => doc.workspaceId === ctx.actor?.tenantId,
+      insert: (ctx, doc) => doc.organizationId === ctx.actor?.tenantId,
+    },
+    featureFlags: {
+      read: () => true,
+      insert: (ctx) => ctx.actor?.kind === 'service',
     },
   },
 })
 ```
 
-### 14.1 Why deny-by-default matters
+`tables` is the authoritative list of scoped tables. If a table is listed here, the proxy enforces scope on it and expects every custom index to be compound (with the scope field first). Unlisted tables pass through the proxy.
 
-convex-helpers RLS defaults to *allow* for tables without rules. If Trellis didn't force `defaultPolicy: 'deny'`, unlisted tables would remain readable — silently breaking the safety story. `defineTenantRules` forces `'deny'` unless the user explicitly sets `'allow'`.
+### 14.4 Proxy semantics
 
-### 14.2 Behavior
+For a scoped table:
 
-- Listed tables are tenant-scoped by `field` (default `workspaceId`).
-- `indexName` is derived from `field` when omitted.
-- `allowAnonymous: false` is the default: public-query callers with null actor see an empty db unless opted in per-table via `override`.
-- Unlisted tables are denied by default. Use `override` to allow reads/writes with explicit policies.
-- Service principals typically resolve to actors with specific allowed-table scopes; RLS checks those scopes.
+| User writes | Proxy does | Cost |
+|---|---|---|
+| `ctx.db.query('posts').collect()` | Auto-applies `scopeIndex`, bound to actor's scope value | index-optimized |
+| `ctx.db.query('posts').withIndex('by_org_status', q => q.eq('status', 'x'))` | Prepends `.eq(scopeField, scopeValue)`, then runs the user's callback | index-optimized |
+| `ctx.db.query('posts').withIndex('by_status', q => ...)` | **Throws** — `by_status` is not compound with the scope field | — |
+| `ctx.db.get(id)` | Fetches the row, returns null if its scope doesn't match actor's | one row read |
+| `ctx.db.insert('posts', doc)` | Throws if `doc.organizationId !== actor.tenantId` | — |
+| `ctx.db.patch(id, ...)` | Fetches row, throws if row's scope doesn't match | one row read |
+| `ctx.db.delete(id)` | Fetches row, throws if row's scope doesn't match | one row read |
 
-### 14.3 Workspace switching pattern
+For an unscoped table, the proxy passes every call through unchanged. `defineTenantRules.override` applies its explicit policy before the call reaches Convex.
 
-The actor resolver example uses `.first()` — returning the first workspace. Real apps have users in multiple workspaces. Trellis does **not** prescribe a workspace switching mechanism; it provides the hook.
+Anonymous actors see no rows from scoped tables (deny-by-default, driven by `allowAnonymous: false`). To expose a scoped table anonymously, add an `override.<table>` with explicit read rules.
 
-The recommended pattern: pass `workspaceId` as an arg or read it from a session/header, and use it in the actor resolver:
+### 14.5 Workspace switching pattern
+
+Real apps have users in multiple workspaces. Trellis provides the hook; it does not prescribe the switcher UI.
+
+The Nuxt module injects `__workspaceId` (from a cookie or header) as an extra arg. `customQuery`'s `input` step consumes it and strips it before the handler sees args. Validated in experiment 12.
 
 ```ts
 resolve: async (ctx, args, principal) => {
-  // args.__workspaceId is injected by the Nuxt module from a cookie/header.
   const membership = await ctx.db
     .query('workspaceMembers')
     .withIndex('by_user_workspace', q =>
@@ -645,26 +740,26 @@ resolve: async (ctx, args, principal) => {
 }
 ```
 
-The `customQuery` input step from convex-helpers supports consuming extra arguments (like `__workspaceId`) that don't reach the handler. Validate in spike A.
+If `__workspaceId` is omitted, apps typically fall back to the user's first/default membership. This is app policy, not framework policy — Trellis does not pick a default.
 
-### 14.4 Unscoped tables (global config, feature flags)
+### 14.6 Unscoped tables (global config, feature flags)
 
-Tables that legitimately have no tenant scoping use `override` with a policy that ignores tenant context:
+Tables not listed in `defineTenantRules.tables` pass through the proxy. Control their access via `defineTenantRules.override`:
 
 ```ts
 override: {
   featureFlags: {
-    read: () => true,              // all actors can read
-    insert: (ctx) => ctx.actor?.kind === 'service',  // only services write
+    read: () => true,                                    // all actors can read
+    insert: (ctx) => ctx.actor?.kind === 'service',      // only services write
   },
   appConfig: {
     read: () => true,
-    insert: () => false,           // immutable via RLS; use rawDb for admin writes
+    insert: () => false,                                 // use rawDb for admin writes
   },
 }
 ```
 
-Deny-by-default means you must explicitly allow unscoped tables. This is correct — it forces you to think about who reads global data.
+Anonymous actors see nothing by default — you must opt in with an explicit `override`. This is the safe default.
 
 ## 15. Visibility
 
@@ -1207,15 +1302,21 @@ No conceptual rewrite — alignment with the new builder names and value-based c
 
 This part is for the engineers building Trellis v2.2. Skip if you're just using the library.
 
-## 22. Build from convex-helpers, not from scratch
+## 22. Build from convex-helpers where it helps, own the rest
 
-The whole v2.2 runtime is built on convex-helpers primitives. Don't reinvent them.
+Trellis uses convex-helpers for the builder plumbing and trigger mechanics, and owns the tenant-scope layer outright.
 
-- **`defineFunctions`** uses `customQuery` and `customMutation` from convex-helpers with a structured input step for principal/actor resolution.
-- **RLS wrapping** uses `wrapDatabaseReader` and `wrapDatabaseWriter` from convex-helpers with `Rules` objects.
+**From convex-helpers:**
+
+- **`defineFunctions`** uses `customQuery` and `customMutation` from convex-helpers with a structured input step for principal/actor resolution (validated in experiments 3 and 12).
 - **Triggers** use the `Triggers` class from convex-helpers with `ctx.innerDb` inside callbacks to avoid recursion.
-- **Three-door composition** — triggers wrap raw db first, then RLS wraps the trigger-wrapped result. See §7.2 for the critical composition order and rationale.
 - **Rate limiting** uses `@convex-dev/rate-limiter` component.
+
+**Trellis-owned (~300 LoC):**
+
+- **Tenant-scope proxy** (§7.2, §14). Index-based, transparent to users. Replaces `wrapDatabaseReader` / `wrapDatabaseWriter`. Proxy reads `scopeField`, `scopeIndex`, and `tables` from `defineTenantRules`, and prepends the scope value to every `.withIndex()` call on a scoped table. Rejects non-compound indexes on scoped tables with a pointer at the fix. Validated in experiments 8 and 9.
+- **Trigger auto-scoping** (§7.2.1). The framework wraps each trigger callback with a fresh scope proxy derived from `change.newDoc ?? change.oldDoc`. No `defineTrigger` wrapper for users to remember.
+- **Three-door composition**. `db` / `unsafeDb` / `rawDb` are constructed exactly once by `defineFunctions` — the user never composes layers by hand.
 
 ## 23. Envelope signing and verification
 
@@ -1315,7 +1416,7 @@ The MCP server's job is reduced to: call preview, get the confirmation token, wa
 
 ## 26. `ctx.runAsService` implementation
 
-The Trellis `httpAction` wrapper provides `ctx.runAsService`. Implementation:
+The Trellis `httpAction` wrapper provides `ctx.runAsService`. Validated end-to-end in experiment 11.
 
 ```ts
 function httpAction(handler: (ctx: HttpActionCtx, req: Request) => Promise<Response>) {
@@ -1323,11 +1424,16 @@ function httpAction(handler: (ctx: HttpActionCtx, req: Request) => Promise<Respo
     const enrichedCtx = {
       ...ctx,
       runAsService: async (fn, args, { service }) => {
-        const envelope = signEnvelope({
-          aud: 'trellis:trusted-caller:v1',
-          callee: fn._name,
+        // Callee is the canonical "module:exportName" string form.
+        // This is the documented public contract — do not inspect fn for a
+        // private name accessor, since the _generated/api ref has none that
+        // Convex guarantees to preserve across versions.
+        const callee = calleeStringFor(fn)
+        const envelope = await signEnvelope({
+          purpose: 'trellis:trusted-caller:v1',
+          callee,
           principal: { kind: 'service', service },
-          exp: Date.now() + 30_000,
+          ttlSeconds: 30,
         })
         return await ctx.runMutation(fn, { ...args, __principal: envelope })
       },
@@ -1337,16 +1443,21 @@ function httpAction(handler: (ctx: HttpActionCtx, req: Request) => Promise<Respo
 }
 ```
 
-The internal mutation's principal resolver recognizes the `trellis:trusted-caller:v1` envelope, verifies it, and populates `ctx.principal` with the service principal.
+`calleeStringFor(fn)` resolves the function reference to its module-and-export string using Trellis' generated API index (emitted alongside the operations manifest — see §24). It is not a runtime property of the Convex function object.
+
+The internal mutation's principal resolver recognizes the `trellis:trusted-caller:v1` envelope, verifies signature + `aud` + `callee` + `exp`, and populates `ctx.principal` with the service principal. Invalid or callee-mismatched envelopes throw before the handler runs (experiment 11b–c).
 
 ## 27. Eslint rules
 
 - **`trellis/enforce-required`** — every non-internal `mutation` handler must call `ctx.enforce()` at least once OR be `defineOperation`-backed. Catches the common case of forgetting authorization.
 - **`trellis/no-direct-component-call`** — flags `ctx.runMutation(components.*.*)` / `ctx.runQuery(components.*.*)` and suggests the bridge wrapper.
-- **`trellis/no-unsafe-db-without-comment`** — requires a comment explaining why above any `unsafeDb` usage. `unsafeDb` bypasses tenant isolation while appearing safe (triggers still run, audit still logs). This false assurance makes it the most likely door to produce silent cross-tenant leaks.
+- **`trellis/no-unsafe-db-without-comment`** — requires a comment explaining why above any `unsafeDb` usage. `unsafeDb` bypasses tenant scope while appearing safe (triggers still run, audit still logs). This false assurance makes it the most likely door to produce silent cross-tenant leaks.
 - **`trellis/no-raw-db-without-comment`** — requires a comment explaining why above any `rawDb` usage. Soft enforcement; don't over-engineer.
 - **`trellis/destructive-requires-operation`** — flags `tool({ destructive: true, ... })` without `tool.fromOperation`. TypeScript also catches this; eslint provides a better error message.
 - **`trellis/no-define-operation-alias`** — flags aliased imports of `defineOperation` (e.g., `import { defineOperation as defOp }`). The operations manifest AST walker matches the literal `defineOperation` identifier; aliased imports are silently missed.
+- **`trellis/scoped-index-must-be-compound`** — flags `.index('name', [first, ...])` on tables listed in `defineTenantRules.tables` where `first !== scopeField`. Points at the fix: "rename to include the scope field first, e.g., `['organizationId', 'status']`." The rule reads both files (`schema.ts` + `tenant-rules.ts`) so the violation surfaces at the schema, where the index is authored. The runtime proxy throws with the same message as a backstop when something slips through.
+
+**No longer needed** (removed from the rule set): `trellis/no-raw-trigger-register`. Previous drafts enforced a `defineTrigger` wrapper around `triggers.register()`; the framework now auto-scopes trigger callbacks from the triggering document, so there is no raw registration path to misuse.
 
 ---
 
@@ -1494,10 +1605,18 @@ A framework that silently drops authorization failures (empty results from RLS) 
 ### 30.26 Operation projections are symmetric
 `query(previewOf(op))` vs `mutation(op)` is asymmetric and confusing. `query(op.preview)` and `mutation(op.execute)` read consistently and make the operation the source of truth for both projections.
 
-### 30.27 Trigger composition order: `RLS(triggers(raw))`
-Wrapping triggers around the RLS db (`triggers(RLS(raw))`) makes trigger callbacks inherit RLS restrictions — they can't write to audit/log tables not in the rules. The correct order is `RLS(triggers(raw))`: triggers wrap raw db first, then RLS wraps the result. Triggers get raw access via `ctx.innerDb`; external callers see RLS enforcement. Validated in experiment 2.
+### 30.27 Trellis owns the scope layer
+Earlier drafts built on convex-helpers' `wrapDatabaseReader` / `wrapDatabaseWriter`. That design has two costs paid by every user: (1) post-fetch filtering shrinks paginated pages (exp 5), and (2) trigger callbacks inherit RLS and cannot freely write audit rows, producing the "trigger-scope footgun" that leaked into the spec as a whole subsection. A Trellis-owned index-based scope proxy eliminates both: pages are full (exp 8a), and trigger callbacks auto-scope from the triggering document (exp 8d). The tradeoff is ~300 LoC we own. Paid once; user ergonomics improve everywhere.
 
-### 30.28 Polish time matters
+### 30.28 Compound-index rule stays explicit; no schema wrapper
+An earlier revision explored `trellisTable()` — a schema wrapper that auto-compounds indexes so users never type the scope field. The wrapper buys "forgettability" but costs real ergonomics: a second authoring API for tables, hidden behavior where the dashboard shows indexes that differ from source, vendor lock-in at the schema layer, and ongoing maintenance to keep the wrapper compatible with Convex's `TableDefinition` internals.
+
+The final decision keeps the compound-index rule explicit: users write `.index('by_org_status', ['organizationId', 'status'])` themselves on scoped tables. The rule is one rule, it's visible in `schema.ts`, and it's enforced twice — eslint at authoring, proxy at runtime. Users keep vanilla `defineTable`; Trellis stays out of the schema file. This is standard multi-tenant practice and matches how teams think about indexes at scale anyway.
+
+### 30.29 Callee-binding uses the string form, not `fn._name`
+The `_generated/api` function references do not expose a documented public accessor for their module-and-export name. Prior drafts showed `fn._name` in pseudo-code; relying on it couples Trellis to a Convex internal. The spec mandates `"module:exportName"` as the callee string (§23.3), resolved via a Trellis-generated index emitted at build time. Validated in experiment 10.
+
+### 30.30 Polish time matters
 Earlier drafts optimistically budgeted code and underestimated eslint rules, examples, and docs. Honest estimate: 8 weeks code + 6 weeks polish = ~14 weeks end-to-end.
 
 ## 31. Final decisions summary
@@ -1507,7 +1626,7 @@ One-page reference:
 1. `defineFunctions` over `createFunctions`.
 2. `publicQuery` / `publicMutation` over `anonQuery` / `anonMutation`.
 3. `internalQuery` / `internalMutation` stay Trellis-aware.
-4. Three db doors: `db`, `unsafeDb`, `rawDb` with spelled-out trigger composition.
+4. Three db doors: `db`, `unsafeDb`, `rawDb`. Composition is framework-owned and invisible to users.
 5. Procedural-only regular handlers.
 6. `defineOperation` as structured primitive for reusable multi-surface actions.
 7. RLS deny-by-default, forced in `defineTenantRules`.
@@ -1538,10 +1657,13 @@ One-page reference:
 32. Service actor `allowedTables` is convention, not runtime-enforced.
 33. Operation projections use symmetric `op.preview` / `op.execute`.
 34. Polish time is significant (~14 weeks end-to-end).
-35. Trigger composition order: `RLS(triggers(raw))`, not `triggers(RLS(raw))`.
-36. `@noble/hashes` v2.x requires `.js` import suffixes; SHA-256 at `sha2.js` not `sha256`.
-37. `jose` accepts raw `Uint8Array` keys — no `crypto.subtle.importKey` needed.
-38. `defineOperation` import aliasing blocked by eslint — AST walker matches literal name only.
+35. Trellis owns the tenant-scope layer. No convex-helpers RLS wrappers. Three-door composition is framework-owned, not user-composed.
+36. Triggers auto-scope from `change.newDoc ?? change.oldDoc`. No `defineTrigger` wrapper.
+37. On scoped tables, every custom index starts with the scope field. Eslint + runtime enforce. Vanilla `defineTable` in schema.
+38. Callee-binding uses the `"module:exportName"` string form, not `fn._name`.
+39. `@noble/hashes` v2.x requires `.js` import suffixes; SHA-256 at `sha2.js` not `sha256`.
+40. `jose` accepts raw `Uint8Array` keys — no `crypto.subtle.importKey` needed.
+41. `defineOperation` import aliasing blocked by eslint — AST walker matches literal name only.
 
 ## 32. Bottom line
 

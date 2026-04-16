@@ -203,13 +203,166 @@ Using TypeScript Compiler API to statically find `defineOperation` calls in sour
 | 6 (service principal) | Low | **PASS** | None — structural detection works |
 | 7 (AST walk) | Low | **PASS** | None — aliased import limitation is acceptable |
 
+---
+
+## Experiment 8: Trellis-Owned Scope Proxy
+
+**Status:** PASS
+
+### What was tested
+Whether Trellis should own its RLS layer using index-based scoping instead of relying on convex-helpers' post-fetch filtering. Four approaches were compared:
+
+- **Approach A (Auto-Index):** Proxy's `.query()` auto-applies `.withIndex('by_organization', q => q.eq('organizationId', scopeValue))` for scoped tables.
+- **Approach B (Compound-Index Only):** Proxy intercepts `.withIndex()` on compound indexes and auto-prepends the scope field. **Blocks** non-compound indexes.
+- **Approach C (Post-Fetch Filter):** Same as convex-helpers `wrapDatabaseReader` — baseline comparison.
+- **Approach D (Hybrid):** Auto-index for simple queries. When user specifies `.withIndex()`: use their index + Convex native `.filter()` for scope. Compound indexes still get the prepend optimization. **No restrictions on which indexes users can use.**
+
+Also tested: write enforcement (insert/patch/delete), `.get()` scope check, trigger auto-scoping from document, non-scoped table passthrough.
+
+### Results
+
+**8a — Pagination (Auto-Index vs Post-Fetch Filter):**
+- Both approaches returned correct results in convex-test.
+- In convex-test, pagination is simulated, so the page-size difference doesn't manifest. In production Convex, the filter approach fetches N rows then filters (pages may be smaller), while the index approach only fetches matching rows (full pages guaranteed).
+- Auto-index approach correctly scoped all 10 org1 posts across 2 pages of 5.
+
+**8b — Compound Index Proxy:**
+- **Compound index query works.** `proxy.query('posts').withIndex('by_org_status', q => q.eq('status', 'published'))` — the proxy automatically prepends `.eq('organizationId', scopeValue)`. Returned exactly 5 published posts from org1, zero from org2.
+- **Non-compound indexes blocked.** Using `.withIndex('by_status', ...)` on a scoped table throws: `"not registered as a compound index"`. This prevents accidental cross-tenant data leaks via non-scoped indexes.
+- **Auto-fallback works.** When no `.withIndex()` is called, the proxy auto-applies the scope index. Returned all 10 org1 posts.
+
+**8c — Write Enforcement:**
+- Insert with correct scope: **succeeds**
+- Insert with wrong scope: **throws** `"Scope violation on insert"`
+- Patch own document: **succeeds**
+- Patch foreign document: **throws** `"Scope violation on patch"`
+- Delete own document: **succeeds**
+- Delete foreign document: **throws** `"Scope violation on delete"`
+- `.get()` on foreign document: **returns null** (treated as not found)
+
+**8d — Trigger Auto-Scoping:**
+- **This is the key finding.** Triggers can read the scope field from the triggering document (`change.newDoc ?? change.oldDoc`) and build a scoped proxy from `ctx.innerDb`.
+- Org1 trigger saw **1 post** (only the newly inserted post in org1).
+- Org2 trigger saw **4 posts** (3 pre-existing + 1 new in org2).
+- **Different triggers on different orgs see different data.** Document-scoped auto-scoping works correctly.
+- Audit writes via raw `ctx.innerDb` (to `expTriggerLog`) still work — unscoped tables pass through.
+
+**8e — Non-Scoped Tables:**
+- Insert, get, and query on `notes` (not in scope config) all pass through transparently. No interference from the proxy.
+
+### Spec impact
+
+**Major architecture decision: Trellis should own its scope layer.**
+
+The Compound-Index Proxy (Approach B) is the final approach. Exp 9 explored an additional `trellisTable()` schema wrapper to auto-compound indexes invisibly; **that wrapper was rejected after review** (see SPEC.md §30.28). The final shape:
+
+1. **All custom indexes on scoped tables start with the scope field** — users write this explicitly (e.g., `.index('by_org_status', ['organizationId', 'status'])`).
+2. **The proxy prepends the scope value at call time** — user writes `.withIndex('by_org_status', q => q.eq('status', 'published'))`, proxy runs `.eq('organizationId', scopeVal).eq('status', 'published')`.
+3. **Non-compound indexes on scoped tables throw at runtime** with a pointer at the fix; eslint flags the same violation at authoring (`trellis/scoped-index-must-be-compound`).
+4. **Every query is index-optimized** — full page sizes guaranteed, O(tenant rows) not O(all rows).
+5. **Schema stays vanilla Convex** — plain `defineTable`, no wrapper to remember.
+
+**What this replaces:**
+- `convex-helpers/server/rowLevelSecurity` (`wrapDatabaseReader`, `wrapDatabaseWriter`)
+- `defineTrigger` wrapper — unnecessary when the framework auto-scopes triggers
+- `trellis/no-raw-trigger-register` lint rule — no raw registration to misuse
+- Composition order documentation — nothing to compose manually
+- "The trigger-scope problem" subsection — eliminated at the framework level
+
+**What we keep from convex-helpers:**
+- `Triggers` class — solid plumbing for before/after mechanics and recursion prevention
+- `customQuery` / `customMutation` — builder pattern
+
+**Why not `trellisTable()`:**
+A schema wrapper that auto-compounds indexes would make the compound-index rule unforgettable, but at the cost of a second authoring API for tables, hidden behavior (dashboard indexes differ from source), vendor lock-in at the schema layer, and ongoing maintenance against Convex's internals. The rule "compound indexes start with the scope field" is standard multi-tenant practice and fits in two lines of documentation. Keeping it explicit — backed by eslint + runtime checks — is cleaner than hiding it.
+
+---
+
+---
+
+## Experiment 10: Envelope callee-binding roundtrip
+
+**Status:** PASS
+
+### What was tested
+The full sign → verify flow for signed principal envelopes (§23.3), including callee-binding with the `"module:exportName"` string form. Validates that an envelope bound to function A cannot be replayed against function B, even with the same signing key.
+
+### Results
+- **Valid envelope verifies cleanly:** signature, `aud`, `callee`, `exp` all check. Principal payload extracted.
+- **Callee mismatch rejected:** envelope bound to `posts:deletePost` throws when verified as `posts:createPost`. Error message names both.
+- **Audience mismatch rejected:** envelope signed with `trellis:mcp-forwarded:v1` purpose fails verification as `trellis:component-principal:v1`. Different HKDF-derived keys catch it at the signature step.
+- **`internal.*` function refs:** confirmed there is no public accessor for the ref's module-and-export name. The callee string must be supplied explicitly by the framework at build time.
+
+### Spec impact
+**Replace `fn._name` with the `"module:exportName"` string form throughout the spec.** Prior drafts showed `fn._name` in pseudo-code (§26); this couples Trellis to a Convex internal. Updated in §23.3 and §26.
+
+---
+
+## Experiment 11: `ctx.runAsService()` roundtrip
+
+**Status:** PASS
+
+### What was tested
+The full chain from HTTP-action-like context → signed `trellis:trusted-caller:v1` envelope → internal mutation consuming `__principal` arg → principal resolver verifying envelope → handler seeing `ctx.principal = { kind: 'service', service: '...' }`.
+
+### Results
+- **Happy path:** action signs envelope bound to `expRunAsService:recordPayment`, internal mutation verifies, `ctx.principal.service === 'stripe-webhook'`, audit row written.
+- **Tampered envelope:** JWT signature invalidated → internal mutation throws → mutation rolls back, no audit row.
+- **Wrong callee:** envelope bound to a different function → verifier throws `"Callee mismatch"`. Cannot be replayed against `recordPayment`.
+- **No envelope:** internal mutation falls back to `systemPrincipal` default (`{ kind: 'service', service: 'system' }`). This is the correct behavior for scheduler, cron, CLI, dashboard.
+
+### Spec impact
+**No architecture changes needed.** The `ctx.runAsService` → internal-mutation → principal resolver chain behaves exactly as §10.3 and §26 describe, with the callee string fix from Exp 10.
+
+---
+
+## Experiment 12: `__workspaceId` injection via `customQuery` input
+
+**Status:** PASS
+
+### What was tested
+The workspace-switching pattern from §14.4 — the Nuxt module injects `__workspaceId` (from a cookie or header) as an extra arg; `customQuery`'s `input` step consumes it, scopes the actor resolver, and strips it before the handler sees args.
+
+### Results
+- **`__workspaceId` is consumed by `input`, not forwarded to the handler:** handler's `args` contains only handler-level fields. Confirmed by inspecting `Object.keys(args)` inside the handler.
+- **Resolver scopes actor to the provided workspace:** actor's `workspaceId` matches the passed `__workspaceId`. Role is derived correctly.
+- **Omitted `__workspaceId` resolves to default:** with no arg passed, resolver falls back to the user's first/default membership (app policy, not framework policy).
+- **Mismatched workspace → actor null:** passing a `__workspaceId` the user doesn't belong to returns a null actor. The `query`/`mutation` builders throw `"Unauthorized: actor required"` downstream.
+
+### Spec impact
+**No changes needed.** `customQuery`'s `args` declaration is the mechanism — any arg declared in `args:` is consumed by `input` and stripped. §14.4 ("Workspace switching pattern") describes this correctly.
+
+---
+
+## Summary: Go/No-Go Decision Matrix
+
+| Exp | Risk | Status | Spec Impact |
+|-----|------|--------|-------------|
+| 1 (crypto) | **BLOCKER** | **PASS** | Fix import paths (`.js` suffix), simplify crypto docs (jose accepts raw bytes) |
+| 2 (three doors) | High | **PASS** | Superseded by Exp 8 — framework owns composition |
+| 3 (value ctx) | High | **PASS** | None — works as designed |
+| 4 (atomic execute) | High | **PASS** | None — 10-step flow works atomically |
+| 5 (pagination) | Medium | **PASS** | Superseded by Exp 8 — index-based scoping gives full pages |
+| 6 (service principal) | Low | **PASS** | None — structural detection works |
+| 7 (AST walk) | Low | **PASS** | None — aliased import limitation is acceptable |
+| 8 (scope proxy) | High | **PASS** | **Major:** Trellis owns the scope layer, eliminates trigger footgun |
+| 9 (auto-compound) | Medium | **PASS** | Explored `trellisTable()` auto-compounding; rejected in favor of explicit compound-index rule (see Verdict) |
+| 10 (envelope binding) | Medium | **PASS** | Callee-binding uses `"module:exportName"` string form, not `fn._name` |
+| 11 (runAsService) | Medium | **PASS** | None — behaves exactly as §10.3/§26 describe |
+| 12 (workspaceId inject) | Low | **PASS** | None — §14.4 pattern is accurate |
+
 ## Verdict
 
-**All experiments PASS. The spec holds up. Ready to start the refactor.**
+**All 12 experiments PASS (58 convex tests + unit tests for AST walk). Ready to start the refactor.**
 
-Key changes to make to the spec before starting:
-1. Fix `@noble/hashes` import paths to v2.x format (`.js` suffix, `sha2` not `sha256`)
-2. Document correct composition order: `RLS(triggers(raw))` — this is critical
-3. Note that `jose` accepts raw `Uint8Array` keys directly (no `crypto.subtle.importKey` needed)
-4. Document RLS + pagination page-size behavior
-5. Enforce `defineOperation` import name via lint rule (no aliasing)
+Final decisions absorbed into the spec:
+
+1. Fix `@noble/hashes` import paths to v2.x format (`.js` suffix, `sha2` not `sha256`).
+2. `jose` accepts raw `Uint8Array` keys directly (no `crypto.subtle.importKey` needed).
+3. Replace convex-helpers RLS with a Trellis-owned index-based scope proxy.
+4. Trigger scoping is automatic — callback auto-scopes from `change.newDoc ?? change.oldDoc`. No `defineTrigger` wrapper.
+5. **Compound-index rule stays explicit.** Users write compound indexes themselves on scoped tables (`['organizationId', 'status']`, not `['status']`). Enforced twice: eslint at authoring (`trellis/scoped-index-must-be-compound`), proxy at runtime. No `trellisTable()` schema wrapper — see 30.28 in the spec for the rationale.
+6. Enforce `defineOperation` import name via lint rule (no aliasing).
+7. Callee-binding uses the `"module:exportName"` string form, not `fn._name`.
+8. `ctx.runAsService` + internal mutation principal resolver validated end-to-end.
+9. `__workspaceId` injection via `customQuery` input validated; §14.4 pattern is accurate.

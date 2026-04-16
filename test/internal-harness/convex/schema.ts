@@ -74,6 +74,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_organization', ['organizationId'])
+    .index('by_org_status', ['organizationId', 'status'])
     .index('by_owner', ['ownerId'])
     .index('by_status', ['status']),
 
