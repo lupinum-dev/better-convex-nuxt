@@ -63,7 +63,7 @@ function matchesTerm(
 export const listPublic = raw.query({
   args: listRunbooks.args,
   handler: async (ctx) => {
-    const runbooks = await ctx.db
+    const runbooks = await ctx.db.crossTenant
       .query('runbooks')
       .withIndex('by_visibility', (q) => q.eq('visibility', 'public'))
       .order('desc')
@@ -76,7 +76,7 @@ export const searchPublic = raw.query({
   args: searchRunbooks.args,
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
-    const candidates = await ctx.db
+    const candidates = await ctx.db.crossTenant
       .query('runbooks')
       .withIndex('by_visibility', (q) => q.eq('visibility', 'public'))
       .order('desc')
@@ -104,7 +104,7 @@ export const listWorkspace = query({
 export const get = raw.query({
   args: getRunbook.args,
   handler: async (ctx, args) => {
-    const runbook = await ctx.db.get(args.id)
+    const runbook = await ctx.db.crossTenant.get(args.id)
     if (!runbook) return null
 
     const actor = await getActor(ctx)

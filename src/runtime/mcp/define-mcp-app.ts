@@ -4,11 +4,14 @@ import type { PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
-import { getOperationMetadata, type OperationDefinition } from '../functions/define-operation.js'
-import { getFunctionName } from '../utils/convex-shared.js'
+import {
+  getOperationMetadata,
+  type OperationKind,
+} from '../functions/define-operation.js'
 import { defineArgs } from '../utils/define-convex-schema.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { defineTool } from './define-convex-tool.js'
+import { assertOperationBinding, toKebabCase, type AnyFunctionRef } from './operation-binding.js'
 import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
 import type { AnyConvexSchema, ConvexToolMiddleware, PreviewResult } from './types.js'
 
@@ -17,7 +20,6 @@ type MaybePromise<T> = T | Promise<T>
 type AnyQueryRef = FunctionReference<'query', 'public' | 'internal'>
 type AnyMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
 type AnyActionRef = FunctionReference<'action', 'public' | 'internal'>
-type AnyFunctionRef = AnyQueryRef | AnyMutationRef | AnyActionRef
 type ProjectionPreviewResult = string | PreviewResult
 type PreviewResolver<S extends AnyConvexSchema, TPrincipal, TCapabilities, TRuntime> = (ctx: {
   args: import('./types.js').InferSchemaData<S>
@@ -137,19 +139,14 @@ export interface ToolOptions<
   tags?: string[]
 }
 
-type AnyOperationDefinition = OperationDefinition<
-  any,
-  any,
-  any,
-  any,
-  PropertyValidators,
-  any,
-  any,
-  any
->
+type AnyOperationDefinition = {
+  args: PropertyValidators
+  name?: string
+  kind?: OperationKind
+}
 
 export interface ToolFromOperationOptions<
-  TOperation extends AnyOperationDefinition,
+  _TOperation extends AnyOperationDefinition,
   TPrincipal,
   TCapabilities extends ProjectionCapabilitySnapshot | null,
   TRuntime,
@@ -226,61 +223,6 @@ function capabilityAllows<TCapabilities extends ProjectionCapabilitySnapshot | n
   if (!capability) return true
   if (!capabilities) return false
   return capabilities[capability] === true
-}
-
-function toKebabCase(input: string): string {
-  return input
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/[_\s]+/g, '-')
-    .toLowerCase()
-}
-
-function splitFunctionPath(path: string): { moduleName: string; exportName: string } {
-  const separator = path.indexOf(':')
-  if (separator === -1) {
-    throw new Error(`Invalid Convex function path "${path}". Expected "module:export".`)
-  }
-
-  return {
-    moduleName: path.slice(0, separator),
-    exportName: path.slice(separator + 1),
-  }
-}
-
-function capitalize(input: string): string {
-  return input.length === 0 ? input : input[0]!.toUpperCase() + input.slice(1)
-}
-
-function assertOperationBinding(
-  operationName: string,
-  executeRef: AnyFunctionRef,
-  previewRef?: AnyFunctionRef,
-): void {
-  const executePath = getFunctionName(executeRef)
-  const executeTarget = splitFunctionPath(executePath)
-  if (executeTarget.exportName !== operationName) {
-    throw new Error(
-      `tool.fromOperation(${operationName}) expected execute ref "${operationName}" but received "${executePath}".`,
-    )
-  }
-
-  if (!previewRef) return
-
-  const previewPath = getFunctionName(previewRef)
-  const previewTarget = splitFunctionPath(previewPath)
-  const expectedPreviewExport = `preview${capitalize(operationName)}`
-
-  if (previewTarget.exportName !== expectedPreviewExport) {
-    throw new Error(
-      `tool.fromOperation(${operationName}) expected preview ref "${expectedPreviewExport}" but received "${previewPath}".`,
-    )
-  }
-
-  if (previewTarget.moduleName !== executeTarget.moduleName) {
-    throw new Error(
-      `tool.fromOperation(${operationName}) requires execute and preview refs from the same module. Received "${executePath}" and "${previewPath}".`,
-    )
-  }
 }
 
 async function callByOperation<TRef extends AnyFunctionRef>(

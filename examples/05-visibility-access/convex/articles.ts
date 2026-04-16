@@ -63,9 +63,9 @@ export const viewArticle = raw.query({
   args: { id: v.id('articles'), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
     if (args.shareToken) {
-      const grant = await resolveShareToken(ctx.db, args.shareToken)
+      const grant = await resolveShareToken(ctx.db.crossTenant, args.shareToken)
       if (grant.articleId !== args.id) throw deny('Token does not match this article.')
-      const article = await ctx.db.get(args.id)
+      const article = await ctx.db.crossTenant.get(args.id)
       requireRecord(article, 'Article')
       return { ...redactArticle(null, article), _access: grant.level }
     }

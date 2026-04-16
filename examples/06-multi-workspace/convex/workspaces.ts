@@ -28,10 +28,10 @@ export const listAccessibleWorkspaces = raw.query({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     if (!actor) return []
-    const memberships = await getMemberships(ctx.db, actor.userId)
+    const memberships = await getMemberships(ctx.db.crossTenant, actor.userId)
     return Promise.all(
       memberships.map(async (membership) => {
-        const workspace = await ctx.db.get(membership.workspaceId)
+        const workspace = await ctx.db.crossTenant.get(membership.workspaceId)
         return {
           workspaceId: membership.workspaceId,
           role: membership.role,
@@ -53,9 +53,9 @@ export const getPermissionContext = query(
     extend: async (ctx, actor) => {
       const user = await ctx.db
         .query('users')
-        .withIndex('by_auth_id', (q: any) => q.eq('authId', actor.userId))
+        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
         .first()
-      const memberships = await getMemberships(ctx.db, actor.userId)
+      const memberships = await getMemberships(ctx.db.crossTenant, actor.userId)
 
       return {
         email: user?.email ?? null,
@@ -92,7 +92,7 @@ export const createWorkspace = raw.mutation({
     if (existing) throw new Error('That workspace slug is already taken.')
 
     const now = Date.now()
-    const workspaceId = await ctx.db.insert('workspaces', {
+    const workspaceId = await ctx.db.crossTenant.insert('workspaces', {
       name: args.name,
       slug: args.slug,
       ownerId: user.authId,
@@ -100,7 +100,7 @@ export const createWorkspace = raw.mutation({
       updatedAt: now,
     })
 
-    await ctx.db.insert('memberships', {
+    await ctx.db.crossTenant.insert('memberships', {
       userId: user.authId,
       workspaceId,
       role: 'owner',
@@ -139,13 +139,13 @@ export const joinWorkspace = raw.mutation({
       .first()
     if (!user) throw new Error('Current user row not found.')
 
-    const workspace = await ctx.db
+    const workspace = await ctx.db.crossTenant
       .query('workspaces')
       .withIndex('by_slug', (q) => q.eq('slug', args.slug))
       .first()
     if (!workspace) throw new Error('Workspace not found.')
 
-    const existingMembership = await ctx.db
+    const existingMembership = await ctx.db.crossTenant
       .query('memberships')
       .withIndex('by_user_workspace', (q) =>
         q.eq('userId', user.authId).eq('workspaceId', workspace._id),
@@ -159,7 +159,7 @@ export const joinWorkspace = raw.mutation({
       return workspace._id
     }
 
-    await ctx.db.insert('memberships', {
+    await ctx.db.crossTenant.insert('memberships', {
       userId: user.authId,
       workspaceId: workspace._id,
       role: args.role,
@@ -187,7 +187,7 @@ export const switchWorkspace = raw.mutation({
       .first()
     if (!user) throw new Error('Current user row not found.')
 
-    await requireWorkspaceMembership(ctx.db, user.authId, args.workspaceId)
+    await requireWorkspaceMembership(ctx.db.crossTenant, user.authId, args.workspaceId)
     await ctx.db.patch(user._id, {
       workspaceId: args.workspaceId,
       updatedAt: Date.now(),
@@ -202,14 +202,14 @@ export const seedAgencyPortfolio = raw.mutation({
     if (!actor) throw deny('Not authenticated.')
 
     const now = Date.now()
-    const clientA = await ctx.db.insert('workspaces', {
+    const clientA = await ctx.db.crossTenant.insert('workspaces', {
       name: 'Client A',
       slug: `client-a-${now}`,
       ownerId: actor.userId,
       createdAt: now,
       updatedAt: now,
     })
-    const clientB = await ctx.db.insert('workspaces', {
+    const clientB = await ctx.db.crossTenant.insert('workspaces', {
       name: 'Client B',
       slug: `client-b-${now}`,
       ownerId: actor.userId,
@@ -217,27 +217,27 @@ export const seedAgencyPortfolio = raw.mutation({
       updatedAt: now,
     })
 
-    await ctx.db.insert('memberships', {
+    await ctx.db.crossTenant.insert('memberships', {
       userId: actor.userId,
       workspaceId: clientA,
       role: 'agency_manager',
       createdAt: now,
     })
-    await ctx.db.insert('memberships', {
+    await ctx.db.crossTenant.insert('memberships', {
       userId: actor.userId,
       workspaceId: clientB,
       role: 'agency_manager',
       createdAt: now,
     })
 
-    await ctx.db.insert('projects', {
+    await ctx.db.crossTenant.insert('projects', {
       workspaceId: clientA,
       name: 'Client A campaign',
       status: 'active',
       createdAt: now,
       updatedAt: now,
     })
-    await ctx.db.insert('projects', {
+    await ctx.db.crossTenant.insert('projects', {
       workspaceId: clientB,
       name: 'Client B redesign',
       status: 'active',

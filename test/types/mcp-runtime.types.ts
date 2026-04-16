@@ -97,13 +97,13 @@ const archiveEntryOp = defineOperation({
 })
 
 runtime.tool.fromOperation(archiveEntryOp, {
-  execute: { _path: 'entries:archiveEntry' } as FunctionReference<
+  execute: { _path: 'entries:archiveEntry' } as unknown as FunctionReference<
     'mutation',
     'internal',
     { principal: Principal; id: string },
     { archived: true }
   >,
-  preview: { _path: 'entries:previewArchiveEntry' } as FunctionReference<
+  preview: { _path: 'entries:previewArchiveEntry' } as unknown as FunctionReference<
     'query',
     'internal',
     { principal: Principal; id: string },

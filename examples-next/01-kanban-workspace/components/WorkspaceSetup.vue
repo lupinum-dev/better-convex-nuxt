@@ -30,7 +30,7 @@
       <button type="submit" :disabled="joinPending">Join workspace</button>
     </form>
 
-    <div class="stack" v-if="workspaces.length">
+    <div v-if="workspaces.length" class="stack">
       <h2>Known workspaces</h2>
       <ul class="stack">
         <li v-for="workspace in workspaces" :key="workspace._id">
@@ -64,4 +64,3 @@ const emit = defineEmits<{
   join: []
 }>()
 </script>
-

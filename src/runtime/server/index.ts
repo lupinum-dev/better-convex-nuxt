@@ -25,7 +25,7 @@ function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefine
   return {
     ...(args ?? {}),
     principal: options.principal,
-  } as TArgs
+  } as unknown as TArgs
 }
 
 /**

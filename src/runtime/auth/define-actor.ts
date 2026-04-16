@@ -25,6 +25,12 @@ type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
+function hasDb<DataModel extends GenericDataModel>(
+  ctx: AnyCtx<DataModel>,
+): ctx is GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel> {
+  return 'db' in ctx
+}
+
 type ResolvedActorRecord<TActor, TUser> = {
   actor: TActor
   user: TUser
@@ -66,6 +72,7 @@ async function resolveDefaultUser<DataModel extends GenericDataModel>(
 ): Promise<Record<string, unknown> | null> {
   const auth = await resolveAuthIdentity(ctx)
   if (!auth) return null
+  if (!hasDb(ctx)) return null
 
   return await (ctx.db as any)
     .query('users')
@@ -150,6 +157,7 @@ export const defineActor = {
       async (ctx) => {
         const user = await resolveDefaultUser(ctx)
         if (!user) return null
+        if (!hasDb(ctx)) return null
 
         const membership = await (ctx.db as any)
           .query(membershipTable)

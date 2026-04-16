@@ -32,7 +32,7 @@ export type StructuredLoadedValue = Record<string, unknown> | undefined
 
 type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
 
-export type StructuredGuard<TPrincipal, TActor> =
+export type StructuredGuard<_TPrincipal, TActor> =
   | Guard<NonNullable<TActor>>
   | Guard<TActor | null>
   | AuthenticatedGuard

@@ -12,8 +12,19 @@
 >
 > This draft is intentionally honest about maturity:
 >
-> - **Grounded in the repo today:** Nuxt runtime, auth integration, guarded backend handlers, multi-tenant examples, MCP runtime, destructive confirmation flows, testing helpers, component-bridge experiments.
+> - **Grounded in the repo today:** Nuxt runtime, auth integration, guarded backend handlers, multi-tenant examples, MCP runtime, destructive preview flows with a simple confirmation gate, testing helpers, component-bridge experiments.
 > - **Design direction, not yet proven in code:** simplified core setup, runtime-enforced service safety, a cleaner operation-to-agent binding contract, a smaller first-class surface.
+>
+> This is a living document.
+>
+> It should record four things clearly:
+>
+> - what Trellis is today
+> - what Trellis is trying to become
+> - what we plan to build next
+> - what we explicitly rejected for now, and why
+>
+> The point is to stop design drift and repeated arguments from memory.
 
 ---
 
@@ -133,6 +144,247 @@ If Trellis advertises service scope, destructive confirmation, or principal forw
 **General through primitives, not surface sprawl.**
 The framework should expose a small number of powerful concepts rather than first-class wrappers for every recurring pattern.
 
+## 6.1 Living Document Rules
+
+This repo now uses three documents together:
+
+- [VNEXT_RUNTIME_CONTRACT.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_RUNTIME_CONTRACT.md)
+  active implementation truth
+- [VNEXT_TRACKING.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_TRACKING.md)
+  migration and follow-up checklist
+- `SPEC.vNext.md`
+  product direction, design rationale, planned next work, and rejected ideas
+
+Rules:
+
+- if it is shipped and supported now, it belongs in the runtime contract
+- if it is a design direction, it belongs here with an honest maturity label
+- if it is planned next, it should be listed here explicitly
+- if it was debated and rejected, that should also be written here explicitly
+
+This is how Trellis avoids split-brain specs.
+
+## 6.1.1 Current Alignment Status
+
+As of 2026-04-16:
+
+- the active runtime contract, tracker, and shipped runtime surface are aligned
+- `examples-next/01-kanban-workspace` is a working vNext example
+- repo verification is green on the active surface:
+  `pnpm lint`, `pnpm test:types`, and `pnpm test`
+- cross-tenant examples now use `ctx.db.crossTenant` explicitly instead of relying on older ambiguous raw behavior
+- the internal harness is treated as experimental integration infrastructure, not as the product truth source
+
+That means the migration phase is no longer the main work.
+The next work is product improvement, not vNext naming cleanup.
+
+## 6.2 Decisions We Are Carrying Forward
+
+These are ideas we are deliberately keeping because they improve the framework without bloating it.
+
+### The Design Bar
+
+Keep:
+
+- common enough
+- safer by construction
+- simpler on the happy path
+- composable
+- easy to teach
+
+Why:
+
+- this is the best current filter against framework sprawl
+- it forces Trellis to earn new APIs instead of collecting them
+- a general framework needs stronger API discipline, not looser API discipline
+
+### The Three-Pillar Framing
+
+Keep:
+
+- app runtime
+- Nuxt runtime
+- agent runtime
+
+Why:
+
+- it gives Trellis a clean product shape
+- it makes agent support first-class without turning every feature into “agent stuff”
+- it keeps the docs and examples organized around product surfaces instead of random capabilities
+
+### `display` / `confirm` Split For Destructive Operations
+
+Keep as the next design target for destructive flows:
+
+- `display`
+  human-facing summary and warning text
+- `confirm`
+  stable semantic facts that confirmation logic can hash and validate
+
+Why:
+
+- wording changes should not invalidate destructive confirmations
+- semantic changes should invalidate destructive confirmations
+- this is a real improvement over one mixed preview payload
+
+### Runtime-Enforced `defineServices(...)`
+
+Keep as a serious next spike:
+
+- runtime-owned service access policy
+- explicit allowed tables
+- explicit tenant mode
+- explicit unrestricted mode only when the app asks for it
+
+Why:
+
+- current service safety is too soft if the runtime does not enforce it
+- webhook and scheduler trust boundaries are high-risk parts of the framework
+- this is the clearest next place where Trellis can turn a convention into a real safety property
+
+### The Honesty Rule
+
+Keep:
+
+- if Trellis says something is safe, the runtime must enforce it
+- if something is only a convention, the docs must call it a convention
+- if something is not implemented, it cannot be presented as shipped core reality
+
+Why:
+
+- framework trust is fragile
+- overclaimed specs create bad downstream architecture
+- this rule protects both users and future maintainers from spec fantasy
+
+## 6.3 Rejected For Now
+
+These ideas are not part of the active vNext direction right now.
+
+### `publicQuery` / `publicMutation`
+
+Rejected for now.
+
+Why:
+
+- they create a second normal builder family
+- they make public access feel like a separate subsystem
+- `guard: open` is simpler, smaller, and easier to teach
+
+Current rule:
+
+- one builder family
+- public access is expressed through guard semantics, not separate builder names
+
+### Zero-Seam `defineTrellis(...)`
+
+Rejected as an active promise for now.
+
+Why:
+
+- Convex still exposes one real seam through `./_generated/server`
+- pretending the seam does not exist makes the spec less honest, not more elegant
+- the right move is to own everything around the seam instead of lying about the seam
+
+Current rule:
+
+- Trellis owns the runtime shape
+- Convex still owns one explicit low-level builder seam
+
+### `runAsUser(...)` / `runAsService(...)` As Core
+
+Rejected as part of the active vNext contract for now.
+
+Why:
+
+- they are not implemented and enforced end-to-end in the current runtime
+- they sound elegant, which makes them easy to oversell too early
+- unimplemented trust-boundary features are exactly where specs become dangerous
+
+Current rule:
+
+- forwarded execution helpers are future work until they are real runtime guarantees
+
+### Ref-Id Stamping As Settled Core Mechanism
+
+Rejected as current truth for now.
+
+Why:
+
+- it is still a design idea, not a proven implementation contract
+- Convex ref metadata may or may not make it robust enough
+- the framework should not present one unproven mechanism as solved architecture
+
+Current rule:
+
+- operation binding is enforced today through the naming-based runtime contract in [VNEXT_RUNTIME_CONTRACT.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_RUNTIME_CONTRACT.md)
+- stronger identity binding remains open for future spikes
+
+### Replay / Audit / Full Atomic Destructive Flow As Shipped Core
+
+Rejected as a shipped claim for now.
+
+Why:
+
+- the design is strong, but the runtime does not yet document and enforce the whole story as active contract
+- destructive safety is too important to leave half-claimed
+- “planned” and “guaranteed” must stay separate
+
+Current rule:
+
+- destructive preview flow is real
+- replay and audit remain future hardening work until the runtime and docs both prove them
+
+## 6.4 Planned Next
+
+These are the most valuable next spikes for Trellis now that the runtime cutover is done.
+
+### Spike A — `display` / `confirm` Destructive Operations
+
+Goal:
+
+- upgrade destructive previews from one mixed payload to a `display` / `confirm` split
+
+Why next:
+
+- it improves the agent pillar directly
+- it sharpens destructive confirmation without inflating the whole framework
+- it can be proven in a real example quickly
+
+### Spike B — Runtime-Enforced `defineServices(...)`
+
+Goal:
+
+- turn service safety from advisory convention into a real runtime boundary
+
+Why next:
+
+- this is the clearest missing safety primitive in the current shape
+- it affects webhooks, schedulers, and future service automation
+- it would materially strengthen the “safe by construction” story
+
+### Spike C — Stronger Operation Identity Binding
+
+Goal:
+
+- decide whether the naming-based `tool.fromOperation(...)` contract is enough long term
+- if not, prove a stronger mechanism without reviving a heavy manifest pipeline
+
+Why next:
+
+- this is one of the few remaining places where the active contract may want stronger guarantees
+- it should be decided by implementation proof, not by taste
+
+### Spike D — Keep Docs, Examples, And Contract In Sync
+
+Goal:
+
+- make sure future changes land in the contract, tracker, and examples together
+
+Why next:
+
+- Trellis already suffered once from split-brain specs
+- a living spec only works if the supporting materials keep pace
+
 ---
 
 # Part III — Product Shape
@@ -169,9 +421,7 @@ This is a real Trellis pillar from day 1, not a plugin afterthought:
 - MCP app definition
 - tool exposure over the same backend model
 - permission-aware tool discovery
-- destructive confirmation flow
-- replay protection
-- audit trail
+- destructive preview plus a simple confirmation gate
 - principal forwarding into Convex
 
 This is the differentiator:
@@ -383,7 +633,7 @@ export const tenant = defineTenant({
 - scoped tables use index-first enforcement
 - compound indexes must start with the scope field
 - unscoped tables pass through unchanged unless explicitly overridden
-- `ctx.db.crossTenant` is the visible, audited bypass for admin and operator flows
+- `ctx.db.crossTenant` is the visible bypass for admin and operator flows
 - `ctx.db.raw` bypasses both tenancy and runtime hooks
 
 This should stay first-class because it appears across multiple example families and is a core app concern, not a niche.
@@ -487,10 +737,13 @@ The Trellis agent core should be:
 - principal forwarding into Convex
 - capability-aware tool discovery
 - destructive preview / confirmation
+
+Future hardening on top of that core should add:
+
 - replay protection
 - audit
 
-That is enough to honestly say Trellis has first-class agent support.
+That is enough to honestly say Trellis has first-class agent support today, with the harder safety guarantees still called out as future work.
 
 ## 21. Agent Extensions
 

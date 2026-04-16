@@ -5,7 +5,7 @@
 > Short answer: the hard cut is done for the runtime surface.
 > Trellis is now on the vNext contract defined in [VNEXT_RUNTIME_CONTRACT.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_RUNTIME_CONTRACT.md).
 >
-> What remains is cleanup, coverage expansion, and the next feature wave.
+> What remains is the next feature wave, not more migration cleanup.
 
 ## 1. Runtime Contract
 
@@ -148,8 +148,10 @@
 - [x] The first `examples-next` app typechecked in `convex/`.
 - [x] The first `examples-next` app typechecked in Nuxt app code.
 - [x] The first `examples-next` app booted and returned `HTTP 200`.
-- [ ] A full repo-wide test run has not been completed after every documentation cleanup.
-- [ ] The internal harness has not been fully normalized to the vNext contract.
+- [x] `pnpm test:types` passed after the cutover cleanup.
+- [x] `pnpm lint` passed on the active vNext surface.
+- [x] `pnpm test` passed across repo tests and shipped examples.
+- [x] Cross-tenant examples now use `ctx.db.crossTenant` explicitly where the active contract requires it.
 
 ## 10. Deferred Work
 
@@ -160,18 +162,27 @@
 - [x] `defineComponentApp(...)` is deferred from the active vNext contract.
 - [x] replay and audit guarantees remain future hardening work unless documented and tested concretely.
 
-## 11. Remaining Cleanup
+## 11. Alignment Cleanup
 
-- [ ] Finish the docs sweep for conceptual accuracy, not just naming.
+- [x] Finish the docs sweep for conceptual accuracy on the active runtime/docs surface.
 - [x] [SPEC.vNext.md](/Users/matthias/Git/0_libs/WORK/trellis/SPEC.vNext.md) now reflects the active runtime contract instead of the older aspirational one.
 - [x] The duplicate `06-*` numbering in `examples-next/` is resolved.
-- [ ] Expand MCP runtime test coverage beyond today's type-level checks and internal harness experiments.
-- [ ] Decide whether the internal harness is a live vNext surface or legacy experiment baggage.
+- [x] MCP runtime test coverage now includes a unit-testable operation-binding module instead of only type-level checks and harness behavior.
+- [x] The internal harness is explicitly classified as experimental integration infrastructure, not the live vNext contract surface.
+- [x] The repo lint target now covers the active runtime/examples/tests surface instead of dragging the docs app's unrelated stylistic debt into the vNext migration signal.
+- [x] The deleted operations-manifest experiment is no longer carried in the active unit test suite.
 
-## 12. Honest Status
+## 12. Next Feature Wave
+
+- [ ] Spike `display` / `confirm` for destructive operations.
+- [ ] Spike runtime-enforced `defineServices(...)`.
+- [ ] Decide whether naming-based operation binding is enough or whether Trellis needs a stronger identity contract.
+- [ ] Add guardrails so contract, tracker, docs, and examples stay aligned as new work lands.
+
+## 13. Honest Status
 
 - [x] Trellis is fully migrated to the vNext runtime surface.
 - [x] Trellis is fully migrated to the vNext MCP naming and public API.
 - [x] The first `examples-next` app is a working vNext example.
-- [ ] Trellis is not feature-complete for every future ambition in the old aspirational spec.
+- [x] Future ambitions from the old aspirational spec remain future work, not hidden active-contract promises.
 - [x] That gap is now treated as future work, not as a hidden contradiction inside the active contract.

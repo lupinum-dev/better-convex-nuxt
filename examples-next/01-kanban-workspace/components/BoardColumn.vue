@@ -16,7 +16,7 @@
     <ul class="card-list">
       <li v-for="card in cards" :key="card._id" class="stack">
         <strong>{{ card.title }}</strong>
-        <div class="card-actions" v-if="canMoveCards">
+        <div v-if="canMoveCards" class="card-actions">
           <button
             type="button"
             :disabled="pending || !canMoveLeft"

@@ -28,13 +28,11 @@ const handlers = buildStructuredFunctions<Ctx, Ctx, Principal, Actor>(
 handlers.query({
   args: {},
   guard: open,
-  handler: async (ctx) => {
-    const principal = await ctx.principal()
-    const actor = await ctx.actor()
-    type _principal = Assert<IsEqual<typeof principal, Principal>>
-    type _actor = Assert<IsEqual<typeof actor, Actor>>
-    void ({} as _principal)
-    void ({} as _actor)
+  handler: async (_ctx) => {
+    type PrincipalCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.principal>>, Principal>>
+    type ActorCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.actor>>, Actor>>
+    void ({} as PrincipalCheck)
+    void ({} as ActorCheck)
     return null
   },
 })
@@ -42,13 +40,13 @@ handlers.query({
 handlers.query({
   args: {},
   guard: authenticated,
-  handler: async (ctx) => {
-    const principal = await ctx.principal()
-    const actor = await ctx.actor()
-    type _principal = Assert<IsEqual<typeof principal, { kind: 'user'; userId: string }>>
-    type _actor = Assert<IsEqual<typeof actor, Actor>>
-    void ({} as _principal)
-    void ({} as _actor)
+  handler: async (_ctx) => {
+    type PrincipalCheck = Assert<
+      IsEqual<Awaited<ReturnType<typeof _ctx.principal>>, { kind: 'user'; userId: string }>
+    >
+    type ActorCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.actor>>, Actor>>
+    void ({} as PrincipalCheck)
+    void ({} as ActorCheck)
     return null
   },
 })
@@ -58,13 +56,13 @@ const canRead = defineGuard<Actor>('read', (actor) => !!actor)
 handlers.query({
   args: {},
   guard: canRead,
-  handler: async (ctx) => {
-    const principal = await ctx.principal()
-    const actor = await ctx.actor()
-    type _principal = Assert<IsEqual<typeof principal, { kind: 'user'; userId: string }>>
-    type _actor = Assert<IsEqual<typeof actor, NonNullable<Actor>>>
-    void ({} as _principal)
-    void ({} as _actor)
+  handler: async (_ctx) => {
+    type PrincipalCheck = Assert<
+      IsEqual<Awaited<ReturnType<typeof _ctx.principal>>, { kind: 'user'; userId: string }>
+    >
+    type ActorCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.actor>>, NonNullable<Actor>>>
+    void ({} as PrincipalCheck)
+    void ({} as ActorCheck)
     return null
   },
 })

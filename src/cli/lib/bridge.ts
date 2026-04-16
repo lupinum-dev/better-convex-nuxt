@@ -82,7 +82,11 @@ export async function writeBridgeFiles(options: {
     let existing: string | null = null
     try {
       existing = await readFile(target, 'utf8')
-    } catch {}
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error
+      }
+    }
 
     if (existing === content) {
       skipped.push(file.relativePath)

@@ -25,7 +25,7 @@ async function loadActor(ctx: KanbanCtx, authId: string): Promise<Actor | null> 
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
+    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
     .first()
 
   if (!user) return null

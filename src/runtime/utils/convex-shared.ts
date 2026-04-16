@@ -176,7 +176,10 @@ export function computeQueryStatus(
  * Works with queries, mutations, and actions.
  */
 export function getFunctionName(
-  fn: FunctionReference<'query'> | FunctionReference<'mutation'> | FunctionReference<'action'>,
+  fn:
+    | FunctionReference<'query', 'public' | 'internal'>
+    | FunctionReference<'mutation', 'public' | 'internal'>
+    | FunctionReference<'action', 'public' | 'internal'>,
 ): string {
   if (!fn) return 'unknown'
 

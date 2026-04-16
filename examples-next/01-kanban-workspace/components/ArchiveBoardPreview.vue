@@ -1,5 +1,5 @@
 <template>
-  <section class="stack" v-if="boardId">
+  <section v-if="boardId" class="stack">
     <h2>Archive board</h2>
 
     <div v-if="previewPending" class="meta">Loading preview…</div>
@@ -11,8 +11,8 @@
     </template>
 
     <div class="toolbar">
-      <button type="button" @click="$emit('cancel')" :disabled="archivePending">Cancel</button>
-      <button type="button" @click="$emit('confirm')" :disabled="archivePending">
+      <button type="button" :disabled="archivePending" @click="$emit('cancel')">Cancel</button>
+      <button type="button" :disabled="archivePending" @click="$emit('confirm')">
         Confirm archive
       </button>
     </div>
@@ -36,4 +36,3 @@ defineEmits<{
   confirm: []
 }>()
 </script>
-

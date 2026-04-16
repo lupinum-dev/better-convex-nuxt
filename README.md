@@ -40,7 +40,7 @@ Trellis resolves both `principal()` and `actor()` eagerly inside the structured 
 - `authenticated`: principal must be non-anonymous, actor may still be `null`
 - actor guard: actor must resolve and pass the guard
 
-See [Runtime Contracts](./CONTRACTS.md) for the repo's canonical conventions.
+See [Runtime Contracts](./VNEXT_RUNTIME_CONTRACT.md) for the repo's canonical conventions.
 
 ## Features
 

@@ -120,9 +120,8 @@ type ActionCtxWithRuntime<
   TActor,
 > = GenericActionCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
 
-type DataCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> =
-  | QueryCtxWithRuntime<DataModel, TPrincipal, TActor>
-  | MutationCtxWithRuntime<DataModel, TPrincipal, TActor>
+type RuleCtx<DataModel extends GenericDataModel, TPrincipal, TActor> = DataCtx<DataModel> &
+  FunctionsCtxExtension<TPrincipal, TActor>
 
 type OnSuccessArgs<Ctx> = {
   ctx: Ctx
@@ -185,7 +184,7 @@ export interface DefineTrellisOptions<
   ) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
   rls?: {
-    rules: MaybeRules<DataCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
+    rules: MaybeRules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel>
     config?: RLSConfig
   }
   triggers?: Triggers<
@@ -273,8 +272,8 @@ function createTenantIsolationRule<
 
 function buildTenantIsolationRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
   options: TenantIsolationOptions<DataModel> | undefined,
-): Rules<DataCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> {
-  const rules = {} as Rules<DataCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
+): Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> {
+  const rules = {} as Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel>
   if (!options) return rules
 
   const field = options.field ?? 'workspaceId'
@@ -315,9 +314,9 @@ function mergeRules<Ctx, DataModel extends GenericDataModel>(
 }
 
 async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  ctx: DataCtxWithRuntime<DataModel, TPrincipal, TActor>,
+  ctx: RuleCtx<DataModel, TPrincipal, TActor>,
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
-): Promise<Rules<DataCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> | null> {
+): Promise<Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> | null> {
   const tenantRules = buildTenantIsolationRules<DataModel, TPrincipal, TActor>(
     options.tenantIsolation,
   )
@@ -493,11 +492,11 @@ function createOnSuccessHandler<Ctx>(
   }
 }
 
-function decorateDb<TDb>(db: TDb, rawDb: TDb): TDb & { raw: TDb; crossTenant: TDb } {
+function decorateDb<TDb extends object>(db: TDb, rawDb: TDb): TDb & { raw: TDb; crossTenant: TDb } {
   return Object.assign(db, {
     raw: rawDb,
     crossTenant: rawDb,
-  })
+  }) as TDb & { raw: TDb; crossTenant: TDb }
 }
 
 function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(

@@ -65,7 +65,7 @@
               </p>
             </div>
 
-            <div class="toolbar" v-if="boardView.permissions.archiveBoard">
+            <div v-if="boardView.permissions.archiveBoard" class="toolbar">
               <button type="button" @click="openArchivePreview">Preview archive</button>
             </div>
           </section>

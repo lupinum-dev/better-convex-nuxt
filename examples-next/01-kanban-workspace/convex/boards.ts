@@ -1,5 +1,6 @@
 import { requireRecord } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import { archiveBoardArgs, createCardArgs, moveCardArgs } from '../shared/schemas/kanban'
@@ -17,6 +18,11 @@ import { mutation, query } from './functions'
 type BoardRecord = Doc<'boards'>
 type ColumnRecord = Doc<'columns'>
 type CardRecord = Doc<'cards'>
+type BoardReadCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type BoardOperationCtx = {
+  db: Pick<GenericQueryCtx<DataModel>['db'], 'get' | 'query'> &
+    Pick<GenericMutationCtx<DataModel>['db'], 'patch'>
+}
 
 type ArchiveBoardPreview = {
   summary: string
@@ -33,28 +39,36 @@ type ArchiveBoardLoaded = {
   cards: CardRecord[]
 }
 
-async function getCurrentBoardRecord(ctx: any, workspaceId: Id<'workspaces'>) {
+async function getCurrentBoardRecord(ctx: BoardReadCtx, workspaceId: Id<'workspaces'>) {
   return await ctx.db
     .query('boards')
-    .withIndex('by_workspace_archived', (q: any) =>
+    .withIndex('by_workspace_archived', (q) =>
       q.eq('workspaceId', workspaceId).eq('archived', false),
     )
     .first()
 }
 
-async function listBoardColumns(ctx: any, boardId: Id<'boards'>, workspaceId: Id<'workspaces'>) {
+async function listBoardColumns(
+  ctx: BoardReadCtx,
+  boardId: Id<'boards'>,
+  workspaceId: Id<'workspaces'>,
+) {
   return await ctx.db
     .query('columns')
-    .withIndex('by_workspace_board_position', (q: any) =>
+    .withIndex('by_workspace_board_position', (q) =>
       q.eq('workspaceId', workspaceId).eq('boardId', boardId),
     )
     .collect()
 }
 
-async function listColumnCards(ctx: any, columnId: Id<'columns'>, workspaceId: Id<'workspaces'>) {
+async function listColumnCards(
+  ctx: BoardReadCtx,
+  columnId: Id<'columns'>,
+  workspaceId: Id<'workspaces'>,
+) {
   return await ctx.db
     .query('cards')
-    .withIndex('by_workspace_column_position', (q: any) =>
+    .withIndex('by_workspace_column_position', (q) =>
       q.eq('workspaceId', workspaceId).eq('columnId', columnId),
     )
     .collect()
@@ -170,7 +184,7 @@ export const moveCard = mutation({
 })
 
 const archiveBoardOp = defineOperation<
-  any,
+  BoardOperationCtx,
   KanbanPrincipal,
   Actor,
   typeof canArchiveBoard,
@@ -197,14 +211,14 @@ const archiveBoardOp = defineOperation<
     requireRecord(board, 'Board')
     const columns = await ctx.db
       .query('columns')
-      .withIndex('by_workspace_board_position', (q: any) =>
+      .withIndex('by_workspace_board_position', (q) =>
         q.eq('workspaceId', board.workspaceId).eq('boardId', board._id),
       )
       .collect()
 
     const cards = await ctx.db
       .query('cards')
-      .withIndex('by_workspace_board_position', (q: any) =>
+      .withIndex('by_workspace_board_position', (q) =>
         q.eq('workspaceId', board.workspaceId).eq('boardId', board._id),
       )
       .collect()
