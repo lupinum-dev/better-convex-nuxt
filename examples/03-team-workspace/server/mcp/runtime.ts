@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 
 import { api } from '#trellis/api'
-import { defineMcpRuntime } from '#trellis/mcp'
+import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
 import type { TeamTodoPrincipal } from '~/convex/auth/principal'
 
@@ -24,7 +24,7 @@ function getMcpPrincipal(event: H3Event): TeamTodoPrincipal {
   }
 }
 
-export const mcpRuntime = defineMcpRuntime({
+export const mcpRuntime = defineMcpApp({
   callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal, convex }) => {
@@ -52,4 +52,4 @@ export const mcpRuntime = defineMcpRuntime({
       : principal.kind,
 })
 
-export const projectTool = mcpRuntime.projectTool
+export const tool = mcpRuntime.tool

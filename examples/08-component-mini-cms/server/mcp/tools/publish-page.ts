@@ -1,8 +1,8 @@
 import { internal } from '#trellis/api'
-import { projectTool } from '~/server/lib/mcp-runtime'
+import { tool } from '~/server/lib/mcp-runtime'
 import { publishPage } from '~/shared/schemas/page'
 
-export default projectTool({
+export default tool({
   schema: publishPage,
   call: internal.miniCmsBridge.publishPage,
   preview: internal.miniCmsBridge.previewPublishPage,

@@ -1,9 +1,9 @@
 import { api } from '#trellis/api'
 import { bulkDeleteRunbooks } from '~/shared/schemas/runbook'
 
-import { projectTool } from '../../runtime'
+import { tool } from '../../runtime'
 
-export default projectTool({
+export default tool({
   schema: bulkDeleteRunbooks,
   call: api.runbooks.bulkRemove,
   preview: api.runbooks.previewBulkRemove,

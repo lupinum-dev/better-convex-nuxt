@@ -7,6 +7,8 @@
 > It exists to answer a different question:
 >
 > **What should Trellis become if the goal is a general application layer for Nuxt + Convex + Better Auth, with first-class agent support from day 1?**
+
+> **Active contract note:** the implementation target is now defined in [VNEXT_RUNTIME_CONTRACT.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_RUNTIME_CONTRACT.md). This draft should not promise runtime APIs that the contract has explicitly cut or deferred.
 >
 > This draft is intentionally honest about maturity:
 >
@@ -185,22 +187,20 @@ Trellis should be explicit about what belongs in which tier.
 Must feel excellent and stable:
 
 - `defineTrellis(...)`
-- protected builders: `query`, `mutation`, `publicQuery`, `publicMutation`, `internalQuery`, `internalMutation`, `action`
+- protected builders: `query`, `mutation`, `internalQuery`, `internalMutation`, `action`
 - principal and actor resolution
 - tenant rules
 - `ctx.db`, `ctx.db.crossTenant`, `ctx.db.raw`
-- `ctx.runAsUser(...)`, `ctx.runAsService(...)`
 - `defineOperation(...)`
 - Nuxt composables and SSR integration
 - `defineMcpApp(...)`
 - `tool(...)` and `tool.fromOperation(...)`
-- destructive confirmation + replay protection + audit
+- destructive confirmation
 
 ### 8.2 Built-ins
 
 Useful, but not identity-defining:
 
-- `defineWebhook(...)`
 - visibility helpers
 - testing helpers
 - ESLint rules
@@ -261,47 +261,47 @@ They should **not** differ in business authorization rules.
 
 ## 11. The Default Backend Entry Point
 
-The happy path should not require raw builder injection.
-
-Target shape:
+Current contract:
 
 ```ts
-// convex/trellis.ts
+// convex/functions.ts
 import { defineTrellis } from '@lupinum/trellis/functions'
+import {
+  action as rawAction,
+  internalMutation as rawInternalMutation,
+  internalQuery as rawInternalQuery,
+  mutation as rawMutation,
+  query as rawQuery,
+} from './_generated/server'
 import { principal } from './auth/principal'
 import { actor } from './auth/actor'
-import { tenant } from './auth/tenant'
-
-export const trellis = defineTrellis({
-  principal,
-  actor,
-  tenant,
-})
+import { tenantIsolation } from './auth/tenant'
 
 export const {
   query,
   mutation,
-  publicQuery,
-  publicMutation,
   internalQuery,
   internalMutation,
   action,
   raw,
-} = trellis
+} = defineTrellis(
+  {
+    query: rawQuery,
+    mutation: rawMutation,
+    action: rawAction,
+    internalQuery: rawInternalQuery,
+    internalMutation: rawInternalMutation,
+  },
+  {
+    principal,
+    actor,
+    tenantIsolation,
+  },
+)
 ```
 
-Advanced injection can still exist:
-
-```ts
-defineTrellis.advanced({
-  builders: { query, mutation, internalQuery, internalMutation, action },
-  principal,
-  actor,
-  tenant,
-})
-```
-
-But that should be the exception, not the tutorial path.
+Trellis still depends on one explicit Convex seam: app-owned imports from `./_generated/server`.
+That is acceptable in the active contract. The rest of the runtime shape should stay Trellis-owned.
 
 ## 12. Protected Builders
 
@@ -309,8 +309,6 @@ The backend core should revolve around these builders:
 
 - `query`
 - `mutation`
-- `publicQuery`
-- `publicMutation`
 - `internalQuery`
 - `internalMutation`
 - `action`
@@ -319,13 +317,11 @@ The backend core should revolve around these builders:
 ### 12.1 Meaning
 
 - `query` / `mutation`
-  actor required
-- `publicQuery` / `publicMutation`
-  actor optional
+  structured handler pipeline with explicit guard semantics
 - `internalQuery` / `internalMutation`
   internal visibility, still Trellis-aware
 - `action`
-  Trellis-aware server-side execution with explicit identity forwarding
+  Trellis-aware server-side execution
 - `raw`
   true escape hatch
 
@@ -339,21 +335,20 @@ The default `ctx` should be small and legible:
 
 ```ts
 type TrellisCtx = {
-  principal: Principal
-  actor: Actor | null
-
-  requireActor(): Actor
-  enforce(check: Guard | boolean | Promise<boolean>): Promise<void>
+  principal(): Promise<Principal>
+  actor(): Promise<Actor | null>
 
   db: AppDb & {
     crossTenant: AppDb
     raw: AppDb
   }
-
-  runAsUser(fn, args): Promise<unknown>
-  runAsService(fn, args, options): Promise<unknown>
 }
 ```
+
+Current honesty rule:
+
+- `ctx.db.crossTenant` and `ctx.db.raw` both map to the unwrapped underlying Convex db today
+- forwarded execution helpers are deferred until they are actually implemented and enforced
 
 The key is not type cleverness. The key is that a user can understand the runtime in one minute.
 
@@ -361,7 +356,7 @@ The key is not type cleverness. The key is that a user can understand the runtim
 
 Trellis should treat multi-tenancy as a core application concern, not an example-side convention.
 
-Target shape:
+Design direction:
 
 ```ts
 export const tenant = defineTenant({
@@ -434,9 +429,7 @@ Operations are the reusable business seam for:
 
 ### 15.2 Hard requirement
 
-If Trellis claims safe destructive agent execution, then destructive tools must be operation-backed.
-
-No exceptions on the default path.
+If Trellis claims safe destructive agent execution, destructive tools must stay operation-backed on the default path.
 
 ## 16. Runtime-Enforced Operation Binding
 
@@ -444,38 +437,16 @@ The no-manifest direction is attractive, but the safety contract must stay intac
 
 Trellis must prove that the operation metadata and the executed function ref actually match.
 
-Target design:
+Shipped design:
 
-- every operation has a stable `id`
-- `mutation(op.execute)` stamps that `id` into Trellis metadata on the generated ref
-- `query(op.preview)` stamps the same `id`
-- `tool.fromOperation(op, { ref })` validates `ref.operationId === op.id` at startup
+- operations used with `tool.fromOperation(...)` must declare a stable `name`
+- execute refs must end with that operation name
+- preview refs must end with `preview${Capitalize(name)}`
+- execute and preview refs must come from the same module
+- destructive operations require a preview ref
 
-That restores the missing safety property without bringing back a full AST-walk manifest pipeline.
-
-If Convex ref metadata cannot support this cleanly, Trellis should prefer a small generated index over a brittle “trust the user wiring” model.
-
-The framework should choose **correctness over cleverness** here.
-
-## 17. Actions and Identity Forwarding
-
-Explicit identity forwarding should stay central.
-
-```ts
-await ctx.runAsUser(internal.reports.record, { id })
-await ctx.runAsService(internal.billing.recordWebhook, payload, {
-  service: 'stripe-webhook',
-})
-```
-
-This is the correct design shape because:
-
-- it is explicit
-- it is greppable
-- it does not hide trust boundaries
-- it unifies action, webhook, and agent-to-backend flows
-
-Implicit propagation should remain unsupported.
+This is a naming-based runtime contract rather than a manifest.
+It is stricter than “trust the user wiring” and simpler than reviving the deleted manifest path.
 
 ---
 
@@ -538,13 +509,10 @@ They can exist as extensions, but they should not complicate the core safety sto
 The default destructive path should be:
 
 1. call preview
-2. issue confirmation token
-3. re-run validation inside a single execute mutation
-4. redeem replay token
-5. write audit event
-6. execute handler
+2. confirm at the transport layer
+3. execute the protected mutation
 
-This is one of Trellis’ strongest differentiators and should remain a pillar.
+Replay and audit remain future hardening work unless they are implemented and documented as concrete guarantees.
 
 ## 23. Agent Identity
 
@@ -604,32 +572,10 @@ That implies:
 
 ## 26. Service Safety Must Be Real
 
-The current “narrow service actors” idea is directionally right but too soft if it remains advisory.
+Runtime-enforced service policy is still the right design direction.
 
-If Trellis wants to present webhooks, schedulers, and service contexts as safe defaults, it needs runtime-enforced service policy.
-
-Target shape:
-
-```ts
-export const services = defineServices({
-  'stripe-webhook': {
-    access: {
-      tables: ['subscriptions', 'payments'],
-      tenant: 'derived',
-    },
-  },
-  scheduler: {
-    access: {
-      tables: ['jobs', 'auditLog'],
-      tenant: 'global',
-    },
-  },
-})
-```
-
-Trellis should consume this directly, not hope users remember to inspect `actor.allowedTables`.
-
-If Trellis cannot enforce it, it should stop advertising it as a security property.
+But it is not part of the active vNext contract yet.
+Until it exists in runtime code, Trellis should treat it as deferred work rather than a shipped safety property.
 
 ## 27. Safety Claims Must Match Enforcement
 
@@ -741,10 +687,10 @@ This is how Trellis stays general without becoming bloated.
 The next round of design work should validate these questions:
 
 1. Can `defineTrellis(...)` fully own the default builder wiring?
-2. Can operation-to-ref identity be enforced without reviving a heavy manifest pipeline?
+2. Is the naming-based operation binding contract sufficient, or does it eventually need stronger ref metadata?
 3. Can service access constraints be enforced by runtime policy instead of actor convention?
 4. Can the agent runtime stay first-class while sessions/resources/prompts remain optional layers?
-5. Can webhooks compile down to the same trust model as `runAsService(...)` without becoming a separate runtime?
+5. What is the minimal webhook story once forwarded service execution is real?
 
 Until those are proven, this document stays draft.
 
@@ -779,4 +725,3 @@ That is the path to becoming “the Vue framework for Convex + Nuxt + Better Aut
 
 not by being bigger,
 but by being clearer, stricter, and more composable.
-

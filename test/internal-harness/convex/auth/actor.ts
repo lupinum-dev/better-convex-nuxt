@@ -1,5 +1,5 @@
 import { getAuth } from '@lupinum/trellis/auth'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'
 import type { InternalHarnessPrincipal, Role } from './principal'
@@ -8,12 +8,19 @@ export type { Role } from './principal'
 
 export type Actor = { kind: 'user'; userId: string; role: Role; tenantId?: string } | null
 
-type InternalHarnessCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type InternalHarnessCtx =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 async function loadActorByAuthId(ctx: InternalHarnessCtx, authId: string): Promise<Actor> {
+  if (!('db' in ctx)) {
+    throw new Error('Internal harness actor resolution requires a query or mutation context.')
+  }
+
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
+    .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
     .first()
 
   if (!user) return null

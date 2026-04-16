@@ -1,11 +1,11 @@
 import { authenticated, open } from '@lupinum/trellis/auth'
 
 import { createWorkspaceArgs, joinWorkspaceArgs } from '../shared/schemas/kanban'
-import { mutation, publicQuery, query } from './functions'
+import { mutation, query } from './functions'
 
 const starterColumns = ['Inbox', 'Doing', 'Done']
 
-export const listWorkspaces = publicQuery({
+export const listWorkspaces = query({
   guard: open,
   args: {},
   handler: async (ctx) => {

@@ -1,8 +1,11 @@
 import type { FunctionReference } from 'convex/server'
+import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 
+import { open } from '../../src/runtime/auth'
+import { defineOperation } from '../../src/runtime/functions'
 import { defineArgs } from '../../src/runtime/args'
-import { defineMcpRuntime } from '../../src/runtime/mcp'
+import { defineMcpApp } from '../../src/runtime/mcp'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -36,7 +39,7 @@ const actionRef = {} as FunctionReference<
   { executed: true }
 >
 
-const runtime = defineMcpRuntime<Principal, Capabilities>({
+const runtime = defineMcpApp<Principal, Capabilities>({
   callConvex: async (_event: H3Event) => ({
     query: async () => ({ title: 'Draft', count: 2 }),
     mutation: async () => ({ published: true }),
@@ -46,7 +49,7 @@ const runtime = defineMcpRuntime<Principal, Capabilities>({
   resolveCapabilities: async () => ({ publishEntry: true, readEntry: true }),
 })
 
-runtime.projectTool({
+runtime.tool({
   schema,
   call: queryRef,
   operation: 'query',
@@ -62,7 +65,7 @@ runtime.projectTool({
   },
 })
 
-runtime.projectTool({
+runtime.tool({
   schema,
   call: mutationRef,
   capability: 'publishEntry',
@@ -72,7 +75,7 @@ runtime.projectTool({
   },
 })
 
-runtime.projectTool({
+runtime.tool({
   schema,
   call: actionRef,
   operation: 'action',
@@ -80,4 +83,31 @@ runtime.projectTool({
     type _actionResult = Assert<IsEqual<typeof result, { executed: true }>>
     return ok(result)
   },
+})
+
+const archiveEntryOp = defineOperation({
+  name: 'archiveEntry',
+  kind: 'destructive',
+  args: {
+    id: v.string(),
+  },
+  guard: open,
+  preview: async () => 'Archive entry',
+  handler: async () => ({ archived: true as const }),
+})
+
+runtime.tool.fromOperation(archiveEntryOp, {
+  execute: { _path: 'entries:archiveEntry' } as FunctionReference<
+    'mutation',
+    'internal',
+    { principal: Principal; id: string },
+    { archived: true }
+  >,
+  preview: { _path: 'entries:previewArchiveEntry' } as FunctionReference<
+    'query',
+    'internal',
+    { principal: Principal; id: string },
+    string
+  >,
+  capability: 'publishEntry',
 })

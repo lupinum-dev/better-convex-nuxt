@@ -66,9 +66,9 @@ src/
   module.ts              # Nuxt module entry point
   runtime/
     auth/                # defineActor, defineGuard, definePermissionContext
-    functions/           # createApp, handler pipeline
+    functions/           # defineTrellis, handler pipeline
     composables/         # useConvexQuery, useMutation, useAuth, etc.
-    mcp/                 # MCP tool definitions
+    mcp/                 # defineMcpApp, tool, MCP helpers
     visibility/          # defineCapabilities, defineRedaction
     server/              # Nitro server utilities
     testing/             # Test context and helpers

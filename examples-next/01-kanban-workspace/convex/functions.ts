@@ -4,8 +4,7 @@ import { mutation as generatedMutation, query as generatedQuery } from './_gener
 import { getActorFromPrincipal } from './auth/actor'
 import { principal } from './auth/principal'
 
-export const { query: trellisQuery, mutation: trellisMutation, publicQuery, publicMutation, raw } =
-  defineTrellis(
+export const { query, mutation, raw } = defineTrellis(
   { query: generatedQuery, mutation: generatedMutation },
   {
     principal,
@@ -15,6 +14,3 @@ export const { query: trellisQuery, mutation: trellisMutation, publicQuery, publ
     },
   },
 )
-
-export const query = trellisQuery
-export const mutation = trellisMutation

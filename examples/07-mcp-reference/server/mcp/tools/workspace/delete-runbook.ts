@@ -1,9 +1,9 @@
 import { api } from '#trellis/api'
 import { deleteRunbook } from '~/shared/schemas/runbook'
 
-import { projectTool } from '../../runtime'
+import { tool } from '../../runtime'
 
-export default projectTool({
+export default tool({
   schema: deleteRunbook,
   call: api.runbooks.remove,
   preview: api.runbooks.previewRemove,

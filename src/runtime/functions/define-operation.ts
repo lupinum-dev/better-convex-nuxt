@@ -16,6 +16,15 @@ type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPrevie
   loaded: TLoaded,
 ) => MaybePromise<TPreview>
 
+export type OperationKind = 'safe' | 'destructive'
+
+export type TrellisOperationMetadata = {
+  name?: string
+  kind: OperationKind
+}
+
+export const trellisOperationMetadataKey = Symbol.for('trellis.operation')
+
 export type OperationDefinition<
   TCtx,
   TPrincipal,
@@ -34,8 +43,11 @@ export type OperationDefinition<
   TLoaded,
   TResult
 > & {
+  name?: string
+  kind?: OperationKind
   preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
   previewReturns?: GenericValidator
+  [trellisOperationMetadataKey]?: TrellisOperationMetadata
 }
 
 /**
@@ -66,7 +78,12 @@ export function defineOperation<
     TPreview
   >,
 ): OperationDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TResult, TPreview> {
-  return definition
+  return Object.assign(definition, {
+    [trellisOperationMetadataKey]: {
+      name: definition.name,
+      kind: definition.kind ?? 'safe',
+    },
+  })
 }
 
 /**
@@ -108,4 +125,17 @@ export function previewOf<
     authorize: operation.authorize,
     handler: async (ctx, args, loaded) => await operation.preview!(ctx as TCtx, args, loaded),
   }
+}
+
+export function getOperationMetadata(operation: {
+  [trellisOperationMetadataKey]?: TrellisOperationMetadata
+  name?: string
+  kind?: OperationKind
+}): TrellisOperationMetadata {
+  return (
+    operation[trellisOperationMetadataKey] ?? {
+      name: operation.name,
+      kind: operation.kind ?? 'safe',
+    }
+  )
 }

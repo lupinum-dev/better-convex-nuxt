@@ -235,6 +235,15 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
   }
 }
 
+export function buildStructuredBuilder<
+  TCtx extends RuntimeContext<TPrincipal, TActor>,
+  TPrincipal,
+  TActor,
+  TBuilder extends AnyBuilder,
+>(builder: TBuilder) {
+  return createStructuredBuilder<TCtx, TPrincipal, TActor, TBuilder>(builder)
+}
+
 export function buildStructuredFunctions<
   TQueryCtx extends RuntimeContext<TPrincipal, TActor>,
   TMutationCtx extends RuntimeContext<TPrincipal, TActor>,

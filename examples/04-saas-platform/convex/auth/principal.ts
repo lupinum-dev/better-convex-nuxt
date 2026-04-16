@@ -1,11 +1,14 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { DataModel, Doc } from '../_generated/dataModel'
 
-type PrincipalCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type PrincipalCtx =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 export type Role = Doc<'users'>['role']
 

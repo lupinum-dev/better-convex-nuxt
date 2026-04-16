@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type {
+  GenericActionCtx,
+  GenericDataModel,
+  GenericMutationCtx,
+  GenericQueryCtx,
+} from 'convex/server'
 
 import { getTrustedCaller } from '../trusted-caller/index.js'
 import { getAuth, type AuthIdentity } from './index.js'
@@ -18,6 +23,7 @@ export type DefaultActor = {
 type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 type ResolvedActorRecord<TActor, TUser> = {
   actor: TActor

@@ -1,9 +1,9 @@
 import { api } from '#trellis/api'
 import { searchRunbooks } from '~/shared/schemas/runbook'
 
-import { projectTool } from '../../runtime'
+import { tool } from '../../runtime'
 
-export default projectTool({
+export default tool({
   schema: searchRunbooks,
   call: api.runbooks.searchPublic,
   group: 'public',

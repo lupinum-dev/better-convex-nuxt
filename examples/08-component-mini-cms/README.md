@@ -56,7 +56,7 @@ Use this example when you want to understand:
 - local component boundaries
 - principal forwarding
 - root app wrappers versus component business logic
-- `projectTool(...)` over internal bridge refs
+- `tool(...)` over internal bridge refs
 - transport-shaped `agent` principals instead of business-role data in the protocol layer
 
 Use [`07-mcp-reference`](../07-mcp-reference/README.md) when you want the full MCP protocol

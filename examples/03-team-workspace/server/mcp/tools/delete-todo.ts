@@ -6,9 +6,9 @@ import { api } from '#trellis/api'
  */
 import { deleteTodo } from '~/shared/schemas/todo'
 
-import { projectTool } from '../runtime'
+import { tool } from '../runtime'
 
-export default projectTool({
+export default tool({
   schema: deleteTodo,
   call: api.todos.remove,
   preview: api.todos.previewRemove,

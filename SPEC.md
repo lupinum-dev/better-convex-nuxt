@@ -1,5 +1,12 @@
 # Trellis v2.2 — The Spec
 
+> **Legacy spec. Not the active implementation target.**
+>
+> This document is kept as historical design context only.
+> The active vNext implementation contract now lives in [VNEXT_RUNTIME_CONTRACT.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_RUNTIME_CONTRACT.md) and the active design direction lives in [SPEC.vNext.md](/Users/matthias/Git/0_libs/WORK/trellis/SPEC.vNext.md).
+>
+> If this file disagrees with runtime code, examples, or the vNext contract, treat this file as stale.
+
 > **Status: Final (revised 2026-04-16, third pass).** All technical assumptions validated via 15 experiments (73 tests). Trellis has no users yet — this spec is the result of continuous experimentation to land on a "Nuxt-level elegant" shape before first release.
 >
 > **Reading order for implementers:**

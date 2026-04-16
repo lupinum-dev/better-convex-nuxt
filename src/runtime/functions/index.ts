@@ -1,4 +1,5 @@
 import {
+  customAction,
   customMutation,
   customQuery,
   type Customization,
@@ -11,12 +12,15 @@ import {
 } from 'convex-helpers/server/rowLevelSecurity'
 import type { Triggers } from 'convex-helpers/server/triggers'
 import type {
+  ActionBuilder,
   FunctionVisibility,
+  GenericActionCtx,
   GenericDataModel,
   GenericMutationCtx,
   GenericQueryCtx,
   MutationBuilder,
   QueryBuilder,
+  RegisteredAction,
   RegisteredMutation,
   RegisteredQuery,
   TableNamesInDataModel,
@@ -26,7 +30,7 @@ import { v } from 'convex/values'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import { createComponentBridge } from './create-component-bridge.js'
-import { buildStructuredFunctions } from './define-handler.js'
+import { buildStructuredBuilder, buildStructuredFunctions } from './define-handler.js'
 import type {
   StructuredGuard,
   StructuredHandlerDefinition,
@@ -50,8 +54,13 @@ export {
   renderComponentBridgeFiles,
   stripComponentBridgeMetadata,
 } from './component-bridge-manifest.js'
-export { defineOperation, previewOf } from './define-operation.js'
-export type { OperationDefinition } from './define-operation.js'
+export {
+  defineOperation,
+  getOperationMetadata,
+  previewOf,
+  trellisOperationMetadataKey,
+} from './define-operation.js'
+export type { OperationDefinition, OperationKind, TrellisOperationMetadata } from './define-operation.js'
 export { definePrincipal } from './define-principal.js'
 export type { DefaultPrincipal, PrincipalDefinition } from './define-principal.js'
 export type {
@@ -59,9 +68,13 @@ export type {
   ComponentBridgeManifest,
 } from './component-bridge-manifest.js'
 
-type AnyCtx<DataModel extends GenericDataModel> =
+type DataCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
+
+type AnyCtx<DataModel extends GenericDataModel> =
+  | DataCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
@@ -71,6 +84,17 @@ export type FunctionsCtxExtension<TPrincipal, TActor> = {
   actor: ActorAccessor<TActor>
 }
 
+type QueryDbWithRuntime<DataModel extends GenericDataModel> = GenericQueryCtx<DataModel>['db'] & {
+  raw: GenericQueryCtx<DataModel>['db']
+  crossTenant: GenericQueryCtx<DataModel>['db']
+}
+
+type MutationDbWithRuntime<DataModel extends GenericDataModel> =
+  GenericMutationCtx<DataModel>['db'] & {
+    raw: GenericMutationCtx<DataModel>['db']
+    crossTenant: GenericMutationCtx<DataModel>['db']
+  }
+
 type AnyCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> = AnyCtx<DataModel> &
   FunctionsCtxExtension<TPrincipal, TActor>
 
@@ -78,13 +102,27 @@ type QueryCtxWithRuntime<
   DataModel extends GenericDataModel,
   TPrincipal,
   TActor,
-> = GenericQueryCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+> = Omit<GenericQueryCtx<DataModel>, 'db'> & {
+  db: QueryDbWithRuntime<DataModel>
+} & FunctionsCtxExtension<TPrincipal, TActor>
 
 type MutationCtxWithRuntime<
   DataModel extends GenericDataModel,
   TPrincipal,
   TActor,
-> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+> = Omit<GenericMutationCtx<DataModel>, 'db'> & {
+  db: MutationDbWithRuntime<DataModel>
+} & FunctionsCtxExtension<TPrincipal, TActor>
+
+type ActionCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TActor,
+> = GenericActionCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+
+type DataCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> =
+  | QueryCtxWithRuntime<DataModel, TPrincipal, TActor>
+  | MutationCtxWithRuntime<DataModel, TPrincipal, TActor>
 
 type OnSuccessArgs<Ctx> = {
   ctx: Ctx
@@ -113,15 +151,23 @@ type MutationCustomizationCtx<
   TActor,
 > = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
 
+type ActionCustomizationCtx<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TActor,
+> = GenericActionCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+
 type AppBuilders<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
   MutationVisibility extends FunctionVisibility,
   InternalQueryVisibility extends FunctionVisibility = 'internal',
   InternalMutationVisibility extends FunctionVisibility = 'internal',
+  ActionVisibility extends FunctionVisibility = 'public',
 > = {
   query: QueryBuilder<DataModel, QueryVisibility>
   mutation: MutationBuilder<DataModel, MutationVisibility>
+  action?: ActionBuilder<DataModel, ActionVisibility>
   internalQuery?: QueryBuilder<DataModel, InternalQueryVisibility>
   internalMutation?: MutationBuilder<DataModel, InternalMutationVisibility>
 }
@@ -139,7 +185,7 @@ export interface DefineTrellisOptions<
   ) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
   rls?: {
-    rules: MaybeRules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
+    rules: MaybeRules<DataCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
     config?: RLSConfig
   }
   triggers?: Triggers<
@@ -151,6 +197,9 @@ export interface DefineTrellisOptions<
       args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>>,
     ) => Promise<void> | void
     mutation?: (
+      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>>,
+    ) => Promise<void> | void
+    action?: (
       args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>>,
     ) => Promise<void> | void
   }
@@ -224,8 +273,8 @@ function createTenantIsolationRule<
 
 function buildTenantIsolationRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
   options: TenantIsolationOptions<DataModel> | undefined,
-): Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> {
-  const rules = {} as Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
+): Rules<DataCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> {
+  const rules = {} as Rules<DataCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel>
   if (!options) return rules
 
   const field = options.field ?? 'workspaceId'
@@ -266,9 +315,9 @@ function mergeRules<Ctx, DataModel extends GenericDataModel>(
 }
 
 async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  ctx: AnyCtxWithRuntime<DataModel, TPrincipal, TActor>,
+  ctx: DataCtxWithRuntime<DataModel, TPrincipal, TActor>,
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
-): Promise<Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> | null> {
+): Promise<Rules<DataCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> | null> {
   const tenantRules = buildTenantIsolationRules<DataModel, TPrincipal, TActor>(
     options.tenantIsolation,
   )
@@ -324,6 +373,27 @@ type StructuredMutationBuilder<
     TResult
   >,
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type StructuredActionBuilder<
+  TCtx extends { principal: () => Promise<unknown> },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['principal']>>, TActor>,
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TResult = unknown,
+>(
+  definition: StructuredHandlerDefinition<
+    TCtx,
+    Awaited<ReturnType<TCtx['principal']>>,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult
+  >,
+) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type RuntimeBundle<
   DataModel extends GenericDataModel,
@@ -423,6 +493,13 @@ function createOnSuccessHandler<Ctx>(
   }
 }
 
+function decorateDb<TDb>(db: TDb, rawDb: TDb): TDb & { raw: TDb; crossTenant: TDb } {
+  return Object.assign(db, {
+    raw: rawDb,
+    crossTenant: rawDb,
+  })
+}
+
 function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
 ): Customization<
@@ -447,7 +524,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
         : ctx.db
       const finalCtx: QueryCtxWithRuntime<DataModel, TPrincipal, TActor> = {
         ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TPrincipal, TActor>),
-        db,
+        db: decorateDb(db, ctx.db),
       }
 
       return {
@@ -491,7 +568,7 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
 
       const finalCtx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor> = {
         ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
-        db,
+        db: decorateDb(db, ctx.db),
       }
 
       return {
@@ -503,12 +580,42 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
   }
 }
 
+function createActionCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+): Customization<
+  GenericActionCtx<DataModel>,
+  PropertyValidators,
+  ActionCustomizationCtx<DataModel, TPrincipal, TActor>,
+  Record<string, never>
+> {
+  const principalDefinition = resolvePrincipal(options.principal)
+  const actorResolver = resolveActor(options.actor)
+  const principalArgs: PropertyValidators = principalDefinition.validator
+    ? { principal: v.optional(principalDefinition.validator) }
+    : {}
+
+  return {
+    args: principalArgs,
+    input: async (ctx, args) => {
+      const { baseCtx } = createContextWithRuntime(ctx, args, principalDefinition, actorResolver)
+      const finalCtx = baseCtx as unknown as ActionCtxWithRuntime<DataModel, TPrincipal, TActor>
+
+      return {
+        ctx: finalCtx,
+        args: {},
+        onSuccess: createOnSuccessHandler(options.onSuccess?.action, finalCtx),
+      }
+    },
+  }
+}
+
 function buildRawFunctions<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
   MutationVisibility extends FunctionVisibility,
   InternalQueryVisibility extends FunctionVisibility,
   InternalMutationVisibility extends FunctionVisibility,
+  ActionVisibility extends FunctionVisibility,
   TPrincipal,
   TActor = DefaultActor,
 >(
@@ -517,7 +624,8 @@ function buildRawFunctions<
     QueryVisibility,
     MutationVisibility,
     InternalQueryVisibility,
-    InternalMutationVisibility
+    InternalMutationVisibility,
+    ActionVisibility
   >,
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
 ) {
@@ -531,10 +639,12 @@ function buildRawFunctions<
 
   const queryCustomization = createQueryCustomization(options)
   const mutationCustomization = createMutationCustomization(options)
+  const actionCustomization = createActionCustomization(options)
 
   return {
     query: customQuery(builders.query, queryCustomization),
     mutation: customMutation(builders.mutation, mutationCustomization),
+    action: builders.action ? customAction(builders.action, actionCustomization) : undefined,
     internal: {
       query: builders.internalQuery
         ? customQuery(builders.internalQuery, queryCustomization)
@@ -554,18 +664,20 @@ function buildTrellisRuntime<
   InternalMutationVisibility extends FunctionVisibility = 'internal',
   TPrincipal = DefaultPrincipal,
   TActor = DefaultActor,
+  ActionVisibility extends FunctionVisibility = 'public',
 >(
   builders: AppBuilders<
     DataModel,
     QueryVisibility,
     MutationVisibility,
     InternalQueryVisibility,
-    InternalMutationVisibility
+    InternalMutationVisibility,
+    ActionVisibility
   >,
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
 ) {
   const raw = buildRawFunctions(builders, options)
-  const app = buildStructuredFunctions<
+  const structured = buildStructuredFunctions<
     QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
     MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
     TPrincipal,
@@ -604,30 +716,35 @@ function buildTrellisRuntime<
         })
       : undefined
 
+  const action = raw.action
+    ? (buildStructuredBuilder<
+        ActionCtxWithRuntime<DataModel, TPrincipal, TActor>,
+        TPrincipal,
+        TActor,
+        typeof raw.action
+      >(raw.action) as StructuredActionBuilder<
+        ActionCtxWithRuntime<DataModel, TPrincipal, TActor>,
+        ActionVisibility,
+        TActor
+      >)
+    : undefined
+
   return {
-    app: {
-      query: app.query,
-      mutation: app.mutation,
-      ...(structuredInternal
-        ? {
-            internal: {
-              query: structuredInternal.query,
-              mutation: structuredInternal.mutation,
-            },
-          }
-        : {}),
-    },
+    query: structured.query,
+    mutation: structured.mutation,
+    ...(action ? { action } : {}),
+    ...(structuredInternal
+      ? {
+          internalQuery: structuredInternal.query,
+          internalMutation: structuredInternal.mutation,
+        }
+      : {}),
     raw: {
       query: raw.query,
       mutation: raw.mutation,
-      ...(raw.internal.query || raw.internal.mutation
-        ? {
-            internal: {
-              query: raw.internal.query,
-              mutation: raw.internal.mutation,
-            },
-          }
-        : {}),
+      ...(raw.action ? { action: raw.action } : {}),
+      ...(raw.internal.query ? { internalQuery: raw.internal.query } : {}),
+      ...(raw.internal.mutation ? { internalMutation: raw.internal.mutation } : {}),
     },
     createComponentBridge: () =>
       createComponentBridge(
@@ -658,27 +775,28 @@ export function defineTrellis<
   InternalMutationVisibility extends FunctionVisibility = 'internal',
   TPrincipal = DefaultPrincipal,
   TActor = DefaultActor,
+  ActionVisibility extends FunctionVisibility = 'public',
 >(
   builders: AppBuilders<
     DataModel,
     QueryVisibility,
     MutationVisibility,
     InternalQueryVisibility,
-    InternalMutationVisibility
+    InternalMutationVisibility,
+    ActionVisibility
   >,
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
 ) {
   const runtime = buildTrellisRuntime(builders, options)
 
   return {
-    query: runtime.app.query,
-    mutation: runtime.app.mutation,
-    publicQuery: runtime.app.query,
-    publicMutation: runtime.app.mutation,
-    ...(runtime.app.internal
+    query: runtime.query,
+    mutation: runtime.mutation,
+    ...(runtime.action ? { action: runtime.action } : {}),
+    ...(runtime.internalQuery
       ? {
-          internalQuery: runtime.app.internal.query,
-          internalMutation: runtime.app.internal.mutation,
+          internalQuery: runtime.internalQuery,
+          internalMutation: runtime.internalMutation,
         }
       : {}),
     raw: runtime.raw,

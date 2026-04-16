@@ -1,4 +1,9 @@
-import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type {
+  GenericActionCtx,
+  GenericDataModel,
+  GenericMutationCtx,
+  GenericQueryCtx,
+} from 'convex/server'
 import { ConvexError } from 'convex/values'
 
 import { runCheck, type AnyCheck, type Check } from './define-guard.js'
@@ -42,6 +47,7 @@ export type AuthErrorData = {
 type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 function toForbiddenError(
   reason: string,

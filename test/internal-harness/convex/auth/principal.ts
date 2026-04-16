@@ -1,13 +1,16 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { DataModel } from '../_generated/dataModel'
 
 export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
-type InternalHarnessPrincipalCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type InternalHarnessPrincipalCtx =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 export type InternalHarnessPrincipal =
   | { kind: 'anonymous' }

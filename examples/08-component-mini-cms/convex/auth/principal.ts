@@ -1,13 +1,16 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../shared/principal'
 import type { DataModel } from '../_generated/dataModel'
 
 export type RootActor = { kind: 'user'; userId: string } | { kind: 'agent'; agentId: string }
 
-type RootCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type RootCtx =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 export const principal = definePrincipal({
   validator: miniCmsPrincipalValidator,

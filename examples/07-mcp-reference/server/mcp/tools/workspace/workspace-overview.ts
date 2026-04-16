@@ -3,9 +3,9 @@ import { z } from 'zod'
 import { api } from '#trellis/api'
 import { listRunbooks } from '~/shared/schemas/runbook'
 
-import { projectTool } from '../../runtime'
+import { tool } from '../../runtime'
 
-export default projectTool({
+export default tool({
   schema: listRunbooks,
   call: api.runbooks.workspaceOverview,
   capability: 'readWorkspaceRunbooks',

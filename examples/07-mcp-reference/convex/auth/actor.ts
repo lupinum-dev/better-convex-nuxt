@@ -1,10 +1,13 @@
 import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
 import type { McpReferencePrincipal, Role } from './principal'
 
-type McpReferenceCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type McpReferenceCtx =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 export type Actor = DefaultActor & {
   role: Role
@@ -20,9 +23,13 @@ async function loadActorByAuthId(
   ctx: McpReferenceCtx,
   authId: string,
 ): Promise<PermissionActor | null> {
+  if (!('db' in ctx)) {
+    throw new Error('MCP reference actor resolution requires a query or mutation context.')
+  }
+
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
+    .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
     .first()
 
   if (!user) return null

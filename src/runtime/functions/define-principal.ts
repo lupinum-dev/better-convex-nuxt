@@ -1,4 +1,9 @@
-import type { GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type {
+  GenericActionCtx,
+  GenericDataModel,
+  GenericMutationCtx,
+  GenericQueryCtx,
+} from 'convex/server'
 import type { GenericValidator } from 'convex/values'
 
 import { getAuth } from '../auth/index.js'
@@ -8,6 +13,7 @@ type MaybePromise<T> = T | Promise<T>
 type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 export type DefaultPrincipal =
   | { kind: 'anonymous' }

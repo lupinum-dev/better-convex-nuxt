@@ -5,9 +5,9 @@ import { api } from '#trellis/api'
  */
 import { setTodoCompleted } from '~/shared/schemas/todo'
 
-import { projectTool } from '../runtime'
+import { tool } from '../runtime'
 
-export default projectTool({
+export default tool({
   schema: setTodoCompleted,
   call: api.todos.setCompleted,
   capability: 'completeTodo',

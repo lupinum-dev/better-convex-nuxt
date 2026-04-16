@@ -407,7 +407,7 @@ export default defineEventHandler(async (event) => {
 
 function mcpRuntimeTemplate() {
   return `
-import { defineMcpRuntime } from '@lupinum/trellis/mcp'
+import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
 
@@ -439,7 +439,7 @@ function canWrite(role: NonNullable<McpAuthContext['role']>) {
   return role === 'owner' || role === 'admin' || role === 'member'
 }
 
-export const mcpRuntime = defineMcpRuntime<WorkspacePrincipal>({
+export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
   callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
@@ -454,7 +454,7 @@ export const mcpRuntime = defineMcpRuntime<WorkspacePrincipal>({
 })
 
 // Project root internal refs or bridge refs from tool files.
-export const projectTool = mcpRuntime.projectTool
+export const tool = mcpRuntime.tool
 `.trimStart()
 }
 

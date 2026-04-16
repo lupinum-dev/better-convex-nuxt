@@ -1,9 +1,9 @@
 import { api } from '#trellis/api'
 import { updateRunbook } from '~/shared/schemas/runbook'
 
-import { projectTool } from '../../runtime'
+import { tool } from '../../runtime'
 
-export default projectTool({
+export default tool({
   schema: updateRunbook,
   call: api.runbooks.update,
   capability: 'writeWorkspaceRunbooks',

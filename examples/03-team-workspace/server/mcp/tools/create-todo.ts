@@ -6,9 +6,9 @@ import { api } from '#trellis/api'
  */
 import { createTodo } from '~/shared/schemas/todo'
 
-import { projectTool } from '../runtime'
+import { tool } from '../runtime'
 
-export default projectTool({
+export default tool({
   schema: createTodo,
   call: api.todos.create,
   capability: 'createTodo',

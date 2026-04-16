@@ -53,7 +53,7 @@ See [Runtime Contracts](./CONTRACTS.md) for the repo's canonical conventions.
 - Protected backend runtime with `defineTrellis(...)` — guards and authorization built into every handler
 - `defineOperation(...)` and `previewOf(...)` for reusable protected business definitions
 - `createComponentBridge(...)` for forwarding identity into Convex components
-- `defineMcpRuntime(...)` and `projectTool(...)` for exposing business logic to AI agents
+- `defineMcpApp(...)` and `tool(...)` for exposing business logic to AI agents
 - Vue DevTools integration
 - First-class testing utilities
 - ESLint plugin
@@ -129,7 +129,7 @@ export const create = mutation({
 
 ```ts
 // server/mcp/tools/create-todo.ts
-export default projectTool({
+export default tool({
   schema: createTodo,
   call: api.todos.create,
   capability: 'createTodo',

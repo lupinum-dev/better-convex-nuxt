@@ -179,6 +179,8 @@ const archiveBoardOp = defineOperation<
   null,
   ArchiveBoardPreview
 >({
+  name: 'archiveBoard',
+  kind: 'destructive',
   args: archiveBoardArgs.args,
   returns: v.null(),
   previewReturns: v.object({
@@ -226,5 +228,6 @@ const archiveBoardOp = defineOperation<
   },
 })
 
+export { archiveBoardOp }
 export const archiveBoard = mutation(archiveBoardOp)
 export const previewArchiveBoard = query(previewOf(archiveBoardOp))

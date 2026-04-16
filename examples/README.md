@@ -17,7 +17,7 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 | `05-visibility-access`  | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy                   |
 | `06-multi-workspace`    | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                               |
 | `07-mcp-reference`      | Full MCP implementation      | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode, root internal refs as the automation surface |
-| `08-component-mini-cms` | Local component + MCP seam   | Local Convex components, principal forwarding, root browser wrappers, `createComponentBridge(...)`, `projectTool(...)`; primary reference for `ginko-cms`-style integrations |
+| `08-component-mini-cms` | Local component + MCP seam   | Local Convex components, principal forwarding, root browser wrappers, `createComponentBridge(...)`, `tool(...)`; primary reference for `ginko-cms`-style integrations |
 
 ## Concept Coverage Matrix
 

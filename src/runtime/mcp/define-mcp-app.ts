@@ -1,8 +1,12 @@
 import type { McpToolDefinition } from '@nuxtjs/mcp-toolkit/server'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type { PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
+import { getOperationMetadata, type OperationDefinition } from '../functions/define-operation.js'
+import { getFunctionName } from '../utils/convex-shared.js'
+import { defineArgs } from '../utils/define-convex-schema.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { defineTool } from './define-convex-tool.js'
 import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
@@ -47,7 +51,7 @@ type ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime> = {
   convex: McpConvexCaller
 }
 
-export interface DefineMcpRuntimeOptions<
+export interface DefineMcpAppOptions<
   TPrincipal,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
   TRuntime = Record<string, never>,
@@ -77,7 +81,7 @@ type ProjectToolMeta = {
   destructive?: boolean
 }
 
-export interface ProjectToolOptions<
+export interface ToolOptions<
   S extends AnyConvexSchema,
   TPrincipal,
   TCapabilities extends ProjectionCapabilitySnapshot | null,
@@ -133,6 +137,71 @@ export interface ProjectToolOptions<
   tags?: string[]
 }
 
+type AnyOperationDefinition = OperationDefinition<
+  any,
+  any,
+  any,
+  any,
+  PropertyValidators,
+  any,
+  any,
+  any
+>
+
+export interface ToolFromOperationOptions<
+  TOperation extends AnyOperationDefinition,
+  TPrincipal,
+  TCapabilities extends ProjectionCapabilitySnapshot | null,
+  TRuntime,
+  TExecute extends AnyFunctionRef = AnyMutationRef,
+  TPreview extends AnyFunctionRef | undefined = undefined,
+> extends Omit<
+    ToolOptions<
+      AnyConvexSchema,
+      TPrincipal,
+      TCapabilities,
+      TRuntime,
+      TExecute,
+      TPreview
+    >,
+    'schema' | 'call' | 'preview' | 'operation' | 'previewOperation'
+  > {
+  execute: TExecute
+  preview?: TPreview
+  executeOperation?: ConvexToolOperation
+  previewOperation?: ConvexToolOperation
+  schema?: AnyConvexSchema
+}
+
+type ToolFactory<
+  TPrincipal,
+  TCapabilities extends ProjectionCapabilitySnapshot | null,
+  TRuntime,
+> = {
+  <
+    S extends AnyConvexSchema,
+    TCall extends AnyFunctionRef = AnyMutationRef,
+    TPreview extends AnyFunctionRef | undefined = undefined,
+  >(
+    tool: ToolOptions<S, TPrincipal, TCapabilities, TRuntime, TCall, TPreview>,
+  ): McpToolDefinition
+  fromOperation: <
+    TOperation extends AnyOperationDefinition,
+    TExecute extends AnyFunctionRef = AnyMutationRef,
+    TPreview extends AnyFunctionRef | undefined = undefined,
+  >(
+    operation: TOperation,
+    options: ToolFromOperationOptions<
+      TOperation,
+      TPrincipal,
+      TCapabilities,
+      TRuntime,
+      TExecute,
+      TPreview
+    >,
+  ) => McpToolDefinition
+}
+
 function defaultPrincipalKey(principal: unknown): string {
   if (principal === null || principal === undefined) return 'anonymous'
   if (
@@ -157,6 +226,61 @@ function capabilityAllows<TCapabilities extends ProjectionCapabilitySnapshot | n
   if (!capability) return true
   if (!capabilities) return false
   return capabilities[capability] === true
+}
+
+function toKebabCase(input: string): string {
+  return input
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/[_\s]+/g, '-')
+    .toLowerCase()
+}
+
+function splitFunctionPath(path: string): { moduleName: string; exportName: string } {
+  const separator = path.indexOf(':')
+  if (separator === -1) {
+    throw new Error(`Invalid Convex function path "${path}". Expected "module:export".`)
+  }
+
+  return {
+    moduleName: path.slice(0, separator),
+    exportName: path.slice(separator + 1),
+  }
+}
+
+function capitalize(input: string): string {
+  return input.length === 0 ? input : input[0]!.toUpperCase() + input.slice(1)
+}
+
+function assertOperationBinding(
+  operationName: string,
+  executeRef: AnyFunctionRef,
+  previewRef?: AnyFunctionRef,
+): void {
+  const executePath = getFunctionName(executeRef)
+  const executeTarget = splitFunctionPath(executePath)
+  if (executeTarget.exportName !== operationName) {
+    throw new Error(
+      `tool.fromOperation(${operationName}) expected execute ref "${operationName}" but received "${executePath}".`,
+    )
+  }
+
+  if (!previewRef) return
+
+  const previewPath = getFunctionName(previewRef)
+  const previewTarget = splitFunctionPath(previewPath)
+  const expectedPreviewExport = `preview${capitalize(operationName)}`
+
+  if (previewTarget.exportName !== expectedPreviewExport) {
+    throw new Error(
+      `tool.fromOperation(${operationName}) expected preview ref "${expectedPreviewExport}" but received "${previewPath}".`,
+    )
+  }
+
+  if (previewTarget.moduleName !== executeTarget.moduleName) {
+    throw new Error(
+      `tool.fromOperation(${operationName}) requires execute and preview refs from the same module. Received "${executePath}" and "${previewPath}".`,
+    )
+  }
 }
 
 async function callByOperation<TRef extends AnyFunctionRef>(
@@ -186,17 +310,16 @@ async function callByOperation<TRef extends AnyFunctionRef>(
 }
 
 /**
- * Build an MCP projection runtime over protected Convex refs.
+ * Build the Trellis MCP app surface over protected Convex refs.
  *
- * This is an advanced API. Use it when MCP should remain a protocol adapter
- * over your existing principal-first Trellis runtime rather than owning the
- * business authorization logic itself.
+ * This is the canonical agent-facing Trellis API. It keeps MCP as a transport
+ * over the same principal-first business runtime used by the rest of the app.
  */
-export function defineMcpRuntime<
+export function defineMcpApp<
   TPrincipal,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
   TRuntime = Record<string, never>,
->(options: DefineMcpRuntimeOptions<TPrincipal, TCapabilities, TRuntime>) {
+>(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TRuntime>) {
   const requestCache = new WeakMap<
     H3Event,
     Promise<ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>>
@@ -240,12 +363,12 @@ export function defineMcpRuntime<
     return await cached
   }
 
-  const projectTool = <
+  const tool = (<
     S extends AnyConvexSchema,
     TCall extends AnyFunctionRef = AnyMutationRef,
     TPreview extends AnyFunctionRef | undefined = undefined,
   >(
-    tool: ProjectToolOptions<S, TPrincipal, TCapabilities, TRuntime, TCall, TPreview>,
+    tool: ToolOptions<S, TPrincipal, TCapabilities, TRuntime, TCall, TPreview>,
   ): McpToolDefinition => {
     const operation = tool.operation ?? 'mutation'
     const previewOperation = tool.previewOperation ?? 'query'
@@ -379,11 +502,62 @@ export function defineMcpRuntime<
         return summary ? ctx.ok(mapped, summary) : mapped
       },
     })
+  }) as ToolFactory<TPrincipal, TCapabilities, TRuntime>
+
+  tool.fromOperation = <
+    TOperation extends AnyOperationDefinition,
+    TExecute extends AnyFunctionRef = AnyMutationRef,
+    TPreview extends AnyFunctionRef | undefined = undefined,
+  >(
+    operation: TOperation,
+    options: ToolFromOperationOptions<
+      TOperation,
+      TPrincipal,
+      TCapabilities,
+      TRuntime,
+      TExecute,
+      TPreview
+    >,
+  ): McpToolDefinition => {
+    const metadata = getOperationMetadata(operation)
+    if (!metadata.name) {
+      throw new Error('tool.fromOperation(...) requires an operation with a `name`.')
+    }
+
+    const isDestructive = metadata.kind === 'destructive'
+    if (isDestructive && !options.preview) {
+      throw new Error(
+        `tool.fromOperation(${metadata.name}) requires a preview ref for destructive operations.`,
+      )
+    }
+
+    assertOperationBinding(metadata.name, options.execute, options.preview)
+
+    const schema =
+      options.schema ??
+      defineArgs({
+        description: options.meta?.description,
+        args: operation.args,
+      })
+
+    return tool({
+      ...options,
+      schema,
+      call: options.execute,
+      operation: options.executeOperation ?? 'mutation',
+      preview: options.preview,
+      previewOperation: options.previewOperation ?? 'query',
+      meta: {
+        ...options.meta,
+        name: options.meta?.name ?? toKebabCase(metadata.name),
+        destructive: options.meta?.destructive ?? isDestructive,
+      },
+    })
   }
 
   return {
     resolve,
     callConvex: options.callConvex,
-    projectTool,
+    tool,
   }
 }

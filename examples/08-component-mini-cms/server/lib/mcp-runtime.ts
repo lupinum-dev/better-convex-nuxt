@@ -1,11 +1,11 @@
-import { defineMcpRuntime } from '@lupinum/trellis/mcp'
+import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 
 import type { MiniCmsPrincipal } from '~/shared/principal'
 
 import { getCapabilitiesForPrincipal, getMcpPrincipal, type CapabilitySnapshot } from './mcp-auth'
 
-export const mcpRuntime = defineMcpRuntime<MiniCmsPrincipal, CapabilitySnapshot>({
+export const mcpRuntime = defineMcpApp<MiniCmsPrincipal, CapabilitySnapshot>({
   callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => getCapabilitiesForPrincipal(principal),
@@ -21,4 +21,4 @@ export const mcpRuntime = defineMcpRuntime<MiniCmsPrincipal, CapabilitySnapshot>
   },
 })
 
-export const projectTool = mcpRuntime.projectTool
+export const tool = mcpRuntime.tool
