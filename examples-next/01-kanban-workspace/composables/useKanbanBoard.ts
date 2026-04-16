@@ -2,13 +2,13 @@ import { computed, ref, toValue, type MaybeRefOrGetter } from 'vue'
 
 import { api } from '#trellis/api'
 
-export async function useKanbanBoard(enabled: MaybeRefOrGetter<boolean>) {
+export function useKanbanBoard(enabled: MaybeRefOrGetter<boolean>) {
   const boardArgs = computed(() => (toValue(enabled) ? {} : undefined))
   const {
     data: boardView,
     pending,
     error,
-  } = await useConvexQuery(api.boards.getCurrentBoard, boardArgs)
+  } = useConvexQuery(api.boards.getCurrentBoard, boardArgs)
 
   const createCard = useConvexMutation(api.boards.createCard)
   const moveCard = useConvexMutation(api.boards.moveCard)
@@ -24,7 +24,7 @@ export async function useKanbanBoard(enabled: MaybeRefOrGetter<boolean>) {
     data: archivePreview,
     pending: archivePreviewPending,
     error: archivePreviewError,
-  } = await useConvexQuery(api.boards.previewArchiveBoard, previewArgs)
+  } = useConvexQuery(api.boards.previewArchiveBoard, previewArgs)
 
   async function addCard(input: { columnId: string; title: string }) {
     await createCard(input)

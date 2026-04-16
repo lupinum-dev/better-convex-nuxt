@@ -1,8 +1,13 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
+import type { DataModel } from '../_generated/dataModel'
+
 export type KanbanPrincipal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
+
+type PrincipalCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export const principal = definePrincipal({
   validator: v.union(
@@ -14,10 +19,9 @@ export const principal = definePrincipal({
       userId: v.string(),
     }),
   ),
-  resolve: async (ctx): Promise<KanbanPrincipal> => {
+  resolve: async (ctx: PrincipalCtx): Promise<KanbanPrincipal> => {
     const auth = await getAuth(ctx)
     if (!auth) return { kind: 'anonymous' }
     return { kind: 'user', userId: auth.subject }
   },
 })
-

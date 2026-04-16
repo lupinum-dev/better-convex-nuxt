@@ -1,11 +1,11 @@
 import { authenticated, open } from '@lupinum/trellis/auth'
 
 import { createWorkspaceArgs, joinWorkspaceArgs } from '../shared/schemas/kanban'
-import { app } from './functions'
+import { mutation, publicQuery, query } from './functions'
 
 const starterColumns = ['Inbox', 'Doing', 'Done']
 
-export const listWorkspaces = app.query({
+export const listWorkspaces = publicQuery({
   guard: open,
   args: {},
   handler: async (ctx) => {
@@ -14,7 +14,7 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const getSessionContext = app.query({
+export const getSessionContext = query({
   guard: authenticated,
   args: {},
   handler: async (ctx) => {
@@ -46,7 +46,7 @@ export const getSessionContext = app.query({
   },
 })
 
-export const createWorkspace = app.mutation({
+export const createWorkspace = mutation({
   guard: authenticated,
   args: createWorkspaceArgs.args,
   handler: async (ctx, args) => {
@@ -102,7 +102,7 @@ export const createWorkspace = app.mutation({
   },
 })
 
-export const joinWorkspace = app.mutation({
+export const joinWorkspace = mutation({
   guard: authenticated,
   args: joinWorkspaceArgs.args,
   handler: async (ctx, args) => {

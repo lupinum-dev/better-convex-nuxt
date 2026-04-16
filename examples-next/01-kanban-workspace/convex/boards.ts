@@ -3,14 +3,35 @@ import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
 import { archiveBoardArgs, createCardArgs, moveCardArgs } from '../shared/schemas/kanban'
-import type { Id } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
+import type { Actor } from './auth/actor'
 import {
   canArchiveBoard,
   canCreateCards,
   canMoveCards,
   canReadWorkspaceBoard,
 } from './auth/checks'
-import { app } from './functions'
+import type { KanbanPrincipal } from './auth/principal'
+import { mutation, query } from './functions'
+
+type BoardRecord = Doc<'boards'>
+type ColumnRecord = Doc<'columns'>
+type CardRecord = Doc<'cards'>
+
+type ArchiveBoardPreview = {
+  summary: string
+  warn: string
+  affects: {
+    columns: number
+    cards: number
+  }
+}
+
+type ArchiveBoardLoaded = {
+  board: BoardRecord
+  columns: ColumnRecord[]
+  cards: CardRecord[]
+}
 
 async function getCurrentBoardRecord(ctx: any, workspaceId: Id<'workspaces'>) {
   return await ctx.db
@@ -39,19 +60,20 @@ async function listColumnCards(ctx: any, columnId: Id<'columns'>, workspaceId: I
     .collect()
 }
 
-export const getCurrentBoard = app.query({
+export const getCurrentBoard = query({
   guard: canReadWorkspaceBoard,
   args: {},
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    if (!actor?.tenantId) throw new Error('Current actor is not assigned to a workspace.')
+    const workspaceId = actor?.tenantId
+    if (!workspaceId) throw new Error('Current actor is not assigned to a workspace.')
 
-    const workspace = await ctx.db.get(actor.tenantId)
+    const workspace = await ctx.db.get(workspaceId)
     requireRecord(workspace, 'Workspace')
 
-    const board = await getCurrentBoardRecord(ctx, actor.tenantId)
+    const board = await getCurrentBoardRecord(ctx, workspaceId)
     if (!board) return null
-    const columns = await listBoardColumns(ctx, board._id, actor.tenantId)
+    const columns = await listBoardColumns(ctx, board._id, workspaceId)
 
     return {
       workspace: {
@@ -70,11 +92,11 @@ export const getCurrentBoard = app.query({
         archiveBoard: ['owner', 'admin'].includes(actor.role),
       },
       columns: await Promise.all(
-        columns.map(async (column) => ({
+        columns.map(async (column: ColumnRecord) => ({
           _id: column._id,
           title: column.title,
           position: column.position,
-          cards: (await listColumnCards(ctx, column._id, actor.tenantId)).map((card) => ({
+          cards: (await listColumnCards(ctx, column._id, workspaceId)).map((card: CardRecord) => ({
             _id: card._id,
             title: card.title,
             position: card.position,
@@ -85,21 +107,23 @@ export const getCurrentBoard = app.query({
   },
 })
 
-export const createCard = app.mutation({
+export const createCard = mutation({
   guard: canCreateCards,
   args: createCardArgs.args,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    if (!actor?.tenantId) throw new Error('Current actor is not assigned to a workspace.')
+    const workspaceId = actor?.tenantId
+    if (!workspaceId) throw new Error('Current actor is not assigned to a workspace.')
 
     const column = await ctx.db.get(args.columnId)
     requireRecord(column, 'Column')
 
-    const existing = await listColumnCards(ctx, column._id, actor.tenantId)
-    const position = existing.length === 0 ? 0 : Math.max(...existing.map((card) => card.position)) + 1
+    const existing = await listColumnCards(ctx, column._id, workspaceId)
+    const position =
+      existing.length === 0 ? 0 : Math.max(...existing.map((card: CardRecord) => card.position)) + 1
 
     return await ctx.db.insert('cards', {
-      workspaceId: actor.tenantId,
+      workspaceId,
       boardId: column.boardId,
       columnId: column._id,
       title: args.title.trim(),
@@ -110,28 +134,31 @@ export const createCard = app.mutation({
   },
 })
 
-export const moveCard = app.mutation({
+export const moveCard = mutation({
   guard: canMoveCards,
   args: moveCardArgs.args,
   returns: v.null(),
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    if (!actor?.tenantId) throw new Error('Current actor is not assigned to a workspace.')
+    const workspaceId = actor?.tenantId
+    if (!workspaceId) throw new Error('Current actor is not assigned to a workspace.')
 
     const card = await ctx.db.get(args.id)
     requireRecord(card, 'Card')
 
-    const columns = await listBoardColumns(ctx, card.boardId, actor.tenantId)
-    const currentIndex = columns.findIndex((column) => column._id === card.columnId)
+    const columns = await listBoardColumns(ctx, card.boardId, workspaceId)
+    const currentIndex = columns.findIndex((column: ColumnRecord) => column._id === card.columnId)
     if (currentIndex === -1) throw new Error('Card column not found.')
 
     const nextIndex = args.direction === 'left' ? currentIndex - 1 : currentIndex + 1
     const targetColumn = columns[nextIndex]
     if (!targetColumn) return null
 
-    const targetCards = await listColumnCards(ctx, targetColumn._id, actor.tenantId)
+    const targetCards = await listColumnCards(ctx, targetColumn._id, workspaceId)
     const position =
-      targetCards.length === 0 ? 0 : Math.max(...targetCards.map((target) => target.position)) + 1
+      targetCards.length === 0
+        ? 0
+        : Math.max(...targetCards.map((target: CardRecord) => target.position)) + 1
 
     await ctx.db.patch(card._id, {
       columnId: targetColumn._id,
@@ -142,7 +169,16 @@ export const moveCard = app.mutation({
   },
 })
 
-const archiveBoardOp = defineOperation({
+const archiveBoardOp = defineOperation<
+  any,
+  KanbanPrincipal,
+  Actor,
+  typeof canArchiveBoard,
+  typeof archiveBoardArgs.args,
+  ArchiveBoardLoaded,
+  null,
+  ArchiveBoardPreview
+>({
   args: archiveBoardArgs.args,
   returns: v.null(),
   previewReturns: v.object({
@@ -190,5 +226,5 @@ const archiveBoardOp = defineOperation({
   },
 })
 
-export const archiveBoard = app.mutation(archiveBoardOp)
-export const previewArchiveBoard = app.query(previewOf(archiveBoardOp))
+export const archiveBoard = mutation(archiveBoardOp)
+export const previewArchiveBoard = query(previewOf(archiveBoardOp))

@@ -156,6 +156,12 @@ export interface CreateAppOptions<
   }
 }
 
+export type DefineTrellisOptions<
+  DataModel extends GenericDataModel,
+  TPrincipal = DefaultPrincipal,
+  TActor = DefaultActor,
+> = CreateAppOptions<DataModel, TPrincipal, TActor>
+
 function validateTenantIsolationOptions<DataModel extends GenericDataModel>(
   options: TenantIsolationOptions<DataModel> | undefined,
 ): void {
@@ -652,5 +658,53 @@ export function createApp<
           principal: resolvePrincipal(options.principal),
         },
       ),
+  }
+}
+
+/**
+ * vNext-facing wrapper over `createApp(...)`.
+ *
+ * It exposes the protected builders directly instead of nesting them under
+ * `app.query` / `app.mutation`, which matches the direction Trellis is moving
+ * toward without breaking the current runtime underneath.
+ *
+ * Today this is still powered by `createApp(...)`. The distinction between
+ * `query` and `publicQuery` remains semantic at the callsite; both route
+ * through the same protected structured builder and rely on the selected guard.
+ */
+export function defineTrellis<
+  DataModel extends GenericDataModel,
+  QueryVisibility extends FunctionVisibility,
+  MutationVisibility extends FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility = 'internal',
+  InternalMutationVisibility extends FunctionVisibility = 'internal',
+  TPrincipal = DefaultPrincipal,
+  TActor = DefaultActor,
+>(
+  builders: AppBuilders<
+    DataModel,
+    QueryVisibility,
+    MutationVisibility,
+    InternalQueryVisibility,
+    InternalMutationVisibility
+  >,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
+) {
+  const runtime = createApp(builders, options)
+
+  return {
+    query: runtime.app.query,
+    mutation: runtime.app.mutation,
+    publicQuery: runtime.app.query,
+    publicMutation: runtime.app.mutation,
+    ...(runtime.app.internal
+      ? {
+          internalQuery: runtime.app.internal.query,
+          internalMutation: runtime.app.internal.mutation,
+        }
+      : {}),
+    raw: runtime.raw,
+    app: runtime.app,
+    createComponentBridge: runtime.createComponentBridge,
   }
 }

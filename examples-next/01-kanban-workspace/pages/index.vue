@@ -180,7 +180,7 @@ const {
   archivePreviewPending,
   archivePreviewError,
   confirmArchive,
-} = await useKanbanBoard(computed(() => enabled.value && !!sessionContext.value?.workspace))
+} = useKanbanBoard(computed(() => enabled.value && !!sessionContext.value?.workspace))
 
 const ready = computed(() => enabled.value && !sessionPending.value)
 
@@ -221,4 +221,3 @@ async function handleJoinWorkspace() {
   await joinWorkspace(joinWorkspaceForm.value)
 }
 </script>
-

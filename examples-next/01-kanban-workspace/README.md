@@ -14,6 +14,20 @@ It stays intentionally plain in the UI:
 
 The point is to prove backend and runtime concepts, not styling.
 
+## vNext status
+
+This example now uses the **vNext-facing Trellis runtime shape**:
+
+- direct `query` / `mutation` exports from `defineTrellis(...)`
+- no `app.query(...)` / `app.mutation(...)` nesting in feature files
+- operations used as a first-class business seam
+
+One legacy Convex seam still remains:
+
+- `convex/functions.ts` still has to import generated builders from `./_generated/server`
+
+That is a real underlying constraint of the current runtime, not something this example should fake away.
+
 ## What this implementation covers
 
 - Better Auth sign up / sign in

@@ -711,7 +711,7 @@ async function prepareLocalModuleForDev({ spawnFn, stdout, stderr }) {
     cwd: REPO_ROOT,
     env: process.env,
     command: 'pnpm',
-    args: ['run', 'dev:prepare'],
+    args: ['run', 'prepare:examples'],
     stdout,
     stderr,
   })
