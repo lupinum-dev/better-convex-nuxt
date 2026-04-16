@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { createApp } from '../../src/runtime/functions'
+import { defineTrellis } from '../../src/runtime/functions'
 
-describe('createApp tenant isolation validation', () => {
+describe('defineTrellis tenant isolation validation', () => {
   it('rejects an empty tenantIsolation table list', () => {
     expect(() =>
-      createApp(
+      defineTrellis(
         { query: () => null as never, mutation: () => null as never },
         {
           tenantIsolation: {
@@ -18,7 +18,7 @@ describe('createApp tenant isolation validation', () => {
 
   it('rejects duplicate tenantIsolation tables', () => {
     expect(() =>
-      createApp(
+      defineTrellis(
         { query: () => null as never, mutation: () => null as never },
         {
           tenantIsolation: {
@@ -31,7 +31,7 @@ describe('createApp tenant isolation validation', () => {
 
   it('rejects a blank tenantIsolation field', () => {
     expect(() =>
-      createApp(
+      defineTrellis(
         { query: () => null as never, mutation: () => null as never },
         {
           tenantIsolation: {

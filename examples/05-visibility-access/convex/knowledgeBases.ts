@@ -2,9 +2,9 @@ import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { canCreateKB, canManageEnrollments, canReadKB } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
-export const list = app.query({
+export const list = query({
   guard: canReadKB,
   args: {},
   handler: async (ctx) => {
@@ -18,7 +18,7 @@ export const list = app.query({
   },
 })
 
-export const get = app.query({
+export const get = query({
   guard: canReadKB,
   args: { id: v.id('knowledgeBases') },
   load: async (ctx, args) => ({
@@ -29,7 +29,7 @@ export const get = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   guard: canCreateKB,
   args: { title: v.string() },
   handler: async (ctx, args) => {
@@ -47,7 +47,7 @@ export const create = app.mutation({
   },
 })
 
-export const publish = app.mutation({
+export const publish = mutation({
   guard: canCreateKB,
   args: { id: v.id('knowledgeBases') },
   load: async (ctx, args) => ({
@@ -59,7 +59,7 @@ export const publish = app.mutation({
   },
 })
 
-export const enroll = app.mutation({
+export const enroll = mutation({
   guard: canManageEnrollments,
   args: { knowledgeBaseId: v.id('knowledgeBases'), userId: v.string() },
   load: async (ctx, args) => ({
@@ -96,7 +96,7 @@ export const enroll = app.mutation({
   },
 })
 
-export const enrollByEmail = app.mutation({
+export const enrollByEmail = mutation({
   guard: canManageEnrollments,
   args: { knowledgeBaseId: v.id('knowledgeBases'), email: v.string() },
   load: async (ctx, args) => ({

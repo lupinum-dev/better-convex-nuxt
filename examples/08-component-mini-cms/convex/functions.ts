@@ -1,19 +1,22 @@
-import { createApp } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/functions'
 
-import { internalMutation, internalQuery, mutation, query } from './_generated/server'
+import {
+  internalMutation as generatedInternalMutation,
+  internalQuery as generatedInternalQuery,
+  mutation as generatedMutation,
+  query as generatedQuery,
+} from './_generated/server'
 import { getActorFromPrincipal, principal } from './auth/principal'
 
-export const { app, raw } = createApp(
+export const { internalMutation, internalQuery, mutation, query, raw } = defineTrellis(
   {
-    query,
-    mutation,
-    internalQuery,
-    internalMutation,
+    query: generatedQuery,
+    mutation: generatedMutation,
+    internalQuery: generatedInternalQuery,
+    internalMutation: generatedInternalMutation,
   },
   {
     principal,
     actor: getActorFromPrincipal,
   },
 )
-
-export { internalMutation, internalQuery, mutation, query }

@@ -7,7 +7,7 @@ import { createPost, deletePost, updatePost } from '../shared/schemas/post'
 import type { Id } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
 import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
 const listPostsArgs = defineArgs({
   args: {},
@@ -66,7 +66,7 @@ function denyTenantMismatch(actor: Actor, post: { organizationId: string }): nev
   )
 }
 
-export const list = app.query({
+export const list = query({
   args: listPostsArgs.args,
   guard: open,
   handler: async (ctx, _args) => {
@@ -85,7 +85,7 @@ export const list = app.query({
   },
 })
 
-export const get = app.query({
+export const get = query({
   args: getPostArgs.args,
   guard: open,
   handler: async (ctx, args) => {
@@ -100,7 +100,7 @@ export const get = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createPost.args,
   guard: canCreatePostActor,
   handler: async (ctx, args) => {
@@ -122,7 +122,7 @@ export const create = app.mutation({
   },
 })
 
-export const update = app.mutation({
+export const update = mutation({
   args: updatePost.args,
   guard: canManagePosts,
   handler: async (ctx, args) => {
@@ -148,7 +148,7 @@ export const update = app.mutation({
   },
 })
 
-export const remove = app.mutation({
+export const remove = mutation({
   args: deletePost.args,
   guard: canManagePosts,
   handler: async (ctx, args) => {
@@ -169,7 +169,7 @@ export const remove = app.mutation({
   },
 })
 
-export const publish = app.mutation({
+export const publish = mutation({
   args: { id: v.id('posts') },
   guard: canManagePosts,
   handler: async (ctx, args) => {

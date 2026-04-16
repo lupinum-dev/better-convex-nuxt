@@ -22,10 +22,10 @@ import {
   shareTokenPrefix,
 } from './auth/shareTokens'
 import { canAccessArticleOwner, getArticleOwnerScope } from './auth/visibility'
-import { app, query } from './functions'
+import { mutation, query, raw } from './functions'
 import { accessLevelValidator, visibilityValidator } from './schema'
 
-export const list = app.query({
+export const list = query({
   guard: canReadArticle,
   args: { knowledgeBaseId: v.id('knowledgeBases') },
   load: async (ctx, args) => ({
@@ -59,7 +59,7 @@ export const list = app.query({
   },
 })
 
-export const viewArticle = query({
+export const viewArticle = raw.query({
   args: { id: v.id('articles'), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
     if (args.shareToken) {
@@ -81,7 +81,7 @@ export const viewArticle = query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   guard: canCreateArticle,
   args: {
     knowledgeBaseId: v.id('knowledgeBases'),
@@ -122,7 +122,7 @@ export const create = app.mutation({
   },
 })
 
-export const publish = app.mutation({
+export const publish = mutation({
   guard: canCreateArticle,
   args: { id: v.id('articles') },
   load: async (ctx, args) => ({
@@ -134,7 +134,7 @@ export const publish = app.mutation({
   },
 })
 
-export const markCompleted = app.mutation({
+export const markCompleted = mutation({
   guard: canReadArticle,
   args: { articleId: v.id('articles') },
   load: async (ctx, args) => ({
@@ -167,7 +167,7 @@ export const markCompleted = app.mutation({
   },
 })
 
-export const createShareToken = app.mutation({
+export const createShareToken = mutation({
   guard: canCreateShareToken,
   args: {
     articleId: v.id('articles'),
@@ -197,7 +197,7 @@ export const createShareToken = app.mutation({
   },
 })
 
-export const revokeShareToken = app.mutation({
+export const revokeShareToken = mutation({
   guard: canCreateShareToken,
   args: { tokenId: v.id('shareTokens') },
   load: async (ctx, args) => ({
@@ -209,7 +209,7 @@ export const revokeShareToken = app.mutation({
   },
 })
 
-export const seedDemoArticles = app.mutation({
+export const seedDemoArticles = mutation({
   guard: canCreateArticle,
   args: { knowledgeBaseId: v.id('knowledgeBases') },
   load: async (ctx, args) => ({

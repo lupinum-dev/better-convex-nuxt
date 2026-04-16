@@ -1,8 +1,8 @@
 import { defineGuard } from '@lupinum/trellis/auth'
-import { createApp, definePrincipal } from '@lupinum/trellis/functions'
+import { definePrincipal, defineTrellis } from '@lupinum/trellis/functions'
 
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../../shared/principal'
-import { mutation, query } from './_generated/server'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 
 export type MiniCmsActor =
   | { kind: 'viewer' }
@@ -35,15 +35,13 @@ export const canManagePages = defineGuard<MiniCmsActor>(
   (actor) => actor.kind !== 'viewer',
 )
 
-export const { app } = createApp(
+export const { mutation, query } = defineTrellis(
   {
-    query,
-    mutation,
+    query: generatedQuery,
+    mutation: generatedMutation,
   },
   {
     principal,
     actor: getActorFromPrincipal,
   },
 )
-
-export { mutation, query }

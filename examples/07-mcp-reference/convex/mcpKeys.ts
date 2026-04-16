@@ -5,7 +5,7 @@ import { v } from 'convex/values'
 import { createMcpKey, revokeMcpKey } from '../shared/schemas/mcp-key'
 import type { DataModel, Doc } from './_generated/dataModel'
 import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
@@ -56,7 +56,7 @@ function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
   }
 }
 
-export const list = app.query({
+export const list = query({
   guard: canManageMcpKeys,
   args: {},
   handler: async (ctx) => {
@@ -74,7 +74,7 @@ export const list = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   guard: canManageMcpKeys,
   args: createMcpKey.args,
   handler: async (ctx, args) => {
@@ -101,7 +101,7 @@ export const create = app.mutation({
   },
 })
 
-export const revoke = app.mutation({
+export const revoke = mutation({
   guard: canManageMcpKeys,
   args: revokeMcpKey.args,
   handler: async (ctx, args) => {
@@ -128,7 +128,7 @@ export const revoke = app.mutation({
   },
 })
 
-export const validate = app.query({
+export const validate = query({
   guard: open,
   args: {
     hash: createMcpKey.args.hash,
@@ -153,7 +153,7 @@ export const validate = app.query({
   },
 })
 
-export const touch = app.mutation({
+export const touch = mutation({
   guard: open,
   args: {
     id: v.id('mcpKeys'),

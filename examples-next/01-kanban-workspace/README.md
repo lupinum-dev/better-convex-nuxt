@@ -19,7 +19,7 @@ The point is to prove backend and runtime concepts, not styling.
 This example now uses the **vNext-facing Trellis runtime shape**:
 
 - direct `query` / `mutation` exports from `defineTrellis(...)`
-- no `app.query(...)` / `app.mutation(...)` nesting in feature files
+- no nested `app` builder object in feature files
 - operations used as a first-class business seam
 
 One legacy Convex seam still remains:

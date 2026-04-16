@@ -114,16 +114,17 @@ export const isOwnerOf = (resource: { ownerId: string }) =>
 
 function personalFunctionsTemplate() {
   return `
-import { createApp } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/functions'
 
-import { mutation, query } from './_generated/server'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import { getActor } from './auth/actor'
 
-export const { app, raw } = createApp({ query, mutation }, {
-  actor: getActor,
-})
-
-export { query, mutation }
+export const { mutation, query, raw } = defineTrellis(
+  { query: generatedQuery, mutation: generatedMutation },
+  {
+    actor: getActor,
+  },
+)
 `.trimStart()
 }
 
@@ -133,9 +134,9 @@ import { definePermissionContext } from '@lupinum/trellis/auth'
 
 import { isAuthenticated } from './auth/checks'
 import { getActor } from './auth/actor'
-import { app } from './functions'
+import { query } from './functions'
 
-export const getPermissionContext = app.query(
+export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
     guards: {
@@ -285,23 +286,24 @@ export const principal = definePrincipal({
 
 function workspaceFunctionsTemplate() {
   return `
-import { createApp } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/functions'
 
-import { mutation, query } from './_generated/server'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import { getActorFromPrincipal } from './auth/actor'
 import { principal } from './auth/principal'
 
-export const { app, raw } = createApp({ query, mutation }, {
-  principal,
-  actor: getActorFromPrincipal,
-  // Add tenantIsolation only for tables that actually store the tenant field.
-  // Example:
-  // tenantIsolation: {
-  //   tables: ['todos'],
-  // },
-})
-
-export { query, mutation }
+export const { mutation, query, raw } = defineTrellis(
+  { query: generatedQuery, mutation: generatedMutation },
+  {
+    principal,
+    actor: getActorFromPrincipal,
+    // Add tenantIsolation only for tables that actually store the tenant field.
+    // Example:
+    // tenantIsolation: {
+    //   tables: ['todos'],
+    // },
+  },
+)
 `.trimStart()
 }
 
@@ -355,11 +357,11 @@ import { defineGuard, definePermissionContext } from '@lupinum/trellis/auth'
 
 import { getPermissionActor } from './auth/actor'
 import { hasMinimumRole, hasWorkspace, isAuthenticated } from './auth/checks'
-import { app } from './functions'
+import { query } from './functions'
 
 const canCreateTodo = defineGuard('todo.create', hasWorkspace.and(hasMinimumRole('member')))
 
-export const getPermissionContext = app.query(
+export const getPermissionContext = query(
   definePermissionContext({
     resolve: getPermissionActor,
     guards: {

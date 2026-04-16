@@ -115,7 +115,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
   it('uses tenant metadata from convex/functions.ts and flags bare collection reads only', async () => {
     const rootDir = createProjectFixture({
       'convex/functions.ts': `
-        export const { app, raw } = createApp({ query, mutation }, {
+        export const { query, raw } = defineTrellis({ query, mutation }, {
           tenantIsolation: {
             tables: ['tasks'],
             field: 'workspaceId',
@@ -150,7 +150,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [goodResult] = await eslint.lintText(
       `
-      export const listByProject = app.query({
+      export const listByProject = query({
         guard: open,
         args: {},
         handler: async (ctx, args) => {
@@ -177,7 +177,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const listPublic = app.query({
+      export const listPublic = query({
         guard: open,
         args: {},
         handler: async (ctx) => {
@@ -200,7 +200,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const listWorkspace = app.query({
+      export const listWorkspace = query({
         guard: canReadWorkspaceRunbook,
         args: {},
         handler: async (ctx) => {

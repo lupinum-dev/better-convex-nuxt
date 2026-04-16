@@ -5,7 +5,7 @@ import type { Id } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
 import { canInviteMembers } from './auth/checks'
 import { loadResource } from './auth/scope'
-import { app, mutation, query } from './functions'
+import { mutation, query, raw } from './functions'
 
 const canListMcpKeys = defineGuard<Actor>('mcp-key.list', (actor) => actor !== null)
 const canManageMcpKeys = defineGuard<Actor>(
@@ -22,7 +22,7 @@ function generateKey(): string {
   return result
 }
 
-export const list = app.query({
+export const list = query({
   args: {},
   guard: canListMcpKeys,
   handler: async (ctx) => {
@@ -39,7 +39,7 @@ export const list = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: {
     name: v.string(),
     role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
@@ -67,7 +67,7 @@ export const create = app.mutation({
   },
 })
 
-export const revoke = app.mutation({
+export const revoke = mutation({
   args: { id: v.id('mcpKeys') },
   guard: canManageMcpKeys,
   handler: async (ctx, args) => {
@@ -82,7 +82,7 @@ export const revoke = app.mutation({
   },
 })
 
-export const validate = query({
+export const validate = raw.query({
   args: { key: v.string() },
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
@@ -100,7 +100,7 @@ export const validate = query({
   },
 })
 
-export const touch = mutation({
+export const touch = raw.mutation({
   args: { key: v.string() },
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db

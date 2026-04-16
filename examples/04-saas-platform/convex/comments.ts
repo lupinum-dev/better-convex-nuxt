@@ -3,9 +3,9 @@ import { v } from 'convex/values'
 
 import { createComment } from '../shared/schemas/comment'
 import { canComment, requireWorkspaceTenant } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
-export const listByTask = app.query({
+export const listByTask = query({
   args: { taskId: v.id('tasks') },
   guard: canComment,
   handler: async (ctx, args) => {
@@ -21,7 +21,7 @@ export const listByTask = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createComment.args,
   guard: canComment,
   handler: async (ctx, args) => {

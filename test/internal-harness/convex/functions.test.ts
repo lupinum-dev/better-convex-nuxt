@@ -6,7 +6,7 @@ import schema from './schema'
 import { setupTestWithMultipleUsers, setupTestWithTwoOrgs } from './test.helpers'
 import { modules } from './test.setup'
 
-describe('createApp', () => {
+describe('defineTrellis', () => {
   it('does not resolve the actor when a handler never calls ctx.actor()', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})

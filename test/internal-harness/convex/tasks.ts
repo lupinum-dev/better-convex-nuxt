@@ -2,11 +2,11 @@ import { defineGuard } from '@lupinum/trellis/auth'
 
 import { addTask } from '../shared/schemas/task'
 import type { Actor } from './auth/actor'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
 const canAddTask = defineGuard<Actor>('task.add', (actor) => actor !== null)
 
-export const add = app.mutation({
+export const add = mutation({
   args: addTask.args,
   guard: canAddTask,
   handler: async (ctx, args) => {

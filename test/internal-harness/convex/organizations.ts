@@ -3,7 +3,7 @@ import { defineGuard, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Actor } from './auth/actor'
-import { app } from './functions'
+import { mutation, query } from './functions'
 import { getUserRowFromActor } from './lib/user_row'
 
 const createOrganizationArgs = defineArgs({
@@ -15,7 +15,7 @@ const createOrganizationArgs = defineArgs({
 
 const canCreateOrganization = defineGuard<Actor>('Create organization', (actor) => actor !== null)
 
-export const list = app.query({
+export const list = query({
   args: {},
   guard: open,
   handler: async (ctx) => {
@@ -23,7 +23,7 @@ export const list = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createOrganizationArgs.args,
   guard: canCreateOrganization,
   handler: async (ctx, args) => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { defineTrellis } from '../../src/runtime/functions'
 
 describe('defineTrellis', () => {
-  it('exposes direct builder aliases over createApp', () => {
+  it('exposes direct protected builders and raw escape hatches', () => {
     const builder = () => null as never
 
     const runtime = defineTrellis({
@@ -17,6 +17,7 @@ describe('defineTrellis', () => {
     expect(runtime.publicMutation).toBe(runtime.mutation)
     expect(runtime.raw.query).toBeTypeOf('function')
     expect(runtime.raw.mutation).toBeTypeOf('function')
+    expect(runtime).not.toHaveProperty('app')
   })
 
   it('forwards internal builders when provided', () => {

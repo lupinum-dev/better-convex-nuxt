@@ -19,13 +19,13 @@ import {
   requireWorkspaceTenant,
 } from './auth/checks'
 import { getUsage } from './auth/limits'
-import { app } from './functions'
+import { mutation, query } from './functions'
 import { planValidator } from './schema'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 type Actor = NonNullable<Awaited<ReturnType<typeof getActor>>>
 
-export const listWorkspaces = app.query({
+export const listWorkspaces = query({
   args: {},
   guard: open,
   handler: async (ctx) => {
@@ -35,7 +35,7 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const getPermissionContext = app.query(
+export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
     guards: {
@@ -85,7 +85,7 @@ export const getPermissionContext = app.query(
   }),
 )
 
-export const createWorkspace = app.mutation({
+export const createWorkspace = mutation({
   args: {
     name: v.string(),
     slug: v.string(),
@@ -128,7 +128,7 @@ export const createWorkspace = app.mutation({
   },
 })
 
-export const joinWorkspace = app.mutation({
+export const joinWorkspace = mutation({
   args: {
     slug: v.string(),
     role: joinRoleValidator,
@@ -161,7 +161,7 @@ export const joinWorkspace = app.mutation({
   },
 })
 
-export const upgradePlan = app.mutation({
+export const upgradePlan = mutation({
   args: {
     plan: planValidator,
   },

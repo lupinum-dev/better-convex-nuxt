@@ -1,8 +1,11 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
-import type { Doc } from '../_generated/dataModel'
+import type { DataModel, Doc } from '../_generated/dataModel'
+
+type PrincipalCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
 export type Role = Doc<'users'>['role']
 
@@ -20,7 +23,7 @@ export const projectBoardPrincipalValidator = v.union(
   }),
 )
 
-export const principal = definePrincipal({
+export const principal = definePrincipal<PrincipalCtx, ProjectBoardPrincipal>({
   validator: projectBoardPrincipalValidator,
   resolve: async (ctx, args): Promise<ProjectBoardPrincipal> => {
     const forwarded = (args as { principal?: ProjectBoardPrincipal }).principal

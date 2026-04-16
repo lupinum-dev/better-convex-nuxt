@@ -5,12 +5,12 @@ import { mcpReferencePermissionKeys, type McpReferencePermissionMap } from '../s
 import type { Actor } from './auth/actor'
 import { getPermissionActor } from './auth/actor'
 import { canCreateRunbook, canManageMcpKeys, canReadWorkspaceRunbook } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 type PermissionActor = NonNullable<Awaited<ReturnType<typeof getPermissionActor>>>
 
-export const listWorkspaces = app.query({
+export const listWorkspaces = query({
   guard: open,
   args: {},
   handler: async (ctx) => {
@@ -20,7 +20,7 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const getPermissionContext = app.query(
+export const getPermissionContext = query(
   definePermissionContext({
     resolve: getPermissionActor,
     guards: {
@@ -45,7 +45,7 @@ export const getPermissionContext = app.query(
   }),
 )
 
-export const createWorkspace = app.mutation({
+export const createWorkspace = mutation({
   guard: authenticated,
   args: {
     name: v.string(),
@@ -108,7 +108,7 @@ export const createWorkspace = app.mutation({
       ].join('\n'),
       visibility: 'workspace',
       tags: ['incident', 'ops'],
-      ownerId: identity.subject,
+      ownerId: principal.userId,
       workspaceId: tenantId,
       createdAt: now,
       updatedAt: now,
@@ -124,7 +124,7 @@ export const createWorkspace = app.mutation({
   },
 })
 
-export const joinWorkspace = app.mutation({
+export const joinWorkspace = mutation({
   guard: authenticated,
   args: {
     slug: v.string(),

@@ -12,12 +12,12 @@ import {
   studioPageValidator,
 } from '../shared/schemas/page'
 import { components } from './_generated/api'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
 const publishedPageListValidator = v.array(publishedPageValidator)
 const studioPageListValidator = v.array(studioPageValidator)
 
-export const listPublished = app.query({
+export const listPublished = query({
   args: listPublishedPagesSchema.args,
   returns: publishedPageListValidator,
   guard: open,
@@ -27,7 +27,7 @@ export const listPublished = app.query({
     }),
 })
 
-export const getPublished = app.query({
+export const getPublished = query({
   args: getPublishedPageSchema.args,
   returns: v.union(publishedPageValidator, v.null()),
   guard: open,
@@ -38,7 +38,7 @@ export const getPublished = app.query({
     }),
 })
 
-export const listStudio = app.query({
+export const listStudio = query({
   args: listStudioPagesSchema.args,
   returns: studioPageListValidator,
   guard: open,
@@ -48,7 +48,7 @@ export const listStudio = app.query({
     }),
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createPageSchema.args,
   returns: v.string(),
   guard: open,
@@ -59,7 +59,7 @@ export const create = app.mutation({
     }),
 })
 
-export const save = app.mutation({
+export const save = mutation({
   args: saveDraftSchema.args,
   returns: v.null(),
   guard: open,
@@ -70,7 +70,7 @@ export const save = app.mutation({
     }),
 })
 
-export const publish = app.mutation({
+export const publish = mutation({
   args: publishPageSchema.args,
   returns: v.object({
     pageId: v.string(),

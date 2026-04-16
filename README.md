@@ -50,7 +50,7 @@ See [Runtime Contracts](./CONTRACTS.md) for the repo's canonical conventions.
 - Route protection and auth middleware
 - File uploads with progress tracking and queue management
 - Permission system with guards, actors, capabilities, and `_can`
-- Protected backend runtime with `createApp(...)` — guards and authorization built into every handler
+- Protected backend runtime with `defineTrellis(...)` — guards and authorization built into every handler
 - `defineOperation(...)` and `previewOf(...)` for reusable protected business definitions
 - `createComponentBridge(...)` for forwarding identity into Convex components
 - `defineMcpRuntime(...)` and `projectTool(...)` for exposing business logic to AI agents
@@ -111,7 +111,7 @@ async function signInWithGitHub() {
 
 ```ts
 // convex/todos.ts
-export const create = app.mutation({
+export const create = mutation({
   args: createTodo.args,
   guard: canCreateTodo,
   handler: async (ctx, args) => {

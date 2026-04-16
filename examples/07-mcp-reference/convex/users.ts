@@ -1,9 +1,9 @@
 import { open } from '@lupinum/trellis/auth'
 
 import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
-export const getCurrentUser = app.query({
+export const getCurrentUser = query({
   guard: open,
   args: {},
   handler: async (ctx) => {
@@ -17,7 +17,7 @@ export const getCurrentUser = app.query({
   },
 })
 
-export const listWorkspaceUsersForMcpKeys = app.query({
+export const listWorkspaceUsersForMcpKeys = query({
   guard: canManageMcpKeys,
   args: {},
   handler: async (ctx) => {

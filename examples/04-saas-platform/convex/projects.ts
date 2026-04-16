@@ -11,9 +11,9 @@ import {
   requireWorkspaceTenant,
 } from './auth/checks'
 import { ensureWithinLimit } from './auth/limits'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
-export const list = app.query({
+export const list = query({
   args: { paginationOpts: paginationOptsValidator },
   guard: canReadProject,
   handler: async (ctx, args) => {
@@ -28,7 +28,7 @@ export const list = app.query({
   },
 })
 
-export const get = app.query({
+export const get = query({
   args: { id: v.id('projects') },
   guard: canReadProject,
   handler: async (ctx, args) => {
@@ -39,7 +39,7 @@ export const get = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createProject.args,
   guard: canCreateProject,
   handler: async (ctx, args) => {
@@ -72,7 +72,7 @@ export const create = app.mutation({
   },
 })
 
-export const archive = app.mutation({
+export const archive = mutation({
   args: archiveProject.args,
   guard: canArchiveProject,
   handler: async (ctx, args) => {
@@ -101,7 +101,7 @@ export const archive = app.mutation({
   },
 })
 
-export const exportProjects = app.query({
+export const exportProjects = query({
   args: {},
   guard: open,
   handler: async (ctx) => {

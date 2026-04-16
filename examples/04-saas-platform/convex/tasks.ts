@@ -20,9 +20,9 @@ import {
   hasWorkspace,
   requireWorkspaceTenant,
 } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
-export const listByProject = app.query({
+export const listByProject = query({
   args: { projectId: v.id('projects') },
   guard: canReadTask,
   handler: async (ctx, args) => {
@@ -40,7 +40,7 @@ export const listByProject = app.query({
   },
 })
 
-export const get = app.query({
+export const get = query({
   args: { id: v.id('tasks') },
   guard: canReadTask,
   handler: async (ctx, args) => {
@@ -52,7 +52,7 @@ export const get = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createTask.args,
   guard: canCreateTask,
   handler: async (ctx, args) => {
@@ -91,7 +91,7 @@ export const create = app.mutation({
   },
 })
 
-export const moveToColumn = app.mutation({
+export const moveToColumn = mutation({
   args: moveTask.args,
   guard: canReadTask,
   handler: async (ctx, args) => {
@@ -115,7 +115,7 @@ export const moveToColumn = app.mutation({
   },
 })
 
-export const assign = app.mutation({
+export const assign = mutation({
   args: assignTask.args,
   guard: canAssignTask,
   handler: async (ctx, args) => {
@@ -149,7 +149,7 @@ export const assign = app.mutation({
   },
 })
 
-export const bulkUpdateStatus = app.mutation({
+export const bulkUpdateStatus = mutation({
   args: {
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
@@ -193,7 +193,7 @@ export const bulkUpdateStatus = app.mutation({
   },
 })
 
-export const remove = app.mutation({
+export const remove = mutation({
   args: { id: v.id('tasks') },
   guard: canReadTask,
   handler: async (ctx, args) => {
@@ -223,7 +223,7 @@ export const remove = app.mutation({
   },
 })
 
-export const listForExport = app.query({
+export const listForExport = query({
   args: { projectId: v.id('projects') },
   guard: canReadTask,
   handler: async (ctx, args) => {

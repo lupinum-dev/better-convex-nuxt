@@ -4,14 +4,14 @@ import { createTodo, deleteTodo, listTodos, setTodoCompleted } from '../shared/s
 import type { Id } from './_generated/dataModel'
 import { todoCapabilities } from './auth/capabilities'
 import { canCreateTodo, canDeleteTodo, canReadTodo, canUpdateTodo } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
 function requireWorkspaceTenant(actor: { tenantId?: Id<'workspaces'> | null }) {
   if (!actor.tenantId) throw new Error('Current actor is not assigned to a workspace.')
   return actor.tenantId
 }
 
-export const list = app.query({
+export const list = query({
   args: listTodos.args,
   guard: canReadTodo,
   handler: async (ctx) => {
@@ -27,7 +27,7 @@ export const list = app.query({
   },
 })
 
-export const get = app.query({
+export const get = query({
   args: deleteTodo.args,
   guard: canReadTodo,
   load: async (ctx, args) => {
@@ -40,7 +40,7 @@ export const get = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createTodo.args,
   guard: canCreateTodo,
   handler: async (ctx, args) => {
@@ -57,7 +57,7 @@ export const create = app.mutation({
   },
 })
 
-export const setCompleted = app.mutation({
+export const setCompleted = mutation({
   args: setTodoCompleted.args,
   // Entry gate: actor can see todos. authorize below checks update rights on this specific todo.
   guard: canReadTodo,
@@ -76,7 +76,7 @@ export const setCompleted = app.mutation({
   },
 })
 
-export const remove = app.mutation({
+export const remove = mutation({
   args: deleteTodo.args,
   // Entry gate: actor can see todos. authorize below checks delete rights on this specific todo.
   guard: canReadTodo,
@@ -93,7 +93,7 @@ export const remove = app.mutation({
   },
 })
 
-export const previewRemove = app.query({
+export const previewRemove = query({
   args: deleteTodo.args,
   guard: canReadTodo,
   load: async (ctx, args) => {

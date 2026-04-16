@@ -2,9 +2,9 @@ import { enforce } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { canViewAudit, requireWorkspaceTenant } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
-export const stats = app.query({
+export const stats = query({
   args: {},
   guard: canViewAudit,
   handler: async (ctx) => {
@@ -30,7 +30,7 @@ export const stats = app.query({
   },
 })
 
-export const recentActivity = app.query({
+export const recentActivity = query({
   args: { limit: v.optional(v.number()) },
   guard: canViewAudit,
   handler: async (ctx, args) => {

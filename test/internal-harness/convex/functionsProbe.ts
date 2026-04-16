@@ -1,12 +1,12 @@
 import { defineGuard, open } from '@lupinum/trellis/auth'
-import { createApp } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/functions'
 import type { FunctionsCtxExtension } from '@lupinum/trellis/functions'
 import { Triggers } from 'convex-helpers/server/triggers'
 import type { GenericMutationCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import type { DataModel } from './_generated/dataModel'
-import { mutation, query } from './_generated/server'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import type { Actor } from './auth/actor'
 import { getActorFromPrincipal } from './auth/actor'
 import type { InternalHarnessPrincipal } from './auth/principal'
@@ -24,7 +24,7 @@ triggers.register('notes', async (ctx, change) => {
   await ctx.db.patch(change.id, { title: 'triggered' })
 })
 
-const { app: structured, raw } = createApp<
+const { mutation, query, raw } = defineTrellis<
   DataModel,
   'public',
   'public',
@@ -33,7 +33,7 @@ const { app: structured, raw } = createApp<
   InternalHarnessPrincipal,
   Actor
 >(
-  { query, mutation },
+  { query: generatedQuery, mutation: generatedMutation },
   {
     principal,
     actor: async (ctx, args, resolvedPrincipal) => {
@@ -58,7 +58,7 @@ export const publicWithoutActor = raw.query({
   }),
 })
 
-export const structuredPublicActorEcho = structured.query({
+export const structuredPublicActorEcho = query({
   args: {},
   guard: open,
   handler: async (ctx) => ({
@@ -66,7 +66,7 @@ export const structuredPublicActorEcho = structured.query({
   }),
 })
 
-export const structuredPostOwner = structured.query({
+export const structuredPostOwner = query({
   args: {
     id: v.id('posts'),
   },
@@ -84,7 +84,7 @@ export const structuredPostOwner = structured.query({
   }),
 })
 
-export const resetActorResolverCalls = mutation({
+export const resetActorResolverCalls = raw.mutation({
   args: {},
   handler: async () => {
     actorResolverCalls = 0
@@ -156,7 +156,7 @@ export const createTriggeredNote = raw.mutation({
   },
 })
 
-export const getNote = query({
+export const getNote = raw.query({
   args: {
     id: v.id('notes'),
   },

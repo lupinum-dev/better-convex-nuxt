@@ -3,9 +3,9 @@ import { v } from 'convex/values'
 import { createTodo } from '../shared/schemas/todo'
 import { isAuthenticated } from './auth/checks'
 import { loadOwnedResource } from './auth/scope'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
-export const list = app.query({
+export const list = query({
   args: {},
   guard: isAuthenticated,
   handler: async (ctx) => {
@@ -21,7 +21,7 @@ export const list = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createTodo.args,
   guard: isAuthenticated,
   handler: async (ctx, args) => {
@@ -37,7 +37,7 @@ export const create = app.mutation({
   },
 })
 
-export const toggle = app.mutation({
+export const toggle = mutation({
   args: { id: v.id('todos') },
   guard: isAuthenticated,
   load: async (ctx, args) => {
@@ -52,7 +52,7 @@ export const toggle = app.mutation({
   },
 })
 
-export const remove = app.mutation({
+export const remove = mutation({
   args: { id: v.id('todos') },
   guard: isAuthenticated,
   load: async (ctx, args) => {

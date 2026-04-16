@@ -126,7 +126,7 @@ type AppBuilders<
   internalMutation?: MutationBuilder<DataModel, InternalMutationVisibility>
 }
 
-export interface CreateAppOptions<
+export interface DefineTrellisOptions<
   DataModel extends GenericDataModel,
   TPrincipal = DefaultPrincipal,
   TActor = DefaultActor,
@@ -155,12 +155,6 @@ export interface CreateAppOptions<
     ) => Promise<void> | void
   }
 }
-
-export type DefineTrellisOptions<
-  DataModel extends GenericDataModel,
-  TPrincipal = DefaultPrincipal,
-  TActor = DefaultActor,
-> = CreateAppOptions<DataModel, TPrincipal, TActor>
 
 function validateTenantIsolationOptions<DataModel extends GenericDataModel>(
   options: TenantIsolationOptions<DataModel> | undefined,
@@ -273,7 +267,7 @@ function mergeRules<Ctx, DataModel extends GenericDataModel>(
 
 async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
   ctx: AnyCtxWithRuntime<DataModel, TPrincipal, TActor>,
-  options: CreateAppOptions<DataModel, TPrincipal, TActor>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
 ): Promise<Rules<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, DataModel> | null> {
   const tenantRules = buildTenantIsolationRules<DataModel, TPrincipal, TActor>(
     options.tenantIsolation,
@@ -430,7 +424,7 @@ function createOnSuccessHandler<Ctx>(
 }
 
 function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  options: CreateAppOptions<DataModel, TPrincipal, TActor>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
 ): Customization<
   GenericQueryCtx<DataModel>,
   PropertyValidators,
@@ -466,7 +460,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
 }
 
 function createMutationCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  options: CreateAppOptions<DataModel, TPrincipal, TActor>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
 ): Customization<
   GenericMutationCtx<DataModel>,
   PropertyValidators,
@@ -525,13 +519,13 @@ function buildRawFunctions<
     InternalQueryVisibility,
     InternalMutationVisibility
   >,
-  options: CreateAppOptions<DataModel, TPrincipal, TActor> = {},
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
 ) {
   validateTenantIsolationOptions(options.tenantIsolation)
 
   if (!!builders.internalQuery !== !!builders.internalMutation) {
     throw new Error(
-      'createApp(...) requires both internalQuery and internalMutation when either internal builder is provided.',
+      'defineTrellis(...) requires both internalQuery and internalMutation when either internal builder is provided.',
     )
   }
 
@@ -552,18 +546,7 @@ function buildRawFunctions<
   }
 }
 
-/**
- * Build the protected Trellis backend runtime for a principal-first app.
- *
- * This is an advanced API. Use it when your Convex backend owns a real actor
- * and permission model and you want one canonical seam for protected queries,
- * mutations, and optional internal automation refs.
- *
- * Ordinary Nuxt app code should start with the module, composables, auth, and
- * server helpers first. Reach for `createApp(...)` once you are defining the
- * backend runtime contract itself.
- */
-export function createApp<
+function buildTrellisRuntime<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
   MutationVisibility extends FunctionVisibility,
@@ -579,7 +562,7 @@ export function createApp<
     InternalQueryVisibility,
     InternalMutationVisibility
   >,
-  options: CreateAppOptions<DataModel, TPrincipal, TActor> = {},
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
 ) {
   const raw = buildRawFunctions(builders, options)
   const app = buildStructuredFunctions<
@@ -662,15 +645,10 @@ export function createApp<
 }
 
 /**
- * vNext-facing wrapper over `createApp(...)`.
+ * Build the protected Trellis backend runtime for a principal-first app.
  *
- * It exposes the protected builders directly instead of nesting them under
- * `app.query` / `app.mutation`, which matches the direction Trellis is moving
- * toward without breaking the current runtime underneath.
- *
- * Today this is still powered by `createApp(...)`. The distinction between
- * `query` and `publicQuery` remains semantic at the callsite; both route
- * through the same protected structured builder and rely on the selected guard.
+ * This is the canonical backend seam for Trellis apps. It exposes the protected
+ * builders directly and keeps raw Convex builders as an explicit escape hatch.
  */
 export function defineTrellis<
   DataModel extends GenericDataModel,
@@ -690,7 +668,7 @@ export function defineTrellis<
   >,
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
 ) {
-  const runtime = createApp(builders, options)
+  const runtime = buildTrellisRuntime(builders, options)
 
   return {
     query: runtime.app.query,
@@ -704,7 +682,6 @@ export function defineTrellis<
         }
       : {}),
     raw: runtime.raw,
-    app: runtime.app,
     createComponentBridge: runtime.createComponentBridge,
   }
 }

@@ -84,7 +84,7 @@ export function extractTrustedCallerFromArgs(
   }
 
   // Resolution order:
-  // 1. Explicit override (passed via createApp options)
+  // 1. Explicit override (passed via defineTrellis options)
   // 2. _trustedCallerExpectedKey arg (injected by root-app bridge into component calls,
   //    since Convex components cannot access process.env)
   // 3. process.env (works in root-app functions)

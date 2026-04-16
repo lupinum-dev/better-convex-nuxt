@@ -16,7 +16,7 @@ import {
   canReadPost,
   canViewBilling,
 } from './auth/checks'
-import { app } from './functions'
+import { query } from './functions'
 
 export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
   { components, internal, mutation, authConfig },
@@ -87,7 +87,7 @@ interface DebugInfo {
   context?: Record<string, unknown>
 }
 
-export const getPermissionContext = app.query({
+export const getPermissionContext = query({
   args: {},
   guard: open,
   handler: async (ctx) => {

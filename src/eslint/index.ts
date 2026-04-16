@@ -801,7 +801,7 @@ const rules: Record<string, RuleModule> = {
       schema: [],
       messages: {
         prefer:
-          'Prefer `app.query(...)` / `app.mutation(...)` over `raw.query(...)` / `raw.mutation(...)` unless the file is an intentional escape hatch.',
+          'Prefer `query(...)` / `mutation(...)` over `raw.query(...)` / `raw.mutation(...)` unless the file is an intentional escape hatch.',
       },
     },
     (context) => ({

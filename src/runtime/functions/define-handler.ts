@@ -120,7 +120,9 @@ function resolvePrincipalAccessor<TCtx extends object, TPrincipal>(
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    throw new Error('Context is missing principal() accessor. Use createApp(...) or provide principal() in tests.')
+    throw new Error(
+      'Context is missing principal() accessor. Use defineTrellis(...) or provide principal() in tests.',
+    )
   }
 
   return async () => null as TPrincipal

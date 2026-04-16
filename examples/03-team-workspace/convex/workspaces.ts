@@ -4,11 +4,11 @@ import { v } from 'convex/values'
 import { teamWorkspacePermissionKeys, type TeamWorkspacePermissionMap } from '../shared/permissions'
 import { getActor } from './auth/actor'
 import { canCreateTodo, canReadTodo } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
 
-export const listWorkspaces = app.query({
+export const listWorkspaces = query({
   guard: open,
   args: {},
   handler: async (ctx) => {
@@ -18,7 +18,7 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const getPermissionContext = app.query(
+export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
     guards: {
@@ -46,7 +46,7 @@ export const getPermissionContext = app.query(
   }),
 )
 
-export const createWorkspace = app.mutation({
+export const createWorkspace = mutation({
   guard: authenticated,
   args: {
     name: v.string(),
@@ -88,7 +88,7 @@ export const createWorkspace = app.mutation({
   },
 })
 
-export const joinWorkspace = app.mutation({
+export const joinWorkspace = mutation({
   guard: authenticated,
   args: {
     slug: v.string(),

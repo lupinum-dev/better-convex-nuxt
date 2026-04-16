@@ -14,8 +14,9 @@ import {
   saveDraft as saveDraftSchema,
   studioPageValidator,
 } from '../../../shared/schemas/page'
+import type { MiniCmsPrincipal } from '../../../shared/principal'
 import type { Doc, Id } from './_generated/dataModel'
-import { app, canManagePages, type MiniCmsActor } from './functions'
+import { canManagePages, mutation, query, type MiniCmsActor } from './functions'
 
 function toPublishedPage(page: {
   _id: Id<'pages'>
@@ -65,6 +66,7 @@ function toStudioPage(page: {
 
 const publishPageOp = defineOperation<
   any,
+  MiniCmsPrincipal,
   MiniCmsActor,
   typeof canManagePages,
   typeof publishPageSchema.args,
@@ -108,7 +110,7 @@ const publishPageOp = defineOperation<
   },
 })
 
-export const listPublishedPages = app.query({
+export const listPublishedPages = query({
   args: listPublishedPagesSchema.args,
   returns: v.array(publishedPageValidator),
   guard: open,
@@ -123,7 +125,7 @@ export const listPublishedPages = app.query({
   },
 })
 
-export const getPublishedPage = app.query({
+export const getPublishedPage = query({
   args: getPublishedPageSchema.args,
   returns: v.union(publishedPageValidator, v.null()),
   guard: open,
@@ -138,7 +140,7 @@ export const getPublishedPage = app.query({
   },
 })
 
-export const listStudioPages = app.query({
+export const listStudioPages = query({
   args: listStudioPagesSchema.args,
   returns: v.array(studioPageValidator),
   guard: canManagePages,
@@ -148,7 +150,7 @@ export const listStudioPages = app.query({
   },
 })
 
-export const listDraftPages = app.query({
+export const listDraftPages = query({
   args: listDraftPagesSchema.args,
   returns: v.array(studioPageValidator),
   guard: canManagePages,
@@ -163,7 +165,7 @@ export const listDraftPages = app.query({
   },
 })
 
-export const createPage = app.mutation({
+export const createPage = mutation({
   args: createPageSchema.args,
   returns: v.string(),
   guard: canManagePages,
@@ -191,7 +193,7 @@ export const createPage = app.mutation({
   },
 })
 
-export const saveDraft = app.mutation({
+export const saveDraft = mutation({
   args: saveDraftSchema.args,
   returns: v.null(),
   guard: canManagePages,
@@ -206,6 +208,6 @@ export const saveDraft = app.mutation({
   },
 })
 
-export const publishPage = app.mutation(publishPageOp)
+export const publishPage = mutation(publishPageOp)
 
-export const previewPublishPage = app.query(previewOf(publishPageOp))
+export const previewPublishPage = query(previewOf(publishPageOp))

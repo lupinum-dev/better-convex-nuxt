@@ -1,13 +1,13 @@
-import { createApp } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/functions'
 
 import type { DataModel } from './_generated/dataModel'
-import { mutation, query } from './_generated/server'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import type { Actor } from './auth/actor'
 import { getActorFromPrincipal } from './auth/actor'
 import type { InternalHarnessPrincipal } from './auth/principal'
 import { principal } from './auth/principal'
 
-export const { app, raw } = createApp<
+export const { mutation, query, raw } = defineTrellis<
   DataModel,
   'public',
   'public',
@@ -16,7 +16,7 @@ export const { app, raw } = createApp<
   InternalHarnessPrincipal,
   Actor
 >(
-  { query, mutation },
+  { query: generatedQuery, mutation: generatedMutation },
   {
     principal,
     actor: getActorFromPrincipal,
@@ -26,5 +26,3 @@ export const { app, raw } = createApp<
     },
   },
 )
-
-export { query, mutation }

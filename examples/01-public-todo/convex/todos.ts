@@ -1,13 +1,16 @@
 import { open, requireRecord } from '@lupinum/trellis/auth'
-import { createApp } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
 import { createTodo } from '../shared/schemas/todo'
-import { mutation, query } from './_generated/server'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 
-const { app } = createApp({ query, mutation })
+const { mutation, query } = defineTrellis({
+  query: generatedQuery,
+  mutation: generatedMutation,
+})
 
-export const list = app.query({
+export const list = query({
   args: {},
   guard: open,
   handler: async (ctx) => {
@@ -15,7 +18,7 @@ export const list = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createTodo.args,
   guard: open,
   handler: async (ctx, args) => {
@@ -27,7 +30,7 @@ export const create = app.mutation({
   },
 })
 
-export const toggle = app.mutation({
+export const toggle = mutation({
   args: { id: v.id('todos') },
   guard: open,
   load: async (ctx, args) => {
@@ -42,7 +45,7 @@ export const toggle = app.mutation({
   },
 })
 
-export const remove = app.mutation({
+export const remove = mutation({
   args: { id: v.id('todos') },
   guard: open,
   handler: async (ctx, args) => {

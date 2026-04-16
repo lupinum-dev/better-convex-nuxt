@@ -18,7 +18,7 @@ import {
   canReadWorkspaceRunbook,
   canUpdateRunbook,
 } from './auth/checks'
-import { app, query } from './functions'
+import { mutation, query, raw } from './functions'
 
 function toPublicRunbook(runbook: {
   _id: string
@@ -60,7 +60,7 @@ function matchesTerm(
   return haystack.includes(term)
 }
 
-export const listPublic = query({
+export const listPublic = raw.query({
   args: listRunbooks.args,
   handler: async (ctx) => {
     const runbooks = await ctx.db
@@ -72,7 +72,7 @@ export const listPublic = query({
   },
 })
 
-export const searchPublic = query({
+export const searchPublic = raw.query({
   args: searchRunbooks.args,
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
@@ -86,7 +86,7 @@ export const searchPublic = query({
   },
 })
 
-export const listWorkspace = app.query({
+export const listWorkspace = query({
   args: listRunbooks.args,
   guard: canReadWorkspaceRunbook,
   handler: async (ctx) => {
@@ -101,7 +101,7 @@ export const listWorkspace = app.query({
   },
 })
 
-export const get = query({
+export const get = raw.query({
   args: getRunbook.args,
   handler: async (ctx, args) => {
     const runbook = await ctx.db.get(args.id)
@@ -127,7 +127,7 @@ export const get = query({
   },
 })
 
-export const getWorkspace = app.query({
+export const getWorkspace = query({
   args: getRunbook.args,
   guard: canReadWorkspaceRunbook,
   handler: async (ctx, args) => {
@@ -139,7 +139,7 @@ export const getWorkspace = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: createRunbook.args,
   guard: canCreateRunbook,
   handler: async (ctx, args) => {
@@ -166,7 +166,7 @@ export const create = app.mutation({
   },
 })
 
-export const update = app.mutation({
+export const update = mutation({
   args: updateRunbook.args,
   guard: canReadWorkspaceRunbook,
   load: async (ctx, args) => {
@@ -198,7 +198,7 @@ export const update = app.mutation({
   },
 })
 
-export const remove = app.mutation({
+export const remove = mutation({
   args: deleteRunbook.args,
   guard: canReadWorkspaceRunbook,
   load: async (ctx, args) => {
@@ -214,7 +214,7 @@ export const remove = app.mutation({
   },
 })
 
-export const previewRemove = app.query({
+export const previewRemove = query({
   args: deleteRunbook.args,
   guard: canReadWorkspaceRunbook,
   load: async (ctx, args) => {
@@ -232,7 +232,7 @@ export const previewRemove = app.query({
   }),
 })
 
-export const bulkRemove = app.mutation({
+export const bulkRemove = mutation({
   args: bulkDeleteRunbooks.args,
   guard: canPublishRunbook,
   handler: async (ctx, args) => {
@@ -268,7 +268,7 @@ export const bulkRemove = app.mutation({
   },
 })
 
-export const previewBulkRemove = app.query({
+export const previewBulkRemove = query({
   args: bulkDeleteRunbooks.args,
   guard: canPublishRunbook,
   handler: async (ctx, args) => {
@@ -297,7 +297,7 @@ export const previewBulkRemove = app.query({
   },
 })
 
-export const workspaceOverview = app.query({
+export const workspaceOverview = query({
   args: listRunbooks.args,
   guard: canReadWorkspaceRunbook,
   handler: async (ctx) => {

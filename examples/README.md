@@ -10,7 +10,7 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 
 | Example                 | Best for                     | Shows                                                                                                                                        |
 | ----------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-public-todo`        | First look                   | minimal `createApp(...)`, `defineArgs`, simple query/mutation flow                                                                           |
+| `01-public-todo`        | First look                   | minimal `defineTrellis(...)`, `defineArgs`, simple query/mutation flow                                                                       |
 | `02-auth-todo`          | Auth-only apps               | Better Auth wiring, actor resolution, personal ownership handlers                                                                            |
 | `03-team-workspace`     | Canonical protected app      | `convex/auth/*`, backend-owned context, `_can`, transport-shaped agent principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing` |
 | `04-saas-platform`      | Month-two product work       | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows                |

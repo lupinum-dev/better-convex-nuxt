@@ -6,9 +6,9 @@ import { deny, enforce, requireAuth } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { hasRole } from './auth/checks'
-import { app } from './functions'
+import { mutation, query } from './functions'
 
-export const list = app.query({
+export const list = query({
   args: {},
   guard: hasRole('owner', 'member', 'viewer', 'agency_admin', 'agency_manager'),
   handler: async (ctx) => {
@@ -23,7 +23,7 @@ export const list = app.query({
   },
 })
 
-export const create = app.mutation({
+export const create = mutation({
   args: { name: v.string() },
   guard: hasRole('owner', 'member'),
   handler: async (ctx, args) => {
@@ -39,7 +39,7 @@ export const create = app.mutation({
   },
 })
 
-export const toggleStatus = app.mutation({
+export const toggleStatus = mutation({
   args: { id: v.id('projects') },
   guard: hasRole('owner', 'member'),
   handler: async (ctx, args) => {

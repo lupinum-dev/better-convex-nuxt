@@ -9,11 +9,11 @@ import { agencyPermissionKeys, type AgencyPermissionMap } from '../shared/permis
 import { getActor } from './auth/actor'
 import { getMemberships, requireWorkspaceMembership } from './auth/agency'
 import { hasRole } from './auth/checks'
-import { app, mutation, query } from './functions'
+import { mutation, query, raw } from './functions'
 
 type Actor = NonNullable<Awaited<ReturnType<typeof getActor>>>
 
-export const listWorkspaces = app.query({
+export const listWorkspaces = query({
   args: {},
   guard: open,
   handler: async (ctx) => {
@@ -23,7 +23,7 @@ export const listWorkspaces = app.query({
   },
 })
 
-export const listAccessibleWorkspaces = query({
+export const listAccessibleWorkspaces = raw.query({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
@@ -71,11 +71,11 @@ export const getPermissionContext = query(
   }),
 )
 
-export const createWorkspace = mutation({
+export const createWorkspace = raw.mutation({
   args: { name: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
     // Intentional escape hatch: onboarding creates a new tenant and membership,
-    // so it cannot run through tenant-isolated app.mutation.
+    // so it cannot run through tenant-isolated Trellis mutations.
     const identity = await getAuth(ctx)
     if (!identity) throw deny('Not authenticated.')
 
@@ -116,7 +116,7 @@ export const createWorkspace = mutation({
   },
 })
 
-export const joinWorkspace = mutation({
+export const joinWorkspace = raw.mutation({
   args: {
     slug: v.string(),
     role: v.union(
@@ -175,7 +175,7 @@ export const joinWorkspace = mutation({
   },
 })
 
-export const switchWorkspace = mutation({
+export const switchWorkspace = raw.mutation({
   args: { workspaceId: v.id('workspaces') },
   handler: async (ctx, args) => {
     const identity = await getAuth(ctx)
@@ -195,7 +195,7 @@ export const switchWorkspace = mutation({
   },
 })
 
-export const seedAgencyPortfolio = mutation({
+export const seedAgencyPortfolio = raw.mutation({
   args: {},
   handler: async (ctx) => {
     const actor = await getActor(ctx)
@@ -249,7 +249,7 @@ export const seedAgencyPortfolio = mutation({
   },
 })
 
-export const listMembers = app.query({
+export const listMembers = query({
   args: {},
   guard: hasRole('owner', 'member', 'viewer', 'agency_admin', 'agency_manager'),
   handler: async (ctx) => {
