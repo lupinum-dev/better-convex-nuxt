@@ -1,6 +1,6 @@
 # Trellis v2.2 — The Spec
 
-> **Status: Final.** This is the implementation spec for the dev team.
+> **Status: Final (revised 2026-04-16).** All technical assumptions validated via experiments. This is the implementation spec for the dev team.
 >
 > **Reading order for implementers:**
 > 1. Parts I and II to understand the public API.
@@ -279,12 +279,26 @@ All three are greppable. If someone bypasses policy, audit, or both, the choice 
 
 ### 7.2 Trigger composition semantics
 
+**Composition order is critical.** The three doors are built by layering wrappers in the correct order:
+
+```ts
+// Correct: RLS wraps triggers wraps raw
+const triggerCtx = triggers.wrapDB(ctx)               // triggers( raw )
+const db = wrapDatabaseWriter(ctx, triggerCtx.db, rules)  // RLS( triggers( raw ) )
+const unsafeDb = triggerCtx.db                         // triggers( raw )
+const rawDb = ctx.db                                   // raw
+```
+
+**Why this order matters:** Trigger callbacks receive `ctx.innerDb` — the db that was wrapped. If triggers wrap the RLS-wrapped db (`triggers(RLS(raw))`), then `ctx.innerDb` inside the trigger IS the RLS db, so trigger callbacks cannot write to tables outside the RLS rules (e.g., audit logs). With the correct order (`RLS(triggers(raw))`), triggers get raw db access via `ctx.innerDb` while external callers still see RLS enforcement.
+
+**Do not** compose as `triggers.wrapDB({ db: wrapDatabaseWriter(...) })`. This inverts the layering and breaks audit/trigger writes.
+
 When a write fires a trigger, which db does the trigger callback see?
 
-- **Trigger fired by `ctx.db`** → callback sees `ctx.db`. Its writes go through RLS and can fire further triggers.
-- **Trigger fired by `ctx.unsafeDb`** → callback sees `ctx.unsafeDb`. Writes bypass RLS but still fire triggers.
-- **Trigger fired by `ctx.rawDb`** → callback does not fire. `rawDb` bypasses the trigger layer entirely.
-- **Inside any trigger callback, `ctx.innerDb`** (convex-helpers convention) is available to perform writes that don't fire further triggers. Use this to avoid recursion when a trigger updates a denormalized field.
+- **Trigger fired by `ctx.db`** → RLS check happens first, then trigger fires with `ctx.innerDb` = raw db. Trigger can write to any table (audit logs, denormalized fields).
+- **Trigger fired by `ctx.unsafeDb`** → no RLS check, trigger fires with `ctx.innerDb` = raw db.
+- **Trigger fired by `ctx.rawDb`** → does not fire. `rawDb` bypasses the trigger layer entirely.
+- **Inside any trigger callback, `ctx.innerDb`** (convex-helpers convention) performs writes that don't fire further triggers. Use this to avoid recursion.
 
 Audit triggers that want to record writes from both `db` and `unsafeDb` paths should use `ctx.innerDb` inside their callback (to avoid recursion) and should run in both paths. Policy bypass should not mean "skip the audit trail" — that's the whole reason `unsafeDb` and `rawDb` are separate doors.
 
@@ -358,7 +372,7 @@ If you want `guard/load/authorize/preview/handler` shape, that's what `defineOpe
 
 **Real-time subscriptions.** Convex queries are live subscriptions. When RLS rules filter rows via `ctx.db`, Convex's dependency tracking ensures subscriptions re-evaluate when underlying data changes. If a user loses workspace membership, queries re-run, actor resolution returns a different result, and RLS filters change — the client sees updated data reactively. This works because convex-helpers' `wrapDatabaseReader` intercepts reads at the `ctx.db` level, and Convex tracks all reads (including those in the actor resolver) as subscription dependencies. No Trellis-specific subscription logic needed.
 
-**Pagination.** Convex's `.paginate()` and the convex-helpers `paginator`/`getPage` helpers work with RLS-wrapped `ctx.db`. RLS filters apply per-read, which means paginated results may return fewer items than `numItems` if some rows are denied. This is standard RLS behavior. Docs should note this and recommend using `paginator` from convex-helpers (which supports multiple paginations per query) over `.paginate()` when precise page sizes matter.
+**Pagination.** Convex's `.paginate()` and the convex-helpers `paginator`/`getPage` helpers work with RLS-wrapped `ctx.db`. RLS filters apply post-fetch: the underlying page fetches N items, then RLS filters, resulting in ≤N items returned per page. Cursor continuity is preserved — no duplicates across pages. The total collected items are correct; only per-page sizes are affected. This is inherent to post-fetch filtering, not a bug. Apps should paginate until `isDone` rather than assuming exact page sizes. Docs should recommend `paginator` from convex-helpers (which supports multiple paginations per query and can re-fetch to fill pages) over `.paginate()` when precise page sizes matter.
 
 **Scheduled functions.** When a Trellis-wrapped handler calls `ctx.scheduler.runAfter(delay, internal.foo.bar, args)`, the scheduled function is a new execution context with no ambient auth. It resolves via `systemPrincipal` — the original user context is **not** forwarded. This is deliberate: implicit principal propagation into deferred execution would hide the trust boundary. If a scheduled function needs to act as a specific user, pass the user ID in args and resolve it explicitly in the handler.
 
@@ -723,16 +737,12 @@ export const removeRunbook = mutation(deleteRunbook.execute)
 
 ### 16.1 Why `display` and `confirm` are split
 
-A reviewer-flagged issue: if `preview` returns a single object containing user-visible display text plus semantic data, and you hash the whole thing, confirmations can fail because a sentence changed. Worse, state can change between preview and execute in ways that alter the semantic meaning — "delete 3 items" becomes "delete 300 items" because the tenant grew — and without hashing the semantic invariants, the runtime has no way to detect this.
-
-The split:
-
-- **`display`** — human-readable. Can include translations, timestamps, generated sentences. Shown to the user. **Not hashed.**
+- **`display`** — human-readable. Translations, timestamps, generated sentences. Shown to the user. **Not hashed.**
 - **`confirm`** — stable semantic invariants. Operation name, target IDs, affected IDs, critical counts. **Hashed into the confirmation token.**
 
-When execute recomputes the preview, only the `confirm` hash needs to match. Display changes between preview and execute are fine. Semantic changes invalidate the confirmation.
+When execute recomputes the preview, only the `confirm` hash needs to match. Display changes between preview and execute are fine. Semantic changes (e.g., "delete 3 items" becoming "delete 300 items") invalidate the confirmation. Without this split, any change to UI text would break confirmations.
 
-Guidelines for authors: put anything the user would want to know *has changed* between preview and execute into `confirm`. Put anything that's just a nice presentation into `display`.
+**Guideline:** put anything the user would want to know *has changed* between preview and execute into `confirm`. Put presentation into `display`.
 
 ### 16.2 `load` and `preview` must be pure reads
 
@@ -1178,24 +1188,25 @@ No conceptual rewrite — alignment with the new builder names and value-based c
 
 This part is for the engineers building Trellis v2.2. Skip if you're just using the library.
 
-## 24. Build from convex-helpers, not from scratch
+## 22. Build from convex-helpers, not from scratch
 
 The whole v2.2 runtime is built on convex-helpers primitives. Don't reinvent them.
 
 - **`defineFunctions`** uses `customQuery` and `customMutation` from convex-helpers with a structured input step for principal/actor resolution.
 - **RLS wrapping** uses `wrapDatabaseReader` and `wrapDatabaseWriter` from convex-helpers with `Rules` objects.
 - **Triggers** use the `Triggers` class from convex-helpers with `ctx.innerDb` inside callbacks to avoid recursion.
+- **Three-door composition** — triggers wrap raw db first, then RLS wraps the trigger-wrapped result. See §7.2 for the critical composition order and rationale.
 - **Rate limiting** uses `@convex-dev/rate-limiter` component.
 
-## 25. Envelope signing and verification
+## 23. Envelope signing and verification
 
-### 25.1 Key derivation
+### 23.1 Key derivation
 
 Root secret is read from the deployment environment. Purpose-specific keys are derived via HKDF-SHA256:
 
 ```ts
-import { hkdf } from '@noble/hashes/hkdf'
-import { sha256 } from '@noble/hashes/sha256'
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
 
 function deriveKey(purpose: string): Uint8Array {
   return hkdf(sha256, deploymentSecret, /* salt */ new TextEncoder().encode('trellis-v1'), /* info */ new TextEncoder().encode(purpose), 32)
@@ -1204,9 +1215,11 @@ function deriveKey(purpose: string): Uint8Array {
 
 Purposes: `'trellis:component-principal:v1'`, `'trellis:mcp-forwarded:v1'`, `'trellis:mcp-confirmation:v1'`, `'trellis:trusted-caller:v1'`.
 
-**Runtime constraint:** All crypto runs inside Convex's default V8 runtime (not `"use node"` files). Use `@noble/hashes` for HKDF (pure JS, no Node dependencies). Use `jose` for JWT sign/verify (uses `crypto.subtle` / Web Crypto API, which Convex's runtime supports). Do **not** use Node's `crypto` module — it requires `"use node"` and cannot coexist with query/mutation definitions.
+**Import paths:** `@noble/hashes` v2.x requires `.js` suffixes in subpath imports. The SHA-256 export lives at `@noble/hashes/sha2.js` (not `sha256`). Both HKDF and SHA-256 are verified to work in Convex's V8 runtime.
 
-### 25.2 Envelope format
+**Runtime constraint:** All crypto runs inside Convex's default V8 runtime (not `"use node"` files). Use `@noble/hashes` for HKDF (pure JS, no Node dependencies). Use `jose` for JWT sign/verify — `jose` accepts raw `Uint8Array` keys directly for HS256 (no `crypto.subtle.importKey` step needed). Do **not** use Node's `crypto` module — it requires `"use node"` and cannot coexist with query/mutation definitions.
+
+### 23.2 Envelope format
 
 JWT with HS256. Claims:
 
@@ -1225,7 +1238,7 @@ JWT with HS256. Claims:
 }
 ```
 
-### 25.3 Verification
+### 23.3 Verification
 
 Every verify call checks:
 
@@ -1235,9 +1248,9 @@ Every verify call checks:
 4. `exp` not past.
 5. For confirmation tokens only: `argsHash`, `previewHash`, and (if sessions enabled) `sessionId`.
 
-## 26. The operations manifest
+## 24. The operations manifest
 
-### 26.1 Generation
+### 24.1 Generation
 
 At Convex build time (via a TypeScript AST walk or a Convex codegen hook), Trellis scans the Convex module tree for `defineOperation(...)` calls. For each, it records:
 
@@ -1248,9 +1261,9 @@ At Convex build time (via a TypeScript AST walk or a Convex codegen hook), Trell
 
 Output: `.trellis/operations-manifest.ts` with a typed `operationsManifest` export.
 
-**Static analyzability constraint:** `defineOperation` calls must be statically analyzable top-level `const` exports. Re-exports (`export { op } from './operations'`) are followed. Aliased imports (`import { defineOperation as defOp }`) are resolved via the TypeScript compiler API. Conditional or dynamic exports are not supported and will be silently missed — the startup validation in §26.2 catches these as missing manifest entries.
+**Static analyzability constraint:** `defineOperation` calls must be statically analyzable top-level `const` exports. Re-exports (`export { op } from './operations'`) are followed. Aliased imports (`import { defineOperation as defOp }`) are **not** resolved — the AST walker matches the literal `defineOperation` identifier only. An eslint rule enforces that `defineOperation` is always imported with its original name. Conditional or dynamic exports are not supported and will be silently missed — the startup validation in §24.2 catches these as missing manifest entries.
 
-### 26.2 Validation at MCP startup
+### 24.2 Validation at MCP startup
 
 `defineMcpApp` imports the manifest (it's Convex-build-time generated but checked into source or emitted to a known path). For each destructive tool:
 
@@ -1258,85 +1271,30 @@ Output: `.trellis/operations-manifest.ts` with a typed `operationsManifest` expo
 2. Verify `preview` and `execute` refs match the manifest's expected projections. Fail startup on mismatch.
 3. Store operation metadata (args schema, etc.) for runtime use.
 
-### 26.3 TypeScript story
+### 24.3 TypeScript story
 
 The manifest exports a union type of operation keys. `tool.fromOperation` accepts only that union as its `operation` field. Users get autocompletion; typos fail at compile time.
 
-## 27. The atomic execute mutation
+## 25. The atomic execute mutation
 
-### 27.1 What `mutation(operation)` generates
+### 25.1 What `mutation(operation)` generates
 
-For a `defineOperation(...)` with `kind: 'destructive'`, `mutation(operation)` generates a Convex mutation that does all ten steps of §17.3 in one transaction. Pseudocode:
+For a `defineOperation(...)` with `kind: 'destructive'`, `mutation(op.execute)` generates a Convex mutation that does all ten steps of §17.3 in one transaction. The generated mutation:
 
-```ts
-function mutation(op: Operation) {
-  return rawMutation({
-    args: {
-      ...op.args,
-      __confirmationToken: v.optional(v.string()),
-      __preview: v.optional(v.boolean()),
-    },
-    handler: async (ctx, rawArgs) => {
-      const { __confirmationToken, __preview, ...args } = rawArgs
+- Accepts `{ ...op.args, __confirmationToken?: string, __preview?: boolean }`.
+- In **preview mode** (`__preview: true`): runs `guard → load → authorize → preview`, mints a confirmation token with `argsHash`, `previewHash`, `principalKey`, `sessionId`, `jti`.
+- In **execute mode** (destructive): verifies token → checks `argsHash` → re-runs `load` + `preview` with fresh data → checks `previewHash` (drift detection) → checks `sessionId` → redeems `jti` → re-runs `guard` + `authorize` → executes `handler` → writes audit event.
+- In **execute mode** (non-destructive): runs `guard → load → authorize → handler` directly.
 
-      // Preview mode — used by previewOf projection
-      if (__preview) {
-        await enforce(ctx, op.guard)
-        const loaded = await op.load(ctx, args)
-        await enforce(ctx, op.authorize(loaded))
-        const preview = await op.preview(ctx, args, loaded)
-        const confirmationToken = mintConfirmationToken({
-          operation: op.id,
-          argsHash: canonicalHash(args),
-          previewHash: canonicalHash(preview.confirm),
-          principalKey: hashPrincipal(ctx.principal),
-          sessionId: ctx.sessionId ?? null,
-          jti: randomJti(),
-        })
-        return { preview, confirmationToken }
-      }
+All steps run in one Convex mutation call — one transaction with serializable isolation. Everything sees a consistent snapshot. If any step fails, the whole transaction rolls back.
 
-      // Execute mode
-      if (op.kind === 'destructive') {
-        const token = verifyConfirmationToken(__confirmationToken, op.id, hashPrincipal(ctx.principal))
-        if (canonicalHash(args) !== token.argsHash) throw new Error('argsHash mismatch')
-
-        // Re-run everything with fresh data in this transaction
-        const loaded = await op.load(ctx, args)
-        const fresh = await op.preview(ctx, args, loaded)
-        if (canonicalHash(fresh.confirm) !== token.previewHash) throw new Error('preview drift')
-
-        if (ctx.sessionId && ctx.sessionId !== token.sessionId) throw new Error('session mismatch')
-
-        await redeemJti(ctx, token.jti)  // via audit component, fails if already redeemed
-
-        await enforce(ctx, op.guard)
-        await enforce(ctx, op.authorize(loaded))
-
-        const result = await op.handler(ctx, args, loaded)
-        await writeAuditEvent(ctx, { /* ... */ })
-        return result
-      }
-
-      // Non-destructive operations run as normal mutations
-      await enforce(ctx, op.guard)
-      const loaded = await op.load(ctx, args)
-      await enforce(ctx, op.authorize(loaded))
-      return await op.handler(ctx, args, loaded)
-    },
-  })
-}
-```
-
-All of this runs in one Convex mutation call, which is one transaction. Convex guarantees serializable isolation on mutations; everything inside sees a consistent snapshot.
-
-### 27.2 Why not orchestrate from the MCP server
+### 25.2 Why not orchestrate from the MCP server
 
 The MCP server could, in principle, call preview query → then call execute mutation, doing verification in between. But that's two separate Convex transactions with a gap. State can change between them. The atomic mutation approach eliminates the gap.
 
 The MCP server's job is reduced to: call preview, get the confirmation token, wait for agent confirmation, call execute with the token and args. All the safety verification happens inside the execute mutation.
 
-## 28. `ctx.runAsService` implementation
+## 26. `ctx.runAsService` implementation
 
 The Trellis `httpAction` wrapper provides `ctx.runAsService`. Implementation:
 
@@ -1362,21 +1320,22 @@ function httpAction(handler: (ctx: HttpActionCtx, req: Request) => Promise<Respo
 
 The internal mutation's principal resolver recognizes the `trellis:trusted-caller:v1` envelope, verifies it, and populates `ctx.principal` with the service principal.
 
-## 29. Eslint rules
+## 27. Eslint rules
 
 - **`trellis/enforce-required`** — every non-internal `mutation` handler must call `ctx.enforce()` at least once OR be `defineOperation`-backed. Catches the common case of forgetting authorization.
 - **`trellis/no-direct-component-call`** — flags `ctx.runMutation(components.*.*)` / `ctx.runQuery(components.*.*)` and suggests the bridge wrapper.
 - **`trellis/no-unsafe-db-without-comment`** — requires a comment explaining why above any `unsafeDb` usage. `unsafeDb` bypasses tenant isolation while appearing safe (triggers still run, audit still logs). This false assurance makes it the most likely door to produce silent cross-tenant leaks.
 - **`trellis/no-raw-db-without-comment`** — requires a comment explaining why above any `rawDb` usage. Soft enforcement; don't over-engineer.
 - **`trellis/destructive-requires-operation`** — flags `tool({ destructive: true, ... })` without `tool.fromOperation`. TypeScript also catches this; eslint provides a better error message.
+- **`trellis/no-define-operation-alias`** — flags aliased imports of `defineOperation` (e.g., `import { defineOperation as defOp }`). The operations manifest AST walker matches the literal `defineOperation` identifier; aliased imports are silently missed.
 
 ---
 
 # Part IV — Project management
 
-## 30. Timeline
+## 28. Timeline
 
-### 30.1 Code time
+### 28.1 Code time
 
 - **Layer 1 — authorization primitives.** `defineFunctions`, procedural handlers, `publicQuery`/`publicMutation`, Trellis-aware internals, `httpAction` with `runAsService`, `systemPrincipal`, three-door db, trigger composition, `defineTenantRules` with deny-by-default, ctx value accessors, visibility helpers as ctx methods, purpose-specific key derivation, envelope sign/verify. **~3 weeks.**
 - **Layer 2 — agent layer.** `defineMcpApp`, operations manifest generation, `tool.fromOperation` with manifest validation, atomic execute mutation, `previewHash` + `sessionId` + `jti` redemption flow, `@lupinum/trellis-agent-audit` component with conservative redaction defaults, rate-limiter integration, devtools agent panel, sessions/resources/prompts. **~4 weeks.**
@@ -1384,9 +1343,9 @@ The internal mutation's principal resolver recognizes the `trellis:trusted-calle
 
 Code total: **~8 weeks.**
 
-### 30.2 Polish time
+### 28.2 Polish time
 
-- **Eslint rules.** Four new rules (§29.2). **~1 week.**
+- **Eslint rules.** Six rules (§27). **~1 week.**
 - **Examples.** Examples 01–08, each a chance to validate spec against real usage. **~2 weeks.**
 - **Docs.** Procedural examples, `defineOperation` patterns, destructive-tool guide, subfeature docs for MCP, three-door db with trigger composition, bridge authoring guide, service-actor scoping guide, testing guide. **~2 weeks.**
 - **Buffer.** **~1 week.**
@@ -1395,7 +1354,7 @@ Polish total: **~6 weeks.**
 
 **Realistic end-to-end: ~14 weeks** to a v2.2 ready for general adoption.
 
-### 30.3 Ship order — validate before committing
+### 28.3 Ship order — validate before committing
 
 **Three implementation spikes, run before freezing the API:**
 
@@ -1405,27 +1364,27 @@ Polish total: **~6 weeks.**
 
 If all three feel clean, proceed with the rest of v2.2 as a breaking release. If any feels awkward, adjust before committing.
 
-## 31. Open questions
+## 29. Open questions
 
 To validate during the spikes. None are architecture blockers.
 
-### 31.1 `allowAnonymous: false` default in `defineTenantRules`
+### 29.1 `allowAnonymous: false` default in `defineTenantRules`
 
 Specified as `false`. Worth a second opinion against real app code. Validate in spike A (example 05 has public surfaces).
 
-### 31.2 Bridge RLS inheritance
+### 29.2 Bridge RLS inheritance
 
 Specified that RLS doesn't cross the component bridge. Validate in spike C (if doing example 08). If repetitive rule code shows up, consider `inheritTenantRules(parentShape)` helper.
 
-### 31.3 Service principal granularity
+### 29.3 Service principal granularity
 
 `systemPrincipal` defaults to `{ kind: 'service', service: 'system' }`. Users refine to distinguish `'scheduler' | 'cron' | 'cli' | 'dashboard' | 'action'`. Validate in spike A against any example using scheduled jobs.
 
-### 31.4 OAuth adapter timing
+### 29.4 OAuth adapter timing
 
 `mcpKeyAuth` ships in v2.2; `mcpOAuth` adapter planned for later v2.x. Open question: does any example require OAuth before v2.2 ships? If a public-facing MCP deployment is in scope, bring the adapter timeline forward.
 
-### 31.5 `bridge.from()` auto-registration ergonomics
+### 29.5 `bridge.from()` auto-registration ergonomics
 
 Optional feature, framed as convenience not contract (§18.3). Validate in spike C.
 
@@ -1433,92 +1392,96 @@ Optional feature, framed as convenience not contract (§18.3). Validate in spike
 
 # Part V — Rationale
 
-## 32. Decision log
+## 30. Decision log
+
 
 Why things are shaped the way they are. Future readers can understand choices without re-reading five rounds of reviews.
 
-### 32.1 `defineFunctions` over `createFunctions`
+### 30.1 `defineFunctions` over `createFunctions`
 Matches Convex's `define*` naming convention. `create*` suggests a runtime factory; `define*` suggests a framework declaration.
 
-### 32.2 `publicQuery` / `publicMutation` over `anonQuery` / `anonMutation`
+### 30.2 `publicQuery` / `publicMutation` over `anonQuery` / `anonMutation`
 "Anon" miscommunicates — a logged-in user on a share-token route is still on a public client surface. "Public" captures "actor is optional on a client-callable route" correctly.
 
-### 32.3 Internals stay Trellis-aware
+### 30.3 Internals stay Trellis-aware
 "Internal" is visibility (not callable from the public client). "Raw" is policy (bypass the framework). Conflating them meant internal orchestration code silently lost RLS and audit — exactly where it's most needed, because internal code often does cross-tenant work. v2.2 separates: internals are wrapped; `raw.internalMutation` is the one bypass door.
 
-### 32.4 Three db doors
+### 30.4 Three db doors
 Policy bypass and trigger bypass are different kinds of escape hatch. `unsafeDb` (bypass RLS, keep triggers) is for admin flows that should still be audited. `rawDb` (bypass both) is for migrations and recursion avoidance. Both greppable; both documented with different warning levels.
 
-### 32.5 Procedural-only regular handlers
+### 30.5 Procedural-only regular handlers
 Earlier drafts kept both procedural and declarative shapes. Vue's dual API is cited as *the* source of confusion for Vue newcomers, not a feature. A framework's safety properties shouldn't depend on users picking the right shape. Procedural-only with `ctx.enforce()` gets there with less surface area. Tradeoff: structural static analysis is lost, replaced by weaker eslint. Accepted for the simplicity gain. Docs are honest about the tradeoff.
 
-### 32.6 `defineOperation` as the structured primitive
+### 30.6 `defineOperation` as the structured primitive
 The structured shape doesn't vanish — it becomes the canonical form for reusable multi-surface actions. One definition projects to a mutation, a preview query, an MCP tool, an admin UI, and a CLI. Regular mutations don't need this; operations do. This also gives the runtime structural metadata for the safety-critical paths.
 
-### 32.7 RLS deny-by-default
+### 30.7 RLS deny-by-default
 convex-helpers defaults to allow for unlisted tables. Trellis forces `defaultPolicy: 'deny'` in `defineTenantRules`. Setting `'allow'` requires typing the override.
 
-### 32.8 Service principals for non-request contexts
+### 30.8 Service principals for non-request contexts
 Without a fallback, deny-by-default RLS would make scheduled jobs, cron, CLI, and dashboard work hit an empty db. Users would reach for `rawDb`; the escape hatch would become the sidewalk. Service principals give those flows a normal, auditable path. Docs show narrow service actors, not god actors.
 
-### 32.9 Public client + no auth = anonymous, not service
-Explicit precedence order (§6.5): public client calls without auth resolve to `anonymous`. Service fallback is reserved for non-request contexts. The framework detects this via Convex runtime hints.
+### 30.9 Public client + no auth = anonymous, not service
+Explicit precedence order (§6.5): public client calls without auth resolve to `anonymous`. Service fallback is reserved for non-request contexts. The detection is structural (builder type determines path at definition time), not a runtime heuristic.
 
-### 32.10 Destructive MCP tools must be operation-backed
+### 30.10 Destructive MCP tools must be operation-backed
 The runtime promise — re-run `guard/load/authorize`, recompute preview, verify hashes — only works if the target has that metadata. Operations do. Arbitrary mutations don't. Enforcement at TypeScript level and again at MCP startup against the manifest.
 
-### 32.11 Forwarded `__principal` scoped to specific adapters
+### 30.11 Forwarded `__principal` scoped to specific adapters
 Earlier drafts let the general resolver read `__principal` from args. That meant any ordinary query could be called with a forwarded envelope. v2.2 tightens: each transport has its own adapter that consumes its envelope kind before reaching user code. Envelopes are callee-bound, not just audience-bound.
 
-### 32.12 Confirmation execution is one atomic Convex mutation
+### 30.12 Confirmation execution is one atomic Convex mutation
 Orchestrating preview verification and handler execution from the MCP server creates a TOCTOU gap between transactions. The atomic mutation eliminates the gap — one transaction, serializable isolation, consistent snapshot throughout. Convex makes this easy; use it.
 
-### 32.13 `preview` splits into `display` and `confirm`
+### 30.13 `preview` splits into `display` and `confirm`
 Earlier drafts hashed the entire preview output. Any change to user-visible text (translations, timestamps, formatted counts) invalidated confirmations. The split separates "what the user sees" from "what the framework verifies invariant." Only `confirm` is hashed.
 
-### 32.14 `tool.fromOperation` uses string reference + manifest
+### 30.14 `tool.fromOperation` uses string reference + manifest
 Operations contain Convex-only code (validators, handlers, references to Convex modules). Importing them into the Nuxt MCP bundle risks bundler issues. String references plus a Convex-build-time manifest keep the boundary clean. MCP validates at startup.
 
-### 32.15 `ctx.runAsService` inside `httpAction`
+### 30.15 `ctx.runAsService` inside `httpAction`
 HTTP actions that validate webhooks need to call internals with a service principal. The helper constructs a signed trusted-caller envelope bound to the target function. Without this, users hand-roll the pattern and make mistakes.
 
-### 32.16 Purpose-specific signing keys with callee binding
+### 30.16 Purpose-specific signing keys with callee binding
 Standard crypto hygiene: derive per-purpose keys from the deployment secret, include `aud` and `callee` in every envelope. Prevents a whole category of boundary bugs where one token kind validates as another, or a bridge envelope for component A is replayed against component B.
 
-### 32.17 Explicit bridge wrappers via `bridge.from()`
+### 30.17 Explicit bridge wrappers via `bridge.from()`
 Earlier drafts promised magical `runMutation` interception. Hard to lint, hard to test, hides the trust boundary. Explicit wrappers materialize typed functions that sign envelopes at call time. Direct unsigned calls fail loudly at the component.
 
-### 32.18 Audit captures redacted/summarized by default
+### 30.18 Audit captures redacted/summarized by default
 Stack traces, raw args, and raw results are common leak vectors for customer content, tokens, and secrets. Default production capture is conservative — hashes, summaries, code+message errors. Full capture is opt-in.
 
-### 32.19 Replay protection default-on with per-tool opt-out
+### 30.19 Replay protection default-on with per-tool opt-out
 Component-backed `jti` redemption makes replay impossible by default. Tools that assert genuine idempotency opt out per-tool. No global override.
 
-### 32.20 MCP's internal convex client auto-forwards
+### 30.20 MCP's internal convex client auto-forwards
 Inside `defineMcpApp`, the `convex` client attaches `trellis:mcp-forwarded:v1` envelopes automatically. User code doesn't construct envelopes by hand. Consistency is the runtime's job.
 
-### 32.21 No actor resolver → startup error, no silent fallback
+### 30.21 No actor resolver → startup error, no silent fallback
 If no `resolveActor` is configured, `defineFunctions` throws at startup. No silent degradation where `query` behaves like `publicQuery`. The cost of typing `publicQuery` is one word; the cost of a runtime fallback that silently drops authorization is a class of bugs. Greenfield doesn't need the convenience.
 
-### 32.22 Don't oversell the linter
+### 30.22 Don't oversell the linter
 Eslint rules catch the common case of forgotten authorization. They don't replace structural guarantees. Docs say this plainly. For security-critical paths, use `defineOperation`.
 
-### 32.23 Graduated on-ramp — `rls` and `triggers` optional
+### 30.23 Graduated on-ramp — `rls` and `triggers` optional
 Requiring the full model (principal + actor + RLS + triggers) before writing one query is a learning cliff. Making `rls` and `triggers` optional lets developers start with auth-only and add multi-tenancy when they need it. The framework scales up; it shouldn't demand the full model on day one.
 
-### 32.24 Request vs. non-request is structural, not heuristic
+### 30.24 Request vs. non-request is structural, not heuristic
 Builder type determines the resolution path at definition time. `query`/`mutation`/`publicQuery`/`publicMutation` never consult `systemPrincipal`. `internalQuery`/`internalMutation` do. No runtime heuristic, no "detect via ctx.scheduler presence." This makes it impossible to accidentally escalate from `anonymous` to `service`.
 
-### 32.25 Error semantics must be specified
+### 30.25 Error semantics must be specified
 A framework that silently drops authorization failures (empty results from RLS) and loudly fails on others (guard throws) with no documented distinction will confuse every user. Error types, debug logging, and fail-safe defaults for visibility pipelines are not optional.
 
-### 32.26 Operation projections are symmetric
+### 30.26 Operation projections are symmetric
 `query(previewOf(op))` vs `mutation(op)` is asymmetric and confusing. `query(op.preview)` and `mutation(op.execute)` read consistently and make the operation the source of truth for both projections.
 
-### 32.27 Polish time matters
+### 30.27 Trigger composition order: `RLS(triggers(raw))`
+Wrapping triggers around the RLS db (`triggers(RLS(raw))`) makes trigger callbacks inherit RLS restrictions — they can't write to audit/log tables not in the rules. The correct order is `RLS(triggers(raw))`: triggers wrap raw db first, then RLS wraps the result. Triggers get raw access via `ctx.innerDb`; external callers see RLS enforcement. Validated in experiment 2.
+
+### 30.28 Polish time matters
 Earlier drafts optimistically budgeted code and underestimated eslint rules, examples, and docs. Honest estimate: 8 weeks code + 6 weeks polish = ~14 weeks end-to-end.
 
-## 33. Final decisions summary
+## 31. Final decisions summary
 
 One-page reference:
 
@@ -1556,8 +1519,12 @@ One-page reference:
 32. Service actor `allowedTables` is convention, not runtime-enforced.
 33. Operation projections use symmetric `op.preview` / `op.execute`.
 34. Polish time is significant (~14 weeks end-to-end).
+35. Trigger composition order: `RLS(triggers(raw))`, not `triggers(RLS(raw))`.
+36. `@noble/hashes` v2.x requires `.js` import suffixes; SHA-256 at `sha2.js` not `sha256`.
+37. `jose` accepts raw `Uint8Array` keys — no `crypto.subtle.importKey` needed.
+38. `defineOperation` import aliasing blocked by eslint — AST walker matches literal name only.
 
-## 34. Bottom line
+## 32. Bottom line
 
 The right v2.2 keeps what the repo already proves is valuable, hands the rest back to the Convex ecosystem, and makes the whole system easier to explain in one breath.
 
@@ -1575,4 +1542,4 @@ One sentence for the README: *a Convex-native authorization, visibility, and age
 
 ---
 
-*Spec v2.2, final. Begin implementation with Spike A.*
+*Spec v2.2, revised 2026-04-16. All technical assumptions validated via experiments (see findings.md). Begin implementation with Spike A.*

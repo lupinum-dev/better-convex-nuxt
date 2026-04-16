@@ -146,4 +146,28 @@ export default defineSchema({
     .index('by_key', ['key'])
     .index('by_user', ['userId'])
     .index('by_organization', ['organizationId']),
+
+  // ============================================
+  // EXPERIMENT TABLES (trellis-testing branch)
+  // ============================================
+  expTriggerLog: defineTable({
+    table: v.string(),
+    operation: v.string(),
+    docId: v.string(),
+    door: v.string(),
+    timestamp: v.number(),
+  }),
+
+  expJtiLog: defineTable({
+    jti: v.string(),
+    redeemedAt: v.number(),
+  }).index('by_jti', ['jti']),
+
+  expAuditLog: defineTable({
+    operation: v.string(),
+    principalKey: v.string(),
+    argsHash: v.string(),
+    previewHash: v.optional(v.string()),
+    timestamp: v.number(),
+  }),
 })
