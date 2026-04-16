@@ -13,7 +13,7 @@
 > This draft is intentionally honest about maturity:
 >
 > - **Grounded in the repo today:** Nuxt runtime, auth integration, guarded backend handlers, multi-tenant examples, MCP runtime, id-bound destructive operations with token confirmation, runtime-enforced service safety, distinct `ctx.db.crossTenant` / `ctx.db.raw`, testing helpers, component-bridge experiments.
-> - **Design direction, not yet proven in code:** simplified core setup, replay/audit hardening on top of the shipped confirmation flow, a smaller first-class surface.
+> - **Design direction, not yet proven in code:** simplified core setup and a smaller first-class surface.
 >
 > This is a living document.
 >
@@ -335,24 +335,13 @@ Current rule:
 
 - destructive preview flow is real
 - token-bound confirmation is real
-- replay and audit remain future hardening work until the runtime and docs both prove them
+- replay and audit are now real for operation-backed destructive MCP flows
 
 ## 6.4 Planned Next
 
 These are the most valuable next spikes for Trellis now that the runtime cutover is done.
 
-### Spike A — Replay And Audit Hardening
-
-Goal:
-
-- add durable replay redemption and explicit audit around the shipped confirmation-token flow
-
-Why next:
-
-- destructive confirmation is now bound to previewed state
-- the next safety step is durable one-time redemption and audit records
-
-### Spike B — Operation Binding Ergonomics
+### Spike A — Operation Binding Ergonomics
 
 Goal:
 
@@ -364,7 +353,7 @@ Why next:
 - the safety story is real now
 - the main remaining question is usability around Convex ref boundaries
 
-### Spike C — Keep Docs, Examples, And Contract In Sync
+### Spike B — Keep Docs, Examples, And Contract In Sync
 
 Goal:
 
@@ -756,7 +745,7 @@ The default destructive path should be:
 2. confirm at the transport layer
 3. execute the protected mutation
 
-Replay and audit remain future hardening work unless they are implemented and documented as concrete guarantees.
+Replay and audit are now part of the shipped contract for operation-backed destructive MCP flows.
 
 ## 23. Agent Identity
 
@@ -864,25 +853,170 @@ Trellis should either:
 - make that boundary robust and invisible, or
 - classify it as advanced mode
 
-## 30. Logging Is Secondary
+## 30. Observability Should Explain Decisions
 
-Observability matters, but it is not part of the identity of Trellis core.
+Observability is important to Trellis, but only in the form that matches the product.
 
-Trellis should support logging and events, but not build the framework around them.
+Trellis should not optimize for logger aesthetics, pretty console output, or vendor-shaped tracing APIs.
+It should optimize for explaining the application model:
 
-The product story is:
+- who called
+- how principal and actor resolved
+- what guard or authorize step allowed or denied
+- whether `ctx.db.crossTenant` or `ctx.db.raw` was used
+- whether service access was checked or denied
+- what operation or tool previewed, drifted, confirmed, or executed
 
-- app model
-- safety
-- agent support
+That makes observability part of Trellis' feedback-loop and explainability story.
+It is still subordinate to the app model itself, but it is not just a “nice sink.”
 
-Not “we also have a sink.”
+## 31. Terminology: `observability` vs `logging`
+
+Trellis should use these words consistently:
+
+- `observability`
+  semantic events, adapters, correlation, redaction, sampling, and feedback loops
+- `logging`
+  runtime/debug logging only
+
+This distinction matters because the current runtime already has useful debug logging, but that is not the same thing as a Trellis-native observability product surface.
+
+## 32. What Trellis Observability Is For
+
+Trellis observability should explain:
+
+- principal resolution
+- actor resolution
+- missing-actor cases
+- guard and authorize outcomes
+- RLS, tenant, and service scope denials
+- trust-boundary usage like `ctx.db.crossTenant` and `ctx.db.raw`
+- operation preview, confirm, drift, failure, and execution
+- MCP/tool denial, confirmation, and execution flow
+- runtime auth/query/mutation/upload/connection behavior once browser/runtime coverage lands
+
+Primary uses:
+
+- operator debugging
+- application-model explainability
+- agent feedback loops
+
+Non-goals:
+
+- audit durability
+- generic tracing-vendor abstraction
+- app analytics
+- structured error design
+
+Audit stays separate.
+Structured errors are related, but not part of this initiative.
+
+## 33. The Planned Observability Contract
+
+This is planned work, not shipped runtime truth.
+
+The intended model is a Trellis-native semantic event contract with a shared correlation envelope.
+
+Required envelope fields should be small and stable:
+
+- `ts`
+- `transport`
+- `name`
+- `status`
+- `correlationId`
+
+Important contextual fields:
+
+- `phase`
+- `requestId`
+- `handler`
+- `operation`
+- `tool`
+- `principalKind`
+- `actorKind`
+- `tenantId`
+- `serviceId`
+- `reasonCode`
+- `durationMs`
+
+The first event families worth standardizing are:
+
+- identity
+  `principal.resolved`, `actor.resolved`, `actor.missing`
+- authorization
+  `guard.allowed`, `guard.denied`, `authorize.allowed`, `authorize.denied`, `rls.denied`
+- trust boundary and scope
+  `db.cross_tenant.used`, `db.raw.used`, `service.access.checked`, `service.access.denied`
+- operations
+  `operation.preview.started`, `operation.preview.completed`, `operation.confirm.validated`, `operation.confirm.drifted`, `operation.execute.completed`, `operation.execute.failed`
+- MCP/tools
+  `tool.called`, `tool.denied`, `tool.confirmation.required`, `tool.executed`, `tool.failed`
+
+Denials and failures should carry stable machine-usable `reasonCode` values, not only prose strings.
+
+## 34. Adapter Strategy
+
+Trellis core should own the event model and correlation semantics.
+Adapters should remain secondary.
+
+Rules:
+
+- Trellis emits semantic observation events
+- adapters receive already-correlated, already-redacted payloads
+- Trellis core must not depend on `evlog`
+- `evlog` can be the flagship adapter and reference integration
+- no adapter is allowed to define the Trellis core abstraction
+
+This keeps the product coherent:
+
+- Trellis owns the meaning
+- adapters own projection and transport
+
+## 35. Delivery Strategy
+
+Observability should be phased by trust boundary, not by UI polish.
+
+Phase 1:
+
+- backend runtime semantic events
+- service/access observability
+- operation and MCP observability
+- correlation propagation across Nuxt server, Convex, and MCP
+
+Phase 2:
+
+- browser/runtime semantic events
+- browser-to-server correlation handoff
+- optional app-facing enrichment hooks
+
+Phase 1 should not introduce `ctx.log` everywhere.
+If app-facing enrichment is needed later, it should be a narrow extension point layered on top of the Trellis event model.
+
+## 36. Product Rule
+
+The valuable observability events for Trellis are decisions, not noise.
+
+That means:
+
+- denials matter
+- destructive flows matter
+- trust-boundary usage matters
+- service access checks matter
+- correlation matters
+
+And this must stay true:
+
+- full args are not logged by default
+- full results are not logged by default
+- Convex docs are not dumped by default
+- PII and secrets are redacted before adapter delivery
+- denials, destructive execution events, and tool failures are never sampled out by default
 
 ---
 
 # Part X — Validation Strategy
 
-## 31. Examples Still Matter, But They Need a Clear Job
+## 37. Examples Still Matter, But They Need a Clear Job
 
 Examples should not all be allowed to create new first-class surface area.
 
@@ -892,7 +1026,7 @@ They should serve three functions:
 2. reveal friction in the core
 3. justify promotion of helpers into first-class APIs
 
-## 32. Example Matrix
+## 38. Example Matrix
 
 The current repo already gives a good spread:
 
@@ -915,7 +1049,7 @@ The current repo already gives a good spread:
 
 That is enough breadth to shape the framework.
 
-## 33. Promotion Rule
+## 39. Promotion Rule
 
 A pattern should become first-class only when:
 
@@ -926,7 +1060,7 @@ A pattern should become first-class only when:
 
 This is how Trellis stays general without becoming bloated.
 
-## 34. What To Prove Next
+## 40. What To Prove Next
 
 The next round of design work should validate these questions:
 

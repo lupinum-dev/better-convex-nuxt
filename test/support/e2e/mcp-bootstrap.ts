@@ -14,6 +14,25 @@ export interface McpStateResponse {
     status: string
     lastUsedAt?: number
   }>
+  redemptions: Array<{
+    _id: string
+    jti: string
+    operationId: string
+    principalKey: string
+    tenantKey: string
+    redeemedAt: number
+  }>
+  audit: Array<{
+    _id: string
+    operationId: string
+    jti: string
+    principalKey: string
+    tenantKey: string
+    argsHash: string
+    previewHash: string
+    executedAt: number
+    executePath: string
+  }>
 }
 
 export async function fetchMcpBootstrap(

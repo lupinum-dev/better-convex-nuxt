@@ -43,5 +43,9 @@ export const { mutation, query } = defineTrellis(
   {
     principal,
     actor: getActorFromPrincipal,
+    destructiveSafety: {
+      redemptionTable: 'destructiveRedemptions' as never,
+      auditTable: 'destructiveAuditLog' as never,
+    },
   },
 )

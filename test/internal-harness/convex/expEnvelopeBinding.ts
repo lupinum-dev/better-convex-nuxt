@@ -155,17 +155,17 @@ export const testPurposeMismatch = internalMutation({
 
 // ---- Test 10d: the _generated/api ref carries info we can map to a string ----
 
-export const testApiRefToString = internalMutation({
+export const testApiRefToString: ReturnType<typeof internalMutation> = internalMutation({
   args: {},
   returns: v.object({
     hasRef: v.boolean(),
     refType: v.string(),
   }),
-  handler: async () => {
+  handler: async (): Promise<{ hasRef: boolean; refType: string }> => {
     // internal.expEnvelopeBinding.testValidEnvelope is a function ref.
     // Convex doesn't give us a stable public accessor for its name at runtime —
     // that's why the spec mandates the string form written explicitly.
-    const ref = internal.expEnvelopeBinding.testValidEnvelope
+    const ref: unknown = internal.expEnvelopeBinding.testValidEnvelope
     return {
       hasRef: ref !== undefined,
       refType: typeof ref,

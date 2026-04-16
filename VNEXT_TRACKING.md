@@ -94,7 +94,10 @@
 - [x] The active binding strategy is id-based projection validation.
 - [x] Type-level MCP coverage includes `tool.fromOperation(...)`.
 - [x] Destructive execution now requires `_confirmationToken`, not `_confirmed`.
-- [x] Confirmation tokens bind operation id, ref paths, principal key, tenant key, args hash, and preview hash.
+- [x] Confirmation tokens bind operation id, ref paths, principal key, tenant key, args hash, preview hash, and `jti`.
+- [x] Nitro now acts as preview/router only for destructive MCP tools.
+- [x] Convex-side destructive execution revalidates the confirmation token atomically.
+- [x] Successful destructive execution writes durable redemption and audit rows.
 
 ## 6. Example Migration
 
@@ -167,7 +170,7 @@
 - [x] service-scope enforcement is shipped.
 - [x] `defineWebhook(...)` is deferred from the active vNext contract.
 - [x] `defineComponentApp(...)` is deferred from the active vNext contract.
-- [x] replay and audit guarantees remain future hardening work unless documented and tested concretely.
+- [x] replay and audit guarantees are now documented and implemented for operation-backed destructive MCP flows.
 
 ## 11. Alignment Cleanup
 
@@ -181,9 +184,12 @@
 
 ## 12. Next Feature Wave
 
-- [ ] Add durable replay redemption and audit on top of the shipped confirmation-token flow.
 - [ ] Decide whether direct exported refs should remain the long-term operation-binding seam.
 - [ ] Add guardrails so contract, tracker, docs, and examples stay aligned as new work lands.
+- [ ] Repair the internal harness MCP discovery/auth e2e path so targeted `test/e2e/mcp-smoke.e2e.test.ts` is green again.
+- [ ] Define the Trellis observability contract as semantic events, separate from debug/runtime logging.
+- [ ] Keep `logging` as debug/runtime logging only until first-class observability is implemented.
+- [ ] Phase observability implementation backend-first: identity, authorization, trust-boundary, operation, and MCP/tool events before browser/runtime chatter.
 
 ## 13. Honest Status
 

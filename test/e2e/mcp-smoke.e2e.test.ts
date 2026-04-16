@@ -311,6 +311,164 @@ describe('MCP route smoke', async () => {
     expect(confirmedPayload.result?.structuredContent?.ok).toBe(true)
     expect(confirmedPayload.result?.structuredContent?.data?.deleted).toBe(true)
 
+    const firstState = await fetchMcpState(fetchAny)
+    expect(firstState.redemptions).toHaveLength(1)
+    expect(firstState.audit).toHaveLength(1)
+    expect(firstState.redemptions[0]).toMatchObject({
+      operationId: 'posts.remove',
+      principalKey: 'agent:mcp-admin-user:admin',
+      tenantKey: bootstrap.organizationId,
+    })
+    expect(firstState.audit[0]).toMatchObject({
+      operationId: 'posts.remove',
+      jti: firstState.redemptions[0]?.jti,
+      principalKey: 'agent:mcp-admin-user:admin',
+      tenantKey: bootstrap.organizationId,
+      executePath: 'posts:remove',
+    })
+
+    const replay = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 91,
+        method: 'tools/call',
+        params: {
+          name: 'delete-post',
+          arguments: {
+            id: bootstrap.resources.postId,
+            _confirmationToken: previewPayload.result?.structuredContent?.preview?.confirmationToken,
+          },
+        },
+      },
+      { sessionId: adminSession, key: bootstrap.keys.admin.key },
+    )
+
+    const replayPayload = replay._data as {
+      result?: {
+        isError?: boolean
+        content?: Array<{ text?: string }>
+      }
+    }
+
+    expect(replayPayload.result?.isError).toBe(true)
+    expect(replayPayload.result?.content?.[0]?.text).toContain('already been redeemed')
+
+    const createDriftPost = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 92,
+        method: 'tools/call',
+        params: {
+          name: 'create-post',
+          arguments: {
+            title: 'Drift target',
+            content: 'State will change after preview',
+          },
+        },
+      },
+      { sessionId: adminSession, key: bootstrap.keys.admin.key },
+    )
+
+    const createdDriftPost = createDriftPost._data as {
+      result?: { structuredContent?: { data?: { id?: string } } }
+    }
+    const driftPostId = createdDriftPost.result?.structuredContent?.data?.id
+    expect(driftPostId).toEqual(expect.any(String))
+
+    const driftPreviewA = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 93,
+        method: 'tools/call',
+        params: {
+          name: 'delete-post',
+          arguments: {
+            id: driftPostId,
+          },
+        },
+      },
+      { sessionId: adminSession, key: bootstrap.keys.admin.key },
+    )
+
+    const driftPreviewB = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 94,
+        method: 'tools/call',
+        params: {
+          name: 'delete-post',
+          arguments: {
+            id: driftPostId,
+          },
+        },
+      },
+      { sessionId: adminSession, key: bootstrap.keys.admin.key },
+    )
+
+    const driftTokenA = (
+      driftPreviewA._data as {
+        result?: { structuredContent?: { preview?: { confirmationToken?: string } } }
+      }
+    ).result?.structuredContent?.preview?.confirmationToken
+    const driftTokenB = (
+      driftPreviewB._data as {
+        result?: { structuredContent?: { preview?: { confirmationToken?: string } } }
+      }
+    ).result?.structuredContent?.preview?.confirmationToken
+
+    expect(driftTokenA).toEqual(expect.any(String))
+    expect(driftTokenB).toEqual(expect.any(String))
+
+    const driftDelete = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 95,
+        method: 'tools/call',
+        params: {
+          name: 'delete-post',
+          arguments: {
+            id: driftPostId,
+            _confirmationToken: driftTokenB,
+          },
+        },
+      },
+      { sessionId: adminSession, key: bootstrap.keys.admin.key },
+    )
+
+    const driftDeletePayload = driftDelete._data as {
+      result?: { structuredContent?: { ok?: boolean } }
+    }
+    expect(driftDeletePayload.result?.structuredContent?.ok).toBe(true)
+
+    const driftReplay = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 96,
+        method: 'tools/call',
+        params: {
+          name: 'delete-post',
+          arguments: {
+            id: driftPostId,
+            _confirmationToken: driftTokenA,
+          },
+        },
+      },
+      { sessionId: adminSession, key: bootstrap.keys.admin.key },
+    )
+
+    const driftReplayPayload = driftReplay._data as {
+      result?: {
+        isError?: boolean
+        content?: Array<{ text?: string }>
+      }
+    }
+
+    expect(driftReplayPayload.result?.isError).toBe(true)
+
+    const secondState = await fetchMcpState(fetchAny)
+    expect(secondState.redemptions).toHaveLength(2)
+    expect(secondState.audit).toHaveLength(2)
+
     const revokedCall = await rpc(
       {
         jsonrpc: '2.0',

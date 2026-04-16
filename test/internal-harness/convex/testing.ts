@@ -11,6 +11,8 @@ const ALL_TABLES = [
   'tasks',
   'notes',
   'mcpKeys',
+  'destructiveRedemptions',
+  'destructiveAuditLog',
 ] as const
 
 const BETTER_AUTH_TABLES = [
@@ -45,11 +47,11 @@ export const clearAllData = mutation({
     const stats: Record<string, number> = {}
 
     for (const table of ALL_TABLES) {
-      const docs = await ctx.db.query(table).collect()
+      const docs = (await ctx.db.query(table as never).collect()) as Array<{ _id: unknown }>
       stats[table] = docs.length
 
       for (const doc of docs) {
-        await ctx.db.delete(doc._id)
+        await ctx.db.delete(doc._id as never)
       }
     }
 
@@ -266,6 +268,8 @@ export const getMcpVerificationState = query({
     )
 
     const keys = await ctx.db.query('mcpKeys').collect()
-    return { keys }
+    const redemptions = await ctx.db.query('destructiveRedemptions' as never).collect()
+    const audit = await ctx.db.query('destructiveAuditLog' as never).collect()
+    return { keys, redemptions, audit }
   },
 })

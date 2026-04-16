@@ -8,6 +8,7 @@ export type ToolConfirmationPayload = {
   operationId: string
   executePath: string
   previewPath: string
+  jti: string
   principalKey: string
   tenantKey: string
   argsHash: string
@@ -47,6 +48,7 @@ export async function verifyConfirmationToken(token: string): Promise<ToolConfir
     operationId: String(payload.operationId),
     executePath: String(payload.executePath),
     previewPath: String(payload.previewPath),
+    jti: String(payload.jti),
     principalKey: String(payload.principalKey),
     tenantKey: String(payload.tenantKey),
     argsHash: String(payload.argsHash),

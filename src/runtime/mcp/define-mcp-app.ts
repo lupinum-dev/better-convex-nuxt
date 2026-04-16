@@ -666,6 +666,7 @@ export function defineMcpApp<
               operationId,
               executePath,
               previewPath,
+              jti: crypto.randomUUID(),
               principalKey,
               tenantKey,
               argsHash,
@@ -701,17 +702,6 @@ export function defineMcpApp<
               'Confirmation token no longer matches this destructive request. Preview again before executing.',
             )
           }
-
-          if (display.blocked) {
-            return ctx.blocked(display)
-          }
-
-          if (payload.previewHash !== previewHash) {
-            return ctx.error(
-              'conflict',
-              'Previewed state changed before confirmation. Preview again before executing.',
-            )
-          }
         }
 
         const result = await callByOperation(
@@ -719,6 +709,7 @@ export function defineMcpApp<
           options.executeOperation ?? 'mutation',
           options.execute,
           Object.assign({}, executeArgs, {
+            ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
             principal: projectionCtx.principal,
           }) as FunctionArgs<TExecute>,
         )

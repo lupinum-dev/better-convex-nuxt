@@ -27,16 +27,20 @@ import type {
 } from 'convex/server'
 import type { ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
+import { hash } from 'ohash'
 
+import { can, deny } from '../auth/index.js'
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
+import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
 import { createComponentBridge } from './create-component-bridge.js'
-import { buildStructuredBuilder, buildStructuredFunctions } from './define-handler.js'
+import { buildStructuredBuilder } from './define-handler.js'
 import type {
   StructuredGuard,
   StructuredHandlerDefinition,
   StructuredLoadedValue,
 } from './define-handler.js'
+import { getOperationMetadata, type DestructiveOperationPreview } from './define-operation.js'
 import {
   definePrincipal,
   type DefaultPrincipal,
@@ -197,6 +201,10 @@ export interface DefineTrellisOptions<
   ) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
   services?: ServiceAccessDefinition<DataModel, TPrincipal>
+  destructiveSafety?: {
+    redemptionTable: TableNamesInDataModel<DataModel>
+    auditTable: TableNamesInDataModel<DataModel>
+  }
   rls?: {
     rules: MaybeRules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel>
     config?: RLSConfig
@@ -721,6 +729,25 @@ function decorateDb<TDb extends object>(
   }) as TDb & { raw: TDb; crossTenant: TDb }
 }
 
+function stripConfirmationToken(args: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(args).filter(([key]) => key !== '_confirmationToken'),
+  )
+}
+
+function getConfirmationToken(args: Record<string, unknown>): string | undefined {
+  return typeof args._confirmationToken === 'string' ? args._confirmationToken : undefined
+}
+
+function isDestructivePreviewPayload(
+  value: unknown,
+): value is DestructiveOperationPreview<
+  string | { blocked?: boolean; summary?: string; warn?: string; affects?: Record<string, number> },
+  unknown
+> {
+  return typeof value === 'object' && value !== null && 'display' in value && 'confirm' in value
+}
+
 function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
 ): Customization<
@@ -891,6 +918,206 @@ function buildRawFunctions<
   }
 }
 
+function buildStructuredMutationRuntime<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+  TPrincipal,
+  TActor,
+>(
+  builder: unknown,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+): StructuredMutationBuilder<MutationCtxWithRuntime<DataModel, TPrincipal, TActor>, Visibility, TActor> {
+  const structured = buildStructuredBuilder<
+    MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+    TPrincipal,
+    TActor,
+    never
+  >(builder as never)
+
+  return ((definition) => {
+    const metadata = getOperationMetadata(definition as never)
+    if (metadata.kind !== 'destructive') {
+      return structured(definition as never)
+    }
+
+    if (!metadata.id) {
+      throw new Error('mutation(op) requires `operation.id` for destructive operations.')
+    }
+
+    if (!('preview' in definition) || typeof definition.preview !== 'function') {
+      throw new Error(
+        `mutation(op) for destructive operation "${metadata.id}" requires preview(...) so Trellis can bind confirmation to previewed state.`,
+      )
+    }
+
+    if (!options.destructiveSafety) {
+      throw new Error(
+        `defineTrellis({ destructiveSafety }) is required before registering destructive operation "${metadata.id}".`,
+      )
+    }
+
+    const preview = (
+      definition as {
+        preview: (
+          ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+          args: Record<string, unknown>,
+          loaded: unknown,
+        ) => Promise<unknown> | unknown
+      }
+    ).preview
+    const originalLoad = definition.load as
+      | ((
+          ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+          args: Record<string, unknown>,
+        ) => Promise<unknown> | unknown)
+      | undefined
+    const originalAuthorize = definition.authorize as
+      | {
+          label?: string
+          check: (actor: unknown, loaded: unknown, args: unknown, ctx: unknown) => Promise<unknown> | unknown
+        }
+      | undefined
+    const originalHandler = definition.handler as (
+      ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+      args: Record<string, unknown>,
+      loaded: unknown,
+    ) => Promise<unknown> | unknown
+    const safety = options.destructiveSafety
+
+    const transformed = {
+      ...definition,
+      args: {
+        ...definition.args,
+        _confirmationToken: v.optional(v.string()),
+      },
+      load: originalLoad
+        ? async (
+            ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+            rawArgs: Record<string, unknown>,
+          ) =>
+            await originalLoad(ctx, stripConfirmationToken(rawArgs))
+        : undefined,
+      authorize: originalAuthorize
+        ? {
+            ...originalAuthorize,
+            check: async (actor: unknown, loaded: unknown, rawArgs: Record<string, unknown>, ctx: unknown) =>
+              await originalAuthorize.check(actor, loaded, stripConfirmationToken(rawArgs), ctx),
+          }
+        : undefined,
+      handler: async (
+        ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+        rawArgs: Record<string, unknown>,
+        loaded: unknown,
+      ) => {
+        const confirmationToken = getConfirmationToken(rawArgs)
+        const executeArgs = stripConfirmationToken(rawArgs)
+
+        if (!confirmationToken) {
+          return await originalHandler(ctx, executeArgs, loaded)
+        }
+
+        const payload = await verifyConfirmationToken(confirmationToken)
+        if (payload.operationId !== metadata.id) {
+          throw new Error(
+            `Confirmation token targets operation "${payload.operationId}", not "${metadata.id}".`,
+          )
+        }
+
+        const argsHash = hash(executeArgs)
+        if (payload.argsHash !== argsHash) {
+          throw new Error(
+            'Confirmation token no longer matches this destructive request. Preview again before executing.',
+          )
+        }
+
+        const rawDb = ctx.db.raw as {
+          query: (table: TableNamesInDataModel<DataModel>) => {
+            withIndex: (
+              indexName: string,
+              callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
+            ) => { unique: () => Promise<unknown> }
+          }
+          insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
+        }
+
+        const existingRedemption = await rawDb
+          .query(safety.redemptionTable)
+          .withIndex('by_jti', (q) => q.eq('jti', payload.jti))
+          .unique()
+
+        if (existingRedemption) {
+          throw new Error('Confirmation token has already been redeemed.')
+        }
+
+        const freshLoaded = originalLoad
+          ? await originalLoad(ctx, executeArgs)
+          : undefined
+
+        if (originalAuthorize) {
+          const actor = await ctx.actor()
+          const authorization = await originalAuthorize.check(actor, freshLoaded, executeArgs, ctx)
+          if (!can(actor, authorization as never)) {
+            deny(`Forbidden: ${originalAuthorize.label ?? 'Access denied'}`)
+          }
+        }
+
+        const previewResult = await preview(ctx, executeArgs, freshLoaded)
+        if (!isDestructivePreviewPayload(previewResult)) {
+          throw new Error(
+            `Destructive operation "${metadata.id}" preview must return { display, confirm }.`,
+          )
+        }
+
+        const display =
+          typeof previewResult.display === 'string'
+            ? { summary: previewResult.display }
+            : previewResult.display
+
+        if (display.blocked) {
+          throw new Error('Previewed state is blocked and can no longer be executed.')
+        }
+
+        const previewHash = hash(previewResult.confirm)
+        if (payload.previewHash !== previewHash) {
+          throw new Error(
+            'Previewed state changed before confirmation. Preview again before executing.',
+          )
+        }
+
+        const now = Date.now()
+        await rawDb.insert(safety.redemptionTable, {
+          jti: payload.jti,
+          operationId: payload.operationId,
+          principalKey: payload.principalKey,
+          tenantKey: payload.tenantKey,
+          redeemedAt: now,
+        })
+
+        const result = await originalHandler(ctx, executeArgs, freshLoaded)
+
+        await rawDb.insert(safety.auditTable, {
+          operationId: payload.operationId,
+          jti: payload.jti,
+          principalKey: payload.principalKey,
+          tenantKey: payload.tenantKey,
+          argsHash,
+          previewHash,
+          executedAt: now,
+          executePath: payload.executePath,
+        })
+
+        return result
+      },
+    }
+
+    return structured(transformed as never)
+  }) as StructuredMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+    Visibility,
+    TActor
+  >
+}
+
 function buildTrellisRuntime<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
@@ -912,43 +1139,45 @@ function buildTrellisRuntime<
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
 ) {
   const raw = buildRawFunctions(builders, options)
-  const structured = buildStructuredFunctions<
-    QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
-    MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
-    TPrincipal,
-    TActor
-  >(raw.query, raw.mutation) as {
-    query: StructuredQueryBuilder<
+  const structured = {
+    query: buildStructuredBuilder<
+      QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+      TPrincipal,
+      TActor,
+      typeof raw.query
+    >(raw.query) as StructuredQueryBuilder<
       QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
       QueryVisibility,
       TActor
-    >
-    mutation: StructuredMutationBuilder<
-      MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+    >,
+    mutation: buildStructuredMutationRuntime<
+      DataModel,
       MutationVisibility,
+      TPrincipal,
       TActor
-    >
+    >(raw.mutation, options),
   }
 
   const structuredInternal =
     raw.internal.query && raw.internal.mutation
-      ? (buildStructuredFunctions<
-          QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
-          MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
-          TPrincipal,
-          TActor
-        >(raw.internal.query, raw.internal.mutation) as {
-          query: StructuredQueryBuilder<
+      ? {
+          query: buildStructuredBuilder<
+            QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+            TPrincipal,
+            TActor,
+            NonNullable<typeof raw.internal.query>
+          >(raw.internal.query) as StructuredQueryBuilder<
             QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
             InternalQueryVisibility,
             TActor
-          >
-          mutation: StructuredMutationBuilder<
-            MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+          >,
+          mutation: buildStructuredMutationRuntime<
+            DataModel,
             InternalMutationVisibility,
+            TPrincipal,
             TActor
-          >
-        })
+          >(raw.internal.mutation, options),
+        }
       : undefined
 
   const action = raw.action

@@ -146,11 +146,14 @@ export const { query, mutation, action, internalQuery, internalMutation, raw } =
 
 - [x] Destructive preview wiring exists in the runtime and examples.
 - [x] Destructive execution is bound to previewed state through a signed confirmation token.
+- [x] Destructive execution revalidates confirmation inside the execute mutation, not only in Nitro.
+- [x] Operation-backed destructive MCP execution writes durable `jti` redemption rows when `destructiveSafety` is configured.
+- [x] Operation-backed destructive MCP execution writes durable audit rows for successful execution when `destructiveSafety` is configured.
+- [x] Replay attempts fail before handler execution when the same `jti` was already redeemed.
+- [x] Drifted destructive previews fail before redemption or handler execution.
 - [x] Generic `tool({... destructive: true ...})` mode is not part of the shipped contract.
 - [x] Capability gating exists in the runtime and examples.
-- [ ] Replay protection is not yet documented as a concrete runtime guarantee in the active contract.
-- [ ] Audit is not yet documented as a concrete runtime guarantee in the active contract.
-- [x] Until those are implemented and documented, Trellis should not over-claim them.
+- [x] Replay and audit are active runtime guarantees for operation-backed destructive MCP flows.
 
 ## 12. Deferred From vNext
 
@@ -161,3 +164,5 @@ export const { query, mutation, action, internalQuery, internalMutation, raw } =
 - [x] service-scoped runtime enforcement is shipped.
 - [x] forwarded user/service execution helpers are deferred.
 - [x] any manifest-based operation pipeline is deleted.
+- [x] current `logging` means runtime/debug logging only.
+- [x] first-class `observability` is planned work, not shipped runtime surface.

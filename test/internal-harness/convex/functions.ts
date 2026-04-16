@@ -24,5 +24,9 @@ export const { mutation, query, raw } = defineTrellis<
       tables: ['posts', 'comments', 'mcpKeys'],
       field: 'organizationId',
     },
+    destructiveSafety: {
+      redemptionTable: 'destructiveRedemptions' as never,
+      auditTable: 'destructiveAuditLog' as never,
+    },
   },
 )

@@ -41,3 +41,4 @@ export const mcpRuntime = defineMcpApp<
 })
 
 export const tool = mcpRuntime.tool
+export default mcpRuntime
