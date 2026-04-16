@@ -171,4 +171,34 @@ export default defineSchema({
     previewHash: v.optional(v.string()),
     timestamp: v.number(),
   }),
+
+  // ---------- Experiment 13: per-table scope ----------
+  // Workspaces are themselves scoped by organizationId (parent scope).
+  expWorkspaces: defineTable({
+    name: v.string(),
+    organizationId: v.id('organizations'),
+    createdAt: v.number(),
+  })
+    .index('by_organization', ['organizationId'])
+    .index('by_org_name', ['organizationId', 'name']),
+
+  // Documents are scoped by workspaceId (child scope, different field).
+  expDocuments: defineTable({
+    title: v.string(),
+    status: v.string(),
+    workspaceId: v.id('expWorkspaces'),
+    createdAt: v.number(),
+  })
+    .index('by_workspace', ['workspaceId'])
+    .index('by_workspace_status', ['workspaceId', 'status']),
+
+  // ---------- Experiment 14: runAsUser audit ----------
+  // Reuses expAuditLog above.
+
+  // ---------- Experiment 15: operations-as-objects ----------
+  expRunbooks: defineTable({
+    title: v.string(),
+    archived: v.boolean(),
+    organizationId: v.id('organizations'),
+  }).index('by_organization', ['organizationId']),
 })

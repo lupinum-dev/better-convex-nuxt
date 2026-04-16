@@ -351,9 +351,9 @@ The workspace-switching pattern from §14.4 — the Nuxt module injects `__works
 | 11 (runAsService) | Medium | **PASS** | None — behaves exactly as §10.3/§26 describe |
 | 12 (workspaceId inject) | Low | **PASS** | None — §14.4 pattern is accurate |
 
-## Verdict
+## Verdict (after exp 1–12)
 
-**All 12 experiments PASS (58 convex tests + unit tests for AST walk). Ready to start the refactor.**
+**All 12 experiments PASS (58 convex tests + unit tests for AST walk).**
 
 Final decisions absorbed into the spec:
 
@@ -366,3 +366,74 @@ Final decisions absorbed into the spec:
 7. Callee-binding uses the `"module:exportName"` string form, not `fn._name`.
 8. `ctx.runAsService` + internal mutation principal resolver validated end-to-end.
 9. `__workspaceId` injection via `customQuery` input validated; §14.4 pattern is accurate.
+
+---
+
+## Experiment 13: Per-table scope config (hierarchical tenancy)
+
+**Status:** PASS (5/5)
+
+### What was tested
+Whether a single tenant-rules config can scope different tables by different fields — the "hierarchical tenancy" case that earlier revisions of the spec did not cover. `expWorkspaces` is scoped by `organizationId`, `expDocuments` is scoped by `workspaceId` (child scope, different field).
+
+### Results
+- **13a:** Proxy dispatches per-table correctly. For org1 actor with workspace1A focus, `.query('expWorkspaces')` returns 2 rows (all workspaces in org1), `.query('expDocuments')` returns 1 row (only docs in workspace1A).
+- **13b:** `.withIndex('by_workspace_status', q => q.eq('status', 'draft'))` on `expDocuments` prepends `workspaceId`, not `organizationId`. Each table's scope field flows through its own queries.
+- **13c:** Insert rejections use each table's own scope field. Inserting a workspace with wrong `organizationId` and inserting a document with wrong `workspaceId` both throw.
+- **13d:** Non-compound index error message names the specific scope field of the specific table: `"Index 'by_status' on scoped table 'expDocuments' must start with scope field 'workspaceId'"`.
+- **13e:** Two workspaces in the same organization see their own documents and nothing else — workspace isolation holds even when the parent org is the same.
+
+### Spec impact
+**`defineTenantRules.tables` becomes a per-table map, not a flat array.** Each entry may override `scopeField`, `scopeIndex`, and `compoundIndexes`. Default `scopeField` at the top level still applies to entries that don't override. Unblocks hierarchical tenancy (org → workspace → project).
+
+---
+
+## Experiment 14: `ctx.runAsUser()` roundtrip
+
+**Status:** PASS (5/5)
+
+### What was tested
+A symmetric helper to `ctx.runAsService`: signs a `trellis:trusted-caller:v1` envelope with a user principal (`{ kind: 'user', userId }`) bound to the target function, so an action or scheduler can invoke an internal mutation while preserving the user's identity — without implicit propagation.
+
+### Results
+- **14a:** Happy path — envelope verifies, internal mutation sees `ctx.principal.kind === 'user'`, `userId` matches.
+- **14b:** Tampered signature rejected by `jose`.
+- **14c:** Envelope bound to `expRunAsUser:somethingElse` cannot be replayed against `expRunAsUser:generateReport` — callee mismatch error.
+- **14d:** No envelope → internal mutation falls back to `systemPrincipal` default (`{ kind: 'service', service: 'system' }`). Crucially: does **not** silently adopt the caller's identity. Explicit envelope required.
+- **14e:** A service-shaped envelope stays a service principal. The resolver returns the verified payload as-is; kind coercion does not happen at the envelope layer.
+
+### Spec impact
+**Add `ctx.runAsUser(fn, args)` to Trellis-wrapped actions, mutations, and scheduler callbacks.** Symmetric to `ctx.runAsService`. Same signing key (`trellis:trusted-caller:v1`). Fills the common pattern of action → internal while preserving user identity. Greppable, explicit, no implicit propagation.
+
+---
+
+## Experiment 15: Operations as imported objects (no manifest)
+
+**Status:** PASS (5/5)
+
+### What was tested
+The biggest architectural simplification. The v2.2 draft had a build-time AST walker that emits a typed operations manifest (`.trellis/operations-manifest.ts`). This experiment validates we can eliminate that entirely: `defineOperation` returns a plain JS object whose `.preview` and `.execute` projections are directly consumable by Convex's `query()` and `mutation()` builders, and whose metadata is directly importable by MCP code.
+
+### Results
+- **15a:** `query(op.preview)` and `mutation(op.execute)` project to working Convex functions. Preview returns `{ display, confirm, confirmationToken }` where the token is a real JWT.
+- **15b:** The execute mutation handles both `__preview: true` mode (returns preview + token) and token-based execute in one function. No separate preview projection is *required* for destructive flows — the mutation alone is sufficient for MCP. The `query(op.preview)` projection remains useful for UI reactivity.
+- **15c:** Preview drift detection works. Title changed between preview and execute → execute fails with `"preview hash mismatch"`; runbook is not archived.
+- **15d:** MCP introspection reads `op.name`, `op.kind`, `op.args` directly from the imported object. `__trellis_operation: true` marker identifies operations at runtime. No manifest lookup, no AST walker, no generated file.
+- **15e:** Runtime kind check rejects a `kind: 'safe'` operation on a destructive tool binding — validation happens with information the operation object already carries.
+
+### Spec impact
+**Remove the operations manifest section (§24 in the v2.2 draft).** Operations are plain JS objects that carry their own metadata. MCP tools take the operation object directly: `tool.fromOperation(archiveRunbookOp, { ref: api.x.y.archiveRunbook, capability: ... })`. The user still exports Convex projections (`export const archiveRunbook = mutation(op.execute)`) because Convex's module model requires top-level `export const` declarations for function refs — but no generated manifest or AST walker is needed.
+
+Tradeoff made explicit: the operation object is imported at module load in MCP code. If a Nuxt bundle ever tree-shakes incorrectly, the handler code could leak into the client bundle. MCP code lives in Nuxt server-only paths (`~/server/mcp/**`), which Nuxt excludes from the client bundle. Document the server-only import constraint; don't generate a manifest for it.
+
+---
+
+## Summary (after exp 13–15)
+
+**All 15 experiments now PASS (73 convex tests + unit tests).**
+
+Three new decisions absorbed:
+
+10. **Per-table scope config.** `defineTenantRules.tables` is a map, not a flat array. Each table declares its scope field; hierarchical tenancy works out of the box.
+11. **`ctx.runAsUser`.** Symmetric to `runAsService`. Explicit user-identity forwarding through action → internal boundaries.
+12. **No operations manifest.** Operations are importable JS objects with their own metadata. MCP consumes them directly. AST walker removed from the build pipeline.

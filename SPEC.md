@@ -1,19 +1,21 @@
 # Trellis v2.2 — The Spec
 
-> **Status: Final (revised 2026-04-16, second pass).** All technical assumptions validated via 12 experiments (58 tests). This is the implementation spec for the dev team.
+> **Status: Final (revised 2026-04-16, third pass).** All technical assumptions validated via 15 experiments (73 tests). Trellis has no users yet — this spec is the result of continuous experimentation to land on a "Nuxt-level elegant" shape before first release.
 >
 > **Reading order for implementers:**
 > 1. Parts I and II to understand the public API.
 > 2. Part III for runtime implementation notes before writing code.
-> 3. Part IV for project management and Part V for rationale when decisions are questioned.
+> 3. Part IV for open questions and Part V for rationale when decisions are questioned.
 >
-> **What's new in this revision (2026-04-16 second pass):**
-> - **Trellis owns its tenant-scope layer** (experiment 8). Replaces convex-helpers `wrapDatabaseReader`/`wrapDatabaseWriter` with a Trellis-owned index-based proxy. Full-page pagination is guaranteed by construction, not approximated. Pages are full because every query hits a scope index, not because of post-fetch filtering.
-> - **Compound-index rule, enforced twice.** On scoped tables, every custom index must start with the scope field (e.g., `['organizationId', 'status']`, not `['status']`). Eslint flags violations at the schema; the proxy rejects them at runtime. Users write plain `defineTable` — no schema wrapper.
-> - **Triggers auto-scope from the triggering document** (experiment 8d). No `defineTrigger` wrapper and no manual composition order.
-> - **Envelope callee-binding** validated with the string form `"module:exportName"` (experiment 10). The spec no longer references `fn._name`.
-> - **`ctx.runAsService()` roundtrip** validated end-to-end (experiment 11).
-> - **`__workspaceId` injection** via `customQuery` input validated (experiment 12) — the documented workspace-switching pattern works as described.
+> **What's new in this revision (2026-04-16 third pass):**
+> - **Per-table scope config** (experiment 13). `defineTenantRules.tables` is a per-table map. Different tables can be scoped by different fields — hierarchical tenancy (org → workspace → project) is expressible without workarounds.
+> - **`ctx.runAsUser()`** (experiment 14). Symmetric to `ctx.runAsService`. Forwards the current user principal through action → internal boundaries explicitly. No implicit propagation; `runAsUser` is greppable wherever identity crosses a trust boundary.
+> - **Operations are plain JS objects — no manifest** (experiment 15). `defineOperation` returns an object whose `.preview` and `.execute` projections are directly consumable by `query()` and `mutation()`. MCP imports operations directly and reads their metadata at runtime. The AST-walker and generated `.trellis/operations-manifest.ts` are gone.
+> - **DB vocabulary named for what it does.** `ctx.db` (default, scoped) / `ctx.db.crossTenant` (bypass scope, keep triggers) / `ctx.db.raw` (bypass everything). The method-chain tells you these are alternates of `db`, not parallels to it.
+> - **`defineWebhook`** collapses the webhook pattern into one declarative API. `httpAction + runAsService + internalMutation` becomes a single definition.
+> - **`defineComponentApp`** makes component authorship symmetric to `defineFunctions`. Components declare their own principal, actor, tenant rules, and get the same wrapped builders.
+> - **Observability sink.** `defineFunctions({ logging: { sink } })` receives structured events (`principal-resolved`, `guard-denied`, `rls-denied`, `operation-executed`). Default sink is `consola`; pipe to OpenTelemetry / Datadog / Pino as needed.
+> - **Carried forward from previous revisions:** Trellis-owned index-based scope proxy (exp 8), trigger auto-scoping (exp 8d), callee-bound envelopes with `"module:exportName"` (exp 10), `ctx.runAsService` roundtrip (exp 11), `__workspaceId` injection (exp 12).
 
 ---
 
@@ -50,15 +52,17 @@ If a feature doesn't fit somewhere in that list, it probably shouldn't be a firs
 
 **Keep the safe path easy.** Public paths, authenticated paths, tenant-scoped paths, bridge calls, and agent calls all need a clear default shape.
 
-**Stay Convex-native.** The default handler shape looks exactly like Convex: `args` plus `handler`. Under the hood, v2.2 is built with `customQuery` / `customMutation`, RLS wrappers, and triggers.
+**Stay Convex-native.** The default handler shape looks exactly like Convex: `args` plus `handler`. Under the hood, Trellis is built with `customQuery` / `customMutation` and triggers from convex-helpers. The scope proxy is Trellis-owned (§7.2).
 
-**One right way forward.** Regular queries and mutations are procedural. Reusable multi-surface business operations use `defineOperation`. Destructive MCP tools are operation-backed. No "pick between two styles" for the same use case.
+**Progressive API surface.** `defineFunctions` with just `principal` + `actor` works for hello-world auth. Add `tenantRules` when multi-tenancy appears. Add `triggers` when audit appears. Add `logging.sink` when observability appears. Add `defineOperation` when you need reusable multi-surface business actions. Nothing forces the full model on day one; nothing later feels bolted on when you opt in.
+
+**One right way forward per use case.** Regular queries and mutations are procedural. Reusable multi-surface business operations use `defineOperation`. Destructive MCP tools are operation-backed. Webhooks use `defineWebhook`. One shape per category — two categories where the Convex module model genuinely requires a second shape (operation projections must be top-level `export const` declarations).
 
 **Separate three different jobs.** Row existence (RLS), action permission (guards), returned-data visibility (capabilities + redaction). Distinct concerns, distinct APIs.
 
 **Delegate infrastructure downward.** Rate limiting, migrations, and audit persistence use Convex ecosystem components. Trellis owns the policy and projection layer.
 
-**Make every boundary explicit.** Anonymous entrypoints, policy bypass, trigger bypass, component trust, destructive agent calls. Each has a visible, greppable syntax.
+**Make every boundary explicit.** Anonymous entrypoints, policy bypass, trigger bypass, component trust, destructive agent calls, identity forwarding across contexts. Each has a visible, greppable syntax. Nuxt-style magic (auto-discovering MCP tools from file globs, implicit identity propagation, etc.) is deliberately avoided where the magic would hide a trust decision.
 
 **Default-on safety, opt-out with intent.** Replay protection, deny-by-default RLS, signed principals, audit redaction, Trellis-awareness on internals, operation backing for destructive tools. Opting out requires explicit code.
 
@@ -82,9 +86,10 @@ v2.2 is not:
 ```txt
 @lupinum/trellis/auth        — principals, actors, guards, permission context, tenant rules
 @lupinum/trellis/functions   — defineFunctions, defineOperation, ctx contract
+@lupinum/trellis/webhooks    — defineWebhook
 @lupinum/trellis/visibility  — defineCapabilities, defineRedaction, defineVisibility
 @lupinum/trellis/mcp         — defineMcpApp, tool, resource, prompt, mcpKeyAuth
-@lupinum/trellis/components  — defineComponentBridge, bridge.from, manifest helpers
+@lupinum/trellis/components  — defineComponentApp, defineComponentBridge, bridge.from
 @lupinum/trellis/args        — defineArgs
 @lupinum/trellis/testing     — test helpers
 @lupinum/trellis/nuxt        — Nuxt module and composables
@@ -120,6 +125,7 @@ export const {
   publicMutation,   // actor optional, public client visibility
   internalQuery,    // internal visibility, actor optional, Trellis-wrapped
   internalMutation, // internal visibility, actor optional, Trellis-wrapped
+  action,           // Trellis-wrapped action with ctx.runAsUser/runAsService
   httpAction,       // HTTP action wrapper providing ctx.runAsService
   raw,              // unwrapped escape hatches
 } = defineFunctions(
@@ -128,24 +134,27 @@ export const {
     mutation: rawMutation,
     internalQuery: rawInternalQuery,
     internalMutation: rawInternalMutation,
+    action: rawAction,
   },
   {
     principal,                        // required
     actor: resolveActor,              // required — see §6.4
     systemPrincipal,                  // optional, defaults to { kind: 'service', service: 'system' }
-    rls: tenantRules,                 // optional — omit for apps without multi-tenancy
+    tenantRules,                      // optional — omit for apps without multi-tenancy
     triggers: auditTriggers,          // optional — omit if no triggers needed yet
+    logging: { sink: myLogSink },     // optional — defaults to a consola sink, see §7.5
   },
 )
 ```
 
 ### 6.1 What each builder means
 
-- **`query` / `mutation`** — actor required. Public client visibility. Throws at the ctx-input step if actor resolution returns null.
+- **`query` / `mutation`** — actor required. Public client visibility. Throws at the ctx-input step if actor resolution returns null. Handler receives `ctx.actor: Actor` (non-null by construction; §7.4).
 - **`publicQuery` / `publicMutation`** — actor optional. Public client visibility. `ctx.actor` is `Actor | null`; handlers branch. Use for public pages, share-token routes, UI surfaces that show extra controls to authenticated users.
-- **`internalQuery` / `internalMutation`** — internal visibility (not callable from the public client). Actor is optional. **Trellis-wrapped**: RLS applies, triggers run, principal forwarding works, service principals resolve automatically (§6.5).
-- **`httpAction`** — HTTP action wrapper that provides `ctx.runAsService()` for webhook-style handlers (§10.3).
-- **`raw`** — unwrapped builders (`raw.query`, `raw.mutation`, `raw.internalQuery`, `raw.internalMutation`). For escape hatches, advanced testing, and rare migration-style code.
+- **`internalQuery` / `internalMutation`** — internal visibility (not callable from the public client). Actor is optional. **Trellis-wrapped**: scope proxy applies, triggers run, principal forwarding works, service principals resolve automatically (§6.5).
+- **`action`** — Trellis-wrapped action. Provides `ctx.runAsUser(fn, args)` and `ctx.runAsService(fn, args, { service })` for explicit identity forwarding into internal functions (§10.3).
+- **`httpAction`** — HTTP action wrapper that provides `ctx.runAsService()` for webhook-style handlers (§10.3). Most webhooks use `defineWebhook` (§10.4) instead of writing `httpAction` directly.
+- **`raw`** — unwrapped builders (`raw.query`, `raw.mutation`, `raw.internalQuery`, `raw.internalMutation`, `raw.action`). For escape hatches, advanced testing, and rare migration-style code.
 
 ### 6.2 Visibility vs. policy — the critical distinction
 
@@ -170,8 +179,9 @@ Earlier drafts conflated these. v2.2 separates them: `internalQuery` / `internal
 | `principal` | **Yes** | Throws — no way to determine who is calling |
 | `actor` | **Yes** | Throws — `query`/`mutation` would have no actor to enforce against |
 | `systemPrincipal` | No | Defaults to `{ kind: 'service', service: 'system' }` |
-| `rls` | No | No tenant scoping — `ctx.db` is unwrapped. `unsafeDb` and `rawDb` are aliases for `db`. |
+| `tenantRules` | No | No tenant scoping — `ctx.db` is unwrapped. `ctx.db.crossTenant` and `ctx.db.raw` are aliases for `ctx.db`. |
 | `triggers` | No | No triggers fire. `ctx.db` writes go straight to Convex. |
+| `logging` | No | Defaults to a `consola` sink that prints structured events at `info` level. See §7.5. |
 
 There is no silent fallback where `query` degrades to `publicQuery` behavior. This is a greenfield framework. The cost of typing `publicQuery` in a hello-world example is one word. The cost of a runtime fallback that silently drops authorization is a class of bugs where developers think they have auth and don't.
 
@@ -184,7 +194,7 @@ export const { query, mutation, publicQuery, ... } = defineFunctions(
 )
 ```
 
-Add `rls` and `triggers` when the app needs multi-tenancy or audit logging. The framework scales up; it doesn't demand the full model on day one.
+Add `tenantRules` and `triggers` when the app needs multi-tenancy or audit logging. The framework scales up; it doesn't demand the full model on day one.
 
 ### 6.5 Service principals for non-request contexts
 
@@ -208,10 +218,10 @@ Default if omitted: `{ kind: 'service', service: 'system' }`.
 
 **Resolution precedence order** (implementers: follow this order exactly):
 
-1. **Forwarded principal envelope** → consumed by the target adapter (bridge or MCP) *before* reaching the user resolver. Never reaches the general principal resolver. See §10.
+1. **Forwarded principal envelope** → consumed by the target adapter (bridge, MCP, `runAsUser`, `runAsService`, `defineWebhook`) *before* reaching the user resolver. Never reaches the general principal resolver. See §10.
 2. **Ambient auth present** → `{ kind: 'user', userId }` (or whatever shape the principal resolver returns).
 3. **Request origin with no ambient auth** → `{ kind: 'anonymous' }`. This is for public client calls where the user isn't logged in.
-4. **Non-request execution context with no auth** → `systemPrincipal.resolve(ctx)`. Scheduler, cron, CLI, dashboard, HTTP actions calling internals.
+4. **Non-request execution context with no auth** → `systemPrincipal.resolve(ctx)`. Scheduler, cron, CLI, dashboard, HTTP actions calling internals without `runAsUser`/`runAsService`.
 
 **Critical:** public unauthenticated client calls resolve to `anonymous`, not `service`. The service fallback is reserved for non-request contexts.
 
@@ -221,7 +231,7 @@ The detection is not a heuristic — it is structural. Trellis tracks the execut
 
 - **`query` / `mutation` / `publicQuery` / `publicMutation`** — these are public-client builders. Always a request context. No auth → `anonymous`. Never falls through to `systemPrincipal`.
 - **`internalQuery` / `internalMutation`** — these check for a forwarded principal envelope first. If no envelope and no ambient auth, these resolve via `systemPrincipal`. This is correct: internal functions are called by schedulers, cron, actions, the CLI, and the dashboard — all non-request contexts.
-- **Action-to-internal calls** — a Convex action calling `ctx.runMutation(internal.foo.bar, args)` does **not** automatically forward the original request's auth. The internal function sees no ambient auth and no envelope, so it resolves via `systemPrincipal`. If the action needs to preserve the user's identity, it must use `ctx.runAsService()` with an explicit envelope or pass the principal via args. This is deliberate: implicit auth propagation across the action→mutation boundary would hide the trust decision.
+- **Action-to-internal calls** — a Convex action calling `ctx.runMutation(internal.foo.bar, args)` does **not** automatically forward the original request's auth. The internal function sees no ambient auth and no envelope, so it resolves via `systemPrincipal`. If the action needs to preserve identity, it must use `ctx.runAsUser(fn, args)` (user identity) or `ctx.runAsService(fn, args, { service })` (service identity). Both sign purpose-bound envelopes — the choice is greppable. Implicit propagation across the action→mutation boundary would hide the trust decision and is deliberately not supported.
 
 The key insight: the builder type (`query` vs `internalQuery`) determines the resolution path at definition time, not at call time. There is no runtime heuristic.
 
@@ -250,40 +260,54 @@ Deny-by-default RLS plus narrow service actors means scheduled jobs can only tou
 
 ## 7. The ctx contract
 
+The ctx type is narrowed by builder: `query` / `mutation` handlers receive a non-null `actor`, while `publicQuery` / `publicMutation` / `internalQuery` / `internalMutation` receive a nullable `actor`. There is no runtime check inside the handler — the narrowing is statically guaranteed by the builder type.
+
 ```ts
-type TrellisCtx<TPrincipal, TActor> = {
-  // Identity — values, not async accessors.
+// Non-null actor — query, mutation
+type AuthedCtx<TPrincipal, TActor, TDb> = {
   principal: TPrincipal
-  actor: TActor | null             // non-null in query/mutation; nullable in public*/internal*
+  actor: TActor                     // non-null by construction
 
-  // Convenience: throws if actor is null, returns it otherwise.
-  requireActor(): NonNullable<TActor>
-
-  // Authorization — the universal primitive.
-  enforce(guard: Guard<TActor | null> | boolean | Promise<boolean>): Promise<void>
+  enforce(guard: Guard<TActor> | boolean | Promise<boolean>): Promise<void>
 
   // Visibility helpers.
-  attach<T>(value: T, capabilities: CapabilityResolver<TActor | null, T>):
+  attach<T>(value: T, capabilities: CapabilityResolver<TActor, T>):
     Promise<T & { __can: Record<string, boolean> }>
-  redact<T>(value: T, redaction: RedactionResolver<TActor | null, T>):
+  redact<T>(value: T, redaction: RedactionResolver<TActor, T>):
     Promise<unknown>
-  applyVisibility<T>(value: T, visibility: Visibility<TActor | null, T>):
+  applyVisibility<T>(value: T, visibility: Visibility<TActor, T>):
     Promise<unknown>
 
-  // Database — three doors.
-  db: DatabaseReader | DatabaseWriter         // RLS + triggers (default)
-  unsafeDb: DatabaseReader | DatabaseWriter   // bypass RLS, triggers still run
-  rawDb: DatabaseReader | DatabaseWriter      // bypass RLS AND triggers (rare, docs warn)
+  // Database — one primary door, two greppable escape hatches.
+  db: ScopedDb<TDb>                 // default: scope-proxy + triggers
+}
+
+// Nullable actor — publicQuery, publicMutation, internalQuery, internalMutation
+type OptionalCtx<TPrincipal, TActor, TDb> =
+  Omit<AuthedCtx<TPrincipal, TActor, TDb>, 'actor'>
+  & {
+    actor: TActor | null
+    requireActor(): TActor         // throws if null
+  }
+
+// Database shape — one object, with named escape hatches as properties.
+type ScopedDb<TDb> = TDb & {
+  crossTenant: TDb                 // bypass scope proxy; triggers still fire
+  raw: TDb                         // bypass everything (scope + triggers)
 }
 ```
 
-### 7.1 Three database doors
+### 7.1 One database door, two escape hatches
 
-- **`db`** — scope-proxy-wrapped, trigger-aware on mutations. Default. 99% of handlers use this.
-- **`unsafeDb`** — bypasses tenant scope, triggers still run. Admin operations, onboarding before the actor has a tenant, cross-tenant reporting. Still audited.
-- **`rawDb`** — bypasses scope *and* triggers. Data migrations, avoiding trigger recursion, integrity repair, low-level testing. Rare. Docs display a warning banner.
+Trellis exposes database access as a single object `ctx.db` with two explicit escape hatches reachable via property access. The names describe what each does, not how "safe" they are:
 
-All three are greppable. If someone bypasses policy, audit, or both, the choice is visible in code review.
+- **`ctx.db`** — scope-proxy-wrapped, trigger-aware on mutations. Default. 99% of handlers use this.
+- **`ctx.db.crossTenant`** — bypasses the tenant scope proxy, triggers still run. For admin flows (onboarding before the actor has a tenant, cross-tenant reports, admin backfills) where audit must still fire. Greppable as `ctx.db.crossTenant`.
+- **`ctx.db.raw`** — bypasses scope *and* triggers. Data migrations, avoiding trigger recursion, integrity repair, low-level testing. Rare. Docs display a warning banner.
+
+**Why "crossTenant" and not "unsafe":** the original `unsafeDb` name said how dangerous the door was, not what it did. A name like `crossTenant` tells the reader *exactly* what the bypass skips — the tenant scope — while making clear (via the `db.crossTenant` access path) that this is an alternate of `db`, not a parallel to it. Triggers still firing means audit still catches the write; the door is not "unsafe," it is "cross-tenant but audited."
+
+Both escape hatches are greppable (`ctx.db.crossTenant`, `ctx.db.raw`). Eslint rules require a comment above each use (§27).
 
 ### 7.2 Trellis owns the tenant-scope layer
 
@@ -320,11 +344,11 @@ The user takes on one obligation: write the scope field as the first field of ev
 
 ### 7.2.1 Trigger auto-scoping
 
-When a trigger fires, the callback receives a `ctx` where `ctx.db`, `ctx.unsafeDb`, and `ctx.rawDb` are already constructed:
+When a trigger fires, the callback receives a `ctx` where `ctx.db`, `ctx.db.crossTenant`, and `ctx.db.raw` are already constructed:
 
 - `ctx.db` — scope-proxy-wrapped to the **triggering document's** scope value (read from `change.newDoc ?? change.oldDoc`). Writes are scoped; reads are scoped.
-- `ctx.unsafeDb` — triggers still run, but the scope proxy is bypassed. For cross-tenant denorm or admin reconciliation inside a trigger.
-- `ctx.rawDb` — raw `ctx.innerDb` from convex-helpers. Use for audit writes to unscoped tables.
+- `ctx.db.crossTenant` — triggers still run, but the scope proxy is bypassed. For cross-tenant denorm or admin reconciliation inside a trigger.
+- `ctx.db.raw` — raw `ctx.innerDb` from convex-helpers. Use for audit writes to unscoped tables (when you explicitly want to skip further trigger fan-out).
 
 ```ts
 triggers.register('posts', async (ctx, change) => {
@@ -350,8 +374,8 @@ triggers.register('posts', async (ctx, change) => {
 | Scenario | Actor's scope | Document's scope | Correct scope |
 |---|---|---|---|
 | User creates post via `ctx.db` | Tenant A | Tenant A | same |
-| Admin backfills via `ctx.unsafeDb` | Tenant A | Tenant B | **Document's (B)** |
-| System cron via `ctx.unsafeDb` | (system) | Tenant C | **Document's (C)** |
+| Admin backfills via `ctx.db.crossTenant` | Tenant A | Tenant B | **Document's (B)** |
+| System cron via `ctx.db.crossTenant` | (system) | Tenant C | **Document's (C)** |
 
 A trigger should maintain data consistency within the *affected* tenant. Scoping to the actor would silently break admin backfills and system jobs. Validated in experiment 8d.
 
@@ -365,9 +389,9 @@ There is no `defineTrigger` wrapper to remember. There is no composition order f
 
 ### 7.3 Resolution uses raw access internally
 
-Actor resolution often reads `users`, `memberships`, or `workspaceMembers` *before* the actor exists. If the resolver used the RLS-wrapped `db`, it would deadlock against its own rules.
+Actor resolution often reads `users`, `memberships`, or `workspaceMembers` *before* the actor exists. If the resolver used the scope-wrapped `db`, it would deadlock against its own rules.
 
-The framework internally uses `raw.db` during principal and actor resolution, then swaps in the wrapped `db` for the handler. User code never thinks about this — the `ctx` passed to `resolveActor` is already raw.
+The framework internally uses raw access during principal and actor resolution, then swaps in the wrapped `db` for the handler. User code never thinks about this — the `ctx` passed to `resolveActor` is already raw.
 
 ### 7.4 Error semantics
 
@@ -386,9 +410,57 @@ The framework must have predictable, distinguishable error behavior. Silence is 
 | `applyVisibility` — capability resolver throws | That capability defaults to `false`. Error is logged. Remaining capabilities still evaluate. | Capability absent from `__can` map. |
 | `applyVisibility` — redaction resolver throws | Redaction fails safe: field is redacted. Error is logged. | Field absent from response. |
 
-**Debug mode.** When `logging: 'debug'` is set in `defineFunctions` options, the framework logs: principal resolution result, actor resolution result, every `ctx.enforce` call with guard name and outcome, and every RLS deny with table name and document ID. This is off in production by default.
-
 **Error types.** Trellis exports `TrellisGuardError`, `TrellisRLSError`, and `TrellisAuthError` for programmatic catch handling. All extend `ConvexError` so they serialize cleanly across the Convex boundary.
+
+### 7.5 Observability sink
+
+Trellis emits structured events at well-defined phases. Users provide a sink function via `defineFunctions({ logging: { sink, level } })`; the framework calls it synchronously with typed event objects. The default sink is a `consola` wrapper that prints at `info` level; pipe to OpenTelemetry, Datadog, Pino, or a custom aggregator by supplying your own sink.
+
+```ts
+import { defineFunctions, type TrellisEvent } from '@lupinum/trellis/functions'
+
+const mySink = (event: TrellisEvent) => {
+  switch (event.kind) {
+    case 'principal.resolved':
+    case 'actor.resolved':
+    case 'enforce.called':
+    case 'enforce.denied':
+    case 'rls.denied':
+    case 'operation.preview':
+    case 'operation.executed':
+    case 'bridge.verified':
+    case 'webhook.received':
+      logger.info({ trellis: event.kind, ...event })
+  }
+}
+
+const { query, mutation, ... } = defineFunctions(
+  { query: rawQuery, ... },
+  {
+    principal, actor: resolveActor,
+    logging: { sink: mySink, level: 'info' },
+  }
+)
+```
+
+**Event shape:**
+
+```ts
+type TrellisEvent =
+  | { kind: 'principal.resolved'; principalKind: string; durationMs: number }
+  | { kind: 'actor.resolved'; actorKind: string | null; durationMs: number }
+  | { kind: 'enforce.called'; guardName: string; outcome: 'allow' | 'deny' }
+  | { kind: 'enforce.denied'; guardName: string; handler: string }
+  | { kind: 'rls.denied'; table: string; operation: 'read' | 'write'; docId?: string }
+  | { kind: 'operation.preview'; operation: string; hasToken: boolean }
+  | { kind: 'operation.executed'; operation: string; durationMs: number }
+  | { kind: 'bridge.verified'; component: string; callee: string }
+  | { kind: 'webhook.received'; service: string; verified: boolean }
+```
+
+**Levels:** `'debug'` | `'info'` | `'warn'` | `'error'`. The sink decides what to do with each; the level is advisory. Default in development is `'debug'`; default in production is `'info'`.
+
+**Not for audit.** The sink is for observability, not for the audit trail. Destructive-path audit goes through the `@lupinum/trellis-agent-audit` component (§17.8). Observability events are unstructured enough to be noisy; audit events are signed, redacted, and durable.
 
 ## 8. Handler shape — procedural, one right way
 
@@ -517,45 +589,118 @@ trellis:trusted-caller:v1         — reserved for future trusted-caller envelop
 
 Each envelope is signed with its purpose-specific key. Verification checks signature, `aud`, `callee` match against the expected values, and expiry.
 
-### 10.3 Service principals via `ctx.runAsService()`
+### 10.3 Explicit identity forwarding: `runAsUser` and `runAsService`
 
-HTTP actions often need to validate a webhook (Stripe, Clerk, custom) and then invoke an internal mutation with a service principal. Trellis provides `ctx.runAsService()` inside HTTP action handlers wrapped with the Trellis `httpAction` builder.
+Actions, scheduled functions, and HTTP handlers often need to invoke an internal mutation while preserving a specific identity. Trellis provides two symmetric helpers, both signing `trellis:trusted-caller:v1` envelopes bound to the callee (experiments 11 and 14):
+
+- **`ctx.runAsUser(fn, args)`** — forwards the current user principal (`{ kind: 'user', userId }`). Available inside `action` and `httpAction` when `ctx.principal.kind === 'user'`. Typical use: an action that reads external data and then mutates on the user's behalf.
+- **`ctx.runAsService(fn, args, { service })`** — forwards a service principal (`{ kind: 'service', service }`). Available inside `action`, `httpAction`, and scheduler callbacks. Typical use: a webhook verifies a signature, then invokes an internal mutation as a service.
+
+Both helpers are explicit and greppable. Implicit propagation across the action → mutation boundary is deliberately not supported — hiding that transition would hide the trust decision.
 
 ```ts
-// convex/webhooks.ts
+// convex/reports.ts
+import { action, internalMutation } from './functions'
+import { internal } from './_generated/api'
+
+export const generateReport = action({
+  args: { reportId: v.string() },
+  handler: async (ctx, args) => {
+    // ctx.principal.kind === 'user' here
+    const externalData = await fetchExternalService(args.reportId)
+    return await ctx.runAsUser(internal.reports.record, {
+      reportId: args.reportId,
+      externalData,
+    })
+  },
+})
+
+export const record = internalMutation({
+  args: { reportId: v.string(), externalData: v.any() },
+  handler: async (ctx, args) => {
+    // ctx.principal is the CALLING user (not 'system')
+    // ctx.actor is resolved through the usual path for that user
+  },
+})
+```
+
+```ts
+// convex/webhooks.ts — rare lower-level case; most webhooks use defineWebhook (§10.4)
 import { httpAction, internalMutation } from './functions'
 import { internal } from './_generated/api'
 
 export const stripeWebhook = httpAction(async (ctx, request) => {
   const event = await verifyStripeSignature(request)
-
   await ctx.runAsService(
     internal.billing.recordPayment,
     { event },
     { service: 'stripe-webhook' },
   )
-
   return new Response(null, { status: 200 })
 })
+```
 
-export const recordPayment = internalMutation({
-  args: { event: v.any() },
-  handler: async (ctx, args) => {
+Both helpers construct a signed envelope, bind it to the target function's `"module:exportName"` string, and invoke it. The internal function's principal resolver verifies the envelope on entry. An envelope issued for function A cannot be replayed against function B (experiments 10, 11, 14).
+
+### 10.4 `defineWebhook` — the SaaS pattern, collapsed
+
+The `httpAction + runAsService + internalMutation` pattern is identical across every webhook (Stripe, Clerk, custom). Trellis provides `defineWebhook` to collapse it into one definition.
+
+```ts
+// convex/webhooks/stripe.ts
+import { defineWebhook } from '@lupinum/trellis/webhooks'
+import Stripe from 'stripe'
+
+export const stripe = defineWebhook({
+  service: 'stripe-webhook',            // principal.service for the handler
+  verify: async (request) => {
+    const sig = request.headers.get('stripe-signature')!
+    const rawBody = await request.text()
+    return Stripe.webhooks.constructEvent(rawBody, sig, STRIPE_SECRET)
+  },
+  handler: async (ctx, event) => {
     // ctx.principal is { kind: 'service', service: 'stripe-webhook' }
-    // ctx.actor is the narrow service actor defined for this service kind.
+    // ctx.actor is the narrow service actor for 'stripe-webhook'
+    // ctx.db is scope-proxy-wrapped per the service actor's scope config
+    if (event.type === 'invoice.paid') {
+      await ctx.db.patch(event.data.object.subscription, { status: 'active' })
+    }
   },
 })
 ```
 
-`runAsService` constructs a signed service envelope (`trellis:trusted-caller:v1`), binds it to the target function, and invokes it. The internal function verifies the envelope on entry like any other forwarded principal.
+Wire the returned object into `http.ts`:
 
-### 10.4 Summary table
+```ts
+// convex/http.ts
+import { httpRouter } from 'convex/server'
+import { stripe } from './webhooks/stripe'
+
+const http = httpRouter()
+http.route({ path: '/webhooks/stripe', method: 'POST', handler: stripe.httpAction })
+export default http
+```
+
+**What `defineWebhook` does under the hood:**
+
+1. Creates an `httpAction` that calls `verify(request)` on the incoming request.
+2. If `verify` throws, returns a 400 response and emits `{ kind: 'webhook.received', service, verified: false }` to the log sink. Invalid webhooks never reach the mutation.
+3. If `verify` returns an event, invokes a generated `internalMutation` via `ctx.runAsService(internal.webhooks.<service>.__handle, { event }, { service })`.
+4. The generated internal mutation runs the user's `handler` with the service principal resolved. The handler sees a full Trellis mutation ctx: `ctx.db` is scope-proxy-wrapped to the service actor's scope config, triggers fire, audit fires.
+
+**Why this isn't just sugar.** The composition is identical every time; hand-rolling it is pure boilerplate. One-file authoring means one code-review target, one test surface, one greppable pattern. The webhook's trust boundary (`verify`) sits directly beside the business logic it protects (`handler`) — reviewers don't have to cross-reference three files.
+
+**Service actors for webhooks.** The service name passed to `service:` must have a corresponding branch in the app's `resolveActor`. Docs show narrow service actors (the Stripe webhook's actor should only touch subscriptions and payments, not the entire database).
+
+### 10.5 Summary table
 
 | Context | Envelope key | Consumed by | Resolver behavior |
 |---|---|---|---|
-| Bridge call into component | `trellis:component-principal:v1` | `defineComponentBridge` builder | Populates `ctx.principal` before handler |
+| Bridge call into component | `trellis:component-principal:v1` | `defineComponentApp` / `defineComponentBridge` | Populates `ctx.principal` before handler |
 | MCP tool call into Convex | `trellis:mcp-forwarded:v1` | MCP adapter inside `defineMcpApp` | Populates `ctx.principal` before handler |
-| HTTP action → internal | `trellis:trusted-caller:v1` | `httpAction` + `internalMutation` | Populates `ctx.principal` with service |
+| `ctx.runAsUser(fn, args)` | `trellis:trusted-caller:v1` | Trellis-wrapped `internalMutation` | Populates `ctx.principal` with user |
+| `ctx.runAsService(fn, args, { service })` | `trellis:trusted-caller:v1` | Trellis-wrapped `internalMutation` | Populates `ctx.principal` with service |
+| `defineWebhook` | `trellis:trusted-caller:v1` (internal) | Generated internal mutation | Populates `ctx.principal` with the webhook's service |
 | Scheduler / cron / CLI | (none — non-request context) | `systemPrincipal` | Resolves to `{ kind: 'service' }` |
 | Public client + auth | (none — ambient) | User's `principal.resolve` | Returns `{ kind: 'user' }` |
 | Public client + no auth | (none — ambient) | User's `principal.resolve` | Returns `{ kind: 'anonymous' }` |
@@ -641,11 +786,13 @@ A named server query the client consumes declaratively through composables. Keep
 
 Tenant scoping has three pieces:
 
-1. **Schema.** On each scoped table, every custom index must start with the scope field. Users write these explicitly with `defineTable`. No wrapper.
-2. **Policy.** `defineTenantRules` declares which tables are scoped, the scope field name, and how to extract the scope value from the actor.
+1. **Schema.** On each scoped table, every custom index must start with that table's scope field. Users write these explicitly with `defineTable`. No wrapper.
+2. **Policy.** `defineTenantRules` declares which tables are scoped, *each table's* scope field name (they may differ), and how to extract the scope value from the actor for each field.
 3. **Runtime.** The Trellis scope proxy uses (1) and (2) to enforce scope at every call site. Users call `ctx.db` normally.
 
-The rule users must remember at the schema: **compound indexes start with the scope field.** It's one rule, it's visible in `defineTable` calls, and it's backed by eslint + runtime checks.
+The rule users must remember at the schema: **compound indexes start with that table's scope field.** It's one rule per table, it's visible in `defineTable` calls, and it's backed by eslint + runtime checks.
+
+**Hierarchical tenancy is first-class** (experiment 13). Different tables can be scoped by different fields — an app can have `posts` scoped by `organizationId` alongside `documents` scoped by `workspaceId`, with `workspaces` itself scoped by `organizationId` (the parent scope). The proxy dispatches per-table at every call.
 
 ### 14.2 Schema — plain `defineTable`
 
@@ -679,20 +826,52 @@ The eslint rule `trellis/scoped-index-must-be-compound` (§27) flags any `.index
 
 ### 14.3 Policy — `defineTenantRules`
 
+`defineTenantRules.tables` is a per-table map. Each entry may override `scopeField` and `scopeIndex`, use the top-level default with `true`, or specify a custom read-value extractor.
+
 ```ts
 // convex/auth/tenant-rules.ts
 import { defineTenantRules } from '@lupinum/trellis/auth'
 
 export const tenantRules = defineTenantRules<Actor>({
-  scopeField: 'organizationId',
-  scopeIndex: 'by_organization',                    // defaults to `by_<scopeField>`
-  scopeFromActor: (actor) => actor?.tenantId ?? null,
-  tables: ['posts', 'comments', 'mcpKeys'],
+  // Default scope applied to every entry set to `true` below.
+  defaultScope: {
+    field: 'organizationId',
+    index: 'by_organization',                    // defaults to `by_<field>`
+    fromActor: (actor) => actor?.organizationId ?? null,
+  },
+
+  // Per-table config. Entries:
+  //   true             → use defaultScope
+  //   { field, ... }   → override for this table
+  tables: {
+    posts: true,
+    comments: true,
+    mcpKeys: true,
+
+    // Workspaces are themselves scoped by the parent org.
+    workspaces: true,
+
+    // Documents are scoped by workspaceId — different field, different index.
+    documents: {
+      field: 'workspaceId',
+      index: 'by_workspace',
+      fromActor: (actor) => actor?.currentWorkspaceId ?? null,
+    },
+
+    // Projects are scoped by workspaceId too.
+    projects: {
+      field: 'workspaceId',
+      index: 'by_workspace',
+      fromActor: (actor) => actor?.currentWorkspaceId ?? null,
+    },
+  },
+
   allowAnonymous: false,
+
   override: {
     publicPosts: {
       read: () => true,
-      insert: (ctx, doc) => doc.organizationId === ctx.actor?.tenantId,
+      insert: (ctx, doc) => doc.organizationId === ctx.actor?.organizationId,
     },
     featureFlags: {
       read: () => true,
@@ -702,21 +881,33 @@ export const tenantRules = defineTenantRules<Actor>({
 })
 ```
 
-`tables` is the authoritative list of scoped tables. If a table is listed here, the proxy enforces scope on it and expects every custom index to be compound (with the scope field first). Unlisted tables pass through the proxy.
+**Semantics.** If a table's `fromActor` returns `null` (e.g., the actor has no current workspace yet during onboarding), the proxy treats every read as empty and rejects every write — the actor has no valid scope for that table. Apps that need different behavior during onboarding use `ctx.db.crossTenant` explicitly.
+
+**Shorthand.** `tables` can still be an array for apps with one scope field for all tables:
+
+```ts
+export const tenantRules = defineTenantRules<Actor>({
+  defaultScope: { field: 'organizationId', fromActor: (a) => a?.organizationId ?? null },
+  tables: ['posts', 'comments', 'mcpKeys'],
+})
+```
+
+`tables` is the authoritative list of scoped tables. Unlisted tables pass through the proxy (use `override` to add policy).
 
 ### 14.4 Proxy semantics
 
-For a scoped table:
+Per-table dispatch: each table's operations are bound to **its own** scope field and scope index.
 
-| User writes | Proxy does | Cost |
+| User writes | Proxy does (per-table) | Cost |
 |---|---|---|
-| `ctx.db.query('posts').collect()` | Auto-applies `scopeIndex`, bound to actor's scope value | index-optimized |
-| `ctx.db.query('posts').withIndex('by_org_status', q => q.eq('status', 'x'))` | Prepends `.eq(scopeField, scopeValue)`, then runs the user's callback | index-optimized |
-| `ctx.db.query('posts').withIndex('by_status', q => ...)` | **Throws** — `by_status` is not compound with the scope field | — |
-| `ctx.db.get(id)` | Fetches the row, returns null if its scope doesn't match actor's | one row read |
-| `ctx.db.insert('posts', doc)` | Throws if `doc.organizationId !== actor.tenantId` | — |
-| `ctx.db.patch(id, ...)` | Fetches row, throws if row's scope doesn't match | one row read |
-| `ctx.db.delete(id)` | Fetches row, throws if row's scope doesn't match | one row read |
+| `ctx.db.query('posts').collect()` | Auto-applies posts' scope index, bound to actor's scope value for posts | index-optimized |
+| `ctx.db.query('posts').withIndex('by_org_status', q => q.eq('status', 'x'))` | Prepends `.eq(postsScopeField, postsScopeValue)`, then runs the user's callback | index-optimized |
+| `ctx.db.query('documents').withIndex('by_workspace_status', q => q.eq('status', 'x'))` | Prepends `.eq(documentsScopeField, documentsScopeValue)` — possibly a different field than posts | index-optimized |
+| `ctx.db.query('posts').withIndex('by_status', q => ...)` | **Throws** — `by_status` is not compound with posts' scope field | — |
+| `ctx.db.get(id)` | Fetches the row, returns null if its scope doesn't match — uses the scope field declared for the returned row's table | one row read |
+| `ctx.db.insert('posts', doc)` | Throws if `doc[postsScopeField] !== postsScopeValue` | — |
+| `ctx.db.patch(id, ...)` | Fetches row, throws if row's scope doesn't match (using that table's scope field) | one row read |
+| `ctx.db.delete(id)` | Fetches row, throws if row's scope doesn't match (using that table's scope field) | one row read |
 
 For an unscoped table, the proxy passes every call through unchanged. `defineTenantRules.override` applies its explicit policy before the call reaches Convex.
 
@@ -807,12 +998,13 @@ Capabilities may need fields that redaction removes (`ownerId`, `workspaceId`, `
 
 ## 16. Operations — `defineOperation`
 
-`defineOperation` is the one place the structured `guard/load/authorize/preview/handler` shape exists. For reusable multi-surface business operations.
+`defineOperation` is the one place the structured `guard/load/authorize/preview/handler` shape exists. For reusable multi-surface business operations. Experiment 15 validated that operations are plain JS objects whose `.preview` and `.execute` projections are directly consumable by `query()` and `mutation()`, and whose metadata is importable by MCP code without a generated manifest.
 
 ```ts
 import { defineOperation } from '@lupinum/trellis/functions'
 
-export const deleteRunbook = defineOperation({
+export const deleteRunbookOp = defineOperation({
+  name: 'deleteRunbook',                     // stable identifier, used in envelope callees
   kind: 'destructive',
   args: { id: v.id('runbooks') },
 
@@ -844,10 +1036,13 @@ export const deleteRunbook = defineOperation({
   },
 })
 
-// Project to Convex functions for each surface.
-export const previewDeleteRunbook = query(deleteRunbook.preview)
-export const removeRunbook = mutation(deleteRunbook.execute)
+// Project to Convex functions. These are the Convex refs that clients and
+// MCP will actually call.
+export const previewDeleteRunbook = query(deleteRunbookOp.preview)
+export const deleteRunbook = mutation(deleteRunbookOp.execute)
 ```
+
+**`deleteRunbookOp` is a plain JS object.** It carries `name`, `kind`, `args`, `preview`, `execute`, and an internal `__trellis_operation: true` marker. MCP code imports this object directly to read its metadata — no build step, no generated manifest.
 
 ### 16.1 Why `display` and `confirm` are split
 
@@ -887,6 +1082,14 @@ See §17.4. This is the load-bearing constraint for the runtime's destructive-pa
 
 Regular mutations don't use `defineOperation`. They use `mutation({ args, handler })` with inline `ctx.enforce()`. Operations are for genuinely-reusable business actions.
 
+### 16.6 Why operations still need a separate shape
+
+A principled question from earlier revisions: can't `mutation(...)` just grow the operation fields (`guard`, `load`, `authorize`, `preview`) as optional keys, eliminating the second API?
+
+No. Convex's module model requires top-level `export const` declarations for every function ref — a destructive operation needs **two** refs (the preview query and the execute mutation), so the user has to write both `export const previewDeleteRunbook = query(op.preview)` and `export const deleteRunbook = mutation(op.execute)`. A unified `mutation(...)` that also emitted a preview projection would need a second top-level export on the user's behalf, which Convex's codegen can't see. The operation object → two projections pattern is the cleanest shape Convex's module model allows.
+
+**This is an honest tradeoff, not a flaw.** Regular mutations stay one-export, one-handler. Operations are two exports only when you want both a live preview query and the execute mutation. The procedural and operation shapes are the same underlying definition, just projected differently.
+
 ## 17. The agent layer — `defineMcpApp`
 
 Eight previous MCP primitives collapse into one entry point. Sessions, resources, and prompts are first-class subfeatures.
@@ -895,6 +1098,8 @@ Eight previous MCP primitives collapse into one entry point. Sessions, resources
 // server/mcp.ts
 import { defineMcpApp, tool, resource, prompt, mcpKeyAuth } from '@lupinum/trellis/mcp'
 import { api } from '~/convex/_generated/api'
+// MCP imports operation objects directly — no manifest.
+import { deleteRunbookOp } from '~/convex/runbooks/operations'
 
 export default defineMcpApp({
   auth: mcpKeyAuth({
@@ -928,10 +1133,11 @@ export default defineMcpApp({
     }),
 
     // Destructive tools MUST be operation-backed. See §17.4.
-    'delete-runbook': tool.fromOperation({
-      operation: 'runbooks.deleteRunbook',       // manifest reference
-      preview: api.runbooks.previewDeleteRunbook, // projected ref
-      execute: api.runbooks.executeDeleteRunbook, // projected ref (operation-aware wrapper)
+    // Pass the operation object + the execute ref. MCP reads metadata
+    // (kind, args, preview/execute handlers) from the operation object
+    // directly — no manifest lookup, no build step.
+    'delete-runbook': tool.fromOperation(deleteRunbookOp, {
+      ref: api.runbooks.operations.deleteRunbook,  // the mutation projection
       capability: 'deleteRunbook',
       rateLimit: { max: 5, window: '1m', per: 'principal' },
       // replayProtection defaults to 'component'
@@ -985,11 +1191,10 @@ This is the critical safety property. All verification, re-authorization, and ex
 
 **Agent-facing flow:**
 
-1. **First call** (preview) — agent calls the MCP tool with `{ __preview: true }`. The MCP server:
-   - Calls the `preview` ref (a Convex query) with principal forwarding.
-   - The preview query runs `guard`, `load`, `authorize`, and the operation's `preview` function.
-   - Returns `{ display, confirm, confirmationToken }` where `confirmationToken` is a signed JWT.
-2. **Second call** (execute) — agent calls the MCP tool with `{ __confirmationToken }` and args. The MCP server calls the operation's `execute` ref (a Convex mutation, generated by `mutation(operation)`).
+1. **First call** (preview) — agent calls the MCP tool with `{ __preview: true }`. The MCP server calls the single mutation ref (`ref` in the tool config) with `__preview: true`. The mutation runs `guard → load → authorize → preview` and returns `{ display, confirm, confirmationToken }` where the token is a signed JWT.
+2. **Second call** (execute) — agent calls the MCP tool with `{ __confirmationToken }` and args. The MCP server calls the same mutation ref with the token.
+
+**Why one ref, not two.** Earlier revisions had `preview` and `execute` as separate refs. For MCP, this was redundant: the mutation already handles both modes internally (experiment 15). The separate `query(op.preview)` projection remains useful for **UI reactivity** — the client subscribes to the preview to show live "you're about to delete N items" counts — but MCP doesn't subscribe, so MCP needs only the mutation.
 
 **Inside the execute mutation** (one atomic transaction):
 
@@ -1010,38 +1215,31 @@ All ten steps in one transaction. If any step fails, the whole transaction rolls
 
 The safety promise in §17.3 — re-run `guard` / `load` / `authorize`, recompute preview, verify hashes — only works if the target has that metadata. `defineOperation` has it. Arbitrary procedural mutations don't.
 
-v2.2 enforces this in two places:
+Enforcement has two layers:
 
-1. **TypeScript level** — `tool.fromOperation` accepts only the manifest reference shape. `tool({ destructive: true, call: someRef })` is not a valid call signature.
-2. **Runtime startup** — `defineMcpApp` validates every destructive tool against the Trellis-generated operations manifest. If an operation reference doesn't exist, or if the projected `preview` and `execute` refs don't point at that operation's projections, startup fails loudly.
+1. **TypeScript level** — `tool.fromOperation(operationObject, { ... })` requires the first argument to have `__trellis_operation: true`. `tool({ destructive: true, call: someRef })` is not a valid call signature.
+2. **Runtime startup** — at MCP server startup, `defineMcpApp` validates that every destructive tool's operation object has `kind === 'destructive'`. Startup fails loudly on mismatch (experiment 15e).
 
 Non-destructive tools can still use arbitrary refs via `tool({ call: ref })`. The restriction applies only where the runtime is making a specific safety promise.
 
-### 17.5 The operations manifest
+### 17.5 No manifest — operations carry their own metadata
 
-At Convex build time, a Trellis build step walks the Convex module tree, finds every `defineOperation` call, and emits a manifest:
+Experiment 15 validated that Trellis does **not** need a generated operations manifest. `defineOperation(...)` returns a plain JS object:
 
 ```ts
-// .trellis/operations-manifest.ts  (generated)
-export const operationsManifest = {
-  'runbooks.deleteRunbook': {
-    kind: 'destructive',
-    previewRef: 'runbooks:previewDeleteRunbook',
-    executeRef: 'runbooks:removeRunbook',
-    argsSchema: { /* ... */ },
-  },
-  // ... one entry per operation
+{
+  name: 'deleteRunbook',
+  kind: 'destructive',
+  args: { id: v.id('runbooks') },
+  preview: { args, handler },     // consumable by query(...)
+  execute: { args, handler },     // consumable by mutation(...)
+  __trellis_operation: true,
 }
 ```
 
-`tool.fromOperation({ operation: 'runbooks.deleteRunbook', preview, execute, ... })` takes the string reference. At MCP server startup, `defineMcpApp` resolves the reference against the manifest and validates that `preview` and `execute` match the manifest's expected refs.
+MCP imports the operation object directly, reads `kind` / `args` / `name` at runtime, and calls the Convex ref the user passes in `tool.fromOperation(op, { ref })`. No AST walker, no generated file, no string indirection.
 
-This means:
-
-- Operations live in Convex-only modules and don't need to be importable into the Nuxt bundle.
-- MCP tool definitions reference operations by string, projected Convex refs as usual.
-- Type safety is preserved via the manifest's type export.
-- Mismatches fail at startup, not at runtime.
+**Tradeoff made explicit.** The operation object is imported by MCP code. MCP code lives in Nuxt's server-only paths (`~/server/mcp/**`), which Nuxt excludes from the client bundle. The handler function bodies travel alongside the operation object into the server bundle, where they are dead code (the handler only actually runs inside Convex). If a handler imports Convex-runtime-only APIs (like `"use node"`-gated modules), Nuxt's server bundle must tolerate the import without executing it. For nearly all operations (which only use `ctx.db`, `ctx.enforce`, etc.), this is fine. Document the server-only import constraint; don't generate a manifest just to avoid it.
 
 ### 17.6 Replay protection — default on, opt-out per tool
 
@@ -1147,39 +1345,114 @@ These keep full power from earlier versions — they just live inside one cohere
 
 Apps can expose alternate MCP handlers with reduced toolsets — a `code-mode` endpoint exposing only `safe`-tagged tools, for example. Configured from a single MCP app definition.
 
-## 18. Component bridges
+## 18. Component authorship and bridges
 
-Explicit wrappers via `bridge.from()`. No magical runtime interception.
+Trellis-aware components are first-class. Each component is a miniature Trellis app: it declares its own principal shape, its own actor, its own tenant rules, and gets the same wrapped builders (`query` / `mutation` / `internalQuery` / `internalMutation`). The root app reaches into a component via `bridge.from()`, which signs callee-bound envelopes at every call.
 
-### 18.1 Component side — bridge-aware builders
+### 18.1 `defineComponentApp` — the component author's entry point
+
+Symmetric to `defineFunctions` but tailored for component packages. No `httpAction`, no `systemPrincipal` (components are invoked by their parent; they never receive ambient auth).
 
 ```ts
 // In a component package
-import { defineComponentBridge } from '@lupinum/trellis/components'
+import { defineComponentApp } from '@lupinum/trellis/components'
+import {
+  query as rawQuery,
+  mutation as rawMutation,
+  internalQuery as rawInternalQuery,
+  internalMutation as rawInternalMutation,
+} from './_generated/server'
+import { v } from 'convex/values'
 
-export const { query, mutation, internalQuery, internalMutation } =
-  defineComponentBridge({
-    principalShape: v.object({
+export type MiniCmsPrincipal = {
+  kind: 'user'
+  userId: string
+  tenantId: string
+  role: 'owner' | 'admin' | 'member'
+}
+
+export type MiniCmsActor = {
+  userId: string
+  tenantId: string
+  role: 'owner' | 'admin' | 'member'
+}
+
+export const { query, mutation, internalQuery, internalMutation } = defineComponentApp({
+  name: 'miniCms',                       // used in envelope aud/callee and audit
+
+  principal: {
+    shape: v.object({
+      kind: v.literal('user'),
       userId: v.string(),
       tenantId: v.string(),
-      role: v.string(),
+      role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member')),
     }),
-    builders: {
-      query: rawQuery, mutation: rawMutation,
-      internalQuery: rawInternalQuery, internalMutation: rawInternalMutation,
-    },
-  })
+    envelopeKey: 'trellis:component-principal:v1',
+  },
 
+  actor: async (ctx, principal): Promise<MiniCmsActor> => ({
+    userId: principal.userId,
+    tenantId: principal.tenantId,
+    role: principal.role,
+  }),
+
+  tenantRules: {
+    defaultScope: {
+      field: 'tenantId',
+      index: 'by_tenant',
+      fromActor: (actor) => actor.tenantId,
+    },
+    tables: { pages: true, assets: true },
+  },
+
+  builders: {
+    query: rawQuery,
+    mutation: rawMutation,
+    internalQuery: rawInternalQuery,
+    internalMutation: rawInternalMutation,
+  },
+})
+
+// Use the wrapped builders — same shape as root app handlers.
 export const publishPage = mutation({
   args: { id: v.id('pages') },
   handler: async (ctx, args) => {
-    // ctx.principal is signature-verified before the handler runs.
-    // Invalid, missing, or misaddressed envelopes throw before args are seen.
+    // ctx.principal is verified from the envelope before this runs.
+    // ctx.actor is typed as MiniCmsActor.
+    // ctx.db is scoped to ctx.actor.tenantId.
+    const page = await ctx.db.get(args.id)
+    if (!page) throw new Error('not found')
+    await ctx.db.patch(args.id, { published: true })
   },
 })
 ```
 
-### 18.2 Root side — `bridge.from()` materialization
+**What you get from `defineComponentApp`:**
+
+- Envelope verification on every `query`/`mutation` entry. Invalid, missing, or callee-mismatched envelopes throw before the handler runs.
+- Scope proxy applied to `ctx.db` using the component's own tenant rules. The component's tables are scoped by its own declared fields, independent of the root app's scope config.
+- Same three-door `ctx.db` / `ctx.db.crossTenant` / `ctx.db.raw` — components can have their own audit, onboarding, and migration flows.
+- Triggers, visibility helpers, and guards available on the component's ctx.
+
+**Lower-level alternative.** For components that don't need tenant scoping (purely global, e.g., a rate-limiter component), use `defineComponentBridge` directly — just principal verification, no tenant rules, no scope proxy.
+
+### 18.2 Multi-consumer components
+
+A component installed by two different Trellis apps may need different principal shapes. Components declare one principal shape per `defineComponentApp` call — for multi-shape support, export a factory:
+
+```ts
+// In a component package
+export function createMiniCms<PrincipalShape>(config: {
+  principal: PrincipalShape,
+  actor: (ctx: any, p: any) => any,
+}) {
+  return defineComponentApp({ name: 'miniCms', ...config, ... })
+}
+```
+
+Each consuming app instantiates its own flavor. The component's schema and tenant-rule shape are still fixed at component build time.
+
+### 18.3 Root side — `bridge.from()` materialization
 
 `bridge.from()` runs at module load time in the root app. It returns typed wrapper functions, one per declared mapping. Each wrapper:
 
@@ -1211,15 +1484,15 @@ await miniCmsWrappers.publishPage(ctx, { id })
 
 The wrapper signs the current principal, binds the envelope to `components.miniCms.pages.publishPage` specifically, and forwards. The component verifies on entry.
 
-### 18.3 Optional auto-registration (convenience, not the contract)
+### 18.4 Optional auto-registration (convenience, not the contract)
 
 For apps that want `internal.*` access to bridge wrappers, `bridge.from()` can optionally register wrappers as internal Convex functions. **This is a convenience, not the core contract.** Validate the ergonomics in the example-08 spike before relying on it in docs.
 
-### 18.4 Direct unsigned calls fail loudly
+### 18.5 Direct unsigned calls fail loudly
 
 Calls like `ctx.runMutation(components.miniCms.pages.publishPage, { id })` — bypassing the wrapper — arrive at the component without a `__principal` arg. The component's bridge verifier throws before handler code runs. An eslint rule flags direct `components.*` call sites and points authors at the wrapper.
 
-### 18.5 Trust model
+### 18.6 Trust model
 
 Signing is mandatory. Verification on the component side checks:
 
@@ -1230,13 +1503,15 @@ Signing is mandatory. Verification on the component side checks:
 
 Any failure rejects before handler code runs.
 
-### 18.6 What crosses the bridge
+### 18.7 What crosses the bridge
 
-The principal crosses. The root app's wrapped database does not — Convex semantics. Components own their own tables and rules. Tenant-scoped components define their own `defineFunctions` + `defineTenantRules`.
+The principal crosses. The root app's wrapped database does not — Convex semantics. Components own their own tables and rules. Tenant-scoped components call `defineComponentApp` with their own `tenantRules`.
 
-### 18.7 Open question — component-local policy boilerplate
+### 18.8 Component failure modes
 
-If example 08 reveals repetitive per-component rule code, consider an `inheritTenantRules(parentShape)` helper — still component-local but reducing boilerplate. Validate before adding.
+- **Audit component unavailable in destructive path.** A destructive MCP tool invoking a component operation cannot write to `@lupinum/trellis-agent-audit`: the operation's atomic mutation throws, and the entire Convex transaction rolls back. No partial execution. Fail-closed.
+- **Rate limiter unavailable.** A tool with `rateLimit: { ... }` that cannot reach `@convex-dev/rate-limiter`: by default, throws (fail-closed). `rateLimit: { ..., failOpen: true }` opts into fail-open for development environments; production default is fail-closed.
+- **Bridge component unreachable.** If `components.miniCms` is not installed in `convex.config.ts`, `bridge.from()` throws at module load time. Startup failure, not runtime.
 
 ## 19. Nuxt integration
 
@@ -1312,11 +1587,15 @@ Trellis uses convex-helpers for the builder plumbing and trigger mechanics, and 
 - **Triggers** use the `Triggers` class from convex-helpers with `ctx.innerDb` inside callbacks to avoid recursion.
 - **Rate limiting** uses `@convex-dev/rate-limiter` component.
 
-**Trellis-owned (~300 LoC):**
+**Trellis-owned:**
 
-- **Tenant-scope proxy** (§7.2, §14). Index-based, transparent to users. Replaces `wrapDatabaseReader` / `wrapDatabaseWriter`. Proxy reads `scopeField`, `scopeIndex`, and `tables` from `defineTenantRules`, and prepends the scope value to every `.withIndex()` call on a scoped table. Rejects non-compound indexes on scoped tables with a pointer at the fix. Validated in experiments 8 and 9.
+- **Tenant-scope proxy** (§7.2, §14). Index-based, transparent to users. Replaces `wrapDatabaseReader` / `wrapDatabaseWriter`. Proxy reads the per-table scope config from `defineTenantRules.tables` and prepends each table's scope value to every `.withIndex()` call. Rejects non-compound indexes on scoped tables with a pointer at the fix. Validated in experiments 8, 9, 13.
 - **Trigger auto-scoping** (§7.2.1). The framework wraps each trigger callback with a fresh scope proxy derived from `change.newDoc ?? change.oldDoc`. No `defineTrigger` wrapper for users to remember.
-- **Three-door composition**. `db` / `unsafeDb` / `rawDb` are constructed exactly once by `defineFunctions` — the user never composes layers by hand.
+- **`ctx.db` composition**. `ctx.db` / `ctx.db.crossTenant` / `ctx.db.raw` are constructed exactly once by `defineFunctions` — the user never composes layers by hand.
+- **Envelope signing and verification.** HKDF-derived purpose-specific keys, JWT sign/verify via `jose`, callee binding via `"module:exportName"`. Shared by `runAsUser`, `runAsService`, `defineWebhook`, bridge wrappers, and MCP-forwarded principals.
+- **Operation projection layer.** `defineOperation` returns a plain object with `.preview` and `.execute`; `query(...)` and `mutation(...)` accept these as input. No codegen, no manifest. Validated in experiment 15.
+
+**Honest size estimate:** ~600–800 LoC core plus tests, not counting component bridges or MCP toolkit. Most of the weight is in the scope proxy (per-table dispatch) and the atomic execute mutation.
 
 ## 23. Envelope signing and verification
 
@@ -1368,32 +1647,18 @@ Every verify call checks:
 4. `exp` not past.
 5. For confirmation tokens only: `argsHash`, `previewHash`, and (if sessions enabled) `sessionId`.
 
-## 24. The operations manifest
+## 24. No operations manifest — why the build step is gone
 
-### 24.1 Generation
+Earlier drafts included a build-time AST walker that scanned Convex modules for `defineOperation(...)` calls and emitted `.trellis/operations-manifest.ts`. Experiment 15 validated that this isn't needed: `defineOperation` returns a plain JS object that carries its own metadata (`name`, `kind`, `args`, `__trellis_operation: true`), and `mutation(op.execute)` / `query(op.preview)` project it to Convex functions directly.
 
-At Convex build time (via a TypeScript AST walk or a Convex codegen hook), Trellis scans the Convex module tree for `defineOperation(...)` calls. For each, it records:
+**What MCP needs at runtime** (experiment 15d):
 
-- Operation key (module path + exported name, e.g., `'runbooks.deleteRunbook'`).
-- Kind (`'destructive' | 'safe'`).
-- Args schema.
-- Projected function refs (by convention: `previewXxx` query and `executeXxx` mutation, or explicit `previewOf` / `mutation(operation)` projections).
+1. The operation object — imported directly from the Convex module (`import { deleteRunbookOp } from '~/convex/runbooks/operations'`).
+2. The Convex ref to call — imported from `_generated/api` (`api.runbooks.operations.deleteRunbook`).
 
-Output: `.trellis/operations-manifest.ts` with a typed `operationsManifest` export.
+Both are plain imports. No codegen, no AST walker, no `.trellis/*.ts` file, no startup manifest lookup. The runtime kind check (`op.kind === 'destructive'`) happens on the imported object directly.
 
-**Static analyzability constraint:** `defineOperation` calls must be statically analyzable top-level `const` exports. Re-exports (`export { op } from './operations'`) are followed. Aliased imports (`import { defineOperation as defOp }`) are **not** resolved — the AST walker matches the literal `defineOperation` identifier only. An eslint rule enforces that `defineOperation` is always imported with its original name. Conditional or dynamic exports are not supported and will be silently missed — the startup validation in §24.2 catches these as missing manifest entries.
-
-### 24.2 Validation at MCP startup
-
-`defineMcpApp` imports the manifest (it's Convex-build-time generated but checked into source or emitted to a known path). For each destructive tool:
-
-1. Look up `operation` string in manifest. Fail startup if missing.
-2. Verify `preview` and `execute` refs match the manifest's expected projections. Fail startup on mismatch.
-3. Store operation metadata (args schema, etc.) for runtime use.
-
-### 24.3 TypeScript story
-
-The manifest exports a union type of operation keys. `tool.fromOperation` accepts only that union as its `operation` field. Users get autocompletion; typos fail at compile time.
+**The only "rule"** users need to remember: operation-exporting files live in the Convex source tree, and MCP imports them from Nuxt server-only paths. Nuxt excludes `~/server/**` from the client bundle, so this is ergonomically clean.
 
 ## 25. The atomic execute mutation
 
