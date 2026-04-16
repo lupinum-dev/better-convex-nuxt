@@ -3,7 +3,11 @@ import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 
 import { open } from '../../src/runtime/auth'
-import { defineOperation } from '../../src/runtime/functions'
+import {
+  defineOperation,
+  trellisOperationProjectionMetadataKey,
+  type DestructiveOperationPreview,
+} from '../../src/runtime/functions'
 import { defineArgs } from '../../src/runtime/args'
 import { defineMcpApp } from '../../src/runtime/mcp'
 
@@ -86,28 +90,54 @@ runtime.tool({
 })
 
 const archiveEntryOp = defineOperation({
+  id: 'entries.archive',
   name: 'archiveEntry',
   kind: 'destructive',
   args: {
     id: v.string(),
   },
   guard: open,
-  preview: async () => 'Archive entry',
+  preview: async (): Promise<
+    DestructiveOperationPreview<
+      { summary: string; affects: { entries: number } },
+      { operation: 'entries.archive'; targetId: string; affectedCounts: { entries: number } }
+    >
+  > => ({
+    display: { summary: 'Archive entry', affects: { entries: 1 } },
+    confirm: {
+      operation: 'entries.archive',
+      targetId: 'entry_1',
+      affectedCounts: { entries: 1 },
+    },
+  }),
   handler: async () => ({ archived: true as const }),
 })
 
 runtime.tool.fromOperation(archiveEntryOp, {
-  execute: { _path: 'entries:archiveEntry' } as unknown as FunctionReference<
+  execute: {
+    [trellisOperationProjectionMetadataKey]: {
+      operationId: 'entries.archive',
+      projection: 'execute',
+    },
+  } as unknown as FunctionReference<
     'mutation',
     'internal',
     { principal: Principal; id: string },
     { archived: true }
   >,
-  preview: { _path: 'entries:previewArchiveEntry' } as unknown as FunctionReference<
+  preview: {
+    [trellisOperationProjectionMetadataKey]: {
+      operationId: 'entries.archive',
+      projection: 'preview',
+    },
+  } as unknown as FunctionReference<
     'query',
     'internal',
     { principal: Principal; id: string },
-    string
+    DestructiveOperationPreview<
+      { summary: string; affects: { entries: number } },
+      { operation: 'entries.archive'; targetId: string; affectedCounts: { entries: number } }
+    >
   >,
   capability: 'publishEntry',
 })

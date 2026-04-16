@@ -12,8 +12,8 @@
 >
 > This draft is intentionally honest about maturity:
 >
-> - **Grounded in the repo today:** Nuxt runtime, auth integration, guarded backend handlers, multi-tenant examples, MCP runtime, destructive preview flows with a simple confirmation gate, testing helpers, component-bridge experiments.
-> - **Design direction, not yet proven in code:** simplified core setup, runtime-enforced service safety, a cleaner operation-to-agent binding contract, a smaller first-class surface.
+> - **Grounded in the repo today:** Nuxt runtime, auth integration, guarded backend handlers, multi-tenant examples, MCP runtime, id-bound destructive operations with token confirmation, runtime-enforced service safety, distinct `ctx.db.crossTenant` / `ctx.db.raw`, testing helpers, component-bridge experiments.
+> - **Design direction, not yet proven in code:** simplified core setup, replay/audit hardening on top of the shipped confirmation flow, a smaller first-class surface.
 >
 > This is a living document.
 >
@@ -173,6 +173,8 @@ As of 2026-04-16:
 - repo verification is green on the active surface:
   `pnpm lint`, `pnpm test:types`, and `pnpm test`
 - cross-tenant examples now use `ctx.db.crossTenant` explicitly instead of relying on older ambiguous raw behavior
+- destructive MCP tools are operation-backed and require a bound confirmation token
+- service principals are runtime-enforced through `defineServices(...)`
 - the internal harness is treated as experimental integration infrastructure, not as the product truth source
 
 That means the migration phase is no longer the main work.
@@ -229,7 +231,7 @@ Why:
 
 ### Runtime-Enforced `defineServices(...)`
 
-Keep as a serious next spike:
+Keep as a shipped direction:
 
 - runtime-owned service access policy
 - explicit allowed tables
@@ -238,9 +240,9 @@ Keep as a serious next spike:
 
 Why:
 
-- current service safety is too soft if the runtime does not enforce it
 - webhook and scheduler trust boundaries are high-risk parts of the framework
-- this is the clearest next place where Trellis can turn a convention into a real safety property
+- this is a real runtime safety property now, not just a convention
+- it is one of the clearest differentiators in Trellis' protected-app story
 
 ### The Honesty Rule
 
@@ -304,20 +306,20 @@ Current rule:
 
 - forwarded execution helpers are future work until they are real runtime guarantees
 
-### Ref-Id Stamping As Settled Core Mechanism
+### Zero-Build Ref Magic As Settled Core Mechanism
 
 Rejected as current truth for now.
 
 Why:
 
-- it is still a design idea, not a proven implementation contract
-- Convex ref metadata may or may not make it robust enough
-- the framework should not present one unproven mechanism as solved architecture
+- the shipped contract depends on metadata stamped onto direct exported refs
+- generated `api.*` refs do not carry that proof today
+- the framework should not pretend every Convex ref is equally bindable when it is not
 
 Current rule:
 
-- operation binding is enforced today through the naming-based runtime contract in [VNEXT_RUNTIME_CONTRACT.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_RUNTIME_CONTRACT.md)
-- stronger identity binding remains open for future spikes
+- operation binding is enforced today through id-based projection metadata in [VNEXT_RUNTIME_CONTRACT.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_RUNTIME_CONTRACT.md)
+- the open question is long-term ergonomics around direct exported refs, not whether Trellis has any identity contract
 
 ### Replay / Audit / Full Atomic Destructive Flow As Shipped Core
 
@@ -332,49 +334,37 @@ Why:
 Current rule:
 
 - destructive preview flow is real
+- token-bound confirmation is real
 - replay and audit remain future hardening work until the runtime and docs both prove them
 
 ## 6.4 Planned Next
 
 These are the most valuable next spikes for Trellis now that the runtime cutover is done.
 
-### Spike A — `display` / `confirm` Destructive Operations
+### Spike A — Replay And Audit Hardening
 
 Goal:
 
-- upgrade destructive previews from one mixed payload to a `display` / `confirm` split
+- add durable replay redemption and explicit audit around the shipped confirmation-token flow
 
 Why next:
 
-- it improves the agent pillar directly
-- it sharpens destructive confirmation without inflating the whole framework
-- it can be proven in a real example quickly
+- destructive confirmation is now bound to previewed state
+- the next safety step is durable one-time redemption and audit records
 
-### Spike B — Runtime-Enforced `defineServices(...)`
+### Spike B — Operation Binding Ergonomics
 
 Goal:
 
-- turn service safety from advisory convention into a real runtime boundary
+- decide whether direct exported refs remain the long-term requirement for operation-backed tools
+- improve ergonomics without weakening id-based proof
 
 Why next:
 
-- this is the clearest missing safety primitive in the current shape
-- it affects webhooks, schedulers, and future service automation
-- it would materially strengthen the “safe by construction” story
+- the safety story is real now
+- the main remaining question is usability around Convex ref boundaries
 
-### Spike C — Stronger Operation Identity Binding
-
-Goal:
-
-- decide whether the naming-based `tool.fromOperation(...)` contract is enough long term
-- if not, prove a stronger mechanism without reviving a heavy manifest pipeline
-
-Why next:
-
-- this is one of the few remaining places where the active contract may want stronger guarantees
-- it should be decided by implementation proof, not by taste
-
-### Spike D — Keep Docs, Examples, And Contract In Sync
+### Spike C — Keep Docs, Examples, And Contract In Sync
 
 Goal:
 
@@ -597,7 +587,8 @@ type TrellisCtx = {
 
 Current honesty rule:
 
-- `ctx.db.crossTenant` and `ctx.db.raw` both map to the unwrapped underlying Convex db today
+- `ctx.db.crossTenant` bypasses tenant isolation while keeping runtime service enforcement and triggers
+- `ctx.db.raw` bypasses tenant isolation, service enforcement, and triggers
 - forwarded execution helpers are deferred until they are actually implemented and enforced
 
 The key is not type cleverness. The key is that a user can understand the runtime in one minute.

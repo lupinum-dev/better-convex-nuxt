@@ -72,14 +72,29 @@ const publishPageOp = defineOperation<
   typeof publishPageSchema.args,
   { page: Doc<'pages'> },
   { pageId: string; published: boolean },
-  { summary: string; warn?: string; affects: { pages: number } }
+  {
+    display: { summary: string; warn?: string; affects: { pages: number } }
+    confirm: { operation: 'pages.publish'; targetId: string; affectedCounts: { pages: number } }
+  }
 >({
+  id: 'pages.publish',
+  name: 'publishPage',
+  kind: 'destructive',
   args: publishPageSchema.args,
   returns: v.object({
     pageId: v.string(),
     published: v.boolean(),
   }),
-  previewReturns: publishPreviewValidator,
+  previewReturns: v.object({
+    display: publishPreviewValidator,
+    confirm: v.object({
+      operation: v.literal('pages.publish'),
+      targetId: v.string(),
+      affectedCounts: v.object({
+        pages: v.number(),
+      }),
+    }),
+  }),
   guard: canManagePages,
   load: async (ctx, args) => {
     const page = await ctx.db.get(args.id as Id<'pages'>)
@@ -87,12 +102,19 @@ const publishPageOp = defineOperation<
     return { page }
   },
   preview: async (_ctx, _args, { page }) => ({
-    summary: `Publish "${page.title}" at /${page.slug}`,
-    warn:
-      page.status === 'published'
-        ? 'This republishes the current page body with the latest draft.'
-        : 'This will make the draft visible on the public site.',
-    affects: { pages: 1 },
+    display: {
+      summary: `Publish "${page.title}" at /${page.slug}`,
+      warn:
+        page.status === 'published'
+          ? 'This republishes the current page body with the latest draft.'
+          : 'This will make the draft visible on the public site.',
+      affects: { pages: 1 },
+    },
+    confirm: {
+      operation: 'pages.publish',
+      targetId: page._id,
+      affectedCounts: { pages: 1 },
+    },
   }),
   handler: async (ctx, _args, { page }) => {
     const now = Date.now()
@@ -109,6 +131,8 @@ const publishPageOp = defineOperation<
     }
   },
 })
+
+export { publishPageOp }
 
 export const listPublishedPages = query({
   args: listPublishedPagesSchema.args,

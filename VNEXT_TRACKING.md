@@ -55,9 +55,9 @@
 - [x] Query and mutation handlers receive `ctx.db`.
 - [x] Query and mutation handlers receive `ctx.db.crossTenant`.
 - [x] Query and mutation handlers receive `ctx.db.raw`.
-- [x] The current implementation maps `ctx.db.crossTenant` to the unwrapped Convex db.
-- [x] The current implementation maps `ctx.db.raw` to the same unwrapped Convex db.
-- [x] The repo now documents that `crossTenant` and `raw` are currently equivalent.
+- [x] `ctx.db.crossTenant` bypasses tenant isolation while preserving runtime service enforcement and triggers.
+- [x] `ctx.db.raw` bypasses tenant isolation, service enforcement, and triggers.
+- [x] The repo now documents `crossTenant` and `raw` as distinct trust levels.
 - [x] `ctx.runAsUser(...)` is not part of the active vNext contract.
 - [x] `ctx.runAsService(...)` is not part of the active vNext contract.
 
@@ -65,10 +65,13 @@
 
 - [x] `defineOperation(...)` is part of the shipped runtime.
 - [x] `previewOf(...)` is part of the shipped runtime.
+- [x] Operations can carry `id`.
 - [x] Operations can carry `name`.
 - [x] Operations can carry `kind`.
 - [x] Operation metadata is attached at definition time.
 - [x] `kind: 'destructive'` is used by the MCP projection layer.
+- [x] Destructive operations require `id`.
+- [x] Destructive operation previews use `{ display, confirm }`.
 
 ## 5. MCP / Agent Runtime Cutover
 
@@ -83,14 +86,15 @@
 
 ### 5.2 Operation-backed safety
 
-- [x] `tool.fromOperation(...)` requires an operation `name`.
+- [x] `tool.fromOperation(...)` requires an operation `id`.
 - [x] `tool.fromOperation(...)` requires a preview ref for destructive operations.
-- [x] `tool.fromOperation(...)` validates the execute ref naming contract.
-- [x] `tool.fromOperation(...)` validates the preview ref naming contract.
-- [x] `tool.fromOperation(...)` validates that execute and preview refs come from the same module.
+- [x] `tool.fromOperation(...)` validates stamped execute projection metadata.
+- [x] `tool.fromOperation(...)` validates stamped preview projection metadata.
 - [x] The deleted manifest path is no longer part of the active implementation.
-- [x] The active binding strategy is naming-based runtime validation.
+- [x] The active binding strategy is id-based projection validation.
 - [x] Type-level MCP coverage includes `tool.fromOperation(...)`.
+- [x] Destructive execution now requires `_confirmationToken`, not `_confirmed`.
+- [x] Confirmation tokens bind operation id, ref paths, principal key, tenant key, args hash, and preview hash.
 
 ## 6. Example Migration
 
@@ -100,8 +104,10 @@
 - [x] The app exports direct `query`, `mutation`, and `raw`.
 - [x] The app uses `guard: open` for public-access handlers.
 - [x] The app uses `defineOperation(...)` for destructive work.
+- [x] The app gives destructive operations a stable `id`.
 - [x] The app gives the destructive operation a stable `name`.
 - [x] The app marks the destructive operation as `kind: 'destructive'`.
+- [x] The app uses `{ display, confirm }` previews for destructive flows.
 - [x] The app exposes a preview with `previewOf(...)`.
 - [x] The app includes a real MCP layer.
 - [x] The MCP layer uses `defineMcpApp(...)`.
@@ -114,6 +120,7 @@
 - [x] Existing examples use `defineTrellis(...)`.
 - [x] Existing MCP examples use `defineMcpApp(...)`.
 - [x] Existing MCP examples use `tool(...)`.
+- [x] Shipped destructive MCP examples now use `tool.fromOperation(...)`.
 - [x] Principal/actor context types were widened to include action contexts where needed.
 - [x] Raw-vs-protected escape hatches were made explicit where examples truly needed them.
 
@@ -157,7 +164,7 @@
 
 - [x] `runAsUser` is deferred.
 - [x] `runAsService` is deferred.
-- [x] service-scope enforcement is deferred.
+- [x] service-scope enforcement is shipped.
 - [x] `defineWebhook(...)` is deferred from the active vNext contract.
 - [x] `defineComponentApp(...)` is deferred from the active vNext contract.
 - [x] replay and audit guarantees remain future hardening work unless documented and tested concretely.
@@ -174,9 +181,8 @@
 
 ## 12. Next Feature Wave
 
-- [ ] Spike `display` / `confirm` for destructive operations.
-- [ ] Spike runtime-enforced `defineServices(...)`.
-- [ ] Decide whether naming-based operation binding is enough or whether Trellis needs a stronger identity contract.
+- [ ] Add durable replay redemption and audit on top of the shipped confirmation-token flow.
+- [ ] Decide whether direct exported refs should remain the long-term operation-binding seam.
 - [ ] Add guardrails so contract, tracker, docs, and examples stay aligned as new work lands.
 
 ## 13. Honest Status

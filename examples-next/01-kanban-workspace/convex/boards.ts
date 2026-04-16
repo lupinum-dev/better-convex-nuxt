@@ -25,11 +25,21 @@ type BoardOperationCtx = {
 }
 
 type ArchiveBoardPreview = {
-  summary: string
-  warn: string
-  affects: {
-    columns: number
-    cards: number
+  display: {
+    summary: string
+    warn: string
+    affects: {
+      columns: number
+      cards: number
+    }
+  }
+  confirm: {
+    operation: 'boards.archive'
+    targetId: Id<'boards'>
+    affectedCounts: {
+      columns: number
+      cards: number
+    }
   }
 }
 
@@ -183,7 +193,7 @@ export const moveCard = mutation({
   },
 })
 
-const archiveBoardOp = defineOperation<
+export const archiveBoardOp = defineOperation<
   BoardOperationCtx,
   KanbanPrincipal,
   Actor,
@@ -193,16 +203,27 @@ const archiveBoardOp = defineOperation<
   null,
   ArchiveBoardPreview
 >({
+  id: 'boards.archive',
   name: 'archiveBoard',
   kind: 'destructive',
   args: archiveBoardArgs.args,
   returns: v.null(),
   previewReturns: v.object({
-    summary: v.string(),
-    warn: v.string(),
-    affects: v.object({
-      columns: v.number(),
-      cards: v.number(),
+    display: v.object({
+      summary: v.string(),
+      warn: v.string(),
+      affects: v.object({
+        columns: v.number(),
+        cards: v.number(),
+      }),
+    }),
+    confirm: v.object({
+      operation: v.literal('boards.archive'),
+      targetId: v.id('boards'),
+      affectedCounts: v.object({
+        columns: v.number(),
+        cards: v.number(),
+      }),
     }),
   }),
   guard: canArchiveBoard,
@@ -226,11 +247,21 @@ const archiveBoardOp = defineOperation<
     return { board, columns, cards }
   },
   preview: async (_ctx, _args, { board, columns, cards }) => ({
-    summary: `Archive "${board.title}"`,
-    warn: 'The board disappears from the active workspace view.',
-    affects: {
-      columns: columns.length,
-      cards: cards.length,
+    display: {
+      summary: `Archive "${board.title}"`,
+      warn: 'The board disappears from the active workspace view.',
+      affects: {
+        columns: columns.length,
+        cards: cards.length,
+      },
+    },
+    confirm: {
+      operation: 'boards.archive',
+      targetId: board._id,
+      affectedCounts: {
+        columns: columns.length,
+        cards: cards.length,
+      },
     },
   }),
   handler: async (ctx, _args, { board }) => {
@@ -241,7 +272,5 @@ const archiveBoardOp = defineOperation<
     return null
   },
 })
-
-export { archiveBoardOp }
 export const archiveBoard = mutation(archiveBoardOp)
 export const previewArchiveBoard = query(previewOf(archiveBoardOp))

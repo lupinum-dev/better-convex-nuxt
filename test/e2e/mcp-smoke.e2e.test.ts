@@ -270,12 +270,18 @@ describe('MCP route smoke', async () => {
         structuredContent?: {
           ok?: boolean
           awaitingConfirmation?: boolean
+          preview?: {
+            confirmationToken?: string
+          }
         }
       }
     }
 
     expect(previewPayload.result?.structuredContent?.ok).toBe(true)
     expect(previewPayload.result?.structuredContent?.awaitingConfirmation).toBe(true)
+    expect(previewPayload.result?.structuredContent?.preview?.confirmationToken).toEqual(
+      expect.any(String),
+    )
 
     const confirmed = await rpc(
       {
@@ -286,7 +292,7 @@ describe('MCP route smoke', async () => {
           name: 'delete-post',
           arguments: {
             id: bootstrap.resources.postId,
-            _confirmed: true,
+            _confirmationToken: previewPayload.result?.structuredContent?.preview?.confirmationToken,
           },
         },
       },

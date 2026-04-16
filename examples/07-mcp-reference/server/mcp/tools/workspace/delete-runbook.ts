@@ -1,16 +1,13 @@
-import { api } from '#trellis/api'
-import { deleteRunbook } from '~/shared/schemas/runbook'
+import { previewRemove, remove, removeRunbookOp } from '~/convex/runbooks'
 
 import { tool } from '../../runtime'
 
-export default tool({
-  schema: deleteRunbook,
-  call: api.runbooks.remove,
-  preview: api.runbooks.previewRemove,
+export default tool.fromOperation(removeRunbookOp, {
+  execute: remove,
+  preview: previewRemove,
   capability: 'writeWorkspaceRunbooks',
   group: 'workspace',
   meta: {
     name: 'delete-runbook',
-    destructive: true,
   },
 })

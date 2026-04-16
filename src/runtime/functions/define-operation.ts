@@ -5,6 +5,25 @@ import type {
   StructuredHandlerDefinition,
   StructuredLoadedValue,
 } from './define-handler.js'
+import {
+  getOperationMetadata,
+  trellisOperationMetadataKey,
+  trellisOperationProjectionMetadataKey,
+  type OperationKind,
+  type TrellisOperationMetadata,
+  type TrellisOperationProjectionMetadata,
+} from './operation-metadata.js'
+
+export {
+  getOperationMetadata,
+  trellisOperationMetadataKey,
+  trellisOperationProjectionMetadataKey,
+} from './operation-metadata.js'
+export type {
+  OperationKind,
+  TrellisOperationMetadata,
+  TrellisOperationProjectionMetadata,
+} from './operation-metadata.js'
 
 type MaybePromise<T> = T | Promise<T>
 
@@ -16,14 +35,10 @@ type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPrevie
   loaded: TLoaded,
 ) => MaybePromise<TPreview>
 
-export type OperationKind = 'safe' | 'destructive'
-
-export type TrellisOperationMetadata = {
-  name?: string
-  kind: OperationKind
+export type DestructiveOperationPreview<TDisplay = unknown, TConfirm = unknown> = {
+  display: TDisplay
+  confirm: TConfirm
 }
-
-export const trellisOperationMetadataKey = Symbol.for('trellis.operation')
 
 export type OperationDefinition<
   TCtx,
@@ -43,11 +58,13 @@ export type OperationDefinition<
   TLoaded,
   TResult
 > & {
+  id?: string
   name?: string
   kind?: OperationKind
   preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
   previewReturns?: GenericValidator
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
+  [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
 }
 
 /**
@@ -78,11 +95,26 @@ export function defineOperation<
     TPreview
   >,
 ): OperationDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TResult, TPreview> {
+  const metadata = {
+    id: definition.id,
+    name: definition.name,
+    kind: definition.kind ?? 'safe',
+  } satisfies TrellisOperationMetadata
+
+  if (metadata.kind === 'destructive' && !metadata.id) {
+    throw new Error('defineOperation(...) requires `id` for destructive operations.')
+  }
+
   return Object.assign(definition, {
-    [trellisOperationMetadataKey]: {
-      name: definition.name,
-      kind: definition.kind ?? 'safe',
-    },
+    [trellisOperationMetadataKey]: metadata,
+    ...(metadata.id
+      ? {
+          [trellisOperationProjectionMetadataKey]: {
+            operationId: metadata.id,
+            projection: 'execute' as const,
+          },
+        }
+      : {}),
   })
 }
 
@@ -117,6 +149,8 @@ export function previewOf<
     throw new Error('previewOf() requires an operation with a preview handler.')
   }
 
+  const metadata = getOperationMetadata(operation)
+
   return {
     args: operation.args,
     returns: operation.previewReturns,
@@ -124,18 +158,13 @@ export function previewOf<
     load: operation.load,
     authorize: operation.authorize,
     handler: async (ctx, args, loaded) => await operation.preview!(ctx as TCtx, args, loaded),
+    ...(metadata.id
+      ? {
+          [trellisOperationProjectionMetadataKey]: {
+            operationId: metadata.id,
+            projection: 'preview' as const,
+          },
+        }
+      : {}),
   }
-}
-
-export function getOperationMetadata(operation: {
-  [trellisOperationMetadataKey]?: TrellisOperationMetadata
-  name?: string
-  kind?: OperationKind
-}): TrellisOperationMetadata {
-  return (
-    operation[trellisOperationMetadataKey] ?? {
-      name: operation.name,
-      kind: operation.kind ?? 'safe',
-    }
-  )
 }

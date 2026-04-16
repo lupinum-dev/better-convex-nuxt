@@ -1,18 +1,15 @@
-import { api } from '#trellis/api'
-import { bulkDeleteRunbooks } from '~/shared/schemas/runbook'
+import { bulkRemove, bulkRemoveRunbooksOp, previewBulkRemove } from '~/convex/runbooks'
 
 import { tool } from '../../runtime'
 
-export default tool({
-  schema: bulkDeleteRunbooks,
-  call: api.runbooks.bulkRemove,
-  preview: api.runbooks.previewBulkRemove,
+export default tool.fromOperation(bulkRemoveRunbooksOp, {
+  execute: bulkRemove,
+  preview: previewBulkRemove,
   capability: 'deleteWorkspaceRunbooks',
   group: 'workspace',
   tags: ['bulk', 'dangerous'],
   meta: {
     name: 'bulk-delete-runbooks',
-    destructive: true,
   },
   rateLimit: { max: 5, window: '1m' },
   maxItems: { field: 'ids', limit: 10 },

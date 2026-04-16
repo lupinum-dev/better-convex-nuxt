@@ -29,6 +29,7 @@ import type { ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
+import type { ServiceDefinitions } from '../auth/define-services.js'
 import { createComponentBridge } from './create-component-bridge.js'
 import { buildStructuredBuilder, buildStructuredFunctions } from './define-handler.js'
 import type {
@@ -59,8 +60,15 @@ export {
   getOperationMetadata,
   previewOf,
   trellisOperationMetadataKey,
+  trellisOperationProjectionMetadataKey,
 } from './define-operation.js'
-export type { OperationDefinition, OperationKind, TrellisOperationMetadata } from './define-operation.js'
+export type {
+  DestructiveOperationPreview,
+  OperationDefinition,
+  OperationKind,
+  TrellisOperationMetadata,
+  TrellisOperationProjectionMetadata,
+} from './define-operation.js'
 export { definePrincipal } from './define-principal.js'
 export type { DefaultPrincipal, PrincipalDefinition } from './define-principal.js'
 export type {
@@ -134,6 +142,11 @@ type TenantIsolationOptions<DataModel extends GenericDataModel> = {
   field?: string
 }
 
+type ServiceAccessDefinition<DataModel extends GenericDataModel, TPrincipal> = ServiceDefinitions<
+  TableNamesInDataModel<DataModel>,
+  TPrincipal
+>
+
 type MaybeRules<Ctx, DataModel extends GenericDataModel> =
   | Rules<Ctx, DataModel>
   | ((ctx: Ctx) => Promise<Rules<Ctx, DataModel>> | Rules<Ctx, DataModel>)
@@ -183,6 +196,7 @@ export interface DefineTrellisOptions<
     principal: TPrincipal,
   ) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
+  services?: ServiceAccessDefinition<DataModel, TPrincipal>
   rls?: {
     rules: MaybeRules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel>
     config?: RLSConfig
@@ -242,6 +256,117 @@ function hasTenantScope(value: unknown): boolean {
   return value !== undefined && value !== null
 }
 
+function isServicePrincipal(value: unknown): value is { kind: 'service'; serviceId: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'kind' in value &&
+    (value as { kind?: unknown }).kind === 'service' &&
+    typeof (value as { serviceId?: unknown }).serviceId === 'string'
+  )
+}
+
+type ResolvedServiceAccess<DataModel extends GenericDataModel> =
+  | null
+  | {
+      serviceId: string
+      access: 'unrestricted'
+    }
+  | {
+      serviceId: string
+      access: 'restricted'
+      tables: ReadonlySet<TableNamesInDataModel<DataModel>>
+      tenant: 'global' | 'derived'
+      tenantId: unknown
+    }
+
+function getServiceError(serviceId: string, table: string): Error {
+  return new Error(`Service "${serviceId}" has no access to table "${table}".`)
+}
+
+function getServiceTableFromId(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const separator = value.lastIndexOf(';')
+  if (separator === -1) return null
+  return value.slice(separator + 1)
+}
+
+function assertServiceTableAccess<DataModel extends GenericDataModel>(
+  access: ResolvedServiceAccess<DataModel>,
+  table: string,
+): void {
+  if (!access || access.access === 'unrestricted') return
+  if (!access.tables.has(table as TableNamesInDataModel<DataModel>)) {
+    throw getServiceError(access.serviceId, table)
+  }
+}
+
+function wrapServiceDb<TDb extends object, DataModel extends GenericDataModel>(
+  db: TDb,
+  access: ResolvedServiceAccess<DataModel>,
+): TDb {
+  if (!access || access.access === 'unrestricted') return db
+
+  return new Proxy(db, {
+    get(target, prop, receiver) {
+      const original = Reflect.get(target, prop, receiver)
+      if (typeof original !== 'function') return original
+
+      if (prop === 'query') {
+        return (table: TableNamesInDataModel<DataModel>) => {
+          assertServiceTableAccess(access, String(table))
+          return original.call(target, table)
+        }
+      }
+
+      if (prop === 'insert') {
+        return (table: TableNamesInDataModel<DataModel>, value: unknown) => {
+          assertServiceTableAccess(access, String(table))
+          return original.call(target, table, value)
+        }
+      }
+
+      if (prop === 'get' || prop === 'patch' || prop === 'replace' || prop === 'delete') {
+        return (id: unknown, ...args: unknown[]) => {
+          const table = getServiceTableFromId(id)
+          if (!table) {
+            throw new Error(`Could not determine table from Convex id "${String(id)}".`)
+          }
+          assertServiceTableAccess(access, table)
+          return original.call(target, id, ...args)
+        }
+      }
+
+      return original.bind(target)
+    },
+  }) as TDb
+}
+
+function createServiceScopeRule<TDoc extends Record<string, unknown>>(
+  field: string,
+  tenantId: unknown,
+) {
+  return async (_ctx: unknown, doc: TDoc) => {
+    const documentTenantId = doc[field as keyof TDoc]
+
+    if (
+      hasTenantScope(tenantId) &&
+      hasTenantScope(documentTenantId) &&
+      documentTenantId === tenantId
+    ) {
+      return true
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      return false
+    }
+
+    throw new Error(
+      `Service scope denied access.\nExpected: ${String(tenantId)}\nReason: ${field} ${String(documentTenantId)}`,
+    )
+  }
+}
+
 function createTenantIsolationRule<
   DataModel extends GenericDataModel,
   TPrincipal,
@@ -295,6 +420,80 @@ function buildTenantIsolationRules<DataModel extends GenericDataModel, TPrincipa
   return rules
 }
 
+async function resolveServiceAccess<DataModel extends GenericDataModel, TPrincipal, TActor>(
+  ctx: RuleCtx<DataModel, TPrincipal, TActor>,
+  args: Record<string, unknown>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+): Promise<ResolvedServiceAccess<DataModel>> {
+  const principal = await ctx.principal()
+  if (!isServicePrincipal(principal)) return null
+
+  const service = options.services?.[principal.serviceId]
+  if (!service) {
+    throw new Error(`Service "${principal.serviceId}" is not configured in defineTrellis({ services }).`)
+  }
+
+  if (service.access === 'unrestricted') {
+    return {
+      serviceId: principal.serviceId,
+      access: 'unrestricted',
+    }
+  }
+
+  const tenantId =
+    service.access.tenant === 'derived'
+      ? await service.access.deriveTenant({ principal, args })
+      : null
+
+  return {
+    serviceId: principal.serviceId,
+    access: 'restricted',
+    tables: new Set(service.access.tables),
+    tenant: service.access.tenant,
+    tenantId,
+  }
+}
+
+function buildServiceRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
+  access: ResolvedServiceAccess<DataModel>,
+  options: TenantIsolationOptions<DataModel> | undefined,
+): Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> {
+  const rules = {} as Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel>
+  if (!access || access.access === 'unrestricted') return rules
+  if (access.tenant !== 'derived') return rules
+
+  const field = options?.field ?? 'workspaceId'
+
+  for (const table of access.tables) {
+    const scopeRule = createServiceScopeRule<Record<string, unknown>>(field, access.tenantId)
+    rules[table] = {
+      read: scopeRule,
+      modify: scopeRule,
+      insert: scopeRule,
+    }
+  }
+
+  return rules
+}
+
+function combineRuleCheck<Ctx, Doc>(
+  left:
+    | ((ctx: Ctx, doc: Doc) => Promise<boolean> | boolean)
+    | undefined,
+  right:
+    | ((ctx: Ctx, doc: Doc) => Promise<boolean> | boolean)
+    | undefined,
+) {
+  if (!left) return right
+  if (!right) return left
+
+  return async (ctx: Ctx, doc: Doc) => {
+    const leftAllowed = await left(ctx, doc)
+    if (!leftAllowed) return false
+    return await right(ctx, doc)
+  }
+}
+
 function mergeRules<Ctx, DataModel extends GenericDataModel>(
   base: Rules<Ctx, DataModel>,
   extra: Rules<Ctx, DataModel>,
@@ -307,28 +506,47 @@ function mergeRules<Ctx, DataModel extends GenericDataModel>(
     merged[table] = {
       ...merged[table],
       ...rule,
+      read: combineRuleCheck(merged[table]?.read, rule?.read),
+      modify: combineRuleCheck(merged[table]?.modify, rule?.modify),
+      insert: combineRuleCheck(merged[table]?.insert, rule?.insert),
     } as Rules<Ctx, DataModel>[TableNamesInDataModel<DataModel>]
   }
 
   return merged
 }
 
+type ResolvedRules<DataModel extends GenericDataModel, TPrincipal, TActor> = {
+  dbRules: Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> | null
+  crossTenantRules: Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> | null
+  serviceAccess: ResolvedServiceAccess<DataModel>
+}
+
 async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
   ctx: RuleCtx<DataModel, TPrincipal, TActor>,
+  args: Record<string, unknown>,
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
-): Promise<Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> | null> {
+): Promise<ResolvedRules<DataModel, TPrincipal, TActor>> {
   const tenantRules = buildTenantIsolationRules<DataModel, TPrincipal, TActor>(
     options.tenantIsolation,
   )
-  const hasTenantRules = Object.keys(tenantRules).length > 0
   const rlsRules = options.rls?.rules
-
-  if (!hasTenantRules && !rlsRules) return null
+  const serviceAccess = await resolveServiceAccess(ctx, args, options)
+  const serviceRules = buildServiceRules(serviceAccess, options.tenantIsolation)
 
   const resolvedCustomRules =
     typeof rlsRules === 'function' ? await rlsRules(ctx) : (rlsRules ?? {})
 
-  return mergeRules(tenantRules, resolvedCustomRules)
+  const isService = serviceAccess !== null
+  const dbRules = isService
+    ? mergeRules(serviceRules, resolvedCustomRules)
+    : mergeRules(tenantRules, resolvedCustomRules)
+  const crossTenantRules = mergeRules(serviceRules, resolvedCustomRules)
+
+  return {
+    dbRules: Object.keys(dbRules).length > 0 ? dbRules : null,
+    crossTenantRules: Object.keys(crossTenantRules).length > 0 ? crossTenantRules : null,
+    serviceAccess,
+  }
 }
 
 type StructuredQueryBuilder<
@@ -492,10 +710,14 @@ function createOnSuccessHandler<Ctx>(
   }
 }
 
-function decorateDb<TDb extends object>(db: TDb, rawDb: TDb): TDb & { raw: TDb; crossTenant: TDb } {
+function decorateDb<TDb extends object>(
+  db: TDb,
+  rawDb: TDb,
+  crossTenantDb: TDb,
+): TDb & { raw: TDb; crossTenant: TDb } {
   return Object.assign(db, {
     raw: rawDb,
-    crossTenant: rawDb,
+    crossTenant: crossTenantDb,
   }) as TDb & { raw: TDb; crossTenant: TDb }
 }
 
@@ -517,13 +739,18 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
     args: principalArgs,
     input: async (ctx, args) => {
       const { baseCtx } = createContextWithRuntime(ctx, args, principalDefinition, actorResolver)
-      const resolvedRules = await resolveRules(baseCtx, options)
-      const db = resolvedRules
-        ? wrapDatabaseReader(baseCtx, ctx.db, resolvedRules, options.rls?.config)
-        : ctx.db
+      const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(baseCtx, args, options)
+      const rawDb = ctx.db
+      const serviceDb = wrapServiceDb(rawDb, serviceAccess)
+      const db = dbRules
+        ? wrapDatabaseReader(baseCtx, serviceDb, dbRules, options.rls?.config)
+        : serviceDb
+      const crossTenantDb = crossTenantRules
+        ? wrapDatabaseReader(baseCtx, serviceDb, crossTenantRules, options.rls?.config)
+        : serviceDb
       const finalCtx: QueryCtxWithRuntime<DataModel, TPrincipal, TActor> = {
         ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TPrincipal, TActor>),
-        db: decorateDb(db, ctx.db),
+        db: decorateDb(db, rawDb, crossTenantDb),
       }
 
       return {
@@ -553,21 +780,30 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
     args: principalArgs,
     input: async (ctx, args) => {
       const { baseCtx } = createContextWithRuntime(ctx, args, principalDefinition, actorResolver)
-      const resolvedRules = await resolveRules(baseCtx, options)
-      let db = resolvedRules
-        ? wrapDatabaseWriter(baseCtx, ctx.db, resolvedRules, options.rls?.config)
-        : ctx.db
+      const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(baseCtx, args, options)
+      const rawDb = ctx.db
+      const serviceDb = wrapServiceDb(rawDb, serviceAccess)
+      let db = dbRules
+        ? wrapDatabaseWriter(baseCtx, serviceDb, dbRules, options.rls?.config)
+        : serviceDb
+      let crossTenantDb = crossTenantRules
+        ? wrapDatabaseWriter(baseCtx, serviceDb, crossTenantRules, options.rls?.config)
+        : serviceDb
 
       if (options.triggers) {
         db = options.triggers.wrapDB({
           ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
           db,
         }).db
+        crossTenantDb = options.triggers.wrapDB({
+          ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
+          db: crossTenantDb,
+        }).db
       }
 
       const finalCtx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor> = {
         ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
-        db: decorateDb(db, ctx.db),
+        db: decorateDb(db, rawDb, crossTenantDb),
       }
 
       return {

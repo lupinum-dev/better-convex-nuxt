@@ -1,6 +1,9 @@
 import type { FunctionReference } from 'convex/server'
 
-import { getFunctionName } from '../utils/convex-shared.js'
+import {
+  getOperationMetadata,
+  getOperationProjectionMetadata,
+} from '../functions/operation-metadata.js'
 
 type AnyQueryRef = FunctionReference<'query', 'public' | 'internal'>
 type AnyMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
@@ -14,50 +17,39 @@ export function toKebabCase(input: string): string {
     .toLowerCase()
 }
 
-function splitFunctionPath(path: string): { moduleName: string; exportName: string } {
-  const separator = path.indexOf(':')
-  if (separator === -1) {
-    throw new Error(`Invalid Convex function path "${path}". Expected "module:export".`)
-  }
-
-  return {
-    moduleName: path.slice(0, separator),
-    exportName: path.slice(separator + 1),
-  }
-}
-
-function capitalize(input: string): string {
-  return input.length === 0 ? input : input[0]!.toUpperCase() + input.slice(1)
-}
-
 export function assertOperationBinding(
-  operationName: string,
+  operation: { id?: string; name?: string; kind?: 'safe' | 'destructive' },
   executeRef: AnyFunctionRef,
   previewRef?: AnyFunctionRef,
 ): void {
-  const executePath = getFunctionName(executeRef)
-  const executeTarget = splitFunctionPath(executePath)
-  if (executeTarget.exportName !== operationName) {
+  const metadata = getOperationMetadata(operation)
+  if (!metadata.id) {
+    throw new Error('tool.fromOperation(...) requires an operation with an `id`.')
+  }
+
+  const executeTarget = getOperationProjectionMetadata(executeRef as Record<PropertyKey, unknown>)
+  if (!executeTarget) {
     throw new Error(
-      `tool.fromOperation(${operationName}) expected execute ref "${operationName}" but received "${executePath}".`,
+      `tool.fromOperation(${metadata.name ?? metadata.id}) requires an execute ref projected from the same operation.`,
+    )
+  }
+  if (executeTarget.operationId !== metadata.id || executeTarget.projection !== 'execute') {
+    throw new Error(
+      `tool.fromOperation(${metadata.name ?? metadata.id}) received an execute ref that does not match operation id "${metadata.id}".`,
     )
   }
 
   if (!previewRef) return
 
-  const previewPath = getFunctionName(previewRef)
-  const previewTarget = splitFunctionPath(previewPath)
-  const expectedPreviewExport = `preview${capitalize(operationName)}`
-
-  if (previewTarget.exportName !== expectedPreviewExport) {
+  const previewTarget = getOperationProjectionMetadata(previewRef as Record<PropertyKey, unknown>)
+  if (!previewTarget) {
     throw new Error(
-      `tool.fromOperation(${operationName}) expected preview ref "${expectedPreviewExport}" but received "${previewPath}".`,
+      `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref projected from the same operation.`,
     )
   }
-
-  if (previewTarget.moduleName !== executeTarget.moduleName) {
+  if (previewTarget.operationId !== metadata.id || previewTarget.projection !== 'preview') {
     throw new Error(
-      `tool.fromOperation(${operationName}) requires execute and preview refs from the same module. Received "${executePath}" and "${previewPath}".`,
+      `tool.fromOperation(${metadata.name ?? metadata.id}) received a preview ref that does not match operation id "${metadata.id}".`,
     )
   }
 }

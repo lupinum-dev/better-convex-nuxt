@@ -30,6 +30,13 @@ export type {
 export { defineActor } from './define-actor.js'
 export type { ActorBuilder, DefaultActor } from './define-actor.js'
 export { definePermissionContext } from './define-permission-context.js'
+export { defineServices } from './define-services.js'
+export type {
+  RestrictedServiceAccess,
+  ServiceDefinition,
+  ServiceDefinitions,
+  ServiceTenantMode,
+} from './define-services.js'
 
 export type AuthIdentity = {
   subject: string

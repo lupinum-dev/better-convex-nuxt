@@ -46,9 +46,7 @@ type ConvexMcpInputSchema<V extends PropertyValidators> = {
   [K in keyof V]: ZodValidatorFromConvex<V[K]>
 }
 
-type ConvexToolInputSchema<S extends AnyConvexSchema> = ConvexMcpInputSchema<
-  InferSchemaValidators<S>
-> & { _confirmed?: ZodTypeAny }
+type ConvexToolInputSchema<S extends AnyConvexSchema> = ConvexMcpInputSchema<InferSchemaValidators<S>>
 
 type ConvexToolHandlerArgs<S extends AnyConvexSchema> = ShapeOutput<ConvexToolInputSchema<S>>
 
@@ -58,7 +56,6 @@ type ConvexToolGeneratedExamples<V extends PropertyValidators> = Partial<
 
 interface NormalizedToolArgs<S extends AnyConvexSchema> {
   clean: InferSchemaData<S>
-  confirmed: boolean
 }
 
 // ============================================================================
@@ -259,11 +256,8 @@ function toToolHandler<S extends AnyConvexSchema>(
 function normalizeToolArgs<S extends AnyConvexSchema>(
   args: ConvexToolHandlerArgs<S>,
 ): NormalizedToolArgs<S> {
-  const { _confirmed, ...cleanArgs } = args
-
   return {
-    clean: cleanArgs as InferSchemaData<S>,
-    confirmed: _confirmed === true,
+    clean: args as InferSchemaData<S>,
   }
 }
 
@@ -512,9 +506,9 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     throw new Error(`defineTool: "check" needs auth. Set auth to "required" or "optional".`)
   }
 
-  if (preview && !destructive) {
+  if (destructive || preview) {
     throw new Error(
-      `defineTool: "preview" only applies to destructive tools. Set destructive: true.`,
+      'defineTool: destructive tools must be operation-backed. Use defineMcpApp(...).tool.fromOperation(...).',
     )
   }
 
@@ -537,17 +531,10 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
 
   // ── Build input schema ─────────────────────────────────────────────────
 
-  let inputSchema = applyEnhancedFieldDescriptions(
+  const inputSchema = applyEnhancedFieldDescriptions(
     convexToMcpZodFields(schema.args),
     schema.meta.fields,
   ) as ConvexToolInputSchema<S>
-
-  if (destructive) {
-    inputSchema = {
-      ...inputSchema,
-      _confirmed: z.boolean().optional().describe('Set to true to confirm destructive action'),
-    }
-  }
 
   // ── Derive annotations ─────────────────────────────────────────────────
 
@@ -629,7 +616,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
         // ── Step 4: Middleware ────────────────────────────────────────────
         if (middleware) {
           const result = await middleware(normalizedArgs.clean, ctx, async () =>
-            runHandlerWithConfirmation(normalizedArgs, ctx),
+            runHandler(normalizedArgs, ctx),
           )
           if (!isValidCallToolResult(result)) {
             return wrapError(
@@ -640,8 +627,8 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
           return result
         }
 
-        // ── Steps 5-7: Preview, confirmation, handler ─────────────────────
-        return await runHandlerWithConfirmation(normalizedArgs, ctx)
+        // ── Step 5: Handler ───────────────────────────────────────────────
+        return await runHandler(normalizedArgs, ctx)
       } catch (err) {
         console.error(`[${toolLabel}]`, err)
         const convexError = toConvexError(err)
@@ -655,28 +642,10 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     },
   )
 
-  async function runHandlerWithConfirmation(
+  async function runHandler(
     args: NormalizedToolArgs<S>,
     ctx: ConvexToolHandlerCtx<TRole>,
   ): Promise<McpToolCallbackResult> {
-    // Step 7: Preview routing
-    if (destructive && preview && !args.confirmed) {
-      const raw = await preview(args.clean, ctx)
-      if (isValidCallToolResult(raw)) {
-        return raw
-      }
-      return wrapPreview(normalizePreview(raw))
-    }
-
-    // Step 8: Confirmation gate
-    if (destructive && !args.confirmed) {
-      return wrapError(
-        'confirmation_required',
-        'This action is destructive. Call again with _confirmed: true to proceed.',
-      )
-    }
-
-    // Step 9: Handler — strip _confirmed before passing to user handler
     const result = await handler(args.clean, ctx)
     if (isValidCallToolResult(result)) {
       return result
@@ -738,17 +707,8 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
  *   handler: (args) => serverConvexMutation(api.posts.create, args),
  * })
  *
- * // Level 3 — destructive with preview
- * export default defineTool({
- *   schema: deletePostSchema,
- *   auth: 'required',
- *   destructive: true,
- *   preview: async (args) => {
- *     const post = await serverConvexQuery(api.posts.get, { id: args.id })
- *     return post ? `Will permanently delete "${post.title}"` : 'Post not found'
- *   },
- *   handler: (args) => serverConvexMutation(api.posts.remove, args),
- * })
+ * // Level 3 — destructive tools are operation-backed
+ * // Use defineMcpApp(...).tool.fromOperation(...) instead of defineTool(...)
  * ```
  */
 export function defineTool<S extends AnyConvexSchema, TRole extends string = string>(

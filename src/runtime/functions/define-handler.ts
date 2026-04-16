@@ -14,6 +14,7 @@ import {
   isAnonymousPrincipal,
   type AuthenticatedPrincipal,
 } from '../auth/principal-state.js'
+import { stampOperationProjection, trellisOperationProjectionMetadataKey } from './operation-metadata.js'
 
 type MaybePromise<T> = T | Promise<T>
 
@@ -100,6 +101,10 @@ type HandlerDefinition<
     args: HandlerArgs<TArgsValidator>,
     loaded: TLoaded,
   ) => MaybePromise<TResult>
+  [trellisOperationProjectionMetadataKey]?: {
+    operationId: string
+    projection: 'execute' | 'preview'
+  }
 }
 
 export type StructuredHandlerDefinition<
@@ -178,7 +183,7 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
   >(
     definition: HandlerDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TResult>,
   ): ReturnType<TBuilder> {
-    return builder({
+    const built = builder({
       args: definition.args,
       returns: definition.returns,
       handler: async (rawCtx, rawArgs) => {
@@ -232,6 +237,11 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
         return await definition.handler(handlerCtx, args, loaded)
       },
     }) as ReturnType<TBuilder>
+
+    return stampOperationProjection(
+      built,
+      definition[trellisOperationProjectionMetadataKey],
+    ) as ReturnType<TBuilder>
   }
 }
 

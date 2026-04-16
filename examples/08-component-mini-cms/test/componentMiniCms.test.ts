@@ -145,8 +145,14 @@ describe('example 08 component mini cms', () => {
 
     const preview = await agent.query(internal.miniCmsBridge.previewPublishPage, { id })
     expect(preview).toMatchObject({
-      summary: 'Publish "Launch notes" at /launch-notes',
-      affects: { pages: 1 },
+      display: {
+        summary: 'Publish "Launch notes" at /launch-notes',
+        affects: { pages: 1 },
+      },
+      confirm: {
+        operation: 'pages.publish',
+        affectedCounts: { pages: 1 },
+      },
     })
   })
 

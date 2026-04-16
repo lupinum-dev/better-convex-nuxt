@@ -1,4 +1,6 @@
 import { requireRecord } from '@lupinum/trellis/auth'
+import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { v } from 'convex/values'
 
 import { createTodo, deleteTodo, listTodos, setTodoCompleted } from '../shared/schemas/todo'
 import type { Id } from './_generated/dataModel'
@@ -76,9 +78,28 @@ export const setCompleted = mutation({
   },
 })
 
-export const remove = mutation({
+export const removeTodoOp = defineOperation({
+  id: 'todos.remove',
+  name: 'removeTodo',
+  kind: 'destructive',
   args: deleteTodo.args,
-  // Entry gate: actor can see todos. authorize below checks delete rights on this specific todo.
+  returns: v.null(),
+  previewReturns: v.object({
+    display: v.object({
+      summary: v.string(),
+      warn: v.string(),
+      affects: v.object({
+        todos: v.number(),
+      }),
+    }),
+    confirm: v.object({
+      operation: v.literal('todos.remove'),
+      targetId: v.id('todos'),
+      affectedCounts: v.object({
+        todos: v.number(),
+      }),
+    }),
+  }),
   guard: canReadTodo,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
@@ -88,25 +109,23 @@ export const remove = mutation({
   authorize: {
     check: (_actor, { todo }) => canDeleteTodo(todo),
   },
+  preview: async (_ctx, _args, { todo }) => ({
+    display: {
+      summary: `Will permanently delete "${todo.title}"`,
+      warn: 'This cannot be undone',
+      affects: { todos: 1 },
+    },
+    confirm: {
+      operation: 'todos.remove',
+      targetId: todo._id,
+      affectedCounts: { todos: 1 },
+    },
+  }),
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)
+    return null
   },
 })
 
-export const previewRemove = query({
-  args: deleteTodo.args,
-  guard: canReadTodo,
-  load: async (ctx, args) => {
-    const todo = await ctx.db.get(args.id)
-    requireRecord(todo, 'Todo')
-    return { todo }
-  },
-  authorize: {
-    check: (_actor, { todo }) => canDeleteTodo(todo),
-  },
-  handler: async (_ctx, _args, { todo }) => ({
-    summary: `Will permanently delete "${todo.title}"`,
-    warn: 'This cannot be undone',
-    affects: { todos: 1 },
-  }),
-})
+export const remove = mutation(removeTodoOp)
+export const previewRemove = query(previewOf(removeTodoOp))

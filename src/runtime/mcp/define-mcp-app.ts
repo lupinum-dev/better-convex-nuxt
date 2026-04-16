@@ -1,15 +1,18 @@
 import type { McpToolDefinition } from '@nuxtjs/mcp-toolkit/server'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import type { PropertyValidators } from 'convex/values'
+import { v, type PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
+import { hash } from 'ohash'
 import type { ZodRawShape } from 'zod'
 
 import {
   getOperationMetadata,
   type OperationKind,
 } from '../functions/define-operation.js'
+import { getFunctionName } from '../utils/convex-shared.js'
 import { defineArgs } from '../utils/define-convex-schema.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
+import { signConfirmationToken, verifyConfirmationToken } from './confirmation-token.js'
 import { defineTool } from './define-convex-tool.js'
 import { assertOperationBinding, toKebabCase, type AnyFunctionRef } from './operation-binding.js'
 import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
@@ -141,8 +144,14 @@ export interface ToolOptions<
 
 type AnyOperationDefinition = {
   args: PropertyValidators
+  id?: string
   name?: string
   kind?: OperationKind
+}
+
+type OperationPreviewPayload = {
+  display: string | PreviewResult
+  confirm: unknown
 }
 
 export interface ToolFromOperationOptions<
@@ -216,6 +225,32 @@ function defaultPrincipalKey(principal: unknown): string {
   }
 }
 
+function defaultTenantKey(principal: unknown): string {
+  if (
+    typeof principal === 'object' &&
+    principal !== null &&
+    'tenantId' in principal &&
+    typeof (principal as { tenantId?: unknown }).tenantId === 'string'
+  ) {
+    return (principal as { tenantId: string }).tenantId
+  }
+
+  return 'global'
+}
+
+function normalizePreviewDisplay(raw: string | PreviewResult): PreviewResult {
+  return typeof raw === 'string' ? { summary: raw } : raw
+}
+
+function isOperationPreviewPayload(value: unknown): value is OperationPreviewPayload {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'display' in value &&
+    'confirm' in value
+  )
+}
+
 function capabilityAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
   capabilities: TCapabilities,
   capability: string | undefined,
@@ -262,6 +297,7 @@ export function defineMcpApp<
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
   TRuntime = Record<string, never>,
 >(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TRuntime>) {
+  const principalKeyResolver = options.principalKey ?? defaultPrincipalKey
   const requestCache = new WeakMap<
     H3Event,
     Promise<ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>>
@@ -312,6 +348,12 @@ export function defineMcpApp<
   >(
     tool: ToolOptions<S, TPrincipal, TCapabilities, TRuntime, TCall, TPreview>,
   ): McpToolDefinition => {
+    if (tool.meta?.destructive) {
+      throw new Error(
+        'Destructive MCP tools must use tool.fromOperation(...). Generic tool({...}) destructive mode is not supported.',
+      )
+    }
+
     const operation = tool.operation ?? 'mutation'
     const previewOperation = tool.previewOperation ?? 'query'
     const middleware: ConvexToolMiddleware<S> | undefined =
@@ -462,37 +504,226 @@ export function defineMcpApp<
     >,
   ): McpToolDefinition => {
     const metadata = getOperationMetadata(operation)
-    if (!metadata.name) {
-      throw new Error('tool.fromOperation(...) requires an operation with a `name`.')
+    if (!metadata.id) {
+      throw new Error('tool.fromOperation(...) requires an operation with an `id`.')
     }
+    const operationId = metadata.id
 
     const isDestructive = metadata.kind === 'destructive'
     if (isDestructive && !options.preview) {
       throw new Error(
-        `tool.fromOperation(${metadata.name}) requires a preview ref for destructive operations.`,
+        `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
       )
     }
 
-    assertOperationBinding(metadata.name, options.execute, options.preview)
+    assertOperationBinding(operation, options.execute, options.preview)
 
-    const schema =
+    const baseSchema =
       options.schema ??
       defineArgs({
         description: options.meta?.description,
         args: operation.args,
       })
 
-    return tool({
-      ...options,
+    const schema = isDestructive
+      ? defineArgs({
+          description: baseSchema.description,
+          args: {
+            ...baseSchema.args,
+            _confirmationToken: v.optional(v.string()),
+          },
+        })
+      : baseSchema
+
+    return defineTool({
       schema,
-      call: options.execute,
+      auth: 'none',
+      name: options.meta?.name ?? toKebabCase(metadata.name ?? operationId),
+      description: options.meta?.description ?? schema.description,
       operation: options.executeOperation ?? 'mutation',
-      preview: options.preview,
-      previewOperation: options.previewOperation ?? 'query',
-      meta: {
-        ...options.meta,
-        name: options.meta?.name ?? toKebabCase(metadata.name),
-        destructive: options.meta?.destructive ?? isDestructive,
+      destructive: false,
+      preview: undefined,
+      maxItems: options.maxItems,
+      outputSchema: options.outputSchema,
+      group: options.group,
+      tags: options.tags,
+      middleware: options.rateLimit || options.middleware
+        ? async (args, ctx, next) => {
+            if (options.rateLimit) {
+              const projectionCtx = await resolve(ctx.event)
+              const bucket = [
+                options.meta?.name ?? metadata.name ?? metadata.id,
+                principalKeyResolver(projectionCtx.principal),
+              ].join(':')
+
+              const check = globalRateLimiter.check(bucket, {
+                max: options.rateLimit.max,
+                windowMs: parseWindowString(options.rateLimit.window),
+              })
+
+              if (!check.allowed) {
+                return ctx.error(
+                  'cooldown',
+                  `Rate limit exceeded (${options.rateLimit.max} per ${options.rateLimit.window}). Try again in ${check.retryAfterSeconds} seconds.`,
+                )
+              }
+            }
+
+            if (!options.middleware) {
+              return await next()
+            }
+
+            return await options.middleware(args, ctx, next)
+          }
+        : undefined,
+      enabled: async (event) => {
+        const ctx = await resolve(event)
+
+        if (!capabilityAllows(ctx.capabilities, options.capability)) {
+          return false
+        }
+
+        return options.enabled ? await options.enabled(ctx) : true
+      },
+      handler: async (rawArgs, ctx) => {
+        const projectionCtx = await resolve(ctx.event)
+        const fullArgs = rawArgs as Record<string, unknown>
+        const confirmationToken =
+          typeof fullArgs._confirmationToken === 'string' ? fullArgs._confirmationToken : undefined
+        const executeArgs = Object.fromEntries(
+          Object.entries(fullArgs).filter(([key]) => key !== '_confirmationToken'),
+        )
+        const executePath = getFunctionName(options.execute)
+        const previewPath = options.preview ? getFunctionName(options.preview) : executePath
+        const principalKey = principalKeyResolver(projectionCtx.principal)
+        const tenantKey = defaultTenantKey(projectionCtx.principal)
+        const argsHash = hash(executeArgs)
+
+        const finalizeResult = (result: FunctionReturnType<TExecute>) => {
+          if (options.respond) {
+            return options.respond({
+              args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
+              result,
+              principal: projectionCtx.principal,
+              capabilities: projectionCtx.capabilities,
+              runtime: projectionCtx.runtime,
+              ok: (data, summary) => (summary ? ctx.ok(data, summary) : data),
+              error: (code, message) => ctx.error(code, message),
+            })
+          }
+
+          const mapped = options.mapResult
+            ? options.mapResult({
+                args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
+                result,
+                principal: projectionCtx.principal,
+                capabilities: projectionCtx.capabilities,
+                runtime: projectionCtx.runtime,
+              })
+            : result
+
+          const summary = options.summary?.({
+            args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
+            result,
+            principal: projectionCtx.principal,
+            capabilities: projectionCtx.capabilities,
+            runtime: projectionCtx.runtime,
+          })
+
+          return summary ? ctx.ok(mapped, summary) : mapped
+        }
+
+        if (isDestructive) {
+          if (!options.preview) {
+            return ctx.error('server', 'Destructive operation is missing a preview ref.')
+          }
+
+          const previewResult = await callByOperation(
+            projectionCtx.convex,
+            options.previewOperation ?? 'query',
+            options.preview,
+            Object.assign({}, executeArgs, {
+              principal: projectionCtx.principal,
+            }) as FunctionArgs<Exclude<TPreview, undefined>>,
+          )
+
+          if (!isOperationPreviewPayload(previewResult)) {
+            throw new Error(
+              `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm }.`,
+            )
+          }
+
+          const display = normalizePreviewDisplay(previewResult.display)
+          const previewHash = hash(previewResult.confirm)
+
+          if (!confirmationToken) {
+            if (display.blocked) {
+              return ctx.blocked(display)
+            }
+
+            const signedToken = await signConfirmationToken({
+              v: 1,
+              operationId,
+              executePath,
+              previewPath,
+              principalKey,
+              tenantKey,
+              argsHash,
+              previewHash,
+            })
+
+            return ctx.preview({
+              ...display,
+              confirmationToken: signedToken,
+            })
+          }
+
+          let payload
+          try {
+            payload = await verifyConfirmationToken(confirmationToken)
+          } catch {
+            return ctx.error(
+              'confirmation_required',
+              'Invalid or expired confirmation token. Preview again before executing.',
+            )
+          }
+
+          if (
+            payload.operationId !== metadata.id ||
+            payload.executePath !== executePath ||
+            payload.previewPath !== previewPath ||
+            payload.principalKey !== principalKey ||
+            payload.tenantKey !== tenantKey ||
+            payload.argsHash !== argsHash
+          ) {
+            return ctx.error(
+              'conflict',
+              'Confirmation token no longer matches this destructive request. Preview again before executing.',
+            )
+          }
+
+          if (display.blocked) {
+            return ctx.blocked(display)
+          }
+
+          if (payload.previewHash !== previewHash) {
+            return ctx.error(
+              'conflict',
+              'Previewed state changed before confirmation. Preview again before executing.',
+            )
+          }
+        }
+
+        const result = await callByOperation(
+          projectionCtx.convex,
+          options.executeOperation ?? 'mutation',
+          options.execute,
+          Object.assign({}, executeArgs, {
+            principal: projectionCtx.principal,
+          }) as FunctionArgs<TExecute>,
+        )
+
+        return finalizeResult(result)
       },
     })
   }

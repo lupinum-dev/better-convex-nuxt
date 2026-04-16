@@ -1,31 +1,20 @@
-import { defineTool } from '#trellis/mcp'
+import {
+  previewRemove,
+  removePostOp,
+  removeWithConfirmation,
+} from '../../../convex/posts'
+import type { FunctionReference } from 'convex/server'
+import { tool } from '../runtime'
 
-import { api } from '../../../convex/_generated/api'
-import { deletePost } from '../../../shared/schemas/post'
-
-export default defineTool({
-  schema: deletePost,
-  name: 'delete-post',
-  auth: 'required',
-  check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
-  scoped: true,
-  destructive: true,
-  preview: async (args, ctx) => {
-    const post = await ctx.query(api.posts.get, { id: args.id })
-    if (!post) {
-      return {
-        summary: 'Post not found',
-        blocked: true,
-      }
-    }
-    return {
-      summary: `Will permanently delete "${post.title}"`,
-      warn: 'This cannot be undone',
-      affects: { posts: 1 },
-    }
+export default tool.fromOperation(removePostOp, {
+  execute: removeWithConfirmation as unknown as FunctionReference<'mutation', 'public'>,
+  preview: previewRemove as unknown as FunctionReference<'query', 'public'>,
+  capability: 'deletePost',
+  meta: {
+    name: 'delete-post',
   },
-  handler: async (args, ctx) => {
-    await ctx.mutation(api.posts.remove, args)
-    return ctx.ok({ deleted: true, id: args.id })
+  respond: ({ args, ok }) => {
+    const request = args as { id: string }
+    return ok({ deleted: true, id: request.id })
   },
 })

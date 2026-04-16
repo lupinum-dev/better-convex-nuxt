@@ -1,46 +1,58 @@
 import { describe, expect, it } from 'vitest'
 
+import {
+  trellisOperationProjectionMetadataKey,
+  type TrellisOperationProjectionMetadata,
+} from '../../src/runtime/functions'
 import { assertOperationBinding, toKebabCase } from '../../src/runtime/mcp/operation-binding'
+
+function ref(metadata?: TrellisOperationProjectionMetadata) {
+  return (metadata
+    ? {
+        [trellisOperationProjectionMetadataKey]: metadata,
+      }
+    : {}) as never
+}
 
 describe('mcp operation binding', () => {
   it('accepts matching execute and preview refs', () => {
     expect(() =>
       assertOperationBinding(
-        'archiveBoard',
-        { _path: 'boards:archiveBoard' } as never,
-        { _path: 'boards:previewArchiveBoard' } as never,
+        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        ref({ operationId: 'boards.archive', projection: 'execute' }),
+        ref({ operationId: 'boards.archive', projection: 'preview' }),
       ),
     ).not.toThrow()
+  })
+
+  it('rejects execute refs without operation metadata', () => {
+    expect(() =>
+      assertOperationBinding(
+        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        ref(),
+        ref({ operationId: 'boards.archive', projection: 'preview' }),
+      ),
+    ).toThrow(/requires an execute ref projected from the same operation/)
   })
 
   it('rejects mismatched execute refs', () => {
     expect(() =>
       assertOperationBinding(
-        'archiveBoard',
-        { _path: 'boards:deleteBoard' } as never,
-        { _path: 'boards:previewArchiveBoard' } as never,
+        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        ref({ operationId: 'boards.delete', projection: 'execute' }),
+        ref({ operationId: 'boards.archive', projection: 'preview' }),
       ),
-    ).toThrow(/expected execute ref "archiveBoard"/)
+    ).toThrow(/does not match operation id "boards.archive"/)
   })
 
-  it('rejects mismatched preview refs', () => {
+  it('rejects preview refs with the wrong projection', () => {
     expect(() =>
       assertOperationBinding(
-        'archiveBoard',
-        { _path: 'boards:archiveBoard' } as never,
-        { _path: 'boards:previewDeleteBoard' } as never,
+        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        ref({ operationId: 'boards.archive', projection: 'execute' }),
+        ref({ operationId: 'boards.archive', projection: 'execute' }),
       ),
-    ).toThrow(/expected preview ref "previewArchiveBoard"/)
-  })
-
-  it('rejects preview refs from a different module', () => {
-    expect(() =>
-      assertOperationBinding(
-        'archiveBoard',
-        { _path: 'boards:archiveBoard' } as never,
-        { _path: 'adminBoards:previewArchiveBoard' } as never,
-      ),
-    ).toThrow(/requires execute and preview refs from the same module/)
+    ).toThrow(/does not match operation id "boards.archive"/)
   })
 
   it('formats default tool names from operation names', () => {

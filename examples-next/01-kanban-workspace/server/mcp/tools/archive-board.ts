@@ -1,11 +1,9 @@
-import { api } from '#trellis/api'
-
-import { archiveBoardOp } from '~/convex/boards'
+import { archiveBoard, archiveBoardOp, previewArchiveBoard } from '~/convex/boards'
 import { tool } from '../runtime'
 
 export default tool.fromOperation(archiveBoardOp, {
-  execute: api.boards.archiveBoard,
-  preview: api.boards.previewArchiveBoard,
+  execute: archiveBoard,
+  preview: previewArchiveBoard,
   capability: 'archiveBoard',
   group: 'workspace',
   meta: {

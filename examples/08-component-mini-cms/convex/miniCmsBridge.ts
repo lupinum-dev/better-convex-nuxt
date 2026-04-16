@@ -65,7 +65,16 @@ const miniCmsBridge = bridge.from({
     operation: 'internalQuery',
     component: components.miniCms.pages.previewPublishPage,
     args: publishPage.args,
-    returns: publishPreviewValidator,
+    returns: v.object({
+      display: publishPreviewValidator,
+      confirm: v.object({
+        operation: v.literal('pages.publish'),
+        targetId: v.string(),
+        affectedCounts: v.object({
+          pages: v.number(),
+        }),
+      }),
+    }),
   },
 })
 

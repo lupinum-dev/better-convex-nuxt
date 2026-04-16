@@ -1,12 +1,15 @@
 import { defineArgs } from '@lupinum/trellis/args'
 import { can, defineGuard, open } from '@lupinum/trellis/auth'
+import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { defineCapabilities } from '@lupinum/trellis/visibility'
 import { v } from 'convex/values'
 
 import { createPost, deletePost, updatePost } from '../shared/schemas/post'
-import type { Id } from './_generated/dataModel'
+import type { DataModel, Id } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
 import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
+import type { InternalHarnessPrincipal } from './auth/principal'
 import { mutation, query } from './functions'
 
 const listPostsArgs = defineArgs({
@@ -21,6 +24,12 @@ const getPostArgs = defineArgs({
 
 const canCreatePostActor = defineGuard<Actor>('Create post', (actor) => !!actor)
 const canManagePosts = defineGuard<Actor>('post.manage', (actor) => !!actor)
+type PostOperationCtx = {
+  actor: () => Promise<Actor>
+  db: Pick<GenericQueryCtx<DataModel>['db'], 'get'> &
+    Pick<GenericMutationCtx<DataModel>['db'], 'delete'>
+}
+
 const postCapabilities = defineCapabilities<{ ownerId: string; [key: string]: unknown }>()<
   Actor,
   {
@@ -168,6 +177,89 @@ export const remove = mutation({
     await ctx.db.delete(args.id)
   },
 })
+
+export const removePostOp = defineOperation<
+  PostOperationCtx,
+  InternalHarnessPrincipal,
+  Actor,
+  any,
+  typeof deletePost.args,
+  { post: { _id: Id<'posts'>; title: string; organizationId: string; ownerId: string } },
+  null,
+  {
+    display: {
+      summary: string
+      warn: string
+      affects: { posts: number }
+      blocked?: boolean
+    }
+    confirm: {
+      operation: 'posts.remove'
+      targetId: Id<'posts'>
+      affectedCounts: { posts: number }
+    }
+  }
+>({
+  id: 'posts.remove',
+  name: 'removePost',
+  kind: 'destructive',
+  args: deletePost.args,
+  returns: v.null(),
+  previewReturns: v.object({
+    display: v.object({
+      summary: v.string(),
+      warn: v.string(),
+      affects: v.object({
+        posts: v.number(),
+      }),
+      blocked: v.optional(v.boolean()),
+    }),
+    confirm: v.object({
+      operation: v.literal('posts.remove'),
+      targetId: v.id('posts'),
+      affectedCounts: v.object({
+        posts: v.number(),
+      }),
+    }),
+  }),
+  guard: canManagePosts as never,
+  load: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const post = await ctx.db.get(args.id)
+    if (!post) throw new Error('Post not found.')
+    if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
+      denyTenantMismatch(actor, post)
+    }
+    if (!can(actor, canDeletePost(post))) {
+      const reason =
+        actor?.role === 'member'
+          ? 'Role "member" has own-only access.'
+          : 'Actor cannot delete this post.'
+      denyPostPermission('delete', actor, reason)
+    }
+
+    return { post }
+  },
+  preview: async (_ctx, _args, { post }) => ({
+    display: {
+      summary: `Will permanently delete "${post.title}"`,
+      warn: 'This cannot be undone',
+      affects: { posts: 1 },
+    },
+    confirm: {
+      operation: 'posts.remove',
+      targetId: post._id,
+      affectedCounts: { posts: 1 },
+    },
+  }),
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id)
+    return null
+  },
+})
+
+export const removeWithConfirmation = mutation(removePostOp as never)
+export const previewRemove = query(previewOf(removePostOp) as never)
 
 export const publish = mutation({
   args: { id: v.id('posts') },

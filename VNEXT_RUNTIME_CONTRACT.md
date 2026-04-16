@@ -95,10 +95,9 @@ export const { query, mutation, action, internalQuery, internalMutation, raw } =
 - [x] Query and mutation contexts expose `ctx.db`.
 - [x] Query and mutation contexts expose `ctx.db.crossTenant`.
 - [x] Query and mutation contexts expose `ctx.db.raw`.
-- [x] `ctx.db.crossTenant` currently maps to the unwrapped underlying Convex db.
-- [x] `ctx.db.raw` currently maps to the same unwrapped underlying Convex db.
-- [x] The current runtime does not distinguish trigger-preserving bypass from full raw bypass.
-- [x] The current docs must describe that honestly.
+- [x] `ctx.db.crossTenant` bypasses tenant isolation while preserving runtime service enforcement and triggers.
+- [x] `ctx.db.raw` bypasses tenant isolation, service enforcement, and triggers.
+- [x] `ctx.db.crossTenant` and `ctx.db.raw` are distinct trust levels in the shipped runtime.
 - [x] `ctx.runAsUser(...)` is not part of the supported vNext runtime contract.
 - [x] `ctx.runAsService(...)` is not part of the supported vNext runtime contract.
 - [x] Service impersonation and forwarded execution remain future work, not shipped runtime guarantees.
@@ -110,14 +109,18 @@ export const { query, mutation, action, internalQuery, internalMutation, raw } =
 - [x] Trigger wrapping is supported through `triggers`.
 - [x] Tenant scoping is runtime-owned, not repeated inline in every handler.
 - [x] Cross-tenant access must be explicit through `ctx.db.crossTenant`.
-- [x] The stronger service-scope enforcement story is not implemented and is not part of the active contract.
+- [x] Service principals can be runtime-constrained through `defineServices(...)`.
+- [x] Service principals use the canonical shape `{ kind: 'service', serviceId: string }`.
+- [x] `tenant: 'derived'`, `tenant: 'global'`, and `access: 'unrestricted'` are part of the active service contract.
 
 ## 8. Operations
 
 - [x] `defineOperation(...)` is part of the active contract.
 - [x] `previewOf(...)` is part of the active contract.
-- [x] Operations can carry Trellis metadata: `name` and `kind`.
+- [x] Operations can carry Trellis metadata: `id`, `name`, and `kind`.
 - [x] `kind` supports `safe` and `destructive`.
+- [x] Destructive operations require a stable `id`.
+- [x] Destructive operation previews use `{ display, confirm }`.
 - [x] The destructive flow uses a preview projection plus an execute projection.
 
 ## 9. Agent Runtime
@@ -130,19 +133,20 @@ export const { query, mutation, action, internalQuery, internalMutation, raw } =
 
 ## 10. `tool.fromOperation(...)` Binding Rules
 
-- [x] Operations used with `tool.fromOperation(...)` must declare a `name`.
+- [x] Operations used with `tool.fromOperation(...)` must declare an `id`.
 - [x] Destructive operations used with `tool.fromOperation(...)` must provide a preview ref.
-- [x] Trellis validates the execute ref against the operation name.
-- [x] Trellis validates the preview ref against the expected `preview${Capitalize(name)}` export.
-- [x] Trellis validates that preview and execute refs come from the same module.
+- [x] Trellis stamps execute and preview projections with operation metadata.
+- [x] `tool.fromOperation(...)` validates operation id plus projection type at startup.
 - [x] Trellis derives a default schema from `operation.args` when the caller does not supply one.
-- [x] The current binding contract is naming-based, not manifest-based.
+- [x] The current binding contract is id-based metadata validation, not manifest-based.
 - [x] The manifest path is deleted.
-- [x] The operation binding story is considered shipped in this naming-contract form.
+- [x] The operation binding story is considered shipped in this id-bound form.
 
 ## 11. Replay, Audit, and Safety Claims
 
 - [x] Destructive preview wiring exists in the runtime and examples.
+- [x] Destructive execution is bound to previewed state through a signed confirmation token.
+- [x] Generic `tool({... destructive: true ...})` mode is not part of the shipped contract.
 - [x] Capability gating exists in the runtime and examples.
 - [ ] Replay protection is not yet documented as a concrete runtime guarantee in the active contract.
 - [ ] Audit is not yet documented as a concrete runtime guarantee in the active contract.
@@ -154,7 +158,6 @@ export const { query, mutation, action, internalQuery, internalMutation, raw } =
 - [x] `defineFunctions(...)` is cut.
 - [x] `defineWebhook(...)` is not part of the active runtime contract.
 - [x] `defineComponentApp(...)` is not part of the active runtime contract.
-- [x] service-scoped runtime enforcement is deferred.
+- [x] service-scoped runtime enforcement is shipped.
 - [x] forwarded user/service execution helpers are deferred.
 - [x] any manifest-based operation pipeline is deleted.
-

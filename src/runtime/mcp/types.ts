@@ -62,6 +62,7 @@ export interface PreviewResult {
   warn?: string
   affects?: Record<string, number>
   blocked?: boolean
+  confirmationToken?: string
 }
 
 // ============================================================================
@@ -169,19 +170,17 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
 
   // ── Safety ────────────────────────────────────────────────
   /**
-   * Mark as destructive — enables two-call confirmation flow.
+   * Destructive generic tools are not supported.
    *
-   * Adds a `_confirmed` boolean to the input schema. On the first call
-   * (without `_confirmed: true`), returns a preview (if `preview` is provided)
-   * or a `confirmation_required` error. The second call with `_confirmed: true`
-   * executes the handler.
+   * Use `defineMcpApp(...).tool.fromOperation(...)` for destructive tools so
+   * Trellis can bind confirmation to operation identity and previewed state.
    */
   destructive?: boolean
   /** Limit array field size for bulk operations. Field must exist in schema. */
   maxItems?: { field: keyof InferSchemaData<S> & string; limit: number }
   /** In-memory rate limit per tool name, isolated per authenticated caller when auth is enabled. Requires explicit `name`. */
   rateLimit?: { max: number; window: string }
-  /** Preview function for destructive tools. Receives the same args as handler, plus the middleware context. */
+  /** Preview function for destructive tools. Unsupported on generic tools; use operation-backed tools instead. */
   preview?: (
     args: InferSchemaData<S>,
     ctx: ConvexToolHandlerCtx<TRole>,
