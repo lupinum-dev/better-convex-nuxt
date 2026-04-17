@@ -875,7 +875,7 @@ It is still subordinate to the app model itself, but it is not just a “nice si
 Trellis should use these words consistently:
 
 - `observability`
-  semantic events, adapters, correlation, redaction, sampling, and feedback loops
+  semantic events, `evlog` delivery, correlation, redaction, sampling, explainability, and feedback loops
 - `logging`
   runtime/debug logging only
 
@@ -952,24 +952,23 @@ The first event families worth standardizing are:
 
 Denials and failures should carry stable machine-usable `reasonCode` values, not only prose strings.
 
-## 34. Adapter Strategy
+## 34. Delivery Strategy
 
 Trellis core should own the event model and correlation semantics.
-Adapters should remain secondary.
+Delivery should remain secondary to the model.
 
 Rules:
 
 - Trellis emits semantic observation events
-- adapters receive already-correlated, already-redacted payloads
-- Trellis core does not depend on `evlog`
-- the built-in shipped adapter is the `console` sink
-- `evlog` can remain a later flagship adapter and reference integration
-- no adapter is allowed to define the Trellis core abstraction
+- `evlog` receives already-correlated, already-redacted payloads
+- Trellis semantic events remain the source of truth
+- `evlog` is the shipped delivery layer and wide-summary runtime experience
+- no delivery tool is allowed to define the Trellis core abstraction
 
 This keeps the product coherent:
 
 - Trellis owns the meaning
-- adapters own projection and transport
+- `evlog` owns projection, pretty output, and drains
 
 ## 35. Shipped Scope
 
@@ -984,7 +983,7 @@ The shipped scope covers:
 Still deferred:
 
 - app-facing enrichment hooks
-- additional adapters beyond the built-in `console` sink
+- additional delivery targets beyond the shipped `evlog` path
 
 The shipped model does not introduce `ctx.log` everywhere.
 
@@ -1005,7 +1004,7 @@ And this must stay true:
 - full args are not logged by default
 - full results are not logged by default
 - Convex docs are not dumped by default
-- PII and secrets are redacted before adapter delivery
+- PII and secrets are redacted before `evlog` delivery
 - denials, destructive execution events, and tool failures are never sampled out by default
 
 ---

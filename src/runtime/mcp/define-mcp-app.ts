@@ -73,6 +73,19 @@ type EventObservationState = {
   requestId?: string
 }
 
+function getEventObservationState(eventContext: Record<string, unknown>): EventObservationState {
+  const raw = eventContext.__trellis
+  if (typeof raw !== 'object' || raw === null) {
+    return {}
+  }
+
+  const state = raw as Record<string, unknown>
+  return {
+    ...(typeof state.correlationId === 'string' ? { correlationId: state.correlationId } : {}),
+    ...(typeof state.requestId === 'string' ? { requestId: state.requestId } : {}),
+  }
+}
+
 export interface DefineMcpAppOptions<
   TPrincipal,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
@@ -261,6 +274,12 @@ function defaultTenantKey(principal: unknown): string {
   return 'global'
 }
 
+function sanitizeCorrelationId(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const sanitized = value.replace(/[^\x20-\x7E]+/g, '').trim().slice(0, 256)
+  return sanitized.length > 0 ? sanitized : undefined
+}
+
 function normalizePreviewDisplay(raw: string | PreviewResult): PreviewResult {
   return typeof raw === 'string' ? { summary: raw } : raw
 }
@@ -339,13 +358,10 @@ export function defineMcpApp<
           unknown
         >
         ;(event as { context?: Record<string, unknown> }).context = eventContext
-        const observationState =
-          typeof eventContext.__trellis === 'object' && eventContext.__trellis !== null
-            ? (eventContext.__trellis as EventObservationState)
-            : {}
+        const observationState = getEventObservationState(eventContext)
         const existingCorrelationId =
-          event.headers.get(headerName) ??
-          observationState.correlationId
+          sanitizeCorrelationId(event.headers.get(headerName)) ??
+          sanitizeCorrelationId(observationState.correlationId)
         const correlationId = existingCorrelationId ?? config.correlation.generate()
         const requestId = observationState.requestId ?? crypto.randomUUID()
         eventContext.__trellis = {
@@ -570,7 +586,8 @@ export function defineMcpApp<
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
               ok: (data, summary) => (summary ? ctx.ok(data, summary) : data),
-              error: (code, message) => ctx.error(code, message),
+              error: (code, message, issues, explanation) =>
+                ctx.error(code, message, issues, explanation),
             })
             await projectionCtx.observe({
               name: 'tool.executed',
@@ -792,7 +809,8 @@ export function defineMcpApp<
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
               ok: (data, summary) => (summary ? ctx.ok(data, summary) : data),
-              error: (code, message) => ctx.error(code, message),
+              error: (code, message, issues, explanation) =>
+                ctx.error(code, message, issues, explanation),
             })
           }
 

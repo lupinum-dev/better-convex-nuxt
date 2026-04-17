@@ -6,6 +6,7 @@ import {
   serverConvexMutation,
   serverConvexQuery,
 } from '../../src/runtime/server/utils/convex'
+import { createObservationCapture } from '../../src/runtime/testing'
 
 const { useRuntimeConfigMock } = vi.hoisted(() => ({
   useRuntimeConfigMock: vi.fn(() => ({
@@ -240,6 +241,55 @@ describe('server Convex fetch helpers', () => {
         requestId: expect.any(String),
       },
     })
+  })
+
+  it('reuses one correlation id and configured service between request propagation and emitted events', async () => {
+    const capture = createObservationCapture()
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Response(JSON.stringify({ value: { ok: true, body: init?.body } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    useRuntimeConfigMock.mockReturnValue({
+      public: {
+        convex: {
+          url: 'http://127.0.0.1:3210',
+          siteUrl: 'http://127.0.0.1:3220',
+          observability: {
+            enabled: true,
+            service: 'test-service',
+            level: 'verbose',
+            capture: {
+              backend: true,
+              mcp: true,
+              browser: false,
+            },
+          },
+        },
+      },
+    })
+
+    await serverConvexMutation(
+      createEvent(),
+      { _path: 'notes:add' } as never,
+      { title: 'Observed' } as never,
+    )
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(String(init.body))
+    expect(capture.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'mutation.completed',
+          transport: 'nuxt-server',
+          service: 'test-service',
+          correlationId: body.args.__trellis.correlationId,
+        }),
+      ]),
+    )
+    capture.stop()
   })
 
   it('auth:auto exchanges cookie for token and attaches bearer header', async () => {

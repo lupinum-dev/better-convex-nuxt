@@ -46,6 +46,17 @@ function safeInternalDebug(message: string, error: unknown) {
   }
 }
 
+const NOOP_WIDE_SUMMARY: TrellisWideSummary = {
+  set() {},
+  info() {},
+  warn() {},
+  error() {},
+  emit() {},
+  getContext() {
+    return {}
+  },
+}
+
 function toEvlogLevel(status: TrellisObservationStatus): 'info' | 'warn' | 'error' {
   if (status === 'error') return 'error'
   if (status === 'deny') return 'warn'
@@ -124,6 +135,14 @@ export function deliverObservationToEvlog(
   }
 }
 
+export function safeDebugToEvlog(payload: Record<string, unknown>) {
+  try {
+    evlogLog.debug(payload)
+  } catch (error) {
+    safeInternalDebug('evlog debug delivery failed', error)
+  }
+}
+
 function buildWideSummaryContext(
   logger: RequestLogger<Record<string, unknown>>,
   input: WideSummaryEmitInput,
@@ -142,14 +161,20 @@ function buildWideSummaryContext(
 export function createWideSummary(options: WideSummaryOptions): TrellisWideSummary {
   ensureEvlogInitialized(options.config)
 
-  const logger =
-    options.method || options.path
-      ? createRequestLogger<Record<string, unknown>>({
-          ...(options.method ? { method: options.method } : {}),
-          ...(options.path ? { path: options.path } : {}),
-          ...(options.requestId ? { requestId: options.requestId } : {}),
-        })
-      : createEvlogLogger<Record<string, unknown>>(options.initialContext)
+  let logger: RequestLogger<Record<string, unknown>>
+  try {
+    logger =
+      options.method || options.path
+        ? createRequestLogger<Record<string, unknown>>({
+            ...(options.method ? { method: options.method } : {}),
+            ...(options.path ? { path: options.path } : {}),
+            ...(options.requestId ? { requestId: options.requestId } : {}),
+          })
+        : createEvlogLogger<Record<string, unknown>>(options.initialContext)
+  } catch (error) {
+    safeInternalDebug('evlog wide logger creation failed', error)
+    return NOOP_WIDE_SUMMARY
+  }
 
   if (options.initialContext) {
     try {

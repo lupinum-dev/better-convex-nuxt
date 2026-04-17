@@ -70,6 +70,43 @@ describe('module-setup', () => {
     })
   })
 
+  it('forwards backend and mcp observability capture flags into runtime config', () => {
+    const setup = deriveModuleSetupState(
+      {
+        url: 'https://demo.convex.cloud',
+        observability: {
+          capture: {
+            backend: false,
+            mcp: false,
+            browser: true,
+          },
+        },
+      },
+      {},
+    )
+
+    const config = buildPublicConvexRuntimeConfig(
+      {
+        url: 'https://demo.convex.cloud',
+        observability: {
+          capture: {
+            backend: false,
+            mcp: false,
+            browser: true,
+          },
+        },
+      },
+      undefined,
+      setup,
+    )
+
+    expect(config.observability?.capture).toEqual({
+      backend: false,
+      mcp: false,
+      browser: true,
+    })
+  })
+
   it('collects startup warnings for invalid URLs and clamped cache TTL values', () => {
     const options = {
       url: 'notaurl',

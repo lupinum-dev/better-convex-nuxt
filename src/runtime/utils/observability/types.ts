@@ -185,7 +185,15 @@ export type TrellisObservationContext = {
   serviceId?: string
 }
 
-export type PartialObservationEvent = Omit<TrellisObservationEvent, 'ts' | 'correlationId' | 'transport'> &
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
+
+export type PartialObservationEvent = DistributiveOmit<
+  TrellisObservationEvent,
+  'ts' | 'correlationId' | 'transport'
+> &
+  Partial<Pick<TrellisObservationEvent, 'correlationId' | 'transport' | 'originTransport'>>
+
+export type ObservationEventInput = Omit<TrellisObservationEvent, 'ts' | 'correlationId' | 'transport'> &
   Partial<Pick<TrellisObservationEvent, 'correlationId' | 'transport' | 'originTransport'>>
 
 export const alwaysOnEvents: ReadonlySet<TrellisObservationName> = new Set<TrellisObservationName>([

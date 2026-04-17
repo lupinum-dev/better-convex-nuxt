@@ -65,11 +65,43 @@ type CreateObservationEmitterResult = {
   child: (next: TrellisObservationContext) => CreateObservationEmitterResult
 }
 
+function getDisabledObservabilityConfig(): NormalizedTrellisObservabilityConfig {
+  try {
+    return normalizeObservabilityConfig({ enabled: false })
+  } catch {
+    return {
+      enabled: false,
+      capture: {
+        backend: false,
+        mcp: false,
+        browser: false,
+      },
+      level: 'critical',
+      sample: {},
+      redact: (event) => event,
+      correlation: {
+        header: 'x-trellis-correlation-id',
+        generate: () => `corr_fallback_${Math.random().toString(36).slice(2, 12)}`,
+      },
+      service: 'app',
+      explainability: {
+        agentDenials: true,
+      },
+    }
+  }
+}
+
 export function createObservationEmitter(
   input: unknown,
   baseContext: TrellisObservationContext = {},
 ): CreateObservationEmitterResult {
-  const config = normalizeObservabilityConfig(input)
+  let config: NormalizedTrellisObservabilityConfig
+  try {
+    config = normalizeObservabilityConfig(input)
+  } catch (error) {
+    safeLogInternalFailure('config.normalize', error)
+    config = getDisabledObservabilityConfig()
+  }
 
   let sharedCorrelationId: string
   try {

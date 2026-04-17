@@ -27,6 +27,30 @@ type EventObservationState = {
   requestId?: string
 }
 
+function getEventObservationState(eventContext: Record<string, unknown>): EventObservationState {
+  const raw = eventContext.__trellis
+  if (typeof raw !== 'object' || raw === null) {
+    return {}
+  }
+
+  const state = raw as Record<string, unknown>
+  const originTransport =
+    state.originTransport === 'browser' ||
+    state.originTransport === 'nuxt-server' ||
+    state.originTransport === 'convex' ||
+    state.originTransport === 'mcp' ||
+    state.originTransport === 'service' ||
+    state.originTransport === 'webhook'
+      ? state.originTransport
+      : undefined
+
+  return {
+    ...(typeof state.correlationId === 'string' ? { correlationId: state.correlationId } : {}),
+    ...(typeof state.requestId === 'string' ? { requestId: state.requestId } : {}),
+    ...(originTransport ? { originTransport } : {}),
+  }
+}
+
 function readEventHeader(event: H3Event, name: string): string | undefined {
   if (event.headers && typeof event.headers.get === 'function') {
     return event.headers.get(name) ?? undefined
@@ -38,6 +62,12 @@ function readEventHeader(event: H3Event, name: string): string | undefined {
   if (typeof value === 'string') return value
   if (Array.isArray(value)) return value.find((entry): entry is string => typeof entry === 'string')
   return undefined
+}
+
+function sanitizeCorrelationId(value: string | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const sanitized = value.replace(/[^\x20-\x7E]+/g, '').trim().slice(0, 256)
+  return sanitized.length > 0 ? sanitized : undefined
 }
 
 export interface ServerConvexOptions {
@@ -140,13 +170,10 @@ async function executeConvexOperation<
   const eventContext =
     ((event.context as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
   ;(event as { context?: Record<string, unknown> }).context = eventContext
-  const observationState =
-    typeof eventContext.__trellis === 'object' && eventContext.__trellis !== null
-      ? (eventContext.__trellis as EventObservationState)
-      : {}
+  const observationState = getEventObservationState(eventContext)
   const correlationId =
-    readEventHeader(event, correlationHeader) ||
-    observationState.correlationId ||
+    sanitizeCorrelationId(readEventHeader(event, correlationHeader)) ||
+    sanitizeCorrelationId(observationState.correlationId) ||
     convexConfig.observability.correlation.generate()
   const originTransport =
     observationState.originTransport === 'browser' || observationState.originTransport === 'mcp'

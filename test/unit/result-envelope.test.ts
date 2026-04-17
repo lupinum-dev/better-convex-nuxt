@@ -105,6 +105,27 @@ describe('wrapError', () => {
     ])
   })
 
+  it('includes structured explanation payloads when provided', () => {
+    const result = wrapError(
+      'auth',
+      'Authentication required',
+      undefined,
+      {
+        reasonCode: 'guard.auth_required',
+        decision: 'guard',
+        message: 'Sign in before using this tool.',
+        suggestedAction: 'sign_in',
+      },
+    )
+
+    expect(getErrorResult(result).error.explanation).toEqual({
+      reasonCode: 'guard.auth_required',
+      decision: 'guard',
+      message: 'Sign in before using this tool.',
+      suggestedAction: 'sign_in',
+    })
+  })
+
   it('marks all expected categories as retryable', () => {
     const retryable = [
       'auth',

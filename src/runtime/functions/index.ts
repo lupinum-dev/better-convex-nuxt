@@ -37,7 +37,8 @@ import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,
   createDenialExplanation,
-  type TrellisObservationEvent,
+  type ObservationEventInput,
+  type PartialObservationEvent,
   type TrellisObservabilityOptions,
   getObservationEnvelope,
   stripObservationEnvelope,
@@ -100,10 +101,15 @@ type AnyCtx<DataModel extends GenericDataModel> =
 
 export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
-type ObserveFn = (
-  event: Omit<TrellisObservationEvent, 'ts' | 'correlationId' | 'transport'> &
-    Partial<Pick<TrellisObservationEvent, 'correlationId' | 'transport' | 'originTransport'>>,
-) => Promise<void>
+type ObserveFn = (event: ObservationEventInput) => Promise<void>
+
+function safeObserve(observe: ObserveFn | undefined, event: Parameters<ObserveFn>[0]): void {
+  try {
+    void observe?.(event)
+  } catch {
+    // Observability must never break business logic, even if a caller swaps in a bad implementation.
+  }
+}
 
 export type FunctionsCtxExtension<TPrincipal, TActor> = {
   principal: PrincipalAccessor<TPrincipal>
@@ -340,7 +346,7 @@ function assertServiceTableAccess<DataModel extends GenericDataModel>(
 ): void {
   if (!access || access.access === 'unrestricted') return
   if (!access.tables.has(table as TableNamesInDataModel<DataModel>)) {
-    void observe?.({
+    safeObserve(observe, {
       name: 'service.access.denied',
       status: 'deny',
       serviceId: access.serviceId,
@@ -358,7 +364,7 @@ function assertServiceTableAccess<DataModel extends GenericDataModel>(
     })
     throw getServiceError(access.serviceId, table)
   }
-  void observe?.({
+  safeObserve(observe, {
     name: 'service.access.checked',
     status: 'success',
     serviceId: access.serviceId,
@@ -424,7 +430,7 @@ function createServiceScopeRule<TDoc extends Record<string, unknown>>(
     }
 
     if (process.env.NODE_ENV === 'production') {
-      void (ctx as { observe?: ObserveFn }).observe?.({
+      safeObserve((ctx as { observe?: ObserveFn }).observe, {
         name: 'rls.denied',
         status: 'deny',
         reasonCode: 'service.access.denied',
@@ -782,7 +788,7 @@ function createContextWithRuntime<
       ...event,
       transport: event.transport ?? 'convex',
       originTransport: event.originTransport ?? observationEnvelope?.originTransport,
-    })
+    } as PartialObservationEvent)
   }
 
   let principalPromise: Promise<TPrincipal> | null = null
@@ -872,7 +878,7 @@ function decorateDb<TDb extends object>(
                   typeof getServiceTableFromId(args[0]) === 'string'
                 ? getServiceTableFromId(args[0])
                 : null
-          void observe({
+          safeObserve(observe, {
             name,
             status: 'success',
             details: table ? { table } : undefined,

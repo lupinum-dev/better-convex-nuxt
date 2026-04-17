@@ -1,9 +1,9 @@
-import { log as evlogLog } from 'evlog'
-
 import {
   createObservationEmitter,
+  safeDebugToEvlog,
   createWideSummary,
   createWideSummaryContextFromObservation,
+  type PartialObservationEvent,
   type TrellisObservationContext,
   type TrellisObservationEvent,
   type TrellisObservationName,
@@ -96,166 +96,182 @@ function getAuthObservationName(): TrellisObservationName {
   return 'auth.session.checked'
 }
 
+function createNoopRuntimeObserver(): RuntimeObserver {
+  return {
+    auth() {},
+    query() {},
+    mutation() {},
+    action() {},
+    connection() {},
+    upload() {},
+    debug() {},
+    time() {
+      return () => {}
+    },
+    setSummary() {},
+    emitSummary() {},
+  }
+}
+
 export function createRuntimeObserver(
   input: unknown,
   context: TrellisObservationContext = {},
   meta: RuntimeObserverMeta = {},
 ): RuntimeObserver {
-  const emitter = createObservationEmitter(toObservationInput(input), context)
-  const summary = createWideSummary({
-    config: emitter.config,
-    method: meta.method,
-    path: meta.path,
-    requestId: context.requestId,
-    initialContext: createWideSummaryContextFromObservation(context, emitter.config),
-  })
-
-  const emit = (
-    name: TrellisObservationName,
-    status: TrellisObservationStatus,
-    data: {
-      phase?: string
-      handler?: string
-      reasonCode?: TrellisObservationEvent['reasonCode']
-      durationMs?: number
-      details?: Record<string, unknown>
-    } = {},
-  ) => {
-    void emitter.emit({
-      name,
-      status,
-      transport: context.transport ?? 'browser',
-      phase: data.phase,
-      handler: data.handler,
-      reasonCode: data.reasonCode,
-      durationMs: data.durationMs,
-      details: data.details,
+  try {
+    const emitter = createObservationEmitter(toObservationInput(input), context)
+    const summary = createWideSummary({
+      config: emitter.config,
+      method: meta.method,
+      path: meta.path,
+      requestId: context.requestId,
+      initialContext: createWideSummaryContextFromObservation(context, emitter.config),
     })
-  }
 
-  const observer: RuntimeObserver = {
-    auth(event) {
-      summary.set({
-        authPhase: event.phase,
-        authOutcome: event.outcome,
-        ...(event.details ? { authDetails: event.details } : {}),
-      })
-      emit(getAuthObservationName(), toObservationStatus(event.outcome), {
-        phase: event.phase,
-        details: event.details,
-      })
-    },
-    query(event) {
-      if (event.event === 'share') {
-        summary.set({ sharedQuery: event.name, queryRefCount: event.refCount })
-        return
-      }
+    const emit = (
+      name: TrellisObservationName,
+      status: TrellisObservationStatus,
+      data: {
+        phase?: string
+        handler?: string
+        reasonCode?: TrellisObservationEvent['reasonCode']
+        durationMs?: number
+        details?: Record<string, unknown>
+      } = {},
+    ) => {
+      void emitter.emit({
+        name,
+        status,
+        transport: context.transport ?? 'browser',
+        phase: data.phase,
+        handler: data.handler,
+        reasonCode: data.reasonCode,
+        durationMs: data.durationMs,
+        details: data.details,
+      } as PartialObservationEvent)
+    }
 
-      const mapping: Record<QueryEvent['event'], TrellisObservationName> = {
-        subscribe: 'query.subscribed',
-        update: 'query.updated',
-        unsubscribe: 'query.unsubscribed',
-        error: 'query.failed',
-        share: 'query.subscribed',
-        skip: 'query.unsubscribed',
-      }
+    const observer: RuntimeObserver = {
+      auth(event) {
+        summary.set({
+          authPhase: event.phase,
+          authOutcome: event.outcome,
+          ...(event.details ? { authDetails: event.details } : {}),
+        })
+        emit(getAuthObservationName(), toObservationStatus(event.outcome), {
+          phase: event.phase,
+          details: event.details,
+        })
+      },
+      query(event) {
+        if (event.event === 'share') {
+          summary.set({ sharedQuery: event.name, queryRefCount: event.refCount })
+          return
+        }
 
-      summary.set({
-        query: event.name,
-        queryEvent: event.event,
-        ...(typeof event.count === 'number' ? { itemCount: event.count } : {}),
-        ...(event.reason ? { reason: event.reason } : {}),
-      })
+        const mapping: Record<Exclude<QueryEvent['event'], 'share'>, TrellisObservationName> = {
+          subscribe: 'query.subscribed',
+          update: 'query.updated',
+          unsubscribe: 'query.unsubscribed',
+          error: 'query.failed',
+          skip: 'query.unsubscribed',
+        }
 
-      emit(
-        mapping[event.event],
-        event.event === 'error' ? 'error' : event.event === 'skip' ? 'skip' : 'success',
-        {
-          handler: event.name,
-          reasonCode: event.event === 'error' ? 'query.failed' : undefined,
-          details: {
-            ...(typeof event.count === 'number' ? { count: event.count } : {}),
-            ...(typeof event.refCount === 'number' ? { refCount: event.refCount } : {}),
-            ...(event.reason ? { reason: event.reason } : {}),
+        summary.set({
+          query: event.name,
+          queryEvent: event.event,
+          ...(typeof event.count === 'number' ? { itemCount: event.count } : {}),
+          ...(event.reason ? { reason: event.reason } : {}),
+        })
+
+        emit(
+          mapping[event.event],
+          event.event === 'error' ? 'error' : event.event === 'skip' ? 'skip' : 'success',
+          {
+            handler: event.name,
+            reasonCode: event.event === 'error' ? 'query.failed' : undefined,
+            details: {
+              ...(typeof event.count === 'number' ? { count: event.count } : {}),
+              ...(typeof event.refCount === 'number' ? { refCount: event.refCount } : {}),
+              ...(event.reason ? { reason: event.reason } : {}),
+            },
           },
-        },
-      )
-    },
-    mutation(event) {
-      if (event.event === 'optimistic') {
-        summary.set({ mutation: event.name, mutationEvent: 'optimistic' })
-        return
-      }
+        )
+      },
+      mutation(event) {
+        if (event.event === 'optimistic') {
+          summary.set({ mutation: event.name, mutationEvent: 'optimistic' })
+          return
+        }
 
-      summary.set({
-        mutation: event.name,
-        mutationEvent: event.event,
-      })
+        summary.set({
+          mutation: event.name,
+          mutationEvent: event.event,
+        })
 
-      emit(
-        event.event === 'success' ? 'mutation.completed' : 'mutation.failed',
-        event.event === 'success' ? 'success' : 'error',
-        {
-          handler: event.name,
-          durationMs: event.duration,
-          reasonCode: event.event === 'error' ? 'mutation.failed' : undefined,
-        },
-      )
-    },
-    action(event) {
-      summary.set({
-        action: event.name,
-        actionEvent: event.event,
-      })
+        emit(
+          event.event === 'success' ? 'mutation.completed' : 'mutation.failed',
+          event.event === 'success' ? 'success' : 'error',
+          {
+            handler: event.name,
+            durationMs: event.duration,
+            reasonCode: event.event === 'error' ? 'mutation.failed' : undefined,
+          },
+        )
+      },
+      action(event) {
+        summary.set({
+          action: event.name,
+          actionEvent: event.event,
+        })
 
-      emit(
-        event.event === 'success' ? 'action.completed' : 'action.failed',
-        event.event === 'success' ? 'success' : 'error',
-        {
-          handler: event.name,
-          durationMs: event.duration,
-          reasonCode: event.event === 'error' ? 'action.failed' : undefined,
-        },
-      )
-    },
-    connection(event) {
-      summary.set({
-        connectionEvent: event.event,
-        ...(typeof event.offlineDuration === 'number'
-          ? { offlineDuration: event.offlineDuration }
-          : {}),
-      })
-      emit(event.event === 'lost' ? 'connection.lost' : 'connection.restored', 'success', {
-        details:
-          typeof event.offlineDuration === 'number'
+        emit(
+          event.event === 'success' ? 'action.completed' : 'action.failed',
+          event.event === 'success' ? 'success' : 'error',
+          {
+            handler: event.name,
+            durationMs: event.duration,
+            reasonCode: event.event === 'error' ? 'action.failed' : undefined,
+          },
+        )
+      },
+      connection(event) {
+        summary.set({
+          connectionEvent: event.event,
+          ...(typeof event.offlineDuration === 'number'
             ? { offlineDuration: event.offlineDuration }
-            : undefined,
-      })
-    },
-    upload(event) {
-      summary.set({
-        upload: event.name,
-        uploadEvent: event.event,
-        ...(event.filename ? { filename: event.filename } : {}),
-        ...(typeof event.size === 'number' ? { size: event.size } : {}),
-      })
-      emit(
-        event.event === 'success' ? 'upload.completed' : 'upload.failed',
-        event.event === 'success' ? 'success' : 'error',
-        {
-          handler: event.name,
-          durationMs: event.duration,
-          reasonCode: event.event === 'error' ? 'upload.failed' : undefined,
-          details: {
-            ...(event.filename ? { filename: event.filename } : {}),
-            ...(typeof event.size === 'number' ? { size: event.size } : {}),
+            : {}),
+        })
+        emit(event.event === 'lost' ? 'connection.lost' : 'connection.restored', 'success', {
+          details:
+            typeof event.offlineDuration === 'number'
+              ? { offlineDuration: event.offlineDuration }
+              : undefined,
+        })
+      },
+      upload(event) {
+        summary.set({
+          upload: event.name,
+          uploadEvent: event.event,
+          ...(event.filename ? { filename: event.filename } : {}),
+          ...(typeof event.size === 'number' ? { size: event.size } : {}),
+        })
+        emit(
+          event.event === 'success' ? 'upload.completed' : 'upload.failed',
+          event.event === 'success' ? 'success' : 'error',
+          {
+            handler: event.name,
+            durationMs: event.duration,
+            reasonCode: event.event === 'error' ? 'upload.failed' : undefined,
+            details: {
+              ...(event.filename ? { filename: event.filename } : {}),
+              ...(typeof event.size === 'number' ? { size: event.size } : {}),
+            },
           },
-        },
-      )
-    },
-    debug(message, data) {
-      try {
-        evlogLog.debug({
+        )
+      },
+      debug(message, data) {
+        safeDebugToEvlog({
           kind: 'trellis-debug',
           message,
           transport: context.transport ?? 'browser',
@@ -263,24 +279,24 @@ export function createRuntimeObserver(
           requestId: context.requestId,
           details: data,
         })
-      } catch {
-        // Debug output must never affect runtime behavior.
-      }
-    },
-    time(label) {
-      const start = performance.now()
-      return () => {
-        const elapsed = Math.round(performance.now() - start)
-        observer.debug(`${label}: ${elapsed}ms`)
-      }
-    },
-    setSummary(nextContext) {
-      summary.set(nextContext)
-    },
-    emitSummary(input) {
-      summary.emit(input)
-    },
-  }
+      },
+      time(label) {
+        const start = performance.now()
+        return () => {
+          const elapsed = Math.round(performance.now() - start)
+          observer.debug(`${label}: ${elapsed}ms`)
+        }
+      },
+      setSummary(nextContext) {
+        summary.set(nextContext)
+      },
+      emitSummary(input) {
+        summary.emit(input)
+      },
+    }
 
-  return observer
+    return observer
+  } catch {
+    return createNoopRuntimeObserver()
+  }
 }

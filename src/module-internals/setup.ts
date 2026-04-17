@@ -149,6 +149,8 @@ export function buildPublicConvexRuntimeConfig(
       enabled: options.observability?.enabled,
       service: options.observability?.service,
       capture: {
+        backend: options.observability?.capture?.backend,
+        mcp: options.observability?.capture?.mcp,
         browser: options.observability?.capture?.browser,
       },
       level: options.observability?.level,

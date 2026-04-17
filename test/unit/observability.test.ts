@@ -2,14 +2,19 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import * as evlog from 'evlog'
 import {
   createObservationEmitter,
+  createWideSummary,
   getObservationEnvelope,
   normalizeObservabilityConfig,
   stripObservationEnvelope,
   withObservationEnvelope,
 } from '../../src/runtime/utils/observability'
+import { createRuntimeObserver } from '../../src/runtime/utils/runtime-observer'
 import { createObservationCapture } from '../../src/runtime/testing'
 
 const evlogMock = vi.hoisted(() => ({
+  initLogger: vi.fn(),
+  createLogger: vi.fn(),
+  createRequestLogger: vi.fn(),
   log: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -18,25 +23,23 @@ const evlogMock = vi.hoisted(() => ({
   },
 }))
 
+function createWideLoggerMock(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    set: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    emit: vi.fn(),
+    getContext: vi.fn(() => ({})),
+    ...overrides,
+  }
+}
+
 vi.mock('evlog', () => {
   return {
-    initLogger: vi.fn(),
-    createLogger: vi.fn(() => ({
-      set: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      emit: vi.fn(),
-      getContext: vi.fn(() => ({})),
-    })),
-    createRequestLogger: vi.fn(() => ({
-      set: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      emit: vi.fn(),
-      getContext: vi.fn(() => ({})),
-    })),
+    initLogger: evlogMock.initLogger,
+    createLogger: evlogMock.createLogger,
+    createRequestLogger: evlogMock.createRequestLogger,
     log: evlogMock.log,
     __evlogMock: evlogMock,
   }
@@ -45,6 +48,9 @@ vi.mock('evlog', () => {
 describe('observability', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    evlogMock.initLogger.mockImplementation(() => undefined)
+    evlogMock.createLogger.mockImplementation(() => createWideLoggerMock())
+    evlogMock.createRequestLogger.mockImplementation(() => createWideLoggerMock())
   })
 
   it('normalizes defaults safely', () => {
@@ -166,6 +172,74 @@ describe('observability', () => {
     ).resolves.toBeUndefined()
   })
 
+  it('falls back to a disabled emitter when config normalization fails', async () => {
+    expect(() =>
+      createObservationEmitter({
+        adapter: 'console',
+      }),
+    ).not.toThrow()
+
+    const emitter = createObservationEmitter({
+      adapter: 'console',
+    })
+
+    await expect(
+      emitter.emit({
+        name: 'db.raw.used',
+        status: 'success',
+      }),
+    ).resolves.toBeUndefined()
+  })
+
+  it('never throws if evlog wide logger creation or methods fail', () => {
+    const config = normalizeObservabilityConfig({})
+
+    evlogMock.createRequestLogger.mockImplementationOnce(() => {
+      throw new Error('factory failed')
+    })
+
+    expect(() =>
+      createWideSummary({
+        config,
+        method: 'POST',
+        path: '/api/test',
+      }),
+    ).not.toThrow()
+
+    evlogMock.createLogger.mockImplementationOnce(() =>
+      createWideLoggerMock({
+        set: vi.fn(() => {
+          throw new Error('set failed')
+        }),
+        emit: vi.fn(() => {
+          throw new Error('emit failed')
+        }),
+      }),
+    )
+
+    const summary = createWideSummary({
+      config,
+      initialContext: { correlationId: 'corr_test' },
+    })
+
+    expect(() => summary.set({ handler: 'notes.create' })).not.toThrow()
+    expect(() => summary.emit({ status: 'success' })).not.toThrow()
+  })
+
+  it('never throws if runtime observer setup fails', () => {
+    evlogMock.createRequestLogger.mockImplementationOnce(() => {
+      throw new Error('request logger failed')
+    })
+
+    expect(() =>
+      createRuntimeObserver(
+        { observability: { enabled: true } },
+        { transport: 'nuxt-server', correlationId: 'corr_runtime' },
+        { method: 'POST', path: '/api/query' },
+      ),
+    ).not.toThrow()
+  })
+
   it('recursively redacts nested secrets', async () => {
     const capture = createObservationCapture()
     const emitter = createObservationEmitter(
@@ -226,6 +300,20 @@ describe('observability', () => {
         adapter: 'console',
       }),
     ).toThrow('adapter')
+
+    expect(() =>
+      normalizeObservabilityConfig({
+        redact: () => null,
+      }),
+    ).toThrow('redact')
+
+    expect(() =>
+      normalizeObservabilityConfig({
+        correlation: {
+          generate: () => 'corr_manual',
+        },
+      }),
+    ).toThrow('correlation.generate')
   })
 
   it('adds and strips the internal trellis envelope', () => {

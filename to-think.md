@@ -7,15 +7,16 @@ Date: 2026-04-17
 Trellis now has a real split between:
 
 - `logging`
-  - debug/runtime sink control
-  - mostly developer-facing noise shaping
+  - no longer a public Trellis config surface
+  - still a useful concept for low-level debug/runtime output
   - not the product abstraction
 - `observability`
   - semantic Trellis events
   - correlation ids
   - sampling
   - redaction
-  - adapter delivery
+  - explainability
+  - `evlog` delivery
 
 This is the right product direction. The old state mixed these concerns and made "logging" mean too many things at once.
 
@@ -33,8 +34,8 @@ This is the right product direction. The old state mixed these concerns and made
   - MCP tool called / denied / confirmation required / executed / failed
 - The implementation is framework-shaped, not vendor-shaped.
   - Trellis owns the event model.
-- the shipped adapter is just the built-in `console` sink
-  - `evlog` did not become the core abstraction
+- `evlog` is the shipped delivery layer.
+  - It improves delivery without becoming the core abstraction.
 - The first real vNext example is wired.
   - `examples-next/01-kanban-workspace`
 
@@ -43,15 +44,15 @@ This is the right product direction. The old state mixed these concerns and made
 - `src/runtime/utils/logger.ts` is still too transitional.
   - It now acts as both the old debug logger and an observability bridge.
   - This works, but it is not a clean long-term architecture.
-- `src/runtime/utils/observability.ts` is doing too much.
+- `src/runtime/utils/observability.ts` used to do too much.
   - types
   - defaults
   - sampling
   - redaction
   - correlation
-  - adapter handling
+  - delivery bridging
   - hidden arg helpers
-  - formatting
+  - wide-summary wiring
 - Correlation propagation is strongest in operation-backed MCP flows, but not universal across every raw Convex ref path.
   - This is honest.
   - It is also uneven.
