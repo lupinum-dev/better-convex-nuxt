@@ -89,9 +89,13 @@ describe('server Convex fetch helpers', () => {
     expect(init.headers).toMatchObject({
       'Content-Type': 'application/json',
     })
-    expect(JSON.parse(String(init.body))).toEqual({
-      path: 'notes:list',
-      args: { limit: 5 },
+    const body = JSON.parse(String(init.body))
+    expect(body.path).toBe('notes:list')
+    expect(body.args.limit).toBe(5)
+    expect(body.args.__trellis).toMatchObject({
+      correlationId: expect.any(String),
+      originTransport: 'nuxt-server',
+      requestId: expect.any(String),
     })
   })
 
@@ -228,7 +232,14 @@ describe('server Convex fetch helpers', () => {
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const body = JSON.parse(String(init.body))
     expect(body.path).toBe('messages:byHeaders')
-    expect(body.args).toEqual({ headers: ['x-custom'] })
+    expect(body.args).toMatchObject({
+      headers: ['x-custom'],
+      __trellis: {
+        correlationId: expect.any(String),
+        originTransport: 'nuxt-server',
+        requestId: expect.any(String),
+      },
+    })
   })
 
   it('auth:auto exchanges cookie for token and attaches bearer header', async () => {
@@ -303,6 +314,11 @@ describe('server Convex fetch helpers', () => {
       path: 'tasks:create',
       args: {
         title: 'From webhook',
+        __trellis: {
+          correlationId: expect.any(String),
+          originTransport: 'nuxt-server',
+          requestId: expect.any(String),
+        },
         _trustedCallerKey: 'trusted-caller-key-123',
         _trustedCaller: {
           userId: 'user_admin',
@@ -362,6 +378,31 @@ describe('server Convex fetch helpers', () => {
         String((call as unknown[])[0]).endsWith('/api/auth/convex/token'),
       ),
     ).toHaveLength(1)
+  })
+
+  it('reuses one correlation id across multiple serverConvex calls in the same request', async () => {
+    const event = createEvent('better-auth.session_token=session123')
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await serverConvexQuery(event, { _path: 'notes:list' } as never, { limit: 1 } as never)
+    await serverConvexMutation(
+      event,
+      { _path: 'notes:add' } as never,
+      { title: 'Hello' } as never,
+    )
+
+    const bodies = fetchMock.mock.calls
+      .filter((call) => String((call as unknown[])[0]).includes('/api/query') || String((call as unknown[])[0]).includes('/api/mutation'))
+      .map((call) => JSON.parse(String(((call as unknown[])[1] as RequestInit).body)))
+    expect(bodies[0].args.__trellis.correlationId).toBe(bodies[1].args.__trellis.correlationId)
+    expect(bodies[0].args.__trellis.originTransport).toBe('nuxt-server')
+    expect(bodies[1].args.__trellis.originTransport).toBe('nuxt-server')
   })
 
   it('auth:required throws when session cookie is missing', async () => {

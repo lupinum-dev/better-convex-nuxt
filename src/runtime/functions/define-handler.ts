@@ -14,6 +14,7 @@ import {
   isAnonymousPrincipal,
   type AuthenticatedPrincipal,
 } from '../auth/principal-state.js'
+import type { TrellisObservationEvent } from '../utils/observability.js'
 import { stampOperationProjection, trellisOperationProjectionMetadataKey } from './operation-metadata.js'
 
 type MaybePromise<T> = T | Promise<T>
@@ -28,8 +29,8 @@ type RuntimeContext<TPrincipal, TActor> = {
       | 'authorize.allowed'
       | 'authorize.denied'
     status: 'success' | 'deny'
-    transport?: 'convex'
-    reasonCode?: string
+    transport?: TrellisObservationEvent['transport']
+    reasonCode?: TrellisObservationEvent['reasonCode']
     details?: Record<string, unknown>
   }) => Promise<void>
 }
@@ -214,7 +215,6 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
           await observe?.({
             name: isAnonymousPrincipal(principal) ? 'guard.denied' : 'guard.allowed',
             status: isAnonymousPrincipal(principal) ? 'deny' : 'success',
-            transport: 'convex',
             reasonCode: isAnonymousPrincipal(principal) ? 'guard.auth_required' : undefined,
           })
           requireAuth(
@@ -228,8 +228,8 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
           await observe?.({
             name: allowed ? 'guard.allowed' : 'guard.denied',
             status: allowed ? 'success' : 'deny',
-            transport: 'convex',
-            reasonCode: allowed ? undefined : definition.guard.label,
+            reasonCode: allowed ? undefined : 'guard.denied',
+            details: allowed ? undefined : { label: definition.guard.label },
           })
           enforce<TActor | null>(
             actor,
@@ -259,13 +259,15 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
           await getObserve(handlerCtx)?.({
             name: allowed ? 'authorize.allowed' : 'authorize.denied',
             status: allowed ? 'success' : 'deny',
-            transport: 'convex',
-            reasonCode: allowed
+            reasonCode: allowed ? undefined : 'authorize.denied',
+            details: allowed
               ? undefined
-              : getAuthorizationLabel(
-                  authorization,
-                  definition.authorize.label ?? 'Access denied',
-                ),
+              : {
+                  label: getAuthorizationLabel(
+                    authorization,
+                    definition.authorize.label ?? 'Access denied',
+                  ),
+                },
           })
 
           if (!allowed) {

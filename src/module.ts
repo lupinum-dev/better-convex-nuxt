@@ -20,10 +20,6 @@ import { asRecord } from './runtime/utils/value-helpers.js'
 export type { LogLevel } from './runtime/utils/logger.js'
 export type {
   TrellisObservationAdapter,
-  TrellisObservationEvent,
-  TrellisObservationFamily,
-  TrellisObservationName,
-  TrellisObservabilityModuleOptions,
   TrellisObservabilityOptions,
 } from './runtime/utils/observability.js'
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection.js'
@@ -85,7 +81,7 @@ export default defineNuxtModule<ModuleOptions>({
     },
     logging: false,
     observability: {
-      adapter: 'dev',
+      adapter: 'console',
     },
     validation: {
       strict: false,

@@ -9,6 +9,7 @@ import {
   normalizeAuthRoute,
   resolveConvexSiteUrl,
 } from '../runtime/utils/convex-config.js'
+import { normalizeObservabilityConfig } from '../runtime/utils/observability.js'
 import type { NormalizedConvexRuntimeConfig } from '../runtime/utils/runtime-config.js'
 import type { AuthOptions, ModuleOptions } from './options.js'
 import {
@@ -107,11 +108,19 @@ export function collectModuleStartupWarnings(
   return warnings
 }
 
+function validateModuleObservabilityConfig(options: ModuleOptions) {
+  normalizeObservabilityConfig(options.observability, {
+    allowCustomAdapters: false,
+    allowFunctionHooks: false,
+  })
+}
+
 export function buildPublicConvexRuntimeConfig(
   options: ModuleOptions,
   existing: RuntimePublicConvexConfig | undefined,
   setup: ModuleSetupState,
 ): NormalizedConvexRuntimeConfig & RuntimePublicConvexConfig {
+  validateModuleObservabilityConfig(options)
   return defu(existing, {
     url: options.url || '',
     siteUrl: setup.resolvedSiteUrl || '',
@@ -142,10 +151,10 @@ export function buildPublicConvexRuntimeConfig(
     logging: options.logging ?? false,
     observability: {
       enabled: options.observability?.enabled,
-      adapter: options.observability?.adapter ?? 'dev',
-      capture: options.observability?.capture,
+      capture: {
+        browser: options.observability?.capture?.browser,
+      },
       level: options.observability?.level,
-      sample: options.observability?.sample,
       correlation: {
         header: options.observability?.correlation?.header,
       },

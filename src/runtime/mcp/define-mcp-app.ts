@@ -13,7 +13,6 @@ import { getFunctionName } from '../utils/convex-shared.js'
 import { defineArgs } from '../utils/define-convex-schema.js'
 import {
   createObservationEmitter,
-  withObservationArgs,
   type TrellisObservabilityOptions,
 } from '../utils/observability.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
@@ -60,6 +59,14 @@ type ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime> = {
   runtime: TRuntime
   convex: McpConvexCaller
   observe: ReturnType<typeof createObservationEmitter>['emit']
+  correlationId: string
+  requestId: string
+}
+
+type EventObservationState = {
+  correlationId?: string
+  originTransport?: 'browser' | 'nuxt-server' | 'convex' | 'mcp' | 'service' | 'webhook'
+  requestId?: string
 }
 
 export interface DefineMcpAppOptions<
@@ -316,13 +323,32 @@ export function defineMcpApp<
     let cached = requestCache.get(event)
     if (!cached) {
       cached = (async () => {
+        const config = createObservationEmitter(options.observability).config
+        const headerName = config.correlation.header
+        const eventContext = ((event.context as Record<string, unknown> | undefined) ?? {}) as Record<
+          string,
+          unknown
+        >
+        ;(event as { context?: Record<string, unknown> }).context = eventContext
+        const observationState =
+          typeof eventContext.__trellis === 'object' && eventContext.__trellis !== null
+            ? (eventContext.__trellis as EventObservationState)
+            : {}
+        const existingCorrelationId =
+          event.headers.get(headerName) ??
+          observationState.correlationId
+        const correlationId = existingCorrelationId ?? config.correlation.generate()
+        const requestId = observationState.requestId ?? crypto.randomUUID()
+        eventContext.__trellis = {
+          correlationId,
+          originTransport: 'mcp',
+          requestId,
+        } satisfies EventObservationState
         const observability = createObservationEmitter(options.observability, {
           transport: 'mcp',
-          correlationId:
-            event.headers.get(
-              createObservationEmitter(options.observability).config.correlation.header,
-            ) ?? undefined,
-          requestId: crypto.randomUUID(),
+          originTransport: 'mcp',
+          correlationId,
+          requestId,
         })
         const principal = await options.resolvePrincipal(event)
         const convex = await options.callConvex(event, principal)
@@ -349,6 +375,8 @@ export function defineMcpApp<
           runtime,
           convex,
           observe: observability.emit,
+          correlationId,
+          requestId,
         }
       })()
       requestCache.set(event, cached)
@@ -668,7 +696,6 @@ export function defineMcpApp<
       },
       handler: async (rawArgs, ctx) => {
         const projectionCtx = await resolve(ctx.event)
-        const correlationId = crypto.randomUUID()
         const fullArgs = rawArgs as Record<string, unknown>
         const confirmationToken =
           typeof fullArgs._confirmationToken === 'string' ? fullArgs._confirmationToken : undefined
@@ -738,16 +765,9 @@ export function defineMcpApp<
             projectionCtx.convex,
             options.previewOperation ?? 'query',
             options.preview,
-            Object.assign(
-              {},
-              withObservationArgs(executeArgs, {
-                correlationId,
-                transport: 'mcp',
-              }),
-              {
-                principal: projectionCtx.principal,
-              },
-            ) as FunctionArgs<Exclude<TPreview, undefined>>,
+            Object.assign({}, executeArgs as Record<string, unknown>, {
+              principal: projectionCtx.principal,
+            }) as FunctionArgs<Exclude<TPreview, undefined>>,
           )
 
           if (!isOperationPreviewPayload(previewResult)) {
@@ -843,10 +863,7 @@ export function defineMcpApp<
             options.execute,
             Object.assign(
               {},
-              withObservationArgs(executeArgs, {
-                correlationId,
-                transport: 'mcp',
-              }),
+              executeArgs as Record<string, unknown>,
               {
                 ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
                 principal: projectionCtx.principal,

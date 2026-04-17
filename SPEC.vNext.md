@@ -962,7 +962,7 @@ Rules:
 - Trellis emits semantic observation events
 - adapters receive already-correlated, already-redacted payloads
 - Trellis core does not depend on `evlog`
-- the built-in shipped adapter is the dev sink
+- the built-in shipped adapter is the `console` sink
 - `evlog` can remain a later flagship adapter and reference integration
 - no adapter is allowed to define the Trellis core abstraction
 
@@ -979,13 +979,12 @@ The shipped scope covers:
 - service/access observability
 - operation and MCP observability
 - browser/runtime semantic events
-- correlation propagation inside MCP-backed destructive flows
+- shared correlation propagation across Nuxt server, MCP, and Convex-backed flows
 
 Still deferred:
 
-- universal browser/server/Convex correlation for arbitrary raw Convex refs
 - app-facing enrichment hooks
-- additional adapters beyond the built-in dev sink
+- additional adapters beyond the built-in `console` sink
 
 The shipped model does not introduce `ctx.log` everywhere.
 

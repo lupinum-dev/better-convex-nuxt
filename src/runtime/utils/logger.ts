@@ -1,15 +1,13 @@
 /**
- * Debug/runtime logger plus semantic observability bridge for @lupinum/trellis.
- *
- * `logging` controls low-level debug output.
- * `observability` controls semantic event delivery.
+ * Low-level debug/runtime logger for @lupinum/trellis plus a thin
+ * browser/runtime observability bridge.
  */
 
 import { createConsola, type ConsolaInstance } from 'consola'
 
 import {
   createObservationEmitter,
-  getObservationFamily,
+  type TrellisObservationEvent,
   type TrellisObservationContext,
   type TrellisObservationInput,
   type TrellisObservationName,
@@ -102,7 +100,7 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
   const isDebug = level === 'debug'
   const consola: ConsolaInstance = createConsola({
     level: isDebug ? 4 : 3,
-  }).withTag('convex')
+  }).withTag('trellis')
 
   const auth = consola.withTag('auth')
   const query = consola.withTag('query')
@@ -112,13 +110,12 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
   const upload = consola.withTag('upload')
 
   return {
-    auth(event: AuthEvent): void {
+    auth(event) {
       const msg = event.details
         ? `${event.phase} [${event.outcome}] ${Object.entries(event.details)
             .map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`)
             .join(' ')}`
         : `${event.phase} [${event.outcome}]`
-
       if (event.error) {
         auth.error(msg, event.error)
       } else if (event.outcome === 'error') {
@@ -128,7 +125,7 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       }
     },
 
-    query(event: QueryEvent): void {
+    query(event) {
       if (!isDebug) return
 
       let msg = event.name
@@ -160,17 +157,15 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       }
     },
 
-    mutation(event: MutationEvent): void {
+    mutation(event) {
       let msg = event.name
       if (event.event === 'optimistic') {
         msg += ' optimistic'
       } else if (event.event === 'success') {
-        msg +=
-          event.duration !== undefined ? ` success ${formatDuration(event.duration)}` : ' success'
+        msg += event.duration !== undefined ? ` success ${formatDuration(event.duration)}` : ' success'
       } else {
         msg += ' error'
       }
-
       if (event.error) {
         mutation.error(msg, event.error)
       } else {
@@ -178,15 +173,13 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       }
     },
 
-    action(event: ActionEvent): void {
+    action(event) {
       let msg = event.name
       if (event.event === 'success') {
-        msg +=
-          event.duration !== undefined ? ` success ${formatDuration(event.duration)}` : ' success'
+        msg += event.duration !== undefined ? ` success ${formatDuration(event.duration)}` : ' success'
       } else {
         msg += ' error'
       }
-
       if (event.error) {
         action.error(msg, event.error)
       } else {
@@ -194,7 +187,7 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       }
     },
 
-    connection(event: ConnectionEvent): void {
+    connection(event) {
       if (event.event === 'lost') {
         connection.warn('Connection lost')
       } else {
@@ -206,7 +199,7 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       }
     },
 
-    upload(event: UploadEvent): void {
+    upload(event) {
       let msg = event.name
       if (event.event === 'success') {
         const parts = [
@@ -223,7 +216,6 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
           : ''
         msg += ` error${errMsg ? ` ${errMsg}` : ''}`
       }
-
       if (event.event === 'error') {
         upload.error(msg)
       } else {
@@ -231,7 +223,7 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       }
     },
 
-    debug(message: string, data?: unknown): void {
+    debug(message, data) {
       if (!isDebug) return
       if (data !== undefined) {
         consola.debug(message, data)
@@ -240,7 +232,7 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
       }
     },
 
-    time(label: string): () => void {
+    time(label) {
       if (!isDebug) return () => {}
       const start = performance.now()
       return () => {
@@ -251,7 +243,7 @@ function createConsolaLogger(level: 'info' | 'debug'): Logger {
   }
 }
 
-function getAuthObservationName(_event: AuthEvent): TrellisObservationName {
+function getAuthObservationName(): TrellisObservationName {
   return 'auth.session.checked'
 }
 
@@ -288,7 +280,7 @@ function createObservationLogger(
     data: {
       phase?: string
       handler?: string
-      reasonCode?: string
+      reasonCode?: TrellisObservationEvent['reasonCode']
       durationMs?: number
       details?: Record<string, unknown>
     } = {},
@@ -307,13 +299,13 @@ function createObservationLogger(
 
   return {
     auth(event) {
-      emit(getAuthObservationName(event), toObservationStatus(event.outcome), {
+      emit(getAuthObservationName(), toObservationStatus(event.outcome), {
         phase: event.phase,
-        reasonCode: event.outcome === 'error' ? 'auth.check_failed' : undefined,
         details: event.details,
       })
       debugLogger.auth(event)
     },
+
     query(event) {
       if (event.event === 'share') {
         debugLogger.query(event)
@@ -324,18 +316,13 @@ function createObservationLogger(
         subscribe: 'query.subscribed',
         update: 'query.updated',
         unsubscribe: 'query.unsubscribed',
-        error: 'query.updated',
+        error: 'query.failed',
         share: 'query.subscribed',
         skip: 'query.unsubscribed',
       }
       emit(mapping[event.event], event.event === 'error' ? 'error' : event.event === 'skip' ? 'skip' : 'success', {
         handler: event.name,
-        reasonCode:
-          event.event === 'error'
-            ? 'query.failed'
-            : event.reason
-              ? `query.${event.reason.replace(/[^\w./-]+/g, '_')}`
-              : undefined,
+        reasonCode: event.event === 'error' ? 'query.failed' : undefined,
         details: {
           ...(typeof event.count === 'number' ? { count: event.count } : {}),
           ...(typeof event.refCount === 'number' ? { refCount: event.refCount } : {}),
@@ -343,6 +330,7 @@ function createObservationLogger(
       })
       debugLogger.query(event)
     },
+
     mutation(event) {
       if (event.event === 'optimistic') {
         debugLogger.mutation(event)
@@ -355,6 +343,7 @@ function createObservationLogger(
       })
       debugLogger.mutation(event)
     },
+
     action(event) {
       emit(event.event === 'success' ? 'action.completed' : 'action.failed', event.event === 'success' ? 'success' : 'error', {
         handler: event.name,
@@ -363,6 +352,7 @@ function createObservationLogger(
       })
       debugLogger.action(event)
     },
+
     connection(event) {
       emit(event.event === 'lost' ? 'connection.lost' : 'connection.restored', 'success', {
         details:
@@ -372,6 +362,7 @@ function createObservationLogger(
       })
       debugLogger.connection(event)
     },
+
     upload(event) {
       emit(event.event === 'success' ? 'upload.completed' : 'upload.failed', event.event === 'success' ? 'success' : 'error', {
         handler: event.name,
@@ -384,9 +375,11 @@ function createObservationLogger(
       })
       debugLogger.upload(event)
     },
+
     debug(message, data) {
       debugLogger.debug(message, data)
     },
+
     time(label) {
       return debugLogger.time(label)
     },
@@ -397,32 +390,7 @@ export function createLogger(
   input: TrellisObservationInput | LogLevel | false,
   context?: TrellisObservationContext,
 ): Logger {
-  if (input === false || input == null) {
-    const observation = createObservationEmitter(undefined, context)
-    if (!observation.config.enabled) return noopLogger
-  }
   return createObservationLogger(input, context)
-}
-
-const sharedLoggers = new Map<string, Logger>()
-
-export function getSharedLogger(
-  input: TrellisObservationInput | LogLevel | false,
-  context?: TrellisObservationContext,
-): Logger {
-  const key = JSON.stringify({
-    logging: getLogLevel(input),
-    transport: context?.transport ?? 'browser',
-    observability:
-      typeof input === 'object' && input !== null && 'observability' in input
-        ? (input as TrellisObservationInput).observability ?? null
-        : null,
-  })
-  const existing = sharedLoggers.get(key)
-  if (existing) return existing
-  const logger = createLogger(input, context)
-  sharedLoggers.set(key, logger)
-  return logger
 }
 
 export function getLogLevel(config: unknown): LogLevel {
@@ -432,8 +400,4 @@ export function getLogLevel(config: unknown): LogLevel {
       : undefined
   ) as LogLevel | undefined
   return logging ?? false
-}
-
-export function getObservationSampleFamily(name: TrellisObservationName) {
-  return getObservationFamily(name)
 }

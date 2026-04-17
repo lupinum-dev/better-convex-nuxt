@@ -2,6 +2,8 @@ import { fileURLToPath } from 'node:url'
 
 import { convexLocal } from 'convex-vite-plugin'
 
+import { trellisObservability } from './observability.config'
+
 const runtimeComposablesEntry = fileURLToPath(
   new URL('../../src/runtime/composables/index.ts', import.meta.url),
 )
@@ -74,16 +76,7 @@ export default defineNuxtConfig({
     permissions: {
       query: 'auth.getPermissionContext',
     },
-    observability: {
-      enabled: true,
-      adapter: process.env.NODE_ENV === 'test' ? undefined : 'dev',
-      level: 'verbose',
-      capture: {
-        backend: true,
-        mcp: true,
-        browser: true,
-      },
-    },
+    observability: trellisObservability,
   },
 
   hooks: {

@@ -131,16 +131,6 @@ vi.mock('../../../src/runtime/utils/logger', () => ({
     time: () => vi.fn(),
   }),
   getLogLevel: () => false,
-  getSharedLogger: () => ({
-    auth: authLogMock,
-    debug: debugLogMock,
-    query: vi.fn(),
-    mutation: vi.fn(),
-    action: vi.fn(),
-    connection: vi.fn(),
-    upload: vi.fn(),
-    time: () => vi.fn(),
-  }),
 }))
 
 export function createNuxtAppMock(options?: { serverRendered?: boolean }) {
@@ -169,7 +159,7 @@ export function resetPluginClientTestkit() {
         logging: false,
         observability: {
           enabled: false,
-          adapter: null,
+          adapter: 'console',
           capture: { backend: false, mcp: false, browser: false },
           level: 'critical',
           sample: {},

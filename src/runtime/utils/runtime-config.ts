@@ -45,6 +45,28 @@ function normalizeAuthCacheTtl(input: unknown): number {
   return normalized
 }
 
+function isNormalizedObservabilityConfig(
+  value: unknown,
+): value is NormalizedTrellisObservabilityConfig {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Record<string, unknown>
+  const capture = candidate.capture as Record<string, unknown> | undefined
+  const correlation = candidate.correlation as Record<string, unknown> | undefined
+  return (
+    typeof candidate.enabled === 'boolean' &&
+    (candidate.adapter === 'console' || typeof candidate.adapter === 'function') &&
+    typeof capture?.backend === 'boolean' &&
+    typeof capture?.mcp === 'boolean' &&
+    typeof capture?.browser === 'boolean' &&
+    (candidate.level === 'critical' ||
+      candidate.level === 'normal' ||
+      candidate.level === 'verbose') &&
+    typeof candidate.redact === 'function' &&
+    typeof correlation?.header === 'string' &&
+    typeof correlation?.generate === 'function'
+  )
+}
+
 export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRuntimeConfig {
   const raw = asRecord(input)
   const authRaw = asRecord(raw?.auth)
@@ -122,7 +144,12 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       raw?.logging === false || typeof raw?.logging === 'string'
         ? (raw.logging as LogLevel | false)
         : false,
-    observability: normalizeObservabilityConfig(raw?.observability),
+    observability: isNormalizedObservabilityConfig(raw?.observability)
+      ? raw.observability
+      : normalizeObservabilityConfig(raw?.observability, {
+          allowCustomAdapters: false,
+          allowFunctionHooks: false,
+        }),
   }
 }
 

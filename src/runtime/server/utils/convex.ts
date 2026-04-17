@@ -5,6 +5,7 @@ import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared.js'
 import { createLogger } from '../../utils/logger.js'
+import { withObservationEnvelope } from '../../utils/observability.js'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
 import { resolveRequestAuthToken } from './auth-resolver.js'
@@ -18,6 +19,12 @@ interface ServerConvexErrorContext {
   functionPath: string
   convexUrl?: string
   authMode: ConvexServerAuthMode
+}
+
+type EventObservationState = {
+  correlationId?: string
+  originTransport?: 'browser' | 'nuxt-server' | 'convex' | 'mcp' | 'service' | 'webhook'
+  requestId?: string
 }
 
 function readEventHeader(event: H3Event, name: string): string | undefined {
@@ -133,14 +140,27 @@ async function executeConvexOperation<
   const eventContext =
     ((event.context as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
   ;(event as { context?: Record<string, unknown> }).context = eventContext
+  const observationState =
+    typeof eventContext.__trellis === 'object' && eventContext.__trellis !== null
+      ? (eventContext.__trellis as EventObservationState)
+      : {}
   const correlationId =
     readEventHeader(event, correlationHeader) ||
-    (eventContext.__trellisCorrelationId as string | undefined) ||
+    observationState.correlationId ||
     convexConfig.observability.correlation.generate()
-  eventContext.__trellisCorrelationId = correlationId
+  const originTransport =
+    observationState.originTransport === 'browser' || observationState.originTransport === 'mcp'
+      ? observationState.originTransport
+      : 'nuxt-server'
+  eventContext.__trellis = {
+    correlationId,
+    originTransport,
+    requestId,
+  } satisfies EventObservationState
 
   const logger = createLogger(runtimeConfig.public.convex ?? {}, {
     transport: 'nuxt-server',
+    originTransport,
     correlationId,
     requestId,
     handler: functionPath,
@@ -171,6 +191,11 @@ async function executeConvexOperation<
       logger.action({ name: functionPath, event: 'error', duration, error: err })
     }
   }
+  requestArgs = withObservationEnvelope(requestArgs as Record<string, unknown>, {
+    correlationId,
+    originTransport,
+    requestId,
+  })
 
   let authToken: string | undefined
   if (authMode === 'trusted') {

@@ -1,6 +1,7 @@
 import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 
+import { withObservationEnvelope } from '../../../src/runtime/utils/observability'
 import { api } from './_generated/api'
 import schema from './schema'
 import { setupTestWithMultipleUsers, setupTestWithTwoOrgs } from './test.helpers'
@@ -68,6 +69,43 @@ describe('defineTrellis', () => {
       }),
     ).resolves.toEqual({
       title: 'hello',
+    })
+  })
+
+  it('strips the internal __trellis envelope before structured phases and onSuccess hooks', async () => {
+    const { asOwner } = await setupTestWithMultipleUsers()
+
+    await expect(
+      asOwner.query(
+        api.functionsProbe.structuredEnvelopeProbe,
+        withObservationEnvelope(
+          { title: 'hello structured' },
+          { correlationId: 'corr_structured', originTransport: 'mcp' },
+        ) as never,
+      ),
+    ).resolves.toEqual({
+      args: { title: 'hello structured' },
+      loaded: { echoedTitle: 'hello structured' },
+    })
+
+    await expect(
+      asOwner.query(
+        api.functionsProbe.onSuccessEnvelopeProbe,
+        withObservationEnvelope(
+          { marker: 'success-probe' },
+          { correlationId: 'corr_success', originTransport: 'nuxt-server' },
+        ) as never,
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      marker: 'success-probe',
+    })
+
+    await expect(asOwner.query(api.functionsProbe.getEnvelopeProbeState, {})).resolves.toEqual({
+      structuredLoadArgs: { title: 'hello structured' },
+      structuredAuthorizeArgs: { title: 'hello structured' },
+      structuredHandlerArgs: { title: 'hello structured' },
+      onSuccessArgs: { marker: 'success-probe' },
     })
   })
 

@@ -34,12 +34,13 @@ import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
 import {
+  buildObservationEnvelopeValidators,
   createObservationEmitter,
-  getObservationArgs,
-  observationArgKeys,
-  stripObservationArgs,
   type TrellisObservationEvent,
   type TrellisObservabilityOptions,
+  getObservationEnvelope,
+  stripObservationEnvelope,
+  toObservationContext,
 } from '../utils/observability.js'
 import { createComponentBridge } from './create-component-bridge.js'
 import { buildStructuredBuilder } from './define-handler.js'
@@ -100,7 +101,7 @@ export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (
   event: Omit<TrellisObservationEvent, 'ts' | 'correlationId' | 'transport'> &
-    Partial<Pick<TrellisObservationEvent, 'correlationId' | 'transport'>>,
+    Partial<Pick<TrellisObservationEvent, 'correlationId' | 'transport' | 'originTransport'>>,
 ) => Promise<void>
 
 export type FunctionsCtxExtension<TPrincipal, TActor> = {
@@ -341,9 +342,8 @@ function assertServiceTableAccess<DataModel extends GenericDataModel>(
     void observe?.({
       name: 'service.access.denied',
       status: 'deny',
-      transport: 'convex',
       serviceId: access.serviceId,
-      reasonCode: 'service.table_denied',
+      reasonCode: 'service.access.denied',
       details: { table },
     })
     throw getServiceError(access.serviceId, table)
@@ -351,7 +351,6 @@ function assertServiceTableAccess<DataModel extends GenericDataModel>(
   void observe?.({
     name: 'service.access.checked',
     status: 'success',
-    transport: 'convex',
     serviceId: access.serviceId,
     details: { table },
   })
@@ -418,8 +417,7 @@ function createServiceScopeRule<TDoc extends Record<string, unknown>>(
       void (ctx as { observe?: ObserveFn }).observe?.({
         name: 'rls.denied',
         status: 'deny',
-        transport: 'convex',
-        reasonCode: 'service.scope_denied',
+        reasonCode: 'service.access.denied',
         details: { field, expectedTenantId: tenantId, actualTenantId: documentTenantId },
       })
       return false
@@ -453,8 +451,7 @@ function createTenantIsolationRule<
       await ctx.observe({
         name: 'rls.denied',
         status: 'deny',
-        transport: 'convex',
-        reasonCode: 'tenant.scope_denied',
+        reasonCode: 'rls.denied',
         details: { field, actorTenantId, documentTenantId },
       })
       return false
@@ -601,7 +598,7 @@ async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TAct
     options.tenantIsolation,
   )
   const rlsRules = options.rls?.rules
-  const serviceAccess = await resolveServiceAccess(ctx, stripObservationArgs(args), options)
+  const serviceAccess = await resolveServiceAccess(ctx, stripObservationEnvelope(args), options)
   const serviceRules = buildServiceRules(serviceAccess, options.tenantIsolation)
 
   const resolvedCustomRules =
@@ -740,22 +737,23 @@ function createContextWithRuntime<
     principal: TPrincipal,
   ) => Promise<TActor | null>,
 ): RuntimeBundle<DataModel, TCtx, TPrincipal, TActor> {
-  const observationArgs = getObservationArgs(args)
+  const appArgs = stripObservationEnvelope(args)
+  const observationEnvelope = getObservationEnvelope(args)
   const observeRuntime = createObservationEmitter(options.observability, {
-    transport: observationArgs._trellisTransport ?? 'convex',
-    correlationId: observationArgs._trellisCorrelationId,
-    requestId: observationArgs._trellisRequestId,
+    transport: 'convex',
+    ...toObservationContext(observationEnvelope),
   })
   const observe: ObserveFn = async (event) => {
     await observeRuntime.emit({
       ...event,
       transport: event.transport ?? 'convex',
+      originTransport: event.originTransport ?? observationEnvelope?.originTransport,
     })
   }
 
   let principalPromise: Promise<TPrincipal> | null = null
   const principal: PrincipalAccessor<TPrincipal> = async () => {
-    principalPromise ??= Promise.resolve(principalResolver.resolve(ctx, args)).then(
+    principalPromise ??= Promise.resolve(principalResolver.resolve(ctx, appArgs)).then(
       async (value) => {
         await observe({
           name: 'principal.resolved',
@@ -776,7 +774,7 @@ function createContextWithRuntime<
 
   let actorPromise: Promise<TActor | null> | null = null
   const actor: ActorAccessor<TActor> = async () => {
-    actorPromise ??= actorResolver(ctxWithPrincipal, args, await principal()).then(
+    actorPromise ??= actorResolver(ctxWithPrincipal, appArgs, await principal()).then(
       async (value) => {
         await observe({
           name: value == null ? 'actor.missing' : 'actor.resolved',
@@ -811,7 +809,7 @@ function createOnSuccessHandler<Ctx>(
   return async ({ args, result }) => {
     await handler({
       ctx,
-      args: stripObservationArgs(args),
+      args: stripObservationEnvelope(args),
       result,
     })
   }
@@ -843,7 +841,6 @@ function decorateDb<TDb extends object>(
           void observe({
             name,
             status: 'success',
-            transport: 'convex',
             details: table ? { table } : undefined,
           })
           return original.apply(target, args)
@@ -858,7 +855,7 @@ function decorateDb<TDb extends object>(
 }
 
 function stripConfirmationToken(args: Record<string, unknown>): Record<string, unknown> {
-  return stripObservationArgs(
+  return stripObservationEnvelope(
     Object.fromEntries(Object.entries(args).filter(([key]) => key !== '_confirmationToken')),
   )
 }
@@ -888,9 +885,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
-    [observationArgKeys.correlationId]: v.optional(v.string()),
-    [observationArgKeys.transport]: v.optional(v.string()),
-    [observationArgKeys.requestId]: v.optional(v.string()),
+    ...buildObservationEnvelopeValidators(),
   }
 
   return {
@@ -903,7 +898,11 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
         principalDefinition,
         actorResolver,
       )
-      const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(baseCtx, args, options)
+      const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(
+        baseCtx,
+        args,
+        options,
+      )
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
       const db = dbRules
@@ -938,9 +937,7 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
-    [observationArgKeys.correlationId]: v.optional(v.string()),
-    [observationArgKeys.transport]: v.optional(v.string()),
-    [observationArgKeys.requestId]: v.optional(v.string()),
+    ...buildObservationEnvelopeValidators(),
   }
 
   return {
@@ -1000,9 +997,7 @@ function createActionCustomization<DataModel extends GenericDataModel, TPrincipa
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
-    [observationArgKeys.correlationId]: v.optional(v.string()),
-    [observationArgKeys.transport]: v.optional(v.string()),
-    [observationArgKeys.requestId]: v.optional(v.string()),
+    ...buildObservationEnvelopeValidators(),
   }
 
   return {
@@ -1174,7 +1169,6 @@ function buildStructuredMutationRuntime<
         await ctx.observe({
           name: 'operation.preview.started',
           status: 'success',
-          transport: 'convex',
           operation: metadata.id,
         })
 
@@ -1190,9 +1184,9 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',
-            transport: 'convex',
             operation: metadata.id,
-            reasonCode: 'operation.args_drifted',
+            reasonCode: 'tool.confirmation_mismatch',
+            details: { cause: 'args_mismatch' },
           })
           throw new Error(
             'Confirmation token no longer matches this destructive request. Preview again before executing.',
@@ -1239,7 +1233,6 @@ function buildStructuredMutationRuntime<
         await ctx.observe({
           name: 'operation.preview.completed',
           status: 'success',
-          transport: 'convex',
           operation: metadata.id,
         })
 
@@ -1252,9 +1245,9 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',
-            transport: 'convex',
             operation: metadata.id,
-            reasonCode: 'operation.preview_blocked',
+            reasonCode: 'tool.confirmation_mismatch',
+            details: { cause: 'preview_blocked' },
           })
           throw new Error('Previewed state is blocked and can no longer be executed.')
         }
@@ -1264,9 +1257,9 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',
-            transport: 'convex',
             operation: metadata.id,
-            reasonCode: 'operation.preview_drifted',
+            reasonCode: 'tool.confirmation_mismatch',
+            details: { cause: 'preview_mismatch' },
           })
           throw new Error(
             'Previewed state changed before confirmation. Preview again before executing.',
@@ -1275,7 +1268,6 @@ function buildStructuredMutationRuntime<
         await ctx.observe({
           name: 'operation.confirm.validated',
           status: 'success',
-          transport: 'convex',
           operation: metadata.id,
         })
 
@@ -1305,7 +1297,6 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.execute.completed',
             status: 'success',
-            transport: 'convex',
             operation: metadata.id,
           })
 
@@ -1314,9 +1305,8 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.execute.failed',
             status: 'error',
-            transport: 'convex',
             operation: metadata.id,
-            reasonCode: 'operation.execute_failed',
+            reasonCode: 'operation.execute.failed',
             details:
               error instanceof Error
                 ? {

@@ -96,7 +96,7 @@ export function mockConvexConfig(
         : false,
     observability: {
       enabled: false,
-      adapter: null,
+      adapter: 'console',
       capture: {
         backend: false,
         mcp: false,

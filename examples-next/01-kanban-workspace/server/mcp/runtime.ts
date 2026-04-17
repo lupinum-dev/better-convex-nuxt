@@ -4,6 +4,7 @@ import { getHeader } from 'h3'
 import { api } from '#trellis/api'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
+import { trellisObservability } from '~/observability.config'
 import type { KanbanPrincipal } from '~/convex/auth/principal'
 
 function getAgentPrincipal(event: H3Event): KanbanPrincipal {
@@ -38,11 +39,7 @@ export const mcpApp = defineMcpApp({
   },
   principalKey: (principal) =>
     principal.kind === 'agent' ? `agent:${principal.agentId}:${principal.userId}` : principal.kind,
-  observability: {
-    enabled: true,
-    adapter: process.env.NODE_ENV === 'test' ? undefined : 'dev',
-    level: 'verbose',
-  },
+  observability: trellisObservability,
 })
 
 export const tool = mcpApp.tool

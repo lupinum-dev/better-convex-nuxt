@@ -33,7 +33,7 @@ This is the right product direction. The old state mixed these concerns and made
   - MCP tool called / denied / confirmation required / executed / failed
 - The implementation is framework-shaped, not vendor-shaped.
   - Trellis owns the event model.
-  - the shipped adapter is just the built-in dev sink
+- the shipped adapter is just the built-in `console` sink
   - `evlog` did not become the core abstraction
 - The first real vNext example is wired.
   - `examples-next/01-kanban-workspace`
@@ -71,9 +71,11 @@ Current shape:
 ```ts
 {
   id: 'board_123',
-  _trellisCorrelationId: 'corr_abc',
-  _trellisTransport: 'mcp',
-  _trellisRequestId: 'req_xyz',
+  __trellis: {
+    correlationId: 'corr_abc',
+    originTransport: 'mcp',
+    requestId: 'req_xyz',
+  },
 }
 ```
 
@@ -194,13 +196,7 @@ Cons:
 
 Short term:
 
-- replace the flat hidden observability fields with a single reserved `__trellis` envelope
-
-Why:
-
-- smallest real cleanup
-- improves readability and discipline
-- does not require a full handler API redesign
+- keep the single reserved `__trellis` envelope, but treat it as a temporary propagation seam rather than a finished abstraction
 
 Longer term:
 

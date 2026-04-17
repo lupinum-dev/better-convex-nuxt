@@ -1,5 +1,6 @@
 import { defineTrellis } from '@lupinum/trellis/functions'
 
+import { trellisObservability } from '../observability.config'
 import type { DataModel } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import type { Actor } from './auth/actor'
@@ -28,10 +29,6 @@ export const { mutation, query, raw } = defineTrellis<
       redemptionTable: 'destructiveRedemptions' as never,
       auditTable: 'destructiveAuditLog' as never,
     },
-    observability: {
-      enabled: true,
-      adapter: process.env.NODE_ENV === 'test' ? undefined : 'dev',
-      level: 'verbose',
-    },
+    observability: trellisObservability,
   },
 )

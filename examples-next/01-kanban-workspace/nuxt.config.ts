@@ -1,5 +1,7 @@
 import { fileURLToPath } from 'node:url'
 
+import { trellisObservability } from './observability.config'
+
 const runtimeFunctionsEntry = fileURLToPath(
   new URL('../../src/runtime/functions/index.ts', import.meta.url),
 )
@@ -28,15 +30,6 @@ export default defineNuxtConfig({
       enabled: true,
     },
     logging: 'info',
-    observability: {
-      enabled: true,
-      adapter: process.env.NODE_ENV === 'test' ? undefined : 'dev',
-      level: 'verbose',
-      capture: {
-        backend: true,
-        mcp: true,
-        browser: true,
-      },
-    },
+    observability: trellisObservability,
   },
 })

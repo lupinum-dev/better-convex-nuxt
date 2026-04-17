@@ -14,7 +14,7 @@ vi.mock('../../src/runtime/utils/runtime-config', () => ({
 }))
 
 vi.mock('../../src/runtime/utils/logger', () => ({
-  getSharedLogger: vi.fn(() => ({
+  createLogger: vi.fn(() => ({
     upload: vi.fn(),
   })),
   getLogLevel: vi.fn(() => false),

@@ -84,7 +84,7 @@ describe('runtime config normalization', () => {
     const config = normalizeConvexRuntimeConfig({
       observability: {
         enabled: true,
-        adapter: 'dev',
+        adapter: 'console',
         level: 'normal',
         capture: {
           backend: true,
@@ -105,5 +105,21 @@ describe('runtime config normalization', () => {
     expect(config.observability.capture.browser).toBe(false)
     expect(config.observability.sample.browser).toBe(0.25)
     expect(config.observability.correlation.header).toBe('x-correlation-id')
+  })
+
+  it('uses production observability defaults when NODE_ENV=production', () => {
+    const previousEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+
+    const config = normalizeConvexRuntimeConfig({})
+
+    expect(config.observability.enabled).toBe(true)
+    expect(config.observability.adapter).toBe('console')
+    expect(config.observability.level).toBe('critical')
+    expect(config.observability.capture.backend).toBe(true)
+    expect(config.observability.capture.mcp).toBe(true)
+    expect(config.observability.capture.browser).toBe(false)
+
+    process.env.NODE_ENV = previousEnv
   })
 })

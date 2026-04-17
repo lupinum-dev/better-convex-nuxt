@@ -4,7 +4,7 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../../utils/convex-cache.js'
-import { getSharedLogger } from '../../utils/logger.js'
+import { createLogger } from '../../utils/logger.js'
 import { createOptimisticContext } from '../optimistic-updates.js'
 import { getRequiredConvexClient } from '../useConvex.js'
 import type {
@@ -23,7 +23,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   type Result = FunctionReturnType<Mutation>
 
   const config = useRuntimeConfig()
-  const logger = getSharedLogger(config.public.convex ?? {}, { transport: 'browser' })
+  const logger = createLogger(config.public.convex ?? {}, { transport: 'browser' })
   const fnName = getFunctionName(mutation)
   const nuxtApp = useNuxtApp()
 
@@ -54,7 +54,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   type Result = FunctionReturnType<Action>
 
   const config = useRuntimeConfig()
-  const logger = getSharedLogger(config.public.convex ?? {}, { transport: 'browser' })
+  const logger = createLogger(config.public.convex ?? {}, { transport: 'browser' })
   const fnName = getFunctionName(action)
   const nuxtApp = useNuxtApp()
 

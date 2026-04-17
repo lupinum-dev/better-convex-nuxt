@@ -21,7 +21,7 @@ import {
 } from '../../devtools/runtime.js'
 import { assertConvexComposableScope } from '../../utils/composable-scope.js'
 import { getQueryKey, getFunctionName, hashArgs } from '../../utils/convex-cache.js'
-import { getSharedLogger } from '../../utils/logger.js'
+import { createLogger } from '../../utils/logger.js'
 import { executeQueryViaSubscriptionOnce } from '../../utils/one-shot-subscription.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import type { QueryStatus } from '../../utils/types.js'
@@ -92,7 +92,7 @@ export function createConvexQueryState<
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
   const keepPreviousData = options?.keepPreviousData ?? false
   const fnName = getFunctionName(query)
-  const logger = getSharedLogger(config.public.convex ?? {}, { transport: 'browser' })
+  const logger = createLogger(config.public.convex ?? {}, { transport: 'browser' })
 
   const normalizedArgs = computed((): FunctionArgs<Query> => {
     const rawArgs = args === undefined ? ({} as FunctionArgs<Query>) : toValue(args)

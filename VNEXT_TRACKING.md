@@ -189,7 +189,7 @@
 - [ ] Repair the internal harness MCP discovery/auth e2e path so targeted `test/e2e/mcp-smoke.e2e.test.ts` is green again.
 - [x] Define the Trellis observability contract as semantic events, separate from debug/runtime logging.
 - [x] Keep `logging` as debug/runtime logging only while first-class observability owns semantic events.
-- [x] Ship backend, MCP, and browser/runtime semantic observability with the built-in dev sink.
+- [x] Ship backend, MCP, and browser/runtime semantic observability with the built-in `console` sink.
 
 ## 13. Honest Status
 

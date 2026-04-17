@@ -13,6 +13,10 @@ import type { InternalHarnessPrincipal } from './auth/principal'
 import { principal } from './auth/principal'
 
 let actorResolverCalls = 0
+let structuredLoadArgs: Record<string, unknown> | null = null
+let structuredAuthorizeArgs: Record<string, unknown> | null = null
+let structuredHandlerArgs: Record<string, unknown> | null = null
+let onSuccessArgs: Record<string, unknown> | null = null
 
 const triggers = new Triggers<
   DataModel,
@@ -43,6 +47,13 @@ const { mutation, query, raw } = defineTrellis<
     tenantIsolation: {
       tables: ['posts', 'comments', 'mcpKeys'],
       field: 'organizationId',
+    },
+    onSuccess: {
+      query: ({ args }) => {
+        if (typeof args.marker === 'string') {
+          onSuccessArgs = args
+        }
+      },
     },
     triggers,
   },
@@ -84,10 +95,41 @@ export const structuredPostOwner = query({
   }),
 })
 
+export const structuredEnvelopeProbe = query({
+  args: {
+    title: v.string(),
+  },
+  guard: canReadStructuredProbe,
+  load: async (_ctx, args) => {
+    structuredLoadArgs = args
+    return {
+      echoedTitle: args.title,
+    }
+  },
+  authorize: {
+    label: 'probe.capture',
+    check: (_actor, _loaded, args) => {
+      structuredAuthorizeArgs = args
+      return true
+    },
+  },
+  handler: async (_ctx, args, loaded) => {
+    structuredHandlerArgs = args
+    return {
+      args,
+      loaded,
+    }
+  },
+})
+
 export const resetActorResolverCalls = raw.mutation({
   args: {},
   handler: async () => {
     actorResolverCalls = 0
+    structuredLoadArgs = null
+    structuredAuthorizeArgs = null
+    structuredHandlerArgs = null
+    onSuccessArgs = null
     return actorResolverCalls
   },
 })
@@ -113,6 +155,26 @@ export const echoedArgs = raw.query({
     title: v.string(),
   },
   handler: async (_ctx, args) => args,
+})
+
+export const onSuccessEnvelopeProbe = raw.query({
+  args: {
+    marker: v.string(),
+  },
+  handler: async (_ctx, args) => ({
+    ok: true,
+    marker: args.marker,
+  }),
+})
+
+export const getEnvelopeProbeState = raw.query({
+  args: {},
+  handler: async () => ({
+    structuredLoadArgs,
+    structuredAuthorizeArgs,
+    structuredHandlerArgs,
+    onSuccessArgs,
+  }),
 })
 
 export const unsafeListPosts = raw.query({

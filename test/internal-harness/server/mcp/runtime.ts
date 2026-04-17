@@ -2,6 +2,7 @@ import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
 
+import { trellisObservability } from '../../observability.config'
 import type { InternalHarnessPrincipal } from '../../convex/auth/principal'
 
 type McpAuthContext = {
@@ -38,11 +39,7 @@ export const mcpRuntime = defineMcpApp<
   }),
   principalKey: (principal) =>
     principal.kind === 'agent' ? `agent:${principal.userId}:${principal.role}` : principal.kind,
-  observability: {
-    enabled: true,
-    adapter: process.env.NODE_ENV === 'test' ? undefined : 'dev',
-    level: 'verbose',
-  },
+  observability: trellisObservability,
 })
 
 export const tool = mcpRuntime.tool
