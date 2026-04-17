@@ -1,7 +1,7 @@
 import type { DefaultActor } from '@lupinum/trellis/auth'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { DataModel, Id } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 import type { KanbanPrincipal } from './principal'
 
 type KanbanCtx =
@@ -9,11 +9,12 @@ type KanbanCtx =
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
-export type Role = 'owner' | 'admin' | 'member' | 'viewer'
+export type Role = Doc<'memberships'>['role']
 
 export type Actor = DefaultActor & {
   role: Role
-  tenantId?: Id<'workspaces'>
+  tenantId: Id<'workspaces'>
+  membershipId: Id<'memberships'>
   displayName?: string | null
   email?: string | null
 }
@@ -25,16 +26,26 @@ async function loadActor(ctx: KanbanCtx, authId: string): Promise<Actor | null> 
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
+    .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
     .first()
 
-  if (!user) return null
+  if (!user?.activeWorkspaceId) return null
+
+  const membership = await ctx.db
+    .query('memberships')
+    .withIndex('by_user_workspace', (q: any) =>
+      q.eq('userId', user.authId).eq('workspaceId', user.activeWorkspaceId),
+    )
+    .first()
+
+  if (!membership) return null
 
   return {
     kind: 'user',
     userId: user.authId,
-    role: user.role as Role,
-    tenantId: user.workspaceId as Id<'workspaces'> | undefined,
+    role: membership.role,
+    tenantId: user.activeWorkspaceId,
+    membershipId: membership._id,
     displayName: user.displayName ?? null,
     email: user.email ?? null,
   }

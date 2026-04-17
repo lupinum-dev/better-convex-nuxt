@@ -1,12 +1,15 @@
 import { archiveBoard, archiveBoardOp, previewArchiveBoard } from '~/convex/boards'
+
 import { tool } from '../runtime'
 
 export default tool.fromOperation(archiveBoardOp, {
-  execute: archiveBoard,
-  preview: previewArchiveBoard,
+  execute: archiveBoard as never,
+  preview: previewArchiveBoard as never,
   capability: 'archiveBoard',
   group: 'workspace',
   meta: {
-    description: 'Archive the current workspace board after a preview step.',
+    name: 'archive-board',
+    description:
+      'Archive a board after a preview step. Accepts boardId directly or workspace and board names.',
   },
 })

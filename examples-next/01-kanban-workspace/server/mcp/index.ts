@@ -1,4 +1,3 @@
-export default defineMcpHandler({
-  name: 'kanban-workspace',
-  browserRedirect: '/',
-})
+import { defineMcpHandler } from '@lupinum/trellis/mcp'
+
+export default defineMcpHandler({})

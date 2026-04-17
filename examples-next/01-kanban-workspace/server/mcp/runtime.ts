@@ -1,45 +1,69 @@
+import { defineMcpApp } from '@lupinum/trellis/mcp'
+import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
-import { getHeader } from 'h3'
 
-import { api } from '#trellis/api'
-import { defineMcpApp } from '#trellis/mcp'
-import { createServerConvexCaller } from '#trellis/server'
-import { trellisObservability } from '~/observability.config'
-import type { KanbanPrincipal } from '~/convex/auth/principal'
+import { api } from '../../convex/_generated/api'
+import { trellisObservability } from '../../observability.config'
+import type { KanbanPrincipal } from '../../convex/auth/principal'
+import {
+  deriveKanbanCapabilities,
+  type KanbanCapabilities,
+  type KanbanCapabilityRole,
+} from '../../shared/mcp-capabilities'
 
-function getAgentPrincipal(event: H3Event): KanbanPrincipal {
-  const userId = getHeader(event, 'x-kanban-user')?.trim()
-  if (!userId) {
+type McpAuthContext = {
+  userId?: string
+  agentId?: string
+}
+
+function getMcpPrincipal(event: H3Event): KanbanPrincipal {
+  const auth = event.context.mcpAuth as McpAuthContext | undefined
+  if (!auth?.userId) {
     return { kind: 'anonymous' }
   }
 
   return {
     kind: 'agent',
-    userId,
-    agentId: 'local-kanban-agent',
+    userId: auth.userId,
     provider: 'mcp',
+    ...(auth.agentId ? { agentId: auth.agentId } : {}),
   }
 }
 
-export const mcpApp = defineMcpApp({
-  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
-  resolvePrincipal: async (event) => getAgentPrincipal(event),
-  resolveCapabilities: async ({ principal, convex }) => {
-    if (principal.kind !== 'agent') {
-      return {
-        archiveBoard: false,
-      }
-    }
-
-    const board = await convex.query(api.boards.getCurrentBoard, {})
-
+export async function resolveKanbanCapabilities({
+  principal,
+  convex,
+}: {
+  principal: KanbanPrincipal
+  convex: Awaited<ReturnType<typeof createServerConvexCaller>>
+}): Promise<KanbanCapabilities> {
+  if (principal.kind !== 'agent') {
     return {
-      archiveBoard: board?.permissions.archiveBoard === true,
+      listWorkspaces: false,
+      listBoards: false,
+      createCard: false,
+      moveCard: false,
+      archiveBoard: false,
     }
-  },
+  }
+
+  const workspaces = await convex.query(api.workspaces.listAccessibleWorkspaces, {})
+  return deriveKanbanCapabilities(
+    workspaces.map((workspace: { role: string }) => workspace.role as KanbanCapabilityRole),
+  )
+}
+
+export const mcpRuntime = defineMcpApp<KanbanPrincipal, KanbanCapabilities>({
+  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }) as never,
+  resolvePrincipal: async (event) => getMcpPrincipal(event),
+  resolveCapabilities: async ({ principal, convex }) =>
+    await resolveKanbanCapabilities({ principal, convex: convex as never }),
   principalKey: (principal) =>
-    principal.kind === 'agent' ? `agent:${principal.agentId}:${principal.userId}` : principal.kind,
+    principal.kind === 'agent'
+      ? `agent:${principal.agentId ?? principal.userId}`
+      : principal.kind,
   observability: trellisObservability,
 })
 
-export const tool = mcpApp.tool
+export const tool = mcpRuntime.tool
+export default mcpRuntime

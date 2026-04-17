@@ -5,7 +5,10 @@ import { v } from 'convex/values'
 
 import type { DataModel } from '../_generated/dataModel'
 
-export type KanbanPrincipal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
+export type KanbanPrincipal =
+  | { kind: 'anonymous' }
+  | { kind: 'user'; userId: string }
+  | { kind: 'agent'; userId: string; provider: 'mcp'; agentId?: string }
 
 type PrincipalCtx =
   | GenericQueryCtx<DataModel>
@@ -20,6 +23,12 @@ export const principal = definePrincipal({
     v.object({
       kind: v.literal('user'),
       userId: v.string(),
+    }),
+    v.object({
+      kind: v.literal('agent'),
+      userId: v.string(),
+      provider: v.literal('mcp'),
+      agentId: v.optional(v.string()),
     }),
   ),
   resolve: async (ctx: PrincipalCtx): Promise<KanbanPrincipal> => {

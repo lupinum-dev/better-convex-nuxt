@@ -33,6 +33,11 @@ textarea {
   gap: 1.5rem;
 }
 
+.stack-sm {
+  display: grid;
+  gap: 0.5rem;
+}
+
 .inline {
   display: flex;
   gap: 0.75rem;
@@ -74,9 +79,19 @@ textarea {
   min-width: 0;
 }
 
+.card {
+  padding: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
+}
+
 .card-list {
   display: grid;
   gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .card-actions,
@@ -89,6 +104,10 @@ textarea {
 
 .meta {
   opacity: 0.75;
+}
+
+.form-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .mono {
@@ -127,4 +146,3 @@ button {
     align-items: start;
   }
 }
-

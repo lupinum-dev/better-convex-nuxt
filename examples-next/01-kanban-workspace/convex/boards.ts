@@ -1,208 +1,709 @@
-import { requireRecord } from '@lupinum/trellis/auth'
+import { open, requireRecord } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
-import { archiveBoardArgs, createCardArgs, moveCardArgs } from '../shared/schemas/kanban'
+import {
+  agentCreateCardArgs,
+  agentMoveCardArgs,
+  archiveBoardArgs,
+  createBoardArgs,
+  createCardArgs,
+  createColumnArgs,
+  listBoardsForWorkspaceArgs,
+  moveCardArgs,
+  renameColumnArgs,
+  reorderColumnArgs,
+  updateCardArgs,
+} from '../shared/schemas/kanban'
 import type { Doc, Id } from './_generated/dataModel'
-import type { Actor } from './auth/actor'
+import type { Role } from './auth/actor'
 import {
   canArchiveBoard,
-  canCreateCards,
-  canMoveCards,
-  canReadWorkspaceBoard,
+  canManageBoardStructure,
+  canManageBoards,
+  canReadWorkspace,
+  canWriteCards,
 } from './auth/checks'
-import type { KanbanPrincipal } from './auth/principal'
 import { mutation, query } from './functions'
+import { resolveWorkspaceAccess, slugify } from './lib/access'
+import { writeAuditEvent } from './lib/audit'
+import { POSITION_STEP, moveIdBefore } from './lib/ordering'
 
 type BoardRecord = Doc<'boards'>
 type ColumnRecord = Doc<'columns'>
 type CardRecord = Doc<'cards'>
-type BoardReadCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
-type BoardOperationCtx = {
-  db: Pick<GenericQueryCtx<DataModel>['db'], 'get' | 'query'> &
-    Pick<GenericMutationCtx<DataModel>['db'], 'patch'>
+
+function canWriteCardsForRole(role: Role) {
+  return ['owner', 'admin', 'member'].includes(role)
 }
 
-type ArchiveBoardPreview = {
-  display: {
-    summary: string
-    warn: string
-    affects: {
-      columns: number
-      cards: number
-    }
-  }
-  confirm: {
-    operation: 'boards.archive'
-    targetId: Id<'boards'>
-    affectedCounts: {
-      columns: number
-      cards: number
-    }
-  }
+function canArchiveBoardForRole(role: Role) {
+  return ['owner', 'admin'].includes(role)
 }
 
-type ArchiveBoardLoaded = {
-  board: BoardRecord
-  columns: ColumnRecord[]
-  cards: CardRecord[]
+function canManageBoardStructureForRole(role: Role) {
+  return ['owner', 'admin'].includes(role)
 }
 
-async function getCurrentBoardRecord(ctx: BoardReadCtx, workspaceId: Id<'workspaces'>) {
-  return await ctx.db
-    .query('boards')
-    .withIndex('by_workspace_archived', (q) =>
-      q.eq('workspaceId', workspaceId).eq('archived', false),
-    )
-    .first()
+async function listBoardsInWorkspace(
+  db: any,
+  workspaceId: Id<'workspaces'>,
+  includeArchived: boolean,
+) {
+  const source = includeArchived
+    ? db.query('boards').withIndex('by_workspace', (q: any) => q.eq('workspaceId', workspaceId))
+    : db
+        .query('boards')
+        .withIndex('by_workspace_archived', (q: any) =>
+          q.eq('workspaceId', workspaceId).eq('archived', false),
+        )
+
+  return (await source.collect()) as BoardRecord[]
 }
 
 async function listBoardColumns(
-  ctx: BoardReadCtx,
-  boardId: Id<'boards'>,
+  db: any,
   workspaceId: Id<'workspaces'>,
+  boardId: Id<'boards'>,
 ) {
-  return await ctx.db
+  return (await db
     .query('columns')
-    .withIndex('by_workspace_board_position', (q) =>
+    .withIndex('by_workspace_board_position', (q: any) =>
       q.eq('workspaceId', workspaceId).eq('boardId', boardId),
     )
-    .collect()
+    .collect()) as ColumnRecord[]
 }
 
 async function listColumnCards(
-  ctx: BoardReadCtx,
+  db: any,
+  workspaceId: Id<'workspaces'>,
+  columnId: Id<'columns'>,
+) {
+  return (await db
+    .query('cards')
+    .withIndex('by_workspace_column_position', (q: any) =>
+      q.eq('workspaceId', workspaceId).eq('columnId', columnId),
+    )
+    .collect()) as CardRecord[]
+}
+
+async function ensureBoardInWorkspace(
+  db: any,
+  boardId: Id<'boards'>,
+  workspaceId: Id<'workspaces'>,
+) {
+  const board = (await db.get(boardId)) as BoardRecord | null
+  requireRecord(board, 'Board')
+  if (board.workspaceId !== workspaceId) {
+    throw new Error('Board is outside the active workspace.')
+  }
+  return board
+}
+
+async function ensureColumnInWorkspace(
+  db: any,
   columnId: Id<'columns'>,
   workspaceId: Id<'workspaces'>,
 ) {
-  return await ctx.db
-    .query('cards')
-    .withIndex('by_workspace_column_position', (q) =>
-      q.eq('workspaceId', workspaceId).eq('columnId', columnId),
-    )
-    .collect()
+  const column = (await db.get(columnId)) as ColumnRecord | null
+  requireRecord(column, 'Column')
+  if (column.workspaceId !== workspaceId) {
+    throw new Error('Column is outside the active workspace.')
+  }
+  return column
 }
 
-export const getCurrentBoard = query({
-  guard: canReadWorkspaceBoard,
-  args: {},
-  handler: async (ctx) => {
+async function ensureCardInWorkspace(
+  db: any,
+  cardId: Id<'cards'>,
+  workspaceId: Id<'workspaces'>,
+) {
+  const card = (await db.get(cardId)) as CardRecord | null
+  requireRecord(card, 'Card')
+  if (card.workspaceId !== workspaceId) {
+    throw new Error('Card is outside the active workspace.')
+  }
+  return card
+}
+
+async function buildBoardView(
+  db: any,
+  workspaceId: Id<'workspaces'>,
+  board: BoardRecord,
+  role: Role,
+) {
+  const workspace = await db.get(workspaceId)
+  requireRecord(workspace as Doc<'workspaces'> | null, 'Workspace')
+
+  const columns = await listBoardColumns(db, workspaceId, board._id)
+  const columnsWithCards = await Promise.all(
+    columns.map(async (column) => ({
+      _id: column._id,
+      title: column.title,
+      position: column.position,
+      cards: (await listColumnCards(db, workspaceId, column._id)).map((card) => ({
+        _id: card._id,
+        title: card.title,
+        description: card.description ?? '',
+        position: card.position,
+      })),
+    })),
+  )
+
+  return {
+    workspace: {
+      _id: (workspace as Doc<'workspaces'>)._id,
+      name: (workspace as Doc<'workspaces'>).name,
+      slug: (workspace as Doc<'workspaces'>).slug,
+    },
+    board: {
+      _id: board._id,
+      title: board.title,
+      slug: board.slug,
+      archived: board.archived,
+    },
+    permissions: {
+      manageBoards: canManageBoardStructureForRole(role),
+      manageBoardStructure: canManageBoardStructureForRole(role),
+      writeCards: canWriteCardsForRole(role),
+      archiveBoard: canArchiveBoardForRole(role),
+    },
+    columns: columnsWithCards,
+  }
+}
+
+async function createBoardSlug(
+  db: any,
+  workspaceId: Id<'workspaces'>,
+  title: string,
+) {
+  const base = slugify(title) || 'board'
+  let slug = base
+  let suffix = 2
+
+  while (
+    await db
+      .query('boards')
+      .withIndex('by_workspace_slug', (q: any) => q.eq('workspaceId', workspaceId).eq('slug', slug))
+      .first()
+  ) {
+    slug = `${base}-${suffix}`
+    suffix += 1
+  }
+
+  return slug
+}
+
+async function resequenceColumns(
+  ctx: any,
+  orderedIds: Id<'columns'>[],
+) {
+  const now = Date.now()
+  for (const [index, columnId] of orderedIds.entries()) {
+    await ctx.db.patch(columnId, {
+      position: index * POSITION_STEP,
+      updatedAt: now,
+    })
+  }
+}
+
+async function resequenceCards(
+  ctx: any,
+  orderedIds: Id<'cards'>[],
+  options?: {
+    movingCardId?: Id<'cards'>
+    toColumnId?: Id<'columns'>
+  },
+) {
+  const now = Date.now()
+  for (const [index, cardId] of orderedIds.entries()) {
+    await ctx.db.patch(cardId, {
+      position: index * POSITION_STEP,
+      updatedAt: now,
+      ...(options?.movingCardId === cardId && options.toColumnId
+        ? { columnId: options.toColumnId }
+        : {}),
+    })
+  }
+}
+
+async function resolveBoardByName(
+  db: any,
+  workspaceId: Id<'workspaces'>,
+  boardName?: string,
+  includeArchived = false,
+): Promise<BoardRecord> {
+  const boards = await listBoardsInWorkspace(db, workspaceId, true)
+  const available = includeArchived ? boards : boards.filter((board) => !board.archived)
+
+  if (!boardName) {
+    if (available.length === 1) {
+      const onlyBoard = available[0]
+      if (!onlyBoard) throw new Error('Board was not found.')
+      return onlyBoard
+    }
+    throw new Error('Board is required because the workspace has multiple boards.')
+  }
+
+  const normalized = boardName.trim().toLowerCase()
+  const matches = available.filter((board) => {
+    return board.slug.toLowerCase() === normalized || board.title.trim().toLowerCase() === normalized
+  })
+
+  if (matches.length === 0) {
+    throw new Error(`Board "${boardName}" was not found.`)
+  }
+  if (matches.length > 1) {
+    throw new Error(`Board "${boardName}" is ambiguous. Use the slug instead.`)
+  }
+  return matches[0]!
+}
+
+async function resolveColumnByTitle(
+  db: any,
+  workspaceId: Id<'workspaces'>,
+  boardId: Id<'boards'>,
+  title: string,
+): Promise<ColumnRecord> {
+  const columns = await listBoardColumns(db, workspaceId, boardId)
+  const normalized = title.trim().toLowerCase()
+  const matches = columns.filter((column) => column.title.trim().toLowerCase() === normalized)
+  if (matches.length === 0) {
+    throw new Error(`Column "${title}" was not found.`)
+  }
+  if (matches.length > 1) {
+    throw new Error(`Column "${title}" is ambiguous.`)
+  }
+  return matches[0]!
+}
+
+async function resolveCardByTitle(
+  db: any,
+  workspaceId: Id<'workspaces'>,
+  boardId: Id<'boards'>,
+  title: string,
+): Promise<CardRecord> {
+  const columns = await listBoardColumns(db, workspaceId, boardId)
+  const cards = (
+    await Promise.all(columns.map((column) => listColumnCards(db, workspaceId, column._id)))
+  ).flat()
+  const normalized = title.trim().toLowerCase()
+  const matches = cards.filter((card) => card.title.trim().toLowerCase() === normalized)
+  if (matches.length === 0) {
+    throw new Error(`Card "${title}" was not found.`)
+  }
+  if (matches.length > 1) {
+    throw new Error(`Card "${title}" is ambiguous. Specify the board more narrowly.`)
+  }
+  return matches[0]!
+}
+
+async function moveCardWithinBoard(
+  ctx: any,
+  workspaceId: Id<'workspaces'>,
+  card: CardRecord,
+  toColumn: ColumnRecord,
+  beforeCardId?: Id<'cards'>,
+) {
+  if (card.columnId === toColumn._id) {
+    const sameColumnCards = await listColumnCards(ctx.db, workspaceId, card.columnId)
+    const order = moveIdBefore(
+      sameColumnCards.map((entry) => entry._id),
+      card._id,
+      beforeCardId && beforeCardId !== card._id ? beforeCardId : undefined,
+    )
+    await resequenceCards(ctx, order)
+    return
+  }
+
+  const sourceCards = await listColumnCards(ctx.db, workspaceId, card.columnId)
+  const destinationCards = await listColumnCards(ctx.db, workspaceId, toColumn._id)
+  const sourceOrder = sourceCards.filter((entry) => entry._id !== card._id).map((entry) => entry._id)
+  const destinationOrder = moveIdBefore(
+    destinationCards.map((entry) => entry._id),
+    card._id,
+    beforeCardId,
+  )
+
+  await resequenceCards(ctx, sourceOrder)
+  await resequenceCards(ctx, destinationOrder, {
+    movingCardId: card._id,
+    toColumnId: toColumn._id,
+  })
+}
+
+export const listBoards = query({
+  guard: canReadWorkspace,
+  args: {
+    includeArchived: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    const workspaceId = actor?.tenantId
-    if (!workspaceId) throw new Error('Current actor is not assigned to a workspace.')
+    const boards = await listBoardsInWorkspace(ctx.db, actor.tenantId, args.includeArchived === true)
 
-    const workspace = await ctx.db.get(workspaceId)
-    requireRecord(workspace, 'Workspace')
-
-    const board = await getCurrentBoardRecord(ctx, workspaceId)
-    if (!board) return null
-    const columns = await listBoardColumns(ctx, board._id, workspaceId)
-
-    return {
-      workspace: {
-        _id: workspace._id,
-        name: workspace.name,
-        slug: workspace.slug,
-      },
-      actorRole: actor.role,
-      board: {
+    return boards
+      .sort((left, right) => left.createdAt - right.createdAt)
+      .map((board) => ({
         _id: board._id,
         title: board.title,
-      },
-      permissions: {
-        createCard: ['owner', 'admin', 'member'].includes(actor.role),
-        moveCard: ['owner', 'admin', 'member'].includes(actor.role),
-        archiveBoard: ['owner', 'admin'].includes(actor.role),
-      },
-      columns: await Promise.all(
-        columns.map(async (column: ColumnRecord) => ({
-          _id: column._id,
-          title: column.title,
-          position: column.position,
-          cards: (await listColumnCards(ctx, column._id, workspaceId)).map((card: CardRecord) => ({
-            _id: card._id,
-            title: card.title,
-            position: card.position,
-          })),
-        })),
-      ),
+        slug: board.slug,
+        archived: board.archived,
+      }))
+  },
+})
+
+export const getBoardView = query({
+  guard: canReadWorkspace,
+  args: {
+    boardId: v.id('boards'),
+  },
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const board = await ensureBoardInWorkspace(ctx.db, args.boardId, actor.tenantId)
+    return await buildBoardView(ctx.db, actor.tenantId, board, actor.role)
+  },
+})
+
+export const createBoard = mutation({
+  guard: canManageBoards,
+  args: createBoardArgs.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const principal = await ctx.principal()
+    const now = Date.now()
+    const title = args.title.trim()
+    const slug = await createBoardSlug(ctx.db, actor.tenantId, title)
+    const boardId = await ctx.db.insert('boards', {
+      workspaceId: actor.tenantId,
+      title,
+      slug,
+      archived: false,
+      createdBy: actor.userId,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    for (const [index, columnTitle] of ['Inbox', 'Doing', 'Done'].entries()) {
+      await ctx.db.insert('columns', {
+        workspaceId: actor.tenantId,
+        boardId,
+        title: columnTitle,
+        position: index * POSITION_STEP,
+        createdAt: now,
+        updatedAt: now,
+      })
     }
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor,
+      action: 'board.created',
+      summary: `Created board "${title}".`,
+      workspaceId: actor.tenantId,
+      boardId: String(boardId),
+    })
+
+    return boardId
+  },
+})
+
+export const createColumn = mutation({
+  guard: canManageBoardStructure,
+  args: createColumnArgs.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const principal = await ctx.principal()
+    const board = await ensureBoardInWorkspace(ctx.db, args.boardId, actor.tenantId)
+    const columns = await listBoardColumns(ctx.db, actor.tenantId, board._id)
+    const columnId = await ctx.db.insert('columns', {
+      workspaceId: actor.tenantId,
+      boardId: board._id,
+      title: args.title.trim(),
+      position: columns.length * POSITION_STEP,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor,
+      action: 'column.created',
+      summary: `Created column "${args.title.trim()}".`,
+      workspaceId: actor.tenantId,
+      boardId: String(board._id),
+      columnId: String(columnId),
+    })
+
+    return columnId
+  },
+})
+
+export const renameColumn = mutation({
+  guard: canManageBoardStructure,
+  args: renameColumnArgs.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const principal = await ctx.principal()
+    const column = await ensureColumnInWorkspace(ctx.db, args.columnId, actor.tenantId)
+    await ctx.db.patch(column._id, {
+      title: args.title.trim(),
+      updatedAt: Date.now(),
+    })
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor,
+      action: 'column.renamed',
+      summary: `Renamed a column to "${args.title.trim()}".`,
+      workspaceId: actor.tenantId,
+      boardId: String(column.boardId),
+      columnId: String(column._id),
+    })
+  },
+})
+
+export const reorderColumn = mutation({
+  guard: canManageBoardStructure,
+  args: reorderColumnArgs.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const principal = await ctx.principal()
+    const column = await ensureColumnInWorkspace(ctx.db, args.columnId, actor.tenantId)
+    const columns = await listBoardColumns(ctx.db, actor.tenantId, column.boardId)
+
+    if (args.beforeColumnId) {
+      const beforeColumn = await ensureColumnInWorkspace(ctx.db, args.beforeColumnId, actor.tenantId)
+      if (beforeColumn.boardId !== column.boardId) {
+        throw new Error('Columns must stay within the same board.')
+      }
+    }
+
+    const order = moveIdBefore(
+      columns.map((entry) => entry._id),
+      column._id,
+      args.beforeColumnId,
+    )
+    await resequenceColumns(ctx, order)
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor,
+      action: 'column.reordered',
+      summary: `Reordered column "${column.title}".`,
+      workspaceId: actor.tenantId,
+      boardId: String(column.boardId),
+      columnId: String(column._id),
+    })
   },
 })
 
 export const createCard = mutation({
-  guard: canCreateCards,
+  guard: canWriteCards,
   args: createCardArgs.args,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    const workspaceId = actor?.tenantId
-    if (!workspaceId) throw new Error('Current actor is not assigned to a workspace.')
-
-    const column = await ctx.db.get(args.columnId)
-    requireRecord(column, 'Column')
-
-    const existing = await listColumnCards(ctx, column._id, workspaceId)
-    const position =
-      existing.length === 0 ? 0 : Math.max(...existing.map((card: CardRecord) => card.position)) + 1
-
-    return await ctx.db.insert('cards', {
-      workspaceId,
+    const principal = await ctx.principal()
+    const column = await ensureColumnInWorkspace(ctx.db, args.columnId, actor.tenantId)
+    const cards = await listColumnCards(ctx.db, actor.tenantId, column._id)
+    const cardId = await ctx.db.insert('cards', {
+      workspaceId: actor.tenantId,
       boardId: column.boardId,
       columnId: column._id,
       title: args.title.trim(),
-      position,
-      ownerId: actor.userId,
+      description: args.description?.trim() || undefined,
+      position: cards.length * POSITION_STEP,
+      createdBy: actor.userId,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor,
+      action: 'card.created',
+      summary: `Created card "${args.title.trim()}".`,
+      workspaceId: actor.tenantId,
+      boardId: String(column.boardId),
+      columnId: String(column._id),
+      cardId: String(cardId),
+    })
+
+    return cardId
+  },
+})
+
+export const updateCard = mutation({
+  guard: canWriteCards,
+  args: updateCardArgs.args,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const principal = await ctx.principal()
+    const card = await ensureCardInWorkspace(ctx.db, args.cardId, actor.tenantId)
+    await ctx.db.patch(card._id, {
+      title: args.title.trim(),
+      description: args.description?.trim() || undefined,
+      updatedAt: Date.now(),
+    })
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor,
+      action: 'card.updated',
+      summary: `Updated card "${args.title.trim()}".`,
+      workspaceId: actor.tenantId,
+      boardId: String(card.boardId),
+      columnId: String(card.columnId),
+      cardId: String(card._id),
     })
   },
 })
 
 export const moveCard = mutation({
-  guard: canMoveCards,
+  guard: canWriteCards,
   args: moveCardArgs.args,
   returns: v.null(),
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    const workspaceId = actor?.tenantId
-    if (!workspaceId) throw new Error('Current actor is not assigned to a workspace.')
+    const principal = await ctx.principal()
+    const card = await ensureCardInWorkspace(ctx.db, args.cardId, actor.tenantId)
+    const toColumn = await ensureColumnInWorkspace(ctx.db, args.toColumnId, actor.tenantId)
 
-    const card = await ctx.db.get(args.id)
-    requireRecord(card, 'Card')
+    if (card.boardId !== toColumn.boardId) {
+      throw new Error('Cards can only move inside a single board.')
+    }
 
-    const columns = await listBoardColumns(ctx, card.boardId, workspaceId)
-    const currentIndex = columns.findIndex((column: ColumnRecord) => column._id === card.columnId)
-    if (currentIndex === -1) throw new Error('Card column not found.')
+    if (args.beforeCardId) {
+      const beforeCard = await ensureCardInWorkspace(ctx.db, args.beforeCardId, actor.tenantId)
+      if (beforeCard.columnId !== toColumn._id) {
+        throw new Error('Destination card must be inside the destination column.')
+      }
+    }
 
-    const nextIndex = args.direction === 'left' ? currentIndex - 1 : currentIndex + 1
-    const targetColumn = columns[nextIndex]
-    if (!targetColumn) return null
+    await moveCardWithinBoard(ctx, actor.tenantId, card, toColumn, args.beforeCardId)
 
-    const targetCards = await listColumnCards(ctx, targetColumn._id, workspaceId)
-    const position =
-      targetCards.length === 0
-        ? 0
-        : Math.max(...targetCards.map((target: CardRecord) => target.position)) + 1
-
-    await ctx.db.patch(card._id, {
-      columnId: targetColumn._id,
-      position,
+    await writeAuditEvent(ctx, {
+      principal,
+      actor,
+      action: 'card.moved',
+      summary: `Moved card "${card.title}" to "${toColumn.title}".`,
+      workspaceId: actor.tenantId,
+      boardId: String(card.boardId),
+      columnId: String(toColumn._id),
+      cardId: String(card._id),
     })
 
     return null
   },
 })
 
-export const archiveBoardOp = defineOperation<
-  BoardOperationCtx,
-  KanbanPrincipal,
-  Actor,
-  typeof canArchiveBoard,
-  typeof archiveBoardArgs.args,
-  ArchiveBoardLoaded,
-  null,
-  ArchiveBoardPreview
->({
+export const listBoardsForWorkspace = query({
+  guard: open,
+  args: listBoardsForWorkspaceArgs.args,
+  handler: async (ctx, args) => {
+    const principal = await ctx.principal()
+    const access = await resolveWorkspaceAccess(ctx.db, principal, args.workspace)
+    const boards = await listBoardsInWorkspace(
+      ctx.db,
+      access.workspace._id,
+      args.includeArchived === true,
+    )
+
+    return boards.map((board) => ({
+      _id: board._id,
+      title: board.title,
+      slug: board.slug,
+      archived: board.archived,
+      workspace: access.workspace.slug,
+    }))
+  },
+})
+
+export const createCardByAgent = mutation({
+  guard: open,
+  args: agentCreateCardArgs.args,
+  handler: async (ctx, args) => {
+    const principal = await ctx.principal()
+    const access = await resolveWorkspaceAccess(ctx.db, principal, args.workspace)
+    if (!canWriteCardsForRole(access.membership.role)) {
+      throw new Error('You do not have permission to create cards in that workspace.')
+    }
+
+    const board = await resolveBoardByName(ctx.db, access.workspace._id, args.board)
+    const column = await resolveColumnByTitle(ctx.db, access.workspace._id, board._id, args.column)
+    const cards = await listColumnCards(ctx.db, access.workspace._id, column._id)
+
+    const cardId = await ctx.db.insert('cards', {
+      workspaceId: access.workspace._id,
+      boardId: board._id,
+      columnId: column._id,
+      title: args.title.trim(),
+      description: args.description?.trim() || undefined,
+      position: cards.length * POSITION_STEP,
+      createdBy: access.user.authId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor: null,
+      action: 'card.created.agent',
+      summary: `Agent created card "${args.title.trim()}" in "${column.title}".`,
+      workspaceId: access.workspace._id,
+      boardId: String(board._id),
+      columnId: String(column._id),
+      cardId: String(cardId),
+    })
+
+    return {
+      cardId,
+      workspace: access.workspace.slug,
+      board: board.slug,
+      column: column.title,
+    }
+  },
+})
+
+export const moveCardByAgent = mutation({
+  guard: open,
+  args: agentMoveCardArgs.args,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const principal = await ctx.principal()
+    const access = await resolveWorkspaceAccess(ctx.db, principal, args.workspace)
+    if (!canWriteCardsForRole(access.membership.role)) {
+      throw new Error('You do not have permission to move cards in that workspace.')
+    }
+
+    const board = await resolveBoardByName(ctx.db, access.workspace._id, args.board)
+    const card = await resolveCardByTitle(ctx.db, access.workspace._id, board._id, args.cardTitle)
+    const toColumn = await resolveColumnByTitle(ctx.db, access.workspace._id, board._id, args.toColumn)
+    const beforeCard = args.beforeCardTitle
+      ? await resolveCardByTitle(ctx.db, access.workspace._id, board._id, args.beforeCardTitle)
+      : null
+
+    if (beforeCard && beforeCard.columnId !== toColumn._id) {
+      throw new Error('beforeCardTitle must refer to a card already in the destination column.')
+    }
+
+    await moveCardWithinBoard(ctx, access.workspace._id, card, toColumn, beforeCard?._id)
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor: null,
+      action: 'card.moved.agent',
+      summary: `Agent moved card "${card.title}" to "${toColumn.title}".`,
+      workspaceId: access.workspace._id,
+      boardId: String(board._id),
+      columnId: String(toColumn._id),
+      cardId: String(card._id),
+    })
+
+    return null
+  },
+})
+
+export const archiveBoardOp = defineOperation({
   id: 'boards.archive',
   name: 'archiveBoard',
   kind: 'destructive',
@@ -226,30 +727,50 @@ export const archiveBoardOp = defineOperation<
       }),
     }),
   }),
-  guard: canArchiveBoard,
-  load: async (ctx, args) => {
-    const board = await ctx.db.get(args.id)
-    requireRecord(board, 'Board')
-    const columns = await ctx.db
-      .query('columns')
-      .withIndex('by_workspace_board_position', (q) =>
-        q.eq('workspaceId', board.workspaceId).eq('boardId', board._id),
-      )
-      .collect()
+  guard: open,
+  load: async (ctx: any, args) => {
+    const principal = (await ctx.principal()) as import('./auth/principal').KanbanPrincipal
 
-    const cards = await ctx.db
-      .query('cards')
-      .withIndex('by_workspace_board_position', (q) =>
-        q.eq('workspaceId', board.workspaceId).eq('boardId', board._id),
-      )
-      .collect()
+    if (args.boardId) {
+      const board = (await ctx.db.get(args.boardId)) as BoardRecord | null
+      requireRecord(board, 'Board')
+      const access = await resolveWorkspaceAccess(ctx.db, principal, args.workspace)
+      if (board.workspaceId !== access.workspace._id) {
+        throw new Error('Board is not in the selected workspace.')
+      }
+      if (!canArchiveBoardForRole(access.membership.role)) {
+        throw new Error('You do not have permission to archive boards in that workspace.')
+      }
 
-    return { board, columns, cards }
+      const columns = await listBoardColumns(ctx.db, board.workspaceId, board._id)
+      const cards = (
+        await Promise.all(columns.map((column) => listColumnCards(ctx.db, board.workspaceId, column._id)))
+      ).flat()
+
+      return { board, columns, cards, access }
+    }
+
+    if (!args.board) {
+      throw new Error('boardId or board is required.')
+    }
+
+    const access = await resolveWorkspaceAccess(ctx.db, principal, args.workspace)
+    if (!canArchiveBoardForRole(access.membership.role)) {
+      throw new Error('You do not have permission to archive boards in that workspace.')
+    }
+
+    const board = await resolveBoardByName(ctx.db, access.workspace._id, args.board, true)
+    const columns = await listBoardColumns(ctx.db, access.workspace._id, board._id)
+    const cards = (
+      await Promise.all(columns.map((column) => listColumnCards(ctx.db, access.workspace._id, column._id)))
+    ).flat()
+
+    return { board, columns, cards, access }
   },
   preview: async (_ctx, _args, { board, columns, cards }) => ({
     display: {
-      summary: `Archive "${board.title}"`,
-      warn: 'The board disappears from the active workspace view.',
+      summary: `Archive "${board.title}" and hide it from active board views.`,
+      warn: 'Cards and columns stay in the database, but the board disappears from the active workspace.',
       affects: {
         columns: columns.length,
         cards: cards.length,
@@ -264,13 +785,26 @@ export const archiveBoardOp = defineOperation<
       },
     },
   }),
-  handler: async (ctx, _args, { board }) => {
+  handler: async (ctx: any, _args, { board, access }) => {
+    const principal = (await ctx.principal()) as import('./auth/principal').KanbanPrincipal
+    const actor = (await ctx.actor()) as import('./auth/actor').Actor | null
     await ctx.db.patch(board._id, {
       archived: true,
       updatedAt: Date.now(),
     })
+
+    await writeAuditEvent(ctx, {
+      principal,
+      actor,
+      action: 'board.archived',
+      summary: `Archived board "${board.title}".`,
+      workspaceId: access.workspace._id,
+      boardId: String(board._id),
+    })
+
     return null
   },
 })
+
 export const archiveBoard = mutation(archiveBoardOp)
 export const previewArchiveBoard = query(previewOf(archiveBoardOp))
