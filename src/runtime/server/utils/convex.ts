@@ -4,7 +4,7 @@ import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared.js'
-import { createLogger, getLogLevel } from '../../utils/logger.js'
+import { createLogger } from '../../utils/logger.js'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
 import { resolveRequestAuthToken } from './auth-resolver.js'
@@ -18,6 +18,19 @@ interface ServerConvexErrorContext {
   functionPath: string
   convexUrl?: string
   authMode: ConvexServerAuthMode
+}
+
+function readEventHeader(event: H3Event, name: string): string | undefined {
+  if (event.headers && typeof event.headers.get === 'function') {
+    return event.headers.get(name) ?? undefined
+  }
+
+  const nodeHeaders = event.node?.req?.headers as Record<string, unknown> | undefined
+  const key = name.toLowerCase()
+  const value = nodeHeaders?.[key]
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.find((entry): entry is string => typeof entry === 'string')
+  return undefined
 }
 
 export interface ServerConvexOptions {
@@ -114,8 +127,24 @@ async function executeConvexOperation<
     )
   }
 
-  const logLevel = getLogLevel(runtimeConfig.public.convex ?? {})
-  const logger = createLogger(logLevel)
+  const requestId = crypto.randomUUID()
+  const correlationHeader =
+    convexConfig.observability.correlation.header || 'x-trellis-correlation-id'
+  const eventContext =
+    ((event.context as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
+  ;(event as { context?: Record<string, unknown> }).context = eventContext
+  const correlationId =
+    readEventHeader(event, correlationHeader) ||
+    (eventContext.__trellisCorrelationId as string | undefined) ||
+    convexConfig.observability.correlation.generate()
+  eventContext.__trellisCorrelationId = correlationId
+
+  const logger = createLogger(runtimeConfig.public.convex ?? {}, {
+    transport: 'nuxt-server',
+    correlationId,
+    requestId,
+    handler: functionPath,
+  })
   const startTime = Date.now()
 
   const headers: Record<string, string> = {

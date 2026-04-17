@@ -33,6 +33,14 @@ import { can, deny } from '../auth/index.js'
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
+import {
+  createObservationEmitter,
+  getObservationArgs,
+  observationArgKeys,
+  stripObservationArgs,
+  type TrellisObservationEvent,
+  type TrellisObservabilityOptions,
+} from '../utils/observability.js'
 import { createComponentBridge } from './create-component-bridge.js'
 import { buildStructuredBuilder } from './define-handler.js'
 import type {
@@ -90,10 +98,15 @@ type AnyCtx<DataModel extends GenericDataModel> =
 
 export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
+type ObserveFn = (
+  event: Omit<TrellisObservationEvent, 'ts' | 'correlationId' | 'transport'> &
+    Partial<Pick<TrellisObservationEvent, 'correlationId' | 'transport'>>,
+) => Promise<void>
 
 export type FunctionsCtxExtension<TPrincipal, TActor> = {
   principal: PrincipalAccessor<TPrincipal>
   actor: ActorAccessor<TActor>
+  observe: ObserveFn
 }
 
 type QueryDbWithRuntime<DataModel extends GenericDataModel> = GenericQueryCtx<DataModel>['db'] & {
@@ -201,6 +214,7 @@ export interface DefineTrellisOptions<
   ) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
   services?: ServiceAccessDefinition<DataModel, TPrincipal>
+  observability?: TrellisObservabilityOptions
   destructiveSafety?: {
     redemptionTable: TableNamesInDataModel<DataModel>
     auditTable: TableNamesInDataModel<DataModel>
@@ -260,6 +274,24 @@ function getTenantId(actor: unknown): unknown {
   return actor.tenantId
 }
 
+function describePrincipalKind(principal: unknown): string {
+  if (typeof principal === 'object' && principal !== null && 'kind' in principal) {
+    const kind = (principal as { kind?: unknown }).kind
+    if (typeof kind === 'string') return kind
+  }
+  if (principal == null) return 'anonymous'
+  return typeof principal
+}
+
+function describeActorKind(actor: unknown): string {
+  if (actor == null) return 'missing'
+  if (typeof actor === 'object' && actor !== null && 'role' in actor) {
+    const role = (actor as { role?: unknown }).role
+    if (typeof role === 'string') return role
+  }
+  return 'resolved'
+}
+
 function hasTenantScope(value: unknown): boolean {
   return value !== undefined && value !== null
 }
@@ -302,16 +334,33 @@ function getServiceTableFromId(value: unknown): string | null {
 function assertServiceTableAccess<DataModel extends GenericDataModel>(
   access: ResolvedServiceAccess<DataModel>,
   table: string,
+  observe?: ObserveFn,
 ): void {
   if (!access || access.access === 'unrestricted') return
   if (!access.tables.has(table as TableNamesInDataModel<DataModel>)) {
+    void observe?.({
+      name: 'service.access.denied',
+      status: 'deny',
+      transport: 'convex',
+      serviceId: access.serviceId,
+      reasonCode: 'service.table_denied',
+      details: { table },
+    })
     throw getServiceError(access.serviceId, table)
   }
+  void observe?.({
+    name: 'service.access.checked',
+    status: 'success',
+    transport: 'convex',
+    serviceId: access.serviceId,
+    details: { table },
+  })
 }
 
 function wrapServiceDb<TDb extends object, DataModel extends GenericDataModel>(
   db: TDb,
   access: ResolvedServiceAccess<DataModel>,
+  observe?: ObserveFn,
 ): TDb {
   if (!access || access.access === 'unrestricted') return db
 
@@ -322,14 +371,14 @@ function wrapServiceDb<TDb extends object, DataModel extends GenericDataModel>(
 
       if (prop === 'query') {
         return (table: TableNamesInDataModel<DataModel>) => {
-          assertServiceTableAccess(access, String(table))
+          assertServiceTableAccess(access, String(table), observe)
           return original.call(target, table)
         }
       }
 
       if (prop === 'insert') {
         return (table: TableNamesInDataModel<DataModel>, value: unknown) => {
-          assertServiceTableAccess(access, String(table))
+          assertServiceTableAccess(access, String(table), observe)
           return original.call(target, table, value)
         }
       }
@@ -340,7 +389,7 @@ function wrapServiceDb<TDb extends object, DataModel extends GenericDataModel>(
           if (!table) {
             throw new Error(`Could not determine table from Convex id "${String(id)}".`)
           }
-          assertServiceTableAccess(access, table)
+          assertServiceTableAccess(access, table, observe)
           return original.call(target, id, ...args)
         }
       }
@@ -354,7 +403,7 @@ function createServiceScopeRule<TDoc extends Record<string, unknown>>(
   field: string,
   tenantId: unknown,
 ) {
-  return async (_ctx: unknown, doc: TDoc) => {
+  return async (ctx: unknown, doc: TDoc) => {
     const documentTenantId = doc[field as keyof TDoc]
 
     if (
@@ -366,6 +415,13 @@ function createServiceScopeRule<TDoc extends Record<string, unknown>>(
     }
 
     if (process.env.NODE_ENV === 'production') {
+      void (ctx as { observe?: ObserveFn }).observe?.({
+        name: 'rls.denied',
+        status: 'deny',
+        transport: 'convex',
+        reasonCode: 'service.scope_denied',
+        details: { field, expectedTenantId: tenantId, actualTenantId: documentTenantId },
+      })
       return false
     }
 
@@ -394,6 +450,13 @@ function createTenantIsolationRule<
     }
 
     if (process.env.NODE_ENV === 'production') {
+      await ctx.observe({
+        name: 'rls.denied',
+        status: 'deny',
+        transport: 'convex',
+        reasonCode: 'tenant.scope_denied',
+        details: { field, actorTenantId, documentTenantId },
+      })
       return false
     }
 
@@ -538,7 +601,7 @@ async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TAct
     options.tenantIsolation,
   )
   const rlsRules = options.rls?.rules
-  const serviceAccess = await resolveServiceAccess(ctx, args, options)
+  const serviceAccess = await resolveServiceAccess(ctx, stripObservationArgs(args), options)
   const serviceRules = buildServiceRules(serviceAccess, options.tenantIsolation)
 
   const resolvedCustomRules =
@@ -669,6 +732,7 @@ function createContextWithRuntime<
 >(
   ctx: TCtx,
   args: Record<string, unknown>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
   principalResolver: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
   actorResolver: (
     ctx: TCtx & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
@@ -676,20 +740,54 @@ function createContextWithRuntime<
     principal: TPrincipal,
   ) => Promise<TActor | null>,
 ): RuntimeBundle<DataModel, TCtx, TPrincipal, TActor> {
+  const observationArgs = getObservationArgs(args)
+  const observeRuntime = createObservationEmitter(options.observability, {
+    transport: observationArgs._trellisTransport ?? 'convex',
+    correlationId: observationArgs._trellisCorrelationId,
+    requestId: observationArgs._trellisRequestId,
+  })
+  const observe: ObserveFn = async (event) => {
+    await observeRuntime.emit({
+      ...event,
+      transport: event.transport ?? 'convex',
+    })
+  }
+
   let principalPromise: Promise<TPrincipal> | null = null
   const principal: PrincipalAccessor<TPrincipal> = async () => {
-    principalPromise ??= Promise.resolve(principalResolver.resolve(ctx, args))
+    principalPromise ??= Promise.resolve(principalResolver.resolve(ctx, args)).then(
+      async (value) => {
+        await observe({
+          name: 'principal.resolved',
+          status: 'success',
+          principalKind: describePrincipalKind(value),
+        })
+        return value
+      },
+    )
     return await principalPromise
   }
 
   const ctxWithPrincipal = {
     ...ctx,
     principal,
-  } as TCtx & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>
+    observe,
+  } as TCtx & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal' | 'observe'>
 
   let actorPromise: Promise<TActor | null> | null = null
   const actor: ActorAccessor<TActor> = async () => {
-    actorPromise ??= actorResolver(ctxWithPrincipal, args, await principal())
+    actorPromise ??= actorResolver(ctxWithPrincipal, args, await principal()).then(
+      async (value) => {
+        await observe({
+          name: value == null ? 'actor.missing' : 'actor.resolved',
+          status: value == null ? 'skip' : 'success',
+          actorKind: describeActorKind(value),
+          tenantId:
+            typeof getTenantId(value) === 'string' ? (getTenantId(value) as string) : undefined,
+        })
+        return value
+      },
+    )
     return await actorPromise
   }
 
@@ -699,6 +797,7 @@ function createContextWithRuntime<
     baseCtx: {
       ...ctxWithPrincipal,
       actor,
+      observe,
     } as TCtx & FunctionsCtxExtension<TPrincipal, TActor>,
   }
 }
@@ -712,7 +811,7 @@ function createOnSuccessHandler<Ctx>(
   return async ({ args, result }) => {
     await handler({
       ctx,
-      args,
+      args: stripObservationArgs(args),
       result,
     })
   }
@@ -722,16 +821,45 @@ function decorateDb<TDb extends object>(
   db: TDb,
   rawDb: TDb,
   crossTenantDb: TDb,
+  observe: ObserveFn,
 ): TDb & { raw: TDb; crossTenant: TDb } {
+  const instrument = (
+    targetDb: TDb,
+    name: 'db.raw.used' | 'db.cross_tenant.used',
+  ): TDb =>
+    new Proxy(targetDb, {
+      get(target, prop, receiver) {
+        const original = Reflect.get(target, prop, receiver)
+        if (typeof original !== 'function') return original
+        return (...args: unknown[]) => {
+          const table =
+            typeof args[0] === 'string'
+              ? String(args[0])
+              : typeof prop === 'string' &&
+                  ['get', 'patch', 'replace', 'delete'].includes(prop) &&
+                  typeof getServiceTableFromId(args[0]) === 'string'
+                ? getServiceTableFromId(args[0])
+                : null
+          void observe({
+            name,
+            status: 'success',
+            transport: 'convex',
+            details: table ? { table } : undefined,
+          })
+          return original.apply(target, args)
+        }
+      },
+    }) as TDb
+
   return Object.assign(db, {
-    raw: rawDb,
-    crossTenant: crossTenantDb,
+    raw: instrument(rawDb, 'db.raw.used'),
+    crossTenant: instrument(crossTenantDb, 'db.cross_tenant.used'),
   }) as TDb & { raw: TDb; crossTenant: TDb }
 }
 
 function stripConfirmationToken(args: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(args).filter(([key]) => key !== '_confirmationToken'),
+  return stripObservationArgs(
+    Object.fromEntries(Object.entries(args).filter(([key]) => key !== '_confirmationToken')),
   )
 }
 
@@ -758,17 +886,26 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
 > {
   const principalDefinition = resolvePrincipal(options.principal)
   const actorResolver = resolveActor(options.actor)
-  const principalArgs: PropertyValidators = principalDefinition.validator
-    ? { principal: v.optional(principalDefinition.validator) }
-    : {}
+  const principalArgs: PropertyValidators = {
+    ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    [observationArgKeys.correlationId]: v.optional(v.string()),
+    [observationArgKeys.transport]: v.optional(v.string()),
+    [observationArgKeys.requestId]: v.optional(v.string()),
+  }
 
   return {
     args: principalArgs,
     input: async (ctx, args) => {
-      const { baseCtx } = createContextWithRuntime(ctx, args, principalDefinition, actorResolver)
+      const { baseCtx } = createContextWithRuntime(
+        ctx,
+        args,
+        options,
+        principalDefinition,
+        actorResolver,
+      )
       const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(baseCtx, args, options)
       const rawDb = ctx.db
-      const serviceDb = wrapServiceDb(rawDb, serviceAccess)
+      const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
       const db = dbRules
         ? wrapDatabaseReader(baseCtx, serviceDb, dbRules, options.rls?.config)
         : serviceDb
@@ -777,7 +914,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
         : serviceDb
       const finalCtx: QueryCtxWithRuntime<DataModel, TPrincipal, TActor> = {
         ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TPrincipal, TActor>),
-        db: decorateDb(db, rawDb, crossTenantDb),
+        db: decorateDb(db, rawDb, crossTenantDb, baseCtx.observe),
       }
 
       return {
@@ -799,17 +936,26 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
 > {
   const principalDefinition = resolvePrincipal(options.principal)
   const actorResolver = resolveActor(options.actor)
-  const principalArgs: PropertyValidators = principalDefinition.validator
-    ? { principal: v.optional(principalDefinition.validator) }
-    : {}
+  const principalArgs: PropertyValidators = {
+    ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    [observationArgKeys.correlationId]: v.optional(v.string()),
+    [observationArgKeys.transport]: v.optional(v.string()),
+    [observationArgKeys.requestId]: v.optional(v.string()),
+  }
 
   return {
     args: principalArgs,
     input: async (ctx, args) => {
-      const { baseCtx } = createContextWithRuntime(ctx, args, principalDefinition, actorResolver)
+      const { baseCtx } = createContextWithRuntime(
+        ctx,
+        args,
+        options,
+        principalDefinition,
+        actorResolver,
+      )
       const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(baseCtx, args, options)
       const rawDb = ctx.db
-      const serviceDb = wrapServiceDb(rawDb, serviceAccess)
+      const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
       let db = dbRules
         ? wrapDatabaseWriter(baseCtx, serviceDb, dbRules, options.rls?.config)
         : serviceDb
@@ -830,7 +976,7 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
 
       const finalCtx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor> = {
         ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
-        db: decorateDb(db, rawDb, crossTenantDb),
+        db: decorateDb(db, rawDb, crossTenantDb, baseCtx.observe),
       }
 
       return {
@@ -852,14 +998,23 @@ function createActionCustomization<DataModel extends GenericDataModel, TPrincipa
 > {
   const principalDefinition = resolvePrincipal(options.principal)
   const actorResolver = resolveActor(options.actor)
-  const principalArgs: PropertyValidators = principalDefinition.validator
-    ? { principal: v.optional(principalDefinition.validator) }
-    : {}
+  const principalArgs: PropertyValidators = {
+    ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    [observationArgKeys.correlationId]: v.optional(v.string()),
+    [observationArgKeys.transport]: v.optional(v.string()),
+    [observationArgKeys.requestId]: v.optional(v.string()),
+  }
 
   return {
     args: principalArgs,
     input: async (ctx, args) => {
-      const { baseCtx } = createContextWithRuntime(ctx, args, principalDefinition, actorResolver)
+      const { baseCtx } = createContextWithRuntime(
+        ctx,
+        args,
+        options,
+        principalDefinition,
+        actorResolver,
+      )
       const finalCtx = baseCtx as unknown as ActionCtxWithRuntime<DataModel, TPrincipal, TActor>
 
       return {
@@ -1016,6 +1171,13 @@ function buildStructuredMutationRuntime<
           return await originalHandler(ctx, executeArgs, loaded)
         }
 
+        await ctx.observe({
+          name: 'operation.preview.started',
+          status: 'success',
+          transport: 'convex',
+          operation: metadata.id,
+        })
+
         const payload = await verifyConfirmationToken(confirmationToken)
         if (payload.operationId !== metadata.id) {
           throw new Error(
@@ -1025,6 +1187,13 @@ function buildStructuredMutationRuntime<
 
         const argsHash = hash(executeArgs)
         if (payload.argsHash !== argsHash) {
+          await ctx.observe({
+            name: 'operation.confirm.drifted',
+            status: 'deny',
+            transport: 'convex',
+            operation: metadata.id,
+            reasonCode: 'operation.args_drifted',
+          })
           throw new Error(
             'Confirmation token no longer matches this destructive request. Preview again before executing.',
           )
@@ -1067,6 +1236,12 @@ function buildStructuredMutationRuntime<
             `Destructive operation "${metadata.id}" preview must return { display, confirm }.`,
           )
         }
+        await ctx.observe({
+          name: 'operation.preview.completed',
+          status: 'success',
+          transport: 'convex',
+          operation: metadata.id,
+        })
 
         const display =
           typeof previewResult.display === 'string'
@@ -1074,15 +1249,35 @@ function buildStructuredMutationRuntime<
             : previewResult.display
 
         if (display.blocked) {
+          await ctx.observe({
+            name: 'operation.confirm.drifted',
+            status: 'deny',
+            transport: 'convex',
+            operation: metadata.id,
+            reasonCode: 'operation.preview_blocked',
+          })
           throw new Error('Previewed state is blocked and can no longer be executed.')
         }
 
         const previewHash = hash(previewResult.confirm)
         if (payload.previewHash !== previewHash) {
+          await ctx.observe({
+            name: 'operation.confirm.drifted',
+            status: 'deny',
+            transport: 'convex',
+            operation: metadata.id,
+            reasonCode: 'operation.preview_drifted',
+          })
           throw new Error(
             'Previewed state changed before confirmation. Preview again before executing.',
           )
         }
+        await ctx.observe({
+          name: 'operation.confirm.validated',
+          status: 'success',
+          transport: 'convex',
+          operation: metadata.id,
+        })
 
         const now = Date.now()
         await rawDb.insert(safety.redemptionTable, {
@@ -1093,20 +1288,44 @@ function buildStructuredMutationRuntime<
           redeemedAt: now,
         })
 
-        const result = await originalHandler(ctx, executeArgs, freshLoaded)
+        try {
+          const result = await originalHandler(ctx, executeArgs, freshLoaded)
 
-        await rawDb.insert(safety.auditTable, {
-          operationId: payload.operationId,
-          jti: payload.jti,
-          principalKey: payload.principalKey,
-          tenantKey: payload.tenantKey,
-          argsHash,
-          previewHash,
-          executedAt: now,
-          executePath: payload.executePath,
-        })
+          await rawDb.insert(safety.auditTable, {
+            operationId: payload.operationId,
+            jti: payload.jti,
+            principalKey: payload.principalKey,
+            tenantKey: payload.tenantKey,
+            argsHash,
+            previewHash,
+            executedAt: now,
+            executePath: payload.executePath,
+          })
 
-        return result
+          await ctx.observe({
+            name: 'operation.execute.completed',
+            status: 'success',
+            transport: 'convex',
+            operation: metadata.id,
+          })
+
+          return result
+        } catch (error) {
+          await ctx.observe({
+            name: 'operation.execute.failed',
+            status: 'error',
+            transport: 'convex',
+            operation: metadata.id,
+            reasonCode: 'operation.execute_failed',
+            details:
+              error instanceof Error
+                ? {
+                    message: error.message,
+                  }
+                : undefined,
+          })
+          throw error
+        }
       },
     }
 

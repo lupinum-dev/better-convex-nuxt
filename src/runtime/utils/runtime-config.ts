@@ -3,6 +3,10 @@ import { useRuntimeConfig } from '#imports'
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config.js'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
 import type { LogLevel } from './logger.js'
+import {
+  normalizeObservabilityConfig,
+  type NormalizedTrellisObservabilityConfig,
+} from './observability.js'
 import { asRecord } from './value-helpers.js'
 
 export interface ConvexRuntimeQueryDefaults {
@@ -30,6 +34,7 @@ export interface NormalizedConvexRuntimeConfig {
   query: ConvexRuntimeQueryDefaults
   upload: { maxConcurrent: number }
   logging: LogLevel | false
+  observability: NormalizedTrellisObservabilityConfig
 }
 
 function normalizeAuthCacheTtl(input: unknown): number {
@@ -117,6 +122,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       raw?.logging === false || typeof raw?.logging === 'string'
         ? (raw.logging as LogLevel | false)
         : false,
+    observability: normalizeObservabilityConfig(raw?.observability),
   }
 }
 

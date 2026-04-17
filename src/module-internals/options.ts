@@ -1,5 +1,6 @@
 import type { ConvexAuthConfigInput } from '../runtime/utils/auth-config.js'
 import type { LogLevel } from '../runtime/utils/logger.js'
+import type { TrellisObservabilityModuleOptions } from '../runtime/utils/observability.js'
 
 export interface AuthCacheOptions {
   /**
@@ -163,6 +164,11 @@ export interface ModuleOptions {
    * @default false
    */
   logging?: LogLevel
+  /**
+   * Semantic observability for correlated Trellis runtime events.
+   * This is distinct from debug/runtime logging.
+   */
+  observability?: TrellisObservabilityModuleOptions
   /**
    * Build/startup validation behavior.
    */

@@ -64,6 +64,7 @@ describe('runtime config normalization', () => {
     const config = normalizeConvexRuntimeConfig({})
     expect(config.auth.proxy.maxRequestBodyBytes).toBe(1_048_576)
     expect(config.auth.proxy.maxResponseBodyBytes).toBe(1_048_576)
+    expect(typeof config.observability.enabled).toBe('boolean')
   })
 
   it('uses explicit auth proxy limits when valid', () => {
@@ -77,5 +78,32 @@ describe('runtime config normalization', () => {
     })
     expect(config.auth.proxy.maxRequestBodyBytes).toBe(2048)
     expect(config.auth.proxy.maxResponseBodyBytes).toBe(4096)
+  })
+
+  it('normalizes observability config', () => {
+    const config = normalizeConvexRuntimeConfig({
+      observability: {
+        enabled: true,
+        adapter: 'dev',
+        level: 'normal',
+        capture: {
+          backend: true,
+          mcp: true,
+          browser: false,
+        },
+        sample: {
+          browser: 0.25,
+        },
+        correlation: {
+          header: 'x-correlation-id',
+        },
+      },
+    })
+
+    expect(config.observability.enabled).toBe(true)
+    expect(config.observability.level).toBe('normal')
+    expect(config.observability.capture.browser).toBe(false)
+    expect(config.observability.sample.browser).toBe(0.25)
+    expect(config.observability.correlation.header).toBe('x-correlation-id')
   })
 })

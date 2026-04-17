@@ -165,4 +165,6 @@ export const { query, mutation, action, internalQuery, internalMutation, raw } =
 - [x] forwarded user/service execution helpers are deferred.
 - [x] any manifest-based operation pipeline is deleted.
 - [x] current `logging` means runtime/debug logging only.
-- [x] first-class `observability` is planned work, not shipped runtime surface.
+- [x] first-class `observability` is shipped as semantic events, correlation, sampling, redaction, and adapter delivery.
+- [x] the built-in shipped adapter is the dev sink.
+- [x] audit remains separate from observability.

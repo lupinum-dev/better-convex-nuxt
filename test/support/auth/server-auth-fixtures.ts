@@ -94,6 +94,22 @@ export function mockConvexConfig(
       overrides?.logging === 'debug'
         ? overrides.logging
         : false,
+    observability: {
+      enabled: false,
+      adapter: null,
+      capture: {
+        backend: false,
+        mcp: false,
+        browser: false,
+      },
+      level: 'critical',
+      sample: {},
+      redact: (event) => event,
+      correlation: {
+        header: 'x-trellis-correlation-id',
+        generate: () => 'corr_test',
+      },
+    },
   }
 }
 

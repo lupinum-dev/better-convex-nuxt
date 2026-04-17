@@ -24,7 +24,7 @@ import {
 import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
 import { assertConvexComposableScope } from '../../utils/composable-scope.js'
 import { getFunctionName, getQueryKey, hashArgs } from '../../utils/convex-cache.js'
-import { getLogLevel, getSharedLogger } from '../../utils/logger.js'
+import { getSharedLogger } from '../../utils/logger.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import { generatePaginationId } from '../../utils/shared-helpers.js'
 import type {
@@ -123,7 +123,7 @@ export function createConvexPaginatedQueryState<
   const subscribe = options?.subscribe ?? queryDefaults?.subscribe ?? true
   const keepPreviousData = options?.keepPreviousData ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
-  const logger = getSharedLogger(getLogLevel(runtimeConfig.public.convex ?? {}))
+  const logger = getSharedLogger(runtimeConfig.public.convex ?? {}, { transport: 'browser' })
 
   assertConvexComposableScope(
     'useConvexPaginatedQuery',

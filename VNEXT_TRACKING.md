@@ -187,9 +187,9 @@
 - [ ] Decide whether direct exported refs should remain the long-term operation-binding seam.
 - [ ] Add guardrails so contract, tracker, docs, and examples stay aligned as new work lands.
 - [ ] Repair the internal harness MCP discovery/auth e2e path so targeted `test/e2e/mcp-smoke.e2e.test.ts` is green again.
-- [ ] Define the Trellis observability contract as semantic events, separate from debug/runtime logging.
-- [ ] Keep `logging` as debug/runtime logging only until first-class observability is implemented.
-- [ ] Phase observability implementation backend-first: identity, authorization, trust-boundary, operation, and MCP/tool events before browser/runtime chatter.
+- [x] Define the Trellis observability contract as semantic events, separate from debug/runtime logging.
+- [x] Keep `logging` as debug/runtime logging only while first-class observability owns semantic events.
+- [x] Ship backend, MCP, and browser/runtime semantic observability with the built-in dev sink.
 
 ## 13. Honest Status
 

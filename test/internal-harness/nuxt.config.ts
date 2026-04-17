@@ -14,6 +14,9 @@ const runtimeVisibilityEntry = fileURLToPath(
   new URL('../../src/runtime/visibility/index.ts', import.meta.url),
 )
 const runtimeMcpEntry = fileURLToPath(new URL('../../src/runtime/mcp/index.ts', import.meta.url))
+const runtimeFunctionsEntry = fileURLToPath(
+  new URL('../../src/runtime/functions/index.ts', import.meta.url),
+)
 const runtimeServerEntry = fileURLToPath(
   new URL('../../src/runtime/server/index.ts', import.meta.url),
 )
@@ -48,6 +51,7 @@ export default defineNuxtConfig({
     '@lupinum/trellis/composables': runtimeComposablesEntry,
     '@lupinum/trellis/auth': runtimeAuthEntry,
     '@lupinum/trellis/args': runtimeArgsEntry,
+    '@lupinum/trellis/functions': runtimeFunctionsEntry,
     '@lupinum/trellis/mcp': runtimeMcpEntry,
     '@lupinum/trellis/server': runtimeServerEntry,
     '@lupinum/trellis/trusted-caller': runtimeTrustedCallerEntry,
@@ -69,6 +73,16 @@ export default defineNuxtConfig({
     },
     permissions: {
       query: 'auth.getPermissionContext',
+    },
+    observability: {
+      enabled: true,
+      adapter: process.env.NODE_ENV === 'test' ? undefined : 'dev',
+      level: 'verbose',
+      capture: {
+        backend: true,
+        mcp: true,
+        browser: true,
+      },
     },
   },
 

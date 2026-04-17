@@ -23,14 +23,13 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from './utils/constants.js'
-import { createLogger, getLogLevel } from './utils/logger.js'
+import { createLogger } from './utils/logger.js'
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
 import type { ConvexUser } from './utils/types.js'
 export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex)
-  const logger = createLogger(logLevel)
+  const logger = createLogger(config.public.convex, { transport: 'nuxt-server' })
   const endInit = logger.time('plugin:init (server)')
   // Check if auth is enabled
   const authConfig = convexConfig.auth

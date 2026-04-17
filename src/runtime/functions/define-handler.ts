@@ -21,6 +21,17 @@ type MaybePromise<T> = T | Promise<T>
 type RuntimeContext<TPrincipal, TActor> = {
   principal: () => Promise<TPrincipal>
   actor: () => Promise<TActor | null>
+  observe?: (event: {
+    name:
+      | 'guard.allowed'
+      | 'guard.denied'
+      | 'authorize.allowed'
+      | 'authorize.denied'
+    status: 'success' | 'deny'
+    transport?: 'convex'
+    reasonCode?: string
+    details?: Record<string, unknown>
+  }) => Promise<void>
 }
 
 type AnyBuilder = (definition: {
@@ -159,6 +170,12 @@ function getAuthorizationLabel<P>(check: AnyCheck<P>, fallback: string): string 
   return isGuard(check) ? check.label : fallback
 }
 
+function getObserve(ctx: object): RuntimeContext<unknown, unknown>['observe'] {
+  return 'observe' in ctx && typeof (ctx as { observe?: unknown }).observe === 'function'
+    ? ((ctx as { observe: RuntimeContext<unknown, unknown>['observe'] }).observe)
+    : undefined
+}
+
 function describePrincipalState(principal: unknown): string {
   return isAnonymousPrincipal(principal) ? 'anonymous' : 'authenticated'
 }
@@ -191,13 +208,29 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
         const args = rawArgs as HandlerArgs<TArgsValidator>
         const principal = await resolvePrincipalAccessor<TCtx, TPrincipal>(ctx)()
         const actor = await resolveActorAccessor<TCtx, TActor>(ctx)()
+        const observe = getObserve(ctx)
 
         if (isAuthenticatedGuard(definition.guard)) {
+          await observe?.({
+            name: isAnonymousPrincipal(principal) ? 'guard.denied' : 'guard.allowed',
+            status: isAnonymousPrincipal(principal) ? 'deny' : 'success',
+            transport: 'convex',
+            reasonCode: isAnonymousPrincipal(principal) ? 'guard.auth_required' : undefined,
+          })
           requireAuth(
             principal,
             `Forbidden: ${formatGuardFailure(definition.guard.label, principal, actor)}`,
           )
         } else if (!isOpenGuard(definition.guard)) {
+          const allowed =
+            actor != null &&
+            can(actor as NonNullable<TActor>, definition.guard as AnyCheck<NonNullable<TActor>>)
+          await observe?.({
+            name: allowed ? 'guard.allowed' : 'guard.denied',
+            status: allowed ? 'success' : 'deny',
+            transport: 'convex',
+            reasonCode: allowed ? undefined : definition.guard.label,
+          })
           enforce<TActor | null>(
             actor,
             formatGuardFailure(definition.guard.label, principal, actor),
@@ -222,8 +255,20 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
             args,
             handlerCtx,
           )
+          const allowed = can(await handlerCtx.actor(), authorization)
+          await getObserve(handlerCtx)?.({
+            name: allowed ? 'authorize.allowed' : 'authorize.denied',
+            status: allowed ? 'success' : 'deny',
+            transport: 'convex',
+            reasonCode: allowed
+              ? undefined
+              : getAuthorizationLabel(
+                  authorization,
+                  definition.authorize.label ?? 'Access denied',
+                ),
+          })
 
-          if (!can(await handlerCtx.actor(), authorization)) {
+          if (!allowed) {
             deny(
               `Forbidden: ${formatGuardFailure(
                 getAuthorizationLabel(authorization, definition.authorize.label ?? 'Access denied'),

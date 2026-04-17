@@ -893,7 +893,7 @@ Trellis observability should explain:
 - trust-boundary usage like `ctx.db.crossTenant` and `ctx.db.raw`
 - operation preview, confirm, drift, failure, and execution
 - MCP/tool denial, confirmation, and execution flow
-- runtime auth/query/mutation/upload/connection behavior once browser/runtime coverage lands
+- runtime auth/query/mutation/upload/connection behavior
 
 Primary uses:
 
@@ -911,11 +911,9 @@ Non-goals:
 Audit stays separate.
 Structured errors are related, but not part of this initiative.
 
-## 33. The Planned Observability Contract
+## 33. The Shipped Observability Contract
 
-This is planned work, not shipped runtime truth.
-
-The intended model is a Trellis-native semantic event contract with a shared correlation envelope.
+The runtime now ships a Trellis-native semantic event contract with a shared correlation envelope.
 
 Required envelope fields should be small and stable:
 
@@ -963,8 +961,9 @@ Rules:
 
 - Trellis emits semantic observation events
 - adapters receive already-correlated, already-redacted payloads
-- Trellis core must not depend on `evlog`
-- `evlog` can be the flagship adapter and reference integration
+- Trellis core does not depend on `evlog`
+- the built-in shipped adapter is the dev sink
+- `evlog` can remain a later flagship adapter and reference integration
 - no adapter is allowed to define the Trellis core abstraction
 
 This keeps the product coherent:
@@ -972,25 +971,23 @@ This keeps the product coherent:
 - Trellis owns the meaning
 - adapters own projection and transport
 
-## 35. Delivery Strategy
+## 35. Shipped Scope
 
-Observability should be phased by trust boundary, not by UI polish.
-
-Phase 1:
+The shipped scope covers:
 
 - backend runtime semantic events
 - service/access observability
 - operation and MCP observability
-- correlation propagation across Nuxt server, Convex, and MCP
-
-Phase 2:
-
 - browser/runtime semantic events
-- browser-to-server correlation handoff
-- optional app-facing enrichment hooks
+- correlation propagation inside MCP-backed destructive flows
 
-Phase 1 should not introduce `ctx.log` everywhere.
-If app-facing enrichment is needed later, it should be a narrow extension point layered on top of the Trellis event model.
+Still deferred:
+
+- universal browser/server/Convex correlation for arbitrary raw Convex refs
+- app-facing enrichment hooks
+- additional adapters beyond the built-in dev sink
+
+The shipped model does not introduce `ctx.log` everywhere.
 
 ## 36. Product Rule
 

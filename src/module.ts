@@ -18,6 +18,14 @@ import { asRecord } from './runtime/utils/value-helpers.js'
 
 // Re-export LogLevel from logger for external use
 export type { LogLevel } from './runtime/utils/logger.js'
+export type {
+  TrellisObservationAdapter,
+  TrellisObservationEvent,
+  TrellisObservationFamily,
+  TrellisObservationName,
+  TrellisObservabilityModuleOptions,
+  TrellisObservabilityOptions,
+} from './runtime/utils/observability.js'
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection.js'
 export type {
   AuthCacheOptions,
@@ -76,6 +84,9 @@ export default defineNuxtModule<ModuleOptions>({
       maxConcurrent: DEFAULT_UPLOAD_MAX_CONCURRENT,
     },
     logging: false,
+    observability: {
+      adapter: 'dev',
+    },
     validation: {
       strict: false,
     },

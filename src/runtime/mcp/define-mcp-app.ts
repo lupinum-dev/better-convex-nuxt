@@ -11,6 +11,11 @@ import {
 } from '../functions/define-operation.js'
 import { getFunctionName } from '../utils/convex-shared.js'
 import { defineArgs } from '../utils/define-convex-schema.js'
+import {
+  createObservationEmitter,
+  withObservationArgs,
+  type TrellisObservabilityOptions,
+} from '../utils/observability.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { signConfirmationToken, verifyConfirmationToken } from './confirmation-token.js'
 import { defineTool } from './define-convex-tool.js'
@@ -54,6 +59,7 @@ type ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime> = {
   capabilities: TCapabilities
   runtime: TRuntime
   convex: McpConvexCaller
+  observe: ReturnType<typeof createObservationEmitter>['emit']
 }
 
 export interface DefineMcpAppOptions<
@@ -75,6 +81,7 @@ export interface DefineMcpAppOptions<
     convex: McpConvexCaller
   }) => MaybePromise<TRuntime>
   principalKey?: (principal: TPrincipal) => string
+  observability?: TrellisObservabilityOptions
 }
 
 type CapabilityKey<TCapabilities> =
@@ -309,6 +316,14 @@ export function defineMcpApp<
     let cached = requestCache.get(event)
     if (!cached) {
       cached = (async () => {
+        const observability = createObservationEmitter(options.observability, {
+          transport: 'mcp',
+          correlationId:
+            event.headers.get(
+              createObservationEmitter(options.observability).config.correlation.header,
+            ) ?? undefined,
+          requestId: crypto.randomUUID(),
+        })
         const principal = await options.resolvePrincipal(event)
         const convex = await options.callConvex(event, principal)
         const capabilities = options.resolveCapabilities
@@ -333,6 +348,7 @@ export function defineMcpApp<
           capabilities,
           runtime,
           convex,
+          observe: observability.emit,
         }
       })()
       requestCache.set(event, cached)
@@ -403,10 +419,26 @@ export function defineMcpApp<
         const ctx = await resolve(event)
 
         if (!capabilityAllows(ctx.capabilities, tool.capability)) {
+          await ctx.observe({
+            name: 'tool.denied',
+            status: 'deny',
+            transport: 'mcp',
+            tool: tool.meta?.name ?? 'project-tool',
+            reasonCode: 'tool.capability_denied',
+          })
           return false
         }
-
-        return tool.enabled ? await tool.enabled(ctx) : true
+        const allowed = tool.enabled ? await tool.enabled(ctx) : true
+        if (!allowed) {
+          await ctx.observe({
+            name: 'tool.denied',
+            status: 'deny',
+            transport: 'mcp',
+            tool: tool.meta?.name ?? 'project-tool',
+            reasonCode: 'tool.disabled',
+          })
+        }
+        return allowed
       },
       preview: tool.preview
         ? async (args, ctx): Promise<string | PreviewResult> => {
@@ -444,46 +476,77 @@ export function defineMcpApp<
         : undefined,
       handler: async (args, ctx) => {
         const projectionCtx = await resolve(ctx.event)
-        const result = await callByOperation(
-          projectionCtx.convex,
-          operation,
-          tool.call,
-          Object.assign({}, args as Record<string, unknown>, {
-            principal: projectionCtx.principal,
-          }) as FunctionArgs<TCall>,
-        )
+        await projectionCtx.observe({
+          name: 'tool.called',
+          status: 'success',
+          transport: 'mcp',
+          tool: tool.meta?.name ?? 'project-tool',
+        })
+        try {
+          const result = await callByOperation(
+            projectionCtx.convex,
+            operation,
+            tool.call,
+            Object.assign({}, args as Record<string, unknown>, {
+              principal: projectionCtx.principal,
+            }) as FunctionArgs<TCall>,
+          )
 
-        if (tool.respond) {
-          return tool.respond({
-            args,
-            result,
-            principal: projectionCtx.principal,
-            capabilities: projectionCtx.capabilities,
-            runtime: projectionCtx.runtime,
-            ok: (data, summary) => (summary ? ctx.ok(data, summary) : data),
-            error: (code, message) => ctx.error(code, message),
-          })
-        }
-
-        const mapped = tool.mapResult
-          ? tool.mapResult({
+          if (tool.respond) {
+            const responded = tool.respond({
               args,
               result,
               principal: projectionCtx.principal,
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
+              ok: (data, summary) => (summary ? ctx.ok(data, summary) : data),
+              error: (code, message) => ctx.error(code, message),
             })
-          : result
+            await projectionCtx.observe({
+              name: 'tool.executed',
+              status: 'success',
+              transport: 'mcp',
+              tool: tool.meta?.name ?? 'project-tool',
+            })
+            return responded
+          }
 
-        const summary = tool.summary?.({
-          args,
-          result,
-          principal: projectionCtx.principal,
-          capabilities: projectionCtx.capabilities,
-          runtime: projectionCtx.runtime,
-        })
+          const mapped = tool.mapResult
+            ? tool.mapResult({
+                args,
+                result,
+                principal: projectionCtx.principal,
+                capabilities: projectionCtx.capabilities,
+                runtime: projectionCtx.runtime,
+              })
+            : result
 
-        return summary ? ctx.ok(mapped, summary) : mapped
+          const summary = tool.summary?.({
+            args,
+            result,
+            principal: projectionCtx.principal,
+            capabilities: projectionCtx.capabilities,
+            runtime: projectionCtx.runtime,
+          })
+
+          await projectionCtx.observe({
+            name: 'tool.executed',
+            status: 'success',
+            transport: 'mcp',
+            tool: tool.meta?.name ?? 'project-tool',
+          })
+          return summary ? ctx.ok(mapped, summary) : mapped
+        } catch (error) {
+          await projectionCtx.observe({
+            name: 'tool.failed',
+            status: 'error',
+            transport: 'mcp',
+            tool: tool.meta?.name ?? 'project-tool',
+            reasonCode: 'tool.execution_failed',
+            details: error instanceof Error ? { message: error.message } : undefined,
+          })
+          throw error
+        }
       },
     })
   }) as ToolFactory<TPrincipal, TCapabilities, TRuntime>
@@ -580,13 +643,32 @@ export function defineMcpApp<
         const ctx = await resolve(event)
 
         if (!capabilityAllows(ctx.capabilities, options.capability)) {
+          await ctx.observe({
+            name: 'tool.denied',
+            status: 'deny',
+            transport: 'mcp',
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            operation: metadata.id,
+            reasonCode: 'tool.capability_denied',
+          })
           return false
         }
-
-        return options.enabled ? await options.enabled(ctx) : true
+        const allowed = options.enabled ? await options.enabled(ctx) : true
+        if (!allowed) {
+          await ctx.observe({
+            name: 'tool.denied',
+            status: 'deny',
+            transport: 'mcp',
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            operation: metadata.id,
+            reasonCode: 'tool.disabled',
+          })
+        }
+        return allowed
       },
       handler: async (rawArgs, ctx) => {
         const projectionCtx = await resolve(ctx.event)
+        const correlationId = crypto.randomUUID()
         const fullArgs = rawArgs as Record<string, unknown>
         const confirmationToken =
           typeof fullArgs._confirmationToken === 'string' ? fullArgs._confirmationToken : undefined
@@ -598,6 +680,13 @@ export function defineMcpApp<
         const principalKey = principalKeyResolver(projectionCtx.principal)
         const tenantKey = defaultTenantKey(projectionCtx.principal)
         const argsHash = hash(executeArgs)
+        await projectionCtx.observe({
+          name: 'tool.called',
+          status: 'success',
+          transport: 'mcp',
+          tool: options.meta?.name ?? metadata.name ?? metadata.id,
+          operation: metadata.id,
+        })
 
         const finalizeResult = (result: FunctionReturnType<TExecute>) => {
           if (options.respond) {
@@ -638,13 +727,27 @@ export function defineMcpApp<
             return ctx.error('server', 'Destructive operation is missing a preview ref.')
           }
 
+          await projectionCtx.observe({
+            name: 'operation.preview.started',
+            status: 'success',
+            transport: 'mcp',
+            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+          })
           const previewResult = await callByOperation(
             projectionCtx.convex,
             options.previewOperation ?? 'query',
             options.preview,
-            Object.assign({}, executeArgs, {
-              principal: projectionCtx.principal,
-            }) as FunctionArgs<Exclude<TPreview, undefined>>,
+            Object.assign(
+              {},
+              withObservationArgs(executeArgs, {
+                correlationId,
+                transport: 'mcp',
+              }),
+              {
+                principal: projectionCtx.principal,
+              },
+            ) as FunctionArgs<Exclude<TPreview, undefined>>,
           )
 
           if (!isOperationPreviewPayload(previewResult)) {
@@ -655,6 +758,13 @@ export function defineMcpApp<
 
           const display = normalizePreviewDisplay(previewResult.display)
           const previewHash = hash(previewResult.confirm)
+          await projectionCtx.observe({
+            name: 'operation.preview.completed',
+            status: 'success',
+            transport: 'mcp',
+            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+          })
 
           if (!confirmationToken) {
             if (display.blocked) {
@@ -673,6 +783,13 @@ export function defineMcpApp<
               previewHash,
             })
 
+            await projectionCtx.observe({
+              name: 'tool.confirmation.required',
+              status: 'success',
+              transport: 'mcp',
+              operation: metadata.id,
+              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            })
             return ctx.preview({
               ...display,
               confirmationToken: signedToken,
@@ -697,24 +814,66 @@ export function defineMcpApp<
             payload.tenantKey !== tenantKey ||
             payload.argsHash !== argsHash
           ) {
+            await projectionCtx.observe({
+              name: 'operation.confirm.drifted',
+              status: 'deny',
+              transport: 'mcp',
+              operation: metadata.id,
+              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+              reasonCode: 'tool.confirmation_mismatch',
+            })
             return ctx.error(
               'conflict',
               'Confirmation token no longer matches this destructive request. Preview again before executing.',
             )
           }
+          await projectionCtx.observe({
+            name: 'operation.confirm.validated',
+            status: 'success',
+            transport: 'mcp',
+            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+          })
         }
 
-        const result = await callByOperation(
-          projectionCtx.convex,
-          options.executeOperation ?? 'mutation',
-          options.execute,
-          Object.assign({}, executeArgs, {
-            ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
-            principal: projectionCtx.principal,
-          }) as FunctionArgs<TExecute>,
-        )
+        try {
+          const result = await callByOperation(
+            projectionCtx.convex,
+            options.executeOperation ?? 'mutation',
+            options.execute,
+            Object.assign(
+              {},
+              withObservationArgs(executeArgs, {
+                correlationId,
+                transport: 'mcp',
+              }),
+              {
+                ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
+                principal: projectionCtx.principal,
+              },
+            ) as FunctionArgs<TExecute>,
+          )
 
-        return finalizeResult(result)
+          await projectionCtx.observe({
+            name: 'tool.executed',
+            status: 'success',
+            transport: 'mcp',
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            operation: metadata.id,
+          })
+          return finalizeResult(result)
+        } catch (error) {
+          await projectionCtx.observe({
+            name: 'tool.failed',
+            status: 'error',
+            transport: 'mcp',
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            operation: metadata.id,
+            reasonCode: 'tool.execution_failed',
+            details: error instanceof Error ? { message: error.message } : undefined,
+          })
+          throw error
+        }
       },
     })
   }

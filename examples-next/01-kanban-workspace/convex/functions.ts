@@ -16,5 +16,10 @@ export const { query, mutation, raw } = defineTrellis(
       redemptionTable: 'destructiveRedemptions' as never,
       auditTable: 'destructiveAuditLog' as never,
     },
+    observability: {
+      enabled: true,
+      adapter: process.env.NODE_ENV === 'test' ? undefined : 'dev',
+      level: 'verbose',
+    },
   },
 )

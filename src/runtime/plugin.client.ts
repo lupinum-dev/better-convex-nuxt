@@ -16,7 +16,7 @@ import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './dev
 import { ConvexDevtoolsStore } from './devtools/store.js'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors.js'
 import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
-import { createLogger, getLogLevel } from './utils/logger.js'
+import { createLogger } from './utils/logger.js'
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
 
 type HydrationState = ReturnType<typeof initHydrationState>
@@ -81,8 +81,7 @@ export default defineNuxtPlugin({
   setup(nuxtApp) {
     const config = useRuntimeConfig()
     const convexConfig = getConvexRuntimeConfig()
-    const logLevel = getLogLevel(config.public.convex)
-    const logger = createLogger(logLevel)
+    const logger = createLogger(config.public.convex, { transport: 'browser' })
     const endInit = logger.time('plugin:init (client)')
 
     // HMR-safe initialization

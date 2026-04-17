@@ -140,6 +140,16 @@ export function buildPublicConvexRuntimeConfig(
       maxConcurrent: options.upload?.maxConcurrent ?? 3,
     },
     logging: options.logging ?? false,
+    observability: {
+      enabled: options.observability?.enabled,
+      adapter: options.observability?.adapter ?? 'dev',
+      capture: options.observability?.capture,
+      level: options.observability?.level,
+      sample: options.observability?.sample,
+      correlation: {
+        header: options.observability?.correlation?.header,
+      },
+    },
   })
 }
 

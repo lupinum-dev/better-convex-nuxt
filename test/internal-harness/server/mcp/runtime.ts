@@ -38,6 +38,11 @@ export const mcpRuntime = defineMcpApp<
   }),
   principalKey: (principal) =>
     principal.kind === 'agent' ? `agent:${principal.userId}:${principal.role}` : principal.kind,
+  observability: {
+    enabled: true,
+    adapter: process.env.NODE_ENV === 'test' ? undefined : 'dev',
+    level: 'verbose',
+  },
 })
 
 export const tool = mcpRuntime.tool
