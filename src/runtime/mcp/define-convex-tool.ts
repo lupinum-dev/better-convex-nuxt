@@ -446,7 +446,8 @@ function createToolContext<TRole extends string>(
     actor,
     ...calls,
     ok: (data, summary) => wrapSuccess(summary ? withSummary(data, summary) : data),
-    error: (category, message, issues) => wrapError(category, message, issues),
+    error: (category, message, issues, explanation) =>
+      wrapError(category, message, issues, explanation),
     preview: (preview) => wrapPreview(normalizePreview(preview)),
     blocked: (preview) =>
       wrapPreview({

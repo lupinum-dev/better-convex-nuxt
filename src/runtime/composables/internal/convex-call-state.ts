@@ -9,7 +9,7 @@ import {
 } from '../../devtools/runtime.js'
 import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
-import type { Logger } from '../../utils/logger.js'
+import type { RuntimeObserver } from '../../utils/runtime-observer.js'
 import { resolveSchema, runValidation, type ValidateOption } from '../../utils/resolve-validator.js'
 import type {
   ConvexCallErrorPayload,
@@ -60,7 +60,7 @@ interface ConvexCallStateOptions<
 > {
   fnName: string
   callType: TCallType
-  logger: Logger
+  logger: RuntimeObserver
   nuxtApp: NuxtApp
   hasOptimisticUpdate: boolean
   callFn: (args: Args) => Promise<Result>

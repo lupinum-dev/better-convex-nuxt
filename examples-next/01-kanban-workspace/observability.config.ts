@@ -1,7 +1,7 @@
 export const trellisObservability = {
   enabled: true,
-  adapter: 'console' as const,
   level: 'verbose' as const,
+  service: 'kanban-workspace',
   capture: {
     backend: true,
     mcp: true,

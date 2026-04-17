@@ -13,11 +13,19 @@ vi.mock('../../src/runtime/utils/runtime-config', () => ({
   getConvexRuntimeConfig: vi.fn(() => ({ upload: { maxConcurrent: 3 } })),
 }))
 
-vi.mock('../../src/runtime/utils/logger', () => ({
-  createLogger: vi.fn(() => ({
+vi.mock('../../src/runtime/utils/runtime-observer', () => ({
+  createRuntimeObserver: vi.fn(() => ({
     upload: vi.fn(),
+    auth: vi.fn(),
+    query: vi.fn(),
+    mutation: vi.fn(),
+    action: vi.fn(),
+    connection: vi.fn(),
+    debug: vi.fn(),
+    time: vi.fn(() => vi.fn()),
+    setSummary: vi.fn(),
+    emitSummary: vi.fn(),
   })),
-  getLogLevel: vi.fn(() => false),
 }))
 
 vi.mock('../../src/runtime/composables/useConvex', () => ({

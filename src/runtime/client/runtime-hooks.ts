@@ -9,7 +9,7 @@
 import type { ConvexClient } from 'convex/browser'
 import { ref, type Ref } from 'vue'
 
-import type { Logger } from '../utils/logger.js'
+import type { RuntimeObserver } from '../utils/runtime-observer.js'
 import type {
   ConvexConnectionChangedPayload,
   ConvexConnectionPhase,
@@ -130,7 +130,7 @@ export function getConnectionPhase(state: ConnectionState): ConvexConnectionPhas
 function handleConnectionStateChange(
   nuxtApp: RuntimeHookApp,
   store: ConnectionStateStore,
-  logger: Logger,
+  logger: RuntimeObserver,
   nextState: ConnectionState,
 ) {
   const previousConnection = normalizeConnectionState({
@@ -182,7 +182,7 @@ function handleConnectionStateChange(
 function ensureConnectionSubscription(
   nuxtApp: RuntimeHookApp,
   client: ConvexClient | undefined,
-  logger: Logger,
+  logger: RuntimeObserver,
 ): ConnectionStateStore {
   const store = getConnectionStateStore(nuxtApp)
   if (!import.meta.client || !supportsConnectionHooks(client)) {
@@ -202,7 +202,7 @@ function ensureConnectionSubscription(
 export function initRuntimeConnectionHooks(
   nuxtApp: RuntimeHookApp,
   client: ConvexClient | undefined,
-  logger: Logger,
+  logger: RuntimeObserver,
 ) {
   const store = ensureConnectionSubscription(nuxtApp, client, logger)
   store.runtimeInitialized = true
@@ -211,7 +211,7 @@ export function initRuntimeConnectionHooks(
 export function useSharedConnectionStateStore(
   nuxtApp: RuntimeHookApp,
   client: ConvexClient | undefined,
-  logger: Logger,
+  logger: RuntimeObserver,
 ): ConnectionStateStore {
   return ensureConnectionSubscription(nuxtApp, client, logger)
 }

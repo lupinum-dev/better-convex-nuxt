@@ -5,7 +5,7 @@ import { useRuntimeConfig } from '#imports'
 
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from '../../utils/constants.js'
 import { getFunctionName } from '../../utils/convex-cache.js'
-import { createLogger } from '../../utils/logger.js'
+import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import { isFileTypeAllowed } from '../../utils/mime-type.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import {
@@ -119,7 +119,7 @@ export function useUploadSingle<Mutation extends FunctionReference<'mutation'>>(
   options?: UseConvexUploadOptions,
 ): UseConvexSingleUploadReturn<Mutation> {
   const config = useRuntimeConfig()
-  const logger = createLogger(config.public.convex ?? {}, { transport: 'browser' })
+  const logger = createRuntimeObserver(config.public.convex ?? {}, { transport: 'browser' })
   const fnName = getFunctionName(generateUploadUrlMutation)
   const client = useConvex()
 

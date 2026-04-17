@@ -1,44 +1,15 @@
-import { createConsola } from 'consola'
-
 import { normalizeObservabilityConfig } from './config.js'
+import { emitObservationCapture } from './capture.js'
+import { deliverObservationToEvlog } from './evlog-bridge.js'
 import type {
   NormalizedTrellisObservabilityConfig,
   PartialObservationEvent,
-  TrellisObservationAdapter,
   TrellisObservationContext,
   TrellisObservationEvent,
   TrellisObservationFamily,
   TrellisObservationName,
 } from './types.js'
 import { alwaysOnEvents, criticalEvents, getObservationFamily, nonVerboseEvents } from './types.js'
-
-const internalLogger = createConsola({ level: 3 }).withTag('trellis').withTag('observe')
-const consoleAdapterLogger = createConsola({ level: 4 }).withTag('trellis').withTag('observe')
-
-const sharedConsoleAdapter: TrellisObservationAdapter = (event) => {
-  const parts = [
-    event.name,
-    event.handler ? `handler=${event.handler}` : null,
-    event.operation ? `operation=${event.operation}` : null,
-    event.tool ? `tool=${event.tool}` : null,
-    event.reasonCode ? `reason=${event.reasonCode}` : null,
-    event.principalKind ? `principal=${event.principalKind}` : null,
-    event.actorKind ? `actor=${event.actorKind}` : null,
-    event.tenantId ? `tenant=${event.tenantId}` : null,
-    event.serviceId ? `service=${event.serviceId}` : null,
-    typeof event.durationMs === 'number' ? `duration=${event.durationMs}ms` : null,
-  ].filter(Boolean)
-  const summary = parts.join(' ')
-  if (event.status === 'error') {
-    consoleAdapterLogger.error(summary, event.details ?? {})
-    return
-  }
-  if (event.status === 'deny') {
-    consoleAdapterLogger.warn(summary, event.details ?? {})
-    return
-  }
-  consoleAdapterLogger.info(summary, event.details ?? {})
-}
 
 function captureEnabledForTransport(
   config: NormalizedTrellisObservabilityConfig,
@@ -77,10 +48,15 @@ function safeLogInternalFailure(
   error: unknown,
   event?: PartialObservationEvent,
 ) {
-  internalLogger.warn(`[observability] ${phase} failed`, {
-    error: error instanceof Error ? error.message : String(error),
-    ...(event?.name ? { event: event.name } : {}),
-  })
+  try {
+    console.warn('[trellis][observability] internal failure', {
+      phase,
+      error: error instanceof Error ? error.message : String(error),
+      ...(event?.name ? { event: event.name } : {}),
+    })
+  } catch {
+    // Never throw from internal observability diagnostics.
+  }
 }
 
 type CreateObservationEmitterResult = {
@@ -93,11 +69,7 @@ export function createObservationEmitter(
   input: unknown,
   baseContext: TrellisObservationContext = {},
 ): CreateObservationEmitterResult {
-  const config = normalizeObservabilityConfig(input, {
-    allowCustomAdapters: true,
-    allowFunctionHooks: true,
-  })
-  const adapter = typeof config.adapter === 'function' ? config.adapter : sharedConsoleAdapter
+  const config = normalizeObservabilityConfig(input)
 
   let sharedCorrelationId: string
   try {
@@ -133,6 +105,7 @@ export function createObservationEmitter(
           principalKind: event.principalKind ?? baseContext.principalKind,
           actorKind: event.actorKind ?? baseContext.actorKind,
           tenantId: event.tenantId ?? baseContext.tenantId,
+          service: event.service ?? baseContext.service ?? config.service,
           serviceId: event.serviceId ?? baseContext.serviceId,
           reasonCode: event.reasonCode,
           durationMs: event.durationMs,
@@ -152,9 +125,15 @@ export function createObservationEmitter(
       }
 
       try {
-        await adapter(redacted)
+        emitObservationCapture(redacted)
       } catch (error) {
-        safeLogInternalFailure('adapter', error, event)
+        safeLogInternalFailure('capture', error, event)
+      }
+
+      try {
+        deliverObservationToEvlog(redacted, config)
+      } catch (error) {
+        safeLogInternalFailure('evlog', error, event)
       }
     } catch (error) {
       safeLogInternalFailure('emit', error, event)

@@ -88,15 +88,9 @@ export function mockConvexConfig(
       maxConcurrent: 3,
       ...uploadOverrides,
     },
-    logging:
-      overrides?.logging === false ||
-      overrides?.logging === 'info' ||
-      overrides?.logging === 'debug'
-        ? overrides.logging
-        : false,
     observability: {
       enabled: false,
-      adapter: 'console',
+      service: 'test-auth-fixture',
       capture: {
         backend: false,
         mcp: false,
@@ -104,10 +98,8 @@ export function mockConvexConfig(
       },
       level: 'critical',
       sample: {},
-      redact: (event) => event,
       correlation: {
         header: 'x-trellis-correlation-id',
-        generate: () => 'corr_test',
       },
     },
   }

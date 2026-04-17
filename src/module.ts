@@ -16,12 +16,7 @@ import {
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants.js'
 import { asRecord } from './runtime/utils/value-helpers.js'
 
-// Re-export LogLevel from logger for external use
-export type { LogLevel } from './runtime/utils/logger.js'
-export type {
-  TrellisObservationAdapter,
-  TrellisObservabilityOptions,
-} from './runtime/utils/observability.js'
+export type { TrellisObservabilityOptions } from './runtime/utils/observability.js'
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection.js'
 export type {
   AuthCacheOptions,
@@ -79,9 +74,8 @@ export default defineNuxtModule<ModuleOptions>({
     upload: {
       maxConcurrent: DEFAULT_UPLOAD_MAX_CONCURRENT,
     },
-    logging: false,
     observability: {
-      adapter: 'console',
+      enabled: true,
     },
     validation: {
       strict: false,
@@ -99,7 +93,7 @@ export default defineNuxtModule<ModuleOptions>({
       options,
       asRecord(nuxt.options.runtimeConfig.public.convex) ?? undefined,
       setup,
-    ) as typeof nuxt.options.runtimeConfig.public.convex
+    ) as unknown as typeof nuxt.options.runtimeConfig.public.convex
 
     const { permissionQueryPath } = resolvePermissionQuerySetup(
       nuxt.options.rootDir,

@@ -12,7 +12,10 @@ import {
 import { getFunctionName } from '../utils/convex-shared.js'
 import { defineArgs } from '../utils/define-convex-schema.js'
 import {
+  createDenialExplanation,
   createObservationEmitter,
+  createWideSummary,
+  type TrellisWideSummary,
   type TrellisObservabilityOptions,
 } from '../utils/observability.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
@@ -61,6 +64,7 @@ type ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime> = {
   observe: ReturnType<typeof createObservationEmitter>['emit']
   correlationId: string
   requestId: string
+  wideSummary: TrellisWideSummary
 }
 
 type EventObservationState = {
@@ -149,7 +153,12 @@ export interface ToolOptions<
     capabilities: TCapabilities
     runtime: TRuntime
     ok: (data: unknown, summary?: string) => unknown
-    error: (code: ConvexErrorCategory, message: string) => unknown
+    error: (
+      code: ConvexErrorCategory,
+      message: string,
+      issues?: import('../utils/types.js').ConvexErrorIssue[],
+      explanation?: import('../utils/observability.js').TrellisDenialExplanation,
+    ) => unknown
   }) => unknown
   outputSchema?: ZodRawShape
   group?: string
@@ -350,6 +359,19 @@ export function defineMcpApp<
           correlationId,
           requestId,
         })
+        const wideSummary = createWideSummary({
+          config: observability.config,
+          method: event.method || 'POST',
+          path: event.path || '(mcp)',
+          requestId,
+          initialContext: {
+            correlationId,
+            requestId,
+            transport: 'mcp',
+            originTransport: 'mcp',
+            service: observability.config.service,
+          },
+        })
         const principal = await options.resolvePrincipal(event)
         const convex = await options.callConvex(event, principal)
         const capabilities = options.resolveCapabilities
@@ -377,6 +399,7 @@ export function defineMcpApp<
           observe: observability.emit,
           correlationId,
           requestId,
+          wideSummary,
         }
       })()
       requestCache.set(event, cached)
@@ -453,6 +476,14 @@ export function defineMcpApp<
             transport: 'mcp',
             tool: tool.meta?.name ?? 'project-tool',
             reasonCode: 'tool.capability_denied',
+            details: {
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.capability_denied',
+                decision: 'tool',
+                message: 'Caller does not have the capability required for this tool.',
+                suggestedAction: 'grant_capability',
+              }),
+            },
           })
           return false
         }
@@ -464,6 +495,14 @@ export function defineMcpApp<
             transport: 'mcp',
             tool: tool.meta?.name ?? 'project-tool',
             reasonCode: 'tool.disabled',
+            details: {
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.disabled',
+                decision: 'tool',
+                message: 'Tool is currently disabled for this request.',
+                suggestedAction: 'contact_admin',
+              }),
+            },
           })
         }
         return allowed
@@ -504,6 +543,9 @@ export function defineMcpApp<
         : undefined,
       handler: async (args, ctx) => {
         const projectionCtx = await resolve(ctx.event)
+        projectionCtx.wideSummary.set({
+          tool: tool.meta?.name ?? 'project-tool',
+        })
         await projectionCtx.observe({
           name: 'tool.called',
           status: 'success',
@@ -536,6 +578,7 @@ export function defineMcpApp<
               transport: 'mcp',
               tool: tool.meta?.name ?? 'project-tool',
             })
+            projectionCtx.wideSummary.emit({ status: 'success' })
             return responded
           }
 
@@ -563,6 +606,7 @@ export function defineMcpApp<
             transport: 'mcp',
             tool: tool.meta?.name ?? 'project-tool',
           })
+          projectionCtx.wideSummary.emit({ status: 'success' })
           return summary ? ctx.ok(mapped, summary) : mapped
         } catch (error) {
           await projectionCtx.observe({
@@ -571,6 +615,10 @@ export function defineMcpApp<
             transport: 'mcp',
             tool: tool.meta?.name ?? 'project-tool',
             reasonCode: 'tool.execution_failed',
+            details: error instanceof Error ? { message: error.message } : undefined,
+          })
+          projectionCtx.wideSummary.emit({
+            status: 'error',
             details: error instanceof Error ? { message: error.message } : undefined,
           })
           throw error
@@ -678,6 +726,14 @@ export function defineMcpApp<
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
             operation: metadata.id,
             reasonCode: 'tool.capability_denied',
+            details: {
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.capability_denied',
+                decision: 'tool',
+                message: 'Caller does not have the capability required for this tool.',
+                suggestedAction: 'grant_capability',
+              }),
+            },
           })
           return false
         }
@@ -690,6 +746,14 @@ export function defineMcpApp<
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
             operation: metadata.id,
             reasonCode: 'tool.disabled',
+            details: {
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.disabled',
+                decision: 'tool',
+                message: 'Tool is currently disabled for this request.',
+                suggestedAction: 'contact_admin',
+              }),
+            },
           })
         }
         return allowed
@@ -707,6 +771,10 @@ export function defineMcpApp<
         const principalKey = principalKeyResolver(projectionCtx.principal)
         const tenantKey = defaultTenantKey(projectionCtx.principal)
         const argsHash = hash(executeArgs)
+        projectionCtx.wideSummary.set({
+          tool: options.meta?.name ?? metadata.name ?? metadata.id,
+          operation: metadata.id,
+        })
         await projectionCtx.observe({
           name: 'tool.called',
           status: 'success',
@@ -810,6 +878,10 @@ export function defineMcpApp<
               operation: metadata.id,
               tool: options.meta?.name ?? metadata.name ?? metadata.id,
             })
+            projectionCtx.wideSummary.emit({
+              status: 'success',
+              details: { awaitingConfirmation: true },
+            })
             return ctx.preview({
               ...display,
               confirmationToken: signedToken,
@@ -820,9 +892,17 @@ export function defineMcpApp<
           try {
             payload = await verifyConfirmationToken(confirmationToken)
           } catch {
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.confirmation_mismatch',
+              decision: 'destructive_confirm',
+              message: 'Confirmation token is invalid or expired.',
+              suggestedAction: 'retry_with_confirmation',
+            })
             return ctx.error(
               'confirmation_required',
               'Invalid or expired confirmation token. Preview again before executing.',
+              undefined,
+              explanation,
             )
           }
 
@@ -841,10 +921,28 @@ export function defineMcpApp<
               operation: metadata.id,
               tool: options.meta?.name ?? metadata.name ?? metadata.id,
               reasonCode: 'tool.confirmation_mismatch',
+              details: {
+                explanation: createDenialExplanation({
+                  reasonCode: 'tool.confirmation_mismatch',
+                  decision: 'destructive_confirm',
+                  message:
+                    'Confirmation token no longer matches the previewed destructive state.',
+                  suggestedAction: 'retry_with_confirmation',
+                }),
+              },
+            })
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.confirmation_mismatch',
+              decision: 'destructive_confirm',
+              message:
+                'Confirmation token no longer matches the previewed destructive state.',
+              suggestedAction: 'retry_with_confirmation',
             })
             return ctx.error(
               'conflict',
               'Confirmation token no longer matches this destructive request. Preview again before executing.',
+              undefined,
+              explanation,
             )
           }
           await projectionCtx.observe({
@@ -878,6 +976,7 @@ export function defineMcpApp<
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
             operation: metadata.id,
           })
+          projectionCtx.wideSummary.emit({ status: 'success' })
           return finalizeResult(result)
         } catch (error) {
           await projectionCtx.observe({
@@ -887,6 +986,10 @@ export function defineMcpApp<
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
             operation: metadata.id,
             reasonCode: 'tool.execution_failed',
+            details: error instanceof Error ? { message: error.message } : undefined,
+          })
+          projectionCtx.wideSummary.emit({
+            status: 'error',
             details: error instanceof Error ? { message: error.message } : undefined,
           })
           throw error

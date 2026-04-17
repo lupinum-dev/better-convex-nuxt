@@ -17,7 +17,7 @@ import {
   syncConnectionStateSnapshot,
   useSharedConnectionStateStore,
 } from '../../client/runtime-hooks.js'
-import { createLogger } from '../../utils/logger.js'
+import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 
 export type { ConnectionState } from '../../utils/types.js'
 
@@ -28,7 +28,7 @@ export function useConvexConnectionState() {
   const currentInstance = getCurrentInstance()
   const hasLifecycleOwner = Boolean(currentScope || currentInstance)
   const config = useRuntimeConfig()
-  const logger = createLogger(config.public.convex ?? {}, { transport: 'browser' })
+  const logger = createRuntimeObserver(config.public.convex ?? {}, { transport: 'browser' })
   const store =
     import.meta.client && client && hasLifecycleOwner
       ? useSharedConnectionStateStore(nuxtApp, client, logger)

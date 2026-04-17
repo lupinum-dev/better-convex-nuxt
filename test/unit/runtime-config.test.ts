@@ -84,7 +84,7 @@ describe('runtime config normalization', () => {
     const config = normalizeConvexRuntimeConfig({
       observability: {
         enabled: true,
-        adapter: 'console',
+        service: 'runtime-config-test',
         level: 'normal',
         capture: {
           backend: true,
@@ -102,6 +102,7 @@ describe('runtime config normalization', () => {
 
     expect(config.observability.enabled).toBe(true)
     expect(config.observability.level).toBe('normal')
+    expect(config.observability.service).toBe('runtime-config-test')
     expect(config.observability.capture.browser).toBe(false)
     expect(config.observability.sample.browser).toBe(0.25)
     expect(config.observability.correlation.header).toBe('x-correlation-id')
@@ -114,7 +115,6 @@ describe('runtime config normalization', () => {
     const config = normalizeConvexRuntimeConfig({})
 
     expect(config.observability.enabled).toBe(true)
-    expect(config.observability.adapter).toBe('console')
     expect(config.observability.level).toBe('critical')
     expect(config.observability.capture.backend).toBe(true)
     expect(config.observability.capture.mcp).toBe(true)

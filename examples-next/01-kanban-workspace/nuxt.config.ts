@@ -29,7 +29,6 @@ export default defineNuxtConfig({
     auth: {
       enabled: true,
     },
-    logging: 'info',
     observability: trellisObservability,
   },
 })

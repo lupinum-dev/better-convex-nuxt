@@ -13,6 +13,9 @@ import type {
 } from 'convex/server'
 import type { ViteUserConfig as UserConfig } from 'vitest/config'
 
+import type { TrellisObservationEvent } from '../utils/observability.js'
+import { registerObservationCaptureListener } from '../utils/observability/capture.js'
+
 const defaultModules =
   typeof import.meta.glob === 'function' ? import.meta.glob('/convex/**/*.*s') : {}
 
@@ -436,5 +439,23 @@ export function createTestContext<
     readAll,
     seedTenant,
     asPrincipal,
+  }
+}
+
+export function createObservationCapture() {
+  const events: TrellisObservationEvent[] = []
+  const stop = registerObservationCaptureListener((event: TrellisObservationEvent) => {
+    events.push(event)
+  })
+
+  return {
+    events,
+    clear() {
+      events.length = 0
+    },
+    stop,
+    find(name: TrellisObservationEvent['name']) {
+      return events.filter((event) => event.name === name)
+    },
   }
 }

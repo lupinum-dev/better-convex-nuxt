@@ -1,6 +1,5 @@
 import type {
   NormalizedTrellisObservabilityConfig,
-  TrellisObservationAdapter,
   TrellisObservationFamily,
   TrellisObservationRedactor,
 } from './types.js'
@@ -55,8 +54,7 @@ function throwConfigError(path: string, message: string): never {
 }
 
 type NormalizeOptions = {
-  allowCustomAdapters?: boolean
-  allowFunctionHooks?: boolean
+  source?: 'module' | 'runtime'
 }
 
 export function normalizeObservabilityConfig(
@@ -69,17 +67,19 @@ export function normalizeObservabilityConfig(
   const sample = isRecord(raw.sample) ? raw.sample : {}
   const env = process.env.NODE_ENV
   const isDev = env !== 'production'
-  const allowCustomAdapters = options.allowCustomAdapters === true
-  const allowFunctionHooks = options.allowFunctionHooks === true
+  const source = options.source ?? 'runtime'
 
-  if (typeof raw.adapter === 'function' && !allowCustomAdapters) {
-    throwConfigError('adapter', 'custom adapter functions are not supported in this context')
+  if ('adapter' in raw) {
+    throwConfigError('adapter', 'is no longer supported; Trellis now delivers observability via evlog')
   }
-  if (typeof raw.redact === 'function' && !allowFunctionHooks) {
-    throwConfigError('redact', 'function hooks are not supported in this context')
+  if ('redact' in raw) {
+    throwConfigError('redact', 'is no longer configurable; Trellis owns redaction internally')
   }
-  if (typeof correlation.generate === 'function' && !allowFunctionHooks) {
-    throwConfigError('correlation.generate', 'function hooks are not supported in this context')
+  if (isRecord(raw.correlation) && 'generate' in raw.correlation) {
+    throwConfigError(
+      'correlation.generate',
+      'is no longer supported; Trellis owns correlation generation internally',
+    )
   }
 
   const normalizedSample: Partial<Record<TrellisObservationFamily, number>> = {}
@@ -99,40 +99,35 @@ export function normalizeObservabilityConfig(
     }
     normalizedSample[key] = value
   }
-
-  const adapter = (() => {
-    if (raw.adapter === 'console' || raw.adapter === undefined || raw.adapter === null) {
-      return 'console' as const
+  if (typeof raw.service !== 'undefined' && typeof raw.service !== 'string') {
+    throwConfigError('service', 'must be a string')
+  }
+  if (typeof raw.explainability !== 'undefined' && !isRecord(raw.explainability)) {
+    throwConfigError('explainability', 'must be an object')
+  }
+  if (
+    isRecord(raw.explainability) &&
+    typeof raw.explainability.agentDenials !== 'undefined' &&
+    typeof raw.explainability.agentDenials !== 'boolean'
+  ) {
+    throwConfigError('explainability.agentDenials', 'must be a boolean')
+  }
+  if (source === 'module') {
+    // Module config is serialized into runtime config. Fail loudly on function-valued fields here.
+    for (const [path, value] of [
+      ['enabled', raw.enabled],
+      ['level', raw.level],
+      ['service', raw.service],
+      ['correlation.header', correlation.header],
+    ] as const) {
+      if (typeof value === 'function') {
+        throwConfigError(path, 'function values are not supported in nuxt.config.ts')
+      }
     }
-    if (typeof raw.adapter === 'function') {
-      return raw.adapter as TrellisObservationAdapter
-    }
-    throwConfigError('adapter', "supported values are 'console' or a function adapter")
-  })()
-
-  const redact = (() => {
-    if (raw.redact === undefined || raw.redact === null) {
-      return defaultRedactor as TrellisObservationRedactor
-    }
-    if (typeof raw.redact === 'function') {
-      return raw.redact as TrellisObservationRedactor
-    }
-    throwConfigError('redact', 'must be a function')
-  })()
-
-  const generate = (() => {
-    if (correlation.generate === undefined || correlation.generate === null) {
-      return defaultGenerateCorrelationId
-    }
-    if (typeof correlation.generate === 'function') {
-      return correlation.generate as () => string
-    }
-    throwConfigError('correlation.generate', 'must be a function')
-  })()
+  }
 
   return {
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : true,
-    adapter,
     capture: {
       backend: typeof capture.backend === 'boolean' ? capture.backend : true,
       mcp: typeof capture.mcp === 'boolean' ? capture.mcp : true,
@@ -145,13 +140,23 @@ export function normalizeObservabilityConfig(
           ? 'verbose'
           : 'critical',
     sample: normalizedSample,
-    redact,
+    redact: defaultRedactor as TrellisObservationRedactor,
     correlation: {
       header:
         typeof correlation.header === 'string' && correlation.header.trim().length > 0
           ? correlation.header
           : 'x-trellis-correlation-id',
-      generate,
+      generate: defaultGenerateCorrelationId,
+    },
+    service:
+      typeof raw.service === 'string' && raw.service.trim().length > 0
+        ? raw.service.trim()
+        : process.env.npm_package_name?.trim() || 'app',
+    explainability: {
+      agentDenials:
+        isRecord(raw.explainability) && typeof raw.explainability.agentDenials === 'boolean'
+          ? raw.explainability.agentDenials
+          : true,
     },
   }
 }

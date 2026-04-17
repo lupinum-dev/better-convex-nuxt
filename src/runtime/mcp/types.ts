@@ -9,6 +9,7 @@ import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
 import type { SchemaDefinition } from '../utils/define-convex-schema.js'
+import type { TrellisDenialExplanation } from '../utils/observability.js'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
 
 // ============================================================================
@@ -45,6 +46,7 @@ export interface ConvexToolErrorResult {
     message: string
     retryable: boolean
     issues?: ConvexErrorIssue[]
+    explanation?: TrellisDenialExplanation
   }
 }
 
@@ -118,6 +120,7 @@ export interface ConvexToolHandlerCtx<TRole extends string = string> extends Con
     category: ConvexErrorCategory,
     message: string,
     issues?: ConvexErrorIssue[],
+    explanation?: TrellisDenialExplanation,
   ) => McpToolCallbackResult
   preview: (preview: string | PreviewResult) => McpToolCallbackResult
   blocked: (preview: string | PreviewResult) => McpToolCallbackResult

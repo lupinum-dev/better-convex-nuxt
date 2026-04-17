@@ -32,6 +32,35 @@ export type TrellisObservationReasonCode =
   | 'upload.failed'
   | 'operation.execute.failed'
 
+export type TrellisSuggestedAction =
+  | 'sign_in'
+  | 'invite_to_workspace'
+  | 'grant_capability'
+  | 'switch_tenant'
+  | 'retry_with_confirmation'
+  | 'contact_admin'
+
+export type TrellisDenialDecision =
+  | 'guard'
+  | 'authorize'
+  | 'rls'
+  | 'service'
+  | 'tool'
+  | 'destructive_confirm'
+
+export interface TrellisDenialExplanation {
+  reasonCode: TrellisObservationReasonCode
+  decision: TrellisDenialDecision
+  message: string
+  policy?: string
+  tenantId?: string
+  suggestedAction?: TrellisSuggestedAction
+}
+
+export type TrellisObservationDetails = Record<string, unknown> & {
+  explanation?: TrellisDenialExplanation
+}
+
 type ObservationBase = {
   ts: string
   transport: TrellisObservationTransport
@@ -45,9 +74,10 @@ type ObservationBase = {
   principalKind?: string
   actorKind?: string
   tenantId?: string
+  service?: string
   serviceId?: string
   durationMs?: number
-  details?: Record<string, unknown>
+  details?: TrellisObservationDetails
 }
 
 type ObservationDefinitionMap = {
@@ -98,17 +128,12 @@ export type TrellisObservationEvent = {
   [K in TrellisObservationName]: ObservationBase & { name: K } & ObservationDefinitionMap[K]
 }[TrellisObservationName]
 
-export type TrellisObservationAdapter = (
-  event: TrellisObservationEvent,
-) => void | Promise<void>
-
 export type TrellisObservationRedactor = (
   event: TrellisObservationEvent,
 ) => TrellisObservationEvent
 
 export interface TrellisObservabilityOptions {
   enabled?: boolean
-  adapter?: TrellisObservationAdapter | 'console'
   capture?: {
     backend?: boolean
     mcp?: boolean
@@ -116,16 +141,17 @@ export interface TrellisObservabilityOptions {
   }
   level?: 'critical' | 'normal' | 'verbose'
   sample?: Partial<Record<TrellisObservationFamily, number>>
-  redact?: TrellisObservationRedactor
   correlation?: {
     header?: string
-    generate?: () => string
+  }
+  service?: string
+  explainability?: {
+    agentDenials?: boolean
   }
 }
 
 export interface NormalizedTrellisObservabilityConfig {
   enabled: boolean
-  adapter: TrellisObservationAdapter | 'console'
   capture: {
     backend: boolean
     mcp: boolean
@@ -138,11 +164,10 @@ export interface NormalizedTrellisObservabilityConfig {
     header: string
     generate: () => string
   }
-}
-
-export type TrellisObservationInput = {
-  logging?: unknown
-  observability?: unknown
+  service: string
+  explainability: {
+    agentDenials: boolean
+  }
 }
 
 export type TrellisObservationContext = {
@@ -156,6 +181,7 @@ export type TrellisObservationContext = {
   principalKind?: string
   actorKind?: string
   tenantId?: string
+  service?: string
   serviceId?: string
 }
 

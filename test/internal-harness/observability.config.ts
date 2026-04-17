@@ -1,7 +1,7 @@
 export const trellisObservability = {
   enabled: true,
-  adapter: 'console' as const,
   level: 'verbose' as const,
+  service: 'internal-harness',
   capture: {
     backend: true,
     mcp: true,

@@ -1,5 +1,4 @@
 import type { ConvexAuthConfigInput } from '../runtime/utils/auth-config.js'
-import type { LogLevel } from '../runtime/utils/logger.js'
 import type { TrellisObservabilityOptions } from '../runtime/utils/observability.js'
 
 export interface AuthCacheOptions {
@@ -157,16 +156,8 @@ export interface ModuleOptions {
   /** Default options for upload composables. */
   upload?: UploadDefaults
   /**
-   * Enable module logging.
-   * - false: No logs (production default)
-   * - 'info': Simple logs for everyday use
-   * - 'debug': Detailed logs with timing for deep debugging
-   * @default false
-   */
-  logging?: LogLevel
-  /**
    * Semantic observability for correlated Trellis runtime events.
-   * This is distinct from debug/runtime logging.
+   * Trellis owns the semantic model and delivers it through evlog.
    */
   observability?: TrellisObservabilityOptions
   /**

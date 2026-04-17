@@ -4,9 +4,9 @@ import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared.js'
-import { createLogger } from '../../utils/logger.js'
 import { withObservationEnvelope } from '../../utils/observability.js'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
+import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
 import { resolveRequestAuthToken } from './auth-resolver.js'
 
@@ -158,12 +158,15 @@ async function executeConvexOperation<
     requestId,
   } satisfies EventObservationState
 
-  const logger = createLogger(runtimeConfig.public.convex ?? {}, {
+  const logger = createRuntimeObserver(runtimeConfig.public.convex ?? {}, {
     transport: 'nuxt-server',
     originTransport,
     correlationId,
     requestId,
     handler: functionPath,
+  }, {
+    method: 'POST',
+    path: `/api/${operationType}`,
   })
   const startTime = Date.now()
 
@@ -229,6 +232,11 @@ async function executeConvexOperation<
       const err = toServerConvexError(error, errorContext, 'auth')
       const duration = Date.now() - startTime
       logError(err, duration)
+      logger.emitSummary({
+        status: 'error',
+        durationMs: duration,
+        details: { phase: 'auth', message: err.message },
+      })
       throw err
     }
 
@@ -261,12 +269,18 @@ async function executeConvexOperation<
 
     const duration = Date.now() - startTime
     logSuccess(duration)
+    logger.emitSummary({ status: 'success', durationMs: duration })
 
     return result
   } catch (error) {
     const err = toServerConvexError(error, errorContext, 'request')
     const duration = Date.now() - startTime
     logError(err, duration)
+    logger.emitSummary({
+      status: 'error',
+      durationMs: duration,
+      details: { phase: 'request', message: err.message },
+    })
     throw err
   }
 }

@@ -36,6 +36,7 @@ import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,
+  createDenialExplanation,
   type TrellisObservationEvent,
   type TrellisObservabilityOptions,
   getObservationEnvelope,
@@ -344,7 +345,16 @@ function assertServiceTableAccess<DataModel extends GenericDataModel>(
       status: 'deny',
       serviceId: access.serviceId,
       reasonCode: 'service.access.denied',
-      details: { table },
+      details: {
+        table,
+        explanation: createDenialExplanation({
+          reasonCode: 'service.access.denied',
+          decision: 'service',
+          message: `Service "${access.serviceId}" cannot access table "${table}".`,
+          policy: table,
+          suggestedAction: 'contact_admin',
+        }),
+      },
     })
     throw getServiceError(access.serviceId, table)
   }
@@ -418,7 +428,19 @@ function createServiceScopeRule<TDoc extends Record<string, unknown>>(
         name: 'rls.denied',
         status: 'deny',
         reasonCode: 'service.access.denied',
-        details: { field, expectedTenantId: tenantId, actualTenantId: documentTenantId },
+        details: {
+          field,
+          expectedTenantId: tenantId,
+          actualTenantId: documentTenantId,
+          explanation: createDenialExplanation({
+            reasonCode: 'service.access.denied',
+            decision: 'service',
+            message: 'Service tenant scope denied access to this document.',
+            policy: field,
+            tenantId: typeof tenantId === 'string' ? tenantId : undefined,
+            suggestedAction: 'contact_admin',
+          }),
+        },
       })
       return false
     }
@@ -452,7 +474,19 @@ function createTenantIsolationRule<
         name: 'rls.denied',
         status: 'deny',
         reasonCode: 'rls.denied',
-        details: { field, actorTenantId, documentTenantId },
+        details: {
+          field,
+          actorTenantId,
+          documentTenantId,
+          explanation: createDenialExplanation({
+            reasonCode: 'rls.denied',
+            decision: 'rls',
+            message: 'Tenant isolation denied access to this document.',
+            policy: field,
+            tenantId: typeof actorTenantId === 'string' ? actorTenantId : undefined,
+            suggestedAction: 'switch_tenant',
+          }),
+        },
       })
       return false
     }
@@ -1186,7 +1220,16 @@ function buildStructuredMutationRuntime<
             status: 'deny',
             operation: metadata.id,
             reasonCode: 'tool.confirmation_mismatch',
-            details: { cause: 'args_mismatch' },
+            details: {
+              cause: 'args_mismatch',
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.confirmation_mismatch',
+                decision: 'destructive_confirm',
+                message:
+                  'Confirmation token no longer matches the destructive request arguments.',
+                suggestedAction: 'retry_with_confirmation',
+              }),
+            },
           })
           throw new Error(
             'Confirmation token no longer matches this destructive request. Preview again before executing.',
@@ -1247,7 +1290,15 @@ function buildStructuredMutationRuntime<
             status: 'deny',
             operation: metadata.id,
             reasonCode: 'tool.confirmation_mismatch',
-            details: { cause: 'preview_blocked' },
+            details: {
+              cause: 'preview_blocked',
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.confirmation_mismatch',
+                decision: 'destructive_confirm',
+                message: 'Previewed state is now blocked and can no longer be executed.',
+                suggestedAction: 'retry_with_confirmation',
+              }),
+            },
           })
           throw new Error('Previewed state is blocked and can no longer be executed.')
         }
@@ -1259,7 +1310,15 @@ function buildStructuredMutationRuntime<
             status: 'deny',
             operation: metadata.id,
             reasonCode: 'tool.confirmation_mismatch',
-            details: { cause: 'preview_mismatch' },
+            details: {
+              cause: 'preview_mismatch',
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.confirmation_mismatch',
+                decision: 'destructive_confirm',
+                message: 'Previewed state changed before confirmation completed.',
+                suggestedAction: 'retry_with_confirmation',
+              }),
+            },
           })
           throw new Error(
             'Previewed state changed before confirmation. Preview again before executing.',
@@ -1311,6 +1370,12 @@ function buildStructuredMutationRuntime<
               error instanceof Error
                 ? {
                     message: error.message,
+                    explanation: createDenialExplanation({
+                      reasonCode: 'operation.execute.failed',
+                      decision: 'destructive_confirm',
+                      message: error.message,
+                      suggestedAction: 'contact_admin',
+                    }),
                   }
                 : undefined,
           })

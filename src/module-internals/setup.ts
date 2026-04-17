@@ -109,10 +109,7 @@ export function collectModuleStartupWarnings(
 }
 
 function validateModuleObservabilityConfig(options: ModuleOptions) {
-  normalizeObservabilityConfig(options.observability, {
-    allowCustomAdapters: false,
-    allowFunctionHooks: false,
-  })
+  normalizeObservabilityConfig(options.observability, { source: 'module' })
 }
 
 export function buildPublicConvexRuntimeConfig(
@@ -148,15 +145,19 @@ export function buildPublicConvexRuntimeConfig(
     upload: {
       maxConcurrent: options.upload?.maxConcurrent ?? 3,
     },
-    logging: options.logging ?? false,
     observability: {
       enabled: options.observability?.enabled,
+      service: options.observability?.service,
       capture: {
         browser: options.observability?.capture?.browser,
       },
       level: options.observability?.level,
+      sample: options.observability?.sample,
       correlation: {
         header: options.observability?.correlation?.header,
+      },
+      explainability: {
+        agentDenials: options.observability?.explainability?.agentDenials,
       },
     },
   })

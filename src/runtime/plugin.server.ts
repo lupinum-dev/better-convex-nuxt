@@ -23,33 +23,43 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from './utils/constants.js'
-import { createLogger } from './utils/logger.js'
+import { createRuntimeObserver } from './utils/runtime-observer.js'
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
 import type { ConvexUser } from './utils/types.js'
 export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
-  const logger = createLogger(config.public.convex, { transport: 'nuxt-server' })
-  const endInit = logger.time('plugin:init (server)')
   // Check if auth is enabled
   const authConfig = convexConfig.auth
   const isAuthEnabled = authConfig.enabled
-  if (!isAuthEnabled) {
-    // Auth not enabled - not an error, just skip auth setup
-    endInit()
-    logger.debug('Auth not enabled, skipping server-side auth')
-    return
-  }
 
   // Get the H3 event for accessing cookies
   const event = useRequestEvent()
-  if (!event) {
-    logger.auth({ phase: 'init', outcome: 'error', error: new Error('No request event available') })
+  const requestPath = event?.path || event?.node.req.url || '(unknown)'
+  const requestMethod = event?.method || 'GET'
+  const requestId = crypto.randomUUID()
+  const logger = createRuntimeObserver(
+    config.public.convex,
+    { transport: 'nuxt-server', requestId },
+    { method: requestMethod, path: requestPath },
+  )
+  const endInit = logger.time('plugin:init (server)')
+
+  if (!isAuthEnabled) {
+    endInit()
+    logger.debug('Auth not enabled, skipping server-side auth')
+    logger.emitSummary({ status: 'skip' })
     return
   }
-  const requestPath = event.path || event.node.req.url || '(unknown)'
-  const requestMethod = event.method || 'GET'
-  const requestId = crypto.randomUUID()
+
+  if (!event) {
+    logger.auth({ phase: 'init', outcome: 'error', error: new Error('No request event available') })
+    logger.emitSummary({
+      status: 'error',
+      details: { message: 'No request event available' },
+    })
+    return
+  }
 
   // Helper to log auth events
   const logAuth = (
@@ -128,18 +138,21 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   if (!resolvedAuth.hasSessionCookie) {
     endInit()
     logAuth('session-check', 'miss')
+    logger.emitSummary({ status: 'skip' })
     return
   }
 
   if (resolvedAuth.source === 'cache' && hydratedAuth.token) {
     endInit()
     logAuth('cache', 'success', { source: 'cache' })
+    logger.emitSummary({ status: 'success' })
     return
   }
 
   if (hydratedAuth.token) {
     endInit()
     logAuth('exchange', 'success', { user: resolvedAuth.user?.email })
+    logger.emitSummary({ status: 'success' })
     return
   }
 
@@ -151,6 +164,10 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       { source: resolvedAuth.source, decodeFailure: true },
       new Error(convexAuthError.value ?? buildAuthTokenDecodeFailureMessage()),
     )
+    logger.emitSummary({
+      status: 'error',
+      details: { decodeFailure: true, source: resolvedAuth.source },
+    })
     return
   }
 
@@ -161,6 +178,12 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     resolvedAuth.tokenExchangeStatus ? { status: resolvedAuth.tokenExchangeStatus } : undefined,
     resolvedAuth.tokenExchangeError ?? undefined,
   )
+  logger.emitSummary({
+    status: resolvedAuth.error ? 'error' : 'skip',
+    details: resolvedAuth.tokenExchangeStatus
+      ? { status: resolvedAuth.tokenExchangeStatus }
+      : undefined,
+  })
 
   if (import.meta.dev && resolvedAuth.isMisconfigError) {
     throw new Error(resolvedAuth.error ?? 'Convex auth token exchange failed')

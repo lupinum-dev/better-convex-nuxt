@@ -14,7 +14,10 @@ import {
   isAnonymousPrincipal,
   type AuthenticatedPrincipal,
 } from '../auth/principal-state.js'
-import type { TrellisObservationEvent } from '../utils/observability.js'
+import {
+  createDenialExplanation,
+  type TrellisObservationEvent,
+} from '../utils/observability.js'
 import { stampOperationProjection, trellisOperationProjectionMetadataKey } from './operation-metadata.js'
 
 type MaybePromise<T> = T | Promise<T>
@@ -216,6 +219,16 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
             name: isAnonymousPrincipal(principal) ? 'guard.denied' : 'guard.allowed',
             status: isAnonymousPrincipal(principal) ? 'deny' : 'success',
             reasonCode: isAnonymousPrincipal(principal) ? 'guard.auth_required' : undefined,
+            details: isAnonymousPrincipal(principal)
+              ? {
+                  explanation: createDenialExplanation({
+                    reasonCode: 'guard.auth_required',
+                    decision: 'guard',
+                    message: definition.guard.label,
+                    suggestedAction: 'sign_in',
+                  }),
+                }
+              : undefined,
           })
           requireAuth(
             principal,
@@ -229,7 +242,18 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
             name: allowed ? 'guard.allowed' : 'guard.denied',
             status: allowed ? 'success' : 'deny',
             reasonCode: allowed ? undefined : 'guard.denied',
-            details: allowed ? undefined : { label: definition.guard.label },
+            details: allowed
+              ? undefined
+              : {
+                  label: definition.guard.label,
+                  explanation: createDenialExplanation({
+                    reasonCode: 'guard.denied',
+                    decision: 'guard',
+                    message: definition.guard.label,
+                    policy: definition.guard.label,
+                    suggestedAction: 'grant_capability',
+                  }),
+                },
           })
           enforce<TActor | null>(
             actor,
@@ -267,6 +291,16 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
                     authorization,
                     definition.authorize.label ?? 'Access denied',
                   ),
+                  explanation: createDenialExplanation({
+                    reasonCode: 'authorize.denied',
+                    decision: 'authorize',
+                    message: getAuthorizationLabel(
+                      authorization,
+                      definition.authorize.label ?? 'Access denied',
+                    ),
+                    policy: definition.authorize.label ?? 'Access denied',
+                    suggestedAction: 'grant_capability',
+                  }),
                 },
           })
 

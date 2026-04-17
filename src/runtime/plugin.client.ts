@@ -16,7 +16,7 @@ import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './dev
 import { ConvexDevtoolsStore } from './devtools/store.js'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors.js'
 import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
-import { createLogger } from './utils/logger.js'
+import { createRuntimeObserver } from './utils/runtime-observer.js'
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
 
 type HydrationState = ReturnType<typeof initHydrationState>
@@ -81,7 +81,7 @@ export default defineNuxtPlugin({
   setup(nuxtApp) {
     const config = useRuntimeConfig()
     const convexConfig = getConvexRuntimeConfig()
-    const logger = createLogger(config.public.convex, { transport: 'browser' })
+    const logger = createRuntimeObserver(config.public.convex, { transport: 'browser' })
     const endInit = logger.time('plugin:init (client)')
 
     // HMR-safe initialization
@@ -133,6 +133,7 @@ export default defineNuxtPlugin({
       })
       logger.auth({ phase: 'init', outcome: 'error', error: new Error(missingUrlMessage) })
       endInit()
+      logger.emitSummary({ status: 'error', details: { message: missingUrlMessage } })
       return
     }
 
@@ -179,6 +180,7 @@ export default defineNuxtPlugin({
         error: new Error(missingSiteUrlMessage),
         details: { traceId },
       })
+      logger.emitSummary({ status: 'error', details: { message: missingSiteUrlMessage } })
     } else {
       authEngine.initialize({ resolveInitialAuth: true })
     }
@@ -203,14 +205,17 @@ export default defineNuxtPlugin({
 
     if (hydration.convexToken.value) {
       logger.auth({ phase: 'hydrate', outcome: 'success', details: { source: 'ssr' } })
+      logger.emitSummary({ status: 'success' })
     } else if (isAuthEnabled) {
       logger.auth({
         phase: 'hydrate',
         outcome: 'miss',
         details: { traceId, source: 'client-init' },
       })
+      logger.emitSummary({ status: 'skip' })
     } else {
       logger.debug('Client initialized (auth disabled)')
+      logger.emitSummary({ status: 'skip' })
     }
   },
 })

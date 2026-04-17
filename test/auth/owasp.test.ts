@@ -177,7 +177,10 @@ describe('OWASP A05: Security Misconfiguration', () => {
   it('normalizes auth-related runtime config to secure defaults', () => {
     const config = normalizeConvexRuntimeConfig({})
 
-    expect(config.logging).toBe(false)
+    expect(config.observability.enabled).toBe(true)
+    expect(
+      config.observability.level === 'critical' || config.observability.level === 'verbose',
+    ).toBe(true)
     expect(config.auth.cache.enabled).toBe(false)
     expect(config.auth.cache.ttl).toBe(60)
     expect(config.auth.proxy.maxRequestBodyBytes).toBe(1_048_576)

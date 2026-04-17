@@ -1,26 +1,64 @@
-import { describe, expect, it, vi } from 'vitest'
-
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import * as evlog from 'evlog'
 import {
   createObservationEmitter,
-  normalizeObservabilityConfig,
   getObservationEnvelope,
+  normalizeObservabilityConfig,
   stripObservationEnvelope,
   withObservationEnvelope,
 } from '../../src/runtime/utils/observability'
+import { createObservationCapture } from '../../src/runtime/testing'
+
+const evlogMock = vi.hoisted(() => ({
+  log: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}))
+
+vi.mock('evlog', () => {
+  return {
+    initLogger: vi.fn(),
+    createLogger: vi.fn(() => ({
+      set: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      emit: vi.fn(),
+      getContext: vi.fn(() => ({})),
+    })),
+    createRequestLogger: vi.fn(() => ({
+      set: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      emit: vi.fn(),
+      getContext: vi.fn(() => ({})),
+    })),
+    log: evlogMock.log,
+    __evlogMock: evlogMock,
+  }
+})
 
 describe('observability', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('normalizes defaults safely', () => {
     const config = normalizeObservabilityConfig({})
     expect(typeof config.enabled).toBe('boolean')
     expect(config.correlation.header).toBe('x-trellis-correlation-id')
+    expect(config.service.length).toBeGreaterThan(0)
   })
 
-  it('emits redacted semantic events to adapters', async () => {
-    const adapter = vi.fn()
+  it('emits redacted semantic events through capture', async () => {
+    const capture = createObservationCapture()
     const emitter = createObservationEmitter(
       {
         enabled: true,
-        adapter,
         level: 'verbose',
         capture: { backend: true, mcp: true, browser: true },
       },
@@ -39,21 +77,20 @@ describe('observability', () => {
       },
     })
 
-    expect(adapter).toHaveBeenCalledTimes(1)
-    const event = adapter.mock.calls[0]?.[0]
-    expect(event.correlationId).toBe('corr_test')
-    expect(event.details).toEqual({
+    expect(capture.events).toHaveLength(1)
+    expect(capture.events[0]?.correlationId).toBe('corr_test')
+    expect(capture.events[0]?.details).toEqual({
       token: '[redacted]',
       table: 'posts',
     })
+    capture.stop()
   })
 
   it('reuses one correlation id across a single emitter flow', async () => {
-    const adapter = vi.fn()
+    const capture = createObservationCapture()
     const emitter = createObservationEmitter(
       {
         enabled: true,
-        adapter,
         level: 'verbose',
       },
       {
@@ -70,18 +107,18 @@ describe('observability', () => {
       status: 'success',
     })
 
-    const [first, second] = adapter.mock.calls.map((call) => call[0])
-    expect(first.correlationId).toBe(second.correlationId)
-    expect(first.transport).toBe('convex')
-    expect(second.transport).toBe('mcp')
+    const [first, second] = capture.events
+    expect(first?.correlationId).toBe(second?.correlationId)
+    expect(first?.transport).toBe('convex')
+    expect(second?.transport).toBe('mcp')
+    capture.stop()
   })
 
   it('preserves originTransport while transport reflects the current boundary', async () => {
-    const adapter = vi.fn()
+    const capture = createObservationCapture()
     const emitter = createObservationEmitter(
       {
         enabled: true,
-        adapter,
         level: 'verbose',
       },
       {
@@ -96,22 +133,24 @@ describe('observability', () => {
       status: 'success',
     })
 
-    expect(adapter).toHaveBeenCalledWith(
-      expect.objectContaining({
-        transport: 'convex',
-        originTransport: 'mcp',
-        correlationId: 'corr_origin',
-      }),
-    )
+    expect(capture.events[0]).toMatchObject({
+      transport: 'convex',
+      originTransport: 'mcp',
+      correlationId: 'corr_origin',
+    })
+    capture.stop()
   })
 
-  it('never throws if the adapter fails', async () => {
+  it('never throws if evlog delivery fails', async () => {
+    ;(evlog as unknown as { __evlogMock: typeof evlogMock }).__evlogMock.log.info.mockImplementation(
+      () => {
+        throw new Error('evlog down')
+      },
+    )
+
     const emitter = createObservationEmitter(
       {
         enabled: true,
-        adapter: vi.fn(async () => {
-          throw new Error('adapter down')
-        }),
         level: 'verbose',
       },
       {
@@ -127,40 +166,11 @@ describe('observability', () => {
     ).resolves.toBeUndefined()
   })
 
-  it('never throws if the redactor or generator fails', async () => {
-    const emitter = createObservationEmitter(
-      {
-        enabled: true,
-        adapter: vi.fn(),
-        level: 'verbose',
-        redact: () => {
-          throw new Error('bad redact')
-        },
-        correlation: {
-          generate: () => {
-            throw new Error('bad generate')
-          },
-        },
-      },
-      {
-        transport: 'convex',
-      },
-    )
-
-    await expect(
-      emitter.emit({
-        name: 'db.cross_tenant.used',
-        status: 'success',
-      }),
-    ).resolves.toBeUndefined()
-  })
-
   it('recursively redacts nested secrets', async () => {
-    const adapter = vi.fn()
+    const capture = createObservationCapture()
     const emitter = createObservationEmitter(
       {
         enabled: true,
-        adapter,
         level: 'verbose',
       },
       {
@@ -182,13 +192,14 @@ describe('observability', () => {
       },
     })
 
-    expect(adapter.mock.calls[0]?.[0].details).toEqual({
+    expect(capture.events[0]?.details).toEqual({
       token: '[redacted]',
       nested: {
         Authorization: '[redacted]',
         values: [{ password: '[redacted]' }],
       },
     })
+    capture.stop()
   })
 
   it('rejects invalid sample rates at normalization time', () => {
@@ -207,6 +218,14 @@ describe('observability', () => {
         },
       }),
     ).toThrow('sample.mcp')
+  })
+
+  it('rejects removed public adapter hooks', () => {
+    expect(() =>
+      normalizeObservabilityConfig({
+        adapter: 'console',
+      }),
+    ).toThrow('adapter')
   })
 
   it('adds and strips the internal trellis envelope', () => {

@@ -1,5 +1,6 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
+import type { TrellisDenialExplanation } from '../utils/observability.js'
 import type { ConvexErrorCategory, ConvexErrorIssue } from '../utils/types.js'
 import type { PreviewResult } from './types.js'
 
@@ -98,6 +99,7 @@ export function wrapError(
   category: ConvexErrorCategory,
   message: string,
   issues?: ConvexErrorIssue[],
+  explanation?: TrellisDenialExplanation,
 ): CallToolResult {
   return {
     content: [{ type: 'text', text: message }],
@@ -108,6 +110,7 @@ export function wrapError(
         message,
         retryable: isRetryable(category),
         ...(issues?.length ? { issues } : {}),
+        ...(explanation ? { explanation } : {}),
       },
     },
     isError: true,

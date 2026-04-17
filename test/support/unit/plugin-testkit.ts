@@ -119,8 +119,8 @@ vi.mock('../../../src/runtime/utils/runtime-config', () => ({
   getConvexRuntimeConfig: getConvexRuntimeConfigMock,
 }))
 
-vi.mock('../../../src/runtime/utils/logger', () => ({
-  createLogger: () => ({
+vi.mock('../../../src/runtime/utils/runtime-observer', () => ({
+  createRuntimeObserver: () => ({
     auth: authLogMock,
     debug: debugLogMock,
     query: vi.fn(),
@@ -129,8 +129,9 @@ vi.mock('../../../src/runtime/utils/logger', () => ({
     connection: vi.fn(),
     upload: vi.fn(),
     time: () => vi.fn(),
+    setSummary: vi.fn(),
+    emitSummary: vi.fn(),
   }),
-  getLogLevel: () => false,
 }))
 
 export function createNuxtAppMock(options?: { serverRendered?: boolean }) {
@@ -156,10 +157,9 @@ export function resetPluginClientTestkit() {
   useRuntimeConfigMock.mockReturnValue({
     public: {
       convex: {
-        logging: false,
         observability: {
           enabled: false,
-          adapter: 'console',
+          service: 'plugin-testkit',
           capture: { backend: false, mcp: false, browser: false },
           level: 'critical',
           sample: {},

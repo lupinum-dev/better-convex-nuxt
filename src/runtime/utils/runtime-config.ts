@@ -2,7 +2,6 @@ import { useRuntimeConfig } from '#imports'
 
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config.js'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
-import type { LogLevel } from './logger.js'
 import {
   normalizeObservabilityConfig,
   type NormalizedTrellisObservabilityConfig,
@@ -33,7 +32,6 @@ export interface NormalizedConvexRuntimeConfig {
   permissions: NormalizedConvexPermissionsConfig
   query: ConvexRuntimeQueryDefaults
   upload: { maxConcurrent: number }
-  logging: LogLevel | false
   observability: NormalizedTrellisObservabilityConfig
 }
 
@@ -54,13 +52,13 @@ function isNormalizedObservabilityConfig(
   const correlation = candidate.correlation as Record<string, unknown> | undefined
   return (
     typeof candidate.enabled === 'boolean' &&
-    (candidate.adapter === 'console' || typeof candidate.adapter === 'function') &&
     typeof capture?.backend === 'boolean' &&
     typeof capture?.mcp === 'boolean' &&
     typeof capture?.browser === 'boolean' &&
     (candidate.level === 'critical' ||
       candidate.level === 'normal' ||
       candidate.level === 'verbose') &&
+    typeof candidate.service === 'string' &&
     typeof candidate.redact === 'function' &&
     typeof correlation?.header === 'string' &&
     typeof correlation?.generate === 'function'
@@ -140,16 +138,9 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
         return n > 0 ? n : 1
       })(),
     },
-    logging:
-      raw?.logging === false || typeof raw?.logging === 'string'
-        ? (raw.logging as LogLevel | false)
-        : false,
     observability: isNormalizedObservabilityConfig(raw?.observability)
       ? raw.observability
-      : normalizeObservabilityConfig(raw?.observability, {
-          allowCustomAdapters: false,
-          allowFunctionHooks: false,
-        }),
+      : normalizeObservabilityConfig(raw?.observability),
   }
 }
 
