@@ -87,6 +87,13 @@ Example intents:
 
 Destructive archive still goes through preview + confirm.
 
+The example also ships a small header-based MCP auth bridge for local use:
+
+- send `x-kanban-mcp-user: <authId>` to `/mcp`
+- optional: send `x-kanban-mcp-agent: <agentId>` to mark the caller as an agent
+
+That keeps the example reproducible without pretending it ships a production MCP identity layer.
+
 ## Observability and Audit
 
 The example enables Trellis observability in:
@@ -105,6 +112,12 @@ It also writes durable audit events for:
 
 The UI shows the latest workspace audit events so the behavior is visible while testing.
 
+Observability is real, but this example now states the truth about proof:
+
+- `pnpm test` covers domain behavior plus shared policy and board-selection logic
+- repo-level Trellis tests cover MCP destructive confirmation and runtime observability guarantees
+- live `evlog` delivery across browser/backend/MCP still needs manual inspection while the app is running
+
 ## Run It
 
 1. Copy `.env.example` to `.env.local`
@@ -112,10 +125,88 @@ The UI shows the latest workspace audit events so the behavior is visible while 
 3. In one terminal: `pnpm --dir examples-next/01-kanban-workspace convex:dev`
 4. In another terminal: `pnpm --dir examples-next/01-kanban-workspace dev:nuxt`
 
+## MCP Demo
+
+1. Start the app with the commands above.
+2. Sign in once in the UI so the app creates a user row and workspace membership.
+3. Use that user `authId` as `x-kanban-mcp-user` when calling `/mcp`.
+
+Bootstrap a session:
+
+```bash
+curl -i http://localhost:3000/mcp \
+  -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'x-kanban-mcp-user: alpha-owner' \
+  --data '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-03-26",
+      "capabilities": {},
+      "clientInfo": { "name": "curl", "version": "1.0.0" }
+    }
+  }'
+```
+
+Take the `Mcp-Session-Id` header from that response and call the destructive tool:
+
+```bash
+curl http://localhost:3000/mcp \
+  -X POST \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'x-kanban-mcp-user: alpha-owner' \
+  -H 'Mcp-Session-Id: <session-id>' \
+  --data '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "archive-board",
+      "arguments": {
+        "workspace": "alpha",
+        "board": "alpha-board"
+      }
+    }
+  }'
+```
+
+That first call returns a preview with `confirmationToken`. Send the same call again with `_confirmationToken` set to that value to execute the archive.
+
+## Observability Demo
+
+Trellis observability is enabled in:
+
+- `nuxt.config.ts`
+- `convex/functions.ts`
+- `server/mcp/runtime.ts`
+
+To inspect it while the example is running:
+
+1. keep `dev:nuxt` running in a terminal
+2. create, move, or archive cards through the UI or `/mcp`
+3. watch the server output for correlated semantic observation events
+4. compare that live output with the durable audit list shown in the UI
+
+Audit is the durable business trail.
+Observability is the correlated runtime decision trail.
+
 ## Verification
 
 - `pnpm --dir examples-next/01-kanban-workspace typecheck`
 - `pnpm --dir examples-next/01-kanban-workspace test`
+
+`pnpm test` currently covers:
+
+- membership and role behavior
+- column/card reorder semantics, including insertion before another card
+- destructive board archive through the operation runtime
+- shared role/capability projection and explicit board-selection rules
+
+The MCP transport path is demonstrated manually above and covered by the repo-level Trellis MCP/runtime test suites, not by the example-local `vitest` run.
 
 ## Files To Read First
 
@@ -138,3 +229,6 @@ That is intentional in this example:
 - the example uses explicit business checks instead of pretending memberships are single-tenant data
 
 That warning reflects a real framework tension this example is meant to expose.
+
+It is not background noise.
+The example is intentionally surfacing a real current Trellis limitation around multi-workspace reference tables.

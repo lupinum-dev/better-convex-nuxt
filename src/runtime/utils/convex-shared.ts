@@ -1,4 +1,9 @@
-import type { FunctionReference } from 'convex/server'
+import type {
+  FunctionReference,
+  RegisteredAction,
+  RegisteredMutation,
+  RegisteredQuery,
+} from 'convex/server'
 import { hash } from 'ohash'
 
 import type { QueryStatus, ConvexUser } from './types.js'
@@ -109,6 +114,42 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
 // Types
 // ============================================================================
 
+export type AnyQueryFunction =
+  | FunctionReference<'query', 'public' | 'internal'>
+  | RegisteredQuery<'public' | 'internal', any, any>
+
+export type AnyMutationFunction =
+  | FunctionReference<'mutation', 'public' | 'internal'>
+  | RegisteredMutation<'public' | 'internal', any, any>
+
+export type AnyActionFunction =
+  | FunctionReference<'action', 'public' | 'internal'>
+  | RegisteredAction<'public' | 'internal', any, any>
+
+export type AnyConvexFunction = AnyQueryFunction | AnyMutationFunction | AnyActionFunction
+
+export type FunctionLikeArgs<T> =
+  T extends FunctionReference<any, any, infer Args, any>
+    ? Args
+    : T extends RegisteredQuery<any, infer Args, any>
+      ? Args
+      : T extends RegisteredMutation<any, infer Args, any>
+        ? Args
+        : T extends RegisteredAction<any, infer Args, any>
+          ? Args
+          : never
+
+export type FunctionLikeReturnType<T> =
+  T extends FunctionReference<any, any, any, infer ReturnType>
+    ? ReturnType
+    : T extends RegisteredQuery<any, any, infer ReturnType>
+      ? ReturnType
+      : T extends RegisteredMutation<any, any, infer ReturnType>
+        ? ReturnType
+        : T extends RegisteredAction<any, any, infer ReturnType>
+          ? ReturnType
+          : never
+
 // ============================================================================
 // Response Parsing
 // ============================================================================
@@ -177,9 +218,9 @@ export function computeQueryStatus(
  */
 export function getFunctionName(
   fn:
-    | FunctionReference<'query', 'public' | 'internal'>
-    | FunctionReference<'mutation', 'public' | 'internal'>
-    | FunctionReference<'action', 'public' | 'internal'>,
+    | AnyQueryFunction
+    | AnyMutationFunction
+    | AnyActionFunction,
 ): string {
   if (!fn) return 'unknown'
 

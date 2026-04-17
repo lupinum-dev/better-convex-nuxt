@@ -21,6 +21,9 @@ import {
 import { stampOperationProjection, trellisOperationProjectionMetadataKey } from './operation-metadata.js'
 
 type MaybePromise<T> = T | Promise<T>
+type BivariantCallback<TArgs extends unknown[], TResult> = {
+  bivarianceHack: (...args: TArgs) => TResult
+}['bivarianceHack']
 
 type RuntimeContext<TPrincipal, TActor> = {
   principal: () => Promise<TPrincipal>
@@ -67,10 +70,11 @@ type NarrowedCtx<TCtx, TPrincipal, TActor, TGuard> = Omit<TCtx, 'actor' | 'princ
   actor: () => Promise<ActorForGuard<TActor, TGuard>>
 }
 
-type LoadFn<TCtx, TPrincipal, TActor, TGuard, TArgsValidator extends PropertyValidators, TLoaded> = (
-  ctx: NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>,
-  args: HandlerArgs<TArgsValidator>,
-) => MaybePromise<TLoaded>
+type LoadFn<TCtx, TPrincipal, TActor, TGuard, TArgsValidator extends PropertyValidators, TLoaded> =
+  BivariantCallback<
+    [NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>, HandlerArgs<TArgsValidator>],
+    MaybePromise<TLoaded>
+  >
 
 type AuthorizeConfig<
   TCtx,
@@ -111,11 +115,10 @@ type HandlerDefinition<
   guard: TGuard
   load?: LoadFn<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded>
   authorize?: AuthorizeConfig<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded>
-  handler: (
-    ctx: NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>,
-    args: HandlerArgs<TArgsValidator>,
-    loaded: TLoaded,
-  ) => MaybePromise<TResult>
+  handler: BivariantCallback<
+    [NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>, HandlerArgs<TArgsValidator>, TLoaded],
+    MaybePromise<TResult>
+  >
   [trellisOperationProjectionMetadataKey]?: {
     operationId: string
     projection: 'execute' | 'preview'

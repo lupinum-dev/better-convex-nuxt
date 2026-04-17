@@ -1,13 +1,16 @@
-import type { FunctionReference } from 'convex/server'
-
 import {
   getOperationMetadata,
   getOperationProjectionMetadata,
 } from '../functions/operation-metadata.js'
+import type {
+  AnyActionFunction,
+  AnyMutationFunction,
+  AnyQueryFunction,
+} from '../utils/convex-shared.js'
 
-type AnyQueryRef = FunctionReference<'query', 'public' | 'internal'>
-type AnyMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
-type AnyActionRef = FunctionReference<'action', 'public' | 'internal'>
+type AnyQueryRef = AnyQueryFunction
+type AnyMutationRef = AnyMutationFunction
+type AnyActionRef = AnyActionFunction
 export type AnyFunctionRef = AnyQueryRef | AnyMutationRef | AnyActionRef
 
 export function toKebabCase(input: string): string {

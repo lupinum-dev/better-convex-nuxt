@@ -16,7 +16,9 @@ import {
   updateCardArgs,
 } from '../shared/schemas/kanban'
 import type { Doc, Id } from './_generated/dataModel'
-import type { Role } from './auth/actor'
+import type { MutationCtx, QueryCtx } from './_generated/server'
+import type { Actor } from './auth/actor'
+import type { KanbanPrincipal } from './auth/principal'
 import {
   canArchiveBoard,
   canManageBoardStructure,
@@ -28,33 +30,28 @@ import { mutation, query } from './functions'
 import { resolveWorkspaceAccess, slugify } from './lib/access'
 import { writeAuditEvent } from './lib/audit'
 import { POSITION_STEP, moveIdBefore } from './lib/ordering'
+import { getKanbanPermissions, roleHasPermission, type KanbanRole } from '../shared/permissions'
 
 type BoardRecord = Doc<'boards'>
 type ColumnRecord = Doc<'columns'>
 type CardRecord = Doc<'cards'>
-
-function canWriteCardsForRole(role: Role) {
-  return ['owner', 'admin', 'member'].includes(role)
-}
-
-function canArchiveBoardForRole(role: Role) {
-  return ['owner', 'admin'].includes(role)
-}
-
-function canManageBoardStructureForRole(role: Role) {
-  return ['owner', 'admin'].includes(role)
+type KanbanDb = QueryCtx['db'] | MutationCtx['db']
+type KanbanMutationCtx = MutationCtx
+type ArchiveBoardOperationCtx = (QueryCtx | MutationCtx) & {
+  principal: () => Promise<KanbanPrincipal>
+  actor: () => Promise<Actor | null>
 }
 
 async function listBoardsInWorkspace(
-  db: any,
+  db: KanbanDb,
   workspaceId: Id<'workspaces'>,
   includeArchived: boolean,
 ) {
   const source = includeArchived
-    ? db.query('boards').withIndex('by_workspace', (q: any) => q.eq('workspaceId', workspaceId))
+    ? db.query('boards').withIndex('by_workspace', (q) => q.eq('workspaceId', workspaceId))
     : db
         .query('boards')
-        .withIndex('by_workspace_archived', (q: any) =>
+        .withIndex('by_workspace_archived', (q) =>
           q.eq('workspaceId', workspaceId).eq('archived', false),
         )
 
@@ -62,33 +59,33 @@ async function listBoardsInWorkspace(
 }
 
 async function listBoardColumns(
-  db: any,
+  db: KanbanDb,
   workspaceId: Id<'workspaces'>,
   boardId: Id<'boards'>,
 ) {
   return (await db
     .query('columns')
-    .withIndex('by_workspace_board_position', (q: any) =>
+    .withIndex('by_workspace_board_position', (q) =>
       q.eq('workspaceId', workspaceId).eq('boardId', boardId),
     )
     .collect()) as ColumnRecord[]
 }
 
 async function listColumnCards(
-  db: any,
+  db: KanbanDb,
   workspaceId: Id<'workspaces'>,
   columnId: Id<'columns'>,
 ) {
   return (await db
     .query('cards')
-    .withIndex('by_workspace_column_position', (q: any) =>
+    .withIndex('by_workspace_column_position', (q) =>
       q.eq('workspaceId', workspaceId).eq('columnId', columnId),
     )
     .collect()) as CardRecord[]
 }
 
 async function ensureBoardInWorkspace(
-  db: any,
+  db: KanbanDb,
   boardId: Id<'boards'>,
   workspaceId: Id<'workspaces'>,
 ) {
@@ -101,7 +98,7 @@ async function ensureBoardInWorkspace(
 }
 
 async function ensureColumnInWorkspace(
-  db: any,
+  db: KanbanDb,
   columnId: Id<'columns'>,
   workspaceId: Id<'workspaces'>,
 ) {
@@ -114,7 +111,7 @@ async function ensureColumnInWorkspace(
 }
 
 async function ensureCardInWorkspace(
-  db: any,
+  db: KanbanDb,
   cardId: Id<'cards'>,
   workspaceId: Id<'workspaces'>,
 ) {
@@ -127,10 +124,10 @@ async function ensureCardInWorkspace(
 }
 
 async function buildBoardView(
-  db: any,
+  db: KanbanDb,
   workspaceId: Id<'workspaces'>,
   board: BoardRecord,
-  role: Role,
+  role: KanbanRole,
 ) {
   const workspace = await db.get(workspaceId)
   requireRecord(workspace as Doc<'workspaces'> | null, 'Workspace')
@@ -162,18 +159,13 @@ async function buildBoardView(
       slug: board.slug,
       archived: board.archived,
     },
-    permissions: {
-      manageBoards: canManageBoardStructureForRole(role),
-      manageBoardStructure: canManageBoardStructureForRole(role),
-      writeCards: canWriteCardsForRole(role),
-      archiveBoard: canArchiveBoardForRole(role),
-    },
+    permissions: getKanbanPermissions(role),
     columns: columnsWithCards,
   }
 }
 
 async function createBoardSlug(
-  db: any,
+  db: KanbanDb,
   workspaceId: Id<'workspaces'>,
   title: string,
 ) {
@@ -184,7 +176,7 @@ async function createBoardSlug(
   while (
     await db
       .query('boards')
-      .withIndex('by_workspace_slug', (q: any) => q.eq('workspaceId', workspaceId).eq('slug', slug))
+      .withIndex('by_workspace_slug', (q) => q.eq('workspaceId', workspaceId).eq('slug', slug))
       .first()
   ) {
     slug = `${base}-${suffix}`
@@ -195,7 +187,7 @@ async function createBoardSlug(
 }
 
 async function resequenceColumns(
-  ctx: any,
+  ctx: KanbanMutationCtx,
   orderedIds: Id<'columns'>[],
 ) {
   const now = Date.now()
@@ -208,7 +200,7 @@ async function resequenceColumns(
 }
 
 async function resequenceCards(
-  ctx: any,
+  ctx: KanbanMutationCtx,
   orderedIds: Id<'cards'>[],
   options?: {
     movingCardId?: Id<'cards'>
@@ -228,7 +220,7 @@ async function resequenceCards(
 }
 
 async function resolveBoardByName(
-  db: any,
+  db: KanbanDb,
   workspaceId: Id<'workspaces'>,
   boardName?: string,
   includeArchived = false,
@@ -260,7 +252,7 @@ async function resolveBoardByName(
 }
 
 async function resolveColumnByTitle(
-  db: any,
+  db: KanbanDb,
   workspaceId: Id<'workspaces'>,
   boardId: Id<'boards'>,
   title: string,
@@ -278,7 +270,7 @@ async function resolveColumnByTitle(
 }
 
 async function resolveCardByTitle(
-  db: any,
+  db: KanbanDb,
   workspaceId: Id<'workspaces'>,
   boardId: Id<'boards'>,
   title: string,
@@ -299,7 +291,7 @@ async function resolveCardByTitle(
 }
 
 async function moveCardWithinBoard(
-  ctx: any,
+  ctx: KanbanMutationCtx,
   workspaceId: Id<'workspaces'>,
   card: CardRecord,
   toColumn: ColumnRecord,
@@ -400,7 +392,7 @@ export const createBoard = mutation({
       action: 'board.created',
       summary: `Created board "${title}".`,
       workspaceId: actor.tenantId,
-      boardId: String(boardId),
+      boardId,
     })
 
     return boardId
@@ -430,8 +422,8 @@ export const createColumn = mutation({
       action: 'column.created',
       summary: `Created column "${args.title.trim()}".`,
       workspaceId: actor.tenantId,
-      boardId: String(board._id),
-      columnId: String(columnId),
+      boardId: board._id,
+      columnId,
     })
 
     return columnId
@@ -456,8 +448,8 @@ export const renameColumn = mutation({
       action: 'column.renamed',
       summary: `Renamed a column to "${args.title.trim()}".`,
       workspaceId: actor.tenantId,
-      boardId: String(column.boardId),
-      columnId: String(column._id),
+      boardId: column.boardId,
+      columnId: column._id,
     })
   },
 })
@@ -491,8 +483,8 @@ export const reorderColumn = mutation({
       action: 'column.reordered',
       summary: `Reordered column "${column.title}".`,
       workspaceId: actor.tenantId,
-      boardId: String(column.boardId),
-      columnId: String(column._id),
+      boardId: column.boardId,
+      columnId: column._id,
     })
   },
 })
@@ -523,9 +515,9 @@ export const createCard = mutation({
       action: 'card.created',
       summary: `Created card "${args.title.trim()}".`,
       workspaceId: actor.tenantId,
-      boardId: String(column.boardId),
-      columnId: String(column._id),
-      cardId: String(cardId),
+      boardId: column.boardId,
+      columnId: column._id,
+      cardId,
     })
 
     return cardId
@@ -551,9 +543,9 @@ export const updateCard = mutation({
       action: 'card.updated',
       summary: `Updated card "${args.title.trim()}".`,
       workspaceId: actor.tenantId,
-      boardId: String(card.boardId),
-      columnId: String(card.columnId),
-      cardId: String(card._id),
+      boardId: card.boardId,
+      columnId: card.columnId,
+      cardId: card._id,
     })
   },
 })
@@ -587,9 +579,9 @@ export const moveCard = mutation({
       action: 'card.moved',
       summary: `Moved card "${card.title}" to "${toColumn.title}".`,
       workspaceId: actor.tenantId,
-      boardId: String(card.boardId),
-      columnId: String(toColumn._id),
-      cardId: String(card._id),
+      boardId: card.boardId,
+      columnId: toColumn._id,
+      cardId: card._id,
     })
 
     return null
@@ -624,7 +616,7 @@ export const createCardByAgent = mutation({
   handler: async (ctx, args) => {
     const principal = await ctx.principal()
     const access = await resolveWorkspaceAccess(ctx.db, principal, args.workspace)
-    if (!canWriteCardsForRole(access.membership.role)) {
+    if (!roleHasPermission(access.membership.role, 'writeCards')) {
       throw new Error('You do not have permission to create cards in that workspace.')
     }
 
@@ -650,9 +642,9 @@ export const createCardByAgent = mutation({
       action: 'card.created.agent',
       summary: `Agent created card "${args.title.trim()}" in "${column.title}".`,
       workspaceId: access.workspace._id,
-      boardId: String(board._id),
-      columnId: String(column._id),
-      cardId: String(cardId),
+      boardId: board._id,
+      columnId: column._id,
+      cardId,
     })
 
     return {
@@ -671,7 +663,7 @@ export const moveCardByAgent = mutation({
   handler: async (ctx, args) => {
     const principal = await ctx.principal()
     const access = await resolveWorkspaceAccess(ctx.db, principal, args.workspace)
-    if (!canWriteCardsForRole(access.membership.role)) {
+    if (!roleHasPermission(access.membership.role, 'writeCards')) {
       throw new Error('You do not have permission to move cards in that workspace.')
     }
 
@@ -694,9 +686,9 @@ export const moveCardByAgent = mutation({
       action: 'card.moved.agent',
       summary: `Agent moved card "${card.title}" to "${toColumn.title}".`,
       workspaceId: access.workspace._id,
-      boardId: String(board._id),
-      columnId: String(toColumn._id),
-      cardId: String(card._id),
+      boardId: board._id,
+      columnId: toColumn._id,
+      cardId: card._id,
     })
 
     return null
@@ -728,8 +720,8 @@ export const archiveBoardOp = defineOperation({
     }),
   }),
   guard: open,
-  load: async (ctx: any, args) => {
-    const principal = (await ctx.principal()) as import('./auth/principal').KanbanPrincipal
+  load: async (ctx: ArchiveBoardOperationCtx, args) => {
+    const principal = await ctx.principal()
 
     if (args.boardId) {
       const board = (await ctx.db.get(args.boardId)) as BoardRecord | null
@@ -738,7 +730,7 @@ export const archiveBoardOp = defineOperation({
       if (board.workspaceId !== access.workspace._id) {
         throw new Error('Board is not in the selected workspace.')
       }
-      if (!canArchiveBoardForRole(access.membership.role)) {
+      if (!roleHasPermission(access.membership.role, 'archiveBoard')) {
         throw new Error('You do not have permission to archive boards in that workspace.')
       }
 
@@ -755,7 +747,7 @@ export const archiveBoardOp = defineOperation({
     }
 
     const access = await resolveWorkspaceAccess(ctx.db, principal, args.workspace)
-    if (!canArchiveBoardForRole(access.membership.role)) {
+    if (!roleHasPermission(access.membership.role, 'archiveBoard')) {
       throw new Error('You do not have permission to archive boards in that workspace.')
     }
 
@@ -785,9 +777,12 @@ export const archiveBoardOp = defineOperation({
       },
     },
   }),
-  handler: async (ctx: any, _args, { board, access }) => {
-    const principal = (await ctx.principal()) as import('./auth/principal').KanbanPrincipal
-    const actor = (await ctx.actor()) as import('./auth/actor').Actor | null
+  handler: async (ctx: ArchiveBoardOperationCtx, _args, { board, access }) => {
+    if (!('scheduler' in ctx)) {
+      throw new Error('Archive board execution requires a mutation context.')
+    }
+    const principal = await ctx.principal()
+    const actor = await ctx.actor()
     await ctx.db.patch(board._id, {
       archived: true,
       updatedAt: Date.now(),
@@ -799,7 +794,7 @@ export const archiveBoardOp = defineOperation({
       action: 'board.archived',
       summary: `Archived board "${board.title}".`,
       workspaceId: access.workspace._id,
-      boardId: String(board._id),
+      boardId: board._id,
     })
 
     return null

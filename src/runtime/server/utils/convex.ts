@@ -1,9 +1,17 @@
-import type { FunctionReference, FunctionArgs, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
-import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared.js'
+import {
+  parseConvexResponse,
+  getFunctionName,
+  type AnyActionFunction,
+  type AnyConvexFunction,
+  type AnyMutationFunction,
+  type AnyQueryFunction,
+  type FunctionLikeArgs,
+  type FunctionLikeReturnType,
+} from '../../utils/convex-shared.js'
 import { withObservationEnvelope } from '../../utils/observability.js'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import { createRuntimeObserver } from '../../utils/runtime-observer.js'
@@ -136,15 +144,13 @@ async function resolveAuthToken(
   return await resolveRequestAuthToken(event, config, options)
 }
 
-async function executeConvexOperation<
-  Fn extends FunctionReference<'query' | 'mutation' | 'action'>,
->(
+async function executeConvexOperation<Fn extends AnyConvexFunction>(
   event: H3Event,
   operationType: ConvexOperationType,
   functionPath: string,
-  args: FunctionArgs<Fn> | undefined,
+  args: FunctionLikeArgs<Fn> | undefined,
   options?: ServerConvexOptions,
-): Promise<FunctionReturnType<Fn>> {
+): Promise<FunctionLikeReturnType<Fn>> {
   const runtimeConfig = useRuntimeConfig(event)
   const convexConfig = normalizeConvexRuntimeConfig(runtimeConfig.public.convex)
   const convexUrl = convexConfig.url
@@ -200,7 +206,7 @@ async function executeConvexOperation<
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  let requestArgs: FunctionArgs<Fn> | Record<string, unknown> = args ?? {}
+  let requestArgs: FunctionLikeArgs<Fn> | Record<string, unknown> = args ?? {}
 
   const logSuccess = (duration: number) => {
     if (operationType === 'query') {
@@ -292,7 +298,7 @@ async function executeConvexOperation<
     }
 
     const json = await response.json()
-    const result = parseConvexResponse<FunctionReturnType<Fn>>(json)
+    const result = parseConvexResponse<FunctionLikeReturnType<Fn>>(json)
 
     const duration = Date.now() - startTime
     logSuccess(duration)
@@ -352,18 +358,18 @@ function isH3EventLike(value: unknown): value is H3Event {
   )
 }
 
-function parseServerConvexArgs<Fn extends FunctionReference<'query' | 'mutation' | 'action'>>(
+function parseServerConvexArgs<Fn extends AnyConvexFunction>(
   operationType: ConvexOperationType,
   input: [
     H3Event | Fn,
-    Fn | FunctionArgs<Fn> | undefined,
-    FunctionArgs<Fn> | ServerConvexOptions | undefined,
+    Fn | FunctionLikeArgs<Fn> | undefined,
+    FunctionLikeArgs<Fn> | ServerConvexOptions | undefined,
     ServerConvexOptions | undefined,
   ],
 ): {
   event: H3Event
   fn: Fn
-  args: FunctionArgs<Fn> | undefined
+  args: FunctionLikeArgs<Fn> | undefined
   options: ServerConvexOptions | undefined
 } {
   const [first, second, third, fourth] = input
@@ -373,7 +379,7 @@ function parseServerConvexArgs<Fn extends FunctionReference<'query' | 'mutation'
     return {
       event: first,
       fn: second as Fn,
-      args: third as FunctionArgs<Fn> | undefined,
+      args: third as FunctionLikeArgs<Fn> | undefined,
       options: fourth,
     }
   }
@@ -383,20 +389,20 @@ function parseServerConvexArgs<Fn extends FunctionReference<'query' | 'mutation'
   return {
     event: resolveServerEvent(undefined, helper, operationType, functionPath),
     fn,
-    args: second as FunctionArgs<Fn> | undefined,
+    args: second as FunctionLikeArgs<Fn> | undefined,
     options: third as ServerConvexOptions | undefined,
   }
 }
 
-export async function serverConvexQuery<Query extends FunctionReference<'query'>>(
+export async function serverConvexQuery<Query extends AnyQueryFunction>(
   eventOrQuery: H3Event | Query,
-  queryOrArgs?: Query | FunctionArgs<Query>,
-  args?: FunctionArgs<Query>,
+  queryOrArgs?: Query | FunctionLikeArgs<Query>,
+  args?: FunctionLikeArgs<Query>,
   options?: ServerConvexOptions,
-): Promise<FunctionReturnType<Query>> {
+): Promise<FunctionLikeReturnType<Query>> {
   const parsed = parseServerConvexArgs<Query>('query', [
     eventOrQuery,
-    queryOrArgs as Query | FunctionArgs<Query> | undefined,
+    queryOrArgs as Query | FunctionLikeArgs<Query> | undefined,
     args,
     options,
   ])
@@ -410,15 +416,15 @@ export async function serverConvexQuery<Query extends FunctionReference<'query'>
   )
 }
 
-export async function serverConvexMutation<Mutation extends FunctionReference<'mutation'>>(
+export async function serverConvexMutation<Mutation extends AnyMutationFunction>(
   eventOrMutation: H3Event | Mutation,
-  mutationOrArgs?: Mutation | FunctionArgs<Mutation>,
-  args?: FunctionArgs<Mutation>,
+  mutationOrArgs?: Mutation | FunctionLikeArgs<Mutation>,
+  args?: FunctionLikeArgs<Mutation>,
   options?: ServerConvexOptions,
-): Promise<FunctionReturnType<Mutation>> {
+): Promise<FunctionLikeReturnType<Mutation>> {
   const parsed = parseServerConvexArgs<Mutation>('mutation', [
     eventOrMutation,
-    mutationOrArgs as Mutation | FunctionArgs<Mutation> | undefined,
+    mutationOrArgs as Mutation | FunctionLikeArgs<Mutation> | undefined,
     args,
     options,
   ])
@@ -432,15 +438,15 @@ export async function serverConvexMutation<Mutation extends FunctionReference<'m
   )
 }
 
-export async function serverConvexAction<Action extends FunctionReference<'action'>>(
+export async function serverConvexAction<Action extends AnyActionFunction>(
   eventOrAction: H3Event | Action,
-  actionOrArgs?: Action | FunctionArgs<Action>,
-  args?: FunctionArgs<Action>,
+  actionOrArgs?: Action | FunctionLikeArgs<Action>,
+  args?: FunctionLikeArgs<Action>,
   options?: ServerConvexOptions,
-): Promise<FunctionReturnType<Action>> {
+): Promise<FunctionLikeReturnType<Action>> {
   const parsed = parseServerConvexArgs<Action>('action', [
     eventOrAction,
-    actionOrArgs as Action | FunctionArgs<Action> | undefined,
+    actionOrArgs as Action | FunctionLikeArgs<Action> | undefined,
     args,
     options,
   ])

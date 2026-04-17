@@ -55,15 +55,38 @@
         </div>
 
         <div v-if="canWriteCards" class="cluster">
-          <button
-            v-for="targetColumn in otherColumns"
-            :key="targetColumn._id"
-            type="button"
-            :disabled="pending"
-            @click="$emit('moveCardToColumn', { cardId: card._id, toColumnId: targetColumn._id })"
-          >
-            To {{ targetColumn.title }}
-          </button>
+          <div v-for="targetColumn in otherColumns" :key="targetColumn._id" class="stack-sm move-target">
+            <strong class="meta">Move to {{ targetColumn.title }}</strong>
+            <label>
+              <span class="meta">Place card</span>
+              <select
+                v-model="moveTargets[moveTargetKey(card._id, targetColumn._id)]"
+                :disabled="pending"
+              >
+                <option value="">At end</option>
+                <option
+                  v-for="targetCard in targetColumn.cards"
+                  :key="targetCard._id"
+                  :value="targetCard._id"
+                >
+                  Before {{ targetCard.title }}
+                </option>
+              </select>
+            </label>
+            <button
+              type="button"
+              :disabled="pending"
+              @click="
+                $emit('moveCardToColumn', {
+                  cardId: card._id,
+                  toColumnId: targetColumn._id,
+                  beforeCardId: moveTargets[moveTargetKey(card._id, targetColumn._id)] || undefined,
+                })
+              "
+            >
+              Move
+            </button>
+          </div>
         </div>
       </li>
     </ul>
@@ -73,15 +96,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import type { Id } from '../convex/_generated/dataModel'
+import { computed, reactive, ref } from 'vue'
 
 const props = defineProps<{
   column: {
-    _id: string
+    _id: Id<'columns'>
     title: string
-    cards: Array<{ _id: string; title: string; description?: string }>
+    cards: Array<{ _id: Id<'cards'>; title: string; description?: string }>
   }
-  allColumns: Array<{ _id: string; title: string }>
+  allColumns: Array<{
+    _id: Id<'columns'>
+    title: string
+    cards: Array<{ _id: Id<'cards'>; title: string }>
+  }>
   columnIndex: number
   columnCount: number
   canManageBoardStructure: boolean
@@ -90,21 +118,28 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  createCard: [{ columnId: string; title: string }]
-  renameColumn: [columnId: string]
-  moveColumnEarlier: [columnId: string]
-  moveColumnLater: [columnId: string]
-  renameCard: [cardId: string]
-  moveCardUp: [cardId: string]
-  moveCardDown: [cardId: string]
-  moveCardToColumn: [{ cardId: string; toColumnId: string }]
+  createCard: [{ columnId: Id<'columns'>; title: string }]
+  renameColumn: [columnId: Id<'columns'>]
+  moveColumnEarlier: [columnId: Id<'columns'>]
+  moveColumnLater: [columnId: Id<'columns'>]
+  renameCard: [cardId: Id<'cards'>]
+  moveCardUp: [cardId: Id<'cards'>]
+  moveCardDown: [cardId: Id<'cards'>]
+  moveCardToColumn: [
+    { cardId: Id<'cards'>; toColumnId: Id<'columns'>; beforeCardId?: Id<'cards'> },
+  ]
 }>()
 
 const title = ref('')
+const moveTargets = reactive<Record<string, Id<'cards'> | ''>>({})
 
 const otherColumns = computed(() =>
   props.allColumns.filter((targetColumn) => targetColumn._id !== props.column._id),
 )
+
+function moveTargetKey(cardId: Id<'cards'>, columnId: Id<'columns'>) {
+  return `${cardId}:${columnId}`
+}
 
 function submit() {
   const nextTitle = title.value.trim()

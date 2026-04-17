@@ -1,5 +1,8 @@
 import type { Doc, Id } from '../_generated/dataModel'
+import type { MutationCtx, QueryCtx } from '../_generated/server'
 import type { KanbanPrincipal } from '../auth/principal'
+
+type KanbanDb = QueryCtx['db'] | MutationCtx['db']
 
 export function slugify(input: string) {
   return input
@@ -9,35 +12,33 @@ export function slugify(input: string) {
     .replace(/^-+|-+$/g, '')
 }
 
-export async function getUserByAuthId(db: any, authId: string) {
+export async function getUserByAuthId(db: KanbanDb, authId: string) {
   return (await db
     .query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
+    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
     .first()) as Doc<'users'> | null
 }
 
-export async function listMemberships(db: any, authId: string) {
+export async function listMemberships(db: KanbanDb, authId: string) {
   return (await db
     .query('memberships')
-    .withIndex('by_user', (q: any) => q.eq('userId', authId))
+    .withIndex('by_user', (q) => q.eq('userId', authId))
     .collect()) as Doc<'memberships'>[]
 }
 
 export async function getMembership(
-  db: any,
+  db: KanbanDb,
   authId: string,
   workspaceId: Id<'workspaces'>,
 ) {
   return (await db
     .query('memberships')
-    .withIndex('by_user_workspace', (q: any) =>
-      q.eq('userId', authId).eq('workspaceId', workspaceId),
-    )
+    .withIndex('by_user_workspace', (q) => q.eq('userId', authId).eq('workspaceId', workspaceId))
     .first()) as Doc<'memberships'> | null
 }
 
 export async function resolveWorkspaceAccess(
-  db: any,
+  db: KanbanDb,
   principal: KanbanPrincipal,
   workspaceName?: string,
 ) {
@@ -58,7 +59,7 @@ export async function resolveWorkspaceAccess(
   const workspaces = (
     await Promise.all(
       memberships.map(async (membership) => {
-        const workspace = (await db.get(String(membership.workspaceId))) as Doc<'workspaces'> | null
+        const workspace = (await db.get(membership.workspaceId)) as Doc<'workspaces'> | null
         return workspace
           ? {
               workspace,
@@ -92,7 +93,7 @@ export async function resolveWorkspaceAccess(
   }
 
   if (user.activeWorkspaceId) {
-    const workspace = (await db.get(String(user.activeWorkspaceId))) as Doc<'workspaces'> | null
+    const workspace = (await db.get(user.activeWorkspaceId)) as Doc<'workspaces'> | null
     const membership = membershipMap.get(String(user.activeWorkspaceId))
     if (workspace && membership) {
       return { user, workspace, membership }

@@ -1,7 +1,13 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 
 import { serverConvexAction, serverConvexMutation, serverConvexQuery } from './utils/convex.js'
+import type {
+  AnyActionFunction,
+  AnyMutationFunction,
+  AnyQueryFunction,
+  FunctionLikeArgs,
+  FunctionLikeReturnType,
+} from '../utils/convex-shared.js'
 
 export {
   serverConvexQuery,
@@ -46,22 +52,26 @@ function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefine
  */
 export function createServerConvexCaller(event: H3Event, options?: ForwardedPrincipalOptions) {
   return {
-    query: async <Query extends FunctionReference<'query'>>(
+    query: async <Query extends AnyQueryFunction>(
       fn: Query,
-      args: FunctionArgs<Query>,
-    ): Promise<FunctionReturnType<Query>> =>
-      await serverConvexQuery(event, fn, withForwardedPrincipal(args, options), { auth: 'none' }),
-    mutation: async <Mutation extends FunctionReference<'mutation'>>(
-      fn: Mutation,
-      args: FunctionArgs<Mutation>,
-    ): Promise<FunctionReturnType<Mutation>> =>
-      await serverConvexMutation(event, fn, withForwardedPrincipal(args, options), {
+      args?: FunctionLikeArgs<Query>,
+    ): Promise<FunctionLikeReturnType<Query>> =>
+      await serverConvexQuery(event, fn, withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Query>), options), {
         auth: 'none',
       }),
-    action: async <Action extends FunctionReference<'action'>>(
+    mutation: async <Mutation extends AnyMutationFunction>(
+      fn: Mutation,
+      args?: FunctionLikeArgs<Mutation>,
+    ): Promise<FunctionLikeReturnType<Mutation>> =>
+      await serverConvexMutation(event, fn, withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Mutation>), options), {
+        auth: 'none',
+      }),
+    action: async <Action extends AnyActionFunction>(
       fn: Action,
-      args: FunctionArgs<Action>,
-    ): Promise<FunctionReturnType<Action>> =>
-      await serverConvexAction(event, fn, withForwardedPrincipal(args, options), { auth: 'none' }),
+      args?: FunctionLikeArgs<Action>,
+    ): Promise<FunctionLikeReturnType<Action>> =>
+      await serverConvexAction(event, fn, withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Action>), options), {
+        auth: 'none',
+      }),
   }
 }

@@ -7,27 +7,17 @@ import {
   switchWorkspaceArgs,
 } from '../shared/schemas/kanban'
 import type { Id } from './_generated/dataModel'
-import type { Role } from './auth/actor'
+import type { MutationCtx } from './_generated/server'
 import { canManageMembers, canReadWorkspace } from './auth/checks'
 import { mutation, query, raw } from './functions'
 import { getMembership, getUserByAuthId, listMemberships, resolveWorkspaceAccess, slugify } from './lib/access'
 import { writeAuditEvent } from './lib/audit'
+import { getKanbanPermissions, type KanbanRole } from '../shared/permissions'
 
 const starterColumns = ['Inbox', 'Doing', 'Done']
 
-function buildPermissions(role: Role | null) {
-  return {
-    readWorkspace: role !== null,
-    manageMembers: role === 'owner' || role === 'admin',
-    manageBoards: role === 'owner' || role === 'admin',
-    manageBoardStructure: role === 'owner' || role === 'admin',
-    writeCards: role === 'owner' || role === 'admin' || role === 'member',
-    archiveBoard: role === 'owner' || role === 'admin',
-  }
-}
-
 async function seedStarterBoard(
-  db: any,
+  db: MutationCtx['db'],
   workspaceId: Id<'workspaces'>,
   userId: string,
   workspaceName: string,
@@ -80,7 +70,9 @@ export const getSessionContext = query({
         }),
       )
     ).filter(
-      (entry): entry is { workspaceId: Id<'workspaces'>; name: string; slug: string; role: Role } =>
+      (
+        entry,
+      ): entry is { workspaceId: Id<'workspaces'>; name: string; slug: string; role: KanbanRole } =>
         !!entry,
     )
 
@@ -104,7 +96,7 @@ export const getSessionContext = query({
         : null,
       activeRole: activeMembership?.role ?? null,
       memberships: accessibleWorkspaces,
-      permissions: buildPermissions(activeMembership?.role ?? null),
+      permissions: getKanbanPermissions(activeMembership?.role ?? null),
     }
   },
 })
@@ -127,7 +119,7 @@ export const getPermissionContext = query({
       userId: user.authId,
       activeWorkspaceId: user.activeWorkspaceId ?? null,
       role: membership?.role ?? null,
-      can: buildPermissions(membership?.role ?? null),
+      can: getKanbanPermissions(membership?.role ?? null),
     }
   },
 })
@@ -169,14 +161,14 @@ export const createWorkspace = raw.mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
       .first()
     if (!user) throw new Error('Current user row not found.')
 
     const slug = slugify(args.slug)
     const existing = await ctx.db
       .query('workspaces')
-      .withIndex('by_slug', (q: any) => q.eq('slug', slug))
+      .withIndex('by_slug', (q) => q.eq('slug', slug))
       .first()
     if (existing) throw new Error('That workspace slug is already taken.')
 
@@ -216,15 +208,13 @@ export const switchWorkspace = raw.mutation({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
+      .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
       .first()
     if (!user) throw new Error('Current user row not found.')
 
     const membership = await ctx.db
       .query('memberships')
-      .withIndex('by_user_workspace', (q: any) =>
-        q.eq('userId', user.authId).eq('workspaceId', args.workspaceId),
-      )
+      .withIndex('by_user_workspace', (q) => q.eq('userId', user.authId).eq('workspaceId', args.workspaceId))
       .first()
     if (!membership) throw new Error('You do not belong to that workspace.')
 
@@ -246,7 +236,7 @@ export const addWorkspaceMember = mutation({
 
     const targetUser = await ctx.db
       .query('users')
-      .withIndex('by_email', (q: any) => q.eq('email', args.email.trim().toLowerCase()))
+      .withIndex('by_email', (q) => q.eq('email', args.email.trim().toLowerCase()))
       .first()
     if (!targetUser) {
       throw new Error('User not found. They need to sign up before they can be added.')
@@ -254,7 +244,7 @@ export const addWorkspaceMember = mutation({
 
     const existingMembership = await ctx.db
       .query('memberships')
-      .withIndex('by_user_workspace', (q: any) =>
+      .withIndex('by_user_workspace', (q) =>
         q.eq('userId', targetUser.authId).eq('workspaceId', actor.tenantId),
       )
       .first()
@@ -314,14 +304,14 @@ export const listMembers = query({
     const actor = await ctx.actor()
     const memberships = await ctx.db
       .query('memberships')
-      .withIndex('by_workspace', (q: any) => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
       .collect()
 
     const members = await Promise.all(
       memberships.map(async (membership) => {
         const user = await ctx.db
           .query('users')
-          .withIndex('by_auth_id', (q: any) => q.eq('authId', membership.userId))
+          .withIndex('by_auth_id', (q) => q.eq('authId', membership.userId))
           .first()
 
         return {
@@ -345,7 +335,7 @@ export const listAuditEvents = query({
     const actor = await ctx.actor()
     const events = await ctx.db
       .query('auditEvents')
-      .withIndex('by_workspace_created', (q: any) => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace_created', (q) => q.eq('workspaceId', actor.tenantId))
       .order('desc')
       .take(20)
 

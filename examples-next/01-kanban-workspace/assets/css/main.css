@@ -71,12 +71,16 @@ textarea {
 }
 
 .board-grid {
-  display: grid;
+  display: flex;
+  overflow-x: auto;
   gap: 1rem;
+  align-items: flex-start;
+  padding-bottom: 0.5rem;
 }
 
 .column {
   min-width: 0;
+  flex: 0 0 min(22rem, calc(100vw - 4rem));
 }
 
 .card {
@@ -100,6 +104,10 @@ textarea {
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.move-target {
+  min-width: min(16rem, 100%);
 }
 
 .meta {
@@ -131,6 +139,11 @@ button {
   width: auto;
 }
 
+button.is-active {
+  font-weight: 600;
+  outline: 2px solid rgba(15, 23, 42, 0.35);
+}
+
 .empty {
   min-height: 5rem;
 }
@@ -139,10 +152,5 @@ button {
   .auth-grid,
   .workspace-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .board-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: start;
   }
 }

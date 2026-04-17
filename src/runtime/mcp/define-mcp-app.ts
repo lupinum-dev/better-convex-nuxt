@@ -1,5 +1,4 @@
 import type { McpToolDefinition } from '@nuxtjs/mcp-toolkit/server'
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { v, type PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
 import { hash } from 'ohash'
@@ -9,7 +8,14 @@ import {
   getOperationMetadata,
   type OperationKind,
 } from '../functions/define-operation.js'
-import { getFunctionName } from '../utils/convex-shared.js'
+import {
+  getFunctionName,
+  type AnyActionFunction,
+  type AnyMutationFunction,
+  type AnyQueryFunction,
+  type FunctionLikeArgs,
+  type FunctionLikeReturnType,
+} from '../utils/convex-shared.js'
 import { defineArgs } from '../utils/define-convex-schema.js'
 import {
   createDenialExplanation,
@@ -27,9 +33,9 @@ import type { AnyConvexSchema, ConvexToolMiddleware, PreviewResult } from './typ
 
 type MaybePromise<T> = T | Promise<T>
 
-type AnyQueryRef = FunctionReference<'query', 'public' | 'internal'>
-type AnyMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
-type AnyActionRef = FunctionReference<'action', 'public' | 'internal'>
+type AnyQueryRef = AnyQueryFunction
+type AnyMutationRef = AnyMutationFunction
+type AnyActionRef = AnyActionFunction
 type ProjectionPreviewResult = string | PreviewResult
 type PreviewResolver<S extends AnyConvexSchema, TPrincipal, TCapabilities, TRuntime> = (ctx: {
   args: import('./types.js').InferSchemaData<S>
@@ -41,16 +47,16 @@ type PreviewResolver<S extends AnyConvexSchema, TPrincipal, TCapabilities, TRunt
 export interface McpConvexCaller {
   query: <Query extends AnyQueryRef>(
     fn: Query,
-    args?: FunctionArgs<Query>,
-  ) => Promise<FunctionReturnType<Query>>
+    args?: FunctionLikeArgs<Query>,
+  ) => Promise<FunctionLikeReturnType<Query>>
   mutation: <Mutation extends AnyMutationRef>(
     fn: Mutation,
-    args?: FunctionArgs<Mutation>,
-  ) => Promise<FunctionReturnType<Mutation>>
+    args?: FunctionLikeArgs<Mutation>,
+  ) => Promise<FunctionLikeReturnType<Mutation>>
   action: <Action extends AnyActionRef>(
     fn: Action,
-    args?: FunctionArgs<Action>,
-  ) => Promise<FunctionReturnType<Action>>
+    args?: FunctionLikeArgs<Action>,
+  ) => Promise<FunctionLikeReturnType<Action>>
 }
 
 type ProjectionCapabilitySnapshot = Record<string, boolean>
@@ -132,7 +138,7 @@ export interface ToolOptions<
   previewOperation?: ConvexToolOperation
   previewResult?: (ctx: {
     args: import('./types.js').InferSchemaData<S>
-    result: TPreview extends AnyFunctionRef ? FunctionReturnType<TPreview> : unknown
+    result: TPreview extends AnyFunctionRef ? FunctionLikeReturnType<TPreview> : unknown
     principal: TPrincipal
     capabilities: TCapabilities
     runtime: TRuntime
@@ -147,14 +153,14 @@ export interface ToolOptions<
   middleware?: ConvexToolMiddleware<S>
   mapResult?: (ctx: {
     args: import('./types.js').InferSchemaData<S>
-    result: FunctionReturnType<TCall>
+    result: FunctionLikeReturnType<TCall>
     principal: TPrincipal
     capabilities: TCapabilities
     runtime: TRuntime
   }) => unknown
   summary?: (ctx: {
     args: import('./types.js').InferSchemaData<S>
-    result: FunctionReturnType<TCall>
+    result: FunctionLikeReturnType<TCall>
     principal: TPrincipal
     capabilities: TCapabilities
     runtime: TRuntime
@@ -306,25 +312,25 @@ async function callByOperation<TRef extends AnyFunctionRef>(
   convex: McpConvexCaller,
   operation: ConvexToolOperation,
   ref: TRef,
-  args: FunctionArgs<TRef>,
-): Promise<FunctionReturnType<TRef>> {
+  args: FunctionLikeArgs<TRef>,
+): Promise<FunctionLikeReturnType<TRef>> {
   switch (operation) {
     case 'query':
       return (await convex.query(
         ref as AnyQueryRef,
-        args as FunctionArgs<AnyQueryRef>,
-      )) as FunctionReturnType<TRef>
+        args as FunctionLikeArgs<AnyQueryRef>,
+      )) as FunctionLikeReturnType<TRef>
     case 'action':
       return (await convex.action(
         ref as AnyActionRef,
-        args as FunctionArgs<AnyActionRef>,
-      )) as FunctionReturnType<TRef>
+        args as FunctionLikeArgs<AnyActionRef>,
+      )) as FunctionLikeReturnType<TRef>
     case 'mutation':
     default:
       return (await convex.mutation(
         ref as AnyMutationRef,
-        args as FunctionArgs<AnyMutationRef>,
-      )) as FunctionReturnType<TRef>
+        args as FunctionLikeArgs<AnyMutationRef>,
+      )) as FunctionLikeReturnType<TRef>
   }
 }
 

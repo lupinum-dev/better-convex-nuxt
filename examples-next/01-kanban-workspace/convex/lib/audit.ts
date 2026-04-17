@@ -1,3 +1,4 @@
+import type { Id } from '../_generated/dataModel'
 import type { MutationCtx } from '../_generated/server'
 import type { Actor } from '../auth/actor'
 import type { KanbanPrincipal } from '../auth/principal'
@@ -20,9 +21,9 @@ export async function writeAuditEvent(
     action: string
     summary: string
     workspaceId?: Actor['tenantId']
-    boardId?: string
-    columnId?: string
-    cardId?: string
+    boardId?: Id<'boards'>
+    columnId?: Id<'columns'>
+    cardId?: Id<'cards'>
     metadata?: Record<string, unknown>
   },
 ) {
@@ -32,9 +33,9 @@ export async function writeAuditEvent(
     origin: principal.kind === 'agent' ? 'agent' : principal.kind === 'user' ? 'user' : 'system',
     action,
     summary,
-    ...(boardId ? { boardId: boardId as never } : {}),
-    ...(columnId ? { columnId: columnId as never } : {}),
-    ...(cardId ? { cardId: cardId as never } : {}),
+    ...(boardId ? { boardId } : {}),
+    ...(columnId ? { columnId } : {}),
+    ...(cardId ? { cardId } : {}),
     ...(metadata ? { metadata: JSON.stringify(metadata) } : {}),
     createdAt: Date.now(),
   })

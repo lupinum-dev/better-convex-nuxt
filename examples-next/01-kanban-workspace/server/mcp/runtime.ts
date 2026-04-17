@@ -1,4 +1,4 @@
-import { defineMcpApp } from '@lupinum/trellis/mcp'
+import { defineMcpApp, type McpConvexCaller } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
 
@@ -35,7 +35,7 @@ export async function resolveKanbanCapabilities({
   convex,
 }: {
   principal: KanbanPrincipal
-  convex: Awaited<ReturnType<typeof createServerConvexCaller>>
+  convex: McpConvexCaller
 }): Promise<KanbanCapabilities> {
   if (principal.kind !== 'agent') {
     return {
@@ -54,10 +54,10 @@ export async function resolveKanbanCapabilities({
 }
 
 export const mcpRuntime = defineMcpApp<KanbanPrincipal, KanbanCapabilities>({
-  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }) as never,
+  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal, convex }) =>
-    await resolveKanbanCapabilities({ principal, convex: convex as never }),
+    await resolveKanbanCapabilities({ principal, convex }),
   principalKey: (principal) =>
     principal.kind === 'agent'
       ? `agent:${principal.agentId ?? principal.userId}`

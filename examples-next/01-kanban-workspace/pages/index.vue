@@ -144,6 +144,7 @@
                   v-for="board in boards || []"
                   :key="board._id"
                   type="button"
+                  :class="{ 'is-active': board._id === selectedBoardId }"
                   :disabled="board.archived"
                   @click="selectedBoardId = board._id"
                 >
@@ -151,6 +152,13 @@
                 </button>
               </div>
             </section>
+          </section>
+
+          <section v-if="!selectedBoardId && (boards?.length || 0) > 0" class="card stack">
+            <h2>Select a board</h2>
+            <p class="meta">
+              This example keeps board selection explicit. It does not silently reopen the first board.
+            </p>
           </section>
 
           <template v-if="selectedBoardId && boardView">
@@ -240,6 +248,8 @@
 import { computed, ref, watch } from 'vue'
 
 import { api } from '#trellis/api'
+import type { Id } from '~/convex/_generated/dataModel'
+import { reconcileSelectedBoardId } from '../shared/board-selection'
 
 const { client, isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -276,7 +286,7 @@ const createColumnForm = ref({
   title: '',
 })
 
-const selectedBoardId = ref<string | null>(null)
+const selectedBoardId = ref<Id<'boards'> | null>(null)
 const previewOpen = ref(false)
 
 const enabled = computed(() => isAuthenticated.value)
@@ -311,20 +321,7 @@ const { data: auditEvents, error: auditError } = await useConvexQuery(
 watch(
   boards,
   (nextBoards) => {
-    if (!nextBoards || nextBoards.length === 0) {
-      selectedBoardId.value = null
-      return
-    }
-
-    if (
-      selectedBoardId.value &&
-      nextBoards.some((board) => board._id === selectedBoardId.value && !board.archived)
-    ) {
-      return
-    }
-
-    const nextBoard = nextBoards.find((board) => !board.archived) ?? nextBoards[0]
-    selectedBoardId.value = nextBoard?._id ?? null
+    selectedBoardId.value = reconcileSelectedBoardId(selectedBoardId.value, nextBoards)
   },
   { immediate: true },
 )
@@ -337,7 +334,7 @@ const {
   api.boards.getBoardView,
   computed(() =>
     enabled.value && sessionContext.value?.activeWorkspace && selectedBoardId.value
-      ? { boardId: selectedBoardId.value as never }
+      ? { boardId: selectedBoardId.value }
       : undefined,
   ),
 )
@@ -350,10 +347,14 @@ const {
   api.boards.previewArchiveBoard,
   computed(() =>
     enabled.value && previewOpen.value && selectedBoardId.value
-      ? { boardId: selectedBoardId.value as never }
+      ? { boardId: selectedBoardId.value }
       : undefined,
   ),
 )
+
+type BoardViewData = NonNullable<typeof boardView.value>
+type BoardViewColumn = BoardViewData['columns'][number]
+type BoardViewCard = BoardViewColumn['cards'][number]
 
 const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
 const switchWorkspace = useConvexMutation(api.workspaces.switchWorkspace)
@@ -405,7 +406,7 @@ const globalError = computed(
 
 function findCard(cardId: string) {
   for (const column of boardView.value?.columns || []) {
-    const card = column.cards.find((entry) => entry._id === cardId)
+    const card = column.cards.find((entry: BoardViewCard) => entry._id === cardId)
     if (card) return { card, column }
   }
   return null
@@ -436,13 +437,13 @@ async function handleCreateWorkspace() {
   const workspaceId = await createWorkspace(createWorkspaceForm.value)
   createWorkspaceForm.value = { name: '', slug: '' }
   selectedBoardId.value = null
-  await switchWorkspace({ workspaceId: workspaceId as never })
+  await switchWorkspace({ workspaceId })
 }
 
-async function handleSwitchWorkspace(workspaceId: string) {
+async function handleSwitchWorkspace(workspaceId: Id<'workspaces'>) {
   previewOpen.value = false
   selectedBoardId.value = null
-  await switchWorkspace({ workspaceId: workspaceId as never })
+  await switchWorkspace({ workspaceId })
 }
 
 async function handleAddMember() {
@@ -451,104 +452,109 @@ async function handleAddMember() {
 }
 
 async function handleCreateBoard() {
-  const boardId = await createBoard(createBoardForm.value)
+  const boardId = (await createBoard(createBoardForm.value)) as Id<'boards'>
   createBoardForm.value = { title: '' }
-  selectedBoardId.value = boardId as string
+  selectedBoardId.value = boardId
 }
 
 async function handleCreateColumn() {
   if (!selectedBoardId.value) return
   await createColumn({
-    boardId: selectedBoardId.value as never,
+    boardId: selectedBoardId.value,
     title: createColumnForm.value.title,
   })
   createColumnForm.value = { title: '' }
 }
 
-async function handleRenameColumn(columnId: string) {
-  const current = boardView.value?.columns.find((column) => column._id === columnId)
+async function handleRenameColumn(columnId: Id<'columns'>) {
+  const current = boardView.value?.columns.find((column: BoardViewColumn) => column._id === columnId)
   if (!current) return
   const nextTitle = window.prompt('Column title', current.title)?.trim()
   if (!nextTitle) return
-  await renameColumn({ columnId: columnId as never, title: nextTitle })
+  await renameColumn({ columnId, title: nextTitle })
 }
 
-async function handleMoveColumnEarlier(columnId: string) {
+async function handleMoveColumnEarlier(columnId: Id<'columns'>) {
   const columns = boardView.value?.columns || []
-  const index = columns.findIndex((column) => column._id === columnId)
+  const index = columns.findIndex((column: BoardViewColumn) => column._id === columnId)
   if (index <= 0) return
   await reorderColumn({
-    columnId: columnId as never,
-    beforeColumnId: columns[index - 1]?._id as never,
+    columnId,
+    beforeColumnId: columns[index - 1]?._id,
   })
 }
 
-async function handleMoveColumnLater(columnId: string) {
+async function handleMoveColumnLater(columnId: Id<'columns'>) {
   const columns = boardView.value?.columns || []
-  const index = columns.findIndex((column) => column._id === columnId)
+  const index = columns.findIndex((column: BoardViewColumn) => column._id === columnId)
   if (index === -1 || index >= columns.length - 1) return
   const afterNext = columns[index + 2]?._id
   await reorderColumn({
-    columnId: columnId as never,
-    ...(afterNext ? { beforeColumnId: afterNext as never } : {}),
+    columnId,
+    ...(afterNext ? { beforeColumnId: afterNext } : {}),
   })
 }
 
-async function handleCreateCard(payload: { columnId: string; title: string }) {
+async function handleCreateCard(payload: { columnId: Id<'columns'>; title: string }) {
   await createCard({
-    columnId: payload.columnId as never,
+    columnId: payload.columnId,
     title: payload.title,
   })
 }
 
-async function handleRenameCard(cardId: string) {
+async function handleRenameCard(cardId: Id<'cards'>) {
   const found = findCard(cardId)
   if (!found) return
   const nextTitle = window.prompt('Card title', found.card.title)?.trim()
   if (!nextTitle) return
   const nextDescription = window.prompt('Card description', found.card.description || '') ?? ''
   await updateCard({
-    cardId: cardId as never,
+    cardId,
     title: nextTitle,
     description: nextDescription.trim() || undefined,
   })
 }
 
-async function handleMoveCardUp(cardId: string) {
+async function handleMoveCardUp(cardId: Id<'cards'>) {
   const found = findCard(cardId)
   if (!found) return
-  const index = found.column.cards.findIndex((card) => card._id === cardId)
+  const index = found.column.cards.findIndex((card: BoardViewCard) => card._id === cardId)
   if (index <= 0) return
   await moveCard({
-    cardId: cardId as never,
-    toColumnId: found.column._id as never,
-    beforeCardId: found.column.cards[index - 1]?._id as never,
+    cardId,
+    toColumnId: found.column._id,
+    beforeCardId: found.column.cards[index - 1]?._id,
   })
 }
 
-async function handleMoveCardDown(cardId: string) {
+async function handleMoveCardDown(cardId: Id<'cards'>) {
   const found = findCard(cardId)
   if (!found) return
-  const index = found.column.cards.findIndex((card) => card._id === cardId)
+  const index = found.column.cards.findIndex((card: BoardViewCard) => card._id === cardId)
   if (index === -1 || index >= found.column.cards.length - 1) return
   const afterNext = found.column.cards[index + 2]?._id
   await moveCard({
-    cardId: cardId as never,
-    toColumnId: found.column._id as never,
-    ...(afterNext ? { beforeCardId: afterNext as never } : {}),
+    cardId,
+    toColumnId: found.column._id,
+    ...(afterNext ? { beforeCardId: afterNext } : {}),
   })
 }
 
-async function handleMoveCardToColumn(payload: { cardId: string; toColumnId: string }) {
+async function handleMoveCardToColumn(payload: {
+  cardId: Id<'cards'>
+  toColumnId: Id<'columns'>
+  beforeCardId?: Id<'cards'>
+}) {
   await moveCard({
-    cardId: payload.cardId as never,
-    toColumnId: payload.toColumnId as never,
+    cardId: payload.cardId,
+    toColumnId: payload.toColumnId,
+    ...(payload.beforeCardId ? { beforeCardId: payload.beforeCardId } : {}),
   })
 }
 
 async function handleConfirmArchive() {
   if (!selectedBoardId.value) return
-  await archiveBoard({ boardId: selectedBoardId.value as never })
+  await archiveBoard({ boardId: selectedBoardId.value })
   previewOpen.value = false
 }
 </script>

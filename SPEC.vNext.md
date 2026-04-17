@@ -400,7 +400,7 @@ This is a real Trellis pillar from day 1, not a plugin afterthought:
 - MCP app definition
 - tool exposure over the same backend model
 - permission-aware tool discovery
-- destructive preview plus a simple confirmation gate
+- destructive preview plus token-bound confirmation
 - principal forwarding into Convex
 
 This is the differentiator:
@@ -669,13 +669,13 @@ Trellis must prove that the operation metadata and the executed function ref act
 
 Shipped design:
 
-- operations used with `tool.fromOperation(...)` must declare a stable `name`
-- execute refs must end with that operation name
-- preview refs must end with `preview${Capitalize(name)}`
-- execute and preview refs must come from the same module
+- operations used with `tool.fromOperation(...)` must declare a stable `id`
+- execute refs must carry Trellis projection metadata for that same operation id
+- preview refs must carry Trellis projection metadata for that same operation id
+- projection metadata must also prove whether the ref is an `execute` or `preview` projection
 - destructive operations require a preview ref
 
-This is a naming-based runtime contract rather than a manifest.
+This is an id-bound runtime contract rather than a manifest.
 It is stricter than “trust the user wiring” and simpler than reviving the deleted manifest path.
 
 ---
@@ -720,10 +720,9 @@ The Trellis agent core should be:
 
 Future hardening on top of that core should add:
 
-- replay protection
 - audit
 
-That is enough to honestly say Trellis has first-class agent support today, with the harder safety guarantees still called out as future work.
+That is enough to honestly say Trellis has first-class agent support today, with audit durability and broader protocol work still called out as future work.
 
 ## 21. Agent Extensions
 
@@ -1060,7 +1059,7 @@ This is how Trellis stays general without becoming bloated.
 The next round of design work should validate these questions:
 
 1. Can `defineTrellis(...)` fully own the default builder wiring?
-2. Is the naming-based operation binding contract sufficient, or does it eventually need stronger ref metadata?
+2. Is the current id-bound operation projection metadata sufficient, or does it eventually need a stronger upstream Convex identity channel?
 3. Can service access constraints be enforced by runtime policy instead of actor convention?
 4. Can the agent runtime stay first-class while sessions/resources/prompts remain optional layers?
 5. What is the minimal webhook story once forwarded service execution is real?

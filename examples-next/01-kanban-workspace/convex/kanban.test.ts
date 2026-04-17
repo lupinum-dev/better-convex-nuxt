@@ -1,15 +1,13 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
-import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import { deriveKanbanCapabilities } from '../shared/mcp-capabilities'
+import { api } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
-
-const api = anyApi as any
 type MembershipRole = Doc<'memberships'>['role']
 
 function createCtx() {
@@ -196,7 +194,7 @@ describe('kanban workspace example', () => {
     const board = await member.query(api.boards.getBoardView, {
       boardId: team.boardId,
     })
-    expect(board?.columns.find((column: any) => column._id === team.columns.doingId)?.cards[0]?.title).toBe(
+    expect(board?.columns.find((column) => column._id === team.columns.doingId)?.cards[0]?.title).toBe(
       'Ship stress test',
     )
   })
@@ -234,8 +232,48 @@ describe('kanban workspace example', () => {
       boardId: team.boardId,
     })
 
-    expect(board?.columns.map((column: any) => column.title)).toEqual(['Inbox', 'Done', 'Doing'])
-    expect(board?.columns[0]?.cards.map((card: any) => card.title)).toEqual(['Second', 'First'])
+    expect(board?.columns.map((column) => column.title)).toEqual(['Inbox', 'Done', 'Doing'])
+    expect(board?.columns[0]?.cards.map((card) => card.title)).toEqual(['Second', 'First'])
+  })
+
+  it('inserts a moved card before a chosen destination card in another column', async () => {
+    const ctx = createCtx()
+    const team = await seedWorkspace(ctx, {
+      name: 'Alpha',
+      users: {
+        owner: { role: 'owner' },
+      },
+    })
+    const owner = team.users.owner!
+
+    const sourceCardId = await owner.mutation(api.boards.createCard, {
+      columnId: team.columns.inboxId,
+      title: 'Move me',
+    })
+    const firstTargetId = await owner.mutation(api.boards.createCard, {
+      columnId: team.columns.doingId,
+      title: 'Doing first',
+    })
+    await owner.mutation(api.boards.createCard, {
+      columnId: team.columns.doingId,
+      title: 'Doing second',
+    })
+
+    await owner.mutation(api.boards.moveCard, {
+      cardId: sourceCardId,
+      toColumnId: team.columns.doingId,
+      beforeCardId: firstTargetId,
+    })
+
+    const board = await owner.query(api.boards.getBoardView, {
+      boardId: team.boardId,
+    })
+
+    expect(
+      board?.columns
+        .find((column) => column._id === team.columns.doingId)
+        ?.cards.map((card) => card.title),
+    ).toEqual(['Move me', 'Doing first', 'Doing second'])
   })
 
   it('previews and archives boards through the destructive operation', async () => {
@@ -295,7 +333,7 @@ describe('kanban workspace example', () => {
     const board = await member.query(api.boards.getBoardView, {
       boardId: team.boardId,
     })
-    expect(board?.columns.find((column: any) => column.title === 'Doing')?.cards[0]?.title).toBe(
+    expect(board?.columns.find((column) => column.title === 'Doing')?.cards[0]?.title).toBe(
       'Agent card',
     )
   })

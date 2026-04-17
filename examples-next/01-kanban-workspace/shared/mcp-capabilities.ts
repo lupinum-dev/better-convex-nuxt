@@ -1,19 +1,6 @@
-export type KanbanCapabilityRole = 'owner' | 'admin' | 'member' | 'viewer'
+import type { deriveKanbanCapabilities } from './permissions'
 
-export type KanbanCapabilities = {
-  listWorkspaces: boolean
-  listBoards: boolean
-  createCard: boolean
-  moveCard: boolean
-  archiveBoard: boolean
-}
+export type { KanbanRole as KanbanCapabilityRole } from './permissions'
+export { deriveKanbanCapabilities } from './permissions'
 
-export function deriveKanbanCapabilities(roles: KanbanCapabilityRole[]): KanbanCapabilities {
-  return {
-    listWorkspaces: roles.length > 0,
-    listBoards: roles.length > 0,
-    createCard: roles.some((role) => ['owner', 'admin', 'member'].includes(role)),
-    moveCard: roles.some((role) => ['owner', 'admin', 'member'].includes(role)),
-    archiveBoard: roles.some((role) => ['owner', 'admin'].includes(role)),
-  }
-}
+export type KanbanCapabilities = ReturnType<typeof deriveKanbanCapabilities>
