@@ -118,8 +118,8 @@ The highest-level truth is:
 
 - [x] Trellis has one documented and generated canonical app file layout.
   Current evidence: [docs/content/docs/01.getting-started/5.canonical-app-layout.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/5.canonical-app-layout.md), [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts)
-- [ ] Auth, domain, permissions, operations, and shared schemas are consistently scaffolded into fixed locations.
-- [ ] New apps feel structurally identical enough that moving between apps is nearly frictionless.
+- [x] Auth, domain, permissions, operations, and shared schemas are consistently scaffolded into fixed locations.
+- [x] New apps feel structurally identical enough that moving between apps is nearly frictionless.
 
 Notes:
 
@@ -228,6 +228,8 @@ These are the highest-value unchecked items right now.
 - [x] Added `cacheStatus` to `useCachedQuery` and a targeted warning for the suspicious "source cache exists but the matcher missed" case.
 - [x] Taught root protected functions to accept trusted-caller transport fields and attach verified trusted-caller identity into the runtime context before principal/actor resolution.
 - [x] Hard-cut forwarded principal handling so the request-scoped server caller only allows `principal` on `auth: 'trusted'` calls with `actor`, and the generated workspace/MCP starters now enforce the same trusted-path rule.
+- [x] Hard-cut the generated starter layout so auth lives in `convex/auth/`, feature modules in `convex/domain/`, permission projection in `convex/permissions/`, and workflow actions in `convex/operations/`.
+- [x] Updated the canonical app layout docs and package metadata to match the app-platform story instead of the older generic integration pitch.
 
 ## 13. Done Means
 

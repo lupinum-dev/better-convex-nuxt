@@ -1,7 +1,7 @@
 {
   "name": "@lupinum/trellis",
   "version": "0.4.0",
-  "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
+  "description": "Opinionated app platform for repeated Nuxt + Convex + Better Auth + MCP apps",
   "keywords": [
     "authentication",
     "backend",

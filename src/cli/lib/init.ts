@@ -165,9 +165,9 @@ function personalPermissionQueryTemplate() {
   return `
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
-import { isAuthenticated } from './auth/checks'
-import { getActor } from './auth/actor'
-import { query } from './functions'
+import { getActor } from '../auth/actor'
+import { isAuthenticated } from '../auth/checks'
+import { query } from '../functions'
 
 export const getPermissionContext = query(
   definePermissionContext({
@@ -420,9 +420,9 @@ function workspacePermissionQueryTemplate() {
   return `
 import { defineGuard, definePermissionContext } from '@lupinum/trellis/auth'
 
-import { getPermissionActor } from './auth/actor'
-import { hasMinimumRole, hasWorkspace, isAuthenticated } from './auth/checks'
-import { query } from './functions'
+import { getPermissionActor } from '../auth/actor'
+import { hasMinimumRole, hasWorkspace, isAuthenticated } from '../auth/checks'
+import { query } from '../functions'
 
 const canCreateTodo = defineGuard('todo.create', hasWorkspace.and(hasMinimumRole('member')))
 
@@ -460,7 +460,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const hash = createHash('sha256').update(token).digest('hex')
-  const key = await serverConvexQuery(api.mcpKeys.validate, { hash }, { auth: 'none' })
+  const key = await serverConvexQuery(api.domain.mcpKeys.validate, { hash }, { auth: 'none' })
   if (!key) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
   }
@@ -597,10 +597,10 @@ function personalTodosTemplate() {
   return `
 import { v } from 'convex/values'
 
-import { createTodo } from '../shared/schemas/todo'
+import { createTodo } from '../../shared/schemas/todo'
 import { deny } from '@lupinum/trellis/auth'
-import { isAuthenticated } from './auth/checks'
-import { mutation, query } from './functions'
+import { isAuthenticated } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 export const list = query({
   args: {},
@@ -667,9 +667,9 @@ const password = ref('password1234')
 const title = ref('')
 
 const todoArgs = computed(() => (isAuthenticated.value ? {} : undefined))
-const { data: todos } = await useConvexQuery(api.todos.list, todoArgs)
-const createTodo = useConvexMutation(api.todos.create)
-const toggleTodo = useConvexMutation(api.todos.toggle)
+const { data: todos } = await useConvexQuery(api.domain.todos.list, todoArgs)
+const createTodo = useConvexMutation(api.domain.todos.create)
+const toggleTodo = useConvexMutation(api.domain.todos.toggle)
 
 async function handleSignIn() {
   await signIn({
@@ -825,7 +825,7 @@ function workspaceOnboardingTemplate() {
 import { getAuth } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { raw } from './functions'
+import { raw } from '../functions'
 
 export const createFirstWorkspace = raw.mutation({
   args: {
@@ -876,9 +876,9 @@ export const createFirstWorkspace = raw.mutation({
 
 function workspaceTodosTemplate() {
   return `
-import { createTodo } from '../shared/schemas/todo'
-import { hasMinimumRole, hasWorkspace } from './auth/checks'
-import { mutation, query } from './functions'
+import { createTodo } from '../../shared/schemas/todo'
+import { hasMinimumRole, hasWorkspace } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 export const list = query({
   args: {},
@@ -927,10 +927,10 @@ const workspaceName = ref('My workspace')
 const title = ref('')
 
 const todoArgs = computed(() => (ready.value ? {} : undefined))
-const { data: todos } = await useConvexQuery(api.todos.list, todoArgs)
+const { data: todos } = await useConvexQuery(api.domain.todos.list, todoArgs)
 
-const createWorkspace = useConvexMutation(api.onboarding.createFirstWorkspace)
-const createTodo = useConvexMutation(api.todos.create)
+const createWorkspace = useConvexMutation(api.operations.onboarding.createFirstWorkspace)
+const createTodo = useConvexMutation(api.domain.todos.create)
 
 async function handleSignIn() {
   await signIn({
@@ -1128,9 +1128,9 @@ function cmsPermissionQueryTemplate() {
   return `
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
-import { getActor } from './auth/actor'
-import { isAuthenticated } from './auth/checks'
-import { query } from './functions'
+import { getActor } from '../auth/actor'
+import { isAuthenticated } from '../auth/checks'
+import { query } from '../functions'
 
 export const getPermissionContext = query(
   definePermissionContext({
@@ -1194,9 +1194,9 @@ import {
   publishedPageValidator,
   saveDraft as saveDraftSchema,
   studioPageValidator,
-} from '../shared/schemas/page'
-import { canEditPage, canPublishPage, isAuthenticated } from './auth/checks'
-import { mutation, query } from './functions'
+} from '../../shared/schemas/page'
+import { canEditPage, canPublishPage, isAuthenticated } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 export const listPublished = query({
   args: listPublishedPagesSchema.args,
@@ -1387,7 +1387,7 @@ function cmsPublicPageTemplate() {
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-const { data: pages } = await useConvexQuery(api.pages.listPublished, {})
+const { data: pages } = await useConvexQuery(api.domain.pages.listPublished, {})
 </script>
 
 <template>
@@ -1428,18 +1428,18 @@ const form = reactive({
 const selectedId = ref<string | null>(null)
 
 const studioArgs = computed(() => (ready.value ? {} : undefined))
-const { data: pages } = await useConvexQuery(api.pages.listStudio, studioArgs)
+const { data: pages } = await useConvexQuery(api.domain.pages.listStudio, studioArgs)
 const previewArgs = computed(() =>
   selectedId.value ? ({ id: selectedId.value as never }) : undefined,
 )
-const { data: publishPreview } = await useConvexQuery(api.pages.previewPublish, previewArgs, {
+const { data: publishPreview } = await useConvexQuery(api.domain.pages.previewPublish, previewArgs, {
   server: false,
   subscribe: false,
 })
 
-const createPage = useConvexMutation(api.pages.create)
-const saveDraft = useConvexMutation(api.pages.save)
-const publishPage = useConvexMutation(api.pages.publish)
+const createPage = useConvexMutation(api.domain.pages.create)
+const saveDraft = useConvexMutation(api.domain.pages.save)
+const publishPage = useConvexMutation(api.domain.pages.publish)
 
 watchEffect(() => {
   const first = pages.value?.[0]
@@ -1575,7 +1575,7 @@ import { api } from '#trellis/api'
 const route = useRoute()
 const slug = computed(() => String(route.params.slug ?? ''))
 const pageArgs = computed(() => (slug.value ? { slug: slug.value } : undefined))
-const { data: page } = await useConvexQuery(api.pages.getPublished, pageArgs)
+const { data: page } = await useConvexQuery(api.domain.pages.getPublished, pageArgs)
 </script>
 
 <template>
@@ -1598,7 +1598,7 @@ function mcpKeysTemplate() {
 import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { mutation, query } from './functions'
+import { mutation, query } from '../functions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
@@ -1655,7 +1655,7 @@ import { tool } from '../runtime'
 
 export default tool({
   schema: listTodos,
-  call: api.todos.list,
+  call: api.domain.todos.list,
   operation: 'query',
   capability: 'listTodos',
   meta: {
@@ -1674,7 +1674,7 @@ import { tool } from '../runtime'
 
 export default tool({
   schema: createTodo,
-  call: api.todos.create,
+  call: api.domain.todos.create,
   operation: 'mutation',
   capability: 'createTodo',
   meta: {
@@ -1719,7 +1719,7 @@ function buildPersonalPermissionsTemplateSet(): InitTemplateSet {
         ownership: 'authored',
       },
       {
-        path: 'convex/users.ts',
+        path: 'convex/permissions/context.ts',
         content: personalPermissionQueryTemplate(),
         ownership: 'authored',
       },
@@ -1753,7 +1753,7 @@ function buildWorkspacePermissionsTemplateSet(model: 'workspace' | 'workspace-mc
         ownership: 'authored',
       },
       {
-        path: 'convex/workspaces.ts',
+        path: 'convex/permissions/context.ts',
         content: workspacePermissionQueryTemplate(),
         ownership: 'authored',
       },
@@ -1803,7 +1803,9 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
       files: mergeTemplateSets(buildAuthTemplateSet(), buildPersonalPermissionsTemplateSet()).concat([
         {
           path: 'nuxt.config.ts',
-          content: nuxtConfigTemplate({ permissionsQuery: 'users.getPermissionContext' }),
+          content: nuxtConfigTemplate({
+            permissionsQuery: 'permissions.context.getPermissionContext',
+          }),
           ownership: 'authored',
         },
         {
@@ -1812,7 +1814,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'convex/todos.ts',
+          path: 'convex/domain/todos.ts',
           content: personalTodosTemplate(),
           ownership: 'authored',
         },
@@ -1837,7 +1839,9 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
       files: mergeTemplateSets(buildAuthTemplateSet(), buildWorkspacePermissionsTemplateSet('workspace')).concat([
         {
           path: 'nuxt.config.ts',
-          content: nuxtConfigTemplate({ permissionsQuery: 'workspaces.getPermissionContext' }),
+          content: nuxtConfigTemplate({
+            permissionsQuery: 'permissions.context.getPermissionContext',
+          }),
           ownership: 'authored',
         },
         {
@@ -1851,12 +1855,12 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'convex/onboarding.ts',
+          path: 'convex/operations/onboarding.ts',
           content: workspaceOnboardingTemplate(),
           ownership: 'authored',
         },
         {
-          path: 'convex/todos.ts',
+          path: 'convex/domain/todos.ts',
           content: workspaceTodosTemplate(),
           ownership: 'authored',
         },
@@ -1895,13 +1899,15 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'convex/users.ts',
+          path: 'convex/permissions/context.ts',
           content: cmsPermissionQueryTemplate(),
           ownership: 'authored',
         },
         {
           path: 'nuxt.config.ts',
-          content: nuxtConfigTemplate({ permissionsQuery: 'users.getPermissionContext' }),
+          content: nuxtConfigTemplate({
+            permissionsQuery: 'permissions.context.getPermissionContext',
+          }),
           ownership: 'authored',
         },
         {
@@ -1910,7 +1916,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'convex/pages.ts',
+          path: 'convex/domain/pages.ts',
           content: cmsPagesTemplate(),
           ownership: 'authored',
         },
@@ -1949,7 +1955,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
       {
         path: 'nuxt.config.ts',
         content: nuxtConfigTemplate({
-          permissionsQuery: 'workspaces.getPermissionContext',
+          permissionsQuery: 'permissions.context.getPermissionContext',
           mcp: true,
         }),
         ownership: 'authored',
@@ -1965,17 +1971,17 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         ownership: 'authored',
       },
       {
-        path: 'convex/onboarding.ts',
+        path: 'convex/operations/onboarding.ts',
         content: workspaceOnboardingTemplate(),
         ownership: 'authored',
       },
       {
-        path: 'convex/todos.ts',
+        path: 'convex/domain/todos.ts',
         content: workspaceTodosTemplate(),
         ownership: 'authored',
       },
       {
-        path: 'convex/mcpKeys.ts',
+        path: 'convex/domain/mcpKeys.ts',
         content: mcpKeysTemplate(),
         ownership: 'authored',
       },

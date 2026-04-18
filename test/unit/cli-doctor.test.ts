@@ -285,11 +285,11 @@ export async function getActor(ctx: any) {
     const result = runCli(['init', 'app', '--template', 'personal', '--cwd', cwd], repoRoot)
     const nuxtConfig = readFileSync(resolve(cwd, 'nuxt.config.ts'), 'utf8')
     const schema = readFileSync(resolve(cwd, 'convex/schema.ts'), 'utf8')
-    const todos = readFileSync(resolve(cwd, 'convex/todos.ts'), 'utf8')
+    const todos = readFileSync(resolve(cwd, 'convex/domain/todos.ts'), 'utf8')
     const page = readFileSync(resolve(cwd, 'pages/index.vue'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(nuxtConfig).toContain("permissions: 'users.getPermissionContext'")
+    expect(nuxtConfig).toContain("permissions: 'permissions.context.getPermissionContext'")
     expect(schema).toContain("defineTable({")
     expect(schema).toContain("todos: defineTable")
     expect(todos).toContain('export const list = query')
@@ -302,12 +302,12 @@ export async function getActor(ctx: any) {
     const result = runCli(['init', 'app', '--template', 'workspace', '--cwd', cwd], repoRoot)
     const nuxtConfig = readFileSync(resolve(cwd, 'nuxt.config.ts'), 'utf8')
     const functions = readFileSync(resolve(cwd, 'convex/functions.ts'), 'utf8')
-    const onboarding = readFileSync(resolve(cwd, 'convex/onboarding.ts'), 'utf8')
+    const onboarding = readFileSync(resolve(cwd, 'convex/operations/onboarding.ts'), 'utf8')
     const schema = readFileSync(resolve(cwd, 'convex/schema.ts'), 'utf8')
     const principal = readFileSync(resolve(cwd, 'convex/auth/principal.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expect(nuxtConfig).toContain("permissions: 'workspaces.getPermissionContext'")
+    expect(nuxtConfig).toContain("permissions: 'permissions.context.getPermissionContext'")
     expect(functions).toContain('tenantIsolation')
     expect(onboarding).toContain('createFirstWorkspace')
     expect(schema).toContain("workspaces: defineTable")
@@ -325,7 +325,7 @@ export async function getActor(ctx: any) {
     const runtime = readFileSync(resolve(cwd, 'server/mcp/runtime.ts'), 'utf8')
     const tool = readFileSync(resolve(cwd, 'server/mcp/tools/list-todos.ts'), 'utf8')
     const schema = readFileSync(resolve(cwd, 'convex/schema.ts'), 'utf8')
-    const keys = readFileSync(resolve(cwd, 'convex/mcpKeys.ts'), 'utf8')
+    const keys = readFileSync(resolve(cwd, 'convex/domain/mcpKeys.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(runtime).toContain('createServerConvexCaller')
@@ -341,8 +341,8 @@ export async function getActor(ctx: any) {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-init-app-cms-'))
     const result = runCli(['init', 'app', '--template', 'cms', '--cwd', cwd], repoRoot)
     const schema = readFileSync(resolve(cwd, 'convex/schema.ts'), 'utf8')
-    const pages = readFileSync(resolve(cwd, 'convex/pages.ts'), 'utf8')
-    const users = readFileSync(resolve(cwd, 'convex/users.ts'), 'utf8')
+    const pages = readFileSync(resolve(cwd, 'convex/domain/pages.ts'), 'utf8')
+    const users = readFileSync(resolve(cwd, 'convex/permissions/context.ts'), 'utf8')
     const studio = readFileSync(resolve(cwd, 'pages/studio.vue'), 'utf8')
     const slugPage = readFileSync(resolve(cwd, 'pages/[slug].vue'), 'utf8')
 
@@ -353,7 +353,7 @@ export async function getActor(ctx: any) {
     expect(pages).toContain('previewPublish = query(previewOf(publishPageOp))')
     expect(users).toContain("'page.publish': isAuthenticated")
     expect(studio).toContain('Publish preview')
-    expect(slugPage).toContain('api.pages.getPublished')
+    expect(slugPage).toContain('api.domain.pages.getPublished')
   })
 
   it('initializes the personal permissions files', () => {
@@ -361,7 +361,7 @@ export async function getActor(ctx: any) {
     const result = runCli(['init', 'permissions', '--model', 'personal', '--cwd', cwd], repoRoot)
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
     const functions = readFileSync(resolve(cwd, 'convex/functions.ts'), 'utf8')
-    const users = readFileSync(resolve(cwd, 'convex/users.ts'), 'utf8')
+    const users = readFileSync(resolve(cwd, 'convex/permissions/context.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('Expected a Trellis users row')
@@ -379,7 +379,7 @@ export async function getActor(ctx: any) {
     const principal = readFileSync(resolve(cwd, 'convex/auth/principal.ts'), 'utf8')
     const checks = readFileSync(resolve(cwd, 'convex/auth/checks.ts'), 'utf8')
     const functions = readFileSync(resolve(cwd, 'convex/functions.ts'), 'utf8')
-    const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
+    const workspaces = readFileSync(resolve(cwd, 'convex/permissions/context.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('getActorFromPrincipal')
@@ -408,7 +408,7 @@ export async function getActor(ctx: any) {
     const actor = readFileSync(resolve(cwd, 'convex/auth/actor.ts'), 'utf8')
     const principal = readFileSync(resolve(cwd, 'convex/auth/principal.ts'), 'utf8')
     const functions = readFileSync(resolve(cwd, 'convex/functions.ts'), 'utf8')
-    const workspaces = readFileSync(resolve(cwd, 'convex/workspaces.ts'), 'utf8')
+    const workspaces = readFileSync(resolve(cwd, 'convex/permissions/context.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(actor).toContain('getActorFromPrincipal')

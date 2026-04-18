@@ -131,6 +131,8 @@ npx trellis init mcp
 
 `init app` is the primary entrypoint. It bootstraps a coherent starter inside the current app root. The feature-level `init auth`, `init permissions`, and `init mcp` commands still exist when you need to add a slice onto an already-shaped app.
 
+The generated app shape is now deliberate: auth lives under `convex/auth/`, feature modules under `convex/domain/`, permission projection under `convex/permissions/`, workflow actions under `convex/operations/`, and shared contracts under `shared/schemas/`.
+
 The generated files are plain app code. Edit them directly.
 
 ## Package Surface
