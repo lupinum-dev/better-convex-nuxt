@@ -1,24 +1,24 @@
 ---
 title: 'The application layer for Nuxt + Convex.'
 navigation: false
-description: 'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.'
+description: 'Build Nuxt apps on one app-owned business layer with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.'
 ---
 
-# One protected backend model for Nuxt + Convex
+# One app-owned business layer for Nuxt + Convex
 
-Trellis keeps Nuxt, Convex, auth, permissions, operations, observability, and MCP on one app-owned backend model instead of splitting those rules across transports.
+Trellis keeps Nuxt, Convex, auth, permissions, operations, observability, and MCP on one app-owned business layer instead of splitting those rules across transports.
 
 ::callout{icon="i-lucide-arrow-right" color="neutral" to="/docs/getting-started/start-here"}
-Start with [Start Here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First Live Query](/docs/getting-started/first-live-query) before the protected app path.
+Start with [Start here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First live query](/docs/getting-started/first-live-query) before the protected app path.
 ::
 
 :u-input-copy{value="pnpm add @lupinum/trellis"}
 
-## Common Paths
+## Common paths
 
 ::card-group
 
-::card{title="Start Here" icon="i-lucide-compass" to="/docs/getting-started/start-here"}
+::card{title="Start here" icon="i-lucide-compass" to="/docs/getting-started/start-here"}
 What Trellis adds, which first path to choose, and where to go next.
 ::
 
@@ -26,7 +26,7 @@ What Trellis adds, which first path to choose, and where to go next.
 Install the module, wire the basics, and verify the docs examples match your app shape.
 ::
 
-::card{title="First Live Query" icon="i-lucide-rocket" to="/docs/getting-started/first-live-query"}
+::card{title="First live query" icon="i-lucide-rocket" to="/docs/getting-started/first-live-query"}
 Build the smallest useful Trellis app: one query, one mutation, one visible live update.
 ::
 
@@ -34,7 +34,7 @@ Build the smallest useful Trellis app: one query, one mutation, one visible live
 Add auth, one protected query, and one protected mutation without jumping into tenancy or MCP.
 ::
 
-::card{title="How It Works" icon="i-lucide-waypoints" to="/docs/concepts/how-it-works"}
+::card{title="How it works" icon="i-lucide-waypoints" to="/docs/concepts/how-it-works"}
 See the execution model across browser, server, webhook, and agent callers.
 ::
 
@@ -48,7 +48,7 @@ Look up exact behavior for the high-traffic composables, server helpers, and API
 
 ::
 
-## What It Looks Like
+## What it looks like
 
 ::tabs
 
@@ -58,14 +58,15 @@ Look up exact behavior for the high-traffic composables, server helpers, and API
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
+const { data: tasks, pending, error } = await useConvexQuery(api.tasks.list, {
   status: 'active',
 })
 </script>
 
 <template>
-  <div v-if="status === 'pending'">Loading...</div>
-  <ul v-else-if="status === 'success'">
+  <p v-if="error">{{ error.message }}</p>
+  <p v-else-if="pending">Loading...</p>
+  <ul v-else>
     <li v-for="task in tasks" :key="task._id">
       {{ task.text }}
     </li>
@@ -157,11 +158,11 @@ const canPublishPost = can('post.publish')
 ::landing-stack
 ::
 
-## Explore The Docs
+## Explore the docs
 
 ::card-group
 
-::card{title="Get Started" icon="i-lucide-compass" to="/docs/getting-started"}
+::card{title="Getting started" icon="i-lucide-compass" to="/docs/getting-started"}
 The reader path from orientation to the first live query and then the first signed-in app.
 ::
 
