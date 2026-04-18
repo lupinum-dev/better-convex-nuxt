@@ -93,11 +93,7 @@ describe('server Convex fetch helpers', () => {
     const body = JSON.parse(String(init.body))
     expect(body.path).toBe('notes:list')
     expect(body.args.limit).toBe(5)
-    expect(body.args.__trellis).toMatchObject({
-      correlationId: expect.any(String),
-      originTransport: 'nuxt-server',
-      requestId: expect.any(String),
-    })
+    expect(body.args.__trellis).toBeUndefined()
   })
 
   it('resolves the current Nitro event when the event argument is omitted', async () => {
@@ -233,14 +229,33 @@ describe('server Convex fetch helpers', () => {
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const body = JSON.parse(String(init.body))
     expect(body.path).toBe('messages:byHeaders')
-    expect(body.args).toMatchObject({
+    expect(body.args).toEqual({
       headers: ['x-custom'],
-      __trellis: {
-        correlationId: expect.any(String),
-        originTransport: 'nuxt-server',
-        requestId: expect.any(String),
-      },
     })
+  })
+
+  it('sends identical query args for identical business queries', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Response(JSON.stringify({ value: { ok: true, body: init?.body } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await serverConvexQuery(createEvent(), { _path: 'notes:list' } as never, { limit: 5 } as never)
+    await serverConvexQuery(createEvent(), { _path: 'notes:list' } as never, { limit: 5 } as never)
+
+    const [, firstInit] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const [, secondInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+    const firstBody = JSON.parse(String(firstInit.body))
+    const secondBody = JSON.parse(String(secondInit.body))
+
+    expect(firstBody.args.limit).toBe(5)
+    expect(secondBody.args.limit).toBe(5)
+    expect(firstBody.args.__trellis).toBeUndefined()
+    expect(secondBody.args.__trellis).toBeUndefined()
+    expect(firstBody.args).toEqual(secondBody.args)
   })
 
   it('reuses one correlation id and configured service between request propagation and emitted events', async () => {
@@ -450,9 +465,13 @@ describe('server Convex fetch helpers', () => {
     const bodies = fetchMock.mock.calls
       .filter((call) => String((call as unknown[])[0]).includes('/api/query') || String((call as unknown[])[0]).includes('/api/mutation'))
       .map((call) => JSON.parse(String(((call as unknown[])[1] as RequestInit).body)))
-    expect(bodies[0].args.__trellis.correlationId).toBe(bodies[1].args.__trellis.correlationId)
-    expect(bodies[0].args.__trellis.originTransport).toBe('nuxt-server')
+    expect(bodies[0].args.__trellis).toBeUndefined()
+    expect(bodies[1].args.__trellis.correlationId).toBeTypeOf('string')
     expect(bodies[1].args.__trellis.originTransport).toBe('nuxt-server')
+    expect((event.context as Record<string, unknown>).__trellis).toMatchObject({
+      correlationId: bodies[1].args.__trellis.correlationId,
+      originTransport: 'nuxt-server',
+    })
   })
 
   it('auth:required throws when session cookie is missing', async () => {

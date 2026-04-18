@@ -227,11 +227,13 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
       logger.action({ name: functionPath, event: 'error', duration, error: err })
     }
   }
-  requestArgs = withObservationEnvelope(requestArgs as Record<string, unknown>, {
-    correlationId,
-    originTransport,
-    requestId,
-  })
+  if (operationType !== 'query') {
+    requestArgs = withObservationEnvelope(requestArgs as Record<string, unknown>, {
+      correlationId,
+      originTransport,
+      requestId,
+    })
+  }
 
   let authToken: string | undefined
   if (authMode === 'trusted') {

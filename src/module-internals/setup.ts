@@ -155,12 +155,20 @@ export function buildPublicConvexRuntimeConfig(
       },
       level: options.observability?.level,
       sample: options.observability?.sample,
-      correlation: {
-        header: options.observability?.correlation?.header,
-      },
-      explainability: {
-        agentDenials: options.observability?.explainability?.agentDenials,
-      },
+      ...(typeof options.observability?.correlation?.header === 'string'
+        ? {
+            correlation: {
+              header: options.observability.correlation.header,
+            },
+          }
+        : {}),
+      ...(typeof options.observability?.explainability?.agentDenials === 'boolean'
+        ? {
+            explainability: {
+              agentDenials: options.observability.explainability.agentDenials,
+            },
+          }
+        : {}),
     },
   })
 }

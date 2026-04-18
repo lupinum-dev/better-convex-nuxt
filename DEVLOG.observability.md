@@ -12,7 +12,7 @@ What is shipped:
 - `evlog` is the shipped delivery layer.
 - public `logging` config is gone.
 - public adapter configuration is gone.
-- `__trellis` is the single propagation seam across Nuxt/MCP -> Convex.
+- `__trellis` is the propagation seam for mutation/action-style Convex lanes.
 - semantic events and wide summaries both exist.
 - structured denial explainability is part of the contract.
 - production defaults are on:
@@ -38,6 +38,7 @@ What is shipped:
 - `__trellis` is still a metadata envelope inside business args.
   - It is hidden and stripped correctly.
   - It is still the ugliest seam in the system.
+  - query lanes are now intentionally moving away from it because of Convex caching pressure.
 - Wide summaries are useful but still less obvious than the semantic event path.
 - The `evlog` bridge is intentionally thin, but it is still a delivery dependency we now own.
 
@@ -83,6 +84,9 @@ It is a Trellis-native semantic observability layer with `evlog` delivery.
 - Low-quality `details.explanation` hurts agent usefulness.
 - `reasonCode` is now a public contract and should be treated that way.
 - If Convex ever gets a true out-of-band metadata channel, `__trellis` should be deleted quickly rather than normalized into permanence.
+- Query caching changed the right lane split:
+  - queries should be observed at the transport/runtime layer
+  - mutations/actions/MCP execute flows keep semantic correlated observability
 
 ## What still needs improvement
 
@@ -90,6 +94,7 @@ It is a Trellis-native semantic observability layer with `evlog` delivery.
 - clearer public docs for wide summaries and test capture usage
 - eventual richer delivery targets beyond `evlog`
 - eventual removal of `__trellis` when the platform allows it
+- eventual use of Convex log-enrichment primitives for query lanes instead of query-runtime metadata
 
 ## Current rating
 
@@ -114,3 +119,5 @@ The remaining work is mostly:
 - future platform cleanup
 
 not a rewrite of the core direction.
+
+For the current query-caching analysis, see [DEVLOG.observability-query-caching.md](/Users/matthias/Git/0_libs/WORK/trellis/DEVLOG.observability-query-caching.md).

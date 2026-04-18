@@ -894,6 +894,11 @@ Trellis observability should explain:
 - MCP/tool denial, confirmation, and execution flow
 - runtime auth/query/mutation/upload/connection behavior
 
+Important lane split:
+
+- query observability is transport/runtime-level
+- mutation/action/MCP execute observability is semantic and correlated end-to-end
+
 Primary uses:
 
 - operator debugging
@@ -912,7 +917,8 @@ Structured errors are related, but not part of this initiative.
 
 ## 33. The Shipped Observability Contract
 
-The runtime now ships a Trellis-native semantic event contract with a shared correlation envelope.
+The runtime now ships a Trellis-native semantic event contract with a shared correlation envelope for mutation/action-style lanes.
+Query lanes are intentionally weaker: they should be observed at the outer transport/runtime layer instead of relying on request-scoped metadata inside Convex query runtime.
 
 Required envelope fields should be small and stable:
 
@@ -951,6 +957,9 @@ The first event families worth standardizing are:
 
 Denials and failures should carry stable machine-usable `reasonCode` values, not only prose strings.
 
+`previewOf(...)` remains query-lane.
+Its result shape is still a real product contract, but its observability should be treated as request/runtime-level rather than a guaranteed semantic per-request trace boundary.
+
 ## 34. Delivery Strategy
 
 Trellis core should own the event model and correlation semantics.
@@ -977,7 +986,10 @@ The shipped scope covers:
 - service/access observability
 - operation and MCP observability
 - browser/runtime semantic events
-- shared correlation propagation across Nuxt server, MCP, and Convex-backed flows
+- shared correlation propagation across Nuxt server, MCP, and Convex-backed mutation/action flows
+
+The shipped scope does not promise request-scoped semantic correlation inside Convex query runtime.
+`__trellis` is a mutation/action propagation seam, not a general query mechanism.
 
 Still deferred:
 
