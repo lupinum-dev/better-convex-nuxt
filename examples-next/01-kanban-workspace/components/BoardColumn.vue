@@ -1,97 +1,150 @@
 <template>
-  <section class="column stack">
-    <header class="stack">
+  <section class="column card stack">
+    <header class="stack-sm">
       <div class="split">
         <div class="stack-sm">
-          <h3>{{ column.title }}</h3>
-          <p class="meta">{{ column.cards.length }} cards</p>
+          <div class="cluster">
+            <h3>{{ column.title }}</h3>
+            <span class="chip">{{ column.cards.length }}</span>
+          </div>
         </div>
 
         <div v-if="canManageBoardStructure" class="card-actions">
-          <button type="button" :disabled="pending || columnIndex === 0" @click="$emit('moveColumnEarlier', column._id)">
-            Earlier
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm btn--icon"
+            aria-label="Move column earlier"
+            title="Move column earlier"
+            :disabled="pending || columnIndex === 0"
+            @click="$emit('moveColumnEarlier', column._id)"
+          >
+            ←
           </button>
           <button
             type="button"
+            class="btn btn--ghost btn--sm btn--icon"
+            aria-label="Move column later"
+            title="Move column later"
             :disabled="pending || columnIndex === columnCount - 1"
             @click="$emit('moveColumnLater', column._id)"
           >
-            Later
+            →
           </button>
-          <button type="button" :disabled="pending" @click="$emit('renameColumn', column._id)">
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            :disabled="pending"
+            @click="$emit('renameColumn', column._id)"
+          >
             Rename
           </button>
         </div>
       </div>
     </header>
 
-    <form v-if="canWriteCards" class="stack" @submit.prevent="submit">
+    <form v-if="canWriteCards" class="stack-sm" @submit.prevent="submit">
       <label>
         <span>New card</span>
-        <input v-model="title" type="text" required />
+        <input v-model="title" type="text" placeholder="Card title" required />
       </label>
-      <button type="submit" :disabled="pending || !title.trim()">Add card</button>
+      <div>
+        <button
+          type="submit"
+          class="btn btn--primary btn--sm"
+          :disabled="pending || !title.trim()"
+        >
+          Add card
+        </button>
+      </div>
     </form>
 
-    <ul class="card-list">
-      <li v-for="(card, index) in column.cards" :key="card._id" class="card stack">
+    <ul v-if="column.cards.length > 0" class="card-list">
+      <li v-for="(card, index) in column.cards" :key="card._id" class="card stack-sm">
         <strong>{{ card.title }}</strong>
         <p v-if="card.description" class="meta">{{ card.description }}</p>
 
         <div v-if="canWriteCards" class="card-actions">
-          <button type="button" :disabled="pending || index === 0" @click="$emit('moveCardUp', card._id)">
-            Up
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm btn--icon"
+            aria-label="Move card up"
+            title="Move card up"
+            :disabled="pending || index === 0"
+            @click="$emit('moveCardUp', card._id)"
+          >
+            ↑
           </button>
           <button
             type="button"
+            class="btn btn--ghost btn--sm btn--icon"
+            aria-label="Move card down"
+            title="Move card down"
             :disabled="pending || index === column.cards.length - 1"
             @click="$emit('moveCardDown', card._id)"
           >
-            Down
+            ↓
           </button>
-          <button type="button" :disabled="pending" @click="$emit('renameCard', card._id)">
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            :disabled="pending"
+            @click="$emit('renameCard', card._id)"
+          >
             Edit
           </button>
         </div>
 
-        <div v-if="canWriteCards" class="cluster">
-          <div v-for="targetColumn in otherColumns" :key="targetColumn._id" class="stack-sm move-target">
-            <strong class="meta">Move to {{ targetColumn.title }}</strong>
-            <label>
-              <span class="meta">Place card</span>
-              <select
-                v-model="moveTargets[moveTargetKey(card._id, targetColumn._id)]"
-                :disabled="pending"
-              >
-                <option value="">At end</option>
-                <option
-                  v-for="targetCard in targetColumn.cards"
-                  :key="targetCard._id"
-                  :value="targetCard._id"
-                >
-                  Before {{ targetCard.title }}
-                </option>
-              </select>
-            </label>
-            <button
-              type="button"
-              :disabled="pending"
-              @click="
-                $emit('moveCardToColumn', {
-                  cardId: card._id,
-                  toColumnId: targetColumn._id,
-                  beforeCardId: moveTargets[moveTargetKey(card._id, targetColumn._id)] || undefined,
-                })
-              "
+        <details v-if="canWriteCards && otherColumns.length > 0" class="stack-sm">
+          <summary class="meta">Move to another column…</summary>
+          <div class="stack-sm">
+            <div
+              v-for="targetColumn in otherColumns"
+              :key="targetColumn._id"
+              class="stack-sm move-target"
             >
-              Move
-            </button>
+              <label>
+                <span class="meta">{{ targetColumn.title }}</span>
+                <select
+                  v-model="moveTargets[moveTargetKey(card._id, targetColumn._id)]"
+                  :disabled="pending"
+                >
+                  <option value="">At end</option>
+                  <option
+                    v-for="targetCard in targetColumn.cards"
+                    :key="targetCard._id"
+                    :value="targetCard._id"
+                  >
+                    Before {{ targetCard.title }}
+                  </option>
+                </select>
+              </label>
+              <div>
+                <button
+                  type="button"
+                  class="btn btn--sm"
+                  :disabled="pending"
+                  @click="
+                    $emit('moveCardToColumn', {
+                      cardId: card._id,
+                      toColumnId: targetColumn._id,
+                      beforeCardId:
+                        moveTargets[moveTargetKey(card._id, targetColumn._id)] || undefined,
+                    })
+                  "
+                >
+                  Move to {{ targetColumn.title }}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </details>
       </li>
     </ul>
 
-    <p v-if="column.cards.length === 0" class="empty meta">No cards.</p>
+    <div v-else class="empty-state">
+      <span class="empty-state__title">No cards yet</span>
+      <span v-if="canWriteCards" class="empty-state__hint">Add one with the form above.</span>
+    </div>
   </section>
 </template>
 

@@ -10,10 +10,21 @@
         </p>
       </header>
 
-      <p v-if="globalError" class="meta">{{ globalError }}</p>
+      <div v-if="visibleError" class="banner banner--error" role="alert">
+        <span class="banner__icon" aria-hidden="true">!</span>
+        <div class="banner__body">{{ visibleError }}</div>
+        <button
+          type="button"
+          class="banner__dismiss"
+          aria-label="Dismiss error"
+          @click="dismissedError = visibleError"
+        >
+          ×
+        </button>
+      </div>
 
-      <section v-if="isPending" class="stack">
-        <h2>Checking session</h2>
+      <section v-if="isPending" class="card stack">
+        <h2><span class="spinner spinner--inline" aria-hidden="true" />Checking session</h2>
         <p class="meta">Auth and active workspace state settle before private queries subscribe.</p>
       </section>
 
@@ -31,18 +42,18 @@
           <div class="split">
             <div class="stack-sm">
               <h2>{{ user?.name || user?.email || 'Signed in user' }}</h2>
-              <p class="meta">
-                Active workspace:
-                <span class="mono">{{ sessionContext?.activeWorkspace?.slug || 'none' }}</span>
-              </p>
-              <p class="meta">
-                Role:
-                <span class="mono">{{ sessionContext?.activeRole || 'none' }}</span>
-              </p>
+              <div class="cluster">
+                <span class="chip chip--brand">
+                  Workspace: {{ sessionContext?.activeWorkspace?.slug || 'none' }}
+                </span>
+                <span class="chip">
+                  Role: {{ sessionContext?.activeRole || 'none' }}
+                </span>
+              </div>
             </div>
 
             <div class="toolbar">
-              <button type="button" @click="handleSignOut">Sign out</button>
+              <button type="button" class="btn btn--ghost" @click="handleSignOut">Sign out</button>
             </div>
           </div>
 
@@ -58,9 +69,20 @@
                 <input v-model="createWorkspaceForm.slug" type="text" required />
               </label>
             </div>
-            <button type="submit" :disabled="createWorkspace.pending.value">
-              Create workspace
-            </button>
+            <div>
+              <button
+                type="submit"
+                class="btn btn--primary"
+                :disabled="createWorkspace.pending.value"
+              >
+                <span
+                  v-if="createWorkspace.pending.value"
+                  class="spinner spinner--inline"
+                  aria-hidden="true"
+                />
+                Create workspace
+              </button>
+            </div>
           </form>
 
           <div v-if="sessionContext?.memberships?.length" class="stack">
@@ -70,6 +92,11 @@
                 v-for="workspace in sessionContext.memberships"
                 :key="workspace.workspaceId"
                 type="button"
+                class="btn btn--sm"
+                :class="{
+                  'is-active':
+                    workspace.workspaceId === sessionContext?.activeWorkspace?._id,
+                }"
                 :disabled="switchWorkspace.pending.value"
                 @click="handleSwitchWorkspace(workspace.workspaceId)"
               >
@@ -108,15 +135,34 @@
                     </select>
                   </label>
                 </div>
-                <button type="submit" :disabled="addMember.pending.value">Add member</button>
+                <div>
+                  <button
+                    type="submit"
+                    class="btn btn--primary"
+                    :disabled="addMember.pending.value"
+                  >
+                    <span
+                      v-if="addMember.pending.value"
+                      class="spinner spinner--inline"
+                      aria-hidden="true"
+                    />
+                    Add member
+                  </button>
+                </div>
               </form>
 
-              <ul class="stack-sm">
+              <ul v-if="(members || []).length" class="stack-sm">
                 <li v-for="member in members || []" :key="member._id" class="split">
                   <span>{{ member.displayName || member.email || member.userId }}</span>
-                  <span class="mono">{{ member.role }}</span>
+                  <span class="chip">{{ member.role }}</span>
                 </li>
               </ul>
+              <div v-else class="empty-state">
+                <span class="empty-state__title">No members yet</span>
+                <span class="empty-state__hint">
+                  Invite teammates by email. They must have an account to be added.
+                </span>
+              </div>
             </section>
 
             <section class="card stack">
@@ -136,14 +182,28 @@
                   <span>Board title</span>
                   <input v-model="createBoardForm.title" type="text" required />
                 </label>
-                <button type="submit" :disabled="createBoard.pending.value">Create board</button>
+                <div>
+                  <button
+                    type="submit"
+                    class="btn btn--primary"
+                    :disabled="createBoard.pending.value"
+                  >
+                    <span
+                      v-if="createBoard.pending.value"
+                      class="spinner spinner--inline"
+                      aria-hidden="true"
+                    />
+                    Create board
+                  </button>
+                </div>
               </form>
 
-              <div class="cluster">
+              <div v-if="(boards || []).length" class="cluster">
                 <button
                   v-for="board in boards || []"
                   :key="board._id"
                   type="button"
+                  class="btn btn--sm"
                   :class="{ 'is-active': board._id === selectedBoardId }"
                   :disabled="board.archived"
                   @click="selectedBoardId = board._id"
@@ -151,14 +211,20 @@
                   {{ board.title }}<span v-if="board.archived"> (archived)</span>
                 </button>
               </div>
+              <div v-else-if="!boardsPending" class="empty-state">
+                <span class="empty-state__title">No boards yet</span>
+                <span class="empty-state__hint">
+                  Create a board above to start adding columns and cards.
+                </span>
+              </div>
             </section>
           </section>
 
-          <section v-if="!selectedBoardId && (boards?.length || 0) > 0" class="card stack">
-            <h2>Select a board</h2>
-            <p class="meta">
-              This example keeps board selection explicit. It does not silently reopen the first board.
-            </p>
+          <section v-if="!selectedBoardId && (boards?.length || 0) > 0" class="empty-state">
+            <span class="empty-state__title">Select a board</span>
+            <span class="empty-state__hint">
+              Board selection is explicit — this example does not silently reopen the first board.
+            </span>
           </section>
 
           <template v-if="selectedBoardId && boardView">
@@ -174,6 +240,7 @@
                 <button
                   v-if="boardView.permissions.archiveBoard && !boardView.board.archived"
                   type="button"
+                  class="btn btn--danger"
                   @click="previewOpen = true"
                 >
                   Preview archive
@@ -181,14 +248,17 @@
               </div>
             </section>
 
-            <ArchiveBoardPreview
-              v-if="previewOpen"
-              :preview="archivePreview ?? null"
-              :preview-pending="archivePreviewPending"
-              :archive-pending="archiveBoard.pending.value"
-              @cancel="previewOpen = false"
-              @confirm="handleConfirmArchive"
-            />
+            <div v-if="previewOpen" class="modal-backdrop" @click.self="previewOpen = false">
+              <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="archive-title">
+                <ArchiveBoardPreview
+                  :preview="archivePreview ?? null"
+                  :preview-pending="archivePreviewPending"
+                  :archive-pending="archiveBoard.pending.value"
+                  @cancel="previewOpen = false"
+                  @confirm="handleConfirmArchive"
+                />
+              </div>
+            </div>
 
             <section class="board-grid">
               <BoardColumn
@@ -222,21 +292,50 @@
                 <span>Column title</span>
                 <input v-model="createColumnForm.title" type="text" required />
               </label>
-              <button type="submit" :disabled="createColumn.pending.value">Add column</button>
+              <div>
+                <button
+                  type="submit"
+                  class="btn btn--primary"
+                  :disabled="createColumn.pending.value"
+                >
+                  <span
+                    v-if="createColumn.pending.value"
+                    class="spinner spinner--inline"
+                    aria-hidden="true"
+                  />
+                  Add column
+                </button>
+              </div>
             </form>
           </template>
 
           <section class="card stack">
-            <h2>Audit events</h2>
-            <p class="meta">Visible evidence for UI and MCP-driven actions.</p>
-            <ul class="stack-sm">
+            <div class="split">
+              <div class="stack-sm">
+                <h2>Audit events</h2>
+                <p class="meta">Visible evidence for UI and MCP-driven actions.</p>
+              </div>
+              <span v-if="(auditEvents || []).length" class="chip">
+                {{ (auditEvents || []).length }} events
+              </span>
+            </div>
+            <ul v-if="(auditEvents || []).length" class="stack-sm">
               <li v-for="event in auditEvents || []" :key="event._id" class="stack-sm">
-                <strong>{{ event.summary }}</strong>
+                <div class="split">
+                  <strong>{{ event.summary }}</strong>
+                  <span class="chip">{{ event.origin }}</span>
+                </div>
                 <span class="meta">
-                  {{ formatTimestamp(event.createdAt) }} · {{ event.origin }} · {{ event.action }}
+                  {{ formatTimestamp(event.createdAt) }} · {{ event.action }}
                 </span>
               </li>
             </ul>
+            <div v-else class="empty-state">
+              <span class="empty-state__title">No audit events yet</span>
+              <span class="empty-state__hint">
+                Creating a board, column, or card will emit an audit entry here.
+              </span>
+            </div>
           </section>
         </template>
       </template>
@@ -288,12 +387,12 @@ const createColumnForm = ref({
 
 const selectedBoardId = ref<Id<'boards'> | null>(null)
 const previewOpen = ref(false)
+const dismissedError = ref<string>('')
 
 const enabled = computed(() => isAuthenticated.value)
 
 const {
   data: sessionContext,
-  pending: sessionPending,
   error: sessionError,
 } = await useConvexQuery(api.workspaces.getSessionContext, computed(() => (enabled.value ? {} : undefined)))
 
@@ -402,6 +501,10 @@ const globalError = computed(
     moveCard.error.value?.message ||
     archiveBoard.error.value?.message ||
     '',
+)
+
+const visibleError = computed(() =>
+  globalError.value && globalError.value !== dismissedError.value ? globalError.value : '',
 )
 
 function findCard(cardId: string) {

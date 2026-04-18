@@ -1,20 +1,64 @@
 <template>
-  <section class="stack card">
-    <h2>Archive board</h2>
+  <section class="stack">
+    <header class="modal-header">
+      <div class="stack-sm">
+        <h2 id="archive-title" class="modal-title">Archive board</h2>
+        <p class="meta">Preview the impact before you confirm.</p>
+      </div>
+      <button
+        type="button"
+        class="btn btn--ghost btn--icon"
+        aria-label="Close"
+        :disabled="archivePending"
+        @click="$emit('cancel')"
+      >
+        ×
+      </button>
+    </header>
 
-    <div v-if="previewPending" class="meta">Loading preview…</div>
+    <div v-if="previewPending" class="empty-state">
+      <span>
+        <span class="spinner spinner--inline" aria-hidden="true" />
+        Loading preview…
+      </span>
+    </div>
 
     <template v-else-if="preview">
       <p>{{ preview.display.summary }}</p>
-      <p class="meta">{{ preview.display.warn }}</p>
-      <p class="meta">
-        Lists: {{ preview.display.affects.columns }} · Cards: {{ preview.display.affects.cards }}
-      </p>
+
+      <div class="banner banner--warning" role="note">
+        <span class="banner__icon" aria-hidden="true">!</span>
+        <div class="banner__body">{{ preview.display.warn }}</div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-item">
+          <span class="summary-item__label">Columns</span>
+          <span class="summary-item__value">{{ preview.display.affects.columns }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-item__label">Cards</span>
+          <span class="summary-item__value">{{ preview.display.affects.cards }}</span>
+        </div>
+      </div>
     </template>
 
     <div class="toolbar">
-      <button type="button" :disabled="archivePending" @click="$emit('cancel')">Cancel</button>
-      <button type="button" :disabled="archivePending || !preview" @click="$emit('confirm')">
+      <button
+        type="button"
+        class="btn btn--ghost"
+        :disabled="archivePending"
+        @click="$emit('cancel')"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="btn btn--danger-solid"
+        :disabled="archivePending || !preview"
+        @click="$emit('confirm')"
+      >
+        <span v-if="archivePending" class="spinner spinner--inline" aria-hidden="true" />
         Confirm archive
       </button>
     </div>

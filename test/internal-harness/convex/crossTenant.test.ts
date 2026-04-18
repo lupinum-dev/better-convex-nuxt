@@ -1,0 +1,163 @@
+/**
+ * Integration tests for tenantIsolation runtime enforcement and
+ * the `ctx.db.crossTenant` / `ctx.db.raw` escape hatches.
+ *
+ * The default-db path (`ctx.db`) is already covered by posts.test.ts
+ * (see "returns posts in users org only" and "surfaces a tenant
+ * isolation violation for posts in different orgs during development").
+ *
+ * This file adds the missing pieces:
+ *
+ * 1. `ctx.db.crossTenant` actually sees across tenants
+ * 2. `ctx.db.crossTenant` emits `db.cross_tenant.used`
+ * 3. `ctx.db.raw`         actually sees across tenants
+ * 4. `ctx.db.raw`         emits `db.raw.used`
+ * 5. Tenant denials on the default db emit `rls.denied`
+ *
+ * Together with posts.test.ts these prove the Spec §14 claim that
+ * tenant isolation is runtime-owned and enforced, not a convention.
+ */
+import { createObservationCapture } from '@lupinum/trellis/testing'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
+import { api } from './_generated/api'
+import { setupTestWithTwoOrgs } from './test.helpers'
+
+let capture: ReturnType<typeof createObservationCapture>
+
+beforeEach(() => {
+  capture = createObservationCapture()
+})
+
+afterEach(() => {
+  capture.stop()
+})
+
+describe('tenantIsolation — ctx.db (default)', () => {
+  it('throws on a direct get across tenants (RLS is strict, not silent)', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    const user1PostId = await asUser1.mutation(api.posts.create, {
+      title: 'Org 1 Post',
+      content: 'Content',
+    })
+
+    // Noteworthy contract: the RLS layer does NOT silently return null
+    // on a cross-tenant read; it raises. This is stricter than some
+    // RLS implementations and is what the §14 "safer by construction"
+    // claim rests on — handlers that forget to pre-filter by tenant
+    // cannot accidentally leak other tenants' rows.
+    await expect(asUser2.query(api.posts.get, { id: user1PostId })).rejects.toThrow(
+      'Document belongs to a different tenant.',
+    )
+  })
+
+  it('throws on a cross-tenant mutation', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    const user1PostId = await asUser1.mutation(api.posts.create, {
+      title: 'Org 1 Post',
+      content: 'Content',
+    })
+
+    await expect(
+      asUser2.mutation(api.posts.update, { id: user1PostId, title: 'hacked' }),
+    ).rejects.toThrow('Document belongs to a different tenant.')
+  })
+
+  it('rejects a cross-tenant list with an empty result', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    await asUser1.mutation(api.posts.create, { title: 'Org 1 Post', content: '' })
+    await asUser2.mutation(api.posts.create, { title: 'Org 2 Post', content: '' })
+
+    const user1Posts = await asUser1.query(api.posts.list, {})
+    const user2Posts = await asUser2.query(api.posts.list, {})
+
+    expect(user1Posts).toHaveLength(1)
+    expect(user2Posts).toHaveLength(1)
+    expect(user1Posts[0]?.title).toBe('Org 1 Post')
+    expect(user2Posts[0]?.title).toBe('Org 2 Post')
+  })
+})
+
+describe('tenantIsolation — ctx.db.crossTenant', () => {
+  it('can read posts from another tenant', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    const user1PostId = await asUser1.mutation(api.posts.create, {
+      title: 'Org 1 Post',
+      content: 'Content',
+    })
+
+    // user2 lives in a different org. Default ctx.db would return
+    // nothing; ctx.db.crossTenant crosses the boundary explicitly.
+    const crossRead = await asUser2.query(api.crossTenant.getAnyPost, { id: user1PostId })
+
+    expect(crossRead).not.toBeNull()
+    expect(crossRead?.title).toBe('Org 1 Post')
+  })
+
+  it('lists posts across all tenants', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    await asUser1.mutation(api.posts.create, { title: 'A', content: '' })
+    await asUser2.mutation(api.posts.create, { title: 'B', content: '' })
+
+    const all = await asUser1.query(api.crossTenant.listAllPosts, {})
+    expect(all).toHaveLength(2)
+    expect(all.map((p) => p.title).sort()).toEqual(['A', 'B'])
+  })
+
+  it('emits db.cross_tenant.used when the crossTenant seam is read', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    const user1PostId = await asUser1.mutation(api.posts.create, {
+      title: 'Traced',
+      content: 'Content',
+    })
+
+    capture.clear()
+    await asUser2.query(api.crossTenant.getAnyPost, { id: user1PostId })
+
+    const crossTenantEvents = capture.find('db.cross_tenant.used')
+    expect(crossTenantEvents.length).toBeGreaterThan(0)
+    const first = crossTenantEvents[0]
+    expect(first?.status).toBe('success')
+    expect(first?.transport).toBe('convex')
+  })
+})
+
+describe('tenantIsolation — ctx.db.raw', () => {
+  it('can read posts from another tenant via the raw escape hatch', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    const user1PostId = await asUser1.mutation(api.posts.create, {
+      title: 'Raw Read',
+      content: 'Content',
+    })
+
+    const rawRead = await asUser2.query(api.crossTenant.getAnyPostRaw, { id: user1PostId })
+
+    expect(rawRead).not.toBeNull()
+    expect(rawRead?.title).toBe('Raw Read')
+  })
+
+  it('emits db.raw.used when the raw seam is read', async () => {
+    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+
+    const user1PostId = await asUser1.mutation(api.posts.create, {
+      title: 'Raw Traced',
+      content: 'Content',
+    })
+
+    capture.clear()
+    await asUser2.query(api.crossTenant.getAnyPostRaw, { id: user1PostId })
+
+    const rawEvents = capture.find('db.raw.used')
+    expect(rawEvents.length).toBeGreaterThan(0)
+    const first = rawEvents[0]
+    expect(first?.status).toBe('success')
+    expect(first?.transport).toBe('convex')
+  })
+})

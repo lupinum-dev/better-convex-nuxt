@@ -1,33 +1,69 @@
 <template>
   <div class="auth-grid">
-    <form class="stack" @submit.prevent="emit('signUp')">
-      <h2>Create account</h2>
+    <form class="card stack" @submit.prevent="emit('signUp')">
+      <div class="stack-sm">
+        <h2>Create account</h2>
+        <p class="meta">New to this workspace? Start here.</p>
+      </div>
       <label>
         <span>Name</span>
-        <input v-model="signUp.name" type="text" required />
+        <input v-model="signUp.name" type="text" autocomplete="name" required />
       </label>
       <label>
         <span>Email</span>
-        <input v-model="signUp.email" type="email" required />
+        <input
+          v-model="signUp.email"
+          type="email"
+          autocomplete="email"
+          aria-describedby="signup-email-hint"
+          required
+        />
+        <span id="signup-email-hint" class="field-hint">Used as your sign-in identifier.</span>
       </label>
       <label>
         <span>Password</span>
-        <input v-model="signUp.password" type="password" minlength="8" required />
+        <input
+          v-model="signUp.password"
+          type="password"
+          autocomplete="new-password"
+          minlength="8"
+          aria-describedby="signup-password-hint"
+          required
+        />
+        <span id="signup-password-hint" class="field-hint">At least 8 characters.</span>
       </label>
-      <button type="submit" :disabled="pending">Sign up</button>
+      <div>
+        <button type="submit" class="btn btn--primary" :disabled="pending">
+          <span v-if="pending" class="spinner spinner--inline" aria-hidden="true" />
+          Sign up
+        </button>
+      </div>
     </form>
 
-    <form class="stack" @submit.prevent="emit('signIn')">
-      <h2>Sign in</h2>
+    <form class="card stack" @submit.prevent="emit('signIn')">
+      <div class="stack-sm">
+        <h2>Sign in</h2>
+        <p class="meta">Already have an account?</p>
+      </div>
       <label>
         <span>Email</span>
-        <input v-model="signIn.email" type="email" required />
+        <input v-model="signIn.email" type="email" autocomplete="email" required />
       </label>
       <label>
         <span>Password</span>
-        <input v-model="signIn.password" type="password" required />
+        <input
+          v-model="signIn.password"
+          type="password"
+          autocomplete="current-password"
+          required
+        />
       </label>
-      <button type="submit" :disabled="pending">Sign in</button>
+      <div>
+        <button type="submit" class="btn btn--primary" :disabled="pending">
+          <span v-if="pending" class="spinner spinner--inline" aria-hidden="true" />
+          Sign in
+        </button>
+      </div>
     </form>
   </div>
 </template>

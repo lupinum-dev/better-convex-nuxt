@@ -176,6 +176,7 @@ As of 2026-04-16:
 - destructive MCP tools are operation-backed and require a bound confirmation token
 - service principals are runtime-enforced through `defineServices(...)`
 - the internal harness is treated as experimental integration infrastructure, not as the product truth source
+- the `defineTenant(...)` API shape referenced in earlier drafts remains aspirational; the shipped surface is the `tenantIsolation: { tables, field? }` option on `defineTrellis(...)`, and the richer per-table shape is tracked in §6.4 ("Spike C")
 
 That means the migration phase is no longer the main work.
 The next work is product improvement, not vNext naming cleanup.
@@ -363,6 +364,45 @@ Why next:
 
 - Trellis already suffered once from split-brain specs
 - a living spec only works if the supporting materials keep pace
+
+### Spike C — `defineTenant(...)` Richer Per-Table Config
+
+Goal:
+
+- extend the shipped `tenantIsolation: { tables, field? }` shape to per-table overrides so different tables can scope to different fields or indexes
+
+Design sketch (not shipped; to be validated against a real second-example):
+
+```ts
+export const tenant = defineTenant({
+  defaultScope: {
+    field: 'workspaceId',
+    index: 'by_workspace',
+    fromActor: (actor) => actor?.workspaceId ?? null,
+  },
+  tables: {
+    todos: true,
+    comments: true,
+    projects: true,
+    workspaces: {
+      field: 'organizationId',
+      index: 'by_organization',
+      fromActor: (actor) => actor?.organizationId ?? null,
+    },
+  },
+})
+```
+
+Why next:
+
+- apps with both "per-workspace" and "per-organization" scoped tables cannot express themselves cleanly today — they fall back to `ctx.db.crossTenant` more than they should
+- backwards-compatible with the current inline `tenantIsolation` shape: the simple case continues to work
+- clarifies the relationship between "which index to use" and "which field to scope on," which is currently implicit
+
+What to prove before promoting:
+
+- a second example (02/03/06) actually needs the per-table override, not just a theoretical case
+- the resolver stays a runtime-enforced RLS rule, not a convention
 
 ---
 
@@ -586,27 +626,31 @@ The key is not type cleverness. The key is that a user can understand the runtim
 
 Trellis should treat multi-tenancy as a core application concern, not an example-side convention.
 
-Design direction:
+Shipped shape:
 
 ```ts
-export const tenant = defineTenant({
-  defaultScope: {
-    field: 'workspaceId',
-    index: 'by_workspace',
-    fromActor: (actor) => actor?.workspaceId ?? null,
+export const {
+  query,
+  mutation,
+  // ...
+} = defineTrellis(
+  {
+    query: rawQuery,
+    mutation: rawMutation,
+    // ...
   },
-  tables: {
-    todos: true,
-    comments: true,
-    projects: true,
-    workspaces: {
-      field: 'organizationId',
-      index: 'by_organization',
-      fromActor: (actor) => actor?.organizationId ?? null,
+  {
+    principal,
+    actor,
+    tenantIsolation: {
+      tables: ['boards', 'columns', 'cards'],
+      field: 'workspaceId', // optional; defaults to 'workspaceId'
     },
   },
-})
+)
 ```
+
+Tenant isolation is compiled into RLS rules and applied by the `ctx.db` proxy: reads outside the actor's tenant return nothing, and writes into another tenant are rejected. No per-handler plumbing is required for safety; passing `actor.tenantId` explicitly into index queries inside handlers is only a performance optimization and a readability convention.
 
 ### 14.1 Rules
 
@@ -615,6 +659,10 @@ export const tenant = defineTenant({
 - unscoped tables pass through unchanged unless explicitly overridden
 - `ctx.db.crossTenant` is the visible bypass for admin and operator flows
 - `ctx.db.raw` bypasses both tenancy and runtime hooks
+
+### 14.2 Planned richer shape
+
+A per-table config API (`defineTenant({ defaultScope, tables: {...} })`) that lets different tables scope to different fields (e.g. `workspaces.organizationId` vs `boards.workspaceId`) is tracked as a planned spike in §6.4 ("Spike C"). It is not shipped today; the inline `tenantIsolation` shape above is the current contract.
 
 This should stay first-class because it appears across multiple example families and is a core app concern, not a niche.
 
@@ -787,13 +835,13 @@ The Nuxt story should feel native:
 - server helpers
 - generated API imports
 - clean route protection
-- minimal app bootstrap
+- cohesive app bootstrap (fewer moving parts than hand-rolling Convex + Better Auth + auth middleware yourself)
 
 The user should feel like Trellis belongs in a Nuxt app, not like they are adopting a parallel full-stack framework.
 
 That implies:
 
-- few entry points
+- fewer entry points than a hand-rolled Nuxt + Convex + auth stack — expect roughly 10–15 setup files for a production app (`convex/functions.ts`, `convex/auth/principal.ts`, `convex/auth/actor.ts`, `convex/schema.ts`, tenancy config, `nuxt.config.ts`, `convex.config.ts`, observability config, MCP runtime + one file per tool). This is cohesion, not absolute minimalism; the spec does not promise "one-file setup."
 - no duplicated runtime concepts between Nuxt and Convex
 - app-owned files where business logic lives
 - generated or auto-imported surfaces where infrastructure lives
@@ -993,8 +1041,9 @@ The shipped scope does not promise request-scoped semantic correlation inside Co
 
 Still deferred:
 
-- app-facing enrichment hooks
-- additional delivery targets beyond the shipped `evlog` path
+- app-facing enrichment hooks — there is no `ctx.observe(event, extra)` sugar, no per-handler event context injection, and no user-defined event families today. Apps can only read the semantic events Trellis emits; they cannot extend them from handler code.
+- additional delivery targets beyond the shipped `evlog` path — no OTel exporter, no vendor-specific sink, no pluggable drain.
+- full feedback-loop tooling — §30 frames observability as part of Trellis' "explainability and feedback-loop story," but the shipped product is decision-event emission plus correlation. The wider feedback-loop surface (replay, replay-driven agent iteration, durable trace storage) is separate work and not promised by the current runtime.
 
 The shipped model does not introduce `ctx.log` everywhere.
 
