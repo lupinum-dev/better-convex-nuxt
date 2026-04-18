@@ -47,7 +47,7 @@ describe('server entrypoint exports', () => {
     expect(serverApi).not.toHaveProperty('defineConvexMcpTool')
   })
 
-  it('creates a caller that always uses auth:none', async () => {
+  it('creates a caller that defaults to auth:auto', async () => {
     serverConvexQueryMock.mockResolvedValueOnce({ ok: 'query' })
     serverConvexMutationMock.mockResolvedValueOnce({ ok: 'mutation' })
     serverConvexActionMock.mockResolvedValueOnce({ ok: 'action' })
@@ -73,19 +73,41 @@ describe('server entrypoint exports', () => {
       event,
       { _path: 'notes:list' },
       { limit: 1 },
-      { auth: 'none' },
+      { auth: 'auto' },
     )
     expect(serverConvexMutationMock).toHaveBeenCalledWith(
       event,
       { _path: 'notes:create' },
       { title: 'Hello' },
-      { auth: 'none' },
+      { auth: 'auto' },
     )
     expect(serverConvexActionMock).toHaveBeenCalledWith(
       event,
       { _path: 'notes:sync' },
       { id: 'n1' },
-      { auth: 'none' },
+      { auth: 'auto' },
+    )
+  })
+
+  it('forwards auth and principal options to each request-scoped call', async () => {
+    serverConvexQueryMock.mockResolvedValueOnce({ ok: true })
+
+    const event = { __is_event__: true } as never
+    const principal = { kind: 'agent', userId: 'u1' }
+    const caller = serverApi.createServerConvexCaller(event, {
+      auth: 'required',
+      principal,
+    })
+
+    await expect(caller.query({ _path: 'notes:list' } as never, { limit: 2 } as never)).resolves.toEqual({
+      ok: true,
+    })
+
+    expect(serverConvexQueryMock).toHaveBeenCalledWith(
+      event,
+      { _path: 'notes:list' },
+      { limit: 2, principal },
+      { auth: 'required' },
     )
   })
 })

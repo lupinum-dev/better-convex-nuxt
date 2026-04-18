@@ -8,6 +8,7 @@ import type {
   FunctionLikeArgs,
   FunctionLikeReturnType,
 } from '../utils/convex-shared.js'
+import type { ServerConvexOptions } from './utils/convex.js'
 
 export {
   serverConvexQuery,
@@ -18,7 +19,7 @@ export {
 
 type ForwardedPrincipalOptions = {
   principal?: unknown
-}
+} & ServerConvexOptions
 
 function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefined>(
   args: TArgs,
@@ -41,8 +42,10 @@ function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefine
  * event and you want a small, request-scoped caller object instead of passing
  * `event` every time.
  *
- * The returned helpers intentionally use `auth: 'none'`. Forward an explicit
- * principal into protected root refs when business authorization matters.
+ * The returned helpers reuse the same auth surface as the per-call
+ * `serverConvex*` helpers and default to `auth: 'auto'` unless overridden.
+ * Forward an explicit principal into protected root refs when business
+ * authorization should run against app-owned identity instead of request auth.
  *
  * @example
  * ```ts
@@ -51,27 +54,43 @@ function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefine
  * ```
  */
 export function createServerConvexCaller(event: H3Event, options?: ForwardedPrincipalOptions) {
+  const callOptions: ServerConvexOptions = {
+    auth: options?.auth ?? 'auto',
+    ...(options?.authToken ? { authToken: options.authToken } : {}),
+    ...(options?.actor ? { actor: options.actor } : {}),
+    ...(options?.trustedCallerKey ? { trustedCallerKey: options.trustedCallerKey } : {}),
+  }
+
   return {
     query: async <Query extends AnyQueryFunction>(
       fn: Query,
       args?: FunctionLikeArgs<Query>,
     ): Promise<FunctionLikeReturnType<Query>> =>
-      await serverConvexQuery(event, fn, withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Query>), options), {
-        auth: 'none',
-      }),
+      await serverConvexQuery(
+        event,
+        fn,
+        withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Query>), options),
+        callOptions,
+      ),
     mutation: async <Mutation extends AnyMutationFunction>(
       fn: Mutation,
       args?: FunctionLikeArgs<Mutation>,
     ): Promise<FunctionLikeReturnType<Mutation>> =>
-      await serverConvexMutation(event, fn, withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Mutation>), options), {
-        auth: 'none',
-      }),
+      await serverConvexMutation(
+        event,
+        fn,
+        withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Mutation>), options),
+        callOptions,
+      ),
     action: async <Action extends AnyActionFunction>(
       fn: Action,
       args?: FunctionLikeArgs<Action>,
     ): Promise<FunctionLikeReturnType<Action>> =>
-      await serverConvexAction(event, fn, withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Action>), options), {
-        auth: 'none',
-      }),
+      await serverConvexAction(
+        event,
+        fn,
+        withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Action>), options),
+        callOptions,
+      ),
   }
 }

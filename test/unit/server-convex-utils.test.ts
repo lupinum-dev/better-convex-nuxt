@@ -141,6 +141,51 @@ describe('server Convex fetch helpers', () => {
       'Content-Type': 'application/json',
       Authorization: 'Bearer jwt-token',
     })
+
+    const body = JSON.parse(String(init.body))
+    expect(body.args.__trellis).toBeUndefined()
+  })
+
+  it('does not inject Trellis metadata into mutation args', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await serverConvexMutation(
+      createEvent(),
+      { _path: 'notes:add' } as never,
+      { title: 'Hello' } as never,
+    )
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(String(init.body))
+    expect(body.args).toEqual({ title: 'Hello' })
+    expect(body.args.__trellis).toBeUndefined()
+  })
+
+  it('does not inject Trellis metadata into action args', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await serverConvexAction(
+      createEvent(),
+      { _path: 'notes:sync' } as never,
+      { id: 'n1' } as never,
+    )
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(String(init.body))
+    expect(body.args).toEqual({ id: 'n1' })
+    expect(body.args.__trellis).toBeUndefined()
   })
 
   it('throws a helpful error for non-JSON responses', async () => {
@@ -294,13 +339,20 @@ describe('server Convex fetch helpers', () => {
 
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const body = JSON.parse(String(init.body))
+    expect(body.args.__trellis).toBeUndefined()
+    const correlationId = (
+      (capture.events.find((event) => event.name === 'mutation.completed') as {
+        correlationId?: string
+      } | undefined)?.correlationId
+    )
+    expect(correlationId).toBeTypeOf('string')
     expect(capture.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           name: 'mutation.completed',
           transport: 'nuxt-server',
           service: 'test-service',
-          correlationId: body.args.__trellis.correlationId,
+          correlationId,
         }),
       ]),
     )
@@ -379,11 +431,6 @@ describe('server Convex fetch helpers', () => {
       path: 'tasks:create',
       args: {
         title: 'From webhook',
-        __trellis: {
-          correlationId: expect.any(String),
-          originTransport: 'nuxt-server',
-          requestId: expect.any(String),
-        },
         _trustedCallerKey: 'trusted-caller-key-123',
         _trustedCaller: {
           userId: 'user_admin',
@@ -466,10 +513,9 @@ describe('server Convex fetch helpers', () => {
       .filter((call) => String((call as unknown[])[0]).includes('/api/query') || String((call as unknown[])[0]).includes('/api/mutation'))
       .map((call) => JSON.parse(String(((call as unknown[])[1] as RequestInit).body)))
     expect(bodies[0].args.__trellis).toBeUndefined()
-    expect(bodies[1].args.__trellis.correlationId).toBeTypeOf('string')
-    expect(bodies[1].args.__trellis.originTransport).toBe('nuxt-server')
+    expect(bodies[1].args.__trellis).toBeUndefined()
     expect((event.context as Record<string, unknown>).__trellis).toMatchObject({
-      correlationId: bodies[1].args.__trellis.correlationId,
+      correlationId: expect.any(String),
       originTransport: 'nuxt-server',
     })
   })

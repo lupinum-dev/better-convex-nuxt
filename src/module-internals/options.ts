@@ -175,12 +175,14 @@ export interface ModuleOptions {
 /**
  * Normalize the `auth` option shorthand forms into a full AuthOptions object.
  * - `true` → `{ enabled: true }`
- * - `false` / `undefined` → `{ enabled: false }`
+ * - `false` → `{ enabled: false }`
+ * - `undefined` → `{ enabled: true }` to match the module default surface
  * - Full object → passed through unchanged
  */
 export function normalizeAuthShorthand(auth: AuthOptions | boolean | undefined): AuthOptions {
   if (auth === true) return { enabled: true }
-  if (auth === false || auth === undefined) return { enabled: false }
+  if (auth === false) return { enabled: false }
+  if (auth === undefined) return { enabled: true }
   return auth
 }
 

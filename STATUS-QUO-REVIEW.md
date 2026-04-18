@@ -11,6 +11,19 @@ It is intentionally execution-oriented:
 This is not a theory document.
 This is the working gap tracker.
 
+## Active Execution Order
+
+- [x] P0.1 Create a canonical status-quo gap tracker.
+- [x] P0.2 Fix auth default docs drift.
+- [x] P0.3 Fix server helper auth semantics and docs drift.
+- [x] P0.4 Stop leaking internal transport metadata into validated mutation/action args.
+- [ ] P1.1 Decide the app-first CLI entrypoint shape.
+- [ ] P1.2 Define the first official archetypes and template graduation path.
+- [ ] P1.3 Make actor bootstrap and missing sync wiring fail loudly.
+- [ ] P1.4 Resolve the biggest naming traps.
+- [ ] P1.5 Document one canonical Trellis app layout.
+- [ ] P2.1 Put a real Trellis-built CMS on the critical path and feed back the paper cuts.
+
 ---
 
 ## Snapshot
@@ -132,9 +145,9 @@ Notes:
 
 ## 9. Docs and Product Coherence
 
-- [ ] Auth defaults are described consistently everywhere.
+- [x] Auth defaults are described consistently everywhere.
   Known mismatch: [src/module.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/module.ts), [docs/content/docs/01.getting-started/2.installation.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/2.installation.md), [docs/content/docs/10.configuration/3.auth-options.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/10.configuration/3.auth-options.md)
-- [ ] Server helper auth defaults are described consistently everywhere.
+- [x] Server helper auth defaults are described consistently everywhere.
   Known mismatch: [docs/content/docs/07.server-side/2.server-routes.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/07.server-side/2.server-routes.md), [docs/content/docs/13.api-reference/4.server.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/13.api-reference/4.server.md), [src/runtime/server/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/index.ts)
 - [ ] The docs consistently tell the same product story as `SPEC-FINAL.md`.
 - [ ] Advanced concepts are progressively disclosed instead of appearing equally “core” to every app.
@@ -146,7 +159,7 @@ Notes:
   Current evidence: [docs/content/docs/09.observability](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/09.observability)
 - [ ] Partial setup failures are turned into loud product errors more consistently.
   Examples: missing actor bootstrap wiring, missing sync triggers, misused forwarded principal paths
-- [ ] The runtime avoids leaking internal transport metadata into user-level validated args.
+- [x] The runtime avoids leaking internal transport metadata into user-level validated args.
   Current evidence of gap: server mutation/action observation envelope behavior in [src/runtime/server/utils/convex.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/utils/convex.ts)
 
 ## 11. Real App Pressure
@@ -163,14 +176,23 @@ This is important enough to state plainly:
 
 These are the highest-value unchecked items right now.
 
-- [ ] Fix auth default docs drift.
-- [ ] Fix server helper auth docs drift.
+- [x] Fix auth default docs drift.
+- [x] Fix server helper auth docs drift.
 - [ ] Decide and implement the app-first CLI entrypoint shape.
 - [ ] Define the first official archetypes and which examples graduate into them.
 - [ ] Make actor bootstrap and missing user-sync wiring fail loudly.
 - [ ] Resolve the biggest API naming traps.
 - [ ] Document one canonical Trellis app layout.
 - [ ] Pick `ginko-cms` as the first load-bearing app and feed the paper cuts back into Trellis.
+
+## 14. Recent Completions
+
+- [x] Aligned auth shorthand normalization with the module default auth-enabled path.
+- [x] Updated auth option docs to describe the current auth-enabled default honestly.
+- [x] Changed `createServerConvexCaller(...)` to accept and forward the same auth options as the per-call server helpers, defaulting to `auth: 'auto'`.
+- [x] Updated server-side docs to match the real caller semantics.
+- [x] Removed server-side `__trellis` arg injection for mutations and actions so non-Trellis handlers do not fail strict argument validation.
+- [x] Added focused unit coverage for the new server caller semantics and the no-metadata-leak contract.
 
 ## 13. Done Means
 

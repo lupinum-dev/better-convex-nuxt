@@ -12,7 +12,6 @@ import {
   type FunctionLikeArgs,
   type FunctionLikeReturnType,
 } from '../../utils/convex-shared.js'
-import { withObservationEnvelope } from '../../utils/observability.js'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
@@ -227,14 +226,6 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
       logger.action({ name: functionPath, event: 'error', duration, error: err })
     }
   }
-  if (operationType !== 'query') {
-    requestArgs = withObservationEnvelope(requestArgs as Record<string, unknown>, {
-      correlationId,
-      originTransport,
-      requestId,
-    })
-  }
-
   let authToken: string | undefined
   if (authMode === 'trusted') {
     const actor = options?.actor
