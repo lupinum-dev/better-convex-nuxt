@@ -43,13 +43,13 @@ export default defineNuxtConfig({
       htmlAttrs: {
         lang: 'en',
       },
-      title: 'Real-time Nuxt apps with Convex.',
+      title: 'The application layer for Nuxt + Convex.',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         {
           name: 'description',
           content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
+            'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
         },
         { name: 'apple-mobile-web-app-title', content: 'Trellis' },
         {
@@ -57,20 +57,20 @@ export default defineNuxtConfig({
           content: 'mFA4hQqscVMdgB5EefYAjQxRZRBYMDJeJ7Rqbx76ewk',
         },
         { property: 'og:site_name', content: 'Trellis' },
-        { property: 'og:title', content: 'Real-time Nuxt apps with Convex.' },
+        { property: 'og:title', content: 'The application layer for Nuxt + Convex.' },
         {
           property: 'og:description',
           content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
+            'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
         },
         { property: 'og:image', content: `${siteUrl}og-image.png` },
         { property: 'og:url', content: siteUrl },
         { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:title', content: 'Real-time Nuxt apps with Convex.' },
+        { name: 'twitter:title', content: 'The application layer for Nuxt + Convex.' },
         {
           name: 'twitter:description',
           content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
+            'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.',
         },
         { name: 'twitter:image', content: `${siteUrl}og-image.png` },
       ],
@@ -128,19 +128,28 @@ export default defineNuxtConfig({
     domain: siteUrl,
     title: 'Trellis',
     description:
-      'Nuxt module for Convex with Better Auth - real-time queries, SSR, authentication, and fine-grained permissions.',
+      'Nuxt application layer for Convex with auth, permissions, operations, observability, and MCP-ready backend access.',
     full: {
       title: 'Trellis - Full Documentation',
       description:
-        'Complete documentation for Trellis including API reference, authentication, and permissions.',
+        'Complete documentation for Trellis including onboarding, concepts, guides, API reference, permissions, server usage, and MCP tooling.',
     },
     sections: [
       {
         title: 'Getting Started',
-        description: 'Installation, quick start guide, and core concepts.',
+        description: 'Orientation, installation, and the first protected app path.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/1.guide%' },
+          { field: 'path', operator: 'LIKE', value: '%/1.getting-started%' },
+          { field: 'extension', operator: '=', value: 'md' },
+        ],
+      },
+      {
+        title: 'Concepts',
+        description: 'Cross-cutting mental models for the protected backend execution model.',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '%/2.concepts%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -149,7 +158,7 @@ export default defineNuxtConfig({
         description: 'How to use useConvexQuery, pagination, and caching strategies.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/2.data-fetching%' },
+          { field: 'path', operator: 'LIKE', value: '%/3.data-fetching%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -158,7 +167,7 @@ export default defineNuxtConfig({
         description: 'Performing mutations, actions, and handling optimistic updates.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/3.mutations%' },
+          { field: 'path', operator: 'LIKE', value: '%/4.mutations%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -167,7 +176,7 @@ export default defineNuxtConfig({
         description: 'Setup guide for authentication, route protection, and token management.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/4.auth-security%' },
+          { field: 'path', operator: 'LIKE', value: '%/5.auth-security%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -176,16 +185,16 @@ export default defineNuxtConfig({
         description: 'Single file uploads, multi-file queues, and storage URLs.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/5.file-uploads%' },
+          { field: 'path', operator: 'LIKE', value: '%/6.file-uploads%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Server-Side Rendering',
-        description: 'Using Convex with Nuxt server routes and SSR hydration.',
+        title: 'Server-Side',
+        description: 'SSR, hydration, server routes, trusted callers, and bridge surfaces.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/6.server-side%' },
+          { field: 'path', operator: 'LIKE', value: '%/7.server-side%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -194,25 +203,25 @@ export default defineNuxtConfig({
         description: 'Role-based access control with backend-driven permission checks.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/7.permissions%' },
+          { field: 'path', operator: 'LIKE', value: '%/8.permissions%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Real-Time',
-        description: 'WebSocket subscriptions and connection state management.',
+        title: 'Observability',
+        description: 'Semantic events, correlated execution, and debugging decision flows.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/8.real-time%' },
+          { field: 'path', operator: 'LIKE', value: '%/9.observability%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
         title: 'Configuration',
-        description: 'Module options, environment variables, auth proxy, and logging.',
+        description: 'Module options, environment variables, auth, permissions, and MCP configuration.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/9.configuration%' },
+          { field: 'path', operator: 'LIKE', value: '%/10.configuration%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
@@ -221,26 +230,44 @@ export default defineNuxtConfig({
         description: 'Guide for deploying your application to production.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/10.deployment%' },
+          { field: 'path', operator: 'LIKE', value: '%/11.deployment%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'DevTools',
-        description: 'Nuxt DevTools integration for debugging queries, mutations, and auth.',
+        title: 'Testing',
+        description: 'Testing protected handlers, server helpers, and MCP-backed flows.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/11.devtools%' },
+          { field: 'path', operator: 'LIKE', value: '%/12.testing%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
         title: 'API Reference',
         description:
-          'Complete API reference for composables, components, server utilities, and types.',
+          'Meaning-bearing reference for composables, components, runtime functions, server helpers, and MCP surfaces.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/13.api-reference%' },
+          { field: 'extension', operator: '=', value: 'md' },
+        ],
+      },
+      {
+        title: 'MCP Tools',
+        description: 'Expose the protected backend model safely to agent callers.',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '%/14.mcp-tools%' },
+          { field: 'extension', operator: '=', value: 'md' },
+        ],
+      },
+      {
+        title: 'Project',
+        description: 'Examples, changelog, migration guides, and contributor entry points.',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '%/15.project%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },

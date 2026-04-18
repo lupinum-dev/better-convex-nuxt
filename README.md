@@ -79,7 +79,7 @@ Use these when you need deeper reference:
 
 - [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md): MCP surface and tool patterns
 - [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md): component bridge and projection boundaries
-- [`examples-next`](./examples-next/README.md): next-generation pressure suite for the framework direction
+- [`examples-next`](./examples-next/README.md): pressure suite for future direction, not the default public source of truth
 
 ## CLI
 

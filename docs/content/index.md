@@ -1,51 +1,66 @@
 ---
 title: 'The application layer for Nuxt + Convex.'
 navigation: false
-description: 'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, and agent-safe access.'
+description: 'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.'
 ---
 
-## ::u-page-hero
+# One protected backend model for Nuxt + Convex
 
-orientation: 'horizontal'
-description: Trellis keeps Nuxt, Convex, auth, permissions, operations, and MCP on one app-owned backend model instead of splitting those rules across transports.
-ui:
-container: 'lg:items-start flex flex-col lg:grid pt-24 sm:pt-32 lg:pt-40 pb-0 sm:pb-0 lg:pb-0 gap-16 sm:gap-y-0'
+Trellis keeps Nuxt, Convex, auth, permissions, operations, observability, and MCP on one app-owned backend model instead of splitting those rules across transports.
 
----
-
-#title
-One protected backend model for [Nuxt + Convex]{.text-primary}
-#links
-:::u-button
-
----
-
-size: lg
-to: /docs/getting-started/start-here
-color: warning
-trailing-icon: i-lucide-arrow-right
-
----
-
-Get Started
-:::
+::callout{icon="i-lucide-arrow-right" color="neutral" to="/docs/getting-started/start-here"}
+Start with [Start Here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First Live Query](/docs/getting-started/first-live-query) before the protected app path.
+::
 
 :u-input-copy{value="pnpm add @lupinum/trellis"}
 
-#default
-::tabs{class="xl:-mt-10 bg-white dark:bg-neutral-900"}
+## Common Paths
+
+::card-group
+
+::card{title="Start Here" icon="i-lucide-compass" to="/docs/getting-started/start-here"}
+What Trellis adds, which first path to choose, and where to go next.
+::
+
+::card{title="Installation" icon="i-lucide-download" to="/docs/getting-started/installation"}
+Install the module, wire the basics, and verify the docs examples match your app shape.
+::
+
+::card{title="First Live Query" icon="i-lucide-rocket" to="/docs/getting-started/first-live-query"}
+Build the smallest useful Trellis app: one query, one mutation, one visible live update.
+::
+
+::card{title="Build a Signed-In Todo App" icon="i-lucide-lock" to="/docs/getting-started/build-a-signed-in-todo-app"}
+Add auth, one protected query, and one protected mutation without jumping into tenancy or MCP.
+::
+
+::card{title="How It Works" icon="i-lucide-waypoints" to="/docs/concepts/how-it-works"}
+See the execution model across browser, server, webhook, and agent callers.
+::
+
+::card{title="Examples" icon="i-lucide-flask-conical" to="/docs/examples"}
+Choose the right repo example before copying patterns into your own app.
+::
+
+::card{title="Reference" icon="i-lucide-book-open" to="/docs/reference"}
+Look up exact behavior for the high-traffic composables, server helpers, and API surfaces.
+::
+
+::
+
+## What It Looks Like
+
+::tabs
+
 :::tabs-item{label="Queries" icon="i-lucide-database"}
 
 ```vue
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-// Real-time subscription with SSR support
 const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
   status: 'active',
 })
-
-// Data updates automatically when any client makes changes
 </script>
 
 <template>
@@ -59,6 +74,7 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
 ```
 
 :::
+
 :::tabs-item{label="Mutations" icon="i-lucide-edit"}
 
 ```vue
@@ -66,7 +82,6 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
 import { api } from '#trellis/api'
 
 const createTask = useConvexMutation(api.tasks.create, {
-  // Instant UI feedback with optimistic updates
   optimisticUpdate: (ctx, args) => {
     ctx
       .query(api.tasks.list, {})
@@ -81,17 +96,13 @@ await createTask({ text: 'Ship my app' })
 ```
 
 :::
+
 :::tabs-item{label="Auth" icon="i-lucide-lock"}
 
 ```vue
 <script setup lang="ts">
 const { isAuthenticated, user, signOut, client } = useConvexAuth()
 const { execute } = useConvexAuthActions()
-
-async function handleLogin(email: string, password: string) {
-  if (!client) return
-  await execute(() => client.signIn.email({ email, password }), { redirectTo: '/dashboard' })
-}
 
 async function handleOAuth() {
   if (!client) return
@@ -111,6 +122,7 @@ async function handleOAuth() {
 ```
 
 :::
+
 :::tabs-item{label="Permissions" icon="i-lucide-shield"}
 
 ```vue
@@ -118,8 +130,12 @@ async function handleOAuth() {
 import { api } from '#trellis/api'
 
 const props = defineProps<{ id: string }>()
-const { can, role } = usePermissions()
+const { can } = usePermissions()
 const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
+
+const canUpdatePost = can('post.update')
+const canDeletePost = can('post.delete')
+const canPublishPost = can('post.publish')
 </script>
 
 <template>
@@ -127,115 +143,46 @@ const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
     <h1>{{ post.title }}</h1>
     <p>{{ post.content }}</p>
 
-    <!-- Show actions based on role and ownership -->
-    <button v-if="can('post.update', post)">Edit</button>
-    <button v-if="can('post.delete', post)">Delete</button>
-    <button v-if="can('post.publish')">Publish</button>
+    <button v-if="canUpdatePost">Edit</button>
+    <button v-if="canDeletePost">Delete</button>
+    <button v-if="canPublishPost">Publish</button>
   </article>
 </template>
 ```
 
 :::
-::
+
 ::
 
 ::landing-stack
 ::
 
-::u-container
-:::div{class="text-center mb-12 xl:mb-16"}
-::::h2{class="text-3xl xl:text-4xl font-bold text-highlighted mb-3"}
-Everything You Need
-::::
-::::p{class="text-lg text-muted max-w-xl mx-auto"}
-Built-in features for building production-ready apps
-::::
-:::
+## Explore The Docs
 
-:::u-page-grid{class="pb-12 xl:pb-24"}
-:::landing-feature
+::card-group
 
----
+::card{title="Get Started" icon="i-lucide-compass" to="/docs/getting-started"}
+The reader path from orientation to the first live query and then the first signed-in app.
+::
 
-title: Real-time Queries
-description: Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients.
-icon: i-lucide-database
-to: /docs/data-fetching/queries
+::card{title="Guides" icon="i-lucide-route" to="/docs/guides"}
+Task-first docs for data, auth, permissions, server-side flows, uploads, and MCP tools.
+::
 
----
+::card{title="Concepts" icon="i-lucide-waypoints" to="/docs/concepts"}
+One canonical explanation page for the protected backend model.
+::
 
-:::
-:::landing-feature
+::card{title="Reference" icon="i-lucide-book-type" to="/docs/reference"}
+Exact behavior for composables, runtime functions, config, and generated API inventory.
+::
 
----
+::card{title="Examples" icon="i-lucide-flask-conical" to="/docs/examples"}
+The canonical public example set, ordered from smallest baseline to the richer workspace model.
+::
 
-title: Optimistic Updates
-description: Instant UI feedback with optimistic updates and live query reconciliation.
-icon: i-lucide-zap
-to: /docs/mutations/optimistic-updates
+::card{title="Project" icon="i-lucide-git-branch" to="/docs/project"}
+Contributor entry points and the public change record, without turning project docs into a junk drawer.
+::
 
----
-
-:::
-:::landing-feature
-
----
-
-title: Authentication
-description: Better Auth integration with email/password, OAuth, and magic links. SSR-compatible.
-icon: i-lucide-lock
-to: /docs/auth-security/authentication
-
----
-
-:::
-:::landing-feature
-
----
-
-title: Permissions
-description: Role-based access control with ownership rules. Backend enforces, frontend displays.
-icon: i-lucide-shield
-to: /docs/permissions/setup
-
----
-
-:::
-:::landing-feature
-
----
-
-title: SSR Support
-description: Server-side rendering with hydration. Fast initial loads, then real-time updates.
-icon: i-lucide-server
-to: /docs/server-side/ssr-overview
-
----
-
-:::
-:::landing-feature
-
----
-
-title: Type Safety
-description: Nuxt auto-imports, generated aliases, and Convex function refs stay strongly typed across the app.
-icon: i-lucide-type
-to: /docs/api-reference/api-surface
-
----
-
-:::
-:::landing-feature
-
----
-
-title: File Storage
-description: Upload files with progress tracking, cancel support, and multi-file queues with concurrency control.
-icon: i-lucide-upload
-to: /docs/file-uploads/single-file-upload
-
----
-
-:::
-:::
 ::

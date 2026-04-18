@@ -1,157 +1,92 @@
-# Trellis Documentation Workplan
+# Trellis Docs Execution Tracker
 
-Internal tracker for the current docs sweep.
+Internal checklist for the reading-experience refactor.
 
-This file stays outside `docs/content/` on purpose so planning notes do not leak into the public docs set.
+## Nav Reset
 
-## Current State
+- [x] Top nav reduced to `Get Started`, `Guides`, `Concepts`, `Reference`, `Examples`, `Project`.
+- [x] Landing page CTAs match the same six-bucket story.
+- [x] Advanced surfaces removed from main nav and homepage feature cards.
 
-- [x] `SPEC.md` is gone. Use `SPEC.vNext.md` as the active design source when design context is needed.
-- [x] `README.md` has been rewritten as the front door instead of a docs dump.
-- [x] The planned public docs tree has been filled out across guides, task pages, reference, MCP, testing, deployment, and project docs.
-- [x] `docs/content/docs/13.api-reference/7.api-surface.md` is generated from `scripts/generate-api-surface.mjs`.
-- [x] `pnpm check:docs:links` passes.
-- [x] The previous broken internal links from `DEVELOPMENT.md` and `docs/mdc-components.md` have been resolved by landing the real target pages.
+## Page Inventory
 
-## Docs Shape Decisions
+- [x] `keep`: data fetching, mutations, auth, permissions, uploads, core server-side guides, API-reference hubs, examples
+- [x] `merge`: `How It Works` absorbed the useful content from `Multi-Caller Architecture`
+- [x] `split`: old quickstart replaced by `First Live Query` and `Build a Signed-In Todo App`
+- [x] `demote`: component bridge, advanced caller models, prompts/resources/sessions, observability, deployment, testing, config deep dives
+- [x] `hide`: migration guides kept published but removed from public navigation until real migration content exists
 
-- [x] Keep the existing route families instead of inventing a second docs IA.
-- [x] Do not add a separate top-level `concepts/` section for now.
-- [x] Treat observability as a real Trellis capability, but not the front-door headline.
-- [x] Keep concept-heavy material embedded where readers actually need it:
-  - `guide`
-  - `permissions`
-  - `server-side`
-  - `mcp-tools`
-- [x] Keep examples discoverable, but do not make guides depend on “read example 07” as the explanation.
+## Route Cutovers
 
-## Completed Public Pages
+- [x] `/docs/getting-started/first-live-query`
+- [x] `/docs/getting-started/build-a-signed-in-todo-app`
+- [x] `/docs/examples`
+- [x] `/docs/guides`
+- [x] `/docs/reference`
+- [x] `/docs/project`
+- [x] `/docs/concepts/how-it-works` is the only worldview page
 
-### Guide
+## Sample Contract Audit
 
-- [x] `docs/content/docs/1.guide/1.get-started.md`
-- [x] `docs/content/docs/1.guide/2.installation.md`
-- [x] `docs/content/docs/1.getting-started/3.quickstart.md`
-- [x] `docs/content/docs/1.guide/4.how-it-works.md`
-- [x] Example selection guidance merged into `docs/content/docs/15.project/1.examples.md`
-- [x] `docs/content/docs/1.guide/8.multi-caller-architecture.md`
+- [x] Homepage permissions snippet uses `usePermissions().can(key)` instead of a demo-style resource arg
+- [x] Examples page states `examples/` is the canonical public example set
+- [x] `examples-next/` is labeled as future-direction pressure, not public source of truth
+- [x] Docs check fails on known demo-only public-docs patterns
 
-### Data Fetching
+## Editorial Pass
 
-- [x] `docs/content/docs/2.data-fetching/1.queries.md`
-- [x] `docs/content/docs/2.data-fetching/2.paginated-queries.md`
-- [x] `docs/content/docs/2.data-fetching/3.cached-queries.md`
-- [x] `docs/content/docs/2.data-fetching/4.connection-state.md`
+- [x] First-success path rewritten around smaller emotional wins
+- [x] Bucket landing pages added for `Get Started`, `Guides`, `Concepts`, `Reference`, and `Project`
+- [x] Repeated worldview links pointed back to `How It Works`
 
-### Mutations
+The remaining editorial TODOs (`Use this page when...` openings; `Common mistakes` / `Next step` heading normalization) are absorbed into the Reading-Experience Rewrite waves below.
 
-- [x] `docs/content/docs/3.mutations/1.mutations.md`
-- [x] `docs/content/docs/3.mutations/2.optimistic-updates.md`
-- [x] `docs/content/docs/3.mutations/3.actions.md`
-- [x] `docs/content/docs/3.mutations/4.destructive-operations.md`
+## Reading-Experience Rewrite (active)
 
-### Auth And Security
+Sweeping rewrite of all ~60 docs pages to fix density, robotic prose, jargon without anchors, and missing visual components. Warmer Vercel/Nuxt-style voice. Wave-based rollout so each wave is independently shippable.
 
-- [x] `docs/content/docs/4.auth-security/1.authentication.md`
-- [x] `docs/content/docs/4.auth-security/2.route-protection.md`
-- [x] `docs/content/docs/4.auth-security/3.auth-flows.md`
-- [x] `docs/content/docs/4.auth-security/4.auth-troubleshooting.md`
+Full plan: `~/.claude/plans/we-not-happy-with-effervescent-cray.md`
 
-### File Uploads
+### Wave 0 — Foundation
 
-- [x] `docs/content/docs/5.file-uploads/1.single-file-upload.md`
-- [x] `docs/content/docs/5.file-uploads/2.multi-file-uploads.md`
-- [x] `docs/content/docs/5.file-uploads/3.storage-urls.md`
+- [x] `docs/STYLE.md` — authoring style guide (voice, headings, MDC component playbook, code-block conventions, jargon rules).
+- [x] `docs/content/docs/2.concepts/2.glossary.md` — canonical term definitions with stable anchors (principal, actor, guard, check, operation, tenant, projection, transport, App/Nuxt/Agent Runtime, business layer).
+- [ ] `pnpm check:docs:links`, `pnpm check:docs:api-surface`, `pnpm --dir docs build` all green with Wave 0 changes.
 
-### Server Side
+### Wave 1 — First-read path
 
-- [x] `docs/content/docs/6.server-side/1.ssr-overview.md`
-- [x] `docs/content/docs/6.server-side/2.server-routes.md`
-- [x] `docs/content/docs/6.server-side/3.webhooks-and-trusted-callers.md`
-- [x] `docs/content/docs/6.server-side/4.hydration-and-subscriptions.md`
-- [x] `docs/content/docs/7.server-side/5.component-bridge.md`
+- [ ] Wire Mermaid rendering in Nuxt Content (prerequisite for diagrams on `how-it-works.md`).
+- [ ] Rewrite `1.getting-started.md` (hub).
+- [ ] Rewrite `1.getting-started/1.start-here.md`.
+- [ ] Rewrite `1.getting-started/2.installation.md`.
+- [ ] Rewrite `1.getting-started/3.first-live-query.md` — convert Steps 1-4 to `::steps`, add filename meta to every code block.
+- [ ] Rewrite `1.getting-started/4.build-a-signed-in-todo-app.md`.
+- [ ] Rewrite `2.concepts.md` + `2.concepts/1.how-it-works.md` — add three Mermaid diagrams (caller-type fan-in, principal→actor→guard sequence, three pillars), break up bullet walls, anchor vocabulary via glossary links.
 
-### Permissions
+### Wave 2 — Core guides
 
-- [x] `docs/content/docs/7.permissions/1.setup.md`
-- [x] `docs/content/docs/7.permissions/2.principal-and-actor.md`
-- [x] `docs/content/docs/7.permissions/3.guards.md`
-- [x] `docs/content/docs/7.permissions/4.authorization-and-can.md`
-- [x] `docs/content/docs/7.permissions/5.tenant-isolation.md`
-- [x] `docs/content/docs/7.permissions/6.cross-tenant-and-raw-access.md`
-- [x] `docs/content/docs/7.permissions/7.operations.md`
-- [x] `docs/content/docs/8.permissions/8.advanced-caller-models.md`
+- [ ] `3.data-fetching/*` (queries.md gets the optional SSR-hydrate-subscribe diagram).
+- [ ] `4.mutations/*`.
+- [ ] `5.auth-security/*`.
+- [ ] `6.file-uploads/*`.
+- [ ] `7.server-side/*`.
 
-### Observability
+### Wave 3 — Advanced + reference
 
-- [x] `docs/content/docs/8.observability/1.overview.md`
-- [x] `docs/content/docs/8.observability/2.semantic-events.md`
-- [x] `docs/content/docs/8.observability/3.debugging-decisions.md`
+- [ ] `8.permissions/*`, `9.observability/*`, `10.configuration/*`, `11.deployment/*`, `12.testing/*`, `14.mcp-tools/*`.
+- [ ] `13.api-reference/*` — convert option/return tables to `::field-group` blocks; add one-line purpose sentence before every signature.
 
-### Configuration
+### Wave 4 — Project + polish
 
-- [x] `docs/content/docs/9.configuration/1.module-options.md`
-- [x] `docs/content/docs/9.configuration/2.environment-variables.md`
-- [x] `docs/content/docs/9.configuration/3.auth-options.md`
-- [x] `docs/content/docs/9.configuration/4.permissions-options.md`
-- [x] `docs/content/docs/9.configuration/5.mcp-options.md`
+- [ ] `15.project/*`.
+- [ ] Global heading sentence-case sweep, filename-meta coverage check on every fenced block, final link check.
+- [ ] Walk the full site in the dev server; skim every page cold.
 
-### Deployment
+## Acceptance
 
-- [x] `docs/content/docs/10.deployment/1.overview.md`
-- [x] `docs/content/docs/10.deployment/2.production-checklist.md`
-- [x] `docs/content/docs/10.deployment/3.local-development.md`
-
-### Testing
-
-- [x] `docs/content/docs/11.testing/1.getting-started.md`
-- [x] `docs/content/docs/11.testing/2.testing-protected-handlers.md`
-- [x] `docs/content/docs/11.testing/3.testing-server-and-mcp.md`
-
-### API Reference
-
-- [x] `docs/content/docs/13.api-reference/1.composables.md`
-- [x] `docs/content/docs/13.api-reference/2.components.md`
-- [x] `docs/content/docs/13.api-reference/3.functions.md`
-- [x] `docs/content/docs/13.api-reference/4.server.md`
-- [x] `docs/content/docs/13.api-reference/5.mcp.md`
-- [x] `docs/content/docs/13.api-reference/6.testing.md`
-- [x] `docs/content/docs/13.api-reference/7.api-surface.md`
-
-### MCP Tools
-
-- [x] `docs/content/docs/13.mcp-tools/1.getting-started.md`
-- [x] `docs/content/docs/13.mcp-tools/2.define-tools.md`
-- [x] `docs/content/docs/13.mcp-tools/3.auth-and-permissions.md`
-- [x] `docs/content/docs/13.mcp-tools/4.destructive-tools.md`
-- [x] `docs/content/docs/13.mcp-tools/5.prompts-resources-sessions.md`
-
-### Project
-
-- [x] `docs/content/docs/14.project/1.examples.md`
-- [x] `docs/content/docs/14.project/2.contributing.md`
-- [x] `docs/content/docs/14.project/3.changelog.md`
-- [x] `docs/content/docs/14.project/4.migration-guides.md`
-
-## Verification
-
-- [x] Generate API surface with `pnpm docs:api-surface`
-- [x] Verify docs links with `pnpm check:docs:links`
-- [ ] Run a visual docs-app pass with `pnpm --dir docs dev`
-- [ ] Run broader repo lint only if the docs assertions or surfaced exports change again
-
-## Stop-Ship Gate
-
-- [x] A first-time reader can move from README to installation to a protected app path without needing the spec.
-- [x] The docs set covers active-builder tasks across data, auth, permissions, server routes, uploads, and MCP.
-- [x] Principal, actor, guards, tenancy, operations, and destructive-tool flows have dedicated homes.
-- [x] The agent path is split from browser setup instead of mixed into the same onboarding page.
-- [x] Contributors and upgraders have real project pages instead of placeholder nav items.
-- [x] No public docs page in this sweep is an empty scaffold or TODO shell.
-- [x] Internal README and docs links currently resolve.
-
-## Next Pass
-
-- [ ] Do a visual scan of the docs app navigation and page flow.
-- [ ] Tighten any pages that feel repetitive once the full set is reviewed in sequence.
-- [ ] Add future docs only when they correspond to real shipped surface, not draft ideas.
+- [ ] `pnpm check:docs:links`
+- [ ] `pnpm docs:api-surface`
+- [ ] `pnpm check:docs:api-surface`
+- [ ] `pnpm --dir docs build`
+- [ ] Verify the first-reader path: landing page -> get started -> installation -> first live query
+- [ ] Verify advanced pages no longer compete in the public nav

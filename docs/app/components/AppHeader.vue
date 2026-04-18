@@ -9,52 +9,46 @@ const { header } = useAppConfig()
 
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
-    label: 'Getting Started',
-    to: '/docs/getting-started/start-here',
-    active: route.path.startsWith('/docs/getting-started'),
+    label: 'Get Started',
+    to: '/docs/getting-started',
+    active: route.path === '/docs/getting-started' || route.path.startsWith('/docs/getting-started/'),
   },
   {
     label: 'Concepts',
-    to: '/docs/concepts/how-it-works',
-    active: route.path.startsWith('/docs/concepts'),
+    to: '/docs/concepts',
+    active: route.path === '/docs/concepts' || route.path.startsWith('/docs/concepts/'),
   },
   {
-    label: 'Data Fetching',
-    to: '/docs/data-fetching/queries',
-    active: route.path.startsWith('/docs/data-fetching'),
-  },
-  {
-    label: 'Mutations',
-    to: '/docs/mutations/mutations',
-    active: route.path.startsWith('/docs/mutations'),
-  },
-  {
-    label: 'Auth',
-    to: '/docs/auth-security/authentication',
-    active: route.path.startsWith('/docs/auth-security'),
-  },
-  {
-    label: 'Permissions',
-    to: '/docs/permissions/setup',
-    active: route.path.startsWith('/docs/permissions'),
-  },
-  {
-    label: 'Server',
-    to: '/docs/server-side/ssr-overview',
-    active: route.path.startsWith('/docs/server-side'),
-  },
-  {
-    label: 'MCP',
-    to: '/docs/mcp-tools/getting-started',
-    active: route.path.startsWith('/docs/mcp-tools'),
+    label: 'Guides',
+    to: '/docs/guides',
+    active:
+      route.path.startsWith('/docs/data-fetching') ||
+      route.path.startsWith('/docs/mutations') ||
+      route.path.startsWith('/docs/auth-security') ||
+      route.path.startsWith('/docs/file-uploads') ||
+      route.path.startsWith('/docs/server-side') ||
+      route.path.startsWith('/docs/permissions') ||
+      route.path.startsWith('/docs/mcp-tools') ||
+      route.path === '/docs/guides',
   },
   {
     label: 'Reference',
-    to: '/docs/api-reference/composables',
+    to: '/docs/reference',
     active:
+      route.path === '/docs/reference' ||
       route.path.startsWith('/docs/api-reference') ||
       route.path.startsWith('/docs/configuration') ||
       route.path.startsWith('/docs/testing'),
+  },
+  {
+    label: 'Examples',
+    to: '/docs/examples',
+    active: route.path === '/docs/examples',
+  },
+  {
+    label: 'Project',
+    to: '/docs/project',
+    active: route.path === '/docs/project' || route.path.startsWith('/docs/project/'),
   },
 ])
 </script>

@@ -145,6 +145,17 @@ const sourceTargets = [
   ...walk(resolve(rootDir, 'test/internal-harness')).filter((file) => extname(file) === '.md'),
 ]
 
+const forbiddenPublicDocsPatterns = [
+  {
+    pattern: /\buseDemoPermissions\s*\(/,
+    message: 'demo-only wrapper useDemoPermissions() leaked into public docs',
+  },
+  {
+    pattern: /Authorization:\s*Bearer\s+demo:/,
+    message: 'demo-only bearer token flow leaked into public docs',
+  },
+]
+
 const issues = []
 
 for (const filePath of sourceTargets) {
@@ -191,6 +202,17 @@ for (const filePath of sourceTargets) {
     const resolved = resolve(filePath, '..', pathname)
     if (!existsSync(resolved)) {
       issues.push(`${relative(rootDir, filePath)} -> missing relative path ${pathname}`)
+    }
+  }
+
+  const isPublicDocsSource =
+    filePath.startsWith(resolve(rootDir, 'docs/content')) || filePath === resolve(rootDir, 'README.md')
+
+  if (isPublicDocsSource) {
+    for (const rule of forbiddenPublicDocsPatterns) {
+      if (rule.pattern.test(source)) {
+        issues.push(`${relative(rootDir, filePath)} -> ${rule.message}`)
+      }
     }
   }
 }
