@@ -1,14 +1,9 @@
-import { authRequired, definePermissionContext, open } from '@lupinum/trellis/auth'
+import { authRequired, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { mcpReferencePermissionKeys, type McpReferencePermissionMap } from '../shared/permissions'
-import type { Actor } from './auth/actor'
-import { getPermissionActor } from './auth/actor'
-import { canCreateRunbook, canManageMcpKeys, canReadWorkspaceRunbook } from './auth/checks'
-import { mutation, query } from './functions'
+import { mutation, query } from '../functions'
 
 const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
-type PermissionActor = NonNullable<Awaited<ReturnType<typeof getPermissionActor>>>
 
 export const listWorkspaces = query({
   guard: open,
@@ -19,31 +14,6 @@ export const listWorkspaces = query({
     return workspaces.map(({ _id, name, slug }) => ({ _id, name, slug }))
   },
 })
-
-export const getPermissionContext = query(
-  definePermissionContext({
-    resolve: getPermissionActor,
-    guards: {
-      [mcpReferencePermissionKeys.runbookRead]: (actor) =>
-        !!actor.tenantId && canReadWorkspaceRunbook(actor as Actor),
-      [mcpReferencePermissionKeys.runbookCreate]: (actor) =>
-        !!actor.tenantId && canCreateRunbook(actor as Actor),
-      [mcpReferencePermissionKeys.mcpManage]: (actor) =>
-        !!actor.tenantId && canManageMcpKeys(actor as Actor),
-    } satisfies Record<keyof McpReferencePermissionMap, (actor: PermissionActor) => boolean>,
-    extend: async (ctx, actor) => {
-      const user = await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q: any) => q.eq('authId', actor.userId))
-        .first()
-
-      return {
-        email: user?.email ?? null,
-        displayName: user?.displayName ?? null,
-      }
-    },
-  }),
-)
 
 export const createWorkspace = mutation({
   guard: authRequired,

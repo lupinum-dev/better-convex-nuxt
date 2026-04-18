@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import schema from './schema'
 import { modules } from './test.setup'
 
-const api = anyApi
+const api = anyApi as any
 
 function createCtx() {
   return createTestContext({ schema, modules })
@@ -44,14 +44,16 @@ describe('auth todo example', () => {
       name: 'Bob',
     })
 
-    const todoId = await alice.mutation(api.todos.create, {
+    const todoId = await alice.mutation(api.domain.todos.create, {
       title: 'Alice todo',
     })
 
-    await expect(bob.mutation(api.todos.toggle, { id: todoId })).rejects.toThrow('Todo not found.')
+    await expect(bob.mutation(api.domain.todos.toggle, { id: todoId })).rejects.toThrow(
+      'Todo not found.',
+    )
 
-    const aliceTodos = await alice.query(api.todos.list, {})
-    const bobTodos = await bob.query(api.todos.list, {})
+    const aliceTodos = await alice.query(api.domain.todos.list, {})
+    const bobTodos = await bob.query(api.domain.todos.list, {})
 
     expect(aliceTodos).toHaveLength(1)
     expect(aliceTodos[0]?.title).toBe('Alice todo')

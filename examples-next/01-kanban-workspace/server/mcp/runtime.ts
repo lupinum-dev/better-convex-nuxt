@@ -54,7 +54,17 @@ export async function resolveKanbanCapabilities({
 }
 
 export const mcpRuntime = defineMcpApp<KanbanPrincipal, KanbanCapabilities>({
-  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
+  callConvex: async (event, principal) =>
+    createServerConvexCaller(
+      event,
+      principal.kind === 'agent'
+        ? {
+            auth: 'trusted',
+            actor: { userId: principal.userId },
+            principal,
+          }
+        : { auth: 'none' },
+    ),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal, convex }) =>
     await resolveKanbanCapabilities({ principal, convex }),

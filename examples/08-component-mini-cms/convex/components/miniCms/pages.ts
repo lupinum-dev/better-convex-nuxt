@@ -64,19 +64,7 @@ function toStudioPage(page: {
   }
 }
 
-const publishPageOp = defineOperation<
-  any,
-  MiniCmsPrincipal,
-  MiniCmsActor,
-  typeof canManagePages,
-  typeof publishPageSchema.args,
-  { page: Doc<'pages'> },
-  { pageId: string; published: boolean },
-  {
-    display: { summary: string; warn?: string; affects: { pages: number } }
-    confirm: { operation: 'pages.publish'; targetId: string; affectedCounts: { pages: number } }
-  }
->({
+const publishPageOp = defineOperation({
   id: 'pages.publish',
   name: 'publishPage',
   kind: 'destructive',
@@ -95,13 +83,13 @@ const publishPageOp = defineOperation<
       }),
     }),
   }),
-  guard: canManagePages,
+  guard: canManagePages as never,
   load: async (ctx, args) => {
     const page = await ctx.db.get(args.id as Id<'pages'>)
     requireRecord(page, 'Page')
     return { page }
   },
-  preview: async (_ctx, _args, { page }) => ({
+  preview: async (_ctx, _args, { page }: { page: Doc<'pages'> }) => ({
     display: {
       summary: `Publish "${page.title}" at /${page.slug}`,
       warn:
@@ -116,7 +104,7 @@ const publishPageOp = defineOperation<
       affectedCounts: { pages: 1 },
     },
   }),
-  handler: async (ctx, _args, { page }) => {
+  handler: async (ctx, _args, { page }: { page: Doc<'pages'> }) => {
     const now = Date.now()
     await ctx.db.patch(page._id, {
       publishedBody: page.draftBody,

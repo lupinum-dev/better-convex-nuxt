@@ -7,7 +7,7 @@ import { tool } from '../../runtime'
 
 export default tool({
   schema: listRunbooks,
-  call: api.runbooks.workspaceOverview,
+  call: api.domain.runbooks.workspaceOverview,
   capability: 'readWorkspaceRunbooks',
   group: 'workspace',
   operation: 'query',

@@ -7,7 +7,7 @@ It shows:
 
 - Better Auth wired through Convex
 - app-owned `convex/auth/actor.ts`
-- a tiny `convex/auth/scope.ts` helper for not-found + ownership checks
+- a tiny `convex/permissions/resources.ts` helper for not-found + ownership checks
 - Trellis-backed handlers without a tenant model
 - explicit ownership checks in handlers
 - auth-aware page rendering with `ConvexAuthenticated`, `ConvexUnauthenticated`, and `ConvexAuthLoading`
@@ -17,8 +17,9 @@ It shows:
 
 1. `convex/auth.ts`
 2. `convex/auth/actor.ts`
-3. `convex/todos.ts`
-4. `pages/index.vue`
+3. `convex/permissions/resources.ts`
+4. `convex/domain/todos.ts`
+5. `pages/index.vue`
 
 ## Run It
 

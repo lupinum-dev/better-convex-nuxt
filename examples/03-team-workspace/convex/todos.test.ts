@@ -16,7 +16,7 @@ import { ensureWebhookBotUser } from './auth/trustedCaller'
 import schema from './schema'
 import { modules } from './test.setup'
 
-const api = anyApi
+const api = anyApi as any
 const TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
 
 function createCtx() {
@@ -26,30 +26,30 @@ function createCtx() {
 describe('team todo example', () => {
   it('lets a member update their own todo', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team: any = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         alice: { role: 'member' },
       },
     })
 
-    const todoId = await team.users.alice.mutation(api.todos.create, {
+    const todoId = await team.users.alice.mutation(api.domain.todos.create, {
       title: 'Alice todo',
     })
 
-    await team.users.alice.mutation(api.todos.setCompleted, {
+    await team.users.alice.mutation(api.domain.todos.setCompleted, {
       id: todoId,
       completed: true,
     })
 
-    const todos = await team.users.alice.query(api.todos.list, {})
+    const todos = await team.users.alice.query(api.domain.todos.list, {})
     expect(todos).toHaveLength(1)
     expect(todos[0]?.completed).toBe(true)
   })
 
   it('blocks a member from updating another member`s todo', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team: any = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         alice: { role: 'member' },
@@ -57,12 +57,12 @@ describe('team todo example', () => {
       },
     })
 
-    const todoId = await team.users.alice.mutation(api.todos.create, {
+    const todoId = await team.users.alice.mutation(api.domain.todos.create, {
       title: 'Alice private team todo',
     })
 
     await expect(
-      team.users.bob.mutation(api.todos.setCompleted, {
+      team.users.bob.mutation(api.domain.todos.setCompleted, {
         id: todoId,
         completed: true,
       }),
@@ -71,28 +71,28 @@ describe('team todo example', () => {
 
   it('keeps tenants isolated from each other', async () => {
     const ctx = createCtx()
-    const alpha = await ctx.seedTenant({
+    const alpha: any = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         alice: { role: 'member' },
       },
     })
-    const beta = await ctx.seedTenant({
+    const beta: any = await ctx.seedTenant({
       name: 'Beta',
       users: {
         bruno: { role: 'member' },
       },
     })
 
-    await alpha.users.alice.mutation(api.todos.create, {
+    await alpha.users.alice.mutation(api.domain.todos.create, {
       title: 'Alpha only',
     })
-    await beta.users.bruno.mutation(api.todos.create, {
+    await beta.users.bruno.mutation(api.domain.todos.create, {
       title: 'Beta only',
     })
 
-    const alphaTodos = await alpha.users.alice.query(api.todos.list, {})
-    const betaTodos = await beta.users.bruno.query(api.todos.list, {})
+    const alphaTodos = await alpha.users.alice.query(api.domain.todos.list, {})
+    const betaTodos = await beta.users.bruno.query(api.domain.todos.list, {})
 
     expect(alphaTodos).toHaveLength(1)
     expect(alphaTodos[0]?.title).toBe('Alpha only')
@@ -102,7 +102,7 @@ describe('team todo example', () => {
 
   it('applies the same permission rules to forwarded principals', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team: any = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         viewer: { role: 'viewer' },
@@ -115,15 +115,15 @@ describe('team todo example', () => {
     })
 
     await expect(
-      trustedCaller.mutation(api.todos.create, {
+      trustedCaller.mutation(api.domain.todos.create, {
         title: 'Should fail',
       }),
-    ).rejects.toThrow('Forbidden: Create todo')
+    ).rejects.toThrow('Forwarded `principal` is only allowed on verified trusted caller paths.')
   })
 
   it('returns permission context booleans for contrasting roles', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team: any = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         owner: { role: 'owner' },
@@ -131,8 +131,8 @@ describe('team todo example', () => {
       },
     })
 
-    const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
+    const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
 
     expect(ownerCtx?.can[teamWorkspacePermissionKeys.todoCreate]).toBe(true)
     expect(viewerCtx?.can[teamWorkspacePermissionKeys.todoCreate]).toBe(false)
@@ -142,8 +142,8 @@ describe('team todo example', () => {
   it('returns null context and denies protected todo queries for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(ctx.raw.query(api.workspaces.getPermissionContext, {})).resolves.toBeNull()
-    await expect(ctx.raw.query(api.todos.list, {})).rejects.toThrow('Forbidden: Read todos')
+    await expect(ctx.raw.query(api.permissions.context.getPermissionContext, {})).resolves.toBeNull()
+    await expect(ctx.raw.query(api.domain.todos.list, {})).rejects.toThrow('Forbidden: Read todos')
   })
 
   it('returns onboarding permission context for signed-in users without a workspace', async () => {
@@ -163,7 +163,7 @@ describe('team todo example', () => {
     })
 
     const onboardingUser = ctx.raw.withIdentity({ subject: authId })
-    const permissionCtx = await onboardingUser.query(api.workspaces.getPermissionContext, {})
+    const permissionCtx = await onboardingUser.query(api.permissions.context.getPermissionContext, {})
 
     expect(permissionCtx).toMatchObject({
       userId: authId,
@@ -186,7 +186,7 @@ describe('webhook idempotency', () => {
 
   it('denies an invalid trusted caller key', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team: any = await ctx.seedTenant({
       name: 'Alpha',
       users: { owner: { role: 'owner' } },
     })
@@ -194,7 +194,7 @@ describe('webhook idempotency', () => {
     await seedWebhookBot(ctx, team.id)
 
     await expect(
-      ctx.raw.mutation(api.webhooks.processTodoSyncWebhook, {
+      ctx.raw.mutation(api.domain.webhooks.processTodoSyncWebhook, {
         trustedCallerKey: 'wrong-key',
         workspaceId: team.id,
         eventId: 'evt-1',
@@ -205,14 +205,14 @@ describe('webhook idempotency', () => {
 
   it('denies duplicate webhook events', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team: any = await ctx.seedTenant({
       name: 'Alpha',
       users: { owner: { role: 'owner' } },
     })
 
     await seedWebhookBot(ctx, team.id)
 
-    await ctx.raw.mutation(api.webhooks.processTodoSyncWebhook, {
+    await ctx.raw.mutation(api.domain.webhooks.processTodoSyncWebhook, {
       trustedCallerKey: TRUSTED_CALLER_KEY,
       workspaceId: team.id,
       eventId: 'evt-duplicate',
@@ -220,7 +220,7 @@ describe('webhook idempotency', () => {
     })
 
     await expect(
-      ctx.raw.mutation(api.webhooks.processTodoSyncWebhook, {
+      ctx.raw.mutation(api.domain.webhooks.processTodoSyncWebhook, {
         trustedCallerKey: TRUSTED_CALLER_KEY,
         workspaceId: team.id,
         eventId: 'evt-duplicate',
@@ -245,21 +245,21 @@ describe('webhook idempotency', () => {
 
   it('webhook-created todos are visible in the workspace list', async () => {
     const ctx = createCtx()
-    const team = await ctx.seedTenant({
+    const team: any = await ctx.seedTenant({
       name: 'Alpha',
       users: { member: { role: 'member' } },
     })
 
     await seedWebhookBot(ctx, team.id)
 
-    await ctx.raw.mutation(api.webhooks.processTodoSyncWebhook, {
+    await ctx.raw.mutation(api.domain.webhooks.processTodoSyncWebhook, {
       trustedCallerKey: TRUSTED_CALLER_KEY,
       workspaceId: team.id,
       eventId: 'evt-visible',
       title: 'Webhook todo',
     })
 
-    const todos = await team.users.member.query(api.todos.list, {})
+    const todos = await team.users.member.query(api.domain.todos.list, {})
     expect(todos).toHaveLength(1)
     expect(todos[0]?.title).toBe('Webhook todo')
     expect(todos[0]?.source).toBe('webhook')

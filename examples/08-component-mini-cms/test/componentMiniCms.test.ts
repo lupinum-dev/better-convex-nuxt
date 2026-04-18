@@ -22,19 +22,31 @@ describe('example 08 component mini cms', () => {
   it('lets anonymous callers read published pages only', async () => {
     const ctx = createCtx()
 
-    const pageId = await ctx
-      .asPrincipal({ kind: 'user', userId: 'editor-public' })
-      .mutation(api.pages.create, {
+    const pageId = await (
+      ctx.raw.withIdentity({
+        subject: 'editor-public',
+        email: 'editor-public@example.com',
+        name: 'Editor Public',
+      }) as {
+        mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
+      }
+    ).mutation(api.domain.pages.create, {
         slug: 'welcome',
         title: 'Welcome',
         draftBody: 'Public page body',
       })
 
-    await ctx
-      .asPrincipal({ kind: 'user', userId: 'editor-public' })
-      .mutation(api.pages.publish, { id: pageId })
+    await (
+      ctx.raw.withIdentity({
+        subject: 'editor-public',
+        email: 'editor-public@example.com',
+        name: 'Editor Public',
+      }) as {
+        mutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>
+      }
+    ).mutation(api.domain.pages.publish, { id: pageId })
 
-    const published = await ctx.raw.query(api.pages.listPublished, {})
+    const published = await ctx.raw.query(api.domain.pages.listPublished, {})
     expect(published).toHaveLength(1)
     expect(published[0]).toMatchObject({
       slug: 'welcome',
@@ -43,35 +55,44 @@ describe('example 08 component mini cms', () => {
       status: 'published',
     })
 
-    const page = await ctx.raw.query(api.pages.getPublished, { slug: 'welcome' })
+    const page = await ctx.raw.query(api.domain.pages.getPublished, { slug: 'welcome' })
     expect(page).toMatchObject({
       slug: 'welcome',
       title: 'Welcome',
     })
 
-    await expect(ctx.raw.query(api.pages.listStudio, {})).rejects.toThrow('Forbidden: Manage pages')
+    await expect(ctx.raw.query(api.domain.pages.listStudio, {})).rejects.toThrow(
+      'Forbidden: Manage pages',
+    )
   })
 
   it('lets authenticated browser users create, save, and publish drafts', async () => {
     const ctx = createCtx()
-    const editor = ctx.asPrincipal({ kind: 'user', userId: 'editor-workflow' })
+    const editor = ctx.raw.withIdentity({
+      subject: 'editor-workflow',
+      email: 'editor-workflow@example.com',
+      name: 'Editor Workflow',
+    }) as {
+      mutation: (fn: unknown, args: Record<string, unknown>) => Promise<any>
+      query: (fn: unknown, args: Record<string, unknown>) => Promise<any>
+    }
 
-    const id = await editor.mutation(api.pages.create, {
+    const id = await editor.mutation(api.domain.pages.create, {
       slug: 'hello-world',
       title: 'Hello world',
       draftBody: 'Draft v1',
     })
 
-    await editor.mutation(api.pages.save, {
+    await editor.mutation(api.domain.pages.save, {
       id,
       slug: 'hello-world',
       title: 'Hello from studio',
       draftBody: 'Draft v2',
     })
 
-    await editor.mutation(api.pages.publish, { id })
+    await editor.mutation(api.domain.pages.publish, { id })
 
-    const pages = await editor.query(api.pages.listStudio, {})
+    const pages = await editor.query(api.domain.pages.listStudio, {})
     expect(pages).toHaveLength(1)
     expect(pages[0]).toMatchObject({
       _id: id,
@@ -83,7 +104,7 @@ describe('example 08 component mini cms', () => {
     })
   })
 
-  it('derives the component actor from the forwarded principal instead of ctx.auth', async () => {
+  it('rejects forwarded principals on public root wrappers', async () => {
     const ctx = createCtx()
 
     const withIdentity = ctx.raw.withIdentity({
@@ -92,41 +113,34 @@ describe('example 08 component mini cms', () => {
       name: 'Browser User',
     })
 
-    const id = await (
+    await expect((
       withIdentity as {
         mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
       }
-    ).mutation(api.pages.create, {
-      slug: 'forwarded-agent',
-      title: 'Forwarded agent page',
-      draftBody: 'Created by the forwarded principal',
-      principal: {
-        kind: 'agent',
-        agentId: 'demo-key',
-        provider: 'mcp',
-      },
-    })
-
-    const draftPages = await ctx
-      .asPrincipal({ kind: 'agent', agentId: 'demo-key', provider: 'mcp' })
-      .query(internal.miniCmsBridge.listDraftPages, {})
-
-    expect(draftPages.find((page: { _id: string }) => page._id === id)).toMatchObject({
-      authorId: 'agent:demo-key',
-    })
+    ).mutation(api.domain.pages.create, {
+        slug: 'forwarded-agent',
+        title: 'Forwarded agent page',
+        draftBody: 'Created by the forwarded principal',
+        principal: {
+          kind: 'agent',
+          agentId: 'demo-key',
+          provider: 'mcp',
+        },
+      }),
+    ).rejects.toThrow('Forwarded `principal` is only allowed on verified trusted caller paths.')
   })
 
   it('forwards principal unchanged through the internal component bridge', async () => {
     const ctx = createCtx()
     const agent = ctx.asPrincipal({ kind: 'agent', agentId: 'bridge-key', provider: 'mcp' })
 
-    const id = await agent.mutation(internal.miniCmsBridge.createPage, {
+    const id = await agent.mutation(internal.operations.miniCmsBridge.createPage, {
       slug: 'bridge-owned',
       title: 'Bridge owned',
       draftBody: 'Bridge draft',
     })
 
-    const drafts = await agent.query(internal.miniCmsBridge.listDraftPages, {})
+    const drafts = await agent.query(internal.operations.miniCmsBridge.listDraftPages, {})
     expect(drafts.find((page: { _id: string }) => page._id === id)).toMatchObject({
       authorId: 'agent:bridge-key',
       slug: 'bridge-owned',
@@ -137,13 +151,13 @@ describe('example 08 component mini cms', () => {
     const ctx = createCtx()
     const agent = ctx.asPrincipal({ kind: 'agent', agentId: 'preview-key', provider: 'mcp' })
 
-    const id = await agent.mutation(internal.miniCmsBridge.createPage, {
+    const id = await agent.mutation(internal.operations.miniCmsBridge.createPage, {
       slug: 'launch-notes',
       title: 'Launch notes',
       draftBody: 'Version one',
     })
 
-    const preview = await agent.query(internal.miniCmsBridge.previewPublishPage, { id })
+    const preview = await agent.query(internal.operations.miniCmsBridge.previewPublishPage, { id })
     expect(preview).toMatchObject({
       display: {
         summary: 'Publish "Launch notes" at /launch-notes',

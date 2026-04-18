@@ -6,7 +6,7 @@
 import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { mutation, query } from './functions'
+import { mutation, query } from '../functions'
 
 export const resolveMcpUserByEmail = query({
   guard: open,

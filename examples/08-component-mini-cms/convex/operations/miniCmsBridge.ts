@@ -3,17 +3,19 @@ import { v } from 'convex/values'
 
 import {
   createPage,
+  getPublishedPage,
   listDraftPages,
   listPublishedPages,
+  listStudioPages,
   publishPage,
   publishPreviewValidator,
   publishedPageValidator,
   saveDraft,
   studioPageValidator,
-} from '../shared/schemas/page'
-import { components } from './_generated/api'
-import { internalMutation, internalQuery, mutation, query } from './_generated/server'
-import { principal } from './auth/principal'
+} from '../../shared/schemas/page'
+import { components } from '../_generated/api'
+import { internalMutation, internalQuery, mutation, query } from '../_generated/server'
+import { principal } from '../auth/principal'
 
 const bridge = createComponentBridge(
   {
@@ -33,6 +35,18 @@ const miniCmsBridge = bridge.from({
     component: components.miniCms.pages.listPublishedPages,
     args: listPublishedPages.args,
     returns: v.array(publishedPageValidator),
+  },
+  getPublishedPageBridge: {
+    operation: 'internalQuery',
+    component: components.miniCms.pages.getPublishedPage,
+    args: getPublishedPage.args,
+    returns: v.union(publishedPageValidator, v.null()),
+  },
+  listStudioPagesBridge: {
+    operation: 'internalQuery',
+    component: components.miniCms.pages.listStudioPages,
+    args: listStudioPages.args,
+    returns: v.array(studioPageValidator),
   },
   listDraftPagesBridge: {
     operation: 'internalQuery',
@@ -80,6 +94,8 @@ const miniCmsBridge = bridge.from({
 
 export const {
   listPublishedPagesBridge,
+  getPublishedPageBridge,
+  listStudioPagesBridge,
   listDraftPagesBridge,
   createPageBridge,
   saveDraftBridge,
@@ -89,8 +105,10 @@ export const {
 
 export {
   createPageBridge as createPage,
+  getPublishedPageBridge as getPublishedPage,
   listDraftPagesBridge as listDraftPages,
   listPublishedPagesBridge as listPublishedPages,
+  listStudioPagesBridge as listStudioPages,
   previewPublishPageBridge as previewPublishPage,
   publishPageBridge as publishPage,
   saveDraftBridge as saveDraft,

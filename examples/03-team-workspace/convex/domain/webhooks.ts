@@ -5,9 +5,9 @@
  */
 import { v } from 'convex/values'
 
-import { mutation } from './_generated/server'
-import { ensureNotProcessed, markProcessed } from './auth/idempotency'
-import { ensureWebhookBotUser, resolveWebhookActor } from './auth/trustedCaller'
+import { mutation } from '../_generated/server'
+import { ensureNotProcessed, markProcessed } from '../auth/idempotency'
+import { ensureWebhookBotUser, resolveWebhookActor } from '../auth/trustedCaller'
 
 export const processTodoSyncWebhook = mutation({
   args: {

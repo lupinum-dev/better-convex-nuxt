@@ -25,6 +25,5 @@ export default defineNuxtConfig({
     auth: {
       enabled: true,
     },
-    logging: 'debug',
   },
 })

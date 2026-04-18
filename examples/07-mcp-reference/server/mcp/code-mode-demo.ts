@@ -17,5 +17,5 @@ export default defineMcpHandler({
     createRunbook,
     updateRunbook,
     deleteRunbook,
-  ],
+  ] as any,
 })

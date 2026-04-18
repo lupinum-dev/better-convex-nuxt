@@ -101,12 +101,12 @@ import { api } from '#trellis/api'
 const toast = useToast()
 
 // One live query powers the whole page.
-const { data: todos, pending, error } = await useConvexQuery(api.todos.list, {})
+const { data: todos, pending, error } = await useConvexQuery(api.domain.todos.list, {})
 
 // The mutation composables are callable functions with reactive state attached.
-const createTodo = useConvexMutation(api.todos.create)
-const toggleTodo = useConvexMutation(api.todos.toggle)
-const removeTodo = useConvexMutation(api.todos.remove)
+const createTodo = useConvexMutation(api.domain.todos.create)
+const toggleTodo = useConvexMutation(api.domain.todos.toggle)
+const removeTodo = useConvexMutation(api.domain.todos.remove)
 
 const title = ref('')
 const todoItems = computed(() => todos.value ?? [])

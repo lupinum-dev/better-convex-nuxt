@@ -1,9 +1,9 @@
 import { v } from 'convex/values'
 
-import { createTodo } from '../shared/schemas/todo'
-import { isAuthenticated } from './auth/checks'
-import { loadOwnedResource } from './auth/scope'
-import { mutation, query } from './functions'
+import { createTodo } from '../../shared/schemas/todo'
+import { isAuthenticated } from '../auth/checks'
+import { mutation, query } from '../functions'
+import { loadOwnedResource } from '../permissions/resources'
 
 export const list = query({
   args: {},

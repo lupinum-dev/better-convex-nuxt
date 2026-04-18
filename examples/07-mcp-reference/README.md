@@ -32,16 +32,18 @@ That gives the example one small domain while still covering every major MCP pat
 ## Files To Read First
 
 1. `convex/schema.ts`
-2. `convex/runbooks.ts`
-3. `convex/mcpKeys.ts`
-4. `server/middleware/mcp-auth.ts`
-5. `server/mcp/tools/public/*`
-6. `server/mcp/tools/workspace/*`
-7. `server/mcp/tools/session/*`
-8. `server/mcp/resources/mcp-reference-guide.ts`
-9. `server/mcp/prompts/plan-runbook-workflow.ts`
-10. `server/mcp/code-mode-demo.ts`
-11. `pages/index.vue`
+2. `convex/domain/runbooks.ts`
+3. `convex/operations/runbooks.ts`
+4. `convex/domain/mcpKeys.ts`
+5. `convex/permissions/context.ts`
+6. `server/middleware/mcp-auth.ts`
+7. `server/mcp/tools/public/*`
+8. `server/mcp/tools/workspace/*`
+9. `server/mcp/tools/session/*`
+10. `server/mcp/resources/mcp-reference-guide.ts`
+11. `server/mcp/prompts/plan-runbook-workflow.ts`
+12. `server/mcp/code-mode-demo.ts`
+13. `pages/index.vue`
 
 ## Run It
 

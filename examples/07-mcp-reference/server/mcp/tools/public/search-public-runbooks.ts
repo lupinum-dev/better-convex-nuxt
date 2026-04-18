@@ -5,7 +5,7 @@ import { tool } from '../../runtime'
 
 export default tool({
   schema: searchRunbooks,
-  call: api.runbooks.searchPublic,
+  call: api.domain.runbooks.searchPublic,
   group: 'public',
   tags: ['search', 'public'],
   operation: 'query',

@@ -422,13 +422,13 @@ const joinWorkspaceForm = reactive({
 
 const title = ref('')
 
-const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
-const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
-const createTodo = useConvexMutation(api.todos.create)
-const updateTodo = useConvexMutation(api.todos.setCompleted)
-const removeTodo = useConvexMutation(api.todos.remove)
+const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace)
+const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace)
+const createTodo = useConvexMutation(api.domain.todos.create)
+const updateTodo = useConvexMutation(api.domain.todos.setCompleted)
+const removeTodo = useConvexMutation(api.domain.todos.remove)
 
-const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
+const { data: workspaceOptions } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
 
 // The permission context query can run anonymously. It returns null until the user is signed in.
 // The todo list query only runs once the user actually belongs to a workspace.
@@ -437,7 +437,7 @@ const {
   data: todos,
   pending: todosPending,
   error: todosError,
-} = await useConvexQuery(api.todos.list, todoArgs)
+} = await useConvexQuery(api.domain.todos.list, todoArgs)
 
 const displayName = computed(
   () =>
@@ -449,8 +449,8 @@ const displayName = computed(
 )
 
 const canCreate = allows(teamWorkspacePermissionKeys.todoCreate)
-const roleOptions = ['admin', 'member', 'viewer'] as const
-const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
+const roleOptions = ['admin', 'member', 'viewer']
+const allRoles = ['owner', 'admin', 'member', 'viewer']
 const permissionMatrix = [
   { label: 'Create todo', roles: ['owner', 'admin', 'member'] },
   { label: 'Read todos', roles: ['owner', 'admin', 'member', 'viewer'] },

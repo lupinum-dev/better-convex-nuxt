@@ -15,6 +15,7 @@ export function installAdvancedTrellis(options: InstallAdvancedOptions): void {
     write: true,
     getContents: () => `
 export {
+  createServerConvexCaller,
   serverConvexQuery,
   serverConvexMutation,
   serverConvexAction,

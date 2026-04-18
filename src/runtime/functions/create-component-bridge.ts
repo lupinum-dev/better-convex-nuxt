@@ -18,6 +18,7 @@ import type {
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
+import { clearTrustedCallerContext, setTrustedCallerContext } from '../trusted-caller/index.js'
 import {
   definePrincipal,
   type DefaultPrincipal,
@@ -188,7 +189,22 @@ function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipa
       input: async (ctx, args) => {
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
-          principalPromise ??= Promise.resolve(principalDefinition.resolve(ctx, args))
+          if (!principalPromise) {
+            const forwardedPrincipal = (args as Record<string, unknown>).principal
+            const ctxWithTrustedCaller = { ...ctx }
+            const argsWithTrustedCaller = {
+              ...args,
+              ...createBridgeTrustedCallerFields(forwardedPrincipal),
+            }
+
+            setTrustedCallerContext(ctxWithTrustedCaller, argsWithTrustedCaller)
+            principalPromise = Promise.resolve(
+              principalDefinition.resolve(ctxWithTrustedCaller, argsWithTrustedCaller),
+            ).finally(() => {
+              clearTrustedCallerContext(ctxWithTrustedCaller)
+            })
+          }
+
           return await principalPromise
         }
 
@@ -206,7 +222,22 @@ function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipa
       input: async (ctx, args) => {
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
-          principalPromise ??= Promise.resolve(principalDefinition.resolve(ctx, args))
+          if (!principalPromise) {
+            const forwardedPrincipal = (args as Record<string, unknown>).principal
+            const ctxWithTrustedCaller = { ...ctx }
+            const argsWithTrustedCaller = {
+              ...args,
+              ...createBridgeTrustedCallerFields(forwardedPrincipal),
+            }
+
+            setTrustedCallerContext(ctxWithTrustedCaller, argsWithTrustedCaller)
+            principalPromise = Promise.resolve(
+              principalDefinition.resolve(ctxWithTrustedCaller, argsWithTrustedCaller),
+            ).finally(() => {
+              clearTrustedCallerContext(ctxWithTrustedCaller)
+            })
+          }
+
           return await principalPromise
         }
 
@@ -266,7 +297,7 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        await ctx.runQuery(definition.component, {
+        return await ctx.runQuery(definition.component, {
           ...args,
           ...createBridgeTrustedCallerFields(principal),
           principal,
@@ -280,7 +311,7 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        await ctx.runMutation(definition.component, {
+        return await ctx.runMutation(definition.component, {
           ...args,
           ...createBridgeTrustedCallerFields(principal),
           principal,
@@ -294,7 +325,7 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        await ctx.runQuery(definition.component, {
+        return await ctx.runQuery(definition.component, {
           ...args,
           ...createBridgeTrustedCallerFields(principal),
           principal,
@@ -308,7 +339,7 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        await ctx.runMutation(definition.component, {
+        return await ctx.runMutation(definition.component, {
           ...args,
           ...createBridgeTrustedCallerFields(principal),
           principal,

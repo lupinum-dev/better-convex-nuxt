@@ -325,7 +325,7 @@ const {
   data: pages,
   pending: pagesPending,
   error: pagesError,
-} = await useConvexQuery(api.pages.listStudio, studioArgs)
+} = await useConvexQuery(api.domain.pages.listStudio, studioArgs)
 
 const selectedId = ref<string | undefined>()
 
@@ -337,7 +337,10 @@ watch(
       return
     }
 
-    if (!selectedId.value || !value.some((page) => page._id === selectedId.value)) {
+    if (
+      !selectedId.value ||
+      !value.some((page: { _id: string }) => page._id === selectedId.value)
+    ) {
       selectedId.value = value[0]?._id
     }
   },
@@ -345,7 +348,7 @@ watch(
 )
 
 const selectedPage = computed(
-  () => pages.value?.find((page) => page._id === selectedId.value) ?? null,
+  () => pages.value?.find((page: { _id: string }) => page._id === selectedId.value) ?? null,
 )
 
 watch(
@@ -359,9 +362,9 @@ watch(
   { immediate: true },
 )
 
-const createPage = useConvexMutation(api.pages.create)
-const saveDraft = useConvexMutation(api.pages.save)
-const publishPage = useConvexMutation(api.pages.publish)
+const createPage = useConvexMutation(api.domain.pages.create)
+const saveDraft = useConvexMutation(api.domain.pages.save)
+const publishPage = useConvexMutation(api.domain.pages.publish)
 
 const uiError = computed(
   () =>

@@ -33,7 +33,8 @@ import { can, deny } from '../auth/index.js'
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
-import { setTrustedCallerContext, trustedCallerValidators } from '../trusted-caller/shared.js'
+import { setTrustedCallerContext } from '../trusted-caller/index.js'
+import { trustedCallerValidators } from '../trusted-caller/shared.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,

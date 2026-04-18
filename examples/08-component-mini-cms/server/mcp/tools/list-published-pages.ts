@@ -4,7 +4,7 @@ import { listPublishedPages } from '~/shared/schemas/page'
 
 export default tool({
   schema: listPublishedPages,
-  call: internal.miniCmsBridge.listPublishedPages,
+  call: internal.operations.miniCmsBridge.listPublishedPages,
   operation: 'query',
   capability: 'listPublishedPages',
   group: 'pages',

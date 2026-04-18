@@ -102,7 +102,7 @@ import { computed, ref, watch } from 'vue'
 
 import { api } from '#trellis/api'
 
-const { data: publishedPages, pending } = await useConvexQuery(api.pages.listPublished, {})
+const { data: publishedPages, pending } = await useConvexQuery(api.domain.pages.listPublished, {})
 
 const selectedSlug = ref<string | undefined>()
 
@@ -114,7 +114,10 @@ watch(
       return
     }
 
-    if (!selectedSlug.value || !pages.some((page) => page.slug === selectedSlug.value)) {
+    if (
+      !selectedSlug.value ||
+      !pages.some((page: { slug: string }) => page.slug === selectedSlug.value)
+    ) {
       selectedSlug.value = pages[0]?.slug
     }
   },
@@ -123,7 +126,7 @@ watch(
 
 const pageArgs = computed(() => (selectedSlug.value ? { slug: selectedSlug.value } : undefined))
 const { data: selectedPage, pending: pagePending } = await useConvexQuery(
-  api.pages.getPublished,
+  api.domain.pages.getPublished,
   pageArgs,
 )
 

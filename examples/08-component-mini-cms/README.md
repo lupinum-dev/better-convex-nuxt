@@ -27,9 +27,10 @@ authoring, but it is the direct architectural precursor to the packaged `ginko-c
 If you want the architecture in one pass, read these four files in order:
 
 1. `convex/components/miniCms/pages.ts`
-2. `convex/miniCmsBridge.ts`
-3. `server/lib/mcp-runtime.ts`
-4. `pages/studio.vue`
+2. `convex/operations/miniCmsBridge.ts`
+3. `convex/domain/pages.ts`
+4. `server/lib/mcp-runtime.ts`
+5. `pages/studio.vue`
 
 ## Running the example
 

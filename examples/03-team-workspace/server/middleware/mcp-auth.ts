@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
 
   const user = await serverConvexQuery(
     event,
-    api.users.resolveMcpUserByEmail,
+    api.domain.users.resolveMcpUserByEmail,
     { email },
     { auth: 'none' },
   )

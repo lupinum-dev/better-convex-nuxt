@@ -1,14 +1,8 @@
 import { open, requireRecord } from '@lupinum/trellis/auth'
-import { defineTrellis } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import { createTodo } from '../shared/schemas/todo'
-import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-
-const { mutation, query } = defineTrellis({
-  query: generatedQuery,
-  mutation: generatedMutation,
-})
+import { createTodo } from '../../shared/schemas/todo'
+import { mutation, query } from '../functions'
 
 export const list = query({
   args: {},

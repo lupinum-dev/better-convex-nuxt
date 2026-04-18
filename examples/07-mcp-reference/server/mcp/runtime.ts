@@ -12,6 +12,12 @@ type McpAuthContext = {
   userId?: string
 }
 
+type CapabilitySnapshot = {
+  readWorkspaceRunbooks: boolean
+  writeWorkspaceRunbooks: boolean
+  deleteWorkspaceRunbooks: boolean
+}
+
 function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.keyId || !auth.userId) {
@@ -26,8 +32,18 @@ function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   }
 }
 
-export const mcpRuntime = defineMcpApp({
-  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
+export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot>({
+  callConvex: async (event, principal) =>
+    createServerConvexCaller(
+      event,
+      principal.kind === 'agent'
+        ? {
+            auth: 'trusted',
+            actor: { userId: principal.userId },
+            principal,
+          }
+        : { auth: 'none' },
+    ),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal, convex }) => {
     if (principal.kind !== 'agent') {
@@ -38,7 +54,7 @@ export const mcpRuntime = defineMcpApp({
       }
     }
 
-    const permissions = await convex.query(api.workspaces.getPermissionContext, {})
+    const permissions = await convex.query(api.permissions.context.getPermissionContext, {})
 
     return {
       readWorkspaceRunbooks: permissions?.can[mcpReferencePermissionKeys.runbookRead] === true,

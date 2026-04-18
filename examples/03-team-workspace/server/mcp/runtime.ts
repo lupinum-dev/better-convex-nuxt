@@ -11,6 +11,13 @@ type McpAuthContext = {
   userId?: string
 }
 
+type CapabilitySnapshot = {
+  listTodos: boolean
+  createTodo: boolean
+  completeTodo: boolean
+  deleteTodo: boolean
+}
+
 function getMcpPrincipal(event: H3Event): TeamTodoPrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.userId) {
@@ -24,8 +31,18 @@ function getMcpPrincipal(event: H3Event): TeamTodoPrincipal {
   }
 }
 
-export const mcpRuntime = defineMcpApp({
-  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
+export const mcpRuntime = defineMcpApp<TeamTodoPrincipal, CapabilitySnapshot>({
+  callConvex: async (event, principal) =>
+    createServerConvexCaller(
+      event,
+      principal.kind === 'agent'
+        ? {
+            auth: 'trusted',
+            actor: { userId: principal.userId },
+            principal,
+          }
+        : { auth: 'none' },
+    ),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal, convex }) => {
     if (principal.kind !== 'agent') {
@@ -37,7 +54,7 @@ export const mcpRuntime = defineMcpApp({
       }
     }
 
-    const permissions = await convex.query(api.workspaces.getPermissionContext, {})
+    const permissions = await convex.query(api.permissions.context.getPermissionContext, {})
 
     return {
       listTodos: permissions?.can[teamWorkspacePermissionKeys.todoRead] === true,

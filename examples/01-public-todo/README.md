@@ -5,15 +5,16 @@ This is the smallest useful public-only app.
 It shows:
 
 - `trellis: { url }` and nothing else
-- the smallest Trellis-backed `defineTrellis(...)` runtime
+- the smallest Trellis-backed `convex/functions.ts` runtime
 - one `defineArgs()` object reused by Convex handlers
 - `useConvexQuery()` and `useConvexMutation()` in the page
 
 ## Files To Read First
 
 1. `shared/schemas/todo.ts`
-2. `convex/todos.ts`
-3. `pages/index.vue`
+2. `convex/functions.ts`
+3. `convex/domain/todos.ts`
+4. `pages/index.vue`
 
 ## Run It
 

@@ -10,7 +10,7 @@ import { tool } from '../runtime'
 
 export default tool({
   schema: createTodo,
-  call: api.todos.create,
+  call: api.domain.todos.create,
   capability: 'createTodo',
   meta: {
     name: 'create-todo',

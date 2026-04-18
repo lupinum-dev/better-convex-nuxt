@@ -710,17 +710,17 @@ const verifyVariant = ref<'success' | 'error'>('success')
 const verifyingKey = ref(false)
 const requestUrl = useRequestURL()
 
-const createWorkspace = useConvexMutation(api.workspaces.createWorkspace)
-const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace)
-const createRunbookMutation = useConvexMutation(api.runbooks.create)
-const updateRunbookMutation = useConvexMutation(api.runbooks.update)
-const deleteRunbookMutation = useConvexMutation(api.runbooks.remove)
-const createKey = useConvexMutation(api.mcpKeys.create)
-const revokeKey = useConvexMutation(api.mcpKeys.revoke)
+const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace)
+const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace)
+const createRunbookMutation = useConvexMutation(api.domain.runbooks.create)
+const updateRunbookMutation = useConvexMutation(api.domain.runbooks.update)
+const deleteRunbookMutation = useConvexMutation(api.domain.runbooks.remove)
+const createKey = useConvexMutation(api.domain.mcpKeys.create)
+const revokeKey = useConvexMutation(api.domain.mcpKeys.revoke)
 
-const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
+const { data: workspaceOptions } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
 const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
-  api.runbooks.listPublic,
+  api.domain.runbooks.listPublic,
   {},
 )
 
@@ -734,11 +734,14 @@ const {
   data: workspaceRunbooks,
   pending: workspaceRunbooksPending,
   error: workspaceRunbooksError,
-} = await useConvexQuery(api.runbooks.listWorkspace, workspaceArgs)
+} = await useConvexQuery(api.domain.runbooks.listWorkspace, workspaceArgs)
 
-const { data: mcpKeys, error: mcpKeysError } = await useConvexQuery(api.mcpKeys.list, mcpKeyArgs)
+const { data: mcpKeys, error: mcpKeysError } = await useConvexQuery(
+  api.domain.mcpKeys.list,
+  mcpKeyArgs,
+)
 const { data: mcpKeyUsers, error: mcpKeyUsersError } = await useConvexQuery(
-  api.users.listWorkspaceUsersForMcpKeys,
+  api.domain.users.listWorkspaceUsersForMcpKeys,
   mcpKeyArgs,
 )
 
@@ -759,11 +762,11 @@ const endpointBase = computed(() => {
   return requestUrl.origin
 })
 
-const workspaceRoleOptions = ['admin', 'member', 'viewer'] as const
-const visibilityOptions = ['draft', 'workspace', 'public'] as const
+const workspaceRoleOptions = ['admin', 'member', 'viewer']
+const visibilityOptions: Array<'draft' | 'workspace' | 'public'> = ['draft', 'workspace', 'public']
 
 const mcpBoundUserOptions = computed(() =>
-  (mcpKeyUsers.value ?? []).map((user) => ({
+  (mcpKeyUsers.value ?? []).map((user: { displayName?: string | null; email?: string | null; authId: string; role: string }) => ({
     label: `${user.displayName || user.email || user.authId} (${user.role})`,
     value: user.authId,
   })),
@@ -890,7 +893,6 @@ async function handleCreateMcpKey() {
 }
 
 async function handleVerifyKey() {
-  if (!client) throw new Error('Convex client unavailable.')
   verifyingKey.value = true
 
   try {
@@ -901,7 +903,7 @@ async function handleVerifyKey() {
       return
     }
 
-    const result = await client.query(api.mcpKeys.validate, {
+    const result = await useConvex().query(api.domain.mcpKeys.validate, {
       hash: await hashToken(token),
     })
 

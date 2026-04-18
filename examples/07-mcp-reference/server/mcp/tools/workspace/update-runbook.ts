@@ -5,7 +5,7 @@ import { tool } from '../../runtime'
 
 export default tool({
   schema: updateRunbook,
-  call: api.runbooks.update,
+  call: api.domain.runbooks.update,
   capability: 'writeWorkspaceRunbooks',
   group: 'workspace',
   middleware: async (args, ctx, next) => {
@@ -19,7 +19,7 @@ export default tool({
       return ctx.error('validation', 'Provide at least one field to update.')
     }
 
-    const existing = await ctx.query(api.runbooks.getWorkspace, { id: args.id })
+    const existing = await ctx.query(api.domain.runbooks.getWorkspace, { id: args.id })
     if (!existing) {
       return ctx.error('not_found', `Runbook "${args.id}" not found.`)
     }

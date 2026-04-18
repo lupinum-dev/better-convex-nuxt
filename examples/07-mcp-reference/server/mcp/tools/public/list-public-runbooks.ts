@@ -5,7 +5,7 @@ import { tool } from '../../runtime'
 
 export default tool({
   schema: listRunbooks,
-  call: api.runbooks.listPublic,
+  call: api.domain.runbooks.listPublic,
   operation: 'query',
   group: 'public',
   tags: ['read-only', 'public'],

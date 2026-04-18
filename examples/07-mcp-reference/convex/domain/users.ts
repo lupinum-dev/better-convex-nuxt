@@ -1,7 +1,7 @@
 import { open } from '@lupinum/trellis/auth'
 
-import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
-import { mutation, query } from './functions'
+import { canIssueKeyRole, canManageMcpKeys } from '../auth/checks'
+import { query } from '../functions'
 
 export const getCurrentUser = query({
   guard: open,

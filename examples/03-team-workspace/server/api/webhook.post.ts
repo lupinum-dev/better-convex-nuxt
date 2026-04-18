@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
   const todoId = await serverConvexMutation(
     event,
-    api.webhooks.processTodoSyncWebhook,
+    api.domain.webhooks.processTodoSyncWebhook,
     {
       trustedCallerKey: body.trustedCallerKey,
       workspaceId: body.workspaceId,

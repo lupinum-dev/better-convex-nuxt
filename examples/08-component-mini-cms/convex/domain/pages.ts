@@ -10,9 +10,9 @@ import {
   publishedPageValidator,
   saveDraft as saveDraftSchema,
   studioPageValidator,
-} from '../shared/schemas/page'
-import { components } from './_generated/api'
-import { mutation, query } from './functions'
+} from '../../shared/schemas/page'
+import { internal } from '../_generated/api'
+import { mutation, query } from '../functions'
 
 const publishedPageListValidator = v.array(publishedPageValidator)
 const studioPageListValidator = v.array(studioPageValidator)
@@ -22,7 +22,7 @@ export const listPublished = query({
   returns: publishedPageListValidator,
   guard: open,
   handler: async (ctx) =>
-    await ctx.runQuery(components.miniCms.pages.listPublishedPages, {
+    await ctx.runQuery(internal.operations.miniCmsBridge.listPublishedPages, {
       principal: await ctx.principal(),
     }),
 })
@@ -32,7 +32,7 @@ export const getPublished = query({
   returns: v.union(publishedPageValidator, v.null()),
   guard: open,
   handler: async (ctx, args) =>
-    await ctx.runQuery(components.miniCms.pages.getPublishedPage, {
+    await ctx.runQuery(internal.operations.miniCmsBridge.getPublishedPage, {
       ...args,
       principal: await ctx.principal(),
     }),
@@ -43,7 +43,7 @@ export const listStudio = query({
   returns: studioPageListValidator,
   guard: open,
   handler: async (ctx) =>
-    await ctx.runQuery(components.miniCms.pages.listStudioPages, {
+    await ctx.runQuery(internal.operations.miniCmsBridge.listStudioPages, {
       principal: await ctx.principal(),
     }),
 })
@@ -53,7 +53,7 @@ export const create = mutation({
   returns: v.string(),
   guard: open,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.miniCms.pages.createPage, {
+    await ctx.runMutation(internal.operations.miniCmsBridge.createPage, {
       ...args,
       principal: await ctx.principal(),
     }),
@@ -64,7 +64,7 @@ export const save = mutation({
   returns: v.null(),
   guard: open,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.miniCms.pages.saveDraft, {
+    await ctx.runMutation(internal.operations.miniCmsBridge.saveDraft, {
       ...args,
       principal: await ctx.principal(),
     }),
@@ -78,7 +78,7 @@ export const publish = mutation({
   }),
   guard: open,
   handler: async (ctx, args) =>
-    await ctx.runMutation(components.miniCms.pages.publishPage, {
+    await ctx.runMutation(internal.operations.miniCmsBridge.publishPage, {
       ...args,
       principal: await ctx.principal(),
     }),

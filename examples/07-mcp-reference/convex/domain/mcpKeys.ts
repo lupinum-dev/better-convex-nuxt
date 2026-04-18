@@ -2,10 +2,10 @@ import { deny, open } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
-import { createMcpKey, revokeMcpKey } from '../shared/schemas/mcp-key'
-import type { DataModel, Doc } from './_generated/dataModel'
-import { canIssueKeyRole, canManageMcpKeys } from './auth/checks'
-import { mutation, query } from './functions'
+import { createMcpKey, revokeMcpKey } from '../../shared/schemas/mcp-key'
+import type { DataModel, Doc } from '../_generated/dataModel'
+import { canIssueKeyRole, canManageMcpKeys } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 

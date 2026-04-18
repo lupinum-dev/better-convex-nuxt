@@ -14,11 +14,13 @@ declare module '#trellis/mcp' {
 
 declare module '#trellis/server' {
   import type {
+    createServerConvexCaller as createServerConvexCallerFn,
     serverConvexAction as serverConvexActionFn,
     serverConvexMutation as serverConvexMutationFn,
     serverConvexQuery as serverConvexQueryFn,
   } from './src/runtime/server/index'
 
+  export const createServerConvexCaller: typeof createServerConvexCallerFn
   export const serverConvexQuery: typeof serverConvexQueryFn
   export const serverConvexMutation: typeof serverConvexMutationFn
   export const serverConvexAction: typeof serverConvexActionFn

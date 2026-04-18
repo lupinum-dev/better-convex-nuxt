@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
 
   const validated = await serverConvexQuery(
     event,
-    api.mcpKeys.validate,
+    api.domain.mcpKeys.validate,
     { hash: hashToken(token) },
     { auth: 'none' },
   )
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
 
   serverConvexMutation(
     event,
-    api.mcpKeys.touch,
+    api.domain.mcpKeys.touch,
     { id: validated.id, seenAt: Date.now() },
     { auth: 'none' },
   ).catch(() => {})

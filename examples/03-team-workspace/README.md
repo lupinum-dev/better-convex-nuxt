@@ -24,13 +24,15 @@ It shows:
 3. `convex/auth/idempotency.ts`
 4. `convex/auth/trustedCaller.ts`
 5. `shared/schemas/todo.ts`
-6. `convex/todos.ts`
-7. `convex/webhooks.ts`
-8. `pages/index.vue`
-9. `server/mcp/tools/*.ts`
-10. `server/api/webhook.post.ts`
-11. `convex/todos.test.ts`
-12. `vitest.config.ts`
+6. `convex/domain/todos.ts`
+7. `convex/operations/todos.ts`
+8. `convex/permissions/context.ts`
+9. `convex/domain/webhooks.ts`
+10. `pages/index.vue`
+11. `server/mcp/tools/*.ts`
+12. `server/api/webhook.post.ts`
+13. `convex/todos.test.ts`
+14. `vitest.config.ts`
 
 ## Demo Flow
 

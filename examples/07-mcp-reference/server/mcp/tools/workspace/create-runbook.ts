@@ -5,7 +5,7 @@ import { tool } from '../../runtime'
 
 export default tool({
   schema: createRunbook,
-  call: api.runbooks.create,
+  call: api.domain.runbooks.create,
   capability: 'writeWorkspaceRunbooks',
   group: 'workspace',
   maxItems: { field: 'tags', limit: 6 },

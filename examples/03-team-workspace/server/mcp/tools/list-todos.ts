@@ -9,7 +9,7 @@ import { tool } from '../runtime'
 
 export default tool({
   schema: listTodos,
-  call: api.todos.list,
+  call: api.domain.todos.list,
   operation: 'query',
   capability: 'listTodos',
   meta: {

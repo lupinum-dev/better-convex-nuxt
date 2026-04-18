@@ -31,7 +31,16 @@ export const mcpRuntime = defineMcpApp<
   { deletePost: boolean }
 >({
   callConvex: async (event, principal) =>
-    createServerConvexCaller(event, { principal }) as never,
+    createServerConvexCaller(
+      event,
+      principal.kind === 'agent'
+        ? {
+            auth: 'trusted',
+            actor: { userId: principal.userId },
+            principal,
+          }
+        : { auth: 'none' },
+    ) as never,
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
     deletePost:

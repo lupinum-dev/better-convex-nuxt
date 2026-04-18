@@ -4,7 +4,7 @@ import { saveDraft } from '~/shared/schemas/page'
 
 export default tool({
   schema: saveDraft,
-  call: internal.miniCmsBridge.saveDraft,
+  call: internal.operations.miniCmsBridge.saveDraft,
   capability: 'saveDraft',
   group: 'pages',
   meta: {

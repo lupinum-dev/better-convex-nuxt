@@ -9,7 +9,7 @@ import { tool } from '../runtime'
 
 export default tool({
   schema: setTodoCompleted,
-  call: api.todos.setCompleted,
+  call: api.domain.todos.setCompleted,
   capability: 'completeTodo',
   meta: {
     name: 'complete-todo',

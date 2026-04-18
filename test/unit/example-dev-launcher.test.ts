@@ -333,7 +333,8 @@ describe('example dev launcher', () => {
     const cwd = '/repo/examples/01-public-todo'
     const fileContents: Record<string, string> = {
       '/repo/examples/01-public-todo/convex/schema.ts': 'export default 1\n',
-      '/repo/examples/01-public-todo/convex/todos.ts': 'export const x = 1\n',
+      '/repo/examples/01-public-todo/convex/functions.ts': 'export const x = 1\n',
+      '/repo/examples/01-public-todo/convex/domain/todos.ts': 'export const y = 1\n',
       '/repo/examples/01-public-todo/shared/schemas/todo.ts': 'export const y = 1\n',
       '/repo/examples/01-public-todo/convex/_generated/api.ts': 'ignored\n',
     }
@@ -343,7 +344,11 @@ describe('example dev launcher', () => {
     > = {
       '/repo/examples/01-public-todo/convex': [
         { name: '_generated', isDirectory: () => true, isFile: () => false },
+        { name: 'domain', isDirectory: () => true, isFile: () => false },
+        { name: 'functions.ts', isDirectory: () => false, isFile: () => true },
         { name: 'schema.ts', isDirectory: () => false, isFile: () => true },
+      ],
+      '/repo/examples/01-public-todo/convex/domain': [
         { name: 'todos.ts', isDirectory: () => false, isFile: () => true },
       ],
       '/repo/examples/01-public-todo/shared': [

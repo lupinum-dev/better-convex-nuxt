@@ -239,9 +239,9 @@ type SignUpSchema = z.output<typeof signUpSchema>
 type SignInSchema = z.output<typeof signInSchema>
 
 const title = ref('')
-const createTodo = useConvexMutation(api.todos.create)
-const toggleTodo = useConvexMutation(api.todos.toggle)
-const removeTodo = useConvexMutation(api.todos.remove)
+const createTodo = useConvexMutation(api.domain.todos.create)
+const toggleTodo = useConvexMutation(api.domain.todos.toggle)
+const removeTodo = useConvexMutation(api.domain.todos.remove)
 
 // The auth bootstrap is module-managed, so private data can subscribe once auth is active.
 const actorReady = computed(() => isAuthenticated.value)
@@ -250,7 +250,7 @@ const {
   data: todos,
   pending: todosPending,
   error: todosError,
-} = await useConvexQuery(api.todos.list, todoArgs)
+} = await useConvexQuery(api.domain.todos.list, todoArgs)
 
 const todoError = computed(
   () =>

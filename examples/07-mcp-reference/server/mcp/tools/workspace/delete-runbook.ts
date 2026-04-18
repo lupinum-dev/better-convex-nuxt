@@ -1,4 +1,5 @@
-import { previewRemove, remove, removeRunbookOp } from '~/convex/runbooks'
+import { remove } from '~/convex/domain/runbooks'
+import { previewRemove, removeRunbookOp } from '~/convex/operations/runbooks'
 
 import { tool } from '../../runtime'
 

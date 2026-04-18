@@ -4,7 +4,7 @@ import { listDraftPages } from '~/shared/schemas/page'
 
 export default tool({
   schema: listDraftPages,
-  call: internal.miniCmsBridge.listDraftPages,
+  call: internal.operations.miniCmsBridge.listDraftPages,
   operation: 'query',
   capability: 'listDraftPages',
   group: 'pages',
