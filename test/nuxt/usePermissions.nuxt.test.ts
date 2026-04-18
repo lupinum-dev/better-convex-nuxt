@@ -2,13 +2,71 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useRouter } from '#imports'
 
+import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
+import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { waitFor } from '../support/nuxt/wait-for'
 
 describe('configured permissions composables (Nuxt runtime)', () => {
+  it('waits for configured auth bootstrap before subscribing to the permission context query', async () => {
+    const convex = new MockConvexClient()
+    const authQuery = mockFnRef<'query'>('auth:getPermissionContext:bootstrap-gated')
+    const ensureUser = mockFnRef<'mutation'>('auth:createUserIfNeeded')
+    let resolveBootstrap: (() => void) | null = null
+    const bootstrapSettled = new Promise<void>((resolve) => {
+      resolveBootstrap = resolve
+    })
+    convex.setMutationHandler('auth:createUserIfNeeded', async () => {
+      await bootstrapSettled
+      return { ok: true }
+    })
+
+    const { usePermissions } = createConfiguredPermissionsComposables(
+      authQuery,
+      'auth.getPermissionContext.bootstrapGated',
+    )
+
+    const { result } = await captureInNuxt(
+      () => {
+        installMockAuthEngine({
+          initialToken: 'active.jwt.token',
+          initialUser: { id: 'u-1', name: 'User One', email: 'user@test.com' },
+        })
+        setupConfiguredAuthBootstrap(ensureUser, 'auth.createUserIfNeeded')
+
+        return {
+          permissions: usePermissions(),
+          bootstrap: useAuthBootstrapDevtoolsState(),
+        }
+      },
+      { convex },
+    )
+
+    await waitFor(() => convex.calls.mutation.length === 1)
+    expect(result.permissions.pending.value).toBe(true)
+    expect(convex.calls.onUpdate.length).toBe(0)
+
+    resolveBootstrap?.()
+
+    await waitFor(() => result.bootstrap.value.ensured === true)
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+
+    convex.emitQueryResultByPath('auth:getPermissionContext:bootstrap-gated', {
+      role: 'member',
+      userId: 'u-1',
+      tenantId: 'tenant-1',
+      can: {
+        'task.create': true,
+      },
+    })
+
+    await waitFor(() => result.permissions.ready.value === true)
+    expect(result.permissions.allows('task.create').value).toBe(true)
+  })
+
   it('reads auth context and keeps can() reactive from ctx.can', async () => {
     const convex = new MockConvexClient()
     const authQuery = mockFnRef<'query'>('auth:getPermissionContext:reactive')
@@ -19,6 +77,11 @@ describe('configured permissions composables (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () => {
+        installMockAuthEngine({
+          initialToken: 'active.jwt.token',
+          initialUser: { id: 'user-1', name: 'User One', email: 'user@test.com' },
+        })
+
         const permissions = usePermissions()
         return {
           ...permissions,
@@ -68,6 +131,11 @@ describe('configured permissions composables (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () => {
+        installMockAuthEngine({
+          initialToken: null,
+          initialUser: null,
+        })
+
         const router = useRouter()
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
 
@@ -98,6 +166,11 @@ describe('configured permissions composables (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () => {
+        installMockAuthEngine({
+          initialToken: 'active.jwt.token',
+          initialUser: { id: 'user-1', name: 'User One', email: 'user@test.com' },
+        })
+
         const router = useRouter()
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
 
@@ -138,6 +211,11 @@ describe('configured permissions composables (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () => {
+        installMockAuthEngine({
+          initialToken: 'active.jwt.token',
+          initialUser: { id: 'user-1', name: 'User One', email: 'user@test.com' },
+        })
+
         const router = useRouter()
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
 

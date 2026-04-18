@@ -19,7 +19,7 @@ This is the working gap tracker.
 - [x] P0.4 Stop leaking internal transport metadata into validated mutation/action args.
 - [x] P1.1 Decide the app-first CLI entrypoint shape.
 - [x] P1.2 Define the first official archetypes and template graduation path.
-- [ ] P1.3 Make actor bootstrap and missing sync wiring fail loudly.
+- [x] P1.3 Make actor bootstrap and missing sync wiring fail loudly.
 - [x] P1.4 Resolve the biggest naming traps.
 - [x] P1.5 Document one canonical Trellis app layout.
 - [ ] P2.1 Put a real Trellis-built CMS on the critical path and feed back the paper cuts.
@@ -84,8 +84,8 @@ The highest-level truth is:
   Current evidence: [src/runtime/server/utils/convex.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/utils/convex.ts), [docs/content/docs/07.server-side/3.webhooks-and-trusted-callers.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/07.server-side/3.webhooks-and-trusted-callers.md)
 - [ ] Forwarded principal handling is clearly constrained to trusted paths and hard to misuse.
   Current evidence of gap: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), workspace principal scaffolds
-- [ ] Actor bootstrap failures are loud, actionable, and treated as first-class setup errors.
-  Current evidence of remaining gap: generated starter apps and the getting-started auth path now throw an explicit setup error when the auth subject has no `users` row, but the lower-level helper surface still allows softer failure paths.
+- [x] Actor bootstrap failures are loud, actionable, and treated as first-class setup errors.
+  Current evidence: [src/runtime/auth/define-actor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/auth/define-actor.ts), [src/runtime/composables/configured-permissions.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/composables/configured-permissions.ts), [docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md)
 
 ## 4. CLI and Scaffolding
 
@@ -172,6 +172,11 @@ Notes:
 - [ ] `ginko-cms` or an equivalent CMS app is used to drive Trellis design decisions.
 - [ ] Repeated pain from real app construction is fed back into templates, CLI, and runtime cleanup.
 
+Current concrete findings from `ginko-cms`:
+
+- The sharpest integration seam is the Convex host boundary. `ginko-cms` currently depends on generated bridge files plus manually owned `convex/convex.config.ts`, `convex/auth.ts`, and `convex/http.ts`, which is brittle and easy to break during upgrades.
+- The highest-value Trellis response is not more generic plumbing. It is productizing a first-class `cms` starter and making Nuxt module bridge installation declarative so Trellis owns the host parity checks instead of each consumer.
+
 This is important enough to state plainly:
 
 **Without a real app exercising Trellis continuously, Trellis will drift toward architectural elegance instead of product usefulness.**
@@ -184,7 +189,7 @@ These are the highest-value unchecked items right now.
 - [x] Fix server helper auth docs drift.
 - [x] Decide and implement the app-first CLI entrypoint shape.
 - [x] Define the first official archetypes and which examples graduate into them.
-- [ ] Make actor bootstrap and missing user-sync wiring fail loudly.
+- [x] Make actor bootstrap and missing user-sync wiring fail loudly.
 - [x] Resolve the biggest API naming traps.
 - [x] Document one canonical Trellis app layout.
 - [ ] Pick `ginko-cms` as the first load-bearing app and feed the paper cuts back into Trellis.
@@ -201,6 +206,8 @@ These are the highest-value unchecked items right now.
 - [x] Added starter app coverage for personal, workspace, and workspace+MCP bootstrap flows.
 - [x] Added a dedicated getting-started page for the canonical generated Trellis app layout and linked it from the main onboarding flow.
 - [x] Changed generated personal and workspace actor scaffolds to fail with an explicit setup error when auth resolves but the mirrored `users` row is missing.
+- [x] Hard-cut the lower-level actor helper surface so authenticated callers without a Trellis `users` row now fail with the same setup error instead of resolving `null`.
+- [x] Taught configured permission queries to wait for `auth:createUserIfNeeded` when bootstrap is configured, so auth-ready apps do not trip the new loud actor contract during initial sign-in.
 - [x] Defined the current official starters versus learning examples versus future archetype candidates, including a template graduation path.
 - [x] Hard-cut the biggest naming traps: frontend permission projection now uses `allows(...)`, the pre-actor auth gate is `authRequired`, and auth token fetch skip controls now use `skipAuthTokenFetch...`.
 

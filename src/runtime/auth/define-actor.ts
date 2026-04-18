@@ -5,6 +5,7 @@ import type {
   GenericMutationCtx,
   GenericQueryCtx,
 } from 'convex/server'
+import { ConvexError } from 'convex/values'
 
 import { getTrustedCaller } from '../trusted-caller/index.js'
 import { getAuth, type AuthIdentity } from './index.js'
@@ -74,10 +75,22 @@ async function resolveDefaultUser<DataModel extends GenericDataModel>(
   if (!auth) return null
   if (!hasDb(ctx)) return null
 
-  return await (ctx.db as any)
+  const user = await (ctx.db as any)
     .query('users')
     .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
     .first()
+
+  if (!user) {
+    throw new ConvexError({
+      code: 'NOT_FOUND' as const,
+      message: [
+        `Expected a Trellis users row for auth subject "${auth.subject}", but none was found.`,
+        'If the auth wiring is already correct, ensure auth:createUserIfNeeded has run for this user.',
+      ].join(' '),
+    })
+  }
+
+  return user
 }
 
 function createActorBuilder<TCtx, TUser, TActor>(

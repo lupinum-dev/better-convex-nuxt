@@ -1,10 +1,10 @@
 import type { FunctionReference, FunctionReturnType } from 'convex/server'
-import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
+import { computed, watchEffect, type ComputedRef } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter } from '#imports'
 
-import { usePermissionDevtoolsState } from '../devtools/state.js'
+import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
 import { useConvexAuth } from './useConvexAuth.js'
 import { createConvexQueryState } from './useConvexQuery.js'
 
@@ -44,7 +44,7 @@ export interface UsePermissionsReturn<
   userId: ComputedRef<TContext['userId'] | null>
   tenantId: ComputedRef<TContext['tenantId'] | null>
   ready: ComputedRef<boolean>
-  pending: Ref<boolean>
+  pending: ComputedRef<boolean>
   allows: (key: TPermissions) => ComputedRef<boolean>
 }
 
@@ -67,6 +67,7 @@ function usePermissionContextState<
   TContext extends AuthContext = InferredAuthContext<Query>,
 >(query: Query, configuredQueryName: string) {
   let authState: ReturnType<typeof useConvexAuth> | null = null
+  const authBootstrapState = useAuthBootstrapDevtoolsState()
 
   try {
     authState = useConvexAuth()
@@ -74,7 +75,19 @@ function usePermissionContextState<
     authState = null
   }
 
-  const { data, pending, error } = createConvexQueryState(query, {}, undefined, true).resultData
+  const shouldWaitForBootstrap = computed<boolean>(() => {
+    if (!authState?.isAuthenticated.value) return false
+    if (!authBootstrapState.value.mutationName) return false
+    if (authBootstrapState.value.ensured) return false
+    if (authBootstrapState.value.error) return false
+    return true
+  })
+  const queryArgs = computed<{} | undefined>(() =>
+    shouldWaitForBootstrap.value ? undefined : {},
+  )
+  const queryState = createConvexQueryState(query, queryArgs, undefined, true).resultData
+  const { data, error } = queryState
+  const pending = computed<boolean>(() => queryState.pending.value || shouldWaitForBootstrap.value)
   const rawCtx = computed<TContext | null>(() => data.value as TContext | null)
   const ctx = computed<TContext | null>(() => {
     const value = rawCtx.value
@@ -124,6 +137,7 @@ function usePermissionContextState<
       if (
         !authState?.isAuthenticated.value ||
         authState.isPending.value ||
+        shouldWaitForBootstrap.value ||
         ctx.value ||
         warnedAboutNullCtx
       ) {
@@ -134,6 +148,7 @@ function usePermissionContextState<
         if (
           !authState?.isAuthenticated.value ||
           authState.isPending.value ||
+          shouldWaitForBootstrap.value ||
           ctx.value ||
           warnedAboutNullCtx
         ) {

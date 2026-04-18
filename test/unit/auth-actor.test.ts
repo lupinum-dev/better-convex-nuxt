@@ -115,7 +115,34 @@ describe('defineActor', () => {
     })
   })
 
-  it('returns null when the auth user is missing or filtered out', async () => {
+  it('throws a setup error when auth resolves but the Trellis user row is missing', async () => {
+    await expect(
+      defineActor.fromAuth().resolve(
+        createCtx({
+          identity: { subject: 'missing' },
+          users: [{ _id: 'user-1', authId: 'alice', role: 'member', workspaceId: 'workspace-1' }],
+        }),
+      ),
+    ).rejects.toThrow(/Expected a Trellis users row for auth subject \\"missing\\"/)
+
+    await expect(
+      defineActor
+        .fromMembership({
+          membershipTable: 'memberships',
+          roleField: 'role',
+        })
+        .resolve(
+          createCtx({
+            identity: { subject: 'missing' },
+            users: [
+              { _id: 'user-1', authId: 'alice', role: 'member', workspaceId: 'workspace-1' },
+            ],
+          }),
+        ),
+    ).rejects.toThrow(/Expected a Trellis users row for auth subject \\"missing\\"/)
+  })
+
+  it('returns null when the auth user is filtered out after resolution', async () => {
     const requiresTenant = defineActor
       .fromAuth()
       .filter(
@@ -127,15 +154,6 @@ describe('defineActor', () => {
         createCtx({
           identity: { subject: 'alice' },
           users: [{ _id: 'user-1', authId: 'alice', role: 'member' }],
-        }),
-      ),
-    ).resolves.toBeNull()
-
-    await expect(
-      requiresTenant.resolve(
-        createCtx({
-          identity: { subject: 'missing' },
-          users: [{ _id: 'user-1', authId: 'alice', role: 'member', workspaceId: 'workspace-1' }],
         }),
       ),
     ).resolves.toBeNull()
