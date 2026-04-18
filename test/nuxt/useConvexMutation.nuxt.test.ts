@@ -190,6 +190,28 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.data.value).toEqual({ ok: true, args: { value: 'test' } })
   })
 
+  it('awaiting the mutation composable returns the same callable', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:awaitable-shape')
+    convex.setMutationHandler('testing:awaitable-shape', async (args) => ({ ok: true, args }))
+
+    const captured = await captureInNuxt(
+      async () => {
+        const mutationCall = useConvexMutation(mutation)
+        const awaited = await mutationCall
+        return { mutationCall, awaited }
+      },
+      { convex },
+    )
+    const result = await captured.result
+
+    expect(result.awaited).toBe(result.mutationCall)
+    await expect(result.awaited({ value: 'ok' } as never)).resolves.toEqual({
+      ok: true,
+      args: { value: 'ok' },
+    })
+  })
+
   it('keeps state bound to the latest in-flight request', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:race-mutation')

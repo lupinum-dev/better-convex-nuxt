@@ -511,26 +511,6 @@ const rules: Record<string, RuleModule> = {
       },
     }),
   ),
-  'no-await-convex-mutation': createRule(
-    {
-      type: 'problem',
-      fixable: 'code',
-      schema: [],
-      messages: {
-        sync: '`useConvexMutation()` is synchronous. Await the returned callable instead.',
-      },
-    },
-    (context) => ({
-      AwaitExpression(node) {
-        if (!isCallNamed(node.argument, 'useConvexMutation')) return
-        context.report({
-          node,
-          messageId: 'sync',
-          fix: (fixer: any) => fixer.replaceTextRange([node.range[0], node.argument.range[0]], ''),
-        })
-      },
-    }),
-  ),
   'await-convex-query': createRule(
     {
       type: 'problem',
@@ -1038,7 +1018,6 @@ const rules: Record<string, RuleModule> = {
 const recommendedRuleLevels: Record<string, 'error' | 'warn'> = {
   [`${TENANT_RULE_NAME}/mcp-scoped-requires-auth`]: 'error',
   [`${TENANT_RULE_NAME}/no-owner-id-as-document-id`]: 'error',
-  [`${TENANT_RULE_NAME}/no-await-convex-mutation`]: 'error',
   [`${TENANT_RULE_NAME}/await-convex-query`]: 'error',
   [`${TENANT_RULE_NAME}/reactive-query-args`]: 'error',
   [`${TENANT_RULE_NAME}/actor-access-after-enforce`]: 'error',

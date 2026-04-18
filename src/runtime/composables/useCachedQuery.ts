@@ -1,14 +1,17 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import { computed, type MaybeRefOrGetter, type Ref } from 'vue'
+import { computed, watch, type MaybeRefOrGetter, type Ref } from 'vue'
 
 import { useNuxtData } from '#imports'
 
+import { getFunctionName } from '../utils/convex-cache.js'
 import {
   getQueryKey,
   useConvexQuery,
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,
 } from './useConvexQuery.js'
+
+export type CachedQuerySeedStatus = 'matched' | 'match-missing' | 'source-missing'
 
 export interface UseCachedQueryOptions<
   Query extends FunctionReference<'query'>,
@@ -24,6 +27,7 @@ export interface UseCachedQueryOptions<
 
 export interface UseCachedQueryReturn<DataT> extends UseConvexQueryReturn<DataT> {
   isFromCache: Ref<boolean>
+  cacheStatus: Ref<CachedQuerySeedStatus>
 }
 
 /**
@@ -68,11 +72,19 @@ export function useCachedQuery<
 ): UseCachedQueryReturn<DataT> {
   const cacheKey = getQueryKey(options.from.query, options.from.args)
   const { data: cachedSource } = useNuxtData<FunctionReturnType<SourceQuery>>(cacheKey)
+  const queryName = getFunctionName(query)
+  const sourceQueryName = getFunctionName(options.from.query)
 
   const cachedMatch = computed(() => {
     const source = cachedSource.value
     if (source === undefined || source === null) return undefined
     return options.from.find(source)
+  })
+
+  const cacheStatus = computed<CachedQuerySeedStatus>(() => {
+    const source = cachedSource.value
+    if (source === undefined || source === null) return 'source-missing'
+    return cachedMatch.value === undefined ? 'match-missing' : 'matched'
   })
 
   const queryResult = useConvexQuery(query, args, {
@@ -86,8 +98,34 @@ export function useCachedQuery<
     return queryResult.pending.value && cachedMatch.value !== undefined
   })
 
+  let warnedMatchKey: string | null = null
+
+  watch(
+    cacheStatus,
+    (status) => {
+      if (status !== 'match-missing') return
+      const warningKey = `${sourceQueryName}->${queryName}:${cacheKey}`
+      if (warningKey === warnedMatchKey) return
+      warnedMatchKey = warningKey
+      console.warn(
+        [
+          `[trellis] useCachedQuery() found cached source data for "${sourceQueryName}" but no cached match for "${queryName}".`,
+          'This usually means `from.args` or `from.find(...)` no longer matches the list data that populated the page.',
+          'The query will still run normally without a seed.',
+        ].join(' '),
+        {
+          query: queryName,
+          sourceQuery: sourceQueryName,
+          sourceArgs: options.from.args,
+        },
+      )
+    },
+    { immediate: true },
+  )
+
   return {
     ...queryResult,
     isFromCache,
+    cacheStatus,
   }
 }

@@ -36,6 +36,7 @@ export {
   useCachedQuery,
   type UseCachedQueryOptions,
   type UseCachedQueryReturn,
+  type CachedQuerySeedStatus,
 } from './useCachedQuery.js'
 export type {
   QueryStatus,

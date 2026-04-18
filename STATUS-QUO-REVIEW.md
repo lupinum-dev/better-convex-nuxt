@@ -143,10 +143,10 @@ Notes:
   Current evidence: [src/runtime/auth/define-guard.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/auth/define-guard.ts), [docs/content/docs/08.permissions/3.guards.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/08.permissions/3.guards.md)
 - [x] `skipAuthRoutes` and `skipConvexAuth` were renamed to remove the naming trap.
   Current evidence: [src/module-internals/options.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/module-internals/options.ts), [src/runtime/middleware/convex-auth.global.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/middleware/convex-auth.global.ts)
-- [ ] `useConvexMutation` should be harder to misuse, either via naming, API design, or stronger lint/runtime guidance.
-  Current evidence of gap: [docs/content/docs/04.mutations/1.mutations.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/04.mutations/1.mutations.md)
-- [ ] `useCachedQuery` should avoid silent confusion on arg mismatches or expose a clearer failure/debug story.
-  Current evidence of gap: [docs/content/docs/03.data-fetching/3.cached-queries.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/03.data-fetching/3.cached-queries.md)
+- [x] `useConvexMutation` docs and tooling match the real runtime behavior instead of warning about a non-existent `await useConvexMutation(...)` footgun.
+  Current evidence: [docs/content/docs/04.mutations/1.mutations.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/04.mutations/1.mutations.md), [src/eslint/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/eslint/index.ts), [test/nuxt/useConvexMutation.nuxt.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/test/nuxt/useConvexMutation.nuxt.test.ts)
+- [x] `useCachedQuery` now exposes a clearer cache-seed debug story and warns when cached source data exists but the seed matcher misses.
+  Current evidence: [src/runtime/composables/useCachedQuery.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/composables/useCachedQuery.ts), [docs/content/docs/03.data-fetching/3.cached-queries.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/03.data-fetching/3.cached-queries.md), [test/nuxt/useCachedQuery.nuxt.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/test/nuxt/useCachedQuery.nuxt.test.ts)
 
 ## 9. Docs and Product Coherence
 
@@ -224,6 +224,8 @@ These are the highest-value unchecked items right now.
 - [x] Reframed the concepts and guides section entry pages so they explicitly describe concepts, permissions, server-side, and MCP as deeper lanes instead of implying every section is part of the same day-1 path.
 - [x] Added “read this when / skip this for now” framing to the permissions deep-dive entry pages (`setup`, `principal-and-actor`, `guards`, `operations`) so they behave like opt-in layers instead of mandatory onboarding.
 - [x] Fixed the remaining docs vocabulary drift where the glossary still described frontend permission projection in terms of `can(...)` instead of `allows(...)`.
+- [x] Removed the false `await useConvexMutation(...)` warning path from docs and ESLint after verifying the composable returns the same callable when awaited.
+- [x] Added `cacheStatus` to `useCachedQuery` and a targeted warning for the suspicious "source cache exists but the matcher missed" case.
 
 ## 13. Done Means
 
