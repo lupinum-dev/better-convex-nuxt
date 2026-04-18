@@ -64,7 +64,7 @@ describe('installer auto-import surface', () => {
     })
     installPermissionTrellis({
       resolver: resolver as never,
-      permissionQueryPath: 'permissions.context.getPermissionContext',
+      permissionQueryPath: 'permissions/context.getPermissionContext',
     })
     installAdvancedTrellis({
       nuxt: nuxt as never,

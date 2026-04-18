@@ -1,5 +1,6 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
+import { getForwardedPrincipal } from '@lupinum/trellis/trusted-caller'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -43,7 +44,7 @@ export const internalHarnessPrincipalValidator = v.union(
 export const principal = definePrincipal<InternalHarnessPrincipalCtx, InternalHarnessPrincipal>({
   validator: internalHarnessPrincipalValidator,
   resolve: async (ctx, args): Promise<InternalHarnessPrincipal> => {
-    const forwarded = (args as { principal?: InternalHarnessPrincipal }).principal
+    const forwarded = getForwardedPrincipal<InternalHarnessPrincipal>(ctx, args)
     if (forwarded) return forwarded
 
     const auth = await getAuth(ctx)

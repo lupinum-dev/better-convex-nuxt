@@ -7,6 +7,7 @@ import type {
 import { hash } from 'ohash'
 
 import type { QueryStatus, ConvexUser } from './types.js'
+import { stripObservationEnvelope } from './observability/envelope.js'
 
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')
@@ -261,6 +262,9 @@ export function getFunctionName(
  * - Handles Symbols, Functions, and edge cases
  */
 export function hashArgs(args: unknown): string {
+  if (typeof args === 'object' && args !== null && !Array.isArray(args)) {
+    return hash(stripObservationEnvelope(args as Record<string, unknown>))
+  }
   return hash(args ?? {})
 }
 

@@ -3,44 +3,51 @@ import { resolve } from 'node:path'
 import { note, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
-import { applyInitTemplateSet, getInitTemplateSet } from '../lib/init.js'
-
-type InitSubject = 'auth' | 'permissions' | 'mcp' | 'app'
+import { applyInitTemplateSet, getCanonicalAppTemplateSet } from '../lib/init.js'
 
 function formatList(items: string[]): string {
   return items.length > 0 ? items.join('\n') : '(none)'
 }
 
-function normalizeSubject(subject: string | undefined): InitSubject {
-  if (subject === 'auth' || subject === 'permissions' || subject === 'mcp' || subject === 'app') {
-    return subject
+function assertAppName(value: string | undefined): string {
+  const appName = value?.trim()
+  if (!appName) {
+    throw new Error('Missing app name. Use `trellis init <name> --template personal|workspace|cms`.')
   }
 
-  throw new Error('Missing or invalid init target. Use one of: app, auth, permissions, mcp.')
+  if (['app', 'auth', 'permissions', 'mcp'].includes(appName)) {
+    throw new Error(
+      `Legacy init flow removed. Use \`trellis init <name> --template ...\` or \`trellis add ...\` instead of \`trellis init ${appName}\`.`,
+    )
+  }
+
+  return appName
 }
 
 export const initCommand = defineCommand({
   meta: {
     name: 'init',
-    description: 'Scaffold Trellis app, auth, permissions, or MCP files',
+    description: 'Create a canonical Trellis app root',
   },
   args: {
-    target: {
+    name: {
       type: 'positional',
       required: true,
-      description: 'Init target. One of: auth, permissions, mcp',
-    },
-    model: {
-      type: 'string',
-      description: 'Permissions model. One of: personal, workspace, workspace-mcp',
+      description: 'App directory name',
     },
     template: {
       type: 'string',
-      description: 'App template. One of: personal, workspace, workspace-mcp, cms',
+      required: true,
+      description: 'App template. One of: personal, workspace, cms',
+    },
+    mcp: {
+      type: 'boolean',
+      default: false,
+      description: 'Add the MCP runtime to the workspace starter',
     },
     cwd: {
       type: 'string',
-      description: 'Target app directory',
+      description: 'Parent directory for the new app',
       valueHint: 'path',
     },
     force: {
@@ -50,25 +57,25 @@ export const initCommand = defineCommand({
     },
   },
   async run({ args }) {
-    const target = normalizeSubject(args.target ? String(args.target) : undefined)
-    if (target !== 'permissions' && args.model) {
-      throw new Error('`--model` only applies to `trellis init permissions`.')
-    }
-    if (target !== 'app' && args.template) {
-      throw new Error('`--template` only applies to `trellis init app`.')
+    const appName = assertAppName(args.name ? String(args.name) : undefined)
+    const template = String(args.template)
+    const mcp = Boolean(args.mcp)
+
+    if (template !== 'personal' && template !== 'workspace' && template !== 'cms') {
+      throw new Error('Invalid template. Use one of: personal, workspace, cms.')
     }
 
-    const cwd = resolve(args.cwd || process.cwd())
-    const templateSet = getInitTemplateSet(
-      target,
-      target === 'app'
-        ? (args.template
-            ? (String(args.template) as 'personal' | 'workspace' | 'workspace-mcp' | 'cms')
-            : undefined)
-        : args.model
-          ? (String(args.model) as 'personal' | 'workspace' | 'workspace-mcp')
-          : undefined,
-    )
+    if (mcp && template !== 'workspace') {
+      throw new Error('`--mcp` is currently only supported with `--template workspace`.')
+    }
+
+    const parentDir = resolve(args.cwd || process.cwd())
+    const cwd = resolve(parentDir, appName)
+    const templateSet = getCanonicalAppTemplateSet({
+      appName,
+      template,
+      mcp,
+    })
     const result = await applyInitTemplateSet(cwd, templateSet, Boolean(args.force))
 
     note(templateSet.description, templateSet.label)

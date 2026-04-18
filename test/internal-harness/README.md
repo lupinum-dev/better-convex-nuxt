@@ -21,7 +21,7 @@ Those live in:
 
 - [VNEXT_RUNTIME_CONTRACT.md](../../VNEXT_RUNTIME_CONTRACT.md)
 - [VNEXT_TRACKING.md](../../VNEXT_TRACKING.md)
-- [SPEC.vNext.md](../../SPEC.vNext.md)
+- [SPEC-FINAL.md](../../SPEC-FINAL.md)
 
 Important:
 

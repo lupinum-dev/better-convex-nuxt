@@ -4,7 +4,7 @@ import { getQueryKey } from '../../src/runtime/utils/convex-shared'
 import { stripObservationEnvelope, withObservationEnvelope } from '../../src/runtime/utils/observability'
 
 describe('query observability cache boundary', () => {
-  it('changes the local query key when only __trellis changes', () => {
+  it('keeps the local query key stable when only __trellis changes', () => {
     const query = { _path: 'notes:list' } as never
     const businessArgs = { limit: 5 }
     const argsA = withObservationEnvelope(businessArgs, {
@@ -20,6 +20,6 @@ describe('query observability cache boundary', () => {
 
     expect(stripObservationEnvelope(argsA)).toEqual(businessArgs)
     expect(stripObservationEnvelope(argsB)).toEqual(businessArgs)
-    expect(getQueryKey(query, argsA)).not.toBe(getQueryKey(query, argsB))
+    expect(getQueryKey(query, argsA)).toBe(getQueryKey(query, argsB))
   })
 })

@@ -5,7 +5,7 @@ This folder is the **next-generation example portfolio** for Trellis.
 It is not a random list of “apps we like.”
 It is a pressure suite for the framework we want to become:
 
-- a general application layer for Nuxt + Convex + Better Auth
+- an opinionated application platform for Nuxt + Convex + Better Auth
 - with first-class agent support from day 1
 
 The test is not “can we clone product X pixel by pixel?”
@@ -119,8 +119,9 @@ Today the official starters are still:
 
 - `personal`
 - `workspace`
-- `workspace-mcp`
 - `cms`
+
+MCP remains a capability on `workspace`, not a separate starter.
 
 The likely future promotions from this folder are:
 

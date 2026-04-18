@@ -3,7 +3,7 @@
 > Status: active implementation contract as of 2026-04-16.
 >
 > This file is the canonical vNext runtime definition for the repo.
-> When `SPEC.md`, `SPEC.vNext.md`, examples, or docs disagree with this file,
+> When `SPEC.md`, `SPEC-FINAL.md`, examples, or docs disagree with this file,
 > this file wins.
 
 ## 1. Product Boundary

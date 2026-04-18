@@ -80,6 +80,11 @@ describe('createComponentBridge', () => {
 
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
+      _trustedCallerKey: '__trellis_component_bridge__',
+      _trustedCallerExpectedKey: '__trellis_component_bridge__',
+      _trustedCaller: {
+        userId: 'component-bridge',
+      },
       principal,
     })
   })
@@ -144,6 +149,11 @@ describe('createComponentBridge', () => {
 
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
+      _trustedCallerKey: '__trellis_component_bridge__',
+      _trustedCallerExpectedKey: '__trellis_component_bridge__',
+      _trustedCaller: {
+        userId: 'component-bridge',
+      },
       principal,
     })
   })

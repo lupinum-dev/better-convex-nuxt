@@ -175,7 +175,7 @@
 ## 11. Alignment Cleanup
 
 - [x] Finish the docs sweep for conceptual accuracy on the active runtime/docs surface.
-- [x] [SPEC.vNext.md](/Users/matthias/Git/0_libs/WORK/trellis/SPEC.vNext.md) now reflects the active runtime contract instead of the older aspirational one.
+- [x] [SPEC-FINAL.md](/Users/matthias/Git/0_libs/WORK/trellis/SPEC-FINAL.md) is the active product contract.
 - [x] The duplicate `06-*` numbering in `examples-next/` is resolved.
 - [x] MCP runtime test coverage now includes a unit-testable operation-binding module instead of only type-level checks and harness behavior.
 - [x] The internal harness is explicitly classified as experimental integration infrastructure, not the live vNext contract surface.

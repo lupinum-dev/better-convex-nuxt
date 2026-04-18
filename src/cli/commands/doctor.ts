@@ -13,6 +13,7 @@ import {
   findConvexHttpSource,
   findConvexAuthSource,
   findConfiguredPermissionQueryPath,
+  findMissingCanonicalLayoutPaths,
   hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
@@ -28,6 +29,7 @@ import { resolvePermissionQuerySetup } from '../../module-internals/setup.js'
 function createDoctorFindings(cwd: string): DoctorFinding[] {
   const project = inspectProject(cwd)
   const isNuxtApp = Boolean(project.packageJsonPath && project.nuxtConfigPath)
+  const missingCanonicalLayoutPaths = isNuxtApp ? findMissingCanonicalLayoutPaths(project) : []
   const convexUrlSource = findConvexUrlSource(project)
   const authDisabled = isAuthExplicitlyDisabled(project)
   const authExpected = isNuxtApp && !authDisabled
@@ -104,6 +106,22 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       fixHint: hasBetterConvexNuxtRegistration(project)
         ? 'Keep the module in the Nuxt modules array.'
         : 'Add "@lupinum/trellis" to modules in nuxt.config.*.',
+    },
+    {
+      id: 'canonical-layout',
+      category: 'core',
+      title: 'Canonical Trellis layout',
+      status: !isNuxtApp ? 'pass' : missingCanonicalLayoutPaths.length === 0 ? 'pass' : 'fail',
+      message: !isNuxtApp
+        ? 'Skipping canonical layout checks because this is not a Nuxt app root.'
+        : missingCanonicalLayoutPaths.length === 0
+          ? 'Found the canonical convex/, shared/, pages/, and server/ lanes.'
+          : `Missing canonical paths: ${missingCanonicalLayoutPaths.join(', ')}.`,
+      fixHint: !isNuxtApp
+        ? 'Run doctor inside a generated Trellis app root.'
+        : missingCanonicalLayoutPaths.length === 0
+          ? 'Keep the generated Trellis layout intact.'
+          : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --template personal|workspace|cms`.',
     },
     {
       id: 'convex-installed',
@@ -234,9 +252,9 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
               : 'No permission-context query is configured, and no permission composables were detected.',
       fixHint:
         usesPermissions && !configuredPermissionQueryPath
-          ? 'Set trellis.permissions to your backend permission-context query, for example `permissions.context.getPermissionContext`.'
+          ? 'Set trellis.permissions to your backend permission-context query, for example `permissions/context.getPermissionContext`.'
           : permissionQueryResolutionError
-            ? 'Point trellis.permissions.query at a real exported Convex query, or generate the paved path with `trellis init permissions --model ...`.'
+            ? 'Point trellis.permissions.query at a real exported Convex query in `convex/permissions/context.ts`.'
             : configuredPermissionQueryPath
               ? 'Keep trellis.permissions.query aligned with the exported backend permission-context query.'
               : 'No action needed unless you add usePermissions() or useAuthGuard() later.',

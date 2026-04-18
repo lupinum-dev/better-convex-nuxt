@@ -65,7 +65,6 @@ export default defineNuxtModule<ModuleOptions>({
       },
     },
     permissions: undefined,
-    trustedCallers: false,
     mcp: undefined,
     query: {
       server: true,

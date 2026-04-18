@@ -136,6 +136,32 @@ type BridgeBatchResult<
     : never
   }
 
+const COMPONENT_BRIDGE_TRUSTED_CALLER_KEY = '__trellis_component_bridge__'
+
+function resolveBridgeTrustedCallerUserId(principal: unknown): string {
+  if (typeof principal !== 'object' || principal === null) {
+    return 'component-bridge'
+  }
+
+  const maybeUserId = (principal as Record<string, unknown>).userId
+  return typeof maybeUserId === 'string' && maybeUserId.trim()
+    ? maybeUserId
+    : 'component-bridge'
+}
+
+function createBridgeTrustedCallerFields(principal: unknown) {
+  const expectedKey =
+    process.env.CONVEX_TRUSTED_CALLER_KEY?.trim() || COMPONENT_BRIDGE_TRUSTED_CALLER_KEY
+
+  return {
+    _trustedCallerKey: expectedKey,
+    _trustedCallerExpectedKey: expectedKey,
+    _trustedCaller: {
+      userId: resolveBridgeTrustedCallerUserId(principal),
+    },
+  }
+}
+
 function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
   principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
 ): {
@@ -238,44 +264,56 @@ export function createComponentBridge<
     query({
       args: definition.args,
       returns: definition.returns,
-      handler: async (ctx, args: ObjectType<typeof definition.args>) =>
+      handler: async (ctx, args: ObjectType<typeof definition.args>) => {
+        const principal = await ctx.principal()
         await ctx.runQuery(definition.component, {
           ...args,
-          principal: await ctx.principal(),
-        } as never),
+          ...createBridgeTrustedCallerFields(principal),
+          principal,
+        } as never)
+      },
     })
 
   const registerMutation = <TRef extends MutationRef>(definition: BridgeDefinition<TRef>) =>
     mutation({
       args: definition.args,
       returns: definition.returns,
-      handler: async (ctx, args: ObjectType<typeof definition.args>) =>
+      handler: async (ctx, args: ObjectType<typeof definition.args>) => {
+        const principal = await ctx.principal()
         await ctx.runMutation(definition.component, {
           ...args,
-          principal: await ctx.principal(),
-        } as never),
+          ...createBridgeTrustedCallerFields(principal),
+          principal,
+        } as never)
+      },
     })
 
   const registerInternalQuery = <TRef extends QueryRef>(definition: BridgeDefinition<TRef>) =>
     internalQuery({
       args: definition.args,
       returns: definition.returns,
-      handler: async (ctx, args: ObjectType<typeof definition.args>) =>
+      handler: async (ctx, args: ObjectType<typeof definition.args>) => {
+        const principal = await ctx.principal()
         await ctx.runQuery(definition.component, {
           ...args,
-          principal: await ctx.principal(),
-        } as never),
+          ...createBridgeTrustedCallerFields(principal),
+          principal,
+        } as never)
+      },
     })
 
   const registerInternalMutation = <TRef extends MutationRef>(definition: BridgeDefinition<TRef>) =>
     internalMutation({
       args: definition.args,
       returns: definition.returns,
-      handler: async (ctx, args: ObjectType<typeof definition.args>) =>
+      handler: async (ctx, args: ObjectType<typeof definition.args>) => {
+        const principal = await ctx.principal()
         await ctx.runMutation(definition.component, {
           ...args,
-          principal: await ctx.principal(),
-        } as never),
+          ...createBridgeTrustedCallerFields(principal),
+          principal,
+        } as never)
+      },
     })
 
   return {

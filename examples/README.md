@@ -6,10 +6,10 @@ These are examples, not CLI templates.
 
 If you want the official productized starting point, use:
 
-- `trellis init app --template personal`
-- `trellis init app --template workspace`
-- `trellis init app --template workspace-mcp`
-- `trellis init app --template cms`
+- `trellis init my-app --template personal`
+- `trellis init my-app --template workspace`
+- `trellis init my-app --template workspace --mcp`
+- `trellis init my-app --template cms`
 
 Use this folder when you want to learn the stack, inspect a richer reference, or pressure-test a pattern before it graduates into a template.
 

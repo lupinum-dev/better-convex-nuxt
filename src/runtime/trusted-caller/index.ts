@@ -1,5 +1,6 @@
 import type { PropertyValidators } from 'convex/values'
 
+import { deny } from '../auth/index.js'
 import {
   createTrustedCallerContextDelta,
   extractTrustedCallerFromArgs,
@@ -47,6 +48,36 @@ export function getTrustedCaller(args?: unknown): TrustedCallerIdentity | null {
   }
 
   return extractTrustedCallerFromArgs(args)
+}
+
+/**
+ * Read a forwarded business principal from public args, but only when the
+ * request already carries verified trusted-caller state.
+ */
+export function getForwardedPrincipal<TPrincipal>(
+  ctx: unknown,
+  args: unknown,
+  field = 'principal',
+): TPrincipal | undefined {
+  if (
+    typeof args !== 'object' ||
+    args === null ||
+    !(field in (args as Record<string, unknown>))
+  ) {
+    return undefined
+  }
+
+  if (!getTrustedCaller(ctx)) {
+    throw deny(
+      `Forwarded \`${field}\` is only allowed on verified trusted caller paths.`,
+      {
+        source: 'trusted-caller',
+        category: 'auth',
+      },
+    )
+  }
+
+  return (args as Record<string, unknown>)[field] as TPrincipal | undefined
 }
 
 /** Wrap a handler with trusted-caller extraction and cleanup. */

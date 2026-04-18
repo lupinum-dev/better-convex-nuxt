@@ -12,8 +12,8 @@ function read(relativePath: string) {
 describe('future agent conventions', () => {
   it('keeps transport-neutral agent principals in canonical docs and examples', () => {
     const files = [
-      'docs/content/docs/2.concepts/2.multi-caller-architecture.md',
-      'docs/content/docs/8.permissions/8.advanced-caller-models.md',
+      'docs/content/docs/08.permissions/2.principal-and-actor.md',
+      'docs/content/docs/08.permissions/8.advanced-caller-models.md',
       'examples/03-team-workspace/convex/auth/principal.ts',
       'examples/07-mcp-reference/convex/auth/principal.ts',
       'examples/08-component-mini-cms/shared/principal.ts',
@@ -28,18 +28,18 @@ describe('future agent conventions', () => {
   })
 
   it('states that transport visibility does not replace Convex business authorization', () => {
-    const multiCaller = read('docs/content/docs/2.concepts/2.multi-caller-architecture.md')
-    const mcpAuth = read('docs/content/docs/14.mcp-tools/3.auth-and-permissions.md')
+    const principalDocs = read('docs/content/docs/08.permissions/2.principal-and-actor.md')
+    const mcpTools = read('docs/content/docs/14.mcp-tools/2.define-tools.md')
 
-    expect(multiCaller).toContain('They do **not** replace Convex business authorization')
-    expect(mcpAuth).toContain('tool capability checks do not replace backend authorization')
-    expect(mcpAuth).toContain(
-      'The protected Convex handler still owns the real permission decision',
+    expect(principalDocs).toContain("They still don't replace Convex business authorization")
+    expect(mcpTools).toContain("It isn't business authorization")
+    expect(mcpTools).toContain(
+      'the protected Convex handler still owns the real permission decision',
     )
   })
 
   it('keeps root internal refs and bridge refs as the automation surface', () => {
-    const bridgeDocs = read('docs/content/docs/7.server-side/5.component-bridge.md')
+    const bridgeDocs = read('docs/content/docs/07.server-side/5.component-bridge.md')
     const mcpApi = read('docs/content/docs/13.api-reference/5.mcp.md')
     const miniCmsReadme = read('examples/08-component-mini-cms/README.md')
 

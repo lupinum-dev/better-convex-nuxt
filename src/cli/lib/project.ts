@@ -29,6 +29,23 @@ export interface ProjectInspection {
   sourceFiles: Array<{ path: string; text: string }>
 }
 
+const CANONICAL_LAYOUT_PATHS = [
+  'convex/auth.ts',
+  'convex/auth.config.ts',
+  'convex/convex.config.ts',
+  'convex/functions.ts',
+  'convex/http.ts',
+  'convex/schema.ts',
+  'convex/auth',
+  'convex/domain',
+  'convex/operations',
+  'convex/permissions',
+  'shared/schemas',
+  'pages',
+  'server/api',
+  'server/mcp',
+] as const
+
 export interface EnvKeySource {
   key: string
   source: string
@@ -163,6 +180,10 @@ export function inspectProject(cwd: string): ProjectInspection {
     envSources,
     sourceFiles: collectProjectSourceFiles(resolvedCwd),
   }
+}
+
+export function findMissingCanonicalLayoutPaths(project: ProjectInspection): string[] {
+  return CANONICAL_LAYOUT_PATHS.filter((relativePath) => !existsSync(resolve(project.cwd, relativePath)))
 }
 
 export function hasDependency(project: ProjectInspection, dependencyName: string): boolean {

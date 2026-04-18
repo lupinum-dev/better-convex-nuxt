@@ -1,5 +1,6 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
+import { getForwardedPrincipal } from '@lupinum/trellis/trusted-caller'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -36,7 +37,7 @@ export const teamTodoPrincipalValidator = v.union(
 export const principal = definePrincipal<PrincipalCtx, TeamTodoPrincipal>({
   validator: teamTodoPrincipalValidator,
   resolve: async (ctx, args): Promise<TeamTodoPrincipal> => {
-    const forwarded = (args as { principal?: TeamTodoPrincipal }).principal
+    const forwarded = getForwardedPrincipal<TeamTodoPrincipal>(ctx, args)
     if (forwarded) return forwarded
 
     const auth = await getAuth(ctx)

@@ -67,5 +67,5 @@ Use `ginko-cms` when you want the publishable packaged-component version of this
 Use the Trellis package-component docs when you want the manifest-driven host bridge workflow:
 
 - package exports `convex/manifest`
-- host runs `trellis bridge generate <package>`
+- host owns the manifest-driven bridge workflow outside the public Trellis CLI
 - module validates generated bridge files instead of patching host code at runtime

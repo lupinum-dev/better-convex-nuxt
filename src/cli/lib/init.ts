@@ -1,8 +1,6 @@
-import { access, mkdir, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { basename, dirname, resolve } from 'node:path'
 
-export type InitTarget = 'auth' | 'permissions' | 'mcp' | 'app'
-export type PermissionModel = 'personal' | 'workspace' | 'workspace-mcp'
 export type AppTemplate = 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
 
 export interface TemplateFile {
@@ -17,6 +15,9 @@ export interface InitTemplateSet {
   files: TemplateFile[]
   afterWrite?: (cwd: string) => Promise<void>
 }
+
+export type CanonicalAppTemplate = 'personal' | 'workspace' | 'cms'
+export type AddFeature = 'mcp' | 'uploads' | 'operation'
 
 function authTsTemplate() {
   return `
@@ -274,7 +275,7 @@ function workspacePrincipalTemplate() {
   return `
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
-import { getTrustedCaller } from '@lupinum/trellis/trusted-caller'
+import { getForwardedPrincipal, getTrustedCaller } from '@lupinum/trellis/trusted-caller'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from '../_generated/dataModel'
@@ -317,7 +318,7 @@ export const workspacePrincipalValidator = v.union(
 export const principal = definePrincipal({
   validator: workspacePrincipalValidator,
   resolve: async (ctx, args): Promise<WorkspacePrincipal> => {
-    const forwarded = (args as { principal?: WorkspacePrincipal }).principal
+    const forwarded = getForwardedPrincipal<WorkspacePrincipal>(ctx, args)
     if (forwarded) {
       const trusted = getTrustedCaller(ctx)
       if (!trusted) {
@@ -536,6 +537,7 @@ export const tool = mcpRuntime.tool
 function nuxtConfigTemplate(options: {
   permissionsQuery: string
   mcp?: boolean
+  mcpName?: string
 }) {
   return `
 export default defineNuxtConfig({
@@ -544,7 +546,7 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
     auth: true,
     permissions: '${options.permissionsQuery}',
-${options.mcp ? "    mcp: { name: 'starter-app', sessions: true }," : ''}
+${options.mcp ? `    mcp: { name: '${options.mcpName ?? 'starter-app'}', sessions: true },` : ''}
   },
 })
 `.trimStart()
@@ -1804,7 +1806,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         {
           path: 'nuxt.config.ts',
           content: nuxtConfigTemplate({
-            permissionsQuery: 'permissions.context.getPermissionContext',
+            permissionsQuery: 'permissions/context.getPermissionContext',
           }),
           ownership: 'authored',
         },
@@ -1840,7 +1842,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         {
           path: 'nuxt.config.ts',
           content: nuxtConfigTemplate({
-            permissionsQuery: 'permissions.context.getPermissionContext',
+            permissionsQuery: 'permissions/context.getPermissionContext',
           }),
           ownership: 'authored',
         },
@@ -1906,7 +1908,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         {
           path: 'nuxt.config.ts',
           content: nuxtConfigTemplate({
-            permissionsQuery: 'permissions.context.getPermissionContext',
+            permissionsQuery: 'permissions/context.getPermissionContext',
           }),
           ownership: 'authored',
         },
@@ -1955,7 +1957,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
       {
         path: 'nuxt.config.ts',
         content: nuxtConfigTemplate({
-          permissionsQuery: 'permissions.context.getPermissionContext',
+          permissionsQuery: 'permissions/context.getPermissionContext',
           mcp: true,
         }),
         ownership: 'authored',
@@ -1993,6 +1995,11 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
       {
         path: 'server/mcp/tools/list-todos.ts',
         content: mcpListTodosToolTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'server/mcp/index.ts',
+        content: mcpEndpointTemplate('workspace-app'),
         ownership: 'authored',
       },
       {
@@ -2067,53 +2074,491 @@ export async function applyInitTemplateSet(
   }
 }
 
-export function getInitTemplateSet(
-  target: InitTarget,
-  model?: PermissionModel | AppTemplate,
-): InitTemplateSet {
-  if (target === 'auth') {
-    return buildAuthTemplateSet()
+function appPackageName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'trellis-app'
+}
+
+function appPackageTemplate(options: {
+  appName: string
+  template: CanonicalAppTemplate
+  mcp: boolean
+}) {
+  const dependencies = [
+    ['@convex-dev/better-auth', '^0.11.4'],
+    ['@lupinum/trellis', 'workspace:*'],
+    ['better-auth', '^1.5.6'],
+    ['convex', '^1.34.1'],
+    ['nuxt', '^4.4.2'],
+  ]
+
+  if (options.mcp) {
+    dependencies.splice(2, 0, ['@nuxtjs/mcp-toolkit', '^0.13.4'])
   }
 
-  if (target === 'permissions') {
-    if (!model) {
-      throw new Error(
-        'Missing permissions model. Use --model personal, workspace, or workspace-mcp.',
+  return `${JSON.stringify(
+    {
+      name: appPackageName(options.appName),
+      private: true,
+      type: 'module',
+      scripts: {
+        dev: 'nuxi dev --dotenv .env.local',
+        build: 'nuxi build --dotenv .env.local',
+        typecheck: 'nuxi typecheck --dotenv .env.local',
+        test: 'vitest run',
+        'convex:dev': 'convex dev',
+        'convex:codegen': 'convex codegen',
+      },
+      dependencies: Object.fromEntries(dependencies),
+      devDependencies: {
+        typescript: '^5.9.3',
+        vitest: '^4.1.2',
+        'vue-tsc': '^3.2.6',
+      },
+    },
+    null,
+    2,
+  )}\n`
+}
+
+function envExampleTemplate(options: {
+  template: CanonicalAppTemplate
+  mcp: boolean
+}) {
+  const lines = [
+    'CONVEX_URL=https://your-app.convex.cloud',
+    'CONVEX_SITE_URL=https://your-app.convex.site',
+    'SITE_URL=http://localhost:3000',
+    'BETTER_AUTH_SECRET=replace-me',
+  ]
+
+  if (options.mcp) {
+    lines.push('CONVEX_TRUSTED_CALLER_KEY=replace-me')
+  }
+
+  return `${lines.join('\n')}\n`
+}
+
+function readmeTemplate(options: {
+  appName: string
+  template: CanonicalAppTemplate
+  mcp: boolean
+}) {
+  return `
+# ${options.appName}
+
+Generated with \`trellis init ${options.appName} --template ${options.template}${options.mcp ? ' --mcp' : ''}\`.
+
+## Quick start
+
+\`\`\`bash
+pnpm install
+pnpm convex:dev
+pnpm dev
+\`\`\`
+
+## Canonical shape
+
+- \`convex/auth/\` for actor and guard logic
+- \`convex/domain/\` for app modules
+- \`convex/permissions/\` for permission projection
+- \`convex/operations/\` for workflow-style actions
+- \`shared/schemas/\` for shared value contracts
+${options.mcp ? "- \\`server/mcp/\\` for MCP runtime and tools" : ''}
+`.trimStart()
+}
+
+function gitignoreTemplate() {
+  return `
+.env.local
+.nuxt
+.output
+node_modules
+coverage
+dist
+`.trimStart()
+}
+
+function appScaffoldTemplateSet(options: {
+  appName: string
+  template: CanonicalAppTemplate
+  mcp: boolean
+}): InitTemplateSet {
+  const files: TemplateFile[] = [
+    {
+      path: 'package.json',
+      content: appPackageTemplate(options),
+      ownership: 'generated',
+    },
+    {
+      path: '.env.example',
+      content: envExampleTemplate(options),
+      ownership: 'generated',
+    },
+    {
+      path: '.gitignore',
+      content: gitignoreTemplate(),
+      ownership: 'generated',
+    },
+    {
+      path: 'README.md',
+      content: readmeTemplate(options),
+      ownership: 'generated',
+    },
+    {
+      path: 'server/api/.gitkeep',
+      content: '',
+      ownership: 'generated',
+    },
+  ]
+
+  if (!options.mcp) {
+    files.push({
+      path: 'server/mcp/.gitkeep',
+      content: '',
+      ownership: 'generated',
+    })
+  }
+
+  if (options.template !== 'workspace') {
+    files.push({
+      path: 'convex/operations/.gitkeep',
+      content: '',
+      ownership: 'generated',
+    })
+  }
+
+  return {
+    label: `scaffold:${options.template}`,
+    description: 'Scaffold app-root package and canonical empty lanes',
+    files,
+  }
+}
+
+function mcpEndpointTemplate(appName: string) {
+  return `
+export default defineMcpHandler({
+  name: '${appPackageName(appName)}',
+  browserRedirect: '/',
+})
+`.trimStart()
+}
+
+function addMcpKeysSchemaBlock() {
+  return `
+
+  mcpKeys: defineTable({
+    hash: v.string(),
+    name: v.string(),
+    boundAuthId: v.string(),
+    boundRole: v.union(
+      v.literal('owner'),
+      v.literal('admin'),
+      v.literal('member'),
+      v.literal('viewer'),
+    ),
+    boundWorkspaceId: v.id('workspaces'),
+    status: v.union(v.literal('active'), v.literal('revoked')),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index('by_hash', ['hash'])
+    .index('by_bound_workspace', ['boundWorkspaceId']),
+`
+}
+
+async function rewriteFile(
+  path: string,
+  rewrite: (source: string) => string,
+): Promise<void> {
+  const source = await readFile(path, 'utf8')
+  const next = rewrite(source)
+  if (next === source) {
+    throw new Error(`Unable to update ${basename(path)} for the requested scaffold.`)
+  }
+  await writeFile(path, next, 'utf8')
+}
+
+async function enableNuxtMcpConfig(cwd: string): Promise<void> {
+  const path = resolve(cwd, 'nuxt.config.ts')
+  await rewriteFile(path, (source) => {
+    const appName = appPackageName(basename(cwd))
+    const namedConfig = `mcp: { name: '${appName}', sessions: true }`
+
+    if (/mcp:\s*\{/.test(source)) {
+      return source.replace(/mcp:\s*\{[^}]+\}/, namedConfig)
+    }
+
+    if (source.includes("permissions: '")) {
+      return source.replace(
+        /(permissions:\s*'[^']+',\n)/,
+        `$1    ${namedConfig},\n`,
       )
     }
 
-    if (model === 'personal') {
-      return buildPersonalPermissionsTemplateSet()
-    }
+    return source.replace(
+      /(\s+trellis:\s*\{[\s\S]*?\n)(\s+\},\n)/,
+      `$1    ${namedConfig},\n$2`,
+    )
+  })
+}
 
-    if (model !== 'workspace' && model !== 'workspace-mcp') {
-      throw new Error(
-        'Missing permissions model. Use --model personal, workspace, or workspace-mcp.',
-      )
-    }
+async function addMcpDependency(cwd: string): Promise<void> {
+  const path = resolve(cwd, 'package.json')
+  const source = await readFile(path, 'utf8')
+  const parsed = JSON.parse(source) as {
+    dependencies?: Record<string, string>
+  }
+  parsed.dependencies ??= {}
+  parsed.dependencies['@nuxtjs/mcp-toolkit'] = '^0.13.4'
+  await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8')
+}
 
-    return buildWorkspacePermissionsTemplateSet(model)
+async function enableWorkspaceMcpSchema(cwd: string): Promise<void> {
+  const path = resolve(cwd, 'convex/schema.ts')
+  await rewriteFile(path, (source) => {
+    if (source.includes('mcpKeys: defineTable')) return source
+    return source.replace(/\n\}\)\s*$/m, `${addMcpKeysSchemaBlock()}\n})`)
+  })
+}
+
+function uploadsDomainTemplate() {
+  return `
+import { requireAuth } from '@lupinum/trellis/auth'
+import type { ActorAccessor } from '@lupinum/trellis/functions'
+import type { GenericMutationCtx } from 'convex/server'
+
+import type { DataModel } from '../_generated/dataModel'
+import type { Actor } from '../auth/actor'
+import { raw } from '../functions'
+
+type Ctx = GenericMutationCtx<DataModel> & { actor: ActorAccessor<Actor> }
+
+export const generateUploadUrl = raw.mutation({
+  args: {},
+  handler: async (ctx: Ctx) => {
+    requireAuth(await ctx.actor())
+    return await (
+      ctx as unknown as { storage: { generateUploadUrl(): Promise<string> } }
+    ).storage.generateUploadUrl()
+  },
+})
+`.trimStart()
+}
+
+function uploadsPageTemplate() {
+  return `
+<script setup lang="ts">
+import { api } from '#trellis/api'
+
+const {
+  upload,
+  pending,
+  progress,
+  data: storageId,
+  error,
+  reset,
+} = useConvexUpload(api.domain.files.generateUploadUrl, {
+  allowedTypes: ['image/*', 'application/pdf'],
+  maxSizeBytes: 5_000_000,
+})
+
+async function onFile(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  await upload(file)
+}
+</script>
+
+<template>
+  <main>
+    <h1>Uploads Starter</h1>
+    <input type="file" @change="onFile" />
+    <p v-if="pending">Uploading: {{ progress }}%</p>
+    <p v-if="storageId">Stored as {{ storageId }}</p>
+    <p v-if="error">{{ error.message }}</p>
+    <button type="button" @click="reset">Reset</button>
+  </main>
+</template>
+`.trimStart()
+}
+
+function pascalCase(value: string): string {
+  return value
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join('')
+}
+
+function kebabCase(value: string): string {
+  return value
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()
+}
+
+function operationTemplate(name: string, kind: 'safe' | 'destructive') {
+  const opId = kebabCase(name)
+  const exportName = pascalCase(name)
+
+  if (kind === 'destructive') {
+    return `
+import { authRequired } from '@lupinum/trellis/auth'
+import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { v } from 'convex/values'
+
+import { mutation, query } from '../functions'
+
+export const ${exportName}Op = defineOperation({
+  id: '${opId}',
+  name: '${exportName}',
+  kind: 'destructive',
+  args: {
+    id: v.string(),
+  },
+  guard: authRequired,
+  preview: async (_ctx, args) => ({
+    display: {
+      summary: \`Confirm ${opId} for \${args.id}\`,
+    },
+    confirm: {
+      id: args.id,
+    },
+  }),
+  handler: async (_ctx, args) => {
+    throw new Error(\`Implement ${opId} for \${args.id}.\`)
+  },
+})
+
+export const preview${exportName} = query(previewOf(${exportName}Op))
+export const execute${exportName} = mutation(${exportName}Op)
+`.trimStart()
   }
 
-  if (target === 'mcp') {
-    return buildMcpTemplateSet()
-  }
+  return `
+import { authRequired } from '@lupinum/trellis/auth'
+import { defineOperation } from '@lupinum/trellis/functions'
+import { v } from 'convex/values'
 
-  if (target === 'app') {
-    const template = (model as AppTemplate | undefined) ?? 'personal'
-    if (
-      template !== 'personal' &&
-      template !== 'workspace' &&
-      template !== 'workspace-mcp' &&
-      template !== 'cms'
-    ) {
-      throw new Error(
-        'Missing app template. Use --template personal, workspace, workspace-mcp, or cms.',
-      )
+export const ${exportName}Op = defineOperation({
+  name: '${exportName}',
+  args: {
+    id: v.string(),
+  },
+  guard: authRequired,
+  handler: async (_ctx, args) => {
+    throw new Error(\`Implement ${opId} for \${args.id}.\`)
+  },
+})
+`.trimStart()
+}
+
+export function getCanonicalAppTemplateSet(options: {
+  appName: string
+  template: CanonicalAppTemplate
+  mcp?: boolean
+}): InitTemplateSet {
+  const mcp = options.mcp === true
+  const template = options.template === 'workspace' && mcp ? 'workspace-mcp' : options.template
+
+  return {
+    label: `init:${options.template}${mcp ? '+mcp' : ''}`,
+    description: `Bootstrap a ${options.template}${mcp ? ' + MCP' : ''} Trellis app`,
+    files: mergeTemplateSets(
+      appScaffoldTemplateSet({
+        appName: options.appName,
+        template: options.template,
+        mcp,
+      }),
+      buildAppTemplateSet(template),
+    ),
+    afterWrite: mcp
+      ? async (cwd) => {
+          await enableNuxtMcpConfig(cwd)
+        }
+      : undefined,
+  }
+}
+
+export function getAddTemplateSet(options: {
+  feature: AddFeature
+  name?: string
+  kind?: 'safe' | 'destructive'
+  appName?: string
+}): InitTemplateSet {
+  if (options.feature === 'mcp') {
+    return {
+      label: 'add:mcp',
+      description: 'Add the canonical MCP runtime to a workspace app',
+      files: mergeTemplateSets(buildMcpTemplateSet()).concat([
+        {
+          path: 'server/mcp/index.ts',
+          content: mcpEndpointTemplate(options.appName ?? 'workspace-app'),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/domain/mcpKeys.ts',
+          content: mcpKeysTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'server/mcp/tools/list-todos.ts',
+          content: mcpListTodosToolTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'server/mcp/tools/create-todo.ts',
+          content: mcpCreateTodoToolTemplate(),
+          ownership: 'authored',
+        },
+      ]),
+      afterWrite: async (cwd) => {
+        await enableNuxtMcpConfig(cwd)
+        await addMcpDependency(cwd)
+        await enableWorkspaceMcpSchema(cwd)
+      },
     }
-
-    return buildAppTemplateSet(template)
   }
 
-  throw new Error(`Unsupported init target "${target}".`)
+  if (options.feature === 'uploads') {
+    return {
+      label: 'add:uploads',
+      description: 'Add a canonical upload URL seam and starter page',
+      files: [
+        {
+          path: 'convex/domain/files.ts',
+          content: uploadsDomainTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/uploads.vue',
+          content: uploadsPageTemplate(),
+          ownership: 'authored',
+        },
+      ],
+    }
+  }
+
+  if (!options.name) {
+    throw new Error('`trellis add operation <name>` requires an operation name.')
+  }
+
+  return {
+    label: `add:operation:${kebabCase(options.name)}`,
+    description: 'Add a canonical operation scaffold',
+    files: [
+      {
+        path: `convex/operations/${kebabCase(options.name)}.ts`,
+        content: operationTemplate(options.name, options.kind ?? 'safe'),
+        ownership: 'authored',
+      },
+    ],
+  }
 }

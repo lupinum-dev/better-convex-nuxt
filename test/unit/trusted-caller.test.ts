@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import {
   clearTrustedCallerContext,
+  getForwardedPrincipal,
   getTrustedCaller,
   setTrustedCallerContext,
   withTrustedCaller,
@@ -141,5 +142,29 @@ describe('trusted caller helpers', () => {
         },
       ),
     ).resolves.toEqual({ userId: 'u_override' })
+  })
+
+  it('rejects forwarded principal reads on untrusted paths', () => {
+    expect(() =>
+      getForwardedPrincipal({}, { principal: { kind: 'agent', userId: 'u_1' } }),
+    ).toThrow(/only allowed on verified trusted caller paths/i)
+  })
+
+  it('returns forwarded principal on verified trusted caller paths', () => {
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-key'
+    const ctx: Record<string, unknown> = {}
+
+    setTrustedCallerContext(ctx, {
+      _trustedCallerKey: 'trusted-key',
+      _trustedCaller: {
+        userId: 'u_forwarded',
+      },
+    })
+
+    expect(
+      getForwardedPrincipal<{ kind: 'agent'; userId: string }>(ctx, {
+        principal: { kind: 'agent', userId: 'u_forwarded' },
+      }),
+    ).toEqual({ kind: 'agent', userId: 'u_forwarded' })
   })
 })

@@ -1,15 +1,8 @@
 # Trellis
 
-Trellis is an opinionated app platform for building repeated `Nuxt + Convex + Better Auth + MCP` apps on one shared backend model.
+Trellis is an opinionated app platform for repeated `Nuxt + Convex + Better Auth + MCP` apps on one backend model.
 
-It is for teams that want to ship many apps on the same stack without re-solving the same wiring every time:
-
-- Nuxt SSR and client composables
-- Convex queries, mutations, actions, and protected handlers
-- Better Auth integration and actor resolution
-- MCP projection over the same backend model
-
-Trellis is not trying to be neutral or minimal. It is the strong-default path for apps that want app-owned auth, tenancy, permissions, operations, and agent support without rebuilding that architecture per project.
+It is not a neutral helper layer. It is the hard-default path when you want the same runtime model reused across browser UI, Nitro routes, trusted callers, and MCP tools without re-solving auth, permissions, tenancy, and destructive-work safety in every app.
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
@@ -18,140 +11,98 @@ Trellis is not trying to be neutral or minimal. It is the strong-default path fo
 
 - [Documentation](https://trellis.vercel.app)
 - [Examples](./examples/README.md)
-- [Public demo app](./demo)
-- [Design direction](./SPEC-FINAL.md)
+- [Spec](./SPEC-FINAL.md)
 
-## What Trellis Adds
+## Official Product Surface
 
-- One protected backend pipeline: principal, optional `authRequired`, actor, guard, load, authorize, handler.
-- One permission model reused by browser UI, Nitro routes, webhooks, and MCP tools.
-- Nuxt composables for SSR, live queries, optimistic updates, uploads, and auth state.
-- A structured operation model for preview and confirm flows around destructive work.
-- Semantic observability for Trellis decisions with correlation and evlog delivery.
-- Installers and a CLI for setup checks, app scaffolding, and repeated app conventions.
-
-## First Success
-
-Requires **Nuxt 4** and **Node 18+**.
+Canonical CLI:
 
 ```bash
-pnpm add convex @lupinum/trellis
+npx trellis init my-app --template personal
+npx trellis init my-app --template workspace --mcp
+npx trellis add uploads
+npx trellis add operation publish-entry --kind destructive
+npx trellis doctor
 ```
 
-```ts
-// nuxt.config.ts
-export default defineNuxtConfig({
-  modules: ['@lupinum/trellis'],
-  trellis: {
-    url: process.env.CONVEX_URL,
-  },
-})
-```
-
-```vue
-<script setup lang="ts">
-import { api } from '#trellis/api'
-
-const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
-  status: 'active',
-})
-</script>
-
-<template>
-  <div v-if="status === 'pending'">Loading...</div>
-  <ul v-else-if="status === 'success'">
-    <li v-for="task in tasks" :key="task._id">
-      {{ task.text }}
-    </li>
-  </ul>
-</template>
-```
-
-That is the first visible win: install the module, point it at Convex, and render one query. From there, Trellis scales into app-owned auth, permissions, operations, and MCP without changing the basic shape of the app.
-
-## Product Surfaces
-
-Trellis has three distinct surfaces. They are not interchangeable:
-
-- `trellis init app --template personal|workspace|workspace-mcp|cms` are the official starters.
-- [`examples`](./examples/README.md) are runnable learning and reference apps.
-- [`examples-next`](./examples-next/README.md) is the pressure suite for future archetypes, not the default public source of truth.
-
-The product is the starter-plus-runtime path. Examples support that path; they do not replace it.
-
-## Example Ladder
-
-Start with these in order:
-
-1. [`examples/01-public-todo`](./examples/01-public-todo/README.md): smallest public-only app
-2. [`examples/02-auth-todo`](./examples/02-auth-todo/README.md): personal auth app with actors
-3. [`examples/03-team-workspace`](./examples/03-team-workspace/README.md): canonical protected workspace app
-
-Use these when you need deeper reference:
-
-- [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md): MCP surface and tool patterns
-- [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md): component bridge and projection boundaries
-- [`examples-next`](./examples-next/README.md): pressure suite for future direction, not the default public source of truth
-
-## Templates vs Examples
-
-The current official starters are:
+Official starters:
 
 - `personal`
 - `workspace`
-- `workspace-mcp`
 - `cms`
 
-Promotion path:
+MCP is a capability added to `workspace`, not a separate starter.
 
-1. A shape proves itself as an example or real app.
-2. The shape converges on the canonical Trellis layout.
-3. The repeated boilerplate becomes generator-worthy.
-4. The shape graduates into an official CLI template.
+## Canonical Shape
 
-Current promotion candidates are:
+Generated apps converge on this layout:
 
-- `support-inbox`
-- `agent-console`
-
-## CLI
-
-Use the CLI to validate setup or scaffold app-owned files:
-
-```bash
-npx trellis doctor
-npx trellis init app --template personal
-npx trellis init app --template workspace
-npx trellis init app --template workspace-mcp
-npx trellis init app --template cms
-npx trellis init auth
-npx trellis init permissions --model workspace
-npx trellis init mcp
+```text
+nuxt.config.ts
+convex/
+  auth.ts
+  auth.config.ts
+  convex.config.ts
+  functions.ts
+  http.ts
+  schema.ts
+  auth/
+  domain/
+  operations/
+  permissions/
+shared/
+  schemas/
+pages/
+server/
+  api/
+  mcp/
 ```
 
-`init app` is the primary entrypoint. It bootstraps a coherent starter inside the current app root. The feature-level `init auth`, `init permissions`, and `init mcp` commands still exist when you need to add a slice onto an already-shaped app.
+The rule is simple: keep the generated shape. Add app code into the existing lanes instead of inventing a new structure per project.
 
-The generated app shape is now deliberate: auth lives under `convex/auth/`, feature modules under `convex/domain/`, permission projection under `convex/permissions/`, workflow actions under `convex/operations/`, and shared contracts under `shared/schemas/`.
+## Runtime Contract
 
-The generated files are plain app code. Edit them directly.
+Trellis keeps one protected backend path:
 
-## Package Surface
+1. principal
+2. actor
+3. guard
+4. load
+5. authorize
+6. handler
+7. observe
 
-Published npm entrypoints:
+The same business model is then projected into browser UI, server callers, and MCP tools.
 
-- `@lupinum/trellis`
-- `@lupinum/trellis/auth`
-- `@lupinum/trellis/args`
-- `@lupinum/trellis/composables`
-- `@lupinum/trellis/functions`
-- `@lupinum/trellis/mcp`
-- `@lupinum/trellis/server`
-- `@lupinum/trellis/testing`
-- `@lupinum/trellis/trusted-caller`
-- `@lupinum/trellis/visibility`
-- `@lupinum/trellis/eslint`
+Key invariants:
 
-Nuxt also generates app-local surfaces such as `#trellis/api`, `#trellis/server`, `#trellis/mcp`, and module-driven auto-imports.
+- Tenant-aware apps use runtime-enforced isolation, not naming convention alone.
+- Forwarded `principal` values are only accepted on verified trusted-caller lanes.
+- Observability metadata does not participate in client query cache identity.
+- Destructive first-party handlers are allowed.
+- Cross-surface destructive flows, especially MCP, must use operation-backed preview/confirm/execute.
+
+## Examples
+
+Recommended reading order:
+
+1. [`examples/01-public-todo`](./examples/01-public-todo/README.md)
+2. [`examples/02-auth-todo`](./examples/02-auth-todo/README.md)
+3. [`examples/03-team-workspace`](./examples/03-team-workspace/README.md)
+4. [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md)
+5. [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md)
+
+`examples-next` is a pressure suite and roadmap workspace, not the default public product surface.
+
+## Roadmap, Not Product
+
+These shapes are not first-class starters in the current product:
+
+- `support-inbox`
+- `admin-console`
+- `agent-console`
+
+They remain directionally important, but the public Trellis contract is the three shipped starters plus optional MCP.
 
 ## Contributing
 
