@@ -17,7 +17,7 @@ It combines four concerns that usually drift apart:
 - [Documentation](https://trellis.vercel.app)
 - [Examples](./examples/README.md)
 - [Public demo app](./demo)
-- [Design direction](./SPEC.vNext.md)
+- [Design direction](./SPEC-FINAL.md)
 
 ## What Trellis Adds
 

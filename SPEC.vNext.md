@@ -1,4 +1,6 @@
-# Trellis vNext — North Star Spec
+# Trellis vNext — Historical Draft
+
+> Superseded by [SPEC-FINAL.md](/Users/matthias/Git/0_libs/WORK/trellis/SPEC-FINAL.md) as the primary product spec.
 
 > **Status: Draft (2026-04-16).**
 >
