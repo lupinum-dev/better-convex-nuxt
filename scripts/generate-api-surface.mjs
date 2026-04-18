@@ -13,7 +13,7 @@ const installerPaths = {
   advanced: resolve(rootDir, 'src/installers/advanced.ts'),
 }
 const componentsDir = resolve(rootDir, 'src/runtime/components')
-const outputPath = resolve(rootDir, 'docs/content/docs/12.api-reference/7.api-surface.md')
+const outputPath = resolve(rootDir, 'docs/content/docs/13.api-reference/7.api-surface.md')
 
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
 const installerSources = Object.fromEntries(

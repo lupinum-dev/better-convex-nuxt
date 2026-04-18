@@ -10,8 +10,13 @@ const { header } = useAppConfig()
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
     label: 'Getting Started',
-    to: '/docs/guide/get-started',
-    active: route.path.startsWith('/docs/guide'),
+    to: '/docs/getting-started/start-here',
+    active: route.path.startsWith('/docs/getting-started'),
+  },
+  {
+    label: 'Concepts',
+    to: '/docs/concepts/how-it-works',
+    active: route.path.startsWith('/docs/concepts'),
   },
   {
     label: 'Data Fetching',
@@ -29,13 +34,27 @@ const navItems = computed<NavigationMenuItem[]>(() => [
     active: route.path.startsWith('/docs/auth-security'),
   },
   {
-    label: 'Server-Side',
+    label: 'Permissions',
+    to: '/docs/permissions/setup',
+    active: route.path.startsWith('/docs/permissions'),
+  },
+  {
+    label: 'Server',
     to: '/docs/server-side/ssr-overview',
     active: route.path.startsWith('/docs/server-side'),
   },
   {
-    label: 'Advanced',
-    to: '/docs/configuration/module-options',
+    label: 'MCP',
+    to: '/docs/mcp-tools/getting-started',
+    active: route.path.startsWith('/docs/mcp-tools'),
+  },
+  {
+    label: 'Reference',
+    to: '/docs/api-reference/composables',
+    active:
+      route.path.startsWith('/docs/api-reference') ||
+      route.path.startsWith('/docs/configuration') ||
+      route.path.startsWith('/docs/testing'),
   },
 ])
 </script>

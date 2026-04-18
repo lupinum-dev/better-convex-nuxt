@@ -1,27 +1,27 @@
 ---
-title: 'Real-time Nuxt apps with Convex.'
+title: 'The application layer for Nuxt + Convex.'
 navigation: false
-description: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.'
+description: 'Build Nuxt apps on one protected backend model with SSR-aware data, auth, permissions, operations, and agent-safe access.'
 ---
 
 ## ::u-page-hero
 
 orientation: 'horizontal'
-description: Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and backend-driven permissions.
+description: Trellis keeps Nuxt, Convex, auth, permissions, operations, and MCP on one app-owned backend model instead of splitting those rules across transports.
 ui:
 container: 'lg:items-start flex flex-col lg:grid pt-24 sm:pt-32 lg:pt-40 pb-0 sm:pb-0 lg:pb-0 gap-16 sm:gap-y-0'
 
 ---
 
 #title
-Full-stack Nuxt that [feels like cheating]{.text-primary}
+One protected backend model for [Nuxt + Convex]{.text-primary}
 #links
 :::u-button
 
 ---
 
 size: lg
-to: /docs/guide/get-started
+to: /docs/getting-started/start-here
 color: warning
 trailing-icon: i-lucide-arrow-right
 
@@ -170,7 +170,7 @@ to: /docs/data-fetching/queries
 ---
 
 title: Optimistic Updates
-description: Instant UI feedback with automatic rollback on failure. Make your app feel fast.
+description: Instant UI feedback with optimistic updates and live query reconciliation.
 icon: i-lucide-zap
 to: /docs/mutations/optimistic-updates
 
@@ -218,9 +218,9 @@ to: /docs/server-side/ssr-overview
 ---
 
 title: Type Safety
-description: Full TypeScript inference from your Convex schema. Catch errors at compile time.
+description: Nuxt auto-imports, generated aliases, and Convex function refs stay strongly typed across the app.
 icon: i-lucide-type
-to: /docs/data-fetching/queries#typescript
+to: /docs/api-reference/api-surface
 
 ---
 

@@ -136,8 +136,8 @@ Important variables:
 
 Relevant docs:
 
-- [Environment Variables](./docs/content/docs/9.configuration/2.environment-variables.md)
-- [Local Development](./docs/content/docs/10.deployment/3.local-development.md)
+- [Environment Variables](./docs/content/docs/10.configuration/2.environment-variables.md)
+- [Local Development](./docs/content/docs/11.deployment/3.local-development.md)
 
 ## Local Convex
 

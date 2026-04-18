@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 describe('generated API surface docs', () => {
   it('documents the installer-driven Nuxt auto-imports and aliases', () => {
     const apiSurface = readFileSync(
-      resolve(process.cwd(), 'docs/content/docs/12.api-reference/7.api-surface.md'),
+      resolve(process.cwd(), 'docs/content/docs/13.api-reference/7.api-surface.md'),
       'utf8',
     )
 

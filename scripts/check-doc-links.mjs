@@ -46,6 +46,44 @@ function normalizeDocRoute(pathname) {
   return pathname.replace(/\/$/, '') || '/docs'
 }
 
+function stripFormatting(value) {
+  return value
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[*_~]/g, '')
+    .replace(/<[^>]+>/g, '')
+    .trim()
+}
+
+function toAnchorSlug(value) {
+  return stripFormatting(value)
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+}
+
+function buildDocAnchorMap() {
+  const files = walk(docsContentDir).filter((file) => extname(file) === '.md')
+  const anchors = new Map()
+
+  for (const file of files) {
+    const route = toDocRoute(file)
+    if (!route) continue
+
+    const source = readFileSync(file, 'utf8')
+    const routeAnchors = new Set()
+    for (const match of source.matchAll(/^#{1,6}\s+(.+)$/gm)) {
+      const slug = toAnchorSlug(match[1] ?? '')
+      if (slug) routeAnchors.add(slug)
+    }
+    anchors.set(route, routeAnchors)
+  }
+
+  return anchors
+}
+
 function extractLinks(source) {
   return Array.from(source.matchAll(/\[[^\]]+\]\([^)]+\)/g)).map((match) => {
     const raw = match[0]
@@ -54,13 +92,54 @@ function extractLinks(source) {
   })
 }
 
+function extractToTargets(source) {
+  const matches = []
+
+  for (const match of source.matchAll(/(?:^|\n)\s*to:\s*['"]([^'"\n]+)['"]/gm)) {
+    matches.push(match[1] ?? '')
+  }
+
+  for (const match of source.matchAll(/(?:^|\n)\s*to:\s*((?:\/|https?:\/\/|mailto:|tel:)[^\s"'`]+)/gm)) {
+    matches.push((match[1] ?? '').trim())
+  }
+
+  return matches
+}
+
+function looksLikeLocalFilesystemPath(link) {
+  return (
+    link.startsWith('file://') ||
+    link.startsWith('/Users/') ||
+    link.startsWith('/home/') ||
+    link.startsWith('/var/') ||
+    link.startsWith('/tmp/') ||
+    /^[A-Za-z]:[\\/]/.test(link)
+  )
+}
+
+function splitLinkTarget(link) {
+  const hashIndex = link.indexOf('#')
+  if (hashIndex === -1) return { pathname: link, hash: '' }
+  return {
+    pathname: link.slice(0, hashIndex),
+    hash: link.slice(hashIndex + 1),
+  }
+}
+
+function normalizeAnchor(value) {
+  return toAnchorSlug(decodeURIComponent(value))
+}
+
 const routeSet = buildDocRouteSet()
-const markdownTargets = [
+const anchorMap = buildDocAnchorMap()
+const sourceTargets = [
   resolve(rootDir, 'README.md'),
   resolve(rootDir, 'DEVELOPMENT.md'),
   resolve(rootDir, 'SKILL.md'),
   resolve(rootDir, 'test/TESTING.md'),
-  ...walk(resolve(rootDir, 'docs')).filter((file) => extname(file) === '.md'),
+  ...walk(resolve(rootDir, 'docs/content')).filter((file) => extname(file) === '.md'),
+  ...walk(resolve(rootDir, 'docs/app')).filter((file) => ['.vue', '.ts'].includes(extname(file))),
+  resolve(rootDir, 'docs/mdc-components.md'),
   ...walk(resolve(rootDir, 'examples')).filter((file) => extname(file) === '.md'),
   ...walk(resolve(rootDir, 'demo')).filter((file) => extname(file) === '.md'),
   ...walk(resolve(rootDir, 'test/internal-harness')).filter((file) => extname(file) === '.md'),
@@ -68,31 +147,50 @@ const markdownTargets = [
 
 const issues = []
 
-for (const filePath of markdownTargets) {
+for (const filePath of sourceTargets) {
   const source = readFileSync(filePath, 'utf8')
-  for (const rawLink of extractLinks(source)) {
+  const extension = extname(filePath)
+  const targets = [
+    ...(extension === '.md' ? extractLinks(source) : []),
+    ...extractToTargets(source),
+  ]
+
+  for (const rawLink of targets) {
     const link = rawLink.trim()
     if (!link || link.startsWith('#')) continue
+    if (link.includes('${')) continue
     if (/^(?:https?:|mailto:|tel:)/.test(link)) continue
+    if (looksLikeLocalFilesystemPath(link)) {
+      issues.push(`${relative(rootDir, filePath)} -> local filesystem path ${link}`)
+      continue
+    }
 
-    const withoutHash = link.split('#')[0]
-    if (!withoutHash) continue
+    const { pathname, hash } = splitLinkTarget(link)
+    if (!pathname) continue
 
-    if (withoutHash.startsWith('/docs')) {
-      const normalized = normalizeDocRoute(withoutHash)
+    if (pathname.startsWith('/docs')) {
+      const normalized = normalizeDocRoute(pathname)
       if (!routeSet.has(normalized)) {
-        issues.push(`${relative(rootDir, filePath)} -> missing docs route ${withoutHash}`)
+        issues.push(`${relative(rootDir, filePath)} -> missing docs route ${pathname}`)
+      } else if (hash) {
+        const anchor = normalizeAnchor(hash)
+        const routeAnchors = anchorMap.get(normalized) ?? new Set()
+        if (!routeAnchors.has(anchor)) {
+          issues.push(
+            `${relative(rootDir, filePath)} -> missing docs anchor ${pathname}#${hash}`,
+          )
+        }
       }
       continue
     }
 
-    if (withoutHash.startsWith('/')) {
+    if (pathname === '/' || pathname.startsWith('/')) {
       continue
     }
 
-    const resolved = resolve(filePath, '..', withoutHash)
+    const resolved = resolve(filePath, '..', pathname)
     if (!existsSync(resolved)) {
-      issues.push(`${relative(rootDir, filePath)} -> missing relative path ${withoutHash}`)
+      issues.push(`${relative(rootDir, filePath)} -> missing relative path ${pathname}`)
     }
   }
 }

@@ -19,9 +19,9 @@ Do **not** use it as the source of truth for:
 
 Those live in:
 
-- [VNEXT_RUNTIME_CONTRACT.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_RUNTIME_CONTRACT.md)
-- [VNEXT_TRACKING.md](/Users/matthias/Git/0_libs/WORK/trellis/VNEXT_TRACKING.md)
-- [SPEC.vNext.md](/Users/matthias/Git/0_libs/WORK/trellis/SPEC.vNext.md)
+- [VNEXT_RUNTIME_CONTRACT.md](../../VNEXT_RUNTIME_CONTRACT.md)
+- [VNEXT_TRACKING.md](../../VNEXT_TRACKING.md)
+- [SPEC.vNext.md](../../SPEC.vNext.md)
 
 Important:
 

@@ -9,7 +9,7 @@ This file stays outside `docs/content/` on purpose so planning notes do not leak
 - [x] `SPEC.md` is gone. Use `SPEC.vNext.md` as the active design source when design context is needed.
 - [x] `README.md` has been rewritten as the front door instead of a docs dump.
 - [x] The planned public docs tree has been filled out across guides, task pages, reference, MCP, testing, deployment, and project docs.
-- [x] `docs/content/docs/12.api-reference/7.api-surface.md` is generated from `scripts/generate-api-surface.mjs`.
+- [x] `docs/content/docs/13.api-reference/7.api-surface.md` is generated from `scripts/generate-api-surface.mjs`.
 - [x] `pnpm check:docs:links` passes.
 - [x] The previous broken internal links from `DEVELOPMENT.md` and `docs/mdc-components.md` have been resolved by landing the real target pages.
 
@@ -31,9 +31,9 @@ This file stays outside `docs/content/` on purpose so planning notes do not leak
 
 - [x] `docs/content/docs/1.guide/1.get-started.md`
 - [x] `docs/content/docs/1.guide/2.installation.md`
-- [x] `docs/content/docs/1.guide/3.first-protected-app.md`
+- [x] `docs/content/docs/1.getting-started/3.quickstart.md`
 - [x] `docs/content/docs/1.guide/4.how-it-works.md`
-- [x] `docs/content/docs/1.guide/5.choose-the-right-example.md`
+- [x] Example selection guidance merged into `docs/content/docs/15.project/1.examples.md`
 - [x] `docs/content/docs/1.guide/8.multi-caller-architecture.md`
 
 ### Data Fetching
@@ -69,7 +69,7 @@ This file stays outside `docs/content/` on purpose so planning notes do not leak
 - [x] `docs/content/docs/6.server-side/2.server-routes.md`
 - [x] `docs/content/docs/6.server-side/3.webhooks-and-trusted-callers.md`
 - [x] `docs/content/docs/6.server-side/4.hydration-and-subscriptions.md`
-- [x] `docs/content/docs/6.server-side/5.private-bridge.md`
+- [x] `docs/content/docs/7.server-side/5.component-bridge.md`
 
 ### Permissions
 
@@ -80,7 +80,7 @@ This file stays outside `docs/content/` on purpose so planning notes do not leak
 - [x] `docs/content/docs/7.permissions/5.tenant-isolation.md`
 - [x] `docs/content/docs/7.permissions/6.cross-tenant-and-raw-access.md`
 - [x] `docs/content/docs/7.permissions/7.operations.md`
-- [x] `docs/content/docs/7.permissions/8.actor-lanes-and-models.md`
+- [x] `docs/content/docs/8.permissions/8.advanced-caller-models.md`
 
 ### Observability
 
@@ -110,13 +110,13 @@ This file stays outside `docs/content/` on purpose so planning notes do not leak
 
 ### API Reference
 
-- [x] `docs/content/docs/12.api-reference/1.composables.md`
-- [x] `docs/content/docs/12.api-reference/2.components.md`
-- [x] `docs/content/docs/12.api-reference/3.functions.md`
-- [x] `docs/content/docs/12.api-reference/4.server.md`
-- [x] `docs/content/docs/12.api-reference/5.mcp.md`
-- [x] `docs/content/docs/12.api-reference/6.testing.md`
-- [x] `docs/content/docs/12.api-reference/7.api-surface.md`
+- [x] `docs/content/docs/13.api-reference/1.composables.md`
+- [x] `docs/content/docs/13.api-reference/2.components.md`
+- [x] `docs/content/docs/13.api-reference/3.functions.md`
+- [x] `docs/content/docs/13.api-reference/4.server.md`
+- [x] `docs/content/docs/13.api-reference/5.mcp.md`
+- [x] `docs/content/docs/13.api-reference/6.testing.md`
+- [x] `docs/content/docs/13.api-reference/7.api-surface.md`
 
 ### MCP Tools
 

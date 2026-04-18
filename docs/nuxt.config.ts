@@ -240,7 +240,7 @@ export default defineNuxtConfig({
           'Complete API reference for composables, components, server utilities, and types.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/12.api-reference%' },
+          { field: 'path', operator: 'LIKE', value: '%/13.api-reference%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
