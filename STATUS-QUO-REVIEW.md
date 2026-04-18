@@ -20,7 +20,7 @@ This is the working gap tracker.
 - [x] P1.1 Decide the app-first CLI entrypoint shape.
 - [x] P1.2 Define the first official archetypes and template graduation path.
 - [ ] P1.3 Make actor bootstrap and missing sync wiring fail loudly.
-- [ ] P1.4 Resolve the biggest naming traps.
+- [x] P1.4 Resolve the biggest naming traps.
 - [x] P1.5 Document one canonical Trellis app layout.
 - [ ] P2.1 Put a real Trellis-built CMS on the critical path and feed back the paper cuts.
 
@@ -131,16 +131,17 @@ Notes:
   Current evidence: `src/runtime/composables`, `src/runtime/server`, `src/runtime/plugin.*`
 - [x] Route protection exists.
   Current evidence: [src/runtime/middleware/convex-auth.global.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/middleware/convex-auth.global.ts)
-- [ ] Nuxt-side naming and control surfaces are coherent enough to avoid obvious confusion.
-  Current evidence of gap: `skipAuthRoutes` vs `skipConvexAuth`, server auth default confusion
+- [x] Nuxt-side naming and control surfaces are coherent enough to avoid obvious confusion.
+  Current evidence: server auth defaults were aligned earlier, and auth token fetch controls now use `skipAuthTokenFetchRoutes` / `skipAuthTokenFetch`.
 
 ## 8. API Ergonomics and Naming
 
-- [ ] Backend `can(...)` and frontend `usePermissions().can(...)` should no longer share the same name.
-  Current evidence of gap: [docs/content/docs/08.permissions/4.authorization-and-can.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/08.permissions/4.authorization-and-can.md)
-- [ ] `authenticated` should stop being a surprising special-case sentinel or be replaced by a clearer model.
-  Current evidence of gap: [src/runtime/auth/define-guard.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/auth/define-guard.ts)
-- [ ] `skipAuthRoutes` and `skipConvexAuth` should be renamed or redesigned to remove the current naming trap.
+- [x] Backend `can(...)` and frontend `usePermissions().can(...)` no longer share the same name.
+  Current evidence: frontend projection now uses `allows(...)` in [src/runtime/composables/configured-permissions.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/composables/configured-permissions.ts) and the matching docs/examples.
+- [x] `authenticated` stopped being a vague special-case sentinel and is now the explicit `authRequired` principal gate.
+  Current evidence: [src/runtime/auth/define-guard.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/auth/define-guard.ts), [docs/content/docs/08.permissions/3.guards.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/08.permissions/3.guards.md)
+- [x] `skipAuthRoutes` and `skipConvexAuth` were renamed to remove the naming trap.
+  Current evidence: [src/module-internals/options.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/module-internals/options.ts), [src/runtime/middleware/convex-auth.global.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/middleware/convex-auth.global.ts)
 - [ ] `useConvexMutation` should be harder to misuse, either via naming, API design, or stronger lint/runtime guidance.
   Current evidence of gap: [docs/content/docs/04.mutations/1.mutations.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/04.mutations/1.mutations.md)
 - [ ] `useCachedQuery` should avoid silent confusion on arg mismatches or expose a clearer failure/debug story.
@@ -184,7 +185,7 @@ These are the highest-value unchecked items right now.
 - [x] Decide and implement the app-first CLI entrypoint shape.
 - [x] Define the first official archetypes and which examples graduate into them.
 - [ ] Make actor bootstrap and missing user-sync wiring fail loudly.
-- [ ] Resolve the biggest API naming traps.
+- [x] Resolve the biggest API naming traps.
 - [x] Document one canonical Trellis app layout.
 - [ ] Pick `ginko-cms` as the first load-bearing app and feed the paper cuts back into Trellis.
 
@@ -201,6 +202,7 @@ These are the highest-value unchecked items right now.
 - [x] Added a dedicated getting-started page for the canonical generated Trellis app layout and linked it from the main onboarding flow.
 - [x] Changed generated personal and workspace actor scaffolds to fail with an explicit setup error when auth resolves but the mirrored `users` row is missing.
 - [x] Defined the current official starters versus learning examples versus future archetype candidates, including a template graduation path.
+- [x] Hard-cut the biggest naming traps: frontend permission projection now uses `allows(...)`, the pre-actor auth gate is `authRequired`, and auth token fetch skip controls now use `skipAuthTokenFetch...`.
 
 ## 13. Done Means
 

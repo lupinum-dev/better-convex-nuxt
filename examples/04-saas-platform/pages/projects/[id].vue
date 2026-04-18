@@ -126,15 +126,15 @@ definePageMeta({
 })
 
 useAuthGuard({
-  can: saasPermissionKeys.projectRead,
+  permission: saasPermissionKeys.projectRead,
   redirectTo: '/',
 })
 
 const route = useRoute()
 const toast = useToast()
-const { can } = usePermissions()
-const canAudit = can(saasPermissionKeys.workspaceAudit)
-const canArchive = can(saasPermissionKeys.projectArchive)
+const { allows } = usePermissions()
+const canAudit = allows(saasPermissionKeys.workspaceAudit)
+const canArchive = allows(saasPermissionKeys.projectArchive)
 const projectId = computed(() => route.params.id as Id<'projects'>)
 
 const taskForm = reactive({
@@ -156,8 +156,8 @@ const archiveProject = useConvexMutation(api.projects.archive, {
   onError: (error) =>
     toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
 })
-const canCreateTask = can(saasPermissionKeys.taskCreate)
-const canManageMembers = can(saasPermissionKeys.workspaceMembers)
+const canCreateTask = allows(saasPermissionKeys.taskCreate)
+const canManageMembers = allows(saasPermissionKeys.workspaceMembers)
 
 const { data: project } = await useConvexQuery(
   api.projects.get,

@@ -330,7 +330,7 @@ import { knowledgeBasePermissionKeys } from '~/shared/permissions'
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const toast = useToast()
-const { can, ctx, ready, role, tenantId } = usePermissions()
+const { allows, ctx, ready, role, tenantId } = usePermissions()
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
@@ -374,7 +374,7 @@ const currentWorkspaceName = computed(() => {
   if (!tenantId.value || !workspaceOptions.value) return null
   return workspaceOptions.value.find((w) => w._id === tenantId.value)?.name ?? null
 })
-const canCreate = can(knowledgeBasePermissionKeys.kbCreate)
+const canCreate = allows(knowledgeBasePermissionKeys.kbCreate)
 const roleOptions = ['admin', 'editor', 'contributor', 'viewer'] as const
 const allRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const
 const permissionMatrix = [

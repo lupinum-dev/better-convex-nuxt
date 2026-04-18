@@ -48,10 +48,10 @@ export interface AuthOptions extends ConvexAuthConfigInput {
   /**
    * Routes that skip auth token fetches.
    * Supports glob patterns (e.g., '/docs/**').
-   * Also use definePageMeta({ skipConvexAuth: true }) for per-page control.
+   * Also use definePageMeta({ skipAuthTokenFetch: true }) for per-page control.
    * @default []
    */
-  skipAuthRoutes?: string[]
+  skipAuthTokenFetchRoutes?: string[]
   /**
    * SSR auth token caching (opt-in).
    * Caches Convex JWT tokens server-side to reduce TTFB on subsequent requests.

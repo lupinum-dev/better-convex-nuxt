@@ -21,7 +21,7 @@ It combines four concerns that usually drift apart:
 
 ## What Trellis Adds
 
-- One protected backend pipeline: principal, optional `authenticated`, actor, guard, load, authorize, handler.
+- One protected backend pipeline: principal, optional `authRequired`, actor, guard, load, authorize, handler.
 - One permission model reused by browser UI, Nitro routes, webhooks, and MCP tools.
 - Nuxt composables for SSR, live queries, optimistic updates, uploads, and auth state.
 - A structured operation model for preview and confirm flows around destructive work.

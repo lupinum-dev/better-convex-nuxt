@@ -84,11 +84,11 @@ definePageMeta({
 
 const route = useRoute()
 const toast = useToast()
-const { can } = usePermissions()
+const { allows } = usePermissions()
 
 const taskId = computed(() => route.params.id as Id<'tasks'>)
 const projectId = route.query.projectId as Id<'projects'>
-const canAssign = can(saasPermissionKeys.taskAssign)
+const canAssign = allows(saasPermissionKeys.taskAssign)
 
 const { data: task } = await useCachedQuery(
   api.tasks.get,

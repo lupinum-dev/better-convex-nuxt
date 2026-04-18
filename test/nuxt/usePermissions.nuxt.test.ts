@@ -22,9 +22,9 @@ describe('configured permissions composables (Nuxt runtime)', () => {
         const permissions = usePermissions()
         return {
           ...permissions,
-          canCreate: permissions.can('task.create'),
-          canManage: permissions.can('workspace.members'),
-          canMissing: permissions.can('does.not.exist'),
+          canCreate: permissions.allows('task.create'),
+          canManage: permissions.allows('workspace.members'),
+          canMissing: permissions.allows('does.not.exist'),
         }
       },
       { convex },
@@ -72,7 +72,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
 
         useAuthGuard({
-          can: 'workspace.members',
+          permission: 'workspace.members',
           loginPath: '/auth/signin',
         })
 
@@ -102,7 +102,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
 
         useAuthGuard({
-          can: 'workspace.audit',
+          permission: 'workspace.audit',
           redirectTo: '/forbidden',
         })
 
@@ -142,7 +142,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
 
         useAuthGuard({
-          can: 'workspace.audit',
+          permission: 'workspace.audit',
           redirectTo: '/forbidden',
         })
 
@@ -221,7 +221,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
         const permissions = usePermissions()
         return {
           ...permissions,
-          canRead: permissions.can('todo.read'),
+          canRead: permissions.allows('todo.read'),
         }
       },
       { convex },

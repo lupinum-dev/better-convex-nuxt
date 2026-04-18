@@ -110,7 +110,7 @@ describe('server SSR auth cache', () => {
           enabled: true,
           route: '/api/auth',
           trustedOrigins: [],
-          skipAuthRoutes: [],
+          skipAuthTokenFetchRoutes: [],
           cache: {
             enabled: true,
             ttl: 17,
@@ -154,7 +154,7 @@ describe('server SSR auth cache', () => {
           enabled: true,
           route: '/api/auth',
           trustedOrigins: [],
-          skipAuthRoutes: [],
+          skipAuthTokenFetchRoutes: [],
           cache: {
             enabled: false,
             ttl: 60,

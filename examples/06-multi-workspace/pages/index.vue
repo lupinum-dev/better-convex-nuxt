@@ -208,8 +208,8 @@ import { agencyPermissionKeys } from '~/shared/permissions'
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const toast = useToast()
-const { can, ctx, role, tenantId } = usePermissions()
-const canDashboard = can(agencyPermissionKeys.agencyDashboard)
+const { allows, ctx, role, tenantId } = usePermissions()
+const canDashboard = allows(agencyPermissionKeys.agencyDashboard)
 
 const allRoles = ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'] as const
 const permissionMatrix = [

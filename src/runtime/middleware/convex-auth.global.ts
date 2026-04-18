@@ -13,12 +13,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
   const authConfig = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex).auth
   if (!authConfig.enabled) return
 
-  const pageMeta = to.meta as { convexAuth?: ConvexAuthPageMeta; skipConvexAuth?: boolean }
+  const pageMeta = to.meta as { convexAuth?: ConvexAuthPageMeta; skipAuthTokenFetch?: boolean }
 
-  if (import.meta.dev && pageMeta.skipConvexAuth === true && pageMeta.convexAuth) {
+  if (import.meta.dev && pageMeta.skipAuthTokenFetch === true && pageMeta.convexAuth) {
     console.warn(
-      '[trellis] Page sets both `skipConvexAuth: true` and `convexAuth`. ' +
-        '`skipConvexAuth` only skips auth checks for query token fetches; `convexAuth` protects the route.',
+      '[trellis] Page sets both `skipAuthTokenFetch: true` and `convexAuth`. ' +
+        '`skipAuthTokenFetch` only skips auth token fetches; `convexAuth` protects the route.',
       { path: to.fullPath },
     )
   }

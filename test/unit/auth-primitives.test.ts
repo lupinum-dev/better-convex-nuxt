@@ -2,7 +2,7 @@ import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
 import {
-  authenticated,
+  authRequired,
   enforce,
   can,
   deny,
@@ -75,10 +75,10 @@ describe('auth primitives', () => {
     expect(can(null, open)).toBe(true)
   })
 
-  it('treats authenticated as a non-composable sentinel guard', () => {
-    expect(() => authenticated.and(() => true)).toThrow(/cannot be composed with and/)
-    expect(() => authenticated.or(() => true)).toThrow(/cannot be composed with or/)
-    expect(() => authenticated.not()).toThrow(/cannot be negated/)
+  it('treats authRequired as a non-composable sentinel guard', () => {
+    expect(() => authRequired.and(() => true)).toThrow(/cannot be composed with and/)
+    expect(() => authRequired.or(() => true)).toThrow(/cannot be composed with or/)
+    expect(() => authRequired.not()).toThrow(/cannot be negated/)
   })
 
   it('throws forbidden errors from enforce() and narrows the type', () => {
@@ -122,7 +122,7 @@ describe('auth primitives', () => {
     }
   })
 
-  it('narrows authenticated actors with requireAuth()', () => {
+  it('narrows actors with requireAuth()', () => {
     const actor: { userId: string } | null = { userId: 'alice' }
 
     expect(() => requireAuth(actor)).not.toThrow()

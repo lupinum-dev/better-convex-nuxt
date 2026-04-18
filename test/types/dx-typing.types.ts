@@ -78,24 +78,24 @@ type _ctxDisplayName = Assert<
 type _ctxUsageCurrent = Assert<
   IsEqual<NonNullable<UsePermissionsApi['ctx']['value']>['usage']['projects']['current'], number>
 >
-type _canParameter = Assert<
-  IsEqual<Parameters<UsePermissionsApi['can']>[0], 'task.create' | 'workspace.members'>
+type _allowsParameter = Assert<
+  IsEqual<Parameters<UsePermissionsApi['allows']>[0], 'task.create' | 'workspace.members'>
 >
-type _guardCanKey = Assert<
-  IsEqual<GuardOptions['can'], 'task.create' | 'workspace.members' | undefined>
+type _guardPermissionKey = Assert<
+  IsEqual<GuardOptions['permission'], 'task.create' | 'workspace.members' | undefined>
 >
 type _guardCheck = Assert<
   IsEqual<GuardOptions['check'], ((ctx: PermissionContext) => boolean) | undefined>
 >
 
 const _validGuardOptions: GuardOptions = {
-  can: 'task.create',
+  permission: 'task.create',
   check: (ctx) => ctx.usage.projects.current > 0,
 }
 void _validGuardOptions
 
 // @ts-expect-error invalid capability should not type-check
-const _invalidGuardOptions: GuardOptions = { can: 'task.delete' }
+const _invalidGuardOptions: GuardOptions = { permission: 'task.delete' }
 void _invalidGuardOptions
 
 type GenericPermissionContext = {
@@ -117,8 +117,12 @@ const _genericAuth = createConfiguredPermissionsComposables(
 type GenericUsePermissionsApi = ReturnType<typeof _genericAuth.usePermissions>
 type GenericGuardOptions = Parameters<typeof _genericAuth.useAuthGuard>[0]
 type _genericPermissionKey = Assert<IsEqual<PermissionKey<GenericPermissionContext>, string>>
-type _genericCanParameter = Assert<IsEqual<Parameters<GenericUsePermissionsApi['can']>[0], string>>
-type _genericGuardCanKey = Assert<IsEqual<GenericGuardOptions['can'], string | undefined>>
+type _genericAllowsParameter = Assert<
+  IsEqual<Parameters<GenericUsePermissionsApi['allows']>[0], string>
+>
+type _genericGuardPermissionKey = Assert<
+  IsEqual<GenericGuardOptions['permission'], string | undefined>
+>
 
 const _identity = {} as AuthIdentity | null
 void _identity

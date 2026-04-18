@@ -1,7 +1,7 @@
 export type Check<P = unknown> = (principal: P) => boolean
 export type AnyCheck<P = unknown> = Check<P> | boolean
 
-export type GuardKind = 'base' | 'and' | 'or' | 'not' | 'authenticated'
+export type GuardKind = 'base' | 'and' | 'or' | 'not' | 'auth_required'
 
 export type Guard<P = unknown> = Check<P> & {
   _type: 'guard'
@@ -17,8 +17,8 @@ export type OpenGuard = Guard<unknown> & {
   _open: true
 }
 
-export type AuthenticatedGuard = Guard<unknown> & {
-  _authenticated: true
+export type AuthRequiredGuard = Guard<unknown> & {
+  _authRequired: true
   and: (...checks: Array<AnyCheck<unknown>>) => never
   or: (...checks: Array<AnyCheck<unknown>>) => never
   not: () => never
@@ -40,8 +40,8 @@ export function isOpenGuard(value: unknown): value is OpenGuard {
   return isGuard(value) && (value as { _open?: unknown })._open === true
 }
 
-export function isAuthenticatedGuard(value: unknown): value is AuthenticatedGuard {
-  return isGuard(value) && (value as { _authenticated?: unknown })._authenticated === true
+export function isAuthRequiredGuard(value: unknown): value is AuthRequiredGuard {
+  return isGuard(value) && (value as { _authRequired?: unknown })._authRequired === true
 }
 
 function describeCheck<P>(check: AnyCheck<P>): string {
@@ -98,16 +98,16 @@ export const open = Object.assign(defineGuard<unknown>('open', true), {
  * The boolean check here is intentionally inert. Enforcement happens in the
  * structured handler runtime via `requireAuth(...)`, not through `runCheck(...)`.
  */
-export const authenticated = Object.assign(defineGuard<unknown>('authenticated', true), {
-  _authenticated: true as const,
-  kind: 'authenticated' as const,
+export const authRequired = Object.assign(defineGuard<unknown>('authRequired', true), {
+  _authRequired: true as const,
+  kind: 'auth_required' as const,
   and: () => {
-    throw new Error('authenticated is a sentinel guard and cannot be composed with and().')
+    throw new Error('authRequired is a principal gate and cannot be composed with and().')
   },
   or: () => {
-    throw new Error('authenticated is a sentinel guard and cannot be composed with or().')
+    throw new Error('authRequired is a principal gate and cannot be composed with or().')
   },
   not: () => {
-    throw new Error('authenticated is a sentinel guard and cannot be negated.')
+    throw new Error('authRequired is a principal gate and cannot be negated.')
   },
-}) as AuthenticatedGuard
+}) as AuthRequiredGuard

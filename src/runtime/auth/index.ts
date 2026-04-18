@@ -12,16 +12,16 @@ import { isAnonymousPrincipal, type AuthenticatedPrincipal } from './principal-s
 export { defineAuth } from './define-auth.js'
 export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth.js'
 export {
-  authenticated,
+  authRequired,
   defineGuard,
-  isAuthenticatedGuard,
+  isAuthRequiredGuard,
   isGuard,
   isOpenGuard,
   open,
 } from './define-guard.js'
 export type {
   AnyCheck,
-  AuthenticatedGuard,
+  AuthRequiredGuard,
   Check,
   Guard,
   GuardKind,

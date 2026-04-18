@@ -45,7 +45,7 @@ export default defineNuxtModule<ModuleOptions>({
       enabled: true,
       route: '/api/auth',
       trustedOrigins: [],
-      skipAuthRoutes: [],
+      skipAuthTokenFetchRoutes: [],
       routeProtection: {
         redirectTo: '/auth/signin',
         preserveReturnTo: true,

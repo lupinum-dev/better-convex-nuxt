@@ -1,4 +1,4 @@
-import { authenticated, can, definePermissionContext, open } from '@lupinum/trellis/auth'
+import { authRequired, can, definePermissionContext, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { saasPermissionKeys, type SaasPermissionMap } from '../shared/permissions'
@@ -90,7 +90,7 @@ export const createWorkspace = mutation({
     name: v.string(),
     slug: v.string(),
   },
-  guard: authenticated,
+  guard: authRequired,
   handler: async (ctx, args) => {
     const principal = await ctx.principal()
 
@@ -133,7 +133,7 @@ export const joinWorkspace = mutation({
     slug: v.string(),
     role: joinRoleValidator,
   },
-  guard: authenticated,
+  guard: authRequired,
   handler: async (ctx, args) => {
     const principal = await ctx.principal()
 

@@ -144,7 +144,7 @@ definePageMeta({
 })
 
 useAuthGuard({
-  can: saasPermissionKeys.workspaceAudit,
+  permission: saasPermissionKeys.workspaceAudit,
   redirectTo: '/',
 })
 

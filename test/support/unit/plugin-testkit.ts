@@ -190,7 +190,7 @@ export function resetPluginClientTestkit() {
   getConvexRuntimeConfigMock.mockReturnValue({
     url: 'https://demo.convex.cloud',
     siteUrl: 'https://demo.convex.site',
-    auth: { enabled: true, route: '/api/auth', skipAuthRoutes: [] },
+    auth: { enabled: true, route: '/api/auth', skipAuthTokenFetchRoutes: [] },
   })
 
   createAuthClientMock.mockReturnValue({

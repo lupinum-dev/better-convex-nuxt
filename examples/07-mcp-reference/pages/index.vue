@@ -638,7 +638,7 @@ import { mcpReferencePermissionKeys } from '~/shared/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, ready, role, tenantId, ctx, pending: permissionsPending } = usePermissions()
+const { allows, ready, role, tenantId, ctx, pending: permissionsPending } = usePermissions()
 
 const signUpFields: AuthFormField[] = [
   { name: 'name', type: 'text', label: 'Name', placeholder: 'Enter your name', required: true },
@@ -724,8 +724,8 @@ const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
   {},
 )
 
-const canCreateRunbook = can(mcpReferencePermissionKeys.runbookCreate)
-const canManageMcp = can(mcpReferencePermissionKeys.mcpManage)
+const canCreateRunbook = allows(mcpReferencePermissionKeys.runbookCreate)
+const canManageMcp = allows(mcpReferencePermissionKeys.mcpManage)
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
 const mcpKeyArgs = computed(() => (tenantId.value && canManageMcp.value ? {} : undefined))

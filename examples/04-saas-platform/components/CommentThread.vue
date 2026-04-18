@@ -14,7 +14,7 @@ const props = defineProps<{
 }>()
 
 const toast = useToast()
-const { can } = usePermissions()
+const { allows } = usePermissions()
 const body = ref('')
 const attachmentStorageId = ref<Id<'_storage'> | null>(null)
 const createComment = useConvexMutation(api.comments.create, {
@@ -23,7 +23,7 @@ const createComment = useConvexMutation(api.comments.create, {
   onError: (error) =>
     toast.add({ title: 'Could not post comment', description: error.message, color: 'error' }),
 })
-const canCreateComment = can(saasPermissionKeys.commentCreate)
+const canCreateComment = allows(saasPermissionKeys.commentCreate)
 
 function resolveName(authId: string) {
   return props.memberNames?.get(authId) ?? `Member ${authId.slice(0, 8)}…`

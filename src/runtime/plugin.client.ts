@@ -159,7 +159,7 @@ export default defineNuxtPlugin({
         initAuthClient(client, {
           baseURL: authBaseURL,
           authRoute,
-          skipRoutes: authConfig.skipAuthRoutes,
+          skipRoutes: authConfig.skipAuthTokenFetchRoutes,
           convexToken: hydration.convexToken,
           convexUser: hydration.convexUser,
           logger,

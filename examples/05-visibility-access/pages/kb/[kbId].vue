@@ -151,9 +151,9 @@ const route = useRoute()
 const toast = useToast()
 const kbId = route.params.kbId as string
 
-const { can } = usePermissions()
-const canManage = can(knowledgeBasePermissionKeys.enrollmentManage)
-const canCreateArticles = can(knowledgeBasePermissionKeys.articleCreate)
+const { allows } = usePermissions()
+const canManage = allows(knowledgeBasePermissionKeys.enrollmentManage)
+const canCreateArticles = allows(knowledgeBasePermissionKeys.articleCreate)
 
 const { data: kb } = await useConvexQuery(api.knowledgeBases.get, { id: kbId as any })
 const { data: articles } = await useConvexQuery(api.articles.list, {

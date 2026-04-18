@@ -131,12 +131,12 @@ async function handleOAuth() {
 import { api } from '#trellis/api'
 
 const props = defineProps<{ id: string }>()
-const { can } = usePermissions()
+const { allows } = usePermissions()
 const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
 
-const canUpdatePost = can('post.update')
-const canDeletePost = can('post.delete')
-const canPublishPost = can('post.publish')
+const canUpdatePost = allows('post.update')
+const canDeletePost = allows('post.delete')
+const canPublishPost = allows('post.publish')
 </script>
 
 <template>

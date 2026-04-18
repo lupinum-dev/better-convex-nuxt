@@ -36,8 +36,8 @@ import { agencyPermissionKeys } from '~/shared/permissions'
 
 definePageMeta({ convexAuth: true })
 
-const { can, role, tenantId } = usePermissions()
-const canCreateProject = can(agencyPermissionKeys.projectCreate)
+const { allows, role, tenantId } = usePermissions()
+const canCreateProject = allows(agencyPermissionKeys.projectCreate)
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: projects } = await useConvexQuery(api.projects.list, workspaceArgs)

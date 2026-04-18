@@ -125,7 +125,7 @@ export function buildPublicConvexRuntimeConfig(
       ...setup.normalizedAuthConfig,
       route: setup.authRoute,
       trustedOrigins: setup.authOptions.trustedOrigins ?? [],
-      skipAuthRoutes: setup.authOptions.skipAuthRoutes ?? [],
+      skipAuthTokenFetchRoutes: setup.authOptions.skipAuthTokenFetchRoutes ?? [],
       cache: {
         enabled: setup.authOptions.cache?.enabled ?? false,
         ttl: setup.normalizedAuthCacheTtl,

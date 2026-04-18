@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { authenticated, defineGuard, open } from '../../src/runtime/auth'
+import { authRequired, defineGuard, open } from '../../src/runtime/auth'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
 
 type Principal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
@@ -151,7 +151,7 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBe('Hello')
   })
 
-  it('supports authenticated handlers before actor resolution', async () => {
+  it('supports authRequired handlers before actor resolution', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
       createBuilder(),
       createBuilder(),
@@ -159,7 +159,7 @@ describe('buildStructuredFunctions', () => {
 
     const query = handlers.query({
       args: {},
-      guard: authenticated,
+      guard: authRequired,
       handler: async (ctx) => ({
         principal: await ctx.principal(),
         actor: await ctx.actor(),
@@ -189,10 +189,10 @@ describe('buildStructuredFunctions', () => {
         },
         {},
       ),
-    ).rejects.toThrow(/Forbidden: authenticated/)
+    ).rejects.toThrow(/Forbidden: authRequired/)
   })
 
-  it('supports authenticated handlers with load and authorize while actor stays nullable', async () => {
+  it('supports authRequired handlers with load and authorize while actor stays nullable', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
       createBuilder(),
       createBuilder(),
@@ -200,7 +200,7 @@ describe('buildStructuredFunctions', () => {
 
     const mutation = handlers.mutation({
       args: {},
-      guard: authenticated,
+      guard: authRequired,
       load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
       authorize: {
         label: 'todo.preview',

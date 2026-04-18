@@ -55,7 +55,7 @@ declare module '#app' {
   }
 
   interface PageMeta {
-    skipConvexAuth?: boolean
+    skipAuthTokenFetch?: boolean
     convexAuth?: boolean | { redirectTo?: RouteLocationRaw }
   }
 }

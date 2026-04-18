@@ -1,4 +1,4 @@
-import { authenticated, defineGuard, open } from '../../src/runtime/auth'
+import { authRequired, defineGuard, open } from '../../src/runtime/auth'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
 
 type Assert<T extends true> = T
@@ -39,7 +39,7 @@ handlers.query({
 
 handlers.query({
   args: {},
-  guard: authenticated,
+  guard: authRequired,
   handler: async (_ctx) => {
     type PrincipalCheck = Assert<
       IsEqual<Awaited<ReturnType<typeof _ctx.principal>>, { kind: 'user'; userId: string }>

@@ -45,14 +45,14 @@ export interface UsePermissionsReturn<
   tenantId: ComputedRef<TContext['tenantId'] | null>
   ready: ComputedRef<boolean>
   pending: Ref<boolean>
-  can: (key: TPermissions) => ComputedRef<boolean>
+  allows: (key: TPermissions) => ComputedRef<boolean>
 }
 
 export interface UseAuthGuardOptions<
   TContext extends AuthContext = AuthContext,
   TPermissions extends string = PermissionKey<TContext>,
 > {
-  can?: TPermissions
+  permission?: TPermissions
   check?: (ctx: TContext) => boolean
   redirectTo?: RouteLocationRaw
   loginPath?: RouteLocationRaw
@@ -169,7 +169,7 @@ export function createConfiguredPermissionsComposables<
   function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
     const { ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
 
-    function can(key: TPermissions): ComputedRef<boolean> {
+    function allows(key: TPermissions): ComputedRef<boolean> {
       return computed<boolean>(() => ctx.value?.can?.[key as string] === true)
     }
 
@@ -181,12 +181,12 @@ export function createConfiguredPermissionsComposables<
       tenantId: computed<TContext['tenantId'] | null>(() => ctx.value?.tenantId ?? null),
       ready: computed<boolean>(() => !!ctx.value),
       pending,
-      can,
+      allows,
     }
   }
 
   function useAuthGuard(options: UseAuthGuardOptions<TContext, TPermissions>): void {
-    const { can: requiredKey, check, redirectTo = '/', loginPath = '/auth/signin' } = options
+    const { permission, check, redirectTo = '/', loginPath = '/auth/signin' } = options
     const router = useRouter()
     const { data, ctx, pending } = usePermissionContextState<Query, TContext>(
       query,
@@ -196,7 +196,7 @@ export function createConfiguredPermissionsComposables<
     const passesGuard = computed<boolean>(() => {
       if (!ctx.value) return false
       if (typeof check === 'function') return check(ctx.value)
-      if (typeof requiredKey === 'string') return ctx.value.can?.[requiredKey as string] === true
+      if (typeof permission === 'string') return ctx.value.can?.[permission as string] === true
       return false
     })
     let redirectPending = false

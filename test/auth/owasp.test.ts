@@ -191,12 +191,12 @@ describe('OWASP A05: Security Misconfiguration', () => {
     const config = normalizeConvexRuntimeConfig({
       auth: {
         trustedOrigins: ['https://preview.example.com', 123, null],
-        skipAuthRoutes: ['/health', 456, undefined],
+        skipAuthTokenFetchRoutes: ['/health', 456, undefined],
       },
     })
 
     expect(config.auth.trustedOrigins).toEqual(['https://preview.example.com'])
-    expect(config.auth.skipAuthRoutes).toEqual(['/health'])
+    expect(config.auth.skipAuthTokenFetchRoutes).toEqual(['/health'])
   })
 
   it('strips response headers that could weaken proxy hardening', () => {

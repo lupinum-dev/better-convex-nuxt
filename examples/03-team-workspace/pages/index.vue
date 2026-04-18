@@ -353,7 +353,7 @@ import { teamWorkspacePermissionKeys } from '~/shared/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, ready, role, tenantId, ctx } = usePermissions()
+const { allows, ready, role, tenantId, ctx } = usePermissions()
 
 const signUpFields: AuthFormField[] = [
   {
@@ -448,7 +448,7 @@ const displayName = computed(
     'Signed in user',
 )
 
-const canCreate = can(teamWorkspacePermissionKeys.todoCreate)
+const canCreate = allows(teamWorkspacePermissionKeys.todoCreate)
 const roleOptions = ['admin', 'member', 'viewer'] as const
 const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
 const permissionMatrix = [

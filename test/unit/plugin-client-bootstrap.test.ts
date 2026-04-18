@@ -130,7 +130,7 @@ describe('plugin.client bootstrap', () => {
     getConvexRuntimeConfigMock.mockReturnValue({
       url: undefined,
       siteUrl: undefined,
-      auth: { enabled: true, route: '/api/auth', skipAuthRoutes: [] },
+      auth: { enabled: true, route: '/api/auth', skipAuthTokenFetchRoutes: [] },
     })
 
     const { getSharedAuthEngine } = await import('../../src/runtime/client/auth-engine')

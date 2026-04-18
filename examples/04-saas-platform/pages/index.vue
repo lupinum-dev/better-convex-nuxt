@@ -427,8 +427,8 @@ import { saasPermissionKeys } from '~/shared/permissions'
 const toast = useToast()
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { can, ready, role, tenantId, ctx } = usePermissions()
-const canAudit = can(saasPermissionKeys.workspaceAudit)
+const { allows, ready, role, tenantId, ctx } = usePermissions()
+const canAudit = allows(saasPermissionKeys.workspaceAudit)
 
 const signUpForm = reactive({
   name: '',
@@ -502,7 +502,7 @@ const displayName = computed(
 const currentWorkspace = computed(() =>
   workspaceOptions.value?.find((w) => w._id === tenantId.value),
 )
-const canCreateProject = can(saasPermissionKeys.projectCreate)
+const canCreateProject = allows(saasPermissionKeys.projectCreate)
 const atProjectLimit = computed(() => ctx.value?.usage?.projects?.remaining === 0)
 const roleOptions = ['admin', 'member', 'viewer'] as const
 const allRoles = ['owner', 'admin', 'member', 'viewer'] as const

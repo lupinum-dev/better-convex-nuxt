@@ -1,11 +1,11 @@
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
 import {
-  isAuthenticatedGuard,
+  isAuthRequiredGuard,
   isGuard,
   isOpenGuard,
   type AnyCheck,
-  type AuthenticatedGuard,
+  type AuthRequiredGuard,
   type Guard,
   type OpenGuard,
 } from '../auth/define-guard.js'
@@ -54,14 +54,14 @@ type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsVa
 export type StructuredGuard<_TPrincipal, TActor> =
   | Guard<NonNullable<TActor>>
   | Guard<TActor | null>
-  | AuthenticatedGuard
+  | AuthRequiredGuard
   | OpenGuard
 
 type PrincipalForGuard<TPrincipal, TGuard> = TGuard extends OpenGuard
   ? TPrincipal
   : AuthenticatedPrincipal<TPrincipal>
 
-type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard | AuthenticatedGuard
+type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard | AuthRequiredGuard
   ? TActor | null
   : NonNullable<TActor>
 
@@ -217,7 +217,7 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
         const actor = await resolveActorAccessor<TCtx, TActor>(ctx)()
         const observe = getObserve(ctx)
 
-        if (isAuthenticatedGuard(definition.guard)) {
+        if (isAuthRequiredGuard(definition.guard)) {
           await observe?.({
             name: isAnonymousPrincipal(principal) ? 'guard.denied' : 'guard.allowed',
             status: isAnonymousPrincipal(principal) ? 'deny' : 'success',

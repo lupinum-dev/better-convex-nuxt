@@ -255,7 +255,7 @@ describe('server auth helpers', () => {
         enabled: true,
         route: '/api/auth',
         trustedOrigins: [],
-        skipAuthRoutes: [],
+        skipAuthTokenFetchRoutes: [],
         cache: {
           enabled: false,
           ttl: 60,

@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 definePageMeta({
-  skipConvexAuth: true,
+  skipAuthTokenFetch: true,
 })
 </script>
 

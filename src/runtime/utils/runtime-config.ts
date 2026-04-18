@@ -16,7 +16,7 @@ export interface ConvexRuntimeQueryDefaults {
 export interface NormalizedConvexAuthConfig extends ConvexAuthConfig {
   route: string
   trustedOrigins: string[]
-  skipAuthRoutes: string[]
+  skipAuthTokenFetchRoutes: string[]
   cache: { enabled: boolean; ttl: number }
   proxy: { maxRequestBodyBytes: number; maxResponseBodyBytes: number }
 }
@@ -94,8 +94,8 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       trustedOrigins: Array.isArray(authRaw?.trustedOrigins)
         ? authRaw.trustedOrigins.filter((v: unknown): v is string => typeof v === 'string')
         : [],
-      skipAuthRoutes: Array.isArray(authRaw?.skipAuthRoutes)
-        ? authRaw.skipAuthRoutes.filter((v: unknown): v is string => typeof v === 'string')
+      skipAuthTokenFetchRoutes: Array.isArray(authRaw?.skipAuthTokenFetchRoutes)
+        ? authRaw.skipAuthTokenFetchRoutes.filter((v: unknown): v is string => typeof v === 'string')
         : [],
       cache: {
         enabled: cacheRaw?.enabled === true,

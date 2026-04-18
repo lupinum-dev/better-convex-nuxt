@@ -204,7 +204,7 @@ export function initAuthClient(
       return buildUnauthenticatedResult('skip')
     }
 
-    if (route?.meta?.skipConvexAuth === true) {
+    if (route?.meta?.skipAuthTokenFetch === true) {
       logger.auth({
         phase: 'client-fetchToken:skip',
         outcome: 'skip',

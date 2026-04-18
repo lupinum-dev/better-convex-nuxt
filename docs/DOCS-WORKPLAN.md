@@ -28,7 +28,7 @@ Internal checklist for the reading-experience refactor.
 
 ## Sample Contract Audit
 
-- [x] Homepage permissions snippet uses `usePermissions().can(key)` instead of a demo-style resource arg
+- [x] Homepage permissions snippet uses `usePermissions().allows(key)` instead of a demo-style resource arg
 - [x] Examples page states `examples/` is the canonical public example set
 - [x] `examples-next/` is labeled as future-direction pressure, not public source of truth
 - [x] Docs check fails on known demo-only public-docs patterns

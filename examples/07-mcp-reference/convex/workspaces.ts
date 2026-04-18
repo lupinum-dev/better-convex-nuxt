@@ -1,4 +1,4 @@
-import { authenticated, definePermissionContext, open } from '@lupinum/trellis/auth'
+import { authRequired, definePermissionContext, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { mcpReferencePermissionKeys, type McpReferencePermissionMap } from '../shared/permissions'
@@ -46,7 +46,7 @@ export const getPermissionContext = query(
 )
 
 export const createWorkspace = mutation({
-  guard: authenticated,
+  guard: authRequired,
   args: {
     name: v.string(),
     slug: v.string(),
@@ -125,7 +125,7 @@ export const createWorkspace = mutation({
 })
 
 export const joinWorkspace = mutation({
-  guard: authenticated,
+  guard: authRequired,
   args: {
     slug: v.string(),
     role: joinRoleValidator,
