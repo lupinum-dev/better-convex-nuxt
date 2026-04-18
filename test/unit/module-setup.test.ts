@@ -28,7 +28,7 @@ describe('module-setup', () => {
       {
         url: 'https://demo.convex.cloud',
         auth: true,
-        permissions: 'workspaces.getPermissionContext',
+        permissions: 'permissions.context.getPermissionContext',
         upload: { maxConcurrent: 7 },
       },
       {},
@@ -42,7 +42,7 @@ describe('module-setup', () => {
       {
         url: 'https://demo.convex.cloud',
         auth: true,
-        permissions: 'workspaces.getPermissionContext',
+        permissions: 'permissions.context.getPermissionContext',
         upload: { maxConcurrent: 7 },
       },
       {
@@ -58,7 +58,7 @@ describe('module-setup', () => {
       existingKey: 'keep-me',
       siteUrl: 'https://demo.convex.site',
       permissions: {
-        query: 'workspaces.getPermissionContext',
+        query: 'permissions.context.getPermissionContext',
       },
       upload: {
         maxConcurrent: 7,

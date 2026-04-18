@@ -251,6 +251,100 @@ export async function getActor(ctx: any) {
     expect(report.summary.warn).toBeGreaterThan(0)
   })
 
+  it('fails when permission composables are used without a configured permissions query', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-doctor-missing-permissions-query-'))
+    mkdirSync(resolve(cwd, 'pages'), { recursive: true })
+    writeFileSync(
+      resolve(cwd, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          nuxt: '^4.0.0',
+          convex: '^1.0.0',
+          '@lupinum/trellis': '^3.0.0',
+        },
+      }),
+    )
+    writeFileSync(
+      resolve(cwd, 'nuxt.config.ts'),
+      "export default defineNuxtConfig({ modules: ['@lupinum/trellis'] })\n",
+    )
+    writeFileSync(
+      resolve(cwd, 'pages/index.vue'),
+      `
+<script setup lang="ts">
+const { allows } = usePermissions()
+</script>
+      `.trim(),
+    )
+
+    const result = runCli(['doctor', '--json'], cwd)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string }>
+      summary: { fail: number; warn: number }
+    }
+    const finding = report.findings.find((entry) => entry.id === 'permissions-query-configured')
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(finding?.status).toBe('fail')
+    expect(report.summary.fail).toBeGreaterThan(0)
+  })
+
+  it('fails when a configured permissions query does not resolve to a real export', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-doctor-invalid-permissions-query-'))
+    mkdirSync(resolve(cwd, 'convex'), { recursive: true })
+    writeFileSync(
+      resolve(cwd, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          nuxt: '^4.0.0',
+          convex: '^1.0.0',
+          '@lupinum/trellis': '^3.0.0',
+        },
+      }),
+    )
+    writeFileSync(
+      resolve(cwd, 'nuxt.config.ts'),
+      `
+export default defineNuxtConfig({
+  modules: ['@lupinum/trellis'],
+  trellis: {
+    permissions: 'permissions.context.getPermissionContext',
+  },
+})
+      `.trim(),
+    )
+    writeFileSync(
+      resolve(cwd, 'convex/functions.ts'),
+      `
+import { defineTrellis } from '@lupinum/trellis/functions'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
+
+export const { mutation, query } = defineTrellis({
+  query: generatedQuery,
+  mutation: generatedMutation,
+})
+      `.trim(),
+    )
+    writeFileSync(
+      resolve(cwd, 'convex/permissions.ts'),
+      `
+import { query } from './functions'
+export const somethingElse = query({ args: {}, handler: async () => null })
+      `.trim(),
+    )
+
+    const result = runCli(['doctor', '--json'], cwd)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string }>
+      summary: { fail: number; warn: number }
+    }
+    const finding = report.findings.find((entry) => entry.id === 'permissions-query-configured')
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(finding?.status).toBe('fail')
+    expect(report.summary.fail).toBeGreaterThan(0)
+  })
+
   it('returns stable ANSI-free JSON output', () => {
     const result = runCli(['doctor', '--json'], resolve(repoRoot, 'test/fixtures/doctor-valid'))
 

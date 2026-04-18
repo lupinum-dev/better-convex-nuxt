@@ -325,3 +325,23 @@ export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
     ),
   )
 }
+
+export function usesPermissionSurfaces(project: ProjectInspection): boolean {
+  return project.sourceFiles.some((file) =>
+    /\busePermissions\s*\(|\buseAuthGuard\s*\(/.test(file.text),
+  )
+}
+
+export function findConfiguredPermissionQueryPath(
+  project: ProjectInspection,
+): string | undefined {
+  const objectMatch = project.nuxtConfigText.match(
+    /permissions\s*:\s*\{[\s\S]*?\bquery\s*:\s*['"]([^'"]+)['"]/,
+  )
+  if (objectMatch?.[1]) return objectMatch[1]
+
+  const shorthandMatch = project.nuxtConfigText.match(/permissions\s*:\s*['"]([^'"]+)['"]/)
+  if (shorthandMatch?.[1]) return shorthandMatch[1]
+
+  return undefined
+}

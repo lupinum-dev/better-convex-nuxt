@@ -12,6 +12,7 @@ import {
   findEnvKeySource,
   findConvexHttpSource,
   findConvexAuthSource,
+  findConfiguredPermissionQueryPath,
   hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
@@ -19,8 +20,10 @@ import {
   inspectProject,
   isAuthExplicitlyDisabled,
   usesSyncedUsersTable,
+  usesPermissionSurfaces,
   usesTrustedCallerSurfaces,
 } from '../lib/project.js'
+import { resolvePermissionQuerySetup } from '../../module-internals/setup.js'
 
 function createDoctorFindings(cwd: string): DoctorFinding[] {
   const project = inspectProject(cwd)
@@ -41,6 +44,17 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
   const trustedCallerExpected = usesTrustedCallerSurfaces(project)
   const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_CALLER_KEY'])
+  const usesPermissions = usesPermissionSurfaces(project)
+  const configuredPermissionQueryPath = findConfiguredPermissionQueryPath(project)
+  let permissionQueryResolutionError: Error | null = null
+
+  if (configuredPermissionQueryPath) {
+    try {
+      resolvePermissionQuerySetup(cwd, configuredPermissionQueryPath)
+    } catch (error) {
+      permissionQueryResolutionError = error instanceof Error ? error : new Error(String(error))
+    }
+  }
 
   return [
     {
@@ -199,6 +213,33 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         !authExpected || !expectsSyncedUsers
           ? 'No action needed unless this app resolves actors from a synced users table later.'
           : 'Export `onCreate`, `onUpdate`, and `onDelete` from `authComponent.triggersApi()` in convex/auth.ts so Better Auth keeps the users table in sync.',
+    },
+    {
+      id: 'permissions-query-configured',
+      category: 'core',
+      title: 'Permissions query wiring',
+      status:
+        usesPermissions && !configuredPermissionQueryPath
+          ? 'fail'
+          : permissionQueryResolutionError
+            ? 'fail'
+            : 'pass',
+      message:
+        usesPermissions && !configuredPermissionQueryPath
+          ? 'Permission composables were detected in app code, but trellis.permissions.query is not configured in nuxt.config.'
+          : permissionQueryResolutionError
+            ? permissionQueryResolutionError.message
+            : configuredPermissionQueryPath
+              ? `Configured permissions query resolves: ${configuredPermissionQueryPath}.`
+              : 'No permission-context query is configured, and no permission composables were detected.',
+      fixHint:
+        usesPermissions && !configuredPermissionQueryPath
+          ? 'Set trellis.permissions to your backend permission-context query, for example `permissions.context.getPermissionContext`.'
+          : permissionQueryResolutionError
+            ? 'Point trellis.permissions.query at a real exported Convex query, or generate the paved path with `trellis init permissions --model ...`.'
+            : configuredPermissionQueryPath
+              ? 'Keep trellis.permissions.query aligned with the exported backend permission-context query.'
+              : 'No action needed unless you add usePermissions() or useAuthGuard() later.',
     },
     {
       id: 'trusted-caller-key-configured',

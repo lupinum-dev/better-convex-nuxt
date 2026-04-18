@@ -73,8 +73,8 @@ The highest-level truth is:
   Current evidence: [src/runtime/functions/define-operation.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/functions/define-operation.ts), [src/runtime/functions/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/functions/index.ts)
 - [x] MCP tools can project the same backend action model.
   Current evidence: [src/runtime/mcp](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp), [examples/07-mcp-reference](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference)
-- [ ] The runtime model is simple enough that a basic app does not need to absorb too much vocabulary on day 1.
-  Current evidence of gap: [docs/content/docs/02.concepts/2.glossary.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/02.concepts/2.glossary.md)
+- [x] The runtime model is simple enough that a basic app does not need to absorb too much vocabulary on day 1.
+  Current evidence: [docs/content/docs/01.getting-started/1.start-here.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/1.start-here.md), [docs/content/docs/02.concepts/2.glossary.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/02.concepts/2.glossary.md)
 
 ## 3. Identity and Trust Boundaries
 
@@ -100,7 +100,8 @@ The highest-level truth is:
 - [x] Trellis ships app archetype templates as product surfaces, not just examples.
 - [x] Generated starter apps now come out coherent enough that the user does not hand-wire auth, actor, and permission plumbing for the `personal`, `workspace`, and `workspace-mcp` starters.
   Current evidence: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), [test/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/test/unit/cli-doctor.test.ts)
-- [ ] The CLI owns more of the repetitive setup burden than the runtime/docs currently do.
+- [x] The CLI owns more of the repetitive setup burden than the runtime/docs currently do.
+  Current evidence: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), [docs/content/docs/01.getting-started/1.start-here.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/1.start-here.md), [docs/content/docs/01.getting-started/3.first-live-query.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/3.first-live-query.md), [docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md)
 
 ## 5. App Archetypes and Templates
 
@@ -154,16 +155,16 @@ Notes:
   Known mismatch: [src/module.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/module.ts), [docs/content/docs/01.getting-started/2.installation.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/2.installation.md), [docs/content/docs/10.configuration/3.auth-options.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/10.configuration/3.auth-options.md)
 - [x] Server helper auth defaults are described consistently everywhere.
   Known mismatch: [docs/content/docs/07.server-side/2.server-routes.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/07.server-side/2.server-routes.md), [docs/content/docs/13.api-reference/4.server.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/13.api-reference/4.server.md), [src/runtime/server/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/index.ts)
-- [ ] The docs consistently tell the same product story as `SPEC-FINAL.md`.
-- [ ] Advanced concepts are progressively disclosed instead of appearing equally “core” to every app.
+- [x] The docs consistently tell the same product story as `SPEC-FINAL.md`.
+- [x] Advanced concepts are progressively disclosed instead of appearing equally “core” to every app.
 
 ## 10. Failure Modes and Safety
 
 - [x] Trellis already has real safety guarantees around tenant isolation and destructive MCP execution.
 - [x] Observability exists around trust-boundary events.
   Current evidence: [docs/content/docs/09.observability](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/09.observability)
-- [ ] Partial setup failures are turned into loud product errors more consistently.
-  Examples: missing actor bootstrap wiring, missing sync triggers, misused forwarded principal paths
+- [x] Partial setup failures are turned into loud product errors more consistently.
+  Current evidence: missing actor bootstrap wiring, missing sync triggers, invalid `trellis.permissions.query`, and misused forwarded principal paths now fail loudly or are surfaced explicitly by [src/runtime/auth/define-actor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/auth/define-actor.ts), [src/runtime/server/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/index.ts), and [src/cli/commands/doctor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/doctor.ts)
 - [x] The runtime avoids leaking internal transport metadata into user-level validated args.
   Current evidence of gap: server mutation/action observation envelope behavior in [src/runtime/server/utils/convex.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/utils/convex.ts)
 
@@ -230,6 +231,9 @@ These are the highest-value unchecked items right now.
 - [x] Hard-cut forwarded principal handling so the request-scoped server caller only allows `principal` on `auth: 'trusted'` calls with `actor`, and the generated workspace/MCP starters now enforce the same trusted-path rule.
 - [x] Hard-cut the generated starter layout so auth lives in `convex/auth/`, feature modules in `convex/domain/`, permission projection in `convex/permissions/`, and workflow actions in `convex/operations/`.
 - [x] Updated the canonical app layout docs and package metadata to match the app-platform story instead of the older generic integration pitch.
+- [x] Added CLI-first guidance to the onboarding guides so the paved generated path is treated as the default product surface, while older flat example layouts are explicitly framed as learning references.
+- [x] Made `trellis doctor` fail when permission composables are used without a configured backend permission-context query, or when `trellis.permissions.query` points at a missing Convex export.
+- [x] Removed the CLI/module-setup type dependency on Nuxt runtime aliases so CLI verification no longer depends on `#imports` types.
 
 ## 13. Done Means
 

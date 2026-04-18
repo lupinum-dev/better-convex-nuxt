@@ -10,7 +10,6 @@ import {
   resolveConvexSiteUrl,
 } from '../runtime/utils/convex-config.js'
 import { normalizeObservabilityConfig } from '../runtime/utils/observability.js'
-import type { NormalizedConvexRuntimeConfig } from '../runtime/utils/runtime-config.js'
 import type { AuthOptions, ModuleOptions } from './options.js'
 import {
   createConfiguredFunctionError,
@@ -20,6 +19,22 @@ import {
 } from './options.js'
 
 type RuntimePublicConvexConfig = Record<string, unknown>
+
+interface ModuleRuntimeConfig {
+  url?: string
+  siteUrl?: string
+  auth: ReturnType<typeof normalizeConvexAuthConfig> & {
+    route: string
+    trustedOrigins: string[]
+    skipAuthTokenFetchRoutes: string[]
+    cache: { enabled: boolean; ttl: number }
+    proxy: { maxRequestBodyBytes: number; maxResponseBodyBytes: number }
+  }
+  permissions: { query: string | null }
+  query: { server: boolean; subscribe: boolean }
+  upload: { maxConcurrent: number }
+  observability: ReturnType<typeof normalizeObservabilityConfig>
+}
 
 export interface ModuleEnv {
   NUXT_PUBLIC_CONVEX_URL?: string
@@ -116,7 +131,7 @@ export function buildPublicConvexRuntimeConfig(
   options: ModuleOptions,
   existing: RuntimePublicConvexConfig | undefined,
   setup: ModuleSetupState,
-): NormalizedConvexRuntimeConfig & RuntimePublicConvexConfig {
+): ModuleRuntimeConfig & RuntimePublicConvexConfig {
   validateModuleObservabilityConfig(options)
   return defu(existing, {
     url: options.url || '',
