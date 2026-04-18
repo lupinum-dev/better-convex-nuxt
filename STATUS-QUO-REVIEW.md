@@ -219,6 +219,8 @@ These are the highest-value unchecked items right now.
 - [x] Extended component-bridge manifests to manage host-owned file edits in addition to generated bridge files.
 - [x] Moved `ginko-cms` off manual Convex component registration checks and onto a manifest-managed `convex/convex.config.ts` block validated through the same bridge contract.
 - [x] Hard-cut the top-level docs away from the old “generic connective layer” pitch and aligned `README`, `start-here`, and `installation` with the app-platform story in `SPEC-FINAL.md`.
+- [x] Simplified the day-1 onboarding guides so `start-here`, `first-live-query`, and `build-a-signed-in-todo-app` explain the public and personal lanes in app terms first, deferring heavier Trellis vocabulary to the concepts section.
+- [x] Updated the concepts page to point at `SPEC-FINAL.md` instead of the superseded `SPEC.vNext.md`.
 
 ## 13. Done Means
 
