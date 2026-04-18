@@ -58,8 +58,8 @@ The highest-level truth is:
   Current evidence: [README.md](/Users/matthias/Git/0_libs/WORK/trellis/README.md), [package.json](/Users/matthias/Git/0_libs/WORK/trellis/package.json)
 - [x] The repo already behaves more like an application framework than a narrow utility library.
   Current evidence: `src/runtime`, `src/cli`, `docs`, `examples`, `examples-next`
-- [ ] Top-level docs consistently frame Trellis as an internal app platform for repeated apps, not as a generic “progressive layer” for all audiences.
-  Current evidence of mismatch: [README.md](/Users/matthias/Git/0_libs/WORK/trellis/README.md), [docs/content/docs/01.getting-started/1.start-here.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/1.start-here.md)
+- [x] Top-level docs consistently frame Trellis as an internal app platform for repeated apps, not as a generic “progressive layer” for all audiences.
+  Current evidence: [README.md](/Users/matthias/Git/0_libs/WORK/trellis/README.md), [docs/content/docs/01.getting-started/1.start-here.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/1.start-here.md), [docs/content/docs/01.getting-started/2.installation.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/2.installation.md)
 
 ## 2. Core Runtime Model
 
@@ -97,7 +97,7 @@ The highest-level truth is:
   Current evidence: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts)
 - [x] Trellis has a real app bootstrap flow via `trellis init app --template=<starter>`.
   Current evidence: [src/cli/commands/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/init.ts), [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), [test/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/test/unit/cli-doctor.test.ts)
-- [ ] Trellis ships app archetype templates as product surfaces, not just examples.
+- [x] Trellis ships app archetype templates as product surfaces, not just examples.
 - [x] Generated starter apps now come out coherent enough that the user does not hand-wire auth, actor, and permission plumbing for the `personal`, `workspace`, and `workspace-mcp` starters.
   Current evidence: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), [test/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/test/unit/cli-doctor.test.ts)
 - [ ] The CLI owns more of the repetitive setup burden than the runtime/docs currently do.
@@ -218,6 +218,7 @@ These are the highest-value unchecked items right now.
 - [x] Updated the onboarding docs so `cms` is treated as a real lane, not only as a future candidate in `examples-next`.
 - [x] Extended component-bridge manifests to manage host-owned file edits in addition to generated bridge files.
 - [x] Moved `ginko-cms` off manual Convex component registration checks and onto a manifest-managed `convex/convex.config.ts` block validated through the same bridge contract.
+- [x] Hard-cut the top-level docs away from the old “generic connective layer” pitch and aligned `README`, `start-here`, and `installation` with the app-platform story in `SPEC-FINAL.md`.
 
 ## 13. Done Means
 

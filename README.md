@@ -1,13 +1,15 @@
 # Trellis
 
-Trellis is the Nuxt module for Convex apps that want one app-owned business layer across browser, server, and agent callers.
+Trellis is an opinionated app platform for building repeated `Nuxt + Convex + Better Auth + MCP` apps on one shared backend model.
 
-It combines four concerns that usually drift apart:
+It is for teams that want to ship many apps on the same stack without re-solving the same wiring every time:
 
 - Nuxt SSR and client composables
 - Convex queries, mutations, actions, and protected handlers
 - Better Auth integration and actor resolution
 - MCP projection over the same backend model
+
+Trellis is not trying to be neutral or minimal. It is the strong-default path for apps that want app-owned auth, tenancy, permissions, operations, and agent support without rebuilding that architecture per project.
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
@@ -26,9 +28,9 @@ It combines four concerns that usually drift apart:
 - Nuxt composables for SSR, live queries, optimistic updates, uploads, and auth state.
 - A structured operation model for preview and confirm flows around destructive work.
 - Semantic observability for Trellis decisions with correlation and evlog delivery.
-- Installers and a CLI for common setup checks and scaffolding.
+- Installers and a CLI for setup checks, app scaffolding, and repeated app conventions.
 
-## Smallest Useful Setup
+## First Success
 
 Requires **Nuxt 4** and **Node 18+**.
 
@@ -65,7 +67,17 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
 </template>
 ```
 
-That is the narrow on-ramp: install the module, point it at Convex, and render one query. Add auth, permissions, or MCP only when the app actually needs them.
+That is the first visible win: install the module, point it at Convex, and render one query. From there, Trellis scales into app-owned auth, permissions, operations, and MCP without changing the basic shape of the app.
+
+## Product Surfaces
+
+Trellis has three distinct surfaces. They are not interchangeable:
+
+- `trellis init app --template personal|workspace|workspace-mcp|cms` are the official starters.
+- [`examples`](./examples/README.md) are runnable learning and reference apps.
+- [`examples-next`](./examples-next/README.md) is the pressure suite for future archetypes, not the default public source of truth.
+
+The product is the starter-plus-runtime path. Examples support that path; they do not replace it.
 
 ## Example Ladder
 
@@ -83,11 +95,12 @@ Use these when you need deeper reference:
 
 ## Templates vs Examples
 
-Trellis now has three different surfaces. They are not the same thing.
+The current official starters are:
 
-- `trellis init app --template personal|workspace|workspace-mcp|cms` are the current official starters.
-- [`examples`](./examples/README.md) are runnable learning and reference apps.
-- [`examples-next`](./examples-next/README.md) is the pressure suite for future archetypes, not a promise that those shapes are productized yet.
+- `personal`
+- `workspace`
+- `workspace-mcp`
+- `cms`
 
 Promotion path:
 
@@ -116,7 +129,7 @@ npx trellis init permissions --model workspace
 npx trellis init mcp
 ```
 
-`init app` bootstraps a coherent starter inside the current app root. The feature-level `init auth`, `init permissions`, and `init mcp` commands still exist when you want to add a slice onto an already-shaped app.
+`init app` is the primary entrypoint. It bootstraps a coherent starter inside the current app root. The feature-level `init auth`, `init permissions`, and `init mcp` commands still exist when you need to add a slice onto an already-shaped app.
 
 The generated files are plain app code. Edit them directly.
 
