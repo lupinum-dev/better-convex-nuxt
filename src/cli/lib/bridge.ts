@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import {
   renderComponentBridgeFile,
   renderComponentBridgeFiles,
+  renderComponentBridgeManagedEdits,
   type ComponentBridgeManifest,
 } from '../../runtime/functions/component-bridge-manifest.js'
 
@@ -72,6 +73,7 @@ export async function writeBridgeFiles(options: {
   force: boolean
 }) {
   const renderedFiles = await renderComponentBridgeFiles(options.manifest)
+  const managedEdits = await renderComponentBridgeManagedEdits(options.manifest)
   const written: string[] = []
   const skipped: string[] = []
 
@@ -106,6 +108,29 @@ export async function writeBridgeFiles(options: {
     await mkdir(dirname(target), { recursive: true })
     await writeFile(target, content, 'utf8')
     written.push(file.relativePath)
+  }
+
+  for (const edit of managedEdits) {
+    const target = resolve(options.cwd, edit.relativePath)
+
+    let existing: string | null = null
+    try {
+      existing = await readFile(target, 'utf8')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error
+      }
+    }
+
+    const content = edit.apply(existing)
+    if (existing === content) {
+      skipped.push(edit.relativePath)
+      continue
+    }
+
+    await mkdir(dirname(target), { recursive: true })
+    await writeFile(target, content, 'utf8')
+    written.push(edit.relativePath)
   }
 
   return { written, skipped }

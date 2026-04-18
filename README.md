@@ -85,7 +85,7 @@ Use these when you need deeper reference:
 
 Trellis now has three different surfaces. They are not the same thing.
 
-- `trellis init app --template personal|workspace|workspace-mcp` are the current official starters.
+- `trellis init app --template personal|workspace|workspace-mcp|cms` are the current official starters.
 - [`examples`](./examples/README.md) are runnable learning and reference apps.
 - [`examples-next`](./examples-next/README.md) is the pressure suite for future archetypes, not a promise that those shapes are productized yet.
 
@@ -98,7 +98,6 @@ Promotion path:
 
 Current promotion candidates are:
 
-- `cms`
 - `support-inbox`
 - `agent-console`
 
@@ -111,6 +110,7 @@ npx trellis doctor
 npx trellis init app --template personal
 npx trellis init app --template workspace
 npx trellis init app --template workspace-mcp
+npx trellis init app --template cms
 npx trellis init auth
 npx trellis init permissions --model workspace
 npx trellis init mcp

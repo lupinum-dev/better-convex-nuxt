@@ -332,6 +332,25 @@ export async function getActor(ctx: any) {
     expect(keys).toContain('export const validate = query')
   })
 
+  it('initializes a cms starter app', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-init-app-cms-'))
+    const result = runCli(['init', 'app', '--template', 'cms', '--cwd', cwd], repoRoot)
+    const schema = readFileSync(resolve(cwd, 'convex/schema.ts'), 'utf8')
+    const pages = readFileSync(resolve(cwd, 'convex/pages.ts'), 'utf8')
+    const users = readFileSync(resolve(cwd, 'convex/users.ts'), 'utf8')
+    const studio = readFileSync(resolve(cwd, 'pages/studio.vue'), 'utf8')
+    const slugPage = readFileSync(resolve(cwd, 'pages/[slug].vue'), 'utf8')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(schema).toContain("pages: defineTable")
+    expect(schema).toContain("index('by_slug'")
+    expect(pages).toContain('defineOperation')
+    expect(pages).toContain('previewPublish = query(previewOf(publishPageOp))')
+    expect(users).toContain("'page.publish': isAuthenticated")
+    expect(studio).toContain('Publish preview')
+    expect(slugPage).toContain('api.pages.getPublished')
+  })
+
   it('initializes the personal permissions files', () => {
     const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-init-personal-permissions-'))
     const result = runCli(['init', 'permissions', '--model', 'personal', '--cwd', cwd], repoRoot)
@@ -425,11 +444,15 @@ export async function getActor(ctx: any) {
     const result = runCli(['bridge', 'generate', packagePath, '--cwd', cwd], repoRoot)
     const auth = readFileSync(resolve(cwd, 'convex/auth.ts'), 'utf8')
     const principal = readFileSync(resolve(cwd, 'convex/ginkoCms/_principal.ts'), 'utf8')
+    const convexConfig = readFileSync(resolve(cwd, 'convex/convex.config.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(auth).toContain('@trellis-bridge-package: @lupinum/ginko-cms')
     expect(auth).toContain('defineGinkoAuth')
     expect(principal).toContain('createCmsComponentBridge')
+    expect(convexConfig).toContain("import ginkoCms from '@lupinum/ginko-cms/convex/config'")
+    expect(convexConfig).toContain('// @trellis-managed-start: @lupinum/ginko-cms convex-component')
+    expect(convexConfig).toContain('app.use(ginkoCms)')
   })
 
   it('generates bridge files from a direct manifest path', () => {
@@ -438,9 +461,41 @@ export async function getActor(ctx: any) {
     mkdirSync(resolve(cwd, 'convex'), { recursive: true })
     const result = runCli(['bridge', 'generate', manifestPath, '--cwd', cwd], repoRoot)
     const auth = readFileSync(resolve(cwd, 'convex/auth.ts'), 'utf8')
+    const convexConfig = readFileSync(resolve(cwd, 'convex/convex.config.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(auth).toContain('@trellis-bridge-package: @lupinum/ginko-cms')
     expect(auth).toContain('defineGinkoAuth')
+    expect(convexConfig).toContain('app.use(ginkoCms)')
+  })
+
+  it('patches an existing convex config instead of replacing the host file', () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), 'bcn-bridge-managed-config-'))
+    const packagePath = resolve(repoRoot, '../ginko-cms')
+    mkdirSync(resolve(cwd, 'convex'), { recursive: true })
+    writeFileSync(
+      resolve(cwd, 'convex/convex.config.ts'),
+      [
+        "import betterAuth from '@convex-dev/better-auth/convex.config'",
+        "import { defineApp } from 'convex/server'",
+        '',
+        'const app = defineApp()',
+        '',
+        "app.use(betterAuth, { name: 'betterAuth' })",
+        '',
+        '// host-owned comment',
+        'export default app',
+        '',
+      ].join('\n'),
+    )
+
+    const result = runCli(['bridge', 'generate', packagePath, '--cwd', cwd], repoRoot)
+    const convexConfig = readFileSync(resolve(cwd, 'convex/convex.config.ts'), 'utf8')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(convexConfig).toContain('// host-owned comment')
+    expect(convexConfig).toContain("import ginkoCms from '@lupinum/ginko-cms/convex/config'")
+    expect(convexConfig).toContain('// @trellis-managed-start: @lupinum/ginko-cms convex-component')
+    expect(convexConfig).toContain('app.use(ginkoCms)')
   })
 })

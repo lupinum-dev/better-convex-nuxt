@@ -22,7 +22,7 @@ This is the working gap tracker.
 - [x] P1.3 Make actor bootstrap and missing sync wiring fail loudly.
 - [x] P1.4 Resolve the biggest naming traps.
 - [x] P1.5 Document one canonical Trellis app layout.
-- [ ] P2.1 Put a real Trellis-built CMS on the critical path and feed back the paper cuts.
+- [x] P2.1 Put a real Trellis-built CMS on the critical path and feed back the paper cuts.
 
 ---
 
@@ -44,7 +44,7 @@ Current Trellis is still weak on:
 - template/archetype productization
 - docs consistency
 - some API naming and footguns
-- loud failure modes for partial setup
+- broader cross-app consistency after the first archetypes
 
 The highest-level truth is:
 
@@ -111,7 +111,8 @@ The highest-level truth is:
 - [ ] `personal`, `workspace`, `cms`, `support-inbox`, `admin-console`, and `agent-console` exist as official CLI archetypes.
 - [x] The repo clearly distinguishes “examples for learning” from “templates for shipping”.
   Current evidence: [README.md](/Users/matthias/Git/0_libs/WORK/trellis/README.md), [examples/README.md](/Users/matthias/Git/0_libs/WORK/trellis/examples/README.md), [examples-next/README.md](/Users/matthias/Git/0_libs/WORK/trellis/examples-next/README.md)
-- [ ] A CMS archetype exists as a first-class Trellis product lane rather than a scattered combination of examples.
+- [x] A CMS archetype exists as a first-class Trellis product lane rather than a scattered combination of examples.
+  Current evidence: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), [docs/content/docs/01.getting-started/5.canonical-app-layout.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/5.canonical-app-layout.md)
 
 ## 6. Canonical App Shape
 
@@ -168,14 +169,17 @@ Notes:
 
 ## 11. Real App Pressure
 
-- [ ] A real Trellis-built app is treated as the load-bearing truth test for product ergonomics.
-- [ ] `ginko-cms` or an equivalent CMS app is used to drive Trellis design decisions.
-- [ ] Repeated pain from real app construction is fed back into templates, CLI, and runtime cleanup.
+- [x] A real Trellis-built app is treated as the load-bearing truth test for product ergonomics.
+- [x] `ginko-cms` or an equivalent CMS app is used to drive Trellis design decisions.
+- [x] Repeated pain from real app construction is fed back into templates, CLI, and runtime cleanup.
 
 Current concrete findings from `ginko-cms`:
 
 - The sharpest integration seam is the Convex host boundary. `ginko-cms` currently depends on generated bridge files plus manually owned `convex/convex.config.ts`, `convex/auth.ts`, and `convex/http.ts`, which is brittle and easy to break during upgrades.
-- The highest-value Trellis response is not more generic plumbing. It is productizing a first-class `cms` starter and making Nuxt module bridge installation declarative so Trellis owns the host parity checks instead of each consumer.
+- The highest-value Trellis response was not more generic plumbing. It was productizing a first-class `cms` starter and making Nuxt module bridge installation declarative so Trellis owns the host parity checks instead of each consumer.
+- Both halves of that response now exist:
+  - Trellis has an official `cms` starter.
+  - `bridge generate` now supports manifest-managed edits for host-owned files, and `ginko-cms` uses that contract for `convex/convex.config.ts`.
 
 This is important enough to state plainly:
 
@@ -192,7 +196,7 @@ These are the highest-value unchecked items right now.
 - [x] Make actor bootstrap and missing user-sync wiring fail loudly.
 - [x] Resolve the biggest API naming traps.
 - [x] Document one canonical Trellis app layout.
-- [ ] Pick `ginko-cms` as the first load-bearing app and feed the paper cuts back into Trellis.
+- [x] Pick `ginko-cms` as the first load-bearing app and feed the paper cuts back into Trellis.
 
 ## 14. Recent Completions
 
@@ -210,6 +214,10 @@ These are the highest-value unchecked items right now.
 - [x] Taught configured permission queries to wait for `auth:createUserIfNeeded` when bootstrap is configured, so auth-ready apps do not trip the new loud actor contract during initial sign-in.
 - [x] Defined the current official starters versus learning examples versus future archetype candidates, including a template graduation path.
 - [x] Hard-cut the biggest naming traps: frontend permission projection now uses `allows(...)`, the pre-actor auth gate is `authRequired`, and auth token fetch skip controls now use `skipAuthTokenFetch...`.
+- [x] Added an official `cms` starter to `trellis init app`, covering public published-page reads plus a signed-in studio with draft/save/publish flow.
+- [x] Updated the onboarding docs so `cms` is treated as a real lane, not only as a future candidate in `examples-next`.
+- [x] Extended component-bridge manifests to manage host-owned file edits in addition to generated bridge files.
+- [x] Moved `ginko-cms` off manual Convex component registration checks and onto a manifest-managed `convex/convex.config.ts` block validated through the same bridge contract.
 
 ## 13. Done Means
 

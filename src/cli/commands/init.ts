@@ -36,7 +36,7 @@ export const initCommand = defineCommand({
     },
     template: {
       type: 'string',
-      description: 'App template. One of: personal, workspace, workspace-mcp',
+      description: 'App template. One of: personal, workspace, workspace-mcp, cms',
     },
     cwd: {
       type: 'string',
@@ -62,7 +62,9 @@ export const initCommand = defineCommand({
     const templateSet = getInitTemplateSet(
       target,
       target === 'app'
-        ? (args.template ? (String(args.template) as 'personal' | 'workspace' | 'workspace-mcp') : undefined)
+        ? (args.template
+            ? (String(args.template) as 'personal' | 'workspace' | 'workspace-mcp' | 'cms')
+            : undefined)
         : args.model
           ? (String(args.model) as 'personal' | 'workspace' | 'workspace-mcp')
           : undefined,

@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path'
 
 export type InitTarget = 'auth' | 'permissions' | 'mcp' | 'app'
 export type PermissionModel = 'personal' | 'workspace' | 'workspace-mcp'
-export type AppTemplate = 'personal' | 'workspace' | 'workspace-mcp'
+export type AppTemplate = 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
 
 export interface TemplateFile {
   path: string
@@ -983,6 +983,590 @@ async function handleCreateTodo() {
 `.trimStart()
 }
 
+function sharedPageSchemaTemplate() {
+  return `
+import { defineArgs } from '@lupinum/trellis/args'
+import { v } from 'convex/values'
+
+export const pageStatusValidator = v.union(v.literal('draft'), v.literal('published'))
+
+export const publishedPageValidator = v.object({
+  _id: v.id('pages'),
+  slug: v.string(),
+  title: v.string(),
+  body: v.string(),
+  status: pageStatusValidator,
+  authorId: v.string(),
+  updatedAt: v.number(),
+  publishedAt: v.union(v.number(), v.null()),
+})
+
+export const studioPageValidator = v.object({
+  _id: v.id('pages'),
+  slug: v.string(),
+  title: v.string(),
+  draftBody: v.string(),
+  publishedBody: v.string(),
+  status: pageStatusValidator,
+  authorId: v.string(),
+  updatedAt: v.number(),
+  publishedAt: v.union(v.number(), v.null()),
+})
+
+export const publishPreviewValidator = v.object({
+  summary: v.string(),
+  warn: v.optional(v.string()),
+  affects: v.optional(
+    v.object({
+      pages: v.number(),
+    }),
+  ),
+})
+
+export const listPublishedPages = defineArgs({
+  description: 'List published pages for the public site',
+  args: {},
+})
+
+export const getPublishedPage = defineArgs({
+  description: 'Read one published page by slug',
+  args: {
+    slug: v.string(),
+  },
+})
+
+export const listStudioPages = defineArgs({
+  description: 'List pages visible in the signed-in studio',
+  args: {},
+})
+
+export const createPage = defineArgs({
+  description: 'Create a new page draft',
+  args: {
+    slug: v.string(),
+    title: v.string(),
+    draftBody: v.optional(v.string()),
+  },
+})
+
+export const saveDraft = defineArgs({
+  description: 'Save a page draft',
+  args: {
+    id: v.id('pages'),
+    slug: v.string(),
+    title: v.string(),
+    draftBody: v.string(),
+  },
+})
+
+export const publishPage = defineArgs({
+  description: 'Publish a page draft',
+  args: {
+    id: v.id('pages'),
+  },
+})
+`.trimStart()
+}
+
+function cmsChecksTemplate() {
+  return `
+import { defineGuard } from '@lupinum/trellis/auth'
+
+import type { Actor } from './actor'
+
+export const isAuthenticated = defineGuard<Actor>('authenticated', (actor) => actor !== null)
+
+export const hasRole = (...roles: string[]) =>
+  defineGuard<Actor>(\`role:\${roles.join('|')}\`, (actor) =>
+    !!actor && roles.includes(actor.role),
+  )
+
+export const isOwnerOfPage = (page: { authorId: string }) =>
+  defineGuard<Actor>(\`owner:\${page.authorId}\`, (actor) => !!actor && actor.userId === page.authorId)
+
+export const canEditPage = (page: { authorId: string }) =>
+  defineGuard<Actor>(
+    'page.edit',
+    isAuthenticated.and(hasRole('admin').or(isOwnerOfPage(page))),
+  )
+
+export const canPublishPage = (page: { authorId: string }) =>
+  defineGuard<Actor>(
+    'page.publish',
+    isAuthenticated.and(hasRole('admin').or(isOwnerOfPage(page))),
+  )
+`.trimStart()
+}
+
+function cmsPermissionQueryTemplate() {
+  return `
+import { definePermissionContext } from '@lupinum/trellis/auth'
+
+import { getActor } from './auth/actor'
+import { isAuthenticated } from './auth/checks'
+import { query } from './functions'
+
+export const getPermissionContext = query(
+  definePermissionContext({
+    resolve: getActor,
+    guards: {
+      'studio.read': isAuthenticated,
+      'page.create': isAuthenticated,
+      'page.publish': isAuthenticated,
+    },
+  }),
+)
+`.trimStart()
+}
+
+function cmsSchemaTemplate() {
+  return `
+import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+export default defineSchema({
+  users: defineTable({
+    authId: v.string(),
+    email: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    role: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_auth_id', ['authId']),
+
+  pages: defineTable({
+    slug: v.string(),
+    title: v.string(),
+    draftBody: v.string(),
+    publishedBody: v.string(),
+    status: v.union(v.literal('draft'), v.literal('published')),
+    authorId: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    publishedAt: v.optional(v.number()),
+  })
+    .index('by_slug', ['slug'])
+    .index('by_status', ['status'])
+    .index('by_author', ['authorId']),
+})
+`.trimStart()
+}
+
+function cmsPagesTemplate() {
+  return `
+import { open, requireRecord } from '@lupinum/trellis/auth'
+import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { v } from 'convex/values'
+
+import {
+  createPage as createPageSchema,
+  getPublishedPage as getPublishedPageSchema,
+  listPublishedPages as listPublishedPagesSchema,
+  listStudioPages as listStudioPagesSchema,
+  publishPage as publishPageSchema,
+  publishPreviewValidator,
+  publishedPageValidator,
+  saveDraft as saveDraftSchema,
+  studioPageValidator,
+} from '../shared/schemas/page'
+import { canEditPage, canPublishPage, isAuthenticated } from './auth/checks'
+import { mutation, query } from './functions'
+
+export const listPublished = query({
+  args: listPublishedPagesSchema.args,
+  returns: v.array(publishedPageValidator),
+  guard: open,
+  handler: async (ctx) =>
+    await ctx.db
+      .query('pages')
+      .withIndex('by_status', (q) => q.eq('status', 'published'))
+      .order('desc')
+      .collect()
+      .then((pages) =>
+        pages.map((page) => ({
+          _id: page._id,
+          slug: page.slug,
+          title: page.title,
+          body: page.publishedBody,
+          status: page.status,
+          authorId: page.authorId,
+          updatedAt: page.updatedAt,
+          publishedAt: page.publishedAt ?? null,
+        })),
+      ),
+})
+
+export const getPublished = query({
+  args: getPublishedPageSchema.args,
+  returns: v.union(publishedPageValidator, v.null()),
+  guard: open,
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query('pages')
+      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
+      .first()
+
+    if (!page || page.status !== 'published') {
+      return null
+    }
+
+    return {
+      _id: page._id,
+      slug: page.slug,
+      title: page.title,
+      body: page.publishedBody,
+      status: page.status,
+      authorId: page.authorId,
+      updatedAt: page.updatedAt,
+      publishedAt: page.publishedAt ?? null,
+    }
+  },
+})
+
+export const listStudio = query({
+  args: listStudioPagesSchema.args,
+  returns: v.array(studioPageValidator),
+  guard: isAuthenticated,
+  handler: async (ctx) => {
+    const actor = await ctx.actor()
+
+    return await ctx.db
+      .query('pages')
+      .withIndex('by_author', (q) => q.eq('authorId', actor.userId))
+      .order('desc')
+      .collect()
+      .then((pages) =>
+        pages.map((page) => ({
+          _id: page._id,
+          slug: page.slug,
+          title: page.title,
+          draftBody: page.draftBody,
+          publishedBody: page.publishedBody,
+          status: page.status,
+          authorId: page.authorId,
+          updatedAt: page.updatedAt,
+          publishedAt: page.publishedAt ?? null,
+        })),
+      )
+  },
+})
+
+export const create = mutation({
+  args: createPageSchema.args,
+  returns: v.id('pages'),
+  guard: isAuthenticated,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const now = Date.now()
+
+    return await ctx.db.insert('pages', {
+      slug: args.slug,
+      title: args.title,
+      draftBody: args.draftBody ?? '',
+      publishedBody: '',
+      status: 'draft',
+      authorId: actor.userId,
+      createdAt: now,
+      updatedAt: now,
+    })
+  },
+})
+
+export const save = mutation({
+  args: saveDraftSchema.args,
+  returns: v.null(),
+  guard: isAuthenticated,
+  load: async (ctx, args) => {
+    const page = await ctx.db.get(args.id)
+    requireRecord(page, 'Page')
+    return { page }
+  },
+  authorize: {
+    check: (_actor, { page }) => canEditPage(page),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, {
+      slug: args.slug,
+      title: args.title,
+      draftBody: args.draftBody,
+      updatedAt: Date.now(),
+    })
+    return null
+  },
+})
+
+const publishPageOp = defineOperation({
+  name: 'publishPage',
+  args: publishPageSchema.args,
+  returns: v.object({
+    pageId: v.id('pages'),
+    published: v.boolean(),
+  }),
+  previewReturns: v.object({
+    display: publishPreviewValidator,
+    confirm: v.object({
+      targetId: v.id('pages'),
+      slug: v.string(),
+    }),
+  }),
+  guard: isAuthenticated,
+  load: async (ctx, args) => {
+    const page = await ctx.db.get(args.id)
+    requireRecord(page, 'Page')
+    return { page }
+  },
+  authorize: {
+    check: (_actor, { page }) => canPublishPage(page),
+  },
+  preview: async (_ctx, _args, { page }) => ({
+    display: {
+      summary:
+        page.status === 'published'
+          ? \`Republish "\${page.title}" with the current draft.\`
+          : \`Publish "\${page.title}" to the public site.\`,
+      warn: 'Publishing copies the current draft into the public body.',
+      affects: {
+        pages: 1,
+      },
+    },
+    confirm: {
+      targetId: page._id,
+      slug: page.slug,
+    },
+  }),
+  handler: async (ctx, args, { page }) => {
+    const now = Date.now()
+
+    await ctx.db.patch(args.id, {
+      publishedBody: page.draftBody,
+      status: 'published',
+      publishedAt: now,
+      updatedAt: now,
+    })
+
+    return {
+      pageId: args.id,
+      published: true,
+    }
+  },
+})
+
+export const publish = mutation(publishPageOp)
+export const previewPublish = query(previewOf(publishPageOp))
+`.trimStart()
+}
+
+function cmsPublicPageTemplate() {
+  return `
+<script setup lang="ts">
+import { api } from '#trellis/api'
+
+const { data: pages } = await useConvexQuery(api.pages.listPublished, {})
+</script>
+
+<template>
+  <main style="max-width: 760px; margin: 0 auto; padding: 40px 16px; display: grid; gap: 20px;">
+    <header style="display: grid; gap: 8px;">
+      <h1>CMS Starter</h1>
+      <p>Public published pages on the left, signed-in studio at <code>/studio</code>.</p>
+      <NuxtLink to="/studio">Open studio</NuxtLink>
+    </header>
+
+    <ul style="display: grid; gap: 12px; padding-left: 20px;">
+      <li v-for="page in pages ?? []" :key="page._id">
+        <NuxtLink :to="\`/\${page.slug}\`">{{ page.title }}</NuxtLink>
+      </li>
+    </ul>
+  </main>
+</template>
+`.trimStart()
+}
+
+function cmsStudioPageTemplate() {
+  return `
+<script setup lang="ts">
+import { api } from '#trellis/api'
+
+const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
+const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
+const { signUp, pending: signUpPending, error: signUpError } = useConvexSignUp()
+const { ready, allows } = usePermissions()
+
+const email = ref('editor@example.com')
+const password = ref('password1234')
+const form = reactive({
+  slug: 'welcome',
+  title: 'Welcome',
+  draftBody: 'Hello from the Trellis CMS starter.',
+})
+const selectedId = ref<string | null>(null)
+
+const studioArgs = computed(() => (ready.value ? {} : undefined))
+const { data: pages } = await useConvexQuery(api.pages.listStudio, studioArgs)
+const previewArgs = computed(() =>
+  selectedId.value ? ({ id: selectedId.value as never }) : undefined,
+)
+const { data: publishPreview } = await useConvexQuery(api.pages.previewPublish, previewArgs, {
+  server: false,
+  subscribe: false,
+})
+
+const createPage = useConvexMutation(api.pages.create)
+const saveDraft = useConvexMutation(api.pages.save)
+const publishPage = useConvexMutation(api.pages.publish)
+
+watchEffect(() => {
+  const first = pages.value?.[0]
+  if (!first || selectedId.value) return
+
+  selectedId.value = first._id as string
+  form.slug = first.slug
+  form.title = first.title
+  form.draftBody = first.draftBody
+})
+
+async function handleSignIn() {
+  await signIn({
+    email: email.value,
+    password: password.value,
+  })
+}
+
+async function handleSignUp() {
+  await signUp({
+    email: email.value,
+    password: password.value,
+    name: email.value.split('@')[0],
+  })
+}
+
+async function handleCreatePage() {
+  const id = await createPage({
+    slug: form.slug.trim(),
+    title: form.title.trim(),
+    draftBody: form.draftBody,
+  })
+  selectedId.value = id as string
+}
+
+async function handleSaveDraft() {
+  if (!selectedId.value) return
+  await saveDraft({
+    id: selectedId.value as never,
+    slug: form.slug.trim(),
+    title: form.title.trim(),
+    draftBody: form.draftBody,
+  })
+}
+
+async function handlePublish() {
+  if (!selectedId.value) return
+  await publishPage({
+    id: selectedId.value as never,
+  })
+}
+</script>
+
+<template>
+  <main style="max-width: 880px; margin: 0 auto; padding: 40px 16px; display: grid; gap: 20px;">
+    <header style="display: grid; gap: 8px;">
+      <h1>Studio</h1>
+      <p>Draft, save, and publish through one Trellis-backed content module.</p>
+    </header>
+
+    <div v-if="isPending">Loading auth…</div>
+
+    <div v-else-if="!isAuthenticated" style="display: grid; gap: 12px; max-width: 320px;">
+      <input v-model="email" type="email" placeholder="Email" />
+      <input v-model="password" type="password" placeholder="Password" />
+      <div style="display: flex; gap: 8px;">
+        <button :disabled="signInPending" @click="handleSignIn">Sign in</button>
+        <button :disabled="signUpPending" @click="handleSignUp">Sign up</button>
+      </div>
+      <p v-if="signInError">{{ signInError.message }}</p>
+      <p v-if="signUpError">{{ signUpError.message }}</p>
+    </div>
+
+    <div v-else-if="!ready">Waiting for permissions…</div>
+
+    <div v-else style="display: grid; gap: 20px;">
+      <p>Signed in as {{ user?.email ?? user?.name ?? 'editor' }}</p>
+
+      <section style="display: grid; gap: 12px; max-width: 720px;">
+        <input v-model="form.slug" type="text" placeholder="Slug" />
+        <input v-model="form.title" type="text" placeholder="Title" />
+        <textarea v-model="form.draftBody" rows="10" placeholder="Draft body"></textarea>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button :disabled="!allows('page.create').value || createPage.pending.value" @click="handleCreatePage">
+            Create draft
+          </button>
+          <button :disabled="!selectedId || saveDraft.pending.value" @click="handleSaveDraft">
+            Save draft
+          </button>
+          <button :disabled="!allows('page.publish').value || !selectedId || publishPage.pending.value" @click="handlePublish">
+            Publish
+          </button>
+          <button @click="signOut()">Sign out</button>
+        </div>
+      </section>
+
+      <section v-if="publishPreview" style="display: grid; gap: 4px;">
+        <strong>Publish preview</strong>
+        <p>{{ publishPreview.display.summary }}</p>
+        <p v-if="publishPreview.display.warn">{{ publishPreview.display.warn }}</p>
+      </section>
+
+      <section style="display: grid; gap: 8px;">
+        <h2>Your pages</h2>
+        <ul style="display: grid; gap: 8px; padding-left: 20px;">
+          <li v-for="page in pages ?? []" :key="page._id">
+            <button
+              style="all: unset; cursor: pointer; text-decoration: underline;"
+              @click="
+                selectedId = page._id as string
+                form.slug = page.slug
+                form.title = page.title
+                form.draftBody = page.draftBody
+              "
+            >
+              {{ page.title }} · {{ page.status }}
+            </button>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</template>
+`.trimStart()
+}
+
+function cmsSlugPageTemplate() {
+  return `
+<script setup lang="ts">
+import { api } from '#trellis/api'
+
+const route = useRoute()
+const slug = computed(() => String(route.params.slug ?? ''))
+const pageArgs = computed(() => (slug.value ? { slug: slug.value } : undefined))
+const { data: page } = await useConvexQuery(api.pages.getPublished, pageArgs)
+</script>
+
+<template>
+  <main style="max-width: 760px; margin: 0 auto; padding: 40px 16px; display: grid; gap: 16px;">
+    <NuxtLink to="/">← Back</NuxtLink>
+
+    <template v-if="page">
+      <h1>{{ page.title }}</h1>
+      <p style="white-space: pre-wrap;">{{ page.body }}</p>
+    </template>
+
+    <p v-else>Page not found.</p>
+  </main>
+</template>
+`.trimStart()
+}
+
 function mcpKeysTemplate() {
   return `
 import { open } from '@lupinum/trellis/auth'
@@ -1264,6 +1848,70 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
     }
   }
 
+  if (template === 'cms') {
+    return {
+      label: 'app:cms',
+      description: 'Bootstrap a CMS Trellis app with public pages and a signed-in studio',
+      files: mergeTemplateSets(buildAuthTemplateSet()).concat([
+        {
+          path: 'convex/auth/actor.ts',
+          content: personalActorTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/functions.ts',
+          content: personalFunctionsTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/auth/checks.ts',
+          content: cmsChecksTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/users.ts',
+          content: cmsPermissionQueryTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'nuxt.config.ts',
+          content: nuxtConfigTemplate({ permissionsQuery: 'users.getPermissionContext' }),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/schema.ts',
+          content: cmsSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/pages.ts',
+          content: cmsPagesTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'shared/schemas/page.ts',
+          content: sharedPageSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/index.vue',
+          content: cmsPublicPageTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/studio.vue',
+          content: cmsStudioPageTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/[slug].vue',
+          content: cmsSlugPageTemplate(),
+          ownership: 'authored',
+        },
+      ]),
+    }
+  }
+
   return {
     label: 'app:workspace-mcp',
     description: 'Bootstrap a workspace + MCP Trellis app inside the current workspace',
@@ -1387,7 +2035,10 @@ export async function applyInitTemplateSet(
   }
 }
 
-export function getInitTemplateSet(target: InitTarget, model?: PermissionModel): InitTemplateSet {
+export function getInitTemplateSet(
+  target: InitTarget,
+  model?: PermissionModel | AppTemplate,
+): InitTemplateSet {
   if (target === 'auth') {
     return buildAuthTemplateSet()
   }
@@ -1403,6 +2054,12 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
       return buildPersonalPermissionsTemplateSet()
     }
 
+    if (model !== 'workspace' && model !== 'workspace-mcp') {
+      throw new Error(
+        'Missing permissions model. Use --model personal, workspace, or workspace-mcp.',
+      )
+    }
+
     return buildWorkspacePermissionsTemplateSet(model)
   }
 
@@ -1412,8 +2069,15 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
 
   if (target === 'app') {
     const template = (model as AppTemplate | undefined) ?? 'personal'
-    if (template !== 'personal' && template !== 'workspace' && template !== 'workspace-mcp') {
-      throw new Error('Missing app template. Use --template personal, workspace, or workspace-mcp.')
+    if (
+      template !== 'personal' &&
+      template !== 'workspace' &&
+      template !== 'workspace-mcp' &&
+      template !== 'cms'
+    ) {
+      throw new Error(
+        'Missing app template. Use --template personal, workspace, workspace-mcp, or cms.',
+      )
     }
 
     return buildAppTemplateSet(template)

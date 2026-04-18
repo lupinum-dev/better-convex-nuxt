@@ -66,9 +66,12 @@ export type {
 export { createComponentBridge } from './create-component-bridge.js'
 export {
   defineComponentBridgeManifest,
+  ensureBridgeImport,
   renderComponentBridgeFile,
   renderComponentBridgeFiles,
+  renderComponentBridgeManagedEdits,
   stripComponentBridgeMetadata,
+  upsertBridgeManagedBlock,
 } from './component-bridge-manifest.js'
 export {
   defineOperation,
@@ -88,6 +91,7 @@ export { definePrincipal } from './define-principal.js'
 export type { DefaultPrincipal, PrincipalDefinition } from './define-principal.js'
 export type {
   ComponentBridgeGeneratedFile,
+  ComponentBridgeManagedEdit,
   ComponentBridgeManifest,
 } from './component-bridge-manifest.js'
 

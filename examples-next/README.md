@@ -120,10 +120,11 @@ Today the official starters are still:
 - `personal`
 - `workspace`
 - `workspace-mcp`
+- `cms`
 
 The likely future promotions from this folder are:
 
-- `05-headless-cms-publishing` -> `cms`
+- `05-headless-cms-publishing` -> deeper `cms` lane pressure
 - `07-support-inbox-crm` -> `support-inbox`
 - `09-agent-operator-console` -> `agent-console`
 
