@@ -8,6 +8,13 @@ This file stays outside `docs/content/` on purpose.
 - [ ] Do not publish placeholder pages, TODO pages, or empty nav buckets just to reserve structure.
 - [ ] Use this file as the source of truth for docs sequencing, review cadence, and page readiness.
 
+## Current Status
+
+- [x] `SPEC.md` removed from the repo. Use `SPEC.vNext.md` as the active design source.
+- [x] Phase 1 started with the README rewrite.
+- [x] README rewrite completed.
+- [ ] Next page after README: installation.
+
 ## Working Rules
 
 - [ ] Keep one primary reader and one primary job per page.
@@ -51,15 +58,15 @@ This file stays outside `docs/content/` on purpose.
 
 ## Source Inventory
 
-- [ ] Front door: `README.md`
-- [ ] North-star direction: `SPEC.vNext.md`
-- [ ] Canonical current examples: `examples/README.md`
-- [ ] Future pressure suite: `examples-next/README.md`
-- [ ] Docs app shell: `docs/content/index.md`, `docs/app/components/AppHeader.vue`, `docs/content.config.ts`
-- [ ] Generated API surface: `scripts/generate-api-surface.mjs`
-- [ ] Docs integrity checks: `scripts/check-doc-links.mjs`
-- [ ] Current public runtime surface: `src/runtime/*`, `src/cli/*`, `src/installers/*`
-- [ ] Contract pressure from tests: `test/unit/api-surface-doc.test.ts`, `test/unit/future-agent-conventions.test.ts`
+- [x] Front door: `README.md`
+- [x] North-star direction: `SPEC.vNext.md`
+- [x] Canonical current examples: `examples/README.md`
+- [x] Future pressure suite: `examples-next/README.md`
+- [x] Docs app shell: `docs/content/index.md`, `docs/app/components/AppHeader.vue`, `docs/content.config.ts`
+- [x] Generated API surface: `scripts/generate-api-surface.mjs`
+- [x] Docs integrity checks: `scripts/check-doc-links.mjs`
+- [x] Current public runtime surface: `src/runtime/*`, `src/cli/*`, `src/installers/*`
+- [x] Contract pressure from tests: `test/unit/api-surface-doc.test.ts`, `test/unit/future-agent-conventions.test.ts`
 - [ ] Existing docs debt to resolve while pages land:
   - `DEVELOPMENT.md` links to docs routes that do not exist yet
   - `docs/mdc-components.md` links to `/docs/guide/get-started` before that page exists
@@ -97,11 +104,11 @@ This file stays outside `docs/content/` on purpose.
 
 ## Phase 1 - Front Door And First Success
 
-- [ ] Tighten `README.md` around one evaluator promise.
-- [ ] Remove README content that belongs in deeper guides or reference.
-- [ ] Keep one runnable example near the top of the README.
-- [ ] Keep install easy to scan in the README.
-- [ ] Keep the "where next" section honest and route-accurate.
+- [x] Tighten `README.md` around one evaluator promise.
+- [x] Remove README content that belongs in deeper guides or reference.
+- [x] Keep one runnable example near the top of the README.
+- [x] Keep install easy to scan in the README.
+- [x] Keep the "where next" section honest and route-accurate.
 
 - [ ] Create `docs/content/docs/1.guide/1.get-started.md`
   - [ ] Mode: tutorial
@@ -118,7 +125,7 @@ This file stays outside `docs/content/` on purpose.
 - [ ] Create `docs/content/docs/1.guide/4.how-it-works.md`
   - [ ] Mode: explanation
   - [ ] Promise: explain the execution pipeline without turning into API reference
-  - [ ] Evidence: `README.md`,  `SPEC.vNext.md`
+  - [ ] Evidence: `README.md`, `SPEC.vNext.md`
 - [ ] Create `docs/content/docs/1.guide/5.choose-the-right-example.md`
   - [ ] Mode: how-to
   - [ ] Promise: help readers choose the right example quickly
