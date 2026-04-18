@@ -221,6 +221,9 @@ These are the highest-value unchecked items right now.
 - [x] Hard-cut the top-level docs away from the old “generic connective layer” pitch and aligned `README`, `start-here`, and `installation` with the app-platform story in `SPEC-FINAL.md`.
 - [x] Simplified the day-1 onboarding guides so `start-here`, `first-live-query`, and `build-a-signed-in-todo-app` explain the public and personal lanes in app terms first, deferring heavier Trellis vocabulary to the concepts section.
 - [x] Updated the concepts page to point at `SPEC-FINAL.md` instead of the superseded `SPEC.vNext.md`.
+- [x] Reframed the concepts and guides section entry pages so they explicitly describe concepts, permissions, server-side, and MCP as deeper lanes instead of implying every section is part of the same day-1 path.
+- [x] Added “read this when / skip this for now” framing to the permissions deep-dive entry pages (`setup`, `principal-and-actor`, `guards`, `operations`) so they behave like opt-in layers instead of mandatory onboarding.
+- [x] Fixed the remaining docs vocabulary drift where the glossary still described frontend permission projection in terms of `can(...)` instead of `allows(...)`.
 
 ## 13. Done Means
 
