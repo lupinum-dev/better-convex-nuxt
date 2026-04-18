@@ -113,6 +113,20 @@ The existing `examples/` folder still matters:
 `examples-next/` is not replacing those yet.
 It is the cleaner target portfolio that future example work should converge toward.
 
+These are candidate archetypes, not official starters.
+
+Today the official starters are still:
+
+- `personal`
+- `workspace`
+- `workspace-mcp`
+
+The likely future promotions from this folder are:
+
+- `05-headless-cms-publishing` -> `cms`
+- `07-support-inbox-crm` -> `support-inbox`
+- `09-agent-operator-console` -> `agent-console`
+
 ## Success Criteria
 
 Trellis is in good shape if these examples can be built while keeping:

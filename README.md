@@ -81,16 +81,42 @@ Use these when you need deeper reference:
 - [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md): component bridge and projection boundaries
 - [`examples-next`](./examples-next/README.md): pressure suite for future direction, not the default public source of truth
 
+## Templates vs Examples
+
+Trellis now has three different surfaces. They are not the same thing.
+
+- `trellis init app --template personal|workspace|workspace-mcp` are the current official starters.
+- [`examples`](./examples/README.md) are runnable learning and reference apps.
+- [`examples-next`](./examples-next/README.md) is the pressure suite for future archetypes, not a promise that those shapes are productized yet.
+
+Promotion path:
+
+1. A shape proves itself as an example or real app.
+2. The shape converges on the canonical Trellis layout.
+3. The repeated boilerplate becomes generator-worthy.
+4. The shape graduates into an official CLI template.
+
+Current promotion candidates are:
+
+- `cms`
+- `support-inbox`
+- `agent-console`
+
 ## CLI
 
 Use the CLI to validate setup or scaffold app-owned files:
 
 ```bash
 npx trellis doctor
+npx trellis init app --template personal
+npx trellis init app --template workspace
+npx trellis init app --template workspace-mcp
 npx trellis init auth
 npx trellis init permissions --model workspace
 npx trellis init mcp
 ```
+
+`init app` bootstraps a coherent starter inside the current app root. The feature-level `init auth`, `init permissions`, and `init mcp` commands still exist when you want to add a slice onto an already-shaped app.
 
 The generated files are plain app code. Edit them directly.
 

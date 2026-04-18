@@ -284,6 +284,36 @@ export function hasBetterAuthRouteRegistration(project: ProjectInspection): bool
   )
 }
 
+export function findConvexAuthSource(
+  project: ProjectInspection,
+): { path: string; text: string } | null {
+  return (
+    project.sourceFiles.find((file) =>
+      /[/\\]convex[/\\]auth\.(?:ts|js|mts|mjs|cjs)$/.test(file.path),
+    ) ?? null
+  )
+}
+
+export function usesSyncedUsersTable(project: ProjectInspection): boolean {
+  return project.sourceFiles.some((file) =>
+    /\.query\(\s*['"]users['"]\s*\)|withIndex\(\s*['"]by_auth_id['"]\s*|defineTable\(\s*\{[\s\S]*?\bauthId\s*:/.test(
+      file.text,
+    ),
+  )
+}
+
+export function hasBetterAuthTriggerExports(project: ProjectInspection): boolean {
+  const convexAuthSource = findConvexAuthSource(project)
+  if (!convexAuthSource) return false
+
+  return (
+    /authComponent\.triggersApi\s*\(/.test(convexAuthSource.text) &&
+    /onCreate/.test(convexAuthSource.text) &&
+    /onUpdate/.test(convexAuthSource.text) &&
+    /onDelete/.test(convexAuthSource.text)
+  )
+}
+
 export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
   if (/#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(/.test(project.nuxtConfigText)) {
     return true

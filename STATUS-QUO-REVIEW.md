@@ -17,11 +17,11 @@ This is the working gap tracker.
 - [x] P0.2 Fix auth default docs drift.
 - [x] P0.3 Fix server helper auth semantics and docs drift.
 - [x] P0.4 Stop leaking internal transport metadata into validated mutation/action args.
-- [ ] P1.1 Decide the app-first CLI entrypoint shape.
-- [ ] P1.2 Define the first official archetypes and template graduation path.
+- [x] P1.1 Decide the app-first CLI entrypoint shape.
+- [x] P1.2 Define the first official archetypes and template graduation path.
 - [ ] P1.3 Make actor bootstrap and missing sync wiring fail loudly.
 - [ ] P1.4 Resolve the biggest naming traps.
-- [ ] P1.5 Document one canonical Trellis app layout.
+- [x] P1.5 Document one canonical Trellis app layout.
 - [ ] P2.1 Put a real Trellis-built CMS on the critical path and feed back the paper cuts.
 
 ---
@@ -43,7 +43,6 @@ Current Trellis is still weak on:
 - app-first scaffolding
 - template/archetype productization
 - docs consistency
-- auth/server default coherence
 - some API naming and footguns
 - loud failure modes for partial setup
 
@@ -86,7 +85,7 @@ The highest-level truth is:
 - [ ] Forwarded principal handling is clearly constrained to trusted paths and hard to misuse.
   Current evidence of gap: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), workspace principal scaffolds
 - [ ] Actor bootstrap failures are loud, actionable, and treated as first-class setup errors.
-  Current evidence of gap: missing `triggersApi()` still yields “sign-in works, actor is null” behavior described in [docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md)
+  Current evidence of remaining gap: generated starter apps and the getting-started auth path now throw an explicit setup error when the auth subject has no `users` row, but the lower-level helper surface still allows softer failure paths.
 
 ## 4. CLI and Scaffolding
 
@@ -96,9 +95,11 @@ The highest-level truth is:
   Current evidence: [src/cli/main.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/main.ts), [src/cli/commands/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/init.ts)
 - [x] Permission scaffolds already support `personal`, `workspace`, and `workspace-mcp` models.
   Current evidence: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts)
-- [ ] Trellis has a real app bootstrap flow like `trellis init <app> --template=<archetype>`.
+- [x] Trellis has a real app bootstrap flow via `trellis init app --template=<starter>`.
+  Current evidence: [src/cli/commands/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/init.ts), [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), [test/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/test/unit/cli-doctor.test.ts)
 - [ ] Trellis ships app archetype templates as product surfaces, not just examples.
-- [ ] Generated apps come out coherent enough that the user does not hand-wire auth, actor, and permission plumbing by default.
+- [x] Generated starter apps now come out coherent enough that the user does not hand-wire auth, actor, and permission plumbing for the `personal`, `workspace`, and `workspace-mcp` starters.
+  Current evidence: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), [test/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/test/unit/cli-doctor.test.ts)
 - [ ] The CLI owns more of the repetitive setup burden than the runtime/docs currently do.
 
 ## 5. App Archetypes and Templates
@@ -108,12 +109,14 @@ The highest-level truth is:
 - [x] There is already an embryonic CMS reference via component mini CMS and docs/wiki style examples.
   Current evidence: [examples/08-component-mini-cms](/Users/matthias/Git/0_libs/WORK/trellis/examples/08-component-mini-cms), [examples-next/03-docs-wiki](/Users/matthias/Git/0_libs/WORK/trellis/examples-next/03-docs-wiki), [examples-next/05-headless-cms-publishing](/Users/matthias/Git/0_libs/WORK/trellis/examples-next/05-headless-cms-publishing)
 - [ ] `personal`, `workspace`, `cms`, `support-inbox`, `admin-console`, and `agent-console` exist as official CLI archetypes.
-- [ ] The repo clearly distinguishes “examples for learning” from “templates for shipping”.
+- [x] The repo clearly distinguishes “examples for learning” from “templates for shipping”.
+  Current evidence: [README.md](/Users/matthias/Git/0_libs/WORK/trellis/README.md), [examples/README.md](/Users/matthias/Git/0_libs/WORK/trellis/examples/README.md), [examples-next/README.md](/Users/matthias/Git/0_libs/WORK/trellis/examples-next/README.md)
 - [ ] A CMS archetype exists as a first-class Trellis product lane rather than a scattered combination of examples.
 
 ## 6. Canonical App Shape
 
-- [ ] Trellis has one documented and generated canonical app file layout.
+- [x] Trellis has one documented and generated canonical app file layout.
+  Current evidence: [docs/content/docs/01.getting-started/5.canonical-app-layout.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/5.canonical-app-layout.md), [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts)
 - [ ] Auth, domain, permissions, operations, and shared schemas are consistently scaffolded into fixed locations.
 - [ ] New apps feel structurally identical enough that moving between apps is nearly frictionless.
 
@@ -178,11 +181,11 @@ These are the highest-value unchecked items right now.
 
 - [x] Fix auth default docs drift.
 - [x] Fix server helper auth docs drift.
-- [ ] Decide and implement the app-first CLI entrypoint shape.
-- [ ] Define the first official archetypes and which examples graduate into them.
+- [x] Decide and implement the app-first CLI entrypoint shape.
+- [x] Define the first official archetypes and which examples graduate into them.
 - [ ] Make actor bootstrap and missing user-sync wiring fail loudly.
 - [ ] Resolve the biggest API naming traps.
-- [ ] Document one canonical Trellis app layout.
+- [x] Document one canonical Trellis app layout.
 - [ ] Pick `ginko-cms` as the first load-bearing app and feed the paper cuts back into Trellis.
 
 ## 14. Recent Completions
@@ -193,6 +196,11 @@ These are the highest-value unchecked items right now.
 - [x] Updated server-side docs to match the real caller semantics.
 - [x] Removed server-side `__trellis` arg injection for mutations and actions so non-Trellis handlers do not fail strict argument validation.
 - [x] Added focused unit coverage for the new server caller semantics and the no-metadata-leak contract.
+- [x] Added an app-first CLI bootstrap path: `trellis init app --template personal|workspace|workspace-mcp`.
+- [x] Added starter app coverage for personal, workspace, and workspace+MCP bootstrap flows.
+- [x] Added a dedicated getting-started page for the canonical generated Trellis app layout and linked it from the main onboarding flow.
+- [x] Changed generated personal and workspace actor scaffolds to fail with an explicit setup error when auth resolves but the mirrored `users` row is missing.
+- [x] Defined the current official starters versus learning examples versus future archetype candidates, including a template graduation path.
 
 ## 13. Done Means
 

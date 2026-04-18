@@ -11,11 +11,14 @@ import {
   findConvexUrlSource,
   findEnvKeySource,
   findConvexHttpSource,
+  findConvexAuthSource,
+  hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
   hasDependency,
   inspectProject,
   isAuthExplicitlyDisabled,
+  usesSyncedUsersTable,
   usesTrustedCallerSurfaces,
 } from '../lib/project.js'
 
@@ -33,6 +36,9 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const betterAuthSecretSource = findEnvKeySource(project, ['BETTER_AUTH_SECRET'])
   const convexHttpSource = findConvexHttpSource(project)
   const hasAuthRoutes = hasBetterAuthRouteRegistration(project)
+  const convexAuthSource = findConvexAuthSource(project)
+  const expectsSyncedUsers = usesSyncedUsersTable(project)
+  const hasAuthTriggers = hasBetterAuthTriggerExports(project)
   const trustedCallerExpected = usesTrustedCallerSurfaces(project)
   const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_CALLER_KEY'])
 
@@ -172,6 +178,27 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       fixHint: !authExpected
         ? 'No action needed unless you enable auth later.'
         : 'Register your Better Auth bridge in convex/http.ts so the Nuxt auth proxy can exchange session cookies for Convex JWTs.',
+    },
+    {
+      id: 'better-auth-triggers-exported',
+      category: 'auth',
+      title: 'Better Auth trigger exports',
+      status:
+        authExpected && expectsSyncedUsers ? (hasAuthTriggers ? 'pass' : 'warn') : 'pass',
+      message:
+        !authExpected
+          ? 'Auth is explicitly disabled in nuxt.config.'
+          : !expectsSyncedUsers
+            ? 'No synced users-table pattern was detected in the app source.'
+            : hasAuthTriggers
+              ? `Found Better Auth trigger exports in ${convexAuthSource?.path ?? 'convex/auth.ts'}.`
+              : convexAuthSource
+                ? `Found ${convexAuthSource.path}, but it does not export authComponent.triggersApi().`
+                : 'Could not find convex/auth.ts with Better Auth trigger exports.',
+      fixHint:
+        !authExpected || !expectsSyncedUsers
+          ? 'No action needed unless this app resolves actors from a synced users table later.'
+          : 'Export `onCreate`, `onUpdate`, and `onDelete` from `authComponent.triggersApi()` in convex/auth.ts so Better Auth keeps the users table in sync.',
     },
     {
       id: 'trusted-caller-key-configured',

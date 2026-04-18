@@ -1,8 +1,9 @@
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
-export type InitTarget = 'auth' | 'permissions' | 'mcp'
+export type InitTarget = 'auth' | 'permissions' | 'mcp' | 'app'
 export type PermissionModel = 'personal' | 'workspace' | 'workspace-mcp'
+export type AppTemplate = 'personal' | 'workspace' | 'workspace-mcp'
 
 export interface TemplateFile {
   path: string
@@ -32,6 +33,8 @@ export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
     // oauth: ['github', 'google'],
   },
 )
+
+export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
 `.trimStart()
 }
 
@@ -87,13 +90,43 @@ export const modules = createConvexTestModules(import.meta.glob('./**/*.ts', {
 
 function personalActorTemplate() {
   return `
-import { defineActor } from '@lupinum/trellis/auth'
+import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
+import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-const actor = defineActor.fromAuth()
+import type { DataModel } from '../_generated/dataModel'
 
-export type Actor = typeof actor.type | null
+type PersonalCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 
-export const getActor = actor.resolve
+export type Actor = DefaultActor | null
+
+function missingUserRowMessage(authId: string): string {
+  return [
+    \`Expected a Trellis users row for auth subject "\${authId}", but none was found.\`,
+    'Ensure convex/auth.ts exports onCreate, onUpdate, and onDelete from authComponent.triggersApi().',
+    'If the auth wiring is already correct, ensure auth:createUserIfNeeded has run for this user.',
+  ].join(' ')
+}
+
+export async function getActor(ctx: PersonalCtx): Promise<Actor> {
+  const auth = await getAuth(ctx)
+  if (!auth) return null
+
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
+    .first()
+
+  if (!user) {
+    throw new Error(missingUserRowMessage(auth.subject))
+  }
+
+  return {
+    kind: 'user',
+    userId: user.authId,
+    role: typeof user.role === 'string' ? user.role : 'member',
+    ...(user.workspaceId ? { tenantId: String(user.workspaceId) } : {}),
+  }
+}
 `.trimStart()
 }
 
@@ -179,9 +212,25 @@ async function loadActorByAuthId(ctx: WorkspaceCtx, authId: string): Promise<Per
   return {
     kind: 'user',
     userId: user.authId,
-    role: user.role as Role,
+    role: (user.role ?? 'viewer') as Role,
     tenantId: user.workspaceId as Id<'workspaces'> | undefined,
   }
+}
+
+function missingUserRowMessage(authId: string): string {
+  return [
+    \`Expected a Trellis users row for auth subject "\${authId}", but none was found.\`,
+    'Ensure convex/auth.ts exports onCreate, onUpdate, and onDelete from authComponent.triggersApi().',
+    'If the auth wiring is already correct, ensure auth:createUserIfNeeded has run for this user.',
+  ].join(' ')
+}
+
+function requirePermissionActor(
+  authId: string,
+  actor: PermissionActor | null,
+): PermissionActor {
+  if (actor) return actor
+  throw new Error(missingUserRowMessage(authId))
 }
 
 export async function getActorFromPrincipal(
@@ -202,7 +251,7 @@ export async function getActorFromPrincipal(
           }
         : null
     case 'user': {
-      const actor = await loadActorByAuthId(ctx, principal.userId)
+      const actor = requirePermissionActor(principal.userId, await loadActorByAuthId(ctx, principal.userId))
       return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
     }
   }
@@ -211,7 +260,7 @@ export async function getActorFromPrincipal(
 export async function getPermissionActor(ctx: WorkspaceCtx): Promise<PermissionActor | null> {
   const auth = await getAuth(ctx)
   if (!auth) return null
-  return await loadActorByAuthId(ctx, auth.subject)
+  return requirePermissionActor(auth.subject, await loadActorByAuthId(ctx, auth.subject))
 }
 
 export async function getActor(ctx: WorkspaceCtx): Promise<Actor | null> {
@@ -443,11 +492,11 @@ export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
   callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
-    // Map projected tool names to booleans here.
-    // Keep this coarse. Convex still owns business authorization.
-    // Example:
-    // listTodos: principal.kind === 'agent' && !!principal.tenantId,
-    // createTodo: principal.kind === 'agent' && canWrite(principal.role),
+    listTodos: principal.kind === 'agent' && !!principal.tenantId,
+    createTodo:
+      principal.kind === 'agent' &&
+      !!principal.tenantId &&
+      canWrite(principal.role),
   }),
   principalKey: (principal) =>
     principal.kind === 'agent' ? \`\${principal.userId}:\${principal.tenantId ?? 'none'}\` : principal.kind,
@@ -456,6 +505,828 @@ export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
 // Project root internal refs or bridge refs from tool files.
 export const tool = mcpRuntime.tool
 `.trimStart()
+}
+
+function nuxtConfigTemplate(options: {
+  permissionsQuery: string
+  mcp?: boolean
+}) {
+  return `
+export default defineNuxtConfig({
+  modules: ['@lupinum/trellis'],
+  trellis: {
+    url: process.env.CONVEX_URL,
+    auth: true,
+    permissions: '${options.permissionsQuery}',
+${options.mcp ? "    mcp: { name: 'starter-app', sessions: true }," : ''}
+  },
+})
+`.trimStart()
+}
+
+function sharedTodoSchemaTemplate(kind: 'personal' | 'workspace') {
+  return `
+import { defineArgs } from '@lupinum/trellis/args'
+import { v } from 'convex/values'
+
+export const createTodo = defineArgs({
+  description: '${kind === 'personal' ? 'Create a personal todo' : 'Create a workspace todo'}',
+  args: {
+    title: v.string(),
+  },
+})
+
+export const listTodos = defineArgs({
+  description: 'List the current todo collection',
+  args: {},
+})
+`.trimStart()
+}
+
+function personalSchemaTemplate() {
+  return `
+import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+export default defineSchema({
+  users: defineTable({
+    authId: v.string(),
+    email: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_auth_id', ['authId']),
+
+  todos: defineTable({
+    ownerId: v.string(),
+    title: v.string(),
+    completed: v.boolean(),
+    createdAt: v.number(),
+  }).index('by_owner', ['ownerId']),
+})
+`.trimStart()
+}
+
+function personalTodosTemplate() {
+  return `
+import { v } from 'convex/values'
+
+import { createTodo } from '../shared/schemas/todo'
+import { deny } from '@lupinum/trellis/auth'
+import { isAuthenticated } from './auth/checks'
+import { mutation, query } from './functions'
+
+export const list = query({
+  args: {},
+  guard: isAuthenticated,
+  handler: async (ctx) => {
+    const actor = await ctx.actor()
+
+    return await ctx.db
+      .query('todos')
+      .withIndex('by_owner', (q) => q.eq('ownerId', actor.userId))
+      .order('desc')
+      .collect()
+  },
+})
+
+export const create = mutation({
+  args: createTodo.args,
+  guard: isAuthenticated,
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+
+    return await ctx.db.insert('todos', {
+      ownerId: actor.userId,
+      title: args.title,
+      completed: false,
+      createdAt: Date.now(),
+    })
+  },
+})
+
+export const toggle = mutation({
+  args: { id: v.id('todos') },
+  guard: isAuthenticated,
+  load: async (ctx, args) => {
+    const actor = await ctx.actor()
+    const todo = await ctx.db.get(args.id)
+
+    if (!todo || todo.ownerId !== actor.userId) {
+      throw deny('Todo not found.')
+    }
+
+    return { todo }
+  },
+  handler: async (ctx, args, { todo }) => {
+    await ctx.db.patch(args.id, {
+      completed: !todo.completed,
+    })
+  },
+})
+`.trimStart()
+}
+
+function personalPageTemplate() {
+  return `
+<script setup lang="ts">
+import { api } from '#trellis/api'
+
+const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
+const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
+const { signUp, pending: signUpPending, error: signUpError } = useConvexSignUp()
+
+const email = ref('demo@example.com')
+const password = ref('password1234')
+const title = ref('')
+
+const todoArgs = computed(() => (isAuthenticated.value ? {} : undefined))
+const { data: todos } = await useConvexQuery(api.todos.list, todoArgs)
+const createTodo = useConvexMutation(api.todos.create)
+const toggleTodo = useConvexMutation(api.todos.toggle)
+
+async function handleSignIn() {
+  await signIn({
+    email: email.value,
+    password: password.value,
+  })
+}
+
+async function handleSignUp() {
+  await signUp({
+    email: email.value,
+    password: password.value,
+    name: email.value.split('@')[0],
+  })
+}
+
+async function handleCreateTodo() {
+  if (!title.value.trim()) return
+  await createTodo({ title: title.value.trim() })
+  title.value = ''
+}
+</script>
+
+<template>
+  <main style="max-width: 720px; margin: 0 auto; padding: 40px 16px;">
+    <h1>Personal Starter</h1>
+    <p>Trellis app starter: Better Auth + Convex + app-owned permissions.</p>
+
+    <div v-if="isPending">
+      Loading auth...
+    </div>
+
+    <div v-else-if="!isAuthenticated" style="display: grid; gap: 12px; max-width: 320px;">
+      <input v-model="email" type="email" placeholder="Email" />
+      <input v-model="password" type="password" placeholder="Password" />
+      <div style="display: flex; gap: 8px;">
+        <button :disabled="signInPending" @click="handleSignIn">Sign in</button>
+        <button :disabled="signUpPending" @click="handleSignUp">Sign up</button>
+      </div>
+      <p v-if="signInError">{{ signInError.message }}</p>
+      <p v-if="signUpError">{{ signUpError.message }}</p>
+    </div>
+
+    <div v-else style="display: grid; gap: 16px;">
+      <p>Signed in as {{ user?.email ?? user?.name ?? 'user' }}</p>
+      <div style="display: flex; gap: 8px;">
+        <input v-model="title" type="text" placeholder="Add a todo" />
+        <button :disabled="createTodo.pending.value" @click="handleCreateTodo">Add</button>
+        <button @click="signOut()">Sign out</button>
+      </div>
+
+      <ul style="display: grid; gap: 8px; padding-left: 20px;">
+        <li v-for="todo in todos ?? []" :key="todo._id">
+          <label style="display: flex; gap: 8px; align-items: center;">
+            <input
+              type="checkbox"
+              :checked="todo.completed"
+              @change="toggleTodo({ id: todo._id })"
+            />
+            <span>{{ todo.title }}</span>
+          </label>
+        </li>
+      </ul>
+    </div>
+  </main>
+</template>
+`.trimStart()
+}
+
+function workspaceFunctionsAppTemplate() {
+  return `
+import { defineTrellis } from '@lupinum/trellis/functions'
+
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
+import { getActorFromPrincipal } from './auth/actor'
+import { principal } from './auth/principal'
+
+export const { mutation, query, raw } = defineTrellis(
+  { query: generatedQuery, mutation: generatedMutation },
+  {
+    principal,
+    actor: getActorFromPrincipal,
+    tenantIsolation: {
+      tables: ['todos'],
+    },
+  },
+)
+`.trimStart()
+}
+
+function workspaceSchemaTemplate(includeMcpKeys: boolean) {
+  return `
+import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+export default defineSchema({
+  users: defineTable({
+    authId: v.string(),
+    email: v.optional(v.string()),
+    displayName: v.optional(v.string()),
+    role: v.optional(
+      v.union(
+        v.literal('owner'),
+        v.literal('admin'),
+        v.literal('member'),
+        v.literal('viewer'),
+      ),
+    ),
+    workspaceId: v.optional(v.id('workspaces')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_auth_id', ['authId']),
+
+  workspaces: defineTable({
+    name: v.string(),
+    createdAt: v.number(),
+  }),
+
+  todos: defineTable({
+    workspaceId: v.id('workspaces'),
+    title: v.string(),
+    completed: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index('by_workspace', ['workspaceId']),
+${includeMcpKeys
+  ? `
+  mcpKeys: defineTable({
+    hash: v.string(),
+    name: v.string(),
+    boundAuthId: v.string(),
+    boundRole: v.union(
+      v.literal('owner'),
+      v.literal('admin'),
+      v.literal('member'),
+      v.literal('viewer'),
+    ),
+    boundWorkspaceId: v.id('workspaces'),
+    status: v.union(v.literal('active'), v.literal('revoked')),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index('by_hash', ['hash'])
+    .index('by_bound_workspace', ['boundWorkspaceId']),
+`
+  : ''}
+})
+`.trimStart()
+}
+
+function workspaceOnboardingTemplate() {
+  return `
+import { getAuth } from '@lupinum/trellis/auth'
+import { v } from 'convex/values'
+
+import { raw } from './functions'
+
+export const createFirstWorkspace = raw.mutation({
+  args: {
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const auth = await getAuth(ctx)
+    if (!auth) {
+      throw new Error('Not authenticated.')
+    }
+
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
+      .first()
+
+    if (!user) {
+      throw new Error(
+        [
+          \`Expected a Trellis users row for auth subject "\${auth.subject}", but none was found.\`,
+          'Ensure convex/auth.ts exports onCreate, onUpdate, and onDelete from authComponent.triggersApi().',
+          'If the auth wiring is already correct, ensure auth:createUserIfNeeded has run for this user.',
+        ].join(' '),
+      )
+    }
+
+    if (user.workspaceId) {
+      return user.workspaceId
+    }
+
+    const now = Date.now()
+    const workspaceId = await ctx.db.insert('workspaces', {
+      name: args.name,
+      createdAt: now,
+    })
+
+    await ctx.db.patch(user._id, {
+      workspaceId,
+      role: 'owner',
+      updatedAt: now,
+    })
+
+    return workspaceId
+  },
+})
+`.trimStart()
+}
+
+function workspaceTodosTemplate() {
+  return `
+import { createTodo } from '../shared/schemas/todo'
+import { hasMinimumRole, hasWorkspace } from './auth/checks'
+import { mutation, query } from './functions'
+
+export const list = query({
+  args: {},
+  guard: hasWorkspace,
+  handler: async (ctx) => {
+    const actor = await ctx.actor()
+
+    return await ctx.db
+      .query('todos')
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+      .order('desc')
+      .collect()
+  },
+})
+
+export const create = mutation({
+  args: createTodo.args,
+  guard: hasWorkspace.and(hasMinimumRole('member')),
+  handler: async (ctx, args) => {
+    const actor = await ctx.actor()
+
+    return await ctx.db.insert('todos', {
+      workspaceId: actor.tenantId,
+      title: args.title,
+      completed: false,
+      createdAt: Date.now(),
+    })
+  },
+})
+`.trimStart()
+}
+
+function workspacePageTemplate(options: { title: string; mcp: boolean }) {
+  return `
+<script setup lang="ts">
+import { api } from '#trellis/api'
+
+const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
+const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
+const { signUp, pending: signUpPending, error: signUpError } = useConvexSignUp()
+const { ready, tenantId, role } = usePermissions()
+
+const email = ref('owner@example.com')
+const password = ref('password1234')
+const workspaceName = ref('My workspace')
+const title = ref('')
+
+const todoArgs = computed(() => (ready.value ? {} : undefined))
+const { data: todos } = await useConvexQuery(api.todos.list, todoArgs)
+
+const createWorkspace = useConvexMutation(api.onboarding.createFirstWorkspace)
+const createTodo = useConvexMutation(api.todos.create)
+
+async function handleSignIn() {
+  await signIn({
+    email: email.value,
+    password: password.value,
+  })
+}
+
+async function handleSignUp() {
+  await signUp({
+    email: email.value,
+    password: password.value,
+    name: email.value.split('@')[0],
+  })
+}
+
+async function handleCreateWorkspace() {
+  await createWorkspace({ name: workspaceName.value.trim() || 'My workspace' })
+}
+
+async function handleCreateTodo() {
+  if (!title.value.trim()) return
+  await createTodo({ title: title.value.trim() })
+  title.value = ''
+}
+</script>
+
+<template>
+  <main style="max-width: 760px; margin: 0 auto; padding: 40px 16px;">
+    <h1>${options.title}</h1>
+    <p>
+      Workspace starter with tenant-aware backend handlers${options.mcp ? ' and MCP wiring' : ''}.
+    </p>
+
+    <div v-if="isPending">
+      Loading auth...
+    </div>
+
+    <div v-else-if="!isAuthenticated" style="display: grid; gap: 12px; max-width: 320px;">
+      <input v-model="email" type="email" placeholder="Email" />
+      <input v-model="password" type="password" placeholder="Password" />
+      <div style="display: flex; gap: 8px;">
+        <button :disabled="signInPending" @click="handleSignIn">Sign in</button>
+        <button :disabled="signUpPending" @click="handleSignUp">Sign up</button>
+      </div>
+      <p v-if="signInError">{{ signInError.message }}</p>
+      <p v-if="signUpError">{{ signUpError.message }}</p>
+    </div>
+
+    <div v-else-if="!ready" style="display: grid; gap: 12px; max-width: 320px;">
+      <p>Signed in as {{ user?.email ?? user?.name ?? 'user' }}. Create your first workspace.</p>
+      <input v-model="workspaceName" type="text" placeholder="Workspace name" />
+      <button :disabled="createWorkspace.pending.value" @click="handleCreateWorkspace">
+        Create workspace
+      </button>
+    </div>
+
+    <div v-else style="display: grid; gap: 16px;">
+      <p>
+        Workspace: {{ tenantId }} | Role: {{ role }}
+      </p>
+      <div style="display: flex; gap: 8px;">
+        <input v-model="title" type="text" placeholder="Add a workspace todo" />
+        <button :disabled="createTodo.pending.value" @click="handleCreateTodo">Add</button>
+        <button @click="signOut()">Sign out</button>
+      </div>
+
+      <ul style="display: grid; gap: 8px; padding-left: 20px;">
+        <li v-for="todo in todos ?? []" :key="todo._id">
+          {{ todo.title }}
+        </li>
+      </ul>
+    </div>
+  </main>
+</template>
+`.trimStart()
+}
+
+function mcpKeysTemplate() {
+  return `
+import { open } from '@lupinum/trellis/auth'
+import { v } from 'convex/values'
+
+import { mutation, query } from './functions'
+
+const TOUCH_DEBOUNCE_MS = 60_000
+
+export const validate = query({
+  guard: open,
+  args: {
+    hash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const key = await ctx.db
+      .query('mcpKeys')
+      .withIndex('by_hash', (q) => q.eq('hash', args.hash))
+      .first()
+
+    if (!key || key.status !== 'active') return null
+
+    return {
+      id: key._id,
+      role: key.boundRole,
+      userId: key.boundAuthId,
+      tenantId: key.boundWorkspaceId,
+      lastUsedAt: key.lastUsedAt ?? null,
+    }
+  },
+})
+
+export const touch = mutation({
+  guard: open,
+  args: {
+    id: v.id('mcpKeys'),
+    seenAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const key = await ctx.db.get(args.id)
+    if (!key || key.status !== 'active') return
+
+    const lastUsedAt = typeof key.lastUsedAt === 'number' ? key.lastUsedAt : 0
+    if (args.seenAt - lastUsedAt < TOUCH_DEBOUNCE_MS) return
+
+    await ctx.db.patch(args.id, {
+      lastUsedAt: args.seenAt,
+    })
+  },
+})
+`.trimStart()
+}
+
+function mcpListTodosToolTemplate() {
+  return `
+import { api } from '#trellis/api'
+import { listTodos } from '~/shared/schemas/todo'
+
+import { tool } from '../runtime'
+
+export default tool({
+  schema: listTodos,
+  call: api.todos.list,
+  operation: 'query',
+  capability: 'listTodos',
+  meta: {
+    name: 'list-todos',
+  },
+})
+`.trimStart()
+}
+
+function mcpCreateTodoToolTemplate() {
+  return `
+import { api } from '#trellis/api'
+import { createTodo } from '~/shared/schemas/todo'
+
+import { tool } from '../runtime'
+
+export default tool({
+  schema: createTodo,
+  call: api.todos.create,
+  operation: 'mutation',
+  capability: 'createTodo',
+  meta: {
+    name: 'create-todo',
+  },
+})
+`.trimStart()
+}
+
+function buildAuthTemplateSet(): InitTemplateSet {
+  return {
+    label: 'auth',
+    description: 'Scaffold Better Auth + Convex bridge files',
+    files: [
+      { path: 'convex/auth.ts', content: authTsTemplate(), ownership: 'authored' },
+      { path: 'convex/auth.config.ts', content: authConfigTemplate(), ownership: 'generated' },
+      { path: 'convex/http.ts', content: httpTemplate(), ownership: 'generated' },
+      {
+        path: 'convex/convex.config.ts',
+        content: convexConfigTemplate(),
+        ownership: 'generated',
+      },
+      { path: 'convex/test.setup.ts', content: testSetupTemplate(), ownership: 'generated' },
+    ],
+  }
+}
+
+function buildPersonalPermissionsTemplateSet(): InitTemplateSet {
+  return {
+    label: 'permissions:personal',
+    description: 'Scaffold app-owned personal actor and permission context files',
+    files: [
+      { path: 'convex/auth/actor.ts', content: personalActorTemplate(), ownership: 'authored' },
+      {
+        path: 'convex/functions.ts',
+        content: personalFunctionsTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/auth/checks.ts',
+        content: personalChecksTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/users.ts',
+        content: personalPermissionQueryTemplate(),
+        ownership: 'authored',
+      },
+    ],
+  }
+}
+
+function buildWorkspacePermissionsTemplateSet(model: 'workspace' | 'workspace-mcp'): InitTemplateSet {
+  return {
+    label: `permissions:${model}`,
+    description: 'Scaffold workspace permission policy files',
+    files: [
+      {
+        path: 'convex/auth/principal.ts',
+        content: workspacePrincipalTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/auth/actor.ts',
+        content: workspaceActorTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/auth/checks.ts',
+        content: workspaceChecksTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/functions.ts',
+        content: workspaceFunctionsTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/workspaces.ts',
+        content: workspacePermissionQueryTemplate(),
+        ownership: 'authored',
+      },
+    ],
+    afterWrite: async (_cwd) => {
+      // Workspace model: userFields in defineAuth should include role: 'member'
+    },
+  }
+}
+
+function buildMcpTemplateSet(): InitTemplateSet {
+  return {
+    label: 'mcp',
+    description: 'Scaffold MCP middleware glue',
+    files: [
+      {
+        path: 'server/middleware/mcp-auth.ts',
+        content: mcpMiddlewareTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'server/mcp/runtime.ts',
+        content: mcpRuntimeTemplate(),
+        ownership: 'authored',
+      },
+    ],
+  }
+}
+
+function mergeTemplateSets(...sets: InitTemplateSet[]): TemplateFile[] {
+  const merged = new Map<string, TemplateFile>()
+
+  for (const set of sets) {
+    for (const file of set.files) {
+      merged.set(file.path, file)
+    }
+  }
+
+  return [...merged.values()]
+}
+
+function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
+  if (template === 'personal') {
+    return {
+      label: 'app:personal',
+      description: 'Bootstrap a personal Trellis app inside the current workspace',
+      files: mergeTemplateSets(buildAuthTemplateSet(), buildPersonalPermissionsTemplateSet()).concat([
+        {
+          path: 'nuxt.config.ts',
+          content: nuxtConfigTemplate({ permissionsQuery: 'users.getPermissionContext' }),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/schema.ts',
+          content: personalSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/todos.ts',
+          content: personalTodosTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'shared/schemas/todo.ts',
+          content: sharedTodoSchemaTemplate('personal'),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/index.vue',
+          content: personalPageTemplate(),
+          ownership: 'authored',
+        },
+      ]),
+    }
+  }
+
+  if (template === 'workspace') {
+    return {
+      label: 'app:workspace',
+      description: 'Bootstrap a workspace Trellis app inside the current workspace',
+      files: mergeTemplateSets(buildAuthTemplateSet(), buildWorkspacePermissionsTemplateSet('workspace')).concat([
+        {
+          path: 'nuxt.config.ts',
+          content: nuxtConfigTemplate({ permissionsQuery: 'workspaces.getPermissionContext' }),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/functions.ts',
+          content: workspaceFunctionsAppTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/schema.ts',
+          content: workspaceSchemaTemplate(false),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/onboarding.ts',
+          content: workspaceOnboardingTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/todos.ts',
+          content: workspaceTodosTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'shared/schemas/todo.ts',
+          content: sharedTodoSchemaTemplate('workspace'),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/index.vue',
+          content: workspacePageTemplate({ title: 'Workspace Starter', mcp: false }),
+          ownership: 'authored',
+        },
+      ]),
+    }
+  }
+
+  return {
+    label: 'app:workspace-mcp',
+    description: 'Bootstrap a workspace + MCP Trellis app inside the current workspace',
+    files: mergeTemplateSets(
+      buildAuthTemplateSet(),
+      buildWorkspacePermissionsTemplateSet('workspace-mcp'),
+      buildMcpTemplateSet(),
+    ).concat([
+      {
+        path: 'nuxt.config.ts',
+        content: nuxtConfigTemplate({
+          permissionsQuery: 'workspaces.getPermissionContext',
+          mcp: true,
+        }),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/functions.ts',
+        content: workspaceFunctionsAppTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/schema.ts',
+        content: workspaceSchemaTemplate(true),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/onboarding.ts',
+        content: workspaceOnboardingTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/todos.ts',
+        content: workspaceTodosTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/mcpKeys.ts',
+        content: mcpKeysTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'shared/schemas/todo.ts',
+        content: sharedTodoSchemaTemplate('workspace'),
+        ownership: 'authored',
+      },
+      {
+        path: 'server/mcp/tools/list-todos.ts',
+        content: mcpListTodosToolTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'server/mcp/tools/create-todo.ts',
+        content: mcpCreateTodoToolTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'pages/index.vue',
+        content: workspacePageTemplate({ title: 'Workspace MCP Starter', mcp: true }),
+        ownership: 'authored',
+      },
+    ]),
+  }
 }
 
 async function pathExists(path: string): Promise<boolean> {
@@ -518,21 +1389,7 @@ export async function applyInitTemplateSet(
 
 export function getInitTemplateSet(target: InitTarget, model?: PermissionModel): InitTemplateSet {
   if (target === 'auth') {
-    return {
-      label: 'auth',
-      description: 'Scaffold Better Auth + Convex bridge files',
-      files: [
-        { path: 'convex/auth.ts', content: authTsTemplate(), ownership: 'authored' },
-        { path: 'convex/auth.config.ts', content: authConfigTemplate(), ownership: 'generated' },
-        { path: 'convex/http.ts', content: httpTemplate(), ownership: 'generated' },
-        {
-          path: 'convex/convex.config.ts',
-          content: convexConfigTemplate(),
-          ownership: 'generated',
-        },
-        { path: 'convex/test.setup.ts', content: testSetupTemplate(), ownership: 'generated' },
-      ],
-    }
+    return buildAuthTemplateSet()
   }
 
   if (target === 'permissions') {
@@ -543,83 +1400,23 @@ export function getInitTemplateSet(target: InitTarget, model?: PermissionModel):
     }
 
     if (model === 'personal') {
-      return {
-        label: 'permissions:personal',
-        description: 'Scaffold app-owned personal actor and permission context files',
-        files: [
-          { path: 'convex/auth/actor.ts', content: personalActorTemplate(), ownership: 'authored' },
-          {
-            path: 'convex/functions.ts',
-            content: personalFunctionsTemplate(),
-            ownership: 'authored',
-          },
-          {
-            path: 'convex/auth/checks.ts',
-            content: personalChecksTemplate(),
-            ownership: 'authored',
-          },
-          {
-            path: 'convex/users.ts',
-            content: personalPermissionQueryTemplate(),
-            ownership: 'authored',
-          },
-        ],
-      }
+      return buildPersonalPermissionsTemplateSet()
     }
 
-    return {
-      label: `permissions:${model}`,
-      description: 'Scaffold workspace permission policy files',
-      files: [
-        {
-          path: 'convex/auth/principal.ts',
-          content: workspacePrincipalTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/auth/actor.ts',
-          content: workspaceActorTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/auth/checks.ts',
-          content: workspaceChecksTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/functions.ts',
-          content: workspaceFunctionsTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/workspaces.ts',
-          content: workspacePermissionQueryTemplate(),
-          ownership: 'authored',
-        },
-      ],
-      afterWrite: async (_cwd) => {
-        // Workspace model: userFields in defineAuth should include role: 'member'
-      },
-    }
+    return buildWorkspacePermissionsTemplateSet(model)
   }
 
   if (target === 'mcp') {
-    return {
-      label: 'mcp',
-      description: 'Scaffold MCP middleware glue',
-      files: [
-        {
-          path: 'server/middleware/mcp-auth.ts',
-          content: mcpMiddlewareTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'server/mcp/runtime.ts',
-          content: mcpRuntimeTemplate(),
-          ownership: 'authored',
-        },
-      ],
+    return buildMcpTemplateSet()
+  }
+
+  if (target === 'app') {
+    const template = (model as AppTemplate | undefined) ?? 'personal'
+    if (template !== 'personal' && template !== 'workspace' && template !== 'workspace-mcp') {
+      throw new Error('Missing app template. Use --template personal, workspace, or workspace-mcp.')
     }
+
+    return buildAppTemplateSet(template)
   }
 
   throw new Error(`Unsupported init target "${target}".`)

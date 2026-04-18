@@ -2,6 +2,16 @@
 
 Eight examples, progressive difficulty, every one using full Nuxt UI.
 
+These are examples, not CLI templates.
+
+If you want the official productized starting point, use:
+
+- `trellis init app --template personal`
+- `trellis init app --template workspace`
+- `trellis init app --template workspace-mcp`
+
+Use this folder when you want to learn the stack, inspect a richer reference, or pressure-test a pattern before it graduates into a template.
+
 ## First-Time Reader Path
 
 Read **01 → 02 → 03** in order. Each builds on the previous, adding one major concept per step. `03-team-workspace` is the repo's canonical protected-app reference. Examples 04–08 are reference implementations — pick whichever matches your use case. `05` and beyond are better treated as pattern catalogs than first-reader steps.
@@ -61,6 +71,15 @@ Examples `03` through `06` use the repo's canonical single-workspace contract:
 
 Example `06-multi-workspace` is the explicit upgrade path when you need memberships-based
 multi-workspace authorization.
+
+## How An Example Graduates Into A Template
+
+An example is ready to become a CLI archetype only when all of this is true:
+
+1. It represents a repeated app family, not a one-off showcase.
+2. Its file layout matches the canonical Trellis app shape closely enough to scaffold directly.
+3. The remaining setup burden is mostly mechanical and belongs in generators.
+4. The pattern has been validated by real app pressure, not just by a nice demo.
 
 ## Local Run Flow
 
