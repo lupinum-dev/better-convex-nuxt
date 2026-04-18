@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { defineActor, type DefaultActor } from '../../src/runtime/auth'
+import { setTrustedCallerContext } from '../../src/runtime/trusted-caller'
 
 type FakeUser = {
   _id: string
@@ -157,6 +158,29 @@ describe('defineActor', () => {
         }),
       ),
     ).resolves.toBeNull()
+  })
+
+  it('resolves the actor from trusted-caller identity when browser auth is absent', async () => {
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-key'
+
+    const ctx = createCtx({
+      identity: null,
+      users: [{ _id: 'user-1', authId: 'trusted_user', role: 'admin', workspaceId: 'workspace-1' }],
+    })
+
+    setTrustedCallerContext(ctx as unknown as Record<string, unknown>, {
+      _trustedCallerKey: 'trusted-key',
+      _trustedCaller: {
+        userId: 'trusted_user',
+      },
+    })
+
+    await expect(defineActor.fromAuth().resolve(ctx)).resolves.toEqual({
+      kind: 'user',
+      userId: 'trusted_user',
+      role: 'admin',
+      tenantId: 'workspace-1',
+    })
   })
 
   it('resolves a composed actor directly from the builder chain', async () => {

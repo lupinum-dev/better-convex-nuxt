@@ -304,6 +304,7 @@ export async function getActor(ctx: any) {
     const functions = readFileSync(resolve(cwd, 'convex/functions.ts'), 'utf8')
     const onboarding = readFileSync(resolve(cwd, 'convex/onboarding.ts'), 'utf8')
     const schema = readFileSync(resolve(cwd, 'convex/schema.ts'), 'utf8')
+    const principal = readFileSync(resolve(cwd, 'convex/auth/principal.ts'), 'utf8')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(nuxtConfig).toContain("permissions: 'workspaces.getPermissionContext'")
@@ -311,6 +312,8 @@ export async function getActor(ctx: any) {
     expect(onboarding).toContain('createFirstWorkspace')
     expect(schema).toContain("workspaces: defineTable")
     expect(schema).toContain("todos: defineTable")
+    expect(principal).toContain("import { getTrustedCaller } from '@lupinum/trellis/trusted-caller'")
+    expect(principal).toContain('Forwarded principals require a verified trusted caller.')
   })
 
   it('initializes a workspace-mcp starter app', () => {
@@ -326,6 +329,8 @@ export async function getActor(ctx: any) {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(runtime).toContain('createServerConvexCaller')
+    expect(runtime).toContain("auth: 'trusted'")
+    expect(runtime).toContain('actor: { userId: principal.userId }')
     expect(runtime).toContain('listTodos')
     expect(tool).toContain("name: 'list-todos'")
     expect(schema).toContain("mcpKeys: defineTable")

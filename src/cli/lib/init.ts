@@ -274,6 +274,7 @@ function workspacePrincipalTemplate() {
   return `
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
+import { getTrustedCaller } from '@lupinum/trellis/trusted-caller'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from '../_generated/dataModel'
@@ -317,7 +318,22 @@ export const principal = definePrincipal({
   validator: workspacePrincipalValidator,
   resolve: async (ctx, args): Promise<WorkspacePrincipal> => {
     const forwarded = (args as { principal?: WorkspacePrincipal }).principal
-    if (forwarded) return forwarded
+    if (forwarded) {
+      const trusted = getTrustedCaller(ctx)
+      if (!trusted) {
+        throw new Error('Forwarded principals require a verified trusted caller.')
+      }
+
+      if (forwarded.kind === 'anonymous') {
+        throw new Error('Forwarded principals cannot be anonymous.')
+      }
+
+      if (forwarded.userId !== trusted.userId) {
+        throw new Error('Forwarded principal userId must match the trusted caller userId.')
+      }
+
+      return forwarded
+    }
 
     const auth = await getAuth(ctx)
     if (!auth) {
@@ -489,7 +505,17 @@ function canWrite(role: NonNullable<McpAuthContext['role']>) {
 }
 
 export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
-  callConvex: async (event, principal) => createServerConvexCaller(event, { principal }),
+  callConvex: async (event, principal) =>
+    createServerConvexCaller(
+      event,
+      principal.kind === 'agent'
+        ? {
+            auth: 'trusted',
+            actor: { userId: principal.userId },
+            principal,
+          }
+        : { auth: 'none' },
+    ),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
     listTodos: principal.kind === 'agent' && !!principal.tenantId,

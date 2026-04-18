@@ -89,13 +89,14 @@ describe('server entrypoint exports', () => {
     )
   })
 
-  it('forwards auth and principal options to each request-scoped call', async () => {
+  it('forwards trusted auth, actor, and principal options to each request-scoped call', async () => {
     serverConvexQueryMock.mockResolvedValueOnce({ ok: true })
 
     const event = { __is_event__: true } as never
     const principal = { kind: 'agent', userId: 'u1' }
     const caller = serverApi.createServerConvexCaller(event, {
-      auth: 'required',
+      auth: 'trusted',
+      actor: { userId: 'u1' },
       principal,
     })
 
@@ -107,7 +108,29 @@ describe('server entrypoint exports', () => {
       event,
       { _path: 'notes:list' },
       { limit: 2, principal },
-      { auth: 'required' },
+      { auth: 'trusted', actor: { userId: 'u1' } },
     )
+  })
+
+  it('rejects forwarded principals outside the trusted caller path', () => {
+    const event = { __is_event__: true } as never
+
+    expect(() =>
+      serverApi.createServerConvexCaller(event, {
+        auth: 'auto',
+        principal: { kind: 'agent', userId: 'u1' },
+      }),
+    ).toThrow(/only allows forwarded `principal` on `auth: 'trusted'` calls/)
+  })
+
+  it('requires actor when forwarding a trusted principal', () => {
+    const event = { __is_event__: true } as never
+
+    expect(() =>
+      serverApi.createServerConvexCaller(event, {
+        auth: 'trusted',
+        principal: { kind: 'agent', userId: 'u1' },
+      }),
+    ).toThrow(/requires `actor` when forwarding a `principal`/)
   })
 })

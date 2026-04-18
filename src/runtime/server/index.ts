@@ -61,6 +61,18 @@ export function createServerConvexCaller(event: H3Event, options?: ForwardedPrin
     ...(options?.trustedCallerKey ? { trustedCallerKey: options.trustedCallerKey } : {}),
   }
 
+  if (options?.principal !== undefined && callOptions.auth !== 'trusted') {
+    throw new Error(
+      'createServerConvexCaller() only allows forwarded `principal` on `auth: \'trusted\'` calls.',
+    )
+  }
+
+  if (options?.principal !== undefined && !callOptions.actor) {
+    throw new Error(
+      'createServerConvexCaller() requires `actor` when forwarding a `principal` on the trusted path.',
+    )
+  }
+
   return {
     query: async <Query extends AnyQueryFunction>(
       fn: Query,

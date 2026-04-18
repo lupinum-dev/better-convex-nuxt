@@ -82,8 +82,8 @@ The highest-level truth is:
   Current evidence: [docs/content/docs/08.permissions/2.principal-and-actor.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/08.permissions/2.principal-and-actor.md)
 - [x] Trusted caller support exists for server-to-server flows.
   Current evidence: [src/runtime/server/utils/convex.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/utils/convex.ts), [docs/content/docs/07.server-side/3.webhooks-and-trusted-callers.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/07.server-side/3.webhooks-and-trusted-callers.md)
-- [ ] Forwarded principal handling is clearly constrained to trusted paths and hard to misuse.
-  Current evidence of gap: [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts), workspace principal scaffolds
+- [x] Forwarded principal handling is clearly constrained to trusted paths and hard to misuse.
+  Current evidence: [src/runtime/functions/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/functions/index.ts), [src/runtime/server/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/index.ts), [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts)
 - [x] Actor bootstrap failures are loud, actionable, and treated as first-class setup errors.
   Current evidence: [src/runtime/auth/define-actor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/auth/define-actor.ts), [src/runtime/composables/configured-permissions.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/composables/configured-permissions.ts), [docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md](/Users/matthias/Git/0_libs/WORK/trellis/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md)
 
@@ -226,6 +226,8 @@ These are the highest-value unchecked items right now.
 - [x] Fixed the remaining docs vocabulary drift where the glossary still described frontend permission projection in terms of `can(...)` instead of `allows(...)`.
 - [x] Removed the false `await useConvexMutation(...)` warning path from docs and ESLint after verifying the composable returns the same callable when awaited.
 - [x] Added `cacheStatus` to `useCachedQuery` and a targeted warning for the suspicious "source cache exists but the matcher missed" case.
+- [x] Taught root protected functions to accept trusted-caller transport fields and attach verified trusted-caller identity into the runtime context before principal/actor resolution.
+- [x] Hard-cut forwarded principal handling so the request-scoped server caller only allows `principal` on `auth: 'trusted'` calls with `actor`, and the generated workspace/MCP starters now enforce the same trusted-path rule.
 
 ## 13. Done Means
 

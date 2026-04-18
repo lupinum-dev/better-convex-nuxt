@@ -33,6 +33,7 @@ import { can, deny } from '../auth/index.js'
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
+import { setTrustedCallerContext, trustedCallerValidators } from '../trusted-caller/shared.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,
@@ -783,6 +784,8 @@ function createContextWithRuntime<
 ): RuntimeBundle<DataModel, TCtx, TPrincipal, TActor> {
   const appArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
+  const ctxWithTrustedCaller = { ...ctx } as TCtx & Record<PropertyKey, unknown>
+  setTrustedCallerContext(ctxWithTrustedCaller, appArgs)
   const observeRuntime = createObservationEmitter(options.observability, {
     transport: 'convex',
     ...toObservationContext(observationEnvelope),
@@ -797,7 +800,7 @@ function createContextWithRuntime<
 
   let principalPromise: Promise<TPrincipal> | null = null
   const principal: PrincipalAccessor<TPrincipal> = async () => {
-    principalPromise ??= Promise.resolve(principalResolver.resolve(ctx, appArgs)).then(
+    principalPromise ??= Promise.resolve(principalResolver.resolve(ctxWithTrustedCaller, appArgs)).then(
       async (value) => {
         await observe({
           name: 'principal.resolved',
@@ -811,7 +814,7 @@ function createContextWithRuntime<
   }
 
   const ctxWithPrincipal = {
-    ...ctx,
+    ...ctxWithTrustedCaller,
     principal,
     observe,
   } as TCtx & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal' | 'observe'>
@@ -929,6 +932,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    ...trustedCallerValidators,
     ...buildObservationEnvelopeValidators(),
   }
 
@@ -981,6 +985,7 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    ...trustedCallerValidators,
     ...buildObservationEnvelopeValidators(),
   }
 
@@ -1041,6 +1046,7 @@ function createActionCustomization<DataModel extends GenericDataModel, TPrincipa
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    ...trustedCallerValidators,
     ...buildObservationEnvelopeValidators(),
   }
 
