@@ -25,6 +25,7 @@ It combines four concerns that usually drift apart:
 - One permission model reused by browser UI, Nitro routes, webhooks, and MCP tools.
 - Nuxt composables for SSR, live queries, optimistic updates, uploads, and auth state.
 - A structured operation model for preview and confirm flows around destructive work.
+- Semantic observability for Trellis decisions with correlation and evlog delivery.
 - Installers and a CLI for common setup checks and scaffolding.
 
 ## Smallest Useful Setup

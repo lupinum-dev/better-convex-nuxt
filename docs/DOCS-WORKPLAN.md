@@ -13,7 +13,9 @@ This file stays outside `docs/content/` on purpose.
 - [x] `SPEC.md` removed from the repo. Use `SPEC.vNext.md` as the active design source.
 - [x] Phase 1 started with the README rewrite.
 - [x] README rewrite completed.
-- [ ] Next page after README: installation.
+- [x] `get-started` page drafted.
+- [x] `installation` page drafted.
+- [ ] Next page after installation: first protected app.
 
 ## Working Rules
 
@@ -47,6 +49,10 @@ This file stays outside `docs/content/` on purpose.
   - `mcp-tools`
   - `project`
 - [ ] Do not add a separate top-level `concepts/` section yet.
+- [ ] Treat observability as a real Trellis product surface, not as an afterthought or a logging footnote.
+- [ ] Keep observability positioned as a secondary capability:
+  - important for production debugging and trust
+  - not the first-reader adoption hook ahead of setup, auth, permissions, and data flow
 - [ ] Put concept-heavy pages where readers actually need them:
   - `guide` for the evaluator and first mental model
   - `permissions` for principal, actor, tenancy, and authorization
@@ -69,7 +75,6 @@ This file stays outside `docs/content/` on purpose.
 - [x] Contract pressure from tests: `test/unit/api-surface-doc.test.ts`, `test/unit/future-agent-conventions.test.ts`
 - [ ] Existing docs debt to resolve while pages land:
   - `DEVELOPMENT.md` links to docs routes that do not exist yet
-  - `docs/mdc-components.md` links to `/docs/guide/get-started` before that page exists
 
 ## Phase 0 - Foundations
 
@@ -110,14 +115,14 @@ This file stays outside `docs/content/` on purpose.
 - [x] Keep install easy to scan in the README.
 - [x] Keep the "where next" section honest and route-accurate.
 
-- [ ] Create `docs/content/docs/1.guide/1.get-started.md`
-  - [ ] Mode: tutorial
-  - [ ] Promise: get Trellis running and see one successful protected app flow
-  - [ ] Evidence: current install path, example app flow, actual commands
-- [ ] Create `docs/content/docs/1.guide/2.installation.md`
-  - [ ] Mode: how-to
-  - [ ] Promise: install the module and verify wiring
-  - [ ] Evidence: `pnpm add`, `nuxt.config.ts`, env expectations, `trellis doctor`
+- [x] Create `docs/content/docs/1.guide/1.get-started.md`
+  - [x] Mode: tutorial
+  - [x] Promise: get Trellis running and see one successful protected app flow
+  - [x] Evidence: current install path, example app flow, actual commands
+- [x] Create `docs/content/docs/1.guide/2.installation.md`
+  - [x] Mode: how-to
+  - [x] Promise: install the module and verify wiring
+  - [x] Evidence: `pnpm add`, `nuxt.config.ts`, env expectations, `trellis doctor`
 - [ ] Create `docs/content/docs/1.guide/3.first-protected-app.md`
   - [ ] Mode: tutorial
   - [ ] Promise: build a small signed-in app with one protected query and one mutation
@@ -310,12 +315,15 @@ This file stays outside `docs/content/` on purpose.
 - [ ] Create `docs/content/docs/8.observability/1.overview.md`
   - [ ] Mode: explanation
   - [ ] Promise: explain observability as semantic decisions, not log noise
+  - [ ] Evidence: `src/runtime/utils/observability/*`, `test/unit/observability.test.ts`, `SPEC.vNext.md`
 - [ ] Create `docs/content/docs/8.observability/2.semantic-events.md`
   - [ ] Mode: reference
   - [ ] Promise: document event families and meanings
+  - [ ] Evidence: `src/runtime/utils/observability/types.ts`
 - [ ] Create `docs/content/docs/8.observability/3.debugging-decisions.md`
   - [ ] Mode: how-to
   - [ ] Promise: help readers debug real authorization and execution issues
+  - [ ] Evidence: runtime config, server correlation handling, MCP denial explanations
 
 - [ ] Create `docs/content/docs/14.project/1.examples.md`
   - [ ] Mode: guide
@@ -418,4 +426,5 @@ Do not wait until the whole site is drafted.
 - [ ] 7. Write module options
 - [ ] 8. Generate API surface
 - [ ] 9. Run first batch review
-- [ ] 10. Continue into server-side and MCP docs
+- [ ] 10. Write observability overview once auth, permissions, and operations terminology is stable
+- [ ] 11. Continue into server-side and MCP docs
