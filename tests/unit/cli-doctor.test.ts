@@ -125,6 +125,10 @@ describe('CLI doctor', () => {
     expect(runtime).toContain('resolveDelegation')
     expect(runtime).not.toContain('actor: { userId: principal.userId }')
     expect(runtime).not.toContain('principal.userId')
+    const actor = read(resolve(appRoot, 'convex/auth/actor.ts'))
+    expect(actor).toContain('getSubjectValue')
+    expect(actor).toContain("getSubjectValue(delegation?.subject, 'user')")
+    expect(actor).not.toContain("delegation.subject.startsWith('user:')")
     expect(read(resolve(appRoot, 'server/middleware/mcp-auth.ts'))).toContain(
       'serverConvexQuery(event, api.domain.mcpKeys.validate, { hash }, { auth: \'none\' })',
     )

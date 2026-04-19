@@ -1,4 +1,4 @@
-import { getAuth } from '@lupinum/trellis/auth'
+import { getAuth, getSubjectValue } from '@lupinum/trellis/auth'
 import type { Delegation } from '@lupinum/trellis/functions'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
@@ -40,10 +40,7 @@ export async function getActorFromPrincipal(
   principal: InternalHarnessPrincipal,
   delegation: Delegation | null,
 ): Promise<Actor> {
-  const delegatedUserId =
-    typeof delegation?.subject === 'string' && delegation.subject.startsWith('user:')
-      ? delegation.subject.slice('user:'.length)
-      : null
+  const delegatedUserId = getSubjectValue(delegation?.subject, 'user')
 
   if (delegatedUserId) {
     return await loadActorByAuthId(ctx, delegatedUserId)

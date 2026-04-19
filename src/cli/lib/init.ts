@@ -203,7 +203,7 @@ export const personalPermissions = [profileRead, todoCreate] as const
 
 function workspaceActorTemplate() {
   return `
-import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
+import { getAuth, getSubjectValue, type DefaultActor } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
@@ -259,10 +259,7 @@ export async function getActorFromPrincipal(
   principal: WorkspacePrincipal,
   delegation: { subject: string } | null,
 ): Promise<Actor | null> {
-  const delegatedAuthId =
-    typeof delegation?.subject === 'string' && delegation.subject.startsWith('user:')
-      ? delegation.subject.slice('user:'.length)
-      : null
+  const delegatedAuthId = getSubjectValue(delegation?.subject, 'user')
 
   if (delegatedAuthId) {
     const actor = requirePermissionActor(

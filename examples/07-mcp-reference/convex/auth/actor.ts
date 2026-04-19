@@ -1,4 +1,4 @@
-import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
+import { getAuth, getSubjectValue, type DefaultActor } from '@lupinum/trellis/auth'
 import type { Delegation } from '@lupinum/trellis/functions'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
@@ -53,9 +53,7 @@ async function loadUserActorByAuthId(
 }
 
 function getDelegatedUserId(delegation: Delegation | null): string | null {
-  if (typeof delegation?.subject !== 'string') return null
-  if (!delegation.subject.startsWith('user:')) return null
-  return delegation.subject.slice('user:'.length)
+  return getSubjectValue(delegation?.subject, 'user')
 }
 
 function getUserIdFromPrincipal(principal: McpReferencePrincipal): string | null {

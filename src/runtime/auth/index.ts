@@ -29,6 +29,8 @@ export type {
 } from './define-guard.js'
 export { defineActor } from './define-actor.js'
 export type { ActorBuilder, DefaultActor } from './define-actor.js'
+export { getSubjectKind, getSubjectValue, isSubjectKind } from './subject.js'
+export type { SubjectKind } from './subject.js'
 export { derivePermissionMatrix } from './derive-permission-matrix.js'
 export type { PermissionMatrixRow } from './derive-permission-matrix.js'
 export {

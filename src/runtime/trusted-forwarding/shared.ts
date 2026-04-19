@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 import type { PropertyValidators } from 'convex/values'
 
 import { deny } from '../auth/index.js'
+import { getSubjectKind, getSubjectValue } from '../auth/subject.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import type { Subject } from '../functions/define-principal.js'
 
@@ -71,7 +72,7 @@ function nonBlankString(value: unknown): string | undefined {
 }
 
 export function isCanonicalSubject(value: unknown): value is Subject {
-  return typeof value === 'string' && /^(user|agent|service|webhook|system):\S+$/.test(value)
+  return getSubjectKind(value) !== null && getSubjectValue(value) !== null
 }
 
 export function extractSubject(value: unknown): Subject | undefined {

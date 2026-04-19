@@ -9,6 +9,7 @@ import { ConvexError } from 'convex/values'
 
 import { getForwardedDelegation, getForwardedPrincipal } from '../trusted-forwarding/index.js'
 import { getAuth, type AuthIdentity } from './index.js'
+import { getSubjectValue } from './subject.js'
 
 /**
  * The default actor shape provided by the module.
@@ -65,19 +66,15 @@ async function resolveAuthIdentity<DataModel extends GenericDataModel>(
   ctx: AnyCtx<DataModel>,
 ): Promise<AuthIdentity | null> {
   const forwardedDelegation = getForwardedDelegation<{ subject: string }>(ctx)
-  if (
-    typeof forwardedDelegation?.subject === 'string' &&
-    forwardedDelegation.subject.startsWith('user:')
-  ) {
-    return { subject: forwardedDelegation.subject.slice('user:'.length) }
+  const delegatedUserId = getSubjectValue(forwardedDelegation?.subject, 'user')
+  if (delegatedUserId) {
+    return { subject: delegatedUserId }
   }
 
   const forwardedPrincipal = getForwardedPrincipal<{ subject: string }>(ctx)
-  if (
-    typeof forwardedPrincipal?.subject === 'string' &&
-    forwardedPrincipal.subject.startsWith('user:')
-  ) {
-    return { subject: forwardedPrincipal.subject.slice('user:'.length) }
+  const principalUserId = getSubjectValue(forwardedPrincipal?.subject, 'user')
+  if (principalUserId) {
+    return { subject: principalUserId }
   }
 
   return await getAuth(ctx)

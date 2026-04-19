@@ -36,6 +36,8 @@ You already understand the canonical protected workspace model from
 3. `convex/auth/principal.ts`
 4. `convex/auth/delegation.ts`
 5. `convex/auth/actor.ts`
+   This is where the three caller shapes converge into one permission model: direct browser user,
+   MCP agent acting for a user, and verified webhook/service traffic acting for a user.
 6. `convex/auth/services.ts`
 7. `server/middleware/mcp-auth.ts`
 8. `server/api/runbook-webhook.post.ts`

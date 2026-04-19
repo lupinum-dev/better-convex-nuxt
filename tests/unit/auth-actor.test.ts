@@ -186,6 +186,75 @@ describe('defineActor', () => {
     })
   })
 
+  it('falls back to browser auth when the forwarded principal is not a canonical user subject', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+
+    const ctx = createCtx({
+      identity: { subject: 'browser_user' },
+      users: [
+        { _id: 'user-1', authId: 'browser_user', role: 'member', workspaceId: 'workspace-1' },
+      ],
+    })
+
+    setTrustedForwardingContext(ctx as unknown as Record<string, unknown>, {
+      principal: {
+        kind: 'agent',
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      },
+      _trustedForwardingKey: 'trusted-key',
+      _trustedForwarding: {
+        principalSubject: 'agent:assistant-bot',
+      },
+    })
+
+    await expect(defineActor.fromAuth().resolve(ctx)).resolves.toEqual({
+      kind: 'user',
+      userId: 'browser_user',
+      role: 'member',
+      tenantId: 'workspace-1',
+    })
+  })
+
+  it('prefers a delegated canonical user subject over a non-user principal', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+
+    const ctx = createCtx({
+      identity: null,
+      users: [
+        {
+          _id: 'user-1',
+          authId: 'delegated_user',
+          role: 'owner',
+          workspaceId: 'workspace-1',
+        },
+      ],
+    })
+
+    setTrustedForwardingContext(ctx as unknown as Record<string, unknown>, {
+      principal: {
+        kind: 'agent',
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      },
+      delegation: {
+        subject: 'user:delegated_user',
+      },
+      _trustedForwardingKey: 'trusted-key',
+      _trustedForwarding: {
+        principalSubject: 'agent:assistant-bot',
+        delegationSubject: 'user:delegated_user',
+      },
+    })
+
+    await expect(defineActor.fromAuth().resolve(ctx)).resolves.toEqual({
+      kind: 'user',
+      userId: 'delegated_user',
+      role: 'owner',
+      tenantId: 'workspace-1',
+    })
+  })
+
   it('does not resolve an actor from transport metadata alone when no forwarded identity was validated', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
 
