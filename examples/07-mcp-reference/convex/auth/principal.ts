@@ -45,6 +45,8 @@ export const mcpReferencePrincipalValidator = v.union(
 export const principal = definePrincipal<PrincipalCtx, McpReferencePrincipal>({
   validator: mcpReferencePrincipalValidator,
   resolve: async (ctx, args): Promise<McpReferencePrincipal> => {
+    // Trusted forwarding wins first. Browser auth only runs when no trusted
+    // server-side principal was forwarded into the handler.
     const forwarded = getForwardedPrincipal<McpReferencePrincipal>(ctx, args)
     if (forwarded) return forwarded
 
@@ -53,6 +55,7 @@ export const principal = definePrincipal<PrincipalCtx, McpReferencePrincipal>({
       return { kind: 'anonymous', subject: 'system:anonymous' }
     }
 
+    // Browser requests resolve to a plain user principal with a canonical subject.
     return {
       kind: 'user',
       userId: auth.subject,

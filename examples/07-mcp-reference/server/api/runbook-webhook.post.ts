@@ -75,6 +75,8 @@ export default defineEventHandler(async (event) => {
 
   const authId = getWebhookActorAuthId()
 
+  // The webhook is the real caller, but it is allowed to act for one bound
+  // workspace user so the app can authorize the mutation as that user.
   const runbookId = await serverConvexMutation(
     event,
     api.domain.runbooks.create,

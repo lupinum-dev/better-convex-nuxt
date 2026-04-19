@@ -20,7 +20,16 @@ export type PermissionActor = DefaultActor & {
   tenantId?: Id<'workspaces'>
 }
 
-async function loadActorByAuthId(
+type ForwardedIdentityCtx = McpReferenceCtx & {
+  principal: () => Promise<McpReferencePrincipal>
+  delegation: () => Promise<Delegation | null>
+}
+
+function hasForwardedIdentity(ctx: McpReferenceCtx): ctx is ForwardedIdentityCtx {
+  return 'principal' in ctx && typeof ctx.principal === 'function'
+}
+
+async function loadUserActorByAuthId(
   ctx: McpReferenceCtx,
   authId: string,
 ): Promise<PermissionActor | null> {
@@ -43,43 +52,67 @@ async function loadActorByAuthId(
   }
 }
 
+function getDelegatedUserId(delegation: Delegation | null): string | null {
+  if (typeof delegation?.subject !== 'string') return null
+  if (!delegation.subject.startsWith('user:')) return null
+  return delegation.subject.slice('user:'.length)
+}
+
+function getUserIdFromPrincipal(principal: McpReferencePrincipal): string | null {
+  if (principal.kind !== 'user') return null
+  return principal.userId
+}
+
+function requireTenantActor(actor: PermissionActor | null): Actor | null {
+  if (!actor?.tenantId) return null
+  return { ...actor, tenantId: actor.tenantId }
+}
+
+async function resolvePermissionActorFromCaller(
+  ctx: McpReferenceCtx,
+  principal: McpReferencePrincipal,
+  delegation: Delegation | null,
+): Promise<PermissionActor | null> {
+  // When a non-user caller acts for a user, permissions resolve as that user.
+  const delegatedUserId = getDelegatedUserId(delegation)
+  if (delegatedUserId) {
+    return await loadUserActorByAuthId(ctx, delegatedUserId)
+  }
+
+  // Browser-style calls resolve directly from the user principal.
+  const directUserId = getUserIdFromPrincipal(principal)
+  if (!directUserId) return null
+
+  return await loadUserActorByAuthId(ctx, directUserId)
+}
+
 export async function getActorFromPrincipal(
   ctx: McpReferenceCtx,
   _args: Record<string, unknown>,
   principal: McpReferencePrincipal,
   delegation: Delegation | null,
 ): Promise<Actor | null> {
-  const delegatedAuthId =
-    typeof delegation?.subject === 'string' && delegation.subject.startsWith('user:')
-      ? delegation.subject.slice('user:'.length)
-      : null
-
-  if (delegatedAuthId) {
-    const actor = await loadActorByAuthId(ctx, delegatedAuthId)
-    return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
-  }
-
-  switch (principal.kind) {
-    case 'anonymous':
-      return null
-    case 'agent':
-      return null
-    case 'service':
-      return null
-    case 'user': {
-      const actor = await loadActorByAuthId(ctx, principal.userId)
-      return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
-    }
-  }
+  const actor = await resolvePermissionActorFromCaller(ctx, principal, delegation)
+  return requireTenantActor(actor)
 }
 
 export async function getPermissionActor(ctx: McpReferenceCtx): Promise<PermissionActor | null> {
+  // Protected handlers expose principal/delegation accessors, so prefer those
+  // over raw browser auth when they are available.
+  if (hasForwardedIdentity(ctx)) {
+    const principal = await ctx.principal()
+    const delegation = await ctx.delegation()
+    return await resolvePermissionActorFromCaller(ctx, principal, delegation)
+  }
+
+  // Permission context queries can still run outside the protected handler
+  // surface, so fall back to the signed-in browser user identity there.
   const auth = await getAuth(ctx)
   if (!auth) return null
-  return await loadActorByAuthId(ctx, auth.subject)
+  return await loadUserActorByAuthId(ctx, auth.subject)
 }
 
 export async function getActor(ctx: McpReferenceCtx): Promise<Actor | null> {
   const actor = await getPermissionActor(ctx)
-  return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
+  return requireTenantActor(actor)
 }

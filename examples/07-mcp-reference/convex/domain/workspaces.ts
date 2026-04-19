@@ -1,16 +1,19 @@
-import { authRequired } from '@lupinum/trellis/auth'
+import { open, requireAuth } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from '../functions'
 
 export const createWorkspace = mutation({
-  guard: authRequired,
+  guard: open,
   args: {
     name: v.string(),
     slug: v.string(),
   },
   handler: async (ctx, args) => {
     const principal = await ctx.principal()
+    // This onboarding path is intentionally principal-gated instead of actor-gated:
+    // a signed-in user may exist before they have any workspace-bound actor row.
+    requireAuth(principal, 'Forbidden: authRequired')
     if (principal.kind !== 'user') {
       throw new Error('Workspace creation requires a signed-in user principal.')
     }
@@ -30,6 +33,7 @@ export const createWorkspace = mutation({
     if (!user) throw new Error('Current user row not found.')
 
     const now = Date.now()
+    const rawDb = ctx.db.raw as typeof ctx.db
     const tenantId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
@@ -38,7 +42,16 @@ export const createWorkspace = mutation({
       updatedAt: now,
     })
 
-    await ctx.db.insert('runbooks', {
+    // Once the workspace exists, attach the user to it and promote them to owner.
+    await ctx.db.patch(user._id, {
+      workspaceId: tenantId,
+      role: 'owner',
+      updatedAt: now,
+    })
+
+    // On first-workspace creation there is no tenant-bound actor yet, so seed
+    // content must bypass tenant isolation explicitly.
+    await rawDb.insert('runbooks', {
       title: 'Public onboarding guide',
       summary: 'A public runbook that demonstrates the unauthenticated MCP surface.',
       content: [
@@ -57,7 +70,7 @@ export const createWorkspace = mutation({
       publishedAt: now,
     })
 
-    await ctx.db.insert('runbooks', {
+    await rawDb.insert('runbooks', {
       title: 'Internal incident checklist',
       summary: 'A workspace-only runbook seeded so the authenticated MCP tools have content.',
       content: [
@@ -72,12 +85,6 @@ export const createWorkspace = mutation({
       ownerId: principal.userId,
       workspaceId: tenantId,
       createdAt: now,
-      updatedAt: now,
-    })
-
-    await ctx.db.patch(user._id, {
-      workspaceId: tenantId,
-      role: 'owner',
       updatedAt: now,
     })
 

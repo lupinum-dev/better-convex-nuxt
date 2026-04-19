@@ -12,6 +12,8 @@ export const mcpReferenceDelegationValidator = v.object({
 
 export const delegation = defineDelegation({
   validator: mcpReferenceDelegationValidator,
+  // Only trusted forwarded calls carry delegation in this example. Browser
+  // requests run without a represented user.
   resolve: async (ctx, args): Promise<McpReferenceDelegation | null> =>
     getForwardedDelegation<McpReferenceDelegation>(ctx, args),
 })

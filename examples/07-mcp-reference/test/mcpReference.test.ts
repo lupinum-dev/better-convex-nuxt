@@ -27,6 +27,54 @@ function createCtx() {
 }
 
 describe('mcp reference example', () => {
+  it('lets a signed-in user without a workspace create their first workspace', async () => {
+    const ctx = createCtx()
+    const authId = 'first_workspace_owner'
+
+    await ctx.seed('users', {
+      authId,
+      email: 'owner@example.com',
+      displayName: 'First Owner',
+      role: 'member',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+
+    const workspaceId = await ctx.raw
+      .withIdentity({
+        subject: authId,
+        email: 'owner@example.com',
+        name: 'First Owner',
+      })
+      .mutation(api.domain.workspaces.createWorkspace, {
+        name: 'First Workspace',
+        slug: 'first-workspace',
+      })
+
+    expect(workspaceId).toBeTruthy()
+
+    const permissionContext = await ctx.raw
+      .withIdentity({
+        subject: authId,
+        email: 'owner@example.com',
+        name: 'First Owner',
+      })
+      .query(api.permissions.context.getPermissionContext, {})
+
+    expect(permissionContext).toMatchObject({
+      role: 'owner',
+      userId: authId,
+      tenantId: workspaceId,
+      can: {
+        [runbookRead.key]: true,
+        [runbookCreate.key]: true,
+        [runbookDelete.key]: true,
+        [runbookBulkDelete.key]: true,
+        [mcpManage.key]: true,
+      },
+    })
+  })
+
   it('returns an onboarding-safe permission context for authenticated users without a workspace', async () => {
     const ctx = createCtx()
     const authId = 'user_without_workspace'
@@ -62,6 +110,47 @@ describe('mcp reference example', () => {
       },
     })
     expect(userId).toBeTruthy()
+  })
+
+  it('projects workspace capabilities for delegated MCP principals', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        member: { role: 'member' },
+      },
+    })
+
+    const permissionContext = await ctx.raw.query(api.permissions.context.getPermissionContext, {
+      principal: {
+        kind: 'agent',
+        agentId: 'primary-mcp-key',
+        subject: 'agent:primary-mcp-key',
+        provider: 'mcp',
+      },
+      delegation: {
+        subject: `user:${team.users.member.authId}`,
+        reason: 'user-approved MCP session',
+      },
+      _trustedForwardingKey: TRUSTED_FORWARDING_KEY,
+      _trustedForwarding: {
+        principalSubject: 'agent:primary-mcp-key',
+        delegationSubject: `user:${team.users.member.authId}`,
+      },
+    })
+
+    expect(permissionContext).toMatchObject({
+      role: 'member',
+      userId: team.users.member.authId,
+      can: {
+        [runbookRead.key]: true,
+        [runbookCreate.key]: true,
+        [runbookDelete.key]: true,
+        [runbookBulkDelete.key]: false,
+        [mcpManage.key]: false,
+      },
+    })
+    expect(permissionContext?.tenantId).toEqual(expect.any(String))
   })
 
   it('keeps public runbooks visible without auth while workspace queries stay protected', async () => {
