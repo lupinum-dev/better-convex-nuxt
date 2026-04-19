@@ -20,8 +20,10 @@ vi.mock('#trellis/server', () => ({
 
 vi.mock('#trellis/api', () => ({
   api: {
-    tasks: {
-      create: { _path: 'tasks:create' },
+    domain: {
+      tasks: {
+        create: { _path: 'domain/tasks:create' },
+      },
     },
   },
 }))
@@ -64,7 +66,7 @@ describe('example 04 webhook handler', () => {
         node: expect.any(Object),
       }),
       expect.objectContaining({
-        _path: 'tasks:create',
+        _path: 'domain/tasks:create',
       }),
       {
         projectId: 'project_123',

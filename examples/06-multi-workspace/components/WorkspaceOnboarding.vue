@@ -95,18 +95,18 @@ const roleOptions = [
   { label: 'Agency Manager (cross-client dashboard)', value: 'agency_manager' },
 ]
 
-const createWorkspace = useConvexMutation(api.workspaces.createWorkspace, {
+const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace, {
   onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
 })
-const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace, {
+const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace, {
   onSuccess: () => toast.add({ title: 'Joined workspace', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
 })
 
-const { data: workspaces } = await useConvexQuery(api.workspaces.listWorkspaces, {})
+const { data: workspaces } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
 
 async function handleCreate() {
   await createWorkspace(createForm)

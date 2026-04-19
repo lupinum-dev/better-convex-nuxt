@@ -91,20 +91,20 @@ const canShare = allows(knowledgeBasePermissionKeys.shareCreate)
 const canPublish = allows(knowledgeBasePermissionKeys.articleCreate)
 
 const { data: article, error } = await useConvexQuery(
-  api.articles.viewArticle,
+  api.domain.articles.viewArticle,
   computed(() => ({
     id: articleId as any,
     shareToken: shareToken || undefined,
   })),
 )
 
-const markCompleted = useConvexMutation(api.articles.markCompleted, {
+const markCompleted = useConvexMutation(api.domain.articles.markCompleted, {
   onSuccess: () => toast.add({ title: 'Marked as completed', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not mark completed', description: error.message, color: 'error' }),
 })
 
-const publishArticle = useConvexMutation(api.articles.publish, {
+const publishArticle = useConvexMutation(api.domain.articles.publish, {
   onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),

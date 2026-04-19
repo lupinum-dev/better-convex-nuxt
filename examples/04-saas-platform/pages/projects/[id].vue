@@ -143,12 +143,12 @@ const taskForm = reactive({
 })
 const selectedIds = ref<Id<'tasks'>[]>([])
 
-const createTask = useConvexMutation(api.tasks.create, {
+const createTask = useConvexMutation(api.domain.tasks.create, {
   onSuccess: () => toast.add({ title: 'Task created', color: 'success', icon: 'i-lucide-check' }),
   onError: (error) =>
     toast.add({ title: 'Could not create task', description: error.message, color: 'error' }),
 })
-const archiveProject = useConvexMutation(api.projects.archive, {
+const archiveProject = useConvexMutation(api.domain.projects.archive, {
   onSuccess: () => {
     toast.add({ title: 'Project archived', color: 'success', icon: 'i-lucide-archive' })
     navigateTo('/')
@@ -160,17 +160,17 @@ const canCreateTask = allows(saasPermissionKeys.taskCreate)
 const canManageMembers = allows(saasPermissionKeys.workspaceMembers)
 
 const { data: project } = await useConvexQuery(
-  api.projects.get,
+  api.domain.projects.get,
   computed(() => ({ id: projectId.value })),
 )
 
 const { data: tasks } = await useConvexQuery(
-  api.tasks.listByProject,
+  api.domain.tasks.listByProject,
   computed(() => ({ projectId: projectId.value })),
 )
 
 const { data: members } = await useConvexQuery(
-  api.members.list,
+  api.domain.members.list,
   computed(() => (canManageMembers.value ? {} : undefined)),
 )
 

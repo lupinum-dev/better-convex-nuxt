@@ -20,14 +20,14 @@ const {
   progress,
   data: uploadedStorageId,
   error,
-} = useConvexUpload(api.files.generateUploadUrl, {
+} = useConvexUpload(api.domain.files.generateUploadUrl, {
   allowedTypes: ['image/*', 'text/*', 'application/pdf'],
   maxSizeBytes: 5_000_000,
 })
 
 watch(uploadedStorageId, (nextValue) => {
   if (nextValue) {
-    modelValue.value = nextValue
+    modelValue.value = nextValue as Id<'_storage'>
   }
 })
 

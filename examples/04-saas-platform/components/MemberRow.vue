@@ -14,7 +14,7 @@ const props = defineProps<{
 const toast = useToast()
 const { allows } = usePermissions()
 const canManageMembers = allows(saasPermissionKeys.workspaceMembers)
-const changeRole = useConvexMutation(api.members.changeRole, {
+const changeRole = useConvexMutation(api.domain.members.changeRole, {
   onSuccess: () =>
     toast.add({ title: 'Role updated', color: 'success', icon: 'i-lucide-shield-check' }),
   onError: (error) =>

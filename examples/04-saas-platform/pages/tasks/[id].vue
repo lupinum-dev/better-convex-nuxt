@@ -91,11 +91,11 @@ const projectId = route.query.projectId as Id<'projects'>
 const canAssign = allows(saasPermissionKeys.taskAssign)
 
 const { data: task } = await useCachedQuery(
-  api.tasks.get,
+  api.domain.tasks.get,
   computed(() => ({ id: taskId.value })),
   {
     from: {
-      query: api.tasks.listByProject,
+      query: api.domain.tasks.listByProject,
       args: { projectId },
       find: (tasks) => tasks.find((candidate) => candidate._id === taskId.value),
     },
@@ -103,7 +103,7 @@ const { data: task } = await useCachedQuery(
 )
 
 const { data: members } = await useConvexQuery(
-  api.members.list,
+  api.domain.members.list,
   computed(() => (canAssign.value ? {} : undefined)),
 )
 
@@ -137,7 +137,7 @@ function resolveName(authId: string | undefined) {
   return memberNames.value.get(authId) ?? `Member ${authId.slice(0, 8)}…`
 }
 
-const assignTask = useConvexMutation(api.tasks.assign, {
+const assignTask = useConvexMutation(api.domain.tasks.assign, {
   onSuccess: () => toast.add({ title: 'Assignee updated', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not assign task', description: error.message, color: 'error' }),

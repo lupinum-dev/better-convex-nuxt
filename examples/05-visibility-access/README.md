@@ -49,3 +49,9 @@ pnpm test
 ```
 
 Tests cover visibility filtering, redaction, enrollment, prerequisites, share tokens, inherited access, and cross-tenant isolation.
+
+Canonical layout in this example:
+
+- `convex/domain/*` contains knowledge-base, article, and workspace handlers
+- `convex/permissions/context.ts` is the configured permission context query
+- `convex/operations/shareTokens.ts` owns destructive share-token revocation

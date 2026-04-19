@@ -16,6 +16,7 @@ and agency users get controlled cross-tenant views without weakening the normal 
 - Users may belong to multiple workspaces through `memberships`
 - Current workspace is explicit on the user row
 - Agency roles and client roles coexist in the same membership model
+- Canonical handlers live under `convex/domain/*`, with `convex/permissions/context.ts` as the configured permission query
 
 ## Running
 

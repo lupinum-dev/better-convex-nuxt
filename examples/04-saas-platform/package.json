@@ -7,6 +7,7 @@
     "dev:nuxt": "nuxi dev --dotenv .env.local",
     "build": "nuxi build --dotenv .env.local",
     "typecheck": "nuxi typecheck --dotenv .env.local",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:all": "pnpm test && pnpm test:e2e",

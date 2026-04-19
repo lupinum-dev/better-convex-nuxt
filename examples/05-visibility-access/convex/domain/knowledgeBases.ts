@@ -1,8 +1,8 @@
 import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { canCreateKB, canManageEnrollments, canReadKB } from './auth/checks'
-import { mutation, query } from './functions'
+import { canCreateKB, canManageEnrollments, canReadKB } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 export const list = query({
   guard: canReadKB,

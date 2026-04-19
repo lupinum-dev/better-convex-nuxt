@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
@@ -7,6 +7,10 @@ const root = '/Users/matthias/Git/0_libs/WORK/trellis'
 
 function read(relativePath: string) {
   return readFileSync(resolve(root, relativePath), 'utf8')
+}
+
+function file(relativePath: string) {
+  return resolve(root, relativePath)
 }
 
 describe('future agent conventions', () => {
@@ -46,5 +50,57 @@ describe('future agent conventions', () => {
     expect(bridgeDocs).toContain('stable automation seam')
     expect(mcpApi).toContain('project root handlers or bridge refs into the MCP runtime')
     expect(miniCmsReadme).toContain('internal bridge refs')
+  })
+
+  it('keeps the public advanced examples on the canonical app shape', () => {
+    const canonicalExamples = [
+      'examples/04-saas-platform',
+      'examples/05-visibility-access',
+      'examples/06-multi-workspace',
+    ]
+
+    const forbiddenFlatModules = [
+      'convex/articles.ts',
+      'convex/comments.ts',
+      'convex/dashboard.ts',
+      'convex/files.ts',
+      'convex/knowledgeBases.ts',
+      'convex/members.ts',
+      'convex/projects.ts',
+      'convex/tasks.ts',
+      'convex/workspaces.ts',
+    ]
+
+    for (const example of canonicalExamples) {
+      expect(existsSync(file(`${example}/convex/domain`))).toBe(true)
+      expect(existsSync(file(`${example}/convex/permissions/context.ts`))).toBe(true)
+
+      const nuxtConfig = read(`${example}/nuxt.config.ts`)
+      if (nuxtConfig.includes('trellis.permissions')) {
+        expect(nuxtConfig).toContain("query: 'permissions/context.getPermissionContext'")
+      }
+
+      for (const forbiddenFile of forbiddenFlatModules) {
+        expect(existsSync(file(`${example}/${forbiddenFile}`))).toBe(false)
+      }
+    }
+
+    expect(existsSync(file('examples/04-saas-platform/convex/operations/projects.ts'))).toBe(true)
+    expect(existsSync(file('examples/04-saas-platform/convex/operations/tasks.ts'))).toBe(true)
+    expect(existsSync(file('examples/05-visibility-access/convex/operations/shareTokens.ts'))).toBe(
+      true,
+    )
+  })
+
+  it('keeps public canonical example tests free of blanket TypeScript suppression', () => {
+    const canonicalTests = [
+      'examples/04-saas-platform/convex/projectBoard.test.ts',
+      'examples/05-visibility-access/convex/knowledgeBase.test.ts',
+      'examples/06-multi-workspace/convex/agency.test.ts',
+    ]
+
+    for (const testFile of canonicalTests) {
+      expect(read(testFile)).not.toContain('@ts-nocheck')
+    }
   })
 })

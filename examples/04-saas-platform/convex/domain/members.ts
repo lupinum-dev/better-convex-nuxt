@@ -1,8 +1,8 @@
 import { deny, enforce, ensureTenant, requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { canManageMembers, requireWorkspaceTenant } from './auth/checks'
-import { mutation, query } from './functions'
+import { canManageMembers, requireWorkspaceTenant } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 export const list = query({
   args: {},

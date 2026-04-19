@@ -1,0 +1,4 @@
+{
+  "extends": "../tsconfig.vitest.json",
+  "include": ["convex/**/*.test.ts"]
+}

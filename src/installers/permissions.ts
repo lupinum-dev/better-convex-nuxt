@@ -11,6 +11,7 @@ export function installPermissionTrellis(options: InstallPermissionsOptions): vo
   const lastDot = permissionQueryPath.lastIndexOf('.')
   const modulePath = permissionQueryPath.slice(0, lastDot)
   const exportName = permissionQueryPath.slice(lastDot + 1)
+  const moduleSegments = modulePath.split('/').map((segment) => `'${segment}'`).join(', ')
 
   const permissionsTemplate = addTemplate({
     filename: 'trellis/permissions.ts',
@@ -19,7 +20,11 @@ export function installPermissionTrellis(options: InstallPermissionsOptions): vo
 import { api } from '#trellis/api'
 import { createConfiguredPermissionsComposables } from '${resolver.resolve('./runtime/composables/configured-permissions')}'
 
-const configuredQuery = api['${modulePath}']['${exportName}']
+const configuredModule = [${moduleSegments}].reduce<any>(
+  (current, segment) => current?.[segment],
+  api as any,
+)
+const configuredQuery = configuredModule?.['${exportName}']
 
 export const configuredPermissionsQuery = configuredQuery
 

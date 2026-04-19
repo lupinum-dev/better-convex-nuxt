@@ -342,17 +342,17 @@ const joinWorkspaceForm = reactive({
 })
 const kbForm = reactive({ title: '' })
 
-const createWorkspace = useConvexMutation(api.workspaces.createWorkspace, {
+const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace, {
   onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
 })
-const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace, {
+const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace, {
   onSuccess: () => toast.add({ title: 'Joined workspace', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
 })
-const createKB = useConvexMutation(api.knowledgeBases.create, {
+const createKB = useConvexMutation(api.domain.knowledgeBases.create, {
   onSuccess: () => toast.add({ title: 'Knowledge base created', color: 'success' }),
   onError: (error) =>
     toast.add({
@@ -362,10 +362,10 @@ const createKB = useConvexMutation(api.knowledgeBases.create, {
     }),
 })
 
-const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
+const { data: workspaceOptions } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
 
 const kbArgs = computed(() => (tenantId.value ? {} : undefined))
-const { data: knowledgeBases } = await useConvexQuery(api.knowledgeBases.list, kbArgs)
+const { data: knowledgeBases } = await useConvexQuery(api.domain.knowledgeBases.list, kbArgs)
 
 const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
@@ -375,7 +375,7 @@ const currentWorkspaceName = computed(() => {
   return workspaceOptions.value.find((w) => w._id === tenantId.value)?.name ?? null
 })
 const canCreate = allows(knowledgeBasePermissionKeys.kbCreate)
-const roleOptions = ['admin', 'editor', 'contributor', 'viewer'] as const
+const roleOptions = ['admin', 'editor', 'contributor', 'viewer']
 const allRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const
 const permissionMatrix = [
   { label: 'Create knowledge base', roles: ['owner', 'admin', 'editor'] },
@@ -389,11 +389,11 @@ const permissionMatrix = [
 ]
 
 async function handleSignUp() {
-  await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })
+  await authAction.execute(() => client!.signUp.email(signUpForm), { redirectTo: '/' })
 }
 
 async function handleSignIn() {
-  await authAction.execute(() => client.signIn.email(signInForm), { redirectTo: '/' })
+  await authAction.execute(() => client!.signIn.email(signInForm), { redirectTo: '/' })
 }
 
 async function handleSignOut() {

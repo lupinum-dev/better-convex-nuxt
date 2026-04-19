@@ -12,5 +12,9 @@ export const { mutation, query, raw } = defineTrellis(
     tenantIsolation: {
       tables: ['projects', 'tasks', 'comments', 'auditEvents'],
     },
+    destructiveSafety: {
+      redemptionTable: 'destructiveRedemptions' as never,
+      auditTable: 'destructiveAuditLog' as never,
+    },
   },
 )

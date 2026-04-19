@@ -1,17 +1,14 @@
-import { authRequired, definePermissionContext, open } from '@lupinum/trellis/auth'
+import { authRequired, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { knowledgeBasePermissionKeys, type KnowledgeBasePermissionMap } from '../shared/permissions'
-import { getActor } from './auth/actor'
-import {
-  canCreateArticle,
-  canCreateKB,
-  canCreateShareToken,
-  canManageEnrollments,
-  canReadArticle,
-  canReadKB,
-} from './auth/checks'
-import { mutation, query } from './functions'
+import { mutation, query } from '../functions'
+
+const joinRoleValidator = v.union(
+  v.literal('admin'),
+  v.literal('editor'),
+  v.literal('contributor'),
+  v.literal('viewer'),
+)
 
 export const listWorkspaces = query({
   guard: open,
@@ -22,36 +19,11 @@ export const listWorkspaces = query({
   },
 })
 
-export const getPermissionContext = query(
-  definePermissionContext({
-    resolve: getActor,
-    guards: {
-      [knowledgeBasePermissionKeys.kbCreate]: canCreateKB,
-      [knowledgeBasePermissionKeys.kbRead]: canReadKB,
-      [knowledgeBasePermissionKeys.articleCreate]: canCreateArticle,
-      [knowledgeBasePermissionKeys.articleRead]: canReadArticle,
-      [knowledgeBasePermissionKeys.enrollmentManage]: canManageEnrollments,
-      [knowledgeBasePermissionKeys.shareCreate]: canCreateShareToken,
-    } satisfies Record<keyof KnowledgeBasePermissionMap, typeof canReadKB>,
-    extend: async (ctx, actor) => {
-      const user = await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q: any) => q.eq('authId', actor.userId))
-        .first()
-
-      return {
-        email: user?.email ?? null,
-        displayName: user?.displayName ?? null,
-      }
-    },
-  }),
-)
-
 export const createWorkspace = mutation({
   guard: authRequired,
   args: { name: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
-    const principal = await ctx.principal()
+    const principal = (await ctx.principal()) as { userId: string }
 
     const existing = await ctx.db
       .query('workspaces')
@@ -84,13 +56,6 @@ export const createWorkspace = mutation({
   },
 })
 
-const joinRoleValidator = v.union(
-  v.literal('admin'),
-  v.literal('editor'),
-  v.literal('contributor'),
-  v.literal('viewer'),
-)
-
 export const joinWorkspace = mutation({
   guard: authRequired,
   args: {
@@ -99,7 +64,7 @@ export const joinWorkspace = mutation({
     managerEmail: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const principal = await ctx.principal()
+    const principal = (await ctx.principal()) as { userId: string }
 
     const workspace = await ctx.db
       .query('workspaces')

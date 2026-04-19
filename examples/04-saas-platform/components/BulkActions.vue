@@ -16,7 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
-const bulkUpdate = useConvexMutation(api.tasks.bulkUpdateStatus, {
+const bulkUpdate = useConvexMutation(api.domain.tasks.bulkUpdateStatus, {
   onError: (error) =>
     toast.add({ title: 'Bulk update failed', description: error.message, color: 'error' }),
 })

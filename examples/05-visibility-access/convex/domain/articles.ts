@@ -11,19 +11,20 @@ import {
 } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { getActor } from './auth/actor'
-import { getInheritedAccessLevel, requireArticleAccess } from './auth/articleAccess'
-import { canCreateArticle, canCreateShareToken, canReadArticle, isStaffActor } from './auth/checks'
-import { redactArticle } from './auth/redaction'
+import { getActor } from '../auth/actor'
+import { getInheritedAccessLevel, requireArticleAccess } from '../auth/articleAccess'
+import { canCreateArticle, canCreateShareToken, canReadArticle, isStaffActor } from '../auth/checks'
+import { redactArticle } from '../auth/redaction'
 import {
   createShareTokenValue,
   hashShareToken,
   resolveShareToken,
   shareTokenPrefix,
-} from './auth/shareTokens'
-import { canAccessArticleOwner, getArticleOwnerScope } from './auth/visibility'
-import { mutation, query, raw } from './functions'
-import { accessLevelValidator, visibilityValidator } from './schema'
+} from '../auth/shareTokens'
+import { canAccessArticleOwner, getArticleOwnerScope } from '../auth/visibility'
+import { mutation, query, raw } from '../functions'
+import { revokeShareTokenOp } from '../operations/shareTokens'
+import { accessLevelValidator, visibilityValidator } from '../schema'
 
 export const list = query({
   guard: canReadArticle,
@@ -62,10 +63,11 @@ export const list = query({
 export const viewArticle = raw.query({
   args: { id: v.id('articles'), shareToken: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    const crossTenantDb = (ctx.db as typeof ctx.db & { crossTenant: typeof ctx.db }).crossTenant
     if (args.shareToken) {
-      const grant = await resolveShareToken(ctx.db.crossTenant, args.shareToken)
+      const grant = await resolveShareToken(crossTenantDb, args.shareToken)
       if (grant.articleId !== args.id) throw deny('Token does not match this article.')
-      const article = await ctx.db.crossTenant.get(args.id)
+      const article = await crossTenantDb.get(args.id)
       requireRecord(article, 'Article')
       return { ...redactArticle(null, article), _access: grant.level }
     }
@@ -198,15 +200,7 @@ export const createShareToken = mutation({
 })
 
 export const revokeShareToken = mutation({
-  guard: canCreateShareToken,
-  args: { tokenId: v.id('shareTokens') },
-  load: async (ctx, args) => ({
-    token: loadResource(await ctx.actor(), await ctx.db.get(args.tokenId), 'Share token'),
-  }),
-  handler: async (ctx, args, { token }) => {
-    if (token.revokedAt) throw deny('Already revoked.')
-    await ctx.db.patch(args.tokenId, { revokedAt: Date.now() })
-  },
+  ...revokeShareTokenOp,
 })
 
 export const seedDemoArticles = mutation({

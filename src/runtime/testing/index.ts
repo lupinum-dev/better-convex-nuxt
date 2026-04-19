@@ -112,6 +112,14 @@ function withGeneratedModuleHint(modules: ConvexTestModules): ConvexTestModules 
 type AnySchemaDefinition = SchemaDefinition<GenericSchema, boolean>
 type DataModelFor<TSchema extends AnySchemaDefinition> = DataModelFromSchemaDefinition<TSchema>
 type TableName<TSchema extends AnySchemaDefinition> = keyof DataModelFor<TSchema> & string
+type DefaultTenantTable<TSchema extends AnySchemaDefinition> =
+  Extract<'workspaces', TableName<TSchema>> extends never
+    ? TableName<TSchema>
+    : Extract<'workspaces', TableName<TSchema>>
+type DefaultUserTable<TSchema extends AnySchemaDefinition> =
+  Extract<'users', TableName<TSchema>> extends never
+    ? TableName<TSchema>
+    : Extract<'users', TableName<TSchema>>
 type DocumentFor<
   TSchema extends AnySchemaDefinition,
   TTable extends TableName<TSchema>,
@@ -134,34 +142,51 @@ type SeedTenantUserInput<TRole extends string> = {
   [key: string]: unknown
 }
 
-type SeedTenantOptions<TRole extends string> = Record<string, unknown> & {
+type SeedTenantOptions<
+  TRole extends string,
+  TUsers extends Record<string, SeedTenantUserInput<TRole>> = Record<string, SeedTenantUserInput<TRole>>,
+> = Record<string, unknown> & {
   name: string
-  users: Record<string, SeedTenantUserInput<TRole>>
+  users: TUsers
 }
 
 type SeededTenantUser<
   TSchema extends AnySchemaDefinition,
   TRole extends string,
+  TUserTable extends TableName<TSchema>,
 > = TestClient<TSchema> & {
-  id: string
+  id: DocumentFor<TSchema, TUserTable>['_id']
   authId: string
   role: TRole
 }
 
+type SeededTenantUsers<
+  TSchema extends AnySchemaDefinition,
+  TRole extends string,
+  TUserTable extends TableName<TSchema>,
+  TUsers extends Record<string, SeedTenantUserInput<TRole>>,
+> = {
+  [K in keyof TUsers]: SeededTenantUser<TSchema, TUsers[K]['role'], TUserTable>
+}
+
 export type ConvexTestConfigOptions = UserConfig
 
-export interface CreateTestContextOptions<TSchema extends AnySchemaDefinition> {
+export interface CreateTestContextOptions<
+  TSchema extends AnySchemaDefinition,
+  TTenantTable extends TableName<TSchema> = DefaultTenantTable<TSchema>,
+  TUserTable extends TableName<TSchema> = DefaultUserTable<TSchema>,
+> {
   schema: TSchema
   modules?: ConvexTestModules
   trustedCallerKey?: string
   /** Advanced override for non-canonical tenant schemas. Omit for the default `workspaces.workspaceId` model. */
   tenant?: {
-    table?: string
+    table?: TTenantTable
     field?: string
   }
   /** Advanced override for non-canonical user schemas. Omit for the default `users.authId/role/workspaceId` model. */
   users?: {
-    table?: string
+    table?: TUserTable
     authField?: string
     roleField?: string
     tenantField?: string
@@ -170,7 +195,12 @@ export interface CreateTestContextOptions<TSchema extends AnySchemaDefinition> {
   }
 }
 
-export interface TestContext<TSchema extends AnySchemaDefinition, TRole extends string = string> {
+export interface TestContext<
+  TSchema extends AnySchemaDefinition,
+  TRole extends string = string,
+  TTenantTable extends TableName<TSchema> = DefaultTenantTable<TSchema>,
+  TUserTable extends TableName<TSchema> = DefaultUserTable<TSchema>,
+> {
   raw: TestConvex<TSchema>
   seed: <TTable extends TableName<TSchema>>(
     table: TTable,
@@ -179,9 +209,11 @@ export interface TestContext<TSchema extends AnySchemaDefinition, TRole extends 
   readAll: <TTable extends TableName<TSchema>>(
     table: TTable,
   ) => Promise<Array<DocumentFor<TSchema, TTable>>>
-  seedTenant: (options: SeedTenantOptions<TRole>) => Promise<{
-    id: string
-    users: Record<string, SeededTenantUser<TSchema, TRole>>
+  seedTenant: <TUsers extends Record<string, SeedTenantUserInput<TRole>>>(
+    options: SeedTenantOptions<TRole, TUsers>,
+  ) => Promise<{
+    id: DocumentFor<TSchema, TTenantTable>['_id']
+    users: SeededTenantUsers<TSchema, TRole, TUserTable, TUsers>
   }>
   asPrincipal: (principal: Record<string, unknown>) => TestClient<TSchema>
 }
@@ -330,16 +362,20 @@ export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserCon
 export function createTestContext<
   TSchema extends AnySchemaDefinition,
   TRole extends string = string,
->(options: CreateTestContextOptions<TSchema>): TestContext<TSchema, TRole> {
+  TTenantTable extends TableName<TSchema> = DefaultTenantTable<TSchema>,
+  TUserTable extends TableName<TSchema> = DefaultUserTable<TSchema>,
+>(
+  options: CreateTestContextOptions<TSchema, TTenantTable, TUserTable>,
+): TestContext<TSchema, TRole, TTenantTable, TUserTable> {
   const modules = withGeneratedModuleHint(options.modules ?? defaultModules)
   const raw = convexTest(options.schema, modules) as unknown as TestConvex<TSchema>
   if (options.trustedCallerKey) {
     process.env.CONVEX_TRUSTED_CALLER_KEY = options.trustedCallerKey
   }
 
-  const tenantTable = options.tenant?.table ?? 'workspaces'
+  const tenantTable = (options.tenant?.table ?? 'workspaces') as TTenantTable
   const tenantField = options.tenant?.field ?? 'workspaceId'
-  const userTable = options.users?.table ?? 'users'
+  const userTable = (options.users?.table ?? 'users') as TUserTable
   const authField = options.users?.authField ?? 'authId'
   const roleField = options.users?.roleField ?? 'role'
   const userTenantField = options.users?.tenantField ?? tenantField
@@ -363,20 +399,22 @@ export function createTestContext<
     })
   }
 
-  async function seedTenant(seedOptions: SeedTenantOptions<TRole>): Promise<{
-    id: string
-    users: Record<string, SeededTenantUser<TSchema, TRole>>
+  async function seedTenant<TUsers extends Record<string, SeedTenantUserInput<TRole>>>(
+    seedOptions: SeedTenantOptions<TRole, TUsers>,
+  ): Promise<{
+    id: DocumentFor<TSchema, TTenantTable>['_id']
+    users: SeededTenantUsers<TSchema, TRole, TUserTable, TUsers>
   }> {
     const { name, users, ...tenantData } = seedOptions
     const slug = slugify(name) || 'tenant'
-    const entries = Object.entries(users)
+    const entries = Object.entries(users) as Array<[keyof TUsers & string, TUsers[keyof TUsers]]>
     const ownerEntry = entries.find(([, user]) => user.role === 'owner') ?? entries[0]
     const ownerAuthId = ownerEntry?.[1].authId ?? `${slug}-${ownerEntry?.[0] ?? 'owner'}`
     const now = Date.now()
 
     const id = await raw.run(async (ctx) => {
       return await ctx.db.insert(
-        tenantTable as TableName<TSchema>,
+        tenantTable,
         {
           name,
           slug,
@@ -388,7 +426,7 @@ export function createTestContext<
       )
     })
 
-    const seededUsers = {} as Record<string, SeededTenantUser<TSchema, TRole>>
+    const seededUsers = {} as SeededTenantUsers<TSchema, TRole, TUserTable, TUsers>
 
     for (const [key, user] of entries) {
       const { role, authId, displayName, email, ...userData } = user
@@ -398,7 +436,7 @@ export function createTestContext<
 
       const userId = await raw.run(async (ctx) => {
         return await ctx.db.insert(
-          userTable as TableName<TSchema>,
+          userTable,
           {
             [authField]: resolvedAuthId,
             [roleField]: role,

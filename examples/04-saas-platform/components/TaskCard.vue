@@ -5,13 +5,12 @@ import { api } from '#trellis/api'
  * This is the optimistic update demo. The task card mutates the board immediately, then the
  * realtime query confirms or rolls it back.
  */
-import type { Doc, Id } from '~/convex/_generated/dataModel'
-
-type TaskWithCan = Doc<'tasks'> & { _can: Record<string, boolean> }
+import type { BoardTask } from './board-task'
+import type { Id } from '~/convex/_generated/dataModel'
 
 const props = defineProps<{
   projectId: Id<'projects'>
-  task: TaskWithCan
+  task: BoardTask
   selected: boolean
   memberNames?: Map<string, string>
 }>()
@@ -38,21 +37,22 @@ function resolveName(authId: string) {
   return props.memberNames?.get(authId) ?? `Member ${authId.slice(0, 8)}…`
 }
 
-const moveTask = useConvexMutation(api.tasks.moveToColumn, {
+const moveTask = useConvexMutation(api.domain.tasks.moveToColumn, {
   optimisticUpdate: (ctx, args) => {
     ctx
-      .query(api.tasks.listByProject, { projectId: props.projectId })
+      .query(api.domain.tasks.listByProject, { projectId: props.projectId })
       .update(
         (tasks) =>
-          tasks?.map((task) => (task._id === args.id ? { ...task, status: args.status } : task)) ??
-          [],
+          tasks?.map((task: BoardTask) =>
+            task._id === args.id ? { ...task, status: args.status } : task,
+          ) ?? [],
       )
   },
   onError: (error) =>
     toast.add({ title: 'Could not move task', description: error.message, color: 'error' }),
 })
 
-const deleteTask = useConvexMutation(api.tasks.remove, {
+const deleteTask = useConvexMutation(api.domain.tasks.remove, {
   onSuccess: () => toast.add({ title: 'Task deleted', color: 'success', icon: 'i-lucide-trash-2' }),
   onError: (error) =>
     toast.add({ title: 'Could not delete task', description: error.message, color: 'error' }),

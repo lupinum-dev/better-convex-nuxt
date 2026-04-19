@@ -1,9 +1,9 @@
 import { deny, enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { createComment } from '../shared/schemas/comment'
-import { canComment, requireWorkspaceTenant } from './auth/checks'
-import { mutation, query } from './functions'
+import { createComment } from '../../shared/schemas/comment'
+import { canComment, requireWorkspaceTenant } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 export const listByTask = query({
   args: { taskId: v.id('tasks') },

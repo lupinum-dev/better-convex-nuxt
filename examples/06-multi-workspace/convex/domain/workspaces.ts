@@ -1,23 +1,19 @@
-import { can, definePermissionContext, deny, getAuth, open } from '@lupinum/trellis/auth'
-/**
- * Why this file exists:
- * Current-workspace actions stay normal here. The agency dashboard lives in a separate query on purpose.
- */
+import { deny, getAuth, open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { agencyPermissionKeys, type AgencyPermissionMap } from '../shared/permissions'
-import { getActor } from './auth/actor'
-import { getMemberships, requireWorkspaceMembership } from './auth/agency'
-import { hasRole } from './auth/checks'
-import { mutation, query, raw } from './functions'
+import { getActor } from '../auth/actor'
+import { getMemberships, requireWorkspaceMembership } from '../auth/agency'
+import { hasRole } from '../auth/checks'
+import { mutation, query, raw } from '../functions'
 
-type Actor = NonNullable<Awaited<ReturnType<typeof getActor>>>
+function crossTenantDb<DB>(db: DB): DB {
+  return (db as DB & { crossTenant: DB }).crossTenant
+}
 
 export const listWorkspaces = query({
   args: {},
   guard: open,
   handler: async (ctx) => {
-    // DEMO ONLY: onboarding stays easier when example users can discover seedable workspaces.
     const workspaces = await ctx.db.query('workspaces').order('desc').collect()
     return workspaces.map(({ _id, name, slug }) => ({ _id, name, slug }))
   },
@@ -28,10 +24,11 @@ export const listAccessibleWorkspaces = raw.query({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     if (!actor) return []
-    const memberships = await getMemberships(ctx.db.crossTenant, actor.userId)
+    const db = crossTenantDb(ctx.db)
+    const memberships = await getMemberships(db, actor.userId)
     return Promise.all(
       memberships.map(async (membership) => {
-        const workspace = await ctx.db.crossTenant.get(membership.workspaceId)
+        const workspace = await db.get(membership.workspaceId)
         return {
           workspaceId: membership.workspaceId,
           role: membership.role,
@@ -42,42 +39,12 @@ export const listAccessibleWorkspaces = raw.query({
   },
 })
 
-export const getPermissionContext = query(
-  definePermissionContext({
-    resolve: getActor,
-    guards: {
-      [agencyPermissionKeys.projectCreate]: hasRole('owner', 'member'),
-      [agencyPermissionKeys.agencyDashboard]: (actor: Actor) =>
-        ['agency_admin', 'agency_manager'].includes(actor.role),
-    } satisfies Record<keyof AgencyPermissionMap, (actor: Actor) => boolean>,
-    extend: async (ctx, actor) => {
-      const user = await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q) => q.eq('authId', actor.userId))
-        .first()
-      const memberships = await getMemberships(ctx.db.crossTenant, actor.userId)
-
-      return {
-        email: user?.email ?? null,
-        displayName: user?.displayName ?? null,
-        can: {
-          [agencyPermissionKeys.projectCreate]: can(actor, hasRole('owner', 'member')),
-          [agencyPermissionKeys.agencyDashboard]: memberships.some((m) =>
-            ['agency_admin', 'agency_manager'].includes(m.role),
-          ),
-        } satisfies AgencyPermissionMap,
-      }
-    },
-  }),
-)
-
 export const createWorkspace = raw.mutation({
   args: { name: v.string(), slug: v.string() },
   handler: async (ctx, args) => {
-    // Intentional escape hatch: onboarding creates a new tenant and membership,
-    // so it cannot run through tenant-isolated Trellis mutations.
     const identity = await getAuth(ctx)
     if (!identity) throw deny('Not authenticated.')
+    const db = crossTenantDb(ctx.db)
 
     const user = await ctx.db
       .query('users')
@@ -92,7 +59,7 @@ export const createWorkspace = raw.mutation({
     if (existing) throw new Error('That workspace slug is already taken.')
 
     const now = Date.now()
-    const workspaceId = await ctx.db.crossTenant.insert('workspaces', {
+    const workspaceId = await db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
       ownerId: user.authId,
@@ -100,7 +67,7 @@ export const createWorkspace = raw.mutation({
       updatedAt: now,
     })
 
-    await ctx.db.crossTenant.insert('memberships', {
+    await db.insert('memberships', {
       userId: user.authId,
       workspaceId,
       role: 'owner',
@@ -128,10 +95,9 @@ export const joinWorkspace = raw.mutation({
     ),
   },
   handler: async (ctx, args) => {
-    // Intentional escape hatch: joining may assign a different active workspace
-    // than the current tenant context, so it bypasses tenant-isolated handlers.
     const identity = await getAuth(ctx)
     if (!identity) throw deny('Not authenticated.')
+    const db = crossTenantDb(ctx.db)
 
     const user = await ctx.db
       .query('users')
@@ -139,15 +105,15 @@ export const joinWorkspace = raw.mutation({
       .first()
     if (!user) throw new Error('Current user row not found.')
 
-    const workspace = await ctx.db.crossTenant
+    const workspace = await db
       .query('workspaces')
-      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
+      .withIndex('by_slug', (q: any) => q.eq('slug', args.slug))
       .first()
     if (!workspace) throw new Error('Workspace not found.')
 
-    const existingMembership = await ctx.db.crossTenant
+    const existingMembership = await db
       .query('memberships')
-      .withIndex('by_user_workspace', (q) =>
+      .withIndex('by_user_workspace', (q: any) =>
         q.eq('userId', user.authId).eq('workspaceId', workspace._id),
       )
       .first()
@@ -159,7 +125,7 @@ export const joinWorkspace = raw.mutation({
       return workspace._id
     }
 
-    await ctx.db.crossTenant.insert('memberships', {
+    await db.insert('memberships', {
       userId: user.authId,
       workspaceId: workspace._id,
       role: args.role,
@@ -187,7 +153,7 @@ export const switchWorkspace = raw.mutation({
       .first()
     if (!user) throw new Error('Current user row not found.')
 
-    await requireWorkspaceMembership(ctx.db.crossTenant, user.authId, args.workspaceId)
+    await requireWorkspaceMembership(crossTenantDb(ctx.db), user.authId, args.workspaceId)
     await ctx.db.patch(user._id, {
       workspaceId: args.workspaceId,
       updatedAt: Date.now(),
@@ -200,16 +166,17 @@ export const seedAgencyPortfolio = raw.mutation({
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     if (!actor) throw deny('Not authenticated.')
+    const db = crossTenantDb(ctx.db)
 
     const now = Date.now()
-    const clientA = await ctx.db.crossTenant.insert('workspaces', {
+    const clientA = await db.insert('workspaces', {
       name: 'Client A',
       slug: `client-a-${now}`,
       ownerId: actor.userId,
       createdAt: now,
       updatedAt: now,
     })
-    const clientB = await ctx.db.crossTenant.insert('workspaces', {
+    const clientB = await db.insert('workspaces', {
       name: 'Client B',
       slug: `client-b-${now}`,
       ownerId: actor.userId,
@@ -217,27 +184,27 @@ export const seedAgencyPortfolio = raw.mutation({
       updatedAt: now,
     })
 
-    await ctx.db.crossTenant.insert('memberships', {
+    await db.insert('memberships', {
       userId: actor.userId,
       workspaceId: clientA,
       role: 'agency_manager',
       createdAt: now,
     })
-    await ctx.db.crossTenant.insert('memberships', {
+    await db.insert('memberships', {
       userId: actor.userId,
       workspaceId: clientB,
       role: 'agency_manager',
       createdAt: now,
     })
 
-    await ctx.db.crossTenant.insert('projects', {
+    await db.insert('projects', {
       workspaceId: clientA,
       name: 'Client A campaign',
       status: 'active',
       createdAt: now,
       updatedAt: now,
     })
-    await ctx.db.crossTenant.insert('projects', {
+    await db.insert('projects', {
       workspaceId: clientB,
       name: 'Client B redesign',
       status: 'active',

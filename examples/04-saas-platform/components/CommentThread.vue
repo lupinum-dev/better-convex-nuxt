@@ -17,7 +17,7 @@ const toast = useToast()
 const { allows } = usePermissions()
 const body = ref('')
 const attachmentStorageId = ref<Id<'_storage'> | null>(null)
-const createComment = useConvexMutation(api.comments.create, {
+const createComment = useConvexMutation(api.domain.comments.create, {
   onSuccess: () =>
     toast.add({ title: 'Comment added', color: 'success', icon: 'i-lucide-message-square-plus' }),
   onError: (error) =>
@@ -34,7 +34,7 @@ const {
   pending,
   error,
 } = await useConvexQuery(
-  api.comments.listByTask,
+  api.domain.comments.listByTask,
   computed(() => ({ taskId: props.taskId })),
 )
 

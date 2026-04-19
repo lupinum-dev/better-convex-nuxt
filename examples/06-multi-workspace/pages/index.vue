@@ -226,12 +226,12 @@ const permissionMatrix = [
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
 
-const switchWorkspace = useConvexMutation(api.workspaces.switchWorkspace, {
+const switchWorkspace = useConvexMutation(api.domain.workspaces.switchWorkspace, {
   onSuccess: () => toast.add({ title: 'Workspace switched', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not switch workspace', description: error.message, color: 'error' }),
 })
-const seedAgencyPortfolio = useConvexMutation(api.workspaces.seedAgencyPortfolio, {
+const seedAgencyPortfolio = useConvexMutation(api.domain.workspaces.seedAgencyPortfolio, {
   onSuccess: () => toast.add({ title: 'Agency portfolio seeded', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not seed portfolio', description: error.message, color: 'error' }),
@@ -239,13 +239,13 @@ const seedAgencyPortfolio = useConvexMutation(api.workspaces.seedAgencyPortfolio
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: accessibleWorkspaces } = await useConvexQuery(
-  api.workspaces.listAccessibleWorkspaces,
+  api.domain.workspaces.listAccessibleWorkspaces,
   computed(() => (user.value ? {} : undefined)),
 )
-const { data: projects } = await useConvexQuery(api.projects.list, workspaceArgs)
-const { data: members } = await useConvexQuery(api.workspaces.listMembers, workspaceArgs)
+const { data: projects } = await useConvexQuery(api.domain.projects.list, workspaceArgs)
+const { data: members } = await useConvexQuery(api.domain.workspaces.listMembers, workspaceArgs)
 const { data: portfolio } = await useConvexQuery(
-  api.dashboard.portfolio,
+  api.domain.dashboard.portfolio,
   computed(() => (canDashboard.value ? {} : undefined)),
 )
 
@@ -258,11 +258,11 @@ const currentWorkspaceName = computed(() => {
 })
 
 async function handleSignUp() {
-  await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })
+  await authAction.execute(() => client!.signUp.email(signUpForm), { redirectTo: '/' })
 }
 
 async function handleSignIn() {
-  await authAction.execute(() => client.signIn.email(signInForm), { redirectTo: '/' })
+  await authAction.execute(() => client!.signIn.email(signInForm), { redirectTo: '/' })
 }
 
 async function handleSignOut() {

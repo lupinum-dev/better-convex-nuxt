@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
 
   const tasks = await serverConvexQuery(
     event,
-    api.tasks.listForExport,
+    api.domain.tasks.listForExport,
     { projectId: projectId as Id<'projects'> },
     { auth: 'required' },
   )
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   const csv = [
     'title,status,priority,assignee,createdAt',
     ...tasks.map(
-      (task) =>
+      (task: (typeof tasks)[number]) =>
         `"${task.title}","${task.status}","${task.priority}","${task.assigneeId ?? ''}","${new Date(task.createdAt).toISOString()}"`,
     ),
   ].join('\n')

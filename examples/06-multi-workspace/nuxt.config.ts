@@ -18,7 +18,7 @@ export default defineNuxtConfig({
       enabled: true,
     },
     permissions: {
-      query: 'workspaces.getPermissionContext',
+      query: 'permissions/context.getPermissionContext',
     },
   },
 })

@@ -7,6 +7,7 @@
     "dev:nuxt": "nuxi dev --dotenv .env.local",
     "build": "nuxi build --dotenv .env.local",
     "typecheck": "nuxi typecheck --dotenv .env.local",
+    "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit",
     "test": "vitest run",
     "convex:dev": "CONVEX_AGENT_MODE=anonymous convex dev",
     "convex:codegen": "convex codegen"

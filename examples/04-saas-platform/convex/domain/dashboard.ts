@@ -1,8 +1,8 @@
 import { enforce } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { canViewAudit, requireWorkspaceTenant } from './auth/checks'
-import { mutation, query } from './functions'
+import { canViewAudit, requireWorkspaceTenant } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 export const stats = query({
   args: {},

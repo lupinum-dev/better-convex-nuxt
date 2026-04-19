@@ -166,8 +166,9 @@
     "test:full": "pnpm run test && pnpm run test:e2e",
     "test:watch": "vitest watch --project=unit --project=nuxt --project=server",
     "test:types:contracts": "tsc -p tsconfig.types.json --noEmit",
+    "test:types:examples:canonical": "pnpm run build:module && pnpm --dir examples/04-saas-platform typecheck:tests && pnpm --dir examples/05-visibility-access typecheck:tests && pnpm --dir examples/06-multi-workspace typecheck:tests",
     "test:types:harness-server": "tsc -p test/internal-harness/server/tsconfig.json --noEmit",
-    "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts && pnpm run test:types:harness-server",
+    "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts && pnpm run test:types:harness-server && pnpm run test:types:examples:canonical",
     "prepare": "husky"
   },
   "dependencies": {

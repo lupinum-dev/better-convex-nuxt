@@ -17,5 +17,9 @@ export const { mutation, query, raw } = defineTrellis(
         'shareTokens',
       ],
     },
+    destructiveSafety: {
+      redemptionTable: 'destructiveRedemptions' as never,
+      auditTable: 'destructiveAuditLog' as never,
+    },
   },
 )

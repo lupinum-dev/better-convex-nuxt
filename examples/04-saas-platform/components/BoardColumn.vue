@@ -4,12 +4,13 @@
  * The board stays deliberately simple: three columns and cards with optimistic status moves.
  * The interesting part is the data flow, not a drag-and-drop library choice.
  */
-import type { Doc, Id } from '~/convex/_generated/dataModel'
+import type { BoardTask } from './board-task'
+import type { Id } from '~/convex/_generated/dataModel'
 
 defineProps<{
   title: string
   projectId: Id<'projects'>
-  tasks: Doc<'tasks'>[]
+  tasks: BoardTask[]
   selectedIds: Id<'tasks'>[]
   memberNames?: Map<string, string>
 }>()

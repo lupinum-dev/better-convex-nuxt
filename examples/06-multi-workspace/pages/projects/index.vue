@@ -40,9 +40,9 @@ const { allows, role, tenantId } = usePermissions()
 const canCreateProject = allows(agencyPermissionKeys.projectCreate)
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
-const { data: projects } = await useConvexQuery(api.projects.list, workspaceArgs)
+const { data: projects } = await useConvexQuery(api.domain.projects.list, workspaceArgs)
 const { data: accessibleWorkspaces } = await useConvexQuery(
-  api.workspaces.listAccessibleWorkspaces,
+  api.domain.workspaces.listAccessibleWorkspaces,
   workspaceArgs,
 )
 

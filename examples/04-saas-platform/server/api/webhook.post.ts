@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
 
   const taskId = await serverConvexMutation(
     event,
-    api.tasks.create,
+    api.domain.tasks.create,
     {
       projectId: body.projectId as Id<'projects'>,
       title: body.title,

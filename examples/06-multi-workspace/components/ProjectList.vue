@@ -71,12 +71,12 @@ defineProps<{
 const toast = useToast()
 const projectName = ref('')
 
-const createProject = useConvexMutation(api.projects.create, {
+const createProject = useConvexMutation(api.domain.projects.create, {
   onSuccess: () => toast.add({ title: 'Project created', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not create project', description: error.message, color: 'error' }),
 })
-const toggleStatus = useConvexMutation(api.projects.toggleStatus, {
+const toggleStatus = useConvexMutation(api.domain.projects.toggleStatus, {
   onSuccess: () => toast.add({ title: 'Project status updated', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not update status', description: error.message, color: 'error' }),

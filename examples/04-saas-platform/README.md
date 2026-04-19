@@ -31,11 +31,11 @@ If this is your first pass, stop after the first three files. The rest are expan
 the core permission model.
 
 1. `convex/auth/checks.ts`
-2. `convex/tasks.ts`
+2. `convex/domain/tasks.ts`
 3. `pages/projects/[id].vue`
 4. `pages/admin/index.vue`
 5. `server/api/webhook.post.ts`
-6. `convex/project-board.test.ts`
+6. `convex/projectBoard.test.ts`
 
 ## What This Adds Beyond 03
 
@@ -64,6 +64,12 @@ This example keeps the repo's canonical single-workspace contract:
 
 The point of Example 04 is not a different naming scheme. It is the same workspace model from
 Example 03 carried into a larger product surface.
+
+The example now uses the same public canonical layout as the Trellis starters:
+
+- `convex/domain/*` for the core business handlers
+- `convex/permissions/context.ts` for the configured permission query
+- `convex/operations/*` for destructive projections like project archive and task removal
 
 ## Run It
 

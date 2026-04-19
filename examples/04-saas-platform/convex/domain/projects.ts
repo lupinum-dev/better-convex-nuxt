@@ -1,17 +1,17 @@
-import { deny, enforce, loadTenantResource as loadResource, open } from '@lupinum/trellis/auth'
+import { enforce, loadTenantResource as loadResource, open } from '@lupinum/trellis/auth'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
-import { archiveProject, createProject } from '../shared/schemas/project'
+import { createProject } from '../../shared/schemas/project'
 import {
-  canArchiveProject,
   canCreateProject,
   canExportProjects,
   canReadProject,
   requireWorkspaceTenant,
-} from './auth/checks'
-import { ensureWithinLimit } from './auth/limits'
-import { mutation, query } from './functions'
+} from '../auth/checks'
+import { ensureWithinLimit } from '../auth/limits'
+import { mutation, query } from '../functions'
+import { archiveProjectOp } from '../operations/projects'
 
 export const list = query({
   args: { paginationOpts: paginationOptsValidator },
@@ -73,32 +73,7 @@ export const create = mutation({
 })
 
 export const archive = mutation({
-  args: archiveProject.args,
-  guard: canArchiveProject,
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
-
-    const project = loadResource(actor, await ctx.db.get(args.id), 'Project')
-
-    if (project.status === 'archived') throw deny('Project is already archived.')
-
-    const now = Date.now()
-    await ctx.db.patch(args.id, {
-      status: 'archived',
-      updatedAt: now,
-    })
-
-    await ctx.db.insert('auditEvents', {
-      workspaceId,
-      actorId: actor.userId,
-      entityType: 'project',
-      entityId: args.id,
-      action: 'project.archived',
-      description: `Archived "${project.name}".`,
-      createdAt: now,
-    })
-  },
+  ...archiveProjectOp,
 })
 
 export const exportProjects = query({

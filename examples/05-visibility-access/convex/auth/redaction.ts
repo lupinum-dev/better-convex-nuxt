@@ -20,5 +20,5 @@ export function redactArticle<T extends Record<string, unknown>>(
   actor: Actor | null,
   article: T,
 ): T {
-  return articleRedaction.apply(actor, article) as T
+  return articleRedaction.apply(actor as Actor, article) as T
 }

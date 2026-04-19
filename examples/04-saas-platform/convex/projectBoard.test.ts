@@ -6,14 +6,13 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
-import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import { saasPermissionKeys } from '../shared/permissions'
+import { api } from './_generated/api'
+import * as filesDomain from './domain/files'
 import schema from './schema'
 import { modules } from './test.setup'
-
-const api = anyApi
 
 function createCtx() {
   return createTestContext({ schema, modules })
@@ -32,23 +31,23 @@ describe('project board example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.projects.create, {
+    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
       name: 'Board',
       summary: 'Alpha board',
     })
-    const taskId = await team.users.alice.mutation(api.tasks.create, {
+    const taskId = await team.users.alice.mutation(api.domain.tasks.create, {
       projectId,
       title: 'Alice task',
       priority: 'medium',
     })
 
-    await team.users.alice.mutation(api.tasks.moveToColumn, {
+    await team.users.alice.mutation(api.domain.tasks.moveToColumn, {
       id: taskId,
       status: 'in_progress',
     })
 
     await expect(
-      team.users.bob.mutation(api.tasks.moveToColumn, {
+      team.users.bob.mutation(api.domain.tasks.moveToColumn, {
         id: taskId,
         status: 'done',
       }),
@@ -66,23 +65,23 @@ describe('project board example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.projects.create, {
+    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
       name: 'Board',
       summary: 'Alpha board',
     })
-    const taskId = await team.users.owner.mutation(api.tasks.create, {
+    const taskId = await team.users.owner.mutation(api.domain.tasks.create, {
       projectId,
       title: 'Seed task',
       priority: 'medium',
     })
 
-    await team.users.viewer.mutation(api.comments.create, {
+    await team.users.viewer.mutation(api.domain.comments.create, {
       taskId,
       body: 'Viewer feedback',
     })
 
     await expect(
-      team.users.viewer.mutation(api.tasks.create, {
+      team.users.viewer.mutation(api.domain.tasks.create, {
         projectId,
         title: 'Nope',
         priority: 'medium',
@@ -100,14 +99,14 @@ describe('project board example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.projects.create, {
+    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
       name: 'Archive me',
       summary: 'Soon frozen',
     })
-    await team.users.owner.mutation(api.projects.archive, { id: projectId })
+    await team.users.owner.mutation(api.domain.projects.archive, { id: projectId })
 
     await expect(
-      team.users.owner.mutation(api.tasks.create, {
+      team.users.owner.mutation(api.domain.tasks.create, {
         projectId,
         title: 'Should fail',
         priority: 'medium',
@@ -132,30 +131,30 @@ describe('project board example', () => {
       },
     })
 
-    const alphaProject = await alpha.users.owner.mutation(api.projects.create, {
+    const alphaProject = await alpha.users.owner.mutation(api.domain.projects.create, {
       name: 'Alpha board',
       summary: 'A',
     })
-    const betaProject = await beta.users.owner.mutation(api.projects.create, {
+    const betaProject = await beta.users.owner.mutation(api.domain.projects.create, {
       name: 'Beta board',
       summary: 'B',
     })
 
-    await alpha.users.owner.mutation(api.tasks.create, {
+    await alpha.users.owner.mutation(api.domain.tasks.create, {
       projectId: alphaProject,
       title: 'Alpha task',
       priority: 'medium',
     })
-    await beta.users.owner.mutation(api.tasks.create, {
+    await beta.users.owner.mutation(api.domain.tasks.create, {
       projectId: betaProject,
       title: 'Beta task',
       priority: 'medium',
     })
 
-    const alphaTasks = await alpha.users.owner.query(api.tasks.listByProject, {
+    const alphaTasks = await alpha.users.owner.query(api.domain.tasks.listByProject, {
       projectId: alphaProject,
     })
-    const betaTasks = await beta.users.owner.query(api.tasks.listByProject, {
+    const betaTasks = await beta.users.owner.query(api.domain.tasks.listByProject, {
       projectId: betaProject,
     })
 
@@ -178,12 +177,12 @@ describe('project board example', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    const alphaProject = await alpha.users.owner.mutation(api.projects.create, {
+    const alphaProject = await alpha.users.owner.mutation(api.domain.projects.create, {
       name: 'Alpha board',
       summary: 'A',
     })
 
-    await expect(beta.users.owner.query(api.projects.get, { id: alphaProject })).rejects.toThrow(
+    await expect(beta.users.owner.query(api.domain.projects.get, { id: alphaProject })).rejects.toThrow(
       'Document belongs to a different tenant.',
     )
   })
@@ -201,18 +200,18 @@ describe('project board example', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    const projectId = await alpha.users.owner.mutation(api.projects.create, {
+    const projectId = await alpha.users.owner.mutation(api.domain.projects.create, {
       name: 'Alpha board',
       summary: 'A',
     })
-    const taskId = await alpha.users.owner.mutation(api.tasks.create, {
+    const taskId = await alpha.users.owner.mutation(api.domain.tasks.create, {
       projectId,
       title: 'Alpha task',
       priority: 'medium',
     })
 
     await expect(
-      beta.users.owner.mutation(api.comments.create, {
+      beta.users.owner.mutation(api.domain.comments.create, {
         taskId,
         body: 'Cross-tenant comment',
       }),
@@ -240,7 +239,7 @@ describe('project board example', () => {
       updatedAt: Date.now(),
     })
 
-    const members = await team.users.owner.query(api.members.list, {})
+    const members = await team.users.owner.query(api.domain.members.list, {})
 
     expect(members).toHaveLength(2)
     expect(
@@ -249,11 +248,7 @@ describe('project board example', () => {
   })
 
   it('does not expose a raw storage-url query anymore', async () => {
-    const ctx = createCtx()
-
-    await expect(ctx.raw.query(api.files.getUrl, {} as never)).rejects.toThrow(
-      /getUrl|Could not find|not found/,
-    )
+    expect(filesDomain).not.toHaveProperty('getUrl')
   })
 
   it('bulk updates only the member-owned tasks and reports skipped ids', async () => {
@@ -268,22 +263,22 @@ describe('project board example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.projects.create, {
+    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
       name: 'Board',
       summary: 'Bulk demo',
     })
-    const aliceTask = await team.users.alice.mutation(api.tasks.create, {
+    const aliceTask = await team.users.alice.mutation(api.domain.tasks.create, {
       projectId,
       title: 'Alice task',
       priority: 'medium',
     })
-    const bobTask = await team.users.bob.mutation(api.tasks.create, {
+    const bobTask = await team.users.bob.mutation(api.domain.tasks.create, {
       projectId,
       title: 'Bob task',
       priority: 'medium',
     })
 
-    const result = await team.users.alice.mutation(api.tasks.bulkUpdateStatus, {
+    const result = await team.users.alice.mutation(api.domain.tasks.bulkUpdateStatus, {
       ids: [aliceTask, bobTask],
       status: 'done',
     })
@@ -303,7 +298,7 @@ describe('project board example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.projects.create, {
+    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
       name: 'Board',
       summary: 'Service auth',
     })
@@ -314,12 +309,14 @@ describe('project board example', () => {
     })
 
     await expect(
-      trustedCaller.mutation(api.tasks.create, {
+      trustedCaller.mutation(api.domain.tasks.create, {
         projectId,
         title: 'Nope',
         priority: 'medium',
       }),
-    ).rejects.toThrow('Forbidden: Create task')
+    ).rejects.toThrow(
+      'Forwarded `principal` is only allowed on verified trusted caller paths.',
+    )
   })
 
   it('role changes update the permission context and block future mutations', async () => {
@@ -333,24 +330,24 @@ describe('project board example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.projects.create, {
+    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
       name: 'Board',
       summary: 'Role flip',
     })
 
-    const before = await team.users.member.query(api.workspaces.getPermissionContext, {})
+    const before = await team.users.member.query(api.permissions.context.getPermissionContext, {})
     expect(before?.role).toBe('member')
 
-    await team.users.owner.mutation(api.members.changeRole, {
-      userId: team.users.member.id as never,
+    await team.users.owner.mutation(api.domain.members.changeRole, {
+      userId: team.users.member.id,
       newRole: 'viewer',
     })
 
-    const after = await team.users.member.query(api.workspaces.getPermissionContext, {})
+    const after = await team.users.member.query(api.permissions.context.getPermissionContext, {})
     expect(after?.role).toBe('viewer')
 
     await expect(
-      team.users.member.mutation(api.tasks.create, {
+      team.users.member.mutation(api.domain.tasks.create, {
         projectId,
         title: 'Blocked after downgrade',
         priority: 'medium',
@@ -369,8 +366,8 @@ describe('project board example', () => {
       },
     })
 
-    const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
+    const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
 
     expect(ownerCtx?.can[saasPermissionKeys.taskCreate]).toBe(true)
     expect(ownerCtx?.can[saasPermissionKeys.workspaceMembers]).toBe(true)
@@ -381,9 +378,9 @@ describe('project board example', () => {
   it('returns null context and rejects protected mutations for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(ctx.raw.query(api.workspaces.getPermissionContext, {})).resolves.toBeNull()
+    await expect(ctx.raw.query(api.permissions.context.getPermissionContext, {})).resolves.toBeNull()
     await expect(
-      ctx.raw.mutation(api.projects.create, {
+      ctx.raw.mutation(api.domain.projects.create, {
         name: 'Anonymous project',
         summary: 'Should fail',
       }),
@@ -400,7 +397,9 @@ describe('plan entitlements', () => {
       plan: 'free',
     })
 
-    const permCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
+    const permCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
+    expect(permCtx).not.toBeNull()
+    if (!permCtx) throw new Error('Expected a permission context for the seeded owner.')
     expect(permCtx.plan).toBe('free')
     expect(permCtx.can[saasPermissionKeys.workspaceExports]).toBe(false)
   })
@@ -413,12 +412,12 @@ describe('plan entitlements', () => {
       plan: 'free',
     })
 
-    await team.users.owner.mutation(api.projects.create, { name: 'One', summary: 'a' })
-    await team.users.owner.mutation(api.projects.create, { name: 'Two', summary: 'b' })
-    await team.users.owner.mutation(api.projects.create, { name: 'Three', summary: 'c' })
+    await team.users.owner.mutation(api.domain.projects.create, { name: 'One', summary: 'a' })
+    await team.users.owner.mutation(api.domain.projects.create, { name: 'Two', summary: 'b' })
+    await team.users.owner.mutation(api.domain.projects.create, { name: 'Three', summary: 'c' })
 
     await expect(
-      team.users.owner.mutation(api.projects.create, { name: 'Four', summary: 'd' }),
+      team.users.owner.mutation(api.domain.projects.create, { name: 'Four', summary: 'd' }),
     ).rejects.toThrow('Plan limit reached')
   })
 
@@ -430,13 +429,13 @@ describe('plan entitlements', () => {
       plan: 'free',
     })
 
-    await team.users.owner.mutation(api.projects.create, { name: 'One', summary: 'a' })
-    await team.users.owner.mutation(api.projects.create, { name: 'Two', summary: 'b' })
-    await team.users.owner.mutation(api.projects.create, { name: 'Three', summary: 'c' })
-    await team.users.owner.mutation(api.workspaces.upgradePlan, { plan: 'pro' })
+    await team.users.owner.mutation(api.domain.projects.create, { name: 'One', summary: 'a' })
+    await team.users.owner.mutation(api.domain.projects.create, { name: 'Two', summary: 'b' })
+    await team.users.owner.mutation(api.domain.projects.create, { name: 'Three', summary: 'c' })
+    await team.users.owner.mutation(api.domain.workspaces.upgradePlan, { plan: 'pro' })
 
     await expect(
-      team.users.owner.mutation(api.projects.create, { name: 'Four', summary: 'd' }),
+      team.users.owner.mutation(api.domain.projects.create, { name: 'Four', summary: 'd' }),
     ).resolves.toBeDefined()
   })
 
@@ -448,13 +447,13 @@ describe('plan entitlements', () => {
       plan: 'free',
     })
 
-    await team.users.owner.mutation(api.projects.create, { name: 'One', summary: 'a' })
-    await expect(team.users.owner.query(api.projects.exportProjects, {})).rejects.toThrow(
+    await team.users.owner.mutation(api.domain.projects.create, { name: 'One', summary: 'a' })
+    await expect(team.users.owner.query(api.domain.projects.exportProjects, {})).rejects.toThrow(
       'Forbidden: Export projects',
     )
 
-    await team.users.owner.mutation(api.workspaces.upgradePlan, { plan: 'pro' })
-    await expect(team.users.owner.query(api.projects.exportProjects, {})).resolves.toContain('One')
+    await team.users.owner.mutation(api.domain.workspaces.upgradePlan, { plan: 'pro' })
+    await expect(team.users.owner.query(api.domain.projects.exportProjects, {})).resolves.toContain('One')
   })
 
   it('returns permission context booleans for free and pro workspaces', async () => {
@@ -470,8 +469,8 @@ describe('plan entitlements', () => {
       plan: 'pro',
     })
 
-    const freeCtx = await free.users.owner.query(api.workspaces.getPermissionContext, {})
-    const proCtx = await pro.users.owner.query(api.workspaces.getPermissionContext, {})
+    const freeCtx = await free.users.owner.query(api.permissions.context.getPermissionContext, {})
+    const proCtx = await pro.users.owner.query(api.permissions.context.getPermissionContext, {})
 
     expect(freeCtx?.can[saasPermissionKeys.workspaceExports]).toBe(false)
     expect(proCtx?.can[saasPermissionKeys.workspaceExports]).toBe(true)

@@ -92,4 +92,27 @@ describe('permission context primitives', () => {
       plan: 'pro',
     })
   })
+
+  it('rejects reserved permission context keys from extend at runtime', async () => {
+    const query = definePermissionContext({
+      resolve: async () => ({
+        userId: 'alice',
+        tenantId: 'workspace-1',
+        role: 'owner',
+      }),
+      guards: {
+        'todo.create': true,
+      },
+      extend: async () =>
+        ({
+          can: {
+            'todo.create': false,
+          },
+        }) as unknown as Record<string, unknown>,
+    })
+
+    await expect(query.handler({})).rejects.toThrow(
+      'definePermissionContext.extend() cannot return reserved key "can".',
+    )
+  })
 })

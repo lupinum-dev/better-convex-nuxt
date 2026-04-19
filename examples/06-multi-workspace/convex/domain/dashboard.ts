@@ -4,8 +4,8 @@
  */
 import { deny } from '@lupinum/trellis/auth'
 
-import { query } from './_generated/server'
-import { getAgencyActor, getMemberships, requireAnyAgencyRole } from './auth/agency'
+import { query } from '../_generated/server'
+import { getAgencyActor, getMemberships, requireAnyAgencyRole } from '../auth/agency'
 
 export const portfolio = query({
   args: {},

@@ -5,8 +5,8 @@ import { deny, enforce, requireAuth } from '@lupinum/trellis/auth'
  */
 import { v } from 'convex/values'
 
-import { hasRole } from './auth/checks'
-import { mutation, query } from './functions'
+import { hasRole } from '../auth/checks'
+import { mutation, query } from '../functions'
 
 export const list = query({
   args: {},

@@ -1,15 +1,13 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
-import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import { agencyPermissionKeys } from '../shared/permissions'
+import { api } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
-
-const api = anyApi
 type MembershipRole = Doc<'memberships'>['role']
 type SeededUser = {
   id: Id<'users'>
@@ -90,9 +88,9 @@ describe('agency example', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    await alpha.users.owner.mutation(api.projects.create, { name: 'Alpha project' })
+    await alpha.users.owner.mutation(api.domain.projects.create, { name: 'Alpha project' })
 
-    const betaProjects = await beta.users.owner.query(api.projects.list, {})
+    const betaProjects = await beta.users.owner.query(api.domain.projects.list, {})
     expect(betaProjects).toHaveLength(0)
   })
 
@@ -166,7 +164,7 @@ describe('agency example', () => {
     })
 
     const agent = ctx.raw.withIdentity({ subject: 'agent-1' })
-    const portfolio = await agent.query(api.dashboard.portfolio, {})
+    const portfolio = await agent.query(api.domain.dashboard.portfolio, {})
     expect(portfolio).toHaveLength(2)
     expect(
       portfolio.map((entry: (typeof portfolio)[number]) => entry.workspace.name).sort(),
@@ -183,8 +181,8 @@ describe('agency example', () => {
       },
     })
 
-    const ownerCtx = await team.users.owner.query(api.workspaces.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(api.workspaces.getPermissionContext, {})
+    const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
 
     expect(ownerCtx?.can[agencyPermissionKeys.projectCreate]).toBe(true)
     expect(viewerCtx?.can[agencyPermissionKeys.projectCreate]).toBe(false)
@@ -193,8 +191,8 @@ describe('agency example', () => {
   it('returns null context and denies the agency dashboard for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(ctx.raw.query(api.workspaces.getPermissionContext, {})).resolves.toBeNull()
-    await expect(ctx.raw.query(api.dashboard.portfolio, {})).rejects.toThrow('Not authenticated.')
+    await expect(ctx.raw.query(api.permissions.context.getPermissionContext, {})).resolves.toBeNull()
+    await expect(ctx.raw.query(api.domain.dashboard.portfolio, {})).rejects.toThrow('Not authenticated.')
   })
 
   it('prevents duplicate memberships when joining the same workspace twice', async () => {
@@ -207,16 +205,16 @@ describe('agency example', () => {
       },
     })
 
-    const workspaceId = await team.users.owner.mutation(api.workspaces.createWorkspace, {
+    const workspaceId = await team.users.owner.mutation(api.domain.workspaces.createWorkspace, {
       name: 'Client Workspace',
       slug: 'client-workspace',
     })
 
-    await team.users.member.mutation(api.workspaces.joinWorkspace, {
+    await team.users.member.mutation(api.domain.workspaces.joinWorkspace, {
       slug: 'client-workspace',
       role: 'member',
     })
-    await team.users.member.mutation(api.workspaces.joinWorkspace, {
+    await team.users.member.mutation(api.domain.workspaces.joinWorkspace, {
       slug: 'client-workspace',
       role: 'member',
     })

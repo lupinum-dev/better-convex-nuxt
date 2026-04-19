@@ -456,19 +456,19 @@ const projectForm = reactive({
   summary: '',
 })
 
-const createWorkspace = useConvexMutation(api.workspaces.createWorkspace, {
+const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace, {
   onSuccess: () =>
     toast.add({ title: 'Workspace created', color: 'success', icon: 'i-lucide-building' }),
   onError: (error) =>
     toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
 })
-const joinWorkspace = useConvexMutation(api.workspaces.joinWorkspace, {
+const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace, {
   onSuccess: () =>
     toast.add({ title: 'Joined workspace', color: 'success', icon: 'i-lucide-user-plus' }),
   onError: (error) =>
     toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
 })
-const createProject = useConvexMutation(api.projects.create, {
+const createProject = useConvexMutation(api.domain.projects.create, {
   onSuccess: () =>
     toast.add({ title: 'Project created', color: 'success', icon: 'i-lucide-folder-plus' }),
   onError: (error) => {
@@ -478,13 +478,21 @@ const createProject = useConvexMutation(api.projects.create, {
       description: error.message,
       color: 'error',
       actions: isLimitError
-        ? [{ label: 'Go to Admin', color: 'error' as const, onClick: () => navigateTo('/admin') }]
+        ? [
+            {
+              label: 'Go to Admin',
+              color: 'error' as const,
+              onClick: () => {
+                void navigateTo('/admin')
+              },
+            },
+          ]
         : undefined,
     })
   },
 })
 
-const { data: workspaceOptions } = await useConvexQuery(api.workspaces.listWorkspaces, {})
+const { data: workspaceOptions } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
 
 const projectArgs = computed(() => (tenantId.value ? {} : undefined))
 const {
@@ -492,7 +500,7 @@ const {
   status: projectStatus,
   loadMore: loadMoreProjects,
   error: projectError,
-} = await useConvexPaginatedQuery(api.projects.list, projectArgs, {
+} = await useConvexPaginatedQuery(api.domain.projects.list, projectArgs, {
   initialNumItems: 12,
 })
 
@@ -504,7 +512,7 @@ const currentWorkspace = computed(() =>
 )
 const canCreateProject = allows(saasPermissionKeys.projectCreate)
 const atProjectLimit = computed(() => ctx.value?.usage?.projects?.remaining === 0)
-const roleOptions = ['admin', 'member', 'viewer'] as const
+const roleOptions = ['admin', 'member', 'viewer']
 const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
 const permissionMatrix = [
   { label: 'Create project', roles: ['owner', 'admin'] },
@@ -521,11 +529,11 @@ const permissionMatrix = [
 ]
 
 async function handleSignUp() {
-  await authAction.execute(() => client.signUp.email(signUpForm), { redirectTo: '/' })
+  await authAction.execute(() => client!.signUp.email(signUpForm), { redirectTo: '/' })
 }
 
 async function handleSignIn() {
-  await authAction.execute(() => client.signIn.email(signInForm), { redirectTo: '/' })
+  await authAction.execute(() => client!.signIn.email(signInForm), { redirectTo: '/' })
 }
 
 async function handleSignOut() {
