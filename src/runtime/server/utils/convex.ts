@@ -141,8 +141,10 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
   const requestId = crypto.randomUUID()
   const correlationHeader =
     convexConfig.observability.correlation.header || 'x-trellis-correlation-id'
-  const eventContext =
-    ((event.context as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
+  const eventContext = ((event.context as Record<string, unknown> | undefined) ?? {}) as Record<
+    string,
+    unknown
+  >
   ;(event as { context?: Record<string, unknown> }).context = eventContext
   const observationState = getEventObservationState(eventContext)
   const correlationId =
@@ -159,16 +161,20 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
     requestId,
   } satisfies EventObservationState
 
-  const logger = createRuntimeObserver(runtimeConfig.public.convex ?? {}, {
-    transport: 'nuxt-server',
-    originTransport,
-    correlationId,
-    requestId,
-    handler: functionPath,
-  }, {
-    method: 'POST',
-    path: `/api/${operationType}`,
-  })
+  const logger = createRuntimeObserver(
+    runtimeConfig.public.convex ?? {},
+    {
+      transport: 'nuxt-server',
+      originTransport,
+      correlationId,
+      requestId,
+      handler: functionPath,
+    },
+    {
+      method: 'POST',
+      path: `/api/${operationType}`,
+    },
+  )
   const startTime = Date.now()
 
   const headers: Record<string, string> = {

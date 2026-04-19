@@ -8,16 +8,16 @@ Use `examples/` when you want maintained public reference apps. Use `labs/` when
 
 ## Current status
 
-| Example | Status | Why it exists |
-| --- | --- | --- |
-| `02-product-issue-tracker` | Concept brief | Pressures workflow/state-machine-heavy product execution software |
-| `03-docs-wiki` | Concept brief | Pressures nested visibility, sharing, and document-aware agent access |
-| `04-community-courses` | Concept brief | Pressures auth, membership, billing-aware access, and moderation |
-| `05-headless-cms-publishing` | Concept brief | Pressures editorial workflows and projection into a consumer surface |
-| `06-agency-client-ops` | Concept brief | Pressures explicit agency/client graphs and operator-safe cross-tenant views |
-| `07-support-inbox-crm` | Concept brief | Pressures visibility boundaries, integrations, and operator workflows |
-| `08-commerce-backoffice` | Concept brief | Pressures audit-heavy destructive actions and webhook-driven state |
-| `09-agent-operator-console` | Concept brief | Pressures the human-plus-agent operating model directly |
+| Example                      | Status        | Why it exists                                                                |
+| ---------------------------- | ------------- | ---------------------------------------------------------------------------- |
+| `02-product-issue-tracker`   | Concept brief | Pressures workflow/state-machine-heavy product execution software            |
+| `03-docs-wiki`               | Concept brief | Pressures nested visibility, sharing, and document-aware agent access        |
+| `04-community-courses`       | Concept brief | Pressures auth, membership, billing-aware access, and moderation             |
+| `05-headless-cms-publishing` | Concept brief | Pressures editorial workflows and projection into a consumer surface         |
+| `06-agency-client-ops`       | Concept brief | Pressures explicit agency/client graphs and operator-safe cross-tenant views |
+| `07-support-inbox-crm`       | Concept brief | Pressures visibility boundaries, integrations, and operator workflows        |
+| `08-commerce-backoffice`     | Concept brief | Pressures audit-heavy destructive actions and webhook-driven state           |
+| `09-agent-operator-console`  | Concept brief | Pressures the human-plus-agent operating model directly                      |
 
 No entry in this folder is part of the maintained public contract. They are intentionally brief until they earn real implementation time.
 

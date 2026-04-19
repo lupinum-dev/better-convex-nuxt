@@ -19,7 +19,7 @@
  *
  * @module auth-client
  */
-import { convexClient } from '@convex-dev/better-auth/apps/devtools-ui/plugins'
+import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 import type { Ref } from 'vue'
@@ -32,8 +32,8 @@ import {
 } from '../utils/auth-errors.js'
 import { TOKEN_CACHE_MS, TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../utils/constants.js'
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared.js'
-import type { RuntimeObserver } from '../utils/runtime-observer.js'
 import { matchesSkipRoute } from '../utils/route-matcher.js'
+import type { RuntimeObserver } from '../utils/runtime-observer.js'
 import type { ConvexUser } from '../utils/types.js'
 import type { AuthTransport, AuthTrigger, ClientAuthStateResult } from './auth-engine.js'
 

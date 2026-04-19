@@ -103,7 +103,9 @@ function extractPermissionDefinition(
     file: toPosixPath(relative(rootDir, declaration.getSourceFile().getFilePath())),
     line: declaration.getNameNode().getStartLineNumber(),
     key,
-    ...(readStringProperty(firstArg, 'label') ? { label: readStringProperty(firstArg, 'label') } : {}),
+    ...(readStringProperty(firstArg, 'label')
+      ? { label: readStringProperty(firstArg, 'label') }
+      : {}),
     roles: readStringArray(firstArg, 'roles'),
     projected: readBooleanProperty(firstArg, 'project') !== false,
   }
@@ -286,10 +288,7 @@ export function renderPermissionCodegenMetadata(metadata: PermissionCodegenMetad
   return `${JSON.stringify(metadata, null, 2)}\n`
 }
 
-export function shouldRefreshPermissionCodegen(
-  changedPath: string,
-  include: string[],
-): boolean {
+export function shouldRefreshPermissionCodegen(changedPath: string, include: string[]): boolean {
   const normalizedPath = toPosixPath(changedPath)
   if (!normalizedPath.endsWith('.ts')) return false
 

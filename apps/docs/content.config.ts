@@ -33,7 +33,7 @@ export default defineContentConfig({
     docs: defineCollection({
       type: 'page',
       source: {
-        include: 'apps/docs/**',
+        include: 'docs/**',
       },
       schema: docsSchema,
     }),

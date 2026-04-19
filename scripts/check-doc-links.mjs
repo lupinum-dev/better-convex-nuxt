@@ -99,7 +99,9 @@ function extractToTargets(source) {
     matches.push(match[1] ?? '')
   }
 
-  for (const match of source.matchAll(/(?:^|\n)\s*to:\s*((?:\/|https?:\/\/|mailto:|tel:)[^\s"'`]+)/gm)) {
+  for (const match of source.matchAll(
+    /(?:^|\n)\s*to:\s*((?:\/|https?:\/\/|mailto:|tel:)[^\s"'`]+)/gm,
+  )) {
     matches.push((match[1] ?? '').trim())
   }
 
@@ -138,7 +140,9 @@ const sourceTargets = [
   resolve(rootDir, 'SKILL.md'),
   resolve(rootDir, 'tests/TESTING.md'),
   ...walk(resolve(rootDir, 'apps/docs/content')).filter((file) => extname(file) === '.md'),
-  ...walk(resolve(rootDir, 'apps/docs/app')).filter((file) => ['.vue', '.ts'].includes(extname(file))),
+  ...walk(resolve(rootDir, 'apps/docs/app')).filter((file) =>
+    ['.vue', '.ts'].includes(extname(file)),
+  ),
   resolve(rootDir, 'apps/docs/mdc-components.md'),
   ...walk(resolve(rootDir, 'examples')).filter((file) => extname(file) === '.md'),
   ...walk(resolve(rootDir, 'apps/harness')).filter((file) => extname(file) === '.md'),
@@ -186,9 +190,7 @@ for (const filePath of sourceTargets) {
         const anchor = normalizeAnchor(hash)
         const routeAnchors = anchorMap.get(normalized) ?? new Set()
         if (!routeAnchors.has(anchor)) {
-          issues.push(
-            `${relative(rootDir, filePath)} -> missing docs anchor ${pathname}#${hash}`,
-          )
+          issues.push(`${relative(rootDir, filePath)} -> missing docs anchor ${pathname}#${hash}`)
         }
       }
       continue

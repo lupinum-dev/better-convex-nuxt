@@ -4,7 +4,6 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import schema from '../convex/schema'
 import {
   mcpManage,
   runbookBulkDelete,
@@ -12,6 +11,7 @@ import {
   runbookDelete,
   runbookRead,
 } from '../convex/auth/permissions'
+import schema from '../convex/schema'
 import { modules } from '../convex/test.setup'
 
 const api = anyApi as any
@@ -190,8 +190,8 @@ describe('mcp reference example', () => {
 
     expect(await ctx.raw.query(api.domain.mcpKeys.validate, { hash: 'hash_member' })).toMatchObject(
       {
-      role: 'member',
-      userId: team.users.member.authId,
+        role: 'member',
+        userId: team.users.member.authId,
       },
     )
 
@@ -204,8 +204,8 @@ describe('mcp reference example', () => {
 
     expect(await ctx.raw.query(api.domain.mcpKeys.validate, { hash: 'hash_member' })).toMatchObject(
       {
-      role: 'viewer',
-      userId: team.users.member.authId,
+        role: 'viewer',
+        userId: team.users.member.authId,
       },
     )
   })
@@ -234,7 +234,9 @@ describe('mcp reference example', () => {
       })
     })
 
-    expect(await ctx.raw.query(api.domain.mcpKeys.validate, { hash: 'hash_member_dead' })).toBeNull()
+    expect(
+      await ctx.raw.query(api.domain.mcpKeys.validate, { hash: 'hash_member_dead' }),
+    ).toBeNull()
 
     const keys = await team.users.owner.query(api.domain.mcpKeys.list, {})
     expect(keys.find((key: { _id: string }) => key._id === keyId)?.usability).toBe(

@@ -1,3 +1,8 @@
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { v } from 'convex/values'
+import { SignJWT, jwtVerify } from 'jose'
+
 /**
  * Experiment 1: Crypto in Convex Runtime
  *
@@ -5,10 +10,6 @@
  * inside a Convex mutation (V8 runtime, no "use node").
  */
 import { mutation, query } from './_generated/server'
-import { v } from 'convex/values'
-import { hkdf } from '@noble/hashes/hkdf.js'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { SignJWT, jwtVerify } from 'jose'
 
 // Test 1a: HKDF key derivation with @noble/hashes
 export const testHkdf = mutation({
@@ -19,7 +20,6 @@ export const testHkdf = mutation({
     keyHex: v.string(),
   }),
   handler: async (_ctx) => {
-
     const rootSecret = new TextEncoder().encode('test-deployment-secret-32bytes!!')
     const salt = new TextEncoder().encode('trellis-v1')
     const info = new TextEncoder().encode('trellis:component-principal:v1')
@@ -29,7 +29,9 @@ export const testHkdf = mutation({
     return {
       success: derivedKey.length === 32,
       keyLength: derivedKey.length,
-      keyHex: Array.from(derivedKey).map(b => b.toString(16).padStart(2, '0')).join(''),
+      keyHex: Array.from(derivedKey)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join(''),
     }
   },
 })
@@ -161,8 +163,7 @@ export const testVerificationFailures = mutation({
     let wrongKeyFails = false
     try {
       await jwtVerify(token, key2)
-    }
-    catch {
+    } catch {
       wrongKeyFails = true
     }
 
@@ -170,8 +171,7 @@ export const testVerificationFailures = mutation({
     let wrongAudienceFails = false
     try {
       await jwtVerify(token, key1, { audience: 'wrong-audience' })
-    }
-    catch {
+    } catch {
       wrongAudienceFails = true
     }
 
@@ -185,8 +185,7 @@ export const testVerificationFailures = mutation({
     let expiredFails = false
     try {
       await jwtVerify(expiredToken, key1)
-    }
-    catch {
+    } catch {
       expiredFails = true
     }
 

@@ -45,7 +45,9 @@ type ConvexMcpInputSchema<V extends PropertyValidators> = {
   [K in keyof V]: ZodValidatorFromConvex<V[K]>
 }
 
-type ConvexToolInputSchema<S extends AnyConvexSchema> = ConvexMcpInputSchema<InferSchemaValidators<S>>
+type ConvexToolInputSchema<S extends AnyConvexSchema> = ConvexMcpInputSchema<
+  InferSchemaValidators<S>
+>
 
 type ConvexToolHandlerArgs<S extends AnyConvexSchema> = ShapeOutput<ConvexToolInputSchema<S>>
 
@@ -321,7 +323,7 @@ function inferCategoryFromMessage(message: string): ConvexErrorCategory | undefi
 function resolveDefaultAuth<TRole extends string = string>(event: {
   context: Record<string, unknown>
 }): McpAuthIdentity<TRole> | null {
-  const auth = event.context.mcpAuth as
+  const auth = (event.context.__trellisMcpAuth ?? event.context.mcpAuth) as
     | {
         role?: string
         userId?: string

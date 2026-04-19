@@ -192,7 +192,9 @@ export function inspectProject(cwd: string): ProjectInspection {
 }
 
 export function findMissingCanonicalLayoutPaths(project: ProjectInspection): string[] {
-  return CANONICAL_LAYOUT_PATHS.filter((relativePath) => !existsSync(resolve(project.cwd, relativePath)))
+  return CANONICAL_LAYOUT_PATHS.filter(
+    (relativePath) => !existsSync(resolve(project.cwd, relativePath)),
+  )
 }
 
 export function hasDependency(project: ProjectInspection, dependencyName: string): boolean {
@@ -350,9 +352,7 @@ export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
   }
 
   return project.sourceFiles.some((file) =>
-    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|trustedCallerKey\b/.test(
-      file.text,
-    ),
+    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|trustedCallerKey\b/.test(file.text),
   )
 }
 
@@ -362,9 +362,7 @@ export function usesPermissionSurfaces(project: ProjectInspection): boolean {
   )
 }
 
-export function findConfiguredPermissionQueryPath(
-  project: ProjectInspection,
-): string | undefined {
+export function findConfiguredPermissionQueryPath(project: ProjectInspection): string | undefined {
   const objectMatch = project.nuxtConfigText.match(
     /permissions\s*:\s*\{[\s\S]*?\bquery\s*:\s*['"]([^'"]+)['"]/,
   )
@@ -393,9 +391,7 @@ function getPropertyName(node: Node): string | null {
 }
 
 function objectHasTrustedAuth(node: import('ts-morph').ObjectLiteralExpression): boolean {
-  const authProperty = node
-    .getProperties()
-    .find((property) => getPropertyName(property) === 'auth')
+  const authProperty = node.getProperties().find((property) => getPropertyName(property) === 'auth')
 
   if (!authProperty || !Node.isPropertyAssignment(authProperty)) return false
 
@@ -419,7 +415,9 @@ export function findForwardedPrincipalWithoutTrustedAuth(
     if (!/[/\\]server[/\\].+\.(?:[cm]?[jt]s|tsx?)$/.test(filePath)) continue
     if (/[/\\]tests?[/\\]/.test(filePath)) continue
 
-    for (const objectLiteral of sourceFile.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
+    for (const objectLiteral of sourceFile.getDescendantsOfKind(
+      SyntaxKind.ObjectLiteralExpression,
+    )) {
       const parent = objectLiteral.getParent()
       if (!parent || !Node.isCallExpression(parent)) continue
 

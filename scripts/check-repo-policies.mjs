@@ -23,7 +23,11 @@ const checks = [
 ]
 
 for (const check of checks) {
-  if ('paths' in check && Array.isArray(check.paths) && check.paths.every((path) => !existsSync(path))) {
+  if (
+    'paths' in check &&
+    Array.isArray(check.paths) &&
+    check.paths.every((path) => !existsSync(path))
+  ) {
     continue
   }
 

@@ -106,9 +106,7 @@ const _permissionContext = definePermissionContext({
   }),
 })
 type PermissionContextResult = Awaited<ReturnType<typeof _permissionContext.handler>>
-type _permissionContextPlan = Assert<
-  IsEqual<NonNullable<PermissionContextResult>['plan'], 'pro'>
->
+type _permissionContextPlan = Assert<IsEqual<NonNullable<PermissionContextResult>['plan'], 'pro'>>
 type _permissionContextUsage = Assert<
   IsEqual<NonNullable<PermissionContextResult>['usage']['projects']['current'], number>
 >

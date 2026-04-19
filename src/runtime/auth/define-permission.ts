@@ -10,8 +10,10 @@ export interface ErasedPermissionDefinition<TKey extends string = string> {
   readonly project?: boolean
 }
 
-export interface PermissionDefinition<TKey extends string = string, TActor = unknown>
-  extends Omit<ErasedPermissionDefinition<TKey>, 'check'> {
+export interface PermissionDefinition<TKey extends string = string, TActor = unknown> extends Omit<
+  ErasedPermissionDefinition<TKey>,
+  'check'
+> {
   readonly check: AnyCheck<TActor>
 }
 
@@ -20,8 +22,10 @@ export interface RegisteredPermissions {
   projected: string
 }
 
-export type GuardPermissionDefinition<TKey extends string = string, TActor = unknown> =
-  PermissionDefinition<TKey, TActor>
+export type GuardPermissionDefinition<
+  TKey extends string = string,
+  TActor = unknown,
+> = PermissionDefinition<TKey, TActor>
 
 export type RegisteredPermissionKey = RegisteredPermissions['keys']
 export type RegisteredProjectedPermissionKey = RegisteredPermissions['projected']

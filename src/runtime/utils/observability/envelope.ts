@@ -23,10 +23,7 @@ export const trellisEnvelopeValidator = v.object({
 
 export type TrellisObservationEnvelope = Infer<typeof trellisEnvelopeValidator>
 export type EventObservationState = Partial<
-  Pick<
-  TrellisObservationEnvelope,
-  'correlationId' | 'originTransport' | 'requestId'
-  >
+  Pick<TrellisObservationEnvelope, 'correlationId' | 'originTransport' | 'requestId'>
 >
 
 function isTransport(value: unknown): value is TrellisObservationTransport {
@@ -59,7 +56,10 @@ export function getEventObservationState(
 
 export function sanitizeCorrelationId(value: string | null | undefined): string | undefined {
   if (typeof value !== 'string') return undefined
-  const sanitized = value.replace(/[^\x20-\x7E]+/g, '').trim().slice(0, 256)
+  const sanitized = value
+    .replace(/[^\x20-\x7E]+/g, '')
+    .trim()
+    .slice(0, 256)
   return sanitized.length > 0 ? sanitized : undefined
 }
 
@@ -79,7 +79,9 @@ export function withObservationEnvelope<TArgs extends Record<string, unknown> | 
   } as unknown as TArgs
 }
 
-export function getObservationEnvelope(args: Record<string, unknown>): TrellisObservationEnvelope | null {
+export function getObservationEnvelope(
+  args: Record<string, unknown>,
+): TrellisObservationEnvelope | null {
   const value = args[trellisEnvelopeKey]
   if (!isRecord(value)) return null
   if (typeof value.correlationId !== 'string' || !isTransport(value.originTransport)) {
@@ -96,9 +98,7 @@ export function getObservationEnvelope(args: Record<string, unknown>): TrellisOb
 }
 
 export function stripObservationEnvelope(args: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(args).filter(([key]) => key !== trellisEnvelopeKey),
-  )
+  return Object.fromEntries(Object.entries(args).filter(([key]) => key !== trellisEnvelopeKey))
 }
 
 export function toObservationContext(

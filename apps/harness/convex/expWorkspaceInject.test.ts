@@ -1,10 +1,11 @@
+import { convexTest } from 'convex-test'
 /**
  * Tests for Experiment 12: __workspaceId injection via customQuery input
  */
 import { describe, it, expect } from 'vitest'
-import { convexTest } from 'convex-test'
-import schema from './schema'
+
 import { api } from './_generated/api'
+import schema from './schema'
 import { modules } from './test.setup'
 
 describe('Experiment 12: __workspaceId injection', () => {
@@ -14,15 +15,22 @@ describe('Experiment 12: __workspaceId injection', () => {
   ): Promise<{ orgId: string }> {
     const orgId = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Acme', slug: 'acme', ownerId: authId,
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Acme',
+        slug: 'acme',
+        ownerId: authId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
     await t.run(async (ctx) => {
       await ctx.db.insert('users', {
-        authId, role: 'admin', organizationId: orgId,
-        displayName: 'A', email: 'a@t.co',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        authId,
+        role: 'admin',
+        organizationId: orgId,
+        displayName: 'A',
+        email: 'a@t.co',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
     return { orgId }
@@ -32,7 +40,8 @@ describe('Experiment 12: __workspaceId injection', () => {
     const t = convexTest(schema, modules)
     const { orgId } = await seedUserInOrg(t, 'user_a')
 
-    const result = await t.withIdentity({ subject: 'user_a' })
+    const result = await t
+      .withIdentity({ subject: 'user_a' })
       .query(api.expWorkspaceInject.whoAmIAt, {
         __workspaceId: orgId,
         probe: 'hello',
@@ -49,7 +58,8 @@ describe('Experiment 12: __workspaceId injection', () => {
     const t = convexTest(schema, modules)
     const { orgId } = await seedUserInOrg(t, 'user_b')
 
-    const result = await t.withIdentity({ subject: 'user_b' })
+    const result = await t
+      .withIdentity({ subject: 'user_b' })
       .query(api.expWorkspaceInject.whoAmIAt, { __workspaceId: orgId })
 
     expect(result.actorWorkspace).toBe(orgId)
@@ -60,7 +70,8 @@ describe('Experiment 12: __workspaceId injection', () => {
     const t = convexTest(schema, modules)
     const { orgId } = await seedUserInOrg(t, 'user_c')
 
-    const result = await t.withIdentity({ subject: 'user_c' })
+    const result = await t
+      .withIdentity({ subject: 'user_c' })
       .query(api.expWorkspaceInject.whoAmIAt, {})
 
     expect(result.actorWorkspace).toBe(orgId)
@@ -74,12 +85,16 @@ describe('Experiment 12: __workspaceId injection', () => {
     // Pass some other orgId the user doesn't belong to
     const otherOrgId = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Other', slug: 'other', ownerId: 'someone_else',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Other',
+        slug: 'other',
+        ownerId: 'someone_else',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 
-    const result = await t.withIdentity({ subject: 'user_d' })
+    const result = await t
+      .withIdentity({ subject: 'user_d' })
       .query(api.expWorkspaceInject.whoAmIAt, { __workspaceId: otherOrgId })
 
     expect(result.actorWorkspace).toBeNull()

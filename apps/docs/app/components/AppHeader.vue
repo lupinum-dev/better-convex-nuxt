@@ -10,45 +10,46 @@ const { header } = useAppConfig()
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
     label: 'Get Started',
-    to: '/apps/docs/getting-started',
-    active: route.path === '/apps/docs/getting-started' || route.path.startsWith('/apps/docs/getting-started/'),
+    to: '/docs/getting-started',
+    active:
+      route.path === '/docs/getting-started' || route.path.startsWith('/docs/getting-started/'),
   },
   {
     label: 'Concepts',
-    to: '/apps/docs/concepts',
-    active: route.path === '/apps/docs/concepts' || route.path.startsWith('/apps/docs/concepts/'),
+    to: '/docs/concepts',
+    active: route.path === '/docs/concepts' || route.path.startsWith('/docs/concepts/'),
   },
   {
     label: 'Guides',
-    to: '/apps/docs/guides',
+    to: '/docs/guides',
     active:
-      route.path.startsWith('/apps/docs/data-fetching') ||
-      route.path.startsWith('/apps/docs/mutations') ||
-      route.path.startsWith('/apps/docs/auth-security') ||
-      route.path.startsWith('/apps/docs/file-uploads') ||
-      route.path.startsWith('/apps/docs/server-side') ||
-      route.path.startsWith('/apps/docs/permissions') ||
-      route.path.startsWith('/apps/docs/mcp-tools') ||
-      route.path === '/apps/docs/guides',
+      route.path.startsWith('/docs/data-fetching') ||
+      route.path.startsWith('/docs/mutations') ||
+      route.path.startsWith('/docs/auth-security') ||
+      route.path.startsWith('/docs/file-uploads') ||
+      route.path.startsWith('/docs/server-side') ||
+      route.path.startsWith('/docs/permissions') ||
+      route.path.startsWith('/docs/mcp-tools') ||
+      route.path === '/docs/guides',
   },
   {
     label: 'Reference',
-    to: '/apps/docs/reference',
+    to: '/docs/reference',
     active:
-      route.path === '/apps/docs/reference' ||
-      route.path.startsWith('/apps/docs/api-reference') ||
-      route.path.startsWith('/apps/docs/configuration') ||
-      route.path.startsWith('/apps/docs/testing'),
+      route.path === '/docs/reference' ||
+      route.path.startsWith('/docs/api-reference') ||
+      route.path.startsWith('/docs/configuration') ||
+      route.path.startsWith('/docs/testing'),
   },
   {
     label: 'Examples',
-    to: '/apps/docs/examples',
-    active: route.path === '/apps/docs/examples',
+    to: '/docs/examples',
+    active: route.path === '/docs/examples',
   },
   {
     label: 'Project',
-    to: '/apps/docs/project',
-    active: route.path === '/apps/docs/project' || route.path.startsWith('/apps/docs/project/'),
+    to: '/docs/project',
+    active: route.path === '/docs/project' || route.path.startsWith('/docs/project/'),
   },
 ])
 </script>

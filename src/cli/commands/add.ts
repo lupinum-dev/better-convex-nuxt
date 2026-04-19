@@ -38,7 +38,12 @@ export const addCommand = defineCommand({
   },
   async run({ args }) {
     const feature = String(args.feature)
-    if (feature !== 'mcp' && feature !== 'uploads' && feature !== 'operation' && feature !== 'resource') {
+    if (
+      feature !== 'mcp' &&
+      feature !== 'uploads' &&
+      feature !== 'operation' &&
+      feature !== 'resource'
+    ) {
       throw new Error('Invalid feature. Use one of: mcp, uploads, operation, resource.')
     }
 

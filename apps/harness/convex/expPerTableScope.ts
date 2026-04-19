@@ -1,3 +1,6 @@
+import { v } from 'convex/values'
+
+import type { Id } from './_generated/dataModel'
 /**
  * Experiment 13: Per-table scope config
  *
@@ -19,12 +22,7 @@
  *        documents from workspace B, even within the same org.
  */
 import { internalMutation, internalQuery } from './_generated/server'
-import { v } from 'convex/values'
-import type {
-  DatabaseReader,
-  DatabaseWriter,
-} from './_generated/server'
-import type { Id } from './_generated/dataModel'
+import type { DatabaseReader, DatabaseWriter } from './_generated/server'
 
 // ============================================================
 // Per-table scope proxy
@@ -65,9 +63,9 @@ function createReadProxy(db: DatabaseReader, scopes: ScopeMap): DatabaseReader {
           // Compound indexes must start with this table's scope field.
           if (!cfg.compoundIndexes.includes(indexName)) {
             throw new Error(
-              `Index '${indexName}' on scoped table '${tableName}' must `
-              + `start with scope field '${cfg.scopeField}'. Register it `
-              + `as a compound index or use '${cfg.scopeIndex}'.`,
+              `Index '${indexName}' on scoped table '${tableName}' must ` +
+                `start with scope field '${cfg.scopeField}'. Register it ` +
+                `as a compound index or use '${cfg.scopeIndex}'.`,
             )
           }
           return base.withIndex(indexName as any, (q: any) => {
@@ -78,8 +76,7 @@ function createReadProxy(db: DatabaseReader, scopes: ScopeMap): DatabaseReader {
         collect: async () => {
           // Bare .collect() → auto-apply scope index.
           const rows = await base
-            .withIndex(cfg.scopeIndex as any, (q: any) =>
-              q.eq(cfg.scopeField, cfg.scopeValue))
+            .withIndex(cfg.scopeIndex as any, (q: any) => q.eq(cfg.scopeField, cfg.scopeValue))
             .collect()
           return rows
         },
@@ -110,8 +107,8 @@ function createWriteProxy(db: DatabaseWriter, scopes: ScopeMap): DatabaseWriter 
         const docScope = doc[cfg.scopeField]
         if (docScope !== cfg.scopeValue) {
           throw new Error(
-            `Scope violation on insert into '${tableName}': `
-            + `doc.${cfg.scopeField} = ${docScope}, expected ${cfg.scopeValue}`,
+            `Scope violation on insert into '${tableName}': ` +
+              `doc.${cfg.scopeField} = ${docScope}, expected ${cfg.scopeValue}`,
           )
         }
       }
@@ -123,8 +120,8 @@ function createWriteProxy(db: DatabaseWriter, scopes: ScopeMap): DatabaseWriter 
       for (const cfg of Object.values(scopes)) {
         if (cfg.scopeField in existing && existing[cfg.scopeField] !== cfg.scopeValue) {
           throw new Error(
-            `Scope violation on patch: existing.${cfg.scopeField} = `
-            + `${existing[cfg.scopeField]}, expected ${cfg.scopeValue}`,
+            `Scope violation on patch: existing.${cfg.scopeField} = ` +
+              `${existing[cfg.scopeField]}, expected ${cfg.scopeValue}`,
           )
         }
       }
@@ -136,8 +133,8 @@ function createWriteProxy(db: DatabaseWriter, scopes: ScopeMap): DatabaseWriter 
       for (const cfg of Object.values(scopes)) {
         if (cfg.scopeField in existing && existing[cfg.scopeField] !== cfg.scopeValue) {
           throw new Error(
-            `Scope violation on delete: existing.${cfg.scopeField} = `
-            + `${existing[cfg.scopeField]}, expected ${cfg.scopeValue}`,
+            `Scope violation on delete: existing.${cfg.scopeField} = ` +
+              `${existing[cfg.scopeField]}, expected ${cfg.scopeValue}`,
           )
         }
       }
@@ -307,8 +304,7 @@ export const tryWrongScopeInsert = internalMutation({
         organizationId: args.wrongOrgId, // wrong scope
         createdAt: Date.now(),
       })
-    }
-    catch {
+    } catch {
       workspaceInsertRejected = true
     }
 
@@ -320,8 +316,7 @@ export const tryWrongScopeInsert = internalMutation({
         workspaceId: args.wrongWorkspaceId, // wrong scope
         createdAt: Date.now(),
       })
-    }
-    catch {
+    } catch {
       documentInsertRejected = true
     }
 
@@ -356,8 +351,7 @@ export const tryNonCompoundIndex = internalQuery({
         .withIndex('by_status', (q: any) => q.eq('status', 'draft'))
         .collect()
       return { rejected: false, message: '' }
-    }
-    catch (err) {
+    } catch (err) {
       return { rejected: true, message: (err as Error).message }
     }
   },

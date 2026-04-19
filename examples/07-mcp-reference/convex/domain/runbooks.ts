@@ -1,5 +1,4 @@
 import { can, deny, loadTenantResource as loadResource, requireRecord } from '@lupinum/trellis/auth'
-import type { Doc, Id } from '../_generated/dataModel'
 
 import {
   createRunbook,
@@ -8,11 +7,10 @@ import {
   searchRunbooks,
   updateRunbook,
 } from '../../shared/schemas/runbook'
+import type { Doc, Id } from '../_generated/dataModel'
 import { getActor } from '../auth/actor'
 import { publicRunbookCapabilities, workspaceRunbookCapabilities } from '../auth/capabilities'
-import {
-  canUpdateRunbook,
-} from '../auth/checks'
+import { canUpdateRunbook } from '../auth/checks'
 import { runbookCreate, runbookPublish, runbookRead } from '../auth/permissions'
 import { mutation, query, raw } from '../functions'
 import { bulkRemoveRunbooksOp, removeRunbookOp } from '../operations/runbooks'

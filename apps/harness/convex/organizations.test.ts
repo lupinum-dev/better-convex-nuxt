@@ -3,10 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
 import schema from './schema'
-import {
-  INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY,
-  withTrustedPrincipal,
-} from './test.helpers'
+import { INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY, withTrustedPrincipal } from './test.helpers'
 import { modules } from './test.setup'
 
 describe('organizations', () => {

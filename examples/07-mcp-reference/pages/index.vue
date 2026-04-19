@@ -766,10 +766,17 @@ const workspaceRoleOptions = ['admin', 'member', 'viewer']
 const visibilityOptions: Array<'draft' | 'workspace' | 'public'> = ['draft', 'workspace', 'public']
 
 const mcpBoundUserOptions = computed(() =>
-  (mcpKeyUsers.value ?? []).map((user: { displayName?: string | null; email?: string | null; authId: string; role: string }) => ({
-    label: `${user.displayName || user.email || user.authId} (${user.role})`,
-    value: user.authId,
-  })),
+  (mcpKeyUsers.value ?? []).map(
+    (user: {
+      displayName?: string | null
+      email?: string | null
+      authId: string
+      role: string
+    }) => ({
+      label: `${user.displayName || user.email || user.authId} (${user.role})`,
+      value: user.authId,
+    }),
+  ),
 )
 
 const selectedMcpBoundUser = computed(() =>

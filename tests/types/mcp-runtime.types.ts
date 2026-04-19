@@ -2,13 +2,13 @@ import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 
+import { defineArgs } from '../../src/runtime/args'
 import { definePermission, open } from '../../src/runtime/auth'
 import {
   defineOperation,
   trellisOperationProjectionMetadataKey,
   type DestructiveOperationPreview,
 } from '../../src/runtime/functions'
-import { defineArgs } from '../../src/runtime/args'
 import { defineMcpApp, type McpConvexCaller } from '../../src/runtime/mcp'
 
 type Assert<T extends true> = T

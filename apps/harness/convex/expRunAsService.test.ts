@@ -1,10 +1,11 @@
+import { convexTest } from 'convex-test'
 /**
  * Tests for Experiment 11: ctx.runAsService() roundtrip
  */
 import { describe, it, expect } from 'vitest'
-import { convexTest } from 'convex-test'
-import schema from './schema'
+
 import { internal } from './_generated/api'
+import schema from './schema'
 import { modules } from './test.setup'
 
 describe('Experiment 11: runAsService roundtrip', () => {

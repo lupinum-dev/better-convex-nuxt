@@ -9,22 +9,19 @@ import {
   type Guard,
   type OpenGuard,
 } from '../auth/define-guard.js'
-import { can, deny, enforce, requireAuth } from '../auth/index.js'
 import {
   isPermissionDefinition,
   resolvePermissionCheck,
   resolvePermissionLabel,
   type ErasedPermissionDefinition,
 } from '../auth/define-permission.js'
+import { can, deny, enforce, requireAuth } from '../auth/index.js'
+import { isAnonymousPrincipal, type AuthenticatedPrincipal } from '../auth/principal-state.js'
+import { createDenialExplanation, type TrellisObservationEvent } from '../utils/observability.js'
 import {
-  isAnonymousPrincipal,
-  type AuthenticatedPrincipal,
-} from '../auth/principal-state.js'
-import {
-  createDenialExplanation,
-  type TrellisObservationEvent,
-} from '../utils/observability.js'
-import { stampOperationProjection, trellisOperationProjectionMetadataKey } from './operation-metadata.js'
+  stampOperationProjection,
+  trellisOperationProjectionMetadataKey,
+} from './operation-metadata.js'
 
 type MaybePromise<T> = T | Promise<T>
 type BivariantCallback<TArgs extends unknown[], TResult> = {
@@ -35,11 +32,7 @@ type RuntimeContext<TPrincipal, TActor> = {
   principal: () => Promise<TPrincipal>
   actor: () => Promise<TActor | null>
   observe?: (event: {
-    name:
-      | 'guard.allowed'
-      | 'guard.denied'
-      | 'authorize.allowed'
-      | 'authorize.denied'
+    name: 'guard.allowed' | 'guard.denied' | 'authorize.allowed' | 'authorize.denied'
     status: 'success' | 'deny'
     transport?: TrellisObservationEvent['transport']
     reasonCode?: TrellisObservationEvent['reasonCode']
@@ -77,11 +70,17 @@ type NarrowedCtx<TCtx, TPrincipal, TActor, TGuard> = Omit<TCtx, 'actor' | 'princ
   actor: () => Promise<ActorForGuard<TActor, TGuard>>
 }
 
-type LoadFn<TCtx, TPrincipal, TActor, TGuard, TArgsValidator extends PropertyValidators, TLoaded> =
-  BivariantCallback<
-    [NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>, HandlerArgs<TArgsValidator>],
-    MaybePromise<TLoaded>
-  >
+type LoadFn<
+  TCtx,
+  TPrincipal,
+  TActor,
+  TGuard,
+  TArgsValidator extends PropertyValidators,
+  TLoaded,
+> = BivariantCallback<
+  [NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>, HandlerArgs<TArgsValidator>],
+  MaybePromise<TLoaded>
+>
 
 type AuthorizeConfig<
   TCtx,
@@ -204,7 +203,7 @@ function getGuardLabel<TPrincipal, TActor>(guard: StructuredGuard<TPrincipal, TA
 
 function getObserve(ctx: object): RuntimeContext<unknown, unknown>['observe'] {
   return 'observe' in ctx && typeof (ctx as { observe?: unknown }).observe === 'function'
-    ? ((ctx as { observe: RuntimeContext<unknown, unknown>['observe'] }).observe)
+    ? (ctx as { observe: RuntimeContext<unknown, unknown>['observe'] }).observe
     : undefined
 }
 
@@ -221,16 +220,27 @@ function formatGuardFailure(label: string, principal: unknown, actor: unknown): 
   return `${label} [principal:${describePrincipalState(principal)} actor:${describeActorState(actor)}]`
 }
 
-function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuilder extends AnyBuilder>(
-  builder: TBuilder,
-) {
+function createStructuredBuilder<
+  TCtx extends object,
+  TPrincipal,
+  TActor,
+  TBuilder extends AnyBuilder,
+>(builder: TBuilder) {
   return function structuredBuilder<
     TGuard extends StructuredGuard<TPrincipal, TActor>,
     TArgsValidator extends PropertyValidators,
     TLoaded extends StructuredLoadedValue = undefined,
     TResult = unknown,
   >(
-    definition: HandlerDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TResult>,
+    definition: HandlerDefinition<
+      TCtx,
+      TPrincipal,
+      TActor,
+      TGuard,
+      TArgsValidator,
+      TLoaded,
+      TResult
+    >,
   ): ReturnType<TBuilder> {
     const built = builder({
       args: definition.args,
@@ -266,8 +276,7 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
         } else if (!isOpenGuard(definition.guard)) {
           const guardCheck = getGuardCheck<TPrincipal, TActor>(definition.guard)
           const guardLabel = getGuardLabel<TPrincipal, TActor>(definition.guard)
-          const allowed =
-            actor != null && can(actor as NonNullable<TActor>, guardCheck)
+          const allowed = actor != null && can(actor as NonNullable<TActor>, guardCheck)
           await observe?.({
             name: allowed ? 'guard.allowed' : 'guard.denied',
             status: allowed ? 'success' : 'deny',
@@ -377,7 +386,9 @@ export function buildStructuredFunctions<
   mutation: TMutationBuilder,
 ): {
   query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TPrincipal, TActor, TQueryBuilder>>
-  mutation: ReturnType<typeof createStructuredBuilder<TMutationCtx, TPrincipal, TActor, TMutationBuilder>>
+  mutation: ReturnType<
+    typeof createStructuredBuilder<TMutationCtx, TPrincipal, TActor, TMutationBuilder>
+  >
 }
 
 export function buildStructuredFunctions<
@@ -392,7 +403,9 @@ export function buildStructuredFunctions<
   mutation: TMutationBuilder,
 ): {
   query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TPrincipal, TActor, TQueryBuilder>>
-  mutation: ReturnType<typeof createStructuredBuilder<TMutationCtx, TPrincipal, TActor, TMutationBuilder>>
+  mutation: ReturnType<
+    typeof createStructuredBuilder<TMutationCtx, TPrincipal, TActor, TMutationBuilder>
+  >
 }
 
 export function buildStructuredFunctions<

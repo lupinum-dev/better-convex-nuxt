@@ -102,40 +102,40 @@ type BridgeBatchResult<
   InternalQueryVisibility extends FunctionVisibility,
   InternalMutationVisibility extends FunctionVisibility,
 > = {
-    [Key in keyof TDefinitions]: TDefinitions[Key] extends {
-      operation: 'query'
-      args: infer TArgs extends PropertyValidators
-      component: infer TRef extends QueryRef
-    }
+  [Key in keyof TDefinitions]: TDefinitions[Key] extends {
+    operation: 'query'
+    args: infer TArgs extends PropertyValidators
+    component: infer TRef extends QueryRef
+  }
     ? RegisteredQuery<QueryVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
     : TDefinitions[Key] extends {
-      operation: 'mutation'
-      args: infer TArgs extends PropertyValidators
-      component: infer TRef extends MutationRef
-    }
-    ? RegisteredMutation<MutationVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
-    : TDefinitions[Key] extends {
-      operation: 'internalQuery'
-      args: infer TArgs extends PropertyValidators
-      component: infer TRef extends QueryRef
-    }
-    ? RegisteredQuery<
-      InternalQueryVisibility,
-      ObjectType<TArgs>,
-      Promise<FunctionReturnType<TRef>>
-    >
-    : TDefinitions[Key] extends {
-      operation: 'internalMutation'
-      args: infer TArgs extends PropertyValidators
-      component: infer TRef extends MutationRef
-    }
-    ? RegisteredMutation<
-      InternalMutationVisibility,
-      ObjectType<TArgs>,
-      Promise<FunctionReturnType<TRef>>
-    >
-    : never
-  }
+          operation: 'mutation'
+          args: infer TArgs extends PropertyValidators
+          component: infer TRef extends MutationRef
+        }
+      ? RegisteredMutation<MutationVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
+      : TDefinitions[Key] extends {
+            operation: 'internalQuery'
+            args: infer TArgs extends PropertyValidators
+            component: infer TRef extends QueryRef
+          }
+        ? RegisteredQuery<
+            InternalQueryVisibility,
+            ObjectType<TArgs>,
+            Promise<FunctionReturnType<TRef>>
+          >
+        : TDefinitions[Key] extends {
+              operation: 'internalMutation'
+              args: infer TArgs extends PropertyValidators
+              component: infer TRef extends MutationRef
+            }
+          ? RegisteredMutation<
+              InternalMutationVisibility,
+              ObjectType<TArgs>,
+              Promise<FunctionReturnType<TRef>>
+            >
+          : never
+}
 
 const COMPONENT_BRIDGE_TRUSTED_CALLER_KEY = '__trellis_component_bridge__'
 
@@ -145,9 +145,7 @@ function resolveBridgeTrustedCallerUserId(principal: unknown): string {
   }
 
   const maybeUserId = (principal as Record<string, unknown>).userId
-  return typeof maybeUserId === 'string' && maybeUserId.trim()
-    ? maybeUserId
-    : 'component-bridge'
+  return typeof maybeUserId === 'string' && maybeUserId.trim() ? maybeUserId : 'component-bridge'
 }
 
 function createBridgeTrustedCallerFields(principal: unknown) {

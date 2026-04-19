@@ -1,9 +1,9 @@
 import { can } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
-import type { Doc, Id } from '../_generated/dataModel'
 
 import { bulkDeleteRunbooks, deleteRunbook } from '../../shared/schemas/runbook'
+import type { Doc, Id } from '../_generated/dataModel'
 import { canDeleteRunbook } from '../auth/checks'
 import { runbookBulkDelete, runbookPublish, runbookRead } from '../auth/permissions'
 import { query } from '../functions'
@@ -123,7 +123,9 @@ export const bulkRemoveRunbooksOp = defineOperation({
       display: {
         summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map((runbook: Doc<'runbooks'>) => `"${runbook.title}"`).join(', ')}`,
         warn:
-          found.length !== args.ids.length ? 'Some ids were missing and will be skipped.' : undefined,
+          found.length !== args.ids.length
+            ? 'Some ids were missing and will be skipped.'
+            : undefined,
         affects: { runbooks: found.length },
       },
       confirm: {

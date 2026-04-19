@@ -11,9 +11,9 @@ import {
   requireAuth,
   and,
 } from '../../src/runtime/auth'
-import { defineOperation } from '../../src/runtime/functions'
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
+import { defineOperation } from '../../src/runtime/functions'
 import { defineTool } from '../../src/runtime/mcp'
 import { createTestContext } from '../../src/runtime/testing'
 import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'

@@ -17,7 +17,10 @@ function createFixture(files: Record<string, string>) {
   return rootDir
 }
 
-function projectInspection(cwd: string, sourceFiles: Array<{ path: string; text: string }>): ProjectInspection {
+function projectInspection(
+  cwd: string,
+  sourceFiles: Array<{ path: string; text: string }>,
+): ProjectInspection {
   return {
     cwd,
     packageJsonPath: null,

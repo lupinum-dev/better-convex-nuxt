@@ -1,3 +1,8 @@
+import { wrapDatabaseReader, wrapDatabaseWriter } from 'convex-helpers/server/rowLevelSecurity'
+import { Triggers } from 'convex-helpers/server/triggers'
+import { v } from 'convex/values'
+
+import type { DataModel } from './_generated/dataModel'
 /**
  * Experiment 2: Three-Door DB Model + Trigger Composition
  *
@@ -5,13 +10,6 @@
  * different RLS/trigger compositions in the same mutation.
  */
 import { mutation, query, internalMutation } from './_generated/server'
-import { v } from 'convex/values'
-import {
-  wrapDatabaseReader,
-  wrapDatabaseWriter,
-} from 'convex-helpers/server/rowLevelSecurity'
-import { Triggers } from 'convex-helpers/server/triggers'
-import type { DataModel } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 
 // ---- Trigger setup ----
@@ -100,8 +98,7 @@ export const writeViaThreeDoors = internalMutation({
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
-    }
-    catch (e: any) {
+    } catch (e: any) {
       door1WrongOrgError = e.message || 'error'
     }
     results.door1WrongOrgError = door1WrongOrgError
@@ -158,8 +155,8 @@ export const readViaThreeDoors = internalMutation({
     return {
       door1Count: door1Posts.length,
       door3Count: door3Posts.length,
-      door1Titles: door1Posts.map(p => p.title),
-      door3Titles: door3Posts.map(p => p.title),
+      door1Titles: door1Posts.map((p) => p.title),
+      door3Titles: door3Posts.map((p) => p.title),
     }
   },
 })

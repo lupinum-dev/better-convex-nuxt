@@ -1,3 +1,9 @@
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { v } from 'convex/values'
+import { SignJWT, jwtVerify } from 'jose'
+
+import { internal } from './_generated/api'
 /**
  * Experiment 10: Envelope callee-binding roundtrip
  *
@@ -10,11 +16,6 @@
  * contract, since `fn._name` is a Convex internal and not guaranteed stable.
  */
 import { internalMutation } from './_generated/server'
-import { v } from 'convex/values'
-import { hkdf } from '@noble/hashes/hkdf.js'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { SignJWT, jwtVerify } from 'jose'
-import { internal } from './_generated/api'
 
 const ROOT_SECRET = new TextEncoder().encode('test-deployment-secret-32bytes!!')
 const SALT = new TextEncoder().encode('trellis-v1')
@@ -53,8 +54,8 @@ async function verifyEnvelope(args: {
   })
   if (payload.callee !== args.expectedCallee) {
     throw new Error(
-      `Callee mismatch: envelope bound to "${String(payload.callee)}", `
-      + `expected "${args.expectedCallee}"`,
+      `Callee mismatch: envelope bound to "${String(payload.callee)}", ` +
+        `expected "${args.expectedCallee}"`,
     )
   }
   return { principal: payload.principal }
@@ -120,8 +121,7 @@ export const testCalleeMismatch = internalMutation({
         expectedCallee: 'posts:createPost', // different function
       })
       return { rejected: false, errorMessage: '' }
-    }
-    catch (err) {
+    } catch (err) {
       return { rejected: true, errorMessage: (err as Error).message }
     }
   },
@@ -146,8 +146,7 @@ export const testPurposeMismatch = internalMutation({
         expectedCallee: 'posts:deletePost',
       })
       return { rejected: false }
-    }
-    catch {
+    } catch {
       return { rejected: true }
     }
   },

@@ -422,11 +422,7 @@
 import { computed, reactive, ref } from 'vue'
 
 import { api } from '#trellis/api'
-import {
-  projectCreate,
-  saasPermissionMatrix,
-  workspaceAudit,
-} from '~/convex/auth/permissions'
+import { projectCreate, saasPermissionMatrix, workspaceAudit } from '~/convex/auth/permissions'
 
 const toast = useToast()
 const { client, signOut, user } = useConvexAuth()

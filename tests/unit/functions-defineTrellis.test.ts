@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { v } from 'convex/values'
+import { describe, expect, it } from 'vitest'
 
 import { open } from '../../src/runtime/auth'
 import { defineTrellis } from '../../src/runtime/functions'

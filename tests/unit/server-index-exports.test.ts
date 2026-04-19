@@ -100,7 +100,9 @@ describe('server entrypoint exports', () => {
       principal,
     })
 
-    await expect(caller.query({ _path: 'notes:list' } as never, { limit: 2 } as never)).resolves.toEqual({
+    await expect(
+      caller.query({ _path: 'notes:list' } as never, { limit: 2 } as never),
+    ).resolves.toEqual({
       ok: true,
     })
 

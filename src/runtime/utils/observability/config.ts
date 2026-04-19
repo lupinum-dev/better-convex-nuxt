@@ -41,7 +41,9 @@ function redactValue(value: unknown, keyHint?: string): unknown {
   return value
 }
 
-function defaultRedactor<TEvent extends { details?: Record<string, unknown> }>(event: TEvent): TEvent {
+function defaultRedactor<TEvent extends { details?: Record<string, unknown> }>(
+  event: TEvent,
+): TEvent {
   if (!event.details) return event
   return {
     ...event,
@@ -70,7 +72,10 @@ export function normalizeObservabilityConfig(
   const source = options.source ?? 'runtime'
 
   if ('adapter' in raw) {
-    throwConfigError('adapter', 'is no longer supported; Trellis now delivers observability via evlog')
+    throwConfigError(
+      'adapter',
+      'is no longer supported; Trellis now delivers observability via evlog',
+    )
   }
   if ('redact' in raw) {
     throwConfigError('redact', 'is no longer configurable; Trellis owns redaction internally')

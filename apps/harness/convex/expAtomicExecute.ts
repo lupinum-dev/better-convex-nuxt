@@ -1,3 +1,8 @@
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { v } from 'convex/values'
+import { SignJWT, jwtVerify } from 'jose'
+
 /**
  * Experiment 4: Atomic Execute Mutation
  *
@@ -6,10 +11,6 @@
  * + jti redemption + handler execution + audit write — all atomic.
  */
 import { internalMutation } from './_generated/server'
-import { v } from 'convex/values'
-import { hkdf } from '@noble/hashes/hkdf.js'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { SignJWT, jwtVerify } from 'jose'
 
 // ---- Shared crypto helpers ----
 

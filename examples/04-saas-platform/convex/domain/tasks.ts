@@ -11,12 +11,7 @@ import {
 } from '../../shared/schemas/task'
 import type { Doc } from '../_generated/dataModel'
 import { taskCapabilities } from '../auth/capabilities'
-import {
-  canUpdateTask,
-  hasRole,
-  hasWorkspace,
-  requireWorkspaceTenant,
-} from '../auth/checks'
+import { canUpdateTask, hasRole, hasWorkspace, requireWorkspaceTenant } from '../auth/checks'
 import { taskAssign, taskCreate, taskRead } from '../auth/permissions'
 import { mutation, query } from '../functions'
 import { removeTaskOp } from '../operations/tasks'

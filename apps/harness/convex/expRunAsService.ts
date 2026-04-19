@@ -1,3 +1,9 @@
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { v } from 'convex/values'
+import { SignJWT, jwtVerify } from 'jose'
+
+import { internal } from './_generated/api'
 /**
  * Experiment 11: ctx.runAsService() roundtrip
  *
@@ -17,11 +23,6 @@
  *   11d  anonymous call with no envelope falls back to systemPrincipal default
  */
 import { action, internalMutation } from './_generated/server'
-import { v } from 'convex/values'
-import { hkdf } from '@noble/hashes/hkdf.js'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { SignJWT, jwtVerify } from 'jose'
-import { internal } from './_generated/api'
 
 const ROOT_SECRET = new TextEncoder().encode('test-deployment-secret-32bytes!!')
 const SALT = new TextEncoder().encode('trellis-v1')
@@ -67,8 +68,8 @@ async function resolvePrincipalWithEnvelope(
   })
   if (payload.callee !== expectedCallee) {
     throw new Error(
-      `Callee mismatch: envelope bound to "${String(payload.callee)}", `
-      + `expected "${expectedCallee}"`,
+      `Callee mismatch: envelope bound to "${String(payload.callee)}", ` +
+        `expected "${expectedCallee}"`,
     )
   }
   return payload.principal as Principal
@@ -93,9 +94,7 @@ export const recordPayment = internalMutation({
 
     const id = await ctx.db.insert('expAuditLog', {
       operation: 'recordPayment',
-      principalKey: principal.kind === 'service'
-        ? `service:${principal.service}`
-        : principal.kind,
+      principalKey: principal.kind === 'service' ? `service:${principal.service}` : principal.kind,
       argsHash: JSON.stringify(args.event).slice(0, 40),
       timestamp: Date.now(),
     })
@@ -117,12 +116,11 @@ export const testHappyPath = action({
     service: v.optional(v.string()),
     envelopeLength: v.number(),
   }),
-  handler: async (ctx): Promise<{ principalKind: string, service: string | undefined, envelopeLength: number }> => {
+  handler: async (
+    ctx,
+  ): Promise<{ principalKind: string; service: string | undefined; envelopeLength: number }> => {
     // What ctx.runAsService would do internally:
-    const envelope = await signServiceEnvelope(
-      'expRunAsService:recordPayment',
-      'stripe-webhook',
-    )
+    const envelope = await signServiceEnvelope('expRunAsService:recordPayment', 'stripe-webhook')
 
     const result = await ctx.runMutation(internal.expRunAsService.recordPayment, {
       event: { type: 'invoice.paid', amount: 1000 },
@@ -142,11 +140,8 @@ export const testHappyPath = action({
 export const testTamperedEnvelope = action({
   args: {},
   returns: v.object({ rejected: v.boolean(), error: v.string() }),
-  handler: async (ctx): Promise<{ rejected: boolean, error: string }> => {
-    const envelope = await signServiceEnvelope(
-      'expRunAsService:recordPayment',
-      'stripe-webhook',
-    )
+  handler: async (ctx): Promise<{ rejected: boolean; error: string }> => {
+    const envelope = await signServiceEnvelope('expRunAsService:recordPayment', 'stripe-webhook')
     // Tamper: flip one char in the signature portion.
     const tampered = envelope.slice(0, -3) + 'AAA'
 
@@ -156,8 +151,7 @@ export const testTamperedEnvelope = action({
         __principal: tampered,
       })
       return { rejected: false, error: '' }
-    }
-    catch (err) {
+    } catch (err) {
       return { rejected: true, error: (err as Error).message }
     }
   },
@@ -168,7 +162,7 @@ export const testTamperedEnvelope = action({
 export const testWrongCallee = action({
   args: {},
   returns: v.object({ rejected: v.boolean(), error: v.string() }),
-  handler: async (ctx): Promise<{ rejected: boolean, error: string }> => {
+  handler: async (ctx): Promise<{ rejected: boolean; error: string }> => {
     // Signed for some other function, but invoked against recordPayment.
     const envelope = await signServiceEnvelope(
       'expRunAsService:someOtherFunction',
@@ -181,8 +175,7 @@ export const testWrongCallee = action({
         __principal: envelope,
       })
       return { rejected: false, error: '' }
-    }
-    catch (err) {
+    } catch (err) {
       return { rejected: true, error: (err as Error).message }
     }
   },
@@ -193,7 +186,7 @@ export const testWrongCallee = action({
 export const testNoEnvelope = action({
   args: {},
   returns: v.object({ principalKind: v.string(), service: v.optional(v.string()) }),
-  handler: async (ctx): Promise<{ principalKind: string, service: string | undefined }> => {
+  handler: async (ctx): Promise<{ principalKind: string; service: string | undefined }> => {
     const result = await ctx.runMutation(internal.expRunAsService.recordPayment, {
       event: { type: 'cron.tick' },
       // no __principal — simulates scheduler / cron / CLI

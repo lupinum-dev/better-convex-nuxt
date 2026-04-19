@@ -15,10 +15,7 @@ import {
 } from '../runtime/utils/convex-config.js'
 import { normalizeObservabilityConfig } from '../runtime/utils/observability.js'
 import type { AuthOptions, ModuleOptions } from './options.js'
-import {
-  createConfiguredFunctionError,
-  normalizeAuthShorthand,
-} from './options.js'
+import { createConfiguredFunctionError, normalizeAuthShorthand } from './options.js'
 
 type RuntimePublicConvexConfig = Record<string, unknown>
 

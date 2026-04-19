@@ -1,12 +1,13 @@
+import { convexTest } from 'convex-test'
 /**
  * Tests for Experiment 13: Per-table scope config.
  */
 import { describe, it, expect } from 'vitest'
-import { convexTest } from 'convex-test'
-import schema from './schema'
+
 import { internal } from './_generated/api'
-import { modules } from './test.setup'
 import type { Id } from './_generated/dataModel'
+import schema from './schema'
+import { modules } from './test.setup'
 
 async function setup(t: any) {
   const org1Id: Id<'organizations'> = await t.run(async (ctx: any) =>
@@ -16,7 +17,8 @@ async function setup(t: any) {
       ownerId: 'u1',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    }))
+    }),
+  )
   const org2Id: Id<'organizations'> = await t.run(async (ctx: any) =>
     ctx.db.insert('organizations', {
       name: 'Org 2',
@@ -24,7 +26,8 @@ async function setup(t: any) {
       ownerId: 'u2',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    }))
+    }),
+  )
   const seeded = await t.mutation(internal.expPerTableScope.seed, { org1Id, org2Id })
   return { org1Id, org2Id, ...seeded }
 }
@@ -43,7 +46,7 @@ describe('Experiment 13: per-table scope config', () => {
     expect(result.documentsInWorkspace).toBe(1)
   })
 
-  it('13b: .withIndex rewriting uses each table\'s scope field', async () => {
+  it("13b: .withIndex rewriting uses each table's scope field", async () => {
     const t = convexTest(schema, modules)
     const ctx = await setup(t)
     const draftCount = await t.query(internal.expPerTableScope.readDocsByStatus, {
@@ -58,7 +61,7 @@ describe('Experiment 13: per-table scope config', () => {
     expect(pubCount).toBe(0) // The 'published' doc is in WS-1B
   })
 
-  it('13c: insert rejections use each table\'s scope field', async () => {
+  it("13c: insert rejections use each table's scope field", async () => {
     const t = convexTest(schema, modules)
     const ctx = await setup(t)
     const result = await t.mutation(internal.expPerTableScope.tryWrongScopeInsert, {

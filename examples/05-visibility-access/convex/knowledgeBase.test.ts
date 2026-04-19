@@ -9,8 +9,8 @@
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
-import { kbCreate, kbRead, shareCreate } from './auth/permissions'
 import { api } from './_generated/api'
+import { kbCreate, kbRead, shareCreate } from './auth/permissions'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -21,7 +21,9 @@ function createCtx() {
 describe('workspace onboarding', () => {
   it('returns null permission context for anonymous callers', async () => {
     const ctx = createCtx()
-    await expect(ctx.raw.query(api.permissions.context.getPermissionContext, {})).resolves.toBeNull()
+    await expect(
+      ctx.raw.query(api.permissions.context.getPermissionContext, {}),
+    ).resolves.toBeNull()
   })
 
   it('returns permission booleans for different roles', async () => {
@@ -35,7 +37,10 @@ describe('workspace onboarding', () => {
     })
 
     const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(
+      api.permissions.context.getPermissionContext,
+      {},
+    )
 
     expect(ownerCtx?.can[kbCreate.key]).toBe(true)
     expect(ownerCtx?.can[shareCreate.key]).toBe(true)
@@ -53,7 +58,9 @@ describe('knowledge base CRUD', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     expect(kbId).toBeDefined()
 
     await team.users.owner.mutation(api.domain.knowledgeBases.publish, { id: kbId })
@@ -85,7 +92,9 @@ describe('visibility filtering', () => {
       },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.editor.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -94,7 +103,8 @@ describe('visibility filtering', () => {
       visibility: 'workspace',
     })
     await team.users.editor.mutation(api.domain.articles.publish, {
-      id: (await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId }))[0]._id,
+      id: (await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId }))[0]
+        ._id,
     })
 
     const viewerArticles = await team.users.viewer.query(api.domain.articles.list, {
@@ -114,7 +124,9 @@ describe('visibility filtering', () => {
       },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.editor.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -122,7 +134,9 @@ describe('visibility filtering', () => {
       body: 'Secret',
       visibility: 'private',
     })
-    const articles = await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const articles = await team.users.editor.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     await team.users.editor.mutation(api.domain.articles.publish, { id: articles[0]._id })
 
     const contributorArticles = await team.users.contributor.query(api.domain.articles.list, {
@@ -146,7 +160,9 @@ describe('visibility filtering', () => {
       },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.editor.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -154,11 +170,15 @@ describe('visibility filtering', () => {
       body: 'For the team',
       visibility: 'team',
     })
-    const articles = await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const articles = await team.users.editor.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     await team.users.editor.mutation(api.domain.articles.publish, { id: articles[0]._id })
 
     // Editor can see their own team articles
-    const editorList = await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const editorList = await team.users.editor.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     expect(editorList).toHaveLength(1)
 
     // Contributor outside editor's team cannot see team articles
@@ -178,7 +198,9 @@ describe('visibility filtering', () => {
       },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
       title: 'Draft',
@@ -186,10 +208,14 @@ describe('visibility filtering', () => {
       visibility: 'workspace',
     })
 
-    const editorList = await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const editorList = await team.users.editor.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     expect(editorList).toHaveLength(1)
 
-    const viewerList = await team.users.viewer.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const viewerList = await team.users.viewer.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     expect(viewerList).toHaveLength(0)
   })
 })
@@ -205,7 +231,9 @@ describe('field redaction', () => {
       },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.editor.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -214,13 +242,19 @@ describe('field redaction', () => {
       visibility: 'workspace',
       internalNotes: 'Legal review needed',
     })
-    const articles = await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const articles = await team.users.editor.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     await team.users.editor.mutation(api.domain.articles.publish, { id: articles[0]._id })
 
-    const editorView = await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const editorView = await team.users.editor.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     expect(editorView[0]?.internalNotes).toBe('Legal review needed')
 
-    const viewerView = await team.users.viewer.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const viewerView = await team.users.viewer.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     expect(viewerView[0]?.internalNotes).toBeUndefined()
   })
 })
@@ -236,7 +270,9 @@ describe('enrollment', () => {
       },
     })
 
-    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, { title: 'Course' })
+    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, {
+      title: 'Course',
+    })
     await team.users.owner.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     const introId = await team.users.owner.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -269,7 +305,9 @@ describe('enrollment', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, { title: 'Course' })
+    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, {
+      title: 'Course',
+    })
     await team.users.owner.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     const introId = await team.users.owner.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -296,7 +334,9 @@ describe('prerequisites', () => {
       },
     })
 
-    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, { title: 'Course' })
+    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, {
+      title: 'Course',
+    })
     await team.users.owner.mutation(api.domain.knowledgeBases.publish, { id: kbId })
 
     const introId = await team.users.owner.mutation(api.domain.articles.create, {
@@ -330,7 +370,9 @@ describe('prerequisites', () => {
     await team.users.viewer.mutation(api.domain.articles.markCompleted, { articleId: introId })
 
     // Now advanced is accessible
-    const article = await team.users.viewer.query(api.domain.articles.viewArticle, { id: advancedId })
+    const article = await team.users.viewer.query(api.domain.articles.viewArticle, {
+      id: advancedId,
+    })
     expect(article.title).toBe('Advanced')
   })
 })
@@ -343,7 +385,9 @@ describe('share tokens', () => {
       users: { editor: { role: 'editor' } },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.editor.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     const articleId = await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -378,7 +422,9 @@ describe('share tokens', () => {
       users: { editor: { role: 'editor' } },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.editor.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     const articleId = await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -394,7 +440,9 @@ describe('share tokens', () => {
     })
 
     // Find the token record and revoke it
-    const articles = await team.users.editor.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const articles = await team.users.editor.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     expect(articles).toHaveLength(1)
 
     // We need to get the token ID — resolve via the hash
@@ -421,7 +469,9 @@ describe('share tokens', () => {
       users: { editor: { role: 'editor' } },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.editor.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     const article1 = await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
@@ -456,7 +506,9 @@ describe('share tokens', () => {
       },
     })
 
-    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.editor.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     const articleId = await team.users.editor.mutation(api.domain.articles.create, {
       knowledgeBaseId: kbId,
       title: 'Article',
@@ -484,7 +536,9 @@ describe('inherited access levels', () => {
       },
     })
 
-    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, { title: 'Docs' })
+    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, {
+      title: 'Docs',
+    })
     await team.users.owner.mutation(api.domain.knowledgeBases.publish, { id: kbId })
 
     const parentId = await team.users.owner.mutation(api.domain.articles.create, {
@@ -564,9 +618,9 @@ describe('cross-tenant isolation', () => {
       title: 'Alpha Docs',
     })
 
-    await expect(beta.users.owner.query(api.domain.knowledgeBases.get, { id: alphaKB })).rejects.toThrow(
-      'Document belongs to a different tenant.',
-    )
+    await expect(
+      beta.users.owner.query(api.domain.knowledgeBases.get, { id: alphaKB }),
+    ).rejects.toThrow('Document belongs to a different tenant.')
   })
 })
 
@@ -578,13 +632,17 @@ describe('seed and completion flow', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, { title: 'Course' })
+    const kbId = await team.users.owner.mutation(api.domain.knowledgeBases.create, {
+      title: 'Course',
+    })
     await team.users.owner.mutation(api.domain.knowledgeBases.publish, { id: kbId })
     const introId = await team.users.owner.mutation(api.domain.articles.seedDemoArticles, {
       knowledgeBaseId: kbId,
     })
 
-    const articles = await team.users.owner.query(api.domain.articles.list, { knowledgeBaseId: kbId })
+    const articles = await team.users.owner.query(api.domain.articles.list, {
+      knowledgeBaseId: kbId,
+    })
     expect(articles.length).toBeGreaterThanOrEqual(3)
 
     await team.users.owner.mutation(api.domain.articles.markCompleted, { articleId: introId })

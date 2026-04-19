@@ -1,4 +1,4 @@
-// https://nuxt.com/apps/docs/api/configuration/nuxt-config
+// https://nuxt.com/docs/api/configuration/nuxt-config
 const siteUrl = process.env.SITE_URL || 'https://trellis.vercel.app/'
 
 export default defineNuxtConfig({
@@ -16,7 +16,7 @@ export default defineNuxtConfig({
   ],
 
   devtools: {
-    enabled: true,
+    enabled: false,
   },
 
   css: ['~/assets/css/main.css'],
@@ -96,7 +96,7 @@ export default defineNuxtConfig({
     'nitro:config': async (nitroConfig) => {
       // Prerender raw markdown routes for "Copy page" feature
       const { glob } = await import('tinyglobby')
-      const files = await glob('content/apps/docs/**/*.md', { cwd: import.meta.dirname })
+      const files = await glob('content/docs/**/*.md', { cwd: import.meta.dirname })
 
       const rawRoutes = files.map((file) => {
         const path = file
@@ -218,7 +218,8 @@ export default defineNuxtConfig({
       },
       {
         title: 'Configuration',
-        description: 'Module options, environment variables, auth, permissions, and MCP configuration.',
+        description:
+          'Module options, environment variables, auth, permissions, and MCP configuration.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/10.configuration%' },

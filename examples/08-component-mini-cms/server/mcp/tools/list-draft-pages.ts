@@ -1,6 +1,7 @@
 import { internal } from '#trellis/api'
 import { tool } from '~/server/lib/mcp-runtime'
 import { listDraftPages } from '~/shared/schemas/page'
+
 import { listDraftPagesPermission } from '../../../convex/auth/permissions'
 
 export default tool({

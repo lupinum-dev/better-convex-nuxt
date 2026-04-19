@@ -2,6 +2,7 @@ import {
   getOperationMetadata,
   getOperationProjectionMetadata,
 } from '../functions/operation-metadata.js'
+import { getFunctionName } from '../utils/convex-shared.js'
 import type {
   AnyActionFunction,
   AnyMutationFunction,
@@ -31,12 +32,15 @@ export function assertOperationBinding(
   }
 
   const executeTarget = getOperationProjectionMetadata(executeRef as Record<PropertyKey, unknown>)
-  if (!executeTarget) {
+  if (!executeTarget && getFunctionName(executeRef) === 'unknown') {
     throw new Error(
-      `tool.fromOperation(${metadata.name ?? metadata.id}) requires an execute ref projected from the same operation.`,
+      `tool.fromOperation(${metadata.name ?? metadata.id}) requires an execute ref projected from the same operation or a generated API reference.`,
     )
   }
-  if (executeTarget.operationId !== metadata.id || executeTarget.projection !== 'execute') {
+  if (
+    executeTarget &&
+    (executeTarget.operationId !== metadata.id || executeTarget.projection !== 'execute')
+  ) {
     throw new Error(
       `tool.fromOperation(${metadata.name ?? metadata.id}) received an execute ref that does not match operation id "${metadata.id}".`,
     )
@@ -45,12 +49,15 @@ export function assertOperationBinding(
   if (!previewRef) return
 
   const previewTarget = getOperationProjectionMetadata(previewRef as Record<PropertyKey, unknown>)
-  if (!previewTarget) {
+  if (!previewTarget && getFunctionName(previewRef) === 'unknown') {
     throw new Error(
-      `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref projected from the same operation.`,
+      `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref projected from the same operation or a generated API reference.`,
     )
   }
-  if (previewTarget.operationId !== metadata.id || previewTarget.projection !== 'preview') {
+  if (
+    previewTarget &&
+    (previewTarget.operationId !== metadata.id || previewTarget.projection !== 'preview')
+  ) {
     throw new Error(
       `tool.fromOperation(${metadata.name ?? metadata.id}) received a preview ref that does not match operation id "${metadata.id}".`,
     )

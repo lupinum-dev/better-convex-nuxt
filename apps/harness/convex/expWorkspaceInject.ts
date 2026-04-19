@@ -1,3 +1,6 @@
+import { customQuery } from 'convex-helpers/server/customFunctions'
+import { v } from 'convex/values'
+
 /**
  * Experiment 12: __workspaceId injection via customQuery input
  *
@@ -17,8 +20,6 @@
  *   12d  user not in the requested workspace → actor null → throw
  */
 import { query as rawQuery } from './_generated/server'
-import { v } from 'convex/values'
-import { customQuery } from 'convex-helpers/server/customFunctions'
 import type { QueryCtx } from './_generated/server'
 
 type Actor = {
@@ -36,7 +37,7 @@ async function resolveActorForWorkspace(
   // This mirrors the spec's graduated on-ramp: simple case without a switcher.
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', authId))
+    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
     .first()
   if (!user || !user.organizationId) return null
 

@@ -8,8 +8,8 @@ description: 'Build Nuxt apps on one app-owned business layer with SSR-aware dat
 
 Trellis keeps Nuxt, Convex, auth, permissions, operations, observability, and MCP on one app-owned business layer instead of splitting those rules across transports.
 
-::callout{icon="i-lucide-arrow-right" color="neutral" to="/apps/docs/getting-started/start-here"}
-Start with [Start here](/apps/docs/getting-started/start-here) if you are evaluating Trellis, then do [First live query](/apps/docs/getting-started/first-live-query) before the protected app path.
+::callout{icon="i-lucide-arrow-right" color="neutral" to="/docs/getting-started/start-here"}
+Start with [Start here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First live query](/docs/getting-started/first-live-query) before the protected app path.
 ::
 
 :u-input-copy{value="pnpm add @lupinum/trellis"}
@@ -18,31 +18,31 @@ Start with [Start here](/apps/docs/getting-started/start-here) if you are evalua
 
 ::card-group
 
-::card{title="Start here" icon="i-lucide-compass" to="/apps/docs/getting-started/start-here"}
+::card{title="Start here" icon="i-lucide-compass" to="/docs/getting-started/start-here"}
 What Trellis adds, which first path to choose, and where to go next.
 ::
 
-::card{title="Installation" icon="i-lucide-download" to="/apps/docs/getting-started/installation"}
+::card{title="Installation" icon="i-lucide-download" to="/docs/getting-started/installation"}
 Install the module, wire the basics, and verify the docs examples match your app shape.
 ::
 
-::card{title="First live query" icon="i-lucide-rocket" to="/apps/docs/getting-started/first-live-query"}
+::card{title="First live query" icon="i-lucide-rocket" to="/docs/getting-started/first-live-query"}
 Build the smallest useful Trellis app: one query, one mutation, one visible live update.
 ::
 
-::card{title="Build a Signed-In Todo App" icon="i-lucide-lock" to="/apps/docs/getting-started/build-a-signed-in-todo-app"}
+::card{title="Build a Signed-In Todo App" icon="i-lucide-lock" to="/docs/getting-started/build-a-signed-in-todo-app"}
 Add auth, one protected query, and one protected mutation without jumping into tenancy or MCP.
 ::
 
-::card{title="How it works" icon="i-lucide-waypoints" to="/apps/docs/concepts/how-it-works"}
+::card{title="How it works" icon="i-lucide-waypoints" to="/docs/concepts/how-it-works"}
 See the execution model across browser, server, webhook, and agent callers.
 ::
 
-::card{title="Examples" icon="i-lucide-flask-conical" to="/apps/docs/examples"}
+::card{title="Examples" icon="i-lucide-flask-conical" to="/docs/examples"}
 Choose the right repo example before copying patterns into your own app.
 ::
 
-::card{title="Reference" icon="i-lucide-book-open" to="/apps/docs/reference"}
+::card{title="Reference" icon="i-lucide-book-open" to="/docs/reference"}
 Look up exact behavior for the high-traffic composables, server helpers, and API surfaces.
 ::
 
@@ -58,7 +58,11 @@ Look up exact behavior for the high-traffic composables, server helpers, and API
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-const { data: tasks, pending, error } = await useConvexQuery(api.tasks.list, {
+const {
+  data: tasks,
+  pending,
+  error,
+} = await useConvexQuery(api.tasks.list, {
   status: 'active',
 })
 </script>
@@ -163,27 +167,27 @@ const canPublishPost = allows(postPublish)
 
 ::card-group
 
-::card{title="Getting started" icon="i-lucide-compass" to="/apps/docs/getting-started"}
+::card{title="Getting started" icon="i-lucide-compass" to="/docs/getting-started"}
 The reader path from orientation to the first live query and then the first signed-in app.
 ::
 
-::card{title="Guides" icon="i-lucide-route" to="/apps/docs/guides"}
+::card{title="Guides" icon="i-lucide-route" to="/docs/guides"}
 Task-first docs for data, auth, permissions, server-side flows, uploads, and MCP tools.
 ::
 
-::card{title="Concepts" icon="i-lucide-waypoints" to="/apps/docs/concepts"}
+::card{title="Concepts" icon="i-lucide-waypoints" to="/docs/concepts"}
 One canonical explanation page for the protected backend model.
 ::
 
-::card{title="Reference" icon="i-lucide-book-type" to="/apps/docs/reference"}
+::card{title="Reference" icon="i-lucide-book-type" to="/docs/reference"}
 Exact behavior for composables, runtime functions, config, and generated API inventory.
 ::
 
-::card{title="Examples" icon="i-lucide-flask-conical" to="/apps/docs/examples"}
+::card{title="Examples" icon="i-lucide-flask-conical" to="/docs/examples"}
 The canonical public example set, ordered from smallest baseline to the richer workspace model.
 ::
 
-::card{title="Project" icon="i-lucide-git-branch" to="/apps/docs/project"}
+::card{title="Project" icon="i-lucide-git-branch" to="/docs/project"}
 Contributor entry points and the public change record, without turning project docs into a junk drawer.
 ::
 

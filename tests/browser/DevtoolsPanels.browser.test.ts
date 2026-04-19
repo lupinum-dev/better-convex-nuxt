@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
-import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-vue'
+import { page } from 'vitest/browser'
 import { defineComponent, h } from 'vue'
 
 import AuthPanel from '../../apps/devtools-ui/components/AuthPanel.vue'
@@ -49,11 +49,7 @@ const SectionBlockStub = defineComponent({
     text: { type: String, default: '' },
   },
   setup(props, { slots }) {
-    return () =>
-      h('section', [
-        props.text ? h('h2', props.text) : null,
-        slots.default?.(),
-      ])
+    return () => h('section', [props.text ? h('h2', props.text) : null, slots.default?.()])
   },
 })
 

@@ -35,18 +35,22 @@ The example should feel like a minimal collaborative work app, not a toy CRUD pa
 These notes describe the archived target shape, not the current public Trellis contract:
 
 1. Hard cutovers over compatibility layers
+
 - Do not preserve old runtime shapes or keep dual paths just to smooth migration inside the example.
 - The example should show the best current Trellis shape directly.
 
 2. Real complexity over fake simplicity
+
 - Do not remove the hard parts by using demo shortcuts.
 - Avoid patterns like “self-select your own role”, “single board only”, or “move card left/right”.
 
 3. Minimal UI, maximal backend/runtime signal
+
 - The UI can stay plain.
 - The business model, operations, agent integration, and observability must be real.
 
 4. Delete and simplify before adding abstraction
+
 - Avoid helper layers that only mask bad foundations.
 - Prefer direct, explainable data flow and operations.
 
@@ -539,30 +543,36 @@ The example is considered successful when a reviewer can do the following end-to
 To keep the example honest, work should proceed in this order:
 
 1. Fix baseline health
+
 - typecheck
 - broken example wiring
 - broken MCP wiring
 - README truthfulness
 
 2. Replace the current membership model
+
 - explicit workspace membership
 - proper role enforcement
 
 3. Add real board lifecycle
+
 - multiple boards
 - board selection
 - archive flow
 
 4. Replace fake movement semantics
+
 - real card move/reorder
 - real column reorder
 
 5. Make MCP first-class
+
 - task-level tools
 - ambiguity handling
 - permission-correct capability resolution
 
 6. Wire observability and audit properly
+
 - UI + Convex + MCP
 
 7. Add example-specific tests

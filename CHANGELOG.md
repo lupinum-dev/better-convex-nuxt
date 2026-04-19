@@ -84,7 +84,7 @@ export default defineEventHandler(async () => {
 })
 ```
 
-See the [Server Call Lanes](./apps/docs/content/docs/5.server-side/3.server-call-lanes.md) guide for setup including environment variables and security model.
+See the [Server Call Lanes](./docs/content/docs/5.server-side/3.server-call-lanes.md) guide for setup including environment variables and security model.
 
 #### New `useConvexConnectionState` Properties
 
@@ -110,7 +110,7 @@ const {
 
 #### Local Development with `convex-vite-plugin`
 
-The module now supports running a local Convex backend via `@convex-dev/convex-vite-plugin`. Point `NUXT_PUBLIC_CONVEX_URL` at `http://127.0.0.1:3210` and use the new `dev:local` scripts. See [Local Development](./apps/docs/content/docs/8.deployment/0.local-development.md).
+The module now supports running a local Convex backend via `@convex-dev/convex-vite-plugin`. Point `NUXT_PUBLIC_CONVEX_URL` at `http://127.0.0.1:3210` and use the new `dev:local` scripts. See [Local Development](./docs/content/docs/8.deployment/0.local-development.md).
 
 ### 🩹 Fixes
 
@@ -138,12 +138,12 @@ The module now supports running a local Convex backend via `@convex-dev/convex-v
 
 ### 📖 Documentation
 
-- New [Server Call Lanes](./apps/docs/content/docs/5.server-side/3.server-call-lanes.md) guide covering public, authenticated, and private bridge lanes
-- New [Local Development](./apps/docs/content/docs/8.deployment/0.local-development.md) guide for `convex-vite-plugin` setup
+- New [Server Call Lanes](./docs/content/docs/5.server-side/3.server-call-lanes.md) guide covering public, authenticated, and private bridge lanes
+- New [Local Development](./docs/content/docs/8.deployment/0.local-development.md) guide for `convex-vite-plugin` setup
 - Updated query and pagination docs with lazy variant examples
 - Updated connection state docs for new computed properties
 - Added callout notes for SSR usage of `useConvexMutation` and `useConvexAction`
-- New deployment guides: [Overview](./apps/docs/content/docs/8.deployment/1.overview.md), [Environment Matrix](./apps/docs/content/docs/8.deployment/2.environment-matrix.md), [Vercel](./apps/docs/content/docs/8.deployment/3.vercel.md), [Troubleshooting](./apps/docs/content/docs/8.deployment/4.troubleshooting.md)
+- New deployment guides: [Overview](./docs/content/docs/8.deployment/1.overview.md), [Environment Matrix](./docs/content/docs/8.deployment/2.environment-matrix.md), [Vercel](./docs/content/docs/8.deployment/3.vercel.md), [Troubleshooting](./docs/content/docs/8.deployment/4.troubleshooting.md)
 
 ### ❤️ Contributors
 

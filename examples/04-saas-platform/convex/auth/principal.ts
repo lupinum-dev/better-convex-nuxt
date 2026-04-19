@@ -13,9 +13,7 @@ type PrincipalCtx =
 
 export type Role = Doc<'users'>['role']
 
-export type ProjectBoardPrincipal =
-  | { kind: 'anonymous' }
-  | { kind: 'user'; userId: string }
+export type ProjectBoardPrincipal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
 
 export const projectBoardPrincipalValidator = v.union(
   v.object({

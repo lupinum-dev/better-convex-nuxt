@@ -12,7 +12,9 @@ function formatList(items: string[]): string {
 function assertAppName(value: string | undefined): string {
   const appName = value?.trim()
   if (!appName) {
-    throw new Error('Missing app name. Use `trellis init <name> --template personal|workspace|cms`.')
+    throw new Error(
+      'Missing app name. Use `trellis init <name> --template personal|workspace|cms`.',
+    )
   }
 
   if (['app', 'auth', 'permissions', 'mcp'].includes(appName)) {

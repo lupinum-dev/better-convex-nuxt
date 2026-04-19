@@ -75,7 +75,7 @@ describe('CLI doctor', () => {
 
     const output = `${buildResult.stdout ?? ''}\n${buildResult.stderr ?? ''}`
     expect(buildResult.status, output).toBe(0)
-  })
+  }, 30_000)
 
   it('renders the cutover help surface', () => {
     const result = runCli(['--help'], repoRoot)
@@ -92,7 +92,10 @@ describe('CLI doctor', () => {
 
   it('initializes a personal app in a named target directory with the canonical layout', () => {
     const cwd = createTempDir('trellis-init-personal-')
-    const result = runCli(['init', 'demo-personal', '--template', 'personal', '--cwd', cwd], repoRoot)
+    const result = runCli(
+      ['init', 'demo-personal', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
     const appRoot = resolve(cwd, 'demo-personal')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
@@ -112,7 +115,9 @@ describe('CLI doctor', () => {
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expectCanonicalLayout(appRoot)
-    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain("mcp: { name: 'demo-workspace', sessions: true }")
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
+      "mcp: { name: 'demo-workspace', sessions: true }",
+    )
     expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
     expect(read(resolve(appRoot, 'server/mcp/runtime.ts'))).toContain("auth: 'trusted'")
@@ -120,7 +125,10 @@ describe('CLI doctor', () => {
 
   it('adds MCP to an existing workspace app', () => {
     const cwd = createTempDir('trellis-add-mcp-')
-    const initResult = runCli(['init', 'demo-workspace', '--template', 'workspace', '--cwd', cwd], repoRoot)
+    const initResult = runCli(
+      ['init', 'demo-workspace', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
     const appRoot = resolve(cwd, 'demo-workspace')
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
 
@@ -128,14 +136,19 @@ describe('CLI doctor', () => {
 
     expect(addResult.status, `${addResult.stdout}\n${addResult.stderr}`).toBe(0)
     expect(read(resolve(appRoot, 'package.json'))).toContain('@nuxtjs/mcp-toolkit')
-    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain("mcp: { name: 'demo-workspace', sessions: true }")
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
+      "mcp: { name: 'demo-workspace', sessions: true }",
+    )
     expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
   })
 
   it('adds uploads and destructive operation scaffolds', () => {
     const cwd = createTempDir('trellis-add-features-')
-    const initResult = runCli(['init', 'demo-personal', '--template', 'personal', '--cwd', cwd], repoRoot)
+    const initResult = runCli(
+      ['init', 'demo-personal', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
     const appRoot = resolve(cwd, 'demo-personal')
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
 
@@ -168,7 +181,10 @@ describe('CLI doctor', () => {
 
   it('passes doctor for a generated canonical personal app', () => {
     const cwd = createTempDir('trellis-doctor-valid-')
-    const initResult = runCli(['init', 'doctor-app', '--template', 'personal', '--cwd', cwd], repoRoot)
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
     const appRoot = resolve(cwd, 'doctor-app')
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
@@ -188,7 +204,10 @@ describe('CLI doctor', () => {
 
   it('fails doctor when the canonical layout drifts', () => {
     const cwd = createTempDir('trellis-doctor-layout-drift-')
-    const initResult = runCli(['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd], repoRoot)
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
     const appRoot = resolve(cwd, 'doctor-app')
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
@@ -240,7 +259,7 @@ describe('CLI doctor', () => {
     )
     writeFileSync(
       resolve(cwd, 'pages/index.vue'),
-      "<script setup lang=\"ts\">\nconst { allows } = usePermissions()\n</script>\n",
+      '<script setup lang="ts">\nconst { allows } = usePermissions()\n</script>\n',
     )
 
     const result = runCli(['doctor', '--json', '--cwd', cwd], repoRoot)
@@ -249,12 +268,17 @@ describe('CLI doctor', () => {
     }
 
     expect(result.status, result.stderr).toBe(1)
-    expect(report.findings.find((entry) => entry.id === 'permissions-query-configured')?.status).toBe('fail')
+    expect(
+      report.findings.find((entry) => entry.id === 'permissions-query-configured')?.status,
+    ).toBe('fail')
   })
 
   it('fails doctor when a server call forwards principal without auth trusted', () => {
     const cwd = createTempDir('trellis-doctor-forwarded-principal-')
-    const initResult = runCli(['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd], repoRoot)
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
     const appRoot = resolve(cwd, 'doctor-app')
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
@@ -278,7 +302,9 @@ export default defineEventHandler(async (event) => {
     }
 
     expect(result.status, result.stderr).toBe(1)
-    expect(report.findings.find((entry) => entry.id === 'forwarded-principal-trusted-path')?.status).toBe('fail')
+    expect(
+      report.findings.find((entry) => entry.id === 'forwarded-principal-trusted-path')?.status,
+    ).toBe('fail')
   })
 
   it('fails doctor when a destructive MCP tool skips tool.fromOperation', () => {
@@ -311,6 +337,8 @@ export default tool({
     }
 
     expect(result.status, result.stderr).toBe(1)
-    expect(report.findings.find((entry) => entry.id === 'mcp-destructive-operation-binding')?.status).toBe('fail')
+    expect(
+      report.findings.find((entry) => entry.id === 'mcp-destructive-operation-binding')?.status,
+    ).toBe('fail')
   })
 })

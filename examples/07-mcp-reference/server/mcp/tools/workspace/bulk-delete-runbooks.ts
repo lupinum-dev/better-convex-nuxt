@@ -1,12 +1,12 @@
-import { bulkRemove } from '~/convex/domain/runbooks'
-import { bulkRemoveRunbooksOp, previewBulkRemove } from '~/convex/operations/runbooks'
+import { api } from '~/convex/_generated/api'
 import { runbookBulkDelete } from '~/convex/auth/permissions'
+import { bulkRemoveRunbooksOp } from '~/convex/operations/runbooks'
 
 import { tool } from '../../runtime'
 
 export default tool.fromOperation(bulkRemoveRunbooksOp, {
-  execute: bulkRemove,
-  preview: previewBulkRemove,
+  execute: api.domain.runbooks.bulkRemove,
+  preview: api.operations.runbooks.previewBulkRemove,
   permission: runbookBulkDelete,
   group: 'workspace',
   tags: ['bulk', 'dangerous'],

@@ -68,7 +68,7 @@ function createGeneratedServerPlugin() {
       if (!id.startsWith(GENERATED_SERVER_VIRTUAL_PREFIX)) return null
 
       return [
-        "export {",
+        'export {',
         '  queryGeneric as query,',
         '  mutationGeneric as mutation,',
         '  actionGeneric as action,',
@@ -144,7 +144,10 @@ type SeedTenantUserInput<TRole extends string> = {
 
 type SeedTenantOptions<
   TRole extends string,
-  TUsers extends Record<string, SeedTenantUserInput<TRole>> = Record<string, SeedTenantUserInput<TRole>>,
+  TUsers extends Record<string, SeedTenantUserInput<TRole>> = Record<
+    string,
+    SeedTenantUserInput<TRole>
+  >,
 > = Record<string, unknown> & {
   name: string
   users: TUsers
@@ -296,7 +299,8 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   principal: Record<string, unknown>,
   trustedCallerKey?: string,
 ): TestClient<TSchema> {
-  const effectiveTrustedCallerKey = trustedCallerKey?.trim() || process.env.CONVEX_TRUSTED_CALLER_KEY
+  const effectiveTrustedCallerKey =
+    trustedCallerKey?.trim() || process.env.CONVEX_TRUSTED_CALLER_KEY
 
   if (!effectiveTrustedCallerKey) {
     throw new Error(
@@ -334,11 +338,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   async function callWithPrincipal<
     TKind extends 'query' | 'mutation' | 'action',
     TFn extends FunctionReference<TKind>,
-  >(
-    kind: TKind,
-    fn: TFn,
-    args: OptionalRestArgs<TFn>[0],
-  ): Promise<FunctionReturnType<TFn>> {
+  >(kind: TKind, fn: TFn, args: OptionalRestArgs<TFn>[0]): Promise<FunctionReturnType<TFn>> {
     const caller = raw[kind] as unknown as (
       ref: TFn,
       callArgs?: OptionalRestArgs<TFn>[0],
@@ -403,7 +403,11 @@ function resolveTrustedCallerUserId(principal: Record<string, unknown>): string 
 }
 
 export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserConfig {
-  const plugins = Array.isArray(options.plugins) ? options.plugins : options.plugins ? [options.plugins] : []
+  const plugins = Array.isArray(options.plugins)
+    ? options.plugins
+    : options.plugins
+      ? [options.plugins]
+      : []
 
   return mergeInlineDeps(
     mergeStableTestTsconfig({
@@ -475,17 +479,14 @@ export function createTestContext<
     const now = Date.now()
 
     const id = await raw.run(async (ctx) => {
-      return await ctx.db.insert(
-        tenantTable,
-        {
-          name,
-          slug,
-          ownerId: ownerAuthId,
-          createdAt: now,
-          updatedAt: now,
-          ...tenantData,
-        } as never,
-      )
+      return await ctx.db.insert(tenantTable, {
+        name,
+        slug,
+        ownerId: ownerAuthId,
+        createdAt: now,
+        updatedAt: now,
+        ...tenantData,
+      } as never)
     })
 
     const seededUsers = {} as SeededTenantUsers<TSchema, TRole, TUserTable, TUsers>
@@ -497,19 +498,16 @@ export function createTestContext<
       const resolvedEmail = email ?? `${slug}-${key}@example.test`
 
       const userId = await raw.run(async (ctx) => {
-        return await ctx.db.insert(
-          userTable,
-          {
-            [authField]: resolvedAuthId,
-            [roleField]: role,
-            [userTenantField]: id,
-            [nameField]: resolvedDisplayName,
-            [emailField]: resolvedEmail,
-            createdAt: now,
-            updatedAt: now,
-            ...userData,
-          } as never,
-        )
+        return await ctx.db.insert(userTable, {
+          [authField]: resolvedAuthId,
+          [roleField]: role,
+          [userTenantField]: id,
+          [nameField]: resolvedDisplayName,
+          [emailField]: resolvedEmail,
+          createdAt: now,
+          updatedAt: now,
+          ...userData,
+        } as never)
       })
 
       const caller = raw.withIdentity({ subject: resolvedAuthId })

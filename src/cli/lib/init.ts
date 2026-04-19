@@ -836,8 +836,9 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_workspace', ['workspaceId']),
-${includeMcpKeys
-  ? `
+${
+  includeMcpKeys
+    ? `
   mcpKeys: defineTable({
     hash: v.string(),
     name: v.string(),
@@ -856,7 +857,8 @@ ${includeMcpKeys
     .index('by_hash', ['hash'])
     .index('by_bound_workspace', ['boundWorkspaceId']),
 `
-  : ''}
+    : ''
+}
 })
 `.trimStart()
 }
@@ -1797,7 +1799,9 @@ function buildPersonalPermissionsTemplateSet(): InitTemplateSet {
   }
 }
 
-function buildWorkspacePermissionsTemplateSet(model: 'workspace' | 'workspace-mcp'): InitTemplateSet {
+function buildWorkspacePermissionsTemplateSet(
+  model: 'workspace' | 'workspace-mcp',
+): InitTemplateSet {
   return {
     label: `permissions:${model}`,
     description: 'Scaffold workspace permission policy files',
@@ -1875,7 +1879,10 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
     return {
       label: 'app:personal',
       description: 'Bootstrap a personal Trellis app inside the current workspace',
-      files: mergeTemplateSets(buildAuthTemplateSet(), buildPersonalPermissionsTemplateSet()).concat([
+      files: mergeTemplateSets(
+        buildAuthTemplateSet(),
+        buildPersonalPermissionsTemplateSet(),
+      ).concat([
         {
           path: 'nuxt.config.ts',
           content: nuxtConfigTemplate({
@@ -1911,7 +1918,10 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
     return {
       label: 'app:workspace',
       description: 'Bootstrap a workspace Trellis app inside the current workspace',
-      files: mergeTemplateSets(buildAuthTemplateSet(), buildWorkspacePermissionsTemplateSet('workspace')).concat([
+      files: mergeTemplateSets(
+        buildAuthTemplateSet(),
+        buildWorkspacePermissionsTemplateSet('workspace'),
+      ).concat([
         {
           path: 'nuxt.config.ts',
           content: nuxtConfigTemplate({
@@ -2153,11 +2163,13 @@ export async function applyInitTemplateSet(
 }
 
 function appPackageName(name: string): string {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'trellis-app'
+  return (
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'trellis-app'
+  )
 }
 
 function appPackageTemplate(options: {
@@ -2202,10 +2214,7 @@ function appPackageTemplate(options: {
   )}\n`
 }
 
-function envExampleTemplate(options: {
-  template: CanonicalAppTemplate
-  mcp: boolean
-}) {
+function envExampleTemplate(options: { template: CanonicalAppTemplate; mcp: boolean }) {
   const lines = [
     'CONVEX_URL=https://your-app.convex.cloud',
     'CONVEX_SITE_URL=https://your-app.convex.site',
@@ -2245,7 +2254,7 @@ pnpm dev
 - \`convex/permissions/\` for permission projection
 - \`convex/operations/\` for workflow-style actions
 - \`shared/schemas/\` for shared value contracts
-${options.mcp ? "- \\`server/mcp/\\` for MCP runtime and tools" : ''}
+${options.mcp ? '- \\`server/mcp/\\` for MCP runtime and tools' : ''}
 `.trimStart()
 }
 
@@ -2348,10 +2357,7 @@ function addMcpKeysSchemaBlock() {
 `
 }
 
-async function rewriteFile(
-  path: string,
-  rewrite: (source: string) => string,
-): Promise<void> {
+async function rewriteFile(path: string, rewrite: (source: string) => string): Promise<void> {
   const source = await readFile(path, 'utf8')
   const next = rewrite(source)
   if (next === source) {
@@ -2371,10 +2377,7 @@ async function enableNuxtMcpConfig(cwd: string): Promise<void> {
     }
 
     if (source.includes("permissions: '")) {
-      return source.replace(
-        /(permissions:\s*'[^']+',\n)/,
-        `$1    ${namedConfig},\n`,
-      )
+      return source.replace(/(permissions:\s*'[^']+',\n)/, `$1    ${namedConfig},\n`)
     }
 
     const trellisStart = source.indexOf('trellis: {')

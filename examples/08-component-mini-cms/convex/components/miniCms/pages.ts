@@ -2,6 +2,7 @@ import { open, requireRecord } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
+import type { MiniCmsPrincipal } from '../../../shared/principal'
 import {
   createPage as createPageSchema,
   getPublishedPage as getPublishedPageSchema,
@@ -14,7 +15,6 @@ import {
   saveDraft as saveDraftSchema,
   studioPageValidator,
 } from '../../../shared/schemas/page'
-import type { MiniCmsPrincipal } from '../../../shared/principal'
 import type { Doc, Id } from './_generated/dataModel'
 import { canManagePages, mutation, query, type MiniCmsActor } from './functions'
 

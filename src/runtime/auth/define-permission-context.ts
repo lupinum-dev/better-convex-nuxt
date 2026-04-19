@@ -53,7 +53,8 @@ type ExtendCtx<TOptions extends PermissionContextOptions> = TOptions extends {
 }
   ? TCtx
   : unknown
-type MergedCtx<TOptions extends PermissionContextOptions> = ResolveCtx<TOptions> & ExtendCtx<TOptions>
+type MergedCtx<TOptions extends PermissionContextOptions> = ResolveCtx<TOptions> &
+  ExtendCtx<TOptions>
 
 type PermissionContextExtension<TOptions extends PermissionContextOptions> = TOptions extends {
   extend: (...args: any[]) => infer TResult
@@ -71,9 +72,7 @@ type PermissionContextDefinition<
   args: Record<string, never>
   guard: typeof open
   permissions: TPermissions
-  handler: (
-    ctx: TCtx,
-  ) => Promise<PermissionContextHandlerResult<TPermissions, TContext> | null>
+  handler: (ctx: TCtx) => Promise<PermissionContextHandlerResult<TPermissions, TContext> | null>
 }
 
 export function definePermissionContext<TOptions extends PermissionContextOptions>(

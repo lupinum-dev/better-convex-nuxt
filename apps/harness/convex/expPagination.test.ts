@@ -12,14 +12,20 @@ import { modules } from './test.setup'
 async function seedTestData(t: ReturnType<typeof convexTest>) {
   const org1Id = await t.run(async (ctx) => {
     return await ctx.db.insert('organizations', {
-      name: 'Org 1', slug: 'org-1', ownerId: 'user_1',
-      createdAt: Date.now(), updatedAt: Date.now(),
+      name: 'Org 1',
+      slug: 'org-1',
+      ownerId: 'user_1',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     })
   })
   const org2Id = await t.run(async (ctx) => {
     return await ctx.db.insert('organizations', {
-      name: 'Org 2', slug: 'org-2', ownerId: 'user_2',
-      createdAt: Date.now(), updatedAt: Date.now(),
+      name: 'Org 2',
+      slug: 'org-2',
+      ownerId: 'user_2',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     })
   })
 

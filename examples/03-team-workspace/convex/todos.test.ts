@@ -10,8 +10,8 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { todoCreate, todoRead } from './auth/permissions'
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
+import { todoCreate, todoRead } from './auth/permissions'
 import { ensureWebhookBotUser } from './auth/trustedCaller'
 import schema from './schema'
 import { modules } from './test.setup'
@@ -137,7 +137,10 @@ describe('team todo example', () => {
     })
 
     const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(
+      api.permissions.context.getPermissionContext,
+      {},
+    )
 
     expect(ownerCtx?.can[todoCreate.key]).toBe(true)
     expect(viewerCtx?.can[todoCreate.key]).toBe(false)
@@ -147,7 +150,9 @@ describe('team todo example', () => {
   it('returns null context and denies protected todo queries for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(ctx.raw.query(api.permissions.context.getPermissionContext, {})).resolves.toBeNull()
+    await expect(
+      ctx.raw.query(api.permissions.context.getPermissionContext, {}),
+    ).resolves.toBeNull()
     await expect(ctx.raw.query(api.domain.todos.list, {})).rejects.toThrow('Forbidden: Read todos')
   })
 
@@ -168,7 +173,10 @@ describe('team todo example', () => {
     })
 
     const onboardingUser = ctx.raw.withIdentity({ subject: authId })
-    const permissionCtx = await onboardingUser.query(api.permissions.context.getPermissionContext, {})
+    const permissionCtx = await onboardingUser.query(
+      api.permissions.context.getPermissionContext,
+      {},
+    )
 
     expect(permissionCtx).toMatchObject({
       userId: authId,

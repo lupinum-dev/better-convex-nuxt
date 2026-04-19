@@ -151,7 +151,9 @@ useAuthGuard({
 const toast = useToast()
 const { ctx } = usePermissions()
 const { data: stats } = await useConvexQuery(api.domain.dashboard.stats, {})
-const { data: recentActivity } = await useConvexQuery(api.domain.dashboard.recentActivity, { limit: 12 })
+const { data: recentActivity } = await useConvexQuery(api.domain.dashboard.recentActivity, {
+  limit: 12,
+})
 const { data: members } = await useConvexQuery(api.domain.members.list, {})
 const upgradePlan = useConvexMutation(api.domain.workspaces.upgradePlan, {
   onSuccess: (_result, args) =>

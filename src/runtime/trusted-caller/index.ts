@@ -59,22 +59,15 @@ export function getForwardedPrincipal<TPrincipal>(
   args: unknown,
   field = 'principal',
 ): TPrincipal | undefined {
-  if (
-    typeof args !== 'object' ||
-    args === null ||
-    !(field in (args as Record<string, unknown>))
-  ) {
+  if (typeof args !== 'object' || args === null || !(field in (args as Record<string, unknown>))) {
     return undefined
   }
 
   if (!getTrustedCaller(ctx)) {
-    throw deny(
-      `Forwarded \`${field}\` is only allowed on verified trusted caller paths.`,
-      {
-        source: 'trusted-caller',
-        category: 'auth',
-      },
-    )
+    throw deny(`Forwarded \`${field}\` is only allowed on verified trusted caller paths.`, {
+      source: 'trusted-caller',
+      category: 'auth',
+    })
   }
 
   return (args as Record<string, unknown>)[field] as TPrincipal | undefined

@@ -15,14 +15,20 @@ describe('Exp 2: Three-Door DB Model', () => {
     // Create two orgs
     const org1Id = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Org 1', slug: 'org-1', ownerId: 'user_1',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Org 1',
+        slug: 'org-1',
+        ownerId: 'user_1',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
     const org2Id = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Org 2', slug: 'org-2', ownerId: 'user_2',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Org 2',
+        slug: 'org-2',
+        ownerId: 'user_2',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 
@@ -55,28 +61,42 @@ describe('Exp 2: Three-Door DB Model', () => {
     // Create two orgs
     const org1Id = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Org 1', slug: 'org-1', ownerId: 'user_1',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Org 1',
+        slug: 'org-1',
+        ownerId: 'user_1',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
     const org2Id = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Org 2', slug: 'org-2', ownerId: 'user_2',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Org 2',
+        slug: 'org-2',
+        ownerId: 'user_2',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 
     // Seed posts in both orgs
     await t.run(async (ctx) => {
       await ctx.db.insert('posts', {
-        title: 'Org1 Post', content: 'a', status: 'published',
-        ownerId: 'user_1', organizationId: org1Id,
-        createdAt: Date.now(), updatedAt: Date.now(),
+        title: 'Org1 Post',
+        content: 'a',
+        status: 'published',
+        ownerId: 'user_1',
+        organizationId: org1Id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
       await ctx.db.insert('posts', {
-        title: 'Org2 Post', content: 'b', status: 'published',
-        ownerId: 'user_2', organizationId: org2Id,
-        createdAt: Date.now(), updatedAt: Date.now(),
+        title: 'Org2 Post',
+        content: 'b',
+        status: 'published',
+        ownerId: 'user_2',
+        organizationId: org2Id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 
@@ -93,13 +113,16 @@ describe('Exp 2: Three-Door DB Model', () => {
     expect(results.door3Count).toBe(2)
   })
 
-  it('2c: Two wrapDB calls in same mutation don\'t interfere', async () => {
+  it("2c: Two wrapDB calls in same mutation don't interfere", async () => {
     const t = convexTest(schema, modules)
 
     const orgId = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Test Org', slug: 'test', ownerId: 'user_1',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Test Org',
+        slug: 'test',
+        ownerId: 'user_1',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 

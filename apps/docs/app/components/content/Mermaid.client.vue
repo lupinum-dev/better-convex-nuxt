@@ -28,7 +28,7 @@ async function render() {
       startOnLoad: false,
       theme: 'default',
       securityLevel: 'loose',
-      fontFamily: 'inherit'
+      fontFamily: 'inherit',
     })
     const { svg: rendered } = await mermaid.render(id, code)
     svg.value = rendered
@@ -44,11 +44,11 @@ watch(() => props.chart, render)
 </script>
 
 <template>
-  <div class="my-6 flex w-full justify-center overflow-x-auto rounded-lg border border-default bg-elevated/30 p-6">
+  <div
+    class="my-6 flex w-full justify-center overflow-x-auto rounded-lg border border-default bg-elevated/30 p-6"
+  >
     <div v-if="svg" class="mermaid-diagram max-w-full" v-html="svg" />
-    <div v-else-if="error" class="text-sm text-error">
-      Diagram error: {{ error }}
-    </div>
+    <div v-else-if="error" class="text-sm text-error">Diagram error: {{ error }}</div>
     <div v-else class="text-sm text-muted">Loading diagram…</div>
   </div>
 </template>

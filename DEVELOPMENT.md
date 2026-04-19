@@ -55,7 +55,7 @@ Current files that need active pressure to shrink rather than grow:
 - `src/runtime/composables/internal/query-runtime.ts`
 - `src/runtime/composables/internal/pagination-runtime.ts`
 - `src/runtime/composables/internal/upload-runtime.ts`
-- `src/runtime/apps/devtools-ui/auth-engine.ts`
+- `src/runtime/client/auth-engine.ts`
 - `src/module.ts`
 
 ## Internal Harness

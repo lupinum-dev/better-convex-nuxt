@@ -2,8 +2,8 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import { describe, expect, it } from 'vitest'
 import type { MaybeRefOrGetter } from 'vue'
 
-import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { createConvexQueryState } from '../../src/runtime/composables/internal/query-runtime'
+import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { setDevtoolsStore } from '../../src/runtime/devtools/runtime'
 import { ConvexDevtoolsStore } from '../../src/runtime/devtools/store'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'

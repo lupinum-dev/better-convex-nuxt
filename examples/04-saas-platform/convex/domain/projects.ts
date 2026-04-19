@@ -3,11 +3,9 @@ import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
 import { createProject } from '../../shared/schemas/project'
-import {
-  requireWorkspaceTenant,
-} from '../auth/checks'
-import { projectCreate, projectExport, projectRead } from '../auth/permissions'
+import { requireWorkspaceTenant } from '../auth/checks'
 import { ensureWithinLimit } from '../auth/limits'
+import { projectCreate, projectExport, projectRead } from '../auth/permissions'
 import { mutation, query } from '../functions'
 import { archiveProjectOp } from '../operations/projects'
 

@@ -7,11 +7,19 @@ import {
 import { assertOperationBinding, toKebabCase } from '../../src/runtime/mcp/operation-binding'
 
 function ref(metadata?: TrellisOperationProjectionMetadata) {
-  return (metadata
-    ? {
-        [trellisOperationProjectionMetadataKey]: metadata,
-      }
-    : {}) as never
+  return (
+    metadata
+      ? {
+          [trellisOperationProjectionMetadataKey]: metadata,
+        }
+      : {}
+  ) as never
+}
+
+function apiRef(path: string) {
+  return {
+    [Symbol.for('functionName')]: path,
+  } as never
 }
 
 describe('mcp operation binding', () => {
@@ -25,6 +33,16 @@ describe('mcp operation binding', () => {
     ).not.toThrow()
   })
 
+  it('accepts generated API refs without operation projection metadata', () => {
+    expect(() =>
+      assertOperationBinding(
+        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        apiRef('boards:archive'),
+        apiRef('boards:previewArchive'),
+      ),
+    ).not.toThrow()
+  })
+
   it('rejects execute refs without operation metadata', () => {
     expect(() =>
       assertOperationBinding(
@@ -32,7 +50,9 @@ describe('mcp operation binding', () => {
         ref(),
         ref({ operationId: 'boards.archive', projection: 'preview' }),
       ),
-    ).toThrow(/requires an execute ref projected from the same operation/)
+    ).toThrow(
+      /requires an execute ref projected from the same operation or a generated API reference/,
+    )
   })
 
   it('rejects mismatched execute refs', () => {

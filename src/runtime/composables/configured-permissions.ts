@@ -4,11 +4,11 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import { useNuxtApp, useRouter } from '#imports'
 
+import type { PermissionContextBase } from '../auth/define-permission-context.js'
 import type {
   PermissionHandle,
   RegisteredProjectedPermissionKey,
 } from '../auth/define-permission.js'
-import type { PermissionContextBase } from '../auth/define-permission-context.js'
 import { resolvePermissionKey } from '../auth/define-permission.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
 import { hasConvexAuthRuntime } from './internal/auth-runtime.js'

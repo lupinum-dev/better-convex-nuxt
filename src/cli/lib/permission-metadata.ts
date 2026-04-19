@@ -45,7 +45,9 @@ export function collectPermissionMetadataFindings(project: ProjectInspection): D
   if (!metadata) return []
 
   const findings: DoctorFinding[] = []
-  const includedPermissions = new Set(metadata.inventories.flatMap((inventory) => inventory.permissions))
+  const includedPermissions = new Set(
+    metadata.inventories.flatMap((inventory) => inventory.permissions),
+  )
   for (const permission of metadata.permissions) {
     if (!includedPermissions.has(permission.exportName)) {
       findings.push({

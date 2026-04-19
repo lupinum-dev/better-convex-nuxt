@@ -7,7 +7,7 @@ import { fetchWithTimeout } from '../support/e2e/http'
 import { ensureManagedLocalConvex } from '../support/e2e/managed-convex'
 import { startManagedNuxtDev } from '../support/e2e/managed-nuxt-dev'
 
-const harnessRoot = fileURLToPath(new URL('../internal-harness', import.meta.url))
+const harnessRoot = fileURLToPath(new URL('../../apps/harness', import.meta.url))
 
 const local = await ensureManagedLocalConvex({
   cwd: harnessRoot,

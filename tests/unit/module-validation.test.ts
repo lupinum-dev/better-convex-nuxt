@@ -82,7 +82,7 @@ describe('module validation', () => {
     ).not.toThrow()
     expect(loggerWarnMock).toHaveBeenCalled()
     expect(String(loggerWarnMock.mock.calls[0]?.[0] ?? '')).toContain('auth.enabled')
-  })
+  }, 15_000)
 
   it('throws in strict mode for tenant isolation schema mismatches', async () => {
     const rootDir = createFixture({

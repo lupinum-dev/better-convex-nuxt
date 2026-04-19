@@ -6,19 +6,19 @@ import { watch } from 'vue'
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
-import { initAuthClient } from './apps/devtools-ui/auth-client.js'
-import { createSharedAuthEngine } from './apps/devtools-ui/auth-engine.js'
-import { initHydrationState } from './apps/devtools-ui/auth-hydration.js'
-import { initConvexClient } from './apps/devtools-ui/convex-client.js'
-import { initRuntimeConnectionHooks } from './apps/devtools-ui/runtime-hooks.js'
+import { initAuthClient } from './client/auth-client.js'
+import { createSharedAuthEngine } from './client/auth-engine.js'
+import { initHydrationState } from './client/auth-hydration.js'
+import { initConvexClient } from './client/convex-client.js'
+import { initRuntimeConnectionHooks } from './client/runtime-hooks.js'
 import { setDevtoolsStore } from './devtools/runtime.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './devtools/state.js'
 import { ConvexDevtoolsStore } from './devtools/store.js'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors.js'
 import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
 import { registerObservationCaptureListener } from './utils/observability/capture.js'
-import { createRuntimeObserver } from './utils/runtime-observer.js'
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
+import { createRuntimeObserver } from './utils/runtime-observer.js'
 
 type HydrationState = ReturnType<typeof initHydrationState>
 type ClientDevtoolsApp = {

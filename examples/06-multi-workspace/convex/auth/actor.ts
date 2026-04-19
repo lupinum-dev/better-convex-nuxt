@@ -15,10 +15,7 @@ export type Actor = {
   tenantId: Id<'workspaces'>
 }
 
-type Ctx =
-  | GenericQueryCtx<DataModel>
-  | GenericMutationCtx<DataModel>
-  | GenericActionCtx<DataModel>
+type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel> | GenericActionCtx<DataModel>
 
 export async function getActor(ctx: Ctx): Promise<Actor | null> {
   const auth = await getAuth(ctx)

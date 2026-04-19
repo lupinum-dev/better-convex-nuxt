@@ -168,7 +168,9 @@ describe('defineTool error handling', () => {
   })
 
   it('infers categories from cleaned messages when convex metadata is missing', async () => {
-    vi.mocked(serverConvexMutation).mockRejectedValueOnce(new Error('[Request ID: abc-123] Not found'))
+    vi.mocked(serverConvexMutation).mockRejectedValueOnce(
+      new Error('[Request ID: abc-123] Not found'),
+    )
 
     const tool = defineTool({
       schema: emptySchema,

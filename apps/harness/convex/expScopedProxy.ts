@@ -1,3 +1,9 @@
+import { wrapDatabaseReader } from 'convex-helpers/server/rowLevelSecurity'
+import { Triggers } from 'convex-helpers/server/triggers'
+import { v } from 'convex/values'
+
+import type { DataModel } from './_generated/dataModel'
+import type { Id } from './_generated/dataModel'
 /**
  * Experiment 8: Trellis-Owned Scope Proxy
  *
@@ -12,17 +18,7 @@
  * non-scoped table passthrough.
  */
 import { internalMutation, internalQuery } from './_generated/server'
-import { v } from 'convex/values'
-import { wrapDatabaseReader } from 'convex-helpers/server/rowLevelSecurity'
-import { Triggers } from 'convex-helpers/server/triggers'
-import type { DataModel } from './_generated/dataModel'
-import type {
-  QueryCtx,
-  MutationCtx,
-  DatabaseReader,
-  DatabaseWriter,
-} from './_generated/server'
-import type { Id } from './_generated/dataModel'
+import type { QueryCtx, MutationCtx, DatabaseReader, DatabaseWriter } from './_generated/server'
 
 // ============================================================
 // APPROACH A: Auto-Index Scope Proxy
@@ -72,10 +68,7 @@ function createScopedReader(
 
       // Check scope for all scoped tables
       for (const [_table, config] of Object.entries(scopedTables)) {
-        if (
-          config.scopeField in doc
-          && (doc as any)[config.scopeField] !== config.scopeValue
-        ) {
+        if (config.scopeField in doc && (doc as any)[config.scopeField] !== config.scopeValue) {
           return null // Scope mismatch — treat as not found
         }
       }
@@ -117,8 +110,7 @@ function createScopedWriter(
       if (maybeValue !== undefined) {
         id = idOrValue
         value = maybeValue
-      }
-      else {
+      } else {
         id = idOrTable
         value = idOrValue
       }
@@ -129,18 +121,14 @@ function createScopedWriter(
 
       for (const [_table, config] of Object.entries(scopedTables)) {
         if (
-          config.scopeField in existing
-          && (existing as any)[config.scopeField] !== config.scopeValue
+          config.scopeField in existing &&
+          (existing as any)[config.scopeField] !== config.scopeValue
         ) {
-          throw new Error(
-            `Scope violation on patch: document belongs to different scope`,
-          )
+          throw new Error(`Scope violation on patch: document belongs to different scope`)
         }
         // Prevent changing the scope field
         if (config.scopeField in value) {
-          throw new Error(
-            `Cannot change scope field "${config.scopeField}" via patch`,
-          )
+          throw new Error(`Cannot change scope field "${config.scopeField}" via patch`)
         }
       }
 
@@ -153,12 +141,10 @@ function createScopedWriter(
 
       for (const [_table, config] of Object.entries(scopedTables)) {
         if (
-          config.scopeField in existing
-          && (existing as any)[config.scopeField] !== config.scopeValue
+          config.scopeField in existing &&
+          (existing as any)[config.scopeField] !== config.scopeValue
         ) {
-          throw new Error(
-            `Scope violation on delete: document belongs to different scope`,
-          )
+          throw new Error(`Scope violation on delete: document belongs to different scope`)
         }
       }
 
@@ -171,12 +157,10 @@ function createScopedWriter(
 
       for (const [_table, config] of Object.entries(scopedTables)) {
         if (
-          config.scopeField in existing
-          && (existing as any)[config.scopeField] !== config.scopeValue
+          config.scopeField in existing &&
+          (existing as any)[config.scopeField] !== config.scopeValue
         ) {
-          throw new Error(
-            `Scope violation on replace: document belongs to different scope`,
-          )
+          throw new Error(`Scope violation on replace: document belongs to different scope`)
         }
       }
 
@@ -217,18 +201,16 @@ function createCompoundIndexReader(
                   const afterScope = q.eq(config.scopeField, config.scopeValue)
                   return rangeCallback ? rangeCallback(afterScope) : afterScope
                 })
-              }
-              else if (indexName === config.scopeIndex) {
+              } else if (indexName === config.scopeIndex) {
                 // Direct scope index usage — auto-apply scope value
                 return (target as any).withIndex(indexName, (q: any) =>
                   q.eq(config.scopeField, config.scopeValue),
                 )
-              }
-              else {
+              } else {
                 // Unknown index on scoped table — error
                 throw new Error(
                   `Index "${indexName}" on scoped table "${tableName}" is not registered as a compound index. ` +
-                  `Use a compound index starting with "${config.scopeField}" or the scope index "${config.scopeIndex}".`,
+                    `Use a compound index starting with "${config.scopeField}" or the scope index "${config.scopeIndex}".`,
                 )
               }
             }
@@ -236,19 +218,18 @@ function createCompoundIndexReader(
 
           // For terminal methods without .withIndex() — auto-apply scope
           if (
-            prop === 'collect'
-            || prop === 'first'
-            || prop === 'unique'
-            || prop === 'take'
-            || prop === 'paginate'
-            || prop === 'order'
-            || prop === 'filter'
-            || prop === Symbol.asyncIterator
+            prop === 'collect' ||
+            prop === 'first' ||
+            prop === 'unique' ||
+            prop === 'take' ||
+            prop === 'paginate' ||
+            prop === 'order' ||
+            prop === 'filter' ||
+            prop === Symbol.asyncIterator
           ) {
             // Auto-apply scope index, then delegate to result
-            const scoped = (target as any).withIndex(
-              config.scopeIndex,
-              (q: any) => q.eq(config.scopeField, config.scopeValue),
+            const scoped = (target as any).withIndex(config.scopeIndex, (q: any) =>
+              q.eq(config.scopeField, config.scopeValue),
             )
             return (scoped as any)[prop].bind(scoped)
           }
@@ -261,10 +242,7 @@ function createCompoundIndexReader(
       const doc = await (db as any).get(idOrTable, maybeId)
       if (!doc) return null
       for (const [_table, config] of Object.entries(scopedTables)) {
-        if (
-          config.scopeField in doc
-          && (doc as any)[config.scopeField] !== config.scopeValue
-        ) {
+        if (config.scopeField in doc && (doc as any)[config.scopeField] !== config.scopeValue) {
           return null
         }
       }
@@ -309,14 +287,12 @@ function createHybridReader(
                   const afterScope = q.eq(config.scopeField, config.scopeValue)
                   return rangeCallback ? rangeCallback(afterScope) : afterScope
                 })
-              }
-              else if (indexName === config.scopeIndex) {
+              } else if (indexName === config.scopeIndex) {
                 // Direct scope index usage
                 return (target as any).withIndex(indexName, (q: any) =>
                   q.eq(config.scopeField, config.scopeValue),
                 )
-              }
-              else {
+              } else {
                 // User's own index — let them use it, add native .filter() for scope
                 const indexed = rangeCallback
                   ? (target as any).withIndex(indexName, rangeCallback)
@@ -330,18 +306,17 @@ function createHybridReader(
 
           // For terminal methods without .withIndex() — auto-apply scope index
           if (
-            prop === 'collect'
-            || prop === 'first'
-            || prop === 'unique'
-            || prop === 'take'
-            || prop === 'paginate'
-            || prop === 'order'
-            || prop === 'filter'
-            || prop === Symbol.asyncIterator
+            prop === 'collect' ||
+            prop === 'first' ||
+            prop === 'unique' ||
+            prop === 'take' ||
+            prop === 'paginate' ||
+            prop === 'order' ||
+            prop === 'filter' ||
+            prop === Symbol.asyncIterator
           ) {
-            const scoped = (target as any).withIndex(
-              config.scopeIndex,
-              (q: any) => q.eq(config.scopeField, config.scopeValue),
+            const scoped = (target as any).withIndex(config.scopeIndex, (q: any) =>
+              q.eq(config.scopeField, config.scopeValue),
             )
             return (scoped as any)[prop].bind(scoped)
           }
@@ -354,10 +329,7 @@ function createHybridReader(
       const doc = await (db as any).get(idOrTable, maybeId)
       if (!doc) return null
       for (const [_table, config] of Object.entries(scopedTables)) {
-        if (
-          config.scopeField in doc
-          && (doc as any)[config.scopeField] !== config.scopeValue
-        ) {
+        if (config.scopeField in doc && (doc as any)[config.scopeField] !== config.scopeValue) {
           return null
         }
       }
@@ -525,8 +497,7 @@ export const test8bBlockedIndex = internalQuery({
         .withIndex('by_status' as any, (q: any) => q.eq('status', 'published'))
         .collect()
       return { blocked: false, error: '' }
-    }
-    catch (e: any) {
+    } catch (e: any) {
       return { blocked: true, error: e.message }
     }
   },
@@ -589,8 +560,7 @@ export const test8cWriteEnforcement = internalMutation({
         updatedAt: Date.now(),
       })
       results.insertCorrect = id as string
-    }
-    catch (e: any) {
+    } catch (e: any) {
       results.insertCorrect = `ERROR: ${e.message}`
     }
 
@@ -606,8 +576,7 @@ export const test8cWriteEnforcement = internalMutation({
         updatedAt: Date.now(),
       })
       results.insertWrong = 'NO ERROR'
-    }
-    catch (e: any) {
+    } catch (e: any) {
       results.insertWrong = e.message
     }
 
@@ -618,8 +587,7 @@ export const test8cWriteEnforcement = internalMutation({
           title: 'Patched Title',
         })
         results.patchOwn = 'OK'
-      }
-      catch (e: any) {
+      } catch (e: any) {
         results.patchOwn = `ERROR: ${e.message}`
       }
     }
@@ -637,8 +605,7 @@ export const test8cWriteEnforcement = internalMutation({
     try {
       await scopedDb.patch(foreignId, { title: 'Hacked' })
       results.patchForeign = 'NO ERROR'
-    }
-    catch (e: any) {
+    } catch (e: any) {
       results.patchForeign = e.message
     }
 
@@ -647,8 +614,7 @@ export const test8cWriteEnforcement = internalMutation({
       try {
         await scopedDb.delete(results.insertCorrect as any)
         results.deleteOwn = 'OK'
-      }
-      catch (e: any) {
+      } catch (e: any) {
         results.deleteOwn = `ERROR: ${e.message}`
       }
     }
@@ -657,8 +623,7 @@ export const test8cWriteEnforcement = internalMutation({
     try {
       await scopedDb.delete(foreignId)
       results.deleteForeign = 'NO ERROR'
-    }
-    catch (e: any) {
+    } catch (e: any) {
       results.deleteForeign = e.message
     }
 
@@ -763,14 +728,12 @@ export const test8dTriggerScoping = internalMutation({
     })
 
     // Read trigger logs
-    const logs = await ctx.db
-      .query('expTriggerLog')
-      .collect()
-    const scopeLogs = logs.filter(l => l.operation === 'scope-test')
+    const logs = await ctx.db.query('expTriggerLog').collect()
+    const scopeLogs = logs.filter((l) => l.operation === 'scope-test')
 
     return {
       triggerCount: scopeLogs.length,
-      triggers: scopeLogs.map(l => ({
+      triggers: scopeLogs.map((l) => ({
         docId: l.docId,
         door: l.door,
       })),

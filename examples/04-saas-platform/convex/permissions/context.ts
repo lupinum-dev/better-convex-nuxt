@@ -1,8 +1,8 @@
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
 import { getActor } from '../auth/actor'
-import { saasPermissions } from '../auth/permissions'
 import { getUsage } from '../auth/limits'
+import { saasPermissions } from '../auth/permissions'
 import { query } from '../functions'
 
 export const getPermissionContext = query(

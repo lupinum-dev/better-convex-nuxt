@@ -32,10 +32,10 @@ describe('example 08 component mini cms', () => {
         mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
       }
     ).mutation(api.domain.pages.create, {
-        slug: 'welcome',
-        title: 'Welcome',
-        draftBody: 'Public page body',
-      })
+      slug: 'welcome',
+      title: 'Welcome',
+      draftBody: 'Public page body',
+    })
 
     await (
       ctx.raw.withIdentity({
@@ -114,11 +114,12 @@ describe('example 08 component mini cms', () => {
       name: 'Browser User',
     })
 
-    await expect((
-      withIdentity as {
-        mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
-      }
-    ).mutation(api.domain.pages.create, {
+    await expect(
+      (
+        withIdentity as {
+          mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
+        }
+      ).mutation(api.domain.pages.create, {
         slug: 'forwarded-agent',
         title: 'Forwarded agent page',
         draftBody: 'Created by the forwarded principal',

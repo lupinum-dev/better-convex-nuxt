@@ -94,7 +94,7 @@ The repo keeps four meaningful root lanes:
   - server helpers
   - installer behavior
   - example consumer coverage
-  - doctor/apps/docs/architecture guard tests
+  - doctor/apps/docs architecture guard tests
 - `pnpm test:internals`
   - extracted pure helpers
   - internal state machines

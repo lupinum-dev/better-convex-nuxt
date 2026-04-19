@@ -128,9 +128,7 @@ export type TrellisObservationEvent = {
   [K in TrellisObservationName]: ObservationBase & { name: K } & ObservationDefinitionMap[K]
 }[TrellisObservationName]
 
-export type TrellisObservationRedactor = (
-  event: TrellisObservationEvent,
-) => TrellisObservationEvent
+export type TrellisObservationRedactor = (event: TrellisObservationEvent) => TrellisObservationEvent
 
 export interface TrellisObservabilityOptions {
   enabled?: boolean
@@ -193,7 +191,10 @@ export type PartialObservationEvent = DistributiveOmit<
 > &
   Partial<Pick<TrellisObservationEvent, 'correlationId' | 'transport' | 'originTransport'>>
 
-export type ObservationEventInput = Omit<TrellisObservationEvent, 'ts' | 'correlationId' | 'transport'> &
+export type ObservationEventInput = Omit<
+  TrellisObservationEvent,
+  'ts' | 'correlationId' | 'transport'
+> &
   Partial<Pick<TrellisObservationEvent, 'correlationId' | 'transport' | 'originTransport'>>
 
 export const alwaysOnEvents: ReadonlySet<TrellisObservationName> = new Set<TrellisObservationName>([
@@ -216,44 +217,45 @@ export const criticalEvents: ReadonlySet<TrellisObservationName> = new Set<Trell
   'operation.execute.completed',
 ])
 
-export const nonVerboseEvents: ReadonlySet<TrellisObservationName> = new Set<TrellisObservationName>([
-  'principal.resolved',
-  'actor.resolved',
-  'actor.missing',
-  'guard.allowed',
-  'guard.denied',
-  'authorize.allowed',
-  'authorize.denied',
-  'rls.denied',
-  'db.cross_tenant.used',
-  'db.raw.used',
-  'service.access.checked',
-  'service.access.denied',
-  'operation.preview.started',
-  'operation.preview.completed',
-  'operation.confirm.validated',
-  'operation.confirm.drifted',
-  'operation.execute.completed',
-  'operation.execute.failed',
-  'tool.called',
-  'tool.denied',
-  'tool.confirmation.required',
-  'tool.executed',
-  'tool.failed',
-  'auth.session.checked',
-  'query.subscribed',
-  'query.updated',
-  'query.unsubscribed',
-  'query.failed',
-  'mutation.completed',
-  'mutation.failed',
-  'action.completed',
-  'action.failed',
-  'upload.completed',
-  'upload.failed',
-  'connection.lost',
-  'connection.restored',
-])
+export const nonVerboseEvents: ReadonlySet<TrellisObservationName> =
+  new Set<TrellisObservationName>([
+    'principal.resolved',
+    'actor.resolved',
+    'actor.missing',
+    'guard.allowed',
+    'guard.denied',
+    'authorize.allowed',
+    'authorize.denied',
+    'rls.denied',
+    'db.cross_tenant.used',
+    'db.raw.used',
+    'service.access.checked',
+    'service.access.denied',
+    'operation.preview.started',
+    'operation.preview.completed',
+    'operation.confirm.validated',
+    'operation.confirm.drifted',
+    'operation.execute.completed',
+    'operation.execute.failed',
+    'tool.called',
+    'tool.denied',
+    'tool.confirmation.required',
+    'tool.executed',
+    'tool.failed',
+    'auth.session.checked',
+    'query.subscribed',
+    'query.updated',
+    'query.unsubscribed',
+    'query.failed',
+    'mutation.completed',
+    'mutation.failed',
+    'action.completed',
+    'action.failed',
+    'upload.completed',
+    'upload.failed',
+    'connection.lost',
+    'connection.restored',
+  ])
 
 export function getObservationFamily(name: TrellisObservationName): TrellisObservationFamily {
   if (name.startsWith('principal.') || name.startsWith('actor.')) return 'identity'

@@ -126,9 +126,9 @@ defineProps<{
         <span v-if="decisionTrace.operation" class="op-50"
           >operation: {{ decisionTrace.operation }}</span
         >
-        <span v-if="decisionTrace.correlationId" class="op-40 font-mono"
-          >{{ decisionTrace.correlationId }}</span
-        >
+        <span v-if="decisionTrace.correlationId" class="op-40 font-mono">{{
+          decisionTrace.correlationId
+        }}</span>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">

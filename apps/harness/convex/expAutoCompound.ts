@@ -1,3 +1,5 @@
+import { v } from 'convex/values'
+
 /**
  * Experiment 9: Auto-Compound Indexes + Transparent Index Mapping
  *
@@ -20,7 +22,6 @@
  * We simulate the mapping: user thinks 'by_status' → proxy maps to 'by_org_status'
  */
 import { internalMutation, internalQuery } from './_generated/server'
-import { v } from 'convex/values'
 import type { DatabaseReader, DatabaseWriter } from './_generated/server'
 
 // ============================================================
@@ -69,8 +70,7 @@ function autoCompoundIndexes(config: ScopeTableConfig): {
       // Already compound — use as-is
       compoundIndexes.push(userIdx)
       indexMap[userIdx.name] = userIdx.name
-    }
-    else {
+    } else {
       // Auto-compound: prepend scope field
       const compoundIdx: IndexDef = {
         name: userIdx.name, // Keep user's name!
@@ -131,9 +131,7 @@ function createAutoScopedReader(
                 // User's index — it's been auto-compounded, prepend scope
                 return (target as any).withIndex(indexName, (q: any) => {
                   const afterScope = q.eq(config.scopeField, config.scopeValue)
-                  return userRangeCallback
-                    ? userRangeCallback(afterScope)
-                    : afterScope
+                  return userRangeCallback ? userRangeCallback(afterScope) : afterScope
                 })
               }
 
@@ -147,18 +145,17 @@ function createAutoScopedReader(
 
           // Terminal/chain methods without .withIndex() → auto-apply scope
           if (
-            prop === 'collect'
-            || prop === 'first'
-            || prop === 'unique'
-            || prop === 'take'
-            || prop === 'paginate'
-            || prop === 'order'
-            || prop === 'filter'
-            || prop === Symbol.asyncIterator
+            prop === 'collect' ||
+            prop === 'first' ||
+            prop === 'unique' ||
+            prop === 'take' ||
+            prop === 'paginate' ||
+            prop === 'order' ||
+            prop === 'filter' ||
+            prop === Symbol.asyncIterator
           ) {
-            const scoped = (target as any).withIndex(
-              config.scopeIndex,
-              (q: any) => q.eq(config.scopeField, config.scopeValue),
+            const scoped = (target as any).withIndex(config.scopeIndex, (q: any) =>
+              q.eq(config.scopeField, config.scopeValue),
             )
             return (scoped as any)[prop].bind(scoped)
           }
@@ -171,10 +168,7 @@ function createAutoScopedReader(
       const doc = await (db as any).get(idOrTable, maybeId)
       if (!doc) return null
       for (const [_table, config] of Object.entries(scopedTables)) {
-        if (
-          config.scopeField in doc
-          && (doc as any)[config.scopeField] !== config.scopeValue
-        ) {
+        if (config.scopeField in doc && (doc as any)[config.scopeField] !== config.scopeValue) {
           return null
         }
       }
@@ -210,8 +204,8 @@ function createAutoScopedWriter(
       if (!existing) throw new Error('Document not found')
       for (const [_table, config] of Object.entries(scopedTables)) {
         if (
-          config.scopeField in existing
-          && (existing as any)[config.scopeField] !== config.scopeValue
+          config.scopeField in existing &&
+          (existing as any)[config.scopeField] !== config.scopeValue
         ) {
           throw new Error('Scope violation on patch: document belongs to different scope')
         }
@@ -226,8 +220,8 @@ function createAutoScopedWriter(
       if (!existing) throw new Error('Document not found')
       for (const [_table, config] of Object.entries(scopedTables)) {
         if (
-          config.scopeField in existing
-          && (existing as any)[config.scopeField] !== config.scopeValue
+          config.scopeField in existing &&
+          (existing as any)[config.scopeField] !== config.scopeValue
         ) {
           throw new Error('Scope violation on delete: document belongs to different scope')
         }
@@ -239,8 +233,8 @@ function createAutoScopedWriter(
       if (!existing) throw new Error('Document not found')
       for (const [_table, config] of Object.entries(scopedTables)) {
         if (
-          config.scopeField in existing
-          && (existing as any)[config.scopeField] !== config.scopeValue
+          config.scopeField in existing &&
+          (existing as any)[config.scopeField] !== config.scopeValue
         ) {
           throw new Error('Scope violation on replace: document belongs to different scope')
         }
@@ -341,9 +335,7 @@ export const test9aTransparentIndex = internalQuery({
     return {
       count: posts.length,
       titles: posts.map((p: any) => p.title),
-      allCorrectOrg: posts.every(
-        (p: any) => p.organizationId === (args.organizationId as string),
-      ),
+      allCorrectOrg: posts.every((p: any) => p.organizationId === (args.organizationId as string)),
       allCorrectStatus: posts.every((p: any) => p.status === args.status),
     }
   },
@@ -362,9 +354,7 @@ export const test9bSimpleQuery = internalQuery({
 
     return {
       count: posts.length,
-      allCorrectOrg: posts.every(
-        (p: any) => p.organizationId === (args.organizationId as string),
-      ),
+      allCorrectOrg: posts.every((p: any) => p.organizationId === (args.organizationId as string)),
     }
   },
 })
@@ -418,8 +408,7 @@ export const test9dWrites = internalMutation({
       // Delete it
       await scopedDb.delete(id)
       results.deleteOwn = 'OK'
-    }
-    catch (e: any) {
+    } catch (e: any) {
       results.insertCorrect = `ERROR: ${e.message}`
     }
 
@@ -435,8 +424,7 @@ export const test9dWrites = internalMutation({
         updatedAt: Date.now(),
       })
       results.insertWrong = 'NO ERROR'
-    }
-    catch (e: any) {
+    } catch (e: any) {
       results.insertWrong = 'BLOCKED'
     }
 
@@ -453,8 +441,7 @@ export const test9dWrites = internalMutation({
     try {
       await scopedDb.patch(foreignId, { title: 'Hacked' })
       results.patchForeign = 'NO ERROR'
-    }
-    catch (e: any) {
+    } catch (e: any) {
       results.patchForeign = 'BLOCKED'
     }
 
@@ -485,8 +472,7 @@ export const test9eUnknownIndex = internalQuery({
         .withIndex('by_nonexistent' as any)
         .collect()
       return { error: '' }
-    }
-    catch (e: any) {
+    } catch (e: any) {
       return { error: e.message }
     }
   },

@@ -87,8 +87,7 @@ export const structuredPostOwner = query({
   }),
   authorize: {
     label: 'probe.update',
-    check: (_actor, loaded) =>
-      loaded?.post ? canEditStructuredPost(loaded.post.ownerId) : false,
+    check: (_actor, loaded) => (loaded?.post ? canEditStructuredPost(loaded.post.ownerId) : false),
   },
   handler: async (_ctx, _args, loaded) => ({
     ownerId: loaded?.post?.ownerId ?? null,

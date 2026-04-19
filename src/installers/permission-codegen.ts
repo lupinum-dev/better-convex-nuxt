@@ -1,5 +1,5 @@
-import type { Nuxt } from '@nuxt/schema'
 import { addTemplate, addTypeTemplate, updateTemplates } from '@nuxt/kit'
+import type { Nuxt } from '@nuxt/schema'
 
 import {
   extractPermissionCodegenMetadata,

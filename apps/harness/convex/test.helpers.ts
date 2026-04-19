@@ -10,8 +10,7 @@ import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules, fixtures } from './test.setup'
 
-export const INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY =
-  'internal-harness-test-trusted-caller-key'
+export const INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY = 'internal-harness-test-trusted-caller-key'
 
 export function withTrustedPrincipal<TArgs extends Record<string, unknown> | undefined>(
   args: TArgs,

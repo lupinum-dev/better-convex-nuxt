@@ -2,10 +2,11 @@ import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import type { Actor } from './auth/actor'
 import { canInviteMembers } from './auth/checks'
 import { loadResource } from './auth/scope'
-import { mutation, query, raw } from './functions'
+import { mutation, query } from './functions'
 
 const canListMcpKeys = defineGuard<Actor>('mcp-key.list', (actor) => actor !== null)
 const canManageMcpKeys = defineGuard<Actor>(
@@ -82,7 +83,7 @@ export const revoke = mutation({
   },
 })
 
-export const validate = raw.query({
+export const validate = generatedQuery({
   args: { key: v.string() },
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
@@ -100,7 +101,7 @@ export const validate = raw.query({
   },
 })
 
-export const touch = raw.mutation({
+export const touch = generatedMutation({
   args: { key: v.string() },
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db

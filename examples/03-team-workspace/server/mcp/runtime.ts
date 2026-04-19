@@ -51,9 +51,7 @@ export const mcpRuntime = defineMcpApp<TeamTodoPrincipal, CapabilitySnapshot>({
     return permissions?.can ?? { [todoRead.key]: false, [todoCreate.key]: false }
   },
   principalKey: (principal) =>
-    principal.kind === 'agent'
-      ? `agent:${principal.agentId ?? principal.userId}`
-      : principal.kind,
+    principal.kind === 'agent' ? `agent:${principal.agentId ?? principal.userId}` : principal.kind,
 })
 
 export const tool = mcpRuntime.tool

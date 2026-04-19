@@ -6,8 +6,9 @@ import {
   postDeletePermission,
   type InternalHarnessPermissionKey,
 } from '../../convex/auth/permissions'
-import { trellisObservability } from '../../observability.config'
 import type { InternalHarnessPrincipal } from '../../convex/auth/principal'
+import { trellisObservability } from '../../observability.config'
+import { resolveHarnessMcpAuth } from '../support/mcp-auth-helpers'
 
 type McpAuthContext = {
   role?: 'owner' | 'admin' | 'member' | 'viewer'
@@ -15,8 +16,8 @@ type McpAuthContext = {
   userId?: string
 }
 
-function getMcpPrincipal(event: H3Event): InternalHarnessPrincipal {
-  const auth = event.context.mcpAuth as McpAuthContext | undefined
+async function getMcpPrincipal(event: H3Event): Promise<InternalHarnessPrincipal> {
+  const auth = (await resolveHarnessMcpAuth(event)) as McpAuthContext | null
   if (!auth?.userId || !auth.role) {
     return { kind: 'anonymous' }
   }
@@ -45,7 +46,7 @@ export const mcpRuntime = defineMcpApp<
           }
         : { auth: 'none' },
     ) as never,
-  resolvePrincipal: async (event) => getMcpPrincipal(event),
+  resolvePrincipal: async (event) => await getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
     [postDeletePermission.key]:
       principal.kind === 'agent' && ['owner', 'admin', 'member'].includes(principal.role),

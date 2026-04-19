@@ -1,10 +1,6 @@
 import { and, definePermission, derivePermissionMatrix } from '@lupinum/trellis/auth'
 
-import {
-  hasFeature,
-  hasRole,
-  hasWorkspace,
-} from './checks'
+import { hasFeature, hasRole, hasWorkspace } from './checks'
 
 export const projectCreate = definePermission({
   key: 'project.create',

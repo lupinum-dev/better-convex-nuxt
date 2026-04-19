@@ -43,7 +43,17 @@ export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
         plugins: [
           bridge.createConvexPlugin({
             jwt: {
-              definePayload: ({ user }: { user: { name: string; email: string; emailVerified: boolean; image?: string | null; id: string } }) => ({
+              definePayload: ({
+                user,
+              }: {
+                user: {
+                  name: string
+                  email: string
+                  emailVerified: boolean
+                  image?: string | null
+                  id: string
+                }
+              }) => ({
                 name: user.name,
                 email: user.email,
                 emailVerified: user.emailVerified,

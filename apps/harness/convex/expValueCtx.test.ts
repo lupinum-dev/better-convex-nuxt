@@ -12,8 +12,11 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
   async function setupOrgWithUser(t: ReturnType<typeof convexTest>) {
     const orgId = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Test Org', slug: 'test-org', ownerId: 'user_owner',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Test Org',
+        slug: 'test-org',
+        ownerId: 'user_owner',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 
@@ -36,7 +39,8 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     const t = convexTest(schema, modules)
     const { orgId } = await setupOrgWithUser(t)
 
-    const result = await t.withIdentity({ subject: 'user_owner' })
+    const result = await t
+      .withIdentity({ subject: 'user_owner' })
       .query(api.expValueCtx.getPrincipalAndActor, {})
 
     expect(result.principalIsValue).toBe(true)
@@ -54,26 +58,38 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     // Create a second org with posts
     const org2Id = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
-        name: 'Other Org', slug: 'other-org', ownerId: 'user_other',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Other Org',
+        slug: 'other-org',
+        ownerId: 'user_other',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 
     // Seed posts in both orgs
     await t.run(async (ctx) => {
       await ctx.db.insert('posts', {
-        title: 'My Org Post', content: 'a', status: 'published',
-        ownerId: 'user_owner', organizationId: orgId,
-        createdAt: Date.now(), updatedAt: Date.now(),
+        title: 'My Org Post',
+        content: 'a',
+        status: 'published',
+        ownerId: 'user_owner',
+        organizationId: orgId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
       await ctx.db.insert('posts', {
-        title: 'Other Org Post', content: 'b', status: 'published',
-        ownerId: 'user_other', organizationId: org2Id,
-        createdAt: Date.now(), updatedAt: Date.now(),
+        title: 'Other Org Post',
+        content: 'b',
+        status: 'published',
+        ownerId: 'user_other',
+        organizationId: org2Id,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 
-    const result = await t.withIdentity({ subject: 'user_owner' })
+    const result = await t
+      .withIdentity({ subject: 'user_owner' })
       .query(api.expValueCtx.getMyPosts, {})
 
     // RLS should filter to only the user's org posts
@@ -96,16 +112,17 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
   it('3d: required-actor query throws without auth', async () => {
     const t = convexTest(schema, modules)
 
-    await expect(
-      t.query(api.expValueCtx.requiresAuth, {})
-    ).rejects.toThrow('Unauthorized: actor required')
+    await expect(t.query(api.expValueCtx.requiresAuth, {})).rejects.toThrow(
+      'Unauthorized: actor required',
+    )
   })
 
   it('3e: mutation with actor writes via RLS-wrapped db', async () => {
     const t = convexTest(schema, modules)
     const { orgId } = await setupOrgWithUser(t)
 
-    const result = await t.withIdentity({ subject: 'user_owner' })
+    const result = await t
+      .withIdentity({ subject: 'user_owner' })
       .mutation(api.expValueCtx.createPostViaMutation, { title: 'Test Post' })
 
     expect(result.id).toBeTruthy()
@@ -115,7 +132,7 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     const posts = await t.run(async (ctx) => {
       return await ctx.db.query('posts').collect()
     })
-    const created = posts.find(p => p.title === 'Test Post')
+    const created = posts.find((p) => p.title === 'Test Post')
     expect(created).toBeTruthy()
     expect(created!.organizationId).toBe(orgId)
   })

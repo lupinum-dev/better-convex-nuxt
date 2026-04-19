@@ -25,11 +25,13 @@ export default defineEventHandler(async (event) => {
     )
     if (!result) return
 
-    event.context.mcpAuth = {
+    const auth = {
       role: result.role,
       userId: result.userId,
       ...(result.tenantId && { tenantId: result.tenantId }),
     }
+    event.context.mcpAuth = auth
+    event.context.__trellisMcpAuth = auth
     await serverConvexMutation(event, api.mcpKeys.touch, { key: token }, { auth: 'none' })
   } catch (error) {
     console.error('[mcp-auth] Key validation failed:', error)

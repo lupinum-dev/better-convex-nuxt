@@ -3,10 +3,7 @@ import type { GenericDatabaseReader } from 'convex/server'
 import type { DataModel } from '../_generated/dataModel'
 import type { Actor } from '../auth/actor'
 
-export async function getUserRowFromActor(
-  db: GenericDatabaseReader<DataModel>,
-  actor: Actor,
-) {
+export async function getUserRowFromActor(db: GenericDatabaseReader<DataModel>, actor: Actor) {
   if (!actor) return null
 
   return await db

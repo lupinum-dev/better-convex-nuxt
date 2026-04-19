@@ -133,9 +133,7 @@ export function upsertBridgeManagedBlock(
   if (typeof options.anchor === 'string') {
     const stringAnchorIndex = source.indexOf(options.anchor)
     if (stringAnchorIndex < 0) {
-      throw new Error(
-        `Could not find insertion anchor for managed bridge block "${options.key}".`,
-      )
+      throw new Error(`Could not find insertion anchor for managed bridge block "${options.key}".`)
     }
     const insertionPoint =
       (options.position ?? 'after') === 'before'
@@ -149,9 +147,7 @@ export function upsertBridgeManagedBlock(
 
   const regexAnchorMatch = options.anchor.exec(source)
   if (!regexAnchorMatch) {
-    throw new Error(
-      `Could not find insertion anchor for managed bridge block "${options.key}".`,
-    )
+    throw new Error(`Could not find insertion anchor for managed bridge block "${options.key}".`)
   }
   const insertionPoint =
     (options.position ?? 'after') === 'before'

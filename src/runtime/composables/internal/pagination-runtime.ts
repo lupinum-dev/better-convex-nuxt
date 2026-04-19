@@ -24,8 +24,8 @@ import {
 import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
 import { assertConvexComposableScope } from '../../utils/composable-scope.js'
 import { getFunctionName, getQueryKey, hashArgs } from '../../utils/convex-cache.js'
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
+import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import { generatePaginationId } from '../../utils/shared-helpers.js'
 import type {
   PaginatedQueryReference,

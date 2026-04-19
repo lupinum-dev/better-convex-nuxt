@@ -1,7 +1,10 @@
-import { z } from 'zod'
+import { createError } from 'h3'
 import { useEvent } from 'nitropack/runtime'
+import { z } from 'zod'
 
 import { defineMcpTool, useMcpServer, useMcpSession } from '#trellis/mcp'
+
+import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
 
 interface InternalHarnessSessionData {
   preferredSearch?: string
@@ -21,13 +24,13 @@ function normalizeShortcutName(input: string): string {
 export default defineMcpTool({
   name: 'register-session-shortcut',
   description: 'Register a session-local MCP tool that returns a canned text response.',
-  enabled: (event) => !!event.context.mcpAuth,
+  enabled: async (event) => !!(await resolveHarnessMcpAuth(event)),
   inputSchema: {
     name: z.string().describe('Requested shortcut name; it will be normalized to a safe tool name'),
     message: z.string().describe('Text the dynamic tool should return when called'),
   },
   handler: async ({ name, message }) => {
-    if (!useEvent().context.mcpAuth) {
+    if (!(await resolveHarnessMcpAuth(useEvent()))) {
       throw createError({ statusCode: 403, message: 'Authentication required.' })
     }
 

@@ -6,8 +6,8 @@ import type {
 } from 'convex/server'
 import { hash } from 'ohash'
 
-import type { QueryStatus, ConvexUser } from './types.js'
 import { stripObservationEnvelope } from './observability/envelope.js'
+import type { QueryStatus, ConvexUser } from './types.js'
 
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')
@@ -218,10 +218,7 @@ export function computeQueryStatus(
  * Works with queries, mutations, and actions.
  */
 export function getFunctionName(
-  fn:
-    | AnyQueryFunction
-    | AnyMutationFunction
-    | AnyActionFunction,
+  fn: AnyQueryFunction | AnyMutationFunction | AnyActionFunction,
 ): string {
   if (!fn) return 'unknown'
 

@@ -4,34 +4,34 @@ Master cleanup ledger for the whole-repo reduction pass. This is a hard cleanup 
 
 ## Rollup
 
-| Metric | Count |
-| --- | ---: |
-| Total TODOs | 316 |
-| Areas covered | 17 |
-| Count by severity | `P0: 3`, `P1: 81`, `P2: 167`, `P3: 65` |
-| Count by action | `delete: 1`, `simplify: 227`, `replace: 2`, `document-fix: 80`, `api-review: 5`, `structure: 1` |
+| Metric            |                                                                                           Count |
+| ----------------- | ----------------------------------------------------------------------------------------------: |
+| Total TODOs       |                                                                                             316 |
+| Areas covered     |                                                                                              17 |
+| Count by severity |                                                          `P0: 3`, `P1: 81`, `P2: 167`, `P3: 65` |
+| Count by action   | `delete: 1`, `simplify: 227`, `replace: 2`, `document-fix: 80`, `api-review: 5`, `structure: 1` |
 
 ### Count by area
 
-| Area | Count |
-| --- | ---: |
-| scripts | 55 |
-| package surface | 13 |
-| runtime auth | 11 |
-| runtime composables | 23 |
-| runtime functions | 9 |
-| mcp | 12 |
-| server | 15 |
-| devtools/client | 10 |
-| visibility | 4 |
-| runtime shared utilities | 23 |
-| docs | 60 |
-| examples | 12 |
-| labs | 13 |
-| tests | 22 |
-| internal harness | 10 |
-| release/publish | 12 |
-| final reduction | 12 |
+| Area                     | Count |
+| ------------------------ | ----: |
+| scripts                  |    55 |
+| package surface          |    13 |
+| runtime auth             |    11 |
+| runtime composables      |    23 |
+| runtime functions        |     9 |
+| mcp                      |    12 |
+| server                   |    15 |
+| devtools/client          |    10 |
+| visibility               |     4 |
+| runtime shared utilities |    23 |
+| docs                     |    60 |
+| examples                 |    12 |
+| labs                     |    13 |
+| tests                    |    22 |
+| internal harness         |    10 |
+| release/publish          |    12 |
+| final reduction          |    12 |
 
 ## Canonical meanings
 
@@ -430,6 +430,7 @@ Wave 4 closed on 2026-04-19. The maintainer test graph was narrowed around real 
 ---
 
 ## Wave 5 — Final Reduction Pass
+
 Wave 5 closed on 2026-04-19. This section locks the maintainer reduction policy for the next execution cycles: what is unquestionably core, what is on the first delete list, which advanced surfaces are demoted, and how disagreements are resolved. The goal is to stop reopening settled questions.
 
 ### Must-delete shortlist

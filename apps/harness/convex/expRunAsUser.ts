@@ -1,3 +1,9 @@
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { v } from 'convex/values'
+import { SignJWT, jwtVerify } from 'jose'
+
+import { internal } from './_generated/api'
 /**
  * Experiment 14: ctx.runAsUser() roundtrip
  *
@@ -20,11 +26,6 @@
  *        (the principal shape is checked after verification).
  */
 import { action, internalMutation } from './_generated/server'
-import { v } from 'convex/values'
-import { hkdf } from '@noble/hashes/hkdf.js'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { SignJWT, jwtVerify } from 'jose'
-import { internal } from './_generated/api'
 
 const ROOT_SECRET = new TextEncoder().encode('test-deployment-secret-32bytes!!')
 const SALT = new TextEncoder().encode('trellis-v1')
@@ -62,8 +63,8 @@ async function signServiceEnvelope(callee: string, service: string): Promise<str
 
 type Principal =
   | { kind: 'anonymous' }
-  | { kind: 'user', userId: string }
-  | { kind: 'service', service: string }
+  | { kind: 'user'; userId: string }
+  | { kind: 'service'; service: string }
 
 /**
  * The internal resolver. In production this lives inside defineFunctions
@@ -81,8 +82,8 @@ async function resolveWithEnvelope(
   const { payload } = await jwtVerify(envelope, deriveKey(), { audience: PURPOSE })
   if (payload.callee !== expectedCallee) {
     throw new Error(
-      `Callee mismatch: envelope bound to "${String(payload.callee)}", `
-      + `expected "${expectedCallee}"`,
+      `Callee mismatch: envelope bound to "${String(payload.callee)}", ` +
+        `expected "${expectedCallee}"`,
     )
   }
   return payload.principal as Principal
@@ -104,13 +105,10 @@ export const generateReport = internalMutation({
     auditedId: v.string(),
   }),
   handler: async (ctx, args) => {
-    const principal = await resolveWithEnvelope(
-      args.__principal,
-      'expRunAsUser:generateReport',
-    )
+    const principal = await resolveWithEnvelope(args.__principal, 'expRunAsUser:generateReport')
 
-    const principalKey
-      = principal.kind === 'user'
+    const principalKey =
+      principal.kind === 'user'
         ? `user:${principal.userId}`
         : principal.kind === 'service'
           ? `service:${principal.service}`
@@ -140,11 +138,8 @@ export const testHappyPath = action({
     principalKind: v.string(),
     userId: v.optional(v.string()),
   }),
-  handler: async (ctx, args): Promise<{ principalKind: string, userId: string | undefined }> => {
-    const envelope = await signUserEnvelope(
-      'expRunAsUser:generateReport',
-      args.userId,
-    )
+  handler: async (ctx, args): Promise<{ principalKind: string; userId: string | undefined }> => {
+    const envelope = await signUserEnvelope('expRunAsUser:generateReport', args.userId)
     const result = await ctx.runMutation(internal.expRunAsUser.generateReport, {
       reportId: 'report-123',
       __principal: envelope,
@@ -159,10 +154,7 @@ export const testTamperedEnvelope = action({
   args: {},
   returns: v.object({ rejected: v.boolean() }),
   handler: async (ctx): Promise<{ rejected: boolean }> => {
-    const envelope = await signUserEnvelope(
-      'expRunAsUser:generateReport',
-      'user-abc',
-    )
+    const envelope = await signUserEnvelope('expRunAsUser:generateReport', 'user-abc')
     const tampered = envelope.slice(0, -3) + 'AAA'
     try {
       await ctx.runMutation(internal.expRunAsUser.generateReport, {
@@ -170,8 +162,7 @@ export const testTamperedEnvelope = action({
         __principal: tampered,
       })
       return { rejected: false }
-    }
-    catch {
+    } catch {
       return { rejected: true }
     }
   },
@@ -182,19 +173,15 @@ export const testTamperedEnvelope = action({
 export const testWrongCallee = action({
   args: {},
   returns: v.object({ rejected: v.boolean(), error: v.string() }),
-  handler: async (ctx): Promise<{ rejected: boolean, error: string }> => {
-    const envelope = await signUserEnvelope(
-      'expRunAsUser:somethingElse',
-      'user-abc',
-    )
+  handler: async (ctx): Promise<{ rejected: boolean; error: string }> => {
+    const envelope = await signUserEnvelope('expRunAsUser:somethingElse', 'user-abc')
     try {
       await ctx.runMutation(internal.expRunAsUser.generateReport, {
         reportId: 'report-bad',
         __principal: envelope,
       })
       return { rejected: false, error: '' }
-    }
-    catch (err) {
+    } catch (err) {
       return { rejected: true, error: (err as Error).message }
     }
   },
@@ -205,7 +192,7 @@ export const testWrongCallee = action({
 export const testNoEnvelope = action({
   args: {},
   returns: v.object({ principalKind: v.string(), service: v.optional(v.string()) }),
-  handler: async (ctx): Promise<{ principalKind: string, service: string | undefined }> => {
+  handler: async (ctx): Promise<{ principalKind: string; service: string | undefined }> => {
     const result = await ctx.runMutation(internal.expRunAsUser.generateReport, {
       reportId: 'system-report',
       // no __principal — action didn't call runAsUser
@@ -223,7 +210,9 @@ export const testServiceIsNotUser = action({
     service: v.optional(v.string()),
     userId: v.optional(v.string()),
   }),
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx,
+  ): Promise<{
     principalKind: string
     service: string | undefined
     userId: string | undefined
@@ -232,10 +221,7 @@ export const testServiceIsNotUser = action({
     // Our resolver returns the principal as-is — the user-assertion
     // happens at the handler / actor-resolver layer, not the envelope
     // layer. This test confirms we don't silently coerce kinds.
-    const envelope = await signServiceEnvelope(
-      'expRunAsUser:generateReport',
-      'cron',
-    )
+    const envelope = await signServiceEnvelope('expRunAsUser:generateReport', 'cron')
     const result = await ctx.runMutation(internal.expRunAsUser.generateReport, {
       reportId: 'cron-report',
       __principal: envelope,

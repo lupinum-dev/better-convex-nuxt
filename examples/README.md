@@ -19,46 +19,46 @@ Read **01 → 02 → 03** in order. Each builds on the previous, adding one majo
 
 ## Which One To Open First?
 
-| Example                 | Best for                     | Shows                                                                                                                                        |
-| ----------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-public-todo`        | First look                   | minimal `defineTrellis(...)`, `defineArgs`, simple query/mutation flow                                                                       |
-| `02-auth-todo`          | Auth-only apps               | Better Auth wiring, actor resolution, personal ownership handlers                                                                            |
-| `03-team-workspace`     | Canonical protected app      | `convex/auth/*`, backend-owned context, `_can`, transport-shaped agent principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing` |
-| `04-saas-platform`      | Month-two product work       | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows                |
-| `05-visibility-access`  | Advanced access patterns     | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy                   |
-| `06-multi-workspace`    | Agency / multi-client        | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                               |
-| `07-mcp-reference`      | Full MCP implementation      | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode, root internal refs as the automation surface |
-| `08-component-mini-cms` | Local component + MCP seam   | Local Convex components, principal forwarding, root browser wrappers, `createComponentBridge(...)`, `tool(...)`; primary reference for `ginko-cms`-style integrations |
+| Example                 | Best for                   | Shows                                                                                                                                                                 |
+| ----------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-public-todo`        | First look                 | minimal `defineTrellis(...)`, `defineArgs`, simple query/mutation flow                                                                                                |
+| `02-auth-todo`          | Auth-only apps             | Better Auth wiring, actor resolution, personal ownership handlers                                                                                                     |
+| `03-team-workspace`     | Canonical protected app    | `convex/auth/*`, backend-owned context, `_can`, transport-shaped agent principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing`                |
+| `04-saas-platform`      | Month-two product work     | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows                                         |
+| `05-visibility-access`  | Advanced access patterns   | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy                                            |
+| `06-multi-workspace`    | Agency / multi-client      | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                                                        |
+| `07-mcp-reference`      | Full MCP implementation    | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode, root internal refs as the automation surface                          |
+| `08-component-mini-cms` | Local component + MCP seam | Local Convex components, principal forwarding, root browser wrappers, `createComponentBridge(...)`, `tool(...)`; primary reference for `ginko-cms`-style integrations |
 
 ## Concept Coverage Matrix
 
-| Concept                                           | Example |
-| ------------------------------------------------- | ------- |
-| Public queries/mutations                          | 01      |
-| Better Auth + session management                  | 02+     |
-| Tenant isolation (`workspaceId` + `by_workspace`) | 03+     |
-| Role-based authorization (`guard`, `can`, `deny`) | 03+     |
+| Concept                                           | Example    |
+| ------------------------------------------------- | ---------- |
+| Public queries/mutations                          | 01         |
+| Better Auth + session management                  | 02+        |
+| Tenant isolation (`workspaceId` + `by_workspace`) | 03+        |
+| Role-based authorization (`guard`, `can`, `deny`) | 03+        |
 | Explicit principal forwarding                     | 03, 07, 08 |
-| Idempotency (replay protection)                   | 03      |
-| Pagination + optimistic updates                   | 04      |
-| Plan entitlements + usage limits                  | 04      |
-| Feature flags (`hasFeature`)                      | 04      |
-| Server routes (Nitro)                             | 03, 04  |
-| Row-level visibility (private/team/workspace)     | 05      |
-| Field redaction (sensitive fields)                | 05      |
-| Manager hierarchy                                 | 05      |
-| Enrollment-based access                           | 05      |
-| Prerequisite chains                               | 05      |
-| Share tokens (hashed, expirable, revocable)       | 05      |
-| Inherited access levels                           | 05      |
-| Multi-workspace membership                        | 06      |
-| Cross-tenant dashboard                            | 06      |
-| MCP tools, prompts, resources                     | 03, 07  |
-| MCP sessions + dynamic tools                      | 07      |
-| MCP key auth (hashed at rest)                     | 07      |
-| Local Convex components                           | 08      |
-| Component bridge inventory                        | 08      |
-| MCP projection over component-backed operations   | 08      |
+| Idempotency (replay protection)                   | 03         |
+| Pagination + optimistic updates                   | 04         |
+| Plan entitlements + usage limits                  | 04         |
+| Feature flags (`hasFeature`)                      | 04         |
+| Server routes (Nitro)                             | 03, 04     |
+| Row-level visibility (private/team/workspace)     | 05         |
+| Field redaction (sensitive fields)                | 05         |
+| Manager hierarchy                                 | 05         |
+| Enrollment-based access                           | 05         |
+| Prerequisite chains                               | 05         |
+| Share tokens (hashed, expirable, revocable)       | 05         |
+| Inherited access levels                           | 05         |
+| Multi-workspace membership                        | 06         |
+| Cross-tenant dashboard                            | 06         |
+| MCP tools, prompts, resources                     | 03, 07     |
+| MCP sessions + dynamic tools                      | 07         |
+| MCP key auth (hashed at rest)                     | 07         |
+| Local Convex components                           | 08         |
+| Component bridge inventory                        | 08         |
+| MCP projection over component-backed operations   | 08         |
 
 ## Canonical Default
 

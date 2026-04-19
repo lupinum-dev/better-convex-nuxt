@@ -11,7 +11,10 @@ export function installPermissionTrellis(options: InstallPermissionsOptions): vo
   const lastDot = permissionQueryPath.lastIndexOf('.')
   const modulePath = permissionQueryPath.slice(0, lastDot)
   const exportName = permissionQueryPath.slice(lastDot + 1)
-  const moduleSegments = modulePath.split('/').map((segment) => `'${segment}'`).join(', ')
+  const moduleSegments = modulePath
+    .split('/')
+    .map((segment) => `'${segment}'`)
+    .join(', ')
 
   const permissionsTemplate = addTemplate({
     filename: 'trellis/permissions.ts',

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { api } from '#trellis/api'
+import type { Id } from '~/convex/_generated/dataModel'
+
 /**
  * Why this file exists:
  * This is the optimistic update demo. The task card mutates the board immediately, then the
  * realtime query confirms or rolls it back.
  */
 import type { BoardTask } from './board-task'
-import type { Id } from '~/convex/_generated/dataModel'
 
 const props = defineProps<{
   projectId: Id<'projects'>

@@ -5,10 +5,11 @@
  */
 import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
-import schema from './schema'
+
 import { internal } from './_generated/api'
-import { autoCompoundIndexes } from './expAutoCompound'
 import type { Id } from './_generated/dataModel'
+import { autoCompoundIndexes } from './expAutoCompound'
+import schema from './schema'
 
 const modules = import.meta.glob('./**/*.ts')
 
@@ -16,14 +17,20 @@ const modules = import.meta.glob('./**/*.ts')
 async function setupSeeded(t: any) {
   const org1Id: Id<'organizations'> = await t.run(async (ctx: any) => {
     return ctx.db.insert('organizations', {
-      name: 'Org 1', slug: 'org-1', ownerId: 'owner-1',
-      createdAt: Date.now(), updatedAt: Date.now(),
+      name: 'Org 1',
+      slug: 'org-1',
+      ownerId: 'owner-1',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     })
   })
   const org2Id: Id<'organizations'> = await t.run(async (ctx: any) => {
     return ctx.db.insert('organizations', {
-      name: 'Org 2', slug: 'org-2', ownerId: 'owner-2',
-      createdAt: Date.now(), updatedAt: Date.now(),
+      name: 'Org 2',
+      slug: 'org-2',
+      ownerId: 'owner-2',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     })
   })
   await t.mutation(internal.expAutoCompound.seedAutoCompound, { org1Id, org2Id })
@@ -52,17 +59,17 @@ describe('Exp 9: Auto-Compound Indexes', () => {
     })
 
     // Check compound indexes
-    const byStatus = result.compoundIndexes.find(i => i.name === 'by_status')
+    const byStatus = result.compoundIndexes.find((i) => i.name === 'by_status')
     expect(byStatus!.fields).toEqual(['organizationId', 'status'])
 
-    const byOwner = result.compoundIndexes.find(i => i.name === 'by_owner')
+    const byOwner = result.compoundIndexes.find((i) => i.name === 'by_owner')
     expect(byOwner!.fields).toEqual(['organizationId', 'ownerId'])
 
-    const byStatusDate = result.compoundIndexes.find(i => i.name === 'by_status_date')
+    const byStatusDate = result.compoundIndexes.find((i) => i.name === 'by_status_date')
     expect(byStatusDate!.fields).toEqual(['organizationId', 'status', 'createdAt'])
 
     // Already starts with scope — not double-prepended
-    const byOrgCustom = result.compoundIndexes.find(i => i.name === 'by_org_custom')
+    const byOrgCustom = result.compoundIndexes.find((i) => i.name === 'by_org_custom')
     expect(byOrgCustom!.fields).toEqual(['organizationId', 'priority'])
   })
 
@@ -170,8 +177,11 @@ describe('Exp 9: Auto-Compound Indexes', () => {
 
     const org1Id: Id<'organizations'> = await t.run(async (ctx: any) => {
       return ctx.db.insert('organizations', {
-        name: 'Org 1', slug: 'org-1', ownerId: 'owner-1',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Org 1',
+        slug: 'org-1',
+        ownerId: 'owner-1',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 
@@ -190,8 +200,11 @@ describe('Exp 9: Auto-Compound Indexes', () => {
 
     const org1Id: Id<'organizations'> = await t.run(async (ctx: any) => {
       return ctx.db.insert('organizations', {
-        name: 'Org 1', slug: 'org-1', ownerId: 'owner-1',
-        createdAt: Date.now(), updatedAt: Date.now(),
+        name: 'Org 1',
+        slug: 'org-1',
+        ownerId: 'owner-1',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       })
     })
 

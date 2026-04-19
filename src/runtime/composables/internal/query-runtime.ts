@@ -21,9 +21,9 @@ import {
 } from '../../devtools/runtime.js'
 import { assertConvexComposableScope } from '../../utils/composable-scope.js'
 import { getQueryKey, getFunctionName, hashArgs } from '../../utils/convex-cache.js'
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import { executeQueryViaSubscriptionOnce } from '../../utils/one-shot-subscription.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
+import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import type { QueryStatus } from '../../utils/types.js'
 import {
   createLiveQueryResource,

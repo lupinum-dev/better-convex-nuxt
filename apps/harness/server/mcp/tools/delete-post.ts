@@ -1,15 +1,11 @@
-import {
-  previewRemove,
-  removePostOp,
-  removeWithConfirmation,
-} from '../../../convex/posts'
-import type { FunctionReference } from 'convex/server'
+import { api } from '../../../convex/_generated/api'
 import { postDeletePermission } from '../../../convex/auth/permissions'
+import { removePostOp } from '../../../convex/posts'
 import { tool } from '../runtime'
 
 export default tool.fromOperation(removePostOp, {
-  execute: removeWithConfirmation as unknown as FunctionReference<'mutation', 'public'>,
-  preview: previewRemove as unknown as FunctionReference<'query', 'public'>,
+  execute: api.posts.removeWithConfirmation,
+  preview: api.posts.previewRemove,
   permission: postDeletePermission,
   meta: {
     name: 'delete-post',

@@ -1,12 +1,13 @@
+import { convexTest } from 'convex-test'
 /**
  * Tests for Experiment 15: Operations as imported objects (no manifest).
  */
 import { describe, it, expect } from 'vitest'
-import { convexTest } from 'convex-test'
-import schema from './schema'
+
 import { internal } from './_generated/api'
-import { modules } from './test.setup'
 import type { Id } from './_generated/dataModel'
+import schema from './schema'
+import { modules } from './test.setup'
 
 async function seedOrg(t: any): Promise<Id<'organizations'>> {
   return await t.run(async (ctx: any) =>
@@ -16,7 +17,8 @@ async function seedOrg(t: any): Promise<Id<'organizations'>> {
       ownerId: 'u',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-    }))
+    }),
+  )
 }
 
 describe('Experiment 15: operations as imported objects', () => {
@@ -51,10 +53,10 @@ describe('Experiment 15: operations as imported objects', () => {
     })
 
     // __preview: true via the execute mutation (same function, preview mode).
-    const previewResult = await t.mutation(
-      internal.expOperationsAsObjects.archiveRunbook,
-      { id: rbId, __preview: true },
-    )
+    const previewResult = await t.mutation(internal.expOperationsAsObjects.archiveRunbook, {
+      id: rbId,
+      __preview: true,
+    })
     expect(previewResult).toHaveProperty('preview')
     expect(previewResult).toHaveProperty('confirmationToken')
     const token = previewResult.confirmationToken
@@ -80,10 +82,10 @@ describe('Experiment 15: operations as imported objects', () => {
     })
 
     // Preview with the original title.
-    const previewResult = await t.mutation(
-      internal.expOperationsAsObjects.archiveRunbook,
-      { id: rbId, __preview: true },
-    )
+    const previewResult = await t.mutation(internal.expOperationsAsObjects.archiveRunbook, {
+      id: rbId,
+      __preview: true,
+    })
     const token = previewResult.confirmationToken
 
     // Rename the runbook — confirm block's currentTitle changes.
@@ -118,10 +120,7 @@ describe('Experiment 15: operations as imported objects', () => {
 
   it('15e: tool.fromOperation can reject a safe op used where destructive required', async () => {
     const t = convexTest(schema, modules)
-    const result = await t.query(
-      internal.expOperationsAsObjects.rejectSafeForDestructivePath,
-      {},
-    )
+    const result = await t.query(internal.expOperationsAsObjects.rejectSafeForDestructivePath, {})
     expect(result.kind).toBe('safe')
     expect(result.rejected).toBe(true)
   })

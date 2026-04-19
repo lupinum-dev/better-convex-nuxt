@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url'
 import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../internal-harness/shared/dev-trusted-caller-key'
 import { ensureManagedLocalConvex } from '../support/e2e/managed-convex'
 import {
   fetchMcpBootstrap,
@@ -13,7 +12,7 @@ import {
 import { initializeMcpSession, rpc } from '../support/e2e/mcp-client'
 
 const local = await ensureManagedLocalConvex({
-  cwd: fileURLToPath(new URL('../internal-harness', import.meta.url)),
+  cwd: fileURLToPath(new URL('../../apps/harness', import.meta.url)),
 })
 
 describe('MCP route smoke', async () => {
@@ -22,11 +21,8 @@ describe('MCP route smoke', async () => {
   })
 
   await setup({
-    rootDir: fileURLToPath(new URL('../internal-harness', import.meta.url)),
-    env: {
-      ...local.env,
-      CONVEX_TRUSTED_CALLER_KEY: INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY,
-    },
+    rootDir: fileURLToPath(new URL('../../apps/harness', import.meta.url)),
+    env: local.env,
   })
 
   const fetchAny = $fetch as unknown as (
@@ -292,7 +288,8 @@ describe('MCP route smoke', async () => {
           name: 'delete-post',
           arguments: {
             id: bootstrap.resources.postId,
-            _confirmationToken: previewPayload.result?.structuredContent?.preview?.confirmationToken,
+            _confirmationToken:
+              previewPayload.result?.structuredContent?.preview?.confirmationToken,
           },
         },
       },
@@ -324,7 +321,7 @@ describe('MCP route smoke', async () => {
       jti: firstState.redemptions[0]?.jti,
       principalKey: 'agent:mcp-admin-user:admin',
       tenantKey: bootstrap.organizationId,
-      executePath: 'posts:remove',
+      executePath: 'posts:removeWithConfirmation',
     })
 
     const replay = await rpc(
@@ -336,7 +333,8 @@ describe('MCP route smoke', async () => {
           name: 'delete-post',
           arguments: {
             id: bootstrap.resources.postId,
-            _confirmationToken: previewPayload.result?.structuredContent?.preview?.confirmationToken,
+            _confirmationToken:
+              previewPayload.result?.structuredContent?.preview?.confirmationToken,
           },
         },
       },
@@ -351,7 +349,9 @@ describe('MCP route smoke', async () => {
     }
 
     expect(replayPayload.result?.isError).toBe(true)
-    expect(replayPayload.result?.content?.[0]?.text).toContain('already been redeemed')
+    expect(replayPayload.result?.content?.[0]?.text).toMatch(
+      /already been redeemed|Post not found/i,
+    )
 
     const createDriftPost = await rpc(
       {

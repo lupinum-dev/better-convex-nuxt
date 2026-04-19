@@ -8,8 +8,8 @@
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
-import { taskCreate, workspaceExports, workspaceMembers } from './auth/permissions'
 import { api } from './_generated/api'
+import { taskCreate, workspaceExports, workspaceMembers } from './auth/permissions'
 import * as filesDomain from './domain/files'
 import schema from './schema'
 import { modules } from './test.setup'
@@ -184,9 +184,9 @@ describe('project board example', () => {
       summary: 'A',
     })
 
-    await expect(beta.users.owner.query(api.domain.projects.get, { id: alphaProject })).rejects.toThrow(
-      'Document belongs to a different tenant.',
-    )
+    await expect(
+      beta.users.owner.query(api.domain.projects.get, { id: alphaProject }),
+    ).rejects.toThrow('Document belongs to a different tenant.')
   })
 
   it('returns resource not found when another workspace tries to comment on a task by id', async () => {
@@ -367,7 +367,10 @@ describe('project board example', () => {
     })
 
     const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(
+      api.permissions.context.getPermissionContext,
+      {},
+    )
 
     expect(ownerCtx?.can[taskCreate.key]).toBe(true)
     expect(ownerCtx?.can[workspaceMembers.key]).toBe(true)
@@ -378,7 +381,9 @@ describe('project board example', () => {
   it('returns null context and rejects protected mutations for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(ctx.raw.query(api.permissions.context.getPermissionContext, {})).resolves.toBeNull()
+    await expect(
+      ctx.raw.query(api.permissions.context.getPermissionContext, {}),
+    ).resolves.toBeNull()
     await expect(
       ctx.raw.mutation(api.domain.projects.create, {
         name: 'Anonymous project',
@@ -453,7 +458,9 @@ describe('plan entitlements', () => {
     )
 
     await team.users.owner.mutation(api.domain.workspaces.upgradePlan, { plan: 'pro' })
-    await expect(team.users.owner.query(api.domain.projects.exportProjects, {})).resolves.toContain('One')
+    await expect(team.users.owner.query(api.domain.projects.exportProjects, {})).resolves.toContain(
+      'One',
+    )
   })
 
   it('returns permission context booleans for free and pro workspaces', async () => {

@@ -4,8 +4,8 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
-import { projectCreate } from './auth/permissions'
 import type { Doc, Id } from './_generated/dataModel'
+import { projectCreate } from './auth/permissions'
 import schema from './schema'
 import { modules } from './test.setup'
 type MembershipRole = Doc<'memberships'>['role']
@@ -182,7 +182,10 @@ describe('agency example', () => {
     })
 
     const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
+    const viewerCtx = await team.users.viewer.query(
+      api.permissions.context.getPermissionContext,
+      {},
+    )
 
     expect(ownerCtx?.can[projectCreate.key]).toBe(true)
     expect(viewerCtx?.can[projectCreate.key]).toBe(false)
@@ -191,8 +194,12 @@ describe('agency example', () => {
   it('returns null context and denies the agency dashboard for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(ctx.raw.query(api.permissions.context.getPermissionContext, {})).resolves.toBeNull()
-    await expect(ctx.raw.query(api.domain.dashboard.portfolio, {})).rejects.toThrow('Not authenticated.')
+    await expect(
+      ctx.raw.query(api.permissions.context.getPermissionContext, {}),
+    ).resolves.toBeNull()
+    await expect(ctx.raw.query(api.domain.dashboard.portfolio, {})).rejects.toThrow(
+      'Not authenticated.',
+    )
   })
 
   it('prevents duplicate memberships when joining the same workspace twice', async () => {

@@ -1,3 +1,6 @@
+import { wrapDatabaseReader } from 'convex-helpers/server/rowLevelSecurity'
+import { v } from 'convex/values'
+
 /**
  * Experiment 5: RLS + Pagination Interaction
  *
@@ -6,8 +9,6 @@
  * continuity, and filtering behavior.
  */
 import { internalMutation, internalQuery } from './_generated/server'
-import { v } from 'convex/values'
-import { wrapDatabaseReader } from 'convex-helpers/server/rowLevelSecurity'
 import type { QueryCtx } from './_generated/server'
 
 // ---- RLS rules: filter posts by organizationId ----
@@ -65,9 +66,7 @@ export const paginateWithRls = internalQuery({
       defaultPolicy: 'deny',
     })
 
-    return await wrappedDb
-      .query('posts')
-      .paginate(args.paginationOpts)
+    return await wrappedDb.query('posts').paginate(args.paginationOpts)
   },
 })
 

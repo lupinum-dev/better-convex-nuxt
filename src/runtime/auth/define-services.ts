@@ -10,9 +10,10 @@ export type RestrictedServiceAccess<TTableName extends string = string, TPrincip
     }
   | {
       tenant: 'derived'
-      deriveTenant: (ctx: { principal: TPrincipal; args: Record<string, unknown> }) => MaybePromise<
-        string | null | undefined
-      >
+      deriveTenant: (ctx: {
+        principal: TPrincipal
+        args: Record<string, unknown>
+      }) => MaybePromise<string | null | undefined>
     }
 )
 

@@ -1,3 +1,5 @@
+import { customQuery, customMutation } from 'convex-helpers/server/customFunctions'
+
 /**
  * Experiment 6: Service Principal Structural Detection
  *
@@ -13,13 +15,9 @@ import {
   internalQuery as rawInternalQuery,
   internalMutation as rawInternalMutation,
 } from './_generated/server'
-import { customQuery, customMutation } from 'convex-helpers/server/customFunctions'
 
 // ---- Types ----
-type Principal =
-  | { kind: 'anonymous' }
-  | { kind: 'user'; userId: string }
-  | { kind: 'system' }
+type Principal = { kind: 'anonymous' } | { kind: 'user'; userId: string } | { kind: 'system' }
 
 // ---- Public builders: no auth → anonymous ----
 

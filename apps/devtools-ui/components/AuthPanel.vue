@@ -97,7 +97,9 @@ const authBootstrapJson = computed(() =>
   props.authBootstrapState ? JSON.stringify(props.authBootstrapState, null, 2) : '',
 )
 
-function getDecisionStatusClass(status: TrellisObservationEvent['status'] | null | undefined): string {
+function getDecisionStatusClass(
+  status: TrellisObservationEvent['status'] | null | undefined,
+): string {
   if (status === 'deny' || status === 'error') return 'red'
   if (status === 'allow' || status === 'ok') return 'green'
   return 'gray'
@@ -294,7 +296,10 @@ function getDecisionReason(trace: DecisionTraceState): string {
               <span v-if="event.handler" class="op-60">{{ event.handler }}</span>
               <span class="op-40">{{ formatTime(event.timestamp) }}</span>
             </div>
-            <div v-if="event.details?.message || event.details?.explanation?.reason" class="text-xs op-70">
+            <div
+              v-if="event.details?.message || event.details?.explanation?.reason"
+              class="text-xs op-70"
+            >
               {{ event.details?.message || event.details?.explanation?.reason }}
             </div>
           </div>

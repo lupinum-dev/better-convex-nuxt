@@ -1,3 +1,10 @@
+import { hkdf } from '@noble/hashes/hkdf.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { v } from 'convex/values'
+import type { Validator } from 'convex/values'
+import { SignJWT, jwtVerify } from 'jose'
+
+import { internal } from './_generated/api'
 /**
  * Experiment 15: Operations as imported objects (no manifest)
  *
@@ -22,12 +29,6 @@
  *        reject non-destructive ops when a destructive one is required.
  */
 import { internalMutation, internalQuery } from './_generated/server'
-import { v } from 'convex/values'
-import type { Validator } from 'convex/values'
-import { hkdf } from '@noble/hashes/hkdf.js'
-import { sha256 } from '@noble/hashes/sha2.js'
-import { SignJWT, jwtVerify } from 'jose'
-import { internal } from './_generated/api'
 
 // ============================================================
 // Minimal defineOperation
@@ -48,7 +49,7 @@ function canonicalHash(value: unknown): string {
       return Object.fromEntries(
         Object.keys(x)
           .sort()
-          .map(k => [k, sortKeys(x[k])]),
+          .map((k) => [k, sortKeys(x[k])]),
       )
     }
     return x
@@ -65,7 +66,7 @@ interface OperationConfig<Args, Loaded, Confirm> {
     ctx: any,
     args: Args,
     loaded: Loaded,
-  ) => Promise<{ display: unknown, confirm: Confirm }>
+  ) => Promise<{ display: unknown; confirm: Confirm }>
   handler: (ctx: any, args: Args, loaded: Loaded) => Promise<unknown>
 }
 
@@ -76,9 +77,7 @@ interface OperationConfig<Args, Loaded, Confirm> {
  * expects). Both are built once at module-load time. No codegen, no
  * manifest, no AST walker.
  */
-function defineOperation<Args, Loaded, Confirm>(
-  cfg: OperationConfig<Args, Loaded, Confirm>,
-) {
+function defineOperation<Args, Loaded, Confirm>(cfg: OperationConfig<Args, Loaded, Confirm>) {
   const purpose = 'trellis:mcp-confirmation:v1'
   const previewArgs = cfg.args
   // Execute needs two optional framework fields.
@@ -158,11 +157,9 @@ function defineOperation<Args, Loaded, Confirm>(
           if (!args.__confirmationToken) {
             throw new Error('confirmation token required')
           }
-          const { payload } = await jwtVerify(
-            args.__confirmationToken,
-            deriveKey(purpose),
-            { audience: purpose },
-          )
+          const { payload } = await jwtVerify(args.__confirmationToken, deriveKey(purpose), {
+            audience: purpose,
+          })
           if (payload.callee !== `expOperationsAsObjects:${cfg.name}`) {
             throw new Error('callee mismatch')
           }

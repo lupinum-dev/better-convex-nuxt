@@ -37,10 +37,7 @@ describe('Exp 6: Service Principal Structural Detection', () => {
   it('6c: internal query, no auth → system', async () => {
     const t = convexTest(schema, modules)
 
-    const result = await t.query(
-      internal.expServicePrincipal.getInternalPrincipal,
-      {},
-    )
+    const result = await t.query(internal.expServicePrincipal.getInternalPrincipal, {})
 
     expect(result.kind).toBe('system')
   })
@@ -60,10 +57,7 @@ describe('Exp 6: Service Principal Structural Detection', () => {
   it('6e: public mutation, no auth → anonymous', async () => {
     const t = convexTest(schema, modules)
 
-    const result = await t.mutation(
-      api.expServicePrincipal.getPublicMutationPrincipal,
-      {},
-    )
+    const result = await t.mutation(api.expServicePrincipal.getPublicMutationPrincipal, {})
 
     expect(result.kind).toBe('anonymous')
   })
@@ -73,10 +67,7 @@ describe('Exp 6: Service Principal Structural Detection', () => {
   it('6f: internal mutation, no auth → system', async () => {
     const t = convexTest(schema, modules)
 
-    const result = await t.mutation(
-      internal.expServicePrincipal.getInternalMutationPrincipal,
-      {},
-    )
+    const result = await t.mutation(internal.expServicePrincipal.getInternalMutationPrincipal, {})
 
     expect(result.kind).toBe('system')
   })

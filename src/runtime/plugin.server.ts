@@ -11,7 +11,7 @@
  */
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 
-import { createSharedAuthEngine } from './apps/devtools-ui/auth-engine.js'
+import { createSharedAuthEngine } from './client/auth-engine.js'
 import { projectResolvedAuthForHydration } from './server/utils/auth-hydration.js'
 import { resolveRequestAuth } from './server/utils/auth-resolver.js'
 import type { AuthWaterfall } from './utils/auth-debug.js'
@@ -23,8 +23,8 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from './utils/constants.js'
-import { createRuntimeObserver } from './utils/runtime-observer.js'
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
+import { createRuntimeObserver } from './utils/runtime-observer.js'
 import type { ConvexUser } from './utils/types.js'
 export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()

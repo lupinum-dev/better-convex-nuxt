@@ -42,7 +42,13 @@ function kebabCase(value: string): string {
 function camelCase(value: string): string {
   const parts = kebabCase(value).split('-').filter(Boolean)
   if (parts.length === 0) return 'resource'
-  return parts[0] + parts.slice(1).map((part) => part[0]!.toUpperCase() + part.slice(1)).join('')
+  return (
+    parts[0] +
+    parts
+      .slice(1)
+      .map((part) => part[0]!.toUpperCase() + part.slice(1))
+      .join('')
+  )
 }
 
 function pascalCase(value: string): string {
@@ -148,17 +154,11 @@ export const ${listName} = defineArgs({
 
 function resourcePermissionsTemplate(ctx: ResourceGeneratorContext): string {
   const createCheck =
-    ctx.kind === 'workspace'
-      ? "hasWorkspace.and(hasMinimumRole('member'))"
-      : 'isAuthenticated'
+    ctx.kind === 'workspace' ? "hasWorkspace.and(hasMinimumRole('member'))" : 'isAuthenticated'
   const readCheck =
-    ctx.kind === 'workspace'
-      ? "hasWorkspace.and(hasMinimumRole('viewer'))"
-      : 'isAuthenticated'
+    ctx.kind === 'workspace' ? "hasWorkspace.and(hasMinimumRole('viewer'))" : 'isAuthenticated'
   const deleteCheck =
-    ctx.kind === 'workspace'
-      ? "hasWorkspace.and(hasMinimumRole('member'))"
-      : 'isAuthenticated'
+    ctx.kind === 'workspace' ? "hasWorkspace.and(hasMinimumRole('member'))" : 'isAuthenticated'
   const imports =
     ctx.kind === 'workspace'
       ? "import { hasMinimumRole, hasWorkspace } from './checks'\n"
@@ -267,9 +267,10 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
     'createdAt: now',
     ...(ctx.hasUpdatedAt ? ['updatedAt: now'] : []),
   ].join(',\n      ')
-  const patchFields = [`name: args.name`, ...(ctx.hasUpdatedAt ? ['updatedAt: Date.now()'] : [])].join(
-    ',\n      ',
-  )
+  const patchFields = [
+    `name: args.name`,
+    ...(ctx.hasUpdatedAt ? ['updatedAt: Date.now()'] : []),
+  ].join(',\n      ')
   const removeExport = ctx.hasMcp
     ? `export const remove = mutation(remove${ctx.singularPascal}Op)\n`
     : `export const remove = mutation({
@@ -514,14 +515,14 @@ export default tool({
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { ${ctx.singularCamel}DeletePermission } from '~/convex/auth/permissions'
-import { remove${ctx.singularPascal}Op, previewRemove${ctx.singularPascal} } from '~/convex/operations/${ctx.fileStem}'
-import { remove } from '~/convex/domain/${ctx.fileStem}'
+import { api } from '~/convex/_generated/api'
+import { remove${ctx.singularPascal}Op } from '~/convex/operations/${ctx.fileStem}'
 
 import { tool } from '../runtime'
 
 export default tool.fromOperation(remove${ctx.singularPascal}Op, {
-  execute: remove,
-  preview: previewRemove${ctx.singularPascal},
+  execute: api.domain.${ctx.fileStem}.remove,
+  preview: api.operations.${ctx.fileStem}.previewRemove${ctx.singularPascal},
   permission: ${ctx.singularCamel}DeletePermission,
   meta: {
     name: 'delete-${ctx.fileStem}',
@@ -555,7 +556,9 @@ async function patchSchema(cwd: string, ctx: ResourceGeneratorContext): Promise<
 
   const next = source.replace(/\n\}\)\s*$/, `\n${schemaTableBlock(ctx)}})\n`)
   if (next === source) {
-    throw new Error('[trellis] Could not patch convex/schema.ts. Expected a canonical defineSchema(...) layout.')
+    throw new Error(
+      '[trellis] Could not patch convex/schema.ts. Expected a canonical defineSchema(...) layout.',
+    )
   }
 
   await writeFile(path, next)
@@ -571,10 +574,15 @@ async function patchPermissionAuthoring(cwd: string, ctx: ResourceGeneratorConte
 
   const source = await readFile(authoredPermissionsPath, 'utf8')
   const block = resourcePermissionsTemplate(ctx).trimEnd()
-  const withBlock = source.includes(`export const ${ctx.singularCamel}ReadPermission = definePermission(`)
+  const withBlock = source.includes(
+    `export const ${ctx.singularCamel}ReadPermission = definePermission(`,
+  )
     ? source
     : `${source.trimEnd()}\n\n${block}\n`
-  const next = withBlock.replace(/\]\s+as const/, `,\n  ...${ctx.singularCamel}Permissions,\n] as const`)
+  const next = withBlock.replace(
+    /\]\s+as const/,
+    `,\n  ...${ctx.singularCamel}Permissions,\n] as const`,
+  )
 
   if (next === withBlock) {
     throw new Error(

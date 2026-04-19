@@ -16,7 +16,7 @@ import {
   releaseSharedConnectionStateStore,
   syncConnectionStateSnapshot,
   useSharedConnectionStateStore,
-} from '../../apps/devtools-ui/runtime-hooks.js'
+} from '../../client/runtime-hooks.js'
 import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 
 export type { ConnectionState } from '../../utils/types.js'

@@ -4,7 +4,11 @@ import { computed, watch, type MaybeRefOrGetter, type Ref } from 'vue'
 import { useNuxtData } from '#imports'
 
 import { getFunctionName, getQueryKey } from '../utils/convex-cache.js'
-import { useConvexQuery, type UseConvexQueryOptions, type UseConvexQueryReturn } from './useConvexQuery.js'
+import {
+  useConvexQuery,
+  type UseConvexQueryOptions,
+  type UseConvexQueryReturn,
+} from './useConvexQuery.js'
 
 export type CachedQuerySeedStatus = 'matched' | 'match-missing' | 'source-missing'
 

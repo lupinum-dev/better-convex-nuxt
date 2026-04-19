@@ -3,6 +3,7 @@ import { defineArgs } from '@lupinum/trellis/args'
 import { defineTool } from '#trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
+import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
 
 const schema = defineArgs({
   description: 'List all posts in the current organization',
@@ -15,6 +16,11 @@ export default defineTool({
   operation: 'query',
   auth: 'required',
   scoped: true,
+  enabled: async (event) => {
+    const auth = await resolveHarnessMcpAuth(event)
+    return !!auth?.tenantId
+  },
+  resolveAuth: resolveHarnessMcpAuth,
   handler: async (_args, ctx) => {
     const posts = await ctx.query(api.posts.list, {})
     return ctx.ok(

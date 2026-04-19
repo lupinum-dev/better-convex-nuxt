@@ -33,10 +33,12 @@ type BivariantCallback<TArgs extends unknown[], TResult> = {
 
 type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
 
-type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPreview> = BivariantCallback<
-  [TCtx, HandlerArgs<TArgsValidator>, TLoaded],
-  MaybePromise<TPreview>
->
+type PreviewFn<
+  TCtx,
+  TArgsValidator extends PropertyValidators,
+  TLoaded,
+  TPreview,
+> = BivariantCallback<[TCtx, HandlerArgs<TArgsValidator>, TLoaded], MaybePromise<TPreview>>
 
 export type DestructiveOperationPreview<TDisplay = unknown, TConfirm = unknown> = {
   display: TDisplay
@@ -52,7 +54,15 @@ export type OperationDefinition<
   TLoaded,
   TResult,
   TPreview = unknown,
-> = StructuredHandlerDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TResult> & {
+> = StructuredHandlerDefinition<
+  TCtx,
+  TPrincipal,
+  TActor,
+  TGuard,
+  TArgsValidator,
+  TLoaded,
+  TResult
+> & {
   id?: string
   name?: string
   kind?: OperationKind
@@ -95,9 +105,9 @@ type InferOperationCtx<TDefinition extends OperationShape> = TDefinition['handle
 type InferOperationPrincipal<TDefinition extends OperationShape> =
   InferOperationCtx<TDefinition> extends {
     principal: () => Promise<infer TPrincipal>
-}
-  ? TPrincipal
-  : never
+  }
+    ? TPrincipal
+    : never
 
 type InferActorFromCtx<TCtx> = TCtx extends {
   actor: () => Promise<infer TActor>
@@ -105,15 +115,15 @@ type InferActorFromCtx<TCtx> = TCtx extends {
   ? TActor
   : never
 
-type InferActorFromGuard<TGuard> = TGuard extends StructuredGuard<unknown, infer TActor>
-  ? TActor
-  : never
+type InferActorFromGuard<TGuard> =
+  TGuard extends StructuredGuard<unknown, infer TActor> ? TActor : never
 
-type InferOperationGuard<TDefinition extends OperationShape> = TDefinition['guard'] extends infer TGuard
-  ? TGuard extends StructuredGuard<any, any>
-    ? TGuard
+type InferOperationGuard<TDefinition extends OperationShape> =
+  TDefinition['guard'] extends infer TGuard
+    ? TGuard extends StructuredGuard<any, any>
+      ? TGuard
+      : never
     : never
-  : never
 
 type InferOperationActor<TDefinition extends OperationShape> = FallbackIfUnknownOrNever<
   InferActorFromCtx<InferOperationCtx<TDefinition>>,
@@ -225,7 +235,15 @@ export function previewOf<
     TResult,
     TPreview
   >,
-): StructuredHandlerDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TPreview> {
+): StructuredHandlerDefinition<
+  TCtx,
+  TPrincipal,
+  TActor,
+  TGuard,
+  TArgsValidator,
+  TLoaded,
+  TPreview
+> {
   if (!operation.preview) {
     throw new Error('previewOf() requires an operation with a preview handler.')
   }

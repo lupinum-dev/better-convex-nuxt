@@ -1,3 +1,7 @@
+import { customQuery, customMutation } from 'convex-helpers/server/customFunctions'
+import { wrapDatabaseReader, wrapDatabaseWriter } from 'convex-helpers/server/rowLevelSecurity'
+import { v } from 'convex/values'
+
 /**
  * Experiment 3: Value-Based ctx + Raw DB Resolution
  *
@@ -9,12 +13,6 @@ import {
   mutation as rawMutation,
   internalQuery as rawInternalQuery,
 } from './_generated/server'
-import { v } from 'convex/values'
-import { customQuery, customMutation } from 'convex-helpers/server/customFunctions'
-import {
-  wrapDatabaseReader,
-  wrapDatabaseWriter,
-} from 'convex-helpers/server/rowLevelSecurity'
 import type { QueryCtx } from './_generated/server'
 
 // ---- Types ----
@@ -42,7 +40,7 @@ async function resolveActor(ctx: QueryCtx, principal: Principal): Promise<Actor 
   // Use raw ctx.db — no RLS wrapping during resolution
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', q => q.eq('authId', principal.userId))
+    .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))
     .first()
   if (!user || !user.organizationId) return null
   return {
@@ -106,7 +104,7 @@ const trellisPublicQuery = customQuery(rawQuery, {
     return {
       ctx: {
         principal,
-        actor,  // Actor | null
+        actor, // Actor | null
         db,
         unsafeDb: ctx.db,
         rawDb: ctx.db,

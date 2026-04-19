@@ -1,10 +1,7 @@
 import { useRuntimeConfig } from '#imports'
 
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config.js'
-import {
-  normalizeAuthCacheTtl,
-  normalizePermissionQueryPath,
-} from './config-normalization.js'
+import { normalizeAuthCacheTtl, normalizePermissionQueryPath } from './config-normalization.js'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
 import {
   normalizeObservabilityConfig,
@@ -91,7 +88,9 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
         ? authRaw.trustedOrigins.filter((v: unknown): v is string => typeof v === 'string')
         : [],
       skipAuthTokenFetchRoutes: Array.isArray(authRaw?.skipAuthTokenFetchRoutes)
-        ? authRaw.skipAuthTokenFetchRoutes.filter((v: unknown): v is string => typeof v === 'string')
+        ? authRaw.skipAuthTokenFetchRoutes.filter(
+            (v: unknown): v is string => typeof v === 'string',
+          )
         : [],
       cache: {
         enabled: cacheRaw?.enabled === true,

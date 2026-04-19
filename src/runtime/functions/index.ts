@@ -29,9 +29,9 @@ import type { ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 import { hash } from 'ohash'
 
-import { can, deny } from '../auth/index.js'
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
+import { can, deny } from '../auth/index.js'
 import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
 import { setTrustedCallerContext } from '../trusted-caller/index.js'
 import { trustedCallerValidators } from '../trusted-caller/shared.js'
@@ -101,9 +101,7 @@ type DataCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
 
-type AnyCtx<DataModel extends GenericDataModel> =
-  | DataCtx<DataModel>
-  | GenericActionCtx<DataModel>
+type AnyCtx<DataModel extends GenericDataModel> = DataCtx<DataModel> | GenericActionCtx<DataModel>
 
 export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
@@ -137,19 +135,17 @@ type MutationDbWithRuntime<DataModel extends GenericDataModel> =
 type AnyCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> = AnyCtx<DataModel> &
   FunctionsCtxExtension<TPrincipal, TActor>
 
-type QueryCtxWithRuntime<
-  DataModel extends GenericDataModel,
-  TPrincipal,
-  TActor,
-> = Omit<GenericQueryCtx<DataModel>, 'db'> & {
+type QueryCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> = Omit<
+  GenericQueryCtx<DataModel>,
+  'db'
+> & {
   db: QueryDbWithRuntime<DataModel>
 } & FunctionsCtxExtension<TPrincipal, TActor>
 
-type MutationCtxWithRuntime<
-  DataModel extends GenericDataModel,
-  TPrincipal,
-  TActor,
-> = Omit<GenericMutationCtx<DataModel>, 'db'> & {
+type MutationCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> = Omit<
+  GenericMutationCtx<DataModel>,
+  'db'
+> & {
   db: MutationDbWithRuntime<DataModel>
 } & FunctionsCtxExtension<TPrincipal, TActor>
 
@@ -544,7 +540,9 @@ async function resolveServiceAccess<DataModel extends GenericDataModel, TPrincip
 
   const service = options.services?.[principal.serviceId]
   if (!service) {
-    throw new Error(`Service "${principal.serviceId}" is not configured in defineTrellis({ services }).`)
+    throw new Error(
+      `Service "${principal.serviceId}" is not configured in defineTrellis({ services }).`,
+    )
   }
 
   if (service.access === 'unrestricted') {
@@ -591,12 +589,8 @@ function buildServiceRules<DataModel extends GenericDataModel, TPrincipal, TActo
 }
 
 function combineRuleCheck<Ctx, Doc>(
-  left:
-    | ((ctx: Ctx, doc: Doc) => Promise<boolean> | boolean)
-    | undefined,
-  right:
-    | ((ctx: Ctx, doc: Doc) => Promise<boolean> | boolean)
-    | undefined,
+  left: ((ctx: Ctx, doc: Doc) => Promise<boolean> | boolean) | undefined,
+  right: ((ctx: Ctx, doc: Doc) => Promise<boolean> | boolean) | undefined,
 ) {
   if (!left) return right
   if (!right) return left
@@ -801,16 +795,16 @@ function createContextWithRuntime<
 
   let principalPromise: Promise<TPrincipal> | null = null
   const principal: PrincipalAccessor<TPrincipal> = async () => {
-    principalPromise ??= Promise.resolve(principalResolver.resolve(ctxWithTrustedCaller, appArgs)).then(
-      async (value) => {
-        await observe({
-          name: 'principal.resolved',
-          status: 'success',
-          principalKind: describePrincipalKind(value),
-        })
-        return value
-      },
-    )
+    principalPromise ??= Promise.resolve(
+      principalResolver.resolve(ctxWithTrustedCaller, appArgs),
+    ).then(async (value) => {
+      await observe({
+        name: 'principal.resolved',
+        status: 'success',
+        principalKind: describePrincipalKind(value),
+      })
+      return value
+    })
     return await principalPromise
   }
 
@@ -869,10 +863,7 @@ function decorateDb<TDb extends object>(
   crossTenantDb: TDb,
   observe: ObserveFn,
 ): TDb & { raw: TDb; crossTenant: TDb } {
-  const instrument = (
-    targetDb: TDb,
-    name: 'db.raw.used' | 'db.cross_tenant.used',
-  ): TDb =>
+  const instrument = (targetDb: TDb, name: 'db.raw.used' | 'db.cross_tenant.used'): TDb =>
     new Proxy(targetDb, {
       get(target, prop, receiver) {
         const original = Reflect.get(target, prop, receiver)
@@ -932,7 +923,9 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
   const principalDefinition = resolvePrincipal(options.principal)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
-    ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    ...(principalDefinition.validator
+      ? { principal: v.optional(principalDefinition.validator) }
+      : {}),
     ...trustedCallerValidators,
     ...buildObservationEnvelopeValidators(),
   }
@@ -985,7 +978,9 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
   const principalDefinition = resolvePrincipal(options.principal)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
-    ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    ...(principalDefinition.validator
+      ? { principal: v.optional(principalDefinition.validator) }
+      : {}),
     ...trustedCallerValidators,
     ...buildObservationEnvelopeValidators(),
   }
@@ -1000,7 +995,11 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
         principalDefinition,
         actorResolver,
       )
-      const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(baseCtx, args, options)
+      const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(
+        baseCtx,
+        args,
+        options,
+      )
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
       let db = dbRules
@@ -1046,7 +1045,9 @@ function createActionCustomization<DataModel extends GenericDataModel, TPrincipa
   const principalDefinition = resolvePrincipal(options.principal)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
-    ...(principalDefinition.validator ? { principal: v.optional(principalDefinition.validator) } : {}),
+    ...(principalDefinition.validator
+      ? { principal: v.optional(principalDefinition.validator) }
+      : {}),
     ...trustedCallerValidators,
     ...buildObservationEnvelopeValidators(),
   }
@@ -1127,7 +1128,11 @@ function buildStructuredMutationRuntime<
 >(
   builder: unknown,
   options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
-): StructuredMutationBuilder<MutationCtxWithRuntime<DataModel, TPrincipal, TActor>, Visibility, TActor> {
+): StructuredMutationBuilder<
+  MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+  Visibility,
+  TActor
+> {
   const structured = buildStructuredBuilder<
     MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
     TPrincipal,
@@ -1175,7 +1180,12 @@ function buildStructuredMutationRuntime<
     const originalAuthorize = definition.authorize as
       | {
           label?: string
-          check: (actor: unknown, loaded: unknown, args: unknown, ctx: unknown) => Promise<unknown> | unknown
+          check: (
+            actor: unknown,
+            loaded: unknown,
+            args: unknown,
+            ctx: unknown,
+          ) => Promise<unknown> | unknown
         }
       | undefined
     const originalHandler = definition.handler as (
@@ -1195,14 +1205,34 @@ function buildStructuredMutationRuntime<
         ? async (
             ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
             rawArgs: Record<string, unknown>,
-          ) =>
-            await originalLoad(ctx, stripConfirmationToken(rawArgs))
+          ) => {
+            if (getConfirmationToken(rawArgs)) {
+              return undefined
+            }
+
+            return await originalLoad(ctx, stripConfirmationToken(rawArgs))
+          }
         : undefined,
       authorize: originalAuthorize
         ? {
             ...originalAuthorize,
-            check: async (actor: unknown, loaded: unknown, rawArgs: Record<string, unknown>, ctx: unknown) =>
-              await originalAuthorize.check(actor, loaded, stripConfirmationToken(rawArgs), ctx),
+            check: async (
+              actor: unknown,
+              loaded: unknown,
+              rawArgs: Record<string, unknown>,
+              ctx: unknown,
+            ) => {
+              if (getConfirmationToken(rawArgs)) {
+                return true
+              }
+
+              return await originalAuthorize.check(
+                actor,
+                loaded,
+                stripConfirmationToken(rawArgs),
+                ctx,
+              )
+            },
           }
         : undefined,
       handler: async (
@@ -1242,8 +1272,7 @@ function buildStructuredMutationRuntime<
               explanation: createDenialExplanation({
                 reasonCode: 'tool.confirmation_mismatch',
                 decision: 'destructive_confirm',
-                message:
-                  'Confirmation token no longer matches the destructive request arguments.',
+                message: 'Confirmation token no longer matches the destructive request arguments.',
                 suggestedAction: 'retry_with_confirmation',
               }),
             },
@@ -1272,9 +1301,7 @@ function buildStructuredMutationRuntime<
           throw new Error('Confirmation token has already been redeemed.')
         }
 
-        const freshLoaded = originalLoad
-          ? await originalLoad(ctx, executeArgs)
-          : undefined
+        const freshLoaded = originalLoad ? await originalLoad(ctx, executeArgs) : undefined
 
         if (originalAuthorize) {
           const actor = await ctx.actor()
@@ -1441,12 +1468,10 @@ function buildTrellisRuntime<
       QueryVisibility,
       TActor
     >,
-    mutation: buildStructuredMutationRuntime<
-      DataModel,
-      MutationVisibility,
-      TPrincipal,
-      TActor
-    >(raw.mutation, options),
+    mutation: buildStructuredMutationRuntime<DataModel, MutationVisibility, TPrincipal, TActor>(
+      raw.mutation,
+      options,
+    ),
   }
 
   const structuredInternal =

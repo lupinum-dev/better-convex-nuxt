@@ -1,5 +1,7 @@
 import { getHeader, type H3Event } from 'h3'
 
+import type { MiniCmsPrincipal } from '~/shared/principal'
+
 import {
   createPagePermission,
   listDraftPagesPermission,
@@ -8,7 +10,6 @@ import {
   saveDraftPermission,
   type MiniCmsPermissionKey,
 } from '../../convex/auth/permissions'
-import type { MiniCmsPrincipal } from '~/shared/principal'
 
 export type CapabilitySnapshot = Record<MiniCmsPermissionKey, boolean>
 

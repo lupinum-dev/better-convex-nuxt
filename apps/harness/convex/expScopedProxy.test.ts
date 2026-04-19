@@ -7,9 +7,10 @@
  */
 import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
-import schema from './schema'
+
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
+import schema from './schema'
 
 // Helper: import test modules
 const modules = import.meta.glob('./**/*.ts')
@@ -57,53 +58,36 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
     })
 
     // Paginate with AUTO-INDEX approach (Approach A) — page size 5
-    const indexResult = await t.query(
-      internal.expScopedProxy.test8aPaginateAutoIndex,
-      {
-        organizationId: org1Id,
-        paginationOpts: { numItems: 5, cursor: null },
-      },
-    )
+    const indexResult = await t.query(internal.expScopedProxy.test8aPaginateAutoIndex, {
+      organizationId: org1Id,
+      paginationOpts: { numItems: 5, cursor: null },
+    })
 
     // Paginate with POST-FETCH FILTER approach (Approach C) — page size 5
-    const filterResult = await t.query(
-      internal.expScopedProxy.test8aPaginateFilter,
-      {
-        organizationId: org1Id,
-        paginationOpts: { numItems: 5, cursor: null },
-      },
-    )
+    const filterResult = await t.query(internal.expScopedProxy.test8aPaginateFilter, {
+      organizationId: org1Id,
+      paginationOpts: { numItems: 5, cursor: null },
+    })
 
     // Index approach: should get EXACTLY 5 posts (full page)
     // because the index only returns org1 posts
-    console.log(
-      `Index approach: ${indexResult.page.length} items (requested 5)`,
-    )
-    console.log(
-      `Filter approach: ${filterResult.page.length} items (requested 5)`,
-    )
+    console.log(`Index approach: ${indexResult.page.length} items (requested 5)`)
+    console.log(`Filter approach: ${filterResult.page.length} items (requested 5)`)
 
     // The index approach should always give full pages
     expect(indexResult.page.length).toBe(5)
     // All posts should be from org1
-    expect(
-      indexResult.page.every(
-        (p: any) => p.organizationId === (org1Id as string),
-      ),
-    ).toBe(true)
+    expect(indexResult.page.every((p: any) => p.organizationId === (org1Id as string))).toBe(true)
 
     // Collect ALL pages via index approach
     let allIndexPosts: any[] = []
     let cursor = null
     let isDone = false
     while (!isDone) {
-      const page = await t.query(
-        internal.expScopedProxy.test8aPaginateAutoIndex,
-        {
-          organizationId: org1Id,
-          paginationOpts: { numItems: 5, cursor },
-        },
-      )
+      const page = await t.query(internal.expScopedProxy.test8aPaginateAutoIndex, {
+        organizationId: org1Id,
+        paginationOpts: { numItems: 5, cursor },
+      })
       allIndexPosts = allIndexPosts.concat(page.page)
       cursor = page.continueCursor
       isDone = page.isDone
@@ -111,11 +95,7 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
 
     // Should get exactly 10 posts (all org1)
     expect(allIndexPosts.length).toBe(10)
-    expect(
-      allIndexPosts.every(
-        (p: any) => p.organizationId === (org1Id as string),
-      ),
-    ).toBe(true)
+    expect(allIndexPosts.every((p: any) => p.organizationId === (org1Id as string))).toBe(true)
   })
 
   // ---- 8b: Compound index with scope prepend ----
@@ -240,10 +220,10 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
       })
     })
 
-    const results = await t.mutation(
-      internal.expScopedProxy.test8cWriteEnforcement,
-      { org1Id, org2Id },
-    )
+    const results = await t.mutation(internal.expScopedProxy.test8cWriteEnforcement, {
+      org1Id,
+      org2Id,
+    })
 
     // Insert with correct scope succeeds
     expect(results.insertCorrect).not.toContain('ERROR')
@@ -269,7 +249,7 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
 
   // ---- 8d: Trigger auto-scoping ----
 
-  it('8d: trigger scopes to triggering document\'s org', async () => {
+  it("8d: trigger scopes to triggering document's org", async () => {
     const t = convexTest(schema, modules)
 
     const org1Id: Id<'organizations'> = await t.run(async (ctx) => {
@@ -291,10 +271,10 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
       })
     })
 
-    const result = await t.mutation(
-      internal.expScopedProxy.test8dTriggerScoping,
-      { org1Id, org2Id },
-    )
+    const result = await t.mutation(internal.expScopedProxy.test8dTriggerScoping, {
+      org1Id,
+      org2Id,
+    })
 
     // Two triggers should have fired (one per insert)
     expect(result.triggerCount).toBe(2)
@@ -368,9 +348,7 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
     expect(result.count).toBe(5)
     expect(result.titles.every((t: string) => t.startsWith('Org1'))).toBe(true)
     // Verify all belong to org1
-    expect(result.orgs.every((o: string) => o === (org1Id as string))).toBe(
-      true,
-    )
+    expect(result.orgs.every((o: string) => o === (org1Id as string))).toBe(true)
   })
 
   it('8f: hybrid still uses compound index optimization when available', async () => {
@@ -401,10 +379,10 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
     })
 
     // User uses compound index — proxy prepends scope (optimized path)
-    const result = await t.query(
-      internal.expScopedProxy.test8fCompoundOptimization,
-      { organizationId: org1Id, status: 'published' },
-    )
+    const result = await t.query(internal.expScopedProxy.test8fCompoundOptimization, {
+      organizationId: org1Id,
+      status: 'published',
+    })
 
     expect(result.count).toBe(5)
     expect(result.titles.every((t: string) => t.startsWith('Org1'))).toBe(true)
@@ -438,27 +416,18 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
     })
 
     // Paginate with user index + .filter() scope — page size 3
-    const page1 = await t.query(
-      internal.expScopedProxy.test8fPaginateWithUserIndex,
-      {
-        organizationId: org1Id,
-        paginationOpts: { numItems: 3, cursor: null },
-      },
-    )
+    const page1 = await t.query(internal.expScopedProxy.test8fPaginateWithUserIndex, {
+      organizationId: org1Id,
+      paginationOpts: { numItems: 3, cursor: null },
+    })
 
-    console.log(
-      `Hybrid .filter() pagination: ${page1.page.length} items (requested 3)`,
-    )
+    console.log(`Hybrid .filter() pagination: ${page1.page.length} items (requested 3)`)
     console.log(
       `All org1? ${page1.page.every((p: any) => p.organizationId === (org1Id as string))}`,
     )
 
     // All returned posts should be from org1 and published
-    expect(
-      page1.page.every(
-        (p: any) => p.organizationId === (org1Id as string),
-      ),
-    ).toBe(true)
+    expect(page1.page.every((p: any) => p.organizationId === (org1Id as string))).toBe(true)
     expect(page1.page.every((p: any) => p.status === 'published')).toBe(true)
 
     // Collect all pages
@@ -466,13 +435,10 @@ describe('Exp 8: Trellis-Owned Scope Proxy', () => {
     let cursor = page1.continueCursor
     let isDone = page1.isDone
     while (!isDone) {
-      const nextPage = await t.query(
-        internal.expScopedProxy.test8fPaginateWithUserIndex,
-        {
-          organizationId: org1Id,
-          paginationOpts: { numItems: 3, cursor },
-        },
-      )
+      const nextPage = await t.query(internal.expScopedProxy.test8fPaginateWithUserIndex, {
+        organizationId: org1Id,
+        paginationOpts: { numItems: 3, cursor },
+      })
       allPosts = allPosts.concat(nextPage.page)
       cursor = nextPage.continueCursor
       isDone = nextPage.isDone

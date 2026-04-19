@@ -1,7 +1,4 @@
-import {
-  resolvePermissionLabel,
-  type ErasedPermissionDefinition,
-} from './define-permission.js'
+import { resolvePermissionLabel, type ErasedPermissionDefinition } from './define-permission.js'
 
 export type PermissionMatrixRow<TKey extends string = string> = {
   key: TKey

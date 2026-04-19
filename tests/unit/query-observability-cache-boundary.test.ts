@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { getQueryKey } from '../../src/runtime/utils/convex-shared'
-import { stripObservationEnvelope, withObservationEnvelope } from '../../src/runtime/utils/observability'
+import {
+  stripObservationEnvelope,
+  withObservationEnvelope,
+} from '../../src/runtime/utils/observability'
 
 describe('query observability cache boundary', () => {
   it('keeps the local query key stable when only __trellis changes', () => {

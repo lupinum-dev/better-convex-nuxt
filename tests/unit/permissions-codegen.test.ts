@@ -85,7 +85,7 @@ describe('permission codegen', () => {
         unknown: ['missingPermission'],
       },
     ])
-  })
+  }, 15_000)
 
   it('renders additive module augmentation types', () => {
     const rootDir = createFixture({

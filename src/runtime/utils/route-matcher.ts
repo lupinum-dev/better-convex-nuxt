@@ -1,6 +1,6 @@
 /**
  * Route matching utility for skip auth routes.
- * Supports glob patterns like '/apps/docs/**' and '/blog/*'
+ * Supports glob patterns like '/docs/**' and '/blog/*'
  */
 
 /**
@@ -9,7 +9,7 @@
  * Supported patterns:
  * - Exact match: '/about' matches only '/about'
  * - Single wildcard: '/blog/*' matches '/blog/post' but not '/blog/post/comments'
- * - Double wildcard: '/apps/docs/**' matches '/docs', '/apps/docs/guide', '/apps/docs/guide/auth'
+ * - Double wildcard: '/docs/**' matches '/docs', '/docs/guide', '/docs/guide/auth'
  *
  * @param path - The current route path
  * @param patterns - Array of patterns to match against

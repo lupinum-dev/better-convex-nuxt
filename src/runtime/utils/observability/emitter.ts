@@ -1,5 +1,5 @@
-import { normalizeObservabilityConfig } from './config.js'
 import { emitObservationCapture } from './capture.js'
+import { normalizeObservabilityConfig } from './config.js'
 import { deliverObservationToEvlog } from './evlog-bridge.js'
 import type {
   NormalizedTrellisObservabilityConfig,
@@ -42,11 +42,7 @@ function levelAllowsEvent(
   return criticalEvents.has(name)
 }
 
-function safeLogInternalFailure(
-  phase: string,
-  error: unknown,
-  event?: PartialObservationEvent,
-) {
+function safeLogInternalFailure(phase: string, error: unknown, event?: PartialObservationEvent) {
   try {
     console.warn('[trellis][observability] internal failure', {
       phase,

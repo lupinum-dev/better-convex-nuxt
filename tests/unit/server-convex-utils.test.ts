@@ -176,11 +176,7 @@ describe('server Convex fetch helpers', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    await serverConvexAction(
-      createEvent(),
-      { _path: 'notes:sync' } as never,
-      { id: 'n1' } as never,
-    )
+    await serverConvexAction(createEvent(), { _path: 'notes:sync' } as never, { id: 'n1' } as never)
 
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const body = JSON.parse(String(init.body))
@@ -341,10 +337,12 @@ describe('server Convex fetch helpers', () => {
     const body = JSON.parse(String(init.body))
     expect(body.args.__trellis).toBeUndefined()
     const correlationId = (
-      (capture.events.find((event) => event.name === 'mutation.completed') as {
-        correlationId?: string
-      } | undefined)?.correlationId
-    )
+      capture.events.find((event) => event.name === 'mutation.completed') as
+        | {
+            correlationId?: string
+          }
+        | undefined
+    )?.correlationId
     expect(correlationId).toBeTypeOf('string')
     expect(capture.events).toEqual(
       expect.arrayContaining([
@@ -503,14 +501,14 @@ describe('server Convex fetch helpers', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await serverConvexQuery(event, { _path: 'notes:list' } as never, { limit: 1 } as never)
-    await serverConvexMutation(
-      event,
-      { _path: 'notes:add' } as never,
-      { title: 'Hello' } as never,
-    )
+    await serverConvexMutation(event, { _path: 'notes:add' } as never, { title: 'Hello' } as never)
 
     const bodies = fetchMock.mock.calls
-      .filter((call) => String((call as unknown[])[0]).includes('/api/query') || String((call as unknown[])[0]).includes('/api/mutation'))
+      .filter(
+        (call) =>
+          String((call as unknown[])[0]).includes('/api/query') ||
+          String((call as unknown[])[0]).includes('/api/mutation'),
+      )
       .map((call) => JSON.parse(String(((call as unknown[])[1] as RequestInit).body)))
     expect(bodies[0].args.__trellis).toBeUndefined()
     expect(bodies[1].args.__trellis).toBeUndefined()

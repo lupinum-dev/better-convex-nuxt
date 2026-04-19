@@ -1,5 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
 import * as evlog from 'evlog'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+
+import { createObservationCapture } from '../../src/runtime/testing'
 import {
   createObservationEmitter,
   createWideSummary,
@@ -9,7 +11,6 @@ import {
   withObservationEnvelope,
 } from '../../src/runtime/utils/observability'
 import { createRuntimeObserver } from '../../src/runtime/utils/runtime-observer'
-import { createObservationCapture } from '../../src/runtime/testing'
 
 const evlogMock = vi.hoisted(() => ({
   initLogger: vi.fn(),
@@ -148,11 +149,11 @@ describe('observability', () => {
   })
 
   it('never throws if evlog delivery fails', async () => {
-    ;(evlog as unknown as { __evlogMock: typeof evlogMock }).__evlogMock.log.info.mockImplementation(
-      () => {
-        throw new Error('evlog down')
-      },
-    )
+    ;(
+      evlog as unknown as { __evlogMock: typeof evlogMock }
+    ).__evlogMock.log.info.mockImplementation(() => {
+      throw new Error('evlog down')
+    })
 
     const emitter = createObservationEmitter(
       {

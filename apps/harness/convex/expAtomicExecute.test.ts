@@ -46,19 +46,16 @@ describe('Exp 4: Atomic Execute Mutation', () => {
     const { postId } = await seedPost(t)
 
     // Preview
-    const previewResult = await t.mutation(
-      internal.expAtomicExecute.preview,
-      { postId },
-    )
+    const previewResult = await t.mutation(internal.expAtomicExecute.preview, { postId })
     expect(previewResult.preview.operation).toBe('deletePost')
     expect(previewResult.preview.targetTitle).toBe('Test Post')
     expect(previewResult.token).toBeTruthy()
 
     // Execute with the preview token
-    const executeResult = await t.mutation(
-      internal.expAtomicExecute.execute,
-      { token: previewResult.token, postId },
-    )
+    const executeResult = await t.mutation(internal.expAtomicExecute.execute, {
+      token: previewResult.token,
+      postId,
+    })
     expect(executeResult.success).toBe(true)
     expect(executeResult.deletedPostId).toBe(postId)
     expect(executeResult.auditWritten).toBe(true)
@@ -89,14 +86,8 @@ describe('Exp 4: Atomic Execute Mutation', () => {
     const { postId } = await seedPost(t)
 
     // Preview + first execute (succeeds)
-    const { token } = await t.mutation(
-      internal.expAtomicExecute.preview,
-      { postId },
-    )
-    await t.mutation(
-      internal.expAtomicExecute.execute,
-      { token, postId },
-    )
+    const { token } = await t.mutation(internal.expAtomicExecute.preview, { postId })
+    await t.mutation(internal.expAtomicExecute.execute, { token, postId })
 
     // Second execute with same token — post is already deleted,
     // but jti check should fire first. We need a new post for the
@@ -127,26 +118,19 @@ describe('Exp 4: Atomic Execute Mutation', () => {
     //
     // Let's test this differently: manually insert a jti entry, then try execute.
     const { postId: postId2 } = await seedPost(t, 'Test Post 2')
-    const { token: token2 } = await t.mutation(
-      internal.expAtomicExecute.preview,
-      { postId: postId2 },
-    )
+    const { token: token2 } = await t.mutation(internal.expAtomicExecute.preview, {
+      postId: postId2,
+    })
 
     // First execute succeeds
-    await t.mutation(
-      internal.expAtomicExecute.execute,
-      { token: token2, postId: postId2 },
-    )
+    await t.mutation(internal.expAtomicExecute.execute, { token: token2, postId: postId2 })
 
     // Seed another post with same title and try to abuse the token.
     // But really we just need to show that the jti is checked.
     // Seed a third post, preview it, manually insert the jti from the preview
     // token into the jti log, then try to execute — should fail at step 7.
     const { postId: postId3 } = await seedPost(t, 'Replay Target')
-    const preview3 = await t.mutation(
-      internal.expAtomicExecute.preview,
-      { postId: postId3 },
-    )
+    const preview3 = await t.mutation(internal.expAtomicExecute.preview, { postId: postId3 })
 
     // Decode the JWT to extract the jti (without verification, just for test setup)
     const [, payloadB64] = preview3.token.split('.')
@@ -162,10 +146,7 @@ describe('Exp 4: Atomic Execute Mutation', () => {
 
     // Execute should fail with "jti already redeemed"
     await expect(
-      t.mutation(
-        internal.expAtomicExecute.execute,
-        { token: preview3.token, postId: postId3 },
-      ),
+      t.mutation(internal.expAtomicExecute.execute, { token: preview3.token, postId: postId3 }),
     ).rejects.toThrow('jti already redeemed')
 
     // Verify the post was NOT deleted (atomic rollback)
@@ -181,10 +162,7 @@ describe('Exp 4: Atomic Execute Mutation', () => {
     const { postId } = await seedPost(t, 'Original Title')
 
     // Preview with original title
-    const { token } = await t.mutation(
-      internal.expAtomicExecute.preview,
-      { postId },
-    )
+    const { token } = await t.mutation(internal.expAtomicExecute.preview, { postId })
 
     // Mutate the post title between preview and execute
     await t.run(async (ctx) => {
@@ -192,12 +170,9 @@ describe('Exp 4: Atomic Execute Mutation', () => {
     })
 
     // Execute should fail — previewHash mismatch (drift detected)
-    await expect(
-      t.mutation(
-        internal.expAtomicExecute.execute,
-        { token, postId },
-      ),
-    ).rejects.toThrow('Preview hash mismatch')
+    await expect(t.mutation(internal.expAtomicExecute.execute, { token, postId })).rejects.toThrow(
+      'Preview hash mismatch',
+    )
 
     // Post should still exist
     const post = await t.run(async (ctx) => {
@@ -213,17 +188,11 @@ describe('Exp 4: Atomic Execute Mutation', () => {
     const { postId: postId2 } = await seedPost(t, 'Post Two')
 
     // Preview for post1
-    const { token } = await t.mutation(
-      internal.expAtomicExecute.preview,
-      { postId: postId1 },
-    )
+    const { token } = await t.mutation(internal.expAtomicExecute.preview, { postId: postId1 })
 
     // Execute with post2's id — argsHash won't match
     await expect(
-      t.mutation(
-        internal.expAtomicExecute.execute,
-        { token, postId: postId2 },
-      ),
+      t.mutation(internal.expAtomicExecute.execute, { token, postId: postId2 }),
     ).rejects.toThrow('Args hash mismatch')
 
     // Both posts should still exist
@@ -238,17 +207,13 @@ describe('Exp 4: Atomic Execute Mutation', () => {
     const { postId } = await seedPost(t)
 
     // Mint an already-expired token
-    const { token: expiredToken } = await t.mutation(
-      internal.expAtomicExecute.mintExpiredToken,
-      { postId },
-    )
+    const { token: expiredToken } = await t.mutation(internal.expAtomicExecute.mintExpiredToken, {
+      postId,
+    })
 
     // Execute should fail at JWT verification (step 1)
     await expect(
-      t.mutation(
-        internal.expAtomicExecute.execute,
-        { token: expiredToken, postId },
-      ),
+      t.mutation(internal.expAtomicExecute.execute, { token: expiredToken, postId }),
     ).rejects.toThrow()
 
     // Post should still exist

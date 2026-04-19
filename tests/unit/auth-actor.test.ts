@@ -135,9 +135,7 @@ describe('defineActor', () => {
         .resolve(
           createCtx({
             identity: { subject: 'missing' },
-            users: [
-              { _id: 'user-1', authId: 'alice', role: 'member', workspaceId: 'workspace-1' },
-            ],
+            users: [{ _id: 'user-1', authId: 'alice', role: 'member', workspaceId: 'workspace-1' }],
           }),
         ),
     ).rejects.toThrow(/Expected a Trellis users row for auth subject \\"missing\\"/)

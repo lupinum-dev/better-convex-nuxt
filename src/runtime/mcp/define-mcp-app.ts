@@ -5,14 +5,11 @@ import { hash } from 'ohash'
 import type { ZodRawShape } from 'zod'
 
 import {
-  getOperationMetadata,
-  type OperationKind,
-} from '../functions/define-operation.js'
-import {
   resolvePermissionKey,
   type PermissionHandle,
   type RegisteredPermissionKey,
 } from '../auth/define-permission.js'
+import { getOperationMetadata, type OperationKind } from '../functions/define-operation.js'
 import {
   getFunctionName,
   type AnyActionFunction,
@@ -199,16 +196,9 @@ export interface ToolFromOperationOptions<
   TExecute extends AnyFunctionRef = AnyMutationRef,
   TPreview extends AnyFunctionRef | undefined = undefined,
 > extends Omit<
-    ToolOptions<
-      AnyConvexSchema,
-      TPrincipal,
-      TCapabilities,
-      TRuntime,
-      TExecute,
-      TPreview
-    >,
-    'schema' | 'call' | 'preview' | 'operation' | 'previewOperation'
-  > {
+  ToolOptions<AnyConvexSchema, TPrincipal, TCapabilities, TRuntime, TExecute, TPreview>,
+  'schema' | 'call' | 'preview' | 'operation' | 'previewOperation'
+> {
   execute: TExecute
   preview?: TPreview
   executeOperation?: ConvexToolOperation
@@ -280,12 +270,7 @@ function normalizePreviewDisplay(raw: string | PreviewResult): PreviewResult {
 }
 
 function isOperationPreviewPayload(value: unknown): value is OperationPreviewPayload {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'display' in value &&
-    'confirm' in value
-  )
+  return typeof value === 'object' && value !== null && 'display' in value && 'confirm' in value
 }
 
 function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
@@ -348,10 +333,8 @@ export function defineMcpApp<
       cached = (async () => {
         const config = createObservationEmitter(options.observability).config
         const headerName = config.correlation.header
-        const eventContext = ((event.context as Record<string, unknown> | undefined) ?? {}) as Record<
-          string,
-          unknown
-        >
+        const eventContext = ((event.context as Record<string, unknown> | undefined) ??
+          {}) as Record<string, unknown>
         ;(event as { context?: Record<string, unknown> }).context = eventContext
         const observationState = getEventObservationState(eventContext)
         const existingCorrelationId =
@@ -700,35 +683,36 @@ export function defineMcpApp<
       outputSchema: options.outputSchema,
       group: options.group,
       tags: options.tags,
-      middleware: options.rateLimit || options.middleware
-        ? async (args, ctx, next) => {
-            if (options.rateLimit) {
-              const projectionCtx = await resolve(ctx.event)
-              const bucket = [
-                options.meta?.name ?? metadata.name ?? metadata.id,
-                principalKeyResolver(projectionCtx.principal),
-              ].join(':')
+      middleware:
+        options.rateLimit || options.middleware
+          ? async (args, ctx, next) => {
+              if (options.rateLimit) {
+                const projectionCtx = await resolve(ctx.event)
+                const bucket = [
+                  options.meta?.name ?? metadata.name ?? metadata.id,
+                  principalKeyResolver(projectionCtx.principal),
+                ].join(':')
 
-              const check = globalRateLimiter.check(bucket, {
-                max: options.rateLimit.max,
-                windowMs: parseWindowString(options.rateLimit.window),
-              })
+                const check = globalRateLimiter.check(bucket, {
+                  max: options.rateLimit.max,
+                  windowMs: parseWindowString(options.rateLimit.window),
+                })
 
-              if (!check.allowed) {
-                return ctx.error(
-                  'cooldown',
-                  `Rate limit exceeded (${options.rateLimit.max} per ${options.rateLimit.window}). Try again in ${check.retryAfterSeconds} seconds.`,
-                )
+                if (!check.allowed) {
+                  return ctx.error(
+                    'cooldown',
+                    `Rate limit exceeded (${options.rateLimit.max} per ${options.rateLimit.window}). Try again in ${check.retryAfterSeconds} seconds.`,
+                  )
+                }
               }
-            }
 
-            if (!options.middleware) {
-              return await next()
-            }
+              if (!options.middleware) {
+                return await next()
+              }
 
-            return await options.middleware(args, ctx, next)
-          }
-        : undefined,
+              return await options.middleware(args, ctx, next)
+            }
+          : undefined,
       enabled: async (event) => {
         const ctx = await resolve(event)
 
@@ -837,39 +821,39 @@ export function defineMcpApp<
             return ctx.error('server', 'Destructive operation is missing a preview ref.')
           }
 
-          await projectionCtx.observe({
-            name: 'operation.preview.started',
-            status: 'success',
-            transport: 'mcp',
-            operation: metadata.id,
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
-          })
-          const previewResult = await callByOperation(
-            projectionCtx.convex,
-            options.previewOperation ?? 'query',
-            options.preview,
-            Object.assign({}, executeArgs as Record<string, unknown>, {
-              principal: projectionCtx.principal,
-            }) as FunctionLikeArgs<Exclude<TPreview, undefined>>,
-          )
-
-          if (!isOperationPreviewPayload(previewResult)) {
-            throw new Error(
-              `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm }.`,
-            )
-          }
-
-          const display = normalizePreviewDisplay(previewResult.display)
-          const previewHash = hash(previewResult.confirm)
-          await projectionCtx.observe({
-            name: 'operation.preview.completed',
-            status: 'success',
-            transport: 'mcp',
-            operation: metadata.id,
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
-          })
-
           if (!confirmationToken) {
+            await projectionCtx.observe({
+              name: 'operation.preview.started',
+              status: 'success',
+              transport: 'mcp',
+              operation: metadata.id,
+              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            })
+            const previewResult = await callByOperation(
+              projectionCtx.convex,
+              options.previewOperation ?? 'query',
+              options.preview,
+              Object.assign({}, executeArgs as Record<string, unknown>, {
+                principal: projectionCtx.principal,
+              }) as FunctionLikeArgs<Exclude<TPreview, undefined>>,
+            )
+
+            if (!isOperationPreviewPayload(previewResult)) {
+              throw new Error(
+                `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm }.`,
+              )
+            }
+
+            const display = normalizePreviewDisplay(previewResult.display)
+            const previewHash = hash(previewResult.confirm)
+            await projectionCtx.observe({
+              name: 'operation.preview.completed',
+              status: 'success',
+              transport: 'mcp',
+              operation: metadata.id,
+              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            })
+
             if (display.blocked) {
               return ctx.blocked(display)
             }
@@ -940,8 +924,7 @@ export function defineMcpApp<
                 explanation: createDenialExplanation({
                   reasonCode: 'tool.confirmation_mismatch',
                   decision: 'destructive_confirm',
-                  message:
-                    'Confirmation token no longer matches the previewed destructive state.',
+                  message: 'Confirmation token no longer matches the previewed destructive state.',
                   suggestedAction: 'retry_with_confirmation',
                 }),
               },
@@ -949,8 +932,7 @@ export function defineMcpApp<
             const explanation = createDenialExplanation({
               reasonCode: 'tool.confirmation_mismatch',
               decision: 'destructive_confirm',
-              message:
-                'Confirmation token no longer matches the previewed destructive state.',
+              message: 'Confirmation token no longer matches the previewed destructive state.',
               suggestedAction: 'retry_with_confirmation',
             })
             return ctx.error(
@@ -974,14 +956,10 @@ export function defineMcpApp<
             projectionCtx.convex,
             options.executeOperation ?? 'mutation',
             options.execute,
-            Object.assign(
-              {},
-              executeArgs as Record<string, unknown>,
-              {
-                ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
-                principal: projectionCtx.principal,
-              },
-            ) as FunctionLikeArgs<TExecute>,
+            Object.assign({}, executeArgs as Record<string, unknown>, {
+              ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
+              principal: projectionCtx.principal,
+            }) as FunctionLikeArgs<TExecute>,
           )
 
           await projectionCtx.observe({

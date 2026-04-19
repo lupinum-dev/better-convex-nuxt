@@ -5,9 +5,9 @@ import { useRuntimeConfig } from '#imports'
 
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from '../../utils/constants.js'
 import { getFunctionName } from '../../utils/convex-cache.js'
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import { isFileTypeAllowed } from '../../utils/mime-type.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'
+import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import {
   requestUploadUrl,
   uploadFileViaXhr,

@@ -1,6 +1,5 @@
 import type { H3Event } from 'h3'
 
-import { serverConvexAction, serverConvexMutation, serverConvexQuery } from './utils/convex.js'
 import type {
   AnyActionFunction,
   AnyMutationFunction,
@@ -8,6 +7,7 @@ import type {
   FunctionLikeArgs,
   FunctionLikeReturnType,
 } from '../utils/convex-shared.js'
+import { serverConvexAction, serverConvexMutation, serverConvexQuery } from './utils/convex.js'
 import type { ServerConvexOptions } from './utils/convex.js'
 
 export {
@@ -63,7 +63,7 @@ export function createServerConvexCaller(event: H3Event, options?: ForwardedPrin
 
   if (options?.principal !== undefined && callOptions.auth !== 'trusted') {
     throw new Error(
-      'createServerConvexCaller() only allows forwarded `principal` on `auth: \'trusted\'` calls.',
+      "createServerConvexCaller() only allows forwarded `principal` on `auth: 'trusted'` calls.",
     )
   }
 

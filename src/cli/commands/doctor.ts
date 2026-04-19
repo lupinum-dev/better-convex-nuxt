@@ -4,6 +4,7 @@ import { spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import consola from 'consola'
 
+import { resolvePermissionQuerySetup } from '../../module-internals/setup.js'
 import type { DoctorFinding, DoctorReport } from '../lib/findings.js'
 import { summarizeFindings } from '../lib/findings.js'
 import { renderDoctorReport } from '../lib/output.js'
@@ -27,7 +28,6 @@ import {
   usesPermissionSurfaces,
   usesTrustedCallerSurfaces,
 } from '../lib/project.js'
-import { resolvePermissionQuerySetup } from '../../module-internals/setup.js'
 
 function createDoctorFindings(cwd: string): DoctorFinding[] {
   const project = inspectProject(cwd)
@@ -220,18 +220,16 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       id: 'better-auth-triggers-exported',
       category: 'auth',
       title: 'Better Auth trigger exports',
-      status:
-        authExpected && expectsSyncedUsers ? (hasAuthTriggers ? 'pass' : 'warn') : 'pass',
-      message:
-        !authExpected
-          ? 'Auth is explicitly disabled in nuxt.config.'
-          : !expectsSyncedUsers
-            ? 'No synced users-table pattern was detected in the app source.'
-            : hasAuthTriggers
-              ? `Found Better Auth trigger exports in ${convexAuthSource?.path ?? 'convex/auth.ts'}.`
-              : convexAuthSource
-                ? `Found ${convexAuthSource.path}, but it does not export authComponent.triggersApi().`
-                : 'Could not find convex/auth.ts with Better Auth trigger exports.',
+      status: authExpected && expectsSyncedUsers ? (hasAuthTriggers ? 'pass' : 'warn') : 'pass',
+      message: !authExpected
+        ? 'Auth is explicitly disabled in nuxt.config.'
+        : !expectsSyncedUsers
+          ? 'No synced users-table pattern was detected in the app source.'
+          : hasAuthTriggers
+            ? `Found Better Auth trigger exports in ${convexAuthSource?.path ?? 'convex/auth.ts'}.`
+            : convexAuthSource
+              ? `Found ${convexAuthSource.path}, but it does not export authComponent.triggersApi().`
+              : 'Could not find convex/auth.ts with Better Auth trigger exports.',
       fixHint:
         !authExpected || !expectsSyncedUsers
           ? 'No action needed unless this app resolves actors from a synced users table later.'
@@ -292,7 +290,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
           : 'No forwarded principals were found outside verified trusted-caller calls.',
       fixHint:
         forwardedPrincipalMisuse.length > 0
-          ? 'Only pass `principal` on verified server calls that also set `auth: \'trusted\'` and `actor`.'
+          ? "Only pass `principal` on verified server calls that also set `auth: 'trusted'` and `actor`."
           : 'Keep forwarded principals confined to verified trusted-caller lanes.',
     },
     {
