@@ -129,14 +129,15 @@ async function handleOAuth() {
 ```vue
 <script setup lang="ts">
 import { api } from '#trellis/api'
+import { postDelete, postPublish, postUpdate } from '~/convex/auth/permissions'
 
 const props = defineProps<{ id: string }>()
 const { allows } = usePermissions()
 const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
 
-const canUpdatePost = allows('post.update')
-const canDeletePost = allows('post.delete')
-const canPublishPost = allows('post.publish')
+const canUpdatePost = allows(postUpdate)
+const canDeletePost = allows(postDelete)
+const canPublishPost = allows(postPublish)
 </script>
 
 <template>

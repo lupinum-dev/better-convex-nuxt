@@ -1,4 +1,6 @@
-# 07 Commerce Backoffice
+# 08 Commerce Backoffice
+
+Concept brief only. Not runnable yet.
 
 Inspired by: **Shopify admin, Stripe dashboard**
 
@@ -38,4 +40,3 @@ Agents should be able to:
 - service/webhook trust boundaries
 - audit and replay protection
 - whether `ctx.db.crossTenant` remains disciplined in serious admin software
-

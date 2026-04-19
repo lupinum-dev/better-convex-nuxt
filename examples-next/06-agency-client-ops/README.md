@@ -1,5 +1,7 @@
 # 06 Agency Client Ops
 
+Concept brief only. Not runnable yet.
+
 Inspired by: **agency OS / client portal software**
 
 ## Why this example exists
@@ -66,4 +68,3 @@ Agents should be able to:
 - cross-tenant operator access without tenant collapse
 - role layering between internal staff and external client members
 - whether Trellis can model a real agency graph cleanly enough to deserve “general application layer” status
-

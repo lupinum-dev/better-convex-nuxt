@@ -1,4 +1,6 @@
-# 06 Support Inbox CRM
+# 07 Support Inbox CRM
+
+Concept brief only. Not runnable yet.
 
 Inspired by: **Intercom, Zendesk, HubSpot**
 
@@ -38,4 +40,3 @@ Agents should be able to:
 - webhook and integration safety
 - operator/admin access patterns
 - realistic agent assistance in high-sensitivity apps
-

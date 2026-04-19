@@ -1,5 +1,7 @@
 # 02 Product Issue Tracker
 
+Concept brief only. Not runnable yet.
+
 Inspired by: **Linear**
 
 ## Why this example exists
@@ -40,4 +42,3 @@ Agents should be able to:
 - richer authorization than plain tenant membership
 - capability-aware agent tooling
 - safe workflow automation
-

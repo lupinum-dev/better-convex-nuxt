@@ -1,4 +1,6 @@
-# 08 Agent Operator Console
+# 09 Agent Operator Console
+
+Concept brief only. Not runnable yet.
 
 Inspired by: **internal AI ops / automation consoles**
 
@@ -40,4 +42,3 @@ Typical flows:
 - one backend model across UI and agents
 - safe automation as a first-class application pattern
 - whether the MCP surface is clean enough to teach and operate
-

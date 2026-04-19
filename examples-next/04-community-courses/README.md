@@ -1,5 +1,7 @@
 # 04 Community Courses
 
+Concept brief only. Not runnable yet.
+
 Inspired by: **Skool**
 
 ## Why this example exists
@@ -39,4 +41,3 @@ Agents should be able to:
 - paid-access and role layering
 - moderated social content
 - safe assistant workflows inside a member app
-

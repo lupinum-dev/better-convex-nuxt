@@ -1,5 +1,7 @@
 # 03 Docs Wiki
 
+Concept brief only. Not runnable yet.
+
 Inspired by: **Notion**
 
 ## Why this example exists
@@ -39,4 +41,3 @@ Agents should be able to:
 - nested content permissions
 - partial public access without a separate backend
 - document-aware agent search and actions
-

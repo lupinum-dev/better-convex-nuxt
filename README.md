@@ -96,19 +96,19 @@ Recommended reading order:
 7. [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md)
 8. [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md)
 
-Read `01 → 02 → 03` as the ladder. Treat `04+` as pattern catalogs you open once you know which boundary you actually need.
+Read `01 → 02 → 03` as the ladder.
 
-`examples-next` is a pressure suite and roadmap workspace, not the default public product surface.
+- `03-team-workspace` is the canonical protected workspace reference.
+- `04–06` are maintained pattern catalogs for deeper app boundaries.
+- `07-mcp-reference` is the maintained agent/MCP reference.
+- `08-component-mini-cms` is a maintained boundary/reference app, not a general starter.
 
-## Roadmap, Not Product
+`examples-next` is not part of the canonical public learning path. Today it is:
 
-These shapes are not first-class starters in the current product:
+- one runnable experimental app: `01-kanban-workspace`
+- a set of concept briefs for future example families: `02–09`
 
-- `support-inbox`
-- `admin-console`
-- `agent-console`
-
-They remain directionally important, but the public Trellis contract is the three shipped starters plus optional MCP.
+Future starter families are intentionally not promised until they ship. The public Trellis contract today is still the three starters plus optional MCP on `workspace`.
 
 ## Contributing
 

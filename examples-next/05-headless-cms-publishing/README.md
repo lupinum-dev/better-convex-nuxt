@@ -1,5 +1,7 @@
 # 05 Headless CMS Publishing
 
+Concept brief only. Not runnable yet.
+
 Inspired by: **ginko-cms + consumer-site**
 
 ## Why this example exists
@@ -45,4 +47,3 @@ Agents should be able to:
 ## Existing work to draw from
 
 This example should explicitly harvest patterns from the current `ginko-cms` and `consumer-site` worktrees rather than reinvent the domain from scratch.
-

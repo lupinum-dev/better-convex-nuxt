@@ -1,5 +1,7 @@
 # 01 Kanban Workspace
 
+Runnable experimental app. This is not a canonical public Trellis example yet.
+
 Inspired by: **Trello**
 
 This example is the Trellis **stress-test reference app** for a collaborative workspace product.
@@ -118,12 +120,13 @@ Observability is real, but this example now states the truth about proof:
 - repo-level Trellis tests cover MCP destructive confirmation and runtime observability guarantees
 - live `evlog` delivery across browser/backend/MCP still needs manual inspection while the app is running
 
-## Run It
+## Run it
 
 1. Copy `.env.example` to `.env.local`
 2. `pnpm install`
-3. In one terminal: `pnpm --dir examples-next/01-kanban-workspace convex:dev`
-4. In another terminal: `pnpm --dir examples-next/01-kanban-workspace dev:nuxt`
+3. `pnpm dev`
+
+Use `pnpm convex:dev` and `pnpm dev:nuxt` only when you are debugging the launcher or the local backend separately.
 
 ## MCP Demo
 
@@ -207,6 +210,10 @@ Observability is the correlated runtime decision trail.
 - shared role/capability projection and explicit board-selection rules
 
 The MCP transport path is demonstrated manually above and covered by the repo-level Trellis MCP/runtime test suites, not by the example-local `vitest` run.
+
+## Current caveat
+
+This app is still experimental and has not been cut over to the same polished permission/story shape as the maintained `examples/` set. Treat it as framework pressure, not as copy-paste reference code.
 
 ## Files To Read First
 
