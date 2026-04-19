@@ -20,6 +20,7 @@ Canonical CLI:
 ```bash
 npx trellis init my-app --template personal
 npx trellis init my-app --template workspace --mcp
+npx trellis add resource project
 npx trellis add uploads
 npx trellis add operation publish-entry --kind destructive
 npx trellis doctor
@@ -89,8 +90,13 @@ Recommended reading order:
 1. [`examples/01-public-todo`](./examples/01-public-todo/README.md)
 2. [`examples/02-auth-todo`](./examples/02-auth-todo/README.md)
 3. [`examples/03-team-workspace`](./examples/03-team-workspace/README.md)
-4. [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md)
-5. [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md)
+4. [`examples/04-saas-platform`](./examples/04-saas-platform/README.md)
+5. [`examples/05-visibility-access`](./examples/05-visibility-access/README.md)
+6. [`examples/06-multi-workspace`](./examples/06-multi-workspace/README.md)
+7. [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md)
+8. [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md)
+
+Read `01 → 02 → 03` as the ladder. Treat `04+` as pattern catalogs you open once you know which boundary you actually need.
 
 `examples-next` is a pressure suite and roadmap workspace, not the default public product surface.
 

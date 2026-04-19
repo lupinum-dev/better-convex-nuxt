@@ -294,12 +294,39 @@ function slugify(value: string): string {
 function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   raw: TestConvex<TSchema>,
   principal: Record<string, unknown>,
+  trustedCallerKey?: string,
 ): TestClient<TSchema> {
-  function withPrincipalArgs<TArgs extends Record<string, unknown> | undefined>(args: TArgs) {
+  const effectiveTrustedCallerKey = trustedCallerKey?.trim() || process.env.CONVEX_TRUSTED_CALLER_KEY
+
+  if (!effectiveTrustedCallerKey) {
+    throw new Error(
+      'ctx.asPrincipal(...) requires createTestContext({ trustedCallerKey }) or CONVEX_TRUSTED_CALLER_KEY.',
+    )
+  }
+
+  const trustedCallerUserId = resolveTrustedCallerUserId(principal)
+
+  function withPrincipalArgs<TArgs extends Record<string, unknown> | undefined>(
+    args: TArgs,
+    mode: 'plain' | 'trusted',
+  ) {
     return {
       ...(args ?? {}),
+      ...(mode === 'trusted'
+        ? {
+            _trustedCallerKey: effectiveTrustedCallerKey,
+            _trustedCaller: { userId: trustedCallerUserId },
+          }
+        : {}),
       principal,
     }
+  }
+
+  function shouldRetryWithoutTrustedEnvelope(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      /Validator error: Unexpected field `_trustedCaller(?:Key)?`/.test(error.message)
+    )
   }
 
   const client = {
@@ -307,38 +334,85 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined, 'trusted')
       const query = raw.query as unknown as (
         ref: Query,
         args?: OptionalRestArgs<Query>[0],
       ) => Promise<FunctionReturnType<Query>>
-      return await query(fn, payload as OptionalRestArgs<Query>[0])
+      try {
+        return await query(fn, payload as OptionalRestArgs<Query>[0])
+      } catch (error) {
+        if (!shouldRetryWithoutTrustedEnvelope(error)) throw error
+        const fallback = withPrincipalArgs(
+          args[0] as Record<string, unknown> | undefined,
+          'plain',
+        )
+        return await query(fn, fallback as OptionalRestArgs<Query>[0])
+      }
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined, 'trusted')
       const mutation = raw.mutation as unknown as (
         ref: Mutation,
         args?: OptionalRestArgs<Mutation>[0],
       ) => Promise<FunctionReturnType<Mutation>>
-      return await mutation(fn, payload as OptionalRestArgs<Mutation>[0])
+      try {
+        return await mutation(fn, payload as OptionalRestArgs<Mutation>[0])
+      } catch (error) {
+        if (!shouldRetryWithoutTrustedEnvelope(error)) throw error
+        const fallback = withPrincipalArgs(
+          args[0] as Record<string, unknown> | undefined,
+          'plain',
+        )
+        return await mutation(fn, fallback as OptionalRestArgs<Mutation>[0])
+      }
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined)
+      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined, 'trusted')
       const action = raw.action as unknown as (
         ref: Action,
         args?: OptionalRestArgs<Action>[0],
       ) => Promise<FunctionReturnType<Action>>
-      return await action(fn, payload as OptionalRestArgs<Action>[0])
+      try {
+        return await action(fn, payload as OptionalRestArgs<Action>[0])
+      } catch (error) {
+        if (!shouldRetryWithoutTrustedEnvelope(error)) throw error
+        const fallback = withPrincipalArgs(
+          args[0] as Record<string, unknown> | undefined,
+          'plain',
+        )
+        return await action(fn, fallback as OptionalRestArgs<Action>[0])
+      }
     },
   }
 
   return client as unknown as TestClient<TSchema>
+}
+
+function resolveTrustedCallerUserId(principal: Record<string, unknown>): string {
+  if (typeof principal.userId === 'string' && principal.userId) {
+    return principal.userId
+  }
+
+  if (typeof principal.agentId === 'string' && principal.agentId) {
+    return `agent:${principal.agentId}`
+  }
+
+  if (typeof principal.serviceId === 'string' && principal.serviceId) {
+    return `service:${principal.serviceId}`
+  }
+
+  if (typeof principal.kind === 'string' && principal.kind) {
+    return `principal:${principal.kind}`
+  }
+
+  return 'trusted-caller-test'
 }
 
 export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserConfig {
@@ -372,6 +446,7 @@ export function createTestContext<
   if (options.trustedCallerKey) {
     process.env.CONVEX_TRUSTED_CALLER_KEY = options.trustedCallerKey
   }
+  const trustedCallerKey = options.trustedCallerKey ?? process.env.CONVEX_TRUSTED_CALLER_KEY
 
   const tenantTable = (options.tenant?.table ?? 'workspaces') as TTenantTable
   const tenantField = options.tenant?.field ?? 'workspaceId'
@@ -468,7 +543,7 @@ export function createTestContext<
   }
 
   function asPrincipal(principal: Record<string, unknown>): TestClient<TSchema> {
-    return createPrincipalClient(raw, principal)
+    return createPrincipalClient(raw, principal, trustedCallerKey)
   }
 
   return {

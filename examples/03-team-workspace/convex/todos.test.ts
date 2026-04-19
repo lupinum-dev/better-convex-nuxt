@@ -18,15 +18,20 @@ import { modules } from './test.setup'
 
 const api = anyApi as any
 const TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
+type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
 
 function createCtx() {
-  return createTestContext({ schema, modules, trustedCallerKey: TRUSTED_CALLER_KEY })
+  return createTestContext<typeof schema, WorkspaceRole>({
+    schema,
+    modules,
+    trustedCallerKey: TRUSTED_CALLER_KEY,
+  })
 }
 
 describe('team todo example', () => {
   it('lets a member update their own todo', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         alice: { role: 'member' },
@@ -49,7 +54,7 @@ describe('team todo example', () => {
 
   it('blocks a member from updating another member`s todo', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         alice: { role: 'member' },
@@ -71,13 +76,13 @@ describe('team todo example', () => {
 
   it('keeps tenants isolated from each other', async () => {
     const ctx = createCtx()
-    const alpha: any = await ctx.seedTenant({
+    const alpha = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         alice: { role: 'member' },
       },
     })
-    const beta: any = await ctx.seedTenant({
+    const beta = await ctx.seedTenant({
       name: 'Beta',
       users: {
         bruno: { role: 'member' },
@@ -102,7 +107,7 @@ describe('team todo example', () => {
 
   it('applies the same permission rules to forwarded principals', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         viewer: { role: 'viewer' },
@@ -118,12 +123,12 @@ describe('team todo example', () => {
       trustedCaller.mutation(api.domain.todos.create, {
         title: 'Should fail',
       }),
-    ).rejects.toThrow('Forwarded `principal` is only allowed on verified trusted caller paths.')
+    ).rejects.toThrow(/Forbidden: Create todo/)
   })
 
   it('returns permission context booleans for contrasting roles', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         owner: { role: 'owner' },
@@ -186,7 +191,7 @@ describe('webhook idempotency', () => {
 
   it('denies an invalid trusted caller key', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: { owner: { role: 'owner' } },
     })
@@ -205,7 +210,7 @@ describe('webhook idempotency', () => {
 
   it('denies duplicate webhook events', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: { owner: { role: 'owner' } },
     })
@@ -245,7 +250,7 @@ describe('webhook idempotency', () => {
 
   it('webhook-created todos are visible in the workspace list', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: { member: { role: 'member' } },
     })

@@ -5,12 +5,15 @@ import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 
+const TRUSTED_CALLER_KEY = 'internal-harness-test-trusted-caller-key'
+
 describe('@lupinum/trellis/testing', () => {
   it('seeds a tenant and returns authenticated user callers', async () => {
     const ctx = createTestContext({
       schema,
       modules,
       tenant: { table: 'organizations', field: 'organizationId' },
+      trustedCallerKey: TRUSTED_CALLER_KEY,
     })
 
     const team = await ctx.seedTenant({

@@ -20,19 +20,20 @@ It shows:
 ## Files To Read First
 
 1. `convex/auth/actor.ts`
-2. `convex/auth/checks.ts`
-3. `convex/auth/idempotency.ts`
-4. `convex/auth/trustedCaller.ts`
-5. `shared/schemas/todo.ts`
-6. `convex/domain/todos.ts`
-7. `convex/operations/todos.ts`
-8. `convex/permissions/context.ts`
-9. `convex/domain/webhooks.ts`
-10. `pages/index.vue`
-11. `server/mcp/tools/*.ts`
-12. `server/api/webhook.post.ts`
-13. `convex/todos.test.ts`
-14. `vitest.config.ts`
+2. `convex/auth/permissions.ts`
+3. `convex/auth/checks.ts`
+4. `convex/permissions/context.ts`
+5. `convex/auth/idempotency.ts`
+6. `convex/auth/trustedCaller.ts`
+7. `shared/schemas/todo.ts`
+8. `convex/domain/todos.ts`
+9. `convex/operations/todos.ts`
+10. `convex/domain/webhooks.ts`
+11. `pages/index.vue`
+12. `server/mcp/tools/*.ts`
+13. `server/api/webhook.post.ts`
+14. `convex/todos.test.ts`
+15. `vitest.config.ts`
 
 ## Demo Flow
 
@@ -91,7 +92,24 @@ export default defineConfig(
 import { createTestContext } from '@lupinum/trellis/testing'
 import { modules } from './test.setup'
 
-const ctx = createTestContext({ schema, modules })
+const ctx = createTestContext<typeof schema, 'owner' | 'admin' | 'member' | 'viewer'>({
+  schema,
+  modules,
+  trustedCallerKey: 'test-only-shared-secret',
+})
+
+const team = await ctx.seedTenant({
+  name: 'Alpha',
+  users: {
+    owner: { role: 'owner' },
+    member: { role: 'member' },
+  },
+})
+
+const trustedCaller = ctx.asPrincipal({
+  kind: 'user',
+  userId: team.users.member.authId,
+})
 ```
 
 That zero-config test setup is the canonical path for the repo's default single-workspace schema:

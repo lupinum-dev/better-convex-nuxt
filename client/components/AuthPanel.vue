@@ -8,13 +8,17 @@ import type {
   AuthBootstrapState,
   AuthProxyStats,
   AuthProxyRequest,
+  DecisionTraceState,
 } from '../../src/runtime/devtools/types'
+import type { TrellisObservationEvent } from '../../src/runtime/utils/observability/types'
 
 const props = defineProps<{
   authState: EnhancedAuthState | null
   waterfall?: AuthWaterfall | null
   permissionState?: PermissionContextState | null
   authBootstrapState?: AuthBootstrapState | null
+  decisionTrace?: DecisionTraceState | null
+  observations?: TrellisObservationEvent[]
   proxyStats?: AuthProxyStats | null
   proxyLoading?: boolean
 }>()
@@ -70,6 +74,42 @@ function formatMs(ms: number): string {
   if (ms < 1) return '<1ms'
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(2)}s`
+}
+
+const permissionEntries = computed(() => {
+  const inventory = props.permissionState?.inventory ?? []
+  const ctx = props.permissionState?.ctx
+  const can =
+    ctx && typeof ctx === 'object' && 'can' in ctx && typeof ctx.can === 'object' && ctx.can
+      ? (ctx.can as Record<string, boolean | undefined>)
+      : {}
+
+  return inventory.map((key) => ({
+    key,
+    allowed: Boolean(can[key]),
+  }))
+})
+
+const permissionContextJson = computed(() =>
+  props.permissionState ? JSON.stringify(props.permissionState, null, 2) : '',
+)
+const authBootstrapJson = computed(() =>
+  props.authBootstrapState ? JSON.stringify(props.authBootstrapState, null, 2) : '',
+)
+
+function getDecisionStatusClass(status: TrellisObservationEvent['status'] | null | undefined): string {
+  if (status === 'deny' || status === 'error') return 'red'
+  if (status === 'allow' || status === 'ok') return 'green'
+  return 'gray'
+}
+
+function getDecisionReason(trace: DecisionTraceState): string {
+  return (
+    trace.denialExplanation?.reason ??
+    trace.denialExplanation?.policy ??
+    trace.lastEventName ??
+    'No explicit explanation'
+  )
 }
 </script>
 
@@ -181,12 +221,90 @@ function formatMs(ms: number): string {
           <span class="font-mono">{{ permissionState.queryName || '-' }}</span>
         </div>
       </div>
-      <NCodeBlock :code="JSON.stringify(permissionState, null, 2)" lang="json" class="text-xs" />
+
+      <div v-if="permissionEntries.length > 0" class="mb-3">
+        <div class="text-xs op-50 uppercase tracking-wide mb-2">Projected inventory</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div
+            v-for="permission in permissionEntries"
+            :key="permission.key"
+            class="flex items-center justify-between gap-3 rounded border border-base bg-gray/5 px-3 py-2 text-xs"
+          >
+            <span class="font-mono break-all">{{ permission.key }}</span>
+            <NBadge :n="`xs ${permission.allowed ? 'green' : 'gray'}`">
+              {{ permission.allowed ? 'allowed' : 'denied' }}
+            </NBadge>
+          </div>
+        </div>
+      </div>
+
+      <NCodeBlock :code="permissionContextJson" lang="json" class="text-xs" />
+    </SectionBlock>
+
+    <!-- Latest Decision Trace -->
+    <SectionBlock
+      v-if="decisionTrace || (observations?.length ?? 0) > 0"
+      text="Latest Decision Trace"
+      icon="i-carbon-flow-connection"
+    >
+      <div v-if="!decisionTrace" class="text-xs op-50">No correlated decision trace yet.</div>
+
+      <template v-else>
+        <div class="flex flex-wrap items-center gap-2 text-xs mb-3">
+          <NBadge :n="`xs ${getDecisionStatusClass(decisionTrace.lastEventStatus)}`">
+            {{ decisionTrace.lastEventStatus || 'unknown' }}
+          </NBadge>
+          <span v-if="decisionTrace.handler" class="font-mono">{{ decisionTrace.handler }}</span>
+          <span v-if="decisionTrace.tool" class="op-60">tool: {{ decisionTrace.tool }}</span>
+          <span v-if="decisionTrace.operation" class="op-60"
+            >operation: {{ decisionTrace.operation }}</span
+          >
+          <span v-if="decisionTrace.correlationId" class="font-mono op-40 break-all">{{
+            decisionTrace.correlationId
+          }}</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs mb-3">
+          <div class="rounded border border-base bg-gray/5 px-3 py-2">
+            <div class="op-50 uppercase tracking-wide mb-1">Identity</div>
+            <div>Principal: {{ decisionTrace.principalKind || '-' }}</div>
+            <div>Actor: {{ decisionTrace.actorKind || '-' }}</div>
+            <div>Tenant: {{ decisionTrace.tenantId || '-' }}</div>
+          </div>
+
+          <div class="rounded border border-base bg-gray/5 px-3 py-2 md:col-span-2">
+            <div class="op-50 uppercase tracking-wide mb-1">Explanation</div>
+            <div class="font-medium">{{ getDecisionReason(decisionTrace) }}</div>
+            <div v-if="decisionTrace.denialExplanation?.suggestedAction" class="op-60 mt-1">
+              {{ decisionTrace.denialExplanation?.suggestedAction }}
+            </div>
+          </div>
+        </div>
+
+        <div class="text-xs op-50 uppercase tracking-wide mb-2">Trace events</div>
+        <div class="space-y-2">
+          <div
+            v-for="(event, index) in decisionTrace.events"
+            :key="`${event.name}-${index}-${event.timestamp}`"
+            class="rounded border border-base bg-gray/5 px-3 py-2"
+          >
+            <div class="flex flex-wrap items-center gap-2 text-xs mb-1">
+              <NBadge :n="`xs ${getDecisionStatusClass(event.status)}`">{{ event.status }}</NBadge>
+              <span class="font-mono">{{ event.name }}</span>
+              <span v-if="event.handler" class="op-60">{{ event.handler }}</span>
+              <span class="op-40">{{ formatTime(event.timestamp) }}</span>
+            </div>
+            <div v-if="event.details?.message || event.details?.explanation?.reason" class="text-xs op-70">
+              {{ event.details?.message || event.details?.explanation?.reason }}
+            </div>
+          </div>
+        </div>
+      </template>
     </SectionBlock>
 
     <!-- Auth Bootstrap -->
     <SectionBlock v-if="authBootstrapState" text="Auth Bootstrap" icon="i-carbon-launch">
-      <NCodeBlock :code="JSON.stringify(authBootstrapState, null, 2)" lang="json" class="text-xs" />
+      <NCodeBlock :code="authBootstrapJson" lang="json" class="text-xs" />
     </SectionBlock>
 
     <!-- Auth Proxy Stats -->

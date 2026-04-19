@@ -15,9 +15,15 @@ import {
 import { modules } from '../convex/test.setup'
 
 const api = anyApi as any
+type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
+const TRUSTED_CALLER_KEY = 'mcp-reference-test-trusted-caller-key'
 
 function createCtx() {
-  return createTestContext({ schema, modules })
+  return createTestContext<typeof schema, WorkspaceRole>({
+    schema,
+    modules,
+    trustedCallerKey: TRUSTED_CALLER_KEY,
+  })
 }
 
 describe('mcp reference example', () => {
@@ -60,7 +66,7 @@ describe('mcp reference example', () => {
 
   it('keeps public runbooks visible without auth while workspace queries stay protected', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         owner: { role: 'owner' },
@@ -93,7 +99,7 @@ describe('mcp reference example', () => {
 
   it('applies the same create permission rules to forwarded principals', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         viewer: { role: 'viewer' },
@@ -114,7 +120,7 @@ describe('mcp reference example', () => {
           visibility: 'draft',
           tags: [],
         }),
-    ).rejects.toThrow('Forwarded `principal` is only allowed on verified trusted caller paths.')
+    ).rejects.toThrow(/Forbidden: Create runbook/)
 
     await expect(
       team.users.member.mutation(api.domain.runbooks.create, {
@@ -129,7 +135,7 @@ describe('mcp reference example', () => {
 
   it('stores only hashes for MCP keys and debounces last-used writes', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         owner: { role: 'owner' },
@@ -167,7 +173,7 @@ describe('mcp reference example', () => {
 
   it('resolves bound users with live role changes', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         owner: { role: 'owner' },
@@ -206,7 +212,7 @@ describe('mcp reference example', () => {
 
   it('marks dead bindings in listings and invalidates affected keys', async () => {
     const ctx = createCtx()
-    const team: any = await ctx.seedTenant({
+    const team = await ctx.seedTenant({
       name: 'Alpha',
       users: {
         owner: { role: 'owner' },

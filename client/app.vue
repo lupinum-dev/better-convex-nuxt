@@ -18,6 +18,8 @@ const connectionState = computed(() => snapshot.value?.connectionState ?? null)
 const authWaterfall = computed(() => snapshot.value?.authWaterfall ?? null)
 const permissionState = computed(() => snapshot.value?.permissionContextState ?? null)
 const authBootstrapState = computed(() => snapshot.value?.authBootstrapState ?? null)
+const observations = computed(() => snapshot.value?.observations ?? [])
+const decisionTrace = computed(() => snapshot.value?.decisionTrace ?? null)
 
 const errorCount = computed(() => {
   const queryErrors = queries.value.filter((q) => q.status === 'error').length
@@ -108,6 +110,7 @@ function onTabAuth() {
           :auth-state="authState"
           :connection-state="connectionState"
           :error-count="errorCount"
+          :decision-trace="decisionTrace"
         />
 
         <!-- Data Tab -->
@@ -126,6 +129,8 @@ function onTabAuth() {
           :waterfall="authWaterfall"
           :permission-state="permissionState"
           :auth-bootstrap-state="authBootstrapState"
+          :decision-trace="decisionTrace"
+          :observations="observations"
           :proxy-stats="proxyStats"
           :proxy-loading="proxyLoading"
           @clear-proxy="clearStats"

@@ -14,8 +14,10 @@ import * as filesDomain from './domain/files'
 import schema from './schema'
 import { modules } from './test.setup'
 
+const TRUSTED_CALLER_KEY = 'project-board-test-trusted-caller-key'
+
 function createCtx() {
-  return createTestContext({ schema, modules })
+  return createTestContext({ schema, modules, trustedCallerKey: TRUSTED_CALLER_KEY })
 }
 
 describe('project board example', () => {
@@ -314,9 +316,7 @@ describe('project board example', () => {
         title: 'Nope',
         priority: 'medium',
       }),
-    ).rejects.toThrow(
-      'Forwarded `principal` is only allowed on verified trusted caller paths.',
-    )
+    ).rejects.toThrow(/Forbidden: Create task/)
   })
 
   it('role changes update the permission context and block future mutations', async () => {

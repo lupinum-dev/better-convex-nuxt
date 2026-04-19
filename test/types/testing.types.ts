@@ -55,6 +55,10 @@ const _keyedTenant = defaultCtx.seedTenant({
 type KeyedTenant = Awaited<typeof _keyedTenant>
 type _keyedOwnerRole = Assert<IsEqual<KeyedTenant['users']['owner']['role'], 'owner'>>
 type _keyedMemberRole = Assert<IsEqual<KeyedTenant['users']['member']['role'], 'member'>>
+const _forwardedClient = defaultCtx.asPrincipal({ kind: 'user', userId: 'owner-1' })
+type _forwardedClientSurface = Assert<
+  IsEqual<keyof typeof _forwardedClient, 'action' | 'mutation' | 'query'>
+>
 
 const _organizationCtx = createTestContext({
   schema,

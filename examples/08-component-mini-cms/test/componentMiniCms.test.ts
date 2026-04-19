@@ -11,9 +11,10 @@ import { getCapabilitiesForPrincipal } from '../server/lib/mcp-auth'
 const componentModules = import.meta.glob('../convex/components/miniCms/**/*.ts', {
   eager: false,
 })
+const TRUSTED_CALLER_KEY = 'component-mini-cms-test-trusted-caller-key'
 
 function createCtx() {
-  const ctx = createTestContext({ schema, modules })
+  const ctx = createTestContext({ schema, modules, trustedCallerKey: TRUSTED_CALLER_KEY })
   ctx.raw.registerComponent('miniCms', componentSchema, componentModules)
   return ctx
 }

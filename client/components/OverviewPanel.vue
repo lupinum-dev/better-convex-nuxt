@@ -4,6 +4,7 @@ import type {
   MutationEntry,
   EnhancedAuthState,
   ConnectionState,
+  DecisionTraceState,
 } from '../../src/runtime/devtools/types'
 
 defineProps<{
@@ -12,6 +13,7 @@ defineProps<{
   authState: EnhancedAuthState | null
   connectionState: ConnectionState | null
   errorCount: number
+  decisionTrace?: DecisionTraceState | null
 }>()
 </script>
 
@@ -93,6 +95,64 @@ defineProps<{
         </div>
       </div>
       <div v-else class="op-50 text-sm">Not authenticated</div>
+    </NCard>
+
+    <!-- Latest Decision -->
+    <NCard v-if="decisionTrace" class="p-4 col-span-2 lg:col-span-4">
+      <div class="flex items-center gap-2 mb-3">
+        <NIcon
+          icon="i-carbon-security"
+          :class="
+            decisionTrace.lastEventStatus === 'deny' || decisionTrace.lastEventStatus === 'error'
+              ? 'text-red-500'
+              : 'text-green-500'
+          "
+        />
+        <span class="text-xs font-medium op-60">Latest Decision Trace</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 text-xs mb-3">
+        <NBadge
+          :n="
+            decisionTrace.lastEventStatus === 'deny' || decisionTrace.lastEventStatus === 'error'
+              ? 'red xs'
+              : 'green xs'
+          "
+        >
+          {{ decisionTrace.lastEventStatus || 'unknown' }}
+        </NBadge>
+        <span v-if="decisionTrace.handler" class="font-mono">{{ decisionTrace.handler }}</span>
+        <span v-if="decisionTrace.tool" class="op-50">tool: {{ decisionTrace.tool }}</span>
+        <span v-if="decisionTrace.operation" class="op-50"
+          >operation: {{ decisionTrace.operation }}</span
+        >
+        <span v-if="decisionTrace.correlationId" class="op-40 font-mono"
+          >{{ decisionTrace.correlationId }}</span
+        >
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div class="rounded bg-gray/5 border border-base px-3 py-2">
+          <div class="op-50 uppercase tracking-wide mb-1">Identity</div>
+          <div>Principal: {{ decisionTrace.principalKind || '-' }}</div>
+          <div>Actor: {{ decisionTrace.actorKind || '-' }}</div>
+          <div>Tenant: {{ decisionTrace.tenantId || '-' }}</div>
+        </div>
+        <div class="rounded bg-gray/5 border border-base px-3 py-2 md:col-span-2">
+          <div class="op-50 uppercase tracking-wide mb-1">Reason</div>
+          <div class="font-medium">
+            {{
+              decisionTrace.denialExplanation?.reason ||
+              decisionTrace.denialExplanation?.policy ||
+              decisionTrace.lastEventName ||
+              'No explanation attached'
+            }}
+          </div>
+          <div v-if="decisionTrace.denialExplanation?.suggestedAction" class="op-60 mt-1">
+            {{ decisionTrace.denialExplanation?.suggestedAction }}
+          </div>
+        </div>
+      </div>
     </NCard>
 
     <!-- Recent Errors (if any) -->

@@ -57,6 +57,9 @@ describe('trellis add resource', () => {
     await expect(
       readFile(resolve(cwd, 'convex/auth/permissions.ts'), 'utf8'),
     ).resolves.toContain('...projectPermissions,')
+    await expect(
+      readFile(resolve(cwd, 'convex/auth/permissions.ts'), 'utf8'),
+    ).resolves.toContain("check: isAuthenticated")
   })
 
   it('scaffolds a workspace resource slice that follows tenant conventions', async () => {
@@ -76,6 +79,9 @@ describe('trellis add resource', () => {
     await expect(readFile(resolve(cwd, 'convex/domain/project.ts'), 'utf8')).resolves.toContain(
       ".withIndex('by_workspace'",
     )
+    await expect(
+      readFile(resolve(cwd, 'convex/auth/permissions.ts'), 'utf8'),
+    ).resolves.toContain("check: hasWorkspace.and(hasMinimumRole('member'))")
     await expect(readFile(resolve(cwd, 'convex/project.test.ts'), 'utf8')).resolves.toContain(
       'seedTenant',
     )
