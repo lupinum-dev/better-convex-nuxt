@@ -1,6 +1,6 @@
+import type { Delegation } from '@lupinum/trellis/functions'
 import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
-import type { Delegation } from '@lupinum/trellis/functions'
 import type { H3Event } from 'h3'
 
 import {
@@ -36,8 +36,8 @@ async function getMcpPrincipal(event: H3Event): Promise<InternalHarnessPrincipal
 
 export const mcpRuntime = defineMcpApp<
   InternalHarnessPrincipal,
-  Delegation,
-  Record<InternalHarnessPermissionKey, boolean>
+  Record<InternalHarnessPermissionKey, boolean>,
+  Delegation
 >({
   callConvex: async (event, { principal, delegation }) =>
     createServerConvexCaller(
@@ -46,7 +46,7 @@ export const mcpRuntime = defineMcpApp<
         ? {
             auth: 'trusted',
             principal,
-            delegation,
+            ...(delegation ? { delegation } : {}),
           }
         : { auth: 'none' },
     ) as never,

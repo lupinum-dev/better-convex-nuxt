@@ -2,8 +2,8 @@ import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
+import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
 import { defineArgs } from '../../src/runtime/schema'
 import { createServerConvexCaller } from '../../src/runtime/server'
 import {

@@ -176,9 +176,9 @@ describe('server integration workspace example', () => {
       priority: 'medium',
     })
 
-    await expect(beta.users.owner.query(api.domain.projects.get, { id: projectId })).rejects.toThrow(
-      'Document belongs to a different tenant.',
-    )
+    await expect(
+      beta.users.owner.query(api.domain.projects.get, { id: projectId }),
+    ).rejects.toThrow('Document belongs to a different tenant.')
     await expect(
       beta.users.owner.mutation(api.domain.comments.create, {
         taskId,

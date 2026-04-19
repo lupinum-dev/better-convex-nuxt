@@ -1,8 +1,4 @@
-import {
-  previewPublishPage,
-  publishPage,
-  publishPageOp,
-} from '~/convex/components/miniCms/pages'
+import { previewPublishPage, publishPage, publishPageOp } from '~/convex/components/miniCms/pages'
 import { tool } from '~/server/lib/mcp-runtime'
 
 import { publishPagePermission } from '../../../convex/auth/permissions'

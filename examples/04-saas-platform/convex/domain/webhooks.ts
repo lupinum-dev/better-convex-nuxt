@@ -6,8 +6,8 @@
 import { deny } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { internalMutation } from '../_generated/server'
 import type { Doc } from '../_generated/dataModel'
+import { internalMutation } from '../_generated/server'
 import { ensureWebhookBotUser } from '../auth/webhookBot'
 
 export const createTaskFromWebhook = internalMutation({

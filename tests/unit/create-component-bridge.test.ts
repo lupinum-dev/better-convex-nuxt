@@ -266,10 +266,12 @@ describe('createComponentBridge', () => {
     await expect(
       registered.definition.handler(
         {
-          ...(await registered.customization.input(
-            { runQuery: vi.fn() },
-            { principal: { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } },
-          )).ctx,
+          ...(
+            await registered.customization.input(
+              { runQuery: vi.fn() },
+              { principal: { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } },
+            )
+          ).ctx,
           runQuery: vi.fn(),
         },
         { slug: 'docs' },
@@ -296,9 +298,11 @@ describe('createComponentBridge', () => {
             subject: v.string(),
           }),
           resolve: async (_ctx, args) =>
-            (args as {
-              principal?: { kind: 'service'; serviceId: string; subject: string }
-            }).principal!,
+            (
+              args as {
+                principal?: { kind: 'service'; serviceId: string; subject: string }
+              }
+            ).principal!,
         }),
       },
     )

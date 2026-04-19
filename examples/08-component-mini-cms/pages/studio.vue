@@ -57,8 +57,8 @@
           <div class="rounded-2xl border border-default p-4">
             <p class="mini-kicker">Component actor</p>
             <p class="mt-2 text-sm text-[var(--mini-muted)]">
-              The component receives the forwarded principal and decides whether that becomes viewer,
-              editor, or agent behavior.
+              The component receives the forwarded principal and decides whether that becomes
+              viewer, editor, or agent behavior.
             </p>
           </div>
           <div class="rounded-2xl border border-default p-4">

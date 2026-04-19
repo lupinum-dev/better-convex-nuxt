@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+
 import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 
@@ -96,7 +97,9 @@ describe('defineTrellis', () => {
           subject: 'user:forged_user',
         },
       } as never),
-    ).rejects.toThrow(/Forwarded identity fields are only allowed on verified trusted forwarding paths/)
+    ).rejects.toThrow(
+      /Forwarded identity fields are only allowed on verified trusted forwarding paths/,
+    )
   })
 
   it('strips the internal __trellis envelope before structured phases and onSuccess hooks', async () => {

@@ -1,6 +1,7 @@
 import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
+import type { MiniCmsPrincipal } from '../../shared/principal'
 import {
   createPage as createPageSchema,
   getPublishedPage as getPublishedPageSchema,
@@ -17,14 +18,22 @@ import { mutation, query } from '../functions'
 const publishedPageListValidator = v.array(publishedPageValidator)
 const studioPageListValidator = v.array(studioPageValidator)
 
+async function bridgePrincipalArgs(ctx: {
+  principal: () => Promise<MiniCmsPrincipal>
+}): Promise<{ principal?: Exclude<MiniCmsPrincipal, { kind: 'anonymous' }> }> {
+  const principal = await ctx.principal()
+  return principal.kind === 'anonymous' ? {} : { principal }
+}
+
 export const listPublished = query({
   args: listPublishedPagesSchema.args,
   returns: publishedPageListValidator,
   guard: open,
   handler: async (ctx) =>
-    await ctx.runQuery(internal.operations.miniCmsBridge.listPublishedPages, {
-      principal: await ctx.principal(),
-    }),
+    await ctx.runQuery(
+      internal.operations.miniCmsBridge.listPublishedPages,
+      await bridgePrincipalArgs(ctx),
+    ),
 })
 
 export const getPublished = query({
@@ -34,7 +43,7 @@ export const getPublished = query({
   handler: async (ctx, args) =>
     await ctx.runQuery(internal.operations.miniCmsBridge.getPublishedPage, {
       ...args,
-      principal: await ctx.principal(),
+      ...(await bridgePrincipalArgs(ctx)),
     }),
 })
 
@@ -43,9 +52,10 @@ export const listStudio = query({
   returns: studioPageListValidator,
   guard: open,
   handler: async (ctx) =>
-    await ctx.runQuery(internal.operations.miniCmsBridge.listStudioPages, {
-      principal: await ctx.principal(),
-    }),
+    await ctx.runQuery(
+      internal.operations.miniCmsBridge.listStudioPages,
+      await bridgePrincipalArgs(ctx),
+    ),
 })
 
 export const create = mutation({
@@ -55,7 +65,7 @@ export const create = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(internal.operations.miniCmsBridge.createPage, {
       ...args,
-      principal: await ctx.principal(),
+      ...(await bridgePrincipalArgs(ctx)),
     }),
 })
 
@@ -66,7 +76,7 @@ export const save = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(internal.operations.miniCmsBridge.saveDraft, {
       ...args,
-      principal: await ctx.principal(),
+      ...(await bridgePrincipalArgs(ctx)),
     }),
 })
 
@@ -80,6 +90,6 @@ export const publish = mutation({
   handler: async (ctx, args) =>
     await ctx.runMutation(internal.operations.miniCmsBridge.publishPage, {
       ...args,
-      principal: await ctx.principal(),
+      ...(await bridgePrincipalArgs(ctx)),
     }),
 })

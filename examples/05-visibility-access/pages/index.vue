@@ -193,7 +193,9 @@
                   </p>
                 </div>
                 <div class="rounded-xl border border-default bg-elevated p-4">
-                  <p class="text-sm font-semibold text-highlighted">Field redaction + share links</p>
+                  <p class="text-sm font-semibold text-highlighted">
+                    Field redaction + share links
+                  </p>
                   <p class="mt-2 text-sm text-muted">
                     Even when a row is visible, sensitive fields and alternate share-token auth stay
                     separate decisions.

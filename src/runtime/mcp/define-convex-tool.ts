@@ -13,7 +13,9 @@ import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
 import type { Delegation } from '../functions/define-delegation.js'
+import type { Subject } from '../functions/define-principal.js'
 import { createServerConvexCaller } from '../server/index.js'
+import { extractSubject } from '../trusted-forwarding/shared.js'
 import { toConvexError } from '../utils/call-result.js'
 import type { SchemaFieldMeta } from '../utils/define-convex-schema.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
@@ -329,6 +331,8 @@ interface ResolveToolAccessOptions<TRole extends string = string> {
   ) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
 }
 
+type TrustedToolPrincipal = { subject: Subject } & Record<string, unknown>
+
 async function resolveToolPrincipal<TRole extends string = string>(
   actor: McpAuthIdentity<TRole> | null,
   resolvePrincipal?: (actor: McpAuthIdentity<TRole>) => unknown | Promise<unknown>,
@@ -350,7 +354,9 @@ async function resolveToolPrincipal<TRole extends string = string>(
 
 async function resolveToolDelegation<TRole extends string = string>(
   actor: McpAuthIdentity<TRole> | null,
-  resolveDelegation?: (actor: McpAuthIdentity<TRole>) => Delegation | null | Promise<Delegation | null>,
+  resolveDelegation?: (
+    actor: McpAuthIdentity<TRole>,
+  ) => Delegation | null | Promise<Delegation | null>,
 ): Promise<Delegation | null> {
   if (!actor || !resolveDelegation) {
     return null
@@ -408,32 +414,58 @@ function createToolCallFns(
   principal: unknown,
   delegation: Delegation | null,
 ): ConvexToolCallFns {
-  const convex = actor
-    ? createServerConvexCaller(event, {
-        auth: 'trusted',
-        ...(principal !== undefined ? { principal } : {}),
-        ...(delegation ? { delegation } : {}),
-      })
-    : createServerConvexCaller(event, { auth: 'none' })
+  let convex: ReturnType<typeof createServerConvexCaller> | null = null
+
+  const requireTrustedPrincipal = (): TrustedToolPrincipal => {
+    if (!principal || typeof principal !== 'object') {
+      throw new Error(
+        'defineTool: authenticated Convex calls require resolvePrincipal() to return an object with a canonical subject.',
+      )
+    }
+
+    if (!extractSubject(principal)) {
+      throw new Error(
+        'defineTool: authenticated Convex calls require resolvePrincipal() to return a principal with a canonical subject.',
+      )
+    }
+
+    return principal as TrustedToolPrincipal
+  }
+
+  const getConvex = () => {
+    if (convex) {
+      return convex
+    }
+
+    convex = actor
+      ? createServerConvexCaller(event, {
+          auth: 'trusted',
+          principal: requireTrustedPrincipal(),
+          ...(delegation ? { delegation } : {}),
+        })
+      : createServerConvexCaller(event, { auth: 'none' })
+
+    return convex
+  }
 
   return {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       args?: FunctionArgs<Query>,
     ): Promise<FunctionReturnType<Query>> => {
-      return await convex.query(fn, args)
+      return await getConvex().query(fn, args)
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       args?: FunctionArgs<Mutation>,
     ): Promise<FunctionReturnType<Mutation>> => {
-      return await convex.mutation(fn, args)
+      return await getConvex().mutation(fn, args)
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       args?: FunctionArgs<Action>,
     ): Promise<FunctionReturnType<Action>> => {
-      return await convex.action(fn, args)
+      return await getConvex().action(fn, args)
     },
   }
 }

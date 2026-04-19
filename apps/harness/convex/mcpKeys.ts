@@ -1,5 +1,5 @@
-import { sha256 } from '@noble/hashes/sha2.js'
 import { defineGuard } from '@lupinum/trellis/auth'
+import { sha256 } from '@noble/hashes/sha2.js'
 import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'

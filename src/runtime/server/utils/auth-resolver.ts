@@ -5,10 +5,7 @@ import {
   buildMissingSiteUrlMessage,
   buildTokenExchangeFailureMessage,
 } from '../../utils/auth-errors.js'
-import {
-  filterBetterAuthCookieHeader,
-  getBetterAuthSessionToken,
-} from '../../utils/auth-token.js'
+import { filterBetterAuthCookieHeader, getBetterAuthSessionToken } from '../../utils/auth-token.js'
 import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants.js'
 import { decodeUserFromJwt } from '../../utils/convex-shared.js'
 import type { NormalizedConvexRuntimeConfig } from '../../utils/runtime-config.js'

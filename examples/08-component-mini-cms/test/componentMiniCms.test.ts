@@ -130,7 +130,9 @@ describe('example 08 component mini cms', () => {
           provider: 'mcp',
         },
       }),
-    ).rejects.toThrow('Forwarded `principal` is only allowed on verified trusted forwarding paths.')
+    ).rejects.toThrow(
+      'Forwarded identity fields are only allowed on verified trusted forwarding paths.',
+    )
   })
 
   it('forwards principal unchanged through the internal component bridge', async () => {

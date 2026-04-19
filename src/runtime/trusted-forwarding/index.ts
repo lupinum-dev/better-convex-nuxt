@@ -48,7 +48,9 @@ export function getTrustedForwarding(args?: unknown): TrustedForwardingIdentity 
   }
 
   if (isTrustedForwardingContextCarrier(args) && trustedForwardingContextKey in args) {
-    return (args[trustedForwardingContextKey] as TrustedForwardingIdentity | null | undefined) ?? null
+    return (
+      (args[trustedForwardingContextKey] as TrustedForwardingIdentity | null | undefined) ?? null
+    )
   }
 
   return extractTrustedForwardingFromArgs(args)

@@ -16,7 +16,9 @@ describe('examples gallery docs', () => {
     expect(gallery).toContain('## Start Here: 01-04')
     expect(gallery).toContain('## Advanced Branches: 05-08')
     expect(gallery).toContain('| Concept | Canonical example | Prerequisite |')
-    expect(gallery).toContain('If you only read one protected-app example in the repo, read `03-team-workspace`.')
+    expect(gallery).toContain(
+      'If you only read one protected-app example in the repo, read `03-team-workspace`.',
+    )
   })
 
   it('keeps every example README on the same teaching contract', () => {

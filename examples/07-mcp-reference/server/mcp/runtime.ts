@@ -1,7 +1,7 @@
+import type { Delegation } from '@lupinum/trellis/functions'
 import type { H3Event } from 'h3'
 
 import { api } from '#trellis/api'
-import type { Delegation } from '@lupinum/trellis/functions'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
 import {
@@ -48,7 +48,7 @@ function getMcpDelegation(event: H3Event): Delegation | null {
   }
 }
 
-export const mcpRuntime = defineMcpApp<McpReferencePrincipal, Delegation, CapabilitySnapshot>({
+export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot, Delegation>({
   callConvex: async (event, { principal, delegation }) => {
     if (principal.kind !== 'agent') {
       return createServerConvexCaller(event, { auth: 'none' })

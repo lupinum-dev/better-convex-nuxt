@@ -1,7 +1,8 @@
 import { fileURLToPath } from 'node:url'
 
-import { convexTestConfig } from '../../src/runtime/testing/index'
 import { defineConfig } from 'vitest/config'
+
+import { convexTestConfig } from '../../src/runtime/testing/index'
 
 export default defineConfig(
   convexTestConfig({

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+
 import { createError, getRequestHeader, type H3Event } from 'h3'
 
 import { defineMcpTool, defineTool } from '#trellis/mcp'

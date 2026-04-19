@@ -1,6 +1,5 @@
-import { projectRead } from '../auth/permissions'
-
 import { requireWorkspaceTenant } from '../auth/checks'
+import { projectRead } from '../auth/permissions'
 import { query } from '../functions'
 
 export const list = query({

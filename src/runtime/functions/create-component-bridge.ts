@@ -18,7 +18,10 @@ import type {
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
-import { clearTrustedForwardingContext, setTrustedForwardingContext } from '../trusted-forwarding/index.js'
+import {
+  clearTrustedForwardingContext,
+  setTrustedForwardingContext,
+} from '../trusted-forwarding/index.js'
 import { extractSubject } from '../trusted-forwarding/shared.js'
 import {
   definePrincipal,
@@ -139,13 +142,20 @@ type BridgeBatchResult<
 }
 
 function resolveBridgePrincipalSubject(principal: unknown): string {
-  if ('kind' in principal && (principal as { kind?: unknown }).kind === 'anonymous') {
+  if (
+    typeof principal === 'object' &&
+    principal !== null &&
+    'kind' in principal &&
+    (principal as { kind?: unknown }).kind === 'anonymous'
+  ) {
     throw new Error('createComponentBridge() cannot forward an anonymous principal.')
   }
 
   const subject = extractSubject(principal)
   if (!subject) {
-    throw new Error('createComponentBridge() requires the resolved principal to include a canonical subject.')
+    throw new Error(
+      'createComponentBridge() requires the resolved principal to include a canonical subject.',
+    )
   }
 
   return subject
@@ -154,9 +164,7 @@ function resolveBridgePrincipalSubject(principal: unknown): string {
 function getRequiredBridgeTrustedForwardingKey(): string {
   const trustedForwardingKey = process.env.CONVEX_TRUSTED_FORWARDING_KEY?.trim()
   if (!trustedForwardingKey) {
-    throw new Error(
-      'createComponentBridge() requires CONVEX_TRUSTED_FORWARDING_KEY to be set.',
-    )
+    throw new Error('createComponentBridge() requires CONVEX_TRUSTED_FORWARDING_KEY to be set.')
   }
 
   return trustedForwardingKey
@@ -170,6 +178,25 @@ function createBridgeTrustedForwardingFields(principal: unknown, trustedForwardi
     _trustedForwarding: {
       principalSubject,
     },
+  }
+}
+
+function createBridgeForwardingArgs(
+  principal: unknown,
+  trustedForwardingKey: string,
+): Record<string, unknown> {
+  if (
+    typeof principal === 'object' &&
+    principal !== null &&
+    'kind' in principal &&
+    (principal as { kind?: unknown }).kind === 'anonymous'
+  ) {
+    return {}
+  }
+
+  return {
+    ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
+    principal,
   }
 }
 
@@ -262,24 +289,28 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
             const forwardedPrincipal = (args as Record<string, unknown>).principal
-            const ctxWithTrustedForwarding = { ...ctx }
-            const argsWithTrustedForwarding = {
-              ...args,
-              ...createBridgeTrustedForwardingFields(forwardedPrincipal, trustedForwardingKey),
-            }
+            if (forwardedPrincipal === undefined) {
+              principalPromise = Promise.resolve(principalDefinition.resolve(ctx, args))
+            } else {
+              const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
+              const ctxWithTrustedForwarding = { ...ctx }
+              const argsWithTrustedForwarding = {
+                ...args,
+                ...createBridgeTrustedForwardingFields(forwardedPrincipal, trustedForwardingKey),
+              }
 
-            setTrustedForwardingContext(
-              ctxWithTrustedForwarding,
-              argsWithTrustedForwarding,
-              trustedForwardingKey,
-            )
-            principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, argsWithTrustedForwarding),
-            ).finally(() => {
-              clearTrustedForwardingContext(ctxWithTrustedForwarding)
-            })
+              setTrustedForwardingContext(
+                ctxWithTrustedForwarding,
+                argsWithTrustedForwarding,
+                trustedForwardingKey,
+              )
+              principalPromise = Promise.resolve(
+                principalDefinition.resolve(ctxWithTrustedForwarding, argsWithTrustedForwarding),
+              ).finally(() => {
+                clearTrustedForwardingContext(ctxWithTrustedForwarding)
+              })
+            }
           }
 
           return await principalPromise
@@ -387,8 +418,7 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
         return await ctx.runQuery(definition.component, {
           ...args,
-          ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
-          principal,
+          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
         } as never)
       },
     })
@@ -402,8 +432,7 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
         return await ctx.runMutation(definition.component, {
           ...args,
-          ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
-          principal,
+          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
         } as never)
       },
     })
@@ -417,8 +446,7 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
         return await ctx.runQuery(definition.component, {
           ...args,
-          ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
-          principal,
+          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
         } as never)
       },
     })
@@ -432,8 +460,7 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
         return await ctx.runMutation(definition.component, {
           ...args,
-          ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
-          principal,
+          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
         } as never)
       },
     })

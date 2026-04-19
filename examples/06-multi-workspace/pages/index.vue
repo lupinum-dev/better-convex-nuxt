@@ -112,9 +112,7 @@ Project management lives on its own page so the cross-workspace boundary stays e
                     </template>
                   </p>
                 </template>
-                <p v-else class="text-sm text-muted">
-                  No workspace yet — create one below.
-                </p>
+                <p v-else class="text-sm text-muted">No workspace yet — create one below.</p>
               </div>
 
               <UButton

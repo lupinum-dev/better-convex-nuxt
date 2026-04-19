@@ -89,8 +89,8 @@ type ProjectionRuntimeCtx<TPrincipal, TDelegation extends Delegation, TCapabilit
 
 export interface DefineMcpAppOptions<
   TPrincipal,
-  TDelegation extends Delegation = Delegation,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
+  TDelegation extends Delegation = Delegation,
   TRuntime = Record<string, never>,
 > {
   callConvex: (
@@ -216,7 +216,15 @@ export interface ToolFromOperationOptions<
   TExecute extends AnyFunctionRef = AnyMutationRef,
   TPreview extends AnyFunctionRef | undefined = undefined,
 > extends Omit<
-  ToolOptions<AnyConvexSchema, TPrincipal, TDelegation, TCapabilities, TRuntime, TExecute, TPreview>,
+  ToolOptions<
+    AnyConvexSchema,
+    TPrincipal,
+    TDelegation,
+    TCapabilities,
+    TRuntime,
+    TExecute,
+    TPreview
+  >,
   'schema' | 'call' | 'preview' | 'operation' | 'previewOperation'
 > {
   execute: TExecute
@@ -350,10 +358,10 @@ async function callByOperation<TRef extends AnyFunctionRef>(
  */
 export function defineMcpApp<
   TPrincipal,
-  TDelegation extends Delegation = Delegation,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
+  TDelegation extends Delegation = Delegation,
   TRuntime = Record<string, never>,
->(options: DefineMcpAppOptions<TPrincipal, TDelegation, TCapabilities, TRuntime>) {
+>(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TDelegation, TRuntime>) {
   const principalKeyResolver = options.principalKey ?? defaultPrincipalKey
   const requestCache = new WeakMap<
     H3Event,
@@ -626,7 +634,12 @@ export function defineMcpApp<
             reasonCode: 'tool.disabled',
             details: { explanation },
           })
-          return ctx.error('auth', 'Tool is currently disabled for this request.', undefined, explanation)
+          return ctx.error(
+            'auth',
+            'Tool is currently disabled for this request.',
+            undefined,
+            explanation,
+          )
         }
         projectionCtx.wideSummary.set({
           tool: tool.meta?.name ?? 'project-tool',
@@ -887,7 +900,12 @@ export function defineMcpApp<
             reasonCode: 'tool.disabled',
             details: { explanation },
           })
-          return ctx.error('auth', 'Tool is currently disabled for this request.', undefined, explanation)
+          return ctx.error(
+            'auth',
+            'Tool is currently disabled for this request.',
+            undefined,
+            explanation,
+          )
         }
         const fullArgs = rawArgs as Record<string, unknown>
         const confirmationToken =

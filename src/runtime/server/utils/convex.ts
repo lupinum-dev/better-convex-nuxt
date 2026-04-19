@@ -1,6 +1,14 @@
 import type { H3Event } from 'h3'
 import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 
+import type { Delegation } from '../../functions/define-delegation.js'
+import type { Subject } from '../../functions/define-principal.js'
+import {
+  extractSubject,
+  hasForwardedIdentityFields,
+  isAnonymousPrincipalLike,
+  stripForwardedIdentityFields,
+} from '../../trusted-forwarding/shared.js'
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
 import {
   parseConvexResponse,
@@ -17,17 +25,9 @@ import {
   sanitizeCorrelationId,
   type EventObservationState,
 } from '../../utils/observability/envelope.js'
-import type { Delegation } from '../../functions/define-delegation.js'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
-import type { Subject } from '../../functions/define-principal.js'
-import {
-  extractSubject,
-  hasForwardedIdentityFields,
-  isAnonymousPrincipalLike,
-  stripForwardedIdentityFields,
-} from '../../trusted-forwarding/shared.js'
 import { resolveRequestAuthToken } from './auth-resolver.js'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'

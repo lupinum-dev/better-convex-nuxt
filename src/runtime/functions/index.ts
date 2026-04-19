@@ -51,6 +51,11 @@ import {
   toObservationContext,
 } from '../utils/observability.js'
 import { createComponentBridge } from './create-component-bridge.js'
+import {
+  defineDelegation,
+  type Delegation,
+  type DelegationDefinition,
+} from './define-delegation.js'
 import { buildStructuredBuilder } from './define-handler.js'
 import type {
   StructuredGuard,
@@ -58,11 +63,6 @@ import type {
   StructuredLoadedValue,
 } from './define-handler.js'
 import { getOperationMetadata, type DestructiveOperationPreview } from './define-operation.js'
-import {
-  defineDelegation,
-  type Delegation,
-  type DelegationDefinition,
-} from './define-delegation.js'
 import {
   definePrincipal,
   type DefaultPrincipal,
@@ -127,8 +127,8 @@ function safeObserve(observe: ObserveFn | undefined, event: Parameters<ObserveFn
   }
 }
 
-function stripTransportReservedArgs<TArgs>(args: TArgs): TArgs {
-  return stripForwardedIdentityFields(stripObservationEnvelope(args))
+function stripTransportReservedArgs<TArgs extends Record<string, unknown>>(args: TArgs): TArgs {
+  return stripForwardedIdentityFields(stripObservationEnvelope(args)) as TArgs
 }
 
 export type FunctionsCtxExtension<TPrincipal, TDelegation, TActor> = {
@@ -161,10 +161,7 @@ type QueryCtxWithRuntime<
   TPrincipal,
   TDelegation extends Delegation,
   TActor,
-> = Omit<
-  GenericQueryCtx<DataModel>,
-  'db'
-> & {
+> = Omit<GenericQueryCtx<DataModel>, 'db'> & {
   db: QueryDbWithRuntime<DataModel>
 } & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
@@ -173,10 +170,7 @@ type MutationCtxWithRuntime<
   TPrincipal,
   TDelegation extends Delegation,
   TActor,
-> = Omit<
-  GenericMutationCtx<DataModel>,
-  'db'
-> & {
+> = Omit<GenericMutationCtx<DataModel>, 'db'> & {
   db: MutationDbWithRuntime<DataModel>
 } & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
@@ -259,7 +253,8 @@ export interface DefineTrellisOptions<
   principal?: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
   delegation?: DelegationDefinition<AnyCtx<DataModel>, TDelegation>
   actor?: (
-    ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation'>,
+    ctx: AnyCtx<DataModel> &
+      Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation'>,
     args: Record<string, unknown>,
     principal: TPrincipal,
     delegation: TDelegation | null,
@@ -878,7 +873,7 @@ function createContextWithRuntime<
     principal: TPrincipal,
     delegation: TDelegation | null,
   ) => Promise<TActor | null>,
-) : RuntimeBundle<DataModel, TCtx, TPrincipal, TDelegation, TActor> {
+): RuntimeBundle<DataModel, TCtx, TPrincipal, TDelegation, TActor> {
   const rawAppArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
   const ctxWithTrustedForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
@@ -932,7 +927,10 @@ function createContextWithRuntime<
     delegation,
     observe,
   } as TCtx &
-    Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation' | 'observe'>
+    Pick<
+      FunctionsCtxExtension<TPrincipal, TDelegation, TActor>,
+      'principal' | 'delegation' | 'observe'
+    >
 
   let actorPromise: Promise<TActor | null> | null = null
   const actor: ActorAccessor<TActor> = async () => {
@@ -941,18 +939,16 @@ function createContextWithRuntime<
       appArgs,
       await principal(),
       await delegation(),
-    ).then(
-      async (value) => {
-        await observe({
-          name: value == null ? 'actor.missing' : 'actor.resolved',
-          status: value == null ? 'skip' : 'success',
-          actorKind: describeActorKind(value),
-          tenantId:
-            typeof getTenantId(value) === 'string' ? (getTenantId(value) as string) : undefined,
-        })
-        return value
-      },
-    )
+    ).then(async (value) => {
+      await observe({
+        name: value == null ? 'actor.missing' : 'actor.resolved',
+        status: value == null ? 'skip' : 'success',
+        actorKind: describeActorKind(value),
+        tenantId:
+          typeof getTenantId(value) === 'string' ? (getTenantId(value) as string) : undefined,
+      })
+      return value
+    })
     return await actorPromise
   }
 

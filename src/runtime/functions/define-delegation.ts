@@ -1,4 +1,9 @@
-import type { GenericActionCtx, GenericDataModel, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type {
+  GenericActionCtx,
+  GenericDataModel,
+  GenericMutationCtx,
+  GenericQueryCtx,
+} from 'convex/server'
 import type { GenericValidator } from 'convex/values'
 
 import type { Subject } from './define-principal.js'
@@ -16,7 +21,10 @@ export type Delegation = {
   grantedBy?: Subject
 }
 
-export interface DelegationDefinition<TCtx extends object, TDelegation extends Delegation = Delegation> {
+export interface DelegationDefinition<
+  TCtx extends object,
+  TDelegation extends Delegation = Delegation,
+> {
   readonly type: TDelegation
   readonly validator?: GenericValidator
   resolve: (ctx: TCtx, args: Record<string, unknown>) => MaybePromise<TDelegation | null>
@@ -28,7 +36,10 @@ export interface DelegationDefinition<TCtx extends object, TDelegation extends D
  * Delegation answers "who may this caller act for on this request?" It is
  * separate from the transport principal and should never be inferred from it.
  */
-export function defineDelegation<TCtx extends object, TDelegation extends Delegation = Delegation>(options: {
+export function defineDelegation<
+  TCtx extends object,
+  TDelegation extends Delegation = Delegation,
+>(options: {
   validator?: GenericValidator
   resolve: (ctx: TCtx, args: Record<string, unknown>) => MaybePromise<TDelegation | null>
 }): DelegationDefinition<TCtx, TDelegation> {

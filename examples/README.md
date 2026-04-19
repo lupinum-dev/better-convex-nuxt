@@ -18,12 +18,12 @@ architecture before it graduates into a template.
 
 Read these in order.
 
-| Example | Purpose | Primary lesson |
-| --- | --- | --- |
-| `01-public-todo` | First contact | Public data flow with almost no ceremony |
-| `02-auth-todo` | Personal app | Better Auth, actor resolution, personal ownership |
-| `03-team-workspace` | Canonical protected app | Single-workspace auth, roles, guards, permission context |
-| `04-saas-platform` | Server integration branch of the ladder | Nitro routes, uploads, server-owned integrations on top of the workspace model |
+| Example             | Purpose                                 | Primary lesson                                                                 |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------ |
+| `01-public-todo`    | First contact                           | Public data flow with almost no ceremony                                       |
+| `02-auth-todo`      | Personal app                            | Better Auth, actor resolution, personal ownership                              |
+| `03-team-workspace` | Canonical protected app                 | Single-workspace auth, roles, guards, permission context                       |
+| `04-saas-platform`  | Server integration branch of the ladder | Nitro routes, uploads, server-owned integrations on top of the workspace model |
 
 The intended ladder is:
 
@@ -38,26 +38,26 @@ If you only read one protected-app example in the repo, read `03-team-workspace`
 
 These are not first-reader steps. Open them once `03` makes sense to you.
 
-| Example | Open this when you need | Primary lesson |
-| --- | --- | --- |
-| `05-visibility-access` | hard authorization rules | Row visibility, redaction, enrollment, prerequisites, share links |
-| `06-multi-workspace` | a memberships-based tenant model | Multi-workspace membership, switching, cross-workspace constraints |
-| `07-mcp-reference` | the full MCP surface | Public/scoped tools, keys, prompts, resources, sessions, confirmations |
-| `08-component-mini-cms` | a component/host architecture | Local components, principal forwarding, bridge inventory, MCP over bridge refs |
+| Example                 | Open this when you need          | Primary lesson                                                                 |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------------------------ |
+| `05-visibility-access`  | hard authorization rules         | Row visibility, redaction, enrollment, prerequisites, share links              |
+| `06-multi-workspace`    | a memberships-based tenant model | Multi-workspace membership, switching, cross-workspace constraints             |
+| `07-mcp-reference`      | the full MCP surface             | Public/scoped tools, keys, prompts, resources, sessions, confirmations         |
+| `08-component-mini-cms` | a component/host architecture    | Local components, principal forwarding, bridge inventory, MCP over bridge refs |
 
 ## Concept Matrix
 
-| Concept | Canonical example | Prerequisite |
-| --- | --- | --- |
-| Public queries and mutations | `01-public-todo` | none |
-| Better Auth + actor resolution | `02-auth-todo` | `01-public-todo` |
-| Canonical single-workspace model | `03-team-workspace` | `02-auth-todo` |
-| Guards, permission context, `_can` | `03-team-workspace` | `02-auth-todo` |
-| Nitro routes and server-side integrations | `04-saas-platform` | `03-team-workspace` |
-| Advanced authorization patterns | `05-visibility-access` | `03-team-workspace` |
-| Membership-based multi-workspace auth | `06-multi-workspace` | `03-team-workspace` |
-| Full MCP implementation | `07-mcp-reference` | `03-team-workspace` |
-| Component bridge architecture | `08-component-mini-cms` | `03-team-workspace`, `07-mcp-reference` |
+| Concept                                   | Canonical example       | Prerequisite                            |
+| ----------------------------------------- | ----------------------- | --------------------------------------- |
+| Public queries and mutations              | `01-public-todo`        | none                                    |
+| Better Auth + actor resolution            | `02-auth-todo`          | `01-public-todo`                        |
+| Canonical single-workspace model          | `03-team-workspace`     | `02-auth-todo`                          |
+| Guards, permission context, `_can`        | `03-team-workspace`     | `02-auth-todo`                          |
+| Nitro routes and server-side integrations | `04-saas-platform`      | `03-team-workspace`                     |
+| Advanced authorization patterns           | `05-visibility-access`  | `03-team-workspace`                     |
+| Membership-based multi-workspace auth     | `06-multi-workspace`    | `03-team-workspace`                     |
+| Full MCP implementation                   | `07-mcp-reference`      | `03-team-workspace`                     |
+| Component bridge architecture             | `08-component-mini-cms` | `03-team-workspace`, `07-mcp-reference` |
 
 ## Canonical Defaults
 
@@ -101,15 +101,15 @@ version or a packed local tarball before installing.
 
 ## Environment Variables
 
-| Example | Injected by `pnpm dev` | App-owned env vars |
-| --- | --- | --- |
-| `01-public-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | none |
-| `02-auth-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing |
-| `03-team-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_FORWARDING_KEY` for trusted server-to-Convex calls, `TRELLIS_MCP_CONFIRMATION_KEY` for destructive MCP confirmation signing, `TEAM_WORKSPACE_WEBHOOK_SECRET` for the webhook route boundary |
-| `04-saas-platform` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_FORWARDING_KEY` for trusted server-to-Convex calls, `PROJECT_BOARD_WEBHOOK_SECRET` for the webhook route boundary, `PROJECT_BOARD_WEBHOOK_ACTOR_ID` for the server-owned app actor used by the webhook example |
-| `05-visibility-access` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing |
-| `06-multi-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing |
-| `07-mcp-reference` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_FORWARDING_KEY` for trusted server-to-Convex calls, `TRELLIS_MCP_CONFIRMATION_KEY` for destructive MCP confirmation signing |
+| Example                 | Injected by `pnpm dev`          | App-owned env vars                                                                                                                                                                                                                                                                                                                           |
+| ----------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-public-todo`        | `CONVEX_URL`, `CONVEX_SITE_URL` | none                                                                                                                                                                                                                                                                                                                                         |
+| `02-auth-todo`          | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing                                                                                                                                                                                                                                                            |
+| `03-team-workspace`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_FORWARDING_KEY` for trusted server-to-Convex calls, `TRELLIS_MCP_CONFIRMATION_KEY` for destructive MCP confirmation signing, `TEAM_WORKSPACE_WEBHOOK_SECRET` for the webhook route boundary                                               |
+| `04-saas-platform`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_FORWARDING_KEY` for trusted server-to-Convex calls, `PROJECT_BOARD_WEBHOOK_SECRET` for the webhook route boundary, `PROJECT_BOARD_WEBHOOK_ACTOR_ID` for the server-owned app actor used by the webhook example                            |
+| `05-visibility-access`  | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing                                                                                                                                                                                                                                                            |
+| `06-multi-workspace`    | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing                                                                                                                                                                                                                                                            |
+| `07-mcp-reference`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_FORWARDING_KEY` for trusted server-to-Convex calls, `TRELLIS_MCP_CONFIRMATION_KEY` for destructive MCP confirmation signing                                                                                                               |
 | `08-component-mini-cms` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_FORWARDING_KEY` for trusted principal forwarding into the component boundary, `TRELLIS_MCP_CONFIRMATION_KEY` for destructive MCP confirmation signing, `JWKS` for local auth bootstrap, `DEMO_MCP_TOKEN` for the demo MCP caller identity |
 
 ## How an Example Graduates Into a Template

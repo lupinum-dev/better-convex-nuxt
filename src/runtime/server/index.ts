@@ -68,16 +68,17 @@ export function createServerConvexCaller(event: H3Event, options?: ForwardedPrin
       : {}),
   }
 
-  if ((options?.principal !== undefined || options?.delegation !== undefined) && callOptions.auth !== 'trusted') {
+  if (
+    (options?.principal !== undefined || options?.delegation !== undefined) &&
+    callOptions.auth !== 'trusted'
+  ) {
     throw new Error(
       "createServerConvexCaller() only allows forwarded identity on `auth: 'trusted'` calls.",
     )
   }
 
   if (callOptions.auth === 'trusted' && options?.principal === undefined) {
-    throw new Error(
-      'createServerConvexCaller() requires `principal` on trusted forwarding calls.',
-    )
+    throw new Error('createServerConvexCaller() requires `principal` on trusted forwarding calls.')
   }
 
   return {

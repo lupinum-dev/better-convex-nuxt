@@ -27,9 +27,7 @@ export type {
 } from './operation-metadata.js'
 
 type MaybePromise<T> = T | Promise<T>
-type BivariantCallback<TArgs extends unknown[], TResult> = {
-  bivarianceHack: (...args: TArgs) => TResult
-}['bivarianceHack']
+type Callback<TArgs extends unknown[], TResult> = (...args: TArgs) => TResult
 
 type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
 
@@ -38,7 +36,7 @@ type PreviewFn<
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TPreview,
-> = BivariantCallback<[TCtx, HandlerArgs<TArgsValidator>, TLoaded], MaybePromise<TPreview>>
+> = Callback<[TCtx, HandlerArgs<TArgsValidator>, TLoaded], MaybePromise<TPreview>>
 
 export type DestructiveOperationPreview<TDisplay = unknown, TConfirm = unknown> = {
   display: TDisplay
@@ -48,6 +46,7 @@ export type DestructiveOperationPreview<TDisplay = unknown, TConfirm = unknown> 
 export type OperationDefinition<
   TCtx,
   TPrincipal,
+  TDelegation,
   TActor,
   TGuard extends StructuredGuard<TPrincipal, TActor>,
   TArgsValidator extends PropertyValidators,
@@ -57,6 +56,7 @@ export type OperationDefinition<
 > = StructuredHandlerDefinition<
   TCtx,
   TPrincipal,
+  TDelegation,
   TActor,
   TGuard,
   TArgsValidator,
@@ -108,6 +108,13 @@ type InferOperationPrincipal<TDefinition extends OperationShape> =
   }
     ? TPrincipal
     : never
+
+type InferOperationDelegation<TDefinition extends OperationShape> =
+  InferOperationCtx<TDefinition> extends {
+    delegation: () => Promise<(infer TDelegation) | null>
+  }
+    ? TDelegation
+    : unknown
 
 type InferActorFromCtx<TCtx> = TCtx extends {
   actor: () => Promise<infer TActor>
@@ -169,6 +176,7 @@ export function defineOperation<TDefinition extends OperationShape>(
     OperationDefinition<
       InferOperationCtx<TDefinition>,
       InferOperationPrincipal<TDefinition>,
+      InferOperationDelegation<TDefinition>,
       InferOperationActor<TDefinition>,
       InferOperationGuard<TDefinition>,
       InferOperationArgsValidator<TDefinition>,
@@ -179,6 +187,7 @@ export function defineOperation<TDefinition extends OperationShape>(
 ): OperationDefinition<
   InferOperationCtx<TDefinition>,
   InferOperationPrincipal<TDefinition>,
+  InferOperationDelegation<TDefinition>,
   InferOperationActor<TDefinition>,
   InferOperationGuard<TDefinition>,
   InferOperationArgsValidator<TDefinition>,
@@ -218,6 +227,7 @@ export function defineOperation<TDefinition extends OperationShape>(
 export function previewOf<
   TCtx,
   TPrincipal,
+  TDelegation,
   TActor,
   TGuard extends StructuredGuard<TPrincipal, TActor>,
   TArgsValidator extends PropertyValidators,
@@ -228,6 +238,7 @@ export function previewOf<
   operation: OperationDefinition<
     TCtx,
     TPrincipal,
+    TDelegation,
     TActor,
     TGuard,
     TArgsValidator,
@@ -238,6 +249,7 @@ export function previewOf<
 ): StructuredHandlerDefinition<
   TCtx,
   TPrincipal,
+  TDelegation,
   TActor,
   TGuard,
   TArgsValidator,

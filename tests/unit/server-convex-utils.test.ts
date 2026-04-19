@@ -409,15 +409,15 @@ describe('server Convex fetch helpers', () => {
     await serverConvexMutation(
       createEvent(),
       { _path: 'tasks:create' } as never,
-        { title: 'From webhook' } as never,
-        {
-          auth: 'trusted',
-          principal: {
-            kind: 'user',
-            userId: 'user_admin',
-            subject: 'user:user_admin',
-          },
+      { title: 'From webhook' } as never,
+      {
+        auth: 'trusted',
+        principal: {
+          kind: 'user',
+          userId: 'user_admin',
+          subject: 'user:user_admin',
         },
+      },
     )
 
     const firstCall = fetchMock.mock.calls[0]

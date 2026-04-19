@@ -54,7 +54,7 @@ const actionRef = {} as FunctionReference<
 >
 
 const runtime = defineMcpApp<Principal, Capabilities>({
-  callConvex: async (_event: H3Event, _principal: Principal) =>
+  callConvex: async (_event: H3Event, { principal: _principal, delegation: _delegation }) =>
     ({
       query: async () => ({ title: 'Draft', count: 2 }),
       mutation: async () => ({ published: true }),

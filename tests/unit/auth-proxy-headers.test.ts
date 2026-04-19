@@ -10,7 +10,8 @@ describe('auth proxy header helpers', () => {
     const event = {
       headers: new Headers({
         host: 'app.example.com',
-        cookie: 'a=1; better-auth.session_token=abc; theme=dark; __Secure-better-auth.session_token=secure',
+        cookie:
+          'a=1; better-auth.session_token=abc; theme=dark; __Secure-better-auth.session_token=secure',
         origin: 'https://app.example.com',
         accept: 'application/json',
         connection: 'keep-alive',

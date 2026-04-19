@@ -130,7 +130,7 @@ describe('CLI doctor', () => {
     expect(actor).toContain("getSubjectValue(delegation?.subject, 'user')")
     expect(actor).not.toContain("delegation.subject.startsWith('user:')")
     expect(read(resolve(appRoot, 'server/middleware/mcp-auth.ts'))).toContain(
-      'serverConvexQuery(event, api.domain.mcpKeys.validate, { hash }, { auth: \'none\' })',
+      "serverConvexQuery(event, api.domain.mcpKeys.validate, { hash }, { auth: 'none' })",
     )
   })
 

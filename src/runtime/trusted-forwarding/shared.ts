@@ -13,12 +13,10 @@ export type TrustedForwardingIdentity = {
 
 export type TrustedForwardingInput = {
   _trustedForwardingKey?: unknown
-  _trustedForwarding?:
-    | {
-        principalSubject?: unknown
-        delegationSubject?: unknown
-      }
-    | null
+  _trustedForwarding?: {
+    principalSubject?: unknown
+    delegationSubject?: unknown
+  } | null
 }
 
 export type TrustedForwardingContextCarrier = Record<PropertyKey, unknown> & {
@@ -83,11 +81,7 @@ export function extractSubject(value: unknown): Subject | undefined {
 }
 
 export function isAnonymousPrincipalLike(value: unknown): boolean {
-  return (
-    isObject(value) &&
-    'kind' in value &&
-    (value as { kind?: unknown }).kind === 'anonymous'
-  )
+  return isObject(value) && 'kind' in value && (value as { kind?: unknown }).kind === 'anonymous'
 }
 
 export function assertForwardablePrincipal(
@@ -174,17 +168,13 @@ export function extractTrustedForwardingFromArgs(
   }
 
   const expectedKey =
-    nonBlankString(expectedKeyOverride) ??
-    nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY)
+    nonBlankString(expectedKeyOverride) ?? nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY)
 
   if (!expectedKey) {
-    throw deny(
-      'Trusted forwarding auth is not configured. Set CONVEX_TRUSTED_FORWARDING_KEY.',
-      {
-        source: 'trusted-forwarding',
-        category: 'auth',
-      },
-    )
+    throw deny('Trusted forwarding auth is not configured. Set CONVEX_TRUSTED_FORWARDING_KEY.', {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    })
   }
 
   if (!verifyTrustedForwardingKey(input._trustedForwardingKey, expectedKey)) {
@@ -219,15 +209,18 @@ export function createTrustedForwardingContextDelta(
   return {
     [trustedForwardingContextKey]: identity,
     [trustedForwardingPayloadContextKey]:
-      payload && (payload.principal !== undefined || payload.delegation !== undefined) ? payload : null,
+      payload && (payload.principal !== undefined || payload.delegation !== undefined)
+        ? payload
+        : null,
   }
 }
 
-export function getTrustedForwardingPayload(
-  value: unknown,
-): TrustedForwardingPayload | null {
+export function getTrustedForwardingPayload(value: unknown): TrustedForwardingPayload | null {
   if (!isTrustedForwardingContextCarrier(value)) return null
-  return (value[trustedForwardingPayloadContextKey] as TrustedForwardingPayload | null | undefined) ?? null
+  return (
+    (value[trustedForwardingPayloadContextKey] as TrustedForwardingPayload | null | undefined) ??
+    null
+  )
 }
 
 export function hasForwardedIdentityFields(args: unknown): boolean {

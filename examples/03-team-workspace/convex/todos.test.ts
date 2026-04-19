@@ -6,12 +6,12 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
-import { api, internal } from './_generated/api'
 import { describe, expect, it } from 'vitest'
 
+import { api, internal } from './_generated/api'
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
-import { ensureWebhookBotUser } from './auth/webhookBot'
 import { todoCreate, todoRead } from './auth/permissions'
+import { ensureWebhookBotUser } from './auth/webhookBot'
 import schema from './schema'
 import { modules } from './test.setup'
 

@@ -39,9 +39,7 @@ export function getBetterAuthSessionToken(cookieHeader: string): string | null {
 }
 
 function isBetterAuthCookieName(cookieName: string): boolean {
-  return (
-    cookieName.startsWith('better-auth.') || cookieName.startsWith('__Secure-better-auth.')
-  )
+  return cookieName.startsWith('better-auth.') || cookieName.startsWith('__Secure-better-auth.')
 }
 
 export function filterBetterAuthCookieHeader(cookieHeader: string): string {

@@ -270,9 +270,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       id: 'trusted-forwarding-key-configured',
       category: 'advanced',
       title: 'Trusted forwarding key source',
-      status: trustedForwardingExpected
-        ? (trustedForwardingKeySource ? 'pass' : 'warn')
-        : 'pass',
+      status: trustedForwardingExpected ? (trustedForwardingKeySource ? 'pass' : 'warn') : 'pass',
       message: !trustedForwardingExpected
         ? 'No trusted-forwarding or MCP surfaces were detected in the app source.'
         : trustedForwardingKeySource
