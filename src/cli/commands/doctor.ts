@@ -26,7 +26,7 @@ import {
   isAuthExplicitlyDisabled,
   usesSyncedUsersTable,
   usesPermissionSurfaces,
-  usesTrustedCallerSurfaces,
+  usesTrustedForwardingSurfaces,
 } from '../lib/project.js'
 
 function createDoctorFindings(cwd: string): DoctorFinding[] {
@@ -47,8 +47,8 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const convexAuthSource = findConvexAuthSource(project)
   const expectsSyncedUsers = usesSyncedUsersTable(project)
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
-  const trustedCallerExpected = usesTrustedCallerSurfaces(project)
-  const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_FORWARDING_KEY'])
+  const trustedForwardingExpected = usesTrustedForwardingSurfaces(project)
+  const trustedForwardingKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_FORWARDING_KEY'])
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.fromOperation\s*\(/.test(file.text),
   )
@@ -270,13 +270,15 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       id: 'trusted-forwarding-key-configured',
       category: 'advanced',
       title: 'Trusted forwarding key source',
-      status: trustedCallerExpected ? (trustedCallerKeySource ? 'pass' : 'warn') : 'pass',
-      message: !trustedCallerExpected
+      status: trustedForwardingExpected
+        ? (trustedForwardingKeySource ? 'pass' : 'warn')
+        : 'pass',
+      message: !trustedForwardingExpected
         ? 'No trusted-forwarding or MCP surfaces were detected in the app source.'
-        : trustedCallerKeySource
-          ? `Found CONVEX_TRUSTED_FORWARDING_KEY in ${trustedCallerKeySource.source}.`
+        : trustedForwardingKeySource
+          ? `Found CONVEX_TRUSTED_FORWARDING_KEY in ${trustedForwardingKeySource.source}.`
           : 'Trusted-forwarding or MCP surfaces were detected, but no CONVEX_TRUSTED_FORWARDING_KEY source was found.',
-      fixHint: !trustedCallerExpected
+      fixHint: !trustedForwardingExpected
         ? 'No action needed unless you add MCP or trusted-forwarding flows later.'
         : 'Set CONVEX_TRUSTED_FORWARDING_KEY in the local environment and the Convex deployment that serves trusted-forwarding traffic.',
     },

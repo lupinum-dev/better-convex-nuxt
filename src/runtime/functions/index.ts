@@ -33,8 +33,12 @@ import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { can, deny } from '../auth/index.js'
 import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
-import { setTrustedForwardingContext } from '../trusted-forwarding/index.js'
-import { trustedForwardingValidators } from '../trusted-forwarding/shared.js'
+import { getTrustedForwarding, setTrustedForwardingContext } from '../trusted-forwarding/index.js'
+import {
+  hasForwardedIdentityFields,
+  stripForwardedIdentityFields,
+  trustedForwardingValidators,
+} from '../trusted-forwarding/shared.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,
@@ -121,6 +125,10 @@ function safeObserve(observe: ObserveFn | undefined, event: Parameters<ObserveFn
   } catch {
     // Observability must never break business logic, even if a caller swaps in a bad implementation.
   }
+}
+
+function stripTransportReservedArgs<TArgs>(args: TArgs): TArgs {
+  return stripForwardedIdentityFields(stripObservationEnvelope(args))
 }
 
 export type FunctionsCtxExtension<TPrincipal, TDelegation, TActor> = {
@@ -274,13 +282,13 @@ export interface DefineTrellisOptions<
   >
   onSuccess?: {
     query?: (
-      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>>,
+      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>>,
     ) => Promise<void> | void
     mutation?: (
-      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>>,
+      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>>,
     ) => Promise<void> | void
     action?: (
-      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TActor>>,
+      args: OnSuccessArgs<AnyCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>>,
     ) => Promise<void> | void
   }
 }
@@ -497,10 +505,11 @@ function createServiceScopeRule<TDoc extends Record<string, unknown>>(
 function createTenantIsolationRule<
   DataModel extends GenericDataModel,
   TPrincipal,
+  TDelegation extends Delegation,
   TActor,
   TDoc extends Record<string, unknown>,
 >(field: string) {
-  return async (ctx: AnyCtxWithRuntime<DataModel, TPrincipal, TActor>, doc: TDoc) => {
+  return async (ctx: AnyCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>, doc: TDoc) => {
     const actorTenantId = getTenantId(await ctx.actor())
     const documentTenantId = doc[field as keyof TDoc]
 
@@ -600,7 +609,7 @@ async function resolveServiceAccess<
 
   const tenantId =
     service.access.tenant === 'derived'
-      ? await service.access.deriveTenant({ principal, args })
+      ? await service.access.deriveTenant({ principal, args: stripTransportReservedArgs(args) })
       : null
 
   return {
@@ -699,7 +708,7 @@ async function resolveRules<
     options.tenantIsolation,
   )
   const rlsRules = options.rls?.rules
-  const serviceAccess = await resolveServiceAccess(ctx, stripObservationEnvelope(args), options)
+  const serviceAccess = await resolveServiceAccess(ctx, stripTransportReservedArgs(args), options)
   const serviceRules = buildServiceRules<DataModel, TPrincipal, TDelegation, TActor>(
     serviceAccess,
     options.tenantIsolation,
@@ -722,7 +731,7 @@ async function resolveRules<
 }
 
 type StructuredQueryBuilder<
-  TCtx extends { principal: () => Promise<unknown> },
+  TCtx extends { principal: () => Promise<unknown>; delegation: () => Promise<unknown | null> },
   Visibility extends FunctionVisibility,
   TActor,
 > = <
@@ -734,6 +743,7 @@ type StructuredQueryBuilder<
   definition: StructuredHandlerDefinition<
     TCtx,
     Awaited<ReturnType<TCtx['principal']>>,
+    Awaited<ReturnType<TCtx['delegation']>>,
     TActor,
     TGuard,
     TArgsValidator,
@@ -743,7 +753,7 @@ type StructuredQueryBuilder<
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type StructuredMutationBuilder<
-  TCtx extends { principal: () => Promise<unknown> },
+  TCtx extends { principal: () => Promise<unknown>; delegation: () => Promise<unknown | null> },
   Visibility extends FunctionVisibility,
   TActor,
 > = <
@@ -755,6 +765,7 @@ type StructuredMutationBuilder<
   definition: StructuredHandlerDefinition<
     TCtx,
     Awaited<ReturnType<TCtx['principal']>>,
+    Awaited<ReturnType<TCtx['delegation']>>,
     TActor,
     TGuard,
     TArgsValidator,
@@ -764,7 +775,7 @@ type StructuredMutationBuilder<
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type StructuredActionBuilder<
-  TCtx extends { principal: () => Promise<unknown> },
+  TCtx extends { principal: () => Promise<unknown>; delegation: () => Promise<unknown | null> },
   Visibility extends FunctionVisibility,
   TActor,
 > = <
@@ -776,6 +787,7 @@ type StructuredActionBuilder<
   definition: StructuredHandlerDefinition<
     TCtx,
     Awaited<ReturnType<TCtx['principal']>>,
+    Awaited<ReturnType<TCtx['delegation']>>,
     TActor,
     TGuard,
     TArgsValidator,
@@ -867,10 +879,18 @@ function createContextWithRuntime<
     delegation: TDelegation | null,
   ) => Promise<TActor | null>,
 ) : RuntimeBundle<DataModel, TCtx, TPrincipal, TDelegation, TActor> {
-  const appArgs = stripObservationEnvelope(args)
+  const rawAppArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
   const ctxWithTrustedForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
-  setTrustedForwardingContext(ctxWithTrustedForwarding, appArgs, options.trustedForwardingKey)
+  setTrustedForwardingContext(ctxWithTrustedForwarding, rawAppArgs, options.trustedForwardingKey)
+  const trustedForwarding = getTrustedForwarding(ctxWithTrustedForwarding)
+  if (!trustedForwarding && hasForwardedIdentityFields(rawAppArgs)) {
+    throw deny('Forwarded identity fields are only allowed on verified trusted forwarding paths.', {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    })
+  }
+  const appArgs = stripForwardedIdentityFields(rawAppArgs)
   const observeRuntime = createObservationEmitter(options.observability, {
     transport: 'convex',
     ...toObservationContext(observationEnvelope),
@@ -957,7 +977,7 @@ function createOnSuccessHandler<Ctx>(
   return async ({ args, result }) => {
     await handler({
       ctx,
-      args: stripObservationEnvelope(args),
+      args: stripTransportReservedArgs(args),
       result,
     })
   }
@@ -1294,6 +1314,7 @@ function buildStructuredMutationRuntime<
   const structured = buildStructuredBuilder<
     MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
     TPrincipal,
+    TDelegation,
     TActor,
     never
   >(builder as never)
@@ -1620,6 +1641,7 @@ function buildTrellisRuntime<
     query: buildStructuredBuilder<
       QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
       TPrincipal,
+      TDelegation,
       TActor,
       typeof raw.query
     >(raw.query) as StructuredQueryBuilder<
@@ -1642,6 +1664,7 @@ function buildTrellisRuntime<
           query: buildStructuredBuilder<
             QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
             TPrincipal,
+            TDelegation,
             TActor,
             NonNullable<typeof raw.internal.query>
           >(raw.internal.query) as StructuredQueryBuilder<
@@ -1663,6 +1686,7 @@ function buildTrellisRuntime<
     ? (buildStructuredBuilder<
         ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
         TPrincipal,
+        TDelegation,
         TActor,
         typeof raw.action
       >(raw.action) as StructuredActionBuilder<

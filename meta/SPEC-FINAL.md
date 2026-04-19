@@ -96,13 +96,13 @@ This path remains the core of Trellis.
 
 ## 6. Trust Model
 
-Forwarded `principal` data is only valid on verified trusted-caller lanes.
+Forwarded `principal` data is only valid on verified trusted-forwarding lanes.
 
 Implications:
 
 - app principal resolvers must not trust raw public args
-- examples and harnesses must use the trusted-caller helper instead of reading `args.principal` directly
-- internal bridge/projection paths that forward principal must inject verified trusted-caller context explicitly
+- examples and harnesses must use the trusted-forwarding helper instead of reading `args.principal` directly
+- internal bridge/projection paths that forward principal must inject verified trusted-forwarding context explicitly
 
 ## 7. Tenant and Permission Model
 
@@ -180,7 +180,7 @@ The intended result is:
 
 - one canonical CLI story
 - one canonical app shape
-- one trusted-caller model
+- one trusted-forwarding model
 - one destructive-work policy
 - one repo-wide enforcement story
 

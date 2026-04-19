@@ -7,14 +7,14 @@
 This release candidate freezes Trellis' 1.0 support contract:
 
 - `Core Stable`: module setup, Nuxt auto-imports, auth, permissions, uploads, and server helpers
-- `Advanced / Expert`: MCP, testing helpers, trusted-caller utilities, and lower-level runtime builder surfaces
+- `Advanced / Expert`: MCP, testing helpers, trusted-forwarding utilities, and lower-level runtime builder surfaces
 - No broad API pruning in the RC; the package surface stays public, but the support boundary is now explicit
 
 ### ⚠️ Upgrade Notes
 
 - Replace legacy docs or snippets that still reference `trellis/*` legacy import spellings with `@lupinum/trellis/*`.
-- Treat `@lupinum/trellis/functions`, `@lupinum/trellis/mcp`, `@lupinum/trellis/testing`, and `@lupinum/trellis/trusted-caller` as advanced surfaces even though they remain public.
-- The recommended 1.0 path is still: Nuxt module setup -> composables -> auth -> permissions -> server helpers. Reach for MCP, trusted-caller, and lower-level builders only when your app genuinely needs them.
+- Treat `@lupinum/trellis/functions`, `@lupinum/trellis/mcp`, `@lupinum/trellis/testing`, and `@lupinum/trellis/trusted-forwarding` as advanced surfaces even though they remain public.
+- The recommended 1.0 path is still: Nuxt module setup -> composables -> auth -> permissions -> server helpers. Reach for MCP, trusted-forwarding, and lower-level builders only when your app genuinely needs them.
 
 ### 🚀 Enhancements
 

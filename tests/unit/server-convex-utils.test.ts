@@ -496,6 +496,42 @@ describe('server Convex fetch helpers', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('rejects forwarded identity fields on non-trusted server helper calls', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      serverConvexMutation(
+        createEvent(),
+        { _path: 'tasks:create' } as never,
+        {
+          title: 'From webhook',
+          principal: {
+            kind: 'user',
+            userId: 'user_admin',
+            subject: 'user:user_admin',
+          },
+        } as never,
+        { auth: 'auto' },
+      ),
+    ).rejects.toThrow(/Forwarded identity fields are only allowed with `auth: 'trusted'`/i)
+
+    await expect(
+      serverConvexMutation(
+        createEvent(),
+        { _path: 'tasks:create' } as never,
+        {
+          title: 'From webhook',
+          _trustedForwardingKey: 'forged',
+          _trustedForwarding: { principalSubject: 'user:user_admin' },
+        } as never,
+        { auth: 'none' },
+      ),
+    ).rejects.toThrow(/Forwarded identity fields are only allowed with `auth: 'trusted'`/i)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('reuses one auth resolution across multiple serverConvex calls in the same request', async () => {
     const event = createEvent('better-auth.session_token=session123')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

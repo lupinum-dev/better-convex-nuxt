@@ -167,6 +167,11 @@ describe('defineActor', () => {
     })
 
     setTrustedForwardingContext(ctx as unknown as Record<string, unknown>, {
+      principal: {
+        kind: 'user',
+        userId: 'trusted_user',
+        subject: 'user:trusted_user',
+      },
       _trustedForwardingKey: 'trusted-key',
       _trustedForwarding: {
         principalSubject: 'user:trusted_user',
@@ -179,6 +184,24 @@ describe('defineActor', () => {
       role: 'admin',
       tenantId: 'workspace-1',
     })
+  })
+
+  it('does not resolve an actor from transport metadata alone when no forwarded identity was validated', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+
+    const ctx = createCtx({
+      identity: null,
+      users: [{ _id: 'user-1', authId: 'trusted_user', role: 'admin', workspaceId: 'workspace-1' }],
+    })
+
+    setTrustedForwardingContext(ctx as unknown as Record<string, unknown>, {
+      _trustedForwardingKey: 'trusted-key',
+      _trustedForwarding: {
+        principalSubject: 'user:trusted_user',
+      },
+    })
+
+    await expect(defineActor.fromAuth().resolve(ctx)).resolves.toBeNull()
   })
 
   it('resolves a composed actor directly from the builder chain', async () => {

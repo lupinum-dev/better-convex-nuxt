@@ -56,6 +56,19 @@ describe('trusted forwarding helpers', () => {
     ).toThrow(/Malformed trusted forwarding payload/)
   })
 
+  it('rejects non-canonical trusted forwarding subjects', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+
+    expect(() =>
+      getTrustedForwarding({
+        _trustedForwardingKey: 'trusted-key',
+        _trustedForwarding: {
+          principalSubject: 'not-a-subject',
+        },
+      }),
+    ).toThrow(/Malformed trusted forwarding payload/)
+  })
+
   it('stores and clears trusted forwarding context for no-arg actor resolution', () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
     const ctx: Record<string, unknown> = {}
@@ -117,6 +130,8 @@ describe('trusted forwarding helpers', () => {
     const ctx: Record<string, unknown> = {}
 
     setTrustedForwardingContext(ctx, {
+      principal: { kind: 'agent', subject: 'agent:agent_1' },
+      delegation: { subject: 'user:u_forwarded', reason: 'approved' },
       _trustedForwardingKey: 'trusted-key',
       _trustedForwarding: {
         principalSubject: 'agent:agent_1',
@@ -134,5 +149,66 @@ describe('trusted forwarding helpers', () => {
         delegation: { subject: 'user:u_forwarded', reason: 'approved' },
       }),
     ).toEqual({ subject: 'user:u_forwarded', reason: 'approved' })
+  })
+
+  it('returns stored forwarded identity from context even when resolver args are sanitized', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+    const ctx: Record<string, unknown> = {}
+
+    setTrustedForwardingContext(ctx, {
+      principal: { kind: 'agent', subject: 'agent:agent_1' },
+      delegation: { subject: 'user:u_forwarded', reason: 'approved' },
+      _trustedForwardingKey: 'trusted-key',
+      _trustedForwarding: {
+        principalSubject: 'agent:agent_1',
+        delegationSubject: 'user:u_forwarded',
+      },
+    })
+
+    expect(getForwardedPrincipal<{ kind: 'agent'; subject: string }>(ctx)).toEqual({
+      kind: 'agent',
+      subject: 'agent:agent_1',
+    })
+    expect(getForwardedDelegation<{ subject: string; reason?: string }>(ctx)).toEqual({
+      subject: 'user:u_forwarded',
+      reason: 'approved',
+    })
+  })
+
+  it('returns null when no forwarded delegation is present', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+    const ctx: Record<string, unknown> = {}
+
+    setTrustedForwardingContext(ctx, {
+      principal: { kind: 'agent', subject: 'agent:agent_1' },
+      _trustedForwardingKey: 'trusted-key',
+      _trustedForwarding: {
+        principalSubject: 'agent:agent_1',
+      },
+    })
+
+    expect(getForwardedDelegation<{ subject: string }>(ctx)).toBeNull()
+  })
+
+  it('rejects mismatched forwarded principal and delegation payloads', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+    const ctx: Record<string, unknown> = {}
+
+    setTrustedForwardingContext(ctx, {
+      principal: { kind: 'agent', subject: 'agent:other' },
+      delegation: { subject: 'user:other' },
+      _trustedForwardingKey: 'trusted-key',
+      _trustedForwarding: {
+        principalSubject: 'agent:agent_1',
+        delegationSubject: 'user:u_forwarded',
+      },
+    })
+
+    expect(() => getForwardedPrincipal<{ kind: 'agent'; subject: string }>(ctx)).toThrow(
+      /principal` subject does not match/i,
+    )
+    expect(() => getForwardedDelegation<{ subject: string }>(ctx)).toThrow(
+      /delegation` subject does not match/i,
+    )
   })
 })

@@ -346,7 +346,7 @@ export function hasBetterAuthTriggerExports(project: ProjectInspection): boolean
   )
 }
 
-export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
+export function usesTrustedForwardingSurfaces(project: ProjectInspection): boolean {
   if (/#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(/.test(project.nuxtConfigText)) {
     return true
   }

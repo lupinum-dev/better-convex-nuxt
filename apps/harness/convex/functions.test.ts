@@ -85,6 +85,20 @@ describe('defineTrellis', () => {
     })
   })
 
+  it('rejects forwarded identity on untrusted paths before unsafe resolvers can read raw args', async () => {
+    const t = convexTest(schema, modules)
+
+    await expect(
+      t.query(api.functionsProbe.unsafeForwardedPrincipalProbe, {
+        principal: {
+          kind: 'user',
+          userId: 'forged_user',
+          subject: 'user:forged_user',
+        },
+      } as never),
+    ).rejects.toThrow(/Forwarded identity fields are only allowed on verified trusted forwarding paths/)
+  })
+
   it('strips the internal __trellis envelope before structured phases and onSuccess hooks', async () => {
     const { asOwner } = await setupTestWithMultipleUsers()
 
@@ -119,6 +133,26 @@ describe('defineTrellis', () => {
       structuredAuthorizeArgs: { title: 'hello structured' },
       structuredHandlerArgs: { title: 'hello structured' },
       onSuccessArgs: { marker: 'success-probe' },
+    })
+  })
+
+  it('exposes validated delegation through ctx.delegation()', async () => {
+    const t = convexTest(schema, modules)
+
+    await expect(
+      t.query(
+        api.functionsProbe.structuredDelegationProbe,
+        withTrustedPrincipal(
+          {},
+          { kind: 'agent', agentId: 'agent_1', subject: 'agent:agent_1', role: 'member' },
+          { subject: 'user:delegated_user', reason: 'approved' },
+        ),
+      ),
+    ).resolves.toEqual({
+      delegation: {
+        subject: 'user:delegated_user',
+        reason: 'approved',
+      },
     })
   })
 

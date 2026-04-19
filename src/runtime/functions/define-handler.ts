@@ -28,9 +28,9 @@ type BivariantCallback<TArgs extends unknown[], TResult> = {
   bivarianceHack: (...args: TArgs) => TResult
 }['bivarianceHack']
 
-type RuntimeContext<TPrincipal, TActor> = {
+type RuntimeContext<TPrincipal, TDelegation, TActor> = {
   principal: () => Promise<TPrincipal>
-  delegation: () => Promise<unknown | null>
+  delegation: () => Promise<TDelegation | null>
   actor: () => Promise<TActor | null>
   observe?: (event: {
     name: 'guard.allowed' | 'guard.denied' | 'authorize.allowed' | 'authorize.denied'
@@ -66,30 +66,32 @@ type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard
   ? TActor | null
   : NonNullable<TActor>
 
-type NarrowedCtx<TCtx, TPrincipal, TActor, TGuard> = Omit<
+type NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard> = Omit<
   TCtx,
   'actor' | 'principal' | 'delegation'
 > & {
   principal: () => Promise<PrincipalForGuard<TPrincipal, TGuard>>
-  delegation: () => Promise<unknown | null>
+  delegation: () => Promise<TDelegation | null>
   actor: () => Promise<ActorForGuard<TActor, TGuard>>
 }
 
 type LoadFn<
   TCtx,
   TPrincipal,
+  TDelegation,
   TActor,
   TGuard,
   TArgsValidator extends PropertyValidators,
   TLoaded,
 > = BivariantCallback<
-  [NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>, HandlerArgs<TArgsValidator>],
+  [NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>, HandlerArgs<TArgsValidator>],
   MaybePromise<TLoaded>
 >
 
 type AuthorizeConfig<
   TCtx,
   TPrincipal,
+  TDelegation,
   TActor,
   TGuard,
   TArgsValidator extends PropertyValidators,
@@ -108,13 +110,14 @@ type AuthorizeConfig<
     actor: ActorForGuard<TActor, TGuard>,
     loaded: TLoaded,
     args: HandlerArgs<TArgsValidator>,
-    ctx: NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>,
+    ctx: NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>,
   ) => MaybePromise<AnyCheck<ActorForGuard<TActor, TGuard>>>
 }
 
 type HandlerDefinition<
   TCtx,
   TPrincipal,
+  TDelegation,
   TActor,
   TGuard extends StructuredGuard<TPrincipal, TActor>,
   TArgsValidator extends PropertyValidators,
@@ -124,10 +127,10 @@ type HandlerDefinition<
   args: TArgsValidator
   returns?: GenericValidator
   guard: TGuard
-  load?: LoadFn<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded>
-  authorize?: AuthorizeConfig<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded>
+  load?: LoadFn<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
+  authorize?: AuthorizeConfig<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
   handler: BivariantCallback<
-    [NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>, HandlerArgs<TArgsValidator>, TLoaded],
+    [NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>, HandlerArgs<TArgsValidator>, TLoaded],
     MaybePromise<TResult>
   >
   [trellisOperationProjectionMetadataKey]?: {
@@ -139,12 +142,13 @@ type HandlerDefinition<
 export type StructuredHandlerDefinition<
   TCtx,
   TPrincipal,
+  TDelegation,
   TActor,
   TGuard extends StructuredGuard<TPrincipal, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
-> = HandlerDefinition<TCtx, TPrincipal, TActor, TGuard, TArgsValidator, TLoaded, TResult>
+> = HandlerDefinition<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded, TResult>
 
 function resolvePrincipalAccessor<TCtx extends object, TPrincipal>(
   ctx: TCtx,
@@ -172,28 +176,28 @@ function resolveActorAccessor<TCtx extends object, TActor>(
   return async () => null
 }
 
-function resolveDelegationAccessor<TCtx extends object>(
+function resolveDelegationAccessor<TCtx extends object, TDelegation>(
   ctx: TCtx,
-): () => Promise<unknown | null> {
+): () => Promise<TDelegation | null> {
   if ('delegation' in ctx && typeof ctx.delegation === 'function') {
-    return ctx.delegation as () => Promise<unknown | null>
+    return ctx.delegation as () => Promise<TDelegation | null>
   }
 
   return async () => null
 }
 
-function createHandlerContext<TCtx extends object, TPrincipal, TActor, TGuard>(
+function createHandlerContext<TCtx extends object, TPrincipal, TDelegation, TActor, TGuard>(
   ctx: TCtx,
   principal: PrincipalForGuard<TPrincipal, TGuard>,
-  delegation: () => Promise<unknown | null>,
+  delegation: () => Promise<TDelegation | null>,
   actor: () => Promise<ActorForGuard<TActor, TGuard>>,
-): NarrowedCtx<TCtx, TPrincipal, TActor, TGuard> {
+): NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard> {
   return {
     ...ctx,
     principal: async () => principal,
     delegation,
     actor,
-  } as NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>
+  } as NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>
 }
 
 function getAuthorizationLabel<P>(check: AnyCheck<P>, fallback: string): string {
@@ -240,6 +244,7 @@ function formatGuardFailure(label: string, principal: unknown, actor: unknown): 
 function createStructuredBuilder<
   TCtx extends object,
   TPrincipal,
+  TDelegation,
   TActor,
   TBuilder extends AnyBuilder,
 >(builder: TBuilder) {
@@ -252,6 +257,7 @@ function createStructuredBuilder<
     definition: HandlerDefinition<
       TCtx,
       TPrincipal,
+      TDelegation,
       TActor,
       TGuard,
       TArgsValidator,
@@ -266,7 +272,7 @@ function createStructuredBuilder<
         const ctx = rawCtx as TCtx
         const args = rawArgs as HandlerArgs<TArgsValidator>
         const principal = await resolvePrincipalAccessor<TCtx, TPrincipal>(ctx)()
-        const delegationAccessor = resolveDelegationAccessor(ctx)
+        const delegationAccessor = resolveDelegationAccessor<TCtx, TDelegation>(ctx)
         const rawActorAccessor = resolveActorAccessor<TCtx, TActor>(ctx)
         let actorPromise: Promise<TActor | null> | null = null
         const actorAccessor = async () => {
@@ -348,7 +354,7 @@ function createStructuredBuilder<
           )
         }
 
-        const handlerCtx = createHandlerContext<TCtx, TPrincipal, TActor, TGuard>(
+        const handlerCtx = createHandlerContext<TCtx, TPrincipal, TDelegation, TActor, TGuard>(
           ctx,
           principal as PrincipalForGuard<TPrincipal, TGuard>,
           delegationAccessor,
@@ -414,18 +420,20 @@ function createStructuredBuilder<
 }
 
 export function buildStructuredBuilder<
-  TCtx extends RuntimeContext<TPrincipal, TActor>,
+  TCtx extends RuntimeContext<TPrincipal, TDelegation, TActor>,
   TPrincipal,
+  TDelegation,
   TActor,
   TBuilder extends AnyBuilder,
 >(builder: TBuilder) {
-  return createStructuredBuilder<TCtx, TPrincipal, TActor, TBuilder>(builder)
+  return createStructuredBuilder<TCtx, TPrincipal, TDelegation, TActor, TBuilder>(builder)
 }
 
 export function buildStructuredFunctions<
-  TQueryCtx extends RuntimeContext<TPrincipal, TActor>,
-  TMutationCtx extends RuntimeContext<TPrincipal, TActor>,
+  TQueryCtx extends RuntimeContext<TPrincipal, TDelegation, TActor>,
+  TMutationCtx extends RuntimeContext<TPrincipal, TDelegation, TActor>,
   TPrincipal,
+  TDelegation,
   TActor,
   TQueryBuilder extends AnyBuilder,
   TMutationBuilder extends AnyBuilder,
@@ -433,9 +441,9 @@ export function buildStructuredFunctions<
   query: TQueryBuilder,
   mutation: TMutationBuilder,
 ): {
-  query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TPrincipal, TActor, TQueryBuilder>>
+  query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TPrincipal, TDelegation, TActor, TQueryBuilder>>
   mutation: ReturnType<
-    typeof createStructuredBuilder<TMutationCtx, TPrincipal, TActor, TMutationBuilder>
+    typeof createStructuredBuilder<TMutationCtx, TPrincipal, TDelegation, TActor, TMutationBuilder>
   >
 }
 
@@ -443,6 +451,7 @@ export function buildStructuredFunctions<
   TQueryCtx extends object = Record<string, unknown>,
   TMutationCtx extends object = Record<string, unknown>,
   TPrincipal = never,
+  TDelegation = never,
   TActor = never,
   TQueryBuilder extends AnyBuilder = AnyBuilder,
   TMutationBuilder extends AnyBuilder = AnyBuilder,
@@ -450,9 +459,9 @@ export function buildStructuredFunctions<
   query: TQueryBuilder,
   mutation: TMutationBuilder,
 ): {
-  query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TPrincipal, TActor, TQueryBuilder>>
+  query: ReturnType<typeof createStructuredBuilder<TQueryCtx, TPrincipal, TDelegation, TActor, TQueryBuilder>>
   mutation: ReturnType<
-    typeof createStructuredBuilder<TMutationCtx, TPrincipal, TActor, TMutationBuilder>
+    typeof createStructuredBuilder<TMutationCtx, TPrincipal, TDelegation, TActor, TMutationBuilder>
   >
 }
 
@@ -460,12 +469,13 @@ export function buildStructuredFunctions<
   TQueryCtx extends object = Record<string, unknown>,
   TMutationCtx extends object = Record<string, unknown>,
   TPrincipal = never,
+  TDelegation = never,
   TActor = never,
   TQueryBuilder extends AnyBuilder = AnyBuilder,
   TMutationBuilder extends AnyBuilder = AnyBuilder,
 >(query: TQueryBuilder, mutation: TMutationBuilder) {
   return {
-    query: createStructuredBuilder<TQueryCtx, TPrincipal, TActor, TQueryBuilder>(query),
-    mutation: createStructuredBuilder<TMutationCtx, TPrincipal, TActor, TMutationBuilder>(mutation),
+    query: createStructuredBuilder<TQueryCtx, TPrincipal, TDelegation, TActor, TQueryBuilder>(query),
+    mutation: createStructuredBuilder<TMutationCtx, TPrincipal, TDelegation, TActor, TMutationBuilder>(mutation),
   }
 }

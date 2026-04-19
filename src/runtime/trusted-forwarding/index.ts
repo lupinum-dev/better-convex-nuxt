@@ -8,6 +8,7 @@ import {
   assertForwardablePrincipal,
   createTrustedForwardingContextDelta,
   extractTrustedForwardingFromArgs,
+  getTrustedForwardingPayload,
   isTrustedForwardingContextCarrier,
   trustedForwardingContextKey,
   trustedForwardingValidators,
@@ -31,14 +32,13 @@ export function setTrustedForwardingContext(
 ): void {
   if (!isTrustedForwardingContextCarrier(ctx)) return
   const trustedForwarding = extractTrustedForwardingFromArgs(args, expectedKeyOverride)
-  ctx[trustedForwardingContextKey] =
-    createTrustedForwardingContextDelta(trustedForwarding)[trustedForwardingContextKey]
+  Object.assign(ctx, createTrustedForwardingContextDelta(trustedForwarding, args))
 }
 
 /** Clear previously attached trusted forwarding state from the context carrier. */
 export function clearTrustedForwardingContext(ctx: unknown): void {
   if (!isTrustedForwardingContextCarrier(ctx)) return
-  ctx[trustedForwardingContextKey] = undefined
+  Object.assign(ctx, createTrustedForwardingContextDelta(null))
 }
 
 /** Read the trusted forwarding state from args or an already-populated context carrier. */
@@ -60,12 +60,17 @@ export function getTrustedForwarding(args?: unknown): TrustedForwardingIdentity 
  */
 export function getForwardedPrincipal<TPrincipal extends { subject: Subject }>(
   ctx: unknown,
-  args: unknown,
+  args?: unknown,
   field = 'principal',
 ): TPrincipal | undefined {
-  if (typeof args !== 'object' || args === null || !(field in (args as Record<string, unknown>))) {
-    return undefined
-  }
+  const storedPayload = getTrustedForwardingPayload(ctx)
+  const principal =
+    field === 'principal' && storedPayload?.principal !== undefined
+      ? storedPayload.principal
+      : typeof args === 'object' && args !== null && field in (args as Record<string, unknown>)
+        ? (args as Record<string, unknown>)[field]
+        : undefined
+  if (principal === undefined) return undefined
 
   const trustedForwarding = getTrustedForwarding(ctx)
   if (!trustedForwarding) {
@@ -75,7 +80,6 @@ export function getForwardedPrincipal<TPrincipal extends { subject: Subject }>(
     })
   }
 
-  const principal = (args as Record<string, unknown>)[field]
   assertForwardablePrincipal(principal, trustedForwarding)
   return principal as TPrincipal
 }
@@ -86,12 +90,17 @@ export function getForwardedPrincipal<TPrincipal extends { subject: Subject }>(
  */
 export function getForwardedDelegation<TDelegation extends Delegation>(
   ctx: unknown,
-  args: unknown,
+  args?: unknown,
   field = 'delegation',
-): TDelegation | undefined {
-  if (typeof args !== 'object' || args === null || !(field in (args as Record<string, unknown>))) {
-    return undefined
-  }
+): TDelegation | null {
+  const storedPayload = getTrustedForwardingPayload(ctx)
+  const delegation =
+    field === 'delegation' && storedPayload?.delegation !== undefined
+      ? storedPayload.delegation
+      : typeof args === 'object' && args !== null && field in (args as Record<string, unknown>)
+        ? (args as Record<string, unknown>)[field]
+        : undefined
+  if (delegation === undefined) return null
 
   const trustedForwarding = getTrustedForwarding(ctx)
   if (!trustedForwarding) {
@@ -101,7 +110,6 @@ export function getForwardedDelegation<TDelegation extends Delegation>(
     })
   }
 
-  const delegation = (args as Record<string, unknown>)[field]
   assertForwardableDelegation(delegation, trustedForwarding)
   return delegation as TDelegation
 }

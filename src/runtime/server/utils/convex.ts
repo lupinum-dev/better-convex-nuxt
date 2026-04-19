@@ -24,7 +24,9 @@ import type { ConvexServerAuthMode } from '../../utils/types.js'
 import type { Subject } from '../../functions/define-principal.js'
 import {
   extractSubject,
+  hasForwardedIdentityFields,
   isAnonymousPrincipalLike,
+  stripForwardedIdentityFields,
 } from '../../trusted-forwarding/shared.js'
 import { resolveRequestAuthToken } from './auth-resolver.js'
 
@@ -210,7 +212,8 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  let requestArgs: FunctionLikeArgs<Fn> | Record<string, unknown> = args ?? {}
+  const rawRequestArgs: FunctionLikeArgs<Fn> | Record<string, unknown> = args ?? {}
+  let requestArgs: FunctionLikeArgs<Fn> | Record<string, unknown> = rawRequestArgs
 
   const logSuccess = (duration: number) => {
     if (operationType === 'query') {
@@ -266,6 +269,15 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
       },
     }
   } else {
+    if (hasForwardedIdentityFields(rawRequestArgs)) {
+      throw createServerConvexError(
+        `Forwarded identity fields are only allowed with \`auth: 'trusted'\` for ${functionPath}.`,
+        errorContext,
+      )
+    }
+
+    requestArgs = stripForwardedIdentityFields(rawRequestArgs)
+
     try {
       authToken = await resolveAuthToken(event, options)
     } catch (error) {

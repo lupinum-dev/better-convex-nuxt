@@ -1,5 +1,5 @@
 import { defineGuard, open } from '@lupinum/trellis/auth'
-import { defineTrellis } from '@lupinum/trellis/functions'
+import { defineDelegation, definePrincipal, defineTrellis } from '@lupinum/trellis/functions'
 import type { FunctionsCtxExtension } from '@lupinum/trellis/functions'
 import { Triggers } from 'convex-helpers/server/triggers'
 import type { GenericMutationCtx } from 'convex/server'
@@ -61,6 +61,36 @@ const { mutation, query, raw } = defineTrellis<
       },
     },
     triggers,
+  },
+)
+
+const unsafeArgPrincipalRuntime = defineTrellis<
+  DataModel,
+  'public',
+  'public',
+  'internal',
+  'internal',
+  InternalHarnessPrincipal,
+  HarnessDelegation,
+  Actor
+>(
+  { query: generatedQuery, mutation: generatedMutation },
+  {
+    principal: definePrincipal({
+      validator: principal.validator,
+      resolve: async (_ctx, args): Promise<InternalHarnessPrincipal> =>
+        (args.principal as InternalHarnessPrincipal | undefined) ?? {
+          kind: 'anonymous',
+          subject: 'system:anonymous',
+        },
+    }),
+    delegation: defineDelegation({
+      validator: delegation.validator,
+      resolve: async (_ctx, args): Promise<HarnessDelegation | null> =>
+        (args.delegation as HarnessDelegation | undefined) ?? null,
+    }),
+    actor: async (ctx, args, resolvedPrincipal, resolvedDelegation) =>
+      await getActorFromPrincipal(ctx, args, resolvedPrincipal, resolvedDelegation),
   },
 )
 const canReadStructuredProbe = defineGuard<Actor>('probe.read', (actor) => !!actor)
@@ -126,6 +156,14 @@ export const structuredEnvelopeProbe = query({
   },
 })
 
+export const structuredDelegationProbe = query({
+  args: {},
+  guard: open,
+  handler: async (ctx) => ({
+    delegation: await ctx.delegation(),
+  }),
+})
+
 export const resetActorResolverCalls = raw.mutation({
   args: {},
   handler: async () => {
@@ -178,6 +216,15 @@ export const getEnvelopeProbeState = raw.query({
     structuredAuthorizeArgs,
     structuredHandlerArgs,
     onSuccessArgs,
+  }),
+})
+
+export const unsafeForwardedPrincipalProbe = unsafeArgPrincipalRuntime.query({
+  args: {},
+  guard: open,
+  handler: async (ctx) => ({
+    principal: await ctx.principal(),
+    delegation: await ctx.delegation(),
   }),
 })
 

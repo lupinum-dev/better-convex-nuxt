@@ -16,6 +16,7 @@ export const INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY =
 export function withTrustedPrincipal<TArgs extends Record<string, unknown> | undefined>(
   args: TArgs,
   principal: Record<string, unknown>,
+  delegation?: Record<string, unknown> | null,
 ) {
   const principalSubject =
     typeof principal.subject === 'string' && principal.subject.length > 0
@@ -25,12 +26,20 @@ export function withTrustedPrincipal<TArgs extends Record<string, unknown> | und
         : typeof principal.agentId === 'string' && principal.agentId.length > 0
           ? `agent:${principal.agentId}`
           : 'agent:trusted-forwarding-test'
+  const delegationSubject =
+    typeof delegation?.subject === 'string' && delegation.subject.length > 0
+      ? delegation.subject
+      : undefined
 
   return {
     ...(args ?? {}),
     _trustedForwardingKey: INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY,
-    _trustedForwarding: { principalSubject },
+    _trustedForwarding: {
+      principalSubject,
+      ...(delegationSubject ? { delegationSubject } : {}),
+    },
     principal,
+    ...(delegation ? { delegation } : {}),
   }
 }
 
