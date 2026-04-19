@@ -1,31 +1,28 @@
 /**
  * Why this file exists:
- * Example 04 is meant to show real month-two patterns, not just UI polish.
- * These tests prove tenant isolation, guard behavior, bulk semantics, and principal-forwarding parity.
+ * Example 04 should prove the server-integration workspace model directly: tenant isolation,
+ * task/comment permissions, upload boundaries, and the internal webhook entrypoint.
  */
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
-import { api } from './_generated/api'
-import { taskCreate, workspaceExports, workspaceMembers } from './auth/permissions'
+import { api, internal } from './_generated/api'
+import { projectExport, taskCreate } from './auth/permissions'
 import * as filesDomain from './domain/files'
 import schema from './schema'
 import { modules } from './test.setup'
 
-const TRUSTED_CALLER_KEY = 'project-board-test-trusted-caller-key'
-
 function createCtx() {
-  return createTestContext({ schema, modules, trustedCallerKey: TRUSTED_CALLER_KEY })
+  return createTestContext({ schema, modules })
 }
 
-describe('project board example', () => {
+describe('server integration workspace example', () => {
   it('lets a member update their own task but not another member`s task', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
       users: {
         owner: { role: 'owner' },
         alice: { role: 'member' },
@@ -60,7 +57,6 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
       users: {
         owner: { role: 'owner' },
         viewer: { role: 'viewer' },
@@ -91,11 +87,10 @@ describe('project board example', () => {
     ).rejects.toThrow('Forbidden: Create task')
   })
 
-  it('blocks task creation in archived projects through cross-table resource + guard', async () => {
+  it('blocks task creation in archived projects through cross-table resource checks', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
       users: {
         owner: { role: 'owner' },
       },
@@ -120,17 +115,11 @@ describe('project board example', () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
-      users: {
-        owner: { role: 'owner' },
-      },
+      users: { owner: { role: 'owner' } },
     })
     const beta = await ctx.seedTenant({
       name: 'Beta',
-      plan: 'free',
-      users: {
-        owner: { role: 'owner' },
-      },
+      users: { owner: { role: 'owner' } },
     })
 
     const alphaProject = await alpha.users.owner.mutation(api.domain.projects.create, {
@@ -166,39 +155,14 @@ describe('project board example', () => {
     expect(betaTasks[0]?.title).toBe('Beta task')
   })
 
-  it('returns resource not found when another workspace asks for a project by id', async () => {
+  it('blocks cross-tenant by-id access for project and comment flows', async () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
       users: { owner: { role: 'owner' } },
     })
     const beta = await ctx.seedTenant({
       name: 'Beta',
-      plan: 'free',
-      users: { owner: { role: 'owner' } },
-    })
-
-    const alphaProject = await alpha.users.owner.mutation(api.domain.projects.create, {
-      name: 'Alpha board',
-      summary: 'A',
-    })
-
-    await expect(
-      beta.users.owner.query(api.domain.projects.get, { id: alphaProject }),
-    ).rejects.toThrow('Document belongs to a different tenant.')
-  })
-
-  it('returns resource not found when another workspace tries to comment on a task by id', async () => {
-    const ctx = createCtx()
-    const alpha = await ctx.seedTenant({
-      name: 'Alpha',
-      plan: 'free',
-      users: { owner: { role: 'owner' } },
-    })
-    const beta = await ctx.seedTenant({
-      name: 'Beta',
-      plan: 'free',
       users: { owner: { role: 'owner' } },
     })
 
@@ -212,6 +176,9 @@ describe('project board example', () => {
       priority: 'medium',
     })
 
+    await expect(beta.users.owner.query(api.domain.projects.get, { id: projectId })).rejects.toThrow(
+      'Document belongs to a different tenant.',
+    )
     await expect(
       beta.users.owner.mutation(api.domain.comments.create, {
         taskId,
@@ -220,11 +187,10 @@ describe('project board example', () => {
     ).rejects.toThrow('Document belongs to a different tenant.')
   })
 
-  it('excludes users without a workspace from the scoped member list', async () => {
+  it('lists only members from the current workspace', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
       users: {
         owner: { role: 'owner' },
         member: { role: 'member' },
@@ -257,7 +223,6 @@ describe('project board example', () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
       users: {
         owner: { role: 'owner' },
         alice: { role: 'member' },
@@ -289,77 +254,35 @@ describe('project board example', () => {
     expect(result.skipped).toHaveLength(1)
   })
 
-  it('forwarded principals obey the same permission rules as browser users', async () => {
+  it('creates webhook tasks through the internal mutation path', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
-      users: {
-        owner: { role: 'owner' },
-        viewer: { role: 'viewer' },
-      },
+      users: { owner: { role: 'owner' } },
     })
 
     const projectId = await team.users.owner.mutation(api.domain.projects.create, {
-      name: 'Board',
-      summary: 'Service auth',
+      name: 'Webhook board',
+      summary: 'Webhook demo',
     })
 
-    const trustedCaller = ctx.asPrincipal({
-      kind: 'user',
-      userId: team.users.viewer.authId,
+    await ctx.raw.mutation(internal.domain.webhooks.createTaskFromWebhook, {
+      projectId,
+      title: 'Created from webhook',
+      priority: 'high',
     })
 
-    await expect(
-      trustedCaller.mutation(api.domain.tasks.create, {
-        projectId,
-        title: 'Nope',
-        priority: 'medium',
-      }),
-    ).rejects.toThrow(/Forbidden: Create task/)
-  })
-
-  it('role changes update the permission context and block future mutations', async () => {
-    const ctx = createCtx()
-    const team = await ctx.seedTenant({
-      name: 'Alpha',
-      plan: 'free',
-      users: {
-        owner: { role: 'owner' },
-        member: { role: 'member' },
-      },
-    })
-
-    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
-      name: 'Board',
-      summary: 'Role flip',
-    })
-
-    const before = await team.users.member.query(api.permissions.context.getPermissionContext, {})
-    expect(before?.role).toBe('member')
-
-    await team.users.owner.mutation(api.domain.members.changeRole, {
-      userId: team.users.member.id,
-      newRole: 'viewer',
-    })
-
-    const after = await team.users.member.query(api.permissions.context.getPermissionContext, {})
-    expect(after?.role).toBe('viewer')
-
-    await expect(
-      team.users.member.mutation(api.domain.tasks.create, {
-        projectId,
-        title: 'Blocked after downgrade',
-        priority: 'medium',
-      }),
-    ).rejects.toThrow('Forbidden: Create task')
+    const tasks = await team.users.owner.query(api.domain.tasks.listByProject, { projectId })
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]?.title).toBe('Created from webhook')
+    expect(tasks[0]?.priority).toBe('high')
+    expect(tasks[0]?.ownerId).toContain('webhook-bot:')
   })
 
   it('returns permission context booleans for owners and viewers', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
-      plan: 'free',
       users: {
         owner: { role: 'owner' },
         viewer: { role: 'viewer' },
@@ -373,9 +296,9 @@ describe('project board example', () => {
     )
 
     expect(ownerCtx?.can[taskCreate.key]).toBe(true)
-    expect(ownerCtx?.can[workspaceMembers.key]).toBe(true)
+    expect(ownerCtx?.can[projectExport.key]).toBe(true)
     expect(viewerCtx?.can[taskCreate.key]).toBe(false)
-    expect(viewerCtx?.can[workspaceMembers.key]).toBe(false)
+    expect(viewerCtx?.can[projectExport.key]).toBe(false)
   })
 
   it('returns null context and rejects protected mutations for anonymous callers', async () => {
@@ -390,96 +313,5 @@ describe('project board example', () => {
         summary: 'Should fail',
       }),
     ).rejects.toThrow('Forbidden: Create project')
-  })
-})
-
-describe('plan entitlements', () => {
-  it('exposes the current plan and feature flags in context', async () => {
-    const ctx = createCtx()
-    const team = await ctx.seedTenant({
-      name: 'Acme',
-      users: { owner: { role: 'owner' } },
-      plan: 'free',
-    })
-
-    const permCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
-    expect(permCtx).not.toBeNull()
-    if (!permCtx) throw new Error('Expected a permission context for the seeded owner.')
-    expect(permCtx.plan).toBe('free')
-    expect(permCtx.can[workspaceExports.key]).toBe(false)
-  })
-
-  it('blocks free workspaces at the project limit', async () => {
-    const ctx = createCtx()
-    const team = await ctx.seedTenant({
-      name: 'Acme',
-      users: { owner: { role: 'owner' } },
-      plan: 'free',
-    })
-
-    await team.users.owner.mutation(api.domain.projects.create, { name: 'One', summary: 'a' })
-    await team.users.owner.mutation(api.domain.projects.create, { name: 'Two', summary: 'b' })
-    await team.users.owner.mutation(api.domain.projects.create, { name: 'Three', summary: 'c' })
-
-    await expect(
-      team.users.owner.mutation(api.domain.projects.create, { name: 'Four', summary: 'd' }),
-    ).rejects.toThrow('Plan limit reached')
-  })
-
-  it('allows more projects after upgrading to pro', async () => {
-    const ctx = createCtx()
-    const team = await ctx.seedTenant({
-      name: 'Acme',
-      users: { owner: { role: 'owner' } },
-      plan: 'free',
-    })
-
-    await team.users.owner.mutation(api.domain.projects.create, { name: 'One', summary: 'a' })
-    await team.users.owner.mutation(api.domain.projects.create, { name: 'Two', summary: 'b' })
-    await team.users.owner.mutation(api.domain.projects.create, { name: 'Three', summary: 'c' })
-    await team.users.owner.mutation(api.domain.workspaces.upgradePlan, { plan: 'pro' })
-
-    await expect(
-      team.users.owner.mutation(api.domain.projects.create, { name: 'Four', summary: 'd' }),
-    ).resolves.toBeDefined()
-  })
-
-  it('denies exportProjects on free plan and allows after upgrade', async () => {
-    const ctx = createCtx()
-    const team = await ctx.seedTenant({
-      name: 'Acme',
-      users: { owner: { role: 'owner' } },
-      plan: 'free',
-    })
-
-    await team.users.owner.mutation(api.domain.projects.create, { name: 'One', summary: 'a' })
-    await expect(team.users.owner.query(api.domain.projects.exportProjects, {})).rejects.toThrow(
-      'Forbidden: Export projects',
-    )
-
-    await team.users.owner.mutation(api.domain.workspaces.upgradePlan, { plan: 'pro' })
-    await expect(team.users.owner.query(api.domain.projects.exportProjects, {})).resolves.toContain(
-      'One',
-    )
-  })
-
-  it('returns permission context booleans for free and pro workspaces', async () => {
-    const ctx = createCtx()
-    const free = await ctx.seedTenant({
-      name: 'Free',
-      users: { owner: { role: 'owner' } },
-      plan: 'free',
-    })
-    const pro = await ctx.seedTenant({
-      name: 'Pro',
-      users: { owner: { role: 'owner' } },
-      plan: 'pro',
-    })
-
-    const freeCtx = await free.users.owner.query(api.permissions.context.getPermissionContext, {})
-    const proCtx = await pro.users.owner.query(api.permissions.context.getPermissionContext, {})
-
-    expect(freeCtx?.can[workspaceExports.key]).toBe(false)
-    expect(proCtx?.can[workspaceExports.key]).toBe(true)
   })
 })

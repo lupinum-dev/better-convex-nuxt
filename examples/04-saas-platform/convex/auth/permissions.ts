@@ -1,6 +1,6 @@
-import { and, definePermission, derivePermissionMatrix } from '@lupinum/trellis/auth'
+import { definePermission, derivePermissionMatrix } from '@lupinum/trellis/auth'
 
-import { hasFeature, hasRole, hasWorkspace } from './checks'
+import { hasRole, hasWorkspace } from './checks'
 
 export const projectCreate = definePermission({
   key: 'project.create',
@@ -25,10 +25,9 @@ export const projectArchive = definePermission({
 
 export const projectExport = definePermission({
   key: 'project.export',
-  label: 'Export projects (Pro/Enterprise)',
+  label: 'Export projects',
   roles: ['owner', 'admin'],
-  description: 'Requires the exports feature on the current plan.',
-  check: hasWorkspace.and(and(hasRole('owner', 'admin'), hasFeature('exports'))),
+  check: hasWorkspace.and(hasRole('owner', 'admin')),
 })
 
 export const taskCreate = definePermission({
@@ -60,28 +59,6 @@ export const commentCreate = definePermission({
   check: hasWorkspace.and(hasRole('owner', 'admin', 'member', 'viewer')),
 })
 
-export const workspaceMembers = definePermission({
-  key: 'workspace.members',
-  label: 'Manage members',
-  roles: ['owner', 'admin'],
-  check: hasWorkspace.and(hasRole('owner', 'admin')),
-})
-
-export const workspaceAudit = definePermission({
-  key: 'workspace.audit',
-  label: 'View audit log',
-  roles: ['owner', 'admin'],
-  check: hasWorkspace.and(hasRole('owner', 'admin')),
-})
-
-export const workspaceExports = definePermission({
-  key: 'workspace.exports',
-  label: 'Use export features (Pro/Enterprise)',
-  roles: ['owner', 'admin'],
-  description: 'Requires the exports feature on the current plan.',
-  check: hasFeature('exports'),
-})
-
 export const saasPermissions = [
   projectCreate,
   projectRead,
@@ -91,9 +68,6 @@ export const saasPermissions = [
   taskRead,
   taskAssign,
   commentCreate,
-  workspaceMembers,
-  workspaceAudit,
-  workspaceExports,
 ] as const
 
 export type SaasPermissionKey = (typeof saasPermissions)[number]['key']

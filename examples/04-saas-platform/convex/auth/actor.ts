@@ -1,7 +1,7 @@
 import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { DataModel, Doc, Id } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
 import type { ProjectBoardPrincipal, Role } from './principal'
 
 type ProjectBoardCtx =
@@ -12,7 +12,6 @@ type ProjectBoardCtx =
 export type Actor = DefaultActor & {
   role: Role
   tenantId?: Id<'workspaces'>
-  plan: Doc<'workspaces'>['plan']
 }
 
 async function loadActorByAuthId(ctx: ProjectBoardCtx, authId: string): Promise<Actor | null> {
@@ -27,14 +26,11 @@ async function loadActorByAuthId(ctx: ProjectBoardCtx, authId: string): Promise<
 
   if (!user) return null
 
-  const workspace = user.workspaceId ? await ctx.db.get(user.workspaceId) : null
-
   return {
     kind: 'user',
     userId: user.authId,
     role: user.role as Role,
     tenantId: user.workspaceId as Id<'workspaces'> | undefined,
-    plan: (workspace?.plan ?? 'free') as Doc<'workspaces'>['plan'],
   }
 }
 

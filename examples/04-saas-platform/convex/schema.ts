@@ -11,8 +11,6 @@ import { taskPriorityValidator, taskStatusValidator } from '../shared/schemas/ta
 
 export const roleValidator = literals('owner', 'admin', 'member', 'viewer')
 
-export const planValidator = literals('free', 'pro', 'enterprise')
-
 export const projectStatusValidator = literals('active', 'archived')
 
 export default defineSchema({
@@ -20,7 +18,6 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(),
     ownerId: v.string(),
-    plan: planValidator,
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_slug', ['slug']),

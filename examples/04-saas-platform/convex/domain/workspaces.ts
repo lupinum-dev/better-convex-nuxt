@@ -1,9 +1,7 @@
 import { authRequired } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { hasRole, hasWorkspace, requireWorkspaceTenant } from '../auth/checks'
-import { mutation, query } from '../functions'
-import { planValidator } from '../schema'
+import { mutation } from '../functions'
 
 export const createWorkspace = mutation({
   args: {
@@ -33,7 +31,6 @@ export const createWorkspace = mutation({
       name: args.name,
       slug: args.slug,
       ownerId: principal.userId,
-      plan: 'free',
       createdAt: now,
       updatedAt: now,
     })
@@ -45,24 +42,5 @@ export const createWorkspace = mutation({
     })
 
     return workspaceId
-  },
-})
-
-export const upgradePlan = mutation({
-  args: {
-    plan: planValidator,
-  },
-  guard: hasWorkspace.and(hasRole('owner', 'admin')),
-  handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
-
-    const workspace = await ctx.db.get(workspaceId)
-    if (!workspace) throw new Error('Workspace not found.')
-
-    await ctx.db.patch(workspace._id, {
-      plan: args.plan,
-      updatedAt: Date.now(),
-    })
   },
 })

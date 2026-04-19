@@ -1,7 +1,6 @@
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
 import { getActor } from '../auth/actor'
-import { getUsage } from '../auth/limits'
 import { saasPermissions } from '../auth/permissions'
 import { query } from '../functions'
 
@@ -23,10 +22,8 @@ export const getPermissionContext = query(
       }
 
       return {
-        plan: actor.plan,
         email: user.email ?? null,
         displayName: user.displayName ?? null,
-        usage: actor.tenantId ? { projects: await getUsage(ctx.db, actor, 'projects') } : undefined,
       }
     },
   }),

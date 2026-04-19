@@ -1,6 +1,5 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
-import { getForwardedPrincipal } from '@lupinum/trellis/trusted-caller'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -13,10 +12,7 @@ type PrincipalCtx =
 
 export type Role = Doc<'users'>['role']
 
-export type TeamTodoPrincipal =
-  | { kind: 'anonymous' }
-  | { kind: 'user'; userId: string }
-  | { kind: 'agent'; userId: string; agentId?: string; provider?: 'mcp' }
+export type TeamTodoPrincipal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
 
 export const teamTodoPrincipalValidator = v.union(
   v.object({
@@ -26,20 +22,11 @@ export const teamTodoPrincipalValidator = v.union(
     kind: v.literal('user'),
     userId: v.string(),
   }),
-  v.object({
-    kind: v.literal('agent'),
-    userId: v.string(),
-    agentId: v.optional(v.string()),
-    provider: v.optional(v.literal('mcp')),
-  }),
 )
 
 export const principal = definePrincipal<PrincipalCtx, TeamTodoPrincipal>({
   validator: teamTodoPrincipalValidator,
-  resolve: async (ctx, args): Promise<TeamTodoPrincipal> => {
-    const forwarded = getForwardedPrincipal<TeamTodoPrincipal>(ctx, args)
-    if (forwarded) return forwarded
-
+  resolve: async (ctx): Promise<TeamTodoPrincipal> => {
     const auth = await getAuth(ctx)
     if (!auth) {
       return { kind: 'anonymous' }

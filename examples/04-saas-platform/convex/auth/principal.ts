@@ -1,6 +1,5 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
-import { getForwardedPrincipal } from '@lupinum/trellis/trusted-caller'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -27,10 +26,7 @@ export const projectBoardPrincipalValidator = v.union(
 
 export const principal = definePrincipal<PrincipalCtx, ProjectBoardPrincipal>({
   validator: projectBoardPrincipalValidator,
-  resolve: async (ctx, args): Promise<ProjectBoardPrincipal> => {
-    const forwarded = getForwardedPrincipal<ProjectBoardPrincipal>(ctx, args)
-    if (forwarded) return forwarded
-
+  resolve: async (ctx): Promise<ProjectBoardPrincipal> => {
     const auth = await getAuth(ctx)
     if (!auth) return { kind: 'anonymous' }
 

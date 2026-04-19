@@ -12,7 +12,7 @@ boundary.
 
 - Nitro routes calling Convex
 - route verification at the server boundary
-- server-owned actor identity for a webhook path
+- internal mutations behind a verified webhook route
 - uploads and attachment authorization
 - nested resource guards in a still-familiar workspace app
 
@@ -38,7 +38,7 @@ You already understand the canonical protected app from
 2. Create a project and open its board.
 3. Add a task and open its detail view.
 4. Upload an attachment on a comment.
-5. Trigger the webhook route or inspect the webhook test to see the server-owned actor path.
+5. Trigger the webhook route or inspect the webhook test to see the verified-route-to-internal-mutation path.
 
 ## Run
 
@@ -50,9 +50,7 @@ App-owned env vars:
 
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
-- `CONVEX_TRUSTED_CALLER_KEY`: trusted server-to-Convex lane
 - `PROJECT_BOARD_WEBHOOK_SECRET`: webhook route signature secret
-- `PROJECT_BOARD_WEBHOOK_ACTOR_ID`: server-owned app actor used by the webhook example
 
 ## Test
 

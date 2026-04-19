@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
- * Webhook processing still resolves to a real user row so todo permissions and ownership stay on
- * the same actor model as browser callers.
+ * Webhook processing still resolves to a real workspace user row so todo ownership stays on the
+ * same data model as browser callers without teaching trusted-caller forwarding in this example.
  */
 import { deny } from '@lupinum/trellis/auth'
 import type { GenericDatabaseReader, GenericMutationCtx } from 'convex/server'

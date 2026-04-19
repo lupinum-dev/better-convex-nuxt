@@ -173,6 +173,32 @@ Project management lives on its own page so the cross-workspace boundary stays e
               </div>
             </UCard>
 
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">When to stay on 03 vs move to 06</h3>
+                <p class="text-sm text-muted mt-1">
+                  This example is the architectural fork, not the default starting point.
+                </p>
+              </template>
+
+              <div class="grid gap-3 lg:grid-cols-2">
+                <div class="rounded-xl border border-default bg-elevated p-4">
+                  <p class="text-sm font-semibold text-highlighted">Stay on Example 03</p>
+                  <p class="mt-2 text-sm text-muted">
+                    One user belongs to one workspace, tenant context never switches, and all views
+                    live inside that single boundary.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-default bg-elevated p-4">
+                  <p class="text-sm font-semibold text-highlighted">Move to Example 06</p>
+                  <p class="mt-2 text-sm text-muted">
+                    Users need explicit memberships, an active workspace selector, or a carefully
+                    limited cross-workspace portfolio surface.
+                  </p>
+                </div>
+              </div>
+            </UCard>
+
             <!-- Workspace onboarding -->
             <WorkspaceOnboarding v-if="!tenantId" />
 

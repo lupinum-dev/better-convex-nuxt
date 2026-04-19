@@ -18,11 +18,11 @@ vi.mock('#trellis/server', () => ({
   serverConvexMutation: serverConvexMutationMock,
 }))
 
-vi.mock('#trellis/api', () => ({
-  api: {
+vi.mock('~/convex/_generated/api', () => ({
+  internal: {
     domain: {
-      tasks: {
-        create: { _path: 'domain/tasks:create' },
+      webhooks: {
+        createTaskFromWebhook: { _path: 'domain/webhooks:createTaskFromWebhook' },
       },
     },
   },
@@ -46,10 +46,9 @@ describe('example 04 webhook handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.PROJECT_BOARD_WEBHOOK_SECRET = 'project-board-demo'
-    process.env.PROJECT_BOARD_WEBHOOK_ACTOR_ID = 'user_owner'
   })
 
-  it('accepts trusted caller webhook bodies and uses the server-owned actor identity', async () => {
+  it('accepts verified webhook bodies and calls the internal mutation path', async () => {
     readBodyMock.mockResolvedValue({
       projectId: 'project_123',
       title: 'Webhook task',
@@ -67,7 +66,7 @@ describe('example 04 webhook handler', () => {
         node: expect.any(Object),
       }),
       expect.objectContaining({
-        _path: 'domain/tasks:create',
+        _path: 'domain/webhooks:createTaskFromWebhook',
       }),
       {
         projectId: 'project_123',
@@ -75,10 +74,7 @@ describe('example 04 webhook handler', () => {
         priority: 'medium',
       },
       {
-        auth: 'trusted',
-        actor: {
-          userId: 'user_owner',
-        },
+        auth: 'none',
       },
     )
   })
@@ -91,19 +87,6 @@ describe('example 04 webhook handler', () => {
     await expect(handler(createEvent() as never)).rejects.toMatchObject({
       statusCode: 400,
       message: 'projectId and title are required.',
-    })
-  })
-
-  it('fails closed when the webhook actor identity is not configured', async () => {
-    delete process.env.PROJECT_BOARD_WEBHOOK_ACTOR_ID
-    readBodyMock.mockResolvedValue({
-      projectId: 'project_123',
-      title: 'Webhook task',
-    })
-
-    await expect(handler(createEvent() as never)).rejects.toMatchObject({
-      statusCode: 500,
-      message: 'PROJECT_BOARD_WEBHOOK_ACTOR_ID is required for the webhook example.',
     })
   })
 

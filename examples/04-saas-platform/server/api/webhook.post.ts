@@ -1,13 +1,12 @@
 /**
  * Why this file exists:
- * Nitro routes often need to act on behalf of external systems. This example shows the server
- * helper calling the same scoped mutation layer with trusted caller auth instead of browser cookies.
+ * Nitro routes often need to accept verified external requests, validate the payload, and then
+ * hand work to a narrow internal Convex entrypoint.
  */
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import { api } from '#trellis/api'
 import { serverConvexMutation } from '#trellis/server'
-import type { Id } from '~/convex/_generated/dataModel'
+import { internal } from '~/convex/_generated/api'
 
 type WebhookBody = {
   projectId?: string
@@ -26,19 +25,6 @@ function getWebhookSecret(): string {
 
   return secret
 }
-
-function getWebhookActorUserId(): string {
-  const actorUserId = process.env.PROJECT_BOARD_WEBHOOK_ACTOR_ID?.trim()
-  if (!actorUserId) {
-    throw createError({
-      statusCode: 500,
-      message: 'PROJECT_BOARD_WEBHOOK_ACTOR_ID is required for the webhook example.',
-    })
-  }
-
-  return actorUserId
-}
-
 export default defineEventHandler(async (event) => {
   const signature = event.node.req.headers['x-example-signature']
   if (signature !== getWebhookSecret()) {
@@ -53,22 +39,15 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const actorUserId = getWebhookActorUserId()
-
   const taskId = await serverConvexMutation(
     event,
-    api.domain.tasks.create,
+    internal.domain.webhooks.createTaskFromWebhook,
     {
-      projectId: body.projectId as Id<'projects'>,
+      projectId: body.projectId,
       title: body.title,
       priority: body.priority ?? 'medium',
     },
-    {
-      auth: 'trusted',
-      actor: {
-        userId: actorUserId,
-      },
-    },
+    { auth: 'none' },
   )
 
   return {

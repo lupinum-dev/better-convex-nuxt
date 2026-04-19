@@ -7,6 +7,9 @@ The advanced authorization branch.
 Open this when the canonical workspace model from Example 03 is still right, but your access rules
 are now the hard part.
 
+This example is intentionally not a tenant-model or integration example. The point is to study
+authorization inside one workspace without mixing in MCP or multi-workspace concerns.
+
 ## What it teaches
 
 - row-level visibility

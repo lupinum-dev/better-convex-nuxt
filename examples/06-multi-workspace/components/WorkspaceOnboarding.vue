@@ -26,7 +26,7 @@
     variant="subtle"
     icon="i-lucide-lightbulb"
     title="Multi-workspace tip"
-    description="Create a workspace for the current user, then use the seed action after sign-in to add agency memberships across multiple client workspaces."
+    description="Create a first client workspace, then use the seed action after sign-in to add extra memberships. The point of this example is the memberships table and workspace switching, not open onboarding."
   />
 </template>
 

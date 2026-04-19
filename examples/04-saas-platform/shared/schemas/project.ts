@@ -1,8 +1,8 @@
 import { defineArgs } from '@lupinum/trellis/args'
 /**
  * Why this file exists:
- * These args definitions are reused by both Convex handlers and server-side callers.
- * Keeping them in one place prevents the board and admin flows from drifting apart.
+ * These args definitions are reused by both Convex handlers and server-side callers so the board
+ * UI and the export route stay aligned.
  */
 import { v } from 'convex/values'
 

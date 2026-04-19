@@ -62,4 +62,23 @@ describe('examples gallery docs', () => {
       '../07-mcp-reference/README.md',
     )
   })
+
+  it('keeps the advanced branches anchored to their intended lesson', () => {
+    const visibility = read('examples/05-visibility-access/README.md')
+    const multiWorkspace = read('examples/06-multi-workspace/README.md')
+    const mcp = read('examples/07-mcp-reference/README.md')
+    const component = read('examples/08-component-mini-cms/README.md')
+
+    expect(visibility).toMatch(/authorization/i)
+    expect(visibility).toMatch(/single workspace/i)
+
+    expect(multiWorkspace).toMatch(/architectural fork/i)
+    expect(multiWorkspace).toContain('staying on Example 03')
+
+    expect(mcp).toMatch(/not an onboarding example/i)
+    expect(mcp).toMatch(/runbook domain is intentionally small/i)
+
+    expect(component).toMatch(/main lesson here is the component boundary/i)
+    expect(component).toMatch(/MCP is secondary/i)
+  })
 })

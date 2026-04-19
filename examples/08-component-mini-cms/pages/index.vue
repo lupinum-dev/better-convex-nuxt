@@ -16,10 +16,36 @@
             <UButton to="/studio" color="neutral" variant="soft" trailing-icon="i-lucide-pencil">
               Open studio
             </UButton>
-            <UButton to="/mcp" color="primary" trailing-icon="i-lucide-bot"> MCP endpoint </UButton>
+            <UButton to="/mcp" color="primary" variant="soft" trailing-icon="i-lucide-bot">
+              Optional MCP view
+            </UButton>
           </div>
         </div>
       </header>
+
+      <section class="mini-panel p-5">
+        <div class="grid gap-3 lg:grid-cols-3">
+          <div class="rounded-2xl border border-default p-4">
+            <p class="mini-kicker">1. Host app</p>
+            <p class="mt-2 text-sm text-[var(--mini-muted)]">
+              Public reads stay in the root app and expose only the published surface.
+            </p>
+          </div>
+          <div class="rounded-2xl border border-default p-4">
+            <p class="mini-kicker">2. Component boundary</p>
+            <p class="mt-2 text-sm text-[var(--mini-muted)]">
+              Draft creation, editing, and publish rules live behind the local component boundary.
+            </p>
+          </div>
+          <div class="rounded-2xl border border-default p-4">
+            <p class="mini-kicker">3. Optional MCP projection</p>
+            <p class="mt-2 text-sm text-[var(--mini-muted)]">
+              MCP is secondary here. It only proves that the same bridge-backed operations can be
+              projected outward after the boundary is established.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <div class="mini-grid">
         <section class="mini-panel p-5">

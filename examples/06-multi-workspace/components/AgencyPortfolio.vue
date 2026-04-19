@@ -4,7 +4,8 @@
       <h3 class="text-lg font-semibold">Agency Portfolio</h3>
       <p class="text-sm text-muted mt-1">
         Cross-client view. Only shows workspaces where you have an agency role, without weakening
-        the normal tenant boundary.
+        the normal tenant boundary. This is the one place where the example intentionally steps
+        outside the active workspace.
       </p>
     </template>
 

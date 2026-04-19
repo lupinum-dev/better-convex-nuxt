@@ -169,6 +169,39 @@
               </div>
             </UCard>
 
+            <UCard>
+              <template #header>
+                <h3 class="text-lg font-semibold">Authorization map</h3>
+                <p class="text-sm text-muted mt-1">
+                  Read this example as an access pipeline, not a generic content app.
+                </p>
+              </template>
+
+              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <div class="rounded-xl border border-default bg-elevated p-4">
+                  <p class="text-sm font-semibold text-highlighted">Row visibility</p>
+                  <p class="mt-2 text-sm text-muted">
+                    The index decides which articles even exist for a caller before field-level
+                    rules matter.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-default bg-elevated p-4">
+                  <p class="text-sm font-semibold text-highlighted">Enrollment + prerequisites</p>
+                  <p class="mt-2 text-sm text-muted">
+                    Access can depend on knowledge-base membership and completion of earlier
+                    articles, not just role names.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-default bg-elevated p-4">
+                  <p class="text-sm font-semibold text-highlighted">Field redaction + share links</p>
+                  <p class="mt-2 text-sm text-muted">
+                    Even when a row is visible, sensitive fields and alternate share-token auth stay
+                    separate decisions.
+                  </p>
+                </div>
+              </div>
+            </UCard>
+
             <!-- Workspace onboarding -->
             <template v-if="!tenantId">
               <UCard>

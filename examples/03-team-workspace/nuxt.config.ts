@@ -1,10 +1,10 @@
 /**
  * Why this file exists:
- * This is the "full" example config. It enables auth and the MCP toolkit so the app can
- * demonstrate the complete primitives-first surface in one place.
+ * Example 03 is the canonical protected app. It keeps the Nuxt side intentionally small:
+ * auth, permissions, and one ordinary server route.
  */
 export default defineNuxtConfig({
-  modules: ['@lupinum/trellis', '@nuxt/ui', '@nuxtjs/mcp-toolkit'],
+  modules: ['@lupinum/trellis', '@nuxt/ui'],
   css: ['~/assets/css/main.css'],
 
   compatibilityDate: '2026-03-30',
@@ -16,11 +16,6 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
   },
-
-  mcp: {
-    name: 'team-todo-example',
-  },
-
   trellis: {
     url: process.env.CONVEX_URL,
     auth: {

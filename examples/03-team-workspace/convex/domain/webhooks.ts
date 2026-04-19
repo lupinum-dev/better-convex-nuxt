@@ -7,7 +7,7 @@ import { v } from 'convex/values'
 
 import { internalMutation } from '../_generated/server'
 import { ensureNotProcessed, markProcessed } from '../auth/idempotency'
-import { ensureWebhookBotUser, resolveWebhookActor } from '../auth/trustedCaller'
+import { ensureWebhookBotUser, resolveWebhookActor } from '../auth/webhookBot'
 
 export const processTodoSyncWebhook = internalMutation({
   args: {

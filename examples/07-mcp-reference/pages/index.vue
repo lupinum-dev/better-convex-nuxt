@@ -33,6 +33,44 @@
           <div class="space-y-6">
             <UCard>
               <template #header>
+                <h2 class="text-lg font-semibold text-slate-950">Read This Example In Layers</h2>
+                <p class="text-sm text-slate-600">
+                  The runbooks are just a carrier domain. The real lesson is how the MCP surface is
+                  split and secured.
+                </p>
+              </template>
+
+              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
+                  <p class="text-sm font-semibold text-slate-900">1. Public tools</p>
+                  <p class="mt-2 text-sm text-slate-600">
+                    Unauthenticated discovery over the default endpoint.
+                  </p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
+                  <p class="text-sm font-semibold text-slate-900">2. Scoped tools</p>
+                  <p class="mt-2 text-sm text-slate-600">
+                    MCP keys map to workspace permissions and the same Convex rules as the app UI.
+                  </p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
+                  <p class="text-sm font-semibold text-slate-900">3. Session tools</p>
+                  <p class="mt-2 text-sm text-slate-600">
+                    Session state and dynamic per-session tools sit above the auth lane.
+                  </p>
+                </div>
+                <div class="rounded-2xl border border-slate-200 bg-white/90 p-4">
+                  <p class="text-sm font-semibold text-slate-900">4. Destructive + code mode</p>
+                  <p class="mt-2 text-sm text-slate-600">
+                    Confirmation, operation binding, and a smaller code-mode endpoint live at the
+                    edge of the surface.
+                  </p>
+                </div>
+              </div>
+            </UCard>
+
+            <UCard>
+              <template #header>
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <h2 class="text-lg font-semibold text-slate-950">Public MCP surface</h2>

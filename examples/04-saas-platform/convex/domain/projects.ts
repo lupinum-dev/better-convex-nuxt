@@ -4,7 +4,6 @@ import { v } from 'convex/values'
 
 import { createProject } from '../../shared/schemas/project'
 import { requireWorkspaceTenant } from '../auth/checks'
-import { ensureWithinLimit } from '../auth/limits'
 import { projectCreate, projectExport, projectRead } from '../auth/permissions'
 import { mutation, query } from '../functions'
 import { archiveProjectOp } from '../operations/projects'
@@ -41,7 +40,6 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
-    await ensureWithinLimit(ctx.db, actor, 'projects')
 
     const now = Date.now()
     const projectId = await ctx.db.insert('projects', {

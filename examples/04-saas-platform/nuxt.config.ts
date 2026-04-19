@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
- * Example 04 is the "month two" app. It keeps the same auth foundation as Example 03,
- * but adds server routes, uploads, and admin workflows on top of the same canonical workspace model.
+ * Example 04 keeps the same workspace model as Example 03, then adds the first server-side
+ * integration patterns on top: Nitro routes, uploads, export, and a verified webhook boundary.
  */
 export default defineNuxtConfig({
   modules: ['@lupinum/trellis', '@nuxt/ui'],

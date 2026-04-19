@@ -35,15 +35,6 @@
             >
               Export CSV
             </UButton>
-            <UButton
-              v-if="canAudit"
-              to="/admin"
-              color="neutral"
-              variant="ghost"
-              leading-icon="i-lucide-shield"
-            >
-              Admin
-            </UButton>
           </div>
         </div>
       </UCard>
@@ -112,20 +103,15 @@
 <script setup lang="ts">
 /**
  * Why this file exists:
- * This page shows the "month two" board patterns in one place: scoped queries, optimistic
- * mutations, bulk operations, and permission-aware UI on top of the same tenant model as Example 03.
+ * This page keeps the browser-facing board patterns together: scoped queries, optimistic
+ * mutations, bulk operations, export, and permission-aware UI on top of the same tenant model as
+ * Example 03.
  */
 import { computed, reactive, ref } from 'vue'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import {
-  projectArchive,
-  projectRead,
-  taskCreate,
-  workspaceAudit,
-  workspaceMembers,
-} from '~/convex/auth/permissions'
+import { projectArchive, projectRead, taskCreate } from '~/convex/auth/permissions'
 
 definePageMeta({
   convexAuth: true,
@@ -139,7 +125,6 @@ useAuthGuard({
 const route = useRoute()
 const toast = useToast()
 const { allows } = usePermissions()
-const canAudit = allows(workspaceAudit)
 const canArchive = allows(projectArchive)
 const projectId = computed(() => route.params.id as Id<'projects'>)
 
@@ -163,7 +148,6 @@ const archiveProject = useConvexMutation(api.domain.projects.archive, {
     toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
 })
 const canCreateTask = allows(taskCreate)
-const canManageMembers = allows(workspaceMembers)
 
 const { data: project } = await useConvexQuery(
   api.domain.projects.get,
@@ -177,7 +161,7 @@ const { data: tasks } = await useConvexQuery(
 
 const { data: members } = await useConvexQuery(
   api.domain.members.list,
-  computed(() => (canManageMembers.value ? {} : undefined)),
+  computed(() => ({})),
 )
 
 const memberNames = computed(() => {

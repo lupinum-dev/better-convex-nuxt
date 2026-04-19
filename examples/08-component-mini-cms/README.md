@@ -8,6 +8,10 @@ Open this when you want to understand a local component boundary, root-app wrapp
 forwarding, and MCP projected over bridge-backed operations. This is intentionally niche and comes
 after the main app and MCP examples.
 
+The main lesson here is the component boundary. MCP is secondary in this example; it only exists to
+show that the same bridge-backed operations can be projected outward after the host/component split
+is already clear.
+
 ## What it teaches
 
 - local Convex component boundaries

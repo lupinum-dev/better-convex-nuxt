@@ -7,6 +7,9 @@ The full MCP branch.
 This is not an onboarding example. Open it when you already understand the protected app model and
 you want the complete Trellis MCP surface in one place.
 
+The runbook domain is intentionally small. If you find yourself reading business logic instead of
+transport, session, confirmation, and key-auth behavior, you are looking at the wrong thing.
+
 ## What it teaches
 
 - public vs scoped tools

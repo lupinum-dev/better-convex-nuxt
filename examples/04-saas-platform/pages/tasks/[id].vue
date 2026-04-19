@@ -104,7 +104,7 @@ const { data: task } = await useCachedQuery(
 
 const { data: members } = await useConvexQuery(
   api.domain.members.list,
-  computed(() => (canAssign.value ? {} : undefined)),
+  computed(() => (task.value ? {} : undefined)),
 )
 
 const memberNames = computed(() => {

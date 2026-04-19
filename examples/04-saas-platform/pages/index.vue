@@ -105,43 +105,18 @@
                     Role:
                     <span class="font-semibold text-highlighted">{{ role || 'loading…' }}</span>
                   </p>
-                  <UBadge
-                    v-if="ctx?.plan"
-                    :color="ctx.plan === 'free' ? 'neutral' : 'success'"
-                    variant="subtle"
-                    size="xs"
-                  >
-                    {{ ctx.plan }}
-                  </UBadge>
-                  <span v-if="ctx?.usage?.projects" class="text-xs text-muted">
-                    {{ ctx.usage.projects.current }}/{{
-                      ctx.usage.projects.max === Infinity ? '∞' : ctx.usage.projects.max
-                    }}
-                    projects
-                  </span>
                 </div>
               </div>
 
-              <div class="flex gap-2">
-                <UButton
-                  v-if="canAudit"
-                  to="/admin"
-                  color="neutral"
-                  variant="ghost"
-                  leading-icon="i-lucide-shield"
-                >
-                  Admin
-                </UButton>
-                <UButton
-                  type="button"
-                  color="neutral"
-                  variant="ghost"
-                  trailing-icon="i-lucide-log-out"
-                  @click="handleSignOut"
-                >
-                  Sign out
-                </UButton>
-              </div>
+              <UButton
+                type="button"
+                color="neutral"
+                variant="ghost"
+                trailing-icon="i-lucide-log-out"
+                @click="handleSignOut"
+              >
+                Sign out
+              </UButton>
             </div>
 
             <UCard>
@@ -232,22 +207,11 @@
             <template v-if="tenantId">
               <UCard>
                 <template #header>
-                  <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <h3 class="text-lg font-semibold">Projects</h3>
-                      <p class="text-sm text-muted mt-1">
-                        Paginated and live — the list stays reactive even after loading more pages.
-                      </p>
-                    </div>
-                    <UButton
-                      v-if="canAudit"
-                      to="/admin"
-                      color="neutral"
-                      variant="ghost"
-                      leading-icon="i-lucide-layout-dashboard"
-                    >
-                      Open admin dashboard
-                    </UButton>
+                  <div>
+                    <h3 class="text-lg font-semibold">Projects</h3>
+                    <p class="text-sm text-muted mt-1">
+                      Paginated and live — the list stays reactive even after loading more pages.
+                    </p>
                   </div>
                 </template>
 
@@ -277,17 +241,11 @@
                       data-testid="project-submit"
                       type="submit"
                       :loading="createProject.pending.value"
-                      :disabled="atProjectLimit"
                       leading-icon="i-lucide-plus"
                     >
                       Create project
                     </UButton>
                   </form>
-                  <p v-if="canCreateProject && atProjectLimit" class="text-xs text-warning">
-                    Plan limit reached.
-                    <NuxtLink to="/admin" class="underline">Upgrade your plan</NuxtLink>
-                    to add more projects.
-                  </p>
 
                   <UAlert
                     v-if="projectError"
@@ -368,18 +326,18 @@
 /**
  * Why this file exists:
  * Example 04 keeps onboarding, project creation, and pagination on one page so the jump into the
- * board stays fast. This is where users see the progression from auth -> workspace -> real feature work.
+ * board stays fast. This is where users see the progression from auth -> workspace -> browser UI
+ * plus server integrations.
  */
 import { computed, reactive, ref } from 'vue'
 
 import { api } from '#trellis/api'
-import { projectCreate, saasPermissionMatrix, workspaceAudit } from '~/convex/auth/permissions'
+import { projectCreate, saasPermissionMatrix } from '~/convex/auth/permissions'
 
 const toast = useToast()
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { allows, ready, role, tenantId, ctx } = usePermissions()
-const canAudit = allows(workspaceAudit)
 
 const signUpForm = reactive({
   name: '',
@@ -411,25 +369,12 @@ const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace,
 const createProject = useConvexMutation(api.domain.projects.create, {
   onSuccess: () =>
     toast.add({ title: 'Project created', color: 'success', icon: 'i-lucide-folder-plus' }),
-  onError: (error) => {
-    const isLimitError = error.message.includes('Plan limit')
+  onError: (error) =>
     toast.add({
       title: 'Cannot create project',
       description: error.message,
       color: 'error',
-      actions: isLimitError
-        ? [
-            {
-              label: 'Go to Admin',
-              color: 'error' as const,
-              onClick: () => {
-                void navigateTo('/admin')
-              },
-            },
-          ]
-        : undefined,
-    })
-  },
+    }),
 })
 const projectArgs = computed(() => (tenantId.value ? {} : undefined))
 const {
@@ -446,7 +391,6 @@ const displayName = computed(
 )
 const currentWorkspace = computed(() => ctx.value?.workspace ?? null)
 const canCreateProject = allows(projectCreate)
-const atProjectLimit = computed(() => ctx.value?.usage?.projects?.remaining === 0)
 const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
 const recordRuleRows = [
   { label: 'Update own task', roles: ['owner', 'admin', 'member'] },

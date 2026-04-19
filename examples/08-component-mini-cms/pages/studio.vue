@@ -22,14 +22,13 @@
       <section class="mini-panel p-5">
         <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
           <div class="space-y-2">
-            <h2 class="text-2xl font-semibold">Auth and MCP</h2>
+            <h2 class="text-2xl font-semibold">Boundary flow</h2>
             <p class="text-sm text-[var(--mini-muted)]">
-              Browser users become <span class="mini-code">user</span> principals via Better Auth.
-              MCP callers become <span class="mini-code">mcp</span> principals from the bearer
-              token.
+              Browser users become <span class="mini-code">user</span> principals via Better Auth,
+              then the root app forwards that principal into the component wrapper.
             </p>
             <p class="text-sm text-[var(--mini-muted)]">
-              Demo MCP header:
+              MCP is secondary in this example. When you do use it, the demo header is:
               <span class="mini-code">Authorization: Bearer {{ demoMcpToken }}</span>
             </p>
           </div>
@@ -37,6 +36,36 @@
           <div v-if="isAuthenticated" class="flex flex-col gap-2 text-sm text-right">
             <span class="mini-code">{{ user?.email || user?.name || 'editor' }}</span>
             <UButton color="neutral" variant="ghost" @click="handleSignOut">Sign out</UButton>
+          </div>
+        </div>
+      </section>
+
+      <section class="mini-panel p-5">
+        <div class="grid gap-3 lg:grid-cols-4">
+          <div class="rounded-2xl border border-default p-4">
+            <p class="mini-kicker">Browser auth</p>
+            <p class="mt-2 text-sm text-[var(--mini-muted)]">
+              Better Auth resolves the browser caller into a root-app principal.
+            </p>
+          </div>
+          <div class="rounded-2xl border border-default p-4">
+            <p class="mini-kicker">Root wrappers</p>
+            <p class="mt-2 text-sm text-[var(--mini-muted)]">
+              The host app exposes manual wrappers instead of treating the component as ambient.
+            </p>
+          </div>
+          <div class="rounded-2xl border border-default p-4">
+            <p class="mini-kicker">Component actor</p>
+            <p class="mt-2 text-sm text-[var(--mini-muted)]">
+              The component receives the forwarded principal and decides whether that becomes viewer,
+              editor, or agent behavior.
+            </p>
+          </div>
+          <div class="rounded-2xl border border-default p-4">
+            <p class="mini-kicker">Projected outward</p>
+            <p class="mt-2 text-sm text-[var(--mini-muted)]">
+              MCP reuses the same bridge-backed operations after the boundary is already clear.
+            </p>
           </div>
         </div>
       </section>

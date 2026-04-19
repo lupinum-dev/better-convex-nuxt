@@ -1,8 +1,7 @@
 /**
  * Why this file exists:
  * Example 03 is meant to prove the safety model, not just describe it.
- * These tests exercise tenant isolation, ownership rules, and principal-forwarding parity against
- * the same scoped handlers used by the browser UI and the MCP tools.
+ * These tests exercise tenant isolation, ownership rules, and the small webhook boundary.
  */
 /// <reference types="vite/client" />
 
@@ -11,19 +10,17 @@ import { api, internal } from './_generated/api'
 import { describe, expect, it } from 'vitest'
 
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
+import { ensureWebhookBotUser } from './auth/webhookBot'
 import { todoCreate, todoRead } from './auth/permissions'
-import { ensureWebhookBotUser } from './auth/trustedCaller'
 import schema from './schema'
 import { modules } from './test.setup'
 
-const TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
 
 function createCtx() {
   return createTestContext<typeof schema, WorkspaceRole>({
     schema,
     modules,
-    trustedCallerKey: TRUSTED_CALLER_KEY,
   })
 }
 
@@ -102,27 +99,6 @@ describe('team todo example', () => {
     expect(alphaTodos[0]?.title).toBe('Alpha only')
     expect(betaTodos).toHaveLength(1)
     expect(betaTodos[0]?.title).toBe('Beta only')
-  })
-
-  it('applies the same permission rules to forwarded principals', async () => {
-    const ctx = createCtx()
-    const team = await ctx.seedTenant({
-      name: 'Alpha',
-      users: {
-        viewer: { role: 'viewer' },
-      },
-    })
-
-    const trustedCaller = ctx.asPrincipal({
-      kind: 'user',
-      userId: team.users.viewer.authId,
-    })
-
-    await expect(
-      trustedCaller.mutation(api.domain.todos.create, {
-        title: 'Should fail',
-      }),
-    ).rejects.toThrow(/Forbidden: Create todo/)
   })
 
   it('returns permission context booleans for contrasting roles', async () => {

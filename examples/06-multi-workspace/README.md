@@ -7,6 +7,9 @@ The tenant-model upgrade branch.
 Open this when the canonical single-workspace model from Example 03 is no longer enough and you
 need explicit memberships, active workspace switching, or carefully limited cross-workspace views.
 
+This is the architectural fork from Example 03, not just “more features.” If one user still maps
+cleanly to one workspace, staying on Example 03 is the simpler and better design.
+
 ## What it teaches
 
 - memberships-based multi-workspace auth
