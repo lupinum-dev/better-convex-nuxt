@@ -40,28 +40,15 @@ Master cleanup ledger for the whole-repo reduction pass. This is a hard cleanup 
 - `experimental/example-only surface`: a demo, exploratory pattern, or future-direction example that must not be presented as canonical runtime truth.
 - `dead/stale surface`: code, docs, examples, or scripts with no strong consumer story, no current runtime match, or a superseded architecture role.
 
-## Top 20 highest-value items
+## Completion summary
 
-1. `FUNCTIONS-008` — audit the actual `defineTrellis(...)` implementation as a first-class cleanup target.
-2. `SCRIPTS-001` — decide whether `build` survives as a real command or is removed as a duplicate alias.
-3. `TOOLS-007` — decide whether the 1000+ line central example launcher stays at all, and if it does, what contract it owns.
-4. `SURFACE-001` — validate the root package export story and whether every exported subpath still deserves public support.
-5. `SURFACE-013` — force a keep/collapse/remove decision for every exported subpath and its mirrored type routing.
-6. `COMPOSABLES-001` — audit `useConvexQuery` as a maintained primitive rather than a historically grown subsystem.
-7. `COMPOSABLES-019` — decide whether leaked query/pagination internals are real API, test-only API, or dead exports.
-8. `COMPOSABLES-021` — decide whether the four-layer pagination state stack is justified or should be collapsed.
-9. `FUNCTIONS-003` — simplify `define-handler.ts` if type and runtime branches have drifted beyond a clean canonical path.
-10. `AUTH-004` — confirm `define-permission-context.ts` is the only supported permission projection path.
-11. `MCP-002` — audit `define-convex-tool.ts` for feature creep and policy duplication.
-12. `MCP-012` — collapse or justify duplicated observation-state extraction across server and MCP.
-13. `SERVER-004` — review `auth-resolver.ts` complexity and canonical ownership of auth resolution.
-14. `DEVTOOLS-009` — decide whether the current devtools panel surface is productized debug UX or raw scaffolding.
-15. `VISIBILITY-004` — make an explicit keep/remove decision for `defineVisibility` / `applyVisibility` / `getVisibilityQuery`.
-16. `DOCS-055` — audit the docs landing page as first-class public API documentation.
-17. `DOCS-031` — re-audit the permissions doc cluster against the narrowed permission model.
-18. `NEXT-012` — decide whether `examples-next/01` is migrated to the current permission model or explicitly demoted as stale pressure material.
-19. `TESTS-021` — classify every fixture workspace as contract, doctor-only, publish-only, merge, or delete.
-20. `REDUCE-001` — produce the must-delete shortlist before implementation waves begin.
+1. Wave 1 cut the root script surface down to maintained commands with explicit owner-purpose.
+2. Wave 2 removed or narrowed runtime surfaces that were leaking internals or preserving stale architecture.
+3. Wave 3 aligned README, docs, examples, and `examples-next` around one honest public story.
+4. Wave 4 reduced the maintainer test graph and reclassified the internal harness as integration infrastructure.
+5. Wave 5 locked the keep/delete policy so future cleanup work starts from settled maintainer decisions.
+
+Future cleanup work should add new evidence-backed items instead of reviving already-completed waves.
 
 ---
 
@@ -443,19 +430,151 @@ Wave 4 closed on 2026-04-19. The maintainer test graph was narrowed around real 
 ---
 
 ## Wave 5 — Final Reduction Pass
+Wave 5 closed on 2026-04-19. This section locks the maintainer reduction policy for the next execution cycles: what is unquestionably core, what is on the first delete list, which advanced surfaces are demoted, and how disagreements are resolved. The goal is to stop reopening settled questions.
 
-- [ ] `REDUCE-001` | Area: final reduction | Type: delete | Severity: P1 | Status: proposed | Evidence: script graph, docs workplan, example role inventory | Problem: the repo still lacks a must-delete shortlist that locks obvious removals before implementation waves. | Acceptance criteria: produce and maintain a shortlist of the clearest delete candidates. | Decision rule: settle easy deletes first to prevent endless re-litigation.
-- [ ] `REDUCE-002` | Area: final reduction | Type: simplify | Severity: P1 | Status: proposed | Evidence: `package.json:scripts` inventory | Problem: script sprawl will persist unless the repo chooses a target top-level script budget. | Acceptance criteria: define a desired top-level script budget and the commands that unquestionably remain. | Decision rule: reduction needs a target, not only itemized complaints.
-- [ ] `REDUCE-003` | Area: final reduction | Type: simplify | Severity: P1 | Status: proposed | Evidence: `package.json:exports`, `typesVersions`, public docs | Problem: public surface cannot be simplified without a must-keep shortlist. | Acceptance criteria: name the exported subpaths that are definitely core and the ones under deletion review. | Decision rule: protect the core while cutting the rest.
-- [ ] `REDUCE-004` | Area: final reduction | Type: simplify | Severity: P1 | Status: proposed | Evidence: example inventory, docs taxonomy | Problem: examples need a locked editorial classification before cleanup execution starts. | Acceptance criteria: every example is marked canonical, pattern catalog, advanced reference, experimental, or remove. | Decision rule: editorial role precedes technical cleanup.
-- [ ] `REDUCE-005` | Area: final reduction | Type: simplify | Severity: P2 | Status: proposed | Evidence: docs inventory | Problem: docs cleanup will sprawl without an explicit merge/delete shortlist. | Acceptance criteria: identify pages to merge, pages to demote, and pages to keep as anchors. | Decision rule: docs reduction should be deliberate, not opportunistic.
-- [ ] `REDUCE-006` | Area: final reduction | Type: simplify | Severity: P1 | Status: proposed | Evidence: runtime subsystem inventory | Problem: runtime cleanup needs a list of “must stay small” flagship surfaces. | Acceptance criteria: name the files/APIs that get zero-bloat treatment: query, mutation, handler, permission, tool, server auth. | Decision rule: protect the flagship path explicitly.
-- [ ] `REDUCE-007` | Area: final reduction | Type: simplify | Severity: P2 | Status: proposed | Evidence: test/harness inventory | Problem: test and harness reduction needs explicit keep/remove boundaries before implementation starts. | Acceptance criteria: state which test layers are core and which are optional/at-risk. | Decision rule: high-cost verification surfaces need strong prioritization.
-- [ ] `REDUCE-008` | Area: final reduction | Type: simplify | Severity: P2 | Status: proposed | Evidence: utility/helper inventory | Problem: helper deletion will stall unless vague or tiny utility files are grouped into a removal pass. | Acceptance criteria: produce a batch list of tiny helpers to inline, merge, or delete. | Decision rule: attack helper sprawl in batches.
-- [ ] `REDUCE-009` | Area: final reduction | Type: simplify | Severity: P2 | Status: proposed | Evidence: docs vs runtime mismatches found during audit | Problem: docs/runtime disagreement needs a standard resolution rule during execution. | Acceptance criteria: backlog states that code/runtime truth wins unless the code is obviously stale and scheduled for immediate change. | Decision rule: remove ambiguity from cleanup decisions.
-- [ ] `REDUCE-010` | Area: final reduction | Type: simplify | Severity: P2 | Status: proposed | Evidence: multiple “advanced” subsystems (`mcp`, `component-bridge`, `examples-next`, devtools) | Problem: advanced surfaces can easily block cleanup if their status is not settled. | Acceptance criteria: advanced surfaces are explicitly marked keep-narrow, demote, or remove. | Decision rule: ambiguity is maintenance debt.
-- [ ] `REDUCE-011` | Area: final reduction | Type: simplify | Severity: P3 | Status: proposed | Evidence: backlog itself | Problem: a 250+ item ledger becomes unusable if it is not periodically re-triaged. | Acceptance criteria: define how this file will be maintained during execution waves: accepted/rejected/done states and top-20 refresh. | Decision rule: a cleanup backlog must stay alive, not fossilize.
-- [ ] `REDUCE-012` | Area: final reduction | Type: document-fix | Severity: P2 | Status: proposed | Evidence: this file, docs workplans, release notes | Problem: parallel cleanup plans are likely to reappear unless this file is declared the one canonical ledger. | Acceptance criteria: other active cleanup workplans either reference this file or are archived. | Decision rule: one truth source for cleanup.
+### Must-delete shortlist
+
+- Root aliases already removed or archived stay deleted: `test:auth`, `test:server`, `prepare:examples`, `prepare:types`, `prepare:harness`, `test:e2e:full`, `test:inventory`, `test:list`, `harness:convex:dashboard`.
+- Parallel planning docs stay archived or deleted unless they become the single source of truth again: `docs/DOCS-WORKPLAN.md` remains archival only; old vNext tracking files should not be restored as active plans.
+- Old permission-key registries and capability-string teaching paths stay deleted from canonical examples and docs. Experimental code may keep them only when explicitly marked non-canonical.
+
+### Must-keep shortlist
+
+- Public package subpaths that remain core: `.`, `./auth`, `./args`, `./composables`, `./functions`, `./mcp`, `./server`, `./testing`, `./trusted-caller`, `./visibility`, `./eslint`.
+- Flagship runtime files that get zero-bloat treatment:
+  - `src/runtime/composables/useConvexQuery.ts`
+  - `src/runtime/composables/useConvexMutation.ts`
+  - `src/runtime/functions/define-handler.ts`
+  - `src/runtime/functions/define-operation.ts`
+  - `src/runtime/auth/define-permission.ts`
+  - `src/runtime/auth/define-permission-context.ts`
+  - `src/runtime/mcp/define-convex-tool.ts`
+  - `src/runtime/server/index.ts`
+- Core maintainer commands that unquestionably remain:
+  - `build`
+  - `check`
+  - `dev`
+  - `dev:prepare`
+  - `lint`
+  - `test`
+  - `test:types`
+  - `test:contracts`
+  - `test:internals`
+  - `test:e2e`
+  - `release:verify`
+
+### Script budget
+
+- Root scripts should stay at or below roughly 25 total commands.
+- The everyday maintainer surface should stay at or below 12 commands.
+- New root scripts are only justified when they protect a distinct failure class or a distinct operator workflow. Convenience aliases fail by default.
+
+### Example editorial classification
+
+- Canonical ladder:
+  - `examples/01-public-todo`
+  - `examples/02-auth-todo`
+  - `examples/03-team-workspace`
+- Maintained pattern catalogs:
+  - `examples/04-saas-platform`
+  - `examples/05-visibility-access`
+  - `examples/06-multi-workspace`
+- Maintained advanced references:
+  - `examples/07-mcp-reference`
+  - `examples/08-component-mini-cms`
+- Experimental:
+  - `examples-next/01-kanban-workspace`
+- Concept briefs only:
+  - `examples-next/02-product-issue-tracker`
+  - `examples-next/03-docs-wiki`
+  - `examples-next/04-community-courses`
+  - `examples-next/05-headless-cms-publishing`
+  - `examples-next/06-agency-client-ops`
+  - `examples-next/07-support-inbox-crm`
+  - `examples-next/08-commerce-backoffice`
+  - `examples-next/09-agent-operator-console`
+
+### Docs anchors and demotions
+
+- Anchors that must stay current:
+  - `README.md`
+  - `docs/content/index.md`
+  - `docs/content/docs/1.getting-started.md`
+  - `docs/content/docs/5.examples.md`
+  - `docs/content/docs/13.api-reference/7.api-surface.md`
+  - `CONTRIBUTING.md`
+- Demoted but retained:
+  - `docs/content/docs/15.project/4.migration-guides.md` stays hidden until real migration content exists.
+  - Advanced docs like component bridge, advanced caller models, and deeper MCP/reference pages remain published but must stay clearly non-default.
+
+### Test and harness keep/remove boundaries
+
+- Core test layers:
+  - `test:types`
+  - `test:contracts`
+  - `test`
+  - `test:e2e`
+- Focused debugging lanes kept:
+  - `test:nuxt`
+  - `test:browser`
+  - `test:internals`
+- Removed and not to be reintroduced without a distinct contract:
+  - `test:auth`
+  - `test:server`
+- Internal harness stays because it uniquely owns:
+  - root `pnpm dev`
+  - managed e2e target app
+  - repo-level Convex runtime tests
+  - auth / trusted-caller / MCP integration seams
+- The harness is not public product truth and should not grow demo-only UI or example-style storytelling.
+
+### Helper reduction batch
+
+- Tiny helpers and helper islands should be challenged first in these areas:
+  - `src/runtime/utils/*`
+  - `src/runtime/composables/internal/*`
+  - `src/runtime/devtools/*`
+  - `src/runtime/mcp/*` wrappers around shared runtime logic
+- Default reduction move:
+  - inline one-off helper
+  - merge two-file helper pairs
+  - delete wrappers that only rename a single call
+
+### Advanced surface status
+
+- `mcp`: keep, but narrow and safety-first.
+- `component-bridge`: keep, but explicitly advanced and non-default.
+- `examples-next`: keep as experimental pressure only; no public teaching claims.
+- `devtools`: keep as maintainer/debug UX, not as a second product surface.
+
+### Resolution rules
+
+- Runtime code is the truth source unless it is already scheduled for immediate replacement in the same wave.
+- Docs follow code, not aspirations.
+- Examples must match the current public contract or be explicitly demoted as experimental.
+- If a surface has no strong consumer story, delete or demote it before adding structure around it.
+
+### Backlog maintenance rules
+
+- This file is the one canonical cleanup ledger.
+- New cleanup work must either:
+  - update an existing item to `done`, `rejected`, or `accepted`
+  - add a new evidence-backed item
+- The top 20 list should be refreshed at the end of each completed wave.
+- Stale parallel plans should be archived, not maintained.
+
+- [x] `REDUCE-001` | Area: final reduction | Type: delete | Severity: P1 | Status: done | Evidence: script graph, docs workplan, example role inventory | Problem: the repo still lacks a must-delete shortlist that locks obvious removals before implementation waves. | Acceptance criteria: produce and maintain a shortlist of the clearest delete candidates. | Decision rule: settle easy deletes first to prevent endless re-litigation. | Notes: resolved by locking the must-delete shortlist above.
+- [x] `REDUCE-002` | Area: final reduction | Type: simplify | Severity: P1 | Status: done | Evidence: `package.json:scripts` inventory | Problem: script sprawl will persist unless the repo chooses a target top-level script budget. | Acceptance criteria: define a desired top-level script budget and the commands that unquestionably remain. | Decision rule: reduction needs a target, not only itemized complaints. | Notes: resolved by defining the root script budget and the must-keep maintainer commands above.
+- [x] `REDUCE-003` | Area: final reduction | Type: simplify | Severity: P1 | Status: done | Evidence: `package.json:exports`, `typesVersions`, public docs | Problem: public surface cannot be simplified without a must-keep shortlist. | Acceptance criteria: name the exported subpaths that are definitely core and the ones under deletion review. | Decision rule: protect the core while cutting the rest. | Notes: resolved by locking the must-keep public subpaths above.
+- [x] `REDUCE-004` | Area: final reduction | Type: simplify | Severity: P1 | Status: done | Evidence: example inventory, docs taxonomy | Problem: examples need a locked editorial classification before cleanup execution starts. | Acceptance criteria: every example is marked canonical, pattern catalog, advanced reference, experimental, or remove. | Decision rule: editorial role precedes technical cleanup. | Notes: resolved by the locked example editorial classification above.
+- [x] `REDUCE-005` | Area: final reduction | Type: simplify | Severity: P2 | Status: done | Evidence: docs inventory | Problem: docs cleanup will sprawl without an explicit merge/delete shortlist. | Acceptance criteria: identify pages to merge, pages to demote, and pages to keep as anchors. | Decision rule: docs reduction should be deliberate, not opportunistic. | Notes: resolved by the docs anchors/demotions section above.
+- [x] `REDUCE-006` | Area: final reduction | Type: simplify | Severity: P1 | Status: done | Evidence: runtime subsystem inventory | Problem: runtime cleanup needs a list of “must stay small” flagship surfaces. | Acceptance criteria: name the files/APIs that get zero-bloat treatment: query, mutation, handler, permission, tool, server auth. | Decision rule: protect the flagship path explicitly. | Notes: resolved by the flagship runtime file shortlist above.
+- [x] `REDUCE-007` | Area: final reduction | Type: simplify | Severity: P2 | Status: done | Evidence: test/harness inventory | Problem: test and harness reduction needs explicit keep/remove boundaries before implementation starts. | Acceptance criteria: state which test layers are core and which are optional/at-risk. | Decision rule: high-cost verification surfaces need strong prioritization. | Notes: resolved by the test and harness keep/remove boundaries above.
+- [x] `REDUCE-008` | Area: final reduction | Type: simplify | Severity: P2 | Status: done | Evidence: utility/helper inventory | Problem: helper deletion will stall unless vague or tiny utility files are grouped into a removal pass. | Acceptance criteria: produce a batch list of tiny helpers to inline, merge, or delete. | Decision rule: attack helper sprawl in batches. | Notes: resolved by the helper reduction batch above.
+- [x] `REDUCE-009` | Area: final reduction | Type: simplify | Severity: P2 | Status: done | Evidence: docs vs runtime mismatches found during audit | Problem: docs/runtime disagreement needs a standard resolution rule during execution. | Acceptance criteria: backlog states that code/runtime truth wins unless the code is obviously stale and scheduled for immediate change. | Decision rule: remove ambiguity from cleanup decisions. | Notes: resolved by the resolution rules above.
+- [x] `REDUCE-010` | Area: final reduction | Type: simplify | Severity: P2 | Status: done | Evidence: multiple “advanced” subsystems (`mcp`, `component-bridge`, `examples-next`, devtools) | Problem: advanced surfaces can easily block cleanup if their status is not settled. | Acceptance criteria: advanced surfaces are explicitly marked keep-narrow, demote, or remove. | Decision rule: ambiguity is maintenance debt. | Notes: resolved by the advanced surface status section above.
+- [x] `REDUCE-011` | Area: final reduction | Type: simplify | Severity: P3 | Status: done | Evidence: backlog itself | Problem: a 250+ item ledger becomes unusable if it is not periodically re-triaged. | Acceptance criteria: define how this file will be maintained during execution waves: accepted/rejected/done states and top-20 refresh. | Decision rule: a cleanup backlog must stay alive, not fossilize. | Notes: resolved by the backlog maintenance rules above.
+- [x] `REDUCE-012` | Area: final reduction | Type: document-fix | Severity: P2 | Status: done | Evidence: this file, docs workplans, release notes | Problem: parallel cleanup plans are likely to reappear unless this file is declared the one canonical ledger. | Acceptance criteria: other active cleanup workplans either reference this file or are archived. | Decision rule: one truth source for cleanup. | Notes: resolved by archiving the docs workplan and declaring this file the canonical cleanup ledger.
 
 ## Trust checks for this backlog
 
