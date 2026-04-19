@@ -1,10 +1,40 @@
-import { convexTestConfig } from '@lupinum/trellis/testing'
+import { fileURLToPath } from 'node:url'
+
+import { convexTestConfig } from '../../src/runtime/testing/index'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig(
   convexTestConfig({
+    resolve: {
+      alias: {
+        '@lupinum/trellis/args': fileURLToPath(
+          new URL('../../src/runtime/args/index.ts', import.meta.url),
+        ),
+        '@lupinum/trellis/auth': fileURLToPath(
+          new URL('../../src/runtime/auth/index.ts', import.meta.url),
+        ),
+        '@lupinum/trellis/functions': fileURLToPath(
+          new URL('../../src/runtime/functions/index.ts', import.meta.url),
+        ),
+        '@lupinum/trellis/mcp': fileURLToPath(
+          new URL('../../src/runtime/mcp/index.ts', import.meta.url),
+        ),
+        '@lupinum/trellis/server': fileURLToPath(
+          new URL('../../src/runtime/server/index.ts', import.meta.url),
+        ),
+        '@lupinum/trellis/testing': fileURLToPath(
+          new URL('../../src/runtime/testing/index.ts', import.meta.url),
+        ),
+        '@lupinum/trellis/trusted-forwarding': fileURLToPath(
+          new URL('../../src/runtime/trusted-forwarding/index.ts', import.meta.url),
+        ),
+        '@lupinum/trellis/visibility': fileURLToPath(
+          new URL('../../src/runtime/visibility/index.ts', import.meta.url),
+        ),
+      },
+    },
     test: {
-      include: ['test/**/*.test.ts'],
+      include: ['test/**/*.test.ts', 'server/api/**/*.test.ts'],
       name: 'example-mcp-reference',
     },
   }),

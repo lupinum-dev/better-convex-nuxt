@@ -15,7 +15,7 @@ export type Actor = DefaultActor & {
   tenantId: Id<'workspaces'>
 }
 
-type PermissionActor = DefaultActor & {
+export type PermissionActor = DefaultActor & {
   role: Role
   tenantId?: Id<'workspaces'>
 }
@@ -63,6 +63,8 @@ export async function getActorFromPrincipal(
     case 'anonymous':
       return null
     case 'agent':
+      return null
+    case 'service':
       return null
     case 'user': {
       const actor = await loadActorByAuthId(ctx, principal.userId)

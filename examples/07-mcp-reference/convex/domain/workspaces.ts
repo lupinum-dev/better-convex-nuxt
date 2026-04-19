@@ -11,6 +11,9 @@ export const createWorkspace = mutation({
   },
   handler: async (ctx, args) => {
     const principal = await ctx.principal()
+    if (principal.kind !== 'user') {
+      throw new Error('Workspace creation requires a signed-in user principal.')
+    }
 
     const existing = await ctx.db
       .query('workspaces')

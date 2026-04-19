@@ -257,21 +257,31 @@ export async function getActorFromPrincipal(
   ctx: WorkspaceCtx,
   _args: Record<string, unknown>,
   principal: WorkspacePrincipal,
+  delegation: { subject: string } | null,
 ): Promise<Actor | null> {
+  const delegatedAuthId =
+    typeof delegation?.subject === 'string' && delegation.subject.startsWith('user:')
+      ? delegation.subject.slice('user:'.length)
+      : null
+
+  if (delegatedAuthId) {
+    const actor = requirePermissionActor(
+      delegatedAuthId,
+      await loadActorByAuthId(ctx, delegatedAuthId),
+    )
+    return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
+  }
+
   switch (principal.kind) {
     case 'anonymous':
       return null
     case 'agent':
-      return principal.tenantId
-        ? {
-            kind: 'user',
-            userId: principal.userId,
-            role: principal.role,
-            tenantId: principal.tenantId,
-          }
-        : null
+      return null
     case 'user': {
-      const actor = requirePermissionActor(principal.userId, await loadActorByAuthId(ctx, principal.userId))
+      const actor = requirePermissionActor(
+        principal.userId,
+        await loadActorByAuthId(ctx, principal.userId),
+      )
       return actor?.tenantId ? { ...actor, tenantId: actor.tenantId } : null
     }
   }
@@ -300,7 +310,7 @@ import {
 } from '@lupinum/trellis/trusted-forwarding'
 import { v } from 'convex/values'
 
-import type { Doc, Id } from '../_generated/dataModel'
+import type { Doc } from '../_generated/dataModel'
 
 export type Role = Doc<'users'>['role']
 
@@ -311,8 +321,6 @@ export type WorkspacePrincipal =
       kind: 'agent'
       agentId: string
       subject: \`agent:\${string}\`
-      role: Role
-      tenantId?: Id<'workspaces'>
       provider?: 'mcp'
     }
 
@@ -330,13 +338,6 @@ export const workspacePrincipalValidator = v.union(
     kind: v.literal('agent'),
     agentId: v.string(),
     subject: v.string(),
-    role: v.union(
-      v.literal('owner'),
-      v.literal('admin'),
-      v.literal('member'),
-      v.literal('viewer'),
-    ),
-    tenantId: v.optional(v.id('workspaces')),
     provider: v.optional(v.literal('mcp')),
   }),
 )
@@ -503,7 +504,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const hash = createHash('sha256').update(token).digest('hex')
-  const key = await serverConvexQuery(api.domain.mcpKeys.validate, { hash }, { auth: 'none' })
+  const key = await serverConvexQuery(event, api.domain.mcpKeys.validate, { hash }, { auth: 'none' })
   if (!key) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
   }
@@ -520,28 +521,24 @@ import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
 
-import type { Id } from '~/convex/_generated/dataModel'
 import { todoCreate, workspaceRead } from '~/convex/auth/permissions'
 import type { WorkspacePrincipal } from '~/convex/auth/principal'
 
 type McpAuthContext = {
+  id?: string
   userId?: string
-  role?: 'owner' | 'admin' | 'member' | 'viewer'
-  tenantId?: string
 }
 
 function getMcpPrincipal(event: H3Event): WorkspacePrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
-  if (!auth?.userId || !auth.role) {
+  if (!auth?.id || !auth.userId) {
     return { kind: 'anonymous', subject: 'system:anonymous' }
   }
 
   return {
     kind: 'agent',
-    agentId: auth.userId,
-    subject: \`agent:\${auth.userId}\`,
-    role: auth.role,
-    tenantId: auth.tenantId as Id<'workspaces'> | undefined,
+    agentId: auth.id,
+    subject: \`agent:\${auth.id}\`,
     provider: 'mcp',
   }
 }
@@ -579,7 +576,7 @@ export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
           [todoCreate.key]: false,
         },
   principalKey: (principal) =>
-    principal.kind === 'agent' ? \`\${principal.userId}:\${principal.tenantId ?? 'none'}\` : principal.kind,
+    principal.kind === 'agent' ? \`agent:\${principal.agentId}\` : principal.kind,
 })
 
 // Project root internal refs or bridge refs from tool files.

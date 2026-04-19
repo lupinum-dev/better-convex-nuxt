@@ -8,11 +8,14 @@ This is not an onboarding example. Open it when you already understand the prote
 you want the complete Trellis MCP surface in one place.
 
 The runbook domain is intentionally small. If you find yourself reading business logic instead of
-transport, session, confirmation, and key-auth behavior, you are looking at the wrong thing.
+transport, session, confirmation, key-auth behavior, and trusted-forwarding flows, you are looking
+at the wrong thing.
 
 ## What it teaches
 
 - public vs scoped tools
+- browser user, MCP agent, and verified webhook traffic converging on the same protected runbook
+  layer
 - MCP key auth
 - destructive preview + confirmation
 - prompts and resources
@@ -30,20 +33,29 @@ You already understand the canonical protected workspace model from
 
 1. `convex/domain/runbooks.ts`
 2. `convex/domain/mcpKeys.ts`
-3. `server/middleware/mcp-auth.ts`
-4. `server/mcp/tools/public/*`
-5. `server/mcp/tools/workspace/*`
-6. `server/mcp/tools/session/*`
-7. `server/mcp/resources/mcp-reference-guide.ts`
-8. `server/mcp/prompts/plan-runbook-workflow.ts`
+3. `convex/auth/principal.ts`
+4. `convex/auth/delegation.ts`
+5. `convex/auth/actor.ts`
+6. `convex/auth/services.ts`
+7. `server/middleware/mcp-auth.ts`
+8. `server/api/runbook-webhook.post.ts`
+9. `server/mcp/tools/public/*`
+10. `server/mcp/tools/workspace/*`
+11. `server/mcp/tools/session/*`
+12. `server/mcp/resources/mcp-reference-guide.ts`
+13. `server/mcp/prompts/plan-runbook-workflow.ts`
 
 ## Demo flow
 
 1. Sign up and create a workspace.
-2. Issue an MCP key from the UI.
-3. Call the default MCP endpoint and confirm scoped tools appear.
-4. Call the code-mode endpoint and compare the smaller surface.
-5. Use the session tools to store a focus and register a temporary shortcut.
+2. In the `users` table, note the workspace owner's `authId`.
+3. Set `MCP_REFERENCE_WEBHOOK_SECRET` and `MCP_REFERENCE_WEBHOOK_AUTH_ID` locally.
+4. Issue an MCP key from the UI.
+5. Call the default MCP endpoint and confirm scoped tools appear.
+6. POST to `/api/runbook-webhook` with `x-example-signature` and watch the same protected
+   `domain.runbooks.create` mutation accept a service principal plus delegated user.
+7. Call the code-mode endpoint and compare the smaller surface.
+8. Use the session tools to store a focus and register a temporary shortcut.
 
 ## Run
 
@@ -57,6 +69,8 @@ App-owned env vars:
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 - `CONVEX_TRUSTED_FORWARDING_KEY`: trusted server-to-Convex lane
 - `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
+- `MCP_REFERENCE_WEBHOOK_SECRET`: route secret for the verified webhook example
+- `MCP_REFERENCE_WEBHOOK_AUTH_ID`: user or bot `authId` the verified webhook delegates to
 
 ## Test
 
@@ -66,6 +80,12 @@ App-owned env vars:
 ## When to stop here / move on
 
 Stop here if the next thing you need to ship is MCP.
+
+Stop here if you want one app that shows the three caller shapes together:
+
+- browser user signing in directly
+- MCP `agent:*` traffic delegated to `user:*`
+- webhook `service:*` traffic delegated to `user:*`
 
 Move to [`08-component-mini-cms`](../08-component-mini-cms/README.md) when MCP is not enough and
 you also need a component / host bridge architecture.

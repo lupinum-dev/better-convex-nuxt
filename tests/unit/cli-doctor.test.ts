@@ -120,7 +120,14 @@ describe('CLI doctor', () => {
     )
     expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
-    expect(read(resolve(appRoot, 'server/mcp/runtime.ts'))).toContain("auth: 'trusted'")
+    const runtime = read(resolve(appRoot, 'server/mcp/runtime.ts'))
+    expect(runtime).toContain("auth: 'trusted'")
+    expect(runtime).toContain('resolveDelegation')
+    expect(runtime).not.toContain('actor: { userId: principal.userId }')
+    expect(runtime).not.toContain('principal.userId')
+    expect(read(resolve(appRoot, 'server/middleware/mcp-auth.ts'))).toContain(
+      'serverConvexQuery(event, api.domain.mcpKeys.validate, { hash }, { auth: \'none\' })',
+    )
   })
 
   it('adds MCP to an existing workspace app', () => {

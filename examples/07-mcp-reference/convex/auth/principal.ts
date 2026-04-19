@@ -17,6 +17,7 @@ export type McpReferencePrincipal =
   | { kind: 'anonymous'; subject: 'system:anonymous' }
   | { kind: 'user'; userId: string; subject: `user:${string}` }
   | { kind: 'agent'; agentId: string; subject: `agent:${string}`; provider: 'mcp' }
+  | { kind: 'service'; serviceId: string; subject: `service:${string}` }
 
 export const mcpReferencePrincipalValidator = v.union(
   v.object({
@@ -33,6 +34,11 @@ export const mcpReferencePrincipalValidator = v.union(
     agentId: v.string(),
     subject: v.string(),
     provider: v.literal('mcp'),
+  }),
+  v.object({
+    kind: v.literal('service'),
+    serviceId: v.string(),
+    subject: v.string(),
   }),
 )
 

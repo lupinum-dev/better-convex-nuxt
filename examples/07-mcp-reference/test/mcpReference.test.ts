@@ -134,6 +134,65 @@ describe('mcp reference example', () => {
     ).resolves.toBeTruthy()
   })
 
+  it('applies the same create permission rules to delegated service principals', async () => {
+    const ctx = createCtx()
+    const team = await ctx.seedTenant({
+      name: 'Alpha',
+      users: {
+        viewer: { role: 'viewer' },
+        member: { role: 'member' },
+      },
+    })
+
+    await expect(
+      ctx.raw.mutation(api.domain.runbooks.create, {
+        title: 'Webhook viewer should fail',
+        summary: 'No permission',
+        content: '# Nope',
+        visibility: 'workspace',
+        tags: ['webhook'],
+        principal: {
+          kind: 'service',
+          serviceId: 'runbook-webhook',
+          subject: 'service:runbook-webhook',
+        },
+        delegation: {
+          subject: `user:${team.users.viewer.authId}`,
+          reason: 'verified runbook webhook',
+        },
+        _trustedForwardingKey: TRUSTED_FORWARDING_KEY,
+        _trustedForwarding: {
+          principalSubject: 'service:runbook-webhook',
+          delegationSubject: `user:${team.users.viewer.authId}`,
+        },
+      }),
+    ).rejects.toThrow(/Forbidden: Create runbook/)
+
+    await expect(
+      ctx.raw.mutation(api.domain.runbooks.create, {
+        title: 'Webhook member may create',
+        summary: 'Allowed',
+        content: '# Allowed',
+        visibility: 'workspace',
+        tags: ['webhook'],
+        principal: {
+          kind: 'service',
+          serviceId: 'runbook-webhook',
+          subject: 'service:runbook-webhook',
+        },
+        delegation: {
+          subject: `user:${team.users.member.authId}`,
+          reason: 'verified runbook webhook',
+        },
+        _trustedForwardingKey: TRUSTED_FORWARDING_KEY,
+        _trustedForwarding: {
+          principalSubject: 'service:runbook-webhook',
+          delegationSubject: `user:${team.users.member.authId}`,
+        },
+      }),
+    ).resolves.toBeTruthy()
+  })
+
   it('stores only hashes for MCP keys and debounces last-used writes', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({

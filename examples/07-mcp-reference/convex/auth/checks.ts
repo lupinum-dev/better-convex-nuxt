@@ -6,26 +6,29 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { Doc } from '../_generated/dataModel'
-import type { Actor } from './actor'
+import type { Actor, PermissionActor } from './actor'
 
 export const hasRole = (...roles: Doc<'users'>['role'][]) =>
-  defineGuard<Actor>(`role:${roles.join('|')}`, (actor) => !!actor && roles.includes(actor.role))
-export const hasWorkspace = defineGuard<Actor | { tenantId?: string | undefined }>(
+  defineGuard<PermissionActor>(
+    `role:${roles.join('|')}`,
+    (actor) => !!actor && roles.includes(actor.role),
+  )
+export const hasWorkspace = defineGuard<PermissionActor>(
   'Workspace member',
   (actor) => !!actor?.tenantId,
 )
 export const isOwnerOf = (resource: { ownerId: string }) =>
-  defineGuard<Actor>(
+  defineGuard<PermissionActor>(
     `owner:${resource.ownerId}`,
     (actor) => !!actor && actor.userId === resource.ownerId,
   )
 export const canUpdateRunbook = (runbook: { ownerId: string }) =>
-  defineGuard<Actor>(
+  defineGuard<PermissionActor>(
     'Update runbook',
     hasRole('owner', 'admin').or(hasRole('member').and(isOwnerOf(runbook))),
   )
 export const canDeleteRunbook = (runbook: { ownerId: string }) =>
-  defineGuard<Actor>(
+  defineGuard<PermissionActor>(
     'Delete runbook',
     hasRole('owner', 'admin').or(hasRole('member').and(isOwnerOf(runbook))),
   )

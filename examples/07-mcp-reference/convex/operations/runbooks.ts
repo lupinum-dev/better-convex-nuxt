@@ -1,12 +1,36 @@
 import { can } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import type { GenericMutationCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import { bulkDeleteRunbooks, deleteRunbook } from '../../shared/schemas/runbook'
 import type { Doc, Id } from '../_generated/dataModel'
+import type { DataModel } from '../_generated/dataModel'
+import type { Actor } from '../auth/actor'
 import { canDeleteRunbook } from '../auth/checks'
-import { runbookBulkDelete, runbookPublish, runbookRead } from '../auth/permissions'
+import { runbookBulkDelete, runbookRead } from '../auth/permissions'
 import { query } from '../functions'
+
+type RunbookMutationCtx = {
+  db: GenericMutationCtx<DataModel>['db']
+  actor: () => Promise<Actor>
+}
+
+type DeleteRunbookArgs = {
+  id: Id<'runbooks'>
+}
+
+type BulkDeleteRunbooksArgs = {
+  ids: Id<'runbooks'>[]
+}
+
+type LoadedRunbook = {
+  runbook: Doc<'runbooks'>
+}
+
+type LoadedBulkRunbooks = {
+  found: Doc<'runbooks'>[]
+}
 
 export const removeRunbookOp = defineOperation({
   id: 'runbooks.remove',
@@ -31,15 +55,19 @@ export const removeRunbookOp = defineOperation({
     }),
   }),
   guard: runbookRead,
-  load: async (ctx, args) => {
+  load: async (ctx: RunbookMutationCtx, args: DeleteRunbookArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
     if (!runbook) throw new Error('Runbook not found.')
     return { runbook }
   },
   authorize: {
-    check: (_actor, { runbook }) => canDeleteRunbook(runbook),
+    check: (_actor: Actor, { runbook }: LoadedRunbook) => canDeleteRunbook(runbook),
   },
-  preview: async (_ctx, _args, { runbook }) => ({
+  preview: async (
+    _ctx: RunbookMutationCtx,
+    _args: DeleteRunbookArgs,
+    { runbook }: LoadedRunbook,
+  ) => ({
     display: {
       summary: `Will permanently delete "${runbook.title}".`,
       warn: 'This cannot be undone.',
@@ -51,7 +79,7 @@ export const removeRunbookOp = defineOperation({
       affectedCounts: { runbooks: 1 },
     },
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx: RunbookMutationCtx, args: DeleteRunbookArgs) => {
     await ctx.db.delete(args.id)
     return null
   },
@@ -92,7 +120,10 @@ export const bulkRemoveRunbooksOp = defineOperation({
     }),
   }),
   guard: runbookBulkDelete,
-  load: async (ctx, args) => {
+  load: async (
+    ctx: RunbookMutationCtx,
+    args: BulkDeleteRunbooksArgs,
+  ): Promise<LoadedBulkRunbooks> => {
     const actor = await ctx.actor()
     const runbooks = await Promise.all(args.ids.map((id: Id<'runbooks'>) => ctx.db.get(id)))
     const found = runbooks.filter(
@@ -104,7 +135,11 @@ export const bulkRemoveRunbooksOp = defineOperation({
 
     return { found }
   },
-  preview: async (_ctx, args, { found }) => {
+  preview: async (
+    _ctx: RunbookMutationCtx,
+    args: BulkDeleteRunbooksArgs,
+    { found }: LoadedBulkRunbooks,
+  ) => {
     if (found.length === 0) {
       return {
         display: {
@@ -135,7 +170,7 @@ export const bulkRemoveRunbooksOp = defineOperation({
       },
     }
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: RunbookMutationCtx, args: BulkDeleteRunbooksArgs) => {
     const actor = await ctx.actor()
 
     let deleted = 0
