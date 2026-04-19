@@ -78,6 +78,153 @@ export default createConfigForNuxt({
       },
     },
     {
+      files: [
+        'src/runtime/auth/composables/useConvexAuth.ts',
+        'src/runtime/convex/composables/useConvexAction.ts',
+        'src/runtime/convex/composables/useConvexConnectionState.ts',
+        'src/runtime/convex/composables/useConvexMutation.ts',
+        'src/runtime/convex/composables/useConvexPaginatedQuery.ts',
+        'src/runtime/convex/composables/useConvexQuery.ts',
+        'src/runtime/convex/composables/useConvexUpload.ts',
+      ],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: [
+                  '../devtools/**',
+                  '../../devtools/**',
+                  '../utils/logger',
+                  '../utils/logger.js',
+                  '../../utils/logger',
+                  '../../utils/logger.js',
+                  '../utils/convex-cache',
+                  '../utils/convex-cache.js',
+                  '../../utils/convex-cache',
+                  '../../utils/convex-cache.js',
+                  '../shared/convex-cache',
+                  '../shared/convex-cache.js',
+                  '../../shared/convex-cache',
+                  '../../shared/convex-cache.js',
+                  '../auth/shared/auth-unauthorized',
+                  '../auth/shared/auth-unauthorized.js',
+                  '../../auth/shared/auth-unauthorized',
+                  '../../auth/shared/auth-unauthorized.js',
+                  '../query/live-query-resource',
+                  '../query/live-query-resource.js',
+                  '../shared/convex-call-state',
+                  '../shared/convex-call-state.js',
+                ],
+                message:
+                  'Public composables are facade entry points and must not import low-level runtime plumbing directly.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: [
+        'src/runtime/composables/index.ts',
+        'src/runtime/auth/index.ts',
+        'src/runtime/functions/index.ts',
+      ],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: 'ExportAllDeclaration',
+            message: 'Public runtime barrels must enumerate exports explicitly.',
+          },
+        ],
+      },
+    },
+    {
+      files: ['src/runtime/composables/index.ts'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector:
+              'ExportNamedDeclaration[source.value=/^\\.\\.\\/auth\\/(?:client|internal|middleware|server|shared|ui)\\//]',
+            message:
+              'The composables barrel must not re-export auth internals; only public auth composables belong here.',
+          },
+          {
+            selector:
+              'ExportNamedDeclaration[source.value=/^\\.\\.\\/convex\\/(?:client|pagination|query|server|shared|upload)\\//]',
+            message:
+              'The composables barrel must not re-export low-level Convex runtime internals; only public composables belong here.',
+          },
+          {
+            selector:
+              'ExportNamedDeclaration[source.value=/^\\.\\.\\/(?:devtools|functions|mcp|observability|trusted-forwarding|visibility)\\//]',
+            message:
+              'The composables barrel is a narrow public facade and must not re-export other runtime verticals.',
+          },
+        ],
+      },
+    },
+    {
+      files: ['src/runtime/auth/index.ts'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector:
+              'ExportNamedDeclaration[source.value=/^\\.\\/(?:client|composables|internal|middleware|server|shared|ui)\\//]',
+            message:
+              'The auth barrel must stay on public authoring primitives and must not re-export auth runtime internals.',
+          },
+        ],
+      },
+    },
+    {
+      files: ['src/runtime/functions/index.ts'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector:
+              'ExportNamedDeclaration[source.value=/^\\.\\.\\/(?:auth|composables|convex|devtools|mcp|observability|server|trusted-forwarding|visibility)\\//]',
+            message:
+              'The functions barrel must not re-export other runtime verticals or private plumbing.',
+          },
+        ],
+      },
+    },
+    {
+      files: [
+        'examples/**/convex/**/*.ts',
+        'examples/**/server/**/*.ts',
+        'apps/harness/convex/**/*.ts',
+        'apps/harness/server/**/*.ts',
+      ],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: [
+                  '**/src/runtime/auth',
+                  '**/src/runtime/auth/**',
+                  '**/src/runtime/functions',
+                  '**/src/runtime/functions/**',
+                  '**/src/runtime/composables',
+                  '**/src/runtime/composables/**',
+                ],
+                message:
+                  'Package-consumer app code must use @lupinum/trellis subpath imports instead of repo-local runtime paths.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ['apps/harness/middleware/**/*.ts'],
       rules: {
         'no-restricted-syntax': [
