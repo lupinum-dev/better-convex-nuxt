@@ -45,18 +45,18 @@ type _defaultTenantId = Assert<IsEqual<DefaultTenant['id'], { __tableName: 'work
 type _defaultUserId = Assert<
   IsEqual<DefaultTenant['users'][string]['id'], { __tableName: 'users' } & string>
 >
-const keyedTenant = defaultCtx.seedTenant({
+const _keyedTenant = defaultCtx.seedTenant({
   name: 'Keyed',
   users: {
     owner: { role: 'owner' as const },
     member: { role: 'member' as const },
   },
 })
-type KeyedTenant = Awaited<typeof keyedTenant>
+type KeyedTenant = Awaited<typeof _keyedTenant>
 type _keyedOwnerRole = Assert<IsEqual<KeyedTenant['users']['owner']['role'], 'owner'>>
 type _keyedMemberRole = Assert<IsEqual<KeyedTenant['users']['member']['role'], 'member'>>
 
-const organizationCtx = createTestContext({
+const _organizationCtx = createTestContext({
   schema,
   tenant: { table: 'organizations', field: 'organizationId' },
   users: {
@@ -66,7 +66,7 @@ const organizationCtx = createTestContext({
     tenantField: 'organizationId',
   },
 })
-type OrganizationTenant = Awaited<ReturnType<typeof organizationCtx.seedTenant>>
+type OrganizationTenant = Awaited<ReturnType<typeof _organizationCtx.seedTenant>>
 type _organizationTenantId = Assert<
   IsEqual<OrganizationTenant['id'], { __tableName: 'organizations' } & string>
 >
@@ -84,7 +84,7 @@ const exportsPermission = definePermission({
   check: canExport,
 })
 
-const permissionContext = definePermissionContext({
+const _permissionContext = definePermissionContext({
   resolve: async () => ({
     role: 'owner' as const,
     userId: 'owner-1',
@@ -101,8 +101,7 @@ const permissionContext = definePermissionContext({
     },
   }),
 })
-
-type PermissionContextResult = Awaited<ReturnType<typeof permissionContext.handler>>
+type PermissionContextResult = Awaited<ReturnType<typeof _permissionContext.handler>>
 type _permissionContextPlan = Assert<
   IsEqual<NonNullable<PermissionContextResult>['plan'], 'pro'>
 >

@@ -2,7 +2,7 @@
 import { ConvexError } from 'convex/values'
 
 import { open, runCheck, type AnyCheck } from './define-guard.js'
-import type { PermissionDefinition } from './define-permission.js'
+import type { ErasedPermissionDefinition } from './define-permission.js'
 
 export type PermissionContextBase<TCan extends Record<string, boolean>> = {
   userId: string | null
@@ -19,9 +19,7 @@ type PermissionContextExtensionShape = Record<string, unknown> & {
   can?: never
 }
 
-type ResolveFn = (ctx: any) => Promise<unknown | null>
-type ActorForResolve<TResolve extends ResolveFn> = Awaited<ReturnType<TResolve>>
-type PermissionTuple = readonly PermissionDefinition<string, any>[]
+type PermissionTuple = readonly ErasedPermissionDefinition<string>[]
 
 type ProjectedPermissionDefinitions<TPermissions extends PermissionTuple> = Exclude<
   TPermissions[number],
@@ -37,16 +35,27 @@ type PermissionContextHandlerResult<
   TContext extends Record<string, unknown>,
 > = PermissionContextBase<PermissionFlags<TPermissions>> & TContext
 
-type PermissionContextOptions<TResolve extends ResolveFn, TPermissions extends PermissionTuple> = {
-  resolve: TResolve
-  permissions: TPermissions
+type PermissionContextOptions = {
+  resolve: (ctx: any) => Promise<unknown | null>
+  permissions: PermissionTuple
   extend?: (
     ctx: any,
-    actor: NonNullable<ActorForResolve<TResolve>>,
+    actor: any,
   ) => Promise<PermissionContextExtensionShape> | PermissionContextExtensionShape
 }
 
-type PermissionContextExtension<TOptions> = TOptions extends {
+type ResolveCtx<TOptions extends PermissionContextOptions> = Parameters<TOptions['resolve']>[0]
+type ActorForResolve<TOptions extends PermissionContextOptions> = Awaited<
+  ReturnType<TOptions['resolve']>
+>
+type ExtendCtx<TOptions extends PermissionContextOptions> = TOptions extends {
+  extend: (ctx: infer TCtx, actor: any) => any
+}
+  ? TCtx
+  : unknown
+type MergedCtx<TOptions extends PermissionContextOptions> = ResolveCtx<TOptions> & ExtendCtx<TOptions>
+
+type PermissionContextExtension<TOptions extends PermissionContextOptions> = TOptions extends {
   extend: (...args: any[]) => infer TResult
 }
   ? Awaited<TResult> extends PermissionContextExtensionShape
@@ -55,33 +64,31 @@ type PermissionContextExtension<TOptions> = TOptions extends {
   : Record<string, never>
 
 type PermissionContextDefinition<
-  TResolve extends ResolveFn,
+  TCtx,
   TPermissions extends PermissionTuple,
   TContext extends Record<string, unknown>,
 > = {
-  args: {}
+  args: Record<string, never>
   guard: typeof open
   permissions: TPermissions
   handler: (
-    ctx: any,
+    ctx: TCtx,
   ) => Promise<PermissionContextHandlerResult<TPermissions, TContext> | null>
 }
 
-export function definePermissionContext<
-  TResolve extends ResolveFn,
-  TPermissions extends PermissionTuple,
-  TExtra extends {
-    extend?: (...args: any[]) => Promise<PermissionContextExtensionShape> | PermissionContextExtensionShape
-  } = {},
->(
-  options: PermissionContextOptions<TResolve, TPermissions> & TExtra,
-): PermissionContextDefinition<TResolve, TPermissions, PermissionContextExtension<TExtra>> {
+export function definePermissionContext<TOptions extends PermissionContextOptions>(
+  options: TOptions,
+): PermissionContextDefinition<
+  MergedCtx<TOptions>,
+  TOptions['permissions'],
+  PermissionContextExtension<TOptions>
+> {
   async function evaluatePermission(
-    actor: NonNullable<ActorForResolve<TResolve>>,
-    check: AnyCheck<any>,
+    actor: NonNullable<ActorForResolve<TOptions>>,
+    check: AnyCheck<unknown>,
   ): Promise<boolean> {
     try {
-      return !!runCheck(actor, check as AnyCheck<NonNullable<ActorForResolve<TResolve>>>)
+      return !!runCheck(actor, check as AnyCheck<NonNullable<ActorForResolve<TOptions>>>)
     } catch (error) {
       if (error instanceof ConvexError) return false
       throw error
@@ -90,28 +97,28 @@ export function definePermissionContext<
 
   const projectedPermissions = options.permissions.filter(
     (permission) => permission.project !== false,
-  ) as ProjectedPermissionDefinitions<TPermissions>[]
+  ) as ProjectedPermissionDefinitions<TOptions['permissions']>[]
 
   return {
     args: {},
     guard: open,
     permissions: options.permissions,
-    handler: async (ctx: any) => {
-      const actor = await options.resolve(ctx)
+    handler: async (ctx: MergedCtx<TOptions>) => {
+      const actor = await options.resolve(ctx as ResolveCtx<TOptions>)
       if (!actor) return null
-      const resolvedActor = actor as NonNullable<ActorForResolve<TResolve>>
+      const resolvedActor = actor as NonNullable<ActorForResolve<TOptions>>
 
       const permissions = Object.fromEntries(
         await Promise.all(
           projectedPermissions.map(async (permission) => [
             permission.key,
-            await evaluatePermission(resolvedActor, permission.check),
+            await evaluatePermission(resolvedActor, permission.check as AnyCheck<unknown>),
           ]),
         ),
-      ) as PermissionFlags<TPermissions>
+      ) as PermissionFlags<TOptions['permissions']>
 
       const actorObj = resolvedActor as Record<string, unknown>
-      const base: PermissionContextBase<PermissionFlags<TPermissions>> = {
+      const base: PermissionContextBase<PermissionFlags<TOptions['permissions']>> = {
         userId: typeof actorObj.userId === 'string' ? actorObj.userId : null,
         tenantId: typeof actorObj.tenantId === 'string' ? actorObj.tenantId : null,
         role: typeof actorObj.role === 'string' ? actorObj.role : null,
@@ -119,7 +126,10 @@ export function definePermissionContext<
       }
 
       if (!options.extend) {
-        return base as PermissionContextHandlerResult<TPermissions, PermissionContextExtension<TExtra>>
+        return base as PermissionContextHandlerResult<
+          TOptions['permissions'],
+          PermissionContextExtension<TOptions>
+        >
       }
 
       const extra = await options.extend(ctx, resolvedActor)
@@ -128,7 +138,10 @@ export function definePermissionContext<
       return {
         ...base,
         ...extra,
-      } as PermissionContextHandlerResult<TPermissions, PermissionContextExtension<TExtra>>
+      } as PermissionContextHandlerResult<
+        TOptions['permissions'],
+        PermissionContextExtension<TOptions>
+      >
     },
   }
 }

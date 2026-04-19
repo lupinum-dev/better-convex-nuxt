@@ -8,6 +8,7 @@ import { createPost, deletePost, updatePost } from '../shared/schemas/post'
 import type { Doc, Id } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
 import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
+import type { InternalHarnessPrincipal } from './auth/principal'
 import { mutation, query } from './functions'
 
 const listPostsArgs = defineArgs({
@@ -22,6 +23,14 @@ const getPostArgs = defineArgs({
 
 const canCreatePostActor = defineGuard<Actor>('Create post', (actor) => !!actor)
 const canManagePosts = defineGuard<Actor>('post.manage', (actor) => !!actor)
+type PostOperationCtx = {
+  actor: () => Promise<Actor>
+  principal: () => Promise<InternalHarnessPrincipal>
+  db: {
+    get(id: Id<'posts'>): Promise<Doc<'posts'> | null>
+    delete?(id: Id<'posts'>): Promise<void>
+  }
+}
 const postCapabilities = defineCapabilities<{ ownerId: string; [key: string]: unknown }>()<
   Actor,
   {
@@ -194,7 +203,7 @@ export const removePostOp = defineOperation({
     }),
   }),
   guard: canManagePosts,
-  load: async (ctx, args) => {
+  load: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
     const actor = await ctx.actor()
     const post = await ctx.db.get(args.id)
     if (!post) throw new Error('Post not found.')
@@ -211,7 +220,11 @@ export const removePostOp = defineOperation({
 
     return { post }
   },
-  preview: async (_ctx, _args, { post }) => ({
+  preview: async (
+    _ctx: PostOperationCtx,
+    _args: { id: Id<'posts'> },
+    { post }: { post: Doc<'posts'> },
+  ) => ({
     display: {
       summary: `Will permanently delete "${post.title}"`,
       warn: 'This cannot be undone',
@@ -223,7 +236,10 @@ export const removePostOp = defineOperation({
       affectedCounts: { posts: 1 },
     },
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
+    if (!ctx.db.delete) {
+      throw new Error('Post removal requires a mutation context.')
+    }
     await ctx.db.delete(args.id)
     return null
   },

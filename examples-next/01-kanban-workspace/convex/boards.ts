@@ -20,7 +20,6 @@ import type { MutationCtx, QueryCtx } from './_generated/server'
 import type { Actor } from './auth/actor'
 import type { KanbanPrincipal } from './auth/principal'
 import {
-  canArchiveBoard,
   canManageBoardStructure,
   canManageBoards,
   canReadWorkspace,

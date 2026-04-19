@@ -1,13 +1,18 @@
 import { isGuard, type AnyCheck } from './define-guard.js'
 
-export interface PermissionDefinition<TKey extends string = string, TActor = unknown> {
+export interface ErasedPermissionDefinition<TKey extends string = string> {
   readonly _type: 'permission'
   readonly key: TKey
-  readonly check: AnyCheck<TActor>
+  readonly check: unknown
   readonly label?: string
   readonly description?: string
   readonly roles?: readonly string[]
   readonly project?: boolean
+}
+
+export interface PermissionDefinition<TKey extends string = string, TActor = unknown>
+  extends Omit<ErasedPermissionDefinition<TKey>, 'check'> {
+  readonly check: AnyCheck<TActor>
 }
 
 export interface RegisteredPermissions {
@@ -68,10 +73,10 @@ export function resolvePermissionCheck<TActor>(
   return permission.check
 }
 
-export function resolvePermissionLabel(permission: PermissionDefinition): string {
+export function resolvePermissionLabel(permission: ErasedPermissionDefinition): string {
   if (permission.label) return permission.label
   if (permission.description) return permission.description
-  if (isGuardPermissionDefinition(permission) && isGuard(permission.check)) {
+  if (isGuard(permission.check)) {
     return permission.check.label
   }
   return permission.key

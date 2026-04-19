@@ -34,7 +34,7 @@ function kebabCase(value: string): string {
   return value
     .trim()
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase()
 }
@@ -54,7 +54,7 @@ function pluralize(value: string): string {
   if (value.endsWith('y') && !/[aeiou]y$/i.test(value)) {
     return `${value.slice(0, -1)}ies`
   }
-  if (/(s|x|z|ch|sh)$/i.test(value)) {
+  if (/[sxz]$|ch$|sh$/i.test(value)) {
     return `${value}es`
   }
   return `${value}s`
@@ -612,10 +612,20 @@ async function patchMcpRuntime(cwd: string, ctx: ResourceGeneratorContext): Prom
     `    '${ctx.permissionPrefix}.delete': ${canWriteExpr},`,
   ].join('\n')
 
-  const next = source.replace(
-    /(resolveCapabilities:\s*async\s*\(\{[^)]*\}\)\s*=>\s*\(\{)([\s\S]*?)(\n\s*\}\),)/,
-    (_match, start, body, end) => `${start}${body}\n${insertion}${end}`,
-  )
+  const blockStart = source.indexOf('resolveCapabilities: async ({')
+  if (blockStart === -1) {
+    throw new Error(
+      '[trellis] Could not patch server/mcp/runtime.ts. Expected a canonical resolveCapabilities block.',
+    )
+  }
+  const returnStart = source.indexOf('=> ({', blockStart)
+  const blockEnd = source.indexOf('\n  }),', returnStart)
+  if (returnStart === -1 || blockEnd === -1) {
+    throw new Error(
+      '[trellis] Could not patch server/mcp/runtime.ts. Expected a canonical resolveCapabilities block.',
+    )
+  }
+  const next = `${source.slice(0, blockEnd)}\n${insertion}${source.slice(blockEnd)}`
 
   if (next === source) {
     throw new Error(

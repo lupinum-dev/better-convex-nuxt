@@ -1,10 +1,10 @@
 import { relative, resolve } from 'node:path'
 
 import {
-  ArrayLiteralExpression,
   Node,
   Project,
   SyntaxKind,
+  type ArrayLiteralExpression,
   type ObjectLiteralExpression,
   type SourceFile,
   type VariableDeclaration,

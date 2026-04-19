@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
 import type {
@@ -94,14 +95,8 @@ type InferOperationCtx<TDefinition extends OperationShape> = TDefinition['handle
 type InferOperationPrincipal<TDefinition extends OperationShape> =
   InferOperationCtx<TDefinition> extends {
     principal: () => Promise<infer TPrincipal>
-  }
-    ? TPrincipal
-    : never
-
-type InferOperationGuard<TDefinition extends OperationShape> = TDefinition['guard'] extends infer TGuard
-  ? TGuard extends StructuredGuard<any, any>
-    ? TGuard
-    : never
+}
+  ? TPrincipal
   : never
 
 type InferActorFromCtx<TCtx> = TCtx extends {
@@ -110,8 +105,14 @@ type InferActorFromCtx<TCtx> = TCtx extends {
   ? TActor
   : never
 
-type InferActorFromGuard<TGuard> = TGuard extends StructuredGuard<any, infer TActor>
+type InferActorFromGuard<TGuard> = TGuard extends StructuredGuard<unknown, infer TActor>
   ? TActor
+  : never
+
+type InferOperationGuard<TDefinition extends OperationShape> = TDefinition['guard'] extends infer TGuard
+  ? TGuard extends StructuredGuard<any, any>
+    ? TGuard
+    : never
   : never
 
 type InferOperationActor<TDefinition extends OperationShape> = FallbackIfUnknownOrNever<
@@ -125,7 +126,12 @@ type InferOperationLoaded<TDefinition extends OperationShape> = TDefinition['loa
   ...args: any[]
 ) => infer TLoaded
   ? AwaitedValue<TLoaded>
-  : TDefinition['handler'] extends (ctx: any, args: any, loaded: infer TLoaded) => any
+  : TDefinition['handler'] extends (
+        ctx: unknown,
+        args: unknown,
+        loaded: infer TLoaded,
+        ...rest: any[]
+      ) => any
     ? TLoaded
     : undefined
 

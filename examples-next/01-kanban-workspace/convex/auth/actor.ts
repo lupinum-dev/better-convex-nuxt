@@ -1,8 +1,7 @@
 import type { DefaultActor } from '@lupinum/trellis/auth'
 import type { GenericActionCtx } from 'convex/server'
 
-import type { Doc, Id } from '../_generated/dataModel'
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import type { KanbanPrincipal } from './principal'
 

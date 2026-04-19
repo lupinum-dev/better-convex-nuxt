@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { deriveKanbanCapabilities } from '../shared/mcp-capabilities'
 import { api } from './_generated/api'
-import type { Doc, Id } from './_generated/dataModel'
+import type { Doc } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
 type MembershipRole = Doc<'memberships'>['role']

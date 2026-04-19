@@ -2377,10 +2377,17 @@ async function enableNuxtMcpConfig(cwd: string): Promise<void> {
       )
     }
 
-    return source.replace(
-      /(\s+trellis:\s*\{[\s\S]*?\n)(\s+\},\n)/,
-      `$1    ${namedConfig},\n$2`,
-    )
+    const trellisStart = source.indexOf('trellis: {')
+    if (trellisStart === -1) {
+      return source
+    }
+
+    const trellisClose = source.indexOf('\n  },', trellisStart)
+    if (trellisClose === -1) {
+      return source
+    }
+
+    return `${source.slice(0, trellisClose)}\n    ${namedConfig},${source.slice(trellisClose)}`
   })
 }
 
@@ -2466,7 +2473,7 @@ async function onFile(event: Event) {
 
 function pascalCase(value: string): string {
   return value
-    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .replace(/[^a-z0-9]+/gi, ' ')
     .split(' ')
     .filter(Boolean)
     .map((part) => part[0]!.toUpperCase() + part.slice(1))
@@ -2477,7 +2484,7 @@ function kebabCase(value: string): string {
   return value
     .trim()
     .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/[^a-z0-9]+/gi, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase()
 }

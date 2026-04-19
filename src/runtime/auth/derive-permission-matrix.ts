@@ -1,6 +1,6 @@
 import {
   resolvePermissionLabel,
-  type PermissionDefinition,
+  type ErasedPermissionDefinition,
 } from './define-permission.js'
 
 export type PermissionMatrixRow<TKey extends string = string> = {
@@ -11,7 +11,7 @@ export type PermissionMatrixRow<TKey extends string = string> = {
 }
 
 export function derivePermissionMatrix<
-  TPermissions extends readonly PermissionDefinition<string, any>[],
+  TPermissions extends readonly ErasedPermissionDefinition<string>[],
 >(permissions: TPermissions): PermissionMatrixRow<Extract<TPermissions[number]['key'], string>>[] {
   return permissions
     .filter((permission) => permission.project !== false)

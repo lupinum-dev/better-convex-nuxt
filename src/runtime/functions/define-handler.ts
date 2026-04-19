@@ -14,7 +14,7 @@ import {
   isPermissionDefinition,
   resolvePermissionCheck,
   resolvePermissionLabel,
-  type GuardPermissionDefinition,
+  type ErasedPermissionDefinition,
 } from '../auth/define-permission.js'
 import {
   isAnonymousPrincipal,
@@ -60,7 +60,7 @@ type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsVa
 export type StructuredGuard<_TPrincipal, TActor> =
   | Guard<NonNullable<TActor>>
   | Guard<TActor | null>
-  | GuardPermissionDefinition<string, any>
+  | ErasedPermissionDefinition<string>
   | AuthRequiredGuard
   | OpenGuard
 
@@ -184,20 +184,22 @@ function getAuthorizationLabel<P>(check: AnyCheck<P>, fallback: string): string 
   return isGuard(check) ? check.label : fallback
 }
 
-function getGuardCheck(guard: StructuredGuard<any, any>): AnyCheck<any> {
+function getGuardCheck<TPrincipal, TActor>(
+  guard: StructuredGuard<TPrincipal, TActor>,
+): AnyCheck<unknown> {
   if (isPermissionDefinition(guard)) {
-    return resolvePermissionCheck(guard as GuardPermissionDefinition<string, any>)
+    return resolvePermissionCheck(guard)
   }
 
-  return guard as AnyCheck<any>
+  return guard as AnyCheck<unknown>
 }
 
-function getGuardLabel(guard: StructuredGuard<any, any>): string {
+function getGuardLabel<TPrincipal, TActor>(guard: StructuredGuard<TPrincipal, TActor>): string {
   if (isPermissionDefinition(guard)) {
     return resolvePermissionLabel(guard)
   }
 
-  return (guard as Guard<any>).label
+  return (guard as Guard<unknown>).label
 }
 
 function getObserve(ctx: object): RuntimeContext<unknown, unknown>['observe'] {
@@ -262,8 +264,8 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
             `Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, actor)}`,
           )
         } else if (!isOpenGuard(definition.guard)) {
-          const guardCheck = getGuardCheck(definition.guard)
-          const guardLabel = getGuardLabel(definition.guard)
+          const guardCheck = getGuardCheck<TPrincipal, TActor>(definition.guard)
+          const guardLabel = getGuardLabel<TPrincipal, TActor>(definition.guard)
           const allowed =
             actor != null && can(actor as NonNullable<TActor>, guardCheck)
           await observe?.({

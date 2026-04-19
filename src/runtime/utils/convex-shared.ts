@@ -117,37 +117,37 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
 
 export type AnyQueryFunction =
   | FunctionReference<'query', 'public' | 'internal'>
-  | RegisteredQuery<'public' | 'internal', any, any>
+  | RegisteredQuery<'public' | 'internal', Record<string, unknown>, unknown>
 
 export type AnyMutationFunction =
   | FunctionReference<'mutation', 'public' | 'internal'>
-  | RegisteredMutation<'public' | 'internal', any, any>
+  | RegisteredMutation<'public' | 'internal', Record<string, unknown>, unknown>
 
 export type AnyActionFunction =
   | FunctionReference<'action', 'public' | 'internal'>
-  | RegisteredAction<'public' | 'internal', any, any>
+  | RegisteredAction<'public' | 'internal', Record<string, unknown>, unknown>
 
 export type AnyConvexFunction = AnyQueryFunction | AnyMutationFunction | AnyActionFunction
 
 export type FunctionLikeArgs<T> =
-  T extends FunctionReference<any, any, infer Args, any>
+  T extends FunctionReference<infer _Kind, infer _Visibility, infer Args, infer _ReturnType>
     ? Args
-    : T extends RegisteredQuery<any, infer Args, any>
+    : T extends RegisteredQuery<infer _Visibility, infer Args, infer _ReturnType>
       ? Args
-      : T extends RegisteredMutation<any, infer Args, any>
+      : T extends RegisteredMutation<infer _Visibility, infer Args, infer _ReturnType>
         ? Args
-        : T extends RegisteredAction<any, infer Args, any>
+        : T extends RegisteredAction<infer _Visibility, infer Args, infer _ReturnType>
           ? Args
           : never
 
 export type FunctionLikeReturnType<T> =
-  T extends FunctionReference<any, any, any, infer ReturnType>
+  T extends FunctionReference<infer _Kind, infer _Visibility, infer _Args, infer ReturnType>
     ? ReturnType
-    : T extends RegisteredQuery<any, any, infer ReturnType>
+    : T extends RegisteredQuery<infer _Visibility, infer _Args, infer ReturnType>
       ? ReturnType
-      : T extends RegisteredMutation<any, any, infer ReturnType>
+      : T extends RegisteredMutation<infer _Visibility, infer _Args, infer ReturnType>
         ? ReturnType
-        : T extends RegisteredAction<any, any, infer ReturnType>
+        : T extends RegisteredAction<infer _Visibility, infer _Args, infer ReturnType>
           ? ReturnType
           : never
 

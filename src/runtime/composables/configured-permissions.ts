@@ -5,7 +5,6 @@ import type { RouteLocationRaw } from 'vue-router'
 import { useRouter } from '#imports'
 
 import type {
-  PermissionHandle,
   PermissionLike,
   RegisteredProjectedPermissionKey,
 } from '../auth/define-permission.js'
@@ -93,7 +92,7 @@ function usePermissionContextState<
     if (authBootstrapState.value.error) return false
     return true
   })
-  const queryArgs = computed<{} | undefined>(() =>
+  const queryArgs = computed<Record<string, never> | undefined>(() =>
     shouldWaitForBootstrap.value ? undefined : {},
   )
   const queryState = createConvexQueryState(query, queryArgs, undefined, true).resultData

@@ -1,10 +1,10 @@
 import type { FunctionReference } from 'convex/server'
 
 import { defineArgs } from '../../src/runtime/args'
-import type { AuthIdentity } from '../../src/runtime/auth'
 import {
   definePermission,
   type PermissionHandle,
+  type AuthIdentity,
   enforce,
   can,
   deny,
