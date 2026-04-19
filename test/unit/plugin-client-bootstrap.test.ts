@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
 import { ConvexDevtoolsStore } from '../../src/runtime/devtools/store'
+import { emitObservationCapture } from '../../src/runtime/utils/observability/capture'
 import { mintJwt } from '../support/auth/jwt-factory'
 import { MockConvexClient } from '../support/nuxt/mock-convex-client'
 import {
@@ -164,5 +165,57 @@ describe('plugin.client bootstrap', () => {
 
     expect(store).toBeInstanceOf(ConvexDevtoolsStore)
     expect(nuxtApp.provide).toHaveBeenCalledWith('convexDevtoolsStore', store)
+  })
+
+  it('captures observation events into the devtools store during setup', async () => {
+    const { setupClientDevtools } = await import('../../src/runtime/plugin.client')
+    const nuxtApp = createNuxtAppMock({ serverRendered: false })
+    const client = new MockConvexClient()
+    const store = setupClientDevtools(
+      nuxtApp as never,
+      client as never,
+      {
+        convexToken: ref(null),
+        convexUser: ref(null),
+        convexPending: ref(false),
+        convexAuthError: ref(null),
+        convexAuthWaterfall: ref(null),
+        resolveInitialAuth: vi.fn(),
+      } as never,
+    )
+
+    emitObservationCapture({
+      name: 'authorize.denied',
+      status: 'deny',
+      ts: '2026-04-19T12:00:00.000Z',
+      transport: 'browser',
+      correlationId: 'corr_devtools',
+      handler: 'runbooks.remove',
+      principalKind: 'user',
+      actorKind: 'viewer',
+      tenantId: 'ws_1',
+      reasonCode: 'authorize.denied',
+      details: {
+        explanation: {
+          reasonCode: 'authorize.denied',
+          decision: 'authorize',
+          message: 'Viewers cannot remove runbooks.',
+        },
+      },
+    })
+
+    expect(store.getSnapshot().observations).toEqual([
+      expect.objectContaining({
+        name: 'authorize.denied',
+        correlationId: 'corr_devtools',
+      }),
+    ])
+    expect(store.getSnapshot().decisionTrace).toEqual(
+      expect.objectContaining({
+        correlationId: 'corr_devtools',
+        lastEventName: 'authorize.denied',
+        lastEventStatus: 'deny',
+      }),
+    )
   })
 })

@@ -9,6 +9,7 @@ import type { Ref } from 'vue'
 
 import { decodeJwtPayload } from '../utils/convex-shared.js'
 import type { ConvexUser as RuntimeConvexUser } from '../utils/types.js'
+import type { TrellisObservationEvent } from '../utils/observability/types.js'
 import type {
   QueryRegistryEntry,
   MutationEntry,
@@ -21,10 +22,12 @@ import type {
   ConvexDevtoolsSnapshot,
   ConvexUser as DevtoolsConvexUser,
   JWTClaims,
+  DecisionTraceState,
 } from './types.js'
 
 const MAX_MUTATIONS = 50
 const MAX_EVENTS = 500
+const MAX_OBSERVATIONS = 200
 
 interface NuxtDevtoolsHost {
   revision: { value: number }
@@ -69,6 +72,7 @@ export class ConvexDevtoolsStore {
   readonly queries = new Map<string, QueryRegistryEntry>()
   readonly mutations = new Map<string, MutationEntry>()
   readonly events: DevtoolsEvent[] = []
+  readonly observations: TrellisObservationEvent[] = []
 
   authState: EnhancedAuthState = {
     isAuthenticated: false,
@@ -292,6 +296,12 @@ export class ConvexDevtoolsStore {
     this._notifyDevtools()
   }
 
+  appendObservation(event: TrellisObservationEvent): void {
+    this.observations.push(clonePayload(event))
+    this._evictObservationsIfNeeded()
+    this._notifyDevtools()
+  }
+
   // =====================================================================
   // Snapshot (for iframe consumption)
   // =====================================================================
@@ -301,11 +311,13 @@ export class ConvexDevtoolsStore {
       queries: Array.from(this.queries.values()),
       mutations: Array.from(this.mutations.values()).sort((a, b) => b.startedAt - a.startedAt),
       events: [...this.events],
+      observations: [...this.observations],
       authState: this.authState,
       connectionState: this.connectionState,
       authWaterfall: this.authWaterfall,
       permissionContextState: this.permissionContextState,
       authBootstrapState: this.authBootstrapState,
+      decisionTrace: this._buildDecisionTrace(),
     })
   }
 
@@ -327,6 +339,42 @@ export class ConvexDevtoolsStore {
   private _evictEventsIfNeeded(): void {
     if (this.events.length <= MAX_EVENTS) return
     this.events.splice(0, this.events.length - MAX_EVENTS)
+  }
+
+  private _evictObservationsIfNeeded(): void {
+    if (this.observations.length <= MAX_OBSERVATIONS) return
+    this.observations.splice(0, this.observations.length - MAX_OBSERVATIONS)
+  }
+
+  private _buildDecisionTrace(): DecisionTraceState | null {
+    if (this.observations.length === 0) return null
+
+    const latest = this.observations.at(-1)
+    if (!latest) return null
+
+    const correlationId = latest.correlationId
+    const traceEvents = correlationId
+      ? this.observations.filter((event) => event.correlationId === correlationId)
+      : [latest]
+    const terminal =
+      [...traceEvents]
+        .reverse()
+        .find((event) => event.status === 'deny' || event.status === 'error') ?? latest
+    const explanation = terminal.details?.explanation ?? null
+
+    return {
+      correlationId: correlationId ?? null,
+      handler: terminal.handler ?? latest.handler ?? null,
+      operation: terminal.operation ?? latest.operation ?? null,
+      tool: terminal.tool ?? latest.tool ?? null,
+      principalKind: terminal.principalKind ?? latest.principalKind ?? null,
+      actorKind: terminal.actorKind ?? latest.actorKind ?? null,
+      tenantId: terminal.tenantId ?? latest.tenantId ?? null,
+      lastEventName: terminal.name,
+      lastEventStatus: terminal.status,
+      denialExplanation: explanation,
+      events: traceEvents,
+    }
   }
 
   private _notifyDevtools(): void {

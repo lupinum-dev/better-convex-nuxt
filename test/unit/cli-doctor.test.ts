@@ -251,4 +251,66 @@ describe('CLI doctor', () => {
     expect(result.status, result.stderr).toBe(1)
     expect(report.findings.find((entry) => entry.id === 'permissions-query-configured')?.status).toBe('fail')
   })
+
+  it('fails doctor when a server call forwards principal without auth trusted', () => {
+    const cwd = createTempDir('trellis-doctor-forwarded-principal-')
+    const initResult = runCli(['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd], repoRoot)
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'server/api/bad-forwarded-principal.post.ts'),
+      `
+import { serverMutation } from '@lupinum/trellis/server'
+import { api } from '~/convex/_generated/api'
+
+export default defineEventHandler(async (event) => {
+  const principal = { kind: 'agent', userId: 'agent_1' }
+  return await serverMutation(event, api.domain.todos.create, { title: 'Bad' }, { principal })
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'forwarded-principal-trusted-path')?.status).toBe('fail')
+  })
+
+  it('fails doctor when a destructive MCP tool skips tool.fromOperation', () => {
+    const cwd = createTempDir('trellis-doctor-mcp-operation-binding-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/delete-todo.ts'),
+      `
+import { api } from '~/convex/_generated/api'
+import { todoDelete } from '~/convex/auth/permissions'
+
+export default tool({
+  permission: todoDelete,
+  call: api.domain.todos.remove,
+  meta: { name: 'delete-todo' },
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'mcp-destructive-operation-binding')?.status).toBe('fail')
+  })
 })

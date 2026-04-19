@@ -16,6 +16,7 @@ import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './dev
 import { ConvexDevtoolsStore } from './devtools/store.js'
 import { buildMissingSiteUrlMessage } from './utils/auth-errors.js'
 import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
+import { registerObservationCaptureListener } from './utils/observability/capture.js'
 import { createRuntimeObserver } from './utils/runtime-observer.js'
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
 
@@ -52,6 +53,9 @@ export function setupClientDevtools(
   const connectionInterval = import.meta.client
     ? setInterval(() => store.updateConnectionState(client), 2000)
     : null
+  const stopObservationCapture = registerObservationCaptureListener((event) =>
+    store.appendObservation(event),
+  )
 
   const permissionState = usePermissionDevtoolsState()
   const authBootstrapState = useAuthBootstrapDevtoolsState()
@@ -69,8 +73,13 @@ export function setupClientDevtools(
   const hot = (import.meta as unknown as Record<string, unknown>).hot as
     | { dispose: (fn: () => void) => void }
     | undefined
-  if (hot && connectionInterval !== null) {
-    hot.dispose(() => clearInterval(connectionInterval))
+  if (hot) {
+    hot.dispose(() => {
+      if (connectionInterval !== null) {
+        clearInterval(connectionInterval)
+      }
+      stopObservationCapture()
+    })
   }
 
   return store

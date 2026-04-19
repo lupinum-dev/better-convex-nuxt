@@ -52,4 +52,59 @@ describe('ConvexDevtoolsStore', () => {
       }),
     )
   })
+
+  it('builds the latest decision trace from captured observations', () => {
+    const store = new ConvexDevtoolsStore()
+
+    store.appendObservation({
+      name: 'principal.resolved',
+      status: 'success',
+      ts: '2026-04-19T00:00:00.000Z',
+      transport: 'browser',
+      correlationId: 'corr_1',
+      principalKind: 'user',
+    })
+    store.appendObservation({
+      name: 'guard.denied',
+      status: 'deny',
+      ts: '2026-04-19T00:00:01.000Z',
+      transport: 'browser',
+      correlationId: 'corr_1',
+      principalKind: 'user',
+      actorKind: 'member',
+      tenantId: 'ws_1',
+      handler: 'tasks.remove',
+      reasonCode: 'guard.denied',
+      details: {
+        explanation: {
+          reasonCode: 'guard.denied',
+          decision: 'guard',
+          message: 'Members cannot remove tasks.',
+          policy: 'task.delete',
+          tenantId: 'ws_1',
+          suggestedAction: 'contact_admin',
+        },
+      },
+    })
+
+    const snapshot = store.getSnapshot()
+
+    expect(snapshot.observations).toHaveLength(2)
+    expect(snapshot.decisionTrace).toEqual(
+      expect.objectContaining({
+        correlationId: 'corr_1',
+        handler: 'tasks.remove',
+        principalKind: 'user',
+        actorKind: 'member',
+        tenantId: 'ws_1',
+        lastEventName: 'guard.denied',
+        lastEventStatus: 'deny',
+        denialExplanation: expect.objectContaining({
+          decision: 'guard',
+          message: 'Members cannot remove tasks.',
+        }),
+      }),
+    )
+    expect(snapshot.decisionTrace?.events).toHaveLength(2)
+  })
 })

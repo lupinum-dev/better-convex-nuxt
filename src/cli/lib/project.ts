@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { Node, Project, SyntaxKind } from 'ts-morph'
+
 const NUXT_CONFIG_CANDIDATES = [
   'nuxt.config.ts',
   'nuxt.config.mts',
@@ -27,6 +29,11 @@ export interface ProjectInspection {
   nuxtConfigText: string
   envSources: EnvSource[]
   sourceFiles: Array<{ path: string; text: string }>
+}
+
+export interface ProjectSourceLocation {
+  path: string
+  line: number
 }
 
 const CANONICAL_LAYOUT_PATHS = [
@@ -365,4 +372,108 @@ export function findConfiguredPermissionQueryPath(
   if (shorthandMatch?.[1]) return shorthandMatch[1]
 
   return undefined
+}
+
+function createAnalysisProject(project: ProjectInspection): Project {
+  const analysis = new Project({ skipAddingFilesFromTsConfig: true })
+  for (const sourceFile of project.sourceFiles) {
+    if (!/\.(?:[cm]?[jt]s|tsx?)$/.test(sourceFile.path)) continue
+    analysis.createSourceFile(sourceFile.path, sourceFile.text, { overwrite: true })
+  }
+  return analysis
+}
+
+function getPropertyName(node: Node): string | null {
+  if (Node.isPropertyAssignment(node) || Node.isShorthandPropertyAssignment(node)) {
+    return node.getName()
+  }
+  return null
+}
+
+function objectHasTrustedAuth(node: import('ts-morph').ObjectLiteralExpression): boolean {
+  const authProperty = node
+    .getProperties()
+    .find((property) => getPropertyName(property) === 'auth')
+
+  if (!authProperty || !Node.isPropertyAssignment(authProperty)) return false
+
+  const initializer = authProperty.getInitializer()
+  if (!initializer) return false
+
+  return (
+    (Node.isStringLiteral(initializer) || Node.isNoSubstitutionTemplateLiteral(initializer)) &&
+    initializer.getLiteralText() === 'trusted'
+  )
+}
+
+export function findForwardedPrincipalWithoutTrustedAuth(
+  project: ProjectInspection,
+): ProjectSourceLocation[] {
+  const analysis = createAnalysisProject(project)
+  const findings: ProjectSourceLocation[] = []
+
+  for (const sourceFile of analysis.getSourceFiles()) {
+    const filePath = sourceFile.getFilePath()
+    if (!/[/\\]server[/\\].+\.(?:[cm]?[jt]s|tsx?)$/.test(filePath)) continue
+    if (/[/\\]tests?[/\\]/.test(filePath)) continue
+
+    for (const objectLiteral of sourceFile.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
+      const parent = objectLiteral.getParent()
+      if (!parent || !Node.isCallExpression(parent)) continue
+
+      const hasPrincipal = objectLiteral
+        .getProperties()
+        .some((property) => getPropertyName(property) === 'principal')
+      if (!hasPrincipal || objectHasTrustedAuth(objectLiteral)) continue
+
+      findings.push({
+        path: filePath,
+        line: objectLiteral.getStartLineNumber(),
+      })
+    }
+  }
+
+  return findings
+}
+
+function looksDestructiveTool(text: string, filePath: string): boolean {
+  const destructiveVerb =
+    /\b(?:delete|remove|archive|revoke|destroy|purge)\b|bulk-delete|bulkDelete/i
+  const fileName = filePath.split(/[/\\]/).pop() ?? filePath
+  return (
+    destructiveVerb.test(fileName) ||
+    /destructive\s*:\s*true/.test(text) ||
+    /name\s*:\s*['"`][^'"`]*(?:delete|remove|archive|revoke|destroy|purge|bulk-delete|bulkDelete)/i.test(
+      text,
+    )
+  )
+}
+
+export function findDestructiveMcpToolsWithoutOperationBinding(
+  project: ProjectInspection,
+): ProjectSourceLocation[] {
+  const findings: ProjectSourceLocation[] = []
+
+  for (const sourceFile of project.sourceFiles) {
+    if (!/[/\\]server[/\\]mcp[/\\]tools[/\\].+\.(?:[cm]?[jt]s|tsx?)$/.test(sourceFile.path)) {
+      continue
+    }
+    if (/tool\.fromOperation\s*\(/.test(sourceFile.text)) continue
+    if (!/export\s+default\s+tool\s*\(|defineConvexTool\s*\(/.test(sourceFile.text)) continue
+    if (!looksDestructiveTool(sourceFile.text, sourceFile.path)) continue
+
+    const firstMatch =
+      sourceFile.text.match(
+        /export\s+default\s+tool\s*\(|defineConvexTool\s*\(|delete|remove|archive|revoke|destroy|purge|bulk-delete|bulkDelete/i,
+      ) ?? null
+    const matchIndex = firstMatch?.index ?? 0
+    const line = sourceFile.text.slice(0, matchIndex).split(/\r?\n/).length
+
+    findings.push({
+      path: sourceFile.path,
+      line,
+    })
+  }
+
+  return findings
 }

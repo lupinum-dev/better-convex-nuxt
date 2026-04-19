@@ -9,6 +9,24 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+function isRuntimeSource(path: string): boolean {
+  if (/[/\\](?:test|tests)[/\\]/.test(path)) return false
+  if (path.endsWith('.md')) return false
+  return /\.(?:vue|[cm]?[jt]s|tsx?)$/.test(path)
+}
+
+function buildPermissionUsagePattern(exportName: string): RegExp {
+  const escaped = escapeRegExp(exportName)
+  return new RegExp(
+    [
+      `\\bguard\\s*:\\s*${escaped}\\b`,
+      `\\bpermission\\s*:\\s*${escaped}\\b`,
+      `\\ballows\\s*\\(\\s*${escaped}\\b`,
+      `\\buseAuthGuard\\s*\\(\\s*\\{[\\s\\S]{0,240}?\\bpermission\\s*:\\s*${escaped}\\b`,
+    ].join('|'),
+  )
+}
+
 export function readPermissionMetadata(cwd: string): PermissionCodegenMetadata | null {
   const path = resolve(cwd, '.nuxt/trellis/permissions.json')
   if (!existsSync(path)) return null
@@ -41,9 +59,12 @@ export function collectPermissionMetadataFindings(project: ProjectInspection): D
 
     if (!permission.projected) continue
 
-    const usagePattern = new RegExp(`\\b${escapeRegExp(permission.exportName)}\\b`)
+    const usagePattern = buildPermissionUsagePattern(permission.exportName)
     const usedOutsideDefinitionFile = project.sourceFiles.some(
-      (sourceFile) => sourceFile.path !== resolve(project.cwd, permission.file) && usagePattern.test(sourceFile.text),
+      (sourceFile) =>
+        sourceFile.path !== resolve(project.cwd, permission.file) &&
+        isRuntimeSource(sourceFile.path) &&
+        usagePattern.test(sourceFile.text),
     )
 
     if (!usedOutsideDefinitionFile) {

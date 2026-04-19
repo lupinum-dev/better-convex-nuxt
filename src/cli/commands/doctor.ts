@@ -14,6 +14,8 @@ import {
   findConvexHttpSource,
   findConvexAuthSource,
   findConfiguredPermissionQueryPath,
+  findDestructiveMcpToolsWithoutOperationBinding,
+  findForwardedPrincipalWithoutTrustedAuth,
   findMissingCanonicalLayoutPaths,
   hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
@@ -47,6 +49,8 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
   const trustedCallerExpected = usesTrustedCallerSurfaces(project)
   const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_CALLER_KEY'])
+  const forwardedPrincipalMisuse = findForwardedPrincipalWithoutTrustedAuth(project)
+  const destructiveMcpToolMisuse = findDestructiveMcpToolsWithoutOperationBinding(project)
   const usesPermissions = usesPermissionSurfaces(project)
   const configuredPermissionQueryPath = findConfiguredPermissionQueryPath(project)
   let permissionQueryResolutionError: Error | null = null
@@ -273,6 +277,40 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       fixHint: !trustedCallerExpected
         ? 'No action needed unless you add MCP or trusted-caller flows later.'
         : 'Set CONVEX_TRUSTED_CALLER_KEY in the local environment and the Convex deployment that serves trusted-caller traffic.',
+    },
+    {
+      id: 'forwarded-principal-trusted-path',
+      category: 'advanced',
+      title: 'Forwarded principal path',
+      status: forwardedPrincipalMisuse.length > 0 ? 'fail' : 'pass',
+      message:
+        forwardedPrincipalMisuse.length > 0
+          ? `Found forwarded \`principal\` options outside an \`auth: 'trusted'\` call in ${forwardedPrincipalMisuse
+              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
+              .slice(0, 3)
+              .join(', ')}${forwardedPrincipalMisuse.length > 3 ? ', ...' : ''}.`
+          : 'No forwarded principals were found outside verified trusted-caller calls.',
+      fixHint:
+        forwardedPrincipalMisuse.length > 0
+          ? 'Only pass `principal` on verified server calls that also set `auth: \'trusted\'` and `actor`.'
+          : 'Keep forwarded principals confined to verified trusted-caller lanes.',
+    },
+    {
+      id: 'mcp-destructive-operation-binding',
+      category: 'advanced',
+      title: 'Destructive MCP operation binding',
+      status: destructiveMcpToolMisuse.length > 0 ? 'fail' : 'pass',
+      message:
+        destructiveMcpToolMisuse.length > 0
+          ? `Found destructive-looking MCP tools that do not use \`tool.fromOperation(...)\` in ${destructiveMcpToolMisuse
+              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
+              .slice(0, 3)
+              .join(', ')}${destructiveMcpToolMisuse.length > 3 ? ', ...' : ''}.`
+          : 'No destructive MCP tools were found outside operation-backed bindings.',
+      fixHint:
+        destructiveMcpToolMisuse.length > 0
+          ? 'Destructive MCP tools must bind through `tool.fromOperation(...)` so preview, confirmation, and execute stay coupled.'
+          : 'Keep destructive MCP tools operation-backed.',
     },
     ...collectPermissionMetadataFindings(project),
   ]

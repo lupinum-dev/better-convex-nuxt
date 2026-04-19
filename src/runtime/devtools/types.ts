@@ -3,6 +3,10 @@ import type {
   AuthWaterfallPhase,
   WaterfallPhaseResult,
 } from '../utils/auth-debug.js'
+import type {
+  TrellisDenialExplanation,
+  TrellisObservationEvent,
+} from '../utils/observability/types.js'
 
 export type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult }
 
@@ -140,6 +144,20 @@ export interface AuthBootstrapState {
   error: string | null
 }
 
+export interface DecisionTraceState {
+  correlationId: string | null
+  handler: string | null
+  operation: string | null
+  tool: string | null
+  principalKind: string | null
+  actorKind: string | null
+  tenantId: string | null
+  lastEventName: TrellisObservationEvent['name'] | null
+  lastEventStatus: TrellisObservationEvent['status'] | null
+  denialExplanation: TrellisDenialExplanation | null
+  events: TrellisObservationEvent[]
+}
+
 // ============================================================================
 // Connection State Types
 // ============================================================================
@@ -182,11 +200,13 @@ export interface ConvexDevtoolsSnapshot {
   queries: QueryRegistryEntry[]
   mutations: MutationEntry[]
   events: DevtoolsEvent[]
+  observations: TrellisObservationEvent[]
   authState: EnhancedAuthState
   connectionState: ConnectionState
   authWaterfall: AuthWaterfall | null
   permissionContextState: PermissionContextState
   authBootstrapState: AuthBootstrapState
+  decisionTrace: DecisionTraceState | null
 }
 
 export interface ServerRpcFunctions {
