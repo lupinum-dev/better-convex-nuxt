@@ -37,7 +37,12 @@ import { signConfirmationToken, verifyConfirmationToken } from './confirmation-t
 import { defineTool } from './define-convex-tool.js'
 import { assertOperationBinding, toKebabCase, type AnyFunctionRef } from './operation-binding.js'
 import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
-import type { AnyConvexSchema, ConvexToolMiddleware, PreviewResult } from './types.js'
+import type {
+  AnyConvexSchema,
+  ConvexToolHandlerCtx,
+  ConvexToolMiddleware,
+  PreviewResult,
+} from './types.js'
 
 type MaybePromise<T> = T | Promise<T>
 
@@ -299,6 +304,18 @@ function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | n
   return capabilities[resolvePermissionKey(permission)] === true
 }
 
+function withProjectionCalls<TRole extends string, TPrincipal, TDelegation extends Delegation>(
+  ctx: ConvexToolHandlerCtx<TRole>,
+  projectionCtx: ProjectionRuntimeCtx<TPrincipal, TDelegation, unknown, unknown>,
+): ConvexToolHandlerCtx<TRole> {
+  return {
+    ...ctx,
+    query: projectionCtx.convex.query,
+    mutation: projectionCtx.convex.mutation,
+    action: projectionCtx.convex.action,
+  }
+}
+
 async function callByOperation<TRef extends AnyFunctionRef>(
   convex: McpConvexCaller,
   operation: ConvexToolOperation,
@@ -476,7 +493,8 @@ export function defineMcpApp<
               return await next()
             }
 
-            return await tool.middleware(args, ctx, next)
+            const projectionCtx = await resolve(ctx.event)
+            return await tool.middleware(args, withProjectionCalls(ctx, projectionCtx), next)
           }
         : undefined
 

@@ -2,8 +2,10 @@ import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
 import { defineArgs } from '../../src/runtime/schema'
+import { createServerConvexCaller } from '../../src/runtime/server'
 import {
   serverConvexAction,
   serverConvexMutation,
@@ -27,6 +29,9 @@ vi.mock('../../src/runtime/server/utils/convex', () => ({
 function createEvent(auth?: { role?: string; userId?: string; tenantId?: string }): H3Event {
   return {
     __is_event__: true,
+    method: 'POST',
+    path: '/mcp',
+    headers: new Headers(),
     context: {
       ...(auth ? { mcpAuth: auth } : {}),
     },
@@ -296,6 +301,78 @@ describe('defineTool trusted principal forwarding', () => {
           subject: 'agent:member-1',
           provider: 'mcp',
           tenantId: 'org-1',
+        },
+      },
+    )
+  })
+})
+
+describe('defineMcpApp middleware forwarding', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useEventMock.mockReturnValue(createEvent())
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'test-trusted-forwarding-key'
+  })
+
+  afterEach(() => {
+    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+  })
+
+  it('uses the projected trusted caller inside middleware query helpers', async () => {
+    vi.mocked(serverConvexQuery).mockResolvedValueOnce({ ok: true })
+
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      resolveDelegation: async () => ({
+        subject: 'user:user_1',
+      }),
+      callConvex: async (event, caller) =>
+        createServerConvexCaller(event, {
+          auth: 'trusted',
+          principal: caller.principal,
+          ...(caller.delegation ? { delegation: caller.delegation } : {}),
+        }),
+    })
+
+    const tool = mcp.tool({
+      schema: emptySchema,
+      call: 'runbooks:update' as never,
+      operation: 'mutation',
+      middleware: async (_args, ctx, next) => {
+        await ctx.query('runbooks:getWorkspace' as never, { id: 'runbook_1' } as never)
+        return await next()
+      },
+    })
+
+    await tool.handler({} as never, {} as never)
+
+    expect(serverConvexQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      'runbooks:getWorkspace',
+      {
+        id: 'runbook_1',
+        principal: {
+          kind: 'agent',
+          agentId: 'assistant-bot',
+          subject: 'agent:assistant-bot',
+        },
+        delegation: {
+          subject: 'user:user_1',
+        },
+      },
+      {
+        auth: 'trusted',
+        principal: {
+          kind: 'agent',
+          agentId: 'assistant-bot',
+          subject: 'agent:assistant-bot',
+        },
+        delegation: {
+          subject: 'user:user_1',
         },
       },
     )
