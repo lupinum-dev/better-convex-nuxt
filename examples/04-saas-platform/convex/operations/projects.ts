@@ -3,7 +3,8 @@ import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
 import { archiveProject } from '../../shared/schemas/project'
-import { canArchiveProject, requireWorkspaceTenant } from '../auth/checks'
+import { requireWorkspaceTenant } from '../auth/checks'
+import { projectArchive } from '../auth/permissions'
 import { query } from '../functions'
 
 export const archiveProjectOp = defineOperation({
@@ -28,7 +29,7 @@ export const archiveProjectOp = defineOperation({
       }),
     }),
   }),
-  guard: canArchiveProject as never,
+  guard: projectArchive,
   load: async (ctx, args) => {
     const project = await ctx.db.get(args.id)
     requireRecord(project, 'Project')

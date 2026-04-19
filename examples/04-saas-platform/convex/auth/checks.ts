@@ -1,7 +1,7 @@
 /**
  * Check style:
- * Direct exports are static actor predicates. Resource-bound checks are factories that return
- * actor predicates after you bind the relevant document.
+ * Keep reusable primitives and record-bound factories here. Static named permissions live in
+ * permissions.ts so the full projected rule reads from one file.
  */
 import { and, defineGuard, or } from '@lupinum/trellis/auth'
 
@@ -30,48 +30,8 @@ export const hasFeature = (feature: string) => (actor: Actor) => {
   return features.includes(feature) || features.includes('*')
 }
 
-export const canCreateProject = defineGuard(
-  'Create project',
-  hasWorkspace.and(hasRole('owner', 'admin')),
-)
-export const canReadProject = defineGuard(
-  'Read project',
-  hasWorkspace.and(hasRole('owner', 'admin', 'member', 'viewer')),
-)
-export const canArchiveProject = defineGuard(
-  'Archive project',
-  hasWorkspace.and(hasRole('owner', 'admin')),
-)
-export const canExportProjects = defineGuard(
-  'Export projects',
-  hasWorkspace.and(and(hasRole('owner', 'admin'), hasFeature('exports'))),
-)
-
-export const canCreateTask = defineGuard(
-  'Create task',
-  hasWorkspace.and(hasRole('owner', 'admin', 'member')),
-)
-export const canReadTask = defineGuard(
-  'Read task',
-  hasWorkspace.and(hasRole('owner', 'admin', 'member', 'viewer')),
-)
-export const canAssignTask = defineGuard('Assign task', hasWorkspace.and(hasRole('owner', 'admin')))
-
 export const canUpdateTask = (task: Doc<'tasks'>) =>
   hasWorkspace.and(or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task))))
 
 export const canDeleteTask = (task: Doc<'tasks'>) =>
   hasWorkspace.and(or(hasRole('owner', 'admin'), and(hasRole('member'), isOwnerOf(task))))
-
-export const canComment = defineGuard(
-  'Create comment',
-  hasWorkspace.and(hasRole('owner', 'admin', 'member', 'viewer')),
-)
-export const canManageMembers = defineGuard(
-  'Manage members',
-  hasWorkspace.and(hasRole('owner', 'admin')),
-)
-export const canViewAudit = defineGuard(
-  'View audit log',
-  hasWorkspace.and(hasRole('owner', 'admin')),
-)

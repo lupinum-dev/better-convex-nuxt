@@ -30,7 +30,7 @@ interface ModuleRuntimeConfig {
     cache: { enabled: boolean; ttl: number }
     proxy: { maxRequestBodyBytes: number; maxResponseBodyBytes: number }
   }
-  permissions: { query: string | null }
+  permissions: { query: string | null; codegen: boolean }
   query: { server: boolean; subscribe: boolean }
   upload: { maxConcurrent: number }
   observability: ReturnType<typeof normalizeObservabilityConfig>
@@ -49,6 +49,8 @@ export interface ModuleSetupState {
   isAuthEnabled: boolean
   validationStrict: boolean
   permissionQueryPath?: string
+  permissionCodegenEnabled: boolean
+  permissionCodegenInclude: string[]
   authRoute: string
   resolvedSiteUrl?: string
   normalizedAuthCacheTtl: number
@@ -68,6 +70,20 @@ export function deriveModuleSetupState(
   const permissionQueryPath = normalizeConfiguredFunctionPath(
     typeof options.permissions === 'string' ? options.permissions : options.permissions?.query,
   )
+  const rawPermissionCodegen =
+    typeof options.permissions === 'string' ? false : (options.permissions?.codegen ?? false)
+  const normalizedPermissionCodegen =
+    rawPermissionCodegen === true
+      ? { enabled: true, include: ['convex/auth/permissions.ts'] }
+      : rawPermissionCodegen === false
+        ? { enabled: false, include: ['convex/auth/permissions.ts'] }
+        : {
+            enabled: true,
+            include:
+              Array.isArray(rawPermissionCodegen.include) && rawPermissionCodegen.include.length > 0
+                ? rawPermissionCodegen.include
+                : ['convex/auth/permissions.ts'],
+          }
 
   return {
     authOptions,
@@ -75,6 +91,8 @@ export function deriveModuleSetupState(
     isAuthEnabled: normalizedAuthConfig.enabled,
     validationStrict: options.validation?.strict === true,
     permissionQueryPath,
+    permissionCodegenEnabled: normalizedPermissionCodegen.enabled,
+    permissionCodegenInclude: normalizedPermissionCodegen.include,
     authRoute: normalizeAuthRoute(authOptions.route ?? '/api/auth'),
     resolvedSiteUrl: siteUrlResolution.siteUrl,
     normalizedAuthCacheTtl: normalizeAuthCacheTtl(authOptions.cache?.ttl),
@@ -152,6 +170,7 @@ export function buildPublicConvexRuntimeConfig(
     },
     permissions: {
       query: setup.permissionQueryPath ?? null,
+      codegen: setup.permissionCodegenEnabled,
     },
     query: {
       server: options.query?.server ?? true,

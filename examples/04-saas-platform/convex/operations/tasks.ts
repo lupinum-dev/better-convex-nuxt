@@ -2,7 +2,8 @@ import { enforce, loadTenantResource as loadResource } from '@lupinum/trellis/au
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import { canDeleteTask, canReadTask, requireWorkspaceTenant } from '../auth/checks'
+import { canDeleteTask, requireWorkspaceTenant } from '../auth/checks'
+import { taskRead } from '../auth/permissions'
 import { query } from '../functions'
 
 export const removeTaskOp = defineOperation({
@@ -29,7 +30,7 @@ export const removeTaskOp = defineOperation({
       }),
     }),
   }),
-  guard: canReadTask as never,
+  guard: taskRead,
   load: async (ctx, args) => {
     const actor = await ctx.actor()
     const task = loadResource(actor, await ctx.db.get(args.id), 'Task')

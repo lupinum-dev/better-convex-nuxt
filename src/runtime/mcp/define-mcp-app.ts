@@ -8,7 +8,11 @@ import {
   getOperationMetadata,
   type OperationKind,
 } from '../functions/define-operation.js'
-import { resolvePermissionKey, type PermissionLike } from '../auth/define-permission.js'
+import {
+  resolvePermissionKey,
+  type PermissionLike,
+  type RegisteredPermissionKey,
+} from '../auth/define-permission.js'
 import {
   getFunctionName,
   type AnyActionFunction,
@@ -116,7 +120,11 @@ export interface DefineMcpAppOptions<
 }
 
 type CapabilityKey<TCapabilities> =
-  TCapabilities extends Record<string, boolean> ? keyof TCapabilities & string : string
+  TCapabilities extends Record<string, boolean>
+    ? string extends keyof TCapabilities
+      ? RegisteredPermissionKey
+      : keyof TCapabilities & string
+    : RegisteredPermissionKey
 
 type ProjectToolMeta = {
   name?: string

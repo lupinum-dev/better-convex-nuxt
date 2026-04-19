@@ -11,11 +11,9 @@ import {
 import { getActor } from '../auth/actor'
 import { publicRunbookCapabilities, workspaceRunbookCapabilities } from '../auth/capabilities'
 import {
-  canCreateRunbook,
-  canPublishRunbook,
-  canReadWorkspaceRunbook,
   canUpdateRunbook,
 } from '../auth/checks'
+import { runbookCreate, runbookPublish, runbookRead } from '../auth/permissions'
 import { mutation, query, raw } from '../functions'
 import { bulkRemoveRunbooksOp, removeRunbookOp } from '../operations/runbooks'
 
@@ -91,7 +89,7 @@ export const searchPublic = raw.query({
 
 export const listWorkspace = query({
   args: listRunbooks.args,
-  guard: canReadWorkspaceRunbook,
+  guard: runbookRead,
   handler: async (ctx) => {
     const actor = await ctx.actor()
     const runbooks = await ctx.db
@@ -123,7 +121,7 @@ export const get = raw.query({
       return publicRunbook
     }
 
-    if (!actor || actor.tenantId !== runbook.workspaceId || !can(actor, canReadWorkspaceRunbook)) {
+    if (!actor || actor.tenantId !== runbook.workspaceId || !can(actor, runbookRead.check)) {
       deny('Forbidden: Read runbooks')
     }
 
@@ -133,7 +131,7 @@ export const get = raw.query({
 
 export const getWorkspace = query({
   args: getRunbook.args,
-  guard: canReadWorkspaceRunbook,
+  guard: runbookRead,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const runbook = await ctx.db.get(args.id)
@@ -145,12 +143,12 @@ export const getWorkspace = query({
 
 export const create = mutation({
   args: createRunbook.args,
-  guard: canCreateRunbook,
+  guard: runbookCreate,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
 
     const visibility = args.visibility ?? 'draft'
-    if (visibility === 'public' && !can(actor, canPublishRunbook)) {
+    if (visibility === 'public' && !can(actor, runbookPublish.check)) {
       throw deny('Only owners and admins can create public runbooks.')
     }
 
@@ -172,7 +170,7 @@ export const create = mutation({
 
 export const update = mutation({
   args: updateRunbook.args,
-  guard: canReadWorkspaceRunbook,
+  guard: runbookRead,
   load: async (ctx, args) => {
     const runbook = await ctx.db.get(args.id)
     requireRecord(runbook, 'Runbook')
@@ -184,7 +182,7 @@ export const update = mutation({
   handler: async (ctx, args, { runbook }) => {
     const actor = await ctx.actor()
     const nextVisibility = args.visibility ?? runbook.visibility
-    if (nextVisibility === 'public' && !can(actor, canPublishRunbook)) {
+    if (nextVisibility === 'public' && !can(actor, runbookPublish.check)) {
       throw deny('Only owners and admins can publish runbooks.')
     }
 
@@ -207,7 +205,7 @@ export const bulkRemove = mutation(bulkRemoveRunbooksOp)
 
 export const workspaceOverview = query({
   args: listRunbooks.args,
-  guard: canReadWorkspaceRunbook,
+  guard: runbookRead,
   handler: async (ctx) => {
     const actor = await ctx.actor()
     const runbooks = await ctx.db

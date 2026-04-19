@@ -62,6 +62,12 @@ export type OperationDefinition<
 }
 
 type AwaitedValue<T> = T extends Promise<infer U> ? AwaitedValue<U> : T
+type IsUnknown<T> = unknown extends T ? ([keyof T] extends [never] ? true : false) : false
+type FallbackIfUnknownOrNever<T, TFallback> = [T] extends [never]
+  ? TFallback
+  : IsUnknown<T> extends true
+    ? TFallback
+    : T
 
 type OperationShape = {
   args: PropertyValidators
@@ -92,17 +98,26 @@ type InferOperationPrincipal<TDefinition extends OperationShape> =
     ? TPrincipal
     : never
 
-type InferOperationActor<TDefinition extends OperationShape> = InferOperationCtx<TDefinition> extends {
-  actor: () => Promise<infer TActor>
-}
-  ? TActor
-  : never
-
 type InferOperationGuard<TDefinition extends OperationShape> = TDefinition['guard'] extends infer TGuard
   ? TGuard extends StructuredGuard<any, any>
     ? TGuard
     : never
   : never
+
+type InferActorFromCtx<TCtx> = TCtx extends {
+  actor: () => Promise<infer TActor>
+}
+  ? TActor
+  : never
+
+type InferActorFromGuard<TGuard> = TGuard extends StructuredGuard<any, infer TActor>
+  ? TActor
+  : never
+
+type InferOperationActor<TDefinition extends OperationShape> = FallbackIfUnknownOrNever<
+  InferActorFromCtx<InferOperationCtx<TDefinition>>,
+  InferActorFromGuard<InferOperationGuard<TDefinition>>
+>
 
 type InferOperationArgsValidator<TDefinition extends OperationShape> = TDefinition['args']
 

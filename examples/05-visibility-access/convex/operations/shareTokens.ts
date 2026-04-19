@@ -2,7 +2,7 @@ import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import { canCreateShareToken } from '../auth/checks'
+import { shareCreate } from '../auth/permissions'
 import { query } from '../functions'
 
 export const revokeShareTokenOp = defineOperation({
@@ -27,7 +27,7 @@ export const revokeShareTokenOp = defineOperation({
       }),
     }),
   }),
-  guard: canCreateShareToken as never,
+  guard: shareCreate,
   load: async (ctx, args) => {
     const actor = await ctx.actor()
     const token = loadResource(actor, await ctx.db.get(args.tokenId), 'Share token')

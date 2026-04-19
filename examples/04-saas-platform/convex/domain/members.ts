@@ -1,12 +1,13 @@
 import { deny, enforce, ensureTenant, requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { canManageMembers, requireWorkspaceTenant } from '../auth/checks'
+import { requireWorkspaceTenant } from '../auth/checks'
+import { workspaceMembers } from '../auth/permissions'
 import { mutation, query } from '../functions'
 
 export const list = query({
   args: {},
-  guard: canManageMembers,
+  guard: workspaceMembers,
   handler: async (ctx) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
@@ -21,7 +22,7 @@ export const changeRole = mutation({
     userId: v.id('users'),
     newRole: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
   },
-  guard: canManageMembers,
+  guard: workspaceMembers,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)

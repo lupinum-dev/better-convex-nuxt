@@ -10,8 +10,16 @@ export interface PermissionDefinition<TKey extends string = string, TActor = unk
   readonly project?: boolean
 }
 
+export interface RegisteredPermissions {
+  keys: string
+  projected: string
+}
+
 export type GuardPermissionDefinition<TKey extends string = string, TActor = unknown> =
   PermissionDefinition<TKey, TActor>
+
+export type RegisteredPermissionKey = RegisteredPermissions['keys']
+export type RegisteredProjectedPermissionKey = RegisteredPermissions['projected']
 
 export type PermissionHandle<TKey extends string = string> = Pick<
   PermissionDefinition<TKey>,

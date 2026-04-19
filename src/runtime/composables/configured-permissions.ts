@@ -4,7 +4,11 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter } from '#imports'
 
-import type { PermissionHandle, PermissionLike } from '../auth/define-permission.js'
+import type {
+  PermissionHandle,
+  PermissionLike,
+  RegisteredProjectedPermissionKey,
+} from '../auth/define-permission.js'
 import { resolvePermissionKey } from '../auth/define-permission.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
 import { useConvexAuth } from './useConvexAuth.js'
@@ -36,9 +40,14 @@ export type PermissionKey<TContext extends AuthContext = AuthContext> =
     ? string
     : Extract<keyof PermissionRecord<TContext>, string>
 
+type ConfiguredPermissionKey<TContext extends AuthContext> =
+  string extends PermissionKey<TContext>
+    ? RegisteredProjectedPermissionKey
+    : PermissionKey<TContext>
+
 export interface UsePermissionsReturn<
   TContext extends AuthContext = AuthContext,
-  TPermissions extends string = PermissionKey<TContext>,
+  TPermissions extends string = ConfiguredPermissionKey<TContext>,
 > {
   ctx: ComputedRef<TContext | null>
   role: ComputedRef<TContext['role'] | null>
@@ -52,7 +61,7 @@ export interface UsePermissionsReturn<
 
 export interface UseAuthGuardOptions<
   TContext extends AuthContext = AuthContext,
-  TPermissions extends string = PermissionKey<TContext>,
+  TPermissions extends string = ConfiguredPermissionKey<TContext>,
 > {
   permission?: PermissionLike<TPermissions>
   check?: (ctx: TContext) => boolean
@@ -182,7 +191,7 @@ function usePermissionContextState<
 export function createConfiguredPermissionsComposables<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
-  TPermissions extends string = PermissionKey<TContext>,
+  TPermissions extends string = ConfiguredPermissionKey<TContext>,
 >(query: Query, configuredQueryName: string) {
   function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
     const { ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)

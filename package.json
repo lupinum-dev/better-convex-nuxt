@@ -119,7 +119,7 @@
   },
   "scripts": {
     "build": "pnpm run prepack",
-    "build:module": "nuxt-module-build build && node scripts/fix-dts-specifiers.mjs",
+    "build:module": "nuxt-module-build build && node scripts/fix-dts-specifiers.mjs && node scripts/check-dist-dts-specifiers.mjs",
     "build:cli": "tsc -p tsconfig.cli.json && node -e \"require('node:fs').chmodSync('dist/cli.mjs', 0o755)\"",
     "build:client": "nuxi generate client",
     "check": "pnpm run format:check && pnpm run lint && pnpm run check:publish-surface && pnpm run test:types && pnpm run test:contracts && pnpm run check:cli",
@@ -184,6 +184,7 @@
     "h3": "1.15.11",
     "ohash": "^2.0.11",
     "sirv": "^3.0.2",
+    "ts-morph": "^27.0.0",
     "ufo": "^1.6.3"
   },
   "devDependencies": {

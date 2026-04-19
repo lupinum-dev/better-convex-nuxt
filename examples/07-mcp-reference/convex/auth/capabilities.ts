@@ -3,7 +3,8 @@ import { defineCapabilities } from '@lupinum/trellis/visibility'
 
 import type { Doc } from '../_generated/dataModel'
 import type { Actor } from './actor'
-import { canDeleteRunbook, canPublishRunbook, canUpdateRunbook } from './checks'
+import { canDeleteRunbook, canUpdateRunbook } from './checks'
+import { runbookPublish } from './permissions'
 
 type PublicRunbook = {
   _id: string
@@ -19,7 +20,7 @@ type PublicRunbook = {
 export const workspaceRunbookCapabilities = defineCapabilities<Doc<'runbooks'>>()({
   update: (actor: Actor, runbook) => can(actor, canUpdateRunbook(runbook)),
   delete: (actor: Actor, runbook) => can(actor, canDeleteRunbook(runbook)),
-  publish: (actor: Actor) => can(actor, canPublishRunbook),
+  publish: (actor: Actor) => can(actor, runbookPublish.check),
 })
 
 export const publicRunbookCapabilities = defineCapabilities<PublicRunbook>()({
@@ -27,5 +28,5 @@ export const publicRunbookCapabilities = defineCapabilities<PublicRunbook>()({
     !!actor && can(actor, canUpdateRunbook({ ownerId: runbook.ownerId })),
   delete: (actor: Actor | null, runbook) =>
     !!actor && can(actor, canDeleteRunbook({ ownerId: runbook.ownerId })),
-  publish: (actor: Actor | null) => !!actor && can(actor, canPublishRunbook),
+  publish: (actor: Actor | null) => !!actor && can(actor, runbookPublish.check),
 })

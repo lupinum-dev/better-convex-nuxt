@@ -7,6 +7,7 @@ import consola from 'consola'
 import type { DoctorFinding, DoctorReport } from '../lib/findings.js'
 import { summarizeFindings } from '../lib/findings.js'
 import { renderDoctorReport } from '../lib/output.js'
+import { collectPermissionMetadataFindings } from '../lib/permission-metadata.js'
 import {
   findConvexUrlSource,
   findEnvKeySource,
@@ -273,6 +274,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         ? 'No action needed unless you add MCP or trusted-caller flows later.'
         : 'Set CONVEX_TRUSTED_CALLER_KEY in the local environment and the Convex deployment that serves trusted-caller traffic.',
     },
+    ...collectPermissionMetadataFindings(project),
   ]
 }
 

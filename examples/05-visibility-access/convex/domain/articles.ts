@@ -13,7 +13,8 @@ import { v } from 'convex/values'
 
 import { getActor } from '../auth/actor'
 import { getInheritedAccessLevel, requireArticleAccess } from '../auth/articleAccess'
-import { canCreateArticle, canCreateShareToken, canReadArticle, isStaffActor } from '../auth/checks'
+import { isStaffActor } from '../auth/checks'
+import { articleCreate, articleRead, shareCreate } from '../auth/permissions'
 import { redactArticle } from '../auth/redaction'
 import {
   createShareTokenValue,
@@ -27,7 +28,7 @@ import { revokeShareTokenOp } from '../operations/shareTokens'
 import { accessLevelValidator, visibilityValidator } from '../schema'
 
 export const list = query({
-  guard: canReadArticle,
+  guard: articleRead,
   args: { knowledgeBaseId: v.id('knowledgeBases') },
   load: async (ctx, args) => ({
     knowledgeBase: loadResource(
@@ -73,7 +74,7 @@ export const viewArticle = raw.query({
     }
 
     const actor = await getActor(ctx)
-    enforce(actor, 'Read articles', canReadArticle)
+    enforce(actor, 'Read articles', articleRead.check)
 
     const article = loadResource(actor, await ctx.db.get(args.id), 'Article')
     await requireArticleAccess(ctx.db, actor, article)
@@ -84,7 +85,7 @@ export const viewArticle = raw.query({
 })
 
 export const create = mutation({
-  guard: canCreateArticle,
+  guard: articleCreate,
   args: {
     knowledgeBaseId: v.id('knowledgeBases'),
     title: v.string(),
@@ -125,7 +126,7 @@ export const create = mutation({
 })
 
 export const publish = mutation({
-  guard: canCreateArticle,
+  guard: articleCreate,
   args: { id: v.id('articles') },
   load: async (ctx, args) => ({
     article: loadResource(await ctx.actor(), await ctx.db.get(args.id), 'Article'),
@@ -137,7 +138,7 @@ export const publish = mutation({
 })
 
 export const markCompleted = mutation({
-  guard: canReadArticle,
+  guard: articleRead,
   args: { articleId: v.id('articles') },
   load: async (ctx, args) => ({
     article: loadResource(await ctx.actor(), await ctx.db.get(args.articleId), 'Article'),
@@ -170,7 +171,7 @@ export const markCompleted = mutation({
 })
 
 export const createShareToken = mutation({
-  guard: canCreateShareToken,
+  guard: shareCreate,
   args: {
     articleId: v.id('articles'),
     level: accessLevelValidator,
@@ -204,7 +205,7 @@ export const revokeShareToken = mutation({
 })
 
 export const seedDemoArticles = mutation({
-  guard: canCreateArticle,
+  guard: articleCreate,
   args: { knowledgeBaseId: v.id('knowledgeBases') },
   load: async (ctx, args) => ({
     knowledgeBase: loadResource(

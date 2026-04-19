@@ -1,7 +1,7 @@
 /**
  * Check style:
- * Direct exports are static actor predicates. Resource-bound checks are factories that return
- * actor predicates after you bind the relevant document.
+ * Keep reusable primitives and record-bound factories here. Static named permissions live in
+ * permissions.ts.
  */
 import { defineGuard } from '@lupinum/trellis/auth'
 
@@ -19,15 +19,6 @@ export const isOwnerOf = (resource: { ownerId: string }) =>
     `owner:${resource.ownerId}`,
     (actor) => !!actor && actor.userId === resource.ownerId,
   )
-
-export const canCreateRunbook = defineGuard<Actor>(
-  'Create runbook',
-  hasRole('owner', 'admin', 'member'),
-)
-export const canReadWorkspaceRunbook = defineGuard<Actor>(
-  'Read runbooks',
-  hasRole('owner', 'admin', 'member', 'viewer'),
-)
 export const canUpdateRunbook = (runbook: { ownerId: string }) =>
   defineGuard<Actor>(
     'Update runbook',
@@ -38,8 +29,6 @@ export const canDeleteRunbook = (runbook: { ownerId: string }) =>
     'Delete runbook',
     hasRole('owner', 'admin').or(hasRole('member').and(isOwnerOf(runbook))),
   )
-export const canPublishRunbook = defineGuard<Actor>('Publish runbook', hasRole('owner', 'admin'))
-export const canManageMcpKeys = defineGuard<Actor>('Manage MCP keys', hasRole('owner', 'admin'))
 
 export function canIssueKeyRole(actor: Actor, role: Doc<'users'>['role']): boolean {
   if (!actor) return false

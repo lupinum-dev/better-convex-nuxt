@@ -9,22 +9,21 @@ import {
   createTask,
   moveTask,
 } from '../../shared/schemas/task'
+import type { Doc } from '../_generated/dataModel'
 import { taskCapabilities } from '../auth/capabilities'
 import {
-  canAssignTask,
-  canCreateTask,
-  canReadTask,
   canUpdateTask,
   hasRole,
   hasWorkspace,
   requireWorkspaceTenant,
 } from '../auth/checks'
+import { taskAssign, taskCreate, taskRead } from '../auth/permissions'
 import { mutation, query } from '../functions'
 import { removeTaskOp } from '../operations/tasks'
 
 export const listByProject = query({
   args: { projectId: v.id('projects') },
-  guard: canReadTask,
+  guard: taskRead,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
 
@@ -42,7 +41,7 @@ export const listByProject = query({
 
 export const get = query({
   args: { id: v.id('tasks') },
-  guard: canReadTask,
+  guard: taskRead,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
 
@@ -54,12 +53,16 @@ export const get = query({
 
 export const create = mutation({
   args: createTask.args,
-  guard: canCreateTask,
+  guard: taskCreate,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
 
-    const project = loadResource(actor, await ctx.db.get(args.projectId), 'Project')
+    const project = loadResource(
+      actor,
+      (await ctx.db.get(args.projectId)) as Doc<'projects'> | null,
+      'Project',
+    )
 
     if (project.status === 'archived') {
       throw deny('Cannot add tasks to archived projects.')
@@ -93,10 +96,10 @@ export const create = mutation({
 
 export const moveToColumn = mutation({
   args: moveTask.args,
-  guard: canReadTask,
+  guard: taskRead,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
-    const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
+    const task = loadResource(actor, (await ctx.db.get(args.id)) as Doc<'tasks'> | null, 'Task')
     enforce(actor, 'Update task', canUpdateTask(task))
 
     const workspaceId = requireWorkspaceTenant(actor)
@@ -117,12 +120,12 @@ export const moveToColumn = mutation({
 
 export const assign = mutation({
   args: assignTask.args,
-  guard: canAssignTask,
+  guard: taskAssign,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
 
-    const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
+    const task = loadResource(actor, (await ctx.db.get(args.id)) as Doc<'tasks'> | null, 'Task')
 
     if (args.assigneeId) {
       const assignee = await ctx.db
@@ -162,11 +165,12 @@ export const bulkUpdateStatus = mutation({
     const now = Date.now()
     const updates = await asyncMap(args.ids, async (id) => {
       const task = await ctx.db.get(id)
-      if (!task || task.workspaceId !== workspaceId) {
+      const typedTask = task as Doc<'tasks'> | null
+      if (!typedTask || typedTask.workspaceId !== workspaceId) {
         return { id, updated: false as const }
       }
 
-      if (!can(actor, canUpdateTask(task))) {
+      if (!can(actor, canUpdateTask(typedTask))) {
         return { id, updated: false as const }
       }
 
@@ -199,7 +203,7 @@ export const remove = mutation({
 
 export const listForExport = query({
   args: { projectId: v.id('projects') },
-  guard: canReadTask,
+  guard: taskRead,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
 

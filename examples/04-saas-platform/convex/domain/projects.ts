@@ -1,21 +1,19 @@
-import { enforce, loadTenantResource as loadResource, open } from '@lupinum/trellis/auth'
+import { loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
 import { createProject } from '../../shared/schemas/project'
 import {
-  canCreateProject,
-  canExportProjects,
-  canReadProject,
   requireWorkspaceTenant,
 } from '../auth/checks'
+import { projectCreate, projectExport, projectRead } from '../auth/permissions'
 import { ensureWithinLimit } from '../auth/limits'
 import { mutation, query } from '../functions'
 import { archiveProjectOp } from '../operations/projects'
 
 export const list = query({
   args: { paginationOpts: paginationOptsValidator },
-  guard: canReadProject,
+  guard: projectRead,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
@@ -30,7 +28,7 @@ export const list = query({
 
 export const get = query({
   args: { id: v.id('projects') },
-  guard: canReadProject,
+  guard: projectRead,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
 
@@ -41,7 +39,7 @@ export const get = query({
 
 export const create = mutation({
   args: createProject.args,
-  guard: canCreateProject,
+  guard: projectCreate,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
@@ -78,10 +76,9 @@ export const archive = mutation({
 
 export const exportProjects = query({
   args: {},
-  guard: open,
+  guard: projectExport,
   handler: async (ctx) => {
     const actor = await ctx.actor()
-    enforce(actor, 'Export projects', canExportProjects)
     const workspaceId = requireWorkspaceTenant(actor)
 
     const projects = await ctx.db

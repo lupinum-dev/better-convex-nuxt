@@ -28,7 +28,10 @@ describe('module-setup', () => {
       {
         url: 'https://demo.convex.cloud',
         auth: true,
-        permissions: 'permissions/context.getPermissionContext',
+        permissions: {
+          query: 'permissions/context.getPermissionContext',
+          codegen: true,
+        },
         upload: { maxConcurrent: 7 },
       },
       {},
@@ -37,12 +40,17 @@ describe('module-setup', () => {
     expect(setup.isAuthEnabled).toBe(true)
     expect(setup.authRoute).toBe('/api/auth')
     expect(setup.resolvedSiteUrl).toBe('https://demo.convex.site')
+    expect(setup.permissionCodegenEnabled).toBe(true)
+    expect(setup.permissionCodegenInclude).toEqual(['convex/auth/permissions.ts'])
 
     const config = buildPublicConvexRuntimeConfig(
       {
         url: 'https://demo.convex.cloud',
         auth: true,
-        permissions: 'permissions/context.getPermissionContext',
+        permissions: {
+          query: 'permissions/context.getPermissionContext',
+          codegen: true,
+        },
         upload: { maxConcurrent: 7 },
       },
       {
@@ -59,6 +67,7 @@ describe('module-setup', () => {
       siteUrl: 'https://demo.convex.site',
       permissions: {
         query: 'permissions/context.getPermissionContext',
+        codegen: true,
       },
       upload: {
         maxConcurrent: 7,

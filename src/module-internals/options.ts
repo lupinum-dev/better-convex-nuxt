@@ -75,6 +75,20 @@ export interface PermissionsOptions {
    * Format: `<modulePath>.<exportName>` like `permissions/context.getPermissionContext`.
    */
   query: string
+  /**
+   * Opt-in permission metadata/type generation.
+   * When true, scans canonical permission files and emits additive .nuxt artifacts.
+   * @default false
+   */
+  codegen?: boolean | PermissionCodegenOptions
+}
+
+export interface PermissionCodegenOptions {
+  /**
+   * Permission definition file globs relative to the Nuxt app root.
+   * @default ['convex/auth/permissions.ts']
+   */
+  include?: string[]
 }
 
 /**

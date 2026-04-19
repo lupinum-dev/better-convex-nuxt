@@ -2,16 +2,18 @@ import { deny, enforce, loadTenantResource as loadResource } from '@lupinum/trel
 import { v } from 'convex/values'
 
 import { createComment } from '../../shared/schemas/comment'
-import { canComment, requireWorkspaceTenant } from '../auth/checks'
+import type { Doc } from '../_generated/dataModel'
+import { requireWorkspaceTenant } from '../auth/checks'
+import { commentCreate } from '../auth/permissions'
 import { mutation, query } from '../functions'
 
 export const listByTask = query({
   args: { taskId: v.id('tasks') },
-  guard: canComment,
+  guard: commentCreate,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
 
-    loadResource(actor, await ctx.db.get(args.taskId), 'Task')
+    loadResource(actor, (await ctx.db.get(args.taskId)) as Doc<'tasks'> | null, 'Task')
 
     return ctx.db
       .query('comments')
@@ -23,14 +25,18 @@ export const listByTask = query({
 
 export const create = mutation({
   args: createComment.args,
-  guard: canComment,
+  guard: commentCreate,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
 
-    const task = loadResource(actor, await ctx.db.get(args.taskId), 'Task')
+    const task = loadResource(actor, (await ctx.db.get(args.taskId)) as Doc<'tasks'> | null, 'Task')
 
-    const project = loadResource(actor, await ctx.db.get(task.projectId), 'Project')
+    const project = loadResource(
+      actor,
+      (await ctx.db.get(task.projectId)) as Doc<'projects'> | null,
+      'Project',
+    )
     if (project.status === 'archived') {
       throw deny('Cannot comment on tasks in archived projects.')
     }

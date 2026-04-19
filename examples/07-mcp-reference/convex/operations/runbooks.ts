@@ -4,7 +4,8 @@ import { v } from 'convex/values'
 import type { Doc, Id } from '../_generated/dataModel'
 
 import { bulkDeleteRunbooks, deleteRunbook } from '../../shared/schemas/runbook'
-import { canDeleteRunbook, canPublishRunbook, canReadWorkspaceRunbook } from '../auth/checks'
+import { canDeleteRunbook } from '../auth/checks'
+import { runbookBulkDelete, runbookPublish, runbookRead } from '../auth/permissions'
 import { query } from '../functions'
 
 export const removeRunbookOp = defineOperation({
@@ -29,14 +30,14 @@ export const removeRunbookOp = defineOperation({
       }),
     }),
   }),
-  guard: canReadWorkspaceRunbook as never,
+  guard: runbookRead,
   load: async (ctx, args) => {
     const runbook = await ctx.db.get(args.id)
     if (!runbook) throw new Error('Runbook not found.')
     return { runbook }
   },
   authorize: {
-    check: ((_actor: any, { runbook }: { runbook: any }) => canDeleteRunbook(runbook)) as never,
+    check: (_actor, { runbook }) => canDeleteRunbook(runbook),
   },
   preview: async (_ctx, _args, { runbook }) => ({
     display: {
@@ -90,7 +91,7 @@ export const bulkRemoveRunbooksOp = defineOperation({
       }),
     }),
   }),
-  guard: canPublishRunbook as never,
+  guard: runbookBulkDelete,
   load: async (ctx, args) => {
     const actor = await ctx.actor()
     const runbooks = await Promise.all(args.ids.map((id: Id<'runbooks'>) => ctx.db.get(id)))

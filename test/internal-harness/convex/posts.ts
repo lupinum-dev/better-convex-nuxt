@@ -1,15 +1,13 @@
 import { defineArgs } from '@lupinum/trellis/args'
 import { can, defineGuard, open } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { defineCapabilities } from '@lupinum/trellis/visibility'
 import { v } from 'convex/values'
 
 import { createPost, deletePost, updatePost } from '../shared/schemas/post'
-import type { DataModel, Id } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
 import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
-import type { InternalHarnessPrincipal } from './auth/principal'
 import { mutation, query } from './functions'
 
 const listPostsArgs = defineArgs({
@@ -24,12 +22,6 @@ const getPostArgs = defineArgs({
 
 const canCreatePostActor = defineGuard<Actor>('Create post', (actor) => !!actor)
 const canManagePosts = defineGuard<Actor>('post.manage', (actor) => !!actor)
-type PostOperationCtx = {
-  actor: () => Promise<Actor>
-  db: Pick<GenericQueryCtx<DataModel>['db'], 'get'> &
-    Pick<GenericMutationCtx<DataModel>['db'], 'delete'>
-}
-
 const postCapabilities = defineCapabilities<{ ownerId: string; [key: string]: unknown }>()<
   Actor,
   {
@@ -178,28 +170,7 @@ export const remove = mutation({
   },
 })
 
-export const removePostOp = defineOperation<
-  PostOperationCtx,
-  InternalHarnessPrincipal,
-  Actor,
-  any,
-  typeof deletePost.args,
-  { post: { _id: Id<'posts'>; title: string; organizationId: string; ownerId: string } },
-  null,
-  {
-    display: {
-      summary: string
-      warn: string
-      affects: { posts: number }
-      blocked?: boolean
-    }
-    confirm: {
-      operation: 'posts.remove'
-      targetId: Id<'posts'>
-      affectedCounts: { posts: number }
-    }
-  }
->({
+export const removePostOp = defineOperation({
   id: 'posts.remove',
   name: 'removePost',
   kind: 'destructive',
@@ -222,7 +193,7 @@ export const removePostOp = defineOperation<
       }),
     }),
   }),
-  guard: canManagePosts as never,
+  guard: canManagePosts,
   load: async (ctx, args) => {
     const actor = await ctx.actor()
     const post = await ctx.db.get(args.id)
@@ -258,8 +229,8 @@ export const removePostOp = defineOperation<
   },
 })
 
-export const removeWithConfirmation = mutation(removePostOp as never)
-export const previewRemove = query(previewOf(removePostOp) as never)
+export const removeWithConfirmation = mutation(removePostOp)
+export const previewRemove = query(previewOf(removePostOp))
 
 export const publish = mutation({
   args: { id: v.id('posts') },

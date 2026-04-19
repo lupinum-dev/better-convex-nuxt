@@ -1474,6 +1474,7 @@ function cmsStudioPageTemplate() {
   return `
 <script setup lang="ts">
 import { api } from '#trellis/api'
+import { pageCreate, pagePublish } from '~/convex/auth/permissions'
 
 const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
@@ -1586,13 +1587,13 @@ async function handlePublish() {
         <textarea v-model="form.draftBody" rows="10" placeholder="Draft body"></textarea>
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button :disabled="!allows('page.create').value || createPage.pending.value" @click="handleCreatePage">
+          <button :disabled="!allows(pageCreate).value || createPage.pending.value" @click="handleCreatePage">
             Create draft
           </button>
           <button :disabled="!selectedId || saveDraft.pending.value" @click="handleSaveDraft">
             Save draft
           </button>
-          <button :disabled="!allows('page.publish').value || !selectedId || publishPage.pending.value" @click="handlePublish">
+          <button :disabled="!allows(pagePublish).value || !selectedId || publishPage.pending.value" @click="handlePublish">
             Publish
           </button>
           <button @click="signOut()">Sign out</button>

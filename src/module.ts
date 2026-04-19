@@ -4,6 +4,7 @@ import { setupConvexDevtools } from './devtools.js'
 import { installAdvancedTrellis } from './installers/advanced.js'
 import { installAuthTrellis } from './installers/auth.js'
 import { installCoreTrellis } from './installers/core.js'
+import { installPermissionCodegen } from './installers/permission-codegen.js'
 import { installPermissionTrellis } from './installers/permissions.js'
 import type { ModuleOptions } from './module-internals/options.js'
 import {
@@ -20,6 +21,7 @@ export type { TrellisObservabilityOptions } from './runtime/utils/observability.
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection.js'
 export type {
   AuthCacheOptions,
+  PermissionCodegenOptions,
   AuthOptions,
   AuthProxyOptions,
   McpOptions,
@@ -126,6 +128,13 @@ export default defineNuxtModule<ModuleOptions>({
       installPermissionTrellis({
         resolver,
         permissionQueryPath,
+      })
+    }
+
+    if (setup.permissionCodegenEnabled) {
+      installPermissionCodegen({
+        nuxt,
+        include: setup.permissionCodegenInclude,
       })
     }
 

@@ -44,6 +44,9 @@ export type {
   PermissionDefinition,
   PermissionHandle,
   PermissionLike,
+  RegisteredPermissionKey,
+  RegisteredPermissions,
+  RegisteredProjectedPermissionKey,
 } from './define-permission.js'
 export { definePermissionContext } from './define-permission-context.js'
 export { defineServices } from './define-services.js'

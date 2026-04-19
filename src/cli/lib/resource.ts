@@ -197,7 +197,7 @@ import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
 import { delete${ctx.singularPascal} } from '../../shared/schemas/${ctx.fileStem}'
-import { ${ctx.singularCamel}DeletePermission } from '../auth/${ctx.fileStem}-permissions'
+import { ${ctx.singularCamel}DeletePermission } from '../auth/permissions'
 import { query } from '../functions'
 
 export const remove${ctx.singularPascal}Op = defineOperation({
@@ -252,7 +252,7 @@ export const previewRemove${ctx.singularPascal} = query(previewOf(remove${ctx.si
 
 function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
   const schemaImport = `../../shared/schemas/${ctx.fileStem}`
-  const permissionImport = `../auth/${ctx.fileStem}-permissions`
+  const permissionImport = `../auth/permissions`
   const updateOwnerCheck =
     ctx.kind === 'workspace'
       ? "actor.role === 'owner' || actor.role === 'admin' || actor.userId === loaded.ownerId"
@@ -475,7 +475,7 @@ describe('${ctx.tableName}', () => {
 function resourceMcpListTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { api } from '#trellis/api'
-import { ${ctx.singularCamel}ReadPermission } from '~/convex/auth/${ctx.fileStem}-permissions'
+import { ${ctx.singularCamel}ReadPermission } from '~/convex/auth/permissions'
 import { list${ctx.pluralPascal} } from '~/shared/schemas/${ctx.fileStem}'
 
 import { tool } from '../runtime'
@@ -495,7 +495,7 @@ export default tool({
 function resourceMcpCreateTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { api } from '#trellis/api'
-import { ${ctx.singularCamel}CreatePermission } from '~/convex/auth/${ctx.fileStem}-permissions'
+import { ${ctx.singularCamel}CreatePermission } from '~/convex/auth/permissions'
 import { create${ctx.singularPascal} } from '~/shared/schemas/${ctx.fileStem}'
 
 import { tool } from '../runtime'
@@ -513,7 +513,7 @@ export default tool({
 
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
-import { ${ctx.singularCamel}DeletePermission } from '~/convex/auth/${ctx.fileStem}-permissions'
+import { ${ctx.singularCamel}DeletePermission } from '~/convex/auth/permissions'
 import { remove${ctx.singularPascal}Op, previewRemove${ctx.singularPascal} } from '~/convex/operations/${ctx.fileStem}'
 import { remove } from '~/convex/domain/${ctx.fileStem}'
 
@@ -563,35 +563,26 @@ async function patchSchema(cwd: string, ctx: ResourceGeneratorContext): Promise<
 
 async function patchPermissionAuthoring(cwd: string, ctx: ResourceGeneratorContext): Promise<void> {
   const authoredPermissionsPath = resolve(cwd, 'convex/auth/permissions.ts')
-  if (await exists(authoredPermissionsPath)) {
-    const source = await readFile(authoredPermissionsPath, 'utf8')
-    const importLine = `import { ${ctx.singularCamel}Permissions } from './${ctx.fileStem}-permissions'`
-    const withImport = source.includes(importLine) ? source : `${importLine}\n${source}`
-    const next = withImport.replace(/\]\s+as const/, `,\n  ...${ctx.singularCamel}Permissions,\n] as const`)
-
-    if (next === withImport) {
-      throw new Error(
-        '[trellis] Could not patch convex/auth/permissions.ts. Expected a canonical exported permissions array.',
-      )
-    }
-
-    await writeFile(authoredPermissionsPath, next)
-    return
-  }
-
-  const path = resolve(cwd, 'convex/permissions/context.ts')
-  const source = await readFile(path, 'utf8')
-  const importLine = `import { ${ctx.singularCamel}Permissions } from '../auth/${ctx.fileStem}-permissions'`
-  let next = source.includes(importLine) ? source : `${importLine}\n${source}`
-
-  next = next.replace(/permissions:\s*\[/, `permissions: [\n      ...${ctx.singularCamel}Permissions,`)
-  if (next === source) {
+  if (!(await exists(authoredPermissionsPath))) {
     throw new Error(
-      '[trellis] Could not patch convex/permissions/context.ts. Expected a canonical permissions array.',
+      '[trellis] Missing convex/auth/permissions.ts. Expected the canonical authored permissions file.',
     )
   }
 
-  await writeFile(path, next)
+  const source = await readFile(authoredPermissionsPath, 'utf8')
+  const block = resourcePermissionsTemplate(ctx).trimEnd()
+  const withBlock = source.includes(`export const ${ctx.singularCamel}ReadPermission = definePermission(`)
+    ? source
+    : `${source.trimEnd()}\n\n${block}\n`
+  const next = withBlock.replace(/\]\s+as const/, `,\n  ...${ctx.singularCamel}Permissions,\n] as const`)
+
+  if (next === withBlock) {
+    throw new Error(
+      '[trellis] Could not patch convex/auth/permissions.ts. Expected a canonical exported permissions array.',
+    )
+  }
+
+  await writeFile(authoredPermissionsPath, next)
 }
 
 async function patchMcpRuntime(cwd: string, ctx: ResourceGeneratorContext): Promise<void> {
@@ -644,11 +635,6 @@ export async function buildResourceTemplateSet(
     {
       path: `shared/schemas/${ctx.fileStem}.ts`,
       content: resourceSchemaTemplate(ctx),
-      ownership: 'authored',
-    },
-    {
-      path: `convex/auth/${ctx.fileStem}-permissions.ts`,
-      content: resourcePermissionsTemplate(ctx),
       ownership: 'authored',
     },
     {
