@@ -22,6 +22,12 @@ export const trellisEnvelopeValidator = v.object({
 })
 
 export type TrellisObservationEnvelope = Infer<typeof trellisEnvelopeValidator>
+export type EventObservationState = Partial<
+  Pick<
+  TrellisObservationEnvelope,
+  'correlationId' | 'originTransport' | 'requestId'
+  >
+>
 
 function isTransport(value: unknown): value is TrellisObservationTransport {
   return (
@@ -36,6 +42,25 @@ function isTransport(value: unknown): value is TrellisObservationTransport {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+export function getEventObservationState(
+  eventContext: Record<string, unknown>,
+): EventObservationState {
+  const raw = eventContext[trellisEnvelopeKey]
+  if (!isRecord(raw)) return {}
+
+  return {
+    ...(typeof raw.correlationId === 'string' ? { correlationId: raw.correlationId } : {}),
+    ...(typeof raw.requestId === 'string' ? { requestId: raw.requestId } : {}),
+    ...(isTransport(raw.originTransport) ? { originTransport: raw.originTransport } : {}),
+  }
+}
+
+export function sanitizeCorrelationId(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const sanitized = value.replace(/[^\x20-\x7E]+/g, '').trim().slice(0, 256)
+  return sanitized.length > 0 ? sanitized : undefined
 }
 
 export function buildObservationEnvelopeValidators(): PropertyValidators {

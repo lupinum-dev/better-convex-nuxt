@@ -10,8 +10,8 @@ import type {
 } from '../auth/define-permission.js'
 import { resolvePermissionKey } from '../auth/define-permission.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
+import { createConvexQueryState } from './internal/query-runtime.js'
 import { useConvexAuth } from './useConvexAuth.js'
-import { createConvexQueryState } from './useConvexQuery.js'
 
 export type AuthContext = {
   role?: string | null

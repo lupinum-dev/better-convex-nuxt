@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  defineCapabilities,
-  defineRedaction,
-  defineVisibility,
-  applyVisibility,
-  getVisibilityQuery,
-} from '../../src/runtime/visibility'
+import { defineCapabilities, defineRedaction } from '../../src/runtime/visibility'
 
 describe('visibility primitives', () => {
   it('attaches explicit capabilities to a single resource and arrays', () => {
@@ -93,18 +87,5 @@ describe('visibility primitives', () => {
         title: 'Public',
       },
     ])
-  })
-
-  it('keeps visibility query helpers working alongside new primitives', async () => {
-    const visibility = defineVisibility(async () => ({
-      collect: async () => [{ _id: '1' }],
-    }))
-
-    await expect(applyVisibility(visibility, { userId: 'a' }, {} as never)).resolves.toEqual([
-      { _id: '1' },
-    ])
-    await expect(getVisibilityQuery(visibility, { userId: 'a' }, {} as never)).resolves.toEqual({
-      collect: expect.any(Function),
-    })
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { getQueryKey } from '../../src/runtime/composables/useConvexQuery'
+import { getQueryKey } from '../../src/runtime/utils/convex-cache'
 import { useCachedQuery } from '../../src/runtime/composables/useCachedQuery'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'

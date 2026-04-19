@@ -27,7 +27,6 @@ export {
 } from './useConvexAction.js'
 export {
   useConvexQuery,
-  getQueryKey,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,

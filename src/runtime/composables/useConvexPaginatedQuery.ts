@@ -1,7 +1,6 @@
 import type { MaybeRefOrGetter } from 'vue'
 
 import {
-  createConvexPaginatedQueryState,
   useConvexPaginatedQuery as useRuntimeConvexPaginatedQuery,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
@@ -13,7 +12,6 @@ import {
 } from './internal/pagination-runtime.js'
 
 export {
-  createConvexPaginatedQueryState,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
   type PaginatedQueryReference,

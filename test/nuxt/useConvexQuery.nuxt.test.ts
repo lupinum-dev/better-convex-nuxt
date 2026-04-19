@@ -6,10 +6,10 @@ import type { MaybeRefOrGetter } from 'vue'
 import { useState } from '#imports'
 
 import {
-  createConvexQueryState,
   useConvexQuery,
   type UseConvexQueryOptions,
 } from '../../src/runtime/composables/useConvexQuery'
+import { createConvexQueryState } from '../../src/runtime/composables/internal/query-runtime'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { waitFor } from '../support/nuxt/wait-for'

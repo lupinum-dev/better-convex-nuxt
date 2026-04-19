@@ -4,13 +4,13 @@ import { ref } from 'vue'
 import type { MaybeRefOrGetter } from 'vue'
 
 import {
-  createConvexPaginatedQueryState,
   useConvexPaginatedQuery,
   type PaginatedQueryArgs,
   type PaginatedQueryReference,
   type PaginatedQueryItem,
   type UseConvexPaginatedQueryOptions,
 } from '../../src/runtime/composables/useConvexPaginatedQuery'
+import { createConvexPaginatedQueryState } from '../../src/runtime/composables/internal/pagination-runtime'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { waitFor } from '../support/nuxt/wait-for'

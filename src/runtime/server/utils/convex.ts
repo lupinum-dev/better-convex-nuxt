@@ -12,6 +12,11 @@ import {
   type FunctionLikeArgs,
   type FunctionLikeReturnType,
 } from '../../utils/convex-shared.js'
+import {
+  getEventObservationState,
+  sanitizeCorrelationId,
+  type EventObservationState,
+} from '../../utils/observability/envelope.js'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
@@ -28,36 +33,6 @@ interface ServerConvexErrorContext {
   authMode: ConvexServerAuthMode
 }
 
-type EventObservationState = {
-  correlationId?: string
-  originTransport?: 'browser' | 'nuxt-server' | 'convex' | 'mcp' | 'service' | 'webhook'
-  requestId?: string
-}
-
-function getEventObservationState(eventContext: Record<string, unknown>): EventObservationState {
-  const raw = eventContext.__trellis
-  if (typeof raw !== 'object' || raw === null) {
-    return {}
-  }
-
-  const state = raw as Record<string, unknown>
-  const originTransport =
-    state.originTransport === 'browser' ||
-    state.originTransport === 'nuxt-server' ||
-    state.originTransport === 'convex' ||
-    state.originTransport === 'mcp' ||
-    state.originTransport === 'service' ||
-    state.originTransport === 'webhook'
-      ? state.originTransport
-      : undefined
-
-  return {
-    ...(typeof state.correlationId === 'string' ? { correlationId: state.correlationId } : {}),
-    ...(typeof state.requestId === 'string' ? { requestId: state.requestId } : {}),
-    ...(originTransport ? { originTransport } : {}),
-  }
-}
-
 function readEventHeader(event: H3Event, name: string): string | undefined {
   if (event.headers && typeof event.headers.get === 'function') {
     return event.headers.get(name) ?? undefined
@@ -69,12 +44,6 @@ function readEventHeader(event: H3Event, name: string): string | undefined {
   if (typeof value === 'string') return value
   if (Array.isArray(value)) return value.find((entry): entry is string => typeof entry === 'string')
   return undefined
-}
-
-function sanitizeCorrelationId(value: string | undefined): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const sanitized = value.replace(/[^\x20-\x7E]+/g, '').trim().slice(0, 256)
-  return sanitized.length > 0 ? sanitized : undefined
 }
 
 export interface ServerConvexOptions {

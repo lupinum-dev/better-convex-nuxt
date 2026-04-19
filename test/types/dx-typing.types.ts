@@ -17,8 +17,6 @@ import { createConfiguredPermissionsComposables } from '../../src/runtime/compos
 import { defineTool } from '../../src/runtime/mcp'
 import { createTestContext } from '../../src/runtime/testing'
 import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
-import type { Visibility } from '../../src/runtime/visibility'
-import { applyVisibility, defineVisibility } from '../../src/runtime/visibility'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -41,9 +39,6 @@ type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
 deny('Blocked', { source: 'dx-typing' })
 enforce(null, 'Admin page', false)
 verifyTrustedCallerKey('a', 'b')
-
-const visibility = defineVisibility(async () => [{ _id: '1' }])
-void applyVisibility(visibility, { userId: 'u1' }, {} as never)
 
 type PermissionContext = {
   role: 'owner' | 'member'
@@ -151,9 +146,6 @@ type _genericGuardPermissionKey = Assert<
 
 const _identity = {} as AuthIdentity | null
 void _identity
-const _visibility = {} as Visibility<{ _id: string }, { userId: string }>
-void _visibility
-
 const toolSchema = defineArgs({
   args: {},
 })

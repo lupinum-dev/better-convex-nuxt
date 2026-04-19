@@ -2,24 +2,14 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import type { MaybeRefOrGetter } from 'vue'
 
 import {
-  createConvexQueryState,
   executeConvexQuery,
-  executeQueryHttp,
-  executeQueryViaSubscription,
-  getQueryKey,
   useConvexQuery as useRuntimeConvexQuery,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,
 } from './internal/query-runtime.js'
 
-export {
-  createConvexQueryState,
-  executeConvexQuery,
-  executeQueryHttp,
-  executeQueryViaSubscription,
-  getQueryKey,
-}
+export { executeConvexQuery }
 
 export type { UseConvexQueryData, UseConvexQueryOptions, UseConvexQueryReturn }
 

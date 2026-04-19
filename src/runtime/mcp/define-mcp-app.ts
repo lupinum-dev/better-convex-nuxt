@@ -29,6 +29,11 @@ import {
   type TrellisWideSummary,
   type TrellisObservabilityOptions,
 } from '../utils/observability.js'
+import {
+  getEventObservationState,
+  sanitizeCorrelationId,
+  type EventObservationState,
+} from '../utils/observability/envelope.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { signConfirmationToken, verifyConfirmationToken } from './confirmation-token.js'
 import { defineTool } from './define-convex-tool.js'
@@ -76,25 +81,6 @@ type ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime> = {
   correlationId: string
   requestId: string
   wideSummary: TrellisWideSummary
-}
-
-type EventObservationState = {
-  correlationId?: string
-  originTransport?: 'browser' | 'nuxt-server' | 'convex' | 'mcp' | 'service' | 'webhook'
-  requestId?: string
-}
-
-function getEventObservationState(eventContext: Record<string, unknown>): EventObservationState {
-  const raw = eventContext.__trellis
-  if (typeof raw !== 'object' || raw === null) {
-    return {}
-  }
-
-  const state = raw as Record<string, unknown>
-  return {
-    ...(typeof state.correlationId === 'string' ? { correlationId: state.correlationId } : {}),
-    ...(typeof state.requestId === 'string' ? { requestId: state.requestId } : {}),
-  }
 }
 
 export interface DefineMcpAppOptions<
@@ -287,12 +273,6 @@ function defaultTenantKey(principal: unknown): string {
   }
 
   return 'global'
-}
-
-function sanitizeCorrelationId(value: string | null | undefined): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const sanitized = value.replace(/[^\x20-\x7E]+/g, '').trim().slice(0, 256)
-  return sanitized.length > 0 ? sanitized : undefined
 }
 
 function normalizePreviewDisplay(raw: string | PreviewResult): PreviewResult {

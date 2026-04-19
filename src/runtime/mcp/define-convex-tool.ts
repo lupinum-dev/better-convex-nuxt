@@ -19,8 +19,7 @@ import {
 } from '../server/utils/convex.js'
 import { toConvexError } from '../utils/call-result.js'
 import type { SchemaFieldMeta } from '../utils/define-convex-schema.js'
-import type { ConvexToolOperation } from '../utils/types.js'
-import { cleanErrorMessage, inferCategoryFromMessage } from './error-helpers.js'
+import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
 import { withSummary, wrapError, wrapPreview, wrapSuccess } from './result-envelope.js'
 import type {
@@ -283,6 +282,36 @@ function injectServiceActorArgs(
       userId: actor.userId,
     },
   }
+}
+
+function cleanErrorMessage(message: string): string {
+  let cleaned = message
+    .replace(/^\[server\w+\]\s*(?:Request failed for \S+ via \S+\.\s*)?/, '')
+    .replace(/\[Request ID: [^\]]+\]\s*/g, '')
+    .replace(/\n\s+at .+/g, '')
+    .trim()
+
+  const uncaughtMatch = cleaned.match(/(?:Uncaught )?Error:\s*(.+)/)
+  if (uncaughtMatch) {
+    cleaned = uncaughtMatch[1]!.trim()
+  }
+
+  return cleaned || message
+}
+
+function inferCategoryFromMessage(message: string): ConvexErrorCategory | undefined {
+  const lower = message.toLowerCase()
+  if (
+    lower.includes('unauthorized') ||
+    lower.includes('unauthenticated') ||
+    lower.includes('forbidden')
+  ) {
+    return 'auth'
+  }
+  if (lower.includes('not found')) return 'not_found'
+  if (lower.includes('rate limit') || lower.includes('too many')) return 'rate_limit'
+  if (lower.includes('validation') || lower.includes('invalid arg')) return 'validation'
+  return undefined
 }
 
 // ============================================================================

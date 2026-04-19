@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
 import { defineArgs } from '../../src/runtime/schema'
+import {
+  serverConvexAction,
+  serverConvexMutation,
+  serverConvexQuery,
+} from '../../src/runtime/server/utils/convex'
 
 const { useEventMock } = vi.hoisted(() => ({
   useEventMock: vi.fn(),
@@ -117,6 +122,100 @@ describe('defineTool visibility and auth parity', () => {
         error: {
           category: 'auth',
           message: 'Forbidden.',
+        },
+      },
+    })
+  })
+})
+
+describe('defineTool error handling', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useEventMock.mockReturnValue(createEvent({ role: 'member', userId: 'member-1' }))
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
+  })
+
+  it('cleans internal transport noise from convex errors', async () => {
+    vi.mocked(serverConvexQuery).mockRejectedValueOnce(
+      new Error(
+        '[serverConvexQuery] Request failed for posts:list via http://localhost/api. ' +
+          'Server Error\nUncaught Error: Unauthorized access\n    at Object.handler (file.ts:10:5)',
+      ),
+    )
+
+    const tool = defineTool({
+      schema: emptySchema,
+      name: 'query-tool',
+      auth: 'required',
+      handler: async (_args, ctx) => {
+        await ctx.query('posts:list' as never)
+        return ctx.ok({ ok: true })
+      },
+    })
+
+    const result = await tool.handler({} as never, {} as never)
+
+    expect(result).toMatchObject({
+      isError: true,
+      structuredContent: {
+        ok: false,
+        error: {
+          message: 'Unauthorized access',
+          category: 'auth',
+        },
+      },
+    })
+  })
+
+  it('infers categories from cleaned messages when convex metadata is missing', async () => {
+    vi.mocked(serverConvexMutation).mockRejectedValueOnce(new Error('[Request ID: abc-123] Not found'))
+
+    const tool = defineTool({
+      schema: emptySchema,
+      name: 'mutation-tool',
+      auth: 'required',
+      handler: async (_args, ctx) => {
+        await ctx.mutation('posts:create' as never)
+        return ctx.ok({ ok: true })
+      },
+    })
+
+    const result = await tool.handler({} as never, {} as never)
+
+    expect(result).toMatchObject({
+      isError: true,
+      structuredContent: {
+        ok: false,
+        error: {
+          message: 'Not found',
+          category: 'not_found',
+        },
+      },
+    })
+  })
+
+  it('preserves unknown category when no message heuristic applies', async () => {
+    vi.mocked(serverConvexAction).mockRejectedValueOnce(new Error('Something unexpected happened'))
+
+    const tool = defineTool({
+      schema: emptySchema,
+      name: 'action-tool',
+      auth: 'required',
+      handler: async (_args, ctx) => {
+        await ctx.action('posts:sync' as never)
+        return ctx.ok({ ok: true })
+      },
+    })
+
+    const result = await tool.handler({} as never, {} as never)
+
+    expect(result).toMatchObject({
+      isError: true,
+      structuredContent: {
+        ok: false,
+        error: {
+          message: 'Something unexpected happened',
+          category: 'unknown',
         },
       },
     })

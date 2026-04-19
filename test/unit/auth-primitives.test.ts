@@ -18,7 +18,6 @@ import {
 } from '../../src/runtime/auth'
 import { isAnonymousPrincipal } from '../../src/runtime/auth/principal-state'
 import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
-import { applyVisibility, defineVisibility, getVisibilityQuery } from '../../src/runtime/visibility'
 
 type ConvexErrorData = {
   category?: string
@@ -210,42 +209,5 @@ describe('auth primitives', () => {
       organizationId: 'org-1',
       name: 'Acme',
     })
-  })
-
-  it('applies visibility queries and arrays', async () => {
-    const visibility = defineVisibility(async () => [{ _id: '1' }])
-    const rows = await applyVisibility(visibility, { userId: 'a' }, {} as never)
-    expect(rows).toEqual([{ _id: '1' }])
-
-    const queryVisibility = defineVisibility(async () => ({
-      collect: async () => [{ _id: '2' }],
-    }))
-    const collected = await applyVisibility(queryVisibility, { userId: 'a' }, {} as never)
-    expect(collected).toEqual([{ _id: '2' }])
-  })
-
-  it('getVisibilityQuery returns the raw query without collecting', async () => {
-    const mockQuery = { collect: async () => [{ _id: '1' }] }
-    const visibility = defineVisibility(async () => mockQuery)
-
-    const result = await getVisibilityQuery(visibility, { userId: 'a' }, {} as never)
-    // Should return the query object itself, not the collected results
-    expect(result).toBe(mockQuery)
-    expect(Array.isArray(result)).toBe(false)
-  })
-
-  it('getVisibilityQuery returns array when resolver returns array', async () => {
-    const items = [{ _id: '1' }, { _id: '2' }]
-    const visibility = defineVisibility(async () => items)
-
-    const result = await getVisibilityQuery(visibility, { userId: 'a' }, {} as never)
-    expect(result).toEqual(items)
-    expect(Array.isArray(result)).toBe(true)
-  })
-
-  it('getVisibilityQuery returns null for unauthenticated principal', async () => {
-    const visibility = defineVisibility(async () => [])
-    const result = await getVisibilityQuery(visibility, null, {} as never)
-    expect(result).toBeNull()
   })
 })
