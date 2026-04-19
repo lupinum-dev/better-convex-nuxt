@@ -14,7 +14,7 @@ export type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult }
 // Query Types
 // ============================================================================
 
-export type QueryStatus = 'pending' | 'success' | 'error' | 'idle'
+export type DevtoolsQueryStatus = 'pending' | 'success' | 'error' | 'idle'
 export type DataSource = 'ssr' | 'websocket' | 'cache'
 
 export interface QueryOptions {
@@ -28,7 +28,7 @@ export interface QueryRegistryEntry {
   id: string
   name: string
   args: unknown
-  status: QueryStatus
+  status: DevtoolsQueryStatus
   dataSource: DataSource
   data: unknown
   error?: string
@@ -103,7 +103,7 @@ export interface JWTClaims {
   [key: string]: unknown
 }
 
-export interface ConvexUser {
+export interface DevtoolsConvexUser {
   id: string
   name?: string | null
   email?: string | null
@@ -116,7 +116,7 @@ export interface ConvexUser {
 export interface AuthState {
   isAuthenticated: boolean
   isPending: boolean
-  user: ConvexUser | null
+  user: DevtoolsConvexUser | null
   tokenStatus: 'valid' | 'expired' | 'none' | 'unknown'
 }
 
@@ -162,7 +162,7 @@ export interface DecisionTraceState {
 // Connection State Types
 // ============================================================================
 
-export interface ConnectionState {
+export interface DevtoolsConnectionState {
   isConnected: boolean
   hasEverConnected: boolean
   connectionRetries: number
@@ -202,7 +202,7 @@ export interface ConvexDevtoolsSnapshot {
   events: DevtoolsEvent[]
   observations: TrellisObservationEvent[]
   authState: EnhancedAuthState
-  connectionState: ConnectionState
+  connectionState: DevtoolsConnectionState
   authWaterfall: AuthWaterfall | null
   permissionContextState: PermissionContextState
   authBootstrapState: AuthBootstrapState

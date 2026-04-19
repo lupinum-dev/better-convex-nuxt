@@ -158,3 +158,5 @@ function assertNoReservedExtensionKeys(extra: PermissionContextExtensionShape) {
     }
   }
 }
+
+export type { PermissionFlags }

@@ -119,6 +119,9 @@ const _invalidGuardOptions: GuardOptions = { permission: 'task.delete' }
 void _invalidGuardOptions
 
 type GenericPermissionContext = {
+  userId: string | null
+  tenantId: string | null
+  role: string | null
   can: Record<string, boolean>
 }
 

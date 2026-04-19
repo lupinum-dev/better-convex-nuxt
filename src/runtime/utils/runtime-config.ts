@@ -1,6 +1,10 @@
 import { useRuntimeConfig } from '#imports'
 
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config.js'
+import {
+  normalizeAuthCacheTtl,
+  normalizePermissionQueryPath,
+} from './config-normalization.js'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
 import {
   normalizeObservabilityConfig,
@@ -33,14 +37,6 @@ export interface NormalizedConvexRuntimeConfig {
   query: ConvexRuntimeQueryDefaults
   upload: { maxConcurrent: number }
   observability: NormalizedTrellisObservabilityConfig
-}
-
-function normalizeAuthCacheTtl(input: unknown): number {
-  if (typeof input !== 'number' || !Number.isFinite(input)) return 60
-  const normalized = Math.trunc(input)
-  if (normalized < 1) return 1
-  if (normalized > 60) return 60
-  return normalized
 }
 
 function isNormalizedObservabilityConfig(
@@ -117,14 +113,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       },
     },
     permissions: {
-      query:
-        typeof raw?.permissions === 'string'
-          ? raw.permissions
-          : typeof raw?.permissions === 'object' &&
-              raw.permissions !== null &&
-              typeof (raw.permissions as Record<string, unknown>).query === 'string'
-            ? ((raw.permissions as Record<string, unknown>).query as string)
-            : null,
+      query: normalizePermissionQueryPath(raw?.permissions),
     },
     query: {
       server: queryRaw?.server !== false,

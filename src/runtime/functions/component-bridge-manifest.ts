@@ -84,12 +84,11 @@ export function renderComponentBridgeFile(
   ].join('\n')
 }
 
-const legacyGinkoHeaderPattern = /^\/\/ @ginko-cms-version: .*\n/
 const trellisMetadataPattern =
   /^\/\/ @trellis-bridge-package: .*\n\/\/ @trellis-bridge-version: .*\n/
 
 export function stripComponentBridgeMetadata(content: string): string {
-  return content.replace(trellisMetadataPattern, '').replace(legacyGinkoHeaderPattern, '')
+  return content.replace(trellisMetadataPattern, '')
 }
 
 export function ensureBridgeImport(source: string, importLine: string): string {

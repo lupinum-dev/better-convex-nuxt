@@ -42,8 +42,6 @@ describe('auth entrypoint exports', () => {
     expect(trustedCallerApi).toHaveProperty('withTrustedCaller')
     expect(trustedCallerApi).toHaveProperty('setTrustedCallerContext')
     expect(trustedCallerApi).toHaveProperty('clearTrustedCallerContext')
-    expect(trustedCallerApi).toHaveProperty('withTrustedCallerHandler')
-
     expect(visibilityApi).toHaveProperty('defineCapabilities')
     expect(visibilityApi).toHaveProperty('defineRedaction')
   })

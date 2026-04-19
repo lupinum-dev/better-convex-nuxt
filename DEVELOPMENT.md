@@ -1,6 +1,6 @@
 # Development Setup
 
-This file is the maintainer source of truth for Trellis-local development.
+This file is an operational appendix for Trellis-local development.
 
 ## Repo Surfaces
 
@@ -47,38 +47,6 @@ pnpm docs:api-surface
 - `pnpm release:verify` runs the maintainer release gate without publishing anything.
 - `pnpm release` follows the official Nuxt module starter release flow: verify, changelog, publish, push tags.
 - The `vitest/environments` deprecation warning currently comes from the Nuxt/Vitest stack, not a repo-local Trellis import. Recheck on dependency upgrades, especially around `@nuxt/test-utils`.
-
-## Maintenance Rules
-
-This repo is maintained as a long-lived platform. Default rules:
-
-1. Protect the public Nuxt + Convex + Better Auth path first.
-2. Prefer `delete > simplify > replace > add`.
-3. Do not add new top-level public runtime surfaces unless one replaces an existing surface.
-4. Extract pure helpers before adding reactive orchestration.
-5. Advanced features must remain isolated from core behavior when disabled.
-
-When touching public APIs, update all of:
-
-- generated API surface
-- `docs/content/docs/12.api-reference/0.which-api.md`
-- `docs/content/docs/1.guide/7.common-patterns.md`
-- the relevant contract tests
-
-When adding a new abstraction, it must do at least one of:
-
-- reduce LOC in a hotspot
-- improve direct testability
-- remove duplication across multiple call paths
-
-If it does none of those, do not add it.
-
-## Release Discipline
-
-- patch releases prefer bug fixes, simplifications, docs, and tooling hardening
-- minor releases that expand surface must also ship examples and tests
-- major releases require an explicit migration document
-- `trellis doctor` should stay focused on deployment and auth footguns, not style preferences
 
 ## Hotspots
 

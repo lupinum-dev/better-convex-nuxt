@@ -10,7 +10,7 @@ Use `examples/` when you want maintained public reference apps. Use `examples-ne
 
 | Example | Status | Why it exists |
 | --- | --- | --- |
-| `01-kanban-workspace` | Runnable experimental app | Pressure-tests multi-workspace boards, ordering, operations, MCP, and observability |
+| `01-kanban-workspace` | Archived legacy app | Older experimental app kept only as migration input, not as a maintained contract |
 | `02-product-issue-tracker` | Concept brief | Pressures workflow/state-machine-heavy product execution software |
 | `03-docs-wiki` | Concept brief | Pressures nested visibility, sharing, and document-aware agent access |
 | `04-community-courses` | Concept brief | Pressures auth, membership, billing-aware access, and moderation |
@@ -20,7 +20,7 @@ Use `examples/` when you want maintained public reference apps. Use `examples-ne
 | `08-commerce-backoffice` | Concept brief | Pressures audit-heavy destructive actions and webhook-driven state |
 | `09-agent-operator-console` | Concept brief | Pressures the human-plus-agent operating model directly |
 
-Only `01-kanban-workspace` is runnable today. The rest are intentionally brief until they earn real implementation time.
+No entry in this folder is part of the maintained public contract. `01-kanban-workspace` is archived migration input, and the rest are intentionally brief until they earn real implementation time.
 
 ## Portfolio rules
 
@@ -43,20 +43,6 @@ If an entry does not pressure the framework, it is marketing, not validation.
 - `08` is the maintained component-boundary reference
 
 `examples-next/` is not replacing that set yet. It is the future portfolio under evaluation.
-
-## Script contract
-
-The one runnable app here follows the same narrow script contract as the maintained examples:
-
-- `pnpm dev`
-- `pnpm dev:nuxt`
-- `pnpm build`
-- `pnpm test`
-- `pnpm typecheck`
-- `pnpm convex:dev`
-- `pnpm convex:codegen`
-
-If an experimental app needs a broader script vocabulary, that is a signal to simplify the app or promote a new shared workflow intentionally.
 
 ## Official product surface
 

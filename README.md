@@ -105,8 +105,8 @@ Read `01 → 02 → 03` as the ladder.
 
 `examples-next` is not part of the canonical public learning path. Today it is:
 
-- one runnable experimental app: `01-kanban-workspace`
-- a set of concept briefs for future example families: `02–09`
+- archived and exploratory material that may inform future example families
+- a set of concept briefs and legacy inputs, not maintained public references
 
 Future starter families are intentionally not promised until they ship. The public Trellis contract today is still the three starters plus optional MCP on `workspace`.
 

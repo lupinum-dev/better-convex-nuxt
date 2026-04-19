@@ -322,13 +322,6 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     }
   }
 
-  function shouldRetryWithoutTrustedEnvelope(error: unknown): boolean {
-    return (
-      error instanceof Error &&
-      /Validator error: Unexpected field `_trustedCaller(?:Key)?`/.test(error.message)
-    )
-  }
-
   const client = {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
@@ -339,16 +332,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
         ref: Query,
         args?: OptionalRestArgs<Query>[0],
       ) => Promise<FunctionReturnType<Query>>
-      try {
-        return await query(fn, payload as OptionalRestArgs<Query>[0])
-      } catch (error) {
-        if (!shouldRetryWithoutTrustedEnvelope(error)) throw error
-        const fallback = withPrincipalArgs(
-          args[0] as Record<string, unknown> | undefined,
-          'plain',
-        )
-        return await query(fn, fallback as OptionalRestArgs<Query>[0])
-      }
+      return await query(fn, payload as OptionalRestArgs<Query>[0])
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
@@ -359,16 +343,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
         ref: Mutation,
         args?: OptionalRestArgs<Mutation>[0],
       ) => Promise<FunctionReturnType<Mutation>>
-      try {
-        return await mutation(fn, payload as OptionalRestArgs<Mutation>[0])
-      } catch (error) {
-        if (!shouldRetryWithoutTrustedEnvelope(error)) throw error
-        const fallback = withPrincipalArgs(
-          args[0] as Record<string, unknown> | undefined,
-          'plain',
-        )
-        return await mutation(fn, fallback as OptionalRestArgs<Mutation>[0])
-      }
+      return await mutation(fn, payload as OptionalRestArgs<Mutation>[0])
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
@@ -379,16 +354,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
         ref: Action,
         args?: OptionalRestArgs<Action>[0],
       ) => Promise<FunctionReturnType<Action>>
-      try {
-        return await action(fn, payload as OptionalRestArgs<Action>[0])
-      } catch (error) {
-        if (!shouldRetryWithoutTrustedEnvelope(error)) throw error
-        const fallback = withPrincipalArgs(
-          args[0] as Record<string, unknown> | undefined,
-          'plain',
-        )
-        return await action(fn, fallback as OptionalRestArgs<Action>[0])
-      }
+      return await action(fn, payload as OptionalRestArgs<Action>[0])
     },
   }
 

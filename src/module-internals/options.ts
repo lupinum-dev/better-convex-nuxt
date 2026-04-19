@@ -195,21 +195,6 @@ export function normalizeAuthShorthand(auth: AuthOptions | boolean | undefined):
   return auth
 }
 
-export function normalizeAuthCacheTtl(input: unknown): number {
-  if (typeof input !== 'number' || !Number.isFinite(input)) return 60
-  const normalized = Math.trunc(input)
-  if (normalized < 1) return 1
-  if (normalized > 60) return 60
-  return normalized
-}
-
-export function normalizeConfiguredFunctionPath(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const normalized = value.trim()
-  if (!normalized) return undefined
-  return normalized
-}
-
 export function createConfiguredFunctionError(
   kind: 'permissions.query',
   configuredPath: string,

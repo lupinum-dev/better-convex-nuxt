@@ -3,9 +3,15 @@ import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
 import schema from './schema'
+import {
+  INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY,
+  withTrustedPrincipal,
+} from './test.helpers'
 import { modules } from './test.setup'
 
 describe('organizations', () => {
+  process.env.CONVEX_TRUSTED_CALLER_KEY = INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY
+
   it('assigns the current browser-auth user as owner when creating an organization', async () => {
     const t = convexTest(schema, modules)
 
@@ -53,14 +59,19 @@ describe('organizations', () => {
       })
     })
 
-    const orgId = await t.mutation(api.organizations.create, {
-      name: 'Service Org',
-      slug: 'service-org',
-      principal: {
-        kind: 'user',
-        userId: 'service_user',
-      },
-    })
+    const orgId = await t.mutation(
+      api.organizations.create,
+      withTrustedPrincipal(
+        {
+          name: 'Service Org',
+          slug: 'service-org',
+        },
+        {
+          kind: 'user',
+          userId: 'service_user',
+        },
+      ),
+    )
 
     const user = await t.run(async (ctx) => {
       return await ctx.db
@@ -79,14 +90,19 @@ describe('organizations', () => {
     const t = convexTest(schema, modules)
 
     await expect(
-      t.mutation(api.organizations.create, {
-        name: 'Missing User Org',
-        slug: 'missing-user-org',
-        principal: {
-          kind: 'user',
-          userId: 'missing_user',
-        },
-      }),
+      t.mutation(
+        api.organizations.create,
+        withTrustedPrincipal(
+          {
+            name: 'Missing User Org',
+            slug: 'missing-user-org',
+          },
+          {
+            kind: 'user',
+            userId: 'missing_user',
+          },
+        ),
+      ),
     ).rejects.toThrow('Forbidden: Create organization')
 
     const organizations = await t.query(api.organizations.list, {})

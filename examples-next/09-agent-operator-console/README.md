@@ -6,10 +6,9 @@ Inspired by: **internal AI ops / automation consoles**
 
 ## Why this example exists
 
-This is the example that proves Trellis is truly agent-first, not just agent-compatible.
+This concept pressures the human-plus-agent operating model directly.
 
-It should not be a toy MCP demo.
-It should be a real operator app where:
+It should not collapse into a toy MCP demo. If implemented, it should be a real operator app where:
 
 - agents have tools
 - humans review or approve sensitive actions

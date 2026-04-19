@@ -1,6 +1,6 @@
 # Testing Guide
 
-This file covers the maintained test lanes and the internal harness role. For the shared local dev loop and root command map, use [CONTRIBUTING.md](../CONTRIBUTING.md) and [DEVELOPMENT.md](../DEVELOPMENT.md).
+This file covers only the maintained test lanes and the internal harness role. For the shared local dev loop and root command map, use [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Test Layout
 

@@ -69,8 +69,10 @@ function readJsonIfExists(path: string): PackageJson | null {
 
   try {
     return JSON.parse(text) as PackageJson
-  } catch {
-    return null
+  } catch (error) {
+    throw new Error(
+      `Invalid JSON in ${path}: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
 }
 
@@ -348,7 +350,7 @@ export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
   }
 
   return project.sourceFiles.some((file) =>
-    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|withTrustedCallerHandler\s*\(|trustedCallerKey\b/.test(
+    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|trustedCallerKey\b/.test(
       file.text,
     ),
   )

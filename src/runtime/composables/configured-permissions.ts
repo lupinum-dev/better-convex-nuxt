@@ -2,23 +2,21 @@ import type { FunctionReference, FunctionReturnType } from 'convex/server'
 import { computed, watchEffect, type ComputedRef } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
-import { useRouter } from '#imports'
+import { useNuxtApp, useRouter } from '#imports'
 
 import type {
   PermissionLike,
   RegisteredProjectedPermissionKey,
 } from '../auth/define-permission.js'
+import type { PermissionContextBase } from '../auth/define-permission-context.js'
 import { resolvePermissionKey } from '../auth/define-permission.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
+import { hasConvexAuthRuntime } from './internal/auth-runtime.js'
 import { createConvexQueryState } from './internal/query-runtime.js'
 import { useConvexAuth } from './useConvexAuth.js'
 
-export type AuthContext = {
-  role?: string | null
+export type AuthContext = PermissionContextBase<Record<string, boolean>> & {
   plan?: string | null
-  userId?: string | null
-  tenantId?: string | null
-  can?: Record<string, boolean> | null
   [key: string]: unknown
 }
 
@@ -76,14 +74,9 @@ function usePermissionContextState<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
 >(query: Query, configuredQueryName: string) {
-  let authState: ReturnType<typeof useConvexAuth> | null = null
+  const nuxtApp = useNuxtApp()
+  const authState = hasConvexAuthRuntime(nuxtApp) ? useConvexAuth() : null
   const authBootstrapState = useAuthBootstrapDevtoolsState()
-
-  try {
-    authState = useConvexAuth()
-  } catch {
-    authState = null
-  }
 
   const shouldWaitForBootstrap = computed<boolean>(() => {
     if (!authState?.isAuthenticated.value) return false

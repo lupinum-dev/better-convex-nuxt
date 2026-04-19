@@ -80,21 +80,6 @@ export function getForwardedPrincipal<TPrincipal>(
   return (args as Record<string, unknown>)[field] as TPrincipal | undefined
 }
 
-/** Wrap a handler with trusted-caller extraction and cleanup. */
-export function withTrustedCallerHandler<Args, Return>(
-  handler: (ctx: unknown, args: Args) => Promise<Return>,
-  expectedKeyOverride?: string,
-): (ctx: unknown, args: Args) => Promise<Return> {
-  return async (ctx, args) => {
-    setTrustedCallerContext(ctx, args, expectedKeyOverride)
-    try {
-      return await handler(ctx, args)
-    } finally {
-      clearTrustedCallerContext(ctx)
-    }
-  }
-}
-
 /** Compare a provided trusted-caller key with the expected shared secret. */
 export function verifyTrustedCallerKey(provided: string, expected: string): boolean {
   return verifyTrustedCallerKeyInternal(provided, expected)

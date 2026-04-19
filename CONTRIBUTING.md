@@ -75,21 +75,23 @@ pnpm run check
 
 ## Public Package Surface
 
-The generated API reference at [`docs/content/docs/13.api-reference/7.api-surface.md`](./docs/content/docs/13.api-reference/7.api-surface.md) is the canonical inventory. The maintained npm subpaths are:
+The generated API reference at [`docs/content/docs/13.api-reference/7.api-surface.md`](./docs/content/docs/13.api-reference/7.api-surface.md) is the canonical inventory.
 
-- `@lupinum/trellis`: Nuxt module entry and root runtime surface
-- `@lupinum/trellis/auth`: Convex auth, guards, permissions, and auth config primitives
-- `@lupinum/trellis/args`: shared argument-schema helpers
-- `@lupinum/trellis/composables`: client composables for queries, mutations, uploads, and auth
-- `@lupinum/trellis/functions`: backend authoring primitives such as `defineTrellis(...)` and operations
-- `@lupinum/trellis/mcp`: MCP app and tool primitives
-- `@lupinum/trellis/server`: server-side Convex caller and Nitro helpers
-- `@lupinum/trellis/testing`: supported public testing helpers
-- `@lupinum/trellis/trusted-caller`: trusted-caller primitives
-- `@lupinum/trellis/visibility`: per-record capability/redaction helpers
-- `@lupinum/trellis/eslint`: ESLint integration
+Use this shortened maintainer summary only:
 
-If a change touches exports, keep the package surface and the generated API surface page aligned in the same PR.
+- root module
+- `auth`
+- `args`
+- `composables`
+- `functions`
+- `mcp`
+- `server`
+- `testing`
+- `trusted-caller`
+- `visibility`
+- `eslint`
+
+If a change touches exports, update the generated API surface page in the same PR instead of restating the inventory here.
 
 ## Publish-Surface Invariants
 

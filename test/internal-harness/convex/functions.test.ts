@@ -4,10 +4,17 @@ import { describe, expect, it } from 'vitest'
 import { withObservationEnvelope } from '../../../src/runtime/utils/observability'
 import { api } from './_generated/api'
 import schema from './schema'
-import { setupTestWithMultipleUsers, setupTestWithTwoOrgs } from './test.helpers'
+import {
+  INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY,
+  setupTestWithMultipleUsers,
+  setupTestWithTwoOrgs,
+  withTrustedPrincipal,
+} from './test.helpers'
 import { modules } from './test.setup'
 
 describe('defineTrellis', () => {
+  process.env.CONVEX_TRUSTED_CALLER_KEY = INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY
+
   it('does not resolve the actor when a handler never calls ctx.actor()', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
@@ -33,9 +40,10 @@ describe('defineTrellis', () => {
     })
 
     await expect(
-      t.query(api.functionsProbe.actorMemoization, {
-        principal: { kind: 'user', userId: 'memo_user' },
-      }),
+      t.query(
+        api.functionsProbe.actorMemoization,
+        withTrustedPrincipal({}, { kind: 'user', userId: 'memo_user' }),
+      ),
     ).resolves.toMatchObject({
       before: 0,
       after: 1,
@@ -48,9 +56,10 @@ describe('defineTrellis', () => {
     })
 
     await expect(
-      t.query(api.functionsProbe.actorMemoization, {
-        principal: { kind: 'user', userId: 'memo_user' },
-      }),
+      t.query(
+        api.functionsProbe.actorMemoization,
+        withTrustedPrincipal({}, { kind: 'user', userId: 'memo_user' }),
+      ),
     ).resolves.toMatchObject({
       before: 1,
       after: 2,
@@ -63,10 +72,10 @@ describe('defineTrellis', () => {
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
 
     await expect(
-      t.query(api.functionsProbe.echoedArgs, {
-        title: 'hello',
-        principal: { kind: 'user', userId: 'echo_user' },
-      }),
+      t.query(
+        api.functionsProbe.echoedArgs,
+        withTrustedPrincipal({ title: 'hello' }, { kind: 'user', userId: 'echo_user' }),
+      ),
     ).resolves.toEqual({
       title: 'hello',
     })

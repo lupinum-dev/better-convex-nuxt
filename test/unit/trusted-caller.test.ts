@@ -7,7 +7,6 @@ import {
   getTrustedCaller,
   setTrustedCallerContext,
   withTrustedCaller,
-  withTrustedCallerHandler,
 } from '../../src/runtime/trusted-caller'
 
 describe('trusted caller helpers', () => {
@@ -106,42 +105,6 @@ describe('trusted caller helpers', () => {
         _trustedCallerExpectedKey: '   ',
       }),
     ).toEqual({ userId: 'u_env' })
-  })
-
-  it('wraps handlers so trusted caller payload stays out of actor call sites', async () => {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-key'
-
-    const handler = withTrustedCallerHandler(async (ctx) => getTrustedCaller(ctx))
-
-    await expect(
-      handler(
-        {},
-        {
-          _trustedCallerKey: 'trusted-key',
-          _trustedCaller: {
-            userId: 'u_wrapped',
-          },
-        },
-      ),
-    ).resolves.toEqual({ userId: 'u_wrapped' })
-
-    expect(getTrustedCaller({})).toBeNull()
-  })
-
-  it('wraps handlers with an explicit expected key override', async () => {
-    const handler = withTrustedCallerHandler(async (ctx) => getTrustedCaller(ctx), 'component-key')
-
-    await expect(
-      handler(
-        {},
-        {
-          _trustedCallerKey: 'component-key',
-          _trustedCaller: {
-            userId: 'u_override',
-          },
-        },
-      ),
-    ).resolves.toEqual({ userId: 'u_override' })
   })
 
   it('rejects forwarded principal reads on untrusted paths', () => {

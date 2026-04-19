@@ -33,8 +33,10 @@ export function readPermissionMetadata(cwd: string): PermissionCodegenMetadata |
 
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as PermissionCodegenMetadata
-  } catch {
-    return null
+  } catch (error) {
+    throw new Error(
+      `Invalid permission metadata at ${path}: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
 }
 

@@ -214,6 +214,10 @@ export function getSharedAuthEngine(nuxtApp: object): SharedAuthEngine {
   return engine
 }
 
+export function hasSharedAuthEngine(nuxtApp: object): boolean {
+  return Boolean((nuxtApp as NuxtAppStore)[AUTH_ENGINE_KEY])
+}
+
 export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): SharedAuthEngine {
   const {
     nuxtApp,

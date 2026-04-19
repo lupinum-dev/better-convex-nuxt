@@ -6,7 +6,7 @@ Inspired by: **ginko-cms + consumer-site**
 
 ## Why this example exists
 
-This should become the canonical content example for Trellis because it proves a real two-surface architecture:
+This concept pressures a real two-surface architecture:
 
 - editorial app
 - consumer delivery site
@@ -46,4 +46,4 @@ Agents should be able to:
 
 ## Existing work to draw from
 
-This example should explicitly harvest patterns from the current `ginko-cms` and `consumer-site` worktrees rather than reinvent the domain from scratch.
+If this concept is implemented, it should harvest patterns from the current `ginko-cms` and `consumer-site` worktrees rather than reinvent the domain from scratch.

@@ -15,12 +15,12 @@ import type {
   MutationEntry,
   DevtoolsEvent,
   EnhancedAuthState,
-  ConnectionState,
+  DevtoolsConnectionState,
   AuthWaterfall,
   PermissionContextState,
   AuthBootstrapState,
   ConvexDevtoolsSnapshot,
-  ConvexUser as DevtoolsConvexUser,
+  DevtoolsConvexUser,
   JWTClaims,
   DecisionTraceState,
 } from './types.js'
@@ -81,7 +81,7 @@ export class ConvexDevtoolsStore {
     tokenStatus: 'none',
   }
 
-  connectionState: ConnectionState = {
+  connectionState: DevtoolsConnectionState = {
     isConnected: false,
     hasEverConnected: false,
     connectionRetries: 0,
@@ -251,7 +251,7 @@ export class ConvexDevtoolsStore {
     const hasEverConnected =
       this.connectionState.hasEverConnected || state.hasEverConnected || state.isWebSocketConnected
 
-    const nextConnectionState: ConnectionState = {
+    const nextConnectionState: DevtoolsConnectionState = {
       isConnected: state.isWebSocketConnected,
       hasEverConnected,
       connectionRetries: state.connectionRetries,

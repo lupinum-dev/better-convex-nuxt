@@ -2,9 +2,9 @@
 
 ## Purpose
 
-`examples-next/01-kanban-workspace` is the reference **stress-test example** for Trellis.
+`examples-next/01-kanban-workspace` is archived legacy material kept as migration input and design pressure, not as a maintained reference example.
 
-Its job is not to be a polished Trello clone. Its job is to prove that Trellis can support the hard parts of a Trello-style collaborative workspace app with:
+Its old job was to pressure-test Trellis against the hard parts of a Trello-style collaborative workspace app with:
 
 - real auth
 - explicit tenancy
@@ -15,11 +15,11 @@ Its job is not to be a polished Trello clone. Its job is to prove that Trellis c
 - first-class MCP agent integration
 - observability and auditability
 
-If this example is weak, incomplete, or artificially simplified, it stops being useful as a framework reference.
+It is no longer a framework reference. Use `examples/03-team-workspace`, `examples/04-saas-platform`, and `examples/07-mcp-reference` for maintained patterns.
 
 ## Product Goal
 
-Build a small but real Trello-style MVP:
+Historically, the example aimed to build a small but real Trello-style MVP:
 
 - users sign in
 - users belong to one or more workspaces
@@ -32,7 +32,7 @@ The example should feel like a minimal collaborative work app, not a toy CRUD pa
 
 ## Design Principles
 
-The example must follow these principles:
+These notes describe the archived target shape, not the current public Trellis contract:
 
 1. Hard cutovers over compatibility layers
 - Do not preserve old runtime shapes or keep dual paths just to smooth migration inside the example.

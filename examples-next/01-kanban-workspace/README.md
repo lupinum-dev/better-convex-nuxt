@@ -1,6 +1,6 @@
 # 01 Kanban Workspace
 
-Runnable experimental app. This is not a canonical public Trellis example yet.
+Archived legacy experimental app. This is not a maintained Trellis example and should be treated as migration input rather than a current reference.
 
 Inspired by: **Trello**
 
@@ -120,13 +120,9 @@ Observability is real, but this example now states the truth about proof:
 - repo-level Trellis tests cover MCP destructive confirmation and runtime observability guarantees
 - live `evlog` delivery across browser/backend/MCP still needs manual inspection while the app is running
 
-## Run it
+## Status
 
-1. Copy `.env.example` to `.env.local`
-2. `pnpm install`
-3. `pnpm dev`
-
-Use `pnpm convex:dev` and `pnpm dev:nuxt` only when you are debugging the launcher or the local backend separately.
+Do not treat this app as a supported example contract. The maintained public examples live under `examples/`.
 
 ## MCP Demo
 
@@ -199,17 +195,7 @@ Observability is the correlated runtime decision trail.
 
 ## Verification
 
-- `pnpm --dir examples-next/01-kanban-workspace typecheck`
-- `pnpm --dir examples-next/01-kanban-workspace test`
-
-`pnpm test` currently covers:
-
-- membership and role behavior
-- column/card reorder semantics, including insertion before another card
-- destructive board archive through the operation runtime
-- shared role/capability projection and explicit board-selection rules
-
-The MCP transport path is demonstrated manually above and covered by the repo-level Trellis MCP/runtime test suites, not by the example-local `vitest` run.
+This folder is archived legacy input, not a maintained example contract. Repo verification runs against the canonical `examples/` apps instead.
 
 ## Current caveat
 

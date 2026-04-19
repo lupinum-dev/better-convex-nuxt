@@ -6,7 +6,6 @@ import type {
   PartialObservationEvent,
   TrellisObservationContext,
   TrellisObservationEvent,
-  TrellisObservationFamily,
   TrellisObservationName,
 } from './types.js'
 import { alwaysOnEvents, criticalEvents, getObservationFamily, nonVerboseEvents } from './types.js'
@@ -182,8 +181,4 @@ export function createObservationEmitter(
         correlationId: next.correlationId ?? sharedCorrelationId,
       }),
   }
-}
-
-export function getObservationSampleFamily(name: TrellisObservationName): TrellisObservationFamily {
-  return getObservationFamily(name)
 }
