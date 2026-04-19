@@ -1,6 +1,6 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
-import type { TrellisDenialExplanation } from '../utils/observability.js'
+import type { TrellisDenialExplanation } from '../observability/index.js'
 import type { ConvexErrorCategory, ConvexErrorIssue } from '../utils/types.js'
 import type { PreviewResult } from './types.js'
 

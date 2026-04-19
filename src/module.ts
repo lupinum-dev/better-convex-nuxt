@@ -17,7 +17,7 @@ import {
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from './runtime/utils/constants.js'
 import { asRecord } from './runtime/utils/value-helpers.js'
 
-export type { TrellisObservabilityOptions } from './runtime/utils/observability.js'
+export type { TrellisObservabilityOptions } from './runtime/observability/index.js'
 export type { ConvexAuthPageMeta } from './runtime/auth/shared/auth-route-protection.js'
 export type {
   AuthCacheOptions,

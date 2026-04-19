@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
 import { ConvexDevtoolsStore } from '../../src/runtime/devtools/store'
-import { emitObservationCapture } from '../../src/runtime/utils/observability/capture'
+import { emitObservationCapture } from '../../src/runtime/observability/capture'
 import { mintJwt } from '../support/auth/jwt-factory'
 import { MockConvexClient } from '../support/nuxt/mock-convex-client'
 import {

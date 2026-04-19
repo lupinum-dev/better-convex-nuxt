@@ -33,12 +33,6 @@ import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { can, deny } from '../auth/index.js'
 import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
-import { getTrustedForwarding, setTrustedForwardingContext } from '../trusted-forwarding/index.js'
-import {
-  hasForwardedIdentityFields,
-  stripForwardedIdentityFields,
-  trustedForwardingValidators,
-} from '../trusted-forwarding/shared.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,
@@ -49,7 +43,13 @@ import {
   getObservationEnvelope,
   stripObservationEnvelope,
   toObservationContext,
-} from '../utils/observability.js'
+} from '../observability/index.js'
+import { getTrustedForwarding, setTrustedForwardingContext } from '../trusted-forwarding/index.js'
+import {
+  hasForwardedIdentityFields,
+  stripForwardedIdentityFields,
+  trustedForwardingValidators,
+} from '../trusted-forwarding/shared.js'
 import { createComponentBridge } from './create-component-bridge.js'
 import {
   defineDelegation,

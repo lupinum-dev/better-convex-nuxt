@@ -9,11 +9,11 @@ import {
   normalizeAuthRoute,
   resolveConvexSiteUrl,
 } from '../runtime/convex/shared/convex-config.js'
+import { normalizeObservabilityConfig } from '../runtime/observability/index.js'
 import {
   normalizeAuthCacheTtl,
   normalizeConfiguredFunctionPath,
 } from '../runtime/utils/config-normalization.js'
-import { normalizeObservabilityConfig } from '../runtime/utils/observability.js'
 import type { AuthOptions, ModuleOptions } from './options.js'
 import { createConfiguredFunctionError, normalizeAuthShorthand } from './options.js'
 

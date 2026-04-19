@@ -3,10 +3,7 @@ import type {
   AuthWaterfallPhase,
   WaterfallPhaseResult,
 } from '../auth/shared/auth-debug.js'
-import type {
-  TrellisDenialExplanation,
-  TrellisObservationEvent,
-} from '../utils/observability/types.js'
+import type { TrellisDenialExplanation, TrellisObservationEvent } from '../observability/types.js'
 
 export type { AuthWaterfall, AuthWaterfallPhase, WaterfallPhaseResult }
 

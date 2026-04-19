@@ -1,5 +1,5 @@
 import type { ConvexAuthConfigInput } from '../runtime/auth/shared/auth-config.js'
-import type { TrellisObservabilityOptions } from '../runtime/utils/observability.js'
+import type { TrellisObservabilityOptions } from '../runtime/observability/index.js'
 
 export interface AuthCacheOptions {
   /**

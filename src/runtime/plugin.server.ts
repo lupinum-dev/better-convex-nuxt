@@ -17,6 +17,7 @@ import { resolveRequestAuth } from './auth/server/auth-resolver.js'
 import type { AuthWaterfall } from './auth/shared/auth-debug.js'
 import { buildAuthTokenDecodeFailureMessage } from './auth/shared/auth-errors.js'
 import { getConvexRuntimeConfig } from './convex/shared/runtime-config.js'
+import { createRuntimeObserver } from './observability/runtime-observer.js'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_AUTH_WATERFALL,
@@ -24,7 +25,6 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from './utils/constants.js'
-import { createRuntimeObserver } from './utils/runtime-observer.js'
 import type { ConvexUser } from './utils/types.js'
 
 function applyAuthenticatedSsrCacheHeaders(event: NonNullable<ReturnType<typeof useRequestEvent>>) {

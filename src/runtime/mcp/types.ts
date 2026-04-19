@@ -10,7 +10,7 @@ import type { ZodRawShape } from 'zod'
 
 import type { SchemaDefinition } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
-import type { TrellisDenialExplanation } from '../utils/observability.js'
+import type { TrellisDenialExplanation } from '../observability/index.js'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
 
 // ============================================================================

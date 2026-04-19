@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
@@ -39,6 +39,39 @@ describe('public composable facade boundaries', () => {
           violations.push(`${relativePath} imports ${banned}`)
         }
       }
+    }
+
+    expect(violations).toEqual([])
+  })
+
+  it('keeps auth and convex on the observability vertical instead of legacy utils paths', () => {
+    const root = resolve(process.cwd(), 'src/runtime')
+    const directories = ['auth', 'convex'] as const
+    const banned = ['/utils/observability', '/utils/runtime-observer'] as const
+    const violations: string[] = []
+
+    const visit = (relativeDir: string) => {
+      const absoluteDir = resolve(root, relativeDir)
+      for (const entry of readdirSync(absoluteDir, { withFileTypes: true })) {
+        const entryPath = `${relativeDir}/${entry.name}`
+        if (entry.isDirectory()) {
+          visit(entryPath)
+          continue
+        }
+
+        if (!/\.(?:ts|tsx|vue)$/.test(entry.name)) continue
+
+        const source = readFileSync(resolve(root, entryPath), 'utf8')
+        for (const marker of banned) {
+          if (source.includes(marker)) {
+            violations.push(`src/runtime/${entryPath} imports ${marker}`)
+          }
+        }
+      }
+    }
+
+    for (const directory of directories) {
+      visit(directory)
     }
 
     expect(violations).toEqual([])

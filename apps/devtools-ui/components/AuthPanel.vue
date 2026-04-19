@@ -10,7 +10,7 @@ import type {
   AuthProxyRequest,
   DecisionTraceState,
 } from '../../../src/runtime/devtools/types'
-import type { TrellisObservationEvent } from '../../../src/runtime/utils/observability/types'
+import type { TrellisObservationEvent } from '../../../src/runtime/observability/types'
 
 const props = defineProps<{
   authState: EnhancedAuthState | null

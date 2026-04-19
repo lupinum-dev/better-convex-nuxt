@@ -8,7 +8,7 @@ import { toRaw } from 'vue'
 import type { Ref } from 'vue'
 
 import { decodeJwtPayload } from '../convex/shared/convex-shared.js'
-import type { TrellisObservationEvent } from '../utils/observability/types.js'
+import type { TrellisObservationEvent } from '../observability/types.js'
 import type { ConvexUser as RuntimeConvexUser } from '../utils/types.js'
 import type {
   QueryRegistryEntry,

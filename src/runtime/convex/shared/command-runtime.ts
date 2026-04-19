@@ -3,7 +3,7 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
+import { createRuntimeObserver } from '../../observability/runtime-observer.js'
 import { createOptimisticContext } from '../composables/optimistic-updates.js'
 import { getRequiredConvexClient } from '../composables/useConvex.js'
 import type {

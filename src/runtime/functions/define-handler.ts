@@ -17,7 +17,7 @@ import {
 } from '../auth/define-permission.js'
 import { can, deny, enforce, requireAuth } from '../auth/index.js'
 import { isAnonymousPrincipal, type AuthenticatedPrincipal } from '../auth/principal-state.js'
-import { createDenialExplanation, type TrellisObservationEvent } from '../utils/observability.js'
+import { createDenialExplanation, type TrellisObservationEvent } from '../observability/index.js'
 import {
   stampOperationProjection,
   trellisOperationProjectionMetadataKey,

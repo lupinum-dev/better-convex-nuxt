@@ -16,9 +16,9 @@ import { getConvexRuntimeConfig } from './convex/shared/runtime-config.js'
 import { setDevtoolsStore } from './devtools/runtime.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './devtools/state.js'
 import { ConvexDevtoolsStore } from './devtools/store.js'
+import { registerObservationCaptureListener } from './observability/capture.js'
+import { createRuntimeObserver } from './observability/runtime-observer.js'
 import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
-import { registerObservationCaptureListener } from './utils/observability/capture.js'
-import { createRuntimeObserver } from './utils/runtime-observer.js'
 
 type HydrationState = ReturnType<typeof initHydrationState>
 type ClientDevtoolsApp = {

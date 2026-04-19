@@ -6,7 +6,7 @@ import type {
 } from 'convex/server'
 import { hash } from 'ohash'
 
-import { stripObservationEnvelope } from '../../utils/observability/envelope.js'
+import { stripObservationEnvelope } from '../../observability/envelope.js'
 import type { QueryStatus, ConvexUser } from '../../utils/types.js'
 
 // Convex stores function names using this Symbol

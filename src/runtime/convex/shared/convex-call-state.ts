@@ -8,9 +8,9 @@ import {
   updateDevtoolsEntrySuccess,
   updateDevtoolsEntryError,
 } from '../../devtools/runtime.js'
+import type { RuntimeObserver } from '../../observability/runtime-observer.js'
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
 import { resolveSchema, runValidation, type ValidateOption } from '../../utils/resolve-validator.js'
-import type { RuntimeObserver } from '../../utils/runtime-observer.js'
 import type {
   ConvexCallErrorPayload,
   ConvexCallOperation,

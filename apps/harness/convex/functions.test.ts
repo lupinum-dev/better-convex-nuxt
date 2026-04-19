@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 
-import { withObservationEnvelope } from '../../../src/runtime/utils/observability'
+import { withObservationEnvelope } from '../../../src/runtime/observability'
 import { api } from './_generated/api'
 import schema from './schema'
 import {

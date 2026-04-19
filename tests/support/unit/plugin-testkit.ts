@@ -119,7 +119,7 @@ vi.mock('../../../src/runtime/convex/shared/runtime-config', () => ({
   getConvexRuntimeConfig: getConvexRuntimeConfigMock,
 }))
 
-vi.mock('../../../src/runtime/utils/runtime-observer', () => ({
+vi.mock('../../../src/runtime/observability/runtime-observer', () => ({
   createRuntimeObserver: () => ({
     auth: authLogMock,
     debug: debugLogMock,

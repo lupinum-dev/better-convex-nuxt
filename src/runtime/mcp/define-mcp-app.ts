@@ -21,17 +21,17 @@ import { defineArgs } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import { getOperationMetadata, type OperationKind } from '../functions/define-operation.js'
 import {
+  getEventObservationState,
+  sanitizeCorrelationId,
+  type EventObservationState,
+} from '../observability/envelope.js'
+import {
   createDenialExplanation,
   createObservationEmitter,
   createWideSummary,
   type TrellisWideSummary,
   type TrellisObservabilityOptions,
-} from '../utils/observability.js'
-import {
-  getEventObservationState,
-  sanitizeCorrelationId,
-  type EventObservationState,
-} from '../utils/observability/envelope.js'
+} from '../observability/index.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { signConfirmationToken, verifyConfirmationToken } from './confirmation-token.js'
 import { defineTool } from './define-convex-tool.js'
@@ -187,7 +187,7 @@ export interface ToolOptions<
       code: ConvexErrorCategory,
       message: string,
       issues?: import('../utils/types.js').ConvexErrorIssue[],
-      explanation?: import('../utils/observability.js').TrellisDenialExplanation,
+      explanation?: import('../observability/index.js').TrellisDenialExplanation,
     ) => unknown
   }) => unknown
   outputSchema?: ZodRawShape

@@ -3,9 +3,9 @@ import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type 
 
 import { useRuntimeConfig } from '#imports'
 
+import { createRuntimeObserver } from '../../observability/runtime-observer.js'
 import { DEFAULT_UPLOAD_MAX_CONCURRENT } from '../../utils/constants.js'
 import { isFileTypeAllowed } from '../../utils/mime-type.js'
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import { useConvex } from '../composables/useConvex.js'
 import { getFunctionName } from '../shared/convex-cache.js'
 import { getConvexRuntimeConfig } from '../shared/runtime-config.js'

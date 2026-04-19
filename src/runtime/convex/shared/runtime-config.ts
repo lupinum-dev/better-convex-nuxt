@@ -2,13 +2,13 @@ import { useRuntimeConfig } from '#imports'
 
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from '../../auth/shared/auth-config.js'
 import {
+  normalizeObservabilityConfig,
+  type NormalizedTrellisObservabilityConfig,
+} from '../../observability/index.js'
+import {
   normalizeAuthCacheTtl,
   normalizePermissionQueryPath,
 } from '../../utils/config-normalization.js'
-import {
-  normalizeObservabilityConfig,
-  type NormalizedTrellisObservabilityConfig,
-} from '../../utils/observability.js'
 import { asRecord } from '../../utils/value-helpers.js'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
 

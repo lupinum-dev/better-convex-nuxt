@@ -22,7 +22,7 @@ import {
   unregisterDevtoolsQuery,
   updateDevtoolsQuery,
 } from '../../devtools/runtime.js'
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
+import { createRuntimeObserver } from '../../observability/runtime-observer.js'
 import { generatePaginationId } from '../../utils/shared-helpers.js'
 import type {
   PaginatedQueryReference,

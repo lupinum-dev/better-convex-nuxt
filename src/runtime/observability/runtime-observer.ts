@@ -8,7 +8,7 @@ import {
   type TrellisObservationEvent,
   type TrellisObservationName,
   type TrellisObservationStatus,
-} from './observability.js'
+} from './index.js'
 
 export interface AuthEvent {
   phase: string

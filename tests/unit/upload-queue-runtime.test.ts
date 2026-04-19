@@ -13,7 +13,7 @@ vi.mock('../../src/runtime/convex/shared/runtime-config', () => ({
   getConvexRuntimeConfig: vi.fn(() => ({ upload: { maxConcurrent: 3 } })),
 }))
 
-vi.mock('../../src/runtime/utils/runtime-observer', () => ({
+vi.mock('../../src/runtime/observability/runtime-observer', () => ({
   createRuntimeObserver: vi.fn(() => ({
     upload: vi.fn(),
     auth: vi.fn(),

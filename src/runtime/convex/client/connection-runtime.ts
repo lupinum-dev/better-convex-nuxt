@@ -11,7 +11,7 @@ import {
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
+import { createRuntimeObserver } from '../../observability/runtime-observer.js'
 import {
   getSharedConnectionStateStore,
   releaseSharedConnectionStateStore,

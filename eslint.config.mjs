@@ -55,6 +55,29 @@ export default createConfigForNuxt({
       },
     },
     {
+      files: ['src/runtime/auth/**/*.{ts,vue}', 'src/runtime/convex/**/*.{ts,vue}'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: [
+                  '**/utils/observability',
+                  '**/utils/observability.js',
+                  '**/utils/observability/**',
+                  '**/utils/runtime-observer',
+                  '**/utils/runtime-observer.js',
+                ],
+                message:
+                  'Auth and Convex must import observability from src/runtime/observability, not legacy utils paths.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ['apps/harness/middleware/**/*.ts'],
       rules: {
         'no-restricted-syntax': [

@@ -19,7 +19,7 @@ import {
   unregisterDevtoolsQuery,
   updateDevtoolsQuery,
 } from '../../devtools/runtime.js'
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
+import { createRuntimeObserver } from '../../observability/runtime-observer.js'
 import type { QueryStatus } from '../../utils/types.js'
 import { assertConvexComposableScope } from '../shared/composable-scope.js'
 import { getQueryKey, getFunctionName, hashArgs } from '../shared/convex-cache.js'

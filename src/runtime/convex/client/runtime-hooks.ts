@@ -9,7 +9,7 @@
 import type { ConvexClient } from 'convex/browser'
 import { ref, type Ref } from 'vue'
 
-import type { RuntimeObserver } from '../../utils/runtime-observer.js'
+import type { RuntimeObserver } from '../../observability/runtime-observer.js'
 import type {
   ConvexConnectionChangedPayload,
   ConvexConnectionPhase,

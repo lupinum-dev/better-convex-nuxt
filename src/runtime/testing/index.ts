@@ -13,8 +13,8 @@ import type {
 } from 'convex/server'
 import type { ViteUserConfig as UserConfig } from 'vitest/config'
 
-import type { TrellisObservationEvent } from '../utils/observability.js'
-import { registerObservationCaptureListener } from '../utils/observability/capture.js'
+import { registerObservationCaptureListener } from '../observability/capture.js'
+import type { TrellisObservationEvent } from '../observability/index.js'
 
 const defaultModules =
   typeof import.meta.glob === 'function' ? import.meta.glob('/convex/**/*.*s') : {}

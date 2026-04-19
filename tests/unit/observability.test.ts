@@ -1,7 +1,6 @@
 import * as evlog from 'evlog'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-import { createObservationCapture } from '../../src/runtime/testing'
 import {
   createObservationEmitter,
   createWideSummary,
@@ -9,8 +8,9 @@ import {
   normalizeObservabilityConfig,
   stripObservationEnvelope,
   withObservationEnvelope,
-} from '../../src/runtime/utils/observability'
-import { createRuntimeObserver } from '../../src/runtime/utils/runtime-observer'
+} from '../../src/runtime/observability'
+import { createRuntimeObserver } from '../../src/runtime/observability/runtime-observer'
+import { createObservationCapture } from '../../src/runtime/testing'
 
 const evlogMock = vi.hoisted(() => ({
   initLogger: vi.fn(),

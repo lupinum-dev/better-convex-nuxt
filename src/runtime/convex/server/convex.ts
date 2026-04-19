@@ -5,18 +5,18 @@ import { resolveRequestAuthToken } from '../../auth/server/auth-resolver.js'
 import type { Delegation } from '../../functions/define-delegation.js'
 import type { Subject } from '../../functions/define-principal.js'
 import {
+  getEventObservationState,
+  sanitizeCorrelationId,
+  type EventObservationState,
+} from '../../observability/envelope.js'
+import { createRuntimeObserver } from '../../observability/runtime-observer.js'
+import {
   extractSubject,
   hasForwardedIdentityFields,
   isAnonymousPrincipalLike,
   stripForwardedIdentityFields,
 } from '../../trusted-forwarding/shared.js'
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
-import {
-  getEventObservationState,
-  sanitizeCorrelationId,
-  type EventObservationState,
-} from '../../utils/observability/envelope.js'
-import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
 import {
   parseConvexResponse,
