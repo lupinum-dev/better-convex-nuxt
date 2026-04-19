@@ -1,6 +1,6 @@
 # Testing Guide
 
-This file only covers test strategy and test-specific setup. For shared local env and workspace setup, use [DEVELOPMENT.md](../DEVELOPMENT.md).
+This file covers the maintained test lanes and the internal harness role. For the shared local dev loop and root command map, use [CONTRIBUTING.md](../CONTRIBUTING.md) and [DEVELOPMENT.md](../DEVELOPMENT.md).
 
 ## Test Layout
 
@@ -32,28 +32,31 @@ test/internal-harness/convex/
 
 ```bash
 pnpm test:types
-pnpm test:examples
 pnpm test:contracts:repo
 pnpm test:contracts
 pnpm test:internals
-pnpm test:repo
 pnpm test
-pnpm test:auth
-pnpm test:server
-pnpm test:watch
 pnpm test:nuxt
 pnpm test:browser
 pnpm test:e2e
 pnpm test:full
 ```
 
-Focused suite meaning:
+Maintained root test lanes:
 
-- `pnpm test:auth`: auth-only repo tests across unit, Nuxt, and server projects
 - `pnpm test:nuxt`: Nuxt-only project coverage
-- `pnpm test:server`: server-only project coverage
 - `pnpm test:browser`: browser component coverage
 - `pnpm test:e2e`: managed end-to-end smoke suite
+- `pnpm test:contracts`: public behavior plus curated example coverage
+- `pnpm test:internals`: extracted internal state/runtime helpers only
+- `pnpm test`: maintainer default gate for repo plus examples
+- `pnpm test:full`: `test` plus managed e2e
+
+Type-only lanes:
+
+- `pnpm test:types`: root type gate
+- `pnpm run test:types:harness-server`: unique server-side harness typing for Nitro/MCP bridge code
+- `pnpm run test:types:examples:canonical`: intentional coverage for the advanced canonical workspace examples (`04–06`), where the broadest consumer-side typing surface lives
 
 ## Vitest Projects
 
@@ -80,9 +83,9 @@ Focused suite meaning:
 
 Before adding a new auth test, place it in the single suite that owns that behavior; do not duplicate the same invariant in both behavior and OWASP suites.
 
-## Maintenance Split
+## Maintainer-facing lanes
 
-The repo uses two maintainer-facing test lanes in addition to the full suite:
+The repo keeps four meaningful root lanes:
 
 - `pnpm test:contracts`
   - `pnpm test:contracts:repo`
@@ -101,6 +104,10 @@ The repo uses two maintainer-facing test lanes in addition to the full suite:
 
 - `pnpm test:repo`
 - `pnpm test:examples`
+
+`pnpm test:nuxt` and `pnpm test:browser` are focused debugging lanes, not primary gates.
+
+The repo intentionally does not keep separate root aliases for every Vitest project. If you need only the server or auth project, call Vitest directly with `--project`.
 
 Rule of thumb:
 
@@ -142,3 +149,22 @@ pnpm test:e2e
 - broader integration gate: `pnpm test`
 - release gate: `pnpm run release:verify`
 - For ad hoc test discovery, use `rg --files test` directly instead of maintaining root-level listing scripts.
+
+## Fixture classification
+
+Current fixture roles:
+
+- `test/fixtures/consumer-smoke*`: package publish-surface smoke fixtures
+- `test/fixtures/doctor-*`: doctor-only fixtures
+- `test/fixtures/basic`: minimal scaffold fixture and merge/delete review candidate if it stops protecting a unique path
+
+## Internal harness role
+
+`test/internal-harness/` stays because it owns unique signal that the public examples do not:
+
+- repo-level Convex runtime tests under `test/internal-harness/convex/**`
+- the root `pnpm dev` maintainer app
+- managed e2e target app
+- auth, trusted-caller, and MCP integration seams that are easier to verify in one controlled workspace
+
+It is not the public product story and it should not be used as example-app documentation.

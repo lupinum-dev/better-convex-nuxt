@@ -71,6 +71,8 @@ pnpm run check
 - `pnpm run harness:convex:codegen`: regenerate Convex code for the internal harness when changing backend schema or functions.
 - `pnpm run prepare`: Husky install hook only.
 
+`release:verify` is the authoritative release gate. If that command is not green, the package is not ready to publish.
+
 ## Public Package Surface
 
 The generated API reference at [`docs/content/docs/13.api-reference/7.api-surface.md`](./docs/content/docs/13.api-reference/7.api-surface.md) is the canonical inventory. The maintained npm subpaths are:

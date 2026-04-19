@@ -32,8 +32,6 @@ pnpm test:types
 pnpm test:contracts
 pnpm test:internals
 pnpm test
-pnpm test:list
-pnpm test:inventory
 pnpm lint
 pnpm release:verify
 pnpm docs:api-surface
@@ -46,8 +44,6 @@ pnpm docs:api-surface
 - `pnpm check:cli` is the explicit CLI smoke path. CLI maintenance is not coupled to normal harness startup.
 - `pnpm test:contracts` runs the public contract and maintainer guard suites.
 - `pnpm test:internals` runs extracted helper and internal state-machine suites.
-- `pnpm test:list` lists runnable test entry files only.
-- `pnpm test:inventory` lists the wider test tree, including support files and fixtures.
 - `pnpm release:verify` runs the maintainer release gate without publishing anything.
 - `pnpm release` follows the official Nuxt module starter release flow: verify, changelog, publish, push tags.
 - The `vitest/environments` deprecation warning currently comes from the Nuxt/Vitest stack, not a repo-local Trellis import. Recheck on dependency upgrades, especially around `@nuxt/test-utils`.
@@ -96,7 +92,7 @@ Current files that need active pressure to shrink rather than grow:
 
 ## Internal Harness
 
-`test/internal-harness/` replaces the old public playground. It is intentionally contributor-facing only.
+`test/internal-harness/` is the contributor-facing integration workspace behind the root `pnpm dev` loop.
 
 Use it for:
 
@@ -106,9 +102,7 @@ Use it for:
 - root E2E and eval flows
 - backend harness tests under `test/internal-harness/convex`
 
-The root `pnpm dev*` commands in `/WORK` do not target this harness anymore. The canonical cross-repo integration surface is `/Users/matthias/Git/0_libs/WORK/consumer-site`.
-
-Use the harness for focused Trellis development. Use `consumer-site` to validate downstream integration.
+Use the harness for focused Trellis development. Use downstream consumer workspaces only when validating publish-surface or real integration behavior that the harness cannot prove.
 
 ## Local Env Layout
 

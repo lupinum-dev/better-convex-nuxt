@@ -1,32 +1,35 @@
 # Internal Harness
 
-This workspace is an experimental and integration harness for Trellis internals.
+This workspace is the contributor-facing integration harness for Trellis.
 
-It is **not** the active vNext runtime contract.
+It is not the public product story and it is not the canonical example set.
 
 Use it for:
 
-- repository-level integration testing
-- experimental spikes
-- validating ideas before they are promoted into the public contract
-- preserving research around deferred features
+- repository-level Convex/runtime integration tests
+- the root `pnpm dev` maintainer app
+- managed e2e target coverage
+- auth, trusted-caller, and MCP verification work
+- focused spikes before a change graduates into the public runtime
 
-Do **not** use it as the source of truth for:
+Do not use it as the source of truth for:
 
 - current public runtime APIs
-- current vNext product boundaries
 - current documentation promises
+- example-app teaching patterns
 
 Those live in:
 
-- [VNEXT_RUNTIME_CONTRACT.md](../../VNEXT_RUNTIME_CONTRACT.md)
-- [VNEXT_TRACKING.md](../../VNEXT_TRACKING.md)
 - [SPEC-FINAL.md](../../SPEC-FINAL.md)
+- [README.md](../../README.md)
+- [examples/README.md](../../examples/README.md)
+- [PROJECT-CLEANUP-BACKLOG.md](../../PROJECT-CLEANUP-BACKLOG.md)
 
-Important:
+Important rules:
 
-- this harness intentionally contains experiments for deferred or rejected ideas
-- a passing harness experiment does not automatically promote a feature into vNext core
-- a failing deferred-feature experiment does not invalidate the current vNext contract
+- a passing harness experiment does not automatically promote a feature into the public contract
+- a harness-only pattern should not leak into docs or examples by accident
+- backend test files here need a unique signal beyond what `examples/` already proves
+- demo-style UI inside the harness is secondary to verification value
 
-Treat this directory as research and integration infrastructure, not product truth.
+Treat this directory as maintainer infrastructure, not product truth.
