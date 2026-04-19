@@ -10,7 +10,7 @@
  *
  * @module auth-hydration
  */
-import { buildAuthTokenDecodeFailureMessage } from '../../utils/auth-errors.js'
+import { buildAuthTokenDecodeFailureMessage } from '../shared/auth-errors.js'
 import type { ConvexUser } from '../../utils/types.js'
 import type { ResolvedRequestAuth } from './auth-resolver.js'
 

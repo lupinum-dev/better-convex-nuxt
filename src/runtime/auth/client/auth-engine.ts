@@ -17,9 +17,9 @@
 import type { createAuthClient } from 'better-auth/vue'
 import { computed, type ComputedRef, type Ref } from 'vue'
 
-import { waitForPendingClear } from '../utils/auth-pending.js'
-import { AUTH_REFRESH_TIMEOUT_MS } from '../utils/constants.js'
-import type { ConvexAuthChangedPayload, ConvexUser } from '../utils/types.js'
+import { waitForPendingClear } from '../shared/auth-pending.js'
+import { AUTH_REFRESH_TIMEOUT_MS } from '../../utils/constants.js'
+import type { ConvexAuthChangedPayload, ConvexUser } from '../../utils/types.js'
 import {
   buildAuthSnapshot,
   createAuthChangedPayload,

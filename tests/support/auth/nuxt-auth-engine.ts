@@ -17,7 +17,7 @@ import {
   getSharedAuthEngine,
   type AuthTransport,
   type ClientAuthStateResult,
-} from '../../../src/runtime/client/auth-engine'
+} from '../../../src/runtime/auth/client/auth-engine'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_PENDING,

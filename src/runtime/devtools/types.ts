@@ -2,7 +2,7 @@ import type {
   AuthWaterfall,
   AuthWaterfallPhase,
   WaterfallPhaseResult,
-} from '../utils/auth-debug.js'
+} from '../auth/shared/auth-debug.js'
 import type {
   TrellisDenialExplanation,
   TrellisObservationEvent,

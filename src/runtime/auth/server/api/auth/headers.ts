@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3'
 
-import { filterBetterAuthCookieHeader } from '../../../utils/auth-token.js'
+import { filterBetterAuthCookieHeader } from '../../../shared/auth-token.js'
 
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',

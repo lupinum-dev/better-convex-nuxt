@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
-import { waitForPendingClear } from '../../src/runtime/utils/auth-pending'
+import { waitForPendingClear } from '../../src/runtime/auth/shared/auth-pending'
 
 describe('waitForPendingClear', () => {
   it('resolves immediately when pending is already false', async () => {

@@ -3,7 +3,7 @@ import type { FunctionArgs, FunctionReference } from 'convex/server'
 
 import { useNuxtApp, watch } from '#imports'
 
-import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
+import { handleUnauthorizedAuthFailure } from '../../auth/shared/auth-unauthorized.js'
 import {
   createQueryBridge,
   ensureQueryBridge,

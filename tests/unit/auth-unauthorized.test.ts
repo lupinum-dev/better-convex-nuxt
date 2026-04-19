@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isConvexUnauthorizedError } from '../../src/runtime/utils/auth-unauthorized-core'
+import { isConvexUnauthorizedError } from '../../src/runtime/auth/shared/auth-unauthorized-core'
 
 describe('isConvexUnauthorizedError', () => {
   it('does not match plain message strings (string matching removed to avoid false positives)', () => {

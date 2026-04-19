@@ -50,7 +50,7 @@ vi.mock('../../src/runtime/server/utils/http', () => ({
   fetchWithTimeout: fetchWithTimeoutMock,
 }))
 
-vi.mock('../../src/runtime/server/utils/auth-cache', () => ({
+vi.mock('../../src/runtime/auth/server/auth-cache', () => ({
   getCachedAuthToken: getCachedAuthTokenMock,
   setCachedAuthToken: setCachedAuthTokenMock,
 }))
@@ -182,7 +182,7 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    await import('../../src/runtime/client/auth-engine')
+    await import('../../src/runtime/auth/client/auth-engine')
     const plugin = (await import('../../src/runtime/plugin.server')).default as (
       nuxtApp: unknown,
     ) => Promise<void>

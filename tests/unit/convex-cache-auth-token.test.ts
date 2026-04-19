@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   clearsBetterAuthSessionCookie,
   filterBetterAuthCookieHeader,
-} from '../../src/runtime/utils/auth-token'
+} from '../../src/runtime/auth/shared/auth-token'
 import { fetchAuthToken } from '../../src/runtime/utils/convex-cache'
 
 afterEach(() => {

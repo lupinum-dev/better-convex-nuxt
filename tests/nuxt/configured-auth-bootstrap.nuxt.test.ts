@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
+import { setupConfiguredAuthBootstrap } from '../../src/runtime/auth/client/auth-bootstrap'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'

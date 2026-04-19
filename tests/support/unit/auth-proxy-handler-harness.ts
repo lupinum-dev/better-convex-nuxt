@@ -58,7 +58,7 @@ export function createResponseWithCookies(status: number, cookies: string[], bod
 }
 
 export async function loadAuthProxyHandler() {
-  const mod = await import('../../../src/runtime/server/api/auth/[...]')
+  const mod = await import('../../../src/runtime/auth/server/api/auth/[...]')
   return mod.default as unknown as (event: Record<string, unknown>) => Promise<unknown>
 }
 
@@ -94,21 +94,21 @@ export function resetAuthProxyHandlerHarness() {
   vi.doMock('../../../src/runtime/utils/runtime-config', () => ({
     getConvexRuntimeConfig: getConvexRuntimeConfigMock,
   }))
-  vi.doMock('../../../src/runtime/server/api/auth/redirect-utils', () => ({
+  vi.doMock('../../../src/runtime/auth/server/api/auth/redirect-utils', () => ({
     fetchWithCanonicalRedirects: fetchWithCanonicalRedirectsMock,
   }))
-  vi.doMock('../../../src/runtime/server/utils/auth-cache', () => ({
+  vi.doMock('../../../src/runtime/auth/server/auth-cache', () => ({
     serverConvexClearAuthCache: serverConvexClearAuthCacheMock,
   }))
-  vi.doMock('../../../src/runtime/server/api/auth/headers', () => ({
+  vi.doMock('../../../src/runtime/auth/server/api/auth/headers', () => ({
     buildAuthProxyForwardHeaders: buildAuthProxyForwardHeadersMock,
     shouldSkipProxyResponseHeader: shouldSkipProxyResponseHeaderMock,
   }))
-  vi.doMock('../../../src/runtime/server/api/auth/security', () => ({
+  vi.doMock('../../../src/runtime/auth/server/api/auth/security', () => ({
     getAuthRoutePattern: getAuthRoutePatternMock,
     isOriginAllowed: isOriginAllowedMock,
   }))
-  vi.doMock('../../../src/runtime/server/api/auth/body-size', () => ({
+  vi.doMock('../../../src/runtime/auth/server/api/auth/body-size', () => ({
     getRequestBodySizeError: getRequestBodySizeErrorMock,
     getResponseBodySizeError: getResponseBodySizeErrorMock,
     readRequestBodyWithLimit: readRequestBodyWithLimitMock,

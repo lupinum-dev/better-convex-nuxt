@@ -7,7 +7,7 @@ import {
   getResponseBodySizeError,
   readRequestBodyWithLimit,
   readResponseBodyWithLimit,
-} from '../../src/runtime/server/api/auth/body-size'
+} from '../../src/runtime/auth/server/api/auth/body-size'
 
 function makeStream(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()

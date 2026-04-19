@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const publicComposableFiles = [
   'src/runtime/composables/useConvexAction.ts',
-  'src/runtime/composables/useConvexAuth.ts',
+  'src/runtime/auth/composables/useConvexAuth.ts',
   'src/runtime/composables/useConvexConnectionState.ts',
   'src/runtime/composables/useConvexMutation.ts',
   'src/runtime/composables/useConvexPaginatedQuery.ts',
@@ -20,8 +20,8 @@ const bannedImports = [
   '../../utils/logger',
   '../utils/convex-cache',
   '../../utils/convex-cache',
-  '../utils/auth-unauthorized',
-  '../../utils/auth-unauthorized',
+  '../auth/shared/auth-unauthorized',
+  '../../auth/shared/auth-unauthorized',
   './internal/live-query-resource',
   './internal/convex-call-state',
 ] as const

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { useRouter } from '#imports'
 
 import { definePermission } from '../../src/runtime/auth/define-permission'
-import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
+import { setupConfiguredAuthBootstrap } from '../../src/runtime/auth/client/auth-bootstrap'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'

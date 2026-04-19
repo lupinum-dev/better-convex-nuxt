@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildAuthProxyForwardHeaders,
   shouldSkipProxyResponseHeader,
-} from '../../src/runtime/server/api/auth/headers'
+} from '../../src/runtime/auth/server/api/auth/headers'
 
 describe('auth proxy header helpers', () => {
   it('strips hop-by-hop headers and preserves useful headers', () => {

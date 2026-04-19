@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildClientAuthResponseErrorMessage,
   wrapBetterAuthError,
-} from '../../src/runtime/utils/auth-errors'
+} from '../../src/runtime/auth/shared/auth-errors'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 
 describe('wrapBetterAuthError', () => {

@@ -2,7 +2,7 @@ import { defu } from 'defu'
 
 import { collectConvexFunctionPaths } from '../analysis/project.js'
 import { collectModuleValidationFindings } from '../analysis/validation.js'
-import { normalizeConvexAuthConfig } from '../runtime/utils/auth-config.js'
+import { normalizeConvexAuthConfig } from '../runtime/auth/shared/auth-config.js'
 import {
   normalizeAuthCacheTtl,
   normalizeConfiguredFunctionPath,

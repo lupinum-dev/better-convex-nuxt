@@ -3,21 +3,21 @@ import { render } from 'vitest-browser-vue'
 import { page } from 'vitest/browser'
 import { ref } from 'vue'
 
-import ConvexAuthenticated from '../../src/runtime/components/ConvexAuthenticated.vue'
-import ConvexAuthError from '../../src/runtime/components/ConvexAuthError.vue'
-import ConvexAuthLoading from '../../src/runtime/components/ConvexAuthLoading.vue'
-import ConvexUnauthenticated from '../../src/runtime/components/ConvexUnauthenticated.vue'
+import ConvexAuthenticated from '../../src/runtime/auth/ui/ConvexAuthenticated.vue'
+import ConvexAuthError from '../../src/runtime/auth/ui/ConvexAuthError.vue'
+import ConvexAuthLoading from '../../src/runtime/auth/ui/ConvexAuthLoading.vue'
+import ConvexUnauthenticated from '../../src/runtime/auth/ui/ConvexUnauthenticated.vue'
 
 const { useConvexAuthMock, useConvexAuthControllerMock } = vi.hoisted(() => ({
   useConvexAuthMock: vi.fn(),
   useConvexAuthControllerMock: vi.fn(),
 }))
 
-vi.mock('../../src/runtime/composables/useConvexAuth', () => ({
+vi.mock('../../src/runtime/auth/composables/useConvexAuth', () => ({
   useConvexAuth: useConvexAuthMock,
 }))
 
-vi.mock('../../src/runtime/composables/internal/useConvexAuthController', () => ({
+vi.mock('../../src/runtime/auth/internal/useConvexAuthController', () => ({
   useConvexAuthController: useConvexAuthControllerMock,
 }))
 

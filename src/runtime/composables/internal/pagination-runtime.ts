@@ -21,7 +21,7 @@ import {
   unregisterDevtoolsQuery,
   updateDevtoolsQuery,
 } from '../../devtools/runtime.js'
-import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
+import { handleUnauthorizedAuthFailure } from '../../auth/shared/auth-unauthorized.js'
 import { assertConvexComposableScope } from '../../utils/composable-scope.js'
 import { getFunctionName, getQueryKey, hashArgs } from '../../utils/convex-cache.js'
 import { getConvexRuntimeConfig } from '../../utils/runtime-config.js'

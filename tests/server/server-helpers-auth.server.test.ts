@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   resolveRequestAuth,
   resolveRequestAuthToken,
-} from '../../src/runtime/server/utils/auth-resolver'
+} from '../../src/runtime/auth/server/auth-resolver'
 import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/server/utils/convex'
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
 import {
@@ -255,14 +255,14 @@ describe('server auth helpers', () => {
     vi.resetModules()
     const getCachedAuthTokenSpy = vi.fn()
     const setCachedAuthTokenSpy = vi.fn()
-    vi.doMock('../../src/runtime/server/utils/auth-cache', () => ({
+    vi.doMock('../../src/runtime/auth/server/auth-cache', () => ({
       getCachedAuthToken: getCachedAuthTokenSpy,
       setCachedAuthToken: setCachedAuthTokenSpy,
       serverConvexClearAuthCache: vi.fn(),
     }))
 
     const { resolveRequestAuth: resolveRequestAuthWithMocks } =
-      await import('../../src/runtime/server/utils/auth-resolver')
+      await import('../../src/runtime/auth/server/auth-resolver')
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       if (String(input).endsWith('/api/auth/convex/token')) {

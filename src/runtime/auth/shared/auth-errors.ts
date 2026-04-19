@@ -12,8 +12,8 @@
  *
  * @module auth-errors
  */
-import { ConvexCallError } from './call-result.js'
-import { getSiteUrlResolutionHint } from './convex-config.js'
+import { ConvexCallError } from '../../utils/call-result.js'
+import { getSiteUrlResolutionHint } from '../../utils/convex-config.js'
 
 const PREFIX = 'NuxtConvexError'
 

@@ -11,29 +11,29 @@ export function installAuthTrellis(options: InstallAuthOptions): void {
 
   addRouteMiddleware({
     name: 'convex-auth',
-    path: resolver.resolve('./runtime/middleware/convex-auth.global'),
+    path: resolver.resolve('./runtime/auth/middleware/route-protection.global'),
     global: true,
   })
 
   addServerHandler({
     route: authRoute,
-    handler: resolver.resolve('./runtime/server/api/auth/[...]'),
+    handler: resolver.resolve('./runtime/auth/server/api/auth/[...]'),
   })
   addServerHandler({
     route: `${authRoute}/**`,
-    handler: resolver.resolve('./runtime/server/api/auth/[...]'),
+    handler: resolver.resolve('./runtime/auth/server/api/auth/[...]'),
   })
 
   addImports([
-    { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
+    { name: 'useConvexAuth', from: resolver.resolve('./runtime/auth/composables/useConvexAuth') },
     {
       name: 'useConvexAuthActions',
-      from: resolver.resolve('./runtime/composables/useConvexAuthActions'),
+      from: resolver.resolve('./runtime/auth/composables/useConvexAuthActions'),
     },
   ])
 
   addComponentsDir({
-    path: resolver.resolve('./runtime/components'),
+    path: resolver.resolve('./runtime/auth/ui'),
     global: true,
   })
 }

@@ -29,12 +29,12 @@ import {
   buildAuthTokenDecodeFailureMessage,
   buildClientAuthRequestFailureMessage,
   buildClientAuthResponseErrorMessage,
-} from '../utils/auth-errors.js'
-import { TOKEN_CACHE_MS, TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../utils/constants.js'
-import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared.js'
-import { matchesSkipRoute } from '../utils/route-matcher.js'
-import type { RuntimeObserver } from '../utils/runtime-observer.js'
-import type { ConvexUser } from '../utils/types.js'
+} from '../shared/auth-errors.js'
+import { TOKEN_CACHE_MS, TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../../utils/constants.js'
+import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../utils/convex-shared.js'
+import { matchesSkipRoute } from '../../utils/route-matcher.js'
+import type { RuntimeObserver } from '../../utils/runtime-observer.js'
+import type { ConvexUser } from '../../utils/types.js'
 import type { AuthTransport, AuthTrigger, ClientAuthStateResult } from './auth-engine.js'
 
 interface MinimalNuxtApp {

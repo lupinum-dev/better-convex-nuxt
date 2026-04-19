@@ -5,7 +5,7 @@ import {
   createAuthChangedPayload,
   hasAuthSnapshotChanged,
   isCurrentAuthOperation,
-} from '../../src/runtime/client/auth-engine-state'
+} from '../../src/runtime/auth/client/auth-engine-state'
 
 describe('auth-engine-state', () => {
   it('builds authenticated and unauthenticated snapshots consistently', () => {

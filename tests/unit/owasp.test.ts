@@ -6,16 +6,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildAuthProxyForwardHeaders,
   shouldSkipProxyResponseHeader,
-} from '../../src/runtime/server/api/auth/headers'
-import { getCanonicalRedirectTarget } from '../../src/runtime/server/api/auth/redirect-utils'
-import { isOriginAllowed } from '../../src/runtime/server/api/auth/security'
-import { DEFAULT_CONVEX_AUTH_CONFIG } from '../../src/runtime/utils/auth-config'
-import { resolveRouteProtectionDecision } from '../../src/runtime/utils/auth-route-protection'
+} from '../../src/runtime/auth/server/api/auth/headers'
+import { getCanonicalRedirectTarget } from '../../src/runtime/auth/server/api/auth/redirect-utils'
+import { isOriginAllowed } from '../../src/runtime/auth/server/api/auth/security'
+import { DEFAULT_CONVEX_AUTH_CONFIG } from '../../src/runtime/auth/shared/auth-config'
+import { resolveRouteProtectionDecision } from '../../src/runtime/auth/shared/auth-route-protection'
 import {
   clearsBetterAuthSessionCookie,
   getBetterAuthSessionToken,
   hasBetterAuthSessionCookie,
-} from '../../src/runtime/utils/auth-token'
+} from '../../src/runtime/auth/shared/auth-token'
 import {
   decodeJwtPayload,
   decodeUserFromJwt,
@@ -244,7 +244,7 @@ describe('OWASP A08: Integrity Failures', () => {
   })
 
   it('hashes cache keys instead of storing raw session tokens', async () => {
-    const { setCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
+    const { setCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
 
     await setCachedAuthToken('session-secret-token', 'jwt-value', 60)
 
@@ -255,7 +255,7 @@ describe('OWASP A08: Integrity Failures', () => {
 
   it('clearing one cached session does not affect another', async () => {
     const { getCachedAuthToken, serverConvexClearAuthCache, setCachedAuthToken } =
-      await import('../../src/runtime/server/utils/auth-cache')
+      await import('../../src/runtime/auth/server/auth-cache')
 
     await setCachedAuthToken('session-a', 'jwt-a', 60)
     await setCachedAuthToken('session-b', 'jwt-b', 60)
@@ -268,7 +268,7 @@ describe('OWASP A08: Integrity Failures', () => {
 
   it('reads back the cached JWT for the same session token', async () => {
     const { getCachedAuthToken, setCachedAuthToken } =
-      await import('../../src/runtime/server/utils/auth-cache')
+      await import('../../src/runtime/auth/server/auth-cache')
 
     await setCachedAuthToken('session-abc', 'jwt-for-abc', 60)
     expect(await getCachedAuthToken('session-abc')).toBe('jwt-for-abc')

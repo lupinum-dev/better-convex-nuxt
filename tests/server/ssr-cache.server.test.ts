@@ -41,7 +41,7 @@ describe('server SSR auth cache', () => {
 
   it('stores cached auth tokens under a hashed session key and reads them back', async () => {
     const { setCachedAuthToken, getCachedAuthToken } =
-      await import('../../src/runtime/server/utils/auth-cache')
+      await import('../../src/runtime/auth/server/auth-cache')
 
     await setCachedAuthToken('session-abc', 'jwt-for-abc', 60)
 
@@ -55,7 +55,7 @@ describe('server SSR auth cache', () => {
 
   it('clears only the targeted cached auth token', async () => {
     const { setCachedAuthToken, getCachedAuthToken, serverConvexClearAuthCache } =
-      await import('../../src/runtime/server/utils/auth-cache')
+      await import('../../src/runtime/auth/server/auth-cache')
 
     await setCachedAuthToken('session-a', 'jwt-a', 60)
     await setCachedAuthToken('session-b', 'jwt-b', 60)
@@ -67,8 +67,8 @@ describe('server SSR auth cache', () => {
   })
 
   it('resolver cache hits avoid a fresh token exchange and still decode the user from the cached JWT', async () => {
-    const { setCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
-    const { resolveRequestAuth } = await import('../../src/runtime/server/utils/auth-resolver')
+    const { setCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
+    const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
 
     const token =
       'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyLWNhY2hlZCIsIm5hbWUiOiJBbGljZSJ9.test'
@@ -92,7 +92,7 @@ describe('server SSR auth cache', () => {
   })
 
   it('resolver caches exchanged tokens with the configured TTL', async () => {
-    const { resolveRequestAuth } = await import('../../src/runtime/server/utils/auth-resolver')
+    const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).endsWith('/api/auth/convex/token')) {
         return new Response(JSON.stringify({ token: 'fresh.jwt.token' }), {
@@ -131,12 +131,12 @@ describe('server SSR auth cache', () => {
 
   it('resolver cache can be disabled without changing raw cache utility behavior', async () => {
     const { setCachedAuthToken, getCachedAuthToken } =
-      await import('../../src/runtime/server/utils/auth-cache')
+      await import('../../src/runtime/auth/server/auth-cache')
     await setCachedAuthToken('session-disabled', 'jwt-disabled', 60)
 
     expect(await getCachedAuthToken('session-disabled')).toBe('jwt-disabled')
 
-    const { resolveRequestAuth } = await import('../../src/runtime/server/utils/auth-resolver')
+    const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).endsWith('/api/auth/convex/token')) {
         return new Response(JSON.stringify({ token: 'fresh.jwt.token' }), {

@@ -3,10 +3,10 @@ import { computed } from 'vue'
 
 import { useRouter } from '#imports'
 
-import { setupConfiguredAuthBootstrap } from '../../src/runtime/client/auth-bootstrap'
+import { setupConfiguredAuthBootstrap } from '../../src/runtime/auth/client/auth-bootstrap'
 import { createConvexQueryState } from '../../src/runtime/composables/internal/query-runtime'
-import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
-import { useConvexAuthActions } from '../../src/runtime/composables/useConvexAuthActions'
+import { useConvexAuth } from '../../src/runtime/auth/composables/useConvexAuth'
+import { useConvexAuthActions } from '../../src/runtime/auth/composables/useConvexAuthActions'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'

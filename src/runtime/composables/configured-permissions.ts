@@ -11,7 +11,7 @@ import type {
 } from '../auth/define-permission.js'
 import { resolvePermissionKey } from '../auth/define-permission.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
-import { hasConvexAuthRuntime } from './internal/auth-runtime.js'
+import { hasConvexAuthRuntime } from '../auth/internal/auth-runtime.js'
 import { createConvexQueryState } from './internal/query-runtime.js'
 import { useConvexAuth } from './useConvexAuth.js'
 

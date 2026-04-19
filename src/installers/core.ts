@@ -172,7 +172,7 @@ export const internal = new Proxy(
     { name: 'serverConvexAction', from: resolver.resolve('./runtime/server/utils/convex') },
     {
       name: 'serverConvexClearAuthCache',
-      from: resolver.resolve('./runtime/server/utils/auth-cache'),
+      from: resolver.resolve('./runtime/auth/server/auth-cache'),
     },
     {
       name: 'validateConvexArgs',

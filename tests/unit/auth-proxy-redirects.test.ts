@@ -4,7 +4,7 @@ import {
   fetchWithCanonicalRedirects,
   getCanonicalRedirectTarget,
   normalizePathname,
-} from '../../src/runtime/server/api/auth/redirect-utils'
+} from '../../src/runtime/auth/server/api/auth/redirect-utils'
 
 describe('auth proxy canonical redirect handling', () => {
   describe('normalizePathname', () => {

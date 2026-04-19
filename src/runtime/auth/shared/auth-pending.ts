@@ -1,6 +1,6 @@
 import { watch, type Ref } from 'vue'
 
-import { AUTH_REFRESH_TIMEOUT_MS } from './constants.js'
+import { AUTH_REFRESH_TIMEOUT_MS } from '../../utils/constants.js'
 
 export interface WaitForPendingClearOptions {
   timeoutMs?: number

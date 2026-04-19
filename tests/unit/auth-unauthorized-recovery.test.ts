@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   handleUnauthorizedAuthFailure,
   normalizeRedirectTargetPath,
-} from '../../src/runtime/utils/auth-unauthorized'
+} from '../../src/runtime/auth/shared/auth-unauthorized'
 
 const useNuxtAppMock = vi.fn()
 const useRuntimeConfigMock = vi.fn()
@@ -14,7 +14,7 @@ vi.mock('#imports', () => ({
   useRuntimeConfig: () => useRuntimeConfigMock(),
 }))
 
-vi.mock('../../src/runtime/client/auth-engine', () => ({
+vi.mock('../../src/runtime/auth/client/auth-engine', () => ({
   getSharedAuthEngine: (...args: unknown[]) => getSharedAuthEngineMock(...args),
 }))
 

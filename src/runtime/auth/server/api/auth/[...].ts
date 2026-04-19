@@ -9,20 +9,20 @@ import {
   appendResponseHeader,
 } from 'h3'
 
-import type { AuthProxyRequest } from '../../../devtools/types.js'
+import type { AuthProxyRequest } from '../../../../devtools/types.js'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
   buildBlockedOriginMessage,
   buildMissingSiteUrlMessage,
-} from '../../../utils/auth-errors.js'
+} from '../../../shared/auth-errors.js'
 import {
   clearsBetterAuthSessionCookie,
   getBetterAuthSessionToken,
-} from '../../../utils/auth-token.js'
-import { getConvexRuntimeConfig } from '../../../utils/runtime-config.js'
-import { serverConvexClearAuthCache } from '../../utils/auth-cache.js'
-import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http.js'
+} from '../../../shared/auth-token.js'
+import { getConvexRuntimeConfig } from '../../../../utils/runtime-config.js'
+import { serverConvexClearAuthCache } from '../../auth-cache.js'
+import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../../../server/utils/http.js'
 import {
   getRequestBodySizeError,
   getResponseBodySizeError,

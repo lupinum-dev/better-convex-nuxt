@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 
 import { useState } from '#app'
 
-import type { AuthWaterfall } from '../utils/auth-debug.js'
+import type { AuthWaterfall } from '../shared/auth-debug.js'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_AUTH_TRACE_ID,
@@ -10,8 +10,8 @@ import {
   STATE_KEY_PENDING,
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
-} from '../utils/constants.js'
-import type { ConvexUser } from '../utils/types.js'
+} from '../../utils/constants.js'
+import type { ConvexUser } from '../../utils/types.js'
 
 export interface HydrationState {
   convexToken: Ref<string | null>

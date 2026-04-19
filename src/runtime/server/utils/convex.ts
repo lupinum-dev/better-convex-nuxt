@@ -28,7 +28,7 @@ import {
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
-import { resolveRequestAuthToken } from './auth-resolver.js'
+import { resolveRequestAuthToken } from '../../auth/server/auth-resolver.js'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
 type ServerConvexHelperName = 'serverConvexQuery' | 'serverConvexMutation' | 'serverConvexAction'

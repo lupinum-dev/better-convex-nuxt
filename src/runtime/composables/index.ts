@@ -1,4 +1,3 @@
-export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth.js'
 export { useConvex } from './useConvex.js'
 export { ConvexCallError } from '../utils/call-result.js'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState.js'
@@ -74,10 +73,15 @@ export { useConvexStorageUrl } from './useConvexStorageUrl.js'
 
 // Auth flow composables (available when auth enabled)
 export {
+  useConvexAuth,
+  type UseConvexAuthReturn,
+  type ConvexUser,
+} from '../auth/composables/useConvexAuth.js'
+export {
   useConvexAuthActions,
   type UseConvexAuthActionsOptions,
   type UseConvexAuthActionsReturn,
-} from './useConvexAuthActions.js'
-export { useConvexSignIn } from './useConvexSignIn.js'
-export { useConvexSignUp } from './useConvexSignUp.js'
-export { useConvexPasswordReset } from './useConvexPasswordReset.js'
+} from '../auth/composables/useConvexAuthActions.js'
+export { useConvexSignIn } from '../auth/composables/useConvexSignIn.js'
+export { useConvexSignUp } from '../auth/composables/useConvexSignUp.js'
+export { useConvexPasswordReset } from '../auth/composables/useConvexPasswordReset.js'

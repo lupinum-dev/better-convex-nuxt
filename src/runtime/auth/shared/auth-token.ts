@@ -1,9 +1,9 @@
 import {
   BETTER_AUTH_SECURE_SESSION_COOKIE_NAME,
   BETTER_AUTH_SESSION_COOKIE_NAME,
-} from './constants.js'
-import type { ConvexClientAuthMode } from './types.js'
-import { toErrorMessage } from './value-helpers.js'
+} from '../../utils/constants.js'
+import type { ConvexClientAuthMode } from '../../utils/types.js'
+import { toErrorMessage } from '../../utils/value-helpers.js'
 
 export interface SharedAuthTokenState {
   value: string | null

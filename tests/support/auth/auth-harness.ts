@@ -24,9 +24,9 @@ import {
   type SharedAuthEngine,
   type AuthTransport,
   type ClientAuthStateResult,
-} from '../../../src/runtime/client/auth-engine'
-import { useConvexAuth } from '../../../src/runtime/composables/useConvexAuth'
-import { buildAuthTokenDecodeFailureMessage } from '../../../src/runtime/utils/auth-errors'
+} from '../../../src/runtime/auth/client/auth-engine'
+import { useConvexAuth } from '../../../src/runtime/auth/composables/useConvexAuth'
+import { buildAuthTokenDecodeFailureMessage } from '../../../src/runtime/auth/shared/auth-errors'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_PENDING,

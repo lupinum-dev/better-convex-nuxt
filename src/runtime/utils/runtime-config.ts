@@ -1,6 +1,6 @@
 import { useRuntimeConfig } from '#imports'
 
-import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config.js'
+import { normalizeConvexAuthConfig, type ConvexAuthConfig } from '../auth/shared/auth-config.js'
 import { normalizeAuthCacheTtl, normalizePermissionQueryPath } from './config-normalization.js'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
 import {

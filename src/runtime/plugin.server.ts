@@ -11,11 +11,11 @@
  */
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 
-import { createSharedAuthEngine } from './client/auth-engine.js'
-import { projectResolvedAuthForHydration } from './server/utils/auth-hydration.js'
-import { resolveRequestAuth } from './server/utils/auth-resolver.js'
-import type { AuthWaterfall } from './utils/auth-debug.js'
-import { buildAuthTokenDecodeFailureMessage } from './utils/auth-errors.js'
+import { createSharedAuthEngine } from './auth/client/auth-engine.js'
+import { projectResolvedAuthForHydration } from './auth/server/auth-hydration.js'
+import { resolveRequestAuth } from './auth/server/auth-resolver.js'
+import type { AuthWaterfall } from './auth/shared/auth-debug.js'
+import { buildAuthTokenDecodeFailureMessage } from './auth/shared/auth-errors.js'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_AUTH_WATERFALL,

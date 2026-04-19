@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getAuthRoutePattern, isOriginAllowed } from '../../src/runtime/server/api/auth/security'
+import { getAuthRoutePattern, isOriginAllowed } from '../../src/runtime/auth/server/api/auth/security'
 
 describe('auth proxy security helpers', () => {
   describe('isOriginAllowed', () => {

@@ -22,7 +22,7 @@ vi.mock('../../src/runtime/devtools/runtime', () => ({
 }))
 
 // Stub unauthorized handler
-vi.mock('../../src/runtime/utils/auth-unauthorized', () => ({
+vi.mock('../../src/runtime/auth/shared/auth-unauthorized', () => ({
   handleUnauthorizedAuthFailure: vi.fn(),
 }))
 

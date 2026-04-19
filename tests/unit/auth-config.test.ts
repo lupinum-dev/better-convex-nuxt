@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeConvexAuthConfig } from '../../src/runtime/utils/auth-config'
+import { normalizeConvexAuthConfig } from '../../src/runtime/auth/shared/auth-config'
 
 describe('auth config normalization', () => {
   it('normalizes defaults from undefined', () => {

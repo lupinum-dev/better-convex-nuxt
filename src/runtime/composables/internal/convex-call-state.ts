@@ -7,7 +7,7 @@ import {
   updateDevtoolsEntrySuccess,
   updateDevtoolsEntryError,
 } from '../../devtools/runtime.js'
-import { handleUnauthorizedAuthFailure } from '../../utils/auth-unauthorized.js'
+import { handleUnauthorizedAuthFailure } from '../../auth/shared/auth-unauthorized.js'
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
 import { resolveSchema, runValidation, type ValidateOption } from '../../utils/resolve-validator.js'
 import type { RuntimeObserver } from '../../utils/runtime-observer.js'

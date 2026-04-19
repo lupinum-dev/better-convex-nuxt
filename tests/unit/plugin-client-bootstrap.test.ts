@@ -134,7 +134,7 @@ describe('plugin.client bootstrap', () => {
       auth: { enabled: true, route: '/api/auth', skipAuthTokenFetchRoutes: [] },
     })
 
-    const { getSharedAuthEngine } = await import('../../src/runtime/client/auth-engine')
+    const { getSharedAuthEngine } = await import('../../src/runtime/auth/client/auth-engine')
     const plugin = await loadClientPlugin()
     const nuxtApp = createNuxtAppMock()
 

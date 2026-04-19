@@ -14,7 +14,7 @@ vi.mock('better-auth/vue', () => ({
   createAuthClient: authClientMocks.createAuthClientMock,
 }))
 
-let initAuthClient: typeof import('../../src/runtime/client/auth-client').initAuthClient
+let initAuthClient: typeof import('../../src/runtime/auth/client/auth-client').initAuthClient
 
 class SilentSetAuthConvexClient {
   setAuth(
@@ -27,7 +27,7 @@ class SilentSetAuthConvexClient {
 
 describe('initAuthClient', () => {
   beforeAll(async () => {
-    ;({ initAuthClient } = await import('../../src/runtime/client/auth-client'))
+    ;({ initAuthClient } = await import('../../src/runtime/auth/client/auth-client'))
   })
 
   beforeEach(() => {

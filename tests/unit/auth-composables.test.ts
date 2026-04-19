@@ -28,11 +28,11 @@ const { useConvexAuthMock, useConvexAuthActionsMock } = vi.hoisted(() => {
   }
 })
 
-vi.mock('../../src/runtime/composables/useConvexAuth', () => ({
+vi.mock('../../src/runtime/auth/composables/useConvexAuth', () => ({
   useConvexAuth: useConvexAuthMock,
 }))
 
-vi.mock('../../src/runtime/composables/useConvexAuthActions', () => ({
+vi.mock('../../src/runtime/auth/composables/useConvexAuthActions', () => ({
   useConvexAuthActions: useConvexAuthActionsMock,
 }))
 
@@ -87,7 +87,7 @@ describe('useConvexSignIn', () => {
   })
 
   it('calls client.signIn.email with the provided credentials', async () => {
-    const { useConvexSignIn } = await import('../../src/runtime/composables/useConvexSignIn')
+    const { useConvexSignIn } = await import('../../src/runtime/auth/composables/useConvexSignIn')
     const signInMock = vi.fn(async () => ({ data: { token: 'tok' }, error: null }))
     useConvexAuthMock.mockReturnValue({
       client: { signIn: { email: signInMock } },
@@ -100,7 +100,7 @@ describe('useConvexSignIn', () => {
   })
 
   it('forwards status/pending/error/data/reset from useConvexAuthActions', async () => {
-    const { useConvexSignIn } = await import('../../src/runtime/composables/useConvexSignIn')
+    const { useConvexSignIn } = await import('../../src/runtime/auth/composables/useConvexSignIn')
     const resetFn = vi.fn()
     useConvexAuthActionsMock.mockReturnValue({
       status: { value: 'success' },
@@ -120,7 +120,7 @@ describe('useConvexSignIn', () => {
   })
 
   it('returns undefined and sets error when sign-in fails', async () => {
-    const { useConvexSignIn } = await import('../../src/runtime/composables/useConvexSignIn')
+    const { useConvexSignIn } = await import('../../src/runtime/auth/composables/useConvexSignIn')
     const authError = new Error('Invalid credentials')
     const executeMock = vi.fn(async () => undefined)
     useConvexAuthActionsMock.mockReturnValue({
@@ -145,7 +145,7 @@ describe('useConvexSignIn', () => {
   })
 
   it('produces a descriptive error when client is null', async () => {
-    const { useConvexSignIn } = await import('../../src/runtime/composables/useConvexSignIn')
+    const { useConvexSignIn } = await import('../../src/runtime/auth/composables/useConvexSignIn')
     useConvexAuthMock.mockReturnValue({ client: null })
 
     const executeMock = vi.fn(async () => {})
@@ -168,7 +168,7 @@ describe('useConvexSignIn', () => {
   })
 
   it('produces a descriptive error when signIn.email is unavailable', async () => {
-    const { useConvexSignIn } = await import('../../src/runtime/composables/useConvexSignIn')
+    const { useConvexSignIn } = await import('../../src/runtime/auth/composables/useConvexSignIn')
     useConvexAuthMock.mockReturnValue({ client: { signIn: {} } })
 
     const executeMock = vi.fn(async () => {})
@@ -189,7 +189,7 @@ describe('useConvexSignIn', () => {
   })
 
   it('forwards opts to actions.execute', async () => {
-    const { useConvexSignIn } = await import('../../src/runtime/composables/useConvexSignIn')
+    const { useConvexSignIn } = await import('../../src/runtime/auth/composables/useConvexSignIn')
     const executeMock = vi.fn(async (fn: () => Promise<unknown>) => fn())
     useConvexAuthActionsMock.mockReturnValue({
       status: { value: 'idle' },
@@ -230,7 +230,7 @@ describe('useConvexSignUp', () => {
   })
 
   it('calls client.signUp.email with name, email, and password', async () => {
-    const { useConvexSignUp } = await import('../../src/runtime/composables/useConvexSignUp')
+    const { useConvexSignUp } = await import('../../src/runtime/auth/composables/useConvexSignUp')
     const signUpMock = vi.fn(async () => ({ data: { token: 'tok' }, error: null }))
     useConvexAuthMock.mockReturnValue({
       client: { signUp: { email: signUpMock } },
@@ -247,7 +247,7 @@ describe('useConvexSignUp', () => {
   })
 
   it('produces a descriptive error when client is null', async () => {
-    const { useConvexSignUp } = await import('../../src/runtime/composables/useConvexSignUp')
+    const { useConvexSignUp } = await import('../../src/runtime/auth/composables/useConvexSignUp')
     useConvexAuthMock.mockReturnValue({ client: null })
 
     const executeMock = vi.fn(async () => {})
@@ -268,7 +268,7 @@ describe('useConvexSignUp', () => {
   })
 
   it('produces a descriptive error when signUp.email is unavailable', async () => {
-    const { useConvexSignUp } = await import('../../src/runtime/composables/useConvexSignUp')
+    const { useConvexSignUp } = await import('../../src/runtime/auth/composables/useConvexSignUp')
     useConvexAuthMock.mockReturnValue({ client: { signUp: {} } })
 
     const executeMock = vi.fn(async () => {})
@@ -310,7 +310,7 @@ describe('useConvexPasswordReset', () => {
 
   it('forgotPassword calls client.forgetPassword with the email and a redirectTo', async () => {
     const { useConvexPasswordReset } =
-      await import('../../src/runtime/composables/useConvexPasswordReset')
+      await import('../../src/runtime/auth/composables/useConvexPasswordReset')
     const forgetPasswordMock = vi.fn(async () => ({ data: {}, error: null }))
     useConvexAuthMock.mockReturnValue({
       client: { forgetPassword: forgetPasswordMock, resetPassword: vi.fn() },
@@ -327,7 +327,7 @@ describe('useConvexPasswordReset', () => {
 
   it('resetPassword calls client.resetPassword with token and newPassword', async () => {
     const { useConvexPasswordReset } =
-      await import('../../src/runtime/composables/useConvexPasswordReset')
+      await import('../../src/runtime/auth/composables/useConvexPasswordReset')
     const resetPasswordMock = vi.fn(async () => ({ data: {}, error: null }))
     useConvexAuthMock.mockReturnValue({
       client: { forgetPassword: vi.fn(), resetPassword: resetPasswordMock },
@@ -343,7 +343,7 @@ describe('useConvexPasswordReset', () => {
   })
   it('uses custom resetPagePath when provided', async () => {
     const { useConvexPasswordReset } =
-      await import('../../src/runtime/composables/useConvexPasswordReset')
+      await import('../../src/runtime/auth/composables/useConvexPasswordReset')
     const forgetPasswordMock = vi.fn(async () => ({ data: {}, error: null }))
     useConvexAuthMock.mockReturnValue({
       client: { forgetPassword: forgetPasswordMock, resetPassword: vi.fn() },
@@ -360,7 +360,7 @@ describe('useConvexPasswordReset', () => {
 
   it('produces a descriptive error when client is null (forgotPassword)', async () => {
     const { useConvexPasswordReset } =
-      await import('../../src/runtime/composables/useConvexPasswordReset')
+      await import('../../src/runtime/auth/composables/useConvexPasswordReset')
     useConvexAuthMock.mockReturnValue({ client: null })
 
     const executeMock = vi.fn(async () => {})
@@ -384,7 +384,7 @@ describe('useConvexPasswordReset', () => {
 
   it('produces a descriptive error when forgetPassword is unavailable', async () => {
     const { useConvexPasswordReset } =
-      await import('../../src/runtime/composables/useConvexPasswordReset')
+      await import('../../src/runtime/auth/composables/useConvexPasswordReset')
     useConvexAuthMock.mockReturnValue({ client: { resetPassword: vi.fn() } })
 
     const executeMock = vi.fn(async () => {})
@@ -408,7 +408,7 @@ describe('useConvexPasswordReset', () => {
 
   it('produces a descriptive error when resetPassword is unavailable', async () => {
     const { useConvexPasswordReset } =
-      await import('../../src/runtime/composables/useConvexPasswordReset')
+      await import('../../src/runtime/auth/composables/useConvexPasswordReset')
     useConvexAuthMock.mockReturnValue({ client: { forgetPassword: vi.fn() } })
 
     const executeMock = vi.fn(async () => {})
@@ -455,7 +455,7 @@ describe('getCachedAuthToken JWT-expiry eviction', () => {
     const nearExpiryToken = makeJwt({ sub: 'user-1', exp: nowSeconds() + 10 })
     const { removeItem } = makeStorageMock(nearExpiryToken)
 
-    const { getCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
+    const { getCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
     const result = await getCachedAuthToken('session-abc')
 
     expect(result).toBeNull()
@@ -467,7 +467,7 @@ describe('getCachedAuthToken JWT-expiry eviction', () => {
     const freshToken = makeJwt({ sub: 'user-1', exp: nowSeconds() + 300 })
     const { removeItem } = makeStorageMock(freshToken)
 
-    const { getCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
+    const { getCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
     const result = await getCachedAuthToken('session-abc')
 
     expect(result).toBe(freshToken)
@@ -477,7 +477,7 @@ describe('getCachedAuthToken JWT-expiry eviction', () => {
   it('returns null (no eviction call) when storage has no cached token', async () => {
     const { removeItem } = makeStorageMock(null)
 
-    const { getCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
+    const { getCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
     const result = await getCachedAuthToken('session-abc')
 
     expect(result).toBeNull()
@@ -489,7 +489,7 @@ describe('getCachedAuthToken JWT-expiry eviction', () => {
     const expiredToken = makeJwt({ sub: 'user-1', exp: nowSeconds() - 60 })
     const { removeItem } = makeStorageMock(expiredToken)
 
-    const { getCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
+    const { getCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
     const result = await getCachedAuthToken('session-abc')
 
     expect(result).toBeNull()
@@ -506,7 +506,7 @@ describe('getCachedAuthToken JWT-expiry eviction', () => {
       removeItem: vi.fn(),
     })
 
-    const { getCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
+    const { getCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
     const result = await getCachedAuthToken('session-abc')
 
     expect(result).toBeNull()
@@ -521,7 +521,7 @@ describe('getCachedAuthToken JWT-expiry eviction', () => {
     const noExpToken = makeJwt({ sub: 'user-1' })
     const { removeItem } = makeStorageMock(noExpToken)
 
-    const { getCachedAuthToken } = await import('../../src/runtime/server/utils/auth-cache')
+    const { getCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
     const result = await getCachedAuthToken('session-abc')
 
     // Without exp, getJwtTimeUntilExpiryMs returns null → token is passed through
@@ -539,7 +539,7 @@ describe('getCachedAuthToken JWT-expiry eviction', () => {
       }),
     })
 
-    const { serverConvexClearAuthCache } = await import('../../src/runtime/server/utils/auth-cache')
+    const { serverConvexClearAuthCache } = await import('../../src/runtime/auth/server/auth-cache')
 
     await expect(serverConvexClearAuthCache('session-abc')).resolves.toBeUndefined()
     expect(warnSpy).toHaveBeenCalledWith('[auth-cache] Cache eviction failed:', expect.any(Error))

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isOriginAllowed } from '../../src/runtime/server/api/auth/security'
+import { isOriginAllowed } from '../../src/runtime/auth/server/api/auth/security'
 
 describe('auth proxy trusted origin wildcard matching', () => {
   it('matches wildcard labels and rejects cross-label wildcards', () => {

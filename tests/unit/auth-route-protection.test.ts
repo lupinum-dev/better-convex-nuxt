@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveRouteProtectionDecision } from '../../src/runtime/utils/auth-route-protection'
+import { resolveRouteProtectionDecision } from '../../src/runtime/auth/shared/auth-route-protection'
 
 describe('route protection decision', () => {
   it('does nothing when page is not protected', () => {
