@@ -3,8 +3,8 @@
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
-import { agencyPermissionKeys } from '../shared/permissions'
 import { api } from './_generated/api'
+import { projectCreate } from './auth/permissions'
 import type { Doc, Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
@@ -184,8 +184,8 @@ describe('agency example', () => {
     const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
     const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
 
-    expect(ownerCtx?.can[agencyPermissionKeys.projectCreate]).toBe(true)
-    expect(viewerCtx?.can[agencyPermissionKeys.projectCreate]).toBe(false)
+    expect(ownerCtx?.can[projectCreate.key]).toBe(true)
+    expect(viewerCtx?.can[projectCreate.key]).toBe(false)
   })
 
   it('returns null context and denies the agency dashboard for anonymous callers', async () => {

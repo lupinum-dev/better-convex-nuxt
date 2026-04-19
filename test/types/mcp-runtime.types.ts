@@ -9,7 +9,7 @@ import {
   type DestructiveOperationPreview,
 } from '../../src/runtime/functions'
 import { defineArgs } from '../../src/runtime/args'
-import { defineMcpApp } from '../../src/runtime/mcp'
+import { defineMcpApp, type McpConvexCaller } from '../../src/runtime/mcp'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -44,11 +44,12 @@ const actionRef = {} as FunctionReference<
 >
 
 const runtime = defineMcpApp<Principal, Capabilities>({
-  callConvex: async (_event: H3Event) => ({
-    query: async () => ({ title: 'Draft', count: 2 }),
-    mutation: async () => ({ published: true }),
-    action: async () => ({ executed: true }),
-  }),
+  callConvex: async (_event: H3Event, _principal: Principal) =>
+    ({
+      query: async () => ({ title: 'Draft', count: 2 }),
+      mutation: async () => ({ published: true }),
+      action: async () => ({ executed: true }),
+    }) as unknown as McpConvexCaller,
   resolvePrincipal: async () => ({ kind: 'agent', id: 'run-1' }),
   resolveCapabilities: async () => ({ publishEntry: true, readEntry: true }),
 })
@@ -57,7 +58,7 @@ runtime.tool({
   schema,
   call: queryRef,
   operation: 'query',
-  capability: 'readEntry',
+  permission: 'readEntry',
   preview: queryRef,
   previewResult: ({ result }) => {
     type _previewResult = Assert<IsEqual<typeof result, { title: string; count: number }>>
@@ -72,7 +73,7 @@ runtime.tool({
 runtime.tool({
   schema,
   call: mutationRef,
-  capability: 'publishEntry',
+  permission: 'publishEntry',
   respond: ({ result, ok }) => {
     type _mutationResult = Assert<IsEqual<typeof result, { published: true }>>
     return ok(result)
@@ -139,5 +140,5 @@ runtime.tool.fromOperation(archiveEntryOp, {
       { operation: 'entries.archive'; targetId: string; affectedCounts: { entries: number } }
     >
   >,
-  capability: 'publishEntry',
+  permission: 'publishEntry',
 })

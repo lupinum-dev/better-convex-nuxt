@@ -146,15 +146,15 @@ import { computed, reactive } from 'vue'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import { knowledgeBasePermissionKeys } from '~/shared/permissions'
+import { articleCreate, enrollmentManage } from '~/convex/auth/permissions'
 
 const route = useRoute()
 const toast = useToast()
 const kbId = route.params.kbId as string
 
 const { allows } = usePermissions()
-const canManage = allows(knowledgeBasePermissionKeys.enrollmentManage)
-const canCreateArticles = allows(knowledgeBasePermissionKeys.articleCreate)
+const canManage = allows(enrollmentManage)
+const canCreateArticles = allows(articleCreate)
 
 const { data: kb } = await useConvexQuery(api.domain.knowledgeBases.get, { id: kbId as any })
 const { data: articles } = await useConvexQuery(api.domain.articles.list, {

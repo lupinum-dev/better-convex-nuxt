@@ -6,7 +6,7 @@ export default tool({
   schema: listDraftPages,
   call: internal.operations.miniCmsBridge.listDraftPages,
   operation: 'query',
-  capability: 'listDraftPages',
+  permission: 'listDraftPages',
   group: 'pages',
   meta: {
     name: 'list-draft-pages',

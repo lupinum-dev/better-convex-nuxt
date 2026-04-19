@@ -3,7 +3,8 @@ import type { Doc, Id } from '../_generated/dataModel'
 
 import { createTodo, listTodos, setTodoCompleted } from '../../shared/schemas/todo'
 import { todoCapabilities } from '../auth/capabilities'
-import { canCreateTodo, canReadTodo, canUpdateTodo } from '../auth/checks'
+import { canUpdateTodo } from '../auth/checks'
+import { todoCreate, todoRead } from '../auth/permissions'
 import { mutation, query } from '../functions'
 import { removeTodoOp } from '../operations/todos'
 
@@ -14,7 +15,7 @@ function requireWorkspaceTenant(actor: { tenantId?: Id<'workspaces'> | null }) {
 
 export const list = query({
   args: listTodos.args,
-  guard: canReadTodo,
+  guard: todoRead,
   handler: async (ctx) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
@@ -30,7 +31,7 @@ export const list = query({
 
 export const get = query({
   args: removeTodoOp.args,
-  guard: canReadTodo,
+  guard: todoRead,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id as Id<'todos'>)
     requireRecord(todo, 'Todo')
@@ -43,7 +44,7 @@ export const get = query({
 
 export const create = mutation({
   args: createTodo.args,
-  guard: canCreateTodo,
+  guard: todoCreate,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)
@@ -61,7 +62,7 @@ export const create = mutation({
 export const setCompleted = mutation({
   args: setTodoCompleted.args,
   // Entry gate: actor can see todos. authorize below checks update rights on this specific todo.
-  guard: canReadTodo,
+  guard: todoRead,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id as Id<'todos'>)
     requireRecord(todo, 'Todo')

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { api } from '#trellis/api'
+import { runbookRead } from '~/convex/auth/permissions'
 import { listRunbooks } from '~/shared/schemas/runbook'
 
 import { tool } from '../../runtime'
@@ -8,7 +9,7 @@ import { tool } from '../../runtime'
 export default tool({
   schema: listRunbooks,
   call: api.domain.runbooks.workspaceOverview,
-  capability: 'readWorkspaceRunbooks',
+  permission: runbookRead,
   group: 'workspace',
   operation: 'query',
   outputSchema: {

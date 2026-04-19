@@ -76,7 +76,7 @@
 
 <script setup lang="ts">
 import { api } from '#trellis/api'
-import { knowledgeBasePermissionKeys } from '~/shared/permissions'
+import { articleCreate, shareCreate } from '~/convex/auth/permissions'
 
 const route = useRoute()
 const toast = useToast()
@@ -87,8 +87,8 @@ const kbId = route.query.kbId as string | undefined
 const backLink = computed(() => (kbId ? `/kb/${kbId}` : '/'))
 
 const { allows } = usePermissions()
-const canShare = allows(knowledgeBasePermissionKeys.shareCreate)
-const canPublish = allows(knowledgeBasePermissionKeys.articleCreate)
+const canShare = allows(shareCreate)
+const canPublish = allows(articleCreate)
 
 const { data: article, error } = await useConvexQuery(
   api.domain.articles.viewArticle,

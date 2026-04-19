@@ -1,17 +1,13 @@
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
-import { teamWorkspacePermissionKeys, type TeamWorkspacePermissionMap } from '../../shared/permissions'
 import { getActor } from '../auth/actor'
-import { canCreateTodo, canReadTodo } from '../auth/checks'
+import { teamWorkspacePermissions } from '../auth/permissions'
 import { query } from '../functions'
 
 export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
-    guards: {
-      [teamWorkspacePermissionKeys.todoRead]: canReadTodo,
-      [teamWorkspacePermissionKeys.todoCreate]: canCreateTodo,
-    } satisfies Record<keyof TeamWorkspacePermissionMap, typeof canReadTodo>,
+    permissions: teamWorkspacePermissions,
     extend: async (ctx, actor) => {
       const user = await ctx.db
         .query('users')

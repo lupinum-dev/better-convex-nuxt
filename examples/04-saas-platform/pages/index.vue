@@ -422,13 +422,17 @@
 import { computed, reactive, ref } from 'vue'
 
 import { api } from '#trellis/api'
-import { saasPermissionKeys } from '~/shared/permissions'
+import {
+  projectCreate,
+  saasPermissionMatrix,
+  workspaceAudit,
+} from '~/convex/auth/permissions'
 
 const toast = useToast()
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const { allows, ready, role, tenantId, ctx } = usePermissions()
-const canAudit = allows(saasPermissionKeys.workspaceAudit)
+const canAudit = allows(workspaceAudit)
 
 const signUpForm = reactive({
   name: '',
@@ -510,23 +514,15 @@ const displayName = computed(
 const currentWorkspace = computed(() =>
   workspaceOptions.value?.find((w) => w._id === tenantId.value),
 )
-const canCreateProject = allows(saasPermissionKeys.projectCreate)
+const canCreateProject = allows(projectCreate)
 const atProjectLimit = computed(() => ctx.value?.usage?.projects?.remaining === 0)
 const roleOptions = ['admin', 'member', 'viewer']
 const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
-const permissionMatrix = [
-  { label: 'Create project', roles: ['owner', 'admin'] },
-  { label: 'Read projects', roles: ['owner', 'admin', 'member', 'viewer'] },
-  { label: 'Archive project', roles: ['owner', 'admin'] },
-  { label: 'Export projects', roles: ['owner', 'admin'] },
-  { label: 'Create task', roles: ['owner', 'admin', 'member'] },
-  { label: 'Assign task', roles: ['owner', 'admin'] },
+const recordRuleRows = [
   { label: 'Update own task', roles: ['owner', 'admin', 'member'] },
   { label: 'Delete own task', roles: ['owner', 'admin', 'member'] },
-  { label: 'Comment', roles: ['owner', 'admin', 'member', 'viewer'] },
-  { label: 'Manage members', roles: ['owner', 'admin'] },
-  { label: 'View audit log', roles: ['owner', 'admin'] },
 ]
+const permissionMatrix = [...saasPermissionMatrix, ...recordRuleRows]
 
 async function handleSignUp() {
   await authAction.execute(() => client!.signUp.email(signUpForm), { redirectTo: '/' })

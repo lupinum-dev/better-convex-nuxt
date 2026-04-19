@@ -4,13 +4,14 @@ import { api } from '#trellis/api'
  * This tool reuses the same schema as the UI and shows permission-aware updates.
  */
 import { setTodoCompleted } from '~/shared/schemas/todo'
+import { todoRead } from '~/convex/auth/permissions'
 
 import { tool } from '../runtime'
 
 export default tool({
   schema: setTodoCompleted,
   call: api.domain.todos.setCompleted,
-  capability: 'completeTodo',
+  permission: todoRead,
   meta: {
     name: 'complete-todo',
   },

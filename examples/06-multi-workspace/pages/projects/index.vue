@@ -32,12 +32,12 @@
 import { computed } from 'vue'
 
 import { api } from '#trellis/api'
-import { agencyPermissionKeys } from '~/shared/permissions'
+import { projectCreate } from '~/convex/auth/permissions'
 
 definePageMeta({ convexAuth: true })
 
 const { allows, role, tenantId } = usePermissions()
-const canCreateProject = allows(agencyPermissionKeys.projectCreate)
+const canCreateProject = allows(projectCreate)
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: projects } = await useConvexQuery(api.domain.projects.list, workspaceArgs)

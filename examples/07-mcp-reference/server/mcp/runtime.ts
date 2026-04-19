@@ -4,19 +4,21 @@ import { api } from '#trellis/api'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
 import type { McpReferencePrincipal } from '~/convex/auth/principal'
-
-import { mcpReferencePermissionKeys } from '../../shared/permissions'
+import {
+  mcpManage,
+  runbookBulkDelete,
+  runbookCreate,
+  runbookDelete,
+  runbookRead,
+  type McpReferencePermissionKey,
+} from '~/convex/auth/permissions'
 
 type McpAuthContext = {
   keyId?: string
   userId?: string
 }
 
-type CapabilitySnapshot = {
-  readWorkspaceRunbooks: boolean
-  writeWorkspaceRunbooks: boolean
-  deleteWorkspaceRunbooks: boolean
-}
+type CapabilitySnapshot = Record<McpReferencePermissionKey, boolean>
 
 function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
@@ -48,19 +50,25 @@ export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot
   resolveCapabilities: async ({ principal, convex }) => {
     if (principal.kind !== 'agent') {
       return {
-        readWorkspaceRunbooks: false,
-        writeWorkspaceRunbooks: false,
-        deleteWorkspaceRunbooks: false,
+        [runbookRead.key]: false,
+        [runbookCreate.key]: false,
+        [runbookDelete.key]: false,
+        [runbookBulkDelete.key]: false,
+        [mcpManage.key]: false,
       }
     }
 
     const permissions = await convex.query(api.permissions.context.getPermissionContext, {})
 
-    return {
-      readWorkspaceRunbooks: permissions?.can[mcpReferencePermissionKeys.runbookRead] === true,
-      writeWorkspaceRunbooks: permissions?.can[mcpReferencePermissionKeys.runbookCreate] === true,
-      deleteWorkspaceRunbooks: permissions?.role === 'owner' || permissions?.role === 'admin',
-    }
+    return (
+      permissions?.can ?? {
+        [runbookRead.key]: false,
+        [runbookCreate.key]: false,
+        [runbookDelete.key]: false,
+        [runbookBulkDelete.key]: false,
+        [mcpManage.key]: false,
+      }
+    )
   },
   principalKey: (principal) =>
     principal.kind === 'agent'

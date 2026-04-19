@@ -29,6 +29,22 @@ export type {
 } from './define-guard.js'
 export { defineActor } from './define-actor.js'
 export type { ActorBuilder, DefaultActor } from './define-actor.js'
+export { derivePermissionMatrix } from './derive-permission-matrix.js'
+export type { PermissionMatrixRow } from './derive-permission-matrix.js'
+export {
+  definePermission,
+  isGuardPermissionDefinition,
+  isPermissionDefinition,
+  resolvePermissionCheck,
+  resolvePermissionKey,
+  resolvePermissionLabel,
+} from './define-permission.js'
+export type {
+  GuardPermissionDefinition,
+  PermissionDefinition,
+  PermissionHandle,
+  PermissionLike,
+} from './define-permission.js'
 export { definePermissionContext } from './define-permission-context.js'
 export { defineServices } from './define-services.js'
 export type {

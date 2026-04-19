@@ -5,8 +5,14 @@ import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import schema from '../convex/schema'
+import {
+  mcpManage,
+  runbookBulkDelete,
+  runbookCreate,
+  runbookDelete,
+  runbookRead,
+} from '../convex/auth/permissions'
 import { modules } from '../convex/test.setup'
-import { mcpReferencePermissionKeys } from '../shared/permissions'
 
 const api = anyApi as any
 
@@ -42,9 +48,11 @@ describe('mcp reference example', () => {
       email: 'onboarding@example.com',
       displayName: 'Onboarding User',
       can: {
-        [mcpReferencePermissionKeys.runbookRead]: false,
-        [mcpReferencePermissionKeys.runbookCreate]: false,
-        [mcpReferencePermissionKeys.mcpManage]: false,
+        [runbookRead.key]: false,
+        [runbookCreate.key]: false,
+        [mcpManage.key]: false,
+        [runbookDelete.key]: false,
+        [runbookBulkDelete.key]: false,
       },
     })
     expect(userId).toBeTruthy()

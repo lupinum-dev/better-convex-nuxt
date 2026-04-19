@@ -10,6 +10,10 @@ import type { Actor } from './actor'
 
 export const hasRole = (...roles: Doc<'users'>['role'][]) =>
   defineGuard<Actor>(`role:${roles.join('|')}`, (actor) => !!actor && roles.includes(actor.role))
+export const hasWorkspace = defineGuard<Actor | { tenantId?: string | undefined }>(
+  'Workspace member',
+  (actor) => !!actor?.tenantId,
+)
 export const isOwnerOf = (resource: { ownerId: string }) =>
   defineGuard<Actor>(
     `owner:${resource.ownerId}`,

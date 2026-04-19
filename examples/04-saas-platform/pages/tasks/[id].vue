@@ -76,7 +76,7 @@ import { computed } from 'vue'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import { saasPermissionKeys } from '~/shared/permissions'
+import { taskAssign } from '~/convex/auth/permissions'
 
 definePageMeta({
   convexAuth: true,
@@ -88,7 +88,7 @@ const { allows } = usePermissions()
 
 const taskId = computed(() => route.params.id as Id<'tasks'>)
 const projectId = route.query.projectId as Id<'projects'>
-const canAssign = allows(saasPermissionKeys.taskAssign)
+const canAssign = allows(taskAssign)
 
 const { data: task } = await useCachedQuery(
   api.domain.tasks.get,

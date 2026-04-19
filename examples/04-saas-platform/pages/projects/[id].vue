@@ -119,22 +119,28 @@ import { computed, reactive, ref } from 'vue'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import { saasPermissionKeys } from '~/shared/permissions'
+import {
+  projectArchive,
+  projectRead,
+  taskCreate,
+  workspaceAudit,
+  workspaceMembers,
+} from '~/convex/auth/permissions'
 
 definePageMeta({
   convexAuth: true,
 })
 
 useAuthGuard({
-  permission: saasPermissionKeys.projectRead,
+  permission: projectRead,
   redirectTo: '/',
 })
 
 const route = useRoute()
 const toast = useToast()
 const { allows } = usePermissions()
-const canAudit = allows(saasPermissionKeys.workspaceAudit)
-const canArchive = allows(saasPermissionKeys.projectArchive)
+const canAudit = allows(workspaceAudit)
+const canArchive = allows(projectArchive)
 const projectId = computed(() => route.params.id as Id<'projects'>)
 
 const taskForm = reactive({
@@ -156,8 +162,8 @@ const archiveProject = useConvexMutation(api.domain.projects.archive, {
   onError: (error) =>
     toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
 })
-const canCreateTask = allows(saasPermissionKeys.taskCreate)
-const canManageMembers = allows(saasPermissionKeys.workspaceMembers)
+const canCreateTask = allows(taskCreate)
+const canManageMembers = allows(workspaceMembers)
 
 const { data: project } = await useConvexQuery(
   api.domain.projects.get,

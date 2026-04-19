@@ -4,6 +4,7 @@
  */
 import { api } from '#trellis/api'
 import { listTodos } from '~/shared/schemas/todo'
+import { todoRead } from '~/convex/auth/permissions'
 
 import { tool } from '../runtime'
 
@@ -11,7 +12,7 @@ export default tool({
   schema: listTodos,
   call: api.domain.todos.list,
   operation: 'query',
-  capability: 'listTodos',
+  permission: todoRead,
   meta: {
     name: 'list-todos',
   },

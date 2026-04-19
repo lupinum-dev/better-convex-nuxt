@@ -1,28 +1,13 @@
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
-import { knowledgeBasePermissionKeys, type KnowledgeBasePermissionMap } from '../../shared/permissions'
 import { getActor } from '../auth/actor'
-import {
-  canCreateArticle,
-  canCreateKB,
-  canCreateShareToken,
-  canManageEnrollments,
-  canReadArticle,
-  canReadKB,
-} from '../auth/checks'
+import { knowledgeBasePermissions } from '../auth/permissions'
 import { query } from '../functions'
 
 export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
-    guards: {
-      [knowledgeBasePermissionKeys.kbCreate]: canCreateKB,
-      [knowledgeBasePermissionKeys.kbRead]: canReadKB,
-      [knowledgeBasePermissionKeys.articleCreate]: canCreateArticle,
-      [knowledgeBasePermissionKeys.articleRead]: canReadArticle,
-      [knowledgeBasePermissionKeys.enrollmentManage]: canManageEnrollments,
-      [knowledgeBasePermissionKeys.shareCreate]: canCreateShareToken,
-    } satisfies Record<keyof KnowledgeBasePermissionMap, typeof canReadKB>,
+    permissions: knowledgeBasePermissions,
     extend: async (ctx, actor) => {
       const user = await ctx.db
         .query('users')

@@ -11,6 +11,12 @@ import {
 } from '../auth/define-guard.js'
 import { can, deny, enforce, requireAuth } from '../auth/index.js'
 import {
+  isPermissionDefinition,
+  resolvePermissionCheck,
+  resolvePermissionLabel,
+  type GuardPermissionDefinition,
+} from '../auth/define-permission.js'
+import {
   isAnonymousPrincipal,
   type AuthenticatedPrincipal,
 } from '../auth/principal-state.js'
@@ -54,6 +60,7 @@ type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsVa
 export type StructuredGuard<_TPrincipal, TActor> =
   | Guard<NonNullable<TActor>>
   | Guard<TActor | null>
+  | GuardPermissionDefinition<string, any>
   | AuthRequiredGuard
   | OpenGuard
 
@@ -177,6 +184,22 @@ function getAuthorizationLabel<P>(check: AnyCheck<P>, fallback: string): string 
   return isGuard(check) ? check.label : fallback
 }
 
+function getGuardCheck(guard: StructuredGuard<any, any>): AnyCheck<any> {
+  if (isPermissionDefinition(guard)) {
+    return resolvePermissionCheck(guard as GuardPermissionDefinition<string, any>)
+  }
+
+  return guard as AnyCheck<any>
+}
+
+function getGuardLabel(guard: StructuredGuard<any, any>): string {
+  if (isPermissionDefinition(guard)) {
+    return resolvePermissionLabel(guard)
+  }
+
+  return (guard as Guard<any>).label
+}
+
 function getObserve(ctx: object): RuntimeContext<unknown, unknown>['observe'] {
   return 'observe' in ctx && typeof (ctx as { observe?: unknown }).observe === 'function'
     ? ((ctx as { observe: RuntimeContext<unknown, unknown>['observe'] }).observe)
@@ -218,6 +241,7 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
         const observe = getObserve(ctx)
 
         if (isAuthRequiredGuard(definition.guard)) {
+          const authRequiredGuard = definition.guard as AuthRequiredGuard
           await observe?.({
             name: isAnonymousPrincipal(principal) ? 'guard.denied' : 'guard.allowed',
             status: isAnonymousPrincipal(principal) ? 'deny' : 'success',
@@ -227,7 +251,7 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
                   explanation: createDenialExplanation({
                     reasonCode: 'guard.auth_required',
                     decision: 'guard',
-                    message: definition.guard.label,
+                    message: authRequiredGuard.label,
                     suggestedAction: 'sign_in',
                   }),
                 }
@@ -235,12 +259,13 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
           })
           requireAuth(
             principal,
-            `Forbidden: ${formatGuardFailure(definition.guard.label, principal, actor)}`,
+            `Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, actor)}`,
           )
         } else if (!isOpenGuard(definition.guard)) {
+          const guardCheck = getGuardCheck(definition.guard)
+          const guardLabel = getGuardLabel(definition.guard)
           const allowed =
-            actor != null &&
-            can(actor as NonNullable<TActor>, definition.guard as AnyCheck<NonNullable<TActor>>)
+            actor != null && can(actor as NonNullable<TActor>, guardCheck)
           await observe?.({
             name: allowed ? 'guard.allowed' : 'guard.denied',
             status: allowed ? 'success' : 'deny',
@@ -248,20 +273,20 @@ function createStructuredBuilder<TCtx extends object, TPrincipal, TActor, TBuild
             details: allowed
               ? undefined
               : {
-                  label: definition.guard.label,
+                  label: guardLabel,
                   explanation: createDenialExplanation({
                     reasonCode: 'guard.denied',
                     decision: 'guard',
-                    message: definition.guard.label,
-                    policy: definition.guard.label,
+                    message: guardLabel,
+                    policy: guardLabel,
                     suggestedAction: 'grant_capability',
                   }),
                 },
           })
           enforce<TActor | null>(
             actor,
-            formatGuardFailure(definition.guard.label, principal, actor),
-            definition.guard as AnyCheck<NonNullable<TActor | null>>,
+            formatGuardFailure(guardLabel, principal, actor),
+            guardCheck as AnyCheck<NonNullable<TActor | null>>,
           )
         }
 

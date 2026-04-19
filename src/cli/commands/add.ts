@@ -18,7 +18,7 @@ export const addCommand = defineCommand({
     feature: {
       type: 'positional',
       required: true,
-      description: 'Feature to add. One of: mcp, uploads, operation',
+      description: 'Feature to add. One of: mcp, uploads, operation, resource',
     },
     kind: {
       type: 'string',
@@ -38,8 +38,8 @@ export const addCommand = defineCommand({
   },
   async run({ args }) {
     const feature = String(args.feature)
-    if (feature !== 'mcp' && feature !== 'uploads' && feature !== 'operation') {
-      throw new Error('Invalid feature. Use one of: mcp, uploads, operation.')
+    if (feature !== 'mcp' && feature !== 'uploads' && feature !== 'operation' && feature !== 'resource') {
+      throw new Error('Invalid feature. Use one of: mcp, uploads, operation, resource.')
     }
 
     const kind = String(args.kind)
@@ -48,8 +48,9 @@ export const addCommand = defineCommand({
     }
 
     const cwd = resolve(args.cwd || process.cwd())
-    const templateSet = getAddTemplateSet({
+    const templateSet = await getAddTemplateSet({
       feature,
+      cwd,
       name: Array.isArray(args._) && args._.length > 1 ? String(args._[1]) : undefined,
       kind: kind as 'safe' | 'destructive',
       appName: basename(cwd),

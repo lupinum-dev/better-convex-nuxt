@@ -1,4 +1,5 @@
 import { api } from '#trellis/api'
+import { runbookCreate } from '~/convex/auth/permissions'
 import { createRunbook } from '~/shared/schemas/runbook'
 
 import { tool } from '../../runtime'
@@ -6,7 +7,7 @@ import { tool } from '../../runtime'
 export default tool({
   schema: createRunbook,
   call: api.domain.runbooks.create,
-  capability: 'writeWorkspaceRunbooks',
+  permission: runbookCreate,
   group: 'workspace',
   maxItems: { field: 'tags', limit: 6 },
   middleware: async (args, ctx, next) => {

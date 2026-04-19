@@ -8,6 +8,7 @@ import {
   getOperationMetadata,
   type OperationKind,
 } from '../functions/define-operation.js'
+import { resolvePermissionKey, type PermissionLike } from '../auth/define-permission.js'
 import {
   getFunctionName,
   type AnyActionFunction,
@@ -143,7 +144,7 @@ export interface ToolOptions<
     capabilities: TCapabilities
     runtime: TRuntime
   }) => string | PreviewResult
-  capability?: CapabilityKey<TCapabilities>
+  permission?: PermissionLike<CapabilityKey<TCapabilities>>
   enabled?: (
     ctx: ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>,
   ) => MaybePromise<boolean>
@@ -167,7 +168,7 @@ export interface ToolOptions<
   }) => string | undefined
   respond?: (ctx: {
     args: import('./types.js').InferSchemaData<S>
-    result: FunctionReturnType<TCall>
+    result: FunctionLikeReturnType<TCall>
     principal: TPrincipal
     capabilities: TCapabilities
     runtime: TRuntime
@@ -299,13 +300,13 @@ function isOperationPreviewPayload(value: unknown): value is OperationPreviewPay
   )
 }
 
-function capabilityAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
+function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
   capabilities: TCapabilities,
-  capability: string | undefined,
+  permission: PermissionLike<string> | undefined,
 ): boolean {
-  if (!capability) return true
+  if (!permission) return true
   if (!capabilities) return false
-  return capabilities[capability] === true
+  return capabilities[resolvePermissionKey(permission)] === true
 }
 
 async function callByOperation<TRef extends AnyFunctionRef>(
@@ -491,7 +492,7 @@ export function defineMcpApp<
       enabled: async (event) => {
         const ctx = await resolve(event)
 
-        if (!capabilityAllows(ctx.capabilities, tool.capability)) {
+        if (!permissionAllows(ctx.capabilities, tool.permission)) {
           await ctx.observe({
             name: 'tool.denied',
             status: 'deny',
@@ -502,7 +503,7 @@ export function defineMcpApp<
               explanation: createDenialExplanation({
                 reasonCode: 'tool.capability_denied',
                 decision: 'tool',
-                message: 'Caller does not have the capability required for this tool.',
+                message: 'Caller does not have the permission required for this tool.',
                 suggestedAction: 'grant_capability',
               }),
             },
@@ -547,7 +548,7 @@ export function defineMcpApp<
               tool.preview as Exclude<TPreview, undefined>,
               Object.assign({}, args as Record<string, unknown>, {
                 principal: projectionCtx.principal,
-              }) as FunctionArgs<Exclude<TPreview, undefined>>,
+              }) as FunctionLikeArgs<Exclude<TPreview, undefined>>,
             )
 
             if (!tool.previewResult) {
@@ -556,7 +557,9 @@ export function defineMcpApp<
 
             return tool.previewResult({
               args,
-              result,
+              result: result as TPreview extends AnyFunctionRef
+                ? FunctionLikeReturnType<TPreview>
+                : unknown,
               principal: projectionCtx.principal,
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
@@ -581,7 +584,7 @@ export function defineMcpApp<
             tool.call,
             Object.assign({}, args as Record<string, unknown>, {
               principal: projectionCtx.principal,
-            }) as FunctionArgs<TCall>,
+            }) as FunctionLikeArgs<TCall>,
           )
 
           if (tool.respond) {
@@ -741,7 +744,7 @@ export function defineMcpApp<
       enabled: async (event) => {
         const ctx = await resolve(event)
 
-        if (!capabilityAllows(ctx.capabilities, options.capability)) {
+        if (!permissionAllows(ctx.capabilities, options.permission)) {
           await ctx.observe({
             name: 'tool.denied',
             status: 'deny',
@@ -753,7 +756,7 @@ export function defineMcpApp<
               explanation: createDenialExplanation({
                 reasonCode: 'tool.capability_denied',
                 decision: 'tool',
-                message: 'Caller does not have the capability required for this tool.',
+                message: 'Caller does not have the permission required for this tool.',
                 suggestedAction: 'grant_capability',
               }),
             },
@@ -806,7 +809,7 @@ export function defineMcpApp<
           operation: metadata.id,
         })
 
-        const finalizeResult = (result: FunctionReturnType<TExecute>) => {
+        const finalizeResult = (result: FunctionLikeReturnType<TExecute>) => {
           if (options.respond) {
             return options.respond({
               args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
@@ -859,7 +862,7 @@ export function defineMcpApp<
             options.preview,
             Object.assign({}, executeArgs as Record<string, unknown>, {
               principal: projectionCtx.principal,
-            }) as FunctionArgs<Exclude<TPreview, undefined>>,
+            }) as FunctionLikeArgs<Exclude<TPreview, undefined>>,
           )
 
           if (!isOperationPreviewPayload(previewResult)) {
@@ -990,7 +993,7 @@ export function defineMcpApp<
                 ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
                 principal: projectionCtx.principal,
               },
-            ) as FunctionArgs<TExecute>,
+            ) as FunctionLikeArgs<TExecute>,
           )
 
           await projectionCtx.observe({

@@ -5,7 +5,7 @@ import { api } from '#trellis/api'
  * Changing roles live is the clearest proof that frontend permission state is reactive end to end.
  */
 import type { Doc } from '~/convex/_generated/dataModel'
-import { saasPermissionKeys } from '~/shared/permissions'
+import { workspaceMembers } from '~/convex/auth/permissions'
 
 const props = defineProps<{
   member: Doc<'users'>
@@ -13,7 +13,7 @@ const props = defineProps<{
 
 const toast = useToast()
 const { allows } = usePermissions()
-const canManageMembers = allows(saasPermissionKeys.workspaceMembers)
+const canManageMembers = allows(workspaceMembers)
 const changeRole = useConvexMutation(api.domain.members.changeRole, {
   onSuccess: () =>
     toast.add({ title: 'Role updated', color: 'success', icon: 'i-lucide-shield-check' }),

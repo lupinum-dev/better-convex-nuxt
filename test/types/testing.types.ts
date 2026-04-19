@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 import { definePermissionContext } from '../../src/runtime/auth/define-permission-context'
-import { defineGuard } from '../../src/runtime/auth/index'
+import { defineGuard, definePermission } from '../../src/runtime/auth/index'
 import { createTestContext } from '../../src/runtime/testing'
 
 type Assert<T extends true> = T
@@ -79,6 +79,11 @@ const canExport = defineGuard<{ role: 'owner' | 'member'; userId: string; tenant
   (actor) => actor.role === 'owner',
 )
 
+const exportsPermission = definePermission({
+  key: 'workspace.exports',
+  check: canExport,
+})
+
 const permissionContext = definePermissionContext({
   resolve: async () => ({
     role: 'owner' as const,
@@ -86,9 +91,7 @@ const permissionContext = definePermissionContext({
     tenantId: 'workspace-1',
     plan: 'pro' as const,
   }),
-  guards: {
-    'workspace.exports': canExport,
-  },
+  permissions: [exportsPermission],
   extend: async () => ({
     plan: 'pro' as const,
     usage: {

@@ -2,7 +2,16 @@ import type { FunctionReference } from 'convex/server'
 
 import { defineArgs } from '../../src/runtime/args'
 import type { AuthIdentity } from '../../src/runtime/auth'
-import { enforce, can, deny, requireAuth, and } from '../../src/runtime/auth'
+import {
+  definePermission,
+  type PermissionHandle,
+  enforce,
+  can,
+  deny,
+  requireAuth,
+  and,
+} from '../../src/runtime/auth'
+import { defineOperation } from '../../src/runtime/functions'
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { defineTool } from '../../src/runtime/mcp'
@@ -58,6 +67,11 @@ const _auth = createConfiguredPermissionsComposables(
   'workspaces.getPermissionContext',
 )
 
+const createTaskPermission = definePermission({
+  key: 'task.create',
+  check: true,
+})
+
 type UsePermissionsApi = ReturnType<typeof _auth.usePermissions>
 type GuardOptions = Parameters<typeof _auth.useAuthGuard>[0]
 type _permissionKey = Assert<
@@ -79,20 +93,31 @@ type _ctxUsageCurrent = Assert<
   IsEqual<NonNullable<UsePermissionsApi['ctx']['value']>['usage']['projects']['current'], number>
 >
 type _allowsParameter = Assert<
-  IsEqual<Parameters<UsePermissionsApi['allows']>[0], 'task.create' | 'workspace.members'>
+  IsEqual<
+    Parameters<UsePermissionsApi['allows']>[0],
+    PermissionHandle<'task.create' | 'workspace.members'> | 'task.create' | 'workspace.members'
+  >
 >
 type _guardPermissionKey = Assert<
-  IsEqual<GuardOptions['permission'], 'task.create' | 'workspace.members' | undefined>
+  IsEqual<
+    GuardOptions['permission'],
+    PermissionHandle<'task.create' | 'workspace.members'> | 'task.create' | 'workspace.members' | undefined
+  >
 >
 type _guardCheck = Assert<
   IsEqual<GuardOptions['check'], ((ctx: PermissionContext) => boolean) | undefined>
 >
 
 const _validGuardOptions: GuardOptions = {
-  permission: 'task.create',
+  permission: createTaskPermission,
   check: (ctx) => ctx.usage.projects.current > 0,
 }
 void _validGuardOptions
+
+const _validGuardOptionsByString: GuardOptions = {
+  permission: 'task.create',
+}
+void _validGuardOptionsByString
 
 // @ts-expect-error invalid capability should not type-check
 const _invalidGuardOptions: GuardOptions = { permission: 'task.delete' }
@@ -118,10 +143,10 @@ type GenericUsePermissionsApi = ReturnType<typeof _genericAuth.usePermissions>
 type GenericGuardOptions = Parameters<typeof _genericAuth.useAuthGuard>[0]
 type _genericPermissionKey = Assert<IsEqual<PermissionKey<GenericPermissionContext>, string>>
 type _genericAllowsParameter = Assert<
-  IsEqual<Parameters<GenericUsePermissionsApi['allows']>[0], string>
+  IsEqual<Parameters<GenericUsePermissionsApi['allows']>[0], PermissionHandle<string> | string>
 >
 type _genericGuardPermissionKey = Assert<
-  IsEqual<GenericGuardOptions['permission'], string | undefined>
+  IsEqual<GenericGuardOptions['permission'], PermissionHandle<string> | string | undefined>
 >
 
 const _identity = {} as AuthIdentity | null
@@ -132,6 +157,13 @@ void _visibility
 const toolSchema = defineArgs({
   args: {},
 })
+
+const _createTaskOperation = defineOperation({
+  args: toolSchema.args,
+  guard: createTaskPermission,
+  handler: async (_ctx, _args, _loaded) => null,
+})
+void _createTaskOperation
 
 defineTool({
   schema: toolSchema,

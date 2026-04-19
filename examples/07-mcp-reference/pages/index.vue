@@ -633,8 +633,8 @@ import * as z from 'zod'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
+import { mcpManage, runbookCreate } from '~/convex/auth/permissions'
 import { selectMcpBoundUser } from '~/shared/mcp-bound-user'
-import { mcpReferencePermissionKeys } from '~/shared/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -724,8 +724,8 @@ const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
   {},
 )
 
-const canCreateRunbook = allows(mcpReferencePermissionKeys.runbookCreate)
-const canManageMcp = allows(mcpReferencePermissionKeys.mcpManage)
+const canCreateRunbook = allows(runbookCreate)
+const canManageMcp = allows(mcpManage)
 
 const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
 const mcpKeyArgs = computed(() => (tenantId.value && canManageMcp.value ? {} : undefined))

@@ -137,14 +137,14 @@
 import { computed } from 'vue'
 
 import { api } from '#trellis/api'
-import { saasPermissionKeys } from '~/shared/permissions'
+import { workspaceAudit } from '~/convex/auth/permissions'
 
 definePageMeta({
   convexAuth: true,
 })
 
 useAuthGuard({
-  permission: saasPermissionKeys.workspaceAudit,
+  permission: workspaceAudit,
   redirectTo: '/',
 })
 

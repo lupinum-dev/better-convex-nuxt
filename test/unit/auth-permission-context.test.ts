@@ -1,19 +1,25 @@
 import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { defineGuard, open } from '../../src/runtime/auth'
+import { defineGuard, definePermission, open } from '../../src/runtime/auth'
 import { definePermissionContext } from '../../src/runtime/auth/define-permission-context'
 
 describe('permission context primitives', () => {
-  it('builds a permission context from guard declarations', async () => {
-    const canCreate = defineGuard<{ userId: string; role: string }>(
-      'todo.create',
-      (actor) => actor.role !== 'viewer',
-    )
-    const canManage = defineGuard<{ userId: string; role: string }>(
-      'workspace.members',
-      (actor) => actor.role === 'owner',
-    )
+  it('builds a permission context from permission definitions', async () => {
+    const canCreate = definePermission({
+      key: 'todo.create',
+      check: defineGuard<{ userId: string; role: string }>(
+        'todo.create',
+        (actor) => actor.role !== 'viewer',
+      ),
+    })
+    const canManage = definePermission({
+      key: 'workspace.members',
+      check: defineGuard<{ userId: string; role: string }>(
+        'workspace.members',
+        (actor) => actor.role === 'owner',
+      ),
+    })
 
     const query = definePermissionContext({
       resolve: async () => ({
@@ -22,10 +28,7 @@ describe('permission context primitives', () => {
         role: 'admin',
         plan: 'pro',
       }),
-      guards: {
-        'todo.create': canCreate,
-        'workspace.members': canManage,
-      },
+      permissions: [canCreate, canManage],
       extend: async () => ({
         plan: 'pro',
       }),
@@ -46,11 +49,14 @@ describe('permission context primitives', () => {
   it('fails closed when a guard throws a ConvexError', async () => {
     const query = definePermissionContext({
       resolve: async () => ({ userId: 'alice', role: 'member' }),
-      guards: {
-        forbidden: () => {
-          throw new ConvexError({ message: 'nope' })
-        },
-      },
+      permissions: [
+        definePermission({
+          key: 'forbidden',
+          check: () => {
+            throw new ConvexError({ message: 'nope' })
+          },
+        }),
+      ],
     })
 
     await expect(query.handler({})).resolves.toEqual({
@@ -71,10 +77,10 @@ describe('permission context primitives', () => {
         role: 'owner',
         plan: 'pro',
       }),
-      guards: {
-        'todo.create': true,
-        'workspace.members': true,
-      },
+      permissions: [
+        definePermission({ key: 'todo.create', check: true }),
+        definePermission({ key: 'workspace.members', check: true }),
+      ],
       extend: async () => ({
         plan: 'pro',
       }),
@@ -100,9 +106,7 @@ describe('permission context primitives', () => {
         tenantId: 'workspace-1',
         role: 'owner',
       }),
-      guards: {
-        'todo.create': true,
-      },
+      permissions: [definePermission({ key: 'todo.create', check: true })],
       extend: async () =>
         ({
           can: {

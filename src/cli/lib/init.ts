@@ -1,6 +1,8 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 
+import { buildResourceTemplateSet } from './resource.js'
+
 export type AppTemplate = 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
 
 export interface TemplateFile {
@@ -17,7 +19,7 @@ export interface InitTemplateSet {
 }
 
 export type CanonicalAppTemplate = 'personal' | 'workspace' | 'cms'
-export type AddFeature = 'mcp' | 'uploads' | 'operation'
+export type AddFeature = 'mcp' | 'uploads' | 'operation' | 'resource'
 
 function authTsTemplate() {
   return `
@@ -166,19 +168,36 @@ function personalPermissionQueryTemplate() {
   return `
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
+import { personalPermissions } from '../auth/permissions'
 import { getActor } from '../auth/actor'
-import { isAuthenticated } from '../auth/checks'
 import { query } from '../functions'
 
 export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
-    guards: {
-      'profile.read': isAuthenticated,
-      'todo.create': isAuthenticated,
-    },
+    permissions: personalPermissions,
   }),
 )
+`.trimStart()
+}
+
+function personalPermissionsTemplate() {
+  return `
+import { definePermission } from '@lupinum/trellis/auth'
+
+import { isAuthenticated } from './checks'
+
+export const profileRead = definePermission({
+  key: 'profile.read',
+  check: isAuthenticated,
+})
+
+export const todoCreate = definePermission({
+  key: 'todo.create',
+  check: isAuthenticated,
+})
+
+export const personalPermissions = [profileRead, todoCreate] as const
 `.trimStart()
 }
 
@@ -419,24 +438,43 @@ export const canManageWorkspace = defineGuard<PermissionActor>(
 
 function workspacePermissionQueryTemplate() {
   return `
-import { defineGuard, definePermissionContext } from '@lupinum/trellis/auth'
+import { definePermissionContext } from '@lupinum/trellis/auth'
 
+import { workspacePermissions } from '../auth/permissions'
 import { getPermissionActor } from '../auth/actor'
-import { hasMinimumRole, hasWorkspace, isAuthenticated } from '../auth/checks'
 import { query } from '../functions'
-
-const canCreateTodo = defineGuard('todo.create', hasWorkspace.and(hasMinimumRole('member')))
 
 export const getPermissionContext = query(
   definePermissionContext({
     resolve: getPermissionActor,
-    guards: {
-      'workspace.read': isAuthenticated,
-      'workspace.members': hasWorkspace.and(hasMinimumRole('admin')),
-      'todo.create': canCreateTodo,
-    },
+    permissions: workspacePermissions,
   }),
 )
+`.trimStart()
+}
+
+function workspacePermissionsTemplate() {
+  return `
+import { definePermission } from '@lupinum/trellis/auth'
+
+import { hasMinimumRole, hasWorkspace, isAuthenticated } from './checks'
+
+export const workspaceRead = definePermission({
+  key: 'workspace.read',
+  check: isAuthenticated,
+})
+
+export const workspaceMembers = definePermission({
+  key: 'workspace.members',
+  check: hasWorkspace.and(hasMinimumRole('admin')),
+})
+
+export const todoCreate = definePermission({
+  key: 'todo.create',
+  check: hasWorkspace.and(hasMinimumRole('member')),
+})
+
+export const workspacePermissions = [workspaceRead, workspaceMembers, todoCreate] as const
 `.trimStart()
 }
 
@@ -473,11 +511,13 @@ export default defineEventHandler(async (event) => {
 
 function mcpRuntimeTemplate() {
   return `
+import { api } from '#trellis/api'
 import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
 
 import type { Id } from '~/convex/_generated/dataModel'
+import { todoCreate, workspaceRead } from '~/convex/auth/permissions'
 import type { WorkspacePrincipal } from '~/convex/auth/principal'
 
 type McpAuthContext = {
@@ -501,10 +541,6 @@ function getMcpPrincipal(event: H3Event): WorkspacePrincipal {
   }
 }
 
-function canWrite(role: NonNullable<McpAuthContext['role']>) {
-  return role === 'owner' || role === 'admin' || role === 'member'
-}
-
 export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
   callConvex: async (event, principal) =>
     createServerConvexCaller(
@@ -518,13 +554,16 @@ export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
         : { auth: 'none' },
     ),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
-  resolveCapabilities: async ({ principal }) => ({
-    listTodos: principal.kind === 'agent' && !!principal.tenantId,
-    createTodo:
-      principal.kind === 'agent' &&
-      !!principal.tenantId &&
-      canWrite(principal.role),
-  }),
+  resolveCapabilities: async ({ principal, convex }) =>
+    principal.kind === 'agent'
+      ? ((await convex.query(api.permissions.context.getPermissionContext, {}))?.can ?? {
+          [workspaceRead.key]: false,
+          [todoCreate.key]: false,
+        })
+      : {
+          [workspaceRead.key]: false,
+          [todoCreate.key]: false,
+        },
   principalKey: (principal) =>
     principal.kind === 'agent' ? \`\${principal.userId}:\${principal.tenantId ?? 'none'}\` : principal.kind,
 })
@@ -1130,20 +1169,41 @@ function cmsPermissionQueryTemplate() {
   return `
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
+import { cmsPermissions } from '../auth/permissions'
 import { getActor } from '../auth/actor'
-import { isAuthenticated } from '../auth/checks'
 import { query } from '../functions'
 
 export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
-    guards: {
-      'studio.read': isAuthenticated,
-      'page.create': isAuthenticated,
-      'page.publish': isAuthenticated,
-    },
+    permissions: cmsPermissions,
   }),
 )
+`.trimStart()
+}
+
+function cmsPermissionsTemplate() {
+  return `
+import { definePermission } from '@lupinum/trellis/auth'
+
+import { isAuthenticated } from './checks'
+
+export const studioRead = definePermission({
+  key: 'studio.read',
+  check: isAuthenticated,
+})
+
+export const pageCreate = definePermission({
+  key: 'page.create',
+  check: isAuthenticated,
+})
+
+export const pagePublish = definePermission({
+  key: 'page.publish',
+  check: isAuthenticated,
+})
+
+export const cmsPermissions = [studioRead, pageCreate, pagePublish] as const
 `.trimStart()
 }
 
@@ -1651,6 +1711,7 @@ export const touch = mutation({
 function mcpListTodosToolTemplate() {
   return `
 import { api } from '#trellis/api'
+import { workspaceRead } from '~/convex/auth/permissions'
 import { listTodos } from '~/shared/schemas/todo'
 
 import { tool } from '../runtime'
@@ -1659,7 +1720,7 @@ export default tool({
   schema: listTodos,
   call: api.domain.todos.list,
   operation: 'query',
-  capability: 'listTodos',
+  permission: workspaceRead,
   meta: {
     name: 'list-todos',
   },
@@ -1670,6 +1731,7 @@ export default tool({
 function mcpCreateTodoToolTemplate() {
   return `
 import { api } from '#trellis/api'
+import { todoCreate } from '~/convex/auth/permissions'
 import { createTodo } from '~/shared/schemas/todo'
 
 import { tool } from '../runtime'
@@ -1678,7 +1740,7 @@ export default tool({
   schema: createTodo,
   call: api.domain.todos.create,
   operation: 'mutation',
-  capability: 'createTodo',
+  permission: todoCreate,
   meta: {
     name: 'create-todo',
   },
@@ -1721,6 +1783,11 @@ function buildPersonalPermissionsTemplateSet(): InitTemplateSet {
         ownership: 'authored',
       },
       {
+        path: 'convex/auth/permissions.ts',
+        content: personalPermissionsTemplate(),
+        ownership: 'authored',
+      },
+      {
         path: 'convex/permissions/context.ts',
         content: personalPermissionQueryTemplate(),
         ownership: 'authored',
@@ -1747,6 +1814,11 @@ function buildWorkspacePermissionsTemplateSet(model: 'workspace' | 'workspace-mc
       {
         path: 'convex/auth/checks.ts',
         content: workspaceChecksTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/auth/permissions.ts',
+        content: workspacePermissionsTemplate(),
         ownership: 'authored',
       },
       {
@@ -1898,6 +1970,11 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         {
           path: 'convex/auth/checks.ts',
           content: cmsChecksTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/auth/permissions.ts',
+          content: cmsPermissionsTemplate(),
           ownership: 'authored',
         },
         {
@@ -2487,12 +2564,13 @@ export function getCanonicalAppTemplateSet(options: {
   }
 }
 
-export function getAddTemplateSet(options: {
+export async function getAddTemplateSet(options: {
   feature: AddFeature
+  cwd: string
   name?: string
   kind?: 'safe' | 'destructive'
   appName?: string
-}): InitTemplateSet {
+}): Promise<InitTemplateSet> {
   if (options.feature === 'mcp') {
     return {
       label: 'add:mcp',
@@ -2544,6 +2622,14 @@ export function getAddTemplateSet(options: {
         },
       ],
     }
+  }
+
+  if (options.feature === 'resource') {
+    if (!options.name) {
+      throw new Error('`trellis add resource <name>` requires a resource name.')
+    }
+
+    return await buildResourceTemplateSet(options.cwd, options.name)
   }
 
   if (!options.name) {

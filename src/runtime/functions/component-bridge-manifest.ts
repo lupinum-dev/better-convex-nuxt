@@ -101,6 +101,10 @@ export function ensureBridgeImport(source: string, importLine: string): string {
   }
 
   const lastImport = importMatches[importMatches.length - 1]
+  if (!lastImport) {
+    return `${importLine}\n${source}`
+  }
+
   const insertionPoint = (lastImport.index ?? 0) + lastImport[0].length
   return `${source.slice(0, insertionPoint)}\n${importLine}${source.slice(insertionPoint)}`
 }

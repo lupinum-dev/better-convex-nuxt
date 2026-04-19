@@ -3,7 +3,8 @@ import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
 import { deleteTodo } from '../../shared/schemas/todo'
-import { canDeleteTodo, canReadTodo } from '../auth/checks'
+import { canDeleteTodo } from '../auth/checks'
+import { todoRead } from '../auth/permissions'
 import { query } from '../functions'
 
 export const removeTodoOp = defineOperation({
@@ -28,14 +29,14 @@ export const removeTodoOp = defineOperation({
       }),
     }),
   }),
-  guard: canReadTodo as never,
+  guard: todoRead,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
     return { todo }
   },
   authorize: {
-    check: ((_actor: any, { todo }: { todo: any }) => canDeleteTodo(todo)) as never,
+    check: (_actor, { todo }) => canDeleteTodo(todo),
   },
   preview: async (_ctx, _args, { todo }) => ({
     display: {

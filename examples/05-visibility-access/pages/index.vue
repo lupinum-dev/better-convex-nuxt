@@ -325,7 +325,10 @@
 import { computed, reactive } from 'vue'
 
 import { api } from '#trellis/api'
-import { knowledgeBasePermissionKeys } from '~/shared/permissions'
+import {
+  kbCreate,
+  knowledgeBasePermissionMatrix,
+} from '~/convex/auth/permissions'
 
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -374,19 +377,14 @@ const currentWorkspaceName = computed(() => {
   if (!tenantId.value || !workspaceOptions.value) return null
   return workspaceOptions.value.find((w) => w._id === tenantId.value)?.name ?? null
 })
-const canCreate = allows(knowledgeBasePermissionKeys.kbCreate)
+const canCreate = allows(kbCreate)
 const roleOptions = ['admin', 'editor', 'contributor', 'viewer']
 const allRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const
-const permissionMatrix = [
-  { label: 'Create knowledge base', roles: ['owner', 'admin', 'editor'] },
-  { label: 'Read knowledge base', roles: ['owner', 'admin', 'editor', 'contributor', 'viewer'] },
-  { label: 'Create article', roles: ['owner', 'admin', 'editor', 'contributor'] },
-  { label: 'Read articles', roles: ['owner', 'admin', 'editor', 'contributor', 'viewer'] },
+const recordRuleRows = [
   { label: 'Update any article', roles: ['owner', 'admin'] },
   { label: 'Update own article', roles: ['owner', 'admin', 'editor', 'contributor'] },
-  { label: 'Manage enrollments', roles: ['owner', 'admin', 'editor'] },
-  { label: 'Create share token', roles: ['owner', 'admin', 'editor'] },
 ]
+const permissionMatrix = [...knowledgeBasePermissionMatrix, ...recordRuleRows]
 
 async function handleSignUp() {
   await authAction.execute(() => client!.signUp.email(signUpForm), { redirectTo: '/' })

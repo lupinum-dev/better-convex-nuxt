@@ -5,7 +5,7 @@ import { createPage } from '~/shared/schemas/page'
 export default tool({
   schema: createPage,
   call: internal.operations.miniCmsBridge.createPage,
-  capability: 'createPage',
+  permission: 'createPage',
   group: 'pages',
   meta: {
     name: 'create-page',

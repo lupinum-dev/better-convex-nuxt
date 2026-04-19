@@ -349,7 +349,7 @@ import * as z from 'zod'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import { teamWorkspacePermissionKeys } from '~/shared/permissions'
+import { teamWorkspacePermissionMatrix, todoCreate } from '~/convex/auth/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -448,17 +448,14 @@ const displayName = computed(
     'Signed in user',
 )
 
-const canCreate = allows(teamWorkspacePermissionKeys.todoCreate)
+const canCreate = allows(todoCreate)
 const roleOptions = ['admin', 'member', 'viewer']
 const allRoles = ['owner', 'admin', 'member', 'viewer']
-const permissionMatrix = [
-  { label: 'Create todo', roles: ['owner', 'admin', 'member'] },
-  { label: 'Read todos', roles: ['owner', 'admin', 'member', 'viewer'] },
-  { label: 'Update any todo', roles: ['owner', 'admin'] },
+const recordRuleRows = [
   { label: 'Update own todo', roles: ['owner', 'admin', 'member'] },
-  { label: 'Delete any todo', roles: ['owner', 'admin'] },
   { label: 'Delete own todo', roles: ['owner', 'admin', 'member'] },
 ]
+const permissionMatrix = [...teamWorkspacePermissionMatrix, ...recordRuleRows]
 
 const todoError = computed(
   () =>

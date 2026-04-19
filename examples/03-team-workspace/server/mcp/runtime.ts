@@ -3,20 +3,14 @@ import type { H3Event } from 'h3'
 import { api } from '#trellis/api'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
+import { todoCreate, todoRead, type TeamWorkspacePermissionKey } from '~/convex/auth/permissions'
 import type { TeamTodoPrincipal } from '~/convex/auth/principal'
-
-import { teamWorkspacePermissionKeys } from '../../shared/permissions'
 
 type McpAuthContext = {
   userId?: string
 }
 
-type CapabilitySnapshot = {
-  listTodos: boolean
-  createTodo: boolean
-  completeTodo: boolean
-  deleteTodo: boolean
-}
+type CapabilitySnapshot = Record<TeamWorkspacePermissionKey, boolean>
 
 function getMcpPrincipal(event: H3Event): TeamTodoPrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
@@ -47,21 +41,14 @@ export const mcpRuntime = defineMcpApp<TeamTodoPrincipal, CapabilitySnapshot>({
   resolveCapabilities: async ({ principal, convex }) => {
     if (principal.kind !== 'agent') {
       return {
-        listTodos: false,
-        createTodo: false,
-        completeTodo: false,
-        deleteTodo: false,
+        [todoRead.key]: false,
+        [todoCreate.key]: false,
       }
     }
 
     const permissions = await convex.query(api.permissions.context.getPermissionContext, {})
 
-    return {
-      listTodos: permissions?.can[teamWorkspacePermissionKeys.todoRead] === true,
-      createTodo: permissions?.can[teamWorkspacePermissionKeys.todoCreate] === true,
-      completeTodo: permissions?.can[teamWorkspacePermissionKeys.todoCreate] === true,
-      deleteTodo: permissions?.can[teamWorkspacePermissionKeys.todoCreate] === true,
-    }
+    return permissions?.can ?? { [todoRead.key]: false, [todoCreate.key]: false }
   },
   principalKey: (principal) =>
     principal.kind === 'agent'

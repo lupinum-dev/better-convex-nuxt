@@ -8,7 +8,7 @@ import {
 export default tool.fromOperation(publishPageOp, {
   execute: publishPage,
   preview: previewPublishPage,
-  capability: 'publishPage',
+  permission: 'publishPage',
   group: 'pages',
   meta: {
     name: 'publish-page',

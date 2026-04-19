@@ -6,7 +6,7 @@ import { api } from '#trellis/api'
  * Keeping that flow in its own component makes the page easier to read.
  */
 import type { Id } from '~/convex/_generated/dataModel'
-import { saasPermissionKeys } from '~/shared/permissions'
+import { commentCreate } from '~/convex/auth/permissions'
 
 const props = defineProps<{
   taskId: Id<'tasks'>
@@ -23,7 +23,7 @@ const createComment = useConvexMutation(api.domain.comments.create, {
   onError: (error) =>
     toast.add({ title: 'Could not post comment', description: error.message, color: 'error' }),
 })
-const canCreateComment = allows(saasPermissionKeys.commentCreate)
+const canCreateComment = allows(commentCreate)
 
 function resolveName(authId: string) {
   return props.memberNames?.get(authId) ?? `Member ${authId.slice(0, 8)}…`

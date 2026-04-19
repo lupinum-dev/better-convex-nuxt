@@ -9,7 +9,7 @@
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
-import { knowledgeBasePermissionKeys } from '../shared/permissions'
+import { kbCreate, kbRead, shareCreate } from './auth/permissions'
 import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
@@ -37,11 +37,11 @@ describe('workspace onboarding', () => {
     const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
     const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
 
-    expect(ownerCtx?.can[knowledgeBasePermissionKeys.kbCreate]).toBe(true)
-    expect(ownerCtx?.can[knowledgeBasePermissionKeys.shareCreate]).toBe(true)
-    expect(viewerCtx?.can[knowledgeBasePermissionKeys.kbCreate]).toBe(false)
-    expect(viewerCtx?.can[knowledgeBasePermissionKeys.shareCreate]).toBe(false)
-    expect(viewerCtx?.can[knowledgeBasePermissionKeys.kbRead]).toBe(true)
+    expect(ownerCtx?.can[kbCreate.key]).toBe(true)
+    expect(ownerCtx?.can[shareCreate.key]).toBe(true)
+    expect(viewerCtx?.can[kbCreate.key]).toBe(false)
+    expect(viewerCtx?.can[shareCreate.key]).toBe(false)
+    expect(viewerCtx?.can[kbRead.key]).toBe(true)
   })
 })
 

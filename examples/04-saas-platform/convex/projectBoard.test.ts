@@ -8,7 +8,7 @@
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
-import { saasPermissionKeys } from '../shared/permissions'
+import { taskCreate, workspaceExports, workspaceMembers } from './auth/permissions'
 import { api } from './_generated/api'
 import * as filesDomain from './domain/files'
 import schema from './schema'
@@ -369,10 +369,10 @@ describe('project board example', () => {
     const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
     const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
 
-    expect(ownerCtx?.can[saasPermissionKeys.taskCreate]).toBe(true)
-    expect(ownerCtx?.can[saasPermissionKeys.workspaceMembers]).toBe(true)
-    expect(viewerCtx?.can[saasPermissionKeys.taskCreate]).toBe(false)
-    expect(viewerCtx?.can[saasPermissionKeys.workspaceMembers]).toBe(false)
+    expect(ownerCtx?.can[taskCreate.key]).toBe(true)
+    expect(ownerCtx?.can[workspaceMembers.key]).toBe(true)
+    expect(viewerCtx?.can[taskCreate.key]).toBe(false)
+    expect(viewerCtx?.can[workspaceMembers.key]).toBe(false)
   })
 
   it('returns null context and rejects protected mutations for anonymous callers', async () => {
@@ -401,7 +401,7 @@ describe('plan entitlements', () => {
     expect(permCtx).not.toBeNull()
     if (!permCtx) throw new Error('Expected a permission context for the seeded owner.')
     expect(permCtx.plan).toBe('free')
-    expect(permCtx.can[saasPermissionKeys.workspaceExports]).toBe(false)
+    expect(permCtx.can[workspaceExports.key]).toBe(false)
   })
 
   it('blocks free workspaces at the project limit', async () => {
@@ -472,7 +472,7 @@ describe('plan entitlements', () => {
     const freeCtx = await free.users.owner.query(api.permissions.context.getPermissionContext, {})
     const proCtx = await pro.users.owner.query(api.permissions.context.getPermissionContext, {})
 
-    expect(freeCtx?.can[saasPermissionKeys.workspaceExports]).toBe(false)
-    expect(proCtx?.can[saasPermissionKeys.workspaceExports]).toBe(true)
+    expect(freeCtx?.can[workspaceExports.key]).toBe(false)
+    expect(proCtx?.can[workspaceExports.key]).toBe(true)
   })
 })

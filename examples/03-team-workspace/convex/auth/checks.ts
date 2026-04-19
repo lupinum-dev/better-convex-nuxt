@@ -16,15 +16,6 @@ export const isOwnerOf = (resource: { ownerId: string }) =>
     `owner:${resource.ownerId}`,
     (actor) => !!actor && actor.userId === resource.ownerId,
   )
-
-export const canCreateTodo = defineGuard<Actor>(
-  'Create todo',
-  hasWorkspace.and(hasRole('owner', 'admin', 'member')),
-)
-export const canReadTodo = defineGuard<Actor>(
-  'Read todos',
-  hasWorkspace.and(hasRole('owner', 'admin', 'member', 'viewer')),
-)
 export const canUpdateTodo = (todo: { ownerId: string }) =>
   defineGuard<Actor>(
     'Update todo',

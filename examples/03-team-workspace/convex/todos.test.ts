@@ -10,7 +10,7 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { teamWorkspacePermissionKeys } from '../shared/permissions'
+import { todoCreate, todoRead } from './auth/permissions'
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
 import { ensureWebhookBotUser } from './auth/trustedCaller'
 import schema from './schema'
@@ -134,9 +134,9 @@ describe('team todo example', () => {
     const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
     const viewerCtx = await team.users.viewer.query(api.permissions.context.getPermissionContext, {})
 
-    expect(ownerCtx?.can[teamWorkspacePermissionKeys.todoCreate]).toBe(true)
-    expect(viewerCtx?.can[teamWorkspacePermissionKeys.todoCreate]).toBe(false)
-    expect(viewerCtx?.can[teamWorkspacePermissionKeys.todoRead]).toBe(true)
+    expect(ownerCtx?.can[todoCreate.key]).toBe(true)
+    expect(viewerCtx?.can[todoCreate.key]).toBe(false)
+    expect(viewerCtx?.can[todoRead.key]).toBe(true)
   })
 
   it('returns null context and denies protected todo queries for anonymous callers', async () => {
@@ -172,8 +172,8 @@ describe('team todo example', () => {
       email: 'onboarding@example.test',
       displayName: 'Onboarding User',
     })
-    expect(permissionCtx?.can[teamWorkspacePermissionKeys.todoCreate]).toBe(false)
-    expect(permissionCtx?.can[teamWorkspacePermissionKeys.todoRead]).toBe(false)
+    expect(permissionCtx?.can[todoCreate.key]).toBe(false)
+    expect(permissionCtx?.can[todoRead.key]).toBe(false)
   })
 })
 

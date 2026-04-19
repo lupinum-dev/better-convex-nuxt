@@ -6,7 +6,7 @@ export default tool({
   schema: listPublishedPages,
   call: internal.operations.miniCmsBridge.listPublishedPages,
   operation: 'query',
-  capability: 'listPublishedPages',
+  permission: 'listPublishedPages',
   group: 'pages',
   meta: {
     name: 'list-published-pages',

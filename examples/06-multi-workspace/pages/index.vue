@@ -203,18 +203,16 @@ Project management lives on its own page to highlight tenant scoping.
 import { computed, reactive } from 'vue'
 
 import { api } from '#trellis/api'
-import { agencyPermissionKeys } from '~/shared/permissions'
+import { agencyPermissionMatrix } from '~/convex/auth/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const toast = useToast()
 const { allows, ctx, role, tenantId } = usePermissions()
-const canDashboard = allows(agencyPermissionKeys.agencyDashboard)
+const canDashboard = computed(() => ctx.value?.agencyDashboard === true)
 
 const allRoles = ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'] as const
-const permissionMatrix = [
-  { label: 'Create project', roles: ['owner', 'member'] },
-  { label: 'Read projects', roles: ['owner', 'member', 'viewer'] },
+const recordRuleRows = [
   { label: 'Toggle project status', roles: ['owner', 'member'] },
   { label: 'Agency dashboard', roles: ['agency_admin', 'agency_manager'] },
   {
@@ -222,6 +220,7 @@ const permissionMatrix = [
     roles: ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'],
   },
 ]
+const permissionMatrix = [...agencyPermissionMatrix, ...recordRuleRows]
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })

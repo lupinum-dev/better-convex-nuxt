@@ -91,6 +91,7 @@ export class ConvexDevtoolsStore {
     pending: false,
     ready: false,
     ctx: null,
+    inventory: [],
     error: null,
   }
 

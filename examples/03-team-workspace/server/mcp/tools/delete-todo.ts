@@ -5,13 +5,14 @@
  */
 import { remove } from '~/convex/domain/todos'
 import { previewRemove, removeTodoOp } from '~/convex/operations/todos'
+import { todoRead } from '~/convex/auth/permissions'
 
 import { tool } from '../runtime'
 
 export default tool.fromOperation(removeTodoOp, {
   execute: remove,
   preview: previewRemove,
-  capability: 'deleteTodo',
+  permission: todoRead,
   meta: {
     name: 'delete-todo',
   },

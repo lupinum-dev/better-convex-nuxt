@@ -4,6 +4,8 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter } from '#imports'
 
+import type { PermissionHandle, PermissionLike } from '../auth/define-permission.js'
+import { resolvePermissionKey } from '../auth/define-permission.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
 import { useConvexAuth } from './useConvexAuth.js'
 import { createConvexQueryState } from './useConvexQuery.js'
@@ -45,14 +47,14 @@ export interface UsePermissionsReturn<
   tenantId: ComputedRef<TContext['tenantId'] | null>
   ready: ComputedRef<boolean>
   pending: ComputedRef<boolean>
-  allows: (key: TPermissions) => ComputedRef<boolean>
+  allows: (permission: PermissionLike<TPermissions>) => ComputedRef<boolean>
 }
 
 export interface UseAuthGuardOptions<
   TContext extends AuthContext = AuthContext,
   TPermissions extends string = PermissionKey<TContext>,
 > {
-  permission?: TPermissions
+  permission?: PermissionLike<TPermissions>
   check?: (ctx: TContext) => boolean
   redirectTo?: RouteLocationRaw
   loginPath?: RouteLocationRaw
@@ -122,6 +124,7 @@ function usePermissionContextState<
         pending: pending.value,
         ready: !!ctx.value,
         ctx: ctx.value,
+        inventory: Object.keys(ctx.value?.can ?? {}),
         error: error.value?.message ?? null,
       }
     })
@@ -184,8 +187,9 @@ export function createConfiguredPermissionsComposables<
   function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
     const { ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
 
-    function allows(key: TPermissions): ComputedRef<boolean> {
-      return computed<boolean>(() => ctx.value?.can?.[key as string] === true)
+    function allows(permission: PermissionLike<TPermissions>): ComputedRef<boolean> {
+      const key = resolvePermissionKey(permission)
+      return computed<boolean>(() => ctx.value?.can?.[key] === true)
     }
 
     return {
@@ -211,7 +215,7 @@ export function createConfiguredPermissionsComposables<
     const passesGuard = computed<boolean>(() => {
       if (!ctx.value) return false
       if (typeof check === 'function') return check(ctx.value)
-      if (typeof permission === 'string') return ctx.value.can?.[permission as string] === true
+      if (permission) return ctx.value.can?.[resolvePermissionKey(permission)] === true
       return false
     })
     let redirectPending = false

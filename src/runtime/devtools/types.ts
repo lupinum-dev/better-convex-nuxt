@@ -128,6 +128,7 @@ export interface PermissionContextState {
   pending: boolean
   ready: boolean
   ctx: unknown | null
+  inventory: string[]
   error: string | null
 }
 

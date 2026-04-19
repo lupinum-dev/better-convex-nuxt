@@ -1,4 +1,5 @@
 import { api } from '#trellis/api'
+import { runbookCreate } from '~/convex/auth/permissions'
 import { updateRunbook } from '~/shared/schemas/runbook'
 
 import { tool } from '../../runtime'
@@ -6,7 +7,7 @@ import { tool } from '../../runtime'
 export default tool({
   schema: updateRunbook,
   call: api.domain.runbooks.update,
-  capability: 'writeWorkspaceRunbooks',
+  permission: runbookCreate,
   group: 'workspace',
   middleware: async (args, ctx, next) => {
     if (

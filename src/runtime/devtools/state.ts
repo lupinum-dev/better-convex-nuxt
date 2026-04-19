@@ -16,6 +16,7 @@ export function usePermissionDevtoolsState(): Ref<PermissionDevtoolsState> {
     pending: false,
     ready: false,
     ctx: null,
+    inventory: [],
     error: null,
   }))
 }
