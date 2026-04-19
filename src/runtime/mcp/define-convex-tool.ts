@@ -12,6 +12,7 @@ import type { H3Event } from 'h3'
 import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
+import { createServerConvexCaller } from '../server/index.js'
 import {
   serverConvexAction,
   serverConvexMutation,
@@ -262,30 +263,6 @@ function normalizeToolArgs<S extends AnyConvexSchema>(
   }
 }
 
-function injectServiceActorArgs(
-  args: Record<string, unknown> | undefined,
-  actor: McpAuthIdentity | null,
-): Record<string, unknown> {
-  if (!actor) {
-    return args ?? {}
-  }
-
-  const trustedCallerKey = process.env.CONVEX_TRUSTED_CALLER_KEY?.trim()
-  if (!trustedCallerKey) {
-    throw new Error(
-      'CONVEX_TRUSTED_CALLER_KEY is required for authenticated MCP ctx.query()/mutation()/action() calls.',
-    )
-  }
-
-  return {
-    ...(args ?? {}),
-    _trustedCallerKey: trustedCallerKey,
-    _trustedCaller: {
-      userId: actor.userId,
-    },
-  }
-}
-
 function cleanErrorMessage(message: string): string {
   let cleaned = message
     .replace(/^\[server\w+\]\s*(?:Request failed for \S+ via \S+\.\s*)?/, '')
@@ -356,6 +333,17 @@ interface ResolveToolAccessOptions<TRole extends string = string> {
   ) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
 }
 
+async function resolveToolPrincipal<TRole extends string = string>(
+  actor: McpAuthIdentity<TRole> | null,
+  resolvePrincipal?: (actor: McpAuthIdentity<TRole>) => unknown | Promise<unknown>,
+): Promise<unknown> {
+  if (!actor || !resolvePrincipal) {
+    return undefined
+  }
+
+  return await resolvePrincipal(actor)
+}
+
 async function resolveToolAccess<TRole extends string = string>(
   event: H3Event,
   options: ResolveToolAccessOptions<TRole>,
@@ -373,10 +361,16 @@ async function resolveToolAccess<TRole extends string = string>(
 
   if (scoped) {
     if (!actor) {
-      return { actor, deniedReason: 'Authentication required for scoped tools.' }
+      return {
+        actor,
+        deniedReason: 'Authentication required for scoped tools.',
+      }
     }
     if (!actor.tenantId) {
-      return { actor, deniedReason: 'MCP token must include tenantId for scoped tools.' }
+      return {
+        actor,
+        deniedReason: 'MCP token must include tenantId for scoped tools.',
+      }
     }
   }
 
@@ -396,47 +390,34 @@ async function resolveToolAccess<TRole extends string = string>(
 function createToolCallFns(
   event: H3Event,
   actor: McpAuthIdentity | null,
-  injectIdentity: boolean,
+  principal: unknown,
 ): ConvexToolCallFns {
+  const convex = actor
+    ? createServerConvexCaller(event, {
+        auth: 'trusted',
+        actor: { userId: actor.userId },
+        ...(principal !== undefined ? { principal } : {}),
+      })
+    : createServerConvexCaller(event, { auth: 'none' })
+
   return {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       args?: FunctionArgs<Query>,
     ): Promise<FunctionReturnType<Query>> => {
-      return await serverConvexQuery(
-        event,
-        fn,
-        (injectIdentity
-          ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
-          : (args ?? {})) as FunctionArgs<Query>,
-        { auth: 'none' },
-      )
+      return await convex.query(fn, args)
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       args?: FunctionArgs<Mutation>,
     ): Promise<FunctionReturnType<Mutation>> => {
-      return await serverConvexMutation(
-        event,
-        fn,
-        (injectIdentity
-          ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
-          : (args ?? {})) as FunctionArgs<Mutation>,
-        { auth: 'none' },
-      )
+      return await convex.mutation(fn, args)
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       args?: FunctionArgs<Action>,
     ): Promise<FunctionReturnType<Action>> => {
-      return await serverConvexAction(
-        event,
-        fn,
-        (injectIdentity
-          ? injectServiceActorArgs(args as Record<string, unknown> | undefined, actor)
-          : (args ?? {})) as FunctionArgs<Action>,
-        { auth: 'none' },
-      )
+      return await convex.action(fn, args)
     },
     rawQuery: async <Query extends FunctionReference<'query'>>(
       fn: Query,
@@ -468,9 +449,9 @@ function createToolCallFns(
 function createToolContext<TRole extends string>(
   event: H3Event,
   actor: McpAuthIdentity<TRole> | null,
-  injectIdentity: boolean,
+  principal: unknown,
 ): ConvexToolHandlerCtx<TRole> {
-  const calls = createToolCallFns(event, actor, injectIdentity)
+  const calls = createToolCallFns(event, actor, principal)
 
   return {
     event,
@@ -528,6 +509,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     cache,
     scoped = false,
     resolveAuth,
+    resolvePrincipal,
   } = options
 
   const toolLabel = name ? `defineTool:${name}` : 'defineTool'
@@ -617,8 +599,11 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
         }
 
         const resolvedAuth = access.actor
-
-        const ctx = createToolContext(event, resolvedAuth, resolvedAuth !== null)
+        const resolvedPrincipal = await resolveToolPrincipal(
+          resolvedAuth,
+          resolvePrincipal ? (actor) => resolvePrincipal({ event, actor }) : undefined,
+        )
+        const ctx = createToolContext(event, resolvedAuth, resolvedPrincipal)
 
         const normalizedArgs = normalizeToolArgs(args)
 

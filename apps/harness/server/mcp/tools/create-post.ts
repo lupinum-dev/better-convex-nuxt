@@ -1,10 +1,9 @@
-import { createServerConvexCaller } from '@lupinum/trellis/server'
-
 import { defineTool } from '#trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 import { createPost } from '../../../shared/schemas/post'
 import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
+import { toHarnessMcpPrincipal } from '../../support/mcp-principal'
 
 export default defineTool({
   schema: createPost,
@@ -18,23 +17,12 @@ export default defineTool({
     return !!auth?.tenantId
   },
   resolveAuth: resolveHarnessMcpAuth,
+  resolvePrincipal: ({ actor }) =>
+    toHarnessMcpPrincipal({
+      actor,
+    }),
   handler: async (args, ctx) => {
-    if (!ctx.actor) {
-      return ctx.error('auth', 'Authentication required.')
-    }
-
-    const convex = createServerConvexCaller(ctx.event, {
-      auth: 'trusted',
-      actor: { userId: ctx.actor.userId },
-      principal: {
-        kind: 'agent',
-        provider: 'mcp',
-        role: ctx.actor.role,
-        userId: ctx.actor.userId,
-        ...(ctx.actor.tenantId ? { tenantId: ctx.actor.tenantId } : {}),
-      },
-    })
-    const postId = await convex.mutation(api.posts.create, args)
+    const postId = await ctx.mutation(api.posts.create, args)
     return ctx.ok({ id: postId }, `Created post "${args.title}"`)
   },
 })

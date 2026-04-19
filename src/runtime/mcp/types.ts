@@ -170,6 +170,16 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   resolveAuth?: (
     event: H3Event,
   ) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
+  /**
+   * Optional app-specific principal resolver for trusted forwarded calls.
+   *
+   * Use this when the target Convex handlers expect a richer business principal
+   * than the transport-level MCP actor alone can express.
+   */
+  resolvePrincipal?: (ctx: {
+    event: H3Event
+    actor: McpAuthIdentity<TRole>
+  }) => unknown | Promise<unknown>
 
   // ── Safety ────────────────────────────────────────────────
   /**

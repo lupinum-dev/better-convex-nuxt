@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import type { H3Event } from 'h3'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
 import { defineArgs } from '../../src/runtime/schema'
@@ -53,6 +53,10 @@ describe('defineTool visibility and auth parity', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useEventMock.mockReturnValue(createEvent())
+  })
+
+  afterEach(() => {
+    delete process.env.CONVEX_TRUSTED_CALLER_KEY
   })
 
   it('hides auth-required tools for anonymous callers', async () => {
@@ -133,6 +137,10 @@ describe('defineTool error handling', () => {
     vi.clearAllMocks()
     useEventMock.mockReturnValue(createEvent({ role: 'member', userId: 'member-1' }))
     process.env.CONVEX_TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
+  })
+
+  afterEach(() => {
+    delete process.env.CONVEX_TRUSTED_CALLER_KEY
   })
 
   it('cleans internal transport noise from convex errors', async () => {
@@ -221,5 +229,67 @@ describe('defineTool error handling', () => {
         },
       },
     })
+  })
+})
+
+describe('defineTool trusted principal forwarding', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useEventMock.mockReturnValue(
+      createEvent({ role: 'member', userId: 'member-1', tenantId: 'org-1' }),
+    )
+  })
+
+  afterEach(() => {
+    delete process.env.CONVEX_TRUSTED_CALLER_KEY
+  })
+
+  it('builds trusted forwarded calls through resolvePrincipal', async () => {
+    vi.mocked(serverConvexMutation).mockResolvedValueOnce('post-1')
+
+    const tool = defineTool({
+      schema: scopedSchema,
+      name: 'principal-aware-tool',
+      auth: 'required',
+      scoped: true,
+      resolvePrincipal: ({ actor }) => ({
+        kind: 'agent',
+        provider: 'mcp',
+        userId: actor.userId,
+        tenantId: actor.tenantId,
+      }),
+      handler: async (args, ctx) => {
+        const id = await ctx.mutation('posts:create' as never, args as never)
+        return ctx.ok({ id })
+      },
+    })
+
+    const result = await tool.handler({ title: 'Hello' } as never, {} as never)
+
+    expect(result).toMatchObject({
+      structuredContent: {
+        ok: true,
+        data: {
+          id: 'post-1',
+        },
+      },
+    })
+    expect(serverConvexMutation).toHaveBeenCalledWith(
+      expect.anything(),
+      'posts:create',
+      {
+        title: 'Hello',
+        principal: {
+          kind: 'agent',
+          provider: 'mcp',
+          userId: 'member-1',
+          tenantId: 'org-1',
+        },
+      },
+      {
+        auth: 'trusted',
+        actor: { userId: 'member-1' },
+      },
+    )
   })
 })
