@@ -8,7 +8,7 @@ import { internal } from './_generated/api'
  * Experiment 11: ctx.runAsService() roundtrip
  *
  * Spec §10.3, §26: HTTP actions verify a webhook, then invoke an
- * internalMutation with a signed trusted-caller envelope. The internal
+ * internalMutation with a signed trusted-forwarding envelope. The internal
  * mutation's principal resolver recognizes the envelope, verifies it,
  * and populates ctx.principal with the service principal.
  *
@@ -26,7 +26,7 @@ import { action, internalMutation } from './_generated/server'
 
 const ROOT_SECRET = new TextEncoder().encode('test-deployment-secret-32bytes!!')
 const SALT = new TextEncoder().encode('trellis-v1')
-const PURPOSE = 'trellis:trusted-caller:v1'
+const PURPOSE = 'trellis:trusted-forwarding:v1'
 
 function deriveKey(): Uint8Array {
   return hkdf(sha256, ROOT_SECRET, SALT, new TextEncoder().encode(PURPOSE), 32)

@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 
 import { api } from '#trellis/api'
+import type { Delegation } from '#trellis/functions'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
 import {
@@ -23,30 +24,41 @@ type CapabilitySnapshot = Record<McpReferencePermissionKey, boolean>
 function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.keyId || !auth.userId) {
-    return { kind: 'anonymous' }
+    return { kind: 'anonymous', subject: 'system:anonymous' }
   }
 
   return {
     kind: 'agent',
     agentId: auth.keyId,
-    userId: auth.userId,
+    subject: `agent:${auth.keyId}`,
     provider: 'mcp',
   }
 }
 
-export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot>({
-  callConvex: async (event, principal) =>
+function getMcpDelegation(event: H3Event): Delegation | null {
+  const auth = event.context.mcpAuth as McpAuthContext | undefined
+  if (!auth?.userId) return null
+
+  return {
+    subject: `user:${auth.userId}`,
+    reason: 'user-approved MCP session',
+  }
+}
+
+export const mcpRuntime = defineMcpApp<McpReferencePrincipal, Delegation, CapabilitySnapshot>({
+  callConvex: async (event, { principal, delegation }) =>
     createServerConvexCaller(
       event,
       principal.kind === 'agent'
         ? {
             auth: 'trusted',
-            actor: { userId: principal.userId },
             principal,
+            delegation,
           }
         : { auth: 'none' },
     ),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
+  resolveDelegation: async ({ event }) => getMcpDelegation(event),
   resolveCapabilities: async ({ principal, convex }) => {
     if (principal.kind !== 'agent') {
       return {

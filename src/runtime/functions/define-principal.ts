@@ -15,20 +15,30 @@ type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
+export type Subject =
+  | `user:${string}`
+  | `agent:${string}`
+  | `service:${string}`
+  | `webhook:${string}`
+  | `system:${string}`
+
 export type DefaultPrincipal =
-  | { kind: 'anonymous' }
+  | { kind: 'anonymous'; subject: 'system:anonymous' }
   | {
       kind: 'user'
+      subject: `user:${string}`
       userId: string
       sessionId?: string
     }
   | {
-      kind: 'mcp'
-      mcpKeyId: string
+      kind: 'agent'
+      subject: `agent:${string}`
+      agentId: string
       roleHint?: string
     }
   | {
       kind: 'service'
+      subject: `service:${string}`
       serviceId: string
       scopes?: string[]
     }
@@ -64,12 +74,13 @@ definePrincipal.fromAuth = function fromAuth<
     resolve: async (ctx) => {
       const auth = await getAuth(ctx)
       if (!auth) {
-        return { kind: 'anonymous' }
+        return { kind: 'anonymous', subject: 'system:anonymous' }
       }
 
       return {
         kind: 'user',
         userId: auth.subject,
+        subject: `user:${auth.subject}`,
       }
     },
   })

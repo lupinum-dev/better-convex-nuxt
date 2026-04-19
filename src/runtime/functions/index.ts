@@ -33,8 +33,8 @@ import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { can, deny } from '../auth/index.js'
 import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
-import { setTrustedCallerContext } from '../trusted-caller/index.js'
-import { trustedCallerValidators } from '../trusted-caller/shared.js'
+import { setTrustedForwardingContext } from '../trusted-forwarding/index.js'
+import { trustedForwardingValidators } from '../trusted-forwarding/shared.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,
@@ -54,6 +54,11 @@ import type {
   StructuredLoadedValue,
 } from './define-handler.js'
 import { getOperationMetadata, type DestructiveOperationPreview } from './define-operation.js'
+import {
+  defineDelegation,
+  type Delegation,
+  type DelegationDefinition,
+} from './define-delegation.js'
 import {
   definePrincipal,
   type DefaultPrincipal,
@@ -89,6 +94,8 @@ export type {
   TrellisOperationMetadata,
   TrellisOperationProjectionMetadata,
 } from './define-operation.js'
+export { defineDelegation } from './define-delegation.js'
+export type { Delegation, DelegationDefinition } from './define-delegation.js'
 export { definePrincipal } from './define-principal.js'
 export type { DefaultPrincipal, PrincipalDefinition } from './define-principal.js'
 export type {
@@ -104,6 +111,7 @@ type DataCtx<DataModel extends GenericDataModel> =
 type AnyCtx<DataModel extends GenericDataModel> = DataCtx<DataModel> | GenericActionCtx<DataModel>
 
 export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
+export type DelegationAccessor<TDelegation> = () => Promise<TDelegation | null>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
 
@@ -115,8 +123,9 @@ function safeObserve(observe: ObserveFn | undefined, event: Parameters<ObserveFn
   }
 }
 
-export type FunctionsCtxExtension<TPrincipal, TActor> = {
+export type FunctionsCtxExtension<TPrincipal, TDelegation, TActor> = {
   principal: PrincipalAccessor<TPrincipal>
+  delegation: DelegationAccessor<TDelegation>
   actor: ActorAccessor<TActor>
   observe: ObserveFn
 }
@@ -132,31 +141,50 @@ type MutationDbWithRuntime<DataModel extends GenericDataModel> =
     crossTenant: GenericMutationCtx<DataModel>['db']
   }
 
-type AnyCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> = AnyCtx<DataModel> &
-  FunctionsCtxExtension<TPrincipal, TActor>
+type AnyCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = AnyCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
-type QueryCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> = Omit<
+type QueryCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = Omit<
   GenericQueryCtx<DataModel>,
   'db'
 > & {
   db: QueryDbWithRuntime<DataModel>
-} & FunctionsCtxExtension<TPrincipal, TActor>
+} & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
-type MutationCtxWithRuntime<DataModel extends GenericDataModel, TPrincipal, TActor> = Omit<
+type MutationCtxWithRuntime<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = Omit<
   GenericMutationCtx<DataModel>,
   'db'
 > & {
   db: MutationDbWithRuntime<DataModel>
-} & FunctionsCtxExtension<TPrincipal, TActor>
+} & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
 type ActionCtxWithRuntime<
   DataModel extends GenericDataModel,
   TPrincipal,
+  TDelegation extends Delegation,
   TActor,
-> = GenericActionCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+> = GenericActionCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
-type RuleCtx<DataModel extends GenericDataModel, TPrincipal, TActor> = DataCtx<DataModel> &
-  FunctionsCtxExtension<TPrincipal, TActor>
+type RuleCtx<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = DataCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
 type OnSuccessArgs<Ctx> = {
   ctx: Ctx
@@ -181,20 +209,23 @@ type MaybeRules<Ctx, DataModel extends GenericDataModel> =
 type QueryCustomizationCtx<
   DataModel extends GenericDataModel,
   TPrincipal,
+  TDelegation extends Delegation,
   TActor,
-> = GenericQueryCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+> = GenericQueryCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
 type MutationCustomizationCtx<
   DataModel extends GenericDataModel,
   TPrincipal,
+  TDelegation extends Delegation,
   TActor,
-> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+> = GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
 type ActionCustomizationCtx<
   DataModel extends GenericDataModel,
   TPrincipal,
+  TDelegation extends Delegation,
   TActor,
-> = GenericActionCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+> = GenericActionCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
 type AppBuilders<
   DataModel extends GenericDataModel,
@@ -214,29 +245,32 @@ type AppBuilders<
 export interface DefineTrellisOptions<
   DataModel extends GenericDataModel,
   TPrincipal = DefaultPrincipal,
+  TDelegation extends Delegation = Delegation,
   TActor = DefaultActor,
 > {
   principal?: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
+  delegation?: DelegationDefinition<AnyCtx<DataModel>, TDelegation>
   actor?: (
-    ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+    ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation'>,
     args: Record<string, unknown>,
     principal: TPrincipal,
+    delegation: TDelegation | null,
   ) => Promise<TActor | null>
   tenantIsolation?: TenantIsolationOptions<DataModel>
   services?: ServiceAccessDefinition<DataModel, TPrincipal>
   observability?: TrellisObservabilityOptions
-  trustedCallerKey?: string
+  trustedForwardingKey?: string
   destructiveSafety?: {
     redemptionTable: TableNamesInDataModel<DataModel>
     auditTable: TableNamesInDataModel<DataModel>
   }
   rls?: {
-    rules: MaybeRules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel>
+    rules: MaybeRules<RuleCtx<DataModel, TPrincipal, TDelegation, TActor>, DataModel>
     config?: RLSConfig
   }
   triggers?: Triggers<
     DataModel,
-    GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TActor>
+    GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
   >
   onSuccess?: {
     query?: (
@@ -506,10 +540,15 @@ function createTenantIsolationRule<
   }
 }
 
-function buildTenantIsolationRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
+function buildTenantIsolationRules<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
   options: TenantIsolationOptions<DataModel> | undefined,
-): Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> {
-  const rules = {} as Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel>
+): Rules<RuleCtx<DataModel, TPrincipal, TDelegation, TActor>, DataModel> {
+  const rules = {} as Rules<RuleCtx<DataModel, TPrincipal, TDelegation, TActor>, DataModel>
   if (!options) return rules
 
   const field = options.field ?? 'workspaceId'
@@ -518,6 +557,7 @@ function buildTenantIsolationRules<DataModel extends GenericDataModel, TPrincipa
     const tenantRule = createTenantIsolationRule<
       DataModel,
       TPrincipal,
+      TDelegation,
       TActor,
       Record<string, unknown>
     >(field)
@@ -531,10 +571,15 @@ function buildTenantIsolationRules<DataModel extends GenericDataModel, TPrincipa
   return rules
 }
 
-async function resolveServiceAccess<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  ctx: RuleCtx<DataModel, TPrincipal, TActor>,
+async function resolveServiceAccess<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
+  ctx: RuleCtx<DataModel, TPrincipal, TDelegation, TActor>,
   args: Record<string, unknown>,
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor>,
 ): Promise<ResolvedServiceAccess<DataModel>> {
   const principal = await ctx.principal()
   if (!isServicePrincipal(principal)) return null
@@ -567,11 +612,16 @@ async function resolveServiceAccess<DataModel extends GenericDataModel, TPrincip
   }
 }
 
-function buildServiceRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
+function buildServiceRules<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
   access: ResolvedServiceAccess<DataModel>,
   options: TenantIsolationOptions<DataModel> | undefined,
-): Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> {
-  const rules = {} as Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel>
+): Rules<RuleCtx<DataModel, TPrincipal, TDelegation, TActor>, DataModel> {
+  const rules = {} as Rules<RuleCtx<DataModel, TPrincipal, TDelegation, TActor>, DataModel>
   if (!access || access.access === 'unrestricted') return rules
   if (access.tenant !== 'derived') return rules
 
@@ -624,23 +674,36 @@ function mergeRules<Ctx, DataModel extends GenericDataModel>(
   return merged
 }
 
-type ResolvedRules<DataModel extends GenericDataModel, TPrincipal, TActor> = {
-  dbRules: Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> | null
-  crossTenantRules: Rules<RuleCtx<DataModel, TPrincipal, TActor>, DataModel> | null
+type ResolvedRules<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = {
+  dbRules: Rules<RuleCtx<DataModel, TPrincipal, TDelegation, TActor>, DataModel> | null
+  crossTenantRules: Rules<RuleCtx<DataModel, TPrincipal, TDelegation, TActor>, DataModel> | null
   serviceAccess: ResolvedServiceAccess<DataModel>
 }
 
-async function resolveRules<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  ctx: RuleCtx<DataModel, TPrincipal, TActor>,
+async function resolveRules<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
+  ctx: RuleCtx<DataModel, TPrincipal, TDelegation, TActor>,
   args: Record<string, unknown>,
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
-): Promise<ResolvedRules<DataModel, TPrincipal, TActor>> {
-  const tenantRules = buildTenantIsolationRules<DataModel, TPrincipal, TActor>(
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor>,
+): Promise<ResolvedRules<DataModel, TPrincipal, TDelegation, TActor>> {
+  const tenantRules = buildTenantIsolationRules<DataModel, TPrincipal, TDelegation, TActor>(
     options.tenantIsolation,
   )
   const rlsRules = options.rls?.rules
   const serviceAccess = await resolveServiceAccess(ctx, stripObservationEnvelope(args), options)
-  const serviceRules = buildServiceRules(serviceAccess, options.tenantIsolation)
+  const serviceRules = buildServiceRules<DataModel, TPrincipal, TDelegation, TActor>(
+    serviceAccess,
+    options.tenantIsolation,
+  )
 
   const resolvedCustomRules =
     typeof rlsRules === 'function' ? await rlsRules(ctx) : (rlsRules ?? {})
@@ -725,11 +788,13 @@ type RuntimeBundle<
   DataModel extends GenericDataModel,
   TCtx extends AnyCtx<DataModel>,
   TPrincipal,
+  TDelegation extends Delegation,
   TActor,
 > = {
   principal: PrincipalAccessor<TPrincipal>
+  delegation: DelegationAccessor<TDelegation>
   actor: ActorAccessor<TActor>
-  baseCtx: TCtx & FunctionsCtxExtension<TPrincipal, TActor>
+  baseCtx: TCtx & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 }
 
 function resolvePrincipal<DataModel extends GenericDataModel, TPrincipal>(
@@ -741,24 +806,44 @@ function resolvePrincipal<DataModel extends GenericDataModel, TPrincipal>(
   >
 }
 
-function resolveActor<DataModel extends GenericDataModel, TPrincipal, TActor>(
+function resolveDelegation<DataModel extends GenericDataModel, TDelegation extends Delegation>(
+  delegationDefinition: DelegationDefinition<AnyCtx<DataModel>, TDelegation> | undefined,
+): DelegationDefinition<AnyCtx<DataModel>, TDelegation> {
+  return (delegationDefinition ?? defineDelegation.none<DataModel>()) as DelegationDefinition<
+    AnyCtx<DataModel>,
+    TDelegation
+  >
+}
+
+function resolveActor<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
   actorResolver:
     | ((
-        ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+        ctx: AnyCtx<DataModel> &
+          Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation'>,
         args: Record<string, unknown>,
         principal: TPrincipal,
+        delegation: TDelegation | null,
       ) => Promise<TActor | null>)
     | undefined,
 ): (
-  ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+  ctx: AnyCtx<DataModel> &
+    Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation'>,
   args: Record<string, unknown>,
   principal: TPrincipal,
+  delegation: TDelegation | null,
 ) => Promise<TActor | null> {
   return (actorResolver ??
     (async (ctx) => await defineActor.fromAuth<DataModel>().resolve(ctx))) as (
-    ctx: AnyCtx<DataModel> & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+    ctx: AnyCtx<DataModel> &
+      Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation'>,
     args: Record<string, unknown>,
     principal: TPrincipal,
+    delegation: TDelegation | null,
   ) => Promise<TActor | null>
 }
 
@@ -766,22 +851,26 @@ function createContextWithRuntime<
   DataModel extends GenericDataModel,
   TCtx extends AnyCtx<DataModel>,
   TPrincipal,
+  TDelegation extends Delegation,
   TActor,
 >(
   ctx: TCtx,
   args: Record<string, unknown>,
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor>,
   principalResolver: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+  delegationResolver: DelegationDefinition<AnyCtx<DataModel>, TDelegation>,
   actorResolver: (
-    ctx: TCtx & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal'>,
+    ctx: TCtx &
+      Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation'>,
     args: Record<string, unknown>,
     principal: TPrincipal,
+    delegation: TDelegation | null,
   ) => Promise<TActor | null>,
-): RuntimeBundle<DataModel, TCtx, TPrincipal, TActor> {
+) : RuntimeBundle<DataModel, TCtx, TPrincipal, TDelegation, TActor> {
   const appArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
-  const ctxWithTrustedCaller = { ...ctx } as TCtx & Record<PropertyKey, unknown>
-  setTrustedCallerContext(ctxWithTrustedCaller, appArgs, options.trustedCallerKey)
+  const ctxWithTrustedForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
+  setTrustedForwardingContext(ctxWithTrustedForwarding, appArgs, options.trustedForwardingKey)
   const observeRuntime = createObservationEmitter(options.observability, {
     transport: 'convex',
     ...toObservationContext(observationEnvelope),
@@ -797,7 +886,7 @@ function createContextWithRuntime<
   let principalPromise: Promise<TPrincipal> | null = null
   const principal: PrincipalAccessor<TPrincipal> = async () => {
     principalPromise ??= Promise.resolve(
-      principalResolver.resolve(ctxWithTrustedCaller, appArgs),
+      principalResolver.resolve(ctxWithTrustedForwarding, appArgs),
     ).then(async (value) => {
       await observe({
         name: 'principal.resolved',
@@ -809,15 +898,30 @@ function createContextWithRuntime<
     return await principalPromise
   }
 
+  let delegationPromise: Promise<TDelegation | null> | null = null
+  const delegation: DelegationAccessor<TDelegation> = async () => {
+    delegationPromise ??= Promise.resolve(
+      delegationResolver.resolve(ctxWithTrustedForwarding, appArgs),
+    )
+    return await delegationPromise
+  }
+
   const ctxWithPrincipal = {
-    ...ctxWithTrustedCaller,
+    ...ctxWithTrustedForwarding,
     principal,
+    delegation,
     observe,
-  } as TCtx & Pick<FunctionsCtxExtension<TPrincipal, TActor>, 'principal' | 'observe'>
+  } as TCtx &
+    Pick<FunctionsCtxExtension<TPrincipal, TDelegation, TActor>, 'principal' | 'delegation' | 'observe'>
 
   let actorPromise: Promise<TActor | null> | null = null
   const actor: ActorAccessor<TActor> = async () => {
-    actorPromise ??= actorResolver(ctxWithPrincipal, appArgs, await principal()).then(
+    actorPromise ??= actorResolver(
+      ctxWithPrincipal,
+      appArgs,
+      await principal(),
+      await delegation(),
+    ).then(
       async (value) => {
         await observe({
           name: value == null ? 'actor.missing' : 'actor.resolved',
@@ -834,12 +938,13 @@ function createContextWithRuntime<
 
   return {
     principal,
+    delegation,
     actor,
     baseCtx: {
       ...ctxWithPrincipal,
       actor,
       observe,
-    } as TCtx & FunctionsCtxExtension<TPrincipal, TActor>,
+    } as TCtx & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>,
   }
 }
 
@@ -913,21 +1018,30 @@ function isDestructivePreviewPayload(
   return typeof value === 'object' && value !== null && 'display' in value && 'confirm' in value
 }
 
-function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+function createQueryCustomization<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor>,
 ): Customization<
   GenericQueryCtx<DataModel>,
   PropertyValidators,
-  QueryCustomizationCtx<DataModel, TPrincipal, TActor>,
+  QueryCustomizationCtx<DataModel, TPrincipal, TDelegation, TActor>,
   Record<string, never>
 > {
   const principalDefinition = resolvePrincipal(options.principal)
+  const delegationDefinition = resolveDelegation(options.delegation)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator
       ? { principal: v.optional(principalDefinition.validator) }
       : {}),
-    ...trustedCallerValidators,
+    ...(delegationDefinition.validator
+      ? { delegation: v.optional(delegationDefinition.validator) }
+      : {}),
+    ...trustedForwardingValidators,
     ...buildObservationEnvelopeValidators(),
   }
 
@@ -939,6 +1053,7 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
         args,
         options,
         principalDefinition,
+        delegationDefinition,
         actorResolver,
       )
       const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(
@@ -954,8 +1069,8 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
       const crossTenantDb = crossTenantRules
         ? wrapDatabaseReader(baseCtx, serviceDb, crossTenantRules, options.rls?.config)
         : serviceDb
-      const finalCtx: QueryCtxWithRuntime<DataModel, TPrincipal, TActor> = {
-        ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TPrincipal, TActor>),
+      const finalCtx: QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor> = {
+        ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>),
         db: decorateDb(db, rawDb, crossTenantDb, baseCtx.observe),
       }
 
@@ -968,21 +1083,30 @@ function createQueryCustomization<DataModel extends GenericDataModel, TPrincipal
   }
 }
 
-function createMutationCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+function createMutationCustomization<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor>,
 ): Customization<
   GenericMutationCtx<DataModel>,
   PropertyValidators,
-  MutationCustomizationCtx<DataModel, TPrincipal, TActor>,
+  MutationCustomizationCtx<DataModel, TPrincipal, TDelegation, TActor>,
   Record<string, never>
 > {
   const principalDefinition = resolvePrincipal(options.principal)
+  const delegationDefinition = resolveDelegation(options.delegation)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator
       ? { principal: v.optional(principalDefinition.validator) }
       : {}),
-    ...trustedCallerValidators,
+    ...(delegationDefinition.validator
+      ? { delegation: v.optional(delegationDefinition.validator) }
+      : {}),
+    ...trustedForwardingValidators,
     ...buildObservationEnvelopeValidators(),
   }
 
@@ -994,6 +1118,7 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
         args,
         options,
         principalDefinition,
+        delegationDefinition,
         actorResolver,
       )
       const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(
@@ -1012,17 +1137,32 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
 
       if (options.triggers) {
         db = options.triggers.wrapDB({
-          ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
+          ...(baseCtx as unknown as MutationCtxWithRuntime<
+            DataModel,
+            TPrincipal,
+            TDelegation,
+            TActor
+          >),
           db,
         }).db
         crossTenantDb = options.triggers.wrapDB({
-          ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
+          ...(baseCtx as unknown as MutationCtxWithRuntime<
+            DataModel,
+            TPrincipal,
+            TDelegation,
+            TActor
+          >),
           db: crossTenantDb,
         }).db
       }
 
-      const finalCtx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor> = {
-        ...(baseCtx as unknown as MutationCtxWithRuntime<DataModel, TPrincipal, TActor>),
+      const finalCtx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor> = {
+        ...(baseCtx as unknown as MutationCtxWithRuntime<
+          DataModel,
+          TPrincipal,
+          TDelegation,
+          TActor
+        >),
         db: decorateDb(db, rawDb, crossTenantDb, baseCtx.observe),
       }
 
@@ -1035,21 +1175,30 @@ function createMutationCustomization<DataModel extends GenericDataModel, TPrinci
   }
 }
 
-function createActionCustomization<DataModel extends GenericDataModel, TPrincipal, TActor>(
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+function createActionCustomization<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor>,
 ): Customization<
   GenericActionCtx<DataModel>,
   PropertyValidators,
-  ActionCustomizationCtx<DataModel, TPrincipal, TActor>,
+  ActionCustomizationCtx<DataModel, TPrincipal, TDelegation, TActor>,
   Record<string, never>
 > {
   const principalDefinition = resolvePrincipal(options.principal)
+  const delegationDefinition = resolveDelegation(options.delegation)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
     ...(principalDefinition.validator
       ? { principal: v.optional(principalDefinition.validator) }
       : {}),
-    ...trustedCallerValidators,
+    ...(delegationDefinition.validator
+      ? { delegation: v.optional(delegationDefinition.validator) }
+      : {}),
+    ...trustedForwardingValidators,
     ...buildObservationEnvelopeValidators(),
   }
 
@@ -1061,9 +1210,15 @@ function createActionCustomization<DataModel extends GenericDataModel, TPrincipa
         args,
         options,
         principalDefinition,
+        delegationDefinition,
         actorResolver,
       )
-      const finalCtx = baseCtx as unknown as ActionCtxWithRuntime<DataModel, TPrincipal, TActor>
+      const finalCtx = baseCtx as unknown as ActionCtxWithRuntime<
+        DataModel,
+        TPrincipal,
+        TDelegation,
+        TActor
+      >
 
       return {
         ctx: finalCtx,
@@ -1082,6 +1237,7 @@ function buildRawFunctions<
   InternalMutationVisibility extends FunctionVisibility,
   ActionVisibility extends FunctionVisibility,
   TPrincipal,
+  TDelegation extends Delegation = Delegation,
   TActor = DefaultActor,
 >(
   builders: AppBuilders<
@@ -1092,7 +1248,7 @@ function buildRawFunctions<
     InternalMutationVisibility,
     ActionVisibility
   >,
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor> = {},
 ) {
   validateTenantIsolationOptions(options.tenantIsolation)
 
@@ -1125,17 +1281,18 @@ function buildStructuredMutationRuntime<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
   TPrincipal,
+  TDelegation extends Delegation,
   TActor,
 >(
   builder: unknown,
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor>,
 ): StructuredMutationBuilder<
-  MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+  MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
   Visibility,
   TActor
 > {
   const structured = buildStructuredBuilder<
-    MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+    MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
     TPrincipal,
     TActor,
     never
@@ -1166,7 +1323,7 @@ function buildStructuredMutationRuntime<
     const preview = (
       definition as {
         preview: (
-          ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+          ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
           args: Record<string, unknown>,
           loaded: unknown,
         ) => Promise<unknown> | unknown
@@ -1174,7 +1331,7 @@ function buildStructuredMutationRuntime<
     ).preview
     const originalLoad = definition.load as
       | ((
-          ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+          ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
           args: Record<string, unknown>,
         ) => Promise<unknown> | unknown)
       | undefined
@@ -1190,7 +1347,7 @@ function buildStructuredMutationRuntime<
         }
       | undefined
     const originalHandler = definition.handler as (
-      ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+      ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
       args: Record<string, unknown>,
       loaded: unknown,
     ) => Promise<unknown> | unknown
@@ -1204,7 +1361,7 @@ function buildStructuredMutationRuntime<
       },
       load: originalLoad
         ? async (
-            ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+            ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
             rawArgs: Record<string, unknown>,
           ) => {
             if (getConfirmationToken(rawArgs)) {
@@ -1237,7 +1394,7 @@ function buildStructuredMutationRuntime<
           }
         : undefined,
       handler: async (
-        ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+        ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
         rawArgs: Record<string, unknown>,
         loaded: unknown,
       ) => {
@@ -1431,7 +1588,7 @@ function buildStructuredMutationRuntime<
 
     return structured(transformed as never)
   }) as StructuredMutationBuilder<
-    MutationCtxWithRuntime<DataModel, TPrincipal, TActor>,
+    MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
     Visibility,
     TActor
   >
@@ -1444,6 +1601,7 @@ function buildTrellisRuntime<
   InternalQueryVisibility extends FunctionVisibility = 'internal',
   InternalMutationVisibility extends FunctionVisibility = 'internal',
   TPrincipal = DefaultPrincipal,
+  TDelegation extends Delegation = Delegation,
   TActor = DefaultActor,
   ActionVisibility extends FunctionVisibility = 'public',
 >(
@@ -1455,36 +1613,39 @@ function buildTrellisRuntime<
     InternalMutationVisibility,
     ActionVisibility
   >,
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor> = {},
 ) {
   const raw = buildRawFunctions(builders, options)
   const structured = {
     query: buildStructuredBuilder<
-      QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+      QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
       TPrincipal,
       TActor,
       typeof raw.query
     >(raw.query) as StructuredQueryBuilder<
-      QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+      QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
       QueryVisibility,
       TActor
     >,
-    mutation: buildStructuredMutationRuntime<DataModel, MutationVisibility, TPrincipal, TActor>(
-      raw.mutation,
-      options,
-    ),
+    mutation: buildStructuredMutationRuntime<
+      DataModel,
+      MutationVisibility,
+      TPrincipal,
+      TDelegation,
+      TActor
+    >(raw.mutation, options),
   }
 
   const structuredInternal =
     raw.internal.query && raw.internal.mutation
       ? {
           query: buildStructuredBuilder<
-            QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+            QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
             TPrincipal,
             TActor,
             NonNullable<typeof raw.internal.query>
           >(raw.internal.query) as StructuredQueryBuilder<
-            QueryCtxWithRuntime<DataModel, TPrincipal, TActor>,
+            QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
             InternalQueryVisibility,
             TActor
           >,
@@ -1492,6 +1653,7 @@ function buildTrellisRuntime<
             DataModel,
             InternalMutationVisibility,
             TPrincipal,
+            TDelegation,
             TActor
           >(raw.internal.mutation, options),
         }
@@ -1499,12 +1661,12 @@ function buildTrellisRuntime<
 
   const action = raw.action
     ? (buildStructuredBuilder<
-        ActionCtxWithRuntime<DataModel, TPrincipal, TActor>,
+        ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
         TPrincipal,
         TActor,
         typeof raw.action
       >(raw.action) as StructuredActionBuilder<
-        ActionCtxWithRuntime<DataModel, TPrincipal, TActor>,
+        ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
         ActionVisibility,
         TActor
       >)
@@ -1555,6 +1717,7 @@ export function defineTrellis<
   InternalQueryVisibility extends FunctionVisibility = 'internal',
   InternalMutationVisibility extends FunctionVisibility = 'internal',
   TPrincipal = DefaultPrincipal,
+  TDelegation extends Delegation = Delegation,
   TActor = DefaultActor,
   ActionVisibility extends FunctionVisibility = 'public',
 >(
@@ -1566,7 +1729,7 @@ export function defineTrellis<
     InternalMutationVisibility,
     ActionVisibility
   >,
-  options: DefineTrellisOptions<DataModel, TPrincipal, TActor> = {},
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor> = {},
 ) {
   const runtime = buildTrellisRuntime(builders, options)
 

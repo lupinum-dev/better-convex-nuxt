@@ -12,7 +12,7 @@ describe('package subpath exports', () => {
     expect(packageJson.exports).toHaveProperty('./composables')
     expect(packageJson.exports).toHaveProperty('./functions')
     expect(packageJson.exports).toHaveProperty('./mcp')
-    expect(packageJson.exports).toHaveProperty('./trusted-caller')
+    expect(packageJson.exports).toHaveProperty('./trusted-forwarding')
     expect(packageJson.exports).toHaveProperty('./testing')
     expect(packageJson.exports).toHaveProperty('./visibility')
     expect(packageJson.exports).not.toHaveProperty('./actor')
@@ -25,7 +25,7 @@ describe('package subpath exports', () => {
     expect(packageJson.typesVersions['*']).toHaveProperty('composables')
     expect(packageJson.typesVersions['*']).toHaveProperty('functions')
     expect(packageJson.typesVersions['*']).toHaveProperty('mcp')
-    expect(packageJson.typesVersions['*']).toHaveProperty('trusted-caller')
+    expect(packageJson.typesVersions['*']).toHaveProperty('trusted-forwarding')
     expect(packageJson.typesVersions['*']).toHaveProperty('testing')
     expect(packageJson.typesVersions['*']).toHaveProperty('visibility')
     expect(packageJson.typesVersions['*']).not.toHaveProperty('actor')
@@ -43,8 +43,8 @@ describe('package subpath exports', () => {
     expect(packageJson.exports['./composables'].import).toBe('./dist/runtime/composables/index.mjs')
     expect(packageJson.exports['./functions'].import).toBe('./dist/runtime/functions/index.mjs')
     expect(packageJson.exports['./mcp'].import).toBe('./dist/runtime/mcp/index.mjs')
-    expect(packageJson.exports['./trusted-caller'].import).toBe(
-      './dist/runtime/trusted-caller/index.mjs',
+    expect(packageJson.exports['./trusted-forwarding'].import).toBe(
+      './dist/runtime/trusted-forwarding/index.mjs',
     )
     expect(packageJson.exports['./visibility'].import).toBe('./dist/runtime/visibility/index.mjs')
     expect(packageJson.exports['./server'].import).toBe('./dist/runtime/server/index.mjs')

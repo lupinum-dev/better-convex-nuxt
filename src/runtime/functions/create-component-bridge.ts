@@ -18,7 +18,7 @@ import type {
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
-import { clearTrustedCallerContext, setTrustedCallerContext } from '../trusted-caller/index.js'
+import { clearTrustedForwardingContext, setTrustedForwardingContext } from '../trusted-forwarding/index.js'
 import {
   definePrincipal,
   type DefaultPrincipal,
@@ -137,33 +137,42 @@ type BridgeBatchResult<
           : never
 }
 
-function resolveBridgeTrustedCallerUserId(principal: unknown): string {
-  if (typeof principal !== 'object' || principal === null) {
-    return 'component-bridge'
+function resolveBridgePrincipalSubject(principal: unknown): string {
+  if (
+    typeof principal !== 'object' ||
+    principal === null ||
+    !('subject' in principal) ||
+    typeof (principal as { subject?: unknown }).subject !== 'string' ||
+    !(principal as { subject: string }).subject.trim()
+  ) {
+    throw new Error('createComponentBridge() requires the resolved principal to include a canonical subject.')
   }
 
-  const maybeUserId = (principal as Record<string, unknown>).userId
-  return typeof maybeUserId === 'string' && maybeUserId.trim() ? maybeUserId : 'component-bridge'
+  if ('kind' in principal && (principal as { kind?: unknown }).kind === 'anonymous') {
+    throw new Error('createComponentBridge() cannot forward an anonymous principal.')
+  }
+
+  return (principal as { subject: string }).subject
 }
 
-function getRequiredBridgeTrustedCallerKey(): string {
-  const trustedCallerKey = process.env.CONVEX_TRUSTED_CALLER_KEY?.trim()
-  if (!trustedCallerKey) {
+function getRequiredBridgeTrustedForwardingKey(): string {
+  const trustedForwardingKey = process.env.CONVEX_TRUSTED_FORWARDING_KEY?.trim()
+  if (!trustedForwardingKey) {
     throw new Error(
-      'createComponentBridge() requires CONVEX_TRUSTED_CALLER_KEY to be set.',
+      'createComponentBridge() requires CONVEX_TRUSTED_FORWARDING_KEY to be set.',
     )
   }
 
-  return trustedCallerKey
+  return trustedForwardingKey
 }
 
-function createBridgeTrustedCallerFields(principal: unknown, trustedCallerKey: string) {
-  const userId = resolveBridgeTrustedCallerUserId(principal)
+function createBridgeTrustedForwardingFields(principal: unknown, trustedForwardingKey: string) {
+  const principalSubject = resolveBridgePrincipalSubject(principal)
 
   return {
-    _trustedCallerKey: trustedCallerKey,
-    _trustedCaller: {
-      userId,
+    _trustedForwardingKey: trustedForwardingKey,
+    _trustedForwarding: {
+      principalSubject,
     },
   }
 }
@@ -257,19 +266,23 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
+            const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
             const forwardedPrincipal = (args as Record<string, unknown>).principal
-            const ctxWithTrustedCaller = { ...ctx }
-            const argsWithTrustedCaller = {
+            const ctxWithTrustedForwarding = { ...ctx }
+            const argsWithTrustedForwarding = {
               ...args,
-              ...createBridgeTrustedCallerFields(forwardedPrincipal, trustedCallerKey),
+              ...createBridgeTrustedForwardingFields(forwardedPrincipal, trustedForwardingKey),
             }
 
-            setTrustedCallerContext(ctxWithTrustedCaller, argsWithTrustedCaller, trustedCallerKey)
+            setTrustedForwardingContext(
+              ctxWithTrustedForwarding,
+              argsWithTrustedForwarding,
+              trustedForwardingKey,
+            )
             principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedCaller, argsWithTrustedCaller),
+              principalDefinition.resolve(ctxWithTrustedForwarding, argsWithTrustedForwarding),
             ).finally(() => {
-              clearTrustedCallerContext(ctxWithTrustedCaller)
+              clearTrustedForwardingContext(ctxWithTrustedForwarding)
             })
           }
 
@@ -291,19 +304,23 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
+            const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
             const forwardedPrincipal = (args as Record<string, unknown>).principal
-            const ctxWithTrustedCaller = { ...ctx }
-            const argsWithTrustedCaller = {
+            const ctxWithTrustedForwarding = { ...ctx }
+            const argsWithTrustedForwarding = {
               ...args,
-              ...createBridgeTrustedCallerFields(forwardedPrincipal, trustedCallerKey),
+              ...createBridgeTrustedForwardingFields(forwardedPrincipal, trustedForwardingKey),
             }
 
-            setTrustedCallerContext(ctxWithTrustedCaller, argsWithTrustedCaller, trustedCallerKey)
+            setTrustedForwardingContext(
+              ctxWithTrustedForwarding,
+              argsWithTrustedForwarding,
+              trustedForwardingKey,
+            )
             principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedCaller, argsWithTrustedCaller),
+              principalDefinition.resolve(ctxWithTrustedForwarding, argsWithTrustedForwarding),
             ).finally(() => {
-              clearTrustedCallerContext(ctxWithTrustedCaller)
+              clearTrustedForwardingContext(ctxWithTrustedForwarding)
             })
           }
 
@@ -371,10 +388,10 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
+        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
         return await ctx.runQuery(definition.component, {
           ...args,
-          ...createBridgeTrustedCallerFields(principal, trustedCallerKey),
+          ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
           principal,
         } as never)
       },
@@ -386,10 +403,10 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
+        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
         return await ctx.runMutation(definition.component, {
           ...args,
-          ...createBridgeTrustedCallerFields(principal, trustedCallerKey),
+          ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
           principal,
         } as never)
       },
@@ -401,10 +418,10 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
+        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
         return await ctx.runQuery(definition.component, {
           ...args,
-          ...createBridgeTrustedCallerFields(principal, trustedCallerKey),
+          ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
           principal,
         } as never)
       },
@@ -416,10 +433,10 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
+        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey()
         return await ctx.runMutation(definition.component, {
           ...args,
-          ...createBridgeTrustedCallerFields(principal, trustedCallerKey),
+          ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
           principal,
         } as never)
       },

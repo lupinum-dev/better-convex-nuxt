@@ -16,7 +16,7 @@ import { createConfiguredPermissionsComposables } from '../../src/runtime/compos
 import { defineOperation } from '../../src/runtime/functions'
 import { defineTool } from '../../src/runtime/mcp'
 import { createTestContext } from '../../src/runtime/testing'
-import { verifyTrustedCallerKey } from '../../src/runtime/trusted-caller'
+import { verifyTrustedForwardingKey } from '../../src/runtime/trusted-forwarding'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -38,7 +38,7 @@ type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
 
 deny('Blocked', { source: 'dx-typing' })
 enforce(null, 'Admin page', false)
-verifyTrustedCallerKey('a', 'b')
+verifyTrustedForwardingKey('a', 'b')
 
 type PermissionContext = {
   role: 'owner' | 'member'

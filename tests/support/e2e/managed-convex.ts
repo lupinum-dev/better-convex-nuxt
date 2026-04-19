@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY } from '../../../apps/harness/shared/dev-trusted-caller-key'
+import { INTERNAL_HARNESS_LOCAL_TRUSTED_FORWARDING_KEY } from '../../../apps/harness/shared/dev-trusted-forwarding-key'
 import {
   assertLocalAuthReady,
   deriveSiteUrlFromConvexUrl,
@@ -75,10 +75,10 @@ export async function ensureManagedLocalConvex(
     envFile.siteUrl ??
     deriveSiteUrlFromConvexUrl(resolved.url) ??
     `http://127.0.0.1:${resolved.port + 1}`
-  const trustedCallerKey =
-    process.env.CONVEX_TRUSTED_CALLER_KEY ??
-    envFile.trustedCallerKey ??
-    INTERNAL_HARNESS_LOCAL_TRUSTED_CALLER_KEY
+  const trustedForwardingKey =
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY ??
+    envFile.trustedForwardingKey ??
+    INTERNAL_HARNESS_LOCAL_TRUSTED_FORWARDING_KEY
 
   if (!activeHandle) {
     const managedPorts = new Set<number>([resolved.port, resolved.port + 1])
@@ -109,7 +109,7 @@ export async function ensureManagedLocalConvex(
         SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
         BETTER_AUTH_SECRET:
           process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
-        CONVEX_TRUSTED_CALLER_KEY: trustedCallerKey,
+        CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
         CONVEX_LOCAL_BACKEND_PORT: String(resolved.port),
       },
     })
@@ -157,7 +157,7 @@ export async function ensureManagedLocalConvex(
   return {
     env: {
       ALLOW_TEST_RESET: 'true',
-      CONVEX_TRUSTED_CALLER_KEY: trustedCallerKey,
+      CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
       CONVEX_URL: resolved.url,
       CONVEX_SITE_URL: siteUrl,
       NUXT_PUBLIC_CONVEX_URL: resolved.url,

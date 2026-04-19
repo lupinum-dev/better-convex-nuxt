@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
 import schema from './schema'
-import { INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY, withTrustedPrincipal } from './test.helpers'
+import { INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY, withTrustedPrincipal } from './test.helpers'
 import { modules } from './test.setup'
 
 describe('organizations', () => {
-  process.env.CONVEX_TRUSTED_CALLER_KEY = INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY
+  process.env.CONVEX_TRUSTED_FORWARDING_KEY = INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY
 
   it('assigns the current browser-auth user as owner when creating an organization', async () => {
     const t = convexTest(schema, modules)
@@ -66,6 +66,7 @@ describe('organizations', () => {
         {
           kind: 'user',
           userId: 'service_user',
+          subject: 'user:service_user',
         },
       ),
     )
@@ -97,6 +98,7 @@ describe('organizations', () => {
           {
             kind: 'user',
             userId: 'missing_user',
+            subject: 'user:missing_user',
           },
         ),
       ),

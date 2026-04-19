@@ -17,9 +17,15 @@ import {
   sanitizeCorrelationId,
   type EventObservationState,
 } from '../../utils/observability/envelope.js'
+import type { Delegation } from '../../functions/define-delegation.js'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 import { createRuntimeObserver } from '../../utils/runtime-observer.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
+import type { Subject } from '../../functions/define-principal.js'
+import {
+  extractSubject,
+  isAnonymousPrincipalLike,
+} from '../../trusted-forwarding/shared.js'
 import { resolveRequestAuthToken } from './auth-resolver.js'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
@@ -52,7 +58,7 @@ export interface ServerConvexOptions {
    * - 'auto': use session cookie when available (default)
    * - 'required': throw when auth token cannot be resolved
    * - 'none': never attach auth
-   * - 'trusted': inject trusted caller args for server-to-server scoped/authed calls
+   * - 'trusted': inject trusted forwarding args for server-to-server scoped/authed calls
    */
   auth?: ConvexServerAuthMode
   /**
@@ -60,15 +66,17 @@ export interface ServerConvexOptions {
    */
   authToken?: string
   /**
-   * Trusted caller user identity to inject when auth='trusted'.
+   * Explicit principal to inject when auth='trusted'.
    */
-  actor?: {
-    userId: string
-  }
+  principal?: { subject: Subject } & Record<string, unknown>
   /**
-   * Explicit trusted caller key override. Defaults to CONVEX_TRUSTED_CALLER_KEY.
+   * Optional represented identity for trusted forwarded calls.
    */
-  trustedCallerKey?: string
+  delegation?: Delegation
+  /**
+   * Explicit trusted forwarding key override. Defaults to CONVEX_TRUSTED_FORWARDING_KEY.
+   */
+  trustedForwardingKey?: string
 }
 
 function getHelperName(operationType: ConvexOperationType): ServerConvexHelperName {
@@ -104,13 +112,26 @@ function createServerConvexError(
   return new ConvexCallError(`[${context.helper}] ${message}`, context)
 }
 
-function principalHasMismatchedUserId(args: Record<string, unknown>, actorUserId: string): boolean {
-  const principal = args.principal
-  if (typeof principal !== 'object' || principal === null || !('userId' in principal)) {
-    return false
+function validateForwardedPrincipal(principal: unknown): Subject {
+  if (!principal || typeof principal !== 'object' || isAnonymousPrincipalLike(principal)) {
+    throw new Error('Trusted forwarding requires a non-anonymous forwarded `principal`.')
   }
 
-  return (principal as { userId?: unknown }).userId !== actorUserId
+  const subject = extractSubject(principal)
+  if (!subject) {
+    throw new Error('Trusted forwarding requires forwarded `principal.subject`.')
+  }
+
+  return subject
+}
+
+function validateForwardedDelegation(delegation: unknown): Subject {
+  const subject = extractSubject(delegation)
+  if (!subject) {
+    throw new Error('Trusted forwarding requires forwarded `delegation.subject`.')
+  }
+
+  return subject
 }
 
 async function resolveAuthToken(
@@ -212,38 +233,36 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
   }
   let authToken: string | undefined
   if (authMode === 'trusted') {
-    const actor = options?.actor
-    if (!actor) {
+    const principal = options?.principal
+    if (!principal) {
       throw createServerConvexError(
-        `Trusted caller auth for ${functionPath} requires \`options.actor\`.`,
+        `Trusted forwarding auth for ${functionPath} requires \`options.principal\`.`,
         errorContext,
       )
     }
 
-    const trustedCallerKey = options?.trustedCallerKey ?? process.env.CONVEX_TRUSTED_CALLER_KEY
-    if (!trustedCallerKey) {
-      throw createServerConvexError(
-        `Trusted caller auth for ${functionPath} requires \`CONVEX_TRUSTED_CALLER_KEY\` or \`options.trustedCallerKey\`.`,
-        errorContext,
-      )
-    }
+    const principalSubject = validateForwardedPrincipal(principal)
+    const delegationSubject = options?.delegation
+      ? validateForwardedDelegation(options.delegation)
+      : undefined
 
-    if (
-      requestArgs &&
-      typeof requestArgs === 'object' &&
-      principalHasMismatchedUserId(requestArgs as Record<string, unknown>, actor.userId)
-    ) {
+    const trustedForwardingKey =
+      options?.trustedForwardingKey ?? process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    if (!trustedForwardingKey) {
       throw createServerConvexError(
-        `Trusted caller auth for ${functionPath} requires forwarded \`principal.userId\` to match \`options.actor.userId\`.`,
+        `Trusted forwarding auth for ${functionPath} requires \`CONVEX_TRUSTED_FORWARDING_KEY\` or \`options.trustedForwardingKey\`.`,
         errorContext,
       )
     }
 
     requestArgs = {
       ...requestArgs,
-      _trustedCallerKey: trustedCallerKey,
-      _trustedCaller: {
-        userId: actor.userId,
+      ...(options.principal ? { principal: options.principal } : {}),
+      ...(options.delegation ? { delegation: options.delegation } : {}),
+      _trustedForwardingKey: trustedForwardingKey,
+      _trustedForwarding: {
+        principalSubject,
+        ...(delegationSubject ? { delegationSubject } : {}),
       },
     }
   } else {

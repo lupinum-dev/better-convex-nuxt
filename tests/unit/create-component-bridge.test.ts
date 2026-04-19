@@ -19,16 +19,16 @@ vi.mock('convex-helpers/server/customFunctions', () => ({
 
 describe('createComponentBridge', () => {
   afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_CALLER_KEY
+    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
     vi.resetModules()
     vi.clearAllMocks()
   })
 
   it('forwards the resolved principal unchanged for internal query bridges', async () => {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'bridge-secret'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
 
-    const principal = { kind: 'service', service: 'mcp' } as const
+    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
       {
         query: (() => null as never) as never,
@@ -40,7 +40,8 @@ describe('createComponentBridge', () => {
         principal: definePrincipal({
           validator: v.object({
             kind: v.literal('service'),
-            service: v.string(),
+            serviceId: v.string(),
+            subject: v.string(),
           }),
           resolve: async (_ctx, args) =>
             (args as { principal?: typeof principal }).principal ?? principal,
@@ -82,21 +83,29 @@ describe('createComponentBridge', () => {
 
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
-      _trustedCallerKey: 'bridge-secret',
-      _trustedCaller: {
-        userId: 'component-bridge',
+      _trustedForwardingKey: 'bridge-secret',
+      _trustedForwarding: {
+        principalSubject: 'service:mcp',
       },
       principal,
     })
   })
 
   it('rejects caller-supplied principal on public query bridges', async () => {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'bridge-secret'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
-    const { getForwardedPrincipal } = await import('../../src/runtime/trusted-caller')
+    const { getForwardedPrincipal } = await import('../../src/runtime/trusted-forwarding')
 
-    const trustedPrincipal = { kind: 'service', service: 'server-owned' } as const
-    const attackerPrincipal = { kind: 'service', service: 'attacker' } as const
+    const trustedPrincipal = {
+      kind: 'service',
+      serviceId: 'server-owned',
+      subject: 'service:server-owned',
+    } as const
+    const attackerPrincipal = {
+      kind: 'service',
+      serviceId: 'attacker',
+      subject: 'service:attacker',
+    } as const
     const resolvePrincipal = vi.fn(async (ctx, args) => {
       return (
         getForwardedPrincipal<typeof trustedPrincipal>(ctx as never, args as never) ??
@@ -115,7 +124,8 @@ describe('createComponentBridge', () => {
         principal: definePrincipal({
           validator: v.object({
             kind: v.literal('service'),
-            service: v.string(),
+            serviceId: v.string(),
+            subject: v.string(),
           }),
           resolve: resolvePrincipal,
         }),
@@ -145,16 +155,16 @@ describe('createComponentBridge', () => {
     )
 
     await expect(customized.ctx.principal()).rejects.toThrow(
-      /Forwarded `principal` is only allowed on verified trusted caller paths/,
+      /Forwarded `principal` is only allowed on verified trusted forwarding paths/,
     )
     expect(resolvePrincipal).toHaveBeenCalled()
   })
 
   it('forwards the resolved principal unchanged when bridge entries are declared in batch', async () => {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'bridge-secret'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
 
-    const principal = { kind: 'service', service: 'mcp' } as const
+    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
       {
         query: (() => null as never) as never,
@@ -166,7 +176,8 @@ describe('createComponentBridge', () => {
         principal: definePrincipal({
           validator: v.object({
             kind: v.literal('service'),
-            service: v.string(),
+            serviceId: v.string(),
+            subject: v.string(),
           }),
           resolve: async (_ctx, args) =>
             (args as { principal?: typeof principal }).principal ?? principal,
@@ -211,15 +222,15 @@ describe('createComponentBridge', () => {
 
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
-      _trustedCallerKey: 'bridge-secret',
-      _trustedCaller: {
-        userId: 'component-bridge',
+      _trustedForwardingKey: 'bridge-secret',
+      _trustedForwarding: {
+        principalSubject: 'service:mcp',
       },
       principal,
     })
   })
 
-  it('fails closed when no trusted caller key is configured', async () => {
+  it('fails closed when no trusted forwarding key is configured', async () => {
     const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
 
     const bridge = createComponentBridge(
@@ -233,9 +244,12 @@ describe('createComponentBridge', () => {
         principal: definePrincipal({
           validator: v.object({
             kind: v.literal('service'),
-            service: v.string(),
+            serviceId: v.string(),
+            subject: v.string(),
           }),
-          resolve: async (_ctx, args) => (args as { principal?: { kind: 'service' } }).principal!,
+          resolve: async (_ctx, args) =>
+            (args as { principal?: { kind: 'service'; serviceId: string; subject: string } })
+              .principal!,
         }),
       },
     )
@@ -254,12 +268,12 @@ describe('createComponentBridge', () => {
         {
           ...(await registered.customization.input(
             { runQuery: vi.fn() },
-            { principal: { kind: 'service' } },
+            { principal: { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } },
           )).ctx,
           runQuery: vi.fn(),
         },
         { slug: 'docs' },
       ),
-    ).rejects.toThrow(/CONVEX_TRUSTED_CALLER_KEY/)
+    ).rejects.toThrow(/CONVEX_TRUSTED_FORWARDING_KEY/)
   })
 })

@@ -9,6 +9,8 @@ import type { DataModel } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import type { Actor } from './auth/actor'
 import { getActorFromPrincipal } from './auth/actor'
+import type { HarnessDelegation } from './auth/delegation'
+import { delegation } from './auth/delegation'
 import type { InternalHarnessPrincipal } from './auth/principal'
 import { principal } from './auth/principal'
 
@@ -20,7 +22,8 @@ let onSuccessArgs: Record<string, unknown> | null = null
 
 const triggers = new Triggers<
   DataModel,
-  GenericMutationCtx<DataModel> & FunctionsCtxExtension<InternalHarnessPrincipal, Actor>
+  GenericMutationCtx<DataModel> &
+    FunctionsCtxExtension<InternalHarnessPrincipal, HarnessDelegation, Actor>
 >()
 
 triggers.register('notes', async (ctx, change) => {
@@ -35,14 +38,16 @@ const { mutation, query, raw } = defineTrellis<
   'internal',
   'internal',
   InternalHarnessPrincipal,
+  HarnessDelegation,
   Actor
 >(
   { query: generatedQuery, mutation: generatedMutation },
   {
     principal,
-    actor: async (ctx, args, resolvedPrincipal) => {
+    delegation,
+    actor: async (ctx, args, resolvedPrincipal, resolvedDelegation) => {
       actorResolverCalls += 1
-      return await getActorFromPrincipal(ctx, args, resolvedPrincipal)
+      return await getActorFromPrincipal(ctx, args, resolvedPrincipal, resolvedDelegation)
     },
     tenantIsolation: {
       tables: ['posts', 'comments', 'mcpKeys'],

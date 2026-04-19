@@ -34,8 +34,8 @@ export default defineConfig({
             '@lupinum/trellis/auth': fileURLToPath(
               new URL('./src/runtime/auth/index.ts', import.meta.url),
             ),
-            '@lupinum/trellis/trusted-caller': fileURLToPath(
-              new URL('./src/runtime/trusted-caller/index.ts', import.meta.url),
+            '@lupinum/trellis/trusted-forwarding': fileURLToPath(
+              new URL('./src/runtime/trusted-forwarding/index.ts', import.meta.url),
             ),
             '@lupinum/trellis/visibility': fileURLToPath(
               new URL('./src/runtime/visibility/index.ts', import.meta.url),
@@ -67,8 +67,8 @@ export default defineConfig({
             '@lupinum/trellis/auth': fileURLToPath(
               new URL('./src/runtime/auth/index.ts', import.meta.url),
             ),
-            '@lupinum/trellis/trusted-caller': fileURLToPath(
-              new URL('./src/runtime/trusted-caller/index.ts', import.meta.url),
+            '@lupinum/trellis/trusted-forwarding': fileURLToPath(
+              new URL('./src/runtime/trusted-forwarding/index.ts', import.meta.url),
             ),
             '@lupinum/trellis/visibility': fileURLToPath(
               new URL('./src/runtime/visibility/index.ts', import.meta.url),

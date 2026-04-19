@@ -6,7 +6,7 @@ import { parse as parseDotenv } from 'dotenv'
 import { fetchWithTimeout, sanitizeBodyPreview } from './http'
 
 interface LocalConvexEnv {
-  trustedCallerKey?: string
+  trustedForwardingKey?: string
   url?: string
   siteUrl?: string
 }
@@ -25,7 +25,7 @@ export async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
     const values = parseDotenv(localEnvSource)
 
     return {
-      trustedCallerKey: values.CONVEX_TRUSTED_CALLER_KEY,
+      trustedForwardingKey: values.CONVEX_TRUSTED_FORWARDING_KEY,
       url: values.CONVEX_URL,
       siteUrl: values.CONVEX_SITE_URL,
     }

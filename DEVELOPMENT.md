@@ -92,8 +92,8 @@ Important variables:
   - `SITE_URL`
   - `BETTER_AUTH_SECRET`
   - provider credentials such as `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`
-- trusted-caller flows:
-  - `CONVEX_TRUSTED_CALLER_KEY`
+- trusted-forwarding flows:
+  - `CONVEX_TRUSTED_FORWARDING_KEY`
   - `CONVEX_PRIVATE_BRIDGE_KEY` when exercising the private bridge reference lane locally
 
 Relevant docs:

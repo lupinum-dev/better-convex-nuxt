@@ -352,7 +352,9 @@ export function usesTrustedCallerSurfaces(project: ProjectInspection): boolean {
   }
 
   return project.sourceFiles.some((file) =>
-    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|trustedCallerKey\b/.test(file.text),
+    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|trustedForwardingKey\b/.test(
+      file.text,
+    ),
   )
 }
 

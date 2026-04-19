@@ -125,7 +125,7 @@ Rule of thumb:
 
 ## Managed E2E
 
-`pnpm test:e2e` is managed-only. It rebuilds the module, kills conflicting listeners on the configured local Convex ports, boots its own local backend, waits for an explicit internal-harness readiness endpoint, injects the trusted-caller env required by the MCP smoke suite, and tears everything down when the run finishes.
+`pnpm test:e2e` is managed-only. It rebuilds the module, kills conflicting listeners on the configured local Convex ports, boots its own local backend, waits for an explicit internal-harness readiness endpoint, injects the trusted-forwarding env required by the MCP smoke suite, and tears everything down when the run finishes.
 
 Managed bootstrap failures are test failures. The smoke suites do not downgrade local backend startup problems into skips.
 
@@ -165,6 +165,6 @@ Current fixture roles:
 - repo-level Convex runtime tests under `apps/harness/convex/**`
 - the root `pnpm dev` maintainer app
 - managed e2e target app
-- auth, trusted-caller, and MCP integration seams that are easier to verify in one controlled workspace
+- auth, trusted-forwarding, and MCP integration seams that are easier to verify in one controlled workspace
 
 It is not the public product story and it should not be used as example-app documentation.

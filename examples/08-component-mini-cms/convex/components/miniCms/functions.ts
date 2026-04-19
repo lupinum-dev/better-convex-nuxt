@@ -1,6 +1,6 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 import { definePrincipal, defineTrellis } from '@lupinum/trellis/functions'
-import { getForwardedPrincipal } from '@lupinum/trellis/trusted-caller'
+import { getForwardedPrincipal } from '@lupinum/trellis/trusted-forwarding'
 
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../../shared/principal'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
@@ -13,7 +13,8 @@ export type MiniCmsActor =
 export const principal = definePrincipal({
   validator: miniCmsPrincipalValidator,
   resolve: async (_ctx, args): Promise<MiniCmsPrincipal> =>
-    getForwardedPrincipal<MiniCmsPrincipal>(_ctx, args) ?? { kind: 'anonymous' },
+    getForwardedPrincipal<MiniCmsPrincipal>(_ctx, args) ??
+    ({ kind: 'anonymous', subject: 'system:anonymous' } satisfies MiniCmsPrincipal),
 })
 
 export async function getActorFromPrincipal(
@@ -44,7 +45,7 @@ export const { mutation, query } = defineTrellis(
   {
     principal,
     actor: getActorFromPrincipal,
-    trustedCallerKey: process.env.CONVEX_TRUSTED_CALLER_KEY,
+    trustedForwardingKey: process.env.CONVEX_TRUSTED_FORWARDING_KEY,
     destructiveSafety: {
       redemptionTable: 'destructiveRedemptions' as never,
       auditTable: 'destructiveAuditLog' as never,

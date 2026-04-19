@@ -10,21 +10,26 @@ import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules, fixtures } from './test.setup'
 
-export const INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY = 'internal-harness-test-trusted-caller-key'
+export const INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY =
+  'internal-harness-test-trusted-forwarding-key'
 
 export function withTrustedPrincipal<TArgs extends Record<string, unknown> | undefined>(
   args: TArgs,
   principal: Record<string, unknown>,
 ) {
-  const userId =
-    typeof principal.userId === 'string' && principal.userId.length > 0
-      ? principal.userId
-      : 'trusted-caller-test'
+  const principalSubject =
+    typeof principal.subject === 'string' && principal.subject.length > 0
+      ? principal.subject
+      : typeof principal.userId === 'string' && principal.userId.length > 0
+        ? `user:${principal.userId}`
+        : typeof principal.agentId === 'string' && principal.agentId.length > 0
+          ? `agent:${principal.agentId}`
+          : 'agent:trusted-forwarding-test'
 
   return {
     ...(args ?? {}),
-    _trustedCallerKey: INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY,
-    _trustedCaller: { userId },
+    _trustedForwardingKey: INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY,
+    _trustedForwarding: { principalSubject },
     principal,
   }
 }

@@ -181,7 +181,7 @@ export interface CreateTestContextOptions<
 > {
   schema: TSchema
   modules?: ConvexTestModules
-  trustedCallerKey?: string
+  trustedForwardingKey?: string
   /** Advanced override for non-canonical tenant schemas. Omit for the default `workspaces.workspaceId` model. */
   tenant?: {
     table?: TTenantTable
@@ -297,18 +297,18 @@ function slugify(value: string): string {
 function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   raw: TestConvex<TSchema>,
   principal: Record<string, unknown>,
-  trustedCallerKey?: string,
+  trustedForwardingKey?: string,
 ): TestClient<TSchema> {
-  const effectiveTrustedCallerKey =
-    trustedCallerKey?.trim() || process.env.CONVEX_TRUSTED_CALLER_KEY
+  const effectiveTrustedForwardingKey =
+    trustedForwardingKey?.trim() || process.env.CONVEX_TRUSTED_FORWARDING_KEY
 
-  if (!effectiveTrustedCallerKey) {
+  if (!effectiveTrustedForwardingKey) {
     throw new Error(
-      'ctx.asPrincipal(...) requires createTestContext({ trustedCallerKey }) or CONVEX_TRUSTED_CALLER_KEY.',
+      'ctx.asPrincipal(...) requires createTestContext({ trustedForwardingKey }) or CONVEX_TRUSTED_FORWARDING_KEY.',
     )
   }
 
-  const trustedCallerUserId = resolveTrustedCallerUserId(principal)
+  const principalSubject = resolveTrustedForwardingSubject(principal)
 
   function withPrincipalArgs<TArgs extends Record<string, unknown> | undefined>(
     args: TArgs,
@@ -318,8 +318,8 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
       ...(args ?? {}),
       ...(mode === 'trusted'
         ? {
-            _trustedCallerKey: effectiveTrustedCallerKey,
-            _trustedCaller: { userId: trustedCallerUserId },
+            _trustedForwardingKey: effectiveTrustedForwardingKey,
+            _trustedForwarding: { principalSubject },
           }
         : {}),
       principal,
@@ -330,8 +330,8 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     if (!(error instanceof Error)) return false
 
     return (
-      error.message.includes('Unexpected field `_trustedCallerKey` in object') ||
-      error.message.includes('Unexpected field `_trustedCaller` in object')
+      error.message.includes('Unexpected field `_trustedForwardingKey` in object') ||
+      error.message.includes('Unexpected field `_trustedForwarding` in object')
     )
   }
 
@@ -382,9 +382,13 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   return client as unknown as TestClient<TSchema>
 }
 
-function resolveTrustedCallerUserId(principal: Record<string, unknown>): string {
+function resolveTrustedForwardingSubject(principal: Record<string, unknown>): string {
+  if (typeof principal.subject === 'string' && principal.subject) {
+    return principal.subject
+  }
+
   if (typeof principal.userId === 'string' && principal.userId) {
-    return principal.userId
+    return `user:${principal.userId}`
   }
 
   if (typeof principal.agentId === 'string' && principal.agentId) {
@@ -399,7 +403,7 @@ function resolveTrustedCallerUserId(principal: Record<string, unknown>): string 
     return `principal:${principal.kind}`
   }
 
-  return 'trusted-caller-test'
+  return 'agent:trusted-forwarding-test'
 }
 
 export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserConfig {
@@ -434,10 +438,11 @@ export function createTestContext<
 ): TestContext<TSchema, TRole, TTenantTable, TUserTable> {
   const modules = withGeneratedModuleHint(options.modules ?? defaultModules)
   const raw = convexTest(options.schema, modules) as unknown as TestConvex<TSchema>
-  if (options.trustedCallerKey) {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = options.trustedCallerKey
+  if (options.trustedForwardingKey) {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = options.trustedForwardingKey
   }
-  const trustedCallerKey = options.trustedCallerKey ?? process.env.CONVEX_TRUSTED_CALLER_KEY
+  const trustedForwardingKey =
+    options.trustedForwardingKey ?? process.env.CONVEX_TRUSTED_FORWARDING_KEY
 
   const tenantTable = (options.tenant?.table ?? 'workspaces') as TTenantTable
   const tenantField = options.tenant?.field ?? 'workspaceId'
@@ -528,7 +533,7 @@ export function createTestContext<
   }
 
   function asPrincipal(principal: Record<string, unknown>): TestClient<TSchema> {
-    return createPrincipalClient(raw, principal, trustedCallerKey)
+    return createPrincipalClient(raw, principal, trustedForwardingKey)
   }
 
   return {

@@ -9,6 +9,7 @@ import {
   type PermissionHandle,
   type RegisteredPermissionKey,
 } from '../auth/define-permission.js'
+import type { Delegation } from '../functions/define-delegation.js'
 import { getOperationMetadata, type OperationKind } from '../functions/define-operation.js'
 import {
   getFunctionName,
@@ -68,9 +69,10 @@ export interface McpConvexCaller {
 
 type ProjectionCapabilitySnapshot = Record<string, boolean>
 
-type ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime> = {
+type ProjectionRuntimeCtx<TPrincipal, TDelegation extends Delegation, TCapabilities, TRuntime> = {
   event: H3Event
   principal: TPrincipal
+  delegation: TDelegation | null
   capabilities: TCapabilities
   runtime: TRuntime
   convex: McpConvexCaller
@@ -82,19 +84,30 @@ type ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime> = {
 
 export interface DefineMcpAppOptions<
   TPrincipal,
+  TDelegation extends Delegation = Delegation,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
   TRuntime = Record<string, never>,
 > {
-  callConvex: (event: H3Event, principal: TPrincipal) => MaybePromise<McpConvexCaller>
+  callConvex: (
+    event: H3Event,
+    caller: { principal: TPrincipal; delegation: TDelegation | null },
+  ) => MaybePromise<McpConvexCaller>
   resolvePrincipal: (event: H3Event) => MaybePromise<TPrincipal>
+  resolveDelegation?: (ctx: {
+    event: H3Event
+    principal: TPrincipal
+    convex: McpConvexCaller
+  }) => MaybePromise<TDelegation | null>
   resolveCapabilities?: (ctx: {
     event: H3Event
     principal: TPrincipal
+    delegation: TDelegation | null
     convex: McpConvexCaller
   }) => MaybePromise<TCapabilities>
   runtime?: (ctx: {
     event: H3Event
     principal: TPrincipal
+    delegation: TDelegation | null
     capabilities: TCapabilities
     convex: McpConvexCaller
   }) => MaybePromise<TRuntime>
@@ -118,6 +131,7 @@ type ProjectToolMeta = {
 export interface ToolOptions<
   S extends AnyConvexSchema,
   TPrincipal,
+  TDelegation extends Delegation,
   TCapabilities extends ProjectionCapabilitySnapshot | null,
   TRuntime,
   TCall extends AnyFunctionRef = AnyMutationRef,
@@ -137,7 +151,7 @@ export interface ToolOptions<
   }) => string | PreviewResult
   permission?: PermissionHandle<CapabilityKey<TCapabilities>>
   enabled?: (
-    ctx: ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>,
+    ctx: ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>,
   ) => MaybePromise<boolean>
   meta?: ProjectToolMeta
   rateLimit?: { max: number; window: string }
@@ -191,12 +205,13 @@ type OperationPreviewPayload = {
 export interface ToolFromOperationOptions<
   _TOperation extends AnyOperationDefinition,
   TPrincipal,
+  TDelegation extends Delegation,
   TCapabilities extends ProjectionCapabilitySnapshot | null,
   TRuntime,
   TExecute extends AnyFunctionRef = AnyMutationRef,
   TPreview extends AnyFunctionRef | undefined = undefined,
 > extends Omit<
-  ToolOptions<AnyConvexSchema, TPrincipal, TCapabilities, TRuntime, TExecute, TPreview>,
+  ToolOptions<AnyConvexSchema, TPrincipal, TDelegation, TCapabilities, TRuntime, TExecute, TPreview>,
   'schema' | 'call' | 'preview' | 'operation' | 'previewOperation'
 > {
   execute: TExecute
@@ -208,6 +223,7 @@ export interface ToolFromOperationOptions<
 
 type ToolFactory<
   TPrincipal,
+  TDelegation extends Delegation,
   TCapabilities extends ProjectionCapabilitySnapshot | null,
   TRuntime,
 > = {
@@ -216,7 +232,7 @@ type ToolFactory<
     TCall extends AnyFunctionRef = AnyMutationRef,
     TPreview extends AnyFunctionRef | undefined = undefined,
   >(
-    tool: ToolOptions<S, TPrincipal, TCapabilities, TRuntime, TCall, TPreview>,
+    tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall, TPreview>,
   ): McpToolDefinition
   fromOperation: <
     TOperation extends AnyOperationDefinition,
@@ -227,6 +243,7 @@ type ToolFactory<
     options: ToolFromOperationOptions<
       TOperation,
       TPrincipal,
+      TDelegation,
       TCapabilities,
       TRuntime,
       TExecute,
@@ -316,18 +333,19 @@ async function callByOperation<TRef extends AnyFunctionRef>(
  */
 export function defineMcpApp<
   TPrincipal,
+  TDelegation extends Delegation = Delegation,
   TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
   TRuntime = Record<string, never>,
->(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TRuntime>) {
+>(options: DefineMcpAppOptions<TPrincipal, TDelegation, TCapabilities, TRuntime>) {
   const principalKeyResolver = options.principalKey ?? defaultPrincipalKey
   const requestCache = new WeakMap<
     H3Event,
-    Promise<ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>>
+    Promise<ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>>
   >()
 
   const resolve = async (
     event: H3Event,
-  ): Promise<ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>> => {
+  ): Promise<ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>> => {
     let cached = requestCache.get(event)
     if (!cached) {
       cached = (async () => {
@@ -367,11 +385,23 @@ export function defineMcpApp<
           },
         })
         const principal = await options.resolvePrincipal(event)
-        const convex = await options.callConvex(event, principal)
+        const preDelegationConvex = await options.callConvex(event, {
+          principal,
+          delegation: null,
+        })
+        const delegation = options.resolveDelegation
+          ? await options.resolveDelegation({
+              event,
+              principal,
+              convex: preDelegationConvex,
+            })
+          : null
+        const convex = await options.callConvex(event, { principal, delegation })
         const capabilities = options.resolveCapabilities
           ? await options.resolveCapabilities({
               event,
               principal,
+              delegation,
               convex,
             })
           : (null as TCapabilities)
@@ -379,6 +409,7 @@ export function defineMcpApp<
           ? await options.runtime({
               event,
               principal,
+              delegation,
               capabilities,
               convex,
             })
@@ -387,6 +418,7 @@ export function defineMcpApp<
         return {
           event,
           principal,
+          delegation,
           capabilities,
           runtime,
           convex,
@@ -407,7 +439,7 @@ export function defineMcpApp<
     TCall extends AnyFunctionRef = AnyMutationRef,
     TPreview extends AnyFunctionRef | undefined = undefined,
   >(
-    tool: ToolOptions<S, TPrincipal, TCapabilities, TRuntime, TCall, TPreview>,
+    tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall, TPreview>,
   ): McpToolDefinition => {
     if (tool.meta?.destructive) {
       throw new Error(
@@ -661,7 +693,7 @@ export function defineMcpApp<
         }
       },
     })
-  }) as ToolFactory<TPrincipal, TCapabilities, TRuntime>
+  }) as ToolFactory<TPrincipal, TDelegation, TCapabilities, TRuntime>
 
   tool.fromOperation = <
     TOperation extends AnyOperationDefinition,
@@ -672,6 +704,7 @@ export function defineMcpApp<
     options: ToolFromOperationOptions<
       TOperation,
       TPrincipal,
+      TDelegation,
       TCapabilities,
       TRuntime,
       TExecute,

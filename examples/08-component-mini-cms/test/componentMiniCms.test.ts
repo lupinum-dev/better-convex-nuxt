@@ -11,10 +11,10 @@ import { getCapabilitiesForPrincipal } from '../server/lib/mcp-auth'
 const componentModules = import.meta.glob('../convex/components/miniCms/**/*.ts', {
   eager: false,
 })
-const TRUSTED_CALLER_KEY = 'component-mini-cms-test-trusted-caller-key'
+const TRUSTED_FORWARDING_KEY = 'component-mini-cms-test-trusted-forwarding-key'
 
 function createCtx() {
-  const ctx = createTestContext({ schema, modules, trustedCallerKey: TRUSTED_CALLER_KEY })
+  const ctx = createTestContext({ schema, modules, trustedForwardingKey: TRUSTED_FORWARDING_KEY })
   ctx.raw.registerComponent('miniCms', componentSchema, componentModules)
   return ctx
 }
@@ -126,15 +126,21 @@ describe('example 08 component mini cms', () => {
         principal: {
           kind: 'agent',
           agentId: 'demo-key',
+          subject: 'agent:demo-key',
           provider: 'mcp',
         },
       }),
-    ).rejects.toThrow('Forwarded `principal` is only allowed on verified trusted caller paths.')
+    ).rejects.toThrow('Forwarded `principal` is only allowed on verified trusted forwarding paths.')
   })
 
   it('forwards principal unchanged through the internal component bridge', async () => {
     const ctx = createCtx()
-    const agent = ctx.asPrincipal({ kind: 'agent', agentId: 'bridge-key', provider: 'mcp' })
+    const agent = ctx.asPrincipal({
+      kind: 'agent',
+      agentId: 'bridge-key',
+      subject: 'agent:bridge-key',
+      provider: 'mcp',
+    })
 
     const id = await agent.mutation(internal.operations.miniCmsBridge.createPage, {
       slug: 'bridge-owned',
@@ -151,7 +157,12 @@ describe('example 08 component mini cms', () => {
 
   it('returns the publish preview from the component operation', async () => {
     const ctx = createCtx()
-    const agent = ctx.asPrincipal({ kind: 'agent', agentId: 'preview-key', provider: 'mcp' })
+    const agent = ctx.asPrincipal({
+      kind: 'agent',
+      agentId: 'preview-key',
+      subject: 'agent:preview-key',
+      provider: 'mcp',
+    })
 
     const id = await agent.mutation(internal.operations.miniCmsBridge.createPage, {
       slug: 'launch-notes',
@@ -182,7 +193,12 @@ describe('example 08 component mini cms', () => {
     })
 
     expect(
-      getCapabilitiesForPrincipal({ kind: 'agent', agentId: 'demo-key', provider: 'mcp' }),
+      getCapabilitiesForPrincipal({
+        kind: 'agent',
+        agentId: 'demo-key',
+        subject: 'agent:demo-key',
+        provider: 'mcp',
+      }),
     ).toEqual({
       listPublishedPages: true,
       listDraftPages: true,

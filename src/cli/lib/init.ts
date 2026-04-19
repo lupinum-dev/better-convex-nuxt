@@ -293,8 +293,11 @@ export async function getActor(ctx: WorkspaceCtx): Promise<Actor | null> {
 function workspacePrincipalTemplate() {
   return `
 import { getAuth } from '@lupinum/trellis/auth'
-import { definePrincipal } from '@lupinum/trellis/functions'
-import { getForwardedPrincipal, getTrustedCaller } from '@lupinum/trellis/trusted-caller'
+import { defineDelegation, definePrincipal } from '@lupinum/trellis/functions'
+import {
+  getForwardedDelegation,
+  getForwardedPrincipal,
+} from '@lupinum/trellis/trusted-forwarding'
 import { v } from 'convex/values'
 
 import type { Doc, Id } from '../_generated/dataModel'
@@ -302,11 +305,12 @@ import type { Doc, Id } from '../_generated/dataModel'
 export type Role = Doc<'users'>['role']
 
 export type WorkspacePrincipal =
-  | { kind: 'anonymous' }
-  | { kind: 'user'; userId: string }
+  | { kind: 'anonymous'; subject: 'system:anonymous' }
+  | { kind: 'user'; userId: string; subject: \`user:\${string}\` }
   | {
       kind: 'agent'
-      userId: string
+      agentId: string
+      subject: \`agent:\${string}\`
       role: Role
       tenantId?: Id<'workspaces'>
       provider?: 'mcp'
@@ -315,14 +319,17 @@ export type WorkspacePrincipal =
 export const workspacePrincipalValidator = v.union(
   v.object({
     kind: v.literal('anonymous'),
+    subject: v.literal('system:anonymous'),
   }),
   v.object({
     kind: v.literal('user'),
     userId: v.string(),
+    subject: v.string(),
   }),
   v.object({
     kind: v.literal('agent'),
-    userId: v.string(),
+    agentId: v.string(),
+    subject: v.string(),
     role: v.union(
       v.literal('owner'),
       v.literal('admin'),
@@ -338,33 +345,28 @@ export const principal = definePrincipal({
   validator: workspacePrincipalValidator,
   resolve: async (ctx, args): Promise<WorkspacePrincipal> => {
     const forwarded = getForwardedPrincipal<WorkspacePrincipal>(ctx, args)
-    if (forwarded) {
-      const trusted = getTrustedCaller(ctx)
-      if (!trusted) {
-        throw new Error('Forwarded principals require a verified trusted caller.')
-      }
-
-      if (forwarded.kind === 'anonymous') {
-        throw new Error('Forwarded principals cannot be anonymous.')
-      }
-
-      if (forwarded.userId !== trusted.userId) {
-        throw new Error('Forwarded principal userId must match the trusted caller userId.')
-      }
-
-      return forwarded
-    }
+    if (forwarded) return forwarded
 
     const auth = await getAuth(ctx)
     if (!auth) {
-      return { kind: 'anonymous' }
+      return { kind: 'anonymous', subject: 'system:anonymous' }
     }
 
     return {
       kind: 'user',
       userId: auth.subject,
+      subject: \`user:\${auth.subject}\`,
     }
   },
+})
+
+export const delegation = defineDelegation({
+  validator: v.object({
+    subject: v.string(),
+    reason: v.optional(v.string()),
+    grantedBy: v.optional(v.string()),
+  }),
+  resolve: async (ctx, args) => getForwardedDelegation(ctx, args),
 })
 `.trimStart()
 }
@@ -375,12 +377,14 @@ import { defineTrellis } from '@lupinum/trellis/functions'
 
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import { getActorFromPrincipal } from './auth/actor'
+import { delegation } from './auth/principal'
 import { principal } from './auth/principal'
 
 export const { mutation, query, raw } = defineTrellis(
   { query: generatedQuery, mutation: generatedMutation },
   {
     principal,
+    delegation,
     actor: getActorFromPrincipal,
     // Add tenantIsolation only for tables that actually store the tenant field.
     // Example:
@@ -529,12 +533,13 @@ type McpAuthContext = {
 function getMcpPrincipal(event: H3Event): WorkspacePrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.userId || !auth.role) {
-    return { kind: 'anonymous' }
+    return { kind: 'anonymous', subject: 'system:anonymous' }
   }
 
   return {
     kind: 'agent',
-    userId: auth.userId,
+    agentId: auth.userId,
+    subject: \`agent:\${auth.userId}\`,
     role: auth.role,
     tenantId: auth.tenantId as Id<'workspaces'> | undefined,
     provider: 'mcp',
@@ -542,18 +547,27 @@ function getMcpPrincipal(event: H3Event): WorkspacePrincipal {
 }
 
 export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
-  callConvex: async (event, principal) =>
+  callConvex: async (event, { principal, delegation }) =>
     createServerConvexCaller(
       event,
       principal.kind === 'agent'
         ? {
             auth: 'trusted',
-            actor: { userId: principal.userId },
             principal,
+            delegation,
           }
         : { auth: 'none' },
     ),
   resolvePrincipal: async (event) => getMcpPrincipal(event),
+  resolveDelegation: async ({ event }) => {
+    const auth = event.context.mcpAuth as McpAuthContext | undefined
+    return auth?.userId
+      ? {
+          subject: \`user:\${auth.userId}\`,
+          reason: 'user-approved MCP session',
+        }
+      : null
+  },
   resolveCapabilities: async ({ principal, convex }) =>
     principal.kind === 'agent'
       ? ((await convex.query(api.permissions.context.getPermissionContext, {}))?.can ?? {
@@ -2223,7 +2237,7 @@ function envExampleTemplate(options: { template: CanonicalAppTemplate; mcp: bool
   ]
 
   if (options.mcp) {
-    lines.push('CONVEX_TRUSTED_CALLER_KEY=replace-me')
+    lines.push('CONVEX_TRUSTED_FORWARDING_KEY=replace-me')
     lines.push('TRELLIS_MCP_CONFIRMATION_KEY=replace-me')
   }
 

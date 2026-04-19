@@ -8,7 +8,7 @@ description: >
   useCachedQuery, useConvexAuth, useConvexAuthActions, useConvexUpload,
   useConvexStorageUrl, useConvexConnectionState, usePermissions, useAuthGuard,
   serverConvexQuery, serverConvexMutation, serverConvexAction, defineArgs,
-  defineTool, withTrustedCaller, getTrustedCaller, enforce, or the
+  defineTool, withTrustedForwarding, getTrustedForwarding, enforce, or the
   #trellis/mcp and #trellis/server aliases.
 ---
 
@@ -29,7 +29,7 @@ Published package imports:
 - `@lupinum/trellis/mcp`
 - `@lupinum/trellis/server`
 - `@lupinum/trellis/testing`
-- `@lupinum/trellis/trusted-caller`
+- `@lupinum/trellis/trusted-forwarding`
 - `@lupinum/trellis/visibility`
 
 Nuxt-generated surfaces:
@@ -78,13 +78,13 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 
 - Define shared input schemas with `defineArgs()` from `@lupinum/trellis/args`.
 - Reuse the same schema across Convex handlers, Nitro routes, and MCP tools.
-- Shared args are schema-only. Hidden trusted-caller transport belongs in `withTrustedCaller(...)`, not in `defineArgs()`.
+- Shared args are schema-only. Hidden trusted-forwarding transport belongs in `withTrustedForwarding(...)`, not in `defineArgs()`.
 
-### Trusted Caller
+### Trusted Forwarding
 
-- Use `withTrustedCaller(schema.args)` in Convex validators that support server-to-server or MCP actor injection.
+- Use `withTrustedForwarding(schema.args)` in Convex validators that support server-to-server or MCP actor injection.
 - Resolve the effective actor explicitly with `getActor(ctx)` in app code.
-- Use `getTrustedCaller()` inside trusted-caller-aware Convex handlers once the context wrapper is in place.
+- Use `getTrustedForwarding()` inside trusted-forwarding-aware Convex handlers once the context wrapper is in place.
 - Old wrapper-style actor APIs are not part of the current foundation.
 
 ### Server Helpers
@@ -102,13 +102,13 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 
 - Use `defineTool()` from `#trellis/mcp` for Convex-backed MCP tools.
 - Use generic MCP primitives from the same alias when you need prompts, resources, handlers, sessions, or dynamic tools.
-- `scoped: true` is the trusted-caller-aware MCP path. It still requires explicit actor resolution in the Convex handler.
+- `scoped: true` is the trusted-forwarding-aware MCP path. It still requires explicit actor resolution in the Convex handler.
 
 ### Testing
 
 - Use `convexTestConfig()` and `createTestContext()` from `@lupinum/trellis/testing`.
 - Keep `convex/test.setup.ts` in the consumer app.
-- `asTrustedCaller()` is the test-only way to exercise trusted-caller paths.
+- `asPrincipal()` is the test-only way to exercise trusted-forwarding paths.
 
 ## Current Repo Surfaces
 

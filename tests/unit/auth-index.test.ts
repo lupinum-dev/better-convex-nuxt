@@ -2,12 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 describe('auth entrypoint exports', () => {
   let authApi: typeof import('../../src/runtime/auth/index')
-  let trustedCallerApi: typeof import('../../src/runtime/trusted-caller/index')
+  let trustedForwardingApi: typeof import('../../src/runtime/trusted-forwarding/index')
   let visibilityApi: typeof import('../../src/runtime/visibility/index')
 
   beforeAll(async () => {
     authApi = await import('../../src/runtime/auth/index')
-    trustedCallerApi = await import('../../src/runtime/trusted-caller/index')
+    trustedForwardingApi = await import('../../src/runtime/trusted-forwarding/index')
     visibilityApi = await import('../../src/runtime/visibility/index')
   })
 
@@ -37,11 +37,12 @@ describe('auth entrypoint exports', () => {
     expect(authApi).not.toHaveProperty('defineActorFromMembership')
     expect(authApi).not.toHaveProperty('createFunctions')
 
-    expect(trustedCallerApi).toHaveProperty('getTrustedCaller')
-    expect(trustedCallerApi).toHaveProperty('verifyTrustedCallerKey')
-    expect(trustedCallerApi).toHaveProperty('withTrustedCaller')
-    expect(trustedCallerApi).toHaveProperty('setTrustedCallerContext')
-    expect(trustedCallerApi).toHaveProperty('clearTrustedCallerContext')
+    expect(trustedForwardingApi).toHaveProperty('getTrustedForwarding')
+    expect(trustedForwardingApi).toHaveProperty('verifyTrustedForwardingKey')
+    expect(trustedForwardingApi).toHaveProperty('withTrustedForwarding')
+    expect(trustedForwardingApi).toHaveProperty('setTrustedForwardingContext')
+    expect(trustedForwardingApi).toHaveProperty('clearTrustedForwardingContext')
+    expect(trustedForwardingApi).toHaveProperty('getForwardedDelegation')
     expect(visibilityApi).toHaveProperty('defineCapabilities')
     expect(visibilityApi).toHaveProperty('defineRedaction')
   })

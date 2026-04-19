@@ -1,6 +1,6 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/functions'
-import { getForwardedPrincipal } from '@lupinum/trellis/trusted-caller'
+import { getForwardedPrincipal } from '@lupinum/trellis/trusted-forwarding'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../shared/principal'
@@ -21,12 +21,13 @@ export const principal = definePrincipal({
 
     const auth = await getAuth(ctx as RootCtx)
     if (!auth) {
-      return { kind: 'anonymous' }
+      return { kind: 'anonymous', subject: 'system:anonymous' }
     }
 
     return {
       kind: 'user',
       userId: auth.subject,
+      subject: `user:${auth.subject}`,
     }
   },
 })

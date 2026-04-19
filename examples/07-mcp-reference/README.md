@@ -55,7 +55,7 @@ App-owned env vars:
 
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
-- `CONVEX_TRUSTED_CALLER_KEY`: trusted server-to-Convex lane
+- `CONVEX_TRUSTED_FORWARDING_KEY`: trusted server-to-Convex lane
 - `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
 
 ## Test

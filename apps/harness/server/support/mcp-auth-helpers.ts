@@ -7,6 +7,7 @@ import { serverConvexQuery } from '../../../../src/runtime/server/utils/convex'
 import { api } from '../../convex/_generated/api'
 
 export interface HarnessMcpAuth {
+  keyId: string
   role: 'owner' | 'admin' | 'member' | 'viewer'
   userId: string
   tenantId?: string
@@ -16,12 +17,14 @@ function normalizeHarnessMcpAuth(value: unknown): HarnessMcpAuth | null {
   if (!value || typeof value !== 'object') return null
 
   const auth = value as {
+    keyId?: unknown
     role?: unknown
     userId?: unknown
     tenantId?: unknown
   }
 
   if (
+    typeof auth.keyId !== 'string' ||
     (auth.role !== 'owner' &&
       auth.role !== 'admin' &&
       auth.role !== 'member' &&
@@ -32,6 +35,7 @@ function normalizeHarnessMcpAuth(value: unknown): HarnessMcpAuth | null {
   }
 
   return {
+    keyId: auth.keyId,
     role: auth.role,
     userId: auth.userId,
     ...(typeof auth.tenantId === 'string' ? { tenantId: auth.tenantId } : {}),
@@ -60,6 +64,7 @@ export async function resolveHarnessMcpAuth(event: H3Event): Promise<HarnessMcpA
   if (!resolved) return null
 
   const auth: HarnessMcpAuth = {
+    keyId: String(resolved.id),
     role: resolved.role,
     userId: resolved.userId,
     ...(resolved.tenantId ? { tenantId: resolved.tenantId } : {}),

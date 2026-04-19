@@ -30,6 +30,7 @@ type BivariantCallback<TArgs extends unknown[], TResult> = {
 
 type RuntimeContext<TPrincipal, TActor> = {
   principal: () => Promise<TPrincipal>
+  delegation: () => Promise<unknown | null>
   actor: () => Promise<TActor | null>
   observe?: (event: {
     name: 'guard.allowed' | 'guard.denied' | 'authorize.allowed' | 'authorize.denied'
@@ -65,8 +66,12 @@ type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard
   ? TActor | null
   : NonNullable<TActor>
 
-type NarrowedCtx<TCtx, TPrincipal, TActor, TGuard> = Omit<TCtx, 'actor' | 'principal'> & {
+type NarrowedCtx<TCtx, TPrincipal, TActor, TGuard> = Omit<
+  TCtx,
+  'actor' | 'principal' | 'delegation'
+> & {
   principal: () => Promise<PrincipalForGuard<TPrincipal, TGuard>>
+  delegation: () => Promise<unknown | null>
   actor: () => Promise<ActorForGuard<TActor, TGuard>>
 }
 
@@ -167,14 +172,26 @@ function resolveActorAccessor<TCtx extends object, TActor>(
   return async () => null
 }
 
+function resolveDelegationAccessor<TCtx extends object>(
+  ctx: TCtx,
+): () => Promise<unknown | null> {
+  if ('delegation' in ctx && typeof ctx.delegation === 'function') {
+    return ctx.delegation as () => Promise<unknown | null>
+  }
+
+  return async () => null
+}
+
 function createHandlerContext<TCtx extends object, TPrincipal, TActor, TGuard>(
   ctx: TCtx,
   principal: PrincipalForGuard<TPrincipal, TGuard>,
+  delegation: () => Promise<unknown | null>,
   actor: () => Promise<ActorForGuard<TActor, TGuard>>,
 ): NarrowedCtx<TCtx, TPrincipal, TActor, TGuard> {
   return {
     ...ctx,
     principal: async () => principal,
+    delegation,
     actor,
   } as NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>
 }
@@ -249,6 +266,7 @@ function createStructuredBuilder<
         const ctx = rawCtx as TCtx
         const args = rawArgs as HandlerArgs<TArgsValidator>
         const principal = await resolvePrincipalAccessor<TCtx, TPrincipal>(ctx)()
+        const delegationAccessor = resolveDelegationAccessor(ctx)
         const rawActorAccessor = resolveActorAccessor<TCtx, TActor>(ctx)
         let actorPromise: Promise<TActor | null> | null = null
         const actorAccessor = async () => {
@@ -333,6 +351,7 @@ function createStructuredBuilder<
         const handlerCtx = createHandlerContext<TCtx, TPrincipal, TActor, TGuard>(
           ctx,
           principal as PrincipalForGuard<TPrincipal, TGuard>,
+          delegationAccessor,
           actorAccessor as () => Promise<ActorForGuard<TActor, TGuard>>,
         )
 

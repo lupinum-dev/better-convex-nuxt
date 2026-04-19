@@ -16,13 +16,13 @@ import { modules } from '../convex/test.setup'
 
 const api = anyApi as any
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
-const TRUSTED_CALLER_KEY = 'mcp-reference-test-trusted-caller-key'
+const TRUSTED_FORWARDING_KEY = 'mcp-reference-test-trusted-forwarding-key'
 
 function createCtx() {
   return createTestContext<typeof schema, WorkspaceRole>({
     schema,
     modules,
-    trustedCallerKey: TRUSTED_CALLER_KEY,
+    trustedForwardingKey: TRUSTED_FORWARDING_KEY,
   })
 }
 
@@ -112,6 +112,7 @@ describe('mcp reference example', () => {
         .asPrincipal({
           kind: 'user',
           userId: team.users.viewer.authId,
+          subject: `user:${team.users.viewer.authId}`,
         })
         .mutation(api.domain.runbooks.create, {
           title: 'Viewer should fail',

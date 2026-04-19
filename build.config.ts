@@ -13,8 +13,8 @@ export default defineBuildConfig({
     { builder: 'mkdist', input: 'src/runtime/schema', outDir: 'dist/runtime/schema' },
     {
       builder: 'mkdist',
-      input: 'src/runtime/trusted-caller',
-      outDir: 'dist/runtime/trusted-caller',
+      input: 'src/runtime/trusted-forwarding',
+      outDir: 'dist/runtime/trusted-forwarding',
     },
     { builder: 'mkdist', input: 'src/runtime/mcp', outDir: 'dist/runtime/mcp' },
     { builder: 'mkdist', input: 'src/runtime/server', outDir: 'dist/runtime/server' },

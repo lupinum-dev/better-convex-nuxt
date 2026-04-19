@@ -191,7 +191,7 @@ export default defineNuxtConfig({
       },
       {
         title: 'Server-Side',
-        description: 'SSR, hydration, server routes, trusted callers, and bridge surfaces.',
+        description: 'SSR, hydration, server routes, trusted forwarding, and bridge surfaces.',
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/7.server-side%' },

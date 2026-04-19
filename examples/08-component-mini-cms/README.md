@@ -51,7 +51,7 @@ App-owned env vars:
 
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
-- `CONVEX_TRUSTED_CALLER_KEY`: trusted principal forwarding into the component boundary
+- `CONVEX_TRUSTED_FORWARDING_KEY`: trusted principal forwarding into the component boundary
 - `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
 - `JWKS`: local auth bootstrap for the example
 - `DEMO_MCP_TOKEN`: demo MCP caller token shown in the studio UI

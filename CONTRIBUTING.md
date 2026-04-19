@@ -87,7 +87,7 @@ Use this shortened maintainer summary only:
 - `mcp`
 - `server`
 - `testing`
-- `trusted-caller`
+- `trusted-forwarding`
 - `visibility`
 - `eslint`
 
@@ -163,7 +163,7 @@ src/
     visibility/          # defineCapabilities, defineRedaction
     server/              # Nitro server utilities
     testing/             # Test context and helpers
-    trusted-caller/      # Server-to-server auth
+    trusted-forwarding/  # Server-to-server auth
 
 examples/                # Progressive public examples
 tests/                   # Root test suites, fixtures, and support
@@ -186,7 +186,7 @@ The project uses ESLint with the Nuxt preset. Run `pnpm run lint` to check. Key 
 - No floating promises (always `await` or return them).
 - No `useConvexQuery` in middleware or plugins (scope violation).
 - Handlers must declare a `guard` — omitting it is a type error.
-- Public docs and examples must not regress on trusted-caller, protocol, or middleware-boundary rules enforced by the root grep checks.
+- Public docs and examples must not regress on trusted-forwarding, protocol, or middleware-boundary rules enforced by the root grep checks.
 
 ## License
 

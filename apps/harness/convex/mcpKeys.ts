@@ -101,6 +101,7 @@ export const validate = generatedQuery({
     if (!mcpKey || mcpKey.status !== 'active') return null
 
     return {
+      id: mcpKey._id,
       role: mcpKey.role,
       userId: mcpKey.userId,
       tenantId: mcpKey.organizationId ?? null,

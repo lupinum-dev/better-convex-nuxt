@@ -2,7 +2,7 @@
 
 Trellis is an opinionated app platform for repeated `Nuxt + Convex + Better Auth + MCP` apps on one backend model.
 
-It is not a neutral helper layer. It is the hard-default path when you want the same runtime model reused across browser UI, Nitro routes, trusted callers, and MCP tools without re-solving auth, permissions, tenancy, and destructive-work safety in every app.
+It is not a neutral helper layer. It is the hard-default path when you want the same runtime model reused across browser UI, Nitro routes, trusted forwarding, and MCP tools without re-solving auth, permissions, tenancy, and destructive-work safety in every app.
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
@@ -78,7 +78,7 @@ The same business model is then projected into browser UI, server callers, and M
 Key invariants:
 
 - Tenant-aware apps use runtime-enforced isolation, not naming convention alone.
-- Forwarded `principal` values are only accepted on verified trusted-caller lanes.
+- Forwarded `principal` values are only accepted on verified trusted-forwarding lanes.
 - Observability metadata does not participate in client query cache identity.
 - Destructive first-party handlers are allowed.
 - Cross-surface destructive flows, especially MCP, must use operation-backed preview/confirm/execute.

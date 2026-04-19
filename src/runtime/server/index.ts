@@ -1,5 +1,7 @@
 import type { H3Event } from 'h3'
 
+import type { Delegation } from '../functions/define-delegation.js'
+import type { Subject } from '../functions/define-principal.js'
 import type {
   AnyActionFunction,
   AnyMutationFunction,
@@ -18,28 +20,22 @@ export {
 } from './utils/convex.js'
 
 type ForwardedPrincipalOptions = {
-  principal?: unknown
+  principal?: ({ subject: Subject } & Record<string, unknown>) | undefined
+  delegation?: Delegation
 } & ServerConvexOptions
-
-function principalHasMismatchedUserId(actorUserId: string, principal: unknown): boolean {
-  if (typeof principal !== 'object' || principal === null || !('userId' in principal)) {
-    return false
-  }
-
-  return (principal as { userId?: unknown }).userId !== actorUserId
-}
 
 function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefined>(
   args: TArgs,
   options?: ForwardedPrincipalOptions,
 ): TArgs {
-  if (options?.principal === undefined) {
+  if (options?.principal === undefined && options?.delegation === undefined) {
     return args
   }
 
   return {
     ...(args ?? {}),
-    principal: options.principal,
+    ...(options?.principal !== undefined ? { principal: options.principal } : {}),
+    ...(options?.delegation !== undefined ? { delegation: options.delegation } : {}),
   } as unknown as TArgs
 }
 
@@ -65,29 +61,22 @@ export function createServerConvexCaller(event: H3Event, options?: ForwardedPrin
   const callOptions: ServerConvexOptions = {
     auth: options?.auth ?? 'auto',
     ...(options?.authToken ? { authToken: options.authToken } : {}),
-    ...(options?.actor ? { actor: options.actor } : {}),
-    ...(options?.trustedCallerKey ? { trustedCallerKey: options.trustedCallerKey } : {}),
+    ...(options?.principal ? { principal: options.principal } : {}),
+    ...(options?.delegation ? { delegation: options.delegation } : {}),
+    ...(options?.trustedForwardingKey
+      ? { trustedForwardingKey: options.trustedForwardingKey }
+      : {}),
   }
 
-  if (options?.principal !== undefined && callOptions.auth !== 'trusted') {
+  if ((options?.principal !== undefined || options?.delegation !== undefined) && callOptions.auth !== 'trusted') {
     throw new Error(
-      "createServerConvexCaller() only allows forwarded `principal` on `auth: 'trusted'` calls.",
+      "createServerConvexCaller() only allows forwarded identity on `auth: 'trusted'` calls.",
     )
   }
 
-  if (options?.principal !== undefined && !callOptions.actor) {
+  if (callOptions.auth === 'trusted' && options?.principal === undefined) {
     throw new Error(
-      'createServerConvexCaller() requires `actor` when forwarding a `principal` on the trusted path.',
-    )
-  }
-
-  if (
-    options?.principal !== undefined &&
-    callOptions.actor &&
-    principalHasMismatchedUserId(callOptions.actor.userId, options.principal)
-  ) {
-    throw new Error(
-      'createServerConvexCaller() requires forwarded `principal.userId` to match `actor.userId` on trusted calls.',
+      'createServerConvexCaller() requires `principal` on trusted forwarding calls.',
     )
   }
 

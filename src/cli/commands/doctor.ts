@@ -48,7 +48,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const expectsSyncedUsers = usesSyncedUsersTable(project)
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
   const trustedCallerExpected = usesTrustedCallerSurfaces(project)
-  const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_CALLER_KEY'])
+  const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_FORWARDING_KEY'])
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.fromOperation\s*\(/.test(file.text),
   )
@@ -267,18 +267,18 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
               : 'No action needed unless you add usePermissions() or useAuthGuard() later.',
     },
     {
-      id: 'trusted-caller-key-configured',
+      id: 'trusted-forwarding-key-configured',
       category: 'advanced',
-      title: 'Trusted caller key source',
+      title: 'Trusted forwarding key source',
       status: trustedCallerExpected ? (trustedCallerKeySource ? 'pass' : 'warn') : 'pass',
       message: !trustedCallerExpected
-        ? 'No trusted-caller or MCP surfaces were detected in the app source.'
+        ? 'No trusted-forwarding or MCP surfaces were detected in the app source.'
         : trustedCallerKeySource
-          ? `Found CONVEX_TRUSTED_CALLER_KEY in ${trustedCallerKeySource.source}.`
-          : 'Trusted-caller or MCP surfaces were detected, but no CONVEX_TRUSTED_CALLER_KEY source was found.',
+          ? `Found CONVEX_TRUSTED_FORWARDING_KEY in ${trustedCallerKeySource.source}.`
+          : 'Trusted-forwarding or MCP surfaces were detected, but no CONVEX_TRUSTED_FORWARDING_KEY source was found.',
       fixHint: !trustedCallerExpected
-        ? 'No action needed unless you add MCP or trusted-caller flows later.'
-        : 'Set CONVEX_TRUSTED_CALLER_KEY in the local environment and the Convex deployment that serves trusted-caller traffic.',
+        ? 'No action needed unless you add MCP or trusted-forwarding flows later.'
+        : 'Set CONVEX_TRUSTED_FORWARDING_KEY in the local environment and the Convex deployment that serves trusted-forwarding traffic.',
     },
     {
       id: 'forwarded-principal-trusted-path',
@@ -291,11 +291,11 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
               .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
               .slice(0, 3)
               .join(', ')}${forwardedPrincipalMisuse.length > 3 ? ', ...' : ''}.`
-          : 'No forwarded principals were found outside verified trusted-caller calls.',
+          : 'No forwarded principals were found outside verified trusted-forwarding calls.',
       fixHint:
         forwardedPrincipalMisuse.length > 0
-          ? "Only pass `principal` on verified server calls that also set `auth: 'trusted'` and `actor`."
-          : 'Keep forwarded principals confined to verified trusted-caller lanes.',
+          ? "Only pass `principal` on verified server calls that also set `auth: 'trusted'`."
+          : 'Keep forwarded principals confined to verified trusted-forwarding lanes.',
     },
     {
       id: 'mcp-confirmation-key-configured',

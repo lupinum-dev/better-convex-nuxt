@@ -89,15 +89,16 @@ describe('server entrypoint exports', () => {
     )
   })
 
-  it('forwards trusted auth, actor, and principal options to each request-scoped call', async () => {
+  it('forwards trusted auth, principal, and delegation options to each request-scoped call', async () => {
     serverConvexQueryMock.mockResolvedValueOnce({ ok: true })
 
     const event = { __is_event__: true } as never
-    const principal = { kind: 'agent', userId: 'u1' }
+    const principal = { kind: 'agent', agentId: 'a1', subject: 'agent:a1' }
+    const delegation = { subject: 'user:u1', reason: 'approved' }
     const caller = serverApi.createServerConvexCaller(event, {
       auth: 'trusted',
-      actor: { userId: 'u1' },
       principal,
+      delegation,
     })
 
     await expect(
@@ -109,42 +110,40 @@ describe('server entrypoint exports', () => {
     expect(serverConvexQueryMock).toHaveBeenCalledWith(
       event,
       { _path: 'notes:list' },
-      { limit: 2, principal },
-      { auth: 'trusted', actor: { userId: 'u1' } },
+      { limit: 2, principal, delegation },
+      { auth: 'trusted', principal, delegation },
     )
   })
 
-  it('rejects forwarded principals outside the trusted caller path', () => {
+  it('rejects forwarded principals outside the trusted forwarding path', () => {
     const event = { __is_event__: true } as never
 
     expect(() =>
       serverApi.createServerConvexCaller(event, {
         auth: 'auto',
-        principal: { kind: 'agent', userId: 'u1' },
+        principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       }),
-    ).toThrow(/only allows forwarded `principal` on `auth: 'trusted'` calls/)
+    ).toThrow(/only allows forwarded identity on `auth: 'trusted'` calls/)
   })
 
-  it('requires actor when forwarding a trusted principal', () => {
+  it('requires principal when using trusted forwarding', () => {
     const event = { __is_event__: true } as never
 
     expect(() =>
       serverApi.createServerConvexCaller(event, {
         auth: 'trusted',
-        principal: { kind: 'agent', userId: 'u1' },
       }),
-    ).toThrow(/requires `actor` when forwarding a `principal`/)
+    ).toThrow(/requires `principal` on trusted forwarding calls/)
   })
 
-  it('rejects forwarded principals whose userId does not match the trusted actor', () => {
+  it('rejects forwarded delegation outside the trusted forwarding path', () => {
     const event = { __is_event__: true } as never
 
     expect(() =>
       serverApi.createServerConvexCaller(event, {
-        auth: 'trusted',
-        actor: { userId: 'u1' },
-        principal: { kind: 'agent', userId: 'u2' },
+        auth: 'auto',
+        delegation: { subject: 'user:u1', reason: 'approved' },
       }),
-    ).toThrow(/principal\.userId.*actor\.userId/i)
+    ).toThrow(/only allows forwarded identity on `auth: 'trusted'` calls/)
   })
 })

@@ -8,6 +8,7 @@ import type { PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
+import type { Delegation } from '../functions/define-delegation.js'
 import type { SchemaDefinition } from '../utils/define-convex-schema.js'
 import type { TrellisDenialExplanation } from '../utils/observability.js'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
@@ -149,7 +150,7 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   auth?: ConvexToolAuthMode
   /** Optional actor check evaluated for both visibility and execution. */
   check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
-  /** Enable trusted-caller injection for Convex calls using the resolved actor. Tools are hidden unless actor.tenantId exists. */
+  /** Enable trusted-forwarding injection for Convex calls using the resolved actor. Tools are hidden unless actor.tenantId exists. */
   scoped?: boolean
   /** Custom auth resolver for this tool. Default: reads event.context.mcpAuth. */
   resolveAuth?: (
@@ -165,6 +166,11 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
     event: H3Event
     actor: McpAuthIdentity<TRole>
   }) => unknown | Promise<unknown>
+  /** Optional represented identity for trusted forwarded calls. */
+  resolveDelegation?: (ctx: {
+    event: H3Event
+    actor: McpAuthIdentity<TRole>
+  }) => Delegation | null | Promise<Delegation | null>
 
   // ── Safety ────────────────────────────────────────────────
   /**

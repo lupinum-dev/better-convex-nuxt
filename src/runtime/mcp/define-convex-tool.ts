@@ -12,6 +12,7 @@ import type { H3Event } from 'h3'
 import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
+import type { Delegation } from '../functions/define-delegation.js'
 import { createServerConvexCaller } from '../server/index.js'
 import { toConvexError } from '../utils/call-result.js'
 import type { SchemaFieldMeta } from '../utils/define-convex-schema.js'
@@ -332,11 +333,30 @@ async function resolveToolPrincipal<TRole extends string = string>(
   actor: McpAuthIdentity<TRole> | null,
   resolvePrincipal?: (actor: McpAuthIdentity<TRole>) => unknown | Promise<unknown>,
 ): Promise<unknown> {
-  if (!actor || !resolvePrincipal) {
+  if (!actor) {
     return undefined
   }
 
+  if (!resolvePrincipal) {
+    return {
+      kind: 'user',
+      userId: actor.userId,
+      subject: `user:${actor.userId}`,
+    }
+  }
+
   return await resolvePrincipal(actor)
+}
+
+async function resolveToolDelegation<TRole extends string = string>(
+  actor: McpAuthIdentity<TRole> | null,
+  resolveDelegation?: (actor: McpAuthIdentity<TRole>) => Delegation | null | Promise<Delegation | null>,
+): Promise<Delegation | null> {
+  if (!actor || !resolveDelegation) {
+    return null
+  }
+
+  return await resolveDelegation(actor)
 }
 
 async function resolveToolAccess<TRole extends string = string>(
@@ -386,12 +406,13 @@ function createToolCallFns(
   event: H3Event,
   actor: McpAuthIdentity | null,
   principal: unknown,
+  delegation: Delegation | null,
 ): ConvexToolCallFns {
   const convex = actor
     ? createServerConvexCaller(event, {
         auth: 'trusted',
-        actor: { userId: actor.userId },
         ...(principal !== undefined ? { principal } : {}),
+        ...(delegation ? { delegation } : {}),
       })
     : createServerConvexCaller(event, { auth: 'none' })
 
@@ -421,8 +442,9 @@ function createToolContext<TRole extends string>(
   event: H3Event,
   actor: McpAuthIdentity<TRole> | null,
   principal: unknown,
+  delegation: Delegation | null,
 ): ConvexToolHandlerCtx<TRole> {
-  const calls = createToolCallFns(event, actor, principal)
+  const calls = createToolCallFns(event, actor, principal, delegation)
 
   return {
     event,
@@ -481,6 +503,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     scoped = false,
     resolveAuth,
     resolvePrincipal,
+    resolveDelegation,
   } = options
 
   const toolLabel = name ? `defineTool:${name}` : 'defineTool'
@@ -574,7 +597,11 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
           resolvedAuth,
           resolvePrincipal ? (actor) => resolvePrincipal({ event, actor }) : undefined,
         )
-        const ctx = createToolContext(event, resolvedAuth, resolvedPrincipal)
+        const resolvedDelegation = await resolveToolDelegation(
+          resolvedAuth,
+          resolveDelegation ? (actor) => resolveDelegation({ event, actor }) : undefined,
+        )
+        const ctx = createToolContext(event, resolvedAuth, resolvedPrincipal, resolvedDelegation)
 
         const normalizedArgs = normalizeToolArgs(args)
 

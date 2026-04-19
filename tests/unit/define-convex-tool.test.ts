@@ -56,7 +56,7 @@ describe('defineTool visibility and auth parity', () => {
   })
 
   afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_CALLER_KEY
+    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
   })
 
   it('hides auth-required tools for anonymous callers', async () => {
@@ -136,11 +136,11 @@ describe('defineTool error handling', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useEventMock.mockReturnValue(createEvent({ role: 'member', userId: 'member-1' }))
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'test-trusted-forwarding-key'
   })
 
   afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_CALLER_KEY
+    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
   })
 
   it('cleans internal transport noise from convex errors', async () => {
@@ -241,7 +241,7 @@ describe('defineTool trusted principal forwarding', () => {
   })
 
   afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_CALLER_KEY
+    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
   })
 
   it('builds trusted forwarded calls through resolvePrincipal', async () => {
@@ -254,8 +254,9 @@ describe('defineTool trusted principal forwarding', () => {
       scoped: true,
       resolvePrincipal: ({ actor }) => ({
         kind: 'agent',
+        agentId: actor.userId,
+        subject: `agent:${actor.userId}`,
         provider: 'mcp',
-        userId: actor.userId,
         tenantId: actor.tenantId,
       }),
       handler: async (args, ctx) => {
@@ -281,14 +282,21 @@ describe('defineTool trusted principal forwarding', () => {
         title: 'Hello',
         principal: {
           kind: 'agent',
+          agentId: 'member-1',
+          subject: 'agent:member-1',
           provider: 'mcp',
-          userId: 'member-1',
           tenantId: 'org-1',
         },
       },
       {
         auth: 'trusted',
-        actor: { userId: 'member-1' },
+        principal: {
+          kind: 'agent',
+          agentId: 'member-1',
+          subject: 'agent:member-1',
+          provider: 'mcp',
+          tenantId: 'org-1',
+        },
       },
     )
   })

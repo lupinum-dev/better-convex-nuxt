@@ -12,7 +12,7 @@ import { internal } from './_generated/api'
  * scheduler callback) needs to invoke an internal function and preserve
  * the user's identity — without relying on implicit propagation.
  *
- * Envelope purpose: 'trellis:trusted-caller:v1' (same key as service).
+ * Envelope purpose: 'trellis:trusted-forwarding:v1' (same key as service).
  * Only the principal payload shape differs: { kind: 'user', userId }.
  *
  * Cases:
@@ -29,7 +29,7 @@ import { action, internalMutation } from './_generated/server'
 
 const ROOT_SECRET = new TextEncoder().encode('test-deployment-secret-32bytes!!')
 const SALT = new TextEncoder().encode('trellis-v1')
-const PURPOSE = 'trellis:trusted-caller:v1'
+const PURPOSE = 'trellis:trusted-forwarding:v1'
 
 function deriveKey(): Uint8Array {
   return hkdf(sha256, ROOT_SECRET, SALT, new TextEncoder().encode(PURPOSE), 32)

@@ -218,7 +218,7 @@ describe('example dev launcher', () => {
   it('auto-generates local secrets for placeholder values in .env.example', () => {
     const resolved = resolveGeneratedSecretEnvValues({
       BETTER_AUTH_SECRET: 'replace-me',
-      CONVEX_TRUSTED_CALLER_KEY: 'replace-me-with-a-long-random-shared-secret',
+      CONVEX_TRUSTED_FORWARDING_KEY: 'replace-me-with-a-long-random-shared-secret',
       TRELLIS_MCP_CONFIRMATION_KEY: 'replace-me-with-a-second-long-random-shared-secret',
       SITE_URL: 'http://127.0.0.1:3000',
     }) as Record<string, string>
@@ -226,13 +226,13 @@ describe('example dev launcher', () => {
     expect(resolved.SITE_URL).toBeUndefined()
     expect(resolved.BETTER_AUTH_SECRET).not.toMatch(/replace.?me/i)
     expect(resolved.BETTER_AUTH_SECRET).toHaveLength(64) // 32 bytes hex
-    expect(resolved.CONVEX_TRUSTED_CALLER_KEY).not.toMatch(/replace.?me/i)
-    expect(resolved.CONVEX_TRUSTED_CALLER_KEY).not.toBe(resolved.BETTER_AUTH_SECRET)
+    expect(resolved.CONVEX_TRUSTED_FORWARDING_KEY).not.toMatch(/replace.?me/i)
+    expect(resolved.CONVEX_TRUSTED_FORWARDING_KEY).not.toBe(resolved.BETTER_AUTH_SECRET)
     expect(resolved.TRELLIS_MCP_CONFIRMATION_KEY).not.toMatch(/replace.?me/i)
-    expect(resolved.TRELLIS_MCP_CONFIRMATION_KEY).not.toBe(resolved.CONVEX_TRUSTED_CALLER_KEY)
+    expect(resolved.TRELLIS_MCP_CONFIRMATION_KEY).not.toBe(resolved.CONVEX_TRUSTED_FORWARDING_KEY)
   })
 
-  it('keeps tracked example env files on the trusted caller secret name', () => {
+  it('keeps tracked example env files on the trusted forwarding secret name', () => {
     const files = [
       'examples/03-team-workspace/.env.example',
       'examples/04-saas-platform/.env.example',
@@ -245,7 +245,7 @@ describe('example dev launcher', () => {
       const fullPath = resolve(process.cwd(), file)
       if (!existsSync(fullPath)) continue
       const source = readFileSync(fullPath, 'utf8')
-      expect(source, file).toContain('CONVEX_TRUSTED_CALLER_KEY')
+      expect(source, file).toContain('CONVEX_TRUSTED_FORWARDING_KEY')
       expect(source, file).not.toContain(LEGACY_TRUSTED_CALLER_ENV_VAR)
     }
   })

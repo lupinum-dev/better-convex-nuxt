@@ -7,9 +7,10 @@ export function toHarnessMcpPrincipal(ctx: Pick<ConvexToolHandlerCtx, 'actor'>) 
 
   return {
     kind: 'agent' as const,
+    agentId: ctx.actor.userId,
+    subject: `agent:${ctx.actor.userId}` as const,
     provider: 'mcp' as const,
     role: ctx.actor.role,
-    userId: ctx.actor.userId,
     ...(ctx.actor.tenantId ? { tenantId: ctx.actor.tenantId } : {}),
   }
 }

@@ -54,8 +54,8 @@
       "eslint": [
         "./dist/eslint/index.d.mts"
       ],
-      "trusted-caller": [
-        "./dist/runtime/trusted-caller/index.d.ts"
+      "trusted-forwarding": [
+        "./dist/runtime/trusted-forwarding/index.d.ts"
       ],
       "visibility": [
         "./dist/runtime/visibility/index.d.ts"
@@ -96,9 +96,9 @@
       "types": "./dist/eslint/index.d.mts",
       "import": "./dist/eslint/index.mjs"
     },
-    "./trusted-caller": {
-      "types": "./dist/runtime/trusted-caller/index.d.ts",
-      "import": "./dist/runtime/trusted-caller/index.mjs"
+    "./trusted-forwarding": {
+      "types": "./dist/runtime/trusted-forwarding/index.d.ts",
+      "import": "./dist/runtime/trusted-forwarding/index.mjs"
     },
     "./visibility": {
       "types": "./dist/runtime/visibility/index.d.ts",

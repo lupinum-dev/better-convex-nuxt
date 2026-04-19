@@ -5,7 +5,7 @@ import { api } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 
-const TRUSTED_CALLER_KEY = 'internal-harness-test-trusted-caller-key'
+const TRUSTED_FORWARDING_KEY = 'internal-harness-test-trusted-forwarding-key'
 
 describe('@lupinum/trellis/testing', () => {
   it('seeds a tenant and returns authenticated user callers', async () => {
@@ -13,7 +13,7 @@ describe('@lupinum/trellis/testing', () => {
       schema,
       modules,
       tenant: { table: 'organizations', field: 'organizationId' },
-      trustedCallerKey: TRUSTED_CALLER_KEY,
+      trustedForwardingKey: TRUSTED_FORWARDING_KEY,
     })
 
     const team = await ctx.seedTenant({
@@ -54,13 +54,14 @@ describe('@lupinum/trellis/testing', () => {
       },
     })
 
-    const trustedCaller = ctx.asPrincipal({
+    const trustedForwarding = ctx.asPrincipal({
       kind: 'user',
       userId: team.users.viewer.authId,
+      subject: `user:${team.users.viewer.authId}`,
     })
 
     await expect(
-      trustedCaller.mutation(api.posts.create, {
+      trustedForwarding.mutation(api.posts.create, {
         title: 'Nope',
         content: 'Viewers should not create posts.',
       }),

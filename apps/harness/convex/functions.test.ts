@@ -6,7 +6,7 @@ import { withObservationEnvelope } from '../../../src/runtime/utils/observabilit
 import { api } from './_generated/api'
 import schema from './schema'
 import {
-  INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY,
+  INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY,
   setupTestWithMultipleUsers,
   setupTestWithTwoOrgs,
   withTrustedPrincipal,
@@ -14,7 +14,7 @@ import {
 import { modules } from './test.setup'
 
 describe('defineTrellis', () => {
-  process.env.CONVEX_TRUSTED_CALLER_KEY = INTERNAL_HARNESS_TEST_TRUSTED_CALLER_KEY
+  process.env.CONVEX_TRUSTED_FORWARDING_KEY = INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY
 
   it('does not resolve the actor when a handler never calls ctx.actor()', async () => {
     const t = convexTest(schema, modules)
@@ -43,7 +43,7 @@ describe('defineTrellis', () => {
     await expect(
       t.query(
         api.functionsProbe.actorMemoization,
-        withTrustedPrincipal({}, { kind: 'user', userId: 'memo_user' }),
+        withTrustedPrincipal({}, { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' }),
       ),
     ).resolves.toMatchObject({
       before: 0,
@@ -59,7 +59,7 @@ describe('defineTrellis', () => {
     await expect(
       t.query(
         api.functionsProbe.actorMemoization,
-        withTrustedPrincipal({}, { kind: 'user', userId: 'memo_user' }),
+        withTrustedPrincipal({}, { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' }),
       ),
     ).resolves.toMatchObject({
       before: 1,
@@ -75,7 +75,10 @@ describe('defineTrellis', () => {
     await expect(
       t.query(
         api.functionsProbe.echoedArgs,
-        withTrustedPrincipal({ title: 'hello' }, { kind: 'user', userId: 'echo_user' }),
+        withTrustedPrincipal(
+          { title: 'hello' },
+          { kind: 'user', userId: 'echo_user', subject: 'user:echo_user' },
+        ),
       ),
     ).resolves.toEqual({
       title: 'hello',
