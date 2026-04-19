@@ -19,6 +19,7 @@ import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/va
 import { v } from 'convex/values'
 
 import { clearTrustedForwardingContext, setTrustedForwardingContext } from '../trusted-forwarding/index.js'
+import { extractSubject } from '../trusted-forwarding/shared.js'
 import {
   definePrincipal,
   type DefaultPrincipal,
@@ -138,21 +139,16 @@ type BridgeBatchResult<
 }
 
 function resolveBridgePrincipalSubject(principal: unknown): string {
-  if (
-    typeof principal !== 'object' ||
-    principal === null ||
-    !('subject' in principal) ||
-    typeof (principal as { subject?: unknown }).subject !== 'string' ||
-    !(principal as { subject: string }).subject.trim()
-  ) {
-    throw new Error('createComponentBridge() requires the resolved principal to include a canonical subject.')
-  }
-
   if ('kind' in principal && (principal as { kind?: unknown }).kind === 'anonymous') {
     throw new Error('createComponentBridge() cannot forward an anonymous principal.')
   }
 
-  return (principal as { subject: string }).subject
+  const subject = extractSubject(principal)
+  if (!subject) {
+    throw new Error('createComponentBridge() requires the resolved principal to include a canonical subject.')
+  }
+
+  return subject
 }
 
 function getRequiredBridgeTrustedForwardingKey(): string {
