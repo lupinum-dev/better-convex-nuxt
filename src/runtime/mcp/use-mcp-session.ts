@@ -2,6 +2,8 @@ import { getHeader } from 'h3'
 import { useEvent, useStorage } from 'nitropack/runtime'
 import type { Storage, StorageValue } from 'unstorage'
 
+const UUID_V4_RE = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i
+
 export interface McpSessionStore<T = Record<string, unknown>> {
   sessionId: string
   namespace: string
@@ -14,13 +16,8 @@ export interface McpSessionStore<T = Record<string, unknown>> {
   storage: Storage
 }
 
-function sanitizeNamespace(value: string): string {
-  return (
-    value
-      .replace(/[^\w:/-]+/g, '-')
-      .replace(/\/+/g, '/')
-      .replace(/^-+|-+$/g, '') || 'mcp'
-  )
+function isValidSessionId(value: string): boolean {
+  return UUID_V4_RE.test(value)
 }
 
 export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T> {
@@ -32,13 +29,15 @@ export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T>
       'No active MCP session. Ensure `mcp.sessions` is enabled and `nitro.experimental.asyncContext` is true.',
     )
   }
+  if (!isValidSessionId(sessionId)) {
+    throw new Error('Invalid MCP session ID format')
+  }
 
-  const routeNamespace = sanitizeNamespace(event.path || event.node.req.url || 'mcp')
-  const storage = useStorage(`mcp:sessions:${routeNamespace}:${sessionId}`)
+  const storage = useStorage(`mcp:sessions:${sessionId}`)
 
   return {
     sessionId,
-    namespace: routeNamespace,
+    namespace: 'mcp',
     get: async (key) => (await storage.getItem(key)) as T[typeof key] | null,
     set: (key, value) => storage.setItem(key, value as StorageValue),
     remove: (key) => storage.removeItem(key),

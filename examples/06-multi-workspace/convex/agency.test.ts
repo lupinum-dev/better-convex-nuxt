@@ -202,7 +202,7 @@ describe('agency example', () => {
     )
   })
 
-  it('prevents duplicate memberships when joining the same workspace twice', async () => {
+  it('creates a single owner membership when creating a workspace', async () => {
     const ctx = createCtx()
     const team = await seedWorkspace(ctx, {
       name: 'Alpha',
@@ -217,22 +217,15 @@ describe('agency example', () => {
       slug: 'client-workspace',
     })
 
-    await team.users.member.mutation(api.domain.workspaces.joinWorkspace, {
-      slug: 'client-workspace',
-      role: 'member',
-    })
-    await team.users.member.mutation(api.domain.workspaces.joinWorkspace, {
-      slug: 'client-workspace',
-      role: 'member',
-    })
-
     const memberships = await ctx.readAll('memberships')
-    const joinedMemberships = memberships.filter((membership: Doc<'memberships'>) => {
+    const ownerMemberships = memberships.filter((membership: Doc<'memberships'>) => {
       return (
-        membership.userId === team.users.member.authId && membership.workspaceId === workspaceId
+        membership.userId === team.users.owner.authId &&
+        membership.workspaceId === workspaceId &&
+        membership.role === 'owner'
       )
     })
 
-    expect(joinedMemberships).toHaveLength(1)
+    expect(ownerMemberships).toHaveLength(1)
   })
 })

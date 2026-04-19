@@ -10,15 +10,6 @@ function crossTenantDb<DB>(db: DB): DB {
   return (db as DB & { crossTenant: DB }).crossTenant
 }
 
-export const listWorkspaces = query({
-  args: {},
-  guard: open,
-  handler: async (ctx) => {
-    const workspaces = await ctx.db.query('workspaces').order('desc').collect()
-    return workspaces.map(({ _id, name, slug }) => ({ _id, name, slug }))
-  },
-})
-
 export const listAccessibleWorkspaces = raw.query({
   args: {},
   handler: async (ctx) => {
@@ -80,64 +71,6 @@ export const createWorkspace = raw.mutation({
     })
 
     return workspaceId
-  },
-})
-
-export const joinWorkspace = raw.mutation({
-  args: {
-    slug: v.string(),
-    role: v.union(
-      v.literal('owner'),
-      v.literal('member'),
-      v.literal('viewer'),
-      v.literal('agency_admin'),
-      v.literal('agency_manager'),
-    ),
-  },
-  handler: async (ctx, args) => {
-    const identity = await getAuth(ctx)
-    if (!identity) throw deny('Not authenticated.')
-    const db = crossTenantDb(ctx.db)
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-    if (!user) throw new Error('Current user row not found.')
-
-    const workspace = await db
-      .query('workspaces')
-      .withIndex('by_slug', (q: any) => q.eq('slug', args.slug))
-      .first()
-    if (!workspace) throw new Error('Workspace not found.')
-
-    const existingMembership = await db
-      .query('memberships')
-      .withIndex('by_user_workspace', (q: any) =>
-        q.eq('userId', user.authId).eq('workspaceId', workspace._id),
-      )
-      .first()
-    if (existingMembership) {
-      await ctx.db.patch(user._id, {
-        workspaceId: workspace._id,
-        updatedAt: Date.now(),
-      })
-      return workspace._id
-    }
-
-    await db.insert('memberships', {
-      userId: user.authId,
-      workspaceId: workspace._id,
-      role: args.role,
-      createdAt: Date.now(),
-    })
-
-    await ctx.db.patch(user._id, {
-      workspaceId: workspace._id,
-      updatedAt: Date.now(),
-    })
-
-    return workspace._id
   },
 })
 

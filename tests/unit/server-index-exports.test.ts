@@ -135,4 +135,16 @@ describe('server entrypoint exports', () => {
       }),
     ).toThrow(/requires `actor` when forwarding a `principal`/)
   })
+
+  it('rejects forwarded principals whose userId does not match the trusted actor', () => {
+    const event = { __is_event__: true } as never
+
+    expect(() =>
+      serverApi.createServerConvexCaller(event, {
+        auth: 'trusted',
+        actor: { userId: 'u1' },
+        principal: { kind: 'agent', userId: 'u2' },
+      }),
+    ).toThrow(/principal\.userId.*actor\.userId/i)
+  })
 })

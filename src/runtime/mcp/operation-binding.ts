@@ -2,7 +2,6 @@ import {
   getOperationMetadata,
   getOperationProjectionMetadata,
 } from '../functions/operation-metadata.js'
-import { getFunctionName } from '../utils/convex-shared.js'
 import type {
   AnyActionFunction,
   AnyMutationFunction,
@@ -32,9 +31,9 @@ export function assertOperationBinding(
   }
 
   const executeTarget = getOperationProjectionMetadata(executeRef as Record<PropertyKey, unknown>)
-  if (!executeTarget && getFunctionName(executeRef) === 'unknown') {
+  if (!executeTarget) {
     throw new Error(
-      `tool.fromOperation(${metadata.name ?? metadata.id}) requires an execute ref projected from the same operation or a generated API reference.`,
+      `tool.fromOperation(${metadata.name ?? metadata.id}) requires an execute ref projected from the same operation.`,
     )
   }
   if (
@@ -49,9 +48,9 @@ export function assertOperationBinding(
   if (!previewRef) return
 
   const previewTarget = getOperationProjectionMetadata(previewRef as Record<PropertyKey, unknown>)
-  if (!previewTarget && getFunctionName(previewRef) === 'unknown') {
+  if (!previewTarget) {
     throw new Error(
-      `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref projected from the same operation or a generated API reference.`,
+      `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref projected from the same operation.`,
     )
   }
   if (

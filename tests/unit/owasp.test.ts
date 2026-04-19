@@ -149,17 +149,17 @@ describe('OWASP A03: Injection', () => {
     const event = {
       headers: new Headers({
         host: 'app.example.com',
-        cookie: 'session=abc',
+        cookie: 'session=abc; better-auth.session_token=abc123',
         connection: 'keep-alive',
         'transfer-encoding': 'chunked',
       }),
     } as never
 
     const headers = buildAuthProxyForwardHeaders(event, {
-      requestUrl: new URL('https://app.example.com/api/auth/token'),
+      canonicalOrigin: new URL('https://canonical.example.com'),
     })
 
-    expect(headers.cookie).toBe('session=abc')
+    expect(headers.cookie).toBe('better-auth.session_token=abc123')
     expect(headers.connection).toBeUndefined()
     expect(headers['transfer-encoding']).toBeUndefined()
     expect(headers.host).toBeUndefined()

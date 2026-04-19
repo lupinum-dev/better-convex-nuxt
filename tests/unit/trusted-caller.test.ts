@@ -20,12 +20,7 @@ describe('trusted caller helpers', () => {
       title: v.string(),
     })
 
-    expect(Object.keys(args)).toEqual([
-      'title',
-      '_trustedCallerKey',
-      '_trustedCaller',
-      '_trustedCallerExpectedKey',
-    ])
+    expect(Object.keys(args)).toEqual(['title', '_trustedCallerKey', '_trustedCaller'])
   })
 
   it('returns the trusted caller identity when the trusted caller key matches', () => {
@@ -93,18 +88,27 @@ describe('trusted caller helpers', () => {
     expect(getTrustedCaller(ctx)).toEqual({ userId: 'u_component' })
   })
 
-  it('skips blank expected-key args and falls back to the configured environment key', () => {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-key'
-
-    expect(
+  it('rejects trusted caller payloads when no server-owned key exists', () => {
+    expect(() =>
       getTrustedCaller({
-        _trustedCallerKey: 'trusted-key',
+        _trustedCallerKey: 'forged-key',
         _trustedCaller: {
           userId: 'u_env',
         },
-        _trustedCallerExpectedKey: '   ',
       }),
-    ).toEqual({ userId: 'u_env' })
+    ).toThrow(/Trusted caller auth is not configured/i)
+  })
+
+  it('does not accept attacker-controlled expected-key args', () => {
+    expect(() =>
+      getTrustedCaller({
+        _trustedCallerKey: 'forged-key',
+        _trustedCaller: {
+          userId: 'u_env',
+        },
+        _trustedCallerExpectedKey: 'forged-key',
+      }),
+    ).toThrow(/Trusted caller auth is not configured/i)
   })
 
   it('rejects forwarded principal reads on untrusted paths', () => {

@@ -38,6 +38,28 @@ export function getBetterAuthSessionToken(cookieHeader: string): string | null {
   return null
 }
 
+function isBetterAuthCookieName(cookieName: string): boolean {
+  return (
+    cookieName.startsWith('better-auth.') || cookieName.startsWith('__Secure-better-auth.')
+  )
+}
+
+export function filterBetterAuthCookieHeader(cookieHeader: string): string {
+  const filtered: string[] = []
+
+  for (const segment of cookieHeader.split(';')) {
+    const trimmed = segment.trim()
+    if (!trimmed) continue
+    const separatorIndex = trimmed.indexOf('=')
+    if (separatorIndex <= 0) continue
+    const cookieName = trimmed.slice(0, separatorIndex).trim()
+    if (!isBetterAuthCookieName(cookieName)) continue
+    filtered.push(trimmed)
+  }
+
+  return filtered.join('; ')
+}
+
 function isBetterAuthSessionCookieName(cookieName: string): boolean {
   return (
     cookieName === BETTER_AUTH_SESSION_COOKIE_NAME ||
@@ -78,8 +100,9 @@ export async function exchangeConvexAuthToken(
   cookieHeader: string,
 ): Promise<string | undefined> {
   const url = `${siteUrl}/api/auth/convex/token` as string
+  const betterAuthCookies = filterBetterAuthCookieHeader(cookieHeader)
   const response = await $fetch<{ token?: string } | null>(url, {
-    headers: { Cookie: cookieHeader },
+    headers: betterAuthCookies ? { Cookie: betterAuthCookies } : undefined,
   })
 
   return response?.token

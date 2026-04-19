@@ -2224,6 +2224,7 @@ function envExampleTemplate(options: { template: CanonicalAppTemplate; mcp: bool
 
   if (options.mcp) {
     lines.push('CONVEX_TRUSTED_CALLER_KEY=replace-me')
+    lines.push('TRELLIS_MCP_CONFIRMATION_KEY=replace-me')
   }
 
   return `${lines.join('\n')}\n`

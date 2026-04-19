@@ -170,12 +170,12 @@ function resolveActorAccessor<TCtx extends object, TActor>(
 function createHandlerContext<TCtx extends object, TPrincipal, TActor, TGuard>(
   ctx: TCtx,
   principal: PrincipalForGuard<TPrincipal, TGuard>,
-  actor: ActorForGuard<TActor, TGuard>,
+  actor: () => Promise<ActorForGuard<TActor, TGuard>>,
 ): NarrowedCtx<TCtx, TPrincipal, TActor, TGuard> {
   return {
     ...ctx,
     principal: async () => principal,
-    actor: async () => actor,
+    actor,
   } as NarrowedCtx<TCtx, TPrincipal, TActor, TGuard>
 }
 
@@ -249,7 +249,12 @@ function createStructuredBuilder<
         const ctx = rawCtx as TCtx
         const args = rawArgs as HandlerArgs<TArgsValidator>
         const principal = await resolvePrincipalAccessor<TCtx, TPrincipal>(ctx)()
-        const actor = await resolveActorAccessor<TCtx, TActor>(ctx)()
+        const rawActorAccessor = resolveActorAccessor<TCtx, TActor>(ctx)
+        let actorPromise: Promise<TActor | null> | null = null
+        const actorAccessor = async () => {
+          actorPromise ??= rawActorAccessor()
+          return await actorPromise
+        }
         const observe = getObserve(ctx)
 
         if (isAuthRequiredGuard(definition.guard)) {
@@ -271,9 +276,10 @@ function createStructuredBuilder<
           })
           requireAuth(
             principal,
-            `Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, actor)}`,
+            `Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, null)}`,
           )
         } else if (!isOpenGuard(definition.guard)) {
+          const actor = await actorAccessor()
           const guardCheck = getGuardCheck<TPrincipal, TActor>(definition.guard)
           const guardLabel = getGuardLabel<TPrincipal, TActor>(definition.guard)
           const allowed = actor != null && can(actor as NonNullable<TActor>, guardCheck)
@@ -304,7 +310,7 @@ function createStructuredBuilder<
         const handlerCtx = createHandlerContext<TCtx, TPrincipal, TActor, TGuard>(
           ctx,
           principal as PrincipalForGuard<TPrincipal, TGuard>,
-          actor as ActorForGuard<TActor, TGuard>,
+          actorAccessor as () => Promise<ActorForGuard<TActor, TGuard>>,
         )
 
         const loaded = (

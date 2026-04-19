@@ -13,11 +13,6 @@ import { z } from 'zod'
 import type { ZodRawShape, ZodTypeAny } from 'zod'
 
 import { createServerConvexCaller } from '../server/index.js'
-import {
-  serverConvexAction,
-  serverConvexMutation,
-  serverConvexQuery,
-} from '../server/utils/convex.js'
 import { toConvexError } from '../utils/call-result.js'
 import type { SchemaFieldMeta } from '../utils/define-convex-schema.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
@@ -418,30 +413,6 @@ function createToolCallFns(
       args?: FunctionArgs<Action>,
     ): Promise<FunctionReturnType<Action>> => {
       return await convex.action(fn, args)
-    },
-    rawQuery: async <Query extends FunctionReference<'query'>>(
-      fn: Query,
-      args?: FunctionArgs<Query>,
-    ): Promise<FunctionReturnType<Query>> => {
-      return await serverConvexQuery(event, fn, (args ?? {}) as FunctionArgs<Query>, {
-        auth: 'none',
-      })
-    },
-    rawMutation: async <Mutation extends FunctionReference<'mutation'>>(
-      fn: Mutation,
-      args?: FunctionArgs<Mutation>,
-    ): Promise<FunctionReturnType<Mutation>> => {
-      return await serverConvexMutation(event, fn, (args ?? {}) as FunctionArgs<Mutation>, {
-        auth: 'none',
-      })
-    },
-    rawAction: async <Action extends FunctionReference<'action'>>(
-      fn: Action,
-      args?: FunctionArgs<Action>,
-    ): Promise<FunctionReturnType<Action>> => {
-      return await serverConvexAction(event, fn, (args ?? {}) as FunctionArgs<Action>, {
-        auth: 'none',
-      })
     },
   }
 }

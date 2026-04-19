@@ -49,6 +49,10 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
   const trustedCallerExpected = usesTrustedCallerSurfaces(project)
   const trustedCallerKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_CALLER_KEY'])
+  const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
+    /tool\.fromOperation\s*\(/.test(file.text),
+  )
+  const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
   const forwardedPrincipalMisuse = findForwardedPrincipalWithoutTrustedAuth(project)
   const destructiveMcpToolMisuse = findDestructiveMcpToolsWithoutOperationBinding(project)
   const usesPermissions = usesPermissionSurfaces(project)
@@ -292,6 +296,24 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         forwardedPrincipalMisuse.length > 0
           ? "Only pass `principal` on verified server calls that also set `auth: 'trusted'` and `actor`."
           : 'Keep forwarded principals confined to verified trusted-caller lanes.',
+    },
+    {
+      id: 'mcp-confirmation-key-configured',
+      category: 'advanced',
+      title: 'MCP confirmation key source',
+      status: destructiveMcpConfirmationExpected
+        ? mcpConfirmationKeySource
+          ? 'pass'
+          : 'warn'
+        : 'pass',
+      message: !destructiveMcpConfirmationExpected
+        ? 'No destructive MCP tools were detected in the app source.'
+        : mcpConfirmationKeySource
+          ? `Found TRELLIS_MCP_CONFIRMATION_KEY in ${mcpConfirmationKeySource.source}.`
+          : 'Destructive MCP tools were detected, but no TRELLIS_MCP_CONFIRMATION_KEY source was found.',
+      fixHint: !destructiveMcpConfirmationExpected
+        ? 'No action needed unless you add destructive MCP tools later.'
+        : 'Set TRELLIS_MCP_CONFIRMATION_KEY in the local environment and the deployment serving destructive MCP traffic.',
     },
     {
       id: 'mcp-destructive-operation-binding',

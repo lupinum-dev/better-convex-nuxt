@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { clearsBetterAuthSessionCookie } from '../../src/runtime/utils/auth-token'
+import {
+  clearsBetterAuthSessionCookie,
+  filterBetterAuthCookieHeader,
+} from '../../src/runtime/utils/auth-token'
 import { fetchAuthToken } from '../../src/runtime/utils/convex-cache'
 
 afterEach(() => {
@@ -94,5 +97,15 @@ describe('clearsBetterAuthSessionCookie', () => {
 
   it('ignores unrelated cookies', () => {
     expect(clearsBetterAuthSessionCookie(['theme=dark; Path=/', 'session=abc; Path=/'])).toBe(false)
+  })
+})
+
+describe('filterBetterAuthCookieHeader', () => {
+  it('keeps only Better Auth cookies', () => {
+    expect(
+      filterBetterAuthCookieHeader(
+        'theme=dark; better-auth.session_token=abc; __Secure-better-auth.session_token=secure; session=other',
+      ),
+    ).toBe('better-auth.session_token=abc; __Secure-better-auth.session_token=secure')
   })
 })

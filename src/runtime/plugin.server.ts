@@ -26,6 +26,17 @@ import {
 import { getConvexRuntimeConfig } from './utils/runtime-config.js'
 import { createRuntimeObserver } from './utils/runtime-observer.js'
 import type { ConvexUser } from './utils/types.js'
+
+function applyAuthenticatedSsrCacheHeaders(event: NonNullable<ReturnType<typeof useRequestEvent>>) {
+  const response = (
+    event as { node?: { res?: { setHeader?: (name: string, value: string) => void } } }
+  ).node?.res
+  if (!response?.setHeader) return
+
+  response.setHeader('Cache-Control', 'private, no-store')
+  response.setHeader('Vary', 'Cookie')
+}
+
 export default defineNuxtPlugin(async (nuxtApp) => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
@@ -102,6 +113,11 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
   const resolvedAuth = await resolveRequestAuth(event, convexConfig)
   const hydratedAuth = projectResolvedAuthForHydration(resolvedAuth)
+
+  if (resolvedAuth.hasSessionCookie) {
+    applyAuthenticatedSsrCacheHeaders(event)
+  }
+
   logAuth('server-init', 'success', {
     hasCookieHeader: Boolean(event.headers.get('cookie')),
     hasSessionToken: resolvedAuth.hasSessionCookie,

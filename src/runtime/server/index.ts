@@ -21,6 +21,14 @@ type ForwardedPrincipalOptions = {
   principal?: unknown
 } & ServerConvexOptions
 
+function principalHasMismatchedUserId(actorUserId: string, principal: unknown): boolean {
+  if (typeof principal !== 'object' || principal === null || !('userId' in principal)) {
+    return false
+  }
+
+  return (principal as { userId?: unknown }).userId !== actorUserId
+}
+
 function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefined>(
   args: TArgs,
   options?: ForwardedPrincipalOptions,
@@ -70,6 +78,16 @@ export function createServerConvexCaller(event: H3Event, options?: ForwardedPrin
   if (options?.principal !== undefined && !callOptions.actor) {
     throw new Error(
       'createServerConvexCaller() requires `actor` when forwarding a `principal` on the trusted path.',
+    )
+  }
+
+  if (
+    options?.principal !== undefined &&
+    callOptions.actor &&
+    principalHasMismatchedUserId(callOptions.actor.userId, options.principal)
+  ) {
+    throw new Error(
+      'createServerConvexCaller() requires forwarded `principal.userId` to match `actor.userId` on trusted calls.',
     )
   }
 

@@ -45,6 +45,7 @@ You need the usual local Convex env values plus a demo MCP bearer token:
 - `BETTER_AUTH_SECRET`
 - `SITE_URL`
 - `CONVEX_TRUSTED_CALLER_KEY`
+- `TRELLIS_MCP_CONFIRMATION_KEY`
 - `DEMO_MCP_TOKEN`
 
 The studio page shows the exact `Authorization: Bearer ...` header to use with the local MCP

@@ -104,6 +104,15 @@ function createServerConvexError(
   return new ConvexCallError(`[${context.helper}] ${message}`, context)
 }
 
+function principalHasMismatchedUserId(args: Record<string, unknown>, actorUserId: string): boolean {
+  const principal = args.principal
+  if (typeof principal !== 'object' || principal === null || !('userId' in principal)) {
+    return false
+  }
+
+  return (principal as { userId?: unknown }).userId !== actorUserId
+}
+
 async function resolveAuthToken(
   event: H3Event,
   options: ServerConvexOptions | undefined,
@@ -215,6 +224,17 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
     if (!trustedCallerKey) {
       throw createServerConvexError(
         `Trusted caller auth for ${functionPath} requires \`CONVEX_TRUSTED_CALLER_KEY\` or \`options.trustedCallerKey\`.`,
+        errorContext,
+      )
+    }
+
+    if (
+      requestArgs &&
+      typeof requestArgs === 'object' &&
+      principalHasMismatchedUserId(requestArgs as Record<string, unknown>, actor.userId)
+    ) {
+      throw createServerConvexError(
+        `Trusted caller auth for ${functionPath} requires forwarded \`principal.userId\` to match \`options.actor.userId\`.`,
         errorContext,
       )
     }

@@ -73,6 +73,17 @@ export function getForwardedPrincipal<TPrincipal>(
   return (args as Record<string, unknown>)[field] as TPrincipal | undefined
 }
 
+export function principalUserIdMatchesTrustedCaller(
+  trustedCaller: TrustedCallerIdentity,
+  principal: unknown,
+): boolean {
+  if (typeof principal !== 'object' || principal === null || !('userId' in principal)) {
+    return true
+  }
+
+  return (principal as { userId?: unknown }).userId === trustedCaller.userId
+}
+
 /** Compare a provided trusted-caller key with the expected shared secret. */
 export function verifyTrustedCallerKey(provided: string, expected: string): boolean {
   return verifyTrustedCallerKeyInternal(provided, expected)

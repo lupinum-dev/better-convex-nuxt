@@ -16,10 +16,10 @@ export type ToolConfirmationPayload = {
 }
 
 function getConfirmationSecret(): Uint8Array {
-  const secret = process.env.CONVEX_TRUSTED_CALLER_KEY?.trim()
+  const secret = process.env.TRELLIS_MCP_CONFIRMATION_KEY?.trim()
   if (!secret) {
     throw new Error(
-      'Trellis destructive MCP confirmation requires CONVEX_TRUSTED_CALLER_KEY to be set.',
+      'Trellis destructive MCP confirmation requires TRELLIS_MCP_CONFIRMATION_KEY to be set.',
     )
   }
 

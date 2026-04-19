@@ -45,13 +45,13 @@ function createEvent(signature = 'project-board-demo') {
 describe('example 04 webhook handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.PROJECT_BOARD_WEBHOOK_ACTOR_ID = 'user_owner'
   })
 
-  it('accepts trusted caller webhook bodies without workspaceId and forwards only userId', async () => {
+  it('accepts trusted caller webhook bodies and uses the server-owned actor identity', async () => {
     readBodyMock.mockResolvedValue({
       projectId: 'project_123',
       title: 'Webhook task',
-      createdBy: 'user_admin',
     })
     serverConvexMutationMock.mockResolvedValue('task_123')
 
@@ -76,21 +76,33 @@ describe('example 04 webhook handler', () => {
       {
         auth: 'trusted',
         actor: {
-          userId: 'user_admin',
+          userId: 'user_owner',
         },
       },
     )
   })
 
-  it('rejects webhook bodies that omit createdBy even without workspaceId checks', async () => {
+  it('rejects webhook bodies that omit the required task fields', async () => {
+    readBodyMock.mockResolvedValue({
+      projectId: 'project_123',
+    })
+
+    await expect(handler(createEvent() as never)).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'projectId and title are required.',
+    })
+  })
+
+  it('fails closed when the webhook actor identity is not configured', async () => {
+    delete process.env.PROJECT_BOARD_WEBHOOK_ACTOR_ID
     readBodyMock.mockResolvedValue({
       projectId: 'project_123',
       title: 'Webhook task',
     })
 
     await expect(handler(createEvent() as never)).rejects.toMatchObject({
-      statusCode: 400,
-      message: 'projectId, title, and createdBy are required.',
+      statusCode: 500,
+      message: 'PROJECT_BOARD_WEBHOOK_ACTOR_ID is required for the webhook example.',
     })
   })
 })

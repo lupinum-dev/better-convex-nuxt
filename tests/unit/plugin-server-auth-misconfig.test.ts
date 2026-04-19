@@ -100,7 +100,7 @@ describe('plugin.server token exchange failure policy', () => {
     useRequestEventMock.mockReturnValue({
       path: '/dashboard',
       method: 'GET',
-      node: { req: { url: '/dashboard' } },
+      node: { req: { url: '/dashboard' }, res: { setHeader: vi.fn(), getHeader: vi.fn() } },
       headers: new Headers({
         cookie: 'better-auth.session_token=abc',
       }),
@@ -202,9 +202,12 @@ describe('plugin.server token exchange failure policy', () => {
       path: '/dashboard',
       method: 'GET',
       context: { clientAddress: '198.51.100.7' },
-      node: { req: { url: '/dashboard', socket: { remoteAddress: '127.0.0.1' } } },
+      node: {
+        req: { url: '/dashboard', socket: { remoteAddress: '127.0.0.1' } },
+        res: { setHeader: vi.fn(), getHeader: vi.fn() },
+      },
       headers: new Headers({
-        cookie: 'better-auth.session_token=abc',
+        cookie: 'theme=dark; better-auth.session_token=abc',
         'x-forwarded-for': '203.0.113.9',
       }),
     })
@@ -224,10 +227,43 @@ describe('plugin.server token exchange failure policy', () => {
       'https://demo.convex.site/api/auth/convex/token',
       expect.objectContaining({
         headers: expect.objectContaining({
+          Cookie: 'better-auth.session_token=abc',
+          'x-forwarded-host': 'demo.convex.site',
+          'x-forwarded-proto': 'https',
           'x-forwarded-for': '198.51.100.7',
         }),
       }),
     )
+  })
+
+  it('marks authenticated SSR responses as private and uncacheable', async () => {
+    const setHeader = vi.fn()
+    const getHeader = vi.fn()
+    useRequestEventMock.mockReturnValue({
+      path: '/dashboard',
+      method: 'GET',
+      node: {
+        req: { url: '/dashboard' },
+        res: { setHeader, getHeader },
+      },
+      headers: new Headers({
+        cookie: 'better-auth.session_token=abc',
+      }),
+    })
+    decodeUserFromJwtMock.mockReturnValue({ id: 'u1', email: 'u1@example.com' })
+    fetchWithTimeoutMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/api/auth/convex/token')) {
+        return createResponse(200, { token: 'valid.jwt.token' })
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+      nuxtApp: unknown,
+    ) => Promise<void>
+    await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
+
+    expect(setHeader).toHaveBeenCalledWith('Cache-Control', 'private, no-store')
   })
 
   it('fails closed during SSR when a token exchanges successfully but cannot be decoded', async () => {

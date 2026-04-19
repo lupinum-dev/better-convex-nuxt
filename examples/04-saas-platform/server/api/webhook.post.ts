@@ -13,7 +13,18 @@ type WebhookBody = {
   projectId?: string
   title?: string
   priority?: 'low' | 'medium' | 'high'
-  createdBy?: string
+}
+
+function getWebhookActorUserId(): string {
+  const actorUserId = process.env.PROJECT_BOARD_WEBHOOK_ACTOR_ID?.trim()
+  if (!actorUserId) {
+    throw createError({
+      statusCode: 500,
+      message: 'PROJECT_BOARD_WEBHOOK_ACTOR_ID is required for the webhook example.',
+    })
+  }
+
+  return actorUserId
 }
 
 export default defineEventHandler(async (event) => {
@@ -23,12 +34,14 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<WebhookBody>(event)
-  if (!body.projectId || !body.title || !body.createdBy) {
+  if (!body.projectId || !body.title) {
     throw createError({
       statusCode: 400,
-      message: 'projectId, title, and createdBy are required.',
+      message: 'projectId and title are required.',
     })
   }
+
+  const actorUserId = getWebhookActorUserId()
 
   const taskId = await serverConvexMutation(
     event,
@@ -41,7 +54,7 @@ export default defineEventHandler(async (event) => {
     {
       auth: 'trusted',
       actor: {
-        userId: body.createdBy,
+        userId: actorUserId,
       },
     },
   )

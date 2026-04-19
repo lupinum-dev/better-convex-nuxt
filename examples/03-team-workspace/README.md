@@ -51,7 +51,8 @@ It shows:
 3. `pnpm dev`
 
 The launcher starts a local Convex deployment, waits for `_generated`, and then starts Nuxt. Keep
-`CONVEX_TRUSTED_CALLER_KEY`, `SITE_URL`, and `BETTER_AUTH_SECRET` in `.env.local`; local Convex URLs are injected.
+`CONVEX_TRUSTED_CALLER_KEY`, `TRELLIS_MCP_CONFIRMATION_KEY`, `SITE_URL`, and `BETTER_AUTH_SECRET`
+in `.env.local`; local Convex URLs are injected.
 
 ## MCP Demo Auth
 

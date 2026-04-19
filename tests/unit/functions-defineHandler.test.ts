@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { authRequired, defineGuard, open } from '../../src/runtime/auth'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
@@ -110,6 +110,38 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBeNull()
   })
 
+  it('does not resolve actor eagerly for open handlers that never touch actor()', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
+    const actor = vi.fn(async () => {
+      throw new Error('actor should stay lazy')
+    })
+
+    const query = handlers.query({
+      args: {},
+      guard: open,
+      handler: async (ctx) => ({ principal: await ctx.principal(), marker: ctx.marker }),
+    }) as BuiltHandler
+
+    await expect(
+      query.handler(
+        {
+          principal: async () => ({ kind: 'anonymous' }),
+          actor,
+          marker: 'public',
+        },
+        {},
+      ),
+    ).resolves.toEqual({
+      principal: { kind: 'anonymous' },
+      marker: 'public',
+    })
+
+    expect(actor).not.toHaveBeenCalled()
+  })
+
   it('supports separate load and authorize phases', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
       createBuilder(),
@@ -190,6 +222,35 @@ describe('buildStructuredFunctions', () => {
         {},
       ),
     ).rejects.toThrow(/Forbidden: authRequired/)
+  })
+
+  it('rejects anonymous authRequired handlers before actor resolution runs', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
+    const actor = vi.fn(async () => {
+      throw new Error('actor should not resolve for anonymous authRequired guard')
+    })
+
+    const query = handlers.query({
+      args: {},
+      guard: authRequired,
+      handler: async () => 'never',
+    }) as BuiltHandler
+
+    await expect(
+      query.handler(
+        {
+          principal: async () => ({ kind: 'anonymous' }),
+          actor,
+          marker: 'anon',
+        },
+        {},
+      ),
+    ).rejects.toThrow(/Forbidden: authRequired/)
+
+    expect(actor).not.toHaveBeenCalled()
   })
 
   it('supports authRequired handlers with load and authorize while actor stays nullable', async () => {

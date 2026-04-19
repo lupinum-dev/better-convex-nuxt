@@ -10,7 +10,7 @@ describe('auth proxy header helpers', () => {
     const event = {
       headers: new Headers({
         host: 'app.example.com',
-        cookie: 'a=1',
+        cookie: 'a=1; better-auth.session_token=abc; theme=dark; __Secure-better-auth.session_token=secure',
         origin: 'https://app.example.com',
         accept: 'application/json',
         connection: 'keep-alive',
@@ -19,11 +19,12 @@ describe('auth proxy header helpers', () => {
     } as never
 
     const headers = buildAuthProxyForwardHeaders(event, {
-      requestUrl: new URL('https://app.example.com/api/auth/convex/token'),
-      originalHost: 'app.example.com',
+      canonicalOrigin: new URL('https://canonical.example.com'),
     })
 
-    expect(headers.cookie).toBe('a=1')
+    expect(headers.cookie).toBe(
+      'better-auth.session_token=abc; __Secure-better-auth.session_token=secure',
+    )
     expect(headers.accept).toBe('application/json')
     expect(headers.origin).toBe('https://app.example.com')
     expect(headers.connection).toBeUndefined()
@@ -37,11 +38,10 @@ describe('auth proxy header helpers', () => {
       node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
     } as never
     const headers = buildAuthProxyForwardHeaders(event, {
-      requestUrl: new URL('https://preview.example.com/api/auth/get-session?x=1'),
-      originalHost: 'app.example.com:3000',
+      canonicalOrigin: new URL('https://canonical.example.com'),
     })
 
-    expect(headers['x-forwarded-host']).toBe('app.example.com:3000')
+    expect(headers['x-forwarded-host']).toBe('canonical.example.com')
     expect(headers['x-forwarded-proto']).toBe('https')
     expect(headers['x-forwarded-for']).toBe('127.0.0.1')
   })
@@ -55,8 +55,7 @@ describe('auth proxy header helpers', () => {
       node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
     } as never
     const headers = buildAuthProxyForwardHeaders(event, {
-      requestUrl: new URL('https://preview.example.com/api/auth/get-session?x=1'),
-      originalHost: 'app.example.com:3000',
+      canonicalOrigin: new URL('https://canonical.example.com'),
     })
 
     expect(headers['x-forwarded-for']).toBe('198.51.100.24')
@@ -69,8 +68,7 @@ describe('auth proxy header helpers', () => {
       }),
     } as never
     const headers = buildAuthProxyForwardHeaders(event, {
-      requestUrl: new URL('https://preview.example.com/api/auth/get-session?x=1'),
-      originalHost: 'app.example.com:3000',
+      canonicalOrigin: new URL('https://canonical.example.com'),
     })
 
     expect(headers['x-forwarded-for']).toBe('203.0.113.10')

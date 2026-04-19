@@ -7,7 +7,7 @@ import {
 
 describe('mcp confirmation token', () => {
   it('round-trips jti in the signed payload', async () => {
-    process.env.CONVEX_TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
+    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
 
     const token = await signConfirmationToken({
       v: 1,

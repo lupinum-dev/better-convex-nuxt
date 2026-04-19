@@ -113,7 +113,7 @@ Project management lives on its own page to highlight tenant scoping.
                   </p>
                 </template>
                 <p v-else class="text-sm text-muted">
-                  No workspace yet — create or join one below.
+                  No workspace yet — create one below.
                 </p>
               </div>
 

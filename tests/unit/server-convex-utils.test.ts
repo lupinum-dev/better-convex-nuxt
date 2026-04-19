@@ -457,6 +457,31 @@ describe('server Convex fetch helpers', () => {
     ).rejects.toThrow('requires `options.actor`')
   })
 
+  it('auth:trusted rejects forwarded principals whose userId does not match the actor', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'trusted-caller-key-123'
+
+    await expect(
+      serverConvexMutation(
+        createEvent(),
+        { _path: 'tasks:create' } as never,
+        {
+          title: 'From webhook',
+          principal: { kind: 'agent', userId: 'other-user' },
+        } as never,
+        {
+          auth: 'trusted',
+          actor: {
+            userId: 'user_admin',
+          },
+        },
+      ),
+    ).rejects.toThrow(/principal\.userId.*options\.actor\.userId/i)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('reuses one auth resolution across multiple serverConvex calls in the same request', async () => {
     const event = createEvent('better-auth.session_token=session123')
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

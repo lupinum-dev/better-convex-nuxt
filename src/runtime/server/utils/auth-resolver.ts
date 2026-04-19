@@ -5,7 +5,10 @@ import {
   buildMissingSiteUrlMessage,
   buildTokenExchangeFailureMessage,
 } from '../../utils/auth-errors.js'
-import { getBetterAuthSessionToken } from '../../utils/auth-token.js'
+import {
+  filterBetterAuthCookieHeader,
+  getBetterAuthSessionToken,
+} from '../../utils/auth-token.js'
 import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants.js'
 import { decodeUserFromJwt } from '../../utils/convex-shared.js'
 import type { NormalizedConvexRuntimeConfig } from '../../utils/runtime-config.js'
@@ -90,27 +93,18 @@ function resolveForwardedClientIp(event: H3Event): string | null {
 function buildServerTokenExchangeHeaders(
   event: H3Event,
   cookieHeader: string,
+  siteUrl: string,
 ): Record<string, string> {
-  const headers: Record<string, string> = { Cookie: cookieHeader }
-  const forwardedHost = getHeader(event, 'x-forwarded-host') ?? getHeader(event, 'host')
-  const explicitProto =
-    getHeader(event, 'x-forwarded-proto') ??
-    getHeader(event, 'x-forwarded-protocol') ??
-    getHeader(event, 'x-forwarded-scheme')
+  const betterAuthCookies = filterBetterAuthCookieHeader(cookieHeader)
+  const headers: Record<string, string> = {}
+  const canonicalOrigin = new URL(siteUrl)
   const forwardedFor = resolveForwardedClientIp(event)
 
-  if (forwardedHost) {
-    headers['x-forwarded-host'] = forwardedHost
+  if (betterAuthCookies) {
+    headers.Cookie = betterAuthCookies
   }
-  if (explicitProto) {
-    headers['x-forwarded-proto'] = explicitProto
-  } else if (forwardedHost) {
-    // Infer protocol from socket only when a proxy chain is present (forwarded host exists)
-    const encrypted =
-      (event as { node?: { req?: { socket?: { encrypted?: boolean } } } }).node?.req?.socket
-        ?.encrypted ?? false
-    headers['x-forwarded-proto'] = encrypted ? 'https' : 'http'
-  }
+  headers['x-forwarded-host'] = canonicalOrigin.host
+  headers['x-forwarded-proto'] = canonicalOrigin.protocol.replace(':', '')
   if (forwardedFor) {
     headers['x-forwarded-for'] = forwardedFor
   }
@@ -274,7 +268,7 @@ async function resolveRequestAuthUncached(
 
     try {
       const response = await fetchWithTimeout(`${config.siteUrl}/api/auth/convex/token`, {
-        headers: buildServerTokenExchangeHeaders(event, cookieHeader),
+        headers: buildServerTokenExchangeHeaders(event, cookieHeader, config.siteUrl),
         timeoutMs: SERVER_FETCH_TIMEOUT_MS,
       })
       tokenExchangeStatus = response.status

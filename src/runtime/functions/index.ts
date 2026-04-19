@@ -225,6 +225,7 @@ export interface DefineTrellisOptions<
   tenantIsolation?: TenantIsolationOptions<DataModel>
   services?: ServiceAccessDefinition<DataModel, TPrincipal>
   observability?: TrellisObservabilityOptions
+  trustedCallerKey?: string
   destructiveSafety?: {
     redemptionTable: TableNamesInDataModel<DataModel>
     auditTable: TableNamesInDataModel<DataModel>
@@ -780,7 +781,7 @@ function createContextWithRuntime<
   const appArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
   const ctxWithTrustedCaller = { ...ctx } as TCtx & Record<PropertyKey, unknown>
-  setTrustedCallerContext(ctxWithTrustedCaller, appArgs)
+  setTrustedCallerContext(ctxWithTrustedCaller, appArgs, options.trustedCallerKey)
   const observeRuntime = createObservationEmitter(options.observability, {
     transport: 'convex',
     ...toObservationContext(observationEnvelope),

@@ -206,8 +206,8 @@ describe('server auth helpers', () => {
       if (String(input).endsWith('/api/auth/convex/token')) {
         const headers = init?.headers as Record<string, string>
         expect(headers.Cookie).toBe('better-auth.session_token=session-123')
-        expect(headers['x-forwarded-host']).toBe('127.0.0.1:4122')
-        expect(headers['x-forwarded-proto']).toBe('http')
+        expect(headers['x-forwarded-host']).toBe('demo.convex.site')
+        expect(headers['x-forwarded-proto']).toBe('https')
         expect(headers['x-forwarded-for']).toBe('127.0.0.1')
         return new Response(JSON.stringify({ token: 'forwarded.jwt.token' }), {
           headers: { 'content-type': 'application/json' },
@@ -218,12 +218,37 @@ describe('server auth helpers', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const event = createEvent('better-auth.session_token=session-123')
-    const config = mockConvexConfig()
+    const config = mockConvexConfig({ siteUrl: 'https://demo.convex.site' })
 
     const resolved = await resolveRequestAuth(event, config)
 
     expect(resolved.token).toBe('forwarded.jwt.token')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('only forwards Better Auth cookies during SSR token exchange', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/api/auth/convex/token')) {
+        const headers = init?.headers as Record<string, string>
+        expect(headers.Cookie).toBe(
+          'better-auth.session_token=session-123; __Secure-better-auth.session_token=secure-456',
+        )
+        return new Response(JSON.stringify({ token: 'filtered.jwt.token' }), {
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      throw new Error(`Unexpected fetch target: ${String(input)}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const event = createEvent(
+      'theme=dark; better-auth.session_token=session-123; __Secure-better-auth.session_token=secure-456',
+    )
+    const config = mockConvexConfig()
+
+    const resolved = await resolveRequestAuth(event, config)
+
+    expect(resolved.token).toBe('filtered.jwt.token')
   })
 
   it('treats cache as disabled at the resolver level when auth.cache.enabled is false', async () => {

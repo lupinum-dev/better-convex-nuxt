@@ -1,6 +1,7 @@
 import type { McpToolDefinition } from '@nuxtjs/mcp-toolkit/server'
 import { v, type PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
+import { useStorage } from 'nitropack/runtime'
 import { hash } from 'ohash'
 import type { ZodRawShape } from 'zod'
 
@@ -271,6 +272,29 @@ function normalizePreviewDisplay(raw: string | PreviewResult): PreviewResult {
 
 function isOperationPreviewPayload(value: unknown): value is OperationPreviewPayload {
   return typeof value === 'object' && value !== null && 'display' in value && 'confirm' in value
+}
+
+function getConfirmationRedemptionKey(operationId: string, jti: string): string {
+  return `${operationId}:${jti}`
+}
+
+async function hasRedeemedConfirmation(operationId: string, jti: string): Promise<boolean> {
+  return await useStorage('trellis:mcp:confirmations').hasItem(
+    getConfirmationRedemptionKey(operationId, jti),
+  )
+}
+
+async function redeemConfirmationToken(
+  payload: { operationId: string; jti: string; principalKey: string; tenantKey: string },
+): Promise<void> {
+  await useStorage('trellis:mcp:confirmations').setItem(
+    getConfirmationRedemptionKey(payload.operationId, payload.jti),
+    {
+      redeemedAt: Date.now(),
+      principalKey: payload.principalKey,
+      tenantKey: payload.tenantKey,
+    },
+  )
 }
 
 function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
@@ -942,6 +966,84 @@ export function defineMcpApp<
               explanation,
             )
           }
+
+          if (await hasRedeemedConfirmation(payload.operationId, payload.jti)) {
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.confirmation_mismatch',
+              decision: 'destructive_confirm',
+              message: 'Confirmation token has already been redeemed.',
+              suggestedAction: 'retry_with_confirmation',
+            })
+            return ctx.error(
+              'conflict',
+              'Confirmation token has already been redeemed. Preview again before executing.',
+              undefined,
+              explanation,
+            )
+          }
+
+          const previewResult = await callByOperation(
+            projectionCtx.convex,
+            options.previewOperation ?? 'query',
+            options.preview,
+            Object.assign({}, executeArgs as Record<string, unknown>, {
+              principal: projectionCtx.principal,
+            }) as FunctionLikeArgs<Exclude<TPreview, undefined>>,
+          )
+
+          if (!isOperationPreviewPayload(previewResult)) {
+            throw new Error(
+              `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm }.`,
+            )
+          }
+
+          const display = normalizePreviewDisplay(previewResult.display)
+          if (display.blocked) {
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.confirmation_mismatch',
+              decision: 'destructive_confirm',
+              message: 'Previewed state is now blocked and can no longer be executed.',
+              suggestedAction: 'retry_with_confirmation',
+            })
+            return ctx.error(
+              'conflict',
+              'Previewed state is blocked and can no longer be executed. Preview again before executing.',
+              undefined,
+              explanation,
+            )
+          }
+
+          if (payload.previewHash !== hash(previewResult.confirm)) {
+            await projectionCtx.observe({
+              name: 'operation.confirm.drifted',
+              status: 'deny',
+              transport: 'mcp',
+              operation: metadata.id,
+              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+              reasonCode: 'tool.confirmation_mismatch',
+              details: {
+                explanation: createDenialExplanation({
+                  reasonCode: 'tool.confirmation_mismatch',
+                  decision: 'destructive_confirm',
+                  message: 'Previewed state changed before confirmation completed.',
+                  suggestedAction: 'retry_with_confirmation',
+                }),
+              },
+            })
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.confirmation_mismatch',
+              decision: 'destructive_confirm',
+              message: 'Previewed state changed before confirmation completed.',
+              suggestedAction: 'retry_with_confirmation',
+            })
+            return ctx.error(
+              'conflict',
+              'Previewed state changed before confirmation. Preview again before executing.',
+              undefined,
+              explanation,
+            )
+          }
+
           await projectionCtx.observe({
             name: 'operation.confirm.validated',
             status: 'success',
@@ -949,6 +1051,7 @@ export function defineMcpApp<
             operation: metadata.id,
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
           })
+          await redeemConfirmationToken(payload)
         }
 
         try {

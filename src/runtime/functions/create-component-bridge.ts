@@ -137,8 +137,6 @@ type BridgeBatchResult<
           : never
 }
 
-const COMPONENT_BRIDGE_TRUSTED_CALLER_KEY = '__trellis_component_bridge__'
-
 function resolveBridgeTrustedCallerUserId(principal: unknown): string {
   if (typeof principal !== 'object' || principal === null) {
     return 'component-bridge'
@@ -148,15 +146,24 @@ function resolveBridgeTrustedCallerUserId(principal: unknown): string {
   return typeof maybeUserId === 'string' && maybeUserId.trim() ? maybeUserId : 'component-bridge'
 }
 
-function createBridgeTrustedCallerFields(principal: unknown) {
-  const expectedKey =
-    process.env.CONVEX_TRUSTED_CALLER_KEY?.trim() || COMPONENT_BRIDGE_TRUSTED_CALLER_KEY
+function getRequiredBridgeTrustedCallerKey(): string {
+  const trustedCallerKey = process.env.CONVEX_TRUSTED_CALLER_KEY?.trim()
+  if (!trustedCallerKey) {
+    throw new Error(
+      'createComponentBridge() requires CONVEX_TRUSTED_CALLER_KEY to be set.',
+    )
+  }
+
+  return trustedCallerKey
+}
+
+function createBridgeTrustedCallerFields(principal: unknown, trustedCallerKey: string) {
+  const userId = resolveBridgeTrustedCallerUserId(principal)
 
   return {
-    _trustedCallerKey: expectedKey,
-    _trustedCallerExpectedKey: expectedKey,
+    _trustedCallerKey: trustedCallerKey,
     _trustedCaller: {
-      userId: resolveBridgeTrustedCallerUserId(principal),
+      userId,
     },
   }
 }
@@ -188,14 +195,15 @@ function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipa
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
+            const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
             const forwardedPrincipal = (args as Record<string, unknown>).principal
             const ctxWithTrustedCaller = { ...ctx }
             const argsWithTrustedCaller = {
               ...args,
-              ...createBridgeTrustedCallerFields(forwardedPrincipal),
+              ...createBridgeTrustedCallerFields(forwardedPrincipal, trustedCallerKey),
             }
 
-            setTrustedCallerContext(ctxWithTrustedCaller, argsWithTrustedCaller)
+            setTrustedCallerContext(ctxWithTrustedCaller, argsWithTrustedCaller, trustedCallerKey)
             principalPromise = Promise.resolve(
               principalDefinition.resolve(ctxWithTrustedCaller, argsWithTrustedCaller),
             ).finally(() => {
@@ -221,14 +229,15 @@ function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipa
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
+            const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
             const forwardedPrincipal = (args as Record<string, unknown>).principal
             const ctxWithTrustedCaller = { ...ctx }
             const argsWithTrustedCaller = {
               ...args,
-              ...createBridgeTrustedCallerFields(forwardedPrincipal),
+              ...createBridgeTrustedCallerFields(forwardedPrincipal, trustedCallerKey),
             }
 
-            setTrustedCallerContext(ctxWithTrustedCaller, argsWithTrustedCaller)
+            setTrustedCallerContext(ctxWithTrustedCaller, argsWithTrustedCaller, trustedCallerKey)
             principalPromise = Promise.resolve(
               principalDefinition.resolve(ctxWithTrustedCaller, argsWithTrustedCaller),
             ).finally(() => {
@@ -295,9 +304,10 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
+        const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
         return await ctx.runQuery(definition.component, {
           ...args,
-          ...createBridgeTrustedCallerFields(principal),
+          ...createBridgeTrustedCallerFields(principal, trustedCallerKey),
           principal,
         } as never)
       },
@@ -309,9 +319,10 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
+        const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
         return await ctx.runMutation(definition.component, {
           ...args,
-          ...createBridgeTrustedCallerFields(principal),
+          ...createBridgeTrustedCallerFields(principal, trustedCallerKey),
           principal,
         } as never)
       },
@@ -323,9 +334,10 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
+        const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
         return await ctx.runQuery(definition.component, {
           ...args,
-          ...createBridgeTrustedCallerFields(principal),
+          ...createBridgeTrustedCallerFields(principal, trustedCallerKey),
           principal,
         } as never)
       },
@@ -337,9 +349,10 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
+        const trustedCallerKey = getRequiredBridgeTrustedCallerKey()
         return await ctx.runMutation(definition.component, {
           ...args,
-          ...createBridgeTrustedCallerFields(principal),
+          ...createBridgeTrustedCallerFields(principal, trustedCallerKey),
           principal,
         } as never)
       },

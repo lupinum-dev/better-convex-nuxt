@@ -1,5 +1,7 @@
 import type { H3Event } from 'h3'
 
+import { filterBetterAuthCookieHeader } from '../../../utils/auth-token.js'
+
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'keep-alive',
@@ -24,8 +26,7 @@ function stripHopByHopHeaders(headers: Headers): Headers {
 }
 
 export interface AuthProxyForwardHeadersOptions {
-  requestUrl: URL
-  originalHost?: string | null
+  canonicalOrigin: URL
 }
 
 function resolveForwardedClientIp(event: H3Event): string | null {
@@ -48,14 +49,17 @@ export function buildAuthProxyForwardHeaders(
   options: AuthProxyForwardHeadersOptions,
 ): Record<string, string> {
   const headers = stripHopByHopHeaders(event.headers)
-  // Intentionally preserve cookies. Better Auth routes may depend on multiple cookies
-  // beyond the session token, and this proxy handles generic auth endpoints.
-  const originalHost = options.originalHost || options.requestUrl.host
-  const originalProto = options.requestUrl.protocol.replace(':', '')
+  const betterAuthCookies = filterBetterAuthCookieHeader(event.headers.get('cookie') ?? '')
   const clientIp = resolveForwardedClientIp(event)
 
-  headers.set('x-forwarded-host', originalHost)
-  headers.set('x-forwarded-proto', originalProto)
+  if (betterAuthCookies) {
+    headers.set('cookie', betterAuthCookies)
+  } else {
+    headers.delete('cookie')
+  }
+
+  headers.set('x-forwarded-host', options.canonicalOrigin.host)
+  headers.set('x-forwarded-proto', options.canonicalOrigin.protocol.replace(':', ''))
   headers.delete('x-forwarded-for')
   if (clientIp) {
     headers.set('x-forwarded-for', clientIp)

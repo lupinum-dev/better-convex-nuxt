@@ -114,9 +114,9 @@ version or a packed local tarball before installing.
 | ----------------------- | ------------------------------- | ------------------------------------------------------------------------------- |
 | `01-public-todo`        | `CONVEX_URL`, `CONVEX_SITE_URL` | none                                                                            |
 | `02-auth-todo`          | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                                                |
-| `03-team-workspace`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`                   |
-| `04-saas-platform`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`                   |
+| `03-team-workspace`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `TRELLIS_MCP_CONFIRMATION_KEY` |
+| `04-saas-platform`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `PROJECT_BOARD_WEBHOOK_ACTOR_ID` |
 | `05-visibility-access`  | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                                                |
 | `06-multi-workspace`    | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                                                |
-| `07-mcp-reference`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`                   |
-| `08-component-mini-cms` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `DEMO_MCP_TOKEN` |
+| `07-mcp-reference`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `TRELLIS_MCP_CONFIRMATION_KEY` |
+| `08-component-mini-cms` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `TRELLIS_MCP_CONFIRMATION_KEY`, `DEMO_MCP_TOKEN` |
