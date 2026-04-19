@@ -4,16 +4,16 @@ import type { RouteLocationRaw } from 'vue-router'
 
 import { useNuxtApp, useRouter } from '#imports'
 
+import { useConvexAuth } from '../auth/composables/useConvexAuth.js'
 import type { PermissionContextBase } from '../auth/define-permission-context.js'
 import type {
   PermissionHandle,
   RegisteredProjectedPermissionKey,
 } from '../auth/define-permission.js'
 import { resolvePermissionKey } from '../auth/define-permission.js'
-import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
 import { hasConvexAuthRuntime } from '../auth/internal/auth-runtime.js'
-import { createConvexQueryState } from './internal/query-runtime.js'
-import { useConvexAuth } from './useConvexAuth.js'
+import { createConvexQueryState } from '../convex/query/query-runtime.js'
+import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
 
 export type AuthContext = PermissionContextBase<Record<string, boolean>> & {
   plan?: string | null

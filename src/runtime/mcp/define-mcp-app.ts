@@ -9,8 +9,6 @@ import {
   type PermissionHandle,
   type RegisteredPermissionKey,
 } from '../auth/define-permission.js'
-import type { Delegation } from '../functions/define-delegation.js'
-import { getOperationMetadata, type OperationKind } from '../functions/define-operation.js'
 import {
   getFunctionName,
   type AnyActionFunction,
@@ -18,8 +16,10 @@ import {
   type AnyQueryFunction,
   type FunctionLikeArgs,
   type FunctionLikeReturnType,
-} from '../utils/convex-shared.js'
-import { defineArgs } from '../utils/define-convex-schema.js'
+} from '../convex/shared/convex-shared.js'
+import { defineArgs } from '../convex/shared/define-convex-schema.js'
+import type { Delegation } from '../functions/define-delegation.js'
+import { getOperationMetadata, type OperationKind } from '../functions/define-operation.js'
 import {
   createDenialExplanation,
   createObservationEmitter,

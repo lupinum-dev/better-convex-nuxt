@@ -4,13 +4,13 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const publicComposableFiles = [
-  'src/runtime/composables/useConvexAction.ts',
+  'src/runtime/convex/composables/useConvexAction.ts',
   'src/runtime/auth/composables/useConvexAuth.ts',
-  'src/runtime/composables/useConvexConnectionState.ts',
-  'src/runtime/composables/useConvexMutation.ts',
-  'src/runtime/composables/useConvexPaginatedQuery.ts',
-  'src/runtime/composables/useConvexQuery.ts',
-  'src/runtime/composables/useConvexUpload.ts',
+  'src/runtime/convex/composables/useConvexConnectionState.ts',
+  'src/runtime/convex/composables/useConvexMutation.ts',
+  'src/runtime/convex/composables/useConvexPaginatedQuery.ts',
+  'src/runtime/convex/composables/useConvexQuery.ts',
+  'src/runtime/convex/composables/useConvexUpload.ts',
 ] as const
 
 const bannedImports = [
@@ -20,10 +20,12 @@ const bannedImports = [
   '../../utils/logger',
   '../utils/convex-cache',
   '../../utils/convex-cache',
+  '../shared/convex-cache',
+  '../../shared/convex-cache',
   '../auth/shared/auth-unauthorized',
   '../../auth/shared/auth-unauthorized',
-  './internal/live-query-resource',
-  './internal/convex-call-state',
+  '../query/live-query-resource',
+  '../shared/convex-call-state',
 ] as const
 
 describe('public composable facade boundaries', () => {

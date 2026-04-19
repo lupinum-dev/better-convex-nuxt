@@ -146,7 +146,7 @@ describe('plugin.client bootstrap', () => {
   })
 
   it('provides the devtools store during plugin setup without waiting for a later microtask', async () => {
-    const { setupClientDevtools } = await import('../../src/runtime/plugin.client')
+    const { setupClientDevtools } = await import('../../src/runtime/plugin.client.ts')
     const nuxtApp = createNuxtAppMock({ serverRendered: false })
     const client = new MockConvexClient()
 
@@ -168,7 +168,7 @@ describe('plugin.client bootstrap', () => {
   })
 
   it('captures observation events into the devtools store during setup', async () => {
-    const { setupClientDevtools } = await import('../../src/runtime/plugin.client')
+    const { setupClientDevtools } = await import('../../src/runtime/plugin.client.ts')
     const nuxtApp = createNuxtAppMock({ serverRendered: false })
     const client = new MockConvexClient()
     const store = setupClientDevtools(

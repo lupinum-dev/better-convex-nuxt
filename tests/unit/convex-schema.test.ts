@@ -2,7 +2,7 @@ import type { GenericValidator } from 'convex/values'
 import { v } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { validateConvex, toConvexSchema } from '../../src/runtime/utils/convex-schema'
+import { validateConvex, toConvexSchema } from '../../src/runtime/convex/shared/convex-schema'
 
 describe('validateConvex', () => {
   // -----------------------------------------------------------------------

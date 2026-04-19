@@ -1,17 +1,17 @@
 import type { H3Event } from 'h3'
 
+import { fetchWithTimeout } from '../../convex/server/http.js'
+import { decodeUserFromJwt } from '../../convex/shared/convex-shared.js'
+import type { NormalizedConvexRuntimeConfig } from '../../convex/shared/runtime-config.js'
+import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants.js'
+import type { ConvexUser, ConvexServerAuthMode } from '../../utils/types.js'
 import type { AuthWaterfallPhase } from '../shared/auth-debug.js'
 import {
   buildMissingSiteUrlMessage,
   buildTokenExchangeFailureMessage,
 } from '../shared/auth-errors.js'
 import { filterBetterAuthCookieHeader, getBetterAuthSessionToken } from '../shared/auth-token.js'
-import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants.js'
-import { decodeUserFromJwt } from '../../utils/convex-shared.js'
-import type { NormalizedConvexRuntimeConfig } from '../../utils/runtime-config.js'
-import type { ConvexUser, ConvexServerAuthMode } from '../../utils/types.js'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache.js'
-import { fetchWithTimeout } from '../../server/utils/http.js'
 
 interface AuthResolutionMemoContext {
   __betterConvexRequestAuthPromise?: Promise<ResolvedRequestAuth>

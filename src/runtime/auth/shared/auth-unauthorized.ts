@@ -1,9 +1,9 @@
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
+import { normalizeConvexRuntimeConfig } from '../../convex/shared/runtime-config.js'
+import { UNAUTHORIZED_REDIRECT_DEBOUNCE_MS } from '../../utils/constants.js'
 import { getSharedAuthEngine } from '../client/auth-engine.js'
 import { isConvexUnauthorizedError } from './auth-unauthorized-core.js'
-import { UNAUTHORIZED_REDIRECT_DEBOUNCE_MS } from '../../utils/constants.js'
-import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config.js'
 
 export type UnauthorizedErrorSource = 'mutation' | 'action' | 'query'
 

@@ -5,7 +5,7 @@ import {
   resolveQueryDefaultValue,
   shouldMarkQueryDataAsStale,
   shouldPersistLastSettledQuery,
-} from '../../src/runtime/composables/internal/query-state'
+} from '../../src/runtime/convex/query/query-state'
 
 describe('query-state', () => {
   it('creates stable skipped cache keys and prefers previous settled data over fallback defaults', () => {

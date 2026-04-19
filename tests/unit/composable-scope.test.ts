@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { assertConvexComposableScope } from '../../src/runtime/utils/composable-scope'
+import { assertConvexComposableScope } from '../../src/runtime/convex/shared/composable-scope'
 
 describe('assertConvexComposableScope', () => {
   it('throws for useConvexQuery when on client without scope', () => {

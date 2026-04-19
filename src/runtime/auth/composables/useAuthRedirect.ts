@@ -1,7 +1,7 @@
 import { useRoute, useRuntimeConfig, navigateTo } from '#imports'
 
-import { normalizeConvexAuthConfig } from '../shared/auth-config.js'
 import { validateRedirectPath, resolveRedirectTarget } from '../../utils/redirect-safety.js'
+import { normalizeConvexAuthConfig } from '../shared/auth-config.js'
 
 // Keep the pure redirect helpers colocated with the internal auth redirect composable.
 export { validateRedirectPath, resolveRedirectTarget }

@@ -8,7 +8,7 @@ import {
   resolveRuntimePaginationError,
   shouldPersistSettledPaginatedResults,
   updateRuntimePaginationPage,
-} from '../../src/runtime/composables/internal/pagination-page-state'
+} from '../../src/runtime/convex/pagination/pagination-page-state'
 
 describe('pagination-page-state', () => {
   it('creates stable skipped cache keys and watch-source identifiers', () => {

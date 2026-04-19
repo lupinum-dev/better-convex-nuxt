@@ -1,12 +1,12 @@
-import {
-  getOperationMetadata,
-  getOperationProjectionMetadata,
-} from '../functions/operation-metadata.js'
 import type {
   AnyActionFunction,
   AnyMutationFunction,
   AnyQueryFunction,
-} from '../utils/convex-shared.js'
+} from '../convex/shared/convex-shared.js'
+import {
+  getOperationMetadata,
+  getOperationProjectionMetadata,
+} from '../functions/operation-metadata.js'
 
 type AnyQueryRef = AnyQueryFunction
 type AnyMutationRef = AnyMutationFunction

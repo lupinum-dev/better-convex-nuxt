@@ -2,15 +2,15 @@ import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
-import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
-import { defineArgs } from '../../src/runtime/schema'
-import { createServerConvexCaller } from '../../src/runtime/server'
 import {
   serverConvexAction,
   serverConvexMutation,
   serverConvexQuery,
-} from '../../src/runtime/server/utils/convex'
+} from '../../src/runtime/convex/server/convex'
+import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
+import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
+import { defineArgs } from '../../src/runtime/schema'
+import { createServerConvexCaller } from '../../src/runtime/server'
 
 const { useEventMock } = vi.hoisted(() => ({
   useEventMock: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('nitropack/runtime', () => ({
   useEvent: useEventMock,
 }))
 
-vi.mock('../../src/runtime/server/utils/convex', () => ({
+vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: vi.fn(),
   serverConvexMutation: vi.fn(),
   serverConvexAction: vi.fn(),

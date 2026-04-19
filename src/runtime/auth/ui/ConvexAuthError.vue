@@ -32,9 +32,9 @@
  */
 import { computed, ref } from 'vue'
 
-import { useConvexAuthController } from '../internal/useConvexAuthController.js'
-import { useConvexAuth } from '../composables/useConvexAuth.js'
 import type { ConvexErrorCategory } from '../../utils/types.js'
+import { useConvexAuth } from '../composables/useConvexAuth.js'
+import { useConvexAuthController } from '../internal/useConvexAuthController.js'
 
 interface StructuredAuthError {
   message: string

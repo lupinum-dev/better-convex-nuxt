@@ -4,8 +4,11 @@ import {
   resolveRequestAuth,
   resolveRequestAuthToken,
 } from '../../src/runtime/auth/server/auth-resolver'
-import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/server/utils/convex'
-import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
+import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/convex/server/convex'
+import {
+  decodeUserFromJwt,
+  getJwtTimeUntilExpiryMs,
+} from '../../src/runtime/convex/shared/convex-shared'
 import {
   createEvent,
   installServerAuthStorageMock,

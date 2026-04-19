@@ -5,7 +5,7 @@ import {
   serverConvexAction,
   serverConvexMutation,
   serverConvexQuery,
-} from '../../src/runtime/server/utils/convex'
+} from '../../src/runtime/convex/server/convex'
 import { createObservationCapture } from '../../src/runtime/testing'
 
 const { useRuntimeConfigMock } = vi.hoisted(() => ({

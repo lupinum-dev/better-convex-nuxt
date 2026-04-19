@@ -1,3 +1,4 @@
+import type { ConvexUser } from '../../utils/types.js'
 /**
  * Projects server-resolved auth into a hydration-safe snapshot.
  *
@@ -11,7 +12,6 @@
  * @module auth-hydration
  */
 import { buildAuthTokenDecodeFailureMessage } from '../shared/auth-errors.js'
-import type { ConvexUser } from '../../utils/types.js'
 import type { ResolvedRequestAuth } from './auth-resolver.js'
 
 /**

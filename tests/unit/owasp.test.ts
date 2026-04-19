@@ -20,12 +20,12 @@ import {
   decodeJwtPayload,
   decodeUserFromJwt,
   getJwtTimeUntilExpiryMs,
-} from '../../src/runtime/utils/convex-shared'
+} from '../../src/runtime/convex/shared/convex-shared'
+import { normalizeConvexRuntimeConfig } from '../../src/runtime/convex/shared/runtime-config'
 import {
   resolveRedirectTarget,
   validateRedirectPath,
 } from '../../src/runtime/utils/redirect-safety'
-import { normalizeConvexRuntimeConfig } from '../../src/runtime/utils/runtime-config'
 
 function mintJwt(payload: Record<string, unknown>): string {
   const base64Url = (value: string) =>

@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 
-import { useUploadQueue } from '../../src/runtime/composables/internal/upload-runtime'
-import { requestUploadUrl, uploadFileViaXhr } from '../../src/runtime/utils/upload-core'
+import { requestUploadUrl, uploadFileViaXhr } from '../../src/runtime/convex/upload/upload-core'
+import { useUploadQueue } from '../../src/runtime/convex/upload/upload-runtime'
 import { createDeferred, type Deferred } from '../support/unit/deferred'
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: vi.fn(() => ({ public: { convex: {} } })),
 }))
 
-vi.mock('../../src/runtime/utils/runtime-config', () => ({
+vi.mock('../../src/runtime/convex/shared/runtime-config', () => ({
   getConvexRuntimeConfig: vi.fn(() => ({ upload: { maxConcurrent: 3 } })),
 }))
 
@@ -28,11 +28,11 @@ vi.mock('../../src/runtime/utils/runtime-observer', () => ({
   })),
 }))
 
-vi.mock('../../src/runtime/composables/useConvex', () => ({
+vi.mock('../../src/runtime/convex/composables/useConvex', () => ({
   useConvex: vi.fn(() => ({ mutation: vi.fn() })),
 }))
 
-vi.mock('../../src/runtime/utils/upload-core', () => ({
+vi.mock('../../src/runtime/convex/upload/upload-core', () => ({
   requestUploadUrl: vi.fn(),
   uploadFileViaXhr: vi.fn(),
 }))

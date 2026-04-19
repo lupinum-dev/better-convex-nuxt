@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { UploadProgressInfo } from '../../src/runtime/convex/upload/upload-core'
 import {
   applyUploadQueueProgress,
   cancelQueuedUploadItems,
@@ -13,8 +14,7 @@ import {
   settleUploadQueueItemError,
   settleUploadQueueItemSuccess,
   shouldResetUploadQueueHalt,
-} from '../../src/runtime/composables/internal/upload-queue-state'
-import type { UploadProgressInfo } from '../../src/runtime/utils/upload-core'
+} from '../../src/runtime/convex/upload/upload-queue-state'
 
 interface TestItem {
   id: string

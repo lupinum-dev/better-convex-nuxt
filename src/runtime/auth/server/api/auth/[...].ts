@@ -9,6 +9,8 @@ import {
   appendResponseHeader,
 } from 'h3'
 
+import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../../../convex/server/http.js'
+import { getConvexRuntimeConfig } from '../../../../convex/shared/runtime-config.js'
 import type { AuthProxyRequest } from '../../../../devtools/types.js'
 import {
   buildAuthProxyUnreachableMessage,
@@ -20,9 +22,7 @@ import {
   clearsBetterAuthSessionCookie,
   getBetterAuthSessionToken,
 } from '../../../shared/auth-token.js'
-import { getConvexRuntimeConfig } from '../../../../utils/runtime-config.js'
 import { serverConvexClearAuthCache } from '../../auth-cache.js'
-import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../../../server/utils/http.js'
 import {
   getRequestBodySizeError,
   getResponseBodySizeError,
@@ -73,7 +73,7 @@ function isMalformedAuthSubpath(path: string): boolean {
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
-  const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry.js')
+  const { recordAuthProxyRequest } = await import('../../../../devtools/auth-proxy-registry.js')
   await recordAuthProxyRequest(request)
 }
 

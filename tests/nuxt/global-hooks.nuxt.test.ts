@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useNuxtApp } from '#imports'
 
-import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
-import { useConvexConnectionState } from '../../src/runtime/composables/useConvexConnectionState'
-import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
+import { useConvexAction } from '../../src/runtime/convex/composables/useConvexAction'
+import { useConvexConnectionState } from '../../src/runtime/convex/composables/useConvexConnectionState'
+import { useConvexMutation } from '../../src/runtime/convex/composables/useConvexMutation'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'

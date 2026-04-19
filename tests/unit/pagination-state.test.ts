@@ -6,7 +6,7 @@ import {
   getNextPageInput,
   shouldPaginatedResultsBeStale,
   shouldUsePreviousPaginatedResults,
-} from '../../src/runtime/composables/internal/pagination-state'
+} from '../../src/runtime/convex/pagination/pagination-state'
 
 describe('pagination-state (unit)', () => {
   it('derives ready, loading-more, exhausted, and error states from page snapshots', () => {

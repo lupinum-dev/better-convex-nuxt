@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { decodeUserFromJwt } from '../../src/runtime/utils/convex-shared'
+import { decodeUserFromJwt } from '../../src/runtime/convex/shared/convex-shared'
 import {
   backingStore,
   createEvent,

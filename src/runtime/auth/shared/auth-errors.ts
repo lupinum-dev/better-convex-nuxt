@@ -1,3 +1,4 @@
+import { getSiteUrlResolutionHint } from '../../convex/shared/convex-config.js'
 /**
  * Structured error message builders for auth failures.
  *
@@ -13,7 +14,6 @@
  * @module auth-errors
  */
 import { ConvexCallError } from '../../utils/call-result.js'
-import { getSiteUrlResolutionHint } from '../../utils/convex-config.js'
 
 const PREFIX = 'NuxtConvexError'
 

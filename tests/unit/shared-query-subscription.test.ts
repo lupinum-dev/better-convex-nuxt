@@ -5,8 +5,8 @@ import {
   __recordSubscriptionUpdateForTests,
   clearSubscriptionLeakTracking,
   releaseTrackedSharedSubscription,
-} from '../../src/runtime/composables/internal/shared-query-subscription'
-import { registerSubscription } from '../../src/runtime/utils/convex-cache'
+} from '../../src/runtime/convex/query/shared-query-subscription'
+import { registerSubscription } from '../../src/runtime/convex/shared/convex-cache'
 
 vi.mock('#imports', () => ({
   useNuxtApp: vi.fn(),

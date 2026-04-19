@@ -5,7 +5,7 @@ import {
   createPaginationOperationContext,
   createPaginationResetState,
   createStablePaginatedSubscriptionKey,
-} from '../../src/runtime/composables/internal/pagination-runtime-state'
+} from '../../src/runtime/convex/pagination/pagination-runtime-state'
 
 describe('pagination-runtime-state', () => {
   it('creates stable subscription keys and paginated devtools metadata', () => {

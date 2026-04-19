@@ -4,15 +4,15 @@ import { collectConvexFunctionPaths } from '../analysis/project.js'
 import { collectModuleValidationFindings } from '../analysis/validation.js'
 import { normalizeConvexAuthConfig } from '../runtime/auth/shared/auth-config.js'
 import {
-  normalizeAuthCacheTtl,
-  normalizeConfiguredFunctionPath,
-} from '../runtime/utils/config-normalization.js'
-import {
   getSiteUrlResolutionHint,
   isValidAbsoluteUrl,
   normalizeAuthRoute,
   resolveConvexSiteUrl,
-} from '../runtime/utils/convex-config.js'
+} from '../runtime/convex/shared/convex-config.js'
+import {
+  normalizeAuthCacheTtl,
+  normalizeConfiguredFunctionPath,
+} from '../runtime/utils/config-normalization.js'
 import { normalizeObservabilityConfig } from '../runtime/utils/observability.js'
 import type { AuthOptions, ModuleOptions } from './options.js'
 import { createConfiguredFunctionError, normalizeAuthShorthand } from './options.js'

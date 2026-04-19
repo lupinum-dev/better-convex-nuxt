@@ -2,8 +2,8 @@ import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
 import { readonly } from 'vue'
 
-import { getSharedAuthEngine, hasSharedAuthEngine } from '../client/auth-engine.js'
 import type { ConvexUser } from '../../utils/types.js'
+import { getSharedAuthEngine, hasSharedAuthEngine } from '../client/auth-engine.js'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 

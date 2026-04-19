@@ -132,51 +132,72 @@ export const internal = new Proxy(
   nuxt.options.alias['#trellis/api'] = trellisApiTemplate.dst
 
   addImports([
-    { name: 'useConvex', from: resolver.resolve('./runtime/composables/useConvex') },
+    { name: 'useConvex', from: resolver.resolve('./runtime/convex/composables/useConvex') },
     {
       name: 'useConvexMutation',
-      from: resolver.resolve('./runtime/composables/useConvexMutation'),
+      from: resolver.resolve('./runtime/convex/composables/useConvexMutation'),
     },
-    { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
-    { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
-    { name: 'useCachedQuery', from: resolver.resolve('./runtime/composables/useCachedQuery') },
+    {
+      name: 'useConvexAction',
+      from: resolver.resolve('./runtime/convex/composables/useConvexAction'),
+    },
+    {
+      name: 'useConvexQuery',
+      from: resolver.resolve('./runtime/convex/composables/useConvexQuery'),
+    },
+    {
+      name: 'useCachedQuery',
+      from: resolver.resolve('./runtime/convex/composables/useCachedQuery'),
+    },
     {
       name: 'executeConvexQuery',
-      from: resolver.resolve('./runtime/composables/useConvexQuery'),
+      from: resolver.resolve('./runtime/convex/composables/useConvexQuery'),
     },
     {
       name: 'useConvexPaginatedQuery',
-      from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
+      from: resolver.resolve('./runtime/convex/composables/useConvexPaginatedQuery'),
     },
     {
       name: 'useConvexConnectionState',
-      from: resolver.resolve('./runtime/composables/useConvexConnectionState'),
+      from: resolver.resolve('./runtime/convex/composables/useConvexConnectionState'),
     },
     {
       name: 'useConvexUpload',
-      from: resolver.resolve('./runtime/composables/useConvexUpload'),
+      from: resolver.resolve('./runtime/convex/composables/useConvexUpload'),
     },
     {
       name: 'useConvexStorageUrl',
-      from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
+      from: resolver.resolve('./runtime/convex/composables/useConvexStorageUrl'),
     },
-    { name: 'prependTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
-    { name: 'appendTo', from: resolver.resolve('./runtime/composables/optimistic-updates') },
-    { name: 'removeFrom', from: resolver.resolve('./runtime/composables/optimistic-updates') },
-    { name: 'updateIn', from: resolver.resolve('./runtime/composables/optimistic-updates') },
+    {
+      name: 'prependTo',
+      from: resolver.resolve('./runtime/convex/composables/optimistic-updates'),
+    },
+    {
+      name: 'appendTo',
+      from: resolver.resolve('./runtime/convex/composables/optimistic-updates'),
+    },
+    {
+      name: 'removeFrom',
+      from: resolver.resolve('./runtime/convex/composables/optimistic-updates'),
+    },
+    {
+      name: 'updateIn',
+      from: resolver.resolve('./runtime/convex/composables/optimistic-updates'),
+    },
   ])
 
   addServerImports([
-    { name: 'serverConvexQuery', from: resolver.resolve('./runtime/server/utils/convex') },
-    { name: 'serverConvexMutation', from: resolver.resolve('./runtime/server/utils/convex') },
-    { name: 'serverConvexAction', from: resolver.resolve('./runtime/server/utils/convex') },
+    { name: 'serverConvexQuery', from: resolver.resolve('./runtime/convex/server/convex') },
+    { name: 'serverConvexMutation', from: resolver.resolve('./runtime/convex/server/convex') },
+    { name: 'serverConvexAction', from: resolver.resolve('./runtime/convex/server/convex') },
     {
       name: 'serverConvexClearAuthCache',
       from: resolver.resolve('./runtime/auth/server/auth-cache'),
     },
     {
       name: 'validateConvexArgs',
-      from: resolver.resolve('./runtime/server/utils/validate'),
+      from: resolver.resolve('./runtime/convex/server/validate'),
     },
   ])
 

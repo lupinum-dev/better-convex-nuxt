@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
+import {
+  decodeUserFromJwt,
+  getJwtTimeUntilExpiryMs,
+} from '../../src/runtime/convex/shared/convex-shared'
 
 function toBase64Url(value: string): string {
   return Buffer.from(value, 'utf-8')

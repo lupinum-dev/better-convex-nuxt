@@ -3,9 +3,9 @@ import { watch } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import { useConvexAuthController } from '../internal/useConvexAuthController.js'
 import { useAuthBootstrapDevtoolsState } from '../../devtools/state.js'
 import { toErrorMessage } from '../../utils/value-helpers.js'
+import { useConvexAuthController } from '../internal/useConvexAuthController.js'
 
 export function setupConfiguredAuthBootstrap<TMutation extends FunctionReference<'mutation'>>(
   mutationRef: TMutation,

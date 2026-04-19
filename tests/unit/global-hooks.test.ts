@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { NuxtApp } from '#app'
 
-import { createConvexCallState } from '../../src/runtime/composables/internal/convex-call-state'
+import { createConvexCallState } from '../../src/runtime/convex/shared/convex-call-state'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
 
 // ---------------------------------------------------------------------------

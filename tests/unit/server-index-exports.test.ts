@@ -8,7 +8,7 @@ const { serverConvexActionMock, serverConvexMutationMock, serverConvexQueryMock 
   }),
 )
 
-vi.mock('./../../src/runtime/server/utils/convex', () => ({
+vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: serverConvexQueryMock,
   serverConvexMutation: serverConvexMutationMock,
   serverConvexAction: serverConvexActionMock,

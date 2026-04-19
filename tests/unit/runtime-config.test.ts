@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { normalizeConvexRuntimeConfig } from '../../src/runtime/utils/runtime-config'
+import { normalizeConvexRuntimeConfig } from '../../src/runtime/convex/shared/runtime-config'
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: vi.fn(() => ({ public: { convex: {} } })),

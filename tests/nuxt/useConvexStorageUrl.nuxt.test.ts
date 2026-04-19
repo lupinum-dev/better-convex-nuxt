@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 
-import { useConvexStorageUrl } from '../../src/runtime/composables/useConvexStorageUrl'
+import { useConvexStorageUrl } from '../../src/runtime/convex/composables/useConvexStorageUrl'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { waitFor } from '../support/nuxt/wait-for'

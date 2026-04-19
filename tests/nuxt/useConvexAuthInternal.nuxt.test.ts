@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useNuxtApp, useState } from '#imports'
 
-import type { AuthTransport, ClientAuthStateResult } from '../../src/runtime/auth/client/auth-engine'
-import { useConvexAuthController } from '../../src/runtime/auth/internal/useConvexAuthController'
+import type {
+  AuthTransport,
+  ClientAuthStateResult,
+} from '../../src/runtime/auth/client/auth-engine'
 import { useConvexAuth } from '../../src/runtime/auth/composables/useConvexAuth'
+import { useConvexAuthController } from '../../src/runtime/auth/internal/useConvexAuthController'
 import { installMockAuthEngine } from '../support/auth/nuxt-auth-engine'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { createDeferred } from '../support/unit/deferred'

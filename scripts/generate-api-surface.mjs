@@ -12,7 +12,7 @@ const installerPaths = {
   permissions: resolve(rootDir, 'src/installers/permissions.ts'),
   advanced: resolve(rootDir, 'src/installers/advanced.ts'),
 }
-const componentsDir = resolve(rootDir, 'src/runtime/components')
+const componentsDir = resolve(rootDir, 'src/runtime/auth/ui')
 const outputPath = resolve(rootDir, 'apps/docs/content/docs/13.api-reference/7.api-surface.md')
 
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
@@ -174,7 +174,7 @@ const file = [
   '',
   '- `package.json` package exports',
   '- `src/installers/*`',
-  '- `src/runtime/components/*`',
+  '- `src/runtime/auth/ui/*`',
   '',
   'Use it to answer one question first: **is this API a package import, a Nuxt auto-import, or a generated alias?**',
   '',

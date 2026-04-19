@@ -9,15 +9,15 @@ import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 import { initAuthClient } from './auth/client/auth-client.js'
 import { createSharedAuthEngine } from './auth/client/auth-engine.js'
 import { initHydrationState } from './auth/client/auth-hydration.js'
-import { initConvexClient } from './client/convex-client.js'
-import { initRuntimeConnectionHooks } from './client/runtime-hooks.js'
+import { buildMissingSiteUrlMessage } from './auth/shared/auth-errors.js'
+import { initConvexClient } from './convex/client/convex-client.js'
+import { initRuntimeConnectionHooks } from './convex/client/runtime-hooks.js'
+import { getConvexRuntimeConfig } from './convex/shared/runtime-config.js'
 import { setDevtoolsStore } from './devtools/runtime.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from './devtools/state.js'
 import { ConvexDevtoolsStore } from './devtools/store.js'
-import { buildMissingSiteUrlMessage } from './auth/shared/auth-errors.js'
 import { STATE_KEY_AUTH_TRACE_ID } from './utils/constants.js'
 import { registerObservationCaptureListener } from './utils/observability/capture.js'
-import { getConvexRuntimeConfig } from './utils/runtime-config.js'
 import { createRuntimeObserver } from './utils/runtime-observer.js'
 
 type HydrationState = ReturnType<typeof initHydrationState>
@@ -204,7 +204,7 @@ export default defineNuxtPlugin({
       setupClientDevtools(nuxtApp, client, hydration)
 
       // Expose subscription cache for console inspection
-      void import('./utils/convex-cache.js').then(({ getSubscriptionCache }) => {
+      void import('./convex/shared/convex-cache.js').then(({ getSubscriptionCache }) => {
         ;(window as unknown as Record<string, unknown>).__CONVEX_SUBSCRIPTIONS__ = () =>
           getSubscriptionCache(nuxtApp as Parameters<typeof getSubscriptionCache>[0])
       })

@@ -31,12 +31,10 @@ type Callback<TArgs extends unknown[], TResult> = (...args: TArgs) => TResult
 
 type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
 
-type PreviewFn<
-  TCtx,
-  TArgsValidator extends PropertyValidators,
-  TLoaded,
-  TPreview,
-> = Callback<[TCtx, HandlerArgs<TArgsValidator>, TLoaded], MaybePromise<TPreview>>
+type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPreview> = Callback<
+  [TCtx, HandlerArgs<TArgsValidator>, TLoaded],
+  MaybePromise<TPreview>
+>
 
 export type DestructiveOperationPreview<TDisplay = unknown, TConfirm = unknown> = {
   display: TDisplay

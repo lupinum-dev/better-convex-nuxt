@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { executeQueryViaSubscriptionOnce } from '../../src/runtime/utils/one-shot-subscription'
+import { executeQueryViaSubscriptionOnce } from '../../src/runtime/convex/query/one-shot-subscription'
 
 type UpdateCb<T> = (value: T) => void
 type ErrorCb = (error: Error) => void

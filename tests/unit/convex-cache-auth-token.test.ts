@@ -4,7 +4,7 @@ import {
   clearsBetterAuthSessionCookie,
   filterBetterAuthCookieHeader,
 } from '../../src/runtime/auth/shared/auth-token'
-import { fetchAuthToken } from '../../src/runtime/utils/convex-cache'
+import { fetchAuthToken } from '../../src/runtime/convex/shared/convex-cache'
 
 afterEach(() => {
   vi.unstubAllGlobals()

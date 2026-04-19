@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { getJwtTimeUntilExpiryMs } from '../../src/runtime/convex/shared/convex-shared'
 import {
   AUTH_REFRESH_TIMEOUT_MS,
   TOKEN_EXPIRY_SAFETY_BUFFER_MS,
 } from '../../src/runtime/utils/constants'
-import { getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
 import {
   createAuthHarness,
   createMockTokenExchange,

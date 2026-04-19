@@ -115,7 +115,7 @@ vi.mock('convex/browser', () => {
   return { ConvexClient: MockConvexClient }
 })
 
-vi.mock('../../../src/runtime/utils/runtime-config', () => ({
+vi.mock('../../../src/runtime/convex/shared/runtime-config', () => ({
   getConvexRuntimeConfig: getConvexRuntimeConfigMock,
 }))
 
@@ -201,5 +201,5 @@ export function resetPluginClientTestkit() {
 }
 
 export async function loadClientPlugin() {
-  return (await import('../../../src/runtime/plugin.client')).default
+  return (await import('../../../src/runtime/plugin.client.ts')).default
 }

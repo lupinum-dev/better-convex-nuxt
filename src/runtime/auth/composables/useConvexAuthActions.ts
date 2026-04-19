@@ -1,9 +1,9 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 
-import { wrapBetterAuthError } from '../shared/auth-errors.js'
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
 import type { MutationStatus } from '../../utils/types.js'
 import { useConvexAuthController } from '../internal/useConvexAuthController.js'
+import { wrapBetterAuthError } from '../shared/auth-errors.js'
 import { useAuthRedirect } from './useAuthRedirect.js'
 
 export interface UseConvexAuthActionsOptions {

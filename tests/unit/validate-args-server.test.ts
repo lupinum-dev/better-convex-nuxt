@@ -1,8 +1,8 @@
 import { v } from 'convex/values'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { validateConvexArgs } from '../../src/runtime/server/utils/validate'
-import * as convexSchema from '../../src/runtime/utils/convex-schema'
+import { validateConvexArgs } from '../../src/runtime/convex/server/validate'
+import * as convexSchema from '../../src/runtime/convex/shared/convex-schema'
 import { expectValidationError } from '../support/unit/validation-error'
 
 describe('validateConvexArgs', () => {

@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest'
 
-import { computeQueryStatus } from '../../src/runtime/utils/convex-shared'
+import { computeQueryStatus } from '../../src/runtime/convex/shared/convex-shared'
 
 describe('computeQueryStatus', () => {
   describe('state priority', () => {

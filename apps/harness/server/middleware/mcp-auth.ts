@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import {
   serverConvexQuery,
   serverConvexMutation,
-} from '../../../../src/runtime/server/utils/convex'
+} from '../../../../src/runtime/convex/server/convex'
 import { api } from '../../convex/_generated/api'
 
 export default defineEventHandler(async (event) => {

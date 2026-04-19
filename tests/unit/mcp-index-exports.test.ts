@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../src/runtime/server/utils/convex', () => ({
+vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexQuery: vi.fn(),
   serverConvexMutation: vi.fn(),
   serverConvexAction: vi.fn(),

@@ -8,7 +8,7 @@
 
 import type { GenericValidator } from 'convex/values'
 
-import { toConvexSchema } from './convex-schema.js'
+import { toConvexSchema } from '../convex/shared/convex-schema.js'
 import type {
   StandardSchemaV1,
   StandardSchemaV1PathSegment,

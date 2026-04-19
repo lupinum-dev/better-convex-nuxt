@@ -5,7 +5,7 @@ import {
   getSiteUrlResolutionHint,
   normalizeAuthRoute,
   resolveConvexSiteUrl,
-} from '../../src/runtime/utils/convex-config'
+} from '../../src/runtime/convex/shared/convex-config'
 
 describe('convex config helpers', () => {
   it('derives siteUrl from convex.cloud url', () => {

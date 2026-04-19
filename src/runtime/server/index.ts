@@ -1,23 +1,27 @@
 import type { H3Event } from 'h3'
 
-import type { Delegation } from '../functions/define-delegation.js'
-import type { Subject } from '../functions/define-principal.js'
+import {
+  serverConvexAction,
+  serverConvexMutation,
+  serverConvexQuery,
+} from '../convex/server/convex.js'
+import type { ServerConvexOptions } from '../convex/server/convex.js'
 import type {
   AnyActionFunction,
   AnyMutationFunction,
   AnyQueryFunction,
   FunctionLikeArgs,
   FunctionLikeReturnType,
-} from '../utils/convex-shared.js'
-import { serverConvexAction, serverConvexMutation, serverConvexQuery } from './utils/convex.js'
-import type { ServerConvexOptions } from './utils/convex.js'
+} from '../convex/shared/convex-shared.js'
+import type { Delegation } from '../functions/define-delegation.js'
+import type { Subject } from '../functions/define-principal.js'
 
 export {
   serverConvexQuery,
   serverConvexMutation,
   serverConvexAction,
   type ServerConvexOptions,
-} from './utils/convex.js'
+} from '../convex/server/convex.js'
 
 type ForwardedPrincipalOptions = {
   principal?: ({ subject: Subject } & Record<string, unknown>) | undefined

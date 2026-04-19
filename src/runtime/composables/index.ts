@@ -1,11 +1,14 @@
-export { useConvex } from './useConvex.js'
+export { useConvex } from '../convex/composables/useConvex.js'
 export { ConvexCallError } from '../utils/call-result.js'
-export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState.js'
+export {
+  useConvexConnectionState,
+  type ConnectionState,
+} from '../convex/composables/useConvexConnectionState.js'
 export {
   useConvexMutation,
   type UseConvexMutationReturn,
   type UseConvexMutationOptions,
-} from './useConvexMutation.js'
+} from '../convex/composables/useConvexMutation.js'
 // Optimistic update builder types and helpers — exported directly from source to avoid re-export hop
 export {
   type OptimisticContext,
@@ -15,7 +18,7 @@ export {
   appendTo,
   removeFrom,
   updateIn,
-} from './optimistic-updates.js'
+} from '../convex/composables/optimistic-updates.js'
 
 // Re-export Convex types for convenience
 export type { OptimisticLocalStore } from 'convex/browser'
@@ -23,19 +26,19 @@ export {
   useConvexAction,
   type UseConvexActionReturn,
   type UseConvexActionOptions,
-} from './useConvexAction.js'
+} from '../convex/composables/useConvexAction.js'
 export {
   useConvexQuery,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
   type UseConvexQueryReturn,
-} from './useConvexQuery.js'
+} from '../convex/composables/useConvexQuery.js'
 export {
   useCachedQuery,
   type UseCachedQueryOptions,
   type UseCachedQueryReturn,
   type CachedQuerySeedStatus,
-} from './useCachedQuery.js'
+} from '../convex/composables/useCachedQuery.js'
 export type {
   QueryStatus,
   MutationStatus,
@@ -55,7 +58,7 @@ export {
   type PaginatedQueryReference,
   type PaginatedQueryArgs,
   type PaginatedQueryItem,
-} from './useConvexPaginatedQuery.js'
+} from '../convex/composables/useConvexPaginatedQuery.js'
 
 export {
   useConvexUpload,
@@ -67,9 +70,9 @@ export {
   type UploadQueueEnqueueItem,
   type UploadQueueEnqueueInput,
   type UploadProgressInfo,
-} from './useConvexUpload.js'
+} from '../convex/composables/useConvexUpload.js'
 
-export { useConvexStorageUrl } from './useConvexStorageUrl.js'
+export { useConvexStorageUrl } from '../convex/composables/useConvexStorageUrl.js'
 
 // Auth flow composables (available when auth enabled)
 export {

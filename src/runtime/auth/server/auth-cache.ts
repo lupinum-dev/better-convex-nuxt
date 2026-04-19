@@ -1,7 +1,7 @@
 import { hash } from 'ohash'
 
+import { getJwtTimeUntilExpiryMs } from '../../convex/shared/convex-shared.js'
 import { TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../../utils/constants.js'
-import { getJwtTimeUntilExpiryMs } from '../../utils/convex-shared.js'
 
 /**
  * Storage namespace for auth token cache.

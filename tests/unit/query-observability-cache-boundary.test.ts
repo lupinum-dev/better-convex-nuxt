@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getQueryKey } from '../../src/runtime/utils/convex-shared'
+import { getQueryKey } from '../../src/runtime/convex/shared/convex-shared'
 import {
   stripObservationEnvelope,
   withObservationEnvelope,

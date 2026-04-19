@@ -1,8 +1,8 @@
 import { v } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
+import { validateConvex } from '../../src/runtime/convex/shared/convex-schema'
 import { defineArgs } from '../../src/runtime/schema'
-import { validateConvex } from '../../src/runtime/utils/convex-schema'
 
 describe('defineArgs', () => {
   it('keeps shared args as the only validator surface', () => {

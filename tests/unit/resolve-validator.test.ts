@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
-import { toConvexSchema } from '../../src/runtime/utils/convex-schema'
+import { toConvexSchema } from '../../src/runtime/convex/shared/convex-schema'
 import {
   isConvexValidator,
   isStandardSchema,

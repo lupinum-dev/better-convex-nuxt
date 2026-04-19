@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useNuxtApp } from '#imports'
 
-import { useConvexConnectionState } from '../../src/runtime/composables/useConvexConnectionState'
+import { useConvexConnectionState } from '../../src/runtime/convex/composables/useConvexConnectionState'
 import { MockConvexClient } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 

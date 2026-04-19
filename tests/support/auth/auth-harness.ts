@@ -27,13 +27,13 @@ import {
 } from '../../../src/runtime/auth/client/auth-engine'
 import { useConvexAuth } from '../../../src/runtime/auth/composables/useConvexAuth'
 import { buildAuthTokenDecodeFailureMessage } from '../../../src/runtime/auth/shared/auth-errors'
+import { decodeUserFromJwt } from '../../../src/runtime/convex/shared/convex-shared'
 import {
   STATE_KEY_AUTH_ERROR,
   STATE_KEY_PENDING,
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from '../../../src/runtime/utils/constants'
-import { decodeUserFromJwt } from '../../../src/runtime/utils/convex-shared'
 import type { ConvexUser } from '../../../src/runtime/utils/types'
 import { captureInNuxt } from '../nuxt/runtime-harness'
 import { createMockTokenExchange, type MockTokenExchange } from './mock-token-exchange'

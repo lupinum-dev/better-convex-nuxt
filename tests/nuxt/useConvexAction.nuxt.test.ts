@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
+import { useConvexAction } from '../../src/runtime/convex/composables/useConvexAction'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { waitFor } from '../support/nuxt/wait-for'

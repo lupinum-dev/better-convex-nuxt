@@ -42,11 +42,11 @@ vi.mock('#app', () => ({
   useState: useStateMock,
 }))
 
-vi.mock('../../src/runtime/utils/runtime-config', () => ({
+vi.mock('../../src/runtime/convex/shared/runtime-config', () => ({
   getConvexRuntimeConfig: getConvexRuntimeConfigMock,
 }))
 
-vi.mock('../../src/runtime/server/utils/http', () => ({
+vi.mock('../../src/runtime/convex/server/http', () => ({
   fetchWithTimeout: fetchWithTimeoutMock,
 }))
 
@@ -55,7 +55,7 @@ vi.mock('../../src/runtime/auth/server/auth-cache', () => ({
   setCachedAuthToken: setCachedAuthTokenMock,
 }))
 
-vi.mock('../../src/runtime/utils/convex-shared', () => ({
+vi.mock('../../src/runtime/convex/shared/convex-shared', () => ({
   decodeUserFromJwt: decodeUserFromJwtMock,
 }))
 
@@ -136,7 +136,7 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+    const plugin = (await import('../../src/runtime/plugin.server.ts')).default as (
       nuxtApp: unknown,
     ) => Promise<void>
     const run = plugin(createNuxtAppMock())
@@ -160,7 +160,7 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+    const plugin = (await import('../../src/runtime/plugin.server.ts')).default as (
       nuxtApp: unknown,
     ) => Promise<void>
     await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
@@ -183,7 +183,7 @@ describe('plugin.server token exchange failure policy', () => {
     })
 
     await import('../../src/runtime/auth/client/auth-engine')
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+    const plugin = (await import('../../src/runtime/plugin.server.ts')).default as (
       nuxtApp: unknown,
     ) => Promise<void>
     const nuxtApp = createNuxtAppMock()
@@ -218,7 +218,7 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+    const plugin = (await import('../../src/runtime/plugin.server.ts')).default as (
       nuxtApp: unknown,
     ) => Promise<void>
     await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
@@ -258,7 +258,7 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+    const plugin = (await import('../../src/runtime/plugin.server.ts')).default as (
       nuxtApp: unknown,
     ) => Promise<void>
     await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
@@ -275,7 +275,7 @@ describe('plugin.server token exchange failure policy', () => {
       throw new Error(`Unexpected URL: ${url}`)
     })
 
-    const plugin = (await import('../../src/runtime/plugin.server')).default as (
+    const plugin = (await import('../../src/runtime/plugin.server.ts')).default as (
       nuxtApp: unknown,
     ) => Promise<void>
     await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()

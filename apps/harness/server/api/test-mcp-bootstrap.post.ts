@@ -1,6 +1,6 @@
 import { createError, defineEventHandler } from 'h3'
 
-import { serverConvexMutation } from '../../../../src/runtime/server/utils/convex'
+import { serverConvexMutation } from '../../../../src/runtime/convex/server/convex'
 import { api } from '../../convex/_generated/api'
 
 function assertTestResetEnabled() {

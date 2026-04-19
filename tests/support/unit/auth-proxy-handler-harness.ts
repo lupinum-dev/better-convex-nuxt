@@ -91,7 +91,7 @@ export function resetAuthProxyHandlerHarness() {
     },
   }))
 
-  vi.doMock('../../../src/runtime/utils/runtime-config', () => ({
+  vi.doMock('../../../src/runtime/convex/shared/runtime-config', () => ({
     getConvexRuntimeConfig: getConvexRuntimeConfigMock,
   }))
   vi.doMock('../../../src/runtime/auth/server/api/auth/redirect-utils', () => ({
