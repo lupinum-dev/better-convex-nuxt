@@ -9,6 +9,7 @@ import {
   runbookBulkDelete,
   runbookCreate,
   runbookDelete,
+  runbookPublish,
   runbookRead,
   type McpReferencePermissionKey,
 } from '~/convex/auth/permissions'
@@ -65,6 +66,7 @@ export const mcpRuntime = defineMcpApp<McpReferencePrincipal, Delegation, Capabi
         [runbookRead.key]: false,
         [runbookCreate.key]: false,
         [runbookDelete.key]: false,
+        [runbookPublish.key]: false,
         [runbookBulkDelete.key]: false,
         [mcpManage.key]: false,
       }
@@ -77,6 +79,7 @@ export const mcpRuntime = defineMcpApp<McpReferencePrincipal, Delegation, Capabi
         [runbookRead.key]: false,
         [runbookCreate.key]: false,
         [runbookDelete.key]: false,
+        [runbookPublish.key]: false,
         [runbookBulkDelete.key]: false,
         [mcpManage.key]: false,
       }
@@ -87,3 +90,4 @@ export const mcpRuntime = defineMcpApp<McpReferencePrincipal, Delegation, Capabi
 })
 
 export const tool = mcpRuntime.tool
+export default mcpRuntime

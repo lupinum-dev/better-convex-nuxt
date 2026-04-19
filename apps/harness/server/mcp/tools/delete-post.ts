@@ -1,11 +1,10 @@
-import { api } from '../../../convex/_generated/api'
 import { postDeletePermission } from '../../../convex/auth/permissions'
-import { removePostOp } from '../../../convex/posts'
+import { previewRemove, removePostOp, removeWithConfirmation } from '../../../convex/posts'
 import { tool } from '../runtime'
 
 export default tool.fromOperation(removePostOp, {
-  execute: api.posts.removeWithConfirmation,
-  preview: api.posts.previewRemove,
+  execute: removeWithConfirmation,
+  preview: previewRemove,
   permission: postDeletePermission,
   meta: {
     name: 'delete-post',

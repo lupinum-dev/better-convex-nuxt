@@ -515,14 +515,15 @@ export default tool({
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { ${ctx.singularCamel}DeletePermission } from '~/convex/auth/permissions'
-import { api } from '~/convex/_generated/api'
+import { remove } from '~/convex/domain/${ctx.fileStem}'
 import { remove${ctx.singularPascal}Op } from '~/convex/operations/${ctx.fileStem}'
+import { previewRemove${ctx.singularPascal} } from '~/convex/operations/${ctx.fileStem}'
 
 import { tool } from '../runtime'
 
 export default tool.fromOperation(remove${ctx.singularPascal}Op, {
-  execute: api.domain.${ctx.fileStem}.remove,
-  preview: api.operations.${ctx.fileStem}.previewRemove${ctx.singularPascal},
+  execute: remove,
+  preview: previewRemove${ctx.singularPascal},
   permission: ${ctx.singularCamel}DeletePermission,
   meta: {
     name: 'delete-${ctx.fileStem}',

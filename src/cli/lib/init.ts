@@ -581,6 +581,7 @@ export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
 
 // Project root internal refs or bridge refs from tool files.
 export const tool = mcpRuntime.tool
+export default mcpRuntime
 `.trimStart()
 }
 
