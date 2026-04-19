@@ -1,68 +1,67 @@
 # Runnable Examples
 
-Eight examples, progressive difficulty, every one using full Nuxt UI.
+The gallery now has one job: teach Trellis in a clear order first, then branch into advanced patterns.
 
 These are examples, not CLI templates.
 
-If you want the official productized starting point, use:
+If you want the productized starting points, use:
 
 - `trellis init my-app --template personal`
 - `trellis init my-app --template workspace`
 - `trellis init my-app --template workspace --mcp`
 - `trellis init my-app --template cms`
 
-Use this folder when you want to learn the stack, inspect a richer reference, or pressure-test a pattern before it graduates into a template.
+Use this folder when you want to learn the stack, inspect a real pattern, or pressure-test an
+architecture before it graduates into a template.
 
-## First-Time Reader Path
+## Start Here: 01-04
 
-Read **01 → 02 → 03** in order. Each builds on the previous, adding one major concept per step. `03-team-workspace` is the repo's canonical protected-app reference. Examples 04–08 are reference implementations — pick whichever matches your use case. `05` and beyond are better treated as pattern catalogs than first-reader steps.
+Read these in order.
 
-## Which One To Open First?
+| Example | Purpose | Primary lesson |
+| --- | --- | --- |
+| `01-public-todo` | First contact | Public data flow with almost no ceremony |
+| `02-auth-todo` | Personal app | Better Auth, actor resolution, personal ownership |
+| `03-team-workspace` | Canonical protected app | Single-workspace auth, roles, guards, permission context |
+| `04-saas-platform` | Server integration branch of the ladder | Nitro routes, uploads, server-owned integrations on top of the workspace model |
 
-| Example                 | Best for                   | Shows                                                                                                                                                                 |
-| ----------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-public-todo`        | First look                 | minimal `defineTrellis(...)`, `defineArgs`, simple query/mutation flow                                                                                                |
-| `02-auth-todo`          | Auth-only apps             | Better Auth wiring, actor resolution, personal ownership handlers                                                                                                     |
-| `03-team-workspace`     | Canonical protected app    | `convex/auth/*`, backend-owned context, `_can`, transport-shaped agent principals over `#trellis/mcp`, webhook idempotency, `@lupinum/trellis/testing`                |
-| `04-saas-platform`      | Month-two product work     | Project-management SaaS, pagination, uploads, Nitro routes, `guard`, `_can`, plan entitlements, usage limits, admin workflows                                         |
-| `05-visibility-access`  | Advanced access patterns   | Row-level visibility, field redaction, enrollment, prerequisites, share tokens, inherited access levels, manager hierarchy                                            |
-| `06-multi-workspace`    | Agency / multi-client      | Multi-workspace membership, workspace switching, cross-tenant agency dashboard                                                                                        |
-| `07-mcp-reference`      | Full MCP implementation    | Hashed MCP keys, public + scoped tools, prompts, resources, sessions, dynamic tools, code mode, root internal refs as the automation surface                          |
-| `08-component-mini-cms` | Local component + MCP seam | Local Convex components, principal forwarding, root browser wrappers, `createComponentBridge(...)`, `tool(...)`; primary reference for `ginko-cms`-style integrations |
+The intended ladder is:
 
-## Concept Coverage Matrix
+1. `01` teaches the Nuxt ↔ Trellis ↔ Convex loop.
+2. `02` adds auth without adding tenant complexity.
+3. `03` becomes the canonical protected app.
+4. `04` shows how server boundaries fit into that protected app model.
 
-| Concept                                           | Example    |
-| ------------------------------------------------- | ---------- |
-| Public queries/mutations                          | 01         |
-| Better Auth + session management                  | 02+        |
-| Tenant isolation (`workspaceId` + `by_workspace`) | 03+        |
-| Role-based authorization (`guard`, `can`, `deny`) | 03+        |
-| Explicit principal forwarding                     | 03, 07, 08 |
-| Idempotency (replay protection)                   | 03         |
-| Pagination + optimistic updates                   | 04         |
-| Plan entitlements + usage limits                  | 04         |
-| Feature flags (`hasFeature`)                      | 04         |
-| Server routes (Nitro)                             | 03, 04     |
-| Row-level visibility (private/team/workspace)     | 05         |
-| Field redaction (sensitive fields)                | 05         |
-| Manager hierarchy                                 | 05         |
-| Enrollment-based access                           | 05         |
-| Prerequisite chains                               | 05         |
-| Share tokens (hashed, expirable, revocable)       | 05         |
-| Inherited access levels                           | 05         |
-| Multi-workspace membership                        | 06         |
-| Cross-tenant dashboard                            | 06         |
-| MCP tools, prompts, resources                     | 03, 07     |
-| MCP sessions + dynamic tools                      | 07         |
-| MCP key auth (hashed at rest)                     | 07         |
-| Local Convex components                           | 08         |
-| Component bridge inventory                        | 08         |
-| MCP projection over component-backed operations   | 08         |
+If you only read one protected-app example in the repo, read `03-team-workspace`.
 
-## Canonical Default
+## Advanced Branches: 05-08
 
-Examples `03` through `06` use the repo's canonical single-workspace contract:
+These are not first-reader steps. Open them once `03` makes sense to you.
+
+| Example | Open this when you need | Primary lesson |
+| --- | --- | --- |
+| `05-visibility-access` | hard authorization rules | Row visibility, redaction, enrollment, prerequisites, share links |
+| `06-multi-workspace` | a memberships-based tenant model | Multi-workspace membership, switching, cross-workspace constraints |
+| `07-mcp-reference` | the full MCP surface | Public/scoped tools, keys, prompts, resources, sessions, confirmations |
+| `08-component-mini-cms` | a component/host architecture | Local components, principal forwarding, bridge inventory, MCP over bridge refs |
+
+## Concept Matrix
+
+| Concept | Canonical example | Prerequisite |
+| --- | --- | --- |
+| Public queries and mutations | `01-public-todo` | none |
+| Better Auth + actor resolution | `02-auth-todo` | `01-public-todo` |
+| Canonical single-workspace model | `03-team-workspace` | `02-auth-todo` |
+| Guards, permission context, `_can` | `03-team-workspace` | `02-auth-todo` |
+| Nitro routes and server-side integrations | `04-saas-platform` | `03-team-workspace` |
+| Advanced authorization patterns | `05-visibility-access` | `03-team-workspace` |
+| Membership-based multi-workspace auth | `06-multi-workspace` | `03-team-workspace` |
+| Full MCP implementation | `07-mcp-reference` | `03-team-workspace` |
+| Component bridge architecture | `08-component-mini-cms` | `03-team-workspace`, `07-mcp-reference` |
+
+## Canonical Defaults
+
+Examples `03` through `05` use the repo's canonical single-workspace contract:
 
 - `workspaceId` as the tenant foreign key
 - `by_workspace` as the tenant index name
@@ -70,10 +69,50 @@ Examples `03` through `06` use the repo's canonical single-workspace contract:
 - `ownerId` storing the auth-subject string
 - `createdAt` / `updatedAt` as millisecond timestamps
 
-Example `06-multi-workspace` is the explicit upgrade path when you need memberships-based
-multi-workspace authorization.
+`06-multi-workspace` is the explicit architectural fork when the canonical single-workspace model is
+no longer enough.
 
-## How An Example Graduates Into A Template
+## Local Run Flow
+
+Every example is a small app inside this repo with its own `package.json`.
+
+1. `cd` into the example folder.
+2. Copy `.env.example` to `.env.local` if that example has app-owned env vars.
+3. Run `pnpm install`.
+4. Start everything with `pnpm dev`.
+
+Shared script contract:
+
+- `pnpm dev`: canonical local run path through [`scripts/example-dev.mjs`](../scripts/example-dev.mjs)
+- `pnpm dev:nuxt`: Nuxt only, for launcher debugging or already-prepared local state
+- `pnpm build`: production build of that example app
+- `pnpm test`: example-local verification
+- `pnpm typecheck`: example-local typecheck
+- `pnpm convex:dev` / `pnpm convex:codegen`: raw Convex lanes for backend-focused debugging only
+
+Some examples add narrow extras like `test:e2e` or `typecheck:tests` when they own unique coverage.
+
+`pnpm dev` starts an anonymous local Convex deployment, waits for Convex to write the local
+deployment env plus codegen output, then starts Nuxt with the resulting `CONVEX_URL` and
+`CONVEX_SITE_URL`.
+
+If you copy an example out of this repo, replace `@lupinum/trellis: workspace:*` with a published
+version or a packed local tarball before installing.
+
+## Environment Variables
+
+| Example | Injected by `pnpm dev` | App-owned env vars |
+| --- | --- | --- |
+| `01-public-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | none |
+| `02-auth-todo` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing |
+| `03-team-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_CALLER_KEY` for trusted server-to-Convex calls, `TRELLIS_MCP_CONFIRMATION_KEY` for destructive MCP confirmation signing, `TEAM_WORKSPACE_WEBHOOK_SECRET` for the webhook route boundary |
+| `04-saas-platform` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_CALLER_KEY` for trusted server-to-Convex calls, `PROJECT_BOARD_WEBHOOK_SECRET` for the webhook route boundary, `PROJECT_BOARD_WEBHOOK_ACTOR_ID` for the server-owned app actor used by the webhook example |
+| `05-visibility-access` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing |
+| `06-multi-workspace` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing |
+| `07-mcp-reference` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_CALLER_KEY` for trusted server-to-Convex calls, `TRELLIS_MCP_CONFIRMATION_KEY` for destructive MCP confirmation signing |
+| `08-component-mini-cms` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL` for Better Auth callback origin, `BETTER_AUTH_SECRET` for auth signing, `CONVEX_TRUSTED_CALLER_KEY` for trusted principal forwarding into the component boundary, `TRELLIS_MCP_CONFIRMATION_KEY` for destructive MCP confirmation signing, `JWKS` for local auth bootstrap, `DEMO_MCP_TOKEN` for the demo MCP caller identity |
+
+## How an Example Graduates Into a Template
 
 An example is ready to become a CLI archetype only when all of this is true:
 
@@ -81,42 +120,3 @@ An example is ready to become a CLI archetype only when all of this is true:
 2. Its file layout matches the canonical Trellis app shape closely enough to scaffold directly.
 3. The remaining setup burden is mostly mechanical and belongs in generators.
 4. The pattern has been validated by real app pressure, not just by a nice demo.
-
-## Local Run Flow
-
-Every example is a small workspace app inside this repo with its own `package.json`.
-
-1. `cd` into the example folder.
-2. Copy `.env.example` to `.env.local` if that example has app-owned env vars.
-3. Run `pnpm install`.
-4. Start everything with `pnpm dev`.
-
-Shared example script contract:
-
-- `pnpm dev`: canonical local run path through the shared launcher in [`scripts/example-dev.mjs`](../scripts/example-dev.mjs)
-- `pnpm dev:nuxt`: Nuxt only, for launcher debugging or already-prepared local state
-- `pnpm build`: production build of that example app
-- `pnpm test`: example-local verification
-- `pnpm typecheck`: example-local typecheck
-- `pnpm convex:dev` / `pnpm convex:codegen`: raw Convex lanes for backend-focused debugging only
-
-Some examples add narrow extras like `typecheck:tests` or `test:e2e` when they own unique coverage. They are exceptions, not a second general script vocabulary.
-
-`pnpm dev` starts an anonymous local Convex deployment, waits for Convex to write the local deployment
-env plus codegen output, then starts Nuxt with the resulting `CONVEX_URL` and `CONVEX_SITE_URL`.
-
-If you copy an example out of this repo, replace `@lupinum/trellis: workspace:*` with a published
-version or a packed local tarball before installing.
-
-## Environment Variables
-
-| Example                 | Injected by `pnpm dev`          | App-owned env vars                                                              |
-| ----------------------- | ------------------------------- | ------------------------------------------------------------------------------- |
-| `01-public-todo`        | `CONVEX_URL`, `CONVEX_SITE_URL` | none                                                                            |
-| `02-auth-todo`          | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                                                |
-| `03-team-workspace`     | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `TRELLIS_MCP_CONFIRMATION_KEY` |
-| `04-saas-platform`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `PROJECT_BOARD_WEBHOOK_ACTOR_ID` |
-| `05-visibility-access`  | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                                                |
-| `06-multi-workspace`    | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`                                                |
-| `07-mcp-reference`      | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `TRELLIS_MCP_CONFIRMATION_KEY` |
-| `08-component-mini-cms` | `CONVEX_URL`, `CONVEX_SITE_URL` | `SITE_URL`, `BETTER_AUTH_SECRET`, `CONVEX_TRUSTED_CALLER_KEY`, `TRELLIS_MCP_CONFIRMATION_KEY`, `DEMO_MCP_TOKEN` |

@@ -1,3 +1,4 @@
+import { sha256 } from '@noble/hashes/sha2.js'
 import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
@@ -13,6 +14,11 @@ const canManageMcpKeys = defineGuard<Actor>(
   'mcp-key.manage',
   (actor) => !!actor?.tenantId && canInviteMembers(actor),
 )
+
+function hashKey(key: string): string {
+  const bytes = sha256(new TextEncoder().encode(key))
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')
+}
 
 function generateKey(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -51,11 +57,12 @@ export const create = mutation({
     if (!actor.tenantId) throw new Error('No organization selected')
 
     const key = generateKey()
+    const keyHash = hashKey(key)
     const prefix = key.slice(0, 12) + '...'
 
     const id = await ctx.db.insert('mcpKeys', {
       name: args.name,
-      key,
+      keyHash,
       prefix,
       role: args.role,
       userId: actor.userId,
@@ -84,11 +91,11 @@ export const revoke = mutation({
 })
 
 export const validate = generatedQuery({
-  args: { key: v.string() },
+  args: { keyHash: v.string() },
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .withIndex('by_key_hash', (q) => q.eq('keyHash', args.keyHash))
       .first()
 
     if (!mcpKey || mcpKey.status !== 'active') return null
@@ -102,11 +109,11 @@ export const validate = generatedQuery({
 })
 
 export const touch = generatedMutation({
-  args: { key: v.string() },
+  args: { keyHash: v.string() },
   handler: async (ctx, args) => {
     const mcpKey = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
+      .withIndex('by_key_hash', (q) => q.eq('keyHash', args.keyHash))
       .first()
 
     if (mcpKey && mcpKey.status === 'active') {

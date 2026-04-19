@@ -1,7 +1,6 @@
 import type { McpToolDefinition } from '@nuxtjs/mcp-toolkit/server'
 import { v, type PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
-import { useStorage } from 'nitropack/runtime'
 import { hash } from 'ohash'
 import type { ZodRawShape } from 'zod'
 
@@ -274,29 +273,6 @@ function isOperationPreviewPayload(value: unknown): value is OperationPreviewPay
   return typeof value === 'object' && value !== null && 'display' in value && 'confirm' in value
 }
 
-function getConfirmationRedemptionKey(operationId: string, jti: string): string {
-  return `${operationId}:${jti}`
-}
-
-async function hasRedeemedConfirmation(operationId: string, jti: string): Promise<boolean> {
-  return await useStorage('trellis:mcp:confirmations').hasItem(
-    getConfirmationRedemptionKey(operationId, jti),
-  )
-}
-
-async function redeemConfirmationToken(
-  payload: { operationId: string; jti: string; principalKey: string; tenantKey: string },
-): Promise<void> {
-  await useStorage('trellis:mcp:confirmations').setItem(
-    getConfirmationRedemptionKey(payload.operationId, payload.jti),
-    {
-      redeemedAt: Date.now(),
-      principalKey: payload.principalKey,
-      tenantKey: payload.tenantKey,
-    },
-  )
-}
-
 function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
   capabilities: TCapabilities,
   permission: PermissionHandle<string> | undefined,
@@ -563,6 +539,45 @@ export function defineMcpApp<
         : undefined,
       handler: async (args, ctx) => {
         const projectionCtx = await resolve(ctx.event)
+        if (!permissionAllows(projectionCtx.capabilities, tool.permission)) {
+          const explanation = createDenialExplanation({
+            reasonCode: 'tool.capability_denied',
+            decision: 'tool',
+            message: 'Caller does not have the permission required for this tool.',
+            suggestedAction: 'grant_capability',
+          })
+          await projectionCtx.observe({
+            name: 'tool.denied',
+            status: 'deny',
+            transport: 'mcp',
+            tool: tool.meta?.name ?? 'project-tool',
+            reasonCode: 'tool.capability_denied',
+            details: { explanation },
+          })
+          return ctx.error(
+            'auth',
+            'Caller does not have the permission required for this tool.',
+            undefined,
+            explanation,
+          )
+        }
+        if (tool.enabled && !(await tool.enabled(projectionCtx))) {
+          const explanation = createDenialExplanation({
+            reasonCode: 'tool.disabled',
+            decision: 'tool',
+            message: 'Tool is currently disabled for this request.',
+            suggestedAction: 'contact_admin',
+          })
+          await projectionCtx.observe({
+            name: 'tool.denied',
+            status: 'deny',
+            transport: 'mcp',
+            tool: tool.meta?.name ?? 'project-tool',
+            reasonCode: 'tool.disabled',
+            details: { explanation },
+          })
+          return ctx.error('auth', 'Tool is currently disabled for this request.', undefined, explanation)
+        }
         projectionCtx.wideSummary.set({
           tool: tool.meta?.name ?? 'project-tool',
         })
@@ -782,6 +797,47 @@ export function defineMcpApp<
       },
       handler: async (rawArgs, ctx) => {
         const projectionCtx = await resolve(ctx.event)
+        if (!permissionAllows(projectionCtx.capabilities, options.permission)) {
+          const explanation = createDenialExplanation({
+            reasonCode: 'tool.capability_denied',
+            decision: 'tool',
+            message: 'Caller does not have the permission required for this tool.',
+            suggestedAction: 'grant_capability',
+          })
+          await projectionCtx.observe({
+            name: 'tool.denied',
+            status: 'deny',
+            transport: 'mcp',
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            operation: metadata.id,
+            reasonCode: 'tool.capability_denied',
+            details: { explanation },
+          })
+          return ctx.error(
+            'auth',
+            'Caller does not have the permission required for this tool.',
+            undefined,
+            explanation,
+          )
+        }
+        if (options.enabled && !(await options.enabled(projectionCtx))) {
+          const explanation = createDenialExplanation({
+            reasonCode: 'tool.disabled',
+            decision: 'tool',
+            message: 'Tool is currently disabled for this request.',
+            suggestedAction: 'contact_admin',
+          })
+          await projectionCtx.observe({
+            name: 'tool.denied',
+            status: 'deny',
+            transport: 'mcp',
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            operation: metadata.id,
+            reasonCode: 'tool.disabled',
+            details: { explanation },
+          })
+          return ctx.error('auth', 'Tool is currently disabled for this request.', undefined, explanation)
+        }
         const fullArgs = rawArgs as Record<string, unknown>
         const confirmationToken =
           typeof fullArgs._confirmationToken === 'string' ? fullArgs._confirmationToken : undefined
@@ -967,21 +1023,6 @@ export function defineMcpApp<
             )
           }
 
-          if (await hasRedeemedConfirmation(payload.operationId, payload.jti)) {
-            const explanation = createDenialExplanation({
-              reasonCode: 'tool.confirmation_mismatch',
-              decision: 'destructive_confirm',
-              message: 'Confirmation token has already been redeemed.',
-              suggestedAction: 'retry_with_confirmation',
-            })
-            return ctx.error(
-              'conflict',
-              'Confirmation token has already been redeemed. Preview again before executing.',
-              undefined,
-              explanation,
-            )
-          }
-
           const previewResult = await callByOperation(
             projectionCtx.convex,
             options.previewOperation ?? 'query',
@@ -1051,7 +1092,6 @@ export function defineMcpApp<
             operation: metadata.id,
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
           })
-          await redeemConfirmationToken(payload)
         }
 
         try {

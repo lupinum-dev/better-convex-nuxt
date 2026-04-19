@@ -46,34 +46,3 @@ test('owner flow covers project, board, task detail, upload, and export', async 
   await page.getByRole('link', { name: 'Export CSV' }).click()
   await exportPromise
 })
-
-test('role downgrade propagates live to another browser context', async ({ browser, page }) => {
-  const workspaceSlug = `alpha-${Date.now()}`
-  const ownerEmail = `owner-${Date.now()}@example.com`
-  const memberEmail = `member-${Date.now()}@example.com`
-
-  await signUp(page, 'Owner', ownerEmail)
-  await page.getByTestId('workspace-name').fill('Alpha')
-  await page.getByTestId('workspace-slug').fill(workspaceSlug)
-  await page.getByTestId('workspace-submit').click()
-  await page.getByTestId('project-name').fill('Alpha board')
-  await page.getByTestId('project-submit').click()
-
-  const memberContext = await browser.newContext()
-  const memberPage = await memberContext.newPage()
-
-  await signUp(memberPage, 'Member', memberEmail)
-  await memberPage.getByLabel('Workspace slug').fill(workspaceSlug)
-  await memberPage.getByRole('button', { name: 'Join workspace' }).click()
-
-  const projectLink = memberPage.locator('[data-testid^="project-link-"]').first()
-  await projectLink.click()
-  await expect(memberPage.getByTestId('task-submit')).toBeVisible()
-
-  await page.getByRole('link', { name: 'Admin' }).click()
-  await page.locator(`[data-testid="member-role-${memberEmail}"]`).selectOption('viewer')
-
-  await expect(memberPage.locator('[data-testid="task-submit"]')).toHaveCount(0)
-
-  await memberContext.close()
-})

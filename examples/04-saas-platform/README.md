@@ -1,100 +1,73 @@
-# SaaS Platform Example
+# Example 04 — Server Integration Workspace
 
-This is both the month-two example and the gallery's **project-management SaaS** example.
-It is the cleanest role + ownership + business-state case in the repo, then extended into a
-real product surface with plan-based entitlements and usage limits.
+## What this example is for
 
-It adds:
+The last step in the beginner ladder.
 
-- paginated project lists
-- optimistic board updates
-- file uploads on comments
-- nested project -> task -> comment permissions
-- explicit `loadResource()` helpers
-- `guard` for business-state and secondary-document checks
-- plan entitlements with `hasFeature()` checks
-- count-based usage limits with `ensureWithinLimit()`
-- `upgradePlan` mutation for workspace plan management
-- feature-gated CSV export via `exportProjects`
-- Nitro routes that call Convex
-- first-class integration tests and browser E2E
+This example keeps the protected workspace model from Example 03, then shows how server-side
+surfaces fit into that model: Nitro routes, uploads, and one realistic external integration
+boundary.
 
-Attachment note for this pass:
+## What it teaches
 
-- upload preview is client-side before submit
-- already-saved attachments are intentionally not reopened through a raw Convex storage lookup
-- any future retrieval path should hang off the owning comment or task, not `_storage` directly
+- Nitro routes calling Convex
+- route verification at the server boundary
+- server-owned actor identity for a webhook path
+- uploads and attachment authorization
+- nested resource guards in a still-familiar workspace app
 
-## Files To Read First
+It is no longer the “big month-two SaaS showcase.” Its job is to show how protected server surfaces
+fit into the canonical workspace model.
 
-If this is your first pass, stop after the first three files. The rest are expansion surfaces, not
-the core permission model.
+## What this example assumes
 
-1. `convex/auth/checks.ts`
-2. `convex/domain/tasks.ts`
-3. `pages/projects/[id].vue`
-4. `pages/admin/index.vue`
-5. `server/api/webhook.post.ts`
-6. `convex/projectBoard.test.ts`
+You already understand the canonical protected app from
+[`03-team-workspace`](../03-team-workspace/README.md).
 
-## What This Adds Beyond 03
+## Files to read first
 
-Example 03 proves the tenant + permission + MCP safety model.
+1. `convex/domain/tasks.ts`
+2. `pages/projects/[id].vue`
+3. `server/api/webhook.post.ts`
+4. `server/api/export.get.ts`
+5. `convex/projectBoard.test.ts`
 
-Example 04 keeps the same safety model, then shows the next layer of real product work:
+## Demo flow
 
-- larger list handling with pagination
-- cache-backed detail navigation
-- optimistic interaction patterns
-- uploads and attachments
-- admin workflows and recent activity
-- server-side integrations
+1. Sign up and create a workspace.
+2. Create a project and open its board.
+3. Add a task and open its detail view.
+4. Upload an attachment on a comment.
+5. Trigger the webhook route or inspect the webhook test to see the server-owned actor path.
 
-In the SaaS gallery this example represents:
-
-- SaaS type: project management
-- easy problem: members updating their own work
-- hard problem: nested resource guards plus business-state rules like archived projects
-
-This example keeps the repo's canonical single-workspace contract:
-
-- scoped tables use `workspaceId`
-- tenant indexes use `by_workspace`
-- ownership fields store the auth-subject string
-
-The point of Example 04 is not a different naming scheme. It is the same workspace model from
-Example 03 carried into a larger product surface.
-
-The example now uses the same public canonical layout as the Trellis starters:
-
-- `convex/domain/*` for the core business handlers
-- `convex/permissions/context.ts` for the configured permission query
-- `convex/operations/*` for destructive projections like project archive and task removal
-
-## Run It
+## Run
 
 1. Copy `.env.example` to `.env.local`
 2. `pnpm install`
 3. `pnpm dev`
 
-`pnpm dev` is the default path. It starts an anonymous local Convex deployment, waits for Convex codegen, and then starts Nuxt.
-Use `pnpm convex:dev` only if you explicitly want to run the local backend by hand.
+App-owned env vars:
 
-## Run The Tests
+- `SITE_URL`: Better Auth callback origin
+- `BETTER_AUTH_SECRET`: Better Auth signing secret
+- `CONVEX_TRUSTED_CALLER_KEY`: trusted server-to-Convex lane
+- `PROJECT_BOARD_WEBHOOK_SECRET`: webhook route signature secret
+- `PROJECT_BOARD_WEBHOOK_ACTOR_ID`: server-owned app actor used by the webhook example
 
-- Integration tests: `pnpm test`
-- Browser E2E: `pnpm test:e2e`
-- Both: `pnpm test:all`
+## Test
 
-## Demo Flow
+- `pnpm test`
+- `pnpm test:e2e`
+- `pnpm typecheck`
+- `pnpm typecheck:tests`
 
-1. Sign up as the workspace owner and create a workspace.
-2. Create a project and open its board.
-3. Add tasks, move one to another column, and open its detail view.
-4. Upload an attachment on a comment.
-5. Open the admin page and change another member from `member` to `viewer`.
-6. Verify the member loses task-creation access live.
+## When to stop here / move on
 
-Convex files run on Convex's infrastructure, outside Nuxt's auto-import/build scope. That is why
-the app owns tiny files like `convex/auth/actor.ts` and `convex/functions.ts`, even though the
-protected handlers now use `query()` / `mutation()`, with `raw.query()` / `raw.mutation()` kept only for explicit escape hatches.
+Stop here if your next problem is “how do server routes, uploads, and integrations fit into my
+workspace app?”
+
+Move to an advanced branch when the problem changes:
+
+- [`05-visibility-access`](../05-visibility-access/README.md) for advanced authorization
+- [`06-multi-workspace`](../06-multi-workspace/README.md) for memberships-based multi-workspace
+- [`07-mcp-reference`](../07-mcp-reference/README.md) for the full MCP surface

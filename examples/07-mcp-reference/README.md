@@ -1,114 +1,68 @@
-# MCP Reference Example
+# Example 07 — MCP Reference
 
-This is the full MCP reference app.
+## What this example is for
 
-It is intentionally compact on the business side and broad on the MCP side.
+The full MCP branch.
 
-## What It Shows
+This is not an onboarding example. Open it when you already understand the protected app model and
+you want the complete Trellis MCP surface in one place.
 
-- public MCP tools with no auth
-- auth-required + tenant-scoped MCP tools
-- destructive preview + confirmation flow
-- tool middleware
-- rate limiting and bulk-operation limits
-- structured result envelopes and output schemas
+## What it teaches
+
+- public vs scoped tools
+- MCP key auth
+- destructive preview + confirmation
 - prompts and resources
-- session state with `useMcpSession()`
-- dynamic per-session tool registration with `useMcpServer()`
+- sessions and dynamic per-session tools
 - a separate code-mode endpoint
-- real MCP bearer keys stored as hashes at rest
-- transport-shaped `mcp` principals forwarded into the same protected Convex handlers as the UI
 
-## Business Domain
+The business domain stays intentionally small so the MCP layer is the thing you are really reading.
 
-The app is a workspace runbook library:
+## What this example assumes
 
-- public runbooks are visible to unauthenticated MCP callers
-- workspace runbooks require browser auth in the app or an MCP bearer key
-- owners/admins can issue MCP keys for their workspace
+You already understand the canonical protected workspace model from
+[`03-team-workspace`](../03-team-workspace/README.md).
 
-That gives the example one small domain while still covering every major MCP path.
+## Files to read first
 
-## Files To Read First
+1. `convex/domain/runbooks.ts`
+2. `convex/domain/mcpKeys.ts`
+3. `server/middleware/mcp-auth.ts`
+4. `server/mcp/tools/public/*`
+5. `server/mcp/tools/workspace/*`
+6. `server/mcp/tools/session/*`
+7. `server/mcp/resources/mcp-reference-guide.ts`
+8. `server/mcp/prompts/plan-runbook-workflow.ts`
 
-1. `convex/schema.ts`
-2. `convex/domain/runbooks.ts`
-3. `convex/operations/runbooks.ts`
-4. `convex/domain/mcpKeys.ts`
-5. `convex/permissions/context.ts`
-6. `server/middleware/mcp-auth.ts`
-7. `server/mcp/tools/public/*`
-8. `server/mcp/tools/workspace/*`
-9. `server/mcp/tools/session/*`
-10. `server/mcp/resources/mcp-reference-guide.ts`
-11. `server/mcp/prompts/plan-runbook-workflow.ts`
-12. `server/mcp/code-mode-demo.ts`
-13. `pages/index.vue`
+## Demo flow
 
-## Run It
+1. Sign up and create a workspace.
+2. Issue an MCP key from the UI.
+3. Call the default MCP endpoint and confirm scoped tools appear.
+4. Call the code-mode endpoint and compare the smaller surface.
+5. Use the session tools to store a focus and register a temporary shortcut.
+
+## Run
 
 1. Copy `.env.example` to `.env.local`
 2. `pnpm install`
 3. `pnpm dev`
 
-`pnpm dev` starts a local Convex deployment, writes local env values, runs codegen, and then starts Nuxt.
+App-owned env vars:
 
-## Demo Flow
+- `SITE_URL`: Better Auth callback origin
+- `BETTER_AUTH_SECRET`: Better Auth signing secret
+- `CONVEX_TRUSTED_CALLER_KEY`: trusted server-to-Convex lane
+- `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
 
-1. Sign up and create a workspace.
-2. Notice the workspace is seeded with one public and one internal runbook.
-3. Issue an MCP key from the UI and copy it once.
-4. Call the default MCP endpoint with that key and confirm scoped tools appear.
-5. Call the code-mode endpoint and compare the smaller tool set.
-6. Use the session tools to store a focus and register a temporary shortcut.
+## Test
 
-## MCP Curl Snippets
+- `pnpm test`
+- `pnpm typecheck`
 
-Public discovery:
+## When to stop here / move on
 
-```bash
-curl http://localhost:3000/mcp \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
-```
+Stop here if the next thing you need to ship is MCP.
 
-Authenticated discovery:
-
-```bash
-curl http://localhost:3000/mcp \
-  -H 'Authorization: Bearer mcp_your_token_here' \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
-```
-
-Read the guide resource:
-
-```bash
-curl http://localhost:3000/mcp \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":"2","method":"resources/read","params":{"uri":"app://mcp-reference/guide"}}'
-```
-
-Use the code-mode endpoint:
-
-```bash
-curl http://localhost:3000/mcp/runbook-agent \
-  -H 'Authorization: Bearer mcp_your_token_here' \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":"1","method":"tools/list","params":{}}'
-```
-
-## Security Notes
-
-- MCP keys are stored as SHA-256 hashes in Convex, not plaintext.
-- The full bearer token is only shown once in the UI after creation.
-- MCP key validation happens in Nitro middleware and maps into `event.context.mcpAuth`.
-- MCP middleware only resolves MCP transport identity; workspace role and tenant access still come from Convex actor resolution.
-- Scoped MCP tools still call the same Convex handlers as the UI.
-- `lastUsedAt` updates are debounced to once per minute per key to avoid unnecessary write contention.
-
-## Why This Example Exists
-
-Example `03-team-workspace` is the minimum viable MCP story.
-
-Example `07-mcp-reference` is where you go when you want the full public MCP protocol surface in one place.
+Move to [`08-component-mini-cms`](../08-component-mini-cms/README.md) when MCP is not enough and
+you also need a component / host bridge architecture.

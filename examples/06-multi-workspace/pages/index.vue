@@ -1,7 +1,7 @@
 <!--
 Why this file exists:
-The workspace hub — auth, workspace management, and agency overview in one place.
-Project management lives on its own page to highlight tenant scoping.
+The multi-workspace upgrade path — auth, workspace switching, and agency overview in one place.
+Project management lives on its own page so the cross-workspace boundary stays explicit.
 -->
 <template>
   <div
@@ -14,8 +14,8 @@ Project management lives on its own page to highlight tenant scoping.
         </p>
         <h1 class="text-3xl font-bold mt-1">Multi-Workspace Agency Portal</h1>
         <p class="text-sm text-muted mt-2">
-          Current-workspace actions respect the normal tenant boundary. The agency dashboard is a
-          separate path that looks across assigned clients only.
+          The upgrade branch for teams that outgrow a single-workspace user model. Current-workspace
+          actions stay normal; cross-workspace views stay explicitly limited.
         </p>
       </template>
 

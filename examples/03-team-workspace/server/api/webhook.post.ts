@@ -1,26 +1,52 @@
-import { api } from '#trellis/api'
 /**
  * Why this file exists:
- * Nitro route that receives external webhook payloads and forwards them to the Convex mutation.
- * The mutation handles its own auth (trusted caller key) and idempotency.
+ * Nitro route that receives external webhook payloads and forwards them to an internal Convex
+ * mutation after verifying a server-owned signature.
  */
+import { createError, defineEventHandler, readBody } from 'h3'
+
 import { serverConvexMutation } from '#trellis/server'
+import { internal } from '~/convex/_generated/api'
+
+type WebhookBody = {
+  workspaceId?: string
+  eventId?: string
+  title?: string
+  completed?: boolean
+  externalId?: string
+}
+
+function getWebhookSecret(): string {
+  const secret = process.env.TEAM_WORKSPACE_WEBHOOK_SECRET?.trim()
+  if (!secret) {
+    throw createError({
+      statusCode: 500,
+      message: 'TEAM_WORKSPACE_WEBHOOK_SECRET is required for the webhook example.',
+    })
+  }
+
+  return secret
+}
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
+  const signature = event.node.req.headers['x-example-signature']
+  if (signature !== getWebhookSecret()) {
+    throw createError({ statusCode: 401, message: 'Invalid signature' })
+  }
 
-  if (!body?.trustedCallerKey || !body?.workspaceId || !body?.eventId || !body?.title) {
+  const body = await readBody<WebhookBody>(event)
+
+  if (!body.workspaceId || !body.eventId || !body.title) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Missing required fields: trustedCallerKey, workspaceId, eventId, title',
+      statusMessage: 'Missing required fields: workspaceId, eventId, title',
     })
   }
 
   const todoId = await serverConvexMutation(
     event,
-    api.domain.webhooks.processTodoSyncWebhook,
+    internal.domain.webhooks.processTodoSyncWebhook,
     {
-      trustedCallerKey: body.trustedCallerKey,
       workspaceId: body.workspaceId,
       eventId: body.eventId,
       title: body.title,

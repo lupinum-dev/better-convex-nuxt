@@ -14,6 +14,7 @@ export { defineMcpApp } from './define-mcp-app.js'
 export { useMcpServer } from './use-mcp-server.js'
 
 export { useMcpSession } from './use-mcp-session.js'
+export { invalidateMcpSession } from '@nuxtjs/mcp-toolkit/server'
 
 export { wrapError, wrapSuccess, wrapPreview, withSummary } from './result-envelope.js'
 

@@ -5,13 +5,12 @@
  */
 import { v } from 'convex/values'
 
-import { mutation } from '../_generated/server'
+import { internalMutation } from '../_generated/server'
 import { ensureNotProcessed, markProcessed } from '../auth/idempotency'
 import { ensureWebhookBotUser, resolveWebhookActor } from '../auth/trustedCaller'
 
-export const processTodoSyncWebhook = mutation({
+export const processTodoSyncWebhook = internalMutation({
   args: {
-    trustedCallerKey: v.string(),
     workspaceId: v.id('workspaces'),
     eventId: v.string(),
     title: v.string(),
@@ -20,7 +19,7 @@ export const processTodoSyncWebhook = mutation({
   },
   handler: async (ctx, args) => {
     await ensureWebhookBotUser(ctx, args.workspaceId)
-    const actor = await resolveWebhookActor(ctx, args.trustedCallerKey, args.workspaceId)
+    const actor = await resolveWebhookActor(ctx, args.workspaceId)
     await ensureNotProcessed(ctx.db, 'webhook', args.eventId)
 
     const todoId = await ctx.db.insert('todos', {

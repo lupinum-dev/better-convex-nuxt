@@ -5,10 +5,11 @@
         <p class="mini-kicker">Studio</p>
         <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div class="space-y-3 max-w-3xl">
+            <p class="mini-kicker">Example 08</p>
             <h1 class="text-5xl font-semibold">Drafts live inside the component</h1>
             <p class="text-lg text-[var(--mini-muted)]">
-              The browser hits root app wrappers. Those wrappers resolve the principal from Better
-              Auth, then forward it into the local component.
+              The architecture branch: the browser hits root app wrappers, those wrappers resolve
+              the principal from Better Auth, then forward it into the local component.
             </p>
           </div>
 

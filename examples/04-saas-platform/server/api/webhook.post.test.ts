@@ -45,6 +45,7 @@ function createEvent(signature = 'project-board-demo') {
 describe('example 04 webhook handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.PROJECT_BOARD_WEBHOOK_SECRET = 'project-board-demo'
     process.env.PROJECT_BOARD_WEBHOOK_ACTOR_ID = 'user_owner'
   })
 
@@ -103,6 +104,19 @@ describe('example 04 webhook handler', () => {
     await expect(handler(createEvent() as never)).rejects.toMatchObject({
       statusCode: 500,
       message: 'PROJECT_BOARD_WEBHOOK_ACTOR_ID is required for the webhook example.',
+    })
+  })
+
+  it('fails closed when the webhook route secret is not configured', async () => {
+    delete process.env.PROJECT_BOARD_WEBHOOK_SECRET
+    readBodyMock.mockResolvedValue({
+      projectId: 'project_123',
+      title: 'Webhook task',
+    })
+
+    await expect(handler(createEvent() as never)).rejects.toMatchObject({
+      statusCode: 500,
+      message: 'PROJECT_BOARD_WEBHOOK_SECRET is required for the webhook example.',
     })
   })
 })

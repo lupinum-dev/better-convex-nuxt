@@ -1,33 +1,54 @@
-# Public Todo Example
+# Example 01 — Public Todo
 
-This is the smallest useful public-only app.
+## What this example is for
 
-It shows:
+Your first contact with Trellis.
 
-- `trellis: { url }` and nothing else
-- the smallest Trellis-backed `convex/functions.ts` runtime
-- one `defineArgs()` object reused by Convex handlers
-- `useConvexQuery()` and `useConvexMutation()` in the page
+This example is intentionally tiny. It exists to make the Nuxt ↔ Trellis ↔ Convex loop obvious
+before auth, tenants, permissions, or server integrations show up.
 
-## Files To Read First
+## What it teaches
+
+- minimal Trellis setup
+- one shared args/schema object reused by Convex handlers
+- one query + one mutation-driven page flow
+- public data only, with no auth or tenant model
+
+## What this example assumes
+
+Nothing. This is the start of the gallery.
+
+## Files to read first
 
 1. `shared/schemas/todo.ts`
 2. `convex/functions.ts`
 3. `convex/domain/todos.ts`
 4. `pages/index.vue`
 
-## Run It
-
-1. `pnpm install`
-2. `pnpm dev`
-
-`pnpm dev` starts a local Convex deployment automatically and injects the local Convex URLs for Nuxt.
-
-## What To Try
+## Demo flow
 
 1. Add a todo.
 2. Toggle it complete.
 3. Delete it.
 
-This app has no auth and no tenant scoping. That is the point: one page, one shared args
-definition, and almost no ceremony.
+If that round-trip feels obvious, the example has done its job.
+
+## Run
+
+1. `pnpm install`
+2. `pnpm dev`
+
+`pnpm dev` starts a local Convex deployment automatically and injects the local Convex URLs for
+Nuxt.
+
+## Test
+
+- `pnpm test`
+- `pnpm typecheck`
+
+## When to stop here / move on
+
+Stop here if you only needed to understand the public data flow.
+
+Move to [`02-auth-todo`](../02-auth-todo/README.md) when you want the same simple domain with real
+auth and ownership.

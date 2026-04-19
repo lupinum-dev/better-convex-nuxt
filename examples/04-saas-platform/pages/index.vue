@@ -7,11 +7,10 @@
         <p class="text-xs font-bold uppercase tracking-widest text-green-700 dark:text-green-400">
           Example 04
         </p>
-        <h1 class="text-3xl font-bold mt-1">SaaS Platform</h1>
+        <h1 class="text-3xl font-bold mt-1">Server Integration Workspace</h1>
         <p class="text-sm text-muted mt-2">
-          The month-two app: paginated lists, uploads, server routes, role management, plan
-          entitlements, and usage limits on top of the same explicit auth pattern used in Example
-          03.
+          The final beginner-ladder example: protected workspace patterns plus Nitro routes,
+          uploads, and one verified external integration boundary.
         </p>
       </template>
 
@@ -191,90 +190,42 @@
             </UCard>
 
             <template v-if="ready && !tenantId">
-              <div class="grid gap-4 md:grid-cols-2">
-                <UCard>
-                  <template #header>
-                    <h3 class="text-lg font-semibold">Create workspace</h3>
-                    <p class="text-sm text-muted mt-1">The creator becomes the workspace owner.</p>
-                  </template>
-
-                  <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Name</label>
-                      <UInput
-                        v-model="createWorkspaceForm.name"
-                        data-testid="workspace-name"
-                        required
-                      />
-                    </div>
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Slug</label>
-                      <UInput
-                        v-model="createWorkspaceForm.slug"
-                        data-testid="workspace-slug"
-                        required
-                      />
-                    </div>
-                    <UButton
-                      data-testid="workspace-submit"
-                      type="submit"
-                      block
-                      :loading="createWorkspace.pending.value"
-                    >
-                      Create workspace
-                    </UButton>
-                  </form>
-                </UCard>
-
-                <UCard>
-                  <template #header>
-                    <h3 class="text-lg font-semibold">Join workspace</h3>
-                    <p class="text-sm text-muted mt-1">
-                      This demo keeps joining intentionally open so you can quickly test different
-                      roles.
-                    </p>
-                  </template>
-
-                  <form class="space-y-4" @submit.prevent="handleJoinWorkspace">
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Workspace slug</label>
-                      <UInput v-model="joinWorkspaceForm.slug" required />
-                    </div>
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Role</label>
-                      <USelect v-model="joinWorkspaceForm.role" :items="roleOptions" />
-                    </div>
-                    <UButton
-                      type="submit"
-                      block
-                      color="neutral"
-                      variant="soft"
-                      :loading="joinWorkspace.pending.value"
-                    >
-                      Join workspace
-                    </UButton>
-                  </form>
-                </UCard>
-              </div>
-
-              <UCard v-if="workspaceOptions?.length">
+              <UCard>
                 <template #header>
-                  <h3 class="text-lg font-semibold">Existing workspaces</h3>
+                  <h3 class="text-lg font-semibold">Create workspace</h3>
                   <p class="text-sm text-muted mt-1">
-                    Use one of these slugs to join from another account.
+                    The creator becomes the workspace owner. This example no longer ships open
+                    self-join because role assignment is an authorization boundary, not onboarding
+                    UI.
                   </p>
                 </template>
 
-                <ul class="space-y-2">
-                  <li
-                    v-for="workspace in workspaceOptions"
-                    :key="workspace._id"
-                    class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-default bg-elevated"
+                <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
+                  <div class="space-y-1">
+                    <label class="text-sm font-medium text-highlighted">Name</label>
+                    <UInput
+                      v-model="createWorkspaceForm.name"
+                      data-testid="workspace-name"
+                      required
+                    />
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-sm font-medium text-highlighted">Slug</label>
+                    <UInput
+                      v-model="createWorkspaceForm.slug"
+                      data-testid="workspace-slug"
+                      required
+                    />
+                  </div>
+                  <UButton
+                    data-testid="workspace-submit"
+                    type="submit"
+                    block
+                    :loading="createWorkspace.pending.value"
                   >
-                    <span class="font-medium text-highlighted">{{ workspace.name }}</span>
-                    <span class="text-sm text-muted">{{ workspace.slug }}</span>
-                  </li>
-                </ul>
+                    Create workspace
+                  </UButton>
+                </form>
               </UCard>
             </template>
 
@@ -446,11 +397,6 @@ const createWorkspaceForm = reactive({
   slug: '',
 })
 
-const joinWorkspaceForm = reactive({
-  slug: '',
-  role: 'member' as 'admin' | 'member' | 'viewer',
-})
-
 const projectForm = reactive({
   name: '',
   summary: '',
@@ -461,12 +407,6 @@ const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace,
     toast.add({ title: 'Workspace created', color: 'success', icon: 'i-lucide-building' }),
   onError: (error) =>
     toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
-})
-const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace, {
-  onSuccess: () =>
-    toast.add({ title: 'Joined workspace', color: 'success', icon: 'i-lucide-user-plus' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
 })
 const createProject = useConvexMutation(api.domain.projects.create, {
   onSuccess: () =>
@@ -491,9 +431,6 @@ const createProject = useConvexMutation(api.domain.projects.create, {
     })
   },
 })
-
-const { data: workspaceOptions } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
-
 const projectArgs = computed(() => (tenantId.value ? {} : undefined))
 const {
   results: projects,
@@ -507,12 +444,9 @@ const {
 const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
-const currentWorkspace = computed(() =>
-  workspaceOptions.value?.find((w) => w._id === tenantId.value),
-)
+const currentWorkspace = computed(() => ctx.value?.workspace ?? null)
 const canCreateProject = allows(projectCreate)
 const atProjectLimit = computed(() => ctx.value?.usage?.projects?.remaining === 0)
-const roleOptions = ['admin', 'member', 'viewer']
 const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
 const recordRuleRows = [
   { label: 'Update own task', roles: ['owner', 'admin', 'member'] },
@@ -536,13 +470,6 @@ async function handleCreateWorkspace() {
   await createWorkspace({
     name: createWorkspaceForm.name,
     slug: createWorkspaceForm.slug,
-  })
-}
-
-async function handleJoinWorkspace() {
-  await joinWorkspace({
-    slug: joinWorkspaceForm.slug,
-    role: joinWorkspaceForm.role,
   })
 }
 

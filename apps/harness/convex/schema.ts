@@ -127,8 +127,8 @@ export default defineSchema({
     // Human-readable name for the key
     name: v.string(),
 
-    // The secret key (hashed prefix + full for lookup)
-    key: v.string(),
+    // The secret key is hashed at rest; only the prefix is stored for display.
+    keyHash: v.string(),
     prefix: v.string(), // First 8 chars for display: "mcp_abc1..."
 
     // Identity bound to this key
@@ -144,7 +144,7 @@ export default defineSchema({
     createdAt: v.number(),
     revokedAt: v.optional(v.number()),
   })
-    .index('by_key', ['key'])
+    .index('by_key_hash', ['keyHash'])
     .index('by_user', ['userId'])
     .index('by_organization', ['organizationId']),
 

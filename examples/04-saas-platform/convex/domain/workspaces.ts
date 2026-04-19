@@ -1,20 +1,9 @@
-import { authRequired, open } from '@lupinum/trellis/auth'
+import { authRequired } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { hasRole, hasWorkspace, requireWorkspaceTenant } from '../auth/checks'
 import { mutation, query } from '../functions'
 import { planValidator } from '../schema'
-
-const joinRoleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
-
-export const listWorkspaces = query({
-  args: {},
-  guard: open,
-  handler: async (ctx) => {
-    const workspaces = await ctx.db.query('workspaces').order('desc').collect()
-    return workspaces.map(({ _id, name, slug }) => ({ _id, name, slug }))
-  },
-})
 
 export const createWorkspace = mutation({
   args: {
@@ -56,39 +45,6 @@ export const createWorkspace = mutation({
     })
 
     return workspaceId
-  },
-})
-
-export const joinWorkspace = mutation({
-  args: {
-    slug: v.string(),
-    role: joinRoleValidator,
-  },
-  guard: authRequired,
-  handler: async (ctx, args) => {
-    const principal = await ctx.principal()
-
-    const workspace = await ctx.db
-      .query('workspaces')
-      .withIndex('by_slug', (q) => q.eq('slug', args.slug))
-      .first()
-
-    if (!workspace) throw new Error('Workspace not found.')
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))
-      .first()
-
-    if (!user) throw new Error('Current user row not found.')
-
-    await ctx.db.patch(user._id, {
-      workspaceId: workspace._id,
-      role: args.role,
-      updatedAt: Date.now(),
-    })
-
-    return workspace._id
   },
 })
 

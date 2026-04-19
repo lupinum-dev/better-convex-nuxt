@@ -183,7 +183,7 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBe('Hello')
   })
 
-  it('supports authRequired handlers before actor resolution', async () => {
+  it('requires a resolved actor for authRequired handlers', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
       createBuilder(),
       createBuilder(),
@@ -207,9 +207,20 @@ describe('buildStructuredFunctions', () => {
         },
         {},
       ),
+    ).rejects.toThrow(/Forbidden: authRequired/)
+
+    await expect(
+      query.handler(
+        {
+          principal: async () => ({ kind: 'user', userId: 'alice' }),
+          actor: async () => ({ userId: 'alice', role: 'member' }),
+          marker: 'auth-only',
+        },
+        {},
+      ),
     ).resolves.toEqual({
       principal: { kind: 'user', userId: 'alice' },
-      actor: null,
+      actor: { userId: 'alice', role: 'member' },
     })
 
     await expect(
@@ -253,7 +264,7 @@ describe('buildStructuredFunctions', () => {
     expect(actor).not.toHaveBeenCalled()
   })
 
-  it('supports authRequired handlers with load and authorize while actor stays nullable', async () => {
+  it('runs authRequired before load and authorize when actor is missing', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
       createBuilder(),
       createBuilder(),
@@ -282,7 +293,7 @@ describe('buildStructuredFunctions', () => {
         },
         {},
       ),
-    ).rejects.toThrow(/Forbidden: todo.preview/)
+    ).rejects.toThrow(/Forbidden: authRequired/)
 
     await expect(
       mutation.handler(

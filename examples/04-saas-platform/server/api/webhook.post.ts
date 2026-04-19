@@ -15,6 +15,18 @@ type WebhookBody = {
   priority?: 'low' | 'medium' | 'high'
 }
 
+function getWebhookSecret(): string {
+  const secret = process.env.PROJECT_BOARD_WEBHOOK_SECRET?.trim()
+  if (!secret) {
+    throw createError({
+      statusCode: 500,
+      message: 'PROJECT_BOARD_WEBHOOK_SECRET is required for the webhook example.',
+    })
+  }
+
+  return secret
+}
+
 function getWebhookActorUserId(): string {
   const actorUserId = process.env.PROJECT_BOARD_WEBHOOK_ACTOR_ID?.trim()
   if (!actorUserId) {
@@ -29,7 +41,7 @@ function getWebhookActorUserId(): string {
 
 export default defineEventHandler(async (event) => {
   const signature = event.node.req.headers['x-example-signature']
-  if (signature !== 'project-board-demo') {
+  if (signature !== getWebhookSecret()) {
     throw createError({ statusCode: 401, message: 'Invalid signature' })
   }
 

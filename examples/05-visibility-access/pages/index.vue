@@ -9,8 +9,8 @@
         </p>
         <h1 class="text-3xl font-bold mt-1">Team Knowledge Base</h1>
         <p class="text-sm text-muted mt-2">
-          Row-level visibility, field redaction, enrollment-based access, prerequisite chains, share
-          tokens, and inherited access levels in a single knowledge base domain.
+          The advanced authorization branch: row visibility, field redaction, enrollment,
+          prerequisites, share tokens, and inherited access in one domain.
         </p>
       </template>
 
@@ -108,7 +108,8 @@
                   </p>
                 </template>
                 <p v-else class="text-sm text-muted">
-                  No workspace yet — create or join one below.
+                  No workspace yet — create one below. Invite-based collaboration belongs on a
+                  server-owned flow, so this example no longer ships open self-join.
                 </p>
               </div>
 
@@ -170,83 +171,25 @@
 
             <!-- Workspace onboarding -->
             <template v-if="!tenantId">
-              <div class="grid gap-4 md:grid-cols-2">
-                <UCard>
-                  <template #header>
-                    <h3 class="text-lg font-semibold">Create workspace</h3>
-                    <p class="text-sm text-muted mt-1">The creator becomes the workspace owner.</p>
-                  </template>
-
-                  <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Name</label>
-                      <UInput v-model="createWorkspaceForm.name" required />
-                    </div>
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Slug</label>
-                      <UInput v-model="createWorkspaceForm.slug" required />
-                    </div>
-                    <UButton type="submit" block :loading="createWorkspace.pending.value">
-                      Create workspace
-                    </UButton>
-                  </form>
-                </UCard>
-
-                <UCard>
-                  <template #header>
-                    <h3 class="text-lg font-semibold">Join workspace</h3>
-                    <p class="text-sm text-muted mt-1">
-                      Open join so you can test different roles quickly.
-                    </p>
-                  </template>
-
-                  <form class="space-y-4" @submit.prevent="handleJoinWorkspace">
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Workspace slug</label>
-                      <UInput v-model="joinWorkspaceForm.slug" required />
-                    </div>
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Role</label>
-                      <USelect v-model="joinWorkspaceForm.role" :items="roleOptions" />
-                    </div>
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted"
-                        >Manager email (optional)</label
-                      >
-                      <UInput
-                        v-model="joinWorkspaceForm.managerEmail"
-                        type="email"
-                        placeholder="editor@example.com"
-                      />
-                    </div>
-                    <UButton
-                      type="submit"
-                      block
-                      color="neutral"
-                      variant="soft"
-                      :loading="joinWorkspace.pending.value"
-                    >
-                      Join workspace
-                    </UButton>
-                  </form>
-                </UCard>
-              </div>
-
-              <UCard v-if="workspaceOptions?.length">
+              <UCard>
                 <template #header>
-                  <h3 class="text-lg font-semibold">Existing workspaces</h3>
+                  <h3 class="text-lg font-semibold">Create workspace</h3>
+                  <p class="text-sm text-muted mt-1">The creator becomes the workspace owner.</p>
                 </template>
 
-                <ul class="space-y-2">
-                  <li
-                    v-for="workspace in workspaceOptions"
-                    :key="workspace._id"
-                    class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-default bg-elevated"
-                  >
-                    <span class="font-medium text-highlighted">{{ workspace.name }}</span>
-                    <span class="text-sm text-muted">{{ workspace.slug }}</span>
-                  </li>
-                </ul>
+                <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
+                  <div class="space-y-1">
+                    <label class="text-sm font-medium text-highlighted">Name</label>
+                    <UInput v-model="createWorkspaceForm.name" required />
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-sm font-medium text-highlighted">Slug</label>
+                    <UInput v-model="createWorkspaceForm.slug" required />
+                  </div>
+                  <UButton type="submit" block :loading="createWorkspace.pending.value">
+                    Create workspace
+                  </UButton>
+                </form>
               </UCard>
             </template>
 
@@ -335,22 +278,12 @@ const { allows, ctx, ready, role, tenantId } = usePermissions()
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
 const createWorkspaceForm = reactive({ name: '', slug: '' })
-const joinWorkspaceForm = reactive({
-  slug: '',
-  role: 'contributor' as 'admin' | 'editor' | 'contributor' | 'viewer',
-  managerEmail: '',
-})
 const kbForm = reactive({ title: '' })
 
 const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace, {
   onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
-})
-const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace, {
-  onSuccess: () => toast.add({ title: 'Joined workspace', color: 'success' }),
-  onError: (error) =>
-    toast.add({ title: 'Could not join workspace', description: error.message, color: 'error' }),
 })
 const createKB = useConvexMutation(api.domain.knowledgeBases.create, {
   onSuccess: () => toast.add({ title: 'Knowledge base created', color: 'success' }),
@@ -361,21 +294,14 @@ const createKB = useConvexMutation(api.domain.knowledgeBases.create, {
       color: 'error',
     }),
 })
-
-const { data: workspaceOptions } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
-
 const kbArgs = computed(() => (tenantId.value ? {} : undefined))
 const { data: knowledgeBases } = await useConvexQuery(api.domain.knowledgeBases.list, kbArgs)
 
 const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
-const currentWorkspaceName = computed(() => {
-  if (!tenantId.value || !workspaceOptions.value) return null
-  return workspaceOptions.value.find((w) => w._id === tenantId.value)?.name ?? null
-})
+const currentWorkspaceName = computed(() => ctx.value?.workspace?.name ?? null)
 const canCreate = allows(kbCreate)
-const roleOptions = ['admin', 'editor', 'contributor', 'viewer']
 const allRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const
 const recordRuleRows = [
   { label: 'Update any article', roles: ['owner', 'admin'] },
@@ -399,14 +325,6 @@ async function handleCreateWorkspace() {
   await createWorkspace({
     name: createWorkspaceForm.name,
     slug: createWorkspaceForm.slug,
-  })
-}
-
-async function handleJoinWorkspace() {
-  await joinWorkspace({
-    slug: joinWorkspaceForm.slug,
-    role: joinWorkspaceForm.role,
-    managerEmail: joinWorkspaceForm.managerEmail || undefined,
   })
 }
 

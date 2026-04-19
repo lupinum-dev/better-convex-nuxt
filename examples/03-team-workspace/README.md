@@ -1,137 +1,77 @@
-# Team Workspace Example
+# Example 03 — Team Workspace
 
-This is the reference starting point for most real apps. It proves the framework is safe for real
-team software — with roles, permissions, MCP tools, webhook idempotency, and trusted caller
-verification.
+## What this example is for
 
-It shows:
+The canonical Trellis protected app.
 
-- real auth
-- actor resolution
-- tenant-scoped tables on the canonical `workspaceId` / `by_workspace` contract
-- app-owned checks in `convex/auth/*`
-- backend-owned permission context exposed to Nuxt through configured `usePermissions()`
-- MCP tools built with `#trellis/mcp`
-- webhook idempotency with `ensureNotProcessed` / `markProcessed`
-- trusted caller verification with `resolveWebhookActor` / `verifyTrustedCallerKey`
-- bot user resolution for external callers
-- first-class tests with `@lupinum/trellis/testing`
+If someone asks, “How do I build a normal team app with Trellis?”, this is the example to open.
+It is the default single-workspace reference for the repo.
 
-## Files To Read First
+## What it teaches
+
+- the canonical `workspaceId` / `by_workspace` tenant model
+- roles, guards, and permission context
+- `_can`-driven frontend capability checks
+- app-owned `convex/auth/*` structure
+- protected handler shape for a normal team app
+- one small server-boundary proof: webhook idempotency with a route-owned signature
+
+## What this example assumes
+
+You understand auth + ownership from [`02-auth-todo`](../02-auth-todo/README.md).
+
+## Files to read first
 
 1. `convex/auth/actor.ts`
 2. `convex/auth/permissions.ts`
 3. `convex/auth/checks.ts`
 4. `convex/permissions/context.ts`
-5. `convex/auth/idempotency.ts`
-6. `convex/auth/trustedCaller.ts`
-7. `shared/schemas/todo.ts`
-8. `convex/domain/todos.ts`
-9. `convex/operations/todos.ts`
-10. `convex/domain/webhooks.ts`
-11. `pages/index.vue`
-12. `server/mcp/tools/*.ts`
-13. `server/api/webhook.post.ts`
-14. `convex/todos.test.ts`
-15. `vitest.config.ts`
+5. `convex/domain/todos.ts`
 
-## Demo Flow
+Then, if you want the small server-boundary proof:
 
-1. Create account A and create workspace `alpha` -> that user becomes `owner`.
-2. Create account B and join workspace `alpha` as `member`.
-3. Create account C and create workspace `beta`.
-4. Add todos in both workspaces and verify lists stay isolated.
-5. Confirm the owner can manage all Alpha todos while the member is limited by ownership rules.
-6. Use the MCP curl commands below to manage Alpha's todos as account A.
+6. `convex/domain/webhooks.ts`
+7. `server/api/webhook.post.ts`
+8. `convex/todos.test.ts`
 
-## Run It
+## Demo flow
+
+1. Create account A and create workspace `alpha`.
+2. Create account B and create workspace `beta`.
+3. Add todos in both workspaces and verify the lists stay isolated.
+4. Confirm the owner can manage all todos inside their own workspace.
+
+## Run
 
 1. Copy `.env.example` to `.env.local`
 2. `pnpm install`
 3. `pnpm dev`
 
-The launcher starts a local Convex deployment, waits for `_generated`, and then starts Nuxt. Keep
-`CONVEX_TRUSTED_CALLER_KEY`, `TRELLIS_MCP_CONFIRMATION_KEY`, `SITE_URL`, and `BETTER_AUTH_SECRET`
-in `.env.local`; local Convex URLs are injected.
+App-owned env vars:
 
-## MCP Demo Auth
+- `SITE_URL`: Better Auth callback origin
+- `BETTER_AUTH_SECRET`: Better Auth signing secret
+- `CONVEX_TRUSTED_CALLER_KEY`: trusted server-to-Convex lane for explicit forwarded-principal paths
+- `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
+- `TEAM_WORKSPACE_WEBHOOK_SECRET`: webhook route signature secret
 
-To keep the example focused, MCP auth uses a tiny demo middleware:
+## Test
 
-- header format: `Authorization: Bearer demo:<email>`
-- middleware resolves that email to a real app user in Convex
-- the MCP runtime forwards a transport-shaped `mcp` principal into the same protected handlers
-- role and tenant access still come from the actor lookup inside Convex, not from the middleware
+- `pnpm test`
+- `pnpm typecheck`
 
-Example:
+This example is also the canonical `@lupinum/trellis/testing` proof for the default single-workspace
+schema.
 
-```bash
-curl http://localhost:3000/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer demo:owner@example.com' \
-  -d '{"method":"tools/list","params":{}}'
-```
+## When to stop here / move on
 
-## Testing
+Stop here for most protected apps.
 
-This example is the trust proof, so it includes a small real test setup.
+Move to [`04-saas-platform`](../04-saas-platform/README.md) when you want to see Nitro routes,
+uploads, and other server boundaries on top of the same workspace model.
 
-```ts
-import { defineConfig } from 'vitest/config'
-import { convexTestConfig } from '@lupinum/trellis/testing'
+Related advanced branches:
 
-export default defineConfig(
-  convexTestConfig({
-    test: {
-      include: ['convex/**/*.test.ts'],
-    },
-  }),
-)
-```
-
-```ts
-import { createTestContext } from '@lupinum/trellis/testing'
-import { modules } from './test.setup'
-
-const ctx = createTestContext<typeof schema, 'owner' | 'admin' | 'member' | 'viewer'>({
-  schema,
-  modules,
-  trustedCallerKey: 'test-only-shared-secret',
-})
-
-const team = await ctx.seedTenant({
-  name: 'Alpha',
-  users: {
-    owner: { role: 'owner' },
-    member: { role: 'member' },
-  },
-})
-
-const trustedCaller = ctx.asPrincipal({
-  kind: 'user',
-  userId: team.users.member.authId,
-})
-```
-
-That zero-config test setup is the canonical path for the repo's default single-workspace schema:
-`users.authId`, `users.role`, `users.workspaceId`, and `by_workspace`.
-
-The example test file covers:
-
-- member can update own todo
-- member cannot update another member's todo
-- tenants cannot see each other's todos
-- trusted callers obey the same permission rules as browser and MCP callers
-- invalid trusted caller key is denied
-- duplicate webhook events are rejected (idempotency)
-- source + event ID form the replay key
-- webhook-created todos are visible in the workspace list
-
-`convex/test.setup.ts` is intentionally app-owned. It keeps the Vite module glob in the example
-app while `convexTestConfig(...)` now wires the generated-server bridge automatically.
-
-This example uses the module-provided `usePermissions()` composable directly in the page. There is
-no app-local wrapper because the point here is the default integration path.
-
-`shared/` is also intentional. Both Convex code and Nitro/MCP code import the same args definitions,
-so the folder marks a runtime boundary rather than a Nuxt convention.
+- [`05-visibility-access`](../05-visibility-access/README.md) for hard authorization patterns
+- [`06-multi-workspace`](../06-multi-workspace/README.md) for the memberships-based upgrade path
+- [`07-mcp-reference`](../07-mcp-reference/README.md) for the full MCP surface

@@ -7,7 +7,7 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
-import { anyApi } from 'convex/server'
+import { api, internal } from './_generated/api'
 import { describe, expect, it } from 'vitest'
 
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
@@ -16,7 +16,6 @@ import { ensureWebhookBotUser } from './auth/trustedCaller'
 import schema from './schema'
 import { modules } from './test.setup'
 
-const api = anyApi as any
 const TRUSTED_CALLER_KEY = 'test-trusted-caller-key'
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
 
@@ -197,25 +196,6 @@ describe('webhook idempotency', () => {
     })
   }
 
-  it('denies an invalid trusted caller key', async () => {
-    const ctx = createCtx()
-    const team = await ctx.seedTenant({
-      name: 'Alpha',
-      users: { owner: { role: 'owner' } },
-    })
-
-    await seedWebhookBot(ctx, team.id)
-
-    await expect(
-      ctx.raw.mutation(api.domain.webhooks.processTodoSyncWebhook, {
-        trustedCallerKey: 'wrong-key',
-        workspaceId: team.id,
-        eventId: 'evt-1',
-        title: 'Synced todo',
-      }),
-    ).rejects.toThrow('Invalid trusted caller key.')
-  })
-
   it('denies duplicate webhook events', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
@@ -225,16 +205,14 @@ describe('webhook idempotency', () => {
 
     await seedWebhookBot(ctx, team.id)
 
-    await ctx.raw.mutation(api.domain.webhooks.processTodoSyncWebhook, {
-      trustedCallerKey: TRUSTED_CALLER_KEY,
+    await ctx.raw.mutation(internal.domain.webhooks.processTodoSyncWebhook, {
       workspaceId: team.id,
       eventId: 'evt-duplicate',
       title: 'First sync',
     })
 
     await expect(
-      ctx.raw.mutation(api.domain.webhooks.processTodoSyncWebhook, {
-        trustedCallerKey: TRUSTED_CALLER_KEY,
+      ctx.raw.mutation(internal.domain.webhooks.processTodoSyncWebhook, {
         workspaceId: team.id,
         eventId: 'evt-duplicate',
         title: 'Duplicate sync',
@@ -265,8 +243,7 @@ describe('webhook idempotency', () => {
 
     await seedWebhookBot(ctx, team.id)
 
-    await ctx.raw.mutation(api.domain.webhooks.processTodoSyncWebhook, {
-      trustedCallerKey: TRUSTED_CALLER_KEY,
+    await ctx.raw.mutation(internal.domain.webhooks.processTodoSyncWebhook, {
       workspaceId: team.id,
       eventId: 'evt-visible',
       title: 'Webhook todo',

@@ -44,7 +44,7 @@ handlers.query({
     type PrincipalCheck = Assert<
       IsEqual<Awaited<ReturnType<typeof _ctx.principal>>, { kind: 'user'; userId: string }>
     >
-    type ActorCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.actor>>, Actor>>
+    type ActorCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.actor>>, NonNullable<Actor>>>
     void ({} as PrincipalCheck)
     void ({} as ActorCheck)
     return null

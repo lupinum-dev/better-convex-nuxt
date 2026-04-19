@@ -61,7 +61,7 @@ type PrincipalForGuard<TPrincipal, TGuard> = TGuard extends OpenGuard
   ? TPrincipal
   : AuthenticatedPrincipal<TPrincipal>
 
-type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard | AuthRequiredGuard
+type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard
   ? TActor | null
   : NonNullable<TActor>
 
@@ -259,25 +259,48 @@ function createStructuredBuilder<
 
         if (isAuthRequiredGuard(definition.guard)) {
           const authRequiredGuard = definition.guard as AuthRequiredGuard
+          if (isAnonymousPrincipal(principal)) {
+            await observe?.({
+              name: 'guard.denied',
+              status: 'deny',
+              reasonCode: 'guard.auth_required',
+              details: {
+                explanation: createDenialExplanation({
+                  reasonCode: 'guard.auth_required',
+                  decision: 'guard',
+                  message: authRequiredGuard.label,
+                  suggestedAction: 'sign_in',
+                }),
+              },
+            })
+            requireAuth(
+              principal,
+              `Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, null)}`,
+            )
+          }
+
+          const actor = await actorAccessor()
+          const allowed = actor != null
           await observe?.({
-            name: isAnonymousPrincipal(principal) ? 'guard.denied' : 'guard.allowed',
-            status: isAnonymousPrincipal(principal) ? 'deny' : 'success',
-            reasonCode: isAnonymousPrincipal(principal) ? 'guard.auth_required' : undefined,
-            details: isAnonymousPrincipal(principal)
-              ? {
+            name: allowed ? 'guard.allowed' : 'guard.denied',
+            status: allowed ? 'success' : 'deny',
+            reasonCode: allowed ? undefined : 'guard.denied',
+            details: allowed
+              ? undefined
+              : {
+                  label: authRequiredGuard.label,
                   explanation: createDenialExplanation({
-                    reasonCode: 'guard.auth_required',
+                    reasonCode: 'guard.denied',
                     decision: 'guard',
                     message: authRequiredGuard.label,
-                    suggestedAction: 'sign_in',
+                    policy: authRequiredGuard.label,
+                    suggestedAction: 'grant_capability',
                   }),
-                }
-              : undefined,
+                },
           })
-          requireAuth(
-            principal,
-            `Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, null)}`,
-          )
+          if (!allowed) {
+            throw deny(`Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, actor)}`)
+          }
         } else if (!isOpenGuard(definition.guard)) {
           const actor = await actorAccessor()
           const guardCheck = getGuardCheck<TPrincipal, TActor>(definition.guard)

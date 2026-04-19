@@ -1,19 +1,25 @@
-# Auth Todo Example
+# Example 02 — Auth Todo
 
-This example adds real email/password auth on top of the public todo app.
-It is the “personal app” stopping point: authenticated users, guaranteed actors, no tenant model.
+## What this example is for
 
-It shows:
+The smallest Trellis app with real auth.
 
-- Better Auth wired through Convex
-- app-owned `convex/auth/actor.ts`
-- a tiny `convex/permissions/resources.ts` helper for not-found + ownership checks
-- Trellis-backed handlers without a tenant model
-- explicit ownership checks in handlers
-- auth-aware page rendering with `ConvexAuthenticated`, `ConvexUnauthenticated`, and `ConvexAuthLoading`
-- the same app-owned `convex/test.setup.ts` bridge used by the larger examples
+This is the personal-app stopping point: authenticated users, resolved actors, personal ownership,
+and no tenant model yet.
 
-## Files To Read First
+## What it teaches
+
+- Better Auth wiring through Convex
+- app-owned actor resolution
+- signed-in / signed-out UI states
+- personal ownership checks in handlers
+- Trellis-backed handlers without workspace or role complexity
+
+## What this example assumes
+
+You understand the public data flow from [`01-public-todo`](../01-public-todo/README.md).
+
+## Files to read first
 
 1. `convex/auth.ts`
 2. `convex/auth/actor.ts`
@@ -21,29 +27,36 @@ It shows:
 4. `convex/domain/todos.ts`
 5. `pages/index.vue`
 
-## Run It
-
-1. Copy `.env.example` to `.env.local`
-2. `pnpm install`
-3. `pnpm dev`
-
-`pnpm dev` starts the local Convex deployment for you. Keep `SITE_URL` and `BETTER_AUTH_SECRET` in `.env.local`;
-do not set `CONVEX_URL` manually for this example.
-
-## What To Try
+## Demo flow
 
 1. Create an account.
 2. Add a few todos.
 3. Sign out and sign back in.
 4. Create a second account and verify the lists stay separate.
 
-## Testing
+## Run
 
-This example now includes a small Convex test harness as the personal-auth starter reference:
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
 
-- `vitest.config.ts` uses `convexTestConfig(...)`
-- `convex/test.setup.ts` keeps the Vite module glob in app code
-- `convex/todos.test.ts` proves that one user cannot mutate another user's todo
+App-owned env vars:
 
-Ownership uses `ownerId` here on purpose. Moving from personal auth to tenant scoping later should
-add `workspaceId`, not force a rename of the ownership field.
+- `SITE_URL`: Better Auth callback origin
+- `BETTER_AUTH_SECRET`: Better Auth signing secret
+
+Do not set `CONVEX_URL` manually for this example. The launcher injects it.
+
+## Test
+
+- `pnpm test`
+- `pnpm typecheck`
+
+This example includes a small Convex test harness as the personal-auth starter reference.
+
+## When to stop here / move on
+
+Stop here if your app is personal and ownership-based.
+
+Move to [`03-team-workspace`](../03-team-workspace/README.md) when you need the canonical protected
+team app with tenants, roles, and permission context.

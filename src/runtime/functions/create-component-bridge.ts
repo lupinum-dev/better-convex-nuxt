@@ -168,7 +168,69 @@ function createBridgeTrustedCallerFields(principal: unknown, trustedCallerKey: s
   }
 }
 
-function createBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
+function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
+  principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+): {
+  query: Customization<
+    GenericQueryCtx<DataModel>,
+    PropertyValidators,
+    QueryCtxWithPrincipal<DataModel, TPrincipal>,
+    Record<string, never>
+  >
+  mutation: Customization<
+    GenericMutationCtx<DataModel>,
+    PropertyValidators,
+    MutationCtxWithPrincipal<DataModel, TPrincipal>,
+    Record<string, never>
+  >
+} {
+  return {
+    query: {
+      args: {},
+      input: async (ctx, args) => {
+        let principalPromise: Promise<TPrincipal> | null = null
+        const principal = async () => {
+          if (!principalPromise) {
+            principalPromise = Promise.resolve(principalDefinition.resolve(ctx, args))
+          }
+
+          return await principalPromise
+        }
+
+        return {
+          ctx: {
+            ...ctx,
+            principal,
+          },
+          args: {},
+        }
+      },
+    },
+    mutation: {
+      args: {},
+      input: async (ctx, args) => {
+        let principalPromise: Promise<TPrincipal> | null = null
+        const principal = async () => {
+          if (!principalPromise) {
+            principalPromise = Promise.resolve(principalDefinition.resolve(ctx, args))
+          }
+
+          return await principalPromise
+        }
+
+        return {
+          ctx: {
+            ...ctx,
+            principal,
+          },
+          args: {},
+        }
+      },
+    },
+  }
+}
+
+function createInternalBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
   principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
 ): {
   query: Customization<
@@ -291,12 +353,17 @@ export function createComponentBridge<
   const principalDefinition =
     options.principal ??
     (definePrincipal.fromAuth<DataModel>() as PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>)
-  const customization = createBridgeCustomization<DataModel, TPrincipal>(principalDefinition)
+  const publicCustomization = createPublicBridgeCustomization<DataModel, TPrincipal>(
+    principalDefinition,
+  )
+  const internalCustomization = createInternalBridgeCustomization<DataModel, TPrincipal>(
+    principalDefinition,
+  )
 
-  const query = customQuery(builders.query, customization.query)
-  const mutation = customMutation(builders.mutation, customization.mutation)
-  const internalQuery = customQuery(builders.internalQuery, customization.query)
-  const internalMutation = customMutation(builders.internalMutation, customization.mutation)
+  const query = customQuery(builders.query, publicCustomization.query)
+  const mutation = customMutation(builders.mutation, publicCustomization.mutation)
+  const internalQuery = customQuery(builders.internalQuery, internalCustomization.query)
+  const internalMutation = customMutation(builders.internalMutation, internalCustomization.mutation)
 
   const registerQuery = <TRef extends QueryRef>(definition: BridgeDefinition<TRef>) =>
     query({

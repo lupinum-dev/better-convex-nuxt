@@ -10,9 +10,9 @@
               <p class="text-xs font-black uppercase tracking-[0.28em] text-sky-700">Example 07</p>
               <h1 class="text-3xl font-black tracking-tight text-slate-950">MCP Reference</h1>
               <p class="max-w-3xl text-sm leading-6 text-slate-600">
-                The complete MCP example: public and scoped tools, destructive previews, result
-                envelopes, prompts, resources, sessions, dynamic per-session tools, code mode, and a
-                real hashed MCP key flow.
+                The advanced MCP branch: public and scoped tools, destructive previews, prompts,
+                resources, sessions, dynamic per-session tools, code mode, and a real hashed MCP key
+                flow.
               </p>
             </div>
 
@@ -185,82 +185,31 @@
                   />
 
                   <template v-if="ready && !tenantId">
-                    <div class="grid gap-4 lg:grid-cols-2">
-                      <UCard>
-                        <template #header>
-                          <h3 class="text-lg font-semibold">Create workspace</h3>
-                          <p class="mt-1 text-sm text-slate-600">
-                            The creator becomes owner and gets seeded runbooks for the MCP demos.
-                          </p>
-                        </template>
-
-                        <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
-                          <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-900">Name</label>
-                            <UInput v-model="createWorkspaceForm.name" required />
-                          </div>
-
-                          <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-900">Slug</label>
-                            <UInput v-model="createWorkspaceForm.slug" required />
-                          </div>
-
-                          <UButton type="submit" block :loading="createWorkspace.pending.value">
-                            Create workspace
-                          </UButton>
-                        </form>
-                      </UCard>
-
-                      <UCard>
-                        <template #header>
-                          <h3 class="text-lg font-semibold">Join workspace</h3>
-                          <p class="mt-1 text-sm text-slate-600">
-                            Join an existing workspace to test role-aware MCP visibility.
-                          </p>
-                        </template>
-
-                        <form class="space-y-4" @submit.prevent="handleJoinWorkspace">
-                          <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-900">Workspace slug</label>
-                            <UInput v-model="joinWorkspaceForm.slug" required />
-                          </div>
-
-                          <div class="space-y-1">
-                            <label class="text-sm font-medium text-slate-900">Role</label>
-                            <USelect
-                              v-model="joinWorkspaceForm.role"
-                              :items="workspaceRoleOptions"
-                            />
-                          </div>
-
-                          <UButton
-                            type="submit"
-                            block
-                            color="neutral"
-                            variant="soft"
-                            :loading="joinWorkspace.pending.value"
-                          >
-                            Join workspace
-                          </UButton>
-                        </form>
-                      </UCard>
-                    </div>
-
-                    <UCard v-if="workspaceOptions?.length">
+                    <UCard>
                       <template #header>
-                        <h3 class="text-lg font-semibold">Existing workspaces</h3>
+                        <h3 class="text-lg font-semibold">Create workspace</h3>
+                        <p class="mt-1 text-sm text-slate-600">
+                          The creator becomes owner and gets seeded runbooks for the MCP demos. Open
+                          self-join is intentionally removed from this example because MCP scope and
+                          role assignment must stay server-owned.
+                        </p>
                       </template>
 
-                      <ul class="space-y-2">
-                        <li
-                          v-for="workspace in workspaceOptions"
-                          :key="workspace._id"
-                          class="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3"
-                        >
-                          <span class="font-medium text-slate-900">{{ workspace.name }}</span>
-                          <span class="text-sm text-slate-500">{{ workspace.slug }}</span>
-                        </li>
-                      </ul>
+                      <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
+                        <div class="space-y-1">
+                          <label class="text-sm font-medium text-slate-900">Name</label>
+                          <UInput v-model="createWorkspaceForm.name" required />
+                        </div>
+
+                        <div class="space-y-1">
+                          <label class="text-sm font-medium text-slate-900">Slug</label>
+                          <UInput v-model="createWorkspaceForm.slug" required />
+                        </div>
+
+                        <UButton type="submit" block :loading="createWorkspace.pending.value">
+                          Create workspace
+                        </UButton>
+                      </form>
                     </UCard>
                   </template>
 
@@ -682,11 +631,6 @@ const createWorkspaceForm = reactive({
   slug: '',
 })
 
-const joinWorkspaceForm = reactive({
-  slug: '',
-  role: 'member' as 'admin' | 'member' | 'viewer',
-})
-
 const createRunbookForm = reactive({
   title: '',
   summary: '',
@@ -711,14 +655,12 @@ const verifyingKey = ref(false)
 const requestUrl = useRequestURL()
 
 const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace)
-const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace)
 const createRunbookMutation = useConvexMutation(api.domain.runbooks.create)
 const updateRunbookMutation = useConvexMutation(api.domain.runbooks.update)
 const deleteRunbookMutation = useConvexMutation(api.domain.runbooks.remove)
 const createKey = useConvexMutation(api.domain.mcpKeys.create)
 const revokeKey = useConvexMutation(api.domain.mcpKeys.revoke)
 
-const { data: workspaceOptions } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
 const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
   api.domain.runbooks.listPublic,
   {},
@@ -762,7 +704,6 @@ const endpointBase = computed(() => {
   return requestUrl.origin
 })
 
-const workspaceRoleOptions = ['admin', 'member', 'viewer']
 const visibilityOptions: Array<'draft' | 'workspace' | 'public'> = ['draft', 'workspace', 'public']
 
 const mcpBoundUserOptions = computed(() =>
@@ -794,7 +735,6 @@ const appError = computed(
     createKey.error.value?.message ||
     revokeKey.error.value?.message ||
     createWorkspace.error.value?.message ||
-    joinWorkspace.error.value?.message ||
     '',
 )
 
@@ -845,13 +785,6 @@ async function handleCreateWorkspace() {
   await createWorkspace({
     name: createWorkspaceForm.name,
     slug: createWorkspaceForm.slug,
-  })
-}
-
-async function handleJoinWorkspace() {
-  await joinWorkspace({
-    slug: joinWorkspaceForm.slug,
-    role: joinWorkspaceForm.role,
   })
 }
 

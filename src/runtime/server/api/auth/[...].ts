@@ -104,6 +104,7 @@ export default defineEventHandler(async (event: H3Event) => {
     })
   }
   const siteOrigin = new URL(siteUrl)
+  const appOrigin = requestUrl.origin
   const upstreamOrigin = siteOrigin.origin
 
   // Use configured authRoute for path stripping (escape special regex chars)
@@ -130,10 +131,10 @@ export default defineEventHandler(async (event: H3Event) => {
   // Security: Only allow CORS for validated origins (same-origin or trustedOrigins)
   if (event.method === 'OPTIONS') {
     const origin = event.headers.get('origin')
-    if (!origin || !isOriginAllowed(origin, upstreamOrigin, trustedOrigins)) {
+    if (!origin || !isOriginAllowed(origin, appOrigin, trustedOrigins)) {
       throw createError({
         statusCode: 403,
-        message: buildBlockedOriginMessage(origin, siteOrigin.host),
+        message: buildBlockedOriginMessage(origin, requestUrl.host),
         data: { code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED', origin },
       })
     }
@@ -151,7 +152,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
   // Set CORS headers for the response (only for validated origins)
   const origin = event.headers.get('origin')
-  const isAllowedOrigin = origin ? isOriginAllowed(origin, upstreamOrigin, trustedOrigins) : true
+  const isAllowedOrigin = origin ? isOriginAllowed(origin, appOrigin, trustedOrigins) : true
   if (origin && isAllowedOrigin) {
     setHeaders(event, {
       'Access-Control-Allow-Origin': origin,
@@ -164,7 +165,7 @@ export default defineEventHandler(async (event: H3Event) => {
   if (origin && !isAllowedOrigin) {
     throw createError({
       statusCode: 403,
-      message: buildBlockedOriginMessage(origin, siteOrigin.host),
+      message: buildBlockedOriginMessage(origin, requestUrl.host),
       data: { code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED', origin },
     })
   }

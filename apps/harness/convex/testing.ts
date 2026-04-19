@@ -1,3 +1,4 @@
+import { sha256 } from '@noble/hashes/sha2.js'
 import { v } from 'convex/values'
 
 import { components } from './_generated/api'
@@ -36,6 +37,19 @@ function assertTestResetEnabled(confirmationCode: string, expectedCode: string, 
     )
   }
 }
+
+function hashKey(key: string): string {
+  const bytes = sha256(new TextEncoder().encode(key))
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')
+}
+
+const MCP_VERIFICATION_KEYS = {
+  admin: 'mcp_admin_verify_key_0000000000000001',
+  member: 'mcp_member_verify_key_0000000000000001',
+  viewer: 'mcp_viewer_verify_key_0000000000000001',
+  noOrg: 'mcp_noorg_verify_key_00000000000000001',
+  revoked: 'mcp_revoked_verify_key_0000000000000001',
+} as const
 
 export const clearAllData = mutation({
   args: {
@@ -175,7 +189,7 @@ export const seedMcpVerification = mutation({
     const keyDocs = {
       admin: {
         name: 'Admin verification key',
-        key: 'mcp_admin_verify_key_0000000000000001',
+        keyHash: hashKey(MCP_VERIFICATION_KEYS.admin),
         prefix: 'mcp_admin_ve...',
         role: 'admin' as const,
         userId: userRecords.admin.authId,
@@ -185,7 +199,7 @@ export const seedMcpVerification = mutation({
       },
       member: {
         name: 'Member verification key',
-        key: 'mcp_member_verify_key_0000000000000001',
+        keyHash: hashKey(MCP_VERIFICATION_KEYS.member),
         prefix: 'mcp_member_v...',
         role: 'member' as const,
         userId: userRecords.member.authId,
@@ -195,7 +209,7 @@ export const seedMcpVerification = mutation({
       },
       viewer: {
         name: 'Viewer verification key',
-        key: 'mcp_viewer_verify_key_0000000000000001',
+        keyHash: hashKey(MCP_VERIFICATION_KEYS.viewer),
         prefix: 'mcp_viewer_v...',
         role: 'viewer' as const,
         userId: userRecords.viewer.authId,
@@ -205,7 +219,7 @@ export const seedMcpVerification = mutation({
       },
       noOrg: {
         name: 'No-org verification key',
-        key: 'mcp_noorg_verify_key_00000000000000001',
+        keyHash: hashKey(MCP_VERIFICATION_KEYS.noOrg),
         prefix: 'mcp_noorg_ve...',
         role: 'member' as const,
         userId: userRecords.noOrg.authId,
@@ -214,7 +228,7 @@ export const seedMcpVerification = mutation({
       },
       revoked: {
         name: 'Revoked verification key',
-        key: 'mcp_revoked_verify_key_0000000000000001',
+        keyHash: hashKey(MCP_VERIFICATION_KEYS.revoked),
         prefix: 'mcp_revoked_...',
         role: 'member' as const,
         userId: userRecords.member.authId,
@@ -246,11 +260,11 @@ export const seedMcpVerification = mutation({
         postId,
       },
       keys: {
-        admin: { id: keyIds.admin, key: keyDocs.admin.key },
-        member: { id: keyIds.member, key: keyDocs.member.key },
-        viewer: { id: keyIds.viewer, key: keyDocs.viewer.key },
-        noOrg: { id: keyIds.noOrg, key: keyDocs.noOrg.key },
-        revoked: { id: keyIds.revoked, key: keyDocs.revoked.key },
+        admin: { id: keyIds.admin, key: MCP_VERIFICATION_KEYS.admin },
+        member: { id: keyIds.member, key: MCP_VERIFICATION_KEYS.member },
+        viewer: { id: keyIds.viewer, key: MCP_VERIFICATION_KEYS.viewer },
+        noOrg: { id: keyIds.noOrg, key: MCP_VERIFICATION_KEYS.noOrg },
+        revoked: { id: keyIds.revoked, key: MCP_VERIFICATION_KEYS.revoked },
       },
     }
   },

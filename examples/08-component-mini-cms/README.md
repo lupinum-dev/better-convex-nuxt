@@ -1,30 +1,28 @@
-# Example 08: Component Mini CMS
+# Example 08 — Component Mini CMS
 
-This is the canonical Trellis example for a **local Convex component** plus **MCP projection**.
-If you are trying to understand the architecture behind `ginko-cms`, start here before reading the
-packaged module.
+## What this example is for
 
-It is intentionally a small slice of the `ginko-cms` architecture:
+The architecture branch.
 
-- the browser talks to root Convex wrappers
-- the root app resolves the caller principal
-- the local component owns page business logic and authorization
-- MCP tools project root internal bridge refs instead of duplicating behavior
+Open this when you want to understand a local component boundary, root-app wrappers, principal
+forwarding, and MCP projected over bridge-backed operations. This is intentionally niche and comes
+after the main app and MCP examples.
 
-This example is local-only. It does **not** cover packaged-component publishing or NPM package
-authoring, but it is the direct architectural precursor to the packaged `ginko-cms` flow.
+## What it teaches
 
-## What it demonstrates
-
-- a local Convex component mounted in `convex/convex.config.ts`
-- principal-first auth across browser, root Convex, component, and MCP
+- local Convex component boundaries
+- principal forwarding across browser, root app, and component
 - app-owned bridge inventory with `createComponentBridge(...)`
-- a tiny draft/save/publish flow with one public read surface
-- destructive MCP preview for `publish-page`
+- MCP over internal bridge refs and bridge-backed operations
+- why a component/host architecture differs from ordinary root-app handlers
+
+## What this example assumes
+
+You already understand the canonical protected workspace model from
+[`03-team-workspace`](../03-team-workspace/README.md) and the MCP surface from
+[`07-mcp-reference`](../07-mcp-reference/README.md).
 
 ## Files to read first
-
-If you want the architecture in one pass, read these four files in order:
 
 1. `convex/components/miniCms/pages.ts`
 2. `convex/operations/miniCmsBridge.ts`
@@ -32,42 +30,39 @@ If you want the architecture in one pass, read these four files in order:
 4. `server/lib/mcp-runtime.ts`
 5. `pages/studio.vue`
 
-## Running the example
+## Demo flow
 
-```bash
-pnpm install
-cp .env.example .env.local
-pnpm dev
-```
+1. Start the example and sign in to the studio.
+2. Create or edit a draft through the root-app wrappers.
+3. Inspect how the root app forwards the principal into the component.
+4. Use the demo MCP caller to exercise the same bridge-backed operations.
 
-You need the usual local Convex env values plus a demo MCP bearer token:
+## Run
 
-- `BETTER_AUTH_SECRET`
-- `SITE_URL`
-- `CONVEX_TRUSTED_CALLER_KEY`
-- `TRELLIS_MCP_CONFIRMATION_KEY`
-- `DEMO_MCP_TOKEN`
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
 
-The studio page shows the exact `Authorization: Bearer ...` header to use with the local MCP
-endpoint.
+App-owned env vars:
 
-## Scope boundaries
+- `SITE_URL`: Better Auth callback origin
+- `BETTER_AUTH_SECRET`: Better Auth signing secret
+- `CONVEX_TRUSTED_CALLER_KEY`: trusted principal forwarding into the component boundary
+- `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
+- `JWKS`: local auth bootstrap for the example
+- `DEMO_MCP_TOKEN`: demo MCP caller token shown in the studio UI
 
-Use this example when you want to understand:
+## Test
 
-- local component boundaries
-- principal forwarding
-- root app wrappers versus component business logic
-- `tool(...)` over internal bridge refs
-- transport-shaped `agent` principals instead of business-role data in the protocol layer
+- `pnpm test`
+- `pnpm typecheck`
 
-Use [`07-mcp-reference`](../07-mcp-reference/README.md) when you want the full MCP protocol
-surface, key management, resources, and prompts.
+## When to stop here / move on
 
-Use `ginko-cms` when you want the publishable packaged-component version of this architecture.
+Stop here if your question is architectural: “how do I structure a host app around a local
+component and still project it cleanly into MCP?”
 
-Use the Trellis package-component docs when you want the manifest-driven host bridge workflow:
+Related example:
 
-- package exports `convex/manifest`
-- host owns the manifest-driven bridge workflow outside the public Trellis CLI
-- module validates generated bridge files instead of patching host code at runtime
+- [`07-mcp-reference`](../07-mcp-reference/README.md) for the full MCP surface without the
+  component boundary

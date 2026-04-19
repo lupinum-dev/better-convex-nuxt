@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { createError, getRequestHeader, type H3Event } from 'h3'
 
 import { defineMcpTool, defineTool } from '#trellis/mcp'
@@ -48,11 +49,12 @@ export async function resolveHarnessMcpAuth(event: H3Event): Promise<HarnessMcpA
 
   const token = header.slice(7)
   if (!token.startsWith('mcp_')) return null
+  const keyHash = createHash('sha256').update(token).digest('hex')
 
   const resolved = await serverConvexQuery(
     event,
     api.mcpKeys.validate,
-    { key: token },
+    { keyHash },
     { auth: 'none' },
   )
   if (!resolved) return null

@@ -1,10 +1,9 @@
 /**
  * Why this file exists:
- * Trusted webhook callers must resolve to a real user row so todo permissions and ownership stay
- * on the same actor model as browser callers.
+ * Webhook processing still resolves to a real user row so todo permissions and ownership stay on
+ * the same actor model as browser callers.
  */
 import { deny } from '@lupinum/trellis/auth'
-import { verifyTrustedCallerKey } from '@lupinum/trellis/trusted-caller'
 import type { GenericDatabaseReader, GenericMutationCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
@@ -59,15 +58,8 @@ async function getWebhookBotUser(db: Db, workspaceId: Id<'workspaces'>) {
 
 export async function resolveWebhookActor(
   ctx: MutationCtx,
-  key: string,
   workspaceId: Id<'workspaces'>,
 ): Promise<NonNullable<Actor>> {
-  const expected = process.env.CONVEX_TRUSTED_CALLER_KEY?.trim()
-  if (!expected) {
-    throw new Error('CONVEX_TRUSTED_CALLER_KEY must be set for trusted caller example flows.')
-  }
-  if (!verifyTrustedCallerKey(key, expected)) throw deny('Invalid trusted caller key.')
-
   const user = await getWebhookBotUser(ctx.db, workspaceId)
   if (!user?.workspaceId || user.workspaceId !== workspaceId) {
     throw deny('Webhook bot user not configured.')

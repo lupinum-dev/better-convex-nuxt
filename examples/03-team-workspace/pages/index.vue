@@ -9,8 +9,8 @@
         </p>
         <h1 class="text-3xl font-bold mt-1">Team Workspace</h1>
         <p class="text-sm text-muted mt-2">
-          The full team app story: auth, tenant scoping, app-owned permissions, frontend permission
-          guards, MCP tools, webhook idempotency, and trusted caller verification.
+          The canonical protected app: auth, tenant scoping, app-owned permissions, permission
+          context, and one small server-boundary proof.
         </p>
       </template>
 
@@ -28,7 +28,7 @@
               <UAuthForm
                 :schema="signUpSchema"
                 title="Create account"
-                description="Start with a user account, then create or join a workspace."
+                description="Start with a user account, then create a workspace."
                 icon="i-lucide-user-plus"
                 :fields="signUpFields"
                 :submit="{ label: 'Sign up', block: true }"
@@ -152,84 +152,30 @@
             </UCard>
 
             <template v-if="ready && !tenantId">
-              <div class="grid gap-4 md:grid-cols-2">
-                <UCard>
-                  <template #header>
-                    <h3 class="text-lg font-semibold">Create workspace</h3>
-                    <p class="text-sm text-muted mt-1">
-                      The creator becomes the workspace owner. That keeps the example role model
-                      obvious.
-                    </p>
-                  </template>
-
-                  <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Name</label>
-                      <UInput v-model="createWorkspaceForm.name" type="text" required />
-                    </div>
-
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Slug</label>
-                      <UInput v-model="createWorkspaceForm.slug" type="text" required />
-                    </div>
-
-                    <UButton type="submit" block :loading="createWorkspace.pending.value">
-                      {{ createWorkspace.pending.value ? 'Creating...' : 'Create workspace' }}
-                    </UButton>
-                  </form>
-                </UCard>
-
-                <UCard>
-                  <template #header>
-                    <h3 class="text-lg font-semibold">Join workspace</h3>
-                    <p class="text-sm text-muted mt-1">
-                      This demo keeps joining intentionally open so you can quickly test different
-                      roles.
-                    </p>
-                  </template>
-
-                  <form class="space-y-4" @submit.prevent="handleJoinWorkspace">
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Workspace slug</label>
-                      <UInput v-model="joinWorkspaceForm.slug" type="text" required />
-                    </div>
-
-                    <div class="space-y-1">
-                      <label class="text-sm font-medium text-highlighted">Role</label>
-                      <USelect v-model="joinWorkspaceForm.role" :items="roleOptions" />
-                    </div>
-
-                    <UButton
-                      type="submit"
-                      block
-                      color="neutral"
-                      variant="soft"
-                      :loading="joinWorkspace.pending.value"
-                    >
-                      {{ joinWorkspace.pending.value ? 'Joining...' : 'Join workspace' }}
-                    </UButton>
-                  </form>
-                </UCard>
-              </div>
-
-              <UCard v-if="workspaceOptions?.length">
+              <UCard>
                 <template #header>
-                  <h3 class="text-lg font-semibold">Existing workspaces</h3>
+                  <h3 class="text-lg font-semibold">Create workspace</h3>
                   <p class="text-sm text-muted mt-1">
-                    Use one of these slugs to join from another account.
+                    The creator becomes the workspace owner. Invite-based collaboration is the next
+                    step; this example no longer ships open self-join onboarding.
                   </p>
                 </template>
 
-                <ul class="space-y-2">
-                  <li
-                    v-for="workspace in workspaceOptions"
-                    :key="workspace._id"
-                    class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-default bg-elevated"
-                  >
-                    <span class="font-medium text-highlighted">{{ workspace.name }}</span>
-                    <span class="text-sm text-muted">{{ workspace.slug }}</span>
-                  </li>
-                </ul>
+                <form class="space-y-4" @submit.prevent="handleCreateWorkspace">
+                  <div class="space-y-1">
+                    <label class="text-sm font-medium text-highlighted">Name</label>
+                    <UInput v-model="createWorkspaceForm.name" type="text" required />
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="text-sm font-medium text-highlighted">Slug</label>
+                    <UInput v-model="createWorkspaceForm.slug" type="text" required />
+                  </div>
+
+                  <UButton type="submit" block :loading="createWorkspace.pending.value">
+                    {{ createWorkspace.pending.value ? 'Creating...' : 'Create workspace' }}
+                  </UButton>
+                </form>
               </UCard>
             </template>
 
@@ -244,12 +190,6 @@
                         boundary explicitly.
                       </p>
                     </div>
-                    <p class="text-sm text-muted break-words">
-                      MCP demo auth header:
-                      <code class="font-mono text-xs text-highlighted">
-                        Bearer demo:{{ ctx?.email || user?.email || 'you@example.com' }}
-                      </code>
-                    </p>
                   </div>
                 </template>
 
@@ -415,20 +355,12 @@ const createWorkspaceForm = reactive({
   slug: '',
 })
 
-const joinWorkspaceForm = reactive({
-  slug: '',
-  role: 'member' as 'admin' | 'member' | 'viewer',
-})
-
 const title = ref('')
 
 const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace)
-const joinWorkspace = useConvexMutation(api.domain.workspaces.joinWorkspace)
 const createTodo = useConvexMutation(api.domain.todos.create)
 const updateTodo = useConvexMutation(api.domain.todos.setCompleted)
 const removeTodo = useConvexMutation(api.domain.todos.remove)
-
-const { data: workspaceOptions } = await useConvexQuery(api.domain.workspaces.listWorkspaces, {})
 
 // The permission context query can run anonymously. It returns null until the user is signed in.
 // The todo list query only runs once the user actually belongs to a workspace.
@@ -449,7 +381,6 @@ const displayName = computed(
 )
 
 const canCreate = allows(todoCreate)
-const roleOptions = ['admin', 'member', 'viewer']
 const allRoles = ['owner', 'admin', 'member', 'viewer']
 const recordRuleRows = [
   { label: 'Update own todo', roles: ['owner', 'admin', 'member'] },
@@ -464,7 +395,6 @@ const todoError = computed(
     updateTodo.error.value?.message ||
     removeTodo.error.value?.message ||
     createWorkspace.error.value?.message ||
-    joinWorkspace.error.value?.message ||
     '',
 )
 
@@ -488,13 +418,6 @@ async function handleCreateWorkspace() {
   await createWorkspace({
     name: createWorkspaceForm.name,
     slug: createWorkspaceForm.slug,
-  })
-}
-
-async function handleJoinWorkspace() {
-  await joinWorkspace({
-    slug: joinWorkspaceForm.slug,
-    role: joinWorkspaceForm.role,
   })
 }
 

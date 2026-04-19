@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 
@@ -153,7 +154,7 @@ describe('defineTrellis', () => {
 
       await ctx.db.insert('mcpKeys', {
         name: 'No Org Key',
-        key: 'mcp_no_org_key',
+        keyHash: createHash('sha256').update('mcp_no_org_key').digest('hex'),
         prefix: 'mcp_no_',
         role: 'member',
         userId: 'no_org_user',

@@ -1,57 +1,66 @@
-# Example 05 — Team Knowledge Base (Visibility & Access)
+# Example 05 — Visibility and Access Knowledge Base
 
-The advanced access pattern showcase. A workspace-scoped knowledge base with every access control
-pattern you'll need in production, layered into a single coherent domain.
+## What this example is for
 
-## What this example teaches (beyond 01–04)
+The advanced authorization branch.
 
-- **Row-level visibility** — articles have `private`, `team`, or `workspace` visibility, filtered by owner scope
-- **Field redaction** — `internalNotes` and `draftFeedback` stripped for non-editors
-- **Manager hierarchy** — editors see their team's articles via `managerId` chains
-- **Enrollment-based access** — users must be enrolled in a knowledge base to read its articles
-- **Prerequisite chains** — article X requires completing article Y first
-- **Publication state** — draft articles visible only to staff (owner/admin/editor)
-- **Share tokens** — SHA-256 hashed, expirable, revocable links for external access
-- **Access levels** — `view` / `comment` / `edit` per article with inheritance from parent articles
-- **Inherited access** — child articles inherit parent's share permissions
+Open this when the canonical workspace model from Example 03 is still right, but your access rules
+are now the hard part.
 
-## Domain model
+## What it teaches
 
-```
-Workspace → Knowledge Base → Article (hierarchical via parentArticleId)
-                ↓                 ↓
-           Enrollment        ArticleProgress (completion tracking)
-                             ArticleShare (per-user access level)
-                             ShareToken (anonymous access via link)
-```
+- row-level visibility
+- field redaction
+- enrollment-based access
+- prerequisite chains
+- share tokens
+- inherited access levels
 
-## Roles
+Every major feature in this example maps to a recognizable production authorization problem.
 
-| Role        | KB             | Articles                                      | Enrollments | Shares |
-| ----------- | -------------- | --------------------------------------------- | ----------- | ------ |
-| owner       | create/publish | full access, skip enrollment                  | manage      | create |
-| admin       | create/publish | full access, skip enrollment                  | manage      | create |
-| editor      | create/publish | create, see team articles, see internal notes | manage      | create |
-| contributor | —              | create own, see workspace articles            | —           | —      |
-| viewer      | —              | see workspace articles (if enrolled)          | —           | —      |
+## What this example assumes
 
-## Running
+You already understand the canonical protected workspace model from
+[`03-team-workspace`](../03-team-workspace/README.md).
 
-```bash
-pnpm install
-pnpm dev
-```
+## Files to read first
 
-## Testing
+1. `convex/domain/articles.ts`
+2. `convex/domain/knowledgeBases.ts`
+3. `convex/auth/checks.ts`
+4. `convex/operations/shareTokens.ts`
+5. `convex/knowledgeBase.test.ts`
 
-```bash
-pnpm test
-```
+## Demo flow
 
-Tests cover visibility filtering, redaction, enrollment, prerequisites, share tokens, inherited access, and cross-tenant isolation.
+1. Sign up and create a workspace.
+2. Create a knowledge base and a few articles.
+3. Compare what different roles can see.
+4. Add prerequisites and enrollment requirements.
+5. Generate or revoke a share token and confirm inherited access behavior.
 
-Canonical layout in this example:
+## Run
 
-- `convex/domain/*` contains knowledge-base, article, and workspace handlers
-- `convex/permissions/context.ts` is the configured permission context query
-- `convex/operations/shareTokens.ts` owns destructive share-token revocation
+1. Copy `.env.example` to `.env.local`
+2. `pnpm install`
+3. `pnpm dev`
+
+App-owned env vars:
+
+- `SITE_URL`: Better Auth callback origin
+- `BETTER_AUTH_SECRET`: Better Auth signing secret
+
+## Test
+
+- `pnpm test`
+- `pnpm typecheck`
+- `pnpm typecheck:tests`
+
+## When to stop here / move on
+
+Stop here if your hard problem is authorization design inside a single workspace.
+
+Related branches:
+
+- [`06-multi-workspace`](../06-multi-workspace/README.md) if the tenant model itself must change
+- [`07-mcp-reference`](../07-mcp-reference/README.md) if the next hard problem is MCP, not access control

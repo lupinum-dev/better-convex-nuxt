@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 
@@ -36,6 +37,10 @@ async function setupAuthorizedUser() {
   }
 }
 
+function hashKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex')
+}
+
 describe('mcpKeys', () => {
   it('exposes camel-cased Convex function references for the client', () => {
     const functionNameSymbol = Symbol.for('functionName')
@@ -66,7 +71,7 @@ describe('mcpKeys', () => {
       organizationId,
     })
 
-    const validated = await asAdmin.query(api.mcpKeys.validate, { key: created.key })
+    const validated = await asAdmin.query(api.mcpKeys.validate, { keyHash: hashKey(created.key) })
     expect(validated).toMatchObject({
       role: 'member',
       userId: 'user_admin',
@@ -82,7 +87,7 @@ describe('mcpKeys', () => {
     })
     expect(revokedKeys[0]?.revokedAt).toEqual(expect.any(Number))
 
-    const rejected = await asAdmin.query(api.mcpKeys.validate, { key: created.key })
+    const rejected = await asAdmin.query(api.mcpKeys.validate, { keyHash: hashKey(created.key) })
     expect(rejected).toBeNull()
   })
 
@@ -94,7 +99,7 @@ describe('mcpKeys', () => {
       role: 'admin',
     })
 
-    await asAdmin.mutation(api.mcpKeys.touch, { key: created.key })
+    await asAdmin.mutation(api.mcpKeys.touch, { keyHash: hashKey(created.key) })
 
     const keys = await asAdmin.query(api.mcpKeys.list, {})
     expect(keys[0]?.lastUsedAt).toEqual(expect.any(Number))

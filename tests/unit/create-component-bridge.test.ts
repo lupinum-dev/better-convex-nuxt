@@ -90,6 +90,66 @@ describe('createComponentBridge', () => {
     })
   })
 
+  it('rejects caller-supplied principal on public query bridges', async () => {
+    process.env.CONVEX_TRUSTED_CALLER_KEY = 'bridge-secret'
+    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { getForwardedPrincipal } = await import('../../src/runtime/trusted-caller')
+
+    const trustedPrincipal = { kind: 'service', service: 'server-owned' } as const
+    const attackerPrincipal = { kind: 'service', service: 'attacker' } as const
+    const resolvePrincipal = vi.fn(async (ctx, args) => {
+      return (
+        getForwardedPrincipal<typeof trustedPrincipal>(ctx as never, args as never) ??
+        trustedPrincipal
+      )
+    })
+
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({
+            kind: v.literal('service'),
+            service: v.string(),
+          }),
+          resolve: resolvePrincipal,
+        }),
+      },
+    )
+
+    const registered = bridge.query({
+      component: 'component.query' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        args: Record<string, never>
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof trustedPrincipal> } }>
+      }
+    }
+
+    expect(registered.customization.args).toEqual({})
+
+    const customized = await registered.customization.input(
+      { runQuery: vi.fn() },
+      {
+        principal: attackerPrincipal,
+      },
+    )
+
+    await expect(customized.ctx.principal()).rejects.toThrow(
+      /Forwarded `principal` is only allowed on verified trusted caller paths/,
+    )
+    expect(resolvePrincipal).toHaveBeenCalled()
+  })
+
   it('forwards the resolved principal unchanged when bridge entries are declared in batch', async () => {
     process.env.CONVEX_TRUSTED_CALLER_KEY = 'bridge-secret'
     const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
