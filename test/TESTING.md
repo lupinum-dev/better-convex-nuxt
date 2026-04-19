@@ -45,9 +45,15 @@ pnpm test:nuxt
 pnpm test:browser
 pnpm test:e2e
 pnpm test:full
-pnpm test:list
-pnpm test:inventory
 ```
+
+Focused suite meaning:
+
+- `pnpm test:auth`: auth-only repo tests across unit, Nuxt, and server projects
+- `pnpm test:nuxt`: Nuxt-only project coverage
+- `pnpm test:server`: server-only project coverage
+- `pnpm test:browser`: browser component coverage
+- `pnpm test:e2e`: managed end-to-end smoke suite
 
 ## Vitest Projects
 
@@ -131,9 +137,8 @@ pnpm test:e2e
 
 ## Maintenance
 
-- `pnpm test:list` lists runnable test entry files only.
-- `pnpm test:inventory` lists the wider repo-owned test tree while excluding fixture `node_modules`.
 - `pnpm test:examples` runs the curated example suites that exercise the package from workspace apps.
 - PR-safe default gate: `pnpm test:types && pnpm lint && pnpm test:contracts`
 - broader integration gate: `pnpm test`
 - release gate: `pnpm run release:verify`
+- For ad hoc test discovery, use `rg --files test` directly instead of maintaining root-level listing scripts.

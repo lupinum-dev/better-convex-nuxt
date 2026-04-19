@@ -91,6 +91,17 @@ Every example is a small workspace app inside this repo with its own `package.js
 3. Run `pnpm install`.
 4. Start everything with `pnpm dev`.
 
+Shared example script contract:
+
+- `pnpm dev`: canonical local run path through the shared launcher in [`scripts/example-dev.mjs`](../scripts/example-dev.mjs)
+- `pnpm dev:nuxt`: Nuxt only, for launcher debugging or already-prepared local state
+- `pnpm build`: production build of that example app
+- `pnpm test`: example-local verification
+- `pnpm typecheck`: example-local typecheck
+- `pnpm convex:dev` / `pnpm convex:codegen`: raw Convex lanes for backend-focused debugging only
+
+Some examples add narrow extras like `typecheck:tests` or `test:e2e` when they own unique coverage. They are exceptions, not a second general script vocabulary.
+
 `pnpm dev` starts an anonymous local Convex deployment, waits for Convex to write the local deployment
 env plus codegen output, then starts Nuxt with the resulting `CONVEX_URL` and `CONVEX_SITE_URL`.
 

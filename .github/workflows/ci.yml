@@ -73,7 +73,7 @@ jobs:
         run: npm run dev:prepare
 
       - name: Build module
-        run: npm run prepack
+        run: npm run build
 
       - name: Type check
         run: npm run test:types

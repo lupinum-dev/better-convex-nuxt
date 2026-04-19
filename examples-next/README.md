@@ -115,6 +115,15 @@ It is the cleaner target portfolio that future example work should converge towa
 
 These are candidate archetypes, not official starters.
 
+Current workspace rule: until one of these apps graduates into `examples/`, it should keep the same narrow script contract as the maintained examples:
+
+- `pnpm dev` through the shared example launcher
+- `pnpm dev:nuxt` for launcher-free Nuxt debugging
+- `pnpm build`, `pnpm test`, `pnpm typecheck`
+- raw `convex:dev` / `convex:codegen` only for backend-focused maintenance
+
+If an `examples-next` app needs a broader script vocabulary, that is a signal to simplify the app or promote a new shared workflow intentionally.
+
 Today the official starters are still:
 
 - `personal`
