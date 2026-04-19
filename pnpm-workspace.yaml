@@ -1,7 +1,8 @@
 packages:
+  - 'apps/*'
   - 'examples/*'
-  - 'test/internal-harness'
-  - 'test/fixtures/doctor-*'
+  - 'labs/*'
+  - 'tests/fixtures/doctor-*'
 
 ignoredBuiltDependencies:
   - '@parcel/watcher'

@@ -11,12 +11,12 @@
   "exclude": [
     "dist",
     "node_modules",
-    "client",
-    "test/internal-harness",
-    "test/fixtures",
-    "docs",
-    "demo",
+    "apps/devtools-ui",
+    "apps/harness",
+    "tests/fixtures",
+    "apps/docs",
     "examples",
+    "labs",
     "src/runtime/server"
   ]
 }

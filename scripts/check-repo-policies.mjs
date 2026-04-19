@@ -4,21 +4,21 @@ import { existsSync } from 'node:fs'
 const checks = [
   {
     name: 'protocol-specific agent kinds',
-    cmd: String.raw`rg -n "kind: 'mcp'|kind:\s*v\.literal\('mcp'\)|case 'mcp'|principal\.kind === 'mcp'" README.md docs/content/docs examples src/cli -g '!**/node_modules/**' -g '!**/_generated/**'`,
+    cmd: String.raw`rg -n "kind: 'mcp'|kind:\s*v\.literal\('mcp'\)|case 'mcp'|principal\.kind === 'mcp'" README.md apps/docs/content/docs examples src/cli -g '!**/node_modules/**' -g '!**/_generated/**'`,
   },
   {
     name: 'query composables in middleware',
-    cmd: String.raw`rg -n "useConvexQuery\(|useConvexPaginatedQuery\(" test/internal-harness/middleware test/internal-harness/plugins -g "!**/node_modules/**"`,
-    paths: ['test/internal-harness/middleware', 'test/internal-harness/plugins'],
+    cmd: String.raw`rg -n "useConvexQuery\(|useConvexPaginatedQuery\(" apps/harness/middleware apps/harness/plugins -g "!**/node_modules/**"`,
+    paths: ['apps/harness/middleware', 'apps/harness/plugins'],
   },
   {
     name: 'useRoute in middleware',
-    cmd: String.raw`rg -n "useRoute\(" test/internal-harness/middleware -g "!**/node_modules/**"`,
-    paths: ['test/internal-harness/middleware'],
+    cmd: String.raw`rg -n "useRoute\(" apps/harness/middleware -g "!**/node_modules/**"`,
+    paths: ['apps/harness/middleware'],
   },
   {
     name: 'middleware subscribe:false docs',
-    cmd: String.raw`rg -n "middleware.*subscribe:[[:space:]]*false|subscribe:[[:space:]]*false.*middleware" docs/content/docs`,
+    cmd: String.raw`rg -n "middleware.*subscribe:[[:space:]]*false|subscribe:[[:space:]]*false.*middleware" apps/docs/content/docs`,
   },
 ]
 

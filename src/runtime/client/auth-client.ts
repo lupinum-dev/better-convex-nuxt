@@ -19,7 +19,7 @@
  *
  * @module auth-client
  */
-import { convexClient } from '@convex-dev/better-auth/client/plugins'
+import { convexClient } from '@convex-dev/better-auth/apps/devtools-ui/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 import type { Ref } from 'vue'

@@ -11,7 +11,7 @@ It is not a neutral helper layer. It is the hard-default path when you want the 
 
 - [Documentation](https://trellis.vercel.app)
 - [Examples](./examples/README.md)
-- [Spec](./SPEC-FINAL.md)
+- [Spec](./meta/SPEC-FINAL.md)
 
 ## Official Product Surface
 
@@ -103,7 +103,7 @@ Read `01 → 02 → 03` as the ladder.
 - `07-mcp-reference` is the maintained agent/MCP reference.
 - `08-component-mini-cms` is a maintained boundary/reference app, not a general starter.
 
-`examples-next` is not part of the canonical public learning path. Today it is:
+`labs/` is not part of the canonical public learning path. Today it is:
 
 - archived and exploratory material that may inform future example families
 - a set of concept briefs and legacy inputs, not maintained public references

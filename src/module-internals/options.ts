@@ -47,7 +47,7 @@ export interface AuthOptions extends ConvexAuthConfigInput {
   trustedOrigins?: string[]
   /**
    * Routes that skip auth token fetches.
-   * Supports glob patterns (e.g., '/docs/**').
+   * Supports glob patterns (e.g., '/apps/docs/**').
    * Also use definePageMeta({ skipAuthTokenFetch: true }) for per-page control.
    * @default []
    */

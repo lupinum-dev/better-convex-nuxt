@@ -113,21 +113,21 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 ## Current Repo Surfaces
 
 - `src/`: package source
-- `docs/`: hosted docs app and docs content
+- `apps/docs/`: hosted docs app and docs content
 - `demo/`: public showcase app
-- `test/internal-harness/`: contributor-only dev and test harness
+- `apps/harness/`: contributor-only dev and test harness
 - `examples/`: runnable consumer reference apps
 
 ## Source Of Truth
 
 Prefer these docs when answering questions:
 
-- `docs/content/docs/12.api-reference/7.api-surface.md`
-- `docs/content/docs/12.api-reference/1.composables.md`
-- `docs/content/docs/12.api-reference/3.server-utilities.md`
-- `docs/content/docs/12.api-reference/5.mcp.md`
-- `docs/content/docs/7.permissions/*.md`
-- `docs/content/docs/13.mcp-tools/*.md`
+- `apps/docs/content/docs/12.api-reference/7.api-surface.md`
+- `apps/docs/content/docs/12.api-reference/1.composables.md`
+- `apps/docs/content/docs/12.api-reference/3.server-utilities.md`
+- `apps/docs/content/docs/12.api-reference/5.mcp.md`
+- `apps/docs/content/docs/7.permissions/*.md`
+- `apps/docs/content/docs/13.mcp-tools/*.md`
 
 When in doubt, verify against:
 

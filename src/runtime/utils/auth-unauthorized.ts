@@ -1,6 +1,6 @@
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import { getSharedAuthEngine } from '../client/auth-engine.js'
+import { getSharedAuthEngine } from '../apps/devtools-ui/auth-engine.js'
 import { isConvexUnauthorizedError } from './auth-unauthorized-core.js'
 import { UNAUTHORIZED_REDIRECT_DEBOUNCE_MS } from './constants.js'
 import { normalizeConvexRuntimeConfig } from './runtime-config.js'

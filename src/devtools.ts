@@ -46,7 +46,7 @@ export function setupConvexDevtools(nuxt: Nuxt): void {
       startSubprocess(
         {
           ...resolveNuxtCliArgs(import.meta.url, 'dev', ['--port', DEVTOOLS_UI_PORT.toString()]),
-          cwd: resolver.resolve('../client'),
+          cwd: resolver.resolve('../apps/devtools-ui'),
           stdio: 'pipe',
           env: {
             PORT: DEVTOOLS_UI_PORT.toString(),

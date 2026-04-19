@@ -16,13 +16,13 @@ export default createConfigForNuxt({
     stylistic: false,
   },
   dirs: {
-    src: ['./test/internal-harness'],
+    src: ['./apps/harness'],
   },
 })
   .prepend(
-    // Ignore demo and docs folders - they have their own eslint configs
+    // Ignore the standalone docs app - it has its own eslint config.
     {
-      ignores: ['demo/**', 'docs/**', '**/convex/_generated/**'],
+      ignores: ['apps/docs/**', '**/convex/_generated/**'],
     },
   )
   .append(
@@ -39,13 +39,13 @@ export default createConfigForNuxt({
       },
     },
     {
-      files: ['src/module.ts', 'src/runtime/**/*.ts', 'test/**/*.ts'],
+      files: ['src/module.ts', 'src/runtime/**/*.ts', 'tests/**/*.ts'],
       languageOptions: {
         parserOptions: {
           project: [
             './tsconfig.eslint.json',
-            './test/internal-harness/tsconfig.json',
-            './test/internal-harness/server/tsconfig.json',
+            './apps/harness/tsconfig.json',
+            './apps/harness/server/tsconfig.json',
           ],
           tsconfigRootDir: import.meta.dirname,
         },
@@ -55,7 +55,7 @@ export default createConfigForNuxt({
       },
     },
     {
-      files: ['test/internal-harness/middleware/**/*.ts'],
+      files: ['apps/harness/middleware/**/*.ts'],
       rules: {
         'no-restricted-syntax': [
           'error',
@@ -77,7 +77,7 @@ export default createConfigForNuxt({
       },
     },
     {
-      files: ['test/internal-harness/plugins/**/*.ts'],
+      files: ['apps/harness/plugins/**/*.ts'],
       rules: {
         'no-restricted-syntax': [
           'error',

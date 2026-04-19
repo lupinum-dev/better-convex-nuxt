@@ -11,7 +11,7 @@
  */
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 
-import { createSharedAuthEngine } from './client/auth-engine.js'
+import { createSharedAuthEngine } from './apps/devtools-ui/auth-engine.js'
 import { projectResolvedAuthForHydration } from './server/utils/auth-hydration.js'
 import { resolveRequestAuth } from './server/utils/auth-resolver.js'
 import type { AuthWaterfall } from './utils/auth-debug.js'

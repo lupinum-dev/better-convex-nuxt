@@ -47,7 +47,7 @@ pnpm run check
 - `pnpm run dev:local:reset`: same as `dev:local`, but reset the local backend first.
 - `pnpm run dev:build`: build only the internal harness app.
 - `pnpm run build:module`: package/runtime build only.
-- `pnpm run build:client`: docs/devtools client build only.
+- `pnpm run build:client`: devtools UI build only.
 - `pnpm run build:cli`: CLI build only.
 - `pnpm run test:types`: type-only gate.
 - `pnpm run test:contracts`: public behavior and example contract coverage.
@@ -75,7 +75,7 @@ pnpm run check
 
 ## Public Package Surface
 
-The generated API reference at [`docs/content/docs/13.api-reference/7.api-surface.md`](./docs/content/docs/13.api-reference/7.api-surface.md) is the canonical inventory.
+The generated API reference at [`apps/docs/content/docs/13.api-reference/7.api-surface.md`](./apps/docs/content/docs/13.api-reference/7.api-surface.md) is the canonical inventory.
 
 Use this shortened maintainer summary only:
 
@@ -165,9 +165,10 @@ src/
     testing/             # Test context and helpers
     trusted-caller/      # Server-to-server auth
 
-examples/                # Progressive examples (01-07)
-test/                    # Test suites
-docs/                    # Documentation site
+examples/                # Progressive public examples
+tests/                   # Root test suites, fixtures, and support
+apps/                    # Runnable maintainer apps
+labs/                    # Experimental or archived examples
 ```
 
 ## Pull Request Guidelines

@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { extname, relative, resolve, sep } from 'node:path'
 
 const rootDir = process.cwd()
-const docsContentDir = resolve(rootDir, 'docs/content')
+const docsContentDir = resolve(rootDir, 'apps/docs/content')
 
 function walk(target) {
   if (!existsSync(target)) return []
@@ -136,13 +136,12 @@ const sourceTargets = [
   resolve(rootDir, 'README.md'),
   resolve(rootDir, 'DEVELOPMENT.md'),
   resolve(rootDir, 'SKILL.md'),
-  resolve(rootDir, 'test/TESTING.md'),
-  ...walk(resolve(rootDir, 'docs/content')).filter((file) => extname(file) === '.md'),
-  ...walk(resolve(rootDir, 'docs/app')).filter((file) => ['.vue', '.ts'].includes(extname(file))),
-  resolve(rootDir, 'docs/mdc-components.md'),
+  resolve(rootDir, 'tests/TESTING.md'),
+  ...walk(resolve(rootDir, 'apps/docs/content')).filter((file) => extname(file) === '.md'),
+  ...walk(resolve(rootDir, 'apps/docs/app')).filter((file) => ['.vue', '.ts'].includes(extname(file))),
+  resolve(rootDir, 'apps/docs/mdc-components.md'),
   ...walk(resolve(rootDir, 'examples')).filter((file) => extname(file) === '.md'),
-  ...walk(resolve(rootDir, 'demo')).filter((file) => extname(file) === '.md'),
-  ...walk(resolve(rootDir, 'test/internal-harness')).filter((file) => extname(file) === '.md'),
+  ...walk(resolve(rootDir, 'apps/harness')).filter((file) => extname(file) === '.md'),
 ]
 
 const forbiddenPublicDocsPatterns = [
@@ -206,7 +205,8 @@ for (const filePath of sourceTargets) {
   }
 
   const isPublicDocsSource =
-    filePath.startsWith(resolve(rootDir, 'docs/content')) || filePath === resolve(rootDir, 'README.md')
+    filePath.startsWith(resolve(rootDir, 'apps/docs/content')) ||
+    filePath === resolve(rootDir, 'README.md')
 
   if (isPublicDocsSource) {
     for (const rule of forbiddenPublicDocsPatterns) {

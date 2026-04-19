@@ -110,23 +110,23 @@ jobs:
           echo "tarball_path=$RUNNER_TEMP/pack/$TARBALL" >> "$GITHUB_OUTPUT"
 
       - name: Install fixture dependencies
-        working-directory: test/fixtures/${{ matrix.fixture }}
+        working-directory: tests/fixtures/${{ matrix.fixture }}
         run: npx nypm@latest i
 
       - name: Install packed module in fixture
-        working-directory: test/fixtures/${{ matrix.fixture }}
+        working-directory: tests/fixtures/${{ matrix.fixture }}
         run: npx nypm@latest add "${{ steps.pack.outputs.tarball_path }}"
 
       - name: Verify packed module imports and CLI
-        working-directory: test/fixtures/${{ matrix.fixture }}
+        working-directory: tests/fixtures/${{ matrix.fixture }}
         run: |
           node -e "Promise.all([import('@lupinum/trellis'), import('@lupinum/trellis/auth')]).then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
           pnpm exec trellis --help
 
       - name: Consumer build
-        working-directory: test/fixtures/${{ matrix.fixture }}
+        working-directory: tests/fixtures/${{ matrix.fixture }}
         run: npm run build
 
       - name: Consumer typecheck
-        working-directory: test/fixtures/${{ matrix.fixture }}
+        working-directory: tests/fixtures/${{ matrix.fixture }}
         run: npm run typecheck

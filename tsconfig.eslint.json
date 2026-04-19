@@ -3,18 +3,18 @@
   "include": [
     ".nuxt/**/*.d.ts",
     ".nuxt/**/*.ts",
-    "client/**/*.ts",
-    "client/**/*.mts",
-    "client/**/*.d.ts",
-    "client/**/*.vue",
+    "apps/devtools-ui/**/*.ts",
+    "apps/devtools-ui/**/*.mts",
+    "apps/devtools-ui/**/*.d.ts",
+    "apps/devtools-ui/**/*.vue",
     "src/**/*.ts",
     "src/**/*.mts",
     "src/**/*.d.ts",
     "src/**/*.vue",
-    "test/**/*.ts",
-    "test/**/*.mts",
-    "test/**/*.d.ts",
-    "test/**/*.vue"
+    "tests/**/*.ts",
+    "tests/**/*.mts",
+    "tests/**/*.d.ts",
+    "tests/**/*.vue"
   ],
-  "exclude": ["dist", "node_modules", "test/internal-harness", "docs", "demo", "examples"]
+  "exclude": ["dist", "node_modules", "apps/harness", "apps/docs", "examples", "labs"]
 }

@@ -50,8 +50,7 @@ export default defineConfig({
         },
         test: {
           name: 'unit',
-          include: ['test/unit/**/*.test.ts', 'test/auth/**/*.test.ts'],
-          exclude: ['test/auth/**/*.server.test.ts', 'test/auth/**/*.nuxt.test.ts'],
+          include: ['tests/unit/**/*.test.ts'],
           environment: 'node',
         },
       },
@@ -93,7 +92,7 @@ export default defineConfig({
         },
         test: {
           name: 'convex',
-          include: ['test/internal-harness/convex/**/*.test.ts'],
+          include: ['apps/harness/convex/**/*.test.ts'],
           environment: 'edge-runtime',
           server: { deps: { inline: [/convex/] } },
         },
@@ -104,7 +103,7 @@ export default defineConfig({
       await defineVitestProject({
         test: {
           name: 'nuxt',
-          include: ['test/nuxt/**/*.test.ts', 'test/auth/**/*.nuxt.test.ts'],
+          include: ['tests/nuxt/**/*.test.ts'],
           environment: 'nuxt',
           environmentOptions: {
             nuxt: {
@@ -119,7 +118,7 @@ export default defineConfig({
       {
         test: {
           name: 'server',
-          include: ['test/auth/**/*.server.test.ts'],
+          include: ['tests/server/**/*.test.ts'],
           environment: 'node',
         },
       },
@@ -130,13 +129,13 @@ export default defineConfig({
         resolve: {
           alias: {
             '#imports': fileURLToPath(
-              new URL('./test/support/browser/imports.ts', import.meta.url),
+              new URL('./tests/support/browser/imports.ts', import.meta.url),
             ),
           },
         },
         test: {
           name: 'browser',
-          include: ['test/browser/**/*.browser.test.ts'],
+          include: ['tests/browser/**/*.browser.test.ts'],
           browser: {
             enabled: true,
             provider: playwright(),
@@ -152,7 +151,7 @@ export default defineConfig({
       {
         test: {
           name: 'e2e',
-          include: ['test/e2e/**/*.e2e.test.ts'],
+          include: ['tests/e2e/**/*.e2e.test.ts'],
           testTimeout: 60000,
           fileParallelism: false,
         },

@@ -11,10 +11,11 @@
   "exclude": [
     "../dist",
     "../node_modules",
-    "../test/internal-harness",
-    "../test/fixtures",
-    "../docs",
+    "../apps/harness",
+    "../tests/fixtures",
+    "../apps/docs",
     "../examples",
+    "../labs",
     "./runtime/server"
   ]
 }

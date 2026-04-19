@@ -5,9 +5,10 @@ This file is an operational appendix for Trellis-local development.
 ## Repo Surfaces
 
 - repo root: module source, tests, release scripts, anti-drift checks
-- `test/internal-harness/`: contributor-only Nuxt app for root dev, evals, E2E, and repro work
-- `docs/`: hosted documentation site
+- `apps/harness/`: contributor-only Nuxt app for root dev, evals, E2E, and repro work
+- `apps/docs/`: hosted documentation site
 - `examples/`: runnable consumer reference apps
+- `labs/`: exploratory and archived example material
 
 ## First-Time Setup
 
@@ -54,12 +55,12 @@ Current files that need active pressure to shrink rather than grow:
 - `src/runtime/composables/internal/query-runtime.ts`
 - `src/runtime/composables/internal/pagination-runtime.ts`
 - `src/runtime/composables/internal/upload-runtime.ts`
-- `src/runtime/client/auth-engine.ts`
+- `src/runtime/apps/devtools-ui/auth-engine.ts`
 - `src/module.ts`
 
 ## Internal Harness
 
-`test/internal-harness/` is the contributor-facing integration workspace behind the root `pnpm dev` loop.
+`apps/harness/` is the contributor-facing integration workspace behind the root `pnpm dev` loop.
 
 Use it for:
 
@@ -67,7 +68,7 @@ Use it for:
 - auth and MCP verification
 - regression reproduction
 - root E2E and eval flows
-- backend harness tests under `test/internal-harness/convex`
+- backend harness tests under `apps/harness/convex`
 
 Use the harness for focused Trellis development. Use downstream consumer workspaces only when validating publish-surface or real integration behavior that the harness cannot prove.
 
@@ -97,15 +98,15 @@ Important variables:
 
 Relevant docs:
 
-- [Environment Variables](./docs/content/docs/10.configuration/2.environment-variables.md)
-- [Local Development](./docs/content/docs/11.deployment/3.local-development.md)
+- [Environment Variables](./apps/docs/content/docs/10.configuration/2.environment-variables.md)
+- [Local Development](./apps/docs/content/docs/11.deployment/3.local-development.md)
 
 ## Local Convex
 
 When you need a dedicated local backend for auth, MCP, or E2E:
 
 ```bash
-cd test/internal-harness
+cd apps/harness
 pnpm exec convex dev --local
 ```
 
@@ -124,9 +125,9 @@ pnpm exec convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .e
 
 ## Docs
 
-- `docs/` is the hosted documentation app. Run it with `pnpm --dir docs dev`.
+- `apps/docs/` is the hosted documentation app. Run it with `pnpm --dir apps/docs dev`.
 
 ## Related Docs
 
-- [test/TESTING.md](./test/TESTING.md)
+- [tests/TESTING.md](./tests/TESTING.md)
 - [examples/README.md](./examples/README.md)
