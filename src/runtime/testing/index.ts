@@ -322,39 +322,60 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     }
   }
 
+  function shouldRetryWithoutTrustedTransport(error: unknown): boolean {
+    if (!(error instanceof Error)) return false
+
+    return (
+      error.message.includes('Unexpected field `_trustedCallerKey` in object') ||
+      error.message.includes('Unexpected field `_trustedCaller` in object')
+    )
+  }
+
+  async function callWithPrincipal<
+    TKind extends 'query' | 'mutation' | 'action',
+    TFn extends FunctionReference<TKind>,
+  >(
+    kind: TKind,
+    fn: TFn,
+    args: OptionalRestArgs<TFn>[0],
+  ): Promise<FunctionReturnType<TFn>> {
+    const caller = raw[kind] as unknown as (
+      ref: TFn,
+      callArgs?: OptionalRestArgs<TFn>[0],
+    ) => Promise<FunctionReturnType<TFn>>
+
+    const trustedPayload = withPrincipalArgs(args as Record<string, unknown> | undefined, 'trusted')
+
+    try {
+      return await caller(fn, trustedPayload as OptionalRestArgs<TFn>[0])
+    } catch (error) {
+      if (!shouldRetryWithoutTrustedTransport(error)) {
+        throw error
+      }
+
+      const plainPayload = withPrincipalArgs(args as Record<string, unknown> | undefined, 'plain')
+      return await caller(fn, plainPayload as OptionalRestArgs<TFn>[0])
+    }
+  }
+
   const client = {
     query: async <Query extends FunctionReference<'query'>>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined, 'trusted')
-      const query = raw.query as unknown as (
-        ref: Query,
-        args?: OptionalRestArgs<Query>[0],
-      ) => Promise<FunctionReturnType<Query>>
-      return await query(fn, payload as OptionalRestArgs<Query>[0])
+      return await callWithPrincipal('query', fn, args[0])
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined, 'trusted')
-      const mutation = raw.mutation as unknown as (
-        ref: Mutation,
-        args?: OptionalRestArgs<Mutation>[0],
-      ) => Promise<FunctionReturnType<Mutation>>
-      return await mutation(fn, payload as OptionalRestArgs<Mutation>[0])
+      return await callWithPrincipal('mutation', fn, args[0])
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      const payload = withPrincipalArgs(args[0] as Record<string, unknown> | undefined, 'trusted')
-      const action = raw.action as unknown as (
-        ref: Action,
-        args?: OptionalRestArgs<Action>[0],
-      ) => Promise<FunctionReturnType<Action>>
-      return await action(fn, payload as OptionalRestArgs<Action>[0])
+      return await callWithPrincipal('action', fn, args[0])
     },
   }
 

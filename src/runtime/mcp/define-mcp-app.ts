@@ -10,7 +10,7 @@ import {
 } from '../functions/define-operation.js'
 import {
   resolvePermissionKey,
-  type PermissionLike,
+  type PermissionHandle,
   type RegisteredPermissionKey,
 } from '../auth/define-permission.js'
 import {
@@ -138,7 +138,7 @@ export interface ToolOptions<
     capabilities: TCapabilities
     runtime: TRuntime
   }) => string | PreviewResult
-  permission?: PermissionLike<CapabilityKey<TCapabilities>>
+  permission?: PermissionHandle<CapabilityKey<TCapabilities>>
   enabled?: (
     ctx: ProjectionRuntimeCtx<TPrincipal, TCapabilities, TRuntime>,
   ) => MaybePromise<boolean>
@@ -290,7 +290,7 @@ function isOperationPreviewPayload(value: unknown): value is OperationPreviewPay
 
 function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
   capabilities: TCapabilities,
-  permission: PermissionLike<string> | undefined,
+  permission: PermissionHandle<string> | undefined,
 ): boolean {
   if (!permission) return true
   if (!capabilities) return false

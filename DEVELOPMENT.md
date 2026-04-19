@@ -6,7 +6,6 @@ This file is an operational appendix for Trellis-local development.
 
 - repo root: module source, tests, release scripts, anti-drift checks
 - `test/internal-harness/`: contributor-only Nuxt app for root dev, evals, E2E, and repro work
-- `demo/`: public showcase app
 - `docs/`: hosted documentation site
 - `examples/`: runnable consumer reference apps
 
@@ -123,13 +122,11 @@ pnpm exec convex env set SITE_URL http://localhost:3000 --env-file .env.local
 pnpm exec convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
 ```
 
-## Demo And Docs
+## Docs
 
-- `demo/` is the public interactive showcase. Run it with `pnpm --dir demo dev`.
 - `docs/` is the hosted documentation app. Run it with `pnpm --dir docs dev`.
 
 ## Related Docs
 
 - [test/TESTING.md](./test/TESTING.md)
 - [examples/README.md](./examples/README.md)
-- [demo/.env.example](./demo/.env.example)

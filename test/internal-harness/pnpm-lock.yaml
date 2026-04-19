@@ -169,8 +169,6 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
-  ../../demo: {}
-
   ../../examples/01-public-todo: {}
 
   ../../examples/02-auth-todo: {}

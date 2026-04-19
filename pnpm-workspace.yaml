@@ -1,7 +1,5 @@
 packages:
   - 'examples/*'
-  - 'examples-next/*'
-  - 'demo'
   - 'test/internal-harness'
   - 'test/fixtures/doctor-*'
 

@@ -1,14 +1,16 @@
 import { getHeader, type H3Event } from 'h3'
 
+import {
+  createPagePermission,
+  listDraftPagesPermission,
+  listPublishedPagesPermission,
+  publishPagePermission,
+  saveDraftPermission,
+  type MiniCmsPermissionKey,
+} from '../../convex/auth/permissions'
 import type { MiniCmsPrincipal } from '~/shared/principal'
 
-export type CapabilitySnapshot = {
-  listPublishedPages: boolean
-  listDraftPages: boolean
-  createPage: boolean
-  saveDraft: boolean
-  publishPage: boolean
-}
+export type CapabilitySnapshot = Record<MiniCmsPermissionKey, boolean>
 
 function readBearerToken(event: H3Event): string | null {
   const auth = getHeader(event, 'authorization')
@@ -33,10 +35,10 @@ export function getMcpPrincipal(event: H3Event): MiniCmsPrincipal {
 
 export function getCapabilitiesForPrincipal(principal: MiniCmsPrincipal): CapabilitySnapshot {
   return {
-    listPublishedPages: true,
-    listDraftPages: principal.kind === 'agent',
-    createPage: principal.kind === 'agent',
-    saveDraft: principal.kind === 'agent',
-    publishPage: principal.kind === 'agent',
+    [listPublishedPagesPermission.key]: true,
+    [listDraftPagesPermission.key]: principal.kind === 'agent',
+    [createPagePermission.key]: principal.kind === 'agent',
+    [saveDraftPermission.key]: principal.kind === 'agent',
+    [publishPagePermission.key]: principal.kind === 'agent',
   }
 }

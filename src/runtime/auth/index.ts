@@ -43,7 +43,6 @@ export type {
   GuardPermissionDefinition,
   PermissionDefinition,
   PermissionHandle,
-  PermissionLike,
   RegisteredPermissionKey,
   RegisteredPermissions,
   RegisteredProjectedPermissionKey,

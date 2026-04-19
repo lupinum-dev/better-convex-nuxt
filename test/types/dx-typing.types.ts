@@ -67,6 +67,11 @@ const createTaskPermission = definePermission({
   check: true,
 })
 
+const deleteTaskPermission = definePermission({
+  key: 'task.delete',
+  check: true,
+})
+
 type UsePermissionsApi = ReturnType<typeof _auth.usePermissions>
 type GuardOptions = Parameters<typeof _auth.useAuthGuard>[0]
 type _permissionKey = Assert<
@@ -90,13 +95,13 @@ type _ctxUsageCurrent = Assert<
 type _allowsParameter = Assert<
   IsEqual<
     Parameters<UsePermissionsApi['allows']>[0],
-    PermissionHandle<'task.create' | 'workspace.members'> | 'task.create' | 'workspace.members'
+    PermissionHandle<'task.create' | 'workspace.members'>
   >
 >
 type _guardPermissionKey = Assert<
   IsEqual<
     GuardOptions['permission'],
-    PermissionHandle<'task.create' | 'workspace.members'> | 'task.create' | 'workspace.members' | undefined
+    PermissionHandle<'task.create' | 'workspace.members'> | undefined
   >
 >
 type _guardCheck = Assert<
@@ -109,13 +114,8 @@ const _validGuardOptions: GuardOptions = {
 }
 void _validGuardOptions
 
-const _validGuardOptionsByString: GuardOptions = {
-  permission: 'task.create',
-}
-void _validGuardOptionsByString
-
 // @ts-expect-error invalid capability should not type-check
-const _invalidGuardOptions: GuardOptions = { permission: 'task.delete' }
+const _invalidGuardOptions: GuardOptions = { permission: deleteTaskPermission }
 void _invalidGuardOptions
 
 type GenericPermissionContext = {
@@ -141,10 +141,10 @@ type GenericUsePermissionsApi = ReturnType<typeof _genericAuth.usePermissions>
 type GenericGuardOptions = Parameters<typeof _genericAuth.useAuthGuard>[0]
 type _genericPermissionKey = Assert<IsEqual<PermissionKey<GenericPermissionContext>, string>>
 type _genericAllowsParameter = Assert<
-  IsEqual<Parameters<GenericUsePermissionsApi['allows']>[0], PermissionHandle<string> | string>
+  IsEqual<Parameters<GenericUsePermissionsApi['allows']>[0], PermissionHandle<string>>
 >
 type _genericGuardPermissionKey = Assert<
-  IsEqual<GenericGuardOptions['permission'], PermissionHandle<string> | string | undefined>
+  IsEqual<GenericGuardOptions['permission'], PermissionHandle<string> | undefined>
 >
 
 const _identity = {} as AuthIdentity | null

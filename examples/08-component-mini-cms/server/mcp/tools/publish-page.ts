@@ -4,11 +4,12 @@ import {
   publishPage,
   publishPageOp,
 } from '~/convex/components/miniCms/pages'
+import { publishPagePermission } from '../../../convex/auth/permissions'
 
 export default tool.fromOperation(publishPageOp, {
   execute: publishPage,
   preview: previewPublishPage,
-  permission: 'publishPage',
+  permission: publishPagePermission,
   group: 'pages',
   meta: {
     name: 'publish-page',

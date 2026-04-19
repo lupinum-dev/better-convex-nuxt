@@ -31,8 +31,6 @@ export type PermissionHandle<TKey extends string = string> = Pick<
   '_type' | 'key'
 >
 
-export type PermissionLike<TKey extends string = string> = TKey | PermissionHandle<TKey>
-
 export function definePermission<TKey extends string, TActor = unknown>(options: {
   key: TKey
   check: AnyCheck<TActor>
@@ -82,6 +80,8 @@ export function resolvePermissionLabel(permission: ErasedPermissionDefinition): 
   return permission.key
 }
 
-export function resolvePermissionKey<TKey extends string>(permission: PermissionLike<TKey>): TKey {
-  return (typeof permission === 'string' ? permission : permission.key) as TKey
+export function resolvePermissionKey<TKey extends string>(
+  permission: PermissionHandle<TKey>,
+): TKey {
+  return permission.key as TKey
 }

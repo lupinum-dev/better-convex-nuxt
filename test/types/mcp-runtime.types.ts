@@ -2,7 +2,7 @@ import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 
-import { open } from '../../src/runtime/auth'
+import { definePermission, open } from '../../src/runtime/auth'
 import {
   defineOperation,
   trellisOperationProjectionMetadataKey,
@@ -17,6 +17,16 @@ type IsEqual<A, B> =
 
 type Principal = { kind: 'agent'; id: string }
 type Capabilities = { publishEntry: boolean; readEntry: boolean }
+
+const readEntryPermission = definePermission({
+  key: 'readEntry',
+  check: true,
+})
+
+const publishEntryPermission = definePermission({
+  key: 'publishEntry',
+  check: true,
+})
 
 const schema = defineArgs({
   args: {},
@@ -58,7 +68,7 @@ runtime.tool({
   schema,
   call: queryRef,
   operation: 'query',
-  permission: 'readEntry',
+  permission: readEntryPermission,
   preview: queryRef,
   previewResult: ({ result }) => {
     type _previewResult = Assert<IsEqual<typeof result, { title: string; count: number }>>
@@ -73,7 +83,7 @@ runtime.tool({
 runtime.tool({
   schema,
   call: mutationRef,
-  permission: 'publishEntry',
+  permission: publishEntryPermission,
   respond: ({ result, ok }) => {
     type _mutationResult = Assert<IsEqual<typeof result, { published: true }>>
     return ok(result)
@@ -140,5 +150,5 @@ runtime.tool.fromOperation(archiveEntryOp, {
       { operation: 'entries.archive'; targetId: string; affectedCounts: { entries: number } }
     >
   >,
-  permission: 'publishEntry',
+  permission: publishEntryPermission,
 })

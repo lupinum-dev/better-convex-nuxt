@@ -14,7 +14,6 @@
     "../test/internal-harness",
     "../test/fixtures",
     "../docs",
-    "../demo",
     "../examples",
     "./runtime/server"
   ]

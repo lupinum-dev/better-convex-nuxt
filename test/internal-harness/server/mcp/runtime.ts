@@ -2,6 +2,10 @@ import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
 
+import {
+  postDeletePermission,
+  type InternalHarnessPermissionKey,
+} from '../../convex/auth/permissions'
 import { trellisObservability } from '../../observability.config'
 import type { InternalHarnessPrincipal } from '../../convex/auth/principal'
 
@@ -28,7 +32,7 @@ function getMcpPrincipal(event: H3Event): InternalHarnessPrincipal {
 
 export const mcpRuntime = defineMcpApp<
   InternalHarnessPrincipal,
-  { deletePost: boolean }
+  Record<InternalHarnessPermissionKey, boolean>
 >({
   callConvex: async (event, principal) =>
     createServerConvexCaller(
@@ -43,7 +47,7 @@ export const mcpRuntime = defineMcpApp<
     ) as never,
   resolvePrincipal: async (event) => getMcpPrincipal(event),
   resolveCapabilities: async ({ principal }) => ({
-    deletePost:
+    [postDeletePermission.key]:
       principal.kind === 'agent' && ['owner', 'admin', 'member'].includes(principal.role),
   }),
   principalKey: (principal) =>

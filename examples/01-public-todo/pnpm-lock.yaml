@@ -170,8 +170,6 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
 
-  ../../demo: {}
-
   ../../test/fixtures/doctor-missing-convex: {}
 
   ../../test/fixtures/doctor-missing-env: {}

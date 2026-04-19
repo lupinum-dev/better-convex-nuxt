@@ -10,7 +10,6 @@ Use `examples/` when you want maintained public reference apps. Use `examples-ne
 
 | Example | Status | Why it exists |
 | --- | --- | --- |
-| `01-kanban-workspace` | Archived legacy app | Older experimental app kept only as migration input, not as a maintained contract |
 | `02-product-issue-tracker` | Concept brief | Pressures workflow/state-machine-heavy product execution software |
 | `03-docs-wiki` | Concept brief | Pressures nested visibility, sharing, and document-aware agent access |
 | `04-community-courses` | Concept brief | Pressures auth, membership, billing-aware access, and moderation |
@@ -20,7 +19,7 @@ Use `examples/` when you want maintained public reference apps. Use `examples-ne
 | `08-commerce-backoffice` | Concept brief | Pressures audit-heavy destructive actions and webhook-driven state |
 | `09-agent-operator-console` | Concept brief | Pressures the human-plus-agent operating model directly |
 
-No entry in this folder is part of the maintained public contract. `01-kanban-workspace` is archived migration input, and the rest are intentionally brief until they earn real implementation time.
+No entry in this folder is part of the maintained public contract. They are intentionally brief until they earn real implementation time.
 
 ## Portfolio rules
 

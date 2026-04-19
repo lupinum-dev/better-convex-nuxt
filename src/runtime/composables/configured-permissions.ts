@@ -5,7 +5,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import { useNuxtApp, useRouter } from '#imports'
 
 import type {
-  PermissionLike,
+  PermissionHandle,
   RegisteredProjectedPermissionKey,
 } from '../auth/define-permission.js'
 import type { PermissionContextBase } from '../auth/define-permission-context.js'
@@ -53,14 +53,14 @@ export interface UsePermissionsReturn<
   tenantId: ComputedRef<TContext['tenantId'] | null>
   ready: ComputedRef<boolean>
   pending: ComputedRef<boolean>
-  allows: (permission: PermissionLike<TPermissions>) => ComputedRef<boolean>
+  allows: (permission: PermissionHandle<TPermissions>) => ComputedRef<boolean>
 }
 
 export interface UseAuthGuardOptions<
   TContext extends AuthContext = AuthContext,
   TPermissions extends string = ConfiguredPermissionKey<TContext>,
 > {
-  permission?: PermissionLike<TPermissions>
+  permission?: PermissionHandle<TPermissions>
   check?: (ctx: TContext) => boolean
   redirectTo?: RouteLocationRaw
   loginPath?: RouteLocationRaw
@@ -188,7 +188,7 @@ export function createConfiguredPermissionsComposables<
   function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
     const { ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
 
-    function allows(permission: PermissionLike<TPermissions>): ComputedRef<boolean> {
+    function allows(permission: PermissionHandle<TPermissions>): ComputedRef<boolean> {
       const key = resolvePermissionKey(permission)
       return computed<boolean>(() => ctx.value?.can?.[key] === true)
     }
