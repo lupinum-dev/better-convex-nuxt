@@ -141,6 +141,20 @@ type ProjectToolMeta = {
   destructive?: boolean
 }
 
+function assertProductionRateLimitStore(
+  toolName: string,
+  rateLimit: { max: number; window: string } | undefined,
+  rateLimitStore: unknown,
+): void {
+  if (process.env.NODE_ENV !== 'production' || !rateLimit || rateLimitStore) {
+    return
+  }
+
+  throw new Error(
+    `${toolName}: production MCP rate limiting requires an explicit distributed rate-limit store. Configure createRedisMcpRateLimitStore(...) and pass it as rateLimitStore.`,
+  )
+}
+
 export interface ToolOptions<
   S extends AnyConvexSchema,
   TPrincipal,
@@ -415,6 +429,7 @@ export function defineMcpApp<
   TRuntime = Record<string, never>,
 >(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TDelegation, TRuntime>) {
   const principalKeyResolver = options.principalKey ?? defaultPrincipalKey
+  const appRateLimitStore = options.rateLimitStore
   const requestCache = new WeakMap<
     H3Event,
     Promise<ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>>
@@ -523,6 +538,12 @@ export function defineMcpApp<
         'Destructive MCP tools must use tool.fromOperation(...). Generic tool({...}) destructive mode is not supported.',
       )
     }
+
+    assertProductionRateLimitStore(
+      tool.meta?.name ?? 'project-tool',
+      tool.rateLimit,
+      tool.rateLimitStore ?? appRateLimitStore,
+    )
 
     const operation = tool.operation ?? 'mutation'
     const previewOperation = tool.previewOperation ?? 'query'
@@ -829,6 +850,12 @@ export function defineMcpApp<
           },
         })
       : baseSchema
+
+    assertProductionRateLimitStore(
+      options.meta?.name ?? toKebabCase(metadata.name ?? operationId),
+      options.rateLimit,
+      options.rateLimitStore ?? appRateLimitStore,
+    )
 
     return defineTool({
       schema,

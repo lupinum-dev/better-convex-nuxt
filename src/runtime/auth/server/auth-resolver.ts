@@ -1,7 +1,6 @@
 import type { H3Event } from 'h3'
 
 import { fetchWithTimeout } from '../../convex/server/http.js'
-import { decodeUserFromJwt } from '../../convex/shared/convex-shared.js'
 import type { NormalizedConvexRuntimeConfig } from '../../convex/shared/runtime-config.js'
 import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants.js'
 import type { ConvexUser, ConvexServerAuthMode } from '../../utils/types.js'
@@ -11,7 +10,8 @@ import {
   buildTokenExchangeFailureMessage,
 } from '../shared/auth-errors.js'
 import { filterBetterAuthCookieHeader, getBetterAuthSessionToken } from '../shared/auth-token.js'
-import { getCachedAuthToken, setCachedAuthToken } from './auth-cache.js'
+import { getCachedAuthToken, serverConvexClearAuthCache, setCachedAuthToken } from './auth-cache.js'
+import { verifyServerJwt } from './verified-jwt.js'
 
 interface AuthResolutionMemoContext {
   __betterConvexRequestAuthPromise?: Promise<ResolvedRequestAuth>
@@ -107,6 +107,36 @@ function buildServerTokenExchangeHeaders(
   }
 
   return headers
+}
+
+async function revalidateServerSession(
+  event: H3Event,
+  cookieHeader: string,
+  siteUrl: string,
+): Promise<{ status: number | null; error: Error | null; body: string | null }> {
+  try {
+    const response = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
+      headers: buildServerTokenExchangeHeaders(event, cookieHeader, siteUrl),
+      timeoutMs: SERVER_FETCH_TIMEOUT_MS,
+    })
+
+    const body =
+      response.ok || response.status === 401 || response.status === 403
+        ? null
+        : await response.text().catch(() => null)
+
+    return {
+      status: response.status,
+      error: null,
+      body,
+    }
+  } catch (error) {
+    return {
+      status: null,
+      error: error instanceof Error ? error : new Error(String(error)),
+      body: null,
+    }
+  }
 }
 
 function buildPhase(
@@ -214,18 +244,111 @@ async function resolveRequestAuthUncached(
           buildPhase('cache-lookup', cacheStart, waterfallStart, 'hit', 'Token from cache'),
         )
 
-        const decodeStart = Date.now()
-        const user = decodeUserFromJwt(cachedToken)
+        const revalidateStart = Date.now()
+        const sessionCheck = await revalidateServerSession(event, cookieHeader, config.siteUrl)
+        const isSessionRejected = sessionCheck.status === 401 || sessionCheck.status === 403
+        const isMisconfigError =
+          Boolean(sessionCheck.error) ||
+          sessionCheck.status === 404 ||
+          (sessionCheck.status !== null && sessionCheck.status >= 500)
+
+        phases.push(
+          buildPhase(
+            'session-revalidate',
+            revalidateStart,
+            waterfallStart,
+            isSessionRejected || isMisconfigError ? 'error' : 'success',
+            sessionCheck.status
+              ? `HTTP ${sessionCheck.status}`
+              : (sessionCheck.error?.message ?? 'Session revalidation succeeded'),
+          ),
+        )
+
+        if (isSessionRejected) {
+          await serverConvexClearAuthCache(sessionToken)
+          const bodyDetail = sessionCheck.body ? ` ${sessionCheck.body.slice(0, 500)}` : ''
+          const error = `Session cookie present but rejected by auth endpoint (HTTP ${sessionCheck.status}).${bodyDetail} The session may have been revoked or the auth secret may have changed.`
+          return {
+            token: null,
+            user: null,
+            error,
+            source: 'cache',
+            hasSessionCookie: true,
+            sessionToken,
+            missingSiteUrl: false,
+            cacheHit: true,
+            jwtDecodeFailed: false,
+            tokenExchangeStatus: sessionCheck.status,
+            tokenExchangeError: sessionCheck.error,
+            isMisconfigError: false,
+            isSessionRejected: true,
+            trace: buildTrace('error', true, error),
+          }
+        }
+
+        if (isMisconfigError) {
+          const error =
+            buildTokenExchangeFailureMessage({
+              siteUrl: config.siteUrl,
+              status: sessionCheck.status ?? undefined,
+              error: sessionCheck.error ?? undefined,
+            }) + (sessionCheck.body ? ` ${sessionCheck.body.slice(0, 500)}` : '')
+          return {
+            token: null,
+            user: null,
+            error,
+            source: 'cache',
+            hasSessionCookie: true,
+            sessionToken,
+            missingSiteUrl: false,
+            cacheHit: true,
+            jwtDecodeFailed: false,
+            tokenExchangeStatus: sessionCheck.status,
+            tokenExchangeError: sessionCheck.error,
+            isMisconfigError: true,
+            isSessionRejected: false,
+            trace: buildTrace('error', true, error),
+          }
+        }
+
+        const verifyStart = Date.now()
+        let user: ConvexUser | null = null
+        let verificationError: Error | null = null
+        try {
+          user = (await verifyServerJwt(cachedToken, config.siteUrl)).user
+        } catch (error) {
+          verificationError = error instanceof Error ? error : new Error(String(error))
+          await serverConvexClearAuthCache(sessionToken)
+        }
         const jwtDecodeFailed = !user
         phases.push(
           buildPhase(
-            'jwt-decode',
-            decodeStart,
+            'jwt-verify',
+            verifyStart,
             waterfallStart,
             user ? 'success' : 'error',
-            user ? undefined : 'JWT decode failed — no user claims in token',
+            user ? undefined : (verificationError?.message ?? 'JWT verification failed'),
           ),
         )
+
+        if (!user) {
+          return {
+            token: null,
+            user: null,
+            error: verificationError?.message ?? '[serverConvex] Invalid auth token.',
+            source: 'cache',
+            hasSessionCookie: true,
+            sessionToken,
+            missingSiteUrl: false,
+            cacheHit: true,
+            jwtDecodeFailed: true,
+            tokenExchangeStatus: sessionCheck.status,
+            tokenExchangeError: verificationError,
+            isMisconfigError: false,
+            isSessionRejected: false,
+            trace: buildTrace('error', true, verificationError?.message),
+          }
+        }
 
         return {
           token: cachedToken,
@@ -296,18 +419,43 @@ async function resolveRequestAuthUncached(
         ),
       )
 
-      const decodeStart = Date.now()
-      const user = decodeUserFromJwt(tokenResponse.token)
+      const verifyStart = Date.now()
+      let user: ConvexUser | null = null
+      let verificationError: Error | null = null
+      try {
+        user = (await verifyServerJwt(tokenResponse.token, config.siteUrl)).user
+      } catch (error) {
+        verificationError = error instanceof Error ? error : new Error(String(error))
+      }
       const jwtDecodeFailed = !user
       phases.push(
         buildPhase(
-          'jwt-decode',
-          decodeStart,
+          'jwt-verify',
+          verifyStart,
           waterfallStart,
           user ? 'success' : 'error',
-          user ? undefined : 'JWT decode failed — no user claims in token',
+          user ? undefined : (verificationError?.message ?? 'JWT verification failed'),
         ),
       )
+
+      if (!user) {
+        return {
+          token: null,
+          user: null,
+          error: verificationError?.message ?? '[serverConvex] Invalid auth token.',
+          source: 'exchange',
+          hasSessionCookie: true,
+          sessionToken,
+          missingSiteUrl: false,
+          cacheHit,
+          jwtDecodeFailed: true,
+          tokenExchangeStatus,
+          tokenExchangeError: verificationError,
+          isMisconfigError: false,
+          isSessionRejected: false,
+          trace: buildTrace('error', cacheHit, verificationError?.message),
+        }
+      }
 
       if (cacheEnabled) {
         const cacheStoreStart = Date.now()

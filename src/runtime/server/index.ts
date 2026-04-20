@@ -22,6 +22,7 @@ export {
   serverConvexAction,
   type ServerConvexOptions,
 } from '../convex/server/convex.js'
+export { isWebhookSignatureValid } from './webhooks.js'
 
 type ForwardedPrincipalOptions = {
   principal?: ({ subject: Subject } & Record<string, unknown>) | undefined

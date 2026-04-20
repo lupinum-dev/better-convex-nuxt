@@ -42,6 +42,13 @@ describe('useMcpSession', () => {
   it('stores session data under the validated session namespace', async () => {
     const sessionId = '123e4567-e89b-42d3-a456-426614174000'
     useEventMock.mockReturnValue({
+      context: {
+        mcpAuth: {
+          role: 'member',
+          userId: 'user-1',
+          tenantId: 'org-1',
+        },
+      },
       node: {
         req: {
           headers: {
@@ -55,6 +62,8 @@ describe('useMcpSession', () => {
     const session = useMcpSession()
 
     expect(session.sessionId).toBe(sessionId)
-    expect(useStorageMock).toHaveBeenCalledWith(`mcp:sessions:${sessionId}`)
+    expect(String(useStorageMock.mock.calls[0]?.[0] ?? '')).toMatch(
+      new RegExp(`^mcp:sessions:[^:]+:${sessionId}$`),
+    )
   })
 })

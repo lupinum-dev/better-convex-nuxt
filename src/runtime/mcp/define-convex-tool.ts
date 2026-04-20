@@ -29,6 +29,20 @@ import type {
   PreviewResult,
 } from './types.js'
 
+function assertProductionRateLimitStore(
+  toolName: string | undefined,
+  rateLimit: { max: number; window: string } | undefined,
+  rateLimitStore: unknown,
+): void {
+  if (process.env.NODE_ENV !== 'production' || !rateLimit || rateLimitStore) {
+    return
+  }
+
+  throw new Error(
+    `${toolName ?? 'defineTool'}: production MCP rate limiting requires an explicit distributed rate-limit store. Configure createRedisMcpRateLimitStore(...) and pass it as rateLimitStore.`,
+  )
+}
+
 // ============================================================================
 // Internal options (adds factory-injected fields — not part of public API)
 // ============================================================================
@@ -482,6 +496,8 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
       `defineTool: "rateLimit" requires an explicit "name" so tools have distinct rate-limit buckets.`,
     )
   }
+
+  assertProductionRateLimitStore(toolLabel, rateLimit, rateLimitStore)
 
   if (scoped && auth !== 'required') {
     throw new Error(`defineTool: "scoped: true" requires auth: "required".`)

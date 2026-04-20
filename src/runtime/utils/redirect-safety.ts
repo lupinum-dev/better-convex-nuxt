@@ -1,3 +1,18 @@
+function hasForbiddenRedirectCodepoint(value: string): boolean {
+  for (const char of value) {
+    const codePoint = char.codePointAt(0)
+    if (codePoint === undefined) continue
+
+    if (codePoint <= 31 || codePoint === 127) return true
+    if (codePoint >= 8203 && codePoint <= 8207) return true
+    if (codePoint >= 8234 && codePoint <= 8238) return true
+    if (codePoint >= 8288 && codePoint <= 8297) return true
+    if (codePoint === 65279) return true
+  }
+
+  return false
+}
+
 /**
  * Validate that a redirect path is safe (relative, no open-redirect vectors).
  * Returns the validated path or null if unsafe.
@@ -20,6 +35,10 @@ export function validateRedirectPath(raw: string | null | undefined): string | n
   // Reject backslashes — browsers normalize \ to /, so /\evil.com becomes //evil.com
   if (trimmed.includes('\\')) return null
 
+  // Reject invisible/control characters that can reshape path rendering after
+  // browser or Unicode normalization.
+  if (hasForbiddenRedirectCodepoint(trimmed)) return null
+
   const decodedOnce = safeDecodeOnce(trimmed)
   if (decodedOnce === null) return null
 
@@ -29,7 +48,8 @@ export function validateRedirectPath(raw: string | null | undefined): string | n
     decodedOnce.startsWith('//') ||
     decodedOnce.includes('//') ||
     decodedOnce.includes('\\') ||
-    hasEncodedSlashOrBackslash(decodedOnce)
+    hasEncodedSlashOrBackslash(decodedOnce) ||
+    hasForbiddenRedirectCodepoint(decodedOnce)
   ) {
     return null
   }

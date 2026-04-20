@@ -1,3 +1,5 @@
+import type { NoInfer } from '../types/type-utils.js'
+
 export {
   completable,
   defineMcpHandler,
@@ -16,7 +18,37 @@ export { useMcpServer } from './use-mcp-server.js'
 
 export { useMcpSession } from './use-mcp-session.js'
 
-export { wrapError, wrapSuccess, wrapPreview, withSummary } from './result-envelope.js'
+export {
+  wrapError,
+  wrapSuccess,
+  wrapPreview,
+  withSummary,
+  withUntrustedText,
+} from './result-envelope.js'
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
+export interface CapabilityKeysByKey {}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
+export interface ToolsByName {}
+
+export interface RegisteredCapabilities {
+  byKey: CapabilityKeysByKey
+}
+
+export interface RegisteredTools {
+  byName: ToolsByName
+}
+
+export type RegisteredCapabilityKey = Extract<keyof CapabilityKeysByKey, string>
+export type RegisteredToolName = Extract<keyof RegisteredTools['byName'], string>
+export type RegisteredToolByName<TName extends RegisteredToolName> = ToolsByName[TName]
+
+export type ValidateCapabilityKey<TKey extends string = string> =
+  TKey extends NoInfer<RegisteredCapabilityKey> ? TKey : never
+
+export type ValidateToolName<TName extends string = string> =
+  TName extends NoInfer<RegisteredToolName> ? TName : never
 
 export type {
   AnyConvexSchema,

@@ -2,7 +2,7 @@ import { subject } from '@lupinum/trellis/auth'
 import { createError, defineEventHandler, readBody } from 'h3'
 
 import { api } from '#trellis/api'
-import { serverConvexMutation } from '#trellis/server'
+import { isWebhookSignatureValid, serverConvexMutation } from '#trellis/server'
 
 type WebhookBody = {
   title?: string
@@ -62,7 +62,7 @@ function normalizeTags(value: WebhookBody['tags']): string[] {
 
 export default defineEventHandler(async (event) => {
   const signature = event.node.req.headers['x-example-signature']
-  if (signature !== getWebhookSecret()) {
+  if (!isWebhookSignatureValid(signature, getWebhookSecret())) {
     throw createError({ statusCode: 401, message: 'Invalid signature' })
   }
 

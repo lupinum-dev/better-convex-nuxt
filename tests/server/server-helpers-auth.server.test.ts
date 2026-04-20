@@ -4,6 +4,7 @@ import {
   resolveRequestAuth,
   resolveRequestAuthToken,
 } from '../../src/runtime/auth/server/auth-resolver'
+import { clearServerJwksCache } from '../../src/runtime/auth/server/verified-jwt'
 import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/convex/server/convex'
 import {
   decodeUserFromJwt,
@@ -15,6 +16,7 @@ import {
   mockConvexConfig,
   resetServerAuthFixtureState,
 } from '../support/auth/server-auth-fixtures'
+import { createServerJwksResponse, mintServerJwt } from '../support/auth/server-jwt'
 
 const { useStorageMock } = vi.hoisted(() => ({
   useStorageMock: vi.fn(),
@@ -39,6 +41,7 @@ describe('server auth helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     resetServerAuthFixtureState()
+    clearServerJwksCache()
 
     useRuntimeConfigMock.mockReturnValue({
       public: {
@@ -52,12 +55,16 @@ describe('server auth helpers', () => {
   })
 
   it('auth:auto exchanges the Better Auth session cookie for a Convex bearer token', async () => {
+    const token = await mintServerJwt({ sub: 'user-auto', name: 'Auto User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/auth/convex/token')) {
-        return new Response(JSON.stringify({ token: 'auto.jwt.token' }), {
+        return new Response(JSON.stringify({ token }), {
           headers: { 'content-type': 'application/json' },
         })
+      }
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
       }
       return new Response(JSON.stringify({ value: { ok: true } }), {
         headers: { 'content-type': 'application/json' },
@@ -83,7 +90,7 @@ describe('server auth helpers', () => {
       throw new Error('Expected query fetch call')
     }
     const headers = ((queryCall[1] ?? {}) as RequestInit).headers as Record<string, string>
-    expect(headers.Authorization).toBe('Bearer auto.jwt.token')
+    expect(headers.Authorization).toBe(`Bearer ${token}`)
   })
 
   it('auth:auto skips token exchange when no Better Auth cookie exists', async () => {
@@ -154,12 +161,16 @@ describe('server auth helpers', () => {
   })
 
   it('dedupes request-scoped auth resolution across server helpers on the same event', async () => {
+    const token = await mintServerJwt({ sub: 'user-shared', name: 'Shared User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/auth/convex/token')) {
-        return new Response(JSON.stringify({ token: 'shared.jwt.token' }), {
+        return new Response(JSON.stringify({ token }), {
           headers: { 'content-type': 'application/json' },
         })
+      }
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
       }
       return new Response(JSON.stringify({ value: { ok: true } }), {
         headers: { 'content-type': 'application/json' },
@@ -182,13 +193,18 @@ describe('server auth helpers', () => {
   })
 
   it('resolveRequestAuth caches a validated token in the request context and returns the same resolved object', async () => {
+    const token = await mintServerJwt({ sub: 'user-cached', name: 'Cached User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
-      if (String(input).endsWith('/api/auth/convex/token')) {
-        return new Response(JSON.stringify({ token: 'cached.jwt.token' }), {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
+        return new Response(JSON.stringify({ token }), {
           headers: { 'content-type': 'application/json' },
         })
       }
-      throw new Error(`Unexpected fetch target: ${String(input)}`)
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -199,24 +215,29 @@ describe('server auth helpers', () => {
     const second = await resolveRequestAuth(event, config)
 
     expect(first).toBe(second)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(first.token).toBe('cached.jwt.token')
-    expect(first.user).toEqual(decodeUserFromJwt('cached.jwt.token'))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(first.token).toBe(token)
+    expect(first.user).toEqual(decodeUserFromJwt(token))
   })
 
   it('forwards host, proto, and client ip during SSR token exchange', async () => {
+    const token = await mintServerJwt({ sub: 'user-forwarded', name: 'Forwarded User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).endsWith('/api/auth/convex/token')) {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
         const headers = init?.headers as Record<string, string>
         expect(headers.Cookie).toBe('better-auth.session_token=session-123')
         expect(headers['x-forwarded-host']).toBe('demo.convex.site')
         expect(headers['x-forwarded-proto']).toBe('https')
         expect(headers['x-forwarded-for']).toBe('127.0.0.1')
-        return new Response(JSON.stringify({ token: 'forwarded.jwt.token' }), {
+        return new Response(JSON.stringify({ token }), {
           headers: { 'content-type': 'application/json' },
         })
       }
-      throw new Error(`Unexpected fetch target: ${String(input)}`)
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -225,22 +246,27 @@ describe('server auth helpers', () => {
 
     const resolved = await resolveRequestAuth(event, config)
 
-    expect(resolved.token).toBe('forwarded.jwt.token')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(resolved.token).toBe(token)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('only forwards Better Auth cookies during SSR token exchange', async () => {
+    const token = await mintServerJwt({ sub: 'user-filtered', name: 'Filtered User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).endsWith('/api/auth/convex/token')) {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
         const headers = init?.headers as Record<string, string>
         expect(headers.Cookie).toBe(
           'better-auth.session_token=session-123; __Secure-better-auth.session_token=secure-456',
         )
-        return new Response(JSON.stringify({ token: 'filtered.jwt.token' }), {
+        return new Response(JSON.stringify({ token }), {
           headers: { 'content-type': 'application/json' },
         })
       }
-      throw new Error(`Unexpected fetch target: ${String(input)}`)
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -251,7 +277,7 @@ describe('server auth helpers', () => {
 
     const resolved = await resolveRequestAuth(event, config)
 
-    expect(resolved.token).toBe('filtered.jwt.token')
+    expect(resolved.token).toBe(token)
   })
 
   it('treats cache as disabled at the resolver level when auth.cache.enabled is false', async () => {
@@ -267,13 +293,18 @@ describe('server auth helpers', () => {
     const { resolveRequestAuth: resolveRequestAuthWithMocks } =
       await import('../../src/runtime/auth/server/auth-resolver')
 
+    const token = await mintServerJwt({ sub: 'user-uncached', name: 'Uncached User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
-      if (String(input).endsWith('/api/auth/convex/token')) {
-        return new Response(JSON.stringify({ token: 'uncached.jwt.token' }), {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
+        return new Response(JSON.stringify({ token }), {
           headers: { 'content-type': 'application/json' },
         })
       }
-      throw new Error(`Unexpected fetch target: ${String(input)}`)
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -299,7 +330,7 @@ describe('server auth helpers', () => {
     expect(resolved.cacheHit).toBe(false)
     expect(getCachedAuthTokenSpy).not.toHaveBeenCalled()
     expect(setCachedAuthTokenSpy).not.toHaveBeenCalled()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('returns a concrete error when auth is required but the token exchange yields no token', async () => {

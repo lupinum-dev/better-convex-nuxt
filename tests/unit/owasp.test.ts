@@ -136,6 +136,11 @@ describe('OWASP A03: Injection', () => {
     expect(validateRedirectPath('/foo//evil.example.com')).toBeNull()
   })
 
+  it('rejects Unicode control and confusable redirect payloads', () => {
+    expect(validateRedirectPath('/safe/\u202Eevil.example.com')).toBeNull()
+    expect(validateRedirectPath('/safe/\u200Bhidden')).toBeNull()
+  })
+
   it('falls back to a safe path when the primary redirect target is unsafe', () => {
     expect(resolveRedirectTarget('https://evil.example.com', '/dashboard', '/auth/signin')).toBe(
       '/dashboard',

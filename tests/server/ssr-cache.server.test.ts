@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { clearServerJwksCache } from '../../src/runtime/auth/server/verified-jwt'
 import { decodeUserFromJwt } from '../../src/runtime/convex/shared/convex-shared'
 import {
   backingStore,
@@ -12,6 +13,7 @@ import {
   useRuntimeConfigMock,
   useStorageMock,
 } from '../support/auth/server-auth-fixtures'
+import { createServerJwksResponse, mintServerJwt } from '../support/auth/server-jwt'
 
 vi.mock('nitropack/runtime', () => ({
   useStorage: useStorageMock,
@@ -23,10 +25,25 @@ vi.mock('#imports', () => ({
   useRuntimeConfig: useRuntimeConfigMock,
 }))
 
+function toBase64Url(value: string): string {
+  return Buffer.from(value, 'utf-8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+
+function makeUnsignedJwt(payload: Record<string, unknown>): string {
+  const header = toBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' }))
+  const body = toBase64Url(JSON.stringify(payload))
+  return `${header}.${body}.signature`
+}
+
 describe('server SSR auth cache', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     resetServerAuthFixtureState()
+    clearServerJwksCache()
 
     useRuntimeConfigMock.mockReturnValue({
       public: {
@@ -70,12 +87,20 @@ describe('server SSR auth cache', () => {
     const { setCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
     const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
 
-    const token =
-      'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyLWNhY2hlZCIsIm5hbWUiOiJBbGljZSJ9.test'
+    const token = await mintServerJwt({ sub: 'user-cached', name: 'Alice' })
     await setCachedAuthToken('session-cached', token, 60)
 
-    const fetchMock = vi.fn(async () => {
-      throw new Error('resolver should have hit cache')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/auth/get-session')) {
+        return new Response(JSON.stringify({ session: { id: 'session-cached' } }), {
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -88,18 +113,25 @@ describe('server SSR auth cache', () => {
     expect(resolved.source).toBe('cache')
     expect(resolved.token).toBe(token)
     expect(resolved.user).toEqual(decodeUserFromJwt(token))
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(
+      fetchMock.mock.calls.filter((call) => String(call[0]).endsWith('/api/auth/convex/token')),
+    ).toHaveLength(0)
   })
 
   it('resolver caches exchanged tokens with the configured TTL', async () => {
     const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
+    const freshToken = await mintServerJwt({ sub: 'user-ttl', name: 'Fresh TTL User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      if (String(input).endsWith('/api/auth/convex/token')) {
-        return new Response(JSON.stringify({ token: 'fresh.jwt.token' }), {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
+        return new Response(JSON.stringify({ token: freshToken }), {
           headers: { 'content-type': 'application/json' },
         })
       }
-      throw new Error(`Unexpected fetch target: ${String(input)}`)
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -124,9 +156,7 @@ describe('server SSR auth cache', () => {
     )
 
     expect(resolved.source).toBe('exchange')
-    expect(storageSetCalls.at(-1)).toEqual(
-      expect.objectContaining({ ttl: 17, value: 'fresh.jwt.token' }),
-    )
+    expect(storageSetCalls.at(-1)).toEqual(expect.objectContaining({ ttl: 17, value: freshToken }))
   })
 
   it('resolver cache can be disabled without changing raw cache utility behavior', async () => {
@@ -137,13 +167,18 @@ describe('server SSR auth cache', () => {
     expect(await getCachedAuthToken('session-disabled')).toBe('jwt-disabled')
 
     const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
+    const freshToken = await mintServerJwt({ sub: 'user-disabled', name: 'Fresh User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      if (String(input).endsWith('/api/auth/convex/token')) {
-        return new Response(JSON.stringify({ token: 'fresh.jwt.token' }), {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
+        return new Response(JSON.stringify({ token: freshToken }), {
           headers: { 'content-type': 'application/json' },
         })
       }
-      throw new Error(`Unexpected fetch target: ${String(input)}`)
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
     })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -169,7 +204,79 @@ describe('server SSR auth cache', () => {
 
     expect(resolved.cacheHit).toBe(false)
     expect(resolved.source).toBe('exchange')
-    expect(resolved.token).toBe('fresh.jwt.token')
+    expect(resolved.token).toBe(freshToken)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not authenticate cache-hit JWTs that were never cryptographically verified', async () => {
+    const { setCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
+    const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
+
+    const unsignedJwt = makeUnsignedJwt({
+      sub: 'user-forged',
+      name: 'Mallory',
+      email: 'mallory@example.com',
+    })
+
+    await setCachedAuthToken('session-forged', unsignedJwt, 60)
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/auth/get-session')) {
+        return new Response(JSON.stringify({ session: { id: 'session-forged' } }), {
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const resolved = await resolveRequestAuth(
+      createEvent('better-auth.session_token=session-forged') as never,
+      mockConvexConfig(),
+    )
+
+    expect(resolved.cacheHit).toBe(true)
+    expect(resolved.token).toBeNull()
+    expect(resolved.user).toBeNull()
+    expect(resolved.error).toMatch(/invalid|verify|signature/i)
+  })
+
+  it('revalidates cached sessions when the upstream auth endpoint rejects them', async () => {
+    const { setCachedAuthToken } = await import('../../src/runtime/auth/server/auth-cache')
+    const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
+
+    const cachedJwt = await mintServerJwt({
+      sub: 'user-revoked',
+      name: 'Revoked User',
+      email: 'revoked@example.com',
+    })
+
+    await setCachedAuthToken('session-revoked', cachedJwt, 60)
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/auth/get-session')) {
+        return new Response('revoked', { status: 403 })
+      }
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const resolved = await resolveRequestAuth(
+      createEvent('better-auth.session_token=session-revoked') as never,
+      mockConvexConfig(),
+    )
+
     expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(resolved.token).toBeNull()
+    expect(resolved.user).toBeNull()
+    expect(resolved.isSessionRejected).toBe(true)
   })
 })

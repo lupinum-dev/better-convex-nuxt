@@ -28,6 +28,8 @@ function safeJsonText(value: unknown): string {
   return json
 }
 
+const STRUCTURED_OUTPUT_OMITTED_TEXT = '[structured output omitted from model text channel]'
+
 // ============================================================================
 // withSummary — branded helper to avoid duck-typing collisions
 // ============================================================================
@@ -66,11 +68,27 @@ export function withSummary<T>(data: T, summary: string): DataWithSummary<T> {
 }
 
 /**
+ * Explicitly frame untrusted model-visible text.
+ *
+ * Use this when tool output should expose user-authored text to the model. The
+ * wrapper keeps the original structured data intact while making the text
+ * channel obviously non-instructional.
+ */
+export function withUntrustedText<T>(data: T, text: string): DataWithSummary<T> {
+  return withSummary(
+    data,
+    ['[untrusted user content follows]', text, '[end untrusted user content]'].join('\n'),
+  )
+}
+
+/**
  * Wrap a successful handler return value into a structured CallToolResult.
  *
  * If the value was created with `withSummary()`, the summary becomes the text
  * content and data goes into structuredContent. Otherwise, the value is used
- * as data and JSON-stringified for the text fallback.
+ * as structured data only and the model text channel receives a generic
+ * placeholder. Handlers must opt in to model-visible text with `withSummary()`
+ * or `withUntrustedText()`.
  */
 export function wrapSuccess(value: unknown): CallToolResult {
   if (isDataWithSummary(value)) {
@@ -83,8 +101,13 @@ export function wrapSuccess(value: unknown): CallToolResult {
     }
   }
 
+  const text =
+    value === null || value === undefined || typeof value !== 'object'
+      ? safeJsonText(value)
+      : STRUCTURED_OUTPUT_OMITTED_TEXT
+
   return {
-    content: [{ type: 'text', text: safeJsonText(value) }],
+    content: [{ type: 'text', text }],
     structuredContent: {
       ok: true,
       data: value,

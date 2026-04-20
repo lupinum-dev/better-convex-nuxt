@@ -1,12 +1,14 @@
 import type { H3Event } from 'h3'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { clearServerJwksCache } from '../../src/runtime/auth/server/verified-jwt'
 import {
   serverConvexAction,
   serverConvexMutation,
   serverConvexQuery,
 } from '../../src/runtime/convex/server/convex'
 import { createObservationCapture } from '../../src/runtime/testing'
+import { createServerJwksResponse, mintServerJwt } from '../support/auth/server-jwt'
 
 const originalNodeEnv = process.env.NODE_ENV
 
@@ -53,6 +55,7 @@ function createEvent(cookie?: string): H3Event {
 describe('server Convex fetch helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    clearServerJwksCache()
     if (originalNodeEnv === undefined) {
       delete process.env.NODE_ENV
     } else {
@@ -365,12 +368,16 @@ describe('server Convex fetch helpers', () => {
   })
 
   it('auth:auto exchanges cookie for token and attaches bearer header', async () => {
+    const token = await mintServerJwt({ sub: 'user-auto', name: 'Auto User' })
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith('/api/auth/convex/token')) {
-        return new Response(JSON.stringify({ token: 'auto.jwt.token' }), {
+        return new Response(JSON.stringify({ token }), {
           headers: { 'content-type': 'application/json' },
         })
+      }
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
       }
 
       return new Response(JSON.stringify({ value: { ok: true } }), {
@@ -386,7 +393,7 @@ describe('server Convex fetch helpers', () => {
       { auth: 'auto' },
     )
 
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
     const authCall = fetchMock.mock.calls[0]
     expect(authCall).toBeDefined()
     const [authUrl, authInit] = authCall as unknown as [string, RequestInit]
@@ -395,11 +402,14 @@ describe('server Convex fetch helpers', () => {
       Cookie: 'better-auth.session_token=session123',
     })
 
-    const firstCall = fetchMock.mock.calls[1]
-    expect(firstCall).toBeDefined()
-    const [, init] = firstCall as unknown as [string, RequestInit]
+    const jwksCall = fetchMock.mock.calls[1]
+    expect(String(jwksCall?.[0] ?? '')).toBe('http://127.0.0.1:3220/api/auth/convex/jwks')
+
+    const queryCall = fetchMock.mock.calls[2]
+    expect(queryCall).toBeDefined()
+    const [, init] = queryCall as unknown as [string, RequestInit]
     expect(init.headers).toMatchObject({
-      Authorization: 'Bearer auto.jwt.token',
+      Authorization: `Bearer ${token}`,
     })
   })
 

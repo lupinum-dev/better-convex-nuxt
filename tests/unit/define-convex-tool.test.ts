@@ -552,6 +552,29 @@ describe('MCP rate-limit integration', () => {
       },
     })
   })
+
+  it('refuses production rate-limited tools without an explicit distributed store', () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+
+    try {
+      expect(() =>
+        defineTool({
+          schema: emptySchema,
+          name: 'production-limited-tool',
+          auth: 'required',
+          rateLimit: { max: 5, window: '1m' },
+          handler: async (_args, ctx) => ctx.ok({ ok: true }),
+        }),
+      ).toThrow(/rate.?limit.*store|distributed|redis/i)
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env.NODE_ENV
+      } else {
+        process.env.NODE_ENV = previousNodeEnv
+      }
+    }
+  })
 })
 
 describe('Destructive confirmation payload validation', () => {

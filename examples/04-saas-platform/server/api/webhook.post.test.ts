@@ -15,6 +15,8 @@ vi.mock('h3', () => ({
 }))
 
 vi.mock('#trellis/server', () => ({
+  isWebhookSignatureValid: (provided: string | string[] | undefined, expected: string) =>
+    provided === expected,
   serverConvexMutation: serverConvexMutationMock,
 }))
 

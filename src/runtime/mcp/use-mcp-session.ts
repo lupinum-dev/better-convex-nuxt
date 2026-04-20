@@ -1,8 +1,10 @@
 import { getHeader } from 'h3'
 import { useEvent, useStorage } from 'nitropack/runtime'
+import { hash } from 'ohash'
 import type { Storage, StorageValue } from 'unstorage'
 
 const UUID_V4_RE = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i
+const MCP_SESSION_TTL_SECONDS = 24 * 60 * 60
 
 export interface McpSessionStore<T = Record<string, unknown>> {
   sessionId: string
@@ -20,6 +22,26 @@ function isValidSessionId(value: string): boolean {
   return UUID_V4_RE.test(value)
 }
 
+function resolveSessionPrincipalKey(event: { context?: Record<string, unknown> }): string {
+  const auth = (event.context?.__trellisMcpAuth ?? event.context?.mcpAuth) as
+    | {
+        role?: string
+        userId?: string
+        tenantId?: string
+      }
+    | undefined
+
+  if (!auth?.userId) {
+    return 'anonymous'
+  }
+
+  return hash({
+    role: auth.role ?? null,
+    tenantId: auth.tenantId ?? null,
+    userId: auth.userId,
+  })
+}
+
 export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T> {
   const event = useEvent()
   const sessionId = getHeader(event, 'mcp-session-id')
@@ -33,13 +55,15 @@ export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T>
     throw new Error('Invalid MCP session ID format')
   }
 
-  const storage = useStorage(`mcp:sessions:${sessionId}`)
+  const principalKey = resolveSessionPrincipalKey(event as { context?: Record<string, unknown> })
+  const storage = useStorage(`mcp:sessions:${principalKey}:${sessionId}`)
 
   return {
     sessionId,
     namespace: 'mcp',
     get: async (key) => (await storage.getItem(key)) as T[typeof key] | null,
-    set: (key, value) => storage.setItem(key, value as StorageValue),
+    set: (key, value) =>
+      storage.setItem(key, value as StorageValue, { ttl: MCP_SESSION_TTL_SECONDS }),
     remove: (key) => storage.removeItem(key),
     has: (key) => storage.hasItem(key),
     keys: () => storage.getKeys(),
