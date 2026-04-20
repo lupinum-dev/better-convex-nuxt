@@ -87,17 +87,28 @@ export {
 } from './component-bridge-manifest.js'
 export {
   defineOperation,
+  executeOperationRef,
   getOperationMetadata,
+  previewOperationRef,
+  projectOperationRef,
   previewOf,
   trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,
 } from './define-operation.js'
 export type {
   DestructiveOperationPreview,
+  InferOperationLoaded,
+  InferOperationResult,
+  InferOperationPreview,
   OperationDefinition,
+  OperationIdOf,
   OperationKind,
+  OperationProjectionRef,
   TrellisOperationMetadata,
   TrellisOperationProjectionMetadata,
+  ValidateOperationDefinition,
+  ValidateOperationId,
+  ValidateOperationProjectionRef,
 } from './define-operation.js'
 export { defineDelegation } from './define-delegation.js'
 export type { Delegation, DelegationDefinition } from './define-delegation.js'

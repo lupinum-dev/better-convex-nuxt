@@ -1,6 +1,6 @@
+import { subject } from '@lupinum/trellis/auth'
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import { subject } from '@lupinum/trellis/auth'
 import { api } from '#trellis/api'
 import { serverConvexMutation } from '#trellis/server'
 

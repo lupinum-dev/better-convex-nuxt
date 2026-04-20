@@ -22,6 +22,7 @@ export type {
   AnyConvexSchema,
   DefineConvexToolOptions as DefineToolOptions,
   InferSchemaData,
+  ValidateToolArgs,
   McpAuthIdentity,
   PreviewResult,
   ConvexToolResult,
@@ -45,6 +46,7 @@ export type {
   McpConvexCaller,
   ToolFromOperationOptions,
   ToolOptions,
+  ValidateMcpToolOptions,
 } from './define-mcp-app.js'
 
 export type {

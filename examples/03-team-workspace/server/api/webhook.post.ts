@@ -1,3 +1,4 @@
+import { subject } from '@lupinum/trellis/auth'
 /**
  * Why this file exists:
  * Nitro route that receives external webhook payloads and forwards them to a protected Convex
@@ -7,7 +8,6 @@ import { createError, defineEventHandler, readBody } from 'h3'
 import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
 
-import { subject } from '@lupinum/trellis/auth'
 import { serverConvexMutation } from '#trellis/server'
 
 type WebhookBody = {

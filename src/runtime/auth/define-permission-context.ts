@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ConvexError } from 'convex/values'
 
+import type { NoInfer } from '../types/type-utils.js'
 import { open, runCheck, type AnyCheck } from './define-guard.js'
 import type { ErasedPermissionDefinition } from './define-permission.js'
 
@@ -64,7 +65,22 @@ type PermissionContextExtension<TOptions extends PermissionContextOptions> = TOp
     : Record<string, never>
   : Record<string, never>
 
-type PermissionContextDefinition<
+type PermissionRecord<TContext extends PermissionContextBase<Record<string, boolean>>> =
+  NonNullable<TContext['can']> extends Record<string, boolean>
+    ? NonNullable<TContext['can']>
+    : Record<string, boolean>
+
+export type PermissionKey<TContext extends PermissionContextBase<Record<string, boolean>>> =
+  string extends keyof PermissionRecord<TContext>
+    ? string
+    : Extract<keyof PermissionRecord<TContext>, string>
+
+export type ValidatePermissionKey<
+  TContext extends PermissionContextBase<Record<string, boolean>>,
+  TKey extends string = string,
+> = TKey extends NoInfer<PermissionKey<TContext>> ? TKey : never
+
+export type PermissionContextDefinition<
   TCtx,
   TPermissions extends PermissionTuple,
   TContext extends Record<string, unknown>,
@@ -74,6 +90,10 @@ type PermissionContextDefinition<
   permissions: TPermissions
   handler: (ctx: TCtx) => Promise<PermissionContextHandlerResult<TPermissions, TContext> | null>
 }
+
+export type InferPermissionContext<
+  TDefinition extends PermissionContextDefinition<any, PermissionTuple, Record<string, unknown>>,
+> = NonNullable<Awaited<ReturnType<TDefinition['handler']>>>
 
 export function definePermissionContext<TOptions extends PermissionContextOptions>(
   options: TOptions,

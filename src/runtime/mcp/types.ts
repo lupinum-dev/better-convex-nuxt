@@ -11,6 +11,7 @@ import type { ZodRawShape } from 'zod'
 import type { SchemaDefinition } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import type { TrellisDenialExplanation } from '../observability/index.js'
+import type { NoInfer } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
 import type { McpRateLimitStore } from './rate-limiter.js'
 
@@ -25,6 +26,9 @@ export type InferSchemaData<S extends AnyConvexSchema> =
 
 export type InferSchemaValidators<S extends AnyConvexSchema> =
   S extends SchemaDefinition<unknown, infer V> ? V : never
+
+export type ValidateToolArgs<S extends AnyConvexSchema, TArgs> =
+  TArgs extends NoInfer<InferSchemaData<S>> ? TArgs : never
 
 // ============================================================================
 // Structured response envelope

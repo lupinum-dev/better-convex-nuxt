@@ -19,7 +19,12 @@ import {
 } from '../convex/shared/convex-shared.js'
 import { defineArgs } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
-import { getOperationMetadata, type OperationKind } from '../functions/define-operation.js'
+import {
+  getOperationMetadata,
+  type OperationIdOf,
+  type OperationKind,
+  type OperationProjectionRef,
+} from '../functions/define-operation.js'
 import {
   getEventObservationState,
   sanitizeCorrelationId,
@@ -32,6 +37,7 @@ import {
   type TrellisWideSummary,
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
+import type { NoInfer } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import { signConfirmationToken, verifyConfirmationToken } from './confirmation-token.js'
@@ -210,8 +216,25 @@ type OperationPreviewPayload = {
   confirm: unknown
 }
 
+type OperationProjectionId<TOperation extends AnyOperationDefinition> = Extract<
+  OperationIdOf<TOperation>,
+  string
+>
+
+type ExecuteProjectionRef<
+  TOperation extends AnyOperationDefinition,
+  TRef extends AnyFunctionRef,
+> = OperationProjectionRef<TRef, OperationProjectionId<TOperation>, 'execute'>
+
+type PreviewProjectionRef<
+  TOperation extends AnyOperationDefinition,
+  TRef extends AnyFunctionRef | undefined,
+> = TRef extends AnyFunctionRef
+  ? OperationProjectionRef<TRef, OperationProjectionId<TOperation>, 'preview'>
+  : never
+
 export interface ToolFromOperationOptions<
-  _TOperation extends AnyOperationDefinition,
+  TOperation extends AnyOperationDefinition,
   TPrincipal,
   TDelegation extends Delegation,
   TCapabilities extends ProjectionCapabilitySnapshot | null,
@@ -230,12 +253,32 @@ export interface ToolFromOperationOptions<
   >,
   'schema' | 'call' | 'preview' | 'operation' | 'previewOperation'
 > {
-  execute: TExecute
-  preview?: TPreview
+  execute: ExecuteProjectionRef<TOperation, TExecute>
+  preview?: PreviewProjectionRef<TOperation, TPreview>
   executeOperation?: ConvexToolOperation
   previewOperation?: ConvexToolOperation
   schema?: AnyConvexSchema
 }
+
+export type ValidateMcpToolOptions<
+  S extends AnyConvexSchema,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TCapabilities extends ProjectionCapabilitySnapshot | null,
+  TRuntime,
+  TOptions,
+> =
+  TOptions extends ToolOptions<
+    S,
+    TPrincipal,
+    TDelegation,
+    TCapabilities,
+    TRuntime,
+    AnyFunctionRef,
+    AnyFunctionRef | undefined
+  >
+    ? NoInfer<TOptions>
+    : never
 
 type ToolFactory<
   TPrincipal,
@@ -998,8 +1041,10 @@ export function defineMcpApp<
             const previewResult = await callByOperation(
               projectionCtx.convex,
               options.previewOperation ?? 'query',
-              options.preview,
-              executeArgs as FunctionLikeArgs<Exclude<TPreview, undefined>>,
+              options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
+              executeArgs as FunctionLikeArgs<
+                PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
+              >,
             )
 
             if (!isOperationPreviewPayload(previewResult)) {
@@ -1110,8 +1155,10 @@ export function defineMcpApp<
           const previewResult = await callByOperation(
             projectionCtx.convex,
             options.previewOperation ?? 'query',
-            options.preview,
-            executeArgs as FunctionLikeArgs<Exclude<TPreview, undefined>>,
+            options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
+            executeArgs as FunctionLikeArgs<
+              PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
+            >,
           )
 
           if (!isOperationPreviewPayload(previewResult)) {

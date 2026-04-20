@@ -6,7 +6,8 @@ import { defineArgs } from '../../src/runtime/args'
 import { definePermission, open } from '../../src/runtime/auth'
 import {
   defineOperation,
-  trellisOperationProjectionMetadataKey,
+  executeOperationRef,
+  previewOperationRef,
   type DestructiveOperationPreview,
 } from '../../src/runtime/functions'
 import { defineMcpApp, type McpConvexCaller } from '../../src/runtime/mcp'
@@ -125,30 +126,26 @@ const archiveEntryOp = defineOperation({
 })
 
 runtime.tool.fromOperation(archiveEntryOp, {
-  execute: {
-    [trellisOperationProjectionMetadataKey]: {
-      operationId: 'entries.archive',
-      projection: 'execute',
-    },
-  } as unknown as FunctionReference<
-    'mutation',
-    'internal',
-    { principal: Principal; id: string },
-    { archived: true }
-  >,
-  preview: {
-    [trellisOperationProjectionMetadataKey]: {
-      operationId: 'entries.archive',
-      projection: 'preview',
-    },
-  } as unknown as FunctionReference<
-    'query',
-    'internal',
-    { principal: Principal; id: string },
-    DestructiveOperationPreview<
-      { summary: string; affects: { entries: number } },
-      { operation: 'entries.archive'; targetId: string; affectedCounts: { entries: number } }
-    >
-  >,
+  execute: executeOperationRef(
+    archiveEntryOp,
+    {} as FunctionReference<
+      'mutation',
+      'internal',
+      { principal: Principal; id: string },
+      { archived: true }
+    >,
+  ),
+  preview: previewOperationRef(
+    archiveEntryOp,
+    {} as FunctionReference<
+      'query',
+      'internal',
+      { principal: Principal; id: string },
+      DestructiveOperationPreview<
+        { summary: string; affects: { entries: number } },
+        { operation: 'entries.archive'; targetId: string; affectedCounts: { entries: number } }
+      >
+    >,
+  ),
   permission: publishEntryPermission,
 })

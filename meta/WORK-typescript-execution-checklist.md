@@ -1,6 +1,6 @@
 # Trellis TypeScript Execution Checklist
 
-Status: Proposed
+Status: In progress
 Date: 2026-04-20
 Primary architecture record: [meta/RFC-trellis-v1-final-form-v2.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/RFC-trellis-v1-final-form-v2.md:1)
 Primary TypeScript research record: [meta/tanstack-router-typescript-patterns-for-trellis.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/tanstack-router-typescript-patterns-for-trellis.md:1)
@@ -79,9 +79,9 @@ Lock the TypeScript refactor surface so the work stays aligned with the accepted
 
 ### Checklist
 
-- [ ] Add this execution document to the repo.
-- [ ] Confirm the governing architecture record is [meta/RFC-trellis-v1-final-form-v2.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/RFC-trellis-v1-final-form-v2.md:1).
-- [ ] Confirm the governing TypeScript research record is [meta/tanstack-router-typescript-patterns-for-trellis.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/tanstack-router-typescript-patterns-for-trellis.md:1).
+- [x] Add this execution document to the repo.
+- [x] Confirm the governing architecture record is [meta/RFC-trellis-v1-final-form-v2.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/RFC-trellis-v1-final-form-v2.md:1).
+- [x] Confirm the governing TypeScript research record is [meta/tanstack-router-typescript-patterns-for-trellis.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/tanstack-router-typescript-patterns-for-trellis.md:1).
 - [ ] Confirm the implementation team understands that this pass is a hardening and simplification pass, not a new architecture rewrite.
 - [ ] Confirm the team will prefer delete > simplify > replace > add when changing type surfaces.
 
@@ -92,7 +92,7 @@ Lock the TypeScript refactor surface so the work stays aligned with the accepted
 
 ### Verification
 
-- [ ] Verify this checklist and the research record are present under `meta/`.
+- [x] Verify this checklist and the research record are present under `meta/`.
 - [ ] Verify no newer contradictory TypeScript planning doc is being treated as source of truth.
 
 ## Workstream 1: Shared Type Utility Kernel
@@ -103,15 +103,15 @@ Replace scattered one-off utility types with one small, stable internal utility 
 
 ### Implementation Steps
 
-- [ ] Add a shared utility module for reusable type helpers.
-- [ ] Start with the minimum set:
+- [x] Add a shared utility module for reusable type helpers.
+- [x] Start with the minimum set:
   - `NoInfer`
   - `Expand` or `Simplify`
   - `Assign`
   - `UnionToIntersection`
   - `IsUnknown`
-- [ ] Move duplicated local helpers from operation, MCP, Convex shared, and observability code into the shared module where appropriate.
-- [ ] Delete superseded local helper implementations rather than wrapping them.
+- [x] Move duplicated local helpers from operation, MCP, Convex shared, and observability code into the shared module where appropriate.
+- [x] Delete superseded local helper implementations rather than wrapping them.
 - [ ] Document which helpers are internal-only and which are intended to become public.
 
 ### Acceptance Criteria
@@ -121,9 +121,12 @@ Replace scattered one-off utility types with one small, stable internal utility 
 
 ### Verification
 
-- [ ] Search for duplicated local utility helpers and confirm the targeted copies are removed.
-- [ ] `pnpm run test:types` passes after the utility consolidation.
+- [x] Search for duplicated local utility helpers and confirm the targeted copies are removed.
+- [x] `pnpm run test:types` passes after the utility consolidation.
 - [ ] `pnpm run check` passes after the utility consolidation.
+Note:
+
+- `pnpm run check` is currently blocked by unrelated failures in [tests/server/ssr-cache.server.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/server/ssr-cache.server.test.ts:208).
 
 ## Workstream 2: Public Registry Expansion
 
@@ -192,8 +195,8 @@ Move execute vs preview projection safety out of runtime-only validation and int
 
 ### Implementation Steps
 
-- [ ] Introduce a branded projection ref type for operation projections.
-- [ ] Make `tool.fromOperation(...)` consume branded execute and preview refs rather than raw generic function refs.
+- [x] Introduce a branded projection ref type for operation projections.
+- [x] Make `tool.fromOperation(...)` consume branded execute and preview refs rather than raw generic function refs.
 - [ ] Keep the runtime assertion path only as a defensive safety net in development.
 - [ ] Remove type-level dependence on generic `AnyFunctionRef` where projection identity should already be known.
 - [ ] Update docs and examples if the public projection authoring syntax changes.
@@ -205,10 +208,13 @@ Move execute vs preview projection safety out of runtime-only validation and int
 
 ### Verification
 
-- [ ] Add type tests proving execute and preview refs cannot be swapped.
-- [ ] Add unit tests proving runtime assertions still defend against malformed manual input.
-- [ ] `pnpm run test:types` passes after the projection ref cutover.
+- [x] Add type tests proving execute and preview refs cannot be swapped.
+- [x] Add unit tests proving runtime assertions still defend against malformed manual input.
+- [x] `pnpm run test:types` passes after the projection ref cutover.
 - [ ] `pnpm run test:contracts` passes after the projection ref cutover.
+Note:
+
+- `pnpm run test:contracts` is currently blocked by unrelated failures in [tests/server/ssr-cache.server.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/server/ssr-cache.server.test.ts:208).
 
 ## Workstream 5: Earlier Generic Capture For Heavy APIs
 
@@ -323,8 +329,8 @@ Expose a small public helper layer for the hardest APIs so users do not have to 
 
 ### Implementation Steps
 
-- [ ] Add a dedicated public type-primitives surface.
-- [ ] Start with the smallest useful set, such as:
+- [x] Add a dedicated public type-primitives surface.
+- [x] Start with the smallest useful set, such as:
   - `ValidateOperationId`
   - `ValidateOperationProjection`
   - `ValidatePermissionKey`
@@ -333,8 +339,8 @@ Expose a small public helper layer for the hardest APIs so users do not have to 
   - `InferOperationResult`
   - `InferPermissionContext`
   - `ValidateMcpToolOptions`
-- [ ] Export only helpers that are stable enough to support intentionally.
-- [ ] Avoid exporting raw internal scaffolding types accidentally.
+- [x] Export only helpers that are stable enough to support intentionally.
+- [x] Avoid exporting raw internal scaffolding types accidentally.
 - [ ] Update docs to point advanced users at the public helper layer.
 
 ### Acceptance Criteria
@@ -346,8 +352,8 @@ Expose a small public helper layer for the hardest APIs so users do not have to 
 
 - [ ] Add public-entrypoint type tests for each exported helper.
 - [ ] Verify helpers compile against registry-driven ids and generated maps.
-- [ ] `pnpm run check:publish-surface` passes after the new exports are added.
-- [ ] `pnpm run test:types` passes after the helper layer is added.
+- [x] `pnpm run check:publish-surface` passes after the new exports are added.
+- [x] `pnpm run test:types` passes after the helper layer is added.
 
 ## Workstream 10: Public-Entrypoint DTS Suite
 
@@ -357,12 +363,12 @@ Test the shipped Trellis type surface as consumers see it, not just the internal
 
 ### Implementation Steps
 
-- [ ] Add a `tests/dts/` suite for public package entrypoints.
-- [ ] Import only published Trellis entrypoints in the new suite.
-- [ ] Prefer `expectTypeOf(...)` for new type specs.
-- [ ] Keep `@ts-expect-error` only for explicit negative cases.
-- [ ] Add a dedicated type-test execution path so the `dts` suite runs as a first-class verification surface rather than an incidental `tsc` side effect.
-- [ ] Retain the existing `tests/types` suite while migrating high-value cases into the public-entrypoint suite.
+- [x] Add a `tests/dts/` suite for public package entrypoints.
+- [x] Import only published Trellis entrypoints in the new suite.
+- [x] Prefer `expectTypeOf(...)` for new type specs.
+- [x] Keep `@ts-expect-error` only for explicit negative cases.
+- [x] Add a dedicated type-test execution path so the `dts` suite runs as a first-class verification surface rather than an incidental `tsc` side effect.
+- [x] Retain the existing `tests/types` suite while migrating high-value cases into the public-entrypoint suite.
 
 ### Acceptance Criteria
 
@@ -371,10 +377,10 @@ Test the shipped Trellis type surface as consumers see it, not just the internal
 
 ### Verification
 
-- [ ] Create initial `tests/dts/auth.test-d.ts`, `functions.test-d.ts`, `mcp.test-d.ts`, and `testing.test-d.ts`.
-- [ ] Confirm the new suite compiles against public entrypoints only.
-- [ ] Confirm the dedicated type-test execution path is wired into the repo verification flow.
-- [ ] `pnpm run test:types` passes with the new suite included.
+- [x] Create initial `tests/dts/auth.test-d.ts`, `functions.test-d.ts`, `mcp.test-d.ts`, and `testing.test-d.ts`.
+- [x] Confirm the new suite compiles against public entrypoints only.
+- [x] Confirm the dedicated type-test execution path is wired into the repo verification flow.
+- [x] `pnpm run test:types` passes with the new suite included.
 
 ## Workstream 11: Generated-Type Consumer Verification
 

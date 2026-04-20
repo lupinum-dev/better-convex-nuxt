@@ -1,6 +1,6 @@
+import { subject } from '@lupinum/trellis/auth'
 import { getHeader, type H3Event } from 'h3'
 
-import { subject } from '@lupinum/trellis/auth'
 import {
   createPagePermission,
   listDraftPagesPermission,

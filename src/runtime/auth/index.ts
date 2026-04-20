@@ -29,7 +29,13 @@ export type {
 } from './define-guard.js'
 export { defineActor } from './define-actor.js'
 export type { ActorBuilder, DefaultActor } from './define-actor.js'
-export { createSubject, getSubjectKind, getSubjectValue, isSubjectKind, subject } from './subject.js'
+export {
+  createSubject,
+  getSubjectKind,
+  getSubjectValue,
+  isSubjectKind,
+  subject,
+} from './subject.js'
 export type { CanonicalSubject, Subject, SubjectKind } from './subject.js'
 export { derivePermissionMatrix } from './derive-permission-matrix.js'
 export type { PermissionMatrixRow } from './derive-permission-matrix.js'
@@ -50,6 +56,13 @@ export type {
   RegisteredProjectedPermissionKey,
 } from './define-permission.js'
 export { definePermissionContext } from './define-permission-context.js'
+export type {
+  InferPermissionContext,
+  PermissionContextBase,
+  PermissionContextDefinition,
+  PermissionKey,
+  ValidatePermissionKey,
+} from './define-permission-context.js'
 export { defineServices } from './define-services.js'
 export type {
   RestrictedServiceAccess,

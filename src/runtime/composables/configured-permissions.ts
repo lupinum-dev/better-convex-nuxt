@@ -14,6 +14,7 @@ import { resolvePermissionKey } from '../auth/define-permission.js'
 import { hasConvexAuthRuntime } from '../auth/internal/auth-runtime.js'
 import { createConvexQueryState } from '../convex/query/query-runtime.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
+import type { NoInfer } from '../types/type-utils.js'
 
 export type AuthContext = PermissionContextBase<Record<string, boolean>> & {
   plan?: string | null
@@ -27,6 +28,10 @@ export type InferredAuthContext<
     ? NonNullable<FunctionReturnType<Query>>
     : AuthContext
 
+export type InferPermissionContext<
+  Query extends FunctionReference<'query'> = FunctionReference<'query'>,
+> = InferredAuthContext<Query>
+
 type PermissionRecord<TContext extends AuthContext> =
   NonNullable<TContext['can']> extends Record<string, boolean>
     ? NonNullable<TContext['can']>
@@ -36,6 +41,11 @@ export type PermissionKey<TContext extends AuthContext = AuthContext> =
   string extends keyof PermissionRecord<TContext>
     ? string
     : Extract<keyof PermissionRecord<TContext>, string>
+
+export type ValidatePermissionKey<
+  TContext extends AuthContext = AuthContext,
+  TKey extends string = string,
+> = TKey extends NoInfer<PermissionKey<TContext>> ? TKey : never
 
 type ConfiguredPermissionKey<TContext extends AuthContext> =
   string extends PermissionKey<TContext>

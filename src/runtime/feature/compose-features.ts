@@ -1,13 +1,6 @@
 import type { ErasedPermissionDefinition } from '../auth/define-permission.js'
+import type { Expand, UnionToIntersection } from '../types/type-utils.js'
 import type { FeatureDefinition } from './define-feature.js'
-
-type UnionToIntersection<U> = (U extends unknown ? (arg: U) => void : never) extends (
-  arg: infer I,
-) => void
-  ? I
-  : never
-
-type Simplify<T> = { [K in keyof T]: T[K] } & {}
 
 type AnyFeature = FeatureDefinition<
   string,
@@ -29,6 +22,9 @@ type FeatureTenantTable<TFeature extends AnyFeature> =
   | TFeature['tenantTables'][number]
   | FeatureSchemaTable<TFeature>
 type FeatureGlobalTable<TFeature extends AnyFeature> = TFeature['globalTables'][number]
+type ComposedFeatureSchema<TFeatures extends readonly AnyFeature[]> = Expand<
+  UnionToIntersection<FeatureSchema<TFeatures[number]>> & Record<string, unknown>
+>
 
 export interface FeatureManifest<
   TSchema extends Record<string, unknown> = Record<string, never>,
@@ -99,7 +95,7 @@ function deriveTenantTablesFromSchema(
 export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
   features: TFeatures,
 ): FeatureManifest<
-  Simplify<UnionToIntersection<FeatureSchema<TFeatures[number]>>>,
+  ComposedFeatureSchema<TFeatures>,
   readonly FeaturePermission<TFeatures[number]>[],
   FeatureTenantTable<TFeatures[number]>,
   FeatureGlobalTable<TFeatures[number]>
@@ -163,7 +159,7 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
   }
 
   return {
-    schema: schema as Simplify<UnionToIntersection<FeatureSchema<TFeatures[number]>>>,
+    schema: schema as ComposedFeatureSchema<TFeatures>,
     permissions: permissions as readonly FeaturePermission<TFeatures[number]>[],
     tenantTables: uniqueTenantTables as readonly FeatureTenantTable<TFeatures[number]>[],
     globalTables: uniqueGlobalTables as readonly FeatureGlobalTable<TFeatures[number]>[],

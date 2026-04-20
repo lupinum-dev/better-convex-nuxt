@@ -1,8 +1,8 @@
 import type { Delegation } from '@lupinum/trellis/functions'
 import type { H3Event } from 'h3'
 
-import { subject } from '#trellis/auth'
 import { api } from '#trellis/api'
+import { subject } from '#trellis/auth'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
 import type { McpReferencePrincipal } from '~/convex/auth/principal'

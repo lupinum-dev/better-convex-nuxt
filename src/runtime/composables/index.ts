@@ -74,6 +74,14 @@ export {
 
 export { useConvexStorageUrl } from '../convex/composables/useConvexStorageUrl.js'
 
+export {
+  createConfiguredPermissionsComposables,
+  type AuthContext,
+  type InferPermissionContext,
+  type PermissionKey,
+  type ValidatePermissionKey,
+} from './configured-permissions.js'
+
 // Auth flow composables (available when auth enabled)
 export {
   useConvexAuth,
