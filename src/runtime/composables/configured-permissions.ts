@@ -49,7 +49,9 @@ export type ValidatePermissionKey<
 
 type ConfiguredPermissionKey<TContext extends AuthContext> =
   string extends PermissionKey<TContext>
-    ? RegisteredProjectedPermissionKey
+    ? [RegisteredProjectedPermissionKey] extends [never]
+      ? string
+      : RegisteredProjectedPermissionKey
     : PermissionKey<TContext>
 
 export interface UsePermissionsReturn<

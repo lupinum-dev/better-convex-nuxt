@@ -103,6 +103,8 @@ describe('permission codegen', () => {
 
     expect(types).toContain(`export type TrellisPermissionKey = "task.read" | "task.create"`)
     expect(types).toContain(`export type TrellisProjectedPermissionKey = "task.read"`)
-    expect(types).toContain(`interface RegisteredPermissions`)
+    expect(types).toContain(`interface PermissionKeysByKey`)
+    expect(types).toContain(`interface ProjectedPermissionKeysByKey`)
+    expect(types).toContain(`interface CapabilityKeysByKey`)
   })
 })

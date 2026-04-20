@@ -20,4 +20,16 @@ describe('generated API surface docs', () => {
     expect(apiSurface).toContain('| `#trellis/server`')
     expect(apiSurface).toContain('| `#trellis/mcp`')
   })
+
+  it('documents functions without public custom RLS authoring', () => {
+    const functionsReference = readFileSync(
+      resolve(process.cwd(), 'apps/docs/content/docs/13.api-reference/3.functions.md'),
+      'utf8',
+    )
+
+    expect(functionsReference).toContain('| `tenantIsolation`')
+    expect(functionsReference).toContain('| `services`')
+    expect(functionsReference).not.toContain('| `rls`')
+    expect(functionsReference).toContain('Trellis has one public authorization model')
+  })
 })

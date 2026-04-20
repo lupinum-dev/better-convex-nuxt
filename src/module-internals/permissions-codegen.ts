@@ -263,6 +263,12 @@ function toTypeUnion(values: string[]): string {
   return values.map((value) => JSON.stringify(value)).join(' | ')
 }
 
+function toInterfaceBody(values: string[]): string {
+  return values.length > 0
+    ? values.map((value) => `    ${JSON.stringify(value)}: true`).join('\n')
+    : ''
+}
+
 export function renderPermissionCodegenTypes(metadata: PermissionCodegenMetadata): string {
   const keys = metadata.permissions.map((permission) => permission.key)
   const projectedKeys = metadata.permissions
@@ -276,9 +282,18 @@ export type TrellisPermissionKey = ${toTypeUnion(keys)}
 export type TrellisProjectedPermissionKey = ${toTypeUnion(projectedKeys)}
 
 declare module '@lupinum/trellis/auth' {
-  interface RegisteredPermissions {
-    keys: TrellisPermissionKey
-    projected: TrellisProjectedPermissionKey
+  interface PermissionKeysByKey {
+${toInterfaceBody(keys)}
+  }
+
+  interface ProjectedPermissionKeysByKey {
+${toInterfaceBody(projectedKeys)}
+  }
+}
+
+declare module '@lupinum/trellis/mcp' {
+  interface CapabilityKeysByKey {
+${toInterfaceBody(projectedKeys)}
   }
 }
 `

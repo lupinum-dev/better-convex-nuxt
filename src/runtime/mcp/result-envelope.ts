@@ -1,6 +1,7 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 import type { TrellisDenialExplanation } from '../observability/index.js'
+import type { SerializableValue, ValidateSerializable } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexErrorIssue } from '../utils/types.js'
 import type { PreviewResult } from './types.js'
 
@@ -37,7 +38,7 @@ const STRUCTURED_OUTPUT_OMITTED_TEXT = '[structured output omitted from model te
 // Module-scoped symbol — only code with a direct reference can match
 const TOOL_SUMMARY: unique symbol = Symbol('convex-tool-summary')
 
-interface DataWithSummary<T = unknown> {
+interface DataWithSummary<T = SerializableValue> {
   data: T
   summary: string
   [TOOL_SUMMARY]: true
@@ -63,7 +64,10 @@ function isDataWithSummary(value: unknown): value is DataWithSummary {
  * }
  * ```
  */
-export function withSummary<T>(data: T, summary: string): DataWithSummary<T> {
+export function withSummary<T>(
+  data: ValidateSerializable<T>,
+  summary: string,
+): DataWithSummary<ValidateSerializable<T>> {
   return { data, summary, [TOOL_SUMMARY]: true }
 }
 
@@ -74,7 +78,10 @@ export function withSummary<T>(data: T, summary: string): DataWithSummary<T> {
  * wrapper keeps the original structured data intact while making the text
  * channel obviously non-instructional.
  */
-export function withUntrustedText<T>(data: T, text: string): DataWithSummary<T> {
+export function withUntrustedText<T>(
+  data: ValidateSerializable<T>,
+  text: string,
+): DataWithSummary<ValidateSerializable<T>> {
   return withSummary(
     data,
     ['[untrusted user content follows]', text, '[end untrusted user content]'].join('\n'),

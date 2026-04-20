@@ -39,3 +39,33 @@ export type FallbackIfUnknownOrNever<T, TFallback> = [T] extends [never]
   : IsUnknown<T> extends true
     ? TFallback
     : T
+
+export type SerializablePrimitive = string | number | boolean | null
+
+export type SerializableValue =
+  | SerializablePrimitive
+  | readonly SerializableValue[]
+  | { [key: string]: SerializableValue }
+
+export type ValidateSerializable<T> = T extends SerializablePrimitive
+  ? T
+  : T extends readonly (infer TItem)[]
+    ? T extends (infer _TMutableItem)[]
+      ? ValidateSerializable<TItem>[]
+      : readonly ValidateSerializable<TItem>[]
+    : T extends (...args: never[]) => unknown
+      ? never
+      : T extends symbol | bigint | undefined
+        ? never
+        : T extends
+              | Date
+              | Map<unknown, unknown>
+              | Set<unknown>
+              | WeakMap<object, unknown>
+              | WeakSet<object>
+              | Promise<unknown>
+              | RegExp
+          ? never
+          : T extends object
+            ? { [K in keyof T]: ValidateSerializable<T[K]> }
+            : never

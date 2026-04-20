@@ -1,5 +1,3 @@
-import type { NoInfer } from '../types/type-utils.js'
-
 export type OperationKind = 'safe' | 'destructive'
 
 export type TrellisOperationMetadata = {

@@ -55,6 +55,8 @@ export type {
   DefineConvexToolOptions as DefineToolOptions,
   InferSchemaData,
   ValidateToolArgs,
+  SerializableValue,
+  ValidateSerializable,
   McpAuthIdentity,
   PreviewResult,
   ConvexToolResult,

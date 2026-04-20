@@ -10,11 +10,31 @@ export type {
   InferOperationLoaded,
   InferOperationPreview,
   InferOperationResult,
+  OperationExecutionsById,
   OperationIdOf,
+  OperationPreviewsById,
   OperationProjectionRef,
+  OperationsById,
+  RegisteredOperationDefinition,
+  RegisteredOperationExecution,
+  RegisteredOperationId,
+  RegisteredOperationPreview,
+  ValidateOperationProjection,
   ValidateOperationDefinition,
   ValidateOperationId,
+  ValidateRegisteredOperationId,
   ValidateOperationProjectionRef,
 } from '../functions/index.js'
 
-export type { ValidateMcpToolOptions, ValidateToolArgs } from '../mcp/index.js'
+export type {
+  RegisteredCapabilityKey,
+  RegisteredToolByName,
+  RegisteredToolName,
+  SerializableValue,
+  ToolsByName,
+  ValidateSerializable,
+  ValidateCapabilityKey,
+  ValidateMcpToolOptions,
+  ValidateToolArgs,
+  ValidateToolName,
+} from '../mcp/index.js'

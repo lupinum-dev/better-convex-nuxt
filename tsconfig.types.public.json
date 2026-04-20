@@ -4,8 +4,6 @@
     "noEmit": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
       "@lupinum/trellis": ["./src/module.ts"],
       "@lupinum/trellis/auth": ["./src/runtime/auth/index.ts"],

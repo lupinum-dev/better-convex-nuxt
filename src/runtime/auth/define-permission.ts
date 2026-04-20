@@ -17,9 +17,15 @@ export interface PermissionDefinition<TKey extends string = string, TActor = unk
   readonly check: AnyCheck<TActor>
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
+export interface PermissionKeysByKey {}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
+export interface ProjectedPermissionKeysByKey {}
+
 export interface RegisteredPermissions {
-  keys: string
-  projected: string
+  keys: RegisteredPermissionKey
+  projected: RegisteredProjectedPermissionKey
 }
 
 export type GuardPermissionDefinition<
@@ -27,8 +33,8 @@ export type GuardPermissionDefinition<
   TActor = unknown,
 > = PermissionDefinition<TKey, TActor>
 
-export type RegisteredPermissionKey = RegisteredPermissions['keys']
-export type RegisteredProjectedPermissionKey = RegisteredPermissions['projected']
+export type RegisteredPermissionKey = Extract<keyof PermissionKeysByKey, string>
+export type RegisteredProjectedPermissionKey = Extract<keyof ProjectedPermissionKeysByKey, string>
 
 export type PermissionHandle<TKey extends string = string> = Pick<
   PermissionDefinition<TKey>,

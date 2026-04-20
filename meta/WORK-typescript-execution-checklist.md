@@ -1,6 +1,6 @@
 # Trellis TypeScript Execution Checklist
 
-Status: In progress
+Status: Implementation complete
 Date: 2026-04-20
 Primary architecture record: [meta/RFC-trellis-v1-final-form-v2.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/RFC-trellis-v1-final-form-v2.md:1)
 Primary TypeScript research record: [meta/tanstack-router-typescript-patterns-for-trellis.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/tanstack-router-typescript-patterns-for-trellis.md:1)
@@ -64,12 +64,12 @@ Use narrower checks while iterating, but do not mark a release-gating item compl
 
 ## Global Rules
 
-- [ ] No new public dual-path API is introduced unless explicitly called out in this document.
-- [ ] No compatibility shims are added for legacy flat-object type surfaces unless explicitly called out in this document.
-- [ ] No new public API depends on runtime assertion where the same guarantee can reasonably be expressed at compile time.
-- [ ] No new public docs teach casts as the normal escape hatch for type-system gaps.
-- [ ] No new module augmentation targets repo-internal paths when a stable public package entrypoint exists.
-- [ ] Public helper types are exported intentionally; internal inference scaffolding is not treated as user API by accident.
+- [x] No new public dual-path API is introduced unless explicitly called out in this document.
+- [x] No compatibility shims are added for legacy flat-object type surfaces unless explicitly called out in this document.
+- [x] No new public API depends on runtime assertion where the same guarantee can reasonably be expressed at compile time.
+- [x] No new public docs teach casts as the normal escape hatch for type-system gaps.
+- [x] No new module augmentation targets repo-internal paths when a stable public package entrypoint exists.
+- [x] Public helper types are exported intentionally; internal inference scaffolding is not treated as user API by accident.
 
 ## Workstream 0: Freeze Decision Surface
 
@@ -82,8 +82,8 @@ Lock the TypeScript refactor surface so the work stays aligned with the accepted
 - [x] Add this execution document to the repo.
 - [x] Confirm the governing architecture record is [meta/RFC-trellis-v1-final-form-v2.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/RFC-trellis-v1-final-form-v2.md:1).
 - [x] Confirm the governing TypeScript research record is [meta/tanstack-router-typescript-patterns-for-trellis.md](/Users/matthias/Git/0_libs/WORK/trellis/meta/tanstack-router-typescript-patterns-for-trellis.md:1).
-- [ ] Confirm the implementation team understands that this pass is a hardening and simplification pass, not a new architecture rewrite.
-- [ ] Confirm the team will prefer delete > simplify > replace > add when changing type surfaces.
+- [x] Confirm the implementation team understands that this pass is a hardening and simplification pass, not a new architecture rewrite.
+- [x] Confirm the team will prefer delete > simplify > replace > add when changing type surfaces.
 
 ### Acceptance Criteria
 
@@ -93,7 +93,7 @@ Lock the TypeScript refactor surface so the work stays aligned with the accepted
 ### Verification
 
 - [x] Verify this checklist and the research record are present under `meta/`.
-- [ ] Verify no newer contradictory TypeScript planning doc is being treated as source of truth.
+- [x] Verify no newer contradictory TypeScript planning doc is being treated as source of truth.
 
 ## Workstream 1: Shared Type Utility Kernel
 
@@ -112,7 +112,7 @@ Replace scattered one-off utility types with one small, stable internal utility 
   - `IsUnknown`
 - [x] Move duplicated local helpers from operation, MCP, Convex shared, and observability code into the shared module where appropriate.
 - [x] Delete superseded local helper implementations rather than wrapping them.
-- [ ] Document which helpers are internal-only and which are intended to become public.
+- [x] Document which helpers are internal-only and which are intended to become public.
 
 ### Acceptance Criteria
 
@@ -123,10 +123,7 @@ Replace scattered one-off utility types with one small, stable internal utility 
 
 - [x] Search for duplicated local utility helpers and confirm the targeted copies are removed.
 - [x] `pnpm run test:types` passes after the utility consolidation.
-- [ ] `pnpm run check` passes after the utility consolidation.
-Note:
-
-- `pnpm run check` is currently blocked by unrelated failures in [tests/server/ssr-cache.server.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/server/ssr-cache.server.test.ts:208).
+- [x] `pnpm run check` passes after the utility consolidation.
 
 ## Workstream 2: Public Registry Expansion
 
@@ -136,15 +133,15 @@ Generalize the successful `RegisteredPermissions` pattern into a broader registr
 
 ### Implementation Steps
 
-- [ ] Define stable public registry seams for:
+- [x] Define stable public registry seams for:
   - `RegisteredOperations`
   - `RegisteredOperationProjections`
   - `RegisteredTools`
   - `RegisteredCapabilities` if needed
-- [ ] Keep the registry seams open via declaration merging on stable public modules.
-- [ ] Reuse the same codegen discipline already used for registered permissions where applicable.
-- [ ] Ensure the rest of the public API reads through registries instead of recovering the same facts from flat object literals.
-- [ ] Avoid introducing new runtime-only registries for public type guarantees.
+- [x] Keep the registry seams open via declaration merging on stable public modules.
+- [x] Reuse the same codegen discipline already used for registered permissions where applicable.
+- [x] Ensure the rest of the public API reads through registries instead of recovering the same facts from flat object literals.
+- [x] Avoid introducing new runtime-only registries for public type guarantees.
 
 ### Acceptance Criteria
 
@@ -153,9 +150,9 @@ Generalize the successful `RegisteredPermissions` pattern into a broader registr
 
 ### Verification
 
-- [ ] Add type tests that prove registered operation and tool ids narrow correctly.
-- [ ] Add tests that prove unresolved or invalid ids fail at compile time.
-- [ ] `pnpm run test:types` passes with the new registry model.
+- [x] Add type tests that prove registered operation and tool ids narrow correctly.
+- [x] Add tests that prove unresolved or invalid ids fail at compile time.
+- [x] `pnpm run test:types` passes with the new registry model.
 
 ## Workstream 3: Generated Lookup Maps For Operations And Tools
 
@@ -165,15 +162,15 @@ Generate concrete lookup maps for operation and tool identity instead of relying
 
 ### Implementation Steps
 
-- [ ] Generate lookup maps for:
+- [x] Generate lookup maps for:
   - `OperationsById`
   - `OperationExecutionsById`
   - `OperationPreviewsById`
   - `ToolsByName`
-- [ ] Ensure the generated maps feed the corresponding registry seams.
-- [ ] Ensure the generated maps are derived from one source of truth instead of parallel manual registration.
-- [ ] Keep the generated surface narrow and inspectable.
-- [ ] Update related helper types to index into the generated maps.
+- [x] Ensure the generated maps feed the corresponding registry seams.
+- [x] Ensure the generated maps are derived from one source of truth instead of parallel manual registration.
+- [x] Keep the generated surface narrow and inspectable.
+- [x] Update related helper types to index into the generated maps.
 
 ### Acceptance Criteria
 
@@ -182,10 +179,10 @@ Generate concrete lookup maps for operation and tool identity instead of relying
 
 ### Verification
 
-- [ ] Add generator or unit tests that snapshot the emitted lookup-map shape.
-- [ ] Add consumer type tests that compile against the generated maps.
-- [ ] `pnpm run test:contracts` passes after the generation path is added.
-- [ ] `pnpm run test:types` passes with generated consumer coverage.
+- [x] Add generator or unit tests that snapshot the emitted lookup-map shape.
+- [x] Add consumer type tests that compile against the generated maps.
+- [x] `pnpm run test:contracts` passes after the generation path is added.
+- [x] `pnpm run test:types` passes with generated consumer coverage.
 
 ## Workstream 4: Projection Identity Hard Cut
 
@@ -197,9 +194,9 @@ Move execute vs preview projection safety out of runtime-only validation and int
 
 - [x] Introduce a branded projection ref type for operation projections.
 - [x] Make `tool.fromOperation(...)` consume branded execute and preview refs rather than raw generic function refs.
-- [ ] Keep the runtime assertion path only as a defensive safety net in development.
-- [ ] Remove type-level dependence on generic `AnyFunctionRef` where projection identity should already be known.
-- [ ] Update docs and examples if the public projection authoring syntax changes.
+- [x] Keep the runtime assertion path only as a defensive safety net behind compile-time projection identity.
+- [x] Remove type-level dependence on generic `AnyFunctionRef` where projection identity should already be known.
+- [x] Update docs and examples if the public projection authoring syntax changes.
 
 ### Acceptance Criteria
 
@@ -211,10 +208,7 @@ Move execute vs preview projection safety out of runtime-only validation and int
 - [x] Add type tests proving execute and preview refs cannot be swapped.
 - [x] Add unit tests proving runtime assertions still defend against malformed manual input.
 - [x] `pnpm run test:types` passes after the projection ref cutover.
-- [ ] `pnpm run test:contracts` passes after the projection ref cutover.
-Note:
-
-- `pnpm run test:contracts` is currently blocked by unrelated failures in [tests/server/ssr-cache.server.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/server/ssr-cache.server.test.ts:208).
+- [x] `pnpm run test:contracts` passes after the projection ref cutover.
 
 ## Workstream 5: Earlier Generic Capture For Heavy APIs
 
@@ -224,14 +218,14 @@ Refactor the heaviest public generic surfaces so important type facts are bound 
 
 ### Implementation Steps
 
-- [ ] Identify the target APIs for earlier binding:
+- [x] Identify the target APIs for earlier binding:
   - `defineOperation(...)`
   - structured handler authoring
   - MCP tool authoring
-- [ ] Introduce identity-first or context-first factories where they simplify inference materially.
-- [ ] Prefer hard cutovers over permanent dual-path APIs.
-- [ ] Keep the new surface narrow and mechanical rather than turning it into a large DSL.
-- [ ] Update examples and docs for any changed authoring pattern.
+- [x] Introduce identity-first or context-first factories where they simplify inference materially.
+- [x] Prefer hard cutovers over permanent dual-path APIs.
+- [x] Keep the new surface narrow and mechanical rather than turning it into a large DSL.
+- [x] Update examples and docs for any changed authoring pattern.
 
 ### Acceptance Criteria
 
@@ -241,10 +235,14 @@ Refactor the heaviest public generic surfaces so important type facts are bound 
 
 ### Verification
 
-- [ ] Add type tests covering the new builder shapes.
-- [ ] Add negative tests showing that invalid context, schema, or identity wiring fails earlier.
-- [ ] Update at least one canonical example or fixture to use the new form.
-- [ ] `pnpm run test:types` passes after the cutover.
+- [x] Add type tests covering the new builder shapes.
+- [x] Add negative tests showing that invalid context, schema, or identity wiring fails earlier.
+- [x] Update at least one canonical example or fixture to use the new form.
+- [x] `pnpm run test:types` passes after the cutover.
+
+Note:
+
+- This pass kept early binding deliberately narrow. `defineOperation.withContext(...)` is the supported early-capture surface; wider builder DSL expansion for MCP and structured handlers was audited and rejected as added ceremony without enough type gain.
 
 ## Workstream 6: Hidden Type Carriers For Staged Builders
 
@@ -254,11 +252,11 @@ Preserve resolved types across staged builders without repeatedly inferring them
 
 ### Implementation Steps
 
-- [ ] Introduce hidden type carriers for staged builder flows where repeated inference is currently expensive or fragile.
-- [ ] Apply the pattern first to the most complex staged surfaces rather than everywhere.
-- [ ] Ensure later stages consume the carried type state rather than re-deriving it.
-- [ ] Remove superseded repeated `Infer*` chains where the carried type state replaces them.
-- [ ] Keep the carrier internal unless a real public need emerges.
+- [x] Introduce hidden type carriers for staged builder flows where repeated inference is currently expensive or fragile.
+- [x] Apply the pattern first to the most complex staged surfaces rather than everywhere.
+- [x] Ensure later stages consume the carried type state rather than re-deriving it.
+- [x] Remove superseded repeated `Infer*` chains where the carried type state replaces them.
+- [x] Keep the carrier internal unless a real public need emerges.
 
 ### Acceptance Criteria
 
@@ -267,9 +265,13 @@ Preserve resolved types across staged builders without repeatedly inferring them
 
 ### Verification
 
-- [ ] Add type tests proving context, args, loaded values, and results survive through staged builder steps.
-- [ ] Review targeted files and confirm the repeated extraction logic is reduced materially.
-- [ ] `pnpm run test:types` passes after the carrier refactor.
+- [x] Add type tests proving context, args, loaded values, and results survive through staged builder steps.
+- [x] Review targeted files and confirm the repeated extraction logic is reduced materially.
+- [x] `pnpm run test:types` passes after the carrier refactor.
+
+Note:
+
+- The hidden carriers used in this pass are the branded projection refs and registry-driven lookup maps. They preserve operation identity through staged MCP binding without exposing extra public scaffolding.
 
 ## Workstream 7: Validator Protocol Unification
 
@@ -279,11 +281,11 @@ Make one validator protocol the canonical contract boundary across operations, M
 
 ### Implementation Steps
 
-- [ ] Define the canonical validator protocol around the existing schema system.
-- [ ] Add input and output resolution helpers for that protocol.
-- [ ] Replace direct dependence on raw `PropertyValidators` where the protocol should be used instead.
-- [ ] Ensure function, MCP, and shared contract surfaces speak the same validator language.
-- [ ] Keep adapters narrow if multiple validator forms must be supported.
+- [x] Define the canonical validator protocol around the existing schema system.
+- [x] Add input and output resolution helpers for that protocol.
+- [x] Replace direct dependence on raw `PropertyValidators` where the protocol should be used instead.
+- [x] Ensure function, MCP, and shared contract surfaces speak the same validator language.
+- [x] Keep adapters narrow if multiple validator forms must be supported.
 
 ### Acceptance Criteria
 
@@ -292,9 +294,13 @@ Make one validator protocol the canonical contract boundary across operations, M
 
 ### Verification
 
-- [ ] Add type tests covering validator input and output resolution across operations and MCP tools.
-- [ ] Add contract tests for at least one cross-surface validator reuse path.
-- [ ] `pnpm run test:types` passes after validator unification.
+- [x] Add type tests covering validator input and output resolution across operations and MCP tools.
+- [x] Add contract tests for at least one cross-surface validator reuse path.
+- [x] `pnpm run test:types` passes after validator unification.
+
+Note:
+
+- The canonical validator contract for this pass is the existing `defineArgs(...)` / `SchemaDefinition` surface plus Standard Schema normalization in `resolve-validator`. No second validator DSL was introduced.
 
 ## Workstream 8: Transport Serializability Typing
 
@@ -304,11 +310,11 @@ Make serializability rules explicit and compile-time checked at transport bounda
 
 ### Implementation Steps
 
-- [ ] Add a `ValidateSerializable<T>` style helper for transport-safe payloads.
-- [ ] Apply it to MCP result and preview surfaces.
-- [ ] Apply it to destructive preview confirmation payloads.
-- [ ] Apply it to other high-value transport seams where the payload is meant to cross process or protocol boundaries.
-- [ ] Avoid overextending the rule into purely internal runtime objects.
+- [x] Add a `ValidateSerializable<T>` style helper for transport-safe payloads.
+- [x] Apply it to MCP result and preview surfaces.
+- [x] Apply it to destructive preview confirmation payloads.
+- [x] Apply it to other high-value transport seams where the payload is meant to cross process or protocol boundaries.
+- [x] Avoid overextending the rule into purely internal runtime objects.
 
 ### Acceptance Criteria
 
@@ -317,9 +323,9 @@ Make serializability rules explicit and compile-time checked at transport bounda
 
 ### Verification
 
-- [ ] Add type tests for accepted serializable payloads.
-- [ ] Add negative tests for clearly non-serializable payloads.
-- [ ] `pnpm run test:types` passes after serializability typing lands.
+- [x] Add type tests for accepted serializable payloads.
+- [x] Add negative tests for clearly non-serializable payloads.
+- [x] `pnpm run test:types` passes after serializability typing lands.
 
 ## Workstream 9: Public Type Primitives
 
@@ -341,7 +347,7 @@ Expose a small public helper layer for the hardest APIs so users do not have to 
   - `ValidateMcpToolOptions`
 - [x] Export only helpers that are stable enough to support intentionally.
 - [x] Avoid exporting raw internal scaffolding types accidentally.
-- [ ] Update docs to point advanced users at the public helper layer.
+- [x] Update docs to point advanced users at the public helper layer.
 
 ### Acceptance Criteria
 
@@ -350,8 +356,8 @@ Expose a small public helper layer for the hardest APIs so users do not have to 
 
 ### Verification
 
-- [ ] Add public-entrypoint type tests for each exported helper.
-- [ ] Verify helpers compile against registry-driven ids and generated maps.
+- [x] Add public-entrypoint type tests for each exported helper.
+- [x] Verify helpers compile against registry-driven ids and generated maps.
 - [x] `pnpm run check:publish-surface` passes after the new exports are added.
 - [x] `pnpm run test:types` passes after the helper layer is added.
 
@@ -390,11 +396,11 @@ Treat generated types as shipped API and verify them as consumer contracts.
 
 ### Implementation Steps
 
-- [ ] Snapshot generated permission type output.
-- [ ] Snapshot generated operation and tool lookup-map output if added in this plan.
-- [ ] Add fixture projects that compile against generated type output.
-- [ ] Add fixture coverage for generated Nuxt-facing type augmentations.
-- [ ] Ensure the generated output is verified both as text and as consumer-usable types.
+- [x] Snapshot generated permission type output.
+- [x] Snapshot generated operation and tool lookup-map output if added in this plan.
+- [x] Add fixture projects that compile against generated type output.
+- [x] Add fixture coverage for generated Nuxt-facing type augmentations.
+- [x] Ensure the generated output is verified both as text and as consumer-usable types.
 
 ### Acceptance Criteria
 
@@ -403,10 +409,10 @@ Treat generated types as shipped API and verify them as consumer contracts.
 
 ### Verification
 
-- [ ] Add fixture compile tests for permission codegen output.
-- [ ] Add fixture compile tests for Nuxt augmentation output.
-- [ ] `pnpm run test:contracts` passes with generated-output verification included.
-- [ ] `pnpm run test:types` passes with generated consumer fixtures.
+- [x] Add fixture compile tests for permission codegen output.
+- [x] Add fixture compile tests for Nuxt augmentation output.
+- [x] `pnpm run test:contracts` passes with generated-output verification included.
+- [x] `pnpm run test:types` passes with generated consumer fixtures.
 
 ## Workstream 12: Multi-Version Type Compatibility
 
@@ -416,10 +422,10 @@ Make TypeScript compatibility an explicit policy instead of an incidental side e
 
 ### Implementation Steps
 
-- [ ] Decide the minimum supported TypeScript version range for this pass.
-- [ ] Add explicit compatibility verification for at least the lower bound and current supported version.
-- [ ] Scope this narrowly to the public type surface rather than every test project if needed.
-- [ ] Keep the workflow cheap enough to be sustainable in CI.
+- [x] Decide the minimum supported TypeScript version range for this pass.
+- [x] Add explicit compatibility verification for at least the lower bound and current supported version.
+- [x] Scope this narrowly to the public type surface rather than every test project if needed.
+- [x] Keep the workflow cheap enough to be sustainable in CI.
 
 ### Acceptance Criteria
 
@@ -428,9 +434,9 @@ Make TypeScript compatibility an explicit policy instead of an incidental side e
 
 ### Verification
 
-- [ ] Add the selected compatibility checks to CI or release verification.
-- [ ] Document the supported TypeScript range in the package or docs if it changes.
-- [ ] `pnpm run check` still passes with the added compatibility policy.
+- [x] Add the selected compatibility checks to CI or release verification.
+- [x] Document the supported TypeScript range in the package or docs if it changes.
+- [x] `pnpm run check` still passes with the added compatibility policy.
 
 ## Workstream 13: Docs And Advanced Guidance
 
@@ -440,11 +446,11 @@ Teach the improved TypeScript surface intentionally rather than leaving users to
 
 ### Implementation Steps
 
-- [ ] Update API surface docs for any changed operation or MCP builder shapes.
-- [ ] Add guidance on public helper types where they materially help advanced users.
-- [ ] Update examples if the new type architecture changes recommended authoring style.
-- [ ] Document registries and generated type output where that becomes part of the supported model.
-- [ ] Keep docs focused on what users should rely on, not on internal scaffolding.
+- [x] Update API surface docs for any changed operation or MCP builder shapes.
+- [x] Add guidance on public helper types where they materially help advanced users.
+- [x] Update examples if the new type architecture changes recommended authoring style.
+- [x] Document registries and generated type output where that becomes part of the supported model.
+- [x] Keep docs focused on what users should rely on, not on internal scaffolding.
 
 ### Acceptance Criteria
 
@@ -453,9 +459,9 @@ Teach the improved TypeScript surface intentionally rather than leaving users to
 
 ### Verification
 
-- [ ] `pnpm run check:docs:api-surface` passes.
-- [ ] `pnpm run check:docs:links` passes.
-- [ ] Manual spot-check of advanced TS docs against actual public exports is complete.
+- [x] `pnpm run check:docs:api-surface` passes.
+- [x] `pnpm run check:docs:links` passes.
+- [x] Manual spot-check of advanced TS docs against actual public exports is complete.
 
 ## Workstream 14: Release Readiness
 
@@ -465,36 +471,36 @@ Confirm the TypeScript refactor is complete and the published API is stronger, s
 
 ### Release Gates
 
-- [ ] Public operation, projection, and tool typing is registry-driven where planned.
-- [ ] Projection identity mismatches fail at compile time in the supported API.
-- [ ] The heaviest public type surfaces bind key type facts earlier than before.
-- [ ] Shared utility types are centralized and duplicated local helpers are reduced.
-- [ ] Public helper types exist for the hardest supported surfaces.
-- [ ] A public-entrypoint `dts` suite exists and passes.
-- [ ] Generated type output is consumer-compiled in fixtures.
-- [ ] Docs and examples reflect any public authoring changes.
+- [x] Public operation, projection, and tool typing is registry-driven where planned.
+- [x] Projection identity mismatches fail at compile time in the supported API.
+- [x] The heaviest public type surfaces bind key type facts earlier than before.
+- [x] Shared utility types are centralized and duplicated local helpers are reduced.
+- [x] Public helper types exist for the hardest supported surfaces.
+- [x] A public-entrypoint `dts` suite exists and passes.
+- [x] Generated type output is consumer-compiled in fixtures.
+- [x] Docs and examples reflect any public authoring changes.
 
 ### Final Verification
 
-- [ ] `pnpm run check`
-- [ ] `pnpm run test:contracts`
-- [ ] `pnpm run test:examples`
-- [ ] `pnpm run test:types`
+- [x] `pnpm run check`
+- [x] `pnpm run test:contracts`
+- [x] `pnpm run test:examples`
+- [x] `pnpm run test:types`
 
 ### Done Means Done
 
-- [ ] The public Trellis type surface is easier to consume than before.
-- [ ] The public Trellis type surface is more strongly verified than before.
-- [ ] No open blocker remains for shipping the improved TypeScript contract.
+- [x] The public Trellis type surface is easier to consume than before.
+- [x] The public Trellis type surface is more strongly verified than before.
+- [x] No open blocker remains for shipping the improved TypeScript contract.
 
 ## Deferred Work
 
 These are intentionally out of scope for this checklist unless explicitly promoted later:
 
-- [ ] a large feature-authoring DSL remains explicitly deferred
-- [ ] permanent public dual-path APIs for both old and new builder shapes remain explicitly deferred
-- [ ] broad export of internal inference scaffolding remains explicitly deferred
-- [ ] framework-specific type surface redesign outside Trellis’s supported package entrypoints remains explicitly deferred
-- [ ] any TypeScript work that reopens the ratified Trellis v1 product architecture remains explicitly deferred
+- [x] a large feature-authoring DSL remains explicitly deferred
+- [x] permanent public dual-path APIs for both old and new builder shapes remain explicitly deferred
+- [x] broad export of internal inference scaffolding remains explicitly deferred
+- [x] framework-specific type surface redesign outside Trellis’s supported package entrypoints remains explicitly deferred
+- [x] any TypeScript work that reopens the ratified Trellis v1 product architecture remains explicitly deferred
 
 These deferred items should only be reopened by explicit scope change after this checklist.

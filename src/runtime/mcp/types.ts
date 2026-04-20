@@ -11,9 +11,11 @@ import type { ZodRawShape } from 'zod'
 import type { SchemaDefinition } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import type { TrellisDenialExplanation } from '../observability/index.js'
-import type { NoInfer } from '../types/type-utils.js'
+import type { NoInfer, ValidateSerializable } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
 import type { McpRateLimitStore } from './rate-limiter.js'
+
+export type { SerializableValue, ValidateSerializable } from '../types/type-utils.js'
 
 // ============================================================================
 // Schema helpers (re-exported for convenience)
@@ -36,7 +38,7 @@ export type ValidateToolArgs<S extends AnyConvexSchema, TArgs> =
 
 export interface ConvexToolSuccessResult<T = unknown> {
   ok: true
-  data: T
+  data: ValidateSerializable<T>
 }
 
 export interface ConvexToolPreviewResult {
@@ -106,7 +108,7 @@ export interface ConvexToolHandlerCtx<TRole extends string = string> extends Con
   event: H3Event
   /** Resolved actor, or null if auth is 'none' or no credentials were provided. */
   actor: McpAuthIdentity<TRole> | null
-  ok: <T>(data: T, summary?: string) => McpToolCallbackResult
+  ok: <T>(data: ValidateSerializable<T>, summary?: string) => McpToolCallbackResult
   error: (
     category: ConvexErrorCategory,
     message: string,

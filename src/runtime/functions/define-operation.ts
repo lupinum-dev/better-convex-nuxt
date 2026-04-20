@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
-import type { AwaitedValue, FallbackIfUnknownOrNever } from '../types/type-utils.js'
+import type {
+  AwaitedValue,
+  FallbackIfUnknownOrNever,
+  SerializableValue,
+  ValidateSerializable,
+} from '../types/type-utils.js'
 import type {
   StructuredGuard,
   StructuredHandlerDefinition,
@@ -44,9 +49,12 @@ type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPrevie
   MaybePromise<TPreview>
 >
 
-export type DestructiveOperationPreview<TDisplay = unknown, TConfirm = unknown> = {
-  display: TDisplay
-  confirm: TConfirm
+export type DestructiveOperationPreview<
+  TDisplay = SerializableValue,
+  TConfirm extends Record<string, unknown> = Record<string, SerializableValue>,
+> = {
+  display: ValidateSerializable<TDisplay>
+  confirm: ValidateSerializable<TConfirm>
 }
 
 export type OperationDefinition<

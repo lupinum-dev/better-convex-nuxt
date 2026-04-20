@@ -37,7 +37,7 @@ import {
   type TrellisWideSummary,
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
-import type { NoInfer } from '../types/type-utils.js'
+import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import { signConfirmationToken, verifyConfirmationToken } from './confirmation-token.js'
@@ -227,7 +227,7 @@ type AnyOperationDefinition = {
 
 type OperationPreviewPayload = {
   display: string | PreviewResult
-  confirm: unknown
+  confirm: SerializableValue
 }
 
 type OperationProjectionId<TOperation extends AnyOperationDefinition> = Extract<
@@ -744,7 +744,7 @@ export function defineMcpApp<
               principal: projectionCtx.principal,
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
-              ok: (data, summary) => (summary ? ctx.ok(data, summary) : data),
+              ok: (data, summary) => (summary ? ctx.ok(data as SerializableValue, summary) : data),
               error: (code, message, issues, explanation) =>
                 ctx.error(code, message, issues, explanation),
             })
@@ -783,7 +783,7 @@ export function defineMcpApp<
             tool: tool.meta?.name ?? 'project-tool',
           })
           projectionCtx.wideSummary.emit({ status: 'success' })
-          return summary ? ctx.ok(mapped, summary) : mapped
+          return summary ? ctx.ok(mapped as SerializableValue, summary) : mapped
         } catch (error) {
           await projectionCtx.observe({
             name: 'tool.failed',
@@ -1025,7 +1025,7 @@ export function defineMcpApp<
               principal: projectionCtx.principal,
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
-              ok: (data, summary) => (summary ? ctx.ok(data, summary) : data),
+              ok: (data, summary) => (summary ? ctx.ok(data as SerializableValue, summary) : data),
               error: (code, message, issues, explanation) =>
                 ctx.error(code, message, issues, explanation),
             })
@@ -1049,7 +1049,7 @@ export function defineMcpApp<
             runtime: projectionCtx.runtime,
           })
 
-          return summary ? ctx.ok(mapped, summary) : mapped
+          return summary ? ctx.ok(mapped as SerializableValue, summary) : mapped
         }
 
         if (isDestructive) {

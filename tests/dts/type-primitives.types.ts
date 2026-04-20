@@ -8,6 +8,8 @@ import {
 import type {
   InferOperationResult,
   InferPermissionContext,
+  SerializableValue,
+  ValidateSerializable,
   ValidateMcpToolOptions,
   ValidateOperationId,
   ValidatePermissionKey,
@@ -66,6 +68,28 @@ const _schema = defineArgs({
 })
 
 expectTypeOf<ValidateToolArgs<typeof _schema, { id: string }>>().toEqualTypeOf<{ id: string }>()
+expectTypeOf<
+  ValidateSerializable<{
+    archived: true
+    summary: string | null
+    relatedIds: string[]
+  }>
+>().toEqualTypeOf<{
+  archived: true
+  summary: string | null
+  relatedIds: string[]
+}>()
+expectTypeOf<SerializableValue>().toMatchTypeOf<
+  | string
+  | number
+  | boolean
+  | null
+  | readonly SerializableValue[]
+  | { [key: string]: SerializableValue }
+>()
+
+// @ts-expect-error functions are not transport-serializable
+const _invalidSerializable: ValidateSerializable<{ run: () => void }> = { run: () => {} }
 
 type _toolOptions = ValidateMcpToolOptions<
   typeof _schema,

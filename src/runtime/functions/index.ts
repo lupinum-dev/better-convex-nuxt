@@ -5,7 +5,6 @@ import {
   type Customization,
 } from 'convex-helpers/server/customFunctions'
 import {
-  type RLSConfig,
   type Rules,
   wrapDatabaseReader,
   wrapDatabaseWriter,
@@ -50,6 +49,7 @@ import {
   stripForwardedIdentityFields,
   trustedForwardingValidators,
 } from '../trusted-forwarding/shared.js'
+import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import { createComponentBridge } from './create-component-bridge.js'
 import {
@@ -132,6 +132,43 @@ export type ActorAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
 type UnsafeDefinition = { bypass: string }
 type EscapeTenantIsolationOptions = { reason: string }
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
+export interface OperationsById {}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
+export interface OperationExecutionsById {}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
+export interface OperationPreviewsById {}
+
+export interface RegisteredOperations {
+  byId: OperationsById
+}
+
+export interface RegisteredOperationProjections {
+  executeById: OperationExecutionsById
+  previewById: OperationPreviewsById
+}
+
+export type RegisteredOperationId = Extract<keyof OperationsById, string>
+export type RegisteredOperationDefinition<TId extends RegisteredOperationId> = OperationsById[TId]
+export type RegisteredOperationExecution<TId extends RegisteredOperationId> =
+  OperationExecutionsById[TId]
+export type RegisteredOperationPreview<TId extends RegisteredOperationId> =
+  OperationPreviewsById[TId]
+
+type AvailableOperationProjection<TId extends RegisteredOperationId> =
+  | (TId extends keyof OperationExecutionsById ? 'execute' : never)
+  | (TId extends keyof OperationPreviewsById ? 'preview' : never)
+
+export type ValidateRegisteredOperationId<TId extends string = string> =
+  TId extends NoInfer<RegisteredOperationId> ? TId : never
+
+export type ValidateOperationProjection<
+  TId extends RegisteredOperationId,
+  TProjection extends 'execute' | 'preview' = 'execute' | 'preview',
+> = TProjection extends NoInfer<AvailableOperationProjection<TId>> ? TProjection : never
 
 const trellisUnsafeDbKey = Symbol('trellisUnsafeDb')
 
@@ -223,10 +260,6 @@ type ServiceAccessDefinition<DataModel extends GenericDataModel, TPrincipal> = S
   TPrincipal
 >
 
-type MaybeRules<Ctx, DataModel extends GenericDataModel> =
-  | Rules<Ctx, DataModel>
-  | ((ctx: Ctx) => Promise<Rules<Ctx, DataModel>> | Rules<Ctx, DataModel>)
-
 type QueryCustomizationCtx<
   DataModel extends GenericDataModel,
   TPrincipal,
@@ -286,10 +319,6 @@ export interface DefineTrellisOptions<
     redemptionTable: TableNamesInDataModel<DataModel>
     auditTable: TableNamesInDataModel<DataModel>
   }
-  rls?: {
-    rules: MaybeRules<RuleCtx<DataModel, TPrincipal, TDelegation, TActor>, DataModel>
-    config?: RLSConfig
-  }
   triggers?: Triggers<
     DataModel,
     GenericMutationCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
@@ -345,6 +374,18 @@ function validateTenantIsolationOptions<DataModel extends GenericDataModel>(
 
   if (options.field !== undefined && options.field.trim().length === 0) {
     throw new Error('tenantIsolation.field must be a non-empty string when provided.')
+  }
+}
+
+function rejectRemovedCustomRlsOption(options: unknown): void {
+  if (
+    typeof options === 'object' &&
+    options !== null &&
+    Object.prototype.hasOwnProperty.call(options, 'rls')
+  ) {
+    throw new Error(
+      'defineTrellis({ rls }) has been removed. Keep business authorization in guard/load/authorize/handler and use tenantIsolation/services for runtime guardrails.',
+    )
   }
 }
 
@@ -727,41 +768,6 @@ function buildServiceRules<
   return rules
 }
 
-function combineRuleCheck<Ctx, Doc>(
-  left: ((ctx: Ctx, doc: Doc) => Promise<boolean> | boolean) | undefined,
-  right: ((ctx: Ctx, doc: Doc) => Promise<boolean> | boolean) | undefined,
-) {
-  if (!left) return right
-  if (!right) return left
-
-  return async (ctx: Ctx, doc: Doc) => {
-    const leftAllowed = await left(ctx, doc)
-    if (!leftAllowed) return false
-    return await right(ctx, doc)
-  }
-}
-
-function mergeRules<Ctx, DataModel extends GenericDataModel>(
-  base: Rules<Ctx, DataModel>,
-  extra: Rules<Ctx, DataModel>,
-): Rules<Ctx, DataModel> {
-  const merged = { ...base }
-
-  for (const [table, rule] of Object.entries(extra) as Array<
-    [TableNamesInDataModel<DataModel>, Rules<Ctx, DataModel>[TableNamesInDataModel<DataModel>]]
-  >) {
-    merged[table] = {
-      ...merged[table],
-      ...rule,
-      read: combineRuleCheck(merged[table]?.read, rule?.read),
-      modify: combineRuleCheck(merged[table]?.modify, rule?.modify),
-      insert: combineRuleCheck(merged[table]?.insert, rule?.insert),
-    } as Rules<Ctx, DataModel>[TableNamesInDataModel<DataModel>]
-  }
-
-  return merged
-}
-
 type ResolvedRules<
   DataModel extends GenericDataModel,
   TPrincipal,
@@ -786,21 +792,15 @@ async function resolveRules<
   const tenantRules = buildTenantIsolationRules<DataModel, TPrincipal, TDelegation, TActor>(
     options.tenantIsolation,
   )
-  const rlsRules = options.rls?.rules
   const serviceAccess = await resolveServiceAccess(ctx, stripTransportReservedArgs(args), options)
   const serviceRules = buildServiceRules<DataModel, TPrincipal, TDelegation, TActor>(
     serviceAccess,
     options.tenantIsolation,
   )
 
-  const resolvedCustomRules =
-    typeof rlsRules === 'function' ? await rlsRules(ctx) : (rlsRules ?? {})
-
   const isService = serviceAccess !== null
-  const dbRules = isService
-    ? mergeRules(serviceRules, resolvedCustomRules)
-    : mergeRules(tenantRules, resolvedCustomRules)
-  const crossTenantRules = mergeRules(serviceRules, resolvedCustomRules)
+  const dbRules = isService ? serviceRules : tenantRules
+  const crossTenantRules = serviceRules
 
   return {
     dbRules: Object.keys(dbRules).length > 0 ? dbRules : null,
@@ -1137,7 +1137,7 @@ function isDestructivePreviewPayload(
   value: unknown,
 ): value is DestructiveOperationPreview<
   string | { blocked?: boolean; summary?: string; warn?: string; affects?: Record<string, number> },
-  unknown
+  { [key: string]: SerializableValue }
 > {
   return (
     typeof value === 'object' &&
@@ -1193,11 +1193,9 @@ function createQueryCustomization<
       )
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
-      const db = dbRules
-        ? wrapDatabaseReader(baseCtx, serviceDb, dbRules, options.rls?.config)
-        : serviceDb
+      const db = dbRules ? wrapDatabaseReader(baseCtx, serviceDb, dbRules) : serviceDb
       const crossTenantDb = crossTenantRules
-        ? wrapDatabaseReader(baseCtx, serviceDb, crossTenantRules, options.rls?.config)
+        ? wrapDatabaseReader(baseCtx, serviceDb, crossTenantRules)
         : serviceDb
       const finalCtx: QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor> = {
         ...(baseCtx as unknown as QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>),
@@ -1258,11 +1256,9 @@ function createMutationCustomization<
       )
       const rawDb = ctx.db
       const serviceDb = wrapServiceDb(rawDb, serviceAccess, baseCtx.observe)
-      let db = dbRules
-        ? wrapDatabaseWriter(baseCtx, serviceDb, dbRules, options.rls?.config)
-        : serviceDb
+      let db = dbRules ? wrapDatabaseWriter(baseCtx, serviceDb, dbRules) : serviceDb
       let crossTenantDb = crossTenantRules
-        ? wrapDatabaseWriter(baseCtx, serviceDb, crossTenantRules, options.rls?.config)
+        ? wrapDatabaseWriter(baseCtx, serviceDb, crossTenantRules)
         : serviceDb
 
       if (options.triggers) {
@@ -1380,6 +1376,7 @@ function buildUnsafeFunctions<
   >,
   options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor> = {},
 ) {
+  rejectRemovedCustomRlsOption(options)
   validateTenantIsolationOptions(options.tenantIsolation)
 
   if (!!builders.internalQuery !== !!builders.internalMutation) {

@@ -70,4 +70,16 @@ describe('defineTrellis tenant isolation validation', () => {
       ),
     ).toThrow('tenantIsolation cannot classify table "todos" as both tenant-scoped and global.')
   })
+
+  it('rejects removed custom RLS authoring', () => {
+    expect(() =>
+      defineTrellis({ query: () => null as never, mutation: () => null as never }, {
+        rls: {
+          rules: {},
+        },
+      } as never),
+    ).toThrow(
+      'defineTrellis({ rls }) has been removed. Keep business authorization in guard/load/authorize/handler and use tenantIsolation/services for runtime guardrails.',
+    )
+  })
 })

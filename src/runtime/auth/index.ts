@@ -49,8 +49,10 @@ export {
 } from './define-permission.js'
 export type {
   GuardPermissionDefinition,
+  PermissionKeysByKey,
   PermissionDefinition,
   PermissionHandle,
+  ProjectedPermissionKeysByKey,
   RegisteredPermissionKey,
   RegisteredPermissions,
   RegisteredProjectedPermissionKey,
