@@ -33,10 +33,11 @@ import {
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
+import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import { signConfirmationToken, verifyConfirmationToken } from './confirmation-token.js'
 import { defineTool } from './define-convex-tool.js'
 import { assertOperationBinding, toKebabCase, type AnyFunctionRef } from './operation-binding.js'
-import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
+import { checkToolRateLimit, parseWindowString, type McpRateLimitStore } from './rate-limiter.js'
 import type {
   AnyConvexSchema,
   ConvexToolHandlerCtx,
@@ -117,6 +118,7 @@ export interface DefineMcpAppOptions<
     convex: McpConvexCaller
   }) => MaybePromise<TRuntime>
   principalKey?: (principal: TPrincipal) => string
+  rateLimitStore?: McpRateLimitStore
   observability?: TrellisObservabilityOptions
 }
 
@@ -160,6 +162,7 @@ export interface ToolOptions<
   ) => MaybePromise<boolean>
   meta?: ProjectToolMeta
   rateLimit?: { max: number; window: string }
+  rateLimitStore?: McpRateLimitStore
   maxItems?: { field: keyof import('./types.js').InferSchemaData<S> & string; limit: number }
   middleware?: ConvexToolMiddleware<S>
   mapResult?: (ctx: {
@@ -300,7 +303,13 @@ function normalizePreviewDisplay(raw: string | PreviewResult): PreviewResult {
 }
 
 function isOperationPreviewPayload(value: unknown): value is OperationPreviewPayload {
-  return typeof value === 'object' && value !== null && 'display' in value && 'confirm' in value
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'display' in value &&
+    'confirm' in value &&
+    isNonEmptyPlainObject((value as OperationPreviewPayload).confirm)
+  )
 }
 
 function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
@@ -484,10 +493,14 @@ export function defineMcpApp<
                 (options.principalKey ?? defaultPrincipalKey)(projectionCtx.principal),
               ].join(':')
 
-              const check = globalRateLimiter.check(bucket, {
-                max: tool.rateLimit.max,
-                windowMs: parseWindowString(tool.rateLimit.window),
-              })
+              const check = await checkToolRateLimit(
+                bucket,
+                {
+                  max: tool.rateLimit.max,
+                  windowMs: parseWindowString(tool.rateLimit.window),
+                },
+                options.rateLimitStore,
+              )
 
               if (!check.allowed) {
                 return ctx.error(
@@ -796,10 +809,14 @@ export function defineMcpApp<
                   principalKeyResolver(projectionCtx.principal),
                 ].join(':')
 
-                const check = globalRateLimiter.check(bucket, {
-                  max: options.rateLimit.max,
-                  windowMs: parseWindowString(options.rateLimit.window),
-                })
+                const check = await checkToolRateLimit(
+                  bucket,
+                  {
+                    max: options.rateLimit.max,
+                    windowMs: parseWindowString(options.rateLimit.window),
+                  },
+                  options.rateLimitStore,
+                )
 
                 if (!check.allowed) {
                   return ctx.error(
@@ -982,14 +999,12 @@ export function defineMcpApp<
               projectionCtx.convex,
               options.previewOperation ?? 'query',
               options.preview,
-              Object.assign({}, executeArgs as Record<string, unknown>, {
-                principal: projectionCtx.principal,
-              }) as FunctionLikeArgs<Exclude<TPreview, undefined>>,
+              executeArgs as FunctionLikeArgs<Exclude<TPreview, undefined>>,
             )
 
             if (!isOperationPreviewPayload(previewResult)) {
               throw new Error(
-                `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm }.`,
+                `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
               )
             }
 
@@ -1096,14 +1111,12 @@ export function defineMcpApp<
             projectionCtx.convex,
             options.previewOperation ?? 'query',
             options.preview,
-            Object.assign({}, executeArgs as Record<string, unknown>, {
-              principal: projectionCtx.principal,
-            }) as FunctionLikeArgs<Exclude<TPreview, undefined>>,
+            executeArgs as FunctionLikeArgs<Exclude<TPreview, undefined>>,
           )
 
           if (!isOperationPreviewPayload(previewResult)) {
             throw new Error(
-              `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm }.`,
+              `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
             )
           }
 
@@ -1170,7 +1183,6 @@ export function defineMcpApp<
             options.execute,
             Object.assign({}, executeArgs as Record<string, unknown>, {
               ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
-              principal: projectionCtx.principal,
             }) as FunctionLikeArgs<TExecute>,
           )
 

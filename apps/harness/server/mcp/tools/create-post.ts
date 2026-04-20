@@ -21,6 +21,9 @@ export default defineTool({
     toHarnessMcpPrincipal({
       actor,
     }),
+  resolveDelegation: ({ actor }) => ({
+    subject: `user:${actor.userId}`,
+  }),
   handler: async (args, ctx) => {
     const postId = await ctx.mutation(api.posts.create, args)
     return ctx.ok({ id: postId }, `Created post "${args.title}"`)

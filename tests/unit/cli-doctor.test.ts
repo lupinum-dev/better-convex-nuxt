@@ -64,7 +64,7 @@ function writeDoctorEnv(appRoot: string) {
 
 describe('CLI doctor', () => {
   beforeAll(() => {
-    const buildResult = spawnSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.cli.json'], {
+    const buildResult = spawnSync('pnpm', ['run', 'build:cli'], {
       cwd: repoRoot,
       encoding: 'utf8',
       env: {
@@ -122,7 +122,7 @@ describe('CLI doctor', () => {
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
     const runtime = read(resolve(appRoot, 'server/mcp/runtime.ts'))
     expect(runtime).toContain("auth: 'trusted'")
-    expect(runtime).toContain('resolveDelegation')
+    expect(runtime).not.toContain('resolveDelegation')
     expect(runtime).not.toContain('actor: { userId: principal.userId }')
     expect(runtime).not.toContain('principal.userId')
     const actor = read(resolve(appRoot, 'convex/auth/actor.ts'))
@@ -211,6 +211,75 @@ describe('CLI doctor', () => {
     expect(report.summary.warn).toBe(0)
     expect(report.findings.find((entry) => entry.id === 'canonical-layout')?.status).toBe('pass')
     expect(result.stdout).toBe(stripVTControlCharacters(result.stdout))
+  })
+
+  it('fails doctor when MCP rate-limited tools do not configure an explicit external store', () => {
+    const cwd = createTempDir('trellis-doctor-mcp-rate-limit-missing-store-')
+    const initResult = runCli(
+      ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-mcp-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/create-todo.ts'),
+      read(resolve(appRoot, 'server/mcp/tools/create-todo.ts')).replace(
+        "meta: {\n    name: 'create-todo',\n  },",
+        "meta: {\n    name: 'create-todo',\n  },\n  rateLimit: { max: 5, window: '1m' },",
+      ),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
+    expect(report.findings.find((entry) => entry.id === 'mcp-rate-limit-store')?.status).toBe(
+      'fail',
+    )
+  })
+
+  it('passes doctor when MCP rate-limited tools configure an explicit external store', () => {
+    const cwd = createTempDir('trellis-doctor-mcp-rate-limit-store-')
+    const initResult = runCli(
+      ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-mcp-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/create-todo.ts'),
+      read(resolve(appRoot, 'server/mcp/tools/create-todo.ts')).replace(
+        "meta: {\n    name: 'create-todo',\n  },",
+        "meta: {\n    name: 'create-todo',\n  },\n  rateLimit: { max: 5, window: '1m' },",
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/runtime.ts'),
+      read(resolve(appRoot, 'server/mcp/runtime.ts')).replace(
+        'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({',
+        'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({\n  rateLimitStore: {} as never,',
+      ),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'mcp-rate-limit-store')?.status).toBe(
+      'pass',
+    )
   })
 
   it('fails doctor when the canonical layout drifts', () => {

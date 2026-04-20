@@ -23,7 +23,6 @@ Those live in:
 - [meta/SPEC-FINAL.md](../../meta/SPEC-FINAL.md)
 - [README.md](../../README.md)
 - [examples/README.md](../../examples/README.md)
-- [meta/PROJECT-CLEANUP-BACKLOG.md](../../meta/PROJECT-CLEANUP-BACKLOG.md)
 
 Important rules:
 

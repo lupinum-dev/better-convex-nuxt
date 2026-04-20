@@ -13,6 +13,7 @@ import { normalizeObservabilityConfig } from '../runtime/observability/index.js'
 import {
   normalizeAuthCacheTtl,
   normalizeConfiguredFunctionPath,
+  normalizeTrustedOrigins,
 } from '../runtime/utils/config-normalization.js'
 import type { AuthOptions, ModuleOptions } from './options.js'
 import { createConfiguredFunctionError, normalizeAuthShorthand } from './options.js'
@@ -156,7 +157,7 @@ export function buildPublicConvexRuntimeConfig(
     auth: {
       ...setup.normalizedAuthConfig,
       route: setup.authRoute,
-      trustedOrigins: setup.authOptions.trustedOrigins ?? [],
+      trustedOrigins: normalizeTrustedOrigins(setup.authOptions.trustedOrigins),
       skipAuthTokenFetchRoutes: setup.authOptions.skipAuthTokenFetchRoutes ?? [],
       cache: {
         enabled: setup.authOptions.cache?.enabled ?? false,

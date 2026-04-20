@@ -26,11 +26,28 @@ async function getMcpPrincipal(event: H3Event): Promise<InternalHarnessPrincipal
 
   return {
     kind: 'agent',
-    agentId: auth.keyId,
-    subject: `agent:${auth.keyId}`,
+    agentId: auth.userId,
+    userId: auth.userId,
+    subject: `agent:${auth.userId}`,
     role: auth.role,
     ...(auth.tenantId ? { tenantId: auth.tenantId } : {}),
     provider: 'mcp',
+  }
+}
+
+function toForwardedHarnessPrincipal(principal: InternalHarnessPrincipal) {
+  if (principal.kind !== 'agent') {
+    return principal
+  }
+
+  return {
+    kind: 'agent' as const,
+    agentId: principal.agentId,
+    userId: principal.userId ?? principal.agentId,
+    subject: principal.subject,
+    role: principal.role,
+    ...(principal.tenantId ? { tenantId: principal.tenantId } : {}),
+    provider: 'mcp' as const,
   }
 }
 
@@ -45,7 +62,7 @@ export const mcpRuntime = defineMcpApp<
       principal.kind === 'agent'
         ? {
             auth: 'trusted',
-            principal,
+            principal: toForwardedHarnessPrincipal(principal),
             ...(delegation ? { delegation } : {}),
           }
         : { auth: 'none' },
@@ -57,7 +74,6 @@ export const mcpRuntime = defineMcpApp<
 
     return {
       subject: `user:${auth.userId}`,
-      reason: 'user-approved MCP session',
     }
   },
   resolveCapabilities: async ({ principal }) => ({

@@ -12,7 +12,6 @@ const NUXT_CONFIG_CANDIDATES = [
 ] as const
 
 const ENV_FILE_CANDIDATES = ['.env.local', '.env'] as const
-
 type PackageJson = Record<string, unknown>
 
 export interface EnvSource {
@@ -356,6 +355,14 @@ export function usesTrustedForwardingSurfaces(project: ProjectInspection): boole
       file.text,
     ),
   )
+}
+
+export function usesMcpRateLimit(project: ProjectInspection): boolean {
+  return project.sourceFiles.some((file) => /\brateLimit\s*:\s*\{\s*max\s*:/.test(file.text))
+}
+
+export function hasConfiguredMcpRateLimitStore(project: ProjectInspection): boolean {
+  return project.sourceFiles.some((file) => /\brateLimitStore\s*:/.test(file.text))
 }
 
 export function usesPermissionSurfaces(project: ProjectInspection): boolean {

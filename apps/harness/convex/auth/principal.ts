@@ -19,6 +19,7 @@ export type InternalHarnessPrincipal =
   | {
       kind: 'agent'
       agentId: string
+      userId?: string
       subject: `agent:${string}`
       role: Role
       tenantId?: string
@@ -38,6 +39,7 @@ export const internalHarnessPrincipalValidator = v.union(
   v.object({
     kind: v.literal('agent'),
     agentId: v.string(),
+    userId: v.optional(v.string()),
     subject: v.string(),
     role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
     tenantId: v.optional(v.string()),

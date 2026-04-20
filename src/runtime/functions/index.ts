@@ -50,6 +50,7 @@ import {
   stripForwardedIdentityFields,
   trustedForwardingValidators,
 } from '../trusted-forwarding/shared.js'
+import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import { createComponentBridge } from './create-component-bridge.js'
 import {
   defineDelegation,
@@ -1031,7 +1032,13 @@ function isDestructivePreviewPayload(
   string | { blocked?: boolean; summary?: string; warn?: string; affects?: Record<string, number> },
   unknown
 > {
-  return typeof value === 'object' && value !== null && 'display' in value && 'confirm' in value
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'display' in value &&
+    'confirm' in value &&
+    isNonEmptyPlainObject((value as { confirm?: unknown }).confirm)
+  )
 }
 
 function createQueryCustomization<
@@ -1489,7 +1496,7 @@ function buildStructuredMutationRuntime<
         const previewResult = await preview(ctx, executeArgs, freshLoaded)
         if (!isDestructivePreviewPayload(previewResult)) {
           throw new Error(
-            `Destructive operation "${metadata.id}" preview must return { display, confirm }.`,
+            `Destructive operation "${metadata.id}" preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
           )
         }
         await ctx.observe({

@@ -57,10 +57,9 @@ export function verifyTrustedForwardingKey(provided: string, expected: string): 
   const enc = new TextEncoder()
   const a = enc.encode(provided)
   const b = enc.encode(expected)
-  if (a.byteLength !== b.byteLength) return false
-  let mismatch = 0
-  for (let i = 0; i < a.byteLength; i++) {
-    mismatch |= a[i]! ^ b[i]!
+  let mismatch = a.byteLength ^ b.byteLength
+  for (let i = 0; i < b.byteLength; i++) {
+    mismatch |= (a[i] ?? 0) ^ b[i]!
   }
   return mismatch === 0
 }
@@ -69,15 +68,48 @@ function nonBlankString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
+function deriveCanonicalSubject(value: unknown): Subject | undefined {
+  if (!isObject(value)) return undefined
+
+  const kind = value.kind
+  if (kind === 'user') {
+    const userId = nonBlankString((value as { userId?: unknown }).userId)
+    return userId ? (`user:${userId}` as Subject) : undefined
+  }
+
+  if (kind === 'agent') {
+    const agentId =
+      nonBlankString((value as { agentId?: unknown }).agentId) ??
+      nonBlankString((value as { userId?: unknown }).userId)
+    return agentId ? (`agent:${agentId}` as Subject) : undefined
+  }
+
+  if (kind === 'service') {
+    const serviceId = nonBlankString((value as { serviceId?: unknown }).serviceId)
+    return serviceId ? (`service:${serviceId}` as Subject) : undefined
+  }
+
+  return undefined
+}
+
 export function isCanonicalSubject(value: unknown): value is Subject {
   return getSubjectKind(value) !== null && getSubjectValue(value) !== null
 }
 
 export function extractSubject(value: unknown): Subject | undefined {
+  const hasSubjectField = isObject(value) && 'subject' in value
   const subject = nonBlankString(
-    isObject(value) && 'subject' in value ? (value as { subject?: unknown }).subject : undefined,
+    hasSubjectField ? (value as { subject?: unknown }).subject : undefined,
   )
-  return isCanonicalSubject(subject) ? subject : undefined
+  if (isCanonicalSubject(subject)) {
+    return subject
+  }
+
+  if (hasSubjectField && subject !== undefined) {
+    return undefined
+  }
+
+  return deriveCanonicalSubject(value)
 }
 
 export function isAnonymousPrincipalLike(value: unknown): boolean {

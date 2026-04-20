@@ -8,6 +8,7 @@ import {
 import {
   normalizeAuthCacheTtl,
   normalizePermissionQueryPath,
+  normalizeTrustedOrigins,
 } from '../../utils/config-normalization.js'
 import { asRecord } from '../../utils/value-helpers.js'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config.js'
@@ -29,11 +30,14 @@ export interface NormalizedConvexPermissionsConfig {
   query: string | null
 }
 
+export type NormalizedConvexMcpConfig = Record<string, never>
+
 export interface NormalizedConvexRuntimeConfig {
   url?: string
   siteUrl?: string
   auth: NormalizedConvexAuthConfig
   permissions: NormalizedConvexPermissionsConfig
+  mcp: NormalizedConvexMcpConfig
   query: ConvexRuntimeQueryDefaults
   upload: { maxConcurrent: number }
   observability: NormalizedTrellisObservabilityConfig
@@ -87,9 +91,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     auth: {
       ...normalizeConvexAuthConfig(authRaw),
       route: normalizeAuthRoute(typeof authRaw?.route === 'string' ? authRaw.route : undefined),
-      trustedOrigins: Array.isArray(authRaw?.trustedOrigins)
-        ? authRaw.trustedOrigins.filter((v: unknown): v is string => typeof v === 'string')
-        : [],
+      trustedOrigins: normalizeTrustedOrigins(authRaw?.trustedOrigins),
       skipAuthTokenFetchRoutes: Array.isArray(authRaw?.skipAuthTokenFetchRoutes)
         ? authRaw.skipAuthTokenFetchRoutes.filter(
             (v: unknown): v is string => typeof v === 'string',
@@ -117,6 +119,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
     permissions: {
       query: normalizePermissionQueryPath(raw?.permissions),
     },
+    mcp: {},
     query: {
       server: queryRaw?.server !== false,
       subscribe: queryRaw?.subscribe !== false,

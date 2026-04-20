@@ -7,8 +7,10 @@ import {
   serverConvexMutation,
   serverConvexQuery,
 } from '../../src/runtime/convex/server/convex'
+import { defineOperation, previewOf } from '../../src/runtime/functions/define-operation'
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
 import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
+import { ToolRateLimiter } from '../../src/runtime/mcp/rate-limiter'
 import { defineArgs } from '../../src/runtime/schema'
 import { createServerConvexCaller } from '../../src/runtime/server'
 
@@ -54,9 +56,12 @@ const scopedSchema = defineArgs({
   },
 })
 
+let rateLimitStore: ToolRateLimiter
+
 describe('defineTool visibility and auth parity', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    rateLimitStore = new ToolRateLimiter()
     useEventMock.mockReturnValue(createEvent())
   })
 
@@ -140,6 +145,7 @@ describe('defineTool visibility and auth parity', () => {
 describe('defineTool error handling', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    rateLimitStore = new ToolRateLimiter()
     useEventMock.mockReturnValue(createEvent({ role: 'member', userId: 'member-1' }))
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'test-trusted-forwarding-key'
   })
@@ -310,6 +316,7 @@ describe('defineTool trusted principal forwarding', () => {
 describe('defineMcpApp middleware forwarding', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    rateLimitStore = new ToolRateLimiter()
     useEventMock.mockReturnValue(createEvent())
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'test-trusted-forwarding-key'
   })
@@ -376,5 +383,147 @@ describe('defineMcpApp middleware forwarding', () => {
         },
       },
     )
+  })
+})
+
+describe('MCP rate-limit integration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rateLimitStore = new ToolRateLimiter()
+    useEventMock.mockReturnValue(
+      createEvent({ role: 'member', userId: 'member-1', tenantId: 'org-1' }),
+    )
+  })
+
+  it('applies shared storage-backed rate limits to defineTool', async () => {
+    const tool = defineTool({
+      schema: emptySchema,
+      name: 'limited-tool',
+      auth: 'required',
+      rateLimit: { max: 1, window: '1m' },
+      rateLimitStore,
+      handler: async (_args, ctx) => ctx.ok({ ok: true }),
+    })
+
+    const first = await tool.handler({} as never, {} as never)
+    const second = await tool.handler({} as never, {} as never)
+
+    expect(first).toMatchObject({
+      structuredContent: {
+        ok: true,
+      },
+    })
+    expect(second).toMatchObject({
+      structuredContent: {
+        ok: false,
+        error: {
+          category: 'cooldown',
+        },
+      },
+    })
+  })
+
+  it('applies shared storage-backed rate limits to defineMcpApp tools', async () => {
+    const mcp = defineMcpApp({
+      rateLimitStore,
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+        tenantId: 'org-1',
+      }),
+      callConvex: async () => ({
+        query: async () => ({ ok: true }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    const tool = mcp.tool({
+      schema: emptySchema,
+      call: 'posts:create' as never,
+      operation: 'mutation',
+      rateLimit: { max: 1, window: '1m' },
+      meta: { name: 'limited-project-tool' },
+    })
+
+    const first = await tool.handler({} as never, {} as never)
+    const second = await tool.handler({} as never, {} as never)
+
+    expect(first).toMatchObject({
+      structuredContent: {
+        ok: true,
+      },
+    })
+    expect(second).toMatchObject({
+      structuredContent: {
+        ok: false,
+        error: {
+          category: 'cooldown',
+        },
+      },
+    })
+  })
+})
+
+describe('Destructive confirmation payload validation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    rateLimitStore = new ToolRateLimiter()
+    useEventMock.mockReturnValue(createEvent())
+    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
+  })
+
+  afterEach(() => {
+    delete process.env.TRELLIS_MCP_CONFIRMATION_KEY
+  })
+
+  it('rejects non-object destructive confirm payloads', async () => {
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {},
+      guard: { label: 'open', check: () => true } as never,
+      preview: async () => ({
+        display: { summary: 'Delete post' },
+        confirm: 'post-1',
+      }),
+      handler: async () => ({ ok: true }),
+    })
+    const preview = previewOf(operation)
+
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({
+          display: { summary: 'Delete post' },
+          confirm: 'post-1',
+        }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    const tool = mcp.tool.fromOperation(operation, {
+      execute: operation as never,
+      preview: preview as never,
+    })
+
+    const result = await tool.handler({} as never, {} as never)
+
+    expect(result).toMatchObject({
+      structuredContent: {
+        ok: false,
+        error: {
+          category: 'unknown',
+          message: expect.stringContaining('non-empty plain-object confirm payload'),
+        },
+      },
+    })
   })
 })

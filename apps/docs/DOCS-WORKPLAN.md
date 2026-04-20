@@ -6,7 +6,7 @@ This file is no longer an active planning surface.
 
 Use these sources instead:
 
-- `meta/PROJECT-CLEANUP-BACKLOG.md` for repo cleanup and docs parity work
+- `meta/SPEC-FINAL.md` for the current product contract
 - the docs files themselves for current shipped truth
 - `CONTRIBUTING.md` for the maintainer command flow
 

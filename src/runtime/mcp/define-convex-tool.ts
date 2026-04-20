@@ -19,7 +19,7 @@ import { createServerConvexCaller } from '../server/index.js'
 import { extractSubject } from '../trusted-forwarding/shared.js'
 import { toConvexError } from '../utils/call-result.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
-import { globalRateLimiter, parseWindowString } from './rate-limiter.js'
+import { checkToolRateLimit, parseWindowString } from './rate-limiter.js'
 import { withSummary, wrapError, wrapPreview, wrapSuccess } from './result-envelope.js'
 import type {
   AnyConvexSchema,
@@ -524,6 +524,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     destructive = false,
     maxItems,
     rateLimit,
+    rateLimitStore,
     preview,
     group,
     tags,
@@ -640,7 +641,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
         // ── Step 2: Rate limit (after auth so failed-auth requests don't consume tokens) ──
         if (rateLimitConfig) {
           const rateLimitBucket = resolvedAuth ? `${name!}:${resolvedAuth.userId}` : name!
-          const check = globalRateLimiter.check(rateLimitBucket, rateLimitConfig)
+          const check = await checkToolRateLimit(rateLimitBucket, rateLimitConfig, rateLimitStore)
           if (!check.allowed) {
             return wrapError(
               'cooldown',

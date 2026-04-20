@@ -50,7 +50,12 @@ describe('defineAuth', () => {
     }))
     defineAuthMocks.createClientMock.mockImplementation((_component, options) => ({
       adapter: vi.fn(() => ({ kind: 'adapter' })),
-      triggersApi: () => options.triggers.user,
+      triggersApi: () => ({
+        onCreate: async (ctx, args) => await options.triggers.user.onCreate(ctx, args?.doc ?? args),
+        onUpdate: async (ctx, args) =>
+          await options.triggers.user.onUpdate(ctx, args?.newDoc ?? args, args?.oldDoc),
+        onDelete: async (ctx, args) => await options.triggers.user.onDelete(ctx, args?.doc ?? args),
+      }),
     }))
     defineAuthMocks.convexPluginMock.mockReturnValue({ kind: 'convex-plugin' })
   })

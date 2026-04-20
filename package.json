@@ -119,8 +119,8 @@
   },
   "scripts": {
     "build": "pnpm run build:module && pnpm run build:client && pnpm run build:cli",
-    "build:module": "nuxt-module-build build && node scripts/fix-dts-specifiers.mjs && node scripts/check-dist-dts-specifiers.mjs",
-    "build:cli": "tsc -p tsconfig.cli.json && node -e \"require('node:fs').chmodSync('dist/cli.mjs', 0o755)\"",
+    "build:module": "nuxt-module-build build && node scripts/fix-dts-specifiers.mjs && node scripts/check-dist-dts-specifiers.mjs && node scripts/check-define-auth-esm.mjs",
+    "build:cli": "tsc -p tsconfig.cli.json && node scripts/copy-cli-templates.mjs && node -e \"require('node:fs').chmodSync('dist/cli.mjs', 0o755)\"",
     "build:client": "nuxi generate --cwd apps/devtools-ui",
     "check": "pnpm run format:check && pnpm run lint && pnpm run check:publish-surface && pnpm run test:types && pnpm run test:contracts && pnpm run check:cli",
     "check:cli": "pnpm run build:cli && node dist/cli.mjs --help >/dev/null",
@@ -163,6 +163,7 @@
     "@convex-dev/better-auth": "^0.11.4",
     "@nuxt/devtools-kit": "^3.2.4",
     "@nuxt/kit": "^4.4.2",
+    "@typescript-eslint/utils": "^8.58.0",
     "better-auth": "1.5.6",
     "citty": "^0.2.2",
     "consola": "^3.4.2",

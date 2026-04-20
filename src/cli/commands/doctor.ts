@@ -18,12 +18,14 @@ import {
   findDestructiveMcpToolsWithoutOperationBinding,
   findForwardedPrincipalWithoutTrustedAuth,
   findMissingCanonicalLayoutPaths,
+  hasConfiguredMcpRateLimitStore,
   hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
   hasDependency,
   inspectProject,
   isAuthExplicitlyDisabled,
+  usesMcpRateLimit,
   usesSyncedUsersTable,
   usesPermissionSurfaces,
   usesTrustedForwardingSurfaces,
@@ -52,6 +54,8 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.fromOperation\s*\(/.test(file.text),
   )
+  const mcpRateLimitExpected = usesMcpRateLimit(project)
+  const hasExplicitMcpRateLimitStore = hasConfiguredMcpRateLimitStore(project)
   const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
   const forwardedPrincipalMisuse = findForwardedPrincipalWithoutTrustedAuth(project)
   const destructiveMcpToolMisuse = findDestructiveMcpToolsWithoutOperationBinding(project)
@@ -314,6 +318,20 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       fixHint: !destructiveMcpConfirmationExpected
         ? 'No action needed unless you add destructive MCP tools later.'
         : 'Set TRELLIS_MCP_CONFIRMATION_KEY in the local environment and the deployment serving destructive MCP traffic.',
+    },
+    {
+      id: 'mcp-rate-limit-store',
+      category: 'advanced',
+      title: 'MCP rate-limit store',
+      status: !mcpRateLimitExpected ? 'pass' : hasExplicitMcpRateLimitStore ? 'pass' : 'fail',
+      message: !mcpRateLimitExpected
+        ? 'No MCP rate-limited tools were detected in the app source.'
+        : hasExplicitMcpRateLimitStore
+          ? 'Found an explicit MCP rate-limit store in app source.'
+          : 'MCP rate-limited tools were detected, but no explicit external rate-limit store was found.',
+      fixHint: !mcpRateLimitExpected
+        ? 'No action needed unless you add MCP rate-limited tools later.'
+        : 'Configure an explicit external rate-limit store, for example `rateLimitStore: createRedisMcpRateLimitStore(...)`. The built-in fallback is process-local only.',
     },
     {
       id: 'mcp-destructive-operation-binding',

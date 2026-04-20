@@ -17,6 +17,11 @@ describe('runtime config normalization', () => {
     expect(config.auth.cache.ttl).toBe(60)
   })
 
+  it('keeps MCP runtime config empty by default', () => {
+    const config = normalizeConvexRuntimeConfig({})
+    expect(config.mcp).toEqual({})
+  })
+
   it('clamps auth cache ttl to 1..60 seconds', () => {
     expect(
       normalizeConvexRuntimeConfig({
@@ -121,5 +126,25 @@ describe('runtime config normalization', () => {
     expect(config.observability.capture.browser).toBe(false)
 
     process.env.NODE_ENV = previousEnv
+  })
+
+  it('rejects shared-host wildcard trusted origins during normalization', () => {
+    expect(() =>
+      normalizeConvexRuntimeConfig({
+        auth: {
+          trustedOrigins: ['https://preview-*.vercel.app'],
+        },
+      }),
+    ).toThrow(/Wildcard trusted origin/)
+  })
+
+  it('allows exact trusted origins on shared-host preview domains', () => {
+    const config = normalizeConvexRuntimeConfig({
+      auth: {
+        trustedOrigins: ['https://preview-123.vercel.app'],
+      },
+    })
+
+    expect(config.auth.trustedOrigins).toEqual(['https://preview-123.vercel.app'])
   })
 })

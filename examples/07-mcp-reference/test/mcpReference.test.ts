@@ -130,7 +130,6 @@ describe('mcp reference example', () => {
       },
       delegation: {
         subject: `user:${team.users.member.authId}`,
-        reason: 'user-approved MCP session',
       },
       _trustedForwardingKey: TRUSTED_FORWARDING_KEY,
       _trustedForwarding: {

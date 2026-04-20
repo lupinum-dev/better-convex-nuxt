@@ -29,6 +29,18 @@ function generateKey(): string {
   return result
 }
 
+function resolveIncomingKeyHash(input: { key?: string; keyHash?: string }): string {
+  if (typeof input.keyHash === 'string' && input.keyHash.length > 0) {
+    return input.keyHash
+  }
+
+  if (typeof input.key === 'string' && input.key.length > 0) {
+    return hashKey(input.key)
+  }
+
+  throw new Error('Expected key or keyHash.')
+}
+
 export const list = query({
   args: {},
   guard: canListMcpKeys,
@@ -91,11 +103,15 @@ export const revoke = mutation({
 })
 
 export const validate = generatedQuery({
-  args: { keyHash: v.string() },
+  args: {
+    key: v.optional(v.string()),
+    keyHash: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const keyHash = resolveIncomingKeyHash(args)
     const mcpKey = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_key_hash', (q) => q.eq('keyHash', args.keyHash))
+      .withIndex('by_key_hash', (q) => q.eq('keyHash', keyHash))
       .first()
 
     if (!mcpKey || mcpKey.status !== 'active') return null
@@ -110,11 +126,15 @@ export const validate = generatedQuery({
 })
 
 export const touch = generatedMutation({
-  args: { keyHash: v.string() },
+  args: {
+    key: v.optional(v.string()),
+    keyHash: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const keyHash = resolveIncomingKeyHash(args)
     const mcpKey = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_key_hash', (q) => q.eq('keyHash', args.keyHash))
+      .withIndex('by_key_hash', (q) => q.eq('keyHash', keyHash))
       .first()
 
     if (mcpKey && mcpKey.status === 'active') {

@@ -12,6 +12,7 @@ import type { SchemaDefinition } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import type { TrellisDenialExplanation } from '../observability/index.js'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
+import type { McpRateLimitStore } from './rate-limiter.js'
 
 // ============================================================================
 // Schema helpers (re-exported for convenience)
@@ -182,8 +183,14 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   destructive?: boolean
   /** Limit array field size for bulk operations. Field must exist in schema. */
   maxItems?: { field: keyof InferSchemaData<S> & string; limit: number }
-  /** In-memory rate limit per tool name, isolated per authenticated caller when auth is enabled. Requires explicit `name`. */
+  /**
+   * Per-tool request budget. Requires explicit `name`.
+   *
+   * Without `rateLimitStore`, enforcement is process-local memory only.
+   */
   rateLimit?: { max: number; window: string }
+  /** Optional distributed rate-limit store for this tool. */
+  rateLimitStore?: McpRateLimitStore
   /** Preview function for destructive tools. Unsupported on generic tools; use operation-backed tools instead. */
   preview?: (
     args: InferSchemaData<S>,

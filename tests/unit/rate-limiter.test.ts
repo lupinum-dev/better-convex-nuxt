@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { parseWindowString, ToolRateLimiter } from '../../src/runtime/mcp/rate-limiter'
+import {
+  checkToolRateLimit,
+  createRedisMcpRateLimitStore,
+  parseWindowString,
+  RateLimitInfrastructureError,
+  ToolRateLimiter,
+} from '../../src/runtime/mcp/rate-limiter'
 
 describe('parseWindowString', () => {
   it('parses seconds', () => {
@@ -27,6 +33,7 @@ describe('ToolRateLimiter', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-20T10:00:00.000Z'))
     limiter = new ToolRateLimiter()
   })
 
@@ -34,14 +41,14 @@ describe('ToolRateLimiter', () => {
     vi.useRealTimers()
   })
 
-  it('allows calls under the limit', () => {
+  it('allows calls under the limit within one fixed window', () => {
     const config = { max: 3, windowMs: 60_000 }
     expect(limiter.check('tool-a', config)).toEqual({ allowed: true })
     expect(limiter.check('tool-a', config)).toEqual({ allowed: true })
     expect(limiter.check('tool-a', config)).toEqual({ allowed: true })
   })
 
-  it('blocks calls over the limit', () => {
+  it('blocks calls over the limit and returns retry-after for the current window', () => {
     const config = { max: 2, windowMs: 60_000 }
     limiter.check('tool-a', config)
     limiter.check('tool-a', config)
@@ -49,12 +56,11 @@ describe('ToolRateLimiter', () => {
     const result = limiter.check('tool-a', config)
     expect(result.allowed).toBe(false)
     if (!result.allowed) {
-      expect(result.retryAfterSeconds).toBeGreaterThan(0)
-      expect(result.retryAfterSeconds).toBeLessThanOrEqual(60)
+      expect(result.retryAfterSeconds).toBe(60)
     }
   })
 
-  it('allows again after window expires', () => {
+  it('allows again after the fixed window expires', () => {
     const config = { max: 1, windowMs: 60_000 }
     limiter.check('tool-a', config)
 
@@ -65,7 +71,7 @@ describe('ToolRateLimiter', () => {
     expect(limiter.check('tool-a', config)).toEqual({ allowed: true })
   })
 
-  it('tracks tools independently', () => {
+  it('tracks buckets independently', () => {
     const config = { max: 1, windowMs: 60_000 }
     limiter.check('tool-a', config)
 
@@ -81,23 +87,152 @@ describe('ToolRateLimiter', () => {
     limiter.reset()
     expect(limiter.check('tool-a', config)).toEqual({ allowed: true })
   })
+})
 
-  it('evicts oldest key when exceeding MAX_KEYS (1000)', () => {
-    const config = { max: 10, windowMs: 60_000 }
+describe('createRedisMcpRateLimitStore', () => {
+  const counters = new Map<string, number>()
 
-    // Fill with 1001 unique keys — first key should be evicted
-    for (let i = 0; i <= 1000; i++) {
-      limiter.check(`tool-${i}`, config)
-    }
+  const evalMock = vi.fn(async (_script: string, _numKeys: number, key: string) => {
+    const next = (counters.get(key) ?? 0) + 1
+    counters.set(key, next)
+    return next
+  })
 
-    // tool-0 was the oldest, should have been evicted — its limit resets
-    limiter.check(`tool-0`, config)
-    // If eviction didn't happen, tool-0 would have 2 entries.
-    // After eviction + re-add, it should have 1 entry and still be allowed.
-    expect(limiter.check(`tool-0`, config)).toEqual({ allowed: true })
+  const redisStore = createRedisMcpRateLimitStore({
+    client: {
+      eval: evalMock,
+    },
+    keyPrefix: 'trellis:test:rate-limit',
+  })
 
-    // tool-1 (second oldest, NOT evicted) should still have its entry
-    // It should still be allowed since max is 10
-    expect(limiter.check(`tool-1`, config)).toEqual({ allowed: true })
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-20T10:00:00.000Z'))
+    counters.clear()
+    evalMock.mockClear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('uses a fixed-window redis key and blocks after the configured limit', async () => {
+    const config = { bucketKey: 'tool-a:user-1', limit: 2, windowMs: 60_000, now: Date.now() }
+
+    await expect(redisStore.consume(config)).resolves.toMatchObject({
+      allowed: true,
+      count: 1,
+      remaining: 1,
+      retryAfterMs: 0,
+      windowStartedAt: Date.parse('2026-04-20T10:00:00.000Z'),
+    })
+    await expect(redisStore.consume(config)).resolves.toMatchObject({
+      allowed: true,
+      count: 2,
+      remaining: 0,
+      retryAfterMs: 0,
+    })
+    await expect(redisStore.consume(config)).resolves.toMatchObject({
+      allowed: false,
+      count: 3,
+      remaining: 0,
+      retryAfterMs: 60_000,
+    })
+
+    expect(evalMock).toHaveBeenCalledWith(
+      expect.stringContaining('redis.call'),
+      1,
+      `trellis:test:rate-limit:tool-a:user-1:${Date.parse('2026-04-20T10:00:00.000Z')}`,
+      60_000,
+    )
+  })
+
+  it('never allows more than the limit under parallel consume calls', async () => {
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        redisStore.consume({
+          bucketKey: 'parallel:user-1',
+          limit: 5,
+          windowMs: 60_000,
+          now: Date.now(),
+        }),
+      ),
+    )
+
+    expect(results.filter((entry) => entry.allowed)).toHaveLength(5)
+    expect(results.filter((entry) => !entry.allowed)).toHaveLength(5)
+  })
+
+  it('throws an infrastructure error when redis evaluation fails', async () => {
+    evalMock.mockRejectedValueOnce(new Error('redis down'))
+
+    await expect(
+      redisStore.consume({
+        bucketKey: 'tool-b:user-1',
+        limit: 1,
+        windowMs: 60_000,
+        now: Date.now(),
+      }),
+    ).rejects.toMatchObject(
+      new RateLimitInfrastructureError(
+        'Trellis MCP rate-limit Redis consume failed for key prefix "trellis:test:rate-limit".',
+      ),
+    )
+  })
+
+  it('throws an infrastructure error when redis returns a bad counter', async () => {
+    evalMock.mockResolvedValueOnce('not-a-number')
+
+    await expect(
+      redisStore.consume({
+        bucketKey: 'tool-c:user-1',
+        limit: 1,
+        windowMs: 60_000,
+        now: Date.now(),
+      }),
+    ).rejects.toMatchObject(
+      new RateLimitInfrastructureError(
+        'Trellis MCP rate-limit Redis consume returned an invalid counter value for key prefix "trellis:test:rate-limit".',
+      ),
+    )
+  })
+})
+
+describe('checkToolRateLimit', () => {
+  let store: ToolRateLimiter
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-20T10:00:00.000Z'))
+    store = new ToolRateLimiter()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('uses the provided store when present', async () => {
+    const config = { max: 2, windowMs: 60_000 }
+
+    await expect(checkToolRateLimit('tool-a:user-1', config, store)).resolves.toEqual({
+      allowed: true,
+    })
+    await expect(checkToolRateLimit('tool-a:user-1', config, store)).resolves.toEqual({
+      allowed: true,
+    })
+    await expect(checkToolRateLimit('tool-a:user-1', config, store)).resolves.toEqual({
+      allowed: false,
+      retryAfterSeconds: 60,
+    })
+  })
+
+  it('falls back to the process-local limiter when no store is provided', async () => {
+    const config = { max: 1, windowMs: 60_000 }
+
+    await expect(checkToolRateLimit('tool-b:user-1', config)).resolves.toEqual({ allowed: true })
+    await expect(checkToolRateLimit('tool-b:user-1', config)).resolves.toEqual({
+      allowed: false,
+      retryAfterSeconds: 60,
+    })
   })
 })

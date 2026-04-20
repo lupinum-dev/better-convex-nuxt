@@ -41,10 +41,8 @@ function getMcpDelegation(event: H3Event): Delegation | null {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.userId) return null
 
-  // MCP sessions in this example are user-approved, so the key may act for one user.
   return {
     subject: `user:${auth.userId}`,
-    reason: 'user-approved MCP session',
   }
 }
 

@@ -10,6 +10,7 @@ export {
 
 export { defineTool } from './define-convex-tool.js'
 export { defineMcpApp } from './define-mcp-app.js'
+export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'
 
 export { useMcpServer } from './use-mcp-server.js'
 
@@ -30,6 +31,14 @@ export type {
   ConvexToolMiddleware,
   ConvexToolHandlerCtx,
 } from './types.js'
+
+export type {
+  McpRateLimitCheck,
+  McpRateLimitConsumeInput,
+  McpRateLimitStore,
+  CreateRedisMcpRateLimitStoreOptions,
+  RedisEvalLike,
+} from './rate-limiter.js'
 
 export type {
   DefineMcpAppOptions,

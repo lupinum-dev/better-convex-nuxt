@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-
 import {
   serverConvexQuery,
   serverConvexMutation,
@@ -13,8 +11,6 @@ export default defineEventHandler(async (event) => {
   if (!header?.startsWith('Bearer ')) return
 
   const token = header.slice(7)
-  const keyHash = createHash('sha256').update(token).digest('hex')
-
   if (!token.startsWith('mcp_')) {
     return
   }
@@ -23,7 +19,7 @@ export default defineEventHandler(async (event) => {
     const result = await serverConvexQuery(
       event,
       api.mcpKeys.validate,
-      { keyHash },
+      { key: token },
       { auth: 'none' },
     )
     if (!result) return
@@ -35,7 +31,7 @@ export default defineEventHandler(async (event) => {
     }
     event.context.mcpAuth = auth
     event.context.__trellisMcpAuth = auth
-    await serverConvexMutation(event, api.mcpKeys.touch, { keyHash }, { auth: 'none' })
+    await serverConvexMutation(event, api.mcpKeys.touch, { key: token }, { auth: 'none' })
   } catch (error) {
     console.error('[mcp-auth] Key validation failed:', error)
   }

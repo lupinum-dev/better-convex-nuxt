@@ -117,6 +117,8 @@ describe('trusted forwarding helpers', () => {
   it('verifies trusted forwarding keys', () => {
     expect(verifyTrustedForwardingKey('abc', 'abc')).toBe(true)
     expect(verifyTrustedForwardingKey('abc', 'def')).toBe(false)
+    expect(verifyTrustedForwardingKey('ab', 'abc')).toBe(false)
+    expect(verifyTrustedForwardingKey('abcd', 'abc')).toBe(false)
   })
 
   it('rejects forwarded principal reads on untrusted paths', () => {

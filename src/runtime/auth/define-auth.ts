@@ -1,7 +1,27 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { GenericDataModel, GenericMutationCtx } from 'convex/server'
+import { createClient } from '@convex-dev/better-auth'
+import { convex } from '@convex-dev/better-auth/plugins'
+import { betterAuth } from 'better-auth'
+import type {
+  AuthConfig,
+  FunctionReference,
+  GenericDataModel,
+  GenericMutationCtx,
+} from 'convex/server'
 
 type MutationCtx = GenericMutationCtx<GenericDataModel>
+
+type BetterAuthComponentApi = {
+  adapter: {
+    create: FunctionReference<'mutation', 'internal'>
+    findOne: FunctionReference<'query', 'internal'>
+    findMany: FunctionReference<'query', 'internal'>
+    updateOne: FunctionReference<'mutation', 'internal'>
+    updateMany: FunctionReference<'mutation', 'internal'>
+    deleteOne: FunctionReference<'mutation', 'internal'>
+    deleteMany: FunctionReference<'mutation', 'internal'>
+  }
+}
 
 /**
  * Auth user document as provided by Better Auth triggers.
@@ -96,13 +116,13 @@ export type ConvexAuthBridge = {
  */
 export interface DefineAuthDeps {
   /** `components` from './_generated/api.js' */
-  components: { betterAuth: unknown }
+  components: { betterAuth: BetterAuthComponentApi }
   /** `internal` from './_generated/api' */
   internal: Record<string, unknown>
   /** `mutation` from './_generated/server' */
   mutation: (...args: any[]) => any
   /** Default export from './auth.config' */
-  authConfig: unknown
+  authConfig: AuthConfig
 }
 
 const RESERVED_USER_FIELD_KEYS = ['authId', 'email', 'displayName', 'createdAt', 'updatedAt']
@@ -153,17 +173,6 @@ function buildTrustedOrigins(siteUrl: string): string[] {
  * ```
  */
 export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}) {
-  // Lazy-import @convex-dev/better-auth at call time so this file
-  // can be imported without the dependency being present (e.g. in tests).
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createClient } = require('@convex-dev/better-auth') as {
-    createClient: any
-  }
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { convex } = require('@convex-dev/better-auth/plugins') as {
-    convex: any
-  }
-
   const siteUrl = process.env.SITE_URL || 'http://localhost:3000'
   const trustedOrigins = buildTrustedOrigins(siteUrl)
   const staticJwks =
@@ -293,10 +302,6 @@ export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}
           database: authComponent.adapter(ctx),
         })
     : (ctx: any) => {
-        // Dynamic import of betterAuth for the default path
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { betterAuth } = require('better-auth') as { betterAuth: any }
-
         const authOptions: Record<string, unknown> = {
           baseURL: bridge.siteUrl,
           database: authComponent.adapter(ctx),
