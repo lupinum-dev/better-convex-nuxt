@@ -1,8 +1,9 @@
 import { defineArgs } from '@lupinum/trellis/args'
 /**
  * Why this file exists:
- * These args definitions are shared across Convex handlers and MCP tools.
+ * These runtime-neutral contracts are shared across Convex handlers and MCP tools.
  * The folder lives at `shared/` because both runtimes need to import the same plain data contracts.
+ * Browser forms and Nitro routes can keep hand-authored Zod edge validation in the same folder when needed.
  */
 import { v } from 'convex/values'
 

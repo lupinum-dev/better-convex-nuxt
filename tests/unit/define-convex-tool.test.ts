@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   serverConvexAction,
@@ -57,6 +58,93 @@ const scopedSchema = defineArgs({
 })
 
 let rateLimitStore: ToolRateLimiter
+
+describe('defineTool MCP input projection', () => {
+  it('projects ids, arrays, nested objects, and literal unions into JSON-schema-safe Zod', () => {
+    const schema = defineArgs({
+      description: 'Projected tool',
+      args: {
+        postId: v.id('posts'),
+        workspaceId: v.optional(v.id('workspaces')),
+        tagIds: v.array(v.id('tags')),
+        filters: v.object({
+          ownerId: v.id('users'),
+        }),
+        visibility: v.optional(v.union(v.literal('public'), v.literal('draft'))),
+      },
+      meta: {
+        postId: {
+          description: 'The post to load.',
+        },
+      },
+    })
+
+    const tool = defineTool({
+      schema,
+      name: 'projected-tool',
+      handler: async (args, ctx) => ctx.ok(args),
+    })
+
+    const inputShape = tool.inputSchema ?? {}
+    const inputSchema = z.object(inputShape)
+
+    expect(() => z.toJSONSchema(inputSchema)).not.toThrow()
+    expect(inputShape.postId?.description).toContain('Convex ID for "posts" table')
+    expect(inputShape.postId?.description).toContain('The post to load.')
+
+    expect(
+      inputSchema.safeParse({
+        postId: 'post_1',
+        tagIds: ['tag_1', 'tag_2'],
+        filters: { ownerId: 'user_1' },
+        visibility: 'public',
+      }).success,
+    ).toBe(true)
+
+    expect(
+      inputSchema.safeParse({
+        postId: 'post_1',
+        workspaceId: undefined,
+        tagIds: ['tag_1'],
+        filters: { ownerId: 'user_1' },
+      }).success,
+    ).toBe(true)
+  })
+
+  it('fails fast on unions containing ids', () => {
+    const schema = defineArgs({
+      description: 'Ambiguous tool',
+      args: {
+        target: v.union(v.id('posts'), v.string()),
+      },
+    })
+
+    expect(() =>
+      defineTool({
+        schema,
+        name: 'ambiguous-tool',
+        handler: async (args, ctx) => ctx.ok(args),
+      }),
+    ).toThrow(/v\.union\(\) containing v\.id\(\) at "target" cannot be projected/)
+  })
+
+  it('fails fast on unsupported validator kinds', () => {
+    const schema = defineArgs({
+      description: 'Unsupported tool',
+      args: {
+        count: v.int64(),
+      },
+    })
+
+    expect(() =>
+      defineTool({
+        schema,
+        name: 'unsupported-tool',
+        handler: async (args, ctx) => ctx.ok(args),
+      }),
+    ).toThrow(/validator kind "int64" at "count" is not supported/)
+  })
+})
 
 describe('defineTool visibility and auth parity', () => {
   beforeEach(() => {

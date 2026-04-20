@@ -1,6 +1,7 @@
 /**
  * Shared args definitions for the MCP reference example.
- * Convex handlers, Nuxt UI, and MCP tools all import these same business validators.
+ * These validators define the protected backend contract that MCP tools project from.
+ * Keep UI and HTTP-edge validation concerns in their own hand-authored edge schemas.
  */
 import { v } from 'convex/values'
 

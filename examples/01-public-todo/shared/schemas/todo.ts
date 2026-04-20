@@ -1,8 +1,8 @@
 import { defineArgs } from '@lupinum/trellis/args'
 /**
  * Why this file exists:
- * This args definition lives in `shared/` because both Convex code and Nuxt server code can import it.
- * Keeping it runtime-neutral makes it safe to reuse across those two build targets.
+ * This runtime-neutral contract lives in `shared/` because both Convex code and Nuxt server code can import it.
+ * Keep browser/Nitro-only Zod edge validation in this folder too, but avoid adding runtime-specific code here.
  */
 import { v } from 'convex/values'
 

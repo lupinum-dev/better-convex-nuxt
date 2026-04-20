@@ -568,7 +568,7 @@ pnpm dev
 - \`convex/domain/\` for app modules
 - \`convex/permissions/\` for permission projection
 - \`convex/operations/\` for workflow-style actions
-- \`shared/schemas/\` for shared value contracts
+- \`shared/schemas/\` for runtime-neutral contracts and edge schemas
 ${options.mcp ? '- \\`server/mcp/\\` for MCP runtime and tools' : ''}
 `.trimStart()
 }
