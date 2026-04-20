@@ -333,7 +333,7 @@ What exists:
 
 - destructive confirmation tokens are signed JWTs
 - tokens carry audience binding and expiry
-- payloads include operation id, execute path, preview path, principal key, tenant key, args hash, preview hash, and `jti`
+- payloads include operation id, execute path, preview path, principal key, tenant key, args hash, preview hash, optional preview-version hash, and `jti`
 
 Runtime:
 
@@ -345,6 +345,28 @@ Tests:
 
 - [tests/unit/mcp-confirmation-token.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/mcp-confirmation-token.test.ts)
 - [tests/e2e/mcp-smoke.e2e.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/e2e/mcp-smoke.e2e.test.ts)
+
+### Destructive preview drift binding
+
+Status: implemented
+
+What exists:
+
+- destructive previews can include an optional stable version token
+- confirmation tokens bind that version token when present
+- confirmation rejects execution when the preview version changes even if the human-facing summary still looks similar
+- runtime surfaces destructive-safety schema/index drift with a targeted misconfiguration error during execution
+
+Runtime:
+
+- [src/runtime/mcp/define-mcp-app.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/define-mcp-app.ts)
+- [src/runtime/functions/define-operation.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/functions/define-operation.ts)
+- [src/runtime/functions/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/functions/index.ts)
+
+Tests:
+
+- [tests/unit/define-convex-tool.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/define-convex-tool.test.ts)
+- [tests/unit/mcp-confirmation-token.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/mcp-confirmation-token.test.ts)
 
 ### Replay protection and audit trail for destructive execution
 
@@ -458,6 +480,7 @@ Status: implemented as primitives and example pattern
 What exists:
 
 - the framework exports field-redaction primitives
+- redaction includes a lightweight projector helper for explicit public return shaping
 - shipped examples demonstrate applying row visibility plus field redaction before returning data
 
 Runtime:
@@ -530,7 +553,8 @@ Status: implemented
 What exists:
 
 - shared constant-time webhook secret comparison helper
-- shipped examples use the helper instead of direct string comparison
+- shared webhook helper verifies signatures, centralizes body parsing/validation handoff, and supports optional idempotency hooks
+- shipped examples use the helper instead of open-coded signature checks
 
 Runtime:
 
@@ -556,14 +580,24 @@ Status: implemented as shipped example pattern
 
 What exists:
 
-- example routes validate request shape, verify a route-owned secret, and then forward a trusted service principal plus delegated user identity into business logic
+- shared `delegateToUser(...)` helper exists for represented-user forwarding on server paths
+- example routes validate request shape, verify a route-owned secret, and then forward a trusted service principal plus delegated user identity into business logic through the helper
 - example tests cover permission-equivalent delegated service flows
 
-Examples:
+Runtime and examples:
 
-- [examples/07-mcp-reference/server/api/runbook-webhook.post.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/api/runbook-webhook.post.ts)
-- [examples/07-mcp-reference/test/mcpReference.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/test/mcpReference.test.ts)
+- [src/runtime/server/delegation.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/delegation.ts)
+- [src/runtime/server/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/server/index.ts)
 - [examples/03-team-workspace/server/api/webhook.post.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/03-team-workspace/server/api/webhook.post.ts)
+- [examples/07-mcp-reference/server/api/runbook-webhook.post.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/api/runbook-webhook.post.ts)
+- [examples/07-mcp-reference/server/mcp/runtime.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/mcp/runtime.ts)
+- [examples/07-mcp-reference/test/mcpReference.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/test/mcpReference.test.ts)
+
+Tests:
+
+- [tests/unit/server-boundaries.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/server-boundaries.test.ts)
+- [examples/03-team-workspace/server/api/webhook.post.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/03-team-workspace/server/api/webhook.post.test.ts)
+- [examples/07-mcp-reference/server/api/runbook-webhook.post.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/api/runbook-webhook.post.test.ts)
 
 ## Open Work
 
@@ -572,11 +606,11 @@ These are still not fully solved and should remain explicitly tracked:
 - runtime backstop for tenant-scoped `.collect()` without an indexed tenant path
 - explicit dangerous-mode gating for `unsafe.*` and `escapeTenantIsolation(...)`
 - stronger structural enforcement that redaction is applied at public return boundaries
-- safer first-class delegation helpers for represented-user MCP flows
-- stronger destructive confirmation binding to canonical resource snapshots instead of developer-chosen preview summaries alone
-- runtime startup enforcement that destructive redemption schema and `by_jti` index are present
+- deeper app-specific delegation validation beyond the new shared helper
+- stronger destructive confirmation binding to canonical resource snapshots instead of the current optional version token / confirm payload combination
+- runtime startup enforcement that destructive redemption schema and `by_jti` index are present before the first execution path
 - full replay safety for external side effects performed outside the Convex transaction boundary
-- stronger framework-level webhook replay/idempotency helpers
+- richer framework-level webhook replay/idempotency helpers beyond the current optional hook
 
 ## Verification Commands
 
@@ -587,6 +621,7 @@ pnpm vitest run tests/server/ssr-cache.server.test.ts tests/server/server-helper
 pnpm --dir examples/03-team-workspace test
 pnpm --dir examples/04-saas-platform test
 pnpm --dir examples/07-mcp-reference test
-pnpm exec eslint src/runtime/auth/server/auth-resolver.ts src/runtime/auth/server/verified-jwt.ts src/runtime/mcp/define-convex-tool.ts src/runtime/mcp/define-mcp-app.ts src/runtime/mcp/index.ts src/runtime/mcp/result-envelope.ts src/runtime/mcp/use-mcp-session.ts src/runtime/server/index.ts src/runtime/server/webhooks.ts src/runtime/utils/redirect-safety.ts tests/server/server-helpers-auth.server.test.ts tests/server/ssr-cache.server.test.ts tests/support/auth/server-jwt.ts tests/unit/result-envelope.test.ts tests/unit/example-webhook-security.test.ts tests/unit/use-mcp-session.test.ts tests/unit/server-convex-utils.test.ts examples/03-team-workspace/server/api/webhook.post.ts examples/03-team-workspace/server/api/webhook.post.test.ts examples/04-saas-platform/server/api/webhook.post.ts examples/04-saas-platform/server/api/webhook.post.test.ts examples/07-mcp-reference/server/api/runbook-webhook.post.ts examples/07-mcp-reference/server/api/runbook-webhook.post.test.ts
+pnpm vitest run tests/unit/server-boundaries.test.ts tests/unit/visibility-primitives.test.ts tests/unit/mcp-confirmation-token.test.ts tests/unit/define-convex-tool.test.ts tests/unit/example-webhook-security.test.ts
+pnpm exec eslint src/runtime/server/delegation.ts src/runtime/server/webhooks.ts src/runtime/server/index.ts src/runtime/functions/define-operation.ts src/runtime/mcp/confirmation-token.ts src/runtime/mcp/types.ts src/runtime/mcp/define-mcp-app.ts src/runtime/functions/index.ts src/runtime/visibility/define-redaction.ts examples/03-team-workspace/server/api/webhook.post.ts examples/03-team-workspace/server/api/webhook.post.test.ts examples/04-saas-platform/server/api/webhook.post.ts examples/04-saas-platform/server/api/webhook.post.test.ts examples/05-visibility-access/convex/features/articles/redaction.ts examples/05-visibility-access/convex/features/articles/domain.ts examples/07-mcp-reference/server/api/runbook-webhook.post.ts examples/07-mcp-reference/server/api/runbook-webhook.post.test.ts examples/07-mcp-reference/server/mcp/runtime.ts tests/unit/server-boundaries.test.ts tests/unit/visibility-primitives.test.ts tests/unit/mcp-confirmation-token.test.ts tests/unit/define-convex-tool.test.ts tests/unit/example-webhook-security.test.ts
 pnpm exec tsc -p tsconfig.publish-surface.json --noEmit
 ```

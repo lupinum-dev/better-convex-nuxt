@@ -637,4 +637,75 @@ describe('Destructive confirmation payload validation', () => {
       },
     })
   })
+
+  it('rejects destructive confirmation when the preview version changes', async () => {
+    let previewVersion = 1
+
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: { label: 'open', check: () => true } as never,
+      preview: async () => ({
+        display: { summary: 'Delete post' },
+        confirm: { id: 'post-1' },
+        version: { rev: previewVersion },
+      }),
+      handler: async () => ({ ok: true }),
+    })
+    const preview = previewOf(operation)
+
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({
+          display: { summary: 'Delete post' },
+          confirm: { id: 'post-1' },
+          version: { rev: previewVersion },
+        }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    const tool = mcp.tool.fromOperation(operation, {
+      execute: operation as never,
+      preview: preview as never,
+    })
+
+    const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
+      structuredContent?: {
+        preview?: {
+          confirmationToken?: string
+        }
+      }
+    }
+
+    previewVersion = 2
+
+    const confirmed = await tool.handler(
+      {
+        id: 'post-1',
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+      } as never,
+      {} as never,
+    )
+
+    expect(confirmed).toMatchObject({
+      structuredContent: {
+        ok: false,
+        error: {
+          category: 'conflict',
+          message: expect.stringContaining('Preview version changed before confirmation'),
+        },
+      },
+    })
+  })
 })

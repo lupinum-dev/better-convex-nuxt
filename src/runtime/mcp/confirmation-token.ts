@@ -13,6 +13,7 @@ export type ToolConfirmationPayload = {
   tenantKey: string
   argsHash: string
   previewHash: string
+  versionHash?: string
 }
 
 function getConfirmationSecret(): Uint8Array {
@@ -53,5 +54,6 @@ export async function verifyConfirmationToken(token: string): Promise<ToolConfir
     tenantKey: String(payload.tenantKey),
     argsHash: String(payload.argsHash),
     previewHash: String(payload.previewHash),
+    ...(typeof payload.versionHash === 'string' ? { versionHash: payload.versionHash } : {}),
   }
 }

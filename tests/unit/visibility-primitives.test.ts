@@ -88,4 +88,32 @@ describe('visibility primitives', () => {
       },
     ])
   })
+
+  it('projects redacted values into explicit public return shapes', () => {
+    const redaction = defineRedaction<
+      { title: string; internalNotes?: string; salary?: number },
+      { role: string }
+    >({
+      rules: [
+        {
+          fields: ['internalNotes', 'salary'],
+          visibleTo: (actor) => actor.role === 'owner',
+        },
+      ],
+    })
+
+    const projected = redaction.project(
+      { role: 'member' },
+      { title: 'Offer', internalNotes: 'private', salary: 120000 },
+      (safeValue) => ({
+        title: safeValue.title,
+        hasSalary: 'salary' in safeValue,
+      }),
+    )
+
+    expect(projected).toEqual({
+      title: 'Offer',
+      hasSalary: false,
+    })
+  })
 })

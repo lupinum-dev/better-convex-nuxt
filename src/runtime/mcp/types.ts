@@ -73,6 +73,7 @@ export interface PreviewResult {
   affects?: Record<string, number>
   blocked?: boolean
   confirmationToken?: string
+  version?: ValidateSerializable<unknown>
 }
 
 // ============================================================================

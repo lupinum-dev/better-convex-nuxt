@@ -26,7 +26,7 @@ import { mutation, query } from '../../functions'
 import { getInheritedAccessLevel, requireArticleAccess } from './access'
 import { revokeShareTokenOp } from './operations'
 import { articleCreate, articleRead, shareCreate } from './permissions'
-import { redactArticle } from './redaction'
+import { projectArticle, redactArticle } from './redaction'
 import {
   createShareTokenValue,
   hashShareToken,
@@ -86,7 +86,10 @@ export const view = query({
       if (grant.articleId !== args.id) throw deny('Token does not match this article.')
       const article = await crossTenantDb.get(args.id)
       requireRecord(article, 'Article')
-      return { ...redactArticle(null, article), _access: grant.level }
+      return projectArticle(null, article, (safeArticle) => ({
+        ...safeArticle,
+        _access: grant.level,
+      }))
     }
 
     const actor = await getActor(ctx)
@@ -96,7 +99,10 @@ export const view = query({
     await requireArticleAccess(ctx.db, actor, article)
 
     const accessLevel = await getInheritedAccessLevel(ctx.db, actor, article._id)
-    return { ...redactArticle(actor, article), _access: accessLevel }
+    return projectArticle(actor, article, (safeArticle) => ({
+      ...safeArticle,
+      _access: accessLevel,
+    }))
   },
 })
 

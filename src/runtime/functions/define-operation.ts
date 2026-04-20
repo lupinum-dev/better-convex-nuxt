@@ -52,9 +52,11 @@ type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPrevie
 export type DestructiveOperationPreview<
   TDisplay = SerializableValue,
   TConfirm extends Record<string, unknown> = Record<string, SerializableValue>,
+  TVersion = SerializableValue,
 > = {
   display: ValidateSerializable<TDisplay>
   confirm: ValidateSerializable<TConfirm>
+  version?: ValidateSerializable<TVersion>
 }
 
 export type OperationDefinition<

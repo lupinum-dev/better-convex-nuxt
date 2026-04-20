@@ -1148,6 +1148,30 @@ function isDestructivePreviewPayload(
   )
 }
 
+function hashPreviewVersion(version: SerializableValue | undefined): string | null {
+  return version === undefined ? null : hash(version)
+}
+
+function toDestructiveSafetyError(
+  error: unknown,
+  operationId: string,
+  safety: { redemptionTable: string; auditTable: string },
+): Error {
+  if (!(error instanceof Error)) {
+    return new Error(String(error))
+  }
+
+  if (
+    /by_jti|missing.*index|does not exist|unknown table|unknown index|schema/i.test(error.message)
+  ) {
+    return new Error(
+      `Destructive safety for operation "${operationId}" is misconfigured. Ensure table "${safety.redemptionTable}" exists with a "jti" field and a "by_jti" index, and ensure audit table "${safety.auditTable}" exists before executing destructive operations.`,
+    )
+  }
+
+  return error
+}
+
 function createQueryCustomization<
   DataModel extends GenericDataModel,
   TPrincipal,
@@ -1586,10 +1610,15 @@ function buildStructuredMutationRuntime<
           insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
         }
 
-        const existingRedemption = await unsafeDb
-          .query(safety.redemptionTable)
-          .withIndex('by_jti', (q) => q.eq('jti', payload.jti))
-          .unique()
+        let existingRedemption
+        try {
+          existingRedemption = await unsafeDb
+            .query(safety.redemptionTable)
+            .withIndex('by_jti', (q) => q.eq('jti', payload.jti))
+            .unique()
+        } catch (error) {
+          throw toDestructiveSafetyError(error, metadata.id, safety)
+        }
 
         if (existingRedemption) {
           throw new Error('Confirmation token has already been redeemed.')
@@ -1662,6 +1691,26 @@ function buildStructuredMutationRuntime<
             'Previewed state changed before confirmation. Preview again before executing.',
           )
         }
+        if ((payload.versionHash ?? null) !== hashPreviewVersion(previewResult.version)) {
+          await ctx.observe({
+            name: 'operation.confirm.drifted',
+            status: 'deny',
+            operation: metadata.id,
+            reasonCode: 'tool.confirmation_mismatch',
+            details: {
+              cause: 'preview_version_mismatch',
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.confirmation_mismatch',
+                decision: 'destructive_confirm',
+                message: 'Preview version changed before confirmation completed.',
+                suggestedAction: 'retry_with_confirmation',
+              }),
+            },
+          })
+          throw new Error(
+            'Preview version changed before confirmation. Preview again before executing.',
+          )
+        }
         await ctx.observe({
           name: 'operation.confirm.validated',
           status: 'success',
@@ -1669,27 +1718,35 @@ function buildStructuredMutationRuntime<
         })
 
         const now = Date.now()
-        await unsafeDb.insert(safety.redemptionTable, {
-          jti: payload.jti,
-          operationId: payload.operationId,
-          principalKey: payload.principalKey,
-          tenantKey: payload.tenantKey,
-          redeemedAt: now,
-        })
+        try {
+          await unsafeDb.insert(safety.redemptionTable, {
+            jti: payload.jti,
+            operationId: payload.operationId,
+            principalKey: payload.principalKey,
+            tenantKey: payload.tenantKey,
+            redeemedAt: now,
+          })
+        } catch (error) {
+          throw toDestructiveSafetyError(error, metadata.id, safety)
+        }
 
         try {
           const result = await originalHandler(ctx, executeArgs, freshLoaded)
 
-          await unsafeDb.insert(safety.auditTable, {
-            operationId: payload.operationId,
-            jti: payload.jti,
-            principalKey: payload.principalKey,
-            tenantKey: payload.tenantKey,
-            argsHash,
-            previewHash,
-            executedAt: now,
-            executePath: payload.executePath,
-          })
+          try {
+            await unsafeDb.insert(safety.auditTable, {
+              operationId: payload.operationId,
+              jti: payload.jti,
+              principalKey: payload.principalKey,
+              tenantKey: payload.tenantKey,
+              argsHash,
+              previewHash,
+              executedAt: now,
+              executePath: payload.executePath,
+            })
+          } catch (error) {
+            throw toDestructiveSafetyError(error, metadata.id, safety)
+          }
 
           await ctx.observe({
             name: 'operation.execute.completed',

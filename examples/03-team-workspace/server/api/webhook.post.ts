@@ -8,7 +8,7 @@ import { createError, defineEventHandler, readBody } from 'h3'
 import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
 
-import { isWebhookSignatureValid, serverConvexMutation } from '#trellis/server'
+import { delegateToUser, readVerifiedWebhookBody, serverConvexMutation } from '#trellis/server'
 
 type WebhookBody = {
   workspaceId?: string
@@ -43,21 +43,23 @@ function getWebhookActorAuthId(): string {
 }
 
 export default defineEventHandler(async (event) => {
-  const signature = event.node.req.headers['x-example-signature']
-  if (!isWebhookSignatureValid(signature, getWebhookSecret())) {
-    throw createError({ statusCode: 401, message: 'Invalid signature' })
-  }
-
-  const body = await readBody<WebhookBody>(event)
-
-  if (!body.workspaceId || !body.eventId || !body.title) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Missing required fields: workspaceId, eventId, title',
-    })
-  }
-
   const authId = getWebhookActorAuthId()
+  const body = await readVerifiedWebhookBody({
+    signature: event.node.req.headers['x-example-signature'],
+    secret: getWebhookSecret(),
+    readBody: async () => await readBody<WebhookBody>(event),
+    parse: (value) => {
+      if (!value.workspaceId || !value.eventId || !value.title) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Missing required fields: workspaceId, eventId, title',
+        })
+      }
+
+      return value as Required<Pick<WebhookBody, 'workspaceId' | 'eventId' | 'title'>> &
+        WebhookBody
+    },
+  })
 
   const todoId = await serverConvexMutation(
     event,
@@ -76,10 +78,11 @@ export default defineEventHandler(async (event) => {
         serviceId: 'team-workspace-webhook',
         subject: subject.service('team-workspace-webhook'),
       },
-      delegation: {
-        subject: subject.user(authId),
+      delegation: await delegateToUser({
+        userId: authId,
+        allow: true,
         reason: 'verified workspace todo webhook',
-      },
+      }),
     },
   )
 

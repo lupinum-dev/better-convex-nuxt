@@ -18,3 +18,15 @@ export function redactArticle<T extends Record<string, unknown>>(
 ): T {
   return articleRedaction.apply(actor as Actor, article) as T
 }
+
+export function projectArticle<T extends Record<string, unknown>, TOutput>(
+  actor: Actor | null,
+  article: T,
+  projector: (article: T) => TOutput,
+): TOutput {
+  return articleRedaction.project(
+    actor as Actor,
+    article,
+    projector as (value: Record<string, unknown>) => TOutput,
+  )
+}

@@ -5,7 +5,7 @@
  */
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import { isWebhookSignatureValid, serverConvexMutation } from '#trellis/server'
+import { readVerifiedWebhookBody, serverConvexMutation } from '#trellis/server'
 
 import { internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -28,18 +28,21 @@ function getWebhookSecret(): string {
   return secret
 }
 export default defineEventHandler(async (event) => {
-  const signature = event.node.req.headers['x-example-signature']
-  if (!isWebhookSignatureValid(signature, getWebhookSecret())) {
-    throw createError({ statusCode: 401, message: 'Invalid signature' })
-  }
+  const body = await readVerifiedWebhookBody({
+    signature: event.node.req.headers['x-example-signature'],
+    secret: getWebhookSecret(),
+    readBody: async () => await readBody<WebhookBody>(event),
+    parse: (value) => {
+      if (!value.projectId || !value.title) {
+        throw createError({
+          statusCode: 400,
+          message: 'projectId and title are required.',
+        })
+      }
 
-  const body = await readBody<WebhookBody>(event)
-  if (!body.projectId || !body.title) {
-    throw createError({
-      statusCode: 400,
-      message: 'projectId and title are required.',
-    })
-  }
+      return value as Required<Pick<WebhookBody, 'projectId' | 'title'>> & WebhookBody
+    },
+  })
 
   const taskId = await serverConvexMutation(
     event,

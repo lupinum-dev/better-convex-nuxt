@@ -155,6 +155,10 @@ function assertProductionRateLimitStore(
   )
 }
 
+function hashPreviewVersion(version: SerializableValue | undefined): string | null {
+  return version === undefined ? null : hash(version)
+}
+
 export interface ToolOptions<
   S extends AnyConvexSchema,
   TPrincipal,
@@ -228,6 +232,7 @@ type AnyOperationDefinition = {
 type OperationPreviewPayload = {
   display: string | PreviewResult
   confirm: SerializableValue
+  version?: SerializableValue
 }
 
 type OperationProjectionId<TOperation extends AnyOperationDefinition> = Extract<
@@ -1082,6 +1087,7 @@ export function defineMcpApp<
 
             const display = normalizePreviewDisplay(previewResult.display)
             const previewHash = hash(previewResult.confirm)
+            const versionHash = hashPreviewVersion(previewResult.version)
             await projectionCtx.observe({
               name: 'operation.preview.completed',
               status: 'success',
@@ -1104,6 +1110,7 @@ export function defineMcpApp<
               tenantKey,
               argsHash,
               previewHash,
+              ...(versionHash ? { versionHash } : {}),
             })
 
             await projectionCtx.observe({
@@ -1236,6 +1243,37 @@ export function defineMcpApp<
             return ctx.error(
               'conflict',
               'Previewed state changed before confirmation. Preview again before executing.',
+              undefined,
+              explanation,
+            )
+          }
+
+          if ((payload.versionHash ?? null) !== hashPreviewVersion(previewResult.version)) {
+            await projectionCtx.observe({
+              name: 'operation.confirm.drifted',
+              status: 'deny',
+              transport: 'mcp',
+              operation: metadata.id,
+              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+              reasonCode: 'tool.confirmation_mismatch',
+              details: {
+                explanation: createDenialExplanation({
+                  reasonCode: 'tool.confirmation_mismatch',
+                  decision: 'destructive_confirm',
+                  message: 'Preview version changed before confirmation completed.',
+                  suggestedAction: 'retry_with_confirmation',
+                }),
+              },
+            })
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.confirmation_mismatch',
+              decision: 'destructive_confirm',
+              message: 'Preview version changed before confirmation completed.',
+              suggestedAction: 'retry_with_confirmation',
+            })
+            return ctx.error(
+              'conflict',
+              'Preview version changed before confirmation. Preview again before executing.',
               undefined,
               explanation,
             )

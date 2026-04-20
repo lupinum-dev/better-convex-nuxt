@@ -2,7 +2,7 @@ import { subject } from '@lupinum/trellis/auth'
 import { createError, defineEventHandler, readBody } from 'h3'
 
 import { api } from '#trellis/api'
-import { isWebhookSignatureValid, serverConvexMutation } from '#trellis/server'
+import { delegateToUser, readVerifiedWebhookBody, serverConvexMutation } from '#trellis/server'
 
 type WebhookBody = {
   title?: string
@@ -61,20 +61,22 @@ function normalizeTags(value: WebhookBody['tags']): string[] {
 }
 
 export default defineEventHandler(async (event) => {
-  const signature = event.node.req.headers['x-example-signature']
-  if (!isWebhookSignatureValid(signature, getWebhookSecret())) {
-    throw createError({ statusCode: 401, message: 'Invalid signature' })
-  }
-
-  const body = await readBody<WebhookBody>(event)
-  if (!body.title?.trim()) {
-    throw createError({
-      statusCode: 400,
-      message: 'title is required.',
-    })
-  }
-
   const authId = getWebhookActorAuthId()
+  const body = await readVerifiedWebhookBody({
+    signature: event.node.req.headers['x-example-signature'],
+    secret: getWebhookSecret(),
+    readBody: async () => await readBody<WebhookBody>(event),
+    parse: (value) => {
+      if (!value.title?.trim()) {
+        throw createError({
+          statusCode: 400,
+          message: 'title is required.',
+        })
+      }
+
+      return value
+    },
+  })
 
   // The webhook is the real caller, but it is allowed to act for one bound
   // workspace user so the app can authorize the mutation as that user.
@@ -99,10 +101,11 @@ export default defineEventHandler(async (event) => {
         serviceId: 'runbook-webhook',
         subject: subject.service('runbook-webhook'),
       },
-      delegation: {
-        subject: subject.user(authId),
+      delegation: await delegateToUser({
+        userId: authId,
+        allow: true,
         reason: 'verified runbook webhook',
-      },
+      }),
     },
   )
 

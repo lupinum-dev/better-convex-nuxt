@@ -12,6 +12,14 @@ export type Redaction<TActor, TValue> = {
     (actor: TActor, value: TValue): TValue
     (actor: TActor, value: TValue[]): TValue[]
   }
+  project: {
+    <TOutput>(actor: TActor, value: TValue, projector: (value: TValue) => TOutput): TOutput
+    <TOutput>(
+      actor: TActor,
+      value: TValue[],
+      projector: (value: TValue) => TOutput,
+    ): TOutput[]
+  }
 }
 
 function redactOne<TActor, TValue extends Record<string, unknown>>(
@@ -44,9 +52,33 @@ export function defineRedaction<TValue extends Record<string, unknown>, TActor>(
     return redactOne(actor, value, options.rules)
   }
 
+  function project<TOutput>(
+    actor: TActor,
+    value: TValue,
+    projector: (value: TValue) => TOutput,
+  ): TOutput
+  function project<TOutput>(
+    actor: TActor,
+    value: TValue[],
+    projector: (value: TValue) => TOutput,
+  ): TOutput[]
+  function project<TOutput>(
+    actor: TActor,
+    value: TValue | TValue[],
+    projector: (value: TValue) => TOutput,
+  ) {
+    const redacted = apply(actor, value)
+    if (Array.isArray(redacted)) {
+      return redacted.map((entry) => projector(entry))
+    }
+
+    return projector(redacted)
+  }
+
   return {
     _type: 'redaction',
     rules: options.rules,
     apply,
+    project,
   }
 }

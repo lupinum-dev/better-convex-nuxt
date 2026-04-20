@@ -15,8 +15,23 @@ vi.mock('h3', () => ({
 }))
 
 vi.mock('#trellis/server', () => ({
-  isWebhookSignatureValid: (provided: string | string[] | undefined, expected: string) =>
-    provided === expected,
+  readVerifiedWebhookBody: async ({
+    signature,
+    secret,
+    readBody,
+    parse,
+  }: {
+    signature: string | string[] | undefined
+    secret: string
+    readBody: () => Promise<unknown>
+    parse?: (body: unknown) => unknown | Promise<unknown>
+  }) => {
+    if (signature !== secret) {
+      throw createErrorMock({ statusCode: 401, message: 'Invalid signature' })
+    }
+    const body = await readBody()
+    return parse ? await parse(body) : body
+  },
   serverConvexMutation: serverConvexMutationMock,
 }))
 

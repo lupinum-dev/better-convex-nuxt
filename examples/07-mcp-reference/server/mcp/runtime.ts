@@ -4,7 +4,7 @@ import type { H3Event } from 'h3'
 import { api } from '#trellis/api'
 import { subject } from '#trellis/auth'
 import { defineMcpApp } from '#trellis/mcp'
-import { createServerConvexCaller } from '#trellis/server'
+import { createServerConvexCaller, delegateToUser } from '#trellis/server'
 import type { McpReferencePrincipal } from '~/convex/auth/principal'
 import type { McpReferencePermissionKey } from '~/convex/features'
 import { mcpManage as mcpManagePermission } from '~/convex/features/mcpKeys/permissions'
@@ -38,13 +38,14 @@ function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   }
 }
 
-function getMcpDelegation(event: H3Event): Delegation | null {
+async function getMcpDelegation(event: H3Event): Promise<Delegation | null> {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.userId) return null
 
-  return {
-    subject: subject.user(auth.userId),
-  }
+  return await delegateToUser({
+    userId: auth.userId,
+    allow: true,
+  })
 }
 
 export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot, Delegation>({

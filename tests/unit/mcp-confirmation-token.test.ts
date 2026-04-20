@@ -19,6 +19,7 @@ describe('mcp confirmation token', () => {
       tenantKey: 'workspace:abc',
       argsHash: 'args_hash',
       previewHash: 'preview_hash',
+      versionHash: 'version_hash',
     })
 
     await expect(verifyConfirmationToken(token)).resolves.toMatchObject({
@@ -26,6 +27,7 @@ describe('mcp confirmation token', () => {
       operationId: 'boards.archive',
       executePath: 'boards:archiveBoard',
       previewPath: 'boards:previewArchiveBoard',
+      versionHash: 'version_hash',
     })
   })
 })
