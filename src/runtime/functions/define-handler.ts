@@ -110,6 +110,34 @@ type AuthorizeConfig<
   ) => MaybePromise<AnyCheck<ActorForGuard<TActor, TGuard>>>
 }
 
+type AuthorizeLoadedFactory<
+  TCtx,
+  TPrincipal,
+  TDelegation,
+  TActor,
+  TGuard,
+  TArgsValidator extends PropertyValidators,
+  TLoaded,
+> = (
+  loaded: TLoaded,
+  args: HandlerArgs<TArgsValidator>,
+  ctx: NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>,
+) => MaybePromise<AnyCheck<ActorForGuard<TActor, TGuard>>>
+
+type AuthorizeShorthand<
+  TCtx,
+  TPrincipal,
+  TDelegation,
+  TActor,
+  TGuard,
+  TArgsValidator extends PropertyValidators,
+  TLoaded,
+> =
+  | Guard<ActorForGuard<TActor, TGuard>>
+  | boolean
+  | AuthorizeLoadedFactory<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
+  | AuthorizeConfig<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>['check']
+
 type HandlerDefinition<
   TCtx,
   TPrincipal,
@@ -124,15 +152,9 @@ type HandlerDefinition<
   returns?: GenericValidator
   guard: TGuard
   load?: LoadFn<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
-  authorize?: AuthorizeConfig<
-    TCtx,
-    TPrincipal,
-    TDelegation,
-    TActor,
-    TGuard,
-    TArgsValidator,
-    TLoaded
-  >
+  authorize?:
+    | AuthorizeConfig<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
+    | AuthorizeShorthand<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
   handler: Callback<
     [
       NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>,
@@ -243,6 +265,70 @@ function getObserve(ctx: object): RuntimeContext<unknown, unknown, unknown>['obs
   return 'observe' in ctx && typeof (ctx as { observe?: unknown }).observe === 'function'
     ? (ctx as { observe: RuntimeContext<unknown, unknown, unknown>['observe'] }).observe
     : undefined
+}
+
+function normalizeAuthorize<
+  TCtx,
+  TPrincipal,
+  TDelegation,
+  TActor,
+  TGuard,
+  TArgsValidator extends PropertyValidators,
+  TLoaded,
+>(
+  authorize:
+    | HandlerDefinition<
+        TCtx,
+        TPrincipal,
+        TDelegation,
+        TActor,
+        TGuard extends StructuredGuard<TPrincipal, TActor> ? TGuard : never,
+        TArgsValidator,
+        TLoaded,
+        unknown
+      >['authorize']
+    | undefined,
+):
+  | AuthorizeConfig<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
+  | undefined {
+  if (!authorize) return undefined
+
+  if (typeof authorize === 'boolean' || isGuard(authorize)) {
+    return {
+      check: async () => authorize,
+    }
+  }
+
+  if (typeof authorize === 'function') {
+    if (authorize.length <= 1) {
+      const factory = authorize as AuthorizeLoadedFactory<
+        TCtx,
+        TPrincipal,
+        TDelegation,
+        TActor,
+        TGuard,
+        TArgsValidator,
+        TLoaded
+      >
+      return {
+        check: async (_actor, loaded, args, ctx) => await factory(loaded, args, ctx),
+      }
+    }
+
+    return {
+      check: authorize as AuthorizeConfig<
+        TCtx,
+        TPrincipal,
+        TDelegation,
+        TActor,
+        TGuard,
+        TArgsValidator,
+        TLoaded
+      >['check'],
+    }
+  }
+
+  return authorize
 }
 
 function describePrincipalState(principal: unknown): string {
@@ -384,8 +470,10 @@ function createStructuredBuilder<
           definition.load ? await definition.load(handlerCtx, args) : undefined
         ) as TLoaded
 
-        if (definition.authorize) {
-          const authorization = await definition.authorize.check(
+        const authorize = normalizeAuthorize(definition.authorize)
+
+        if (authorize) {
+          const authorization = await authorize.check(
             await handlerCtx.actor(),
             loaded,
             args,
@@ -399,18 +487,15 @@ function createStructuredBuilder<
             details: allowed
               ? undefined
               : {
-                  label: getAuthorizationLabel(
-                    authorization,
-                    definition.authorize.label ?? 'Access denied',
-                  ),
+                  label: getAuthorizationLabel(authorization, authorize.label ?? 'Access denied'),
                   explanation: createDenialExplanation({
                     reasonCode: 'authorize.denied',
                     decision: 'authorize',
                     message: getAuthorizationLabel(
                       authorization,
-                      definition.authorize.label ?? 'Access denied',
+                      authorize.label ?? 'Access denied',
                     ),
-                    policy: definition.authorize.label ?? 'Access denied',
+                    policy: authorize.label ?? 'Access denied',
                     suggestedAction: 'grant_capability',
                   }),
                 },
@@ -419,7 +504,7 @@ function createStructuredBuilder<
           if (!allowed) {
             deny(
               `Forbidden: ${formatGuardFailure(
-                getAuthorizationLabel(authorization, definition.authorize.label ?? 'Access denied'),
+                getAuthorizationLabel(authorization, authorize.label ?? 'Access denied'),
                 await handlerCtx.principal(),
                 await handlerCtx.actor(),
               )}`,

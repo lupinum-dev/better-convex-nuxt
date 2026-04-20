@@ -20,9 +20,11 @@ vi.mock('#trellis/server', () => ({
 
 vi.mock('#trellis/api', () => ({
   api: {
-    domain: {
+    features: {
       runbooks: {
-        create: { _path: 'domain/runbooks:create' },
+        domain: {
+          create: { _path: 'features/runbooks/domain:create' },
+        },
       },
     },
   },
@@ -68,7 +70,7 @@ describe('example 07 webhook handler', () => {
         node: expect.any(Object),
       }),
       expect.objectContaining({
-        _path: 'domain/runbooks:create',
+        _path: 'features/runbooks/domain:create',
       }),
       {
         title: 'Webhook runbook',

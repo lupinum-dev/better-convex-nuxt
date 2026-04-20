@@ -28,11 +28,11 @@ You already understand the canonical protected workspace model from
 
 ## Files to read first
 
-1. `convex/components/miniCms/pages.ts`
-2. `convex/operations/miniCmsBridge.ts`
-3. `convex/domain/pages.ts`
+1. `convex/components/miniCms/features/pages/domain.ts`
+2. `convex/components/miniCms/features/pages/operations.ts`
+3. `convex/features/pages/{bridge,domain}.ts`
 4. `server/lib/mcp-runtime.ts`
-5. `pages/studio.vue`
+5. `app/features/pages/components/MiniCmsStudioPage.vue`
 
 ## Demo flow
 

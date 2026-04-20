@@ -1,7 +1,7 @@
 import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { mutation, query } from '../functions'
+import { mutation, query } from '../../functions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 

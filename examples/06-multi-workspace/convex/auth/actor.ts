@@ -1,17 +1,18 @@
-import { getAuth } from '@lupinum/trellis/auth'
 /**
  * Why this file differs from the default tenant-scoped pattern:
  * Agency access resolves authority from `memberships`, not from the user row. The user row only
  * stores the current workspace selection, while `role` comes from the matching membership.
  */
+import { getAuth } from '@lupinum/trellis/auth'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { DataModel, Doc, Id } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
+import type { MembershipRole } from '../features/memberships'
 
 export type Actor = {
   kind: 'user'
   userId: string
-  role: Doc<'memberships'>['role']
+  role: MembershipRole
   tenantId: Id<'workspaces'>
 }
 

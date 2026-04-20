@@ -5,13 +5,20 @@ import {
   authConfigTemplate,
   authTsTemplate,
   cmsChecksTemplate,
+  cmsFeaturesIndexTemplate,
   cmsPagesTemplate,
+  cmsPagesFeatureTemplate,
+  cmsPagesIndexTemplate,
+  cmsPagesSchemaTemplate,
   cmsPermissionQueryTemplate,
   cmsPermissionsTemplate,
   cmsPublicPageTemplate,
   cmsSchemaTemplate,
   cmsSlugPageTemplate,
   cmsStudioPageTemplate,
+  cmsUsersFeatureTemplate,
+  cmsUsersIndexTemplate,
+  cmsUsersSchemaTemplate,
   convexConfigTemplate,
   httpTemplate,
   mcpCreateTodoToolTemplate,
@@ -25,31 +32,49 @@ import {
   personalChecksTemplate,
   personalFunctionsTemplate,
   personalPageTemplate,
-  personalPermissionQueryTemplate,
-  personalPermissionsTemplate,
   personalSchemaTemplate,
   personalTodosTemplate,
-  sharedPageSchemaTemplate,
-  sharedTodoSchemaTemplate,
+  personalTodosIndexTemplate,
+  personalTodosSchemaTemplate,
+  personalUsersIndexTemplate,
+  personalUsersSchemaTemplate,
+  publicFunctionsTemplate,
+  publicPageTemplate,
+  publicSchemaTemplate,
+  publicTodosIndexTemplate,
+  publicTodosSchemaTemplate,
+  publicTodosTemplate,
+  routeShellTemplate,
   testSetupTemplate,
   todoContractTemplate,
   uploadsDomainTemplate,
   uploadsPageTemplate,
   workspaceActorTemplate,
   workspaceChecksTemplate,
+  workspaceFeaturesIndexTemplate,
   workspaceFunctionsAppTemplate,
   workspaceFunctionsTemplate,
-  workspaceOnboardingTemplate,
   workspacePageTemplate,
   workspacePermissionQueryTemplate,
-  workspacePermissionsTemplate,
   workspacePrincipalTemplate,
   workspaceSchemaTemplate,
+  workspaceTodosFeatureTemplate,
+  workspaceTodosIndexTemplate,
+  workspaceTodosPermissionsTemplate,
+  workspaceTodosSchemaTemplate,
   workspaceTodosTemplate,
+  workspaceUsersFeatureTemplate,
+  workspaceUsersIndexTemplate,
+  workspaceUsersSchemaTemplate,
+  workspaceWorkspacesContractTemplate,
+  workspaceWorkspacesDomainTemplate,
+  workspaceWorkspacesFeatureTemplate,
+  workspaceWorkspacesIndexTemplate,
+  workspaceWorkspacesSchemaTemplate,
 } from './init-templates.js'
 import { buildResourceTemplateSet } from './resource.js'
 
-export type AppTemplate = 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
+export type AppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
 
 export interface TemplateFile {
   path: string
@@ -64,8 +89,8 @@ export interface InitTemplateSet {
   afterWrite?: (cwd: string) => Promise<void>
 }
 
-export type CanonicalAppTemplate = 'personal' | 'workspace' | 'cms'
-export type AddFeature = 'mcp' | 'uploads' | 'operation' | 'resource'
+export type CanonicalAppTemplate = 'public' | 'personal' | 'workspace' | 'cms'
+export type AddFeature = 'mcp' | 'uploads' | 'operation' | 'entity'
 
 function buildAuthTemplateSet(): InitTemplateSet {
   return {
@@ -87,8 +112,8 @@ function buildAuthTemplateSet(): InitTemplateSet {
 
 function buildPersonalPermissionsTemplateSet(): InitTemplateSet {
   return {
-    label: 'permissions:personal',
-    description: 'Scaffold app-owned personal actor and permission context files',
+    label: 'auth:personal',
+    description: 'Scaffold app-owned personal actor and guard files',
     files: [
       { path: 'convex/auth/actor.ts', content: personalActorTemplate(), ownership: 'authored' },
       {
@@ -97,18 +122,8 @@ function buildPersonalPermissionsTemplateSet(): InitTemplateSet {
         ownership: 'authored',
       },
       {
-        path: 'convex/auth/checks.ts',
+        path: 'convex/auth/guards.ts',
         content: personalChecksTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/auth/permissions.ts',
-        content: personalPermissionsTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/permissions/context.ts',
-        content: personalPermissionQueryTemplate(),
         ownership: 'authored',
       },
     ],
@@ -133,13 +148,8 @@ function buildWorkspacePermissionsTemplateSet(
         ownership: 'authored',
       },
       {
-        path: 'convex/auth/checks.ts',
+        path: 'convex/auth/guards.ts',
         content: workspaceChecksTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/auth/permissions.ts',
-        content: workspacePermissionsTemplate(),
         ownership: 'authored',
       },
       {
@@ -150,6 +160,11 @@ function buildWorkspacePermissionsTemplateSet(
       {
         path: 'convex/permissions/context.ts',
         content: workspacePermissionQueryTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/index.ts',
+        content: workspaceFeaturesIndexTemplate(),
         ownership: 'authored',
       },
     ],
@@ -191,6 +206,63 @@ function mergeTemplateSets(...sets: InitTemplateSet[]): TemplateFile[] {
 }
 
 function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
+  if (template === 'public') {
+    return {
+      label: 'app:public',
+      description: 'Bootstrap a public Trellis app inside the current workspace',
+      files: [
+        {
+          path: 'nuxt.config.ts',
+          content: nuxtConfigTemplate({ authEnabled: false }),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/functions.ts',
+          content: publicFunctionsTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/schema.ts',
+          content: publicSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/todos/schema.ts',
+          content: publicTodosSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/todos/domain.ts',
+          content: publicTodosTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/todos/index.ts',
+          content: publicTodosIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'shared/features/todos/contract.ts',
+          content: todoContractTemplate('public'),
+          ownership: 'authored',
+        },
+        {
+          path: 'app/features/public/components/PublicStarterPage.vue',
+          content: publicPageTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/index.vue',
+          content: routeShellTemplate({
+            importPath: '~~/app/features/public/components/PublicStarterPage.vue',
+            componentName: 'PublicStarterPage',
+          }),
+          ownership: 'authored',
+        },
+      ],
+    }
+  }
+
   if (template === 'personal') {
     return {
       label: 'app:personal',
@@ -201,9 +273,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
       ).concat([
         {
           path: 'nuxt.config.ts',
-          content: nuxtConfigTemplate({
-            permissionsQuery: 'permissions/context.getPermissionContext',
-          }),
+          content: nuxtConfigTemplate({}),
           ownership: 'authored',
         },
         {
@@ -212,23 +282,46 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'convex/domain/todos.ts',
+          path: 'convex/features/todos/schema.ts',
+          content: personalTodosSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/todos/domain.ts',
           content: personalTodosTemplate(),
           ownership: 'authored',
         },
         {
-          path: 'convex/domain/todo.contract.ts',
+          path: 'convex/features/todos/index.ts',
+          content: personalTodosIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/users/schema.ts',
+          content: personalUsersSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/users/index.ts',
+          content: personalUsersIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'shared/features/todos/contract.ts',
           content: todoContractTemplate('personal'),
           ownership: 'authored',
         },
         {
-          path: 'shared/schemas/todo.ts',
-          content: sharedTodoSchemaTemplate('personal'),
+          path: 'app/features/personal/components/PersonalStarterPage.vue',
+          content: personalPageTemplate(),
           ownership: 'authored',
         },
         {
           path: 'pages/index.vue',
-          content: personalPageTemplate(),
+          content: routeShellTemplate({
+            importPath: '~~/app/features/personal/components/PersonalStarterPage.vue',
+            componentName: 'PersonalStarterPage',
+          }),
           ownership: 'authored',
         },
       ]),
@@ -261,28 +354,86 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'convex/operations/onboarding.ts',
-          content: workspaceOnboardingTemplate(),
+          path: 'convex/features/todos/schema.ts',
+          content: workspaceTodosSchemaTemplate(),
           ownership: 'authored',
         },
         {
-          path: 'convex/domain/todos.ts',
+          path: 'convex/features/todos/permissions.ts',
+          content: workspaceTodosPermissionsTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/todos/domain.ts',
           content: workspaceTodosTemplate(),
           ownership: 'authored',
         },
         {
-          path: 'convex/domain/todo.contract.ts',
+          path: 'convex/features/todos/feature.ts',
+          content: workspaceTodosFeatureTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/todos/index.ts',
+          content: workspaceTodosIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'shared/features/todos/contract.ts',
           content: todoContractTemplate('workspace'),
           ownership: 'authored',
         },
         {
-          path: 'shared/schemas/todo.ts',
-          content: sharedTodoSchemaTemplate('workspace'),
+          path: 'shared/features/workspaces/contract.ts',
+          content: workspaceWorkspacesContractTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/users/schema.ts',
+          content: workspaceUsersSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/users/feature.ts',
+          content: workspaceUsersFeatureTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/users/index.ts',
+          content: workspaceUsersIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/workspaces/schema.ts',
+          content: workspaceWorkspacesSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/workspaces/domain.ts',
+          content: workspaceWorkspacesDomainTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/workspaces/feature.ts',
+          content: workspaceWorkspacesFeatureTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/workspaces/index.ts',
+          content: workspaceWorkspacesIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'app/features/workspace/components/WorkspaceStarterPage.vue',
+          content: workspacePageTemplate({ title: 'Workspace Starter', mcp: false }),
           ownership: 'authored',
         },
         {
           path: 'pages/index.vue',
-          content: workspacePageTemplate({ title: 'Workspace Starter', mcp: false }),
+          content: routeShellTemplate({
+            importPath: '~~/app/features/workspace/components/WorkspaceStarterPage.vue',
+            componentName: 'WorkspaceStarterPage',
+          }),
           ownership: 'authored',
         },
       ]),
@@ -305,13 +456,8 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'convex/auth/checks.ts',
+          path: 'convex/auth/guards.ts',
           content: cmsChecksTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/auth/permissions.ts',
-          content: cmsPermissionsTemplate(),
           ownership: 'authored',
         },
         {
@@ -332,33 +478,92 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'convex/domain/pages.ts',
+          path: 'convex/features/index.ts',
+          content: cmsFeaturesIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/pages/schema.ts',
+          content: cmsPagesSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/pages/permissions.ts',
+          content: cmsPermissionsTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/pages/domain.ts',
           content: cmsPagesTemplate(),
           ownership: 'authored',
         },
         {
-          path: 'convex/domain/page.contract.ts',
+          path: 'convex/features/pages/feature.ts',
+          content: cmsPagesFeatureTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/pages/index.ts',
+          content: cmsPagesIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/users/schema.ts',
+          content: cmsUsersSchemaTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/users/feature.ts',
+          content: cmsUsersFeatureTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/features/users/index.ts',
+          content: cmsUsersIndexTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'shared/features/pages/contract.ts',
           content: pageContractTemplate(),
           ownership: 'authored',
         },
         {
-          path: 'shared/schemas/page.ts',
-          content: sharedPageSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'pages/index.vue',
+          path: 'app/features/cms/components/CmsHomePage.vue',
           content: cmsPublicPageTemplate(),
           ownership: 'authored',
         },
         {
-          path: 'pages/studio.vue',
+          path: 'app/features/cms/components/CmsPublishedPage.vue',
+          content: cmsSlugPageTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'app/features/cms/components/CmsStudioPage.vue',
           content: cmsStudioPageTemplate(),
           ownership: 'authored',
         },
         {
+          path: 'pages/index.vue',
+          content: routeShellTemplate({
+            importPath: '~~/app/features/cms/components/CmsHomePage.vue',
+            componentName: 'CmsHomePage',
+          }),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/studio.vue',
+          content: routeShellTemplate({
+            importPath: '~~/app/features/cms/components/CmsStudioPage.vue',
+            componentName: 'CmsStudioPage',
+          }),
+          ownership: 'authored',
+        },
+        {
           path: 'pages/[slug].vue',
-          content: cmsSlugPageTemplate(),
+          content: routeShellTemplate({
+            importPath: '~~/app/features/cms/components/CmsPublishedPage.vue',
+            componentName: 'CmsPublishedPage',
+          }),
           ownership: 'authored',
         },
       ]),
@@ -392,28 +597,78 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         ownership: 'authored',
       },
       {
-        path: 'convex/operations/onboarding.ts',
-        content: workspaceOnboardingTemplate(),
+        path: 'convex/features/todos/schema.ts',
+        content: workspaceTodosSchemaTemplate(),
         ownership: 'authored',
       },
       {
-        path: 'convex/domain/todos.ts',
+        path: 'convex/features/todos/permissions.ts',
+        content: workspaceTodosPermissionsTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/todos/domain.ts',
         content: workspaceTodosTemplate(),
         ownership: 'authored',
       },
       {
-        path: 'convex/domain/todo.contract.ts',
+        path: 'convex/features/todos/feature.ts',
+        content: workspaceTodosFeatureTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/todos/index.ts',
+        content: workspaceTodosIndexTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'shared/features/todos/contract.ts',
         content: todoContractTemplate('workspace'),
         ownership: 'authored',
       },
       {
-        path: 'convex/domain/mcpKeys.ts',
-        content: mcpKeysTemplate(),
+        path: 'shared/features/workspaces/contract.ts',
+        content: workspaceWorkspacesContractTemplate(),
         ownership: 'authored',
       },
       {
-        path: 'shared/schemas/todo.ts',
-        content: sharedTodoSchemaTemplate('workspace'),
+        path: 'convex/features/users/schema.ts',
+        content: workspaceUsersSchemaTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/users/feature.ts',
+        content: workspaceUsersFeatureTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/users/index.ts',
+        content: workspaceUsersIndexTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/workspaces/schema.ts',
+        content: workspaceWorkspacesSchemaTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/workspaces/domain.ts',
+        content: workspaceWorkspacesDomainTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/workspaces/feature.ts',
+        content: workspaceWorkspacesFeatureTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/workspaces/index.ts',
+        content: workspaceWorkspacesIndexTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/features/mcpKeys/domain.ts',
+        content: mcpKeysTemplate(),
         ownership: 'authored',
       },
       {
@@ -432,8 +687,16 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         ownership: 'authored',
       },
       {
-        path: 'pages/index.vue',
+        path: 'app/features/workspace/components/WorkspaceStarterPage.vue',
         content: workspacePageTemplate({ title: 'Workspace MCP Starter', mcp: true }),
+        ownership: 'authored',
+      },
+      {
+        path: 'pages/index.vue',
+        content: routeShellTemplate({
+          importPath: '~~/app/features/workspace/components/WorkspaceStarterPage.vue',
+          componentName: 'WorkspaceStarterPage',
+        }),
         ownership: 'authored',
       },
     ]),
@@ -514,13 +777,15 @@ function appPackageTemplate(options: {
   mcp: boolean
 }) {
   const dependencies = [
-    ['@convex-dev/better-auth', '^0.11.4'],
     ['@lupinum/trellis', 'workspace:*'],
-    ['better-auth', '^1.5.6'],
     ['convex', '^1.34.1'],
     ['nuxt', '^4.4.2'],
-    ['zod', '^4.3.6'],
   ]
+
+  if (options.template !== 'public') {
+    dependencies.unshift(['better-auth', '^1.5.6'])
+    dependencies.unshift(['@convex-dev/better-auth', '^0.11.4'])
+  }
 
   if (options.mcp) {
     dependencies.splice(2, 0, ['@nuxtjs/mcp-toolkit', '^0.13.4'])
@@ -552,12 +817,13 @@ function appPackageTemplate(options: {
 }
 
 function envExampleTemplate(options: { template: CanonicalAppTemplate; mcp: boolean }) {
-  const lines = [
-    'CONVEX_URL=https://your-app.convex.cloud',
-    'CONVEX_SITE_URL=https://your-app.convex.site',
-    'SITE_URL=http://localhost:3000',
-    'BETTER_AUTH_SECRET=replace-me',
-  ]
+  const lines = ['CONVEX_URL=https://your-app.convex.cloud']
+
+  if (options.template !== 'public') {
+    lines.push('CONVEX_SITE_URL=https://your-app.convex.site')
+    lines.push('SITE_URL=http://localhost:3000')
+    lines.push('BETTER_AUTH_SECRET=replace-me')
+  }
 
   if (options.mcp) {
     lines.push('CONVEX_TRUSTED_FORWARDING_KEY=replace-me')
@@ -587,11 +853,11 @@ pnpm dev
 
 ## Canonical shape
 
-- \`convex/auth/\` for actor and guard logic
-- \`convex/domain/\` for app modules
-- \`convex/permissions/\` for permission projection
-- \`convex/operations/\` for workflow-style actions
-- \`shared/schemas/\` for browser/Nitro edge schemas and DTOs
+- \`convex/features/\` for backend feature modules
+- \`shared/features/\` for runtime-neutral contracts
+- \`convex/auth/\` for actor and guard logic${options.template === 'public' ? ' (not used in the public starter)' : ''}
+- \`convex/permissions/\` for permission projection when the starter uses permission context
+- \`app/features/\` for feature-owned UI and route shells
 ${options.mcp ? '- \\`server/mcp/\\` for MCP runtime and tools' : ''}
 `.trimStart()
 }
@@ -648,17 +914,9 @@ function appScaffoldTemplateSet(options: {
     })
   }
 
-  if (options.template !== 'workspace') {
-    files.push({
-      path: 'convex/operations/.gitkeep',
-      content: '',
-      ownership: 'generated',
-    })
-  }
-
   return {
     label: `scaffold:${options.template}`,
-    description: 'Scaffold app-root package and canonical empty lanes',
+    description: 'Scaffold app-root package and canonical shell + features layout',
     files,
   }
 }
@@ -870,7 +1128,7 @@ export async function getAddTemplateSet(options: {
           ownership: 'authored',
         },
         {
-          path: 'convex/domain/mcpKeys.ts',
+          path: 'convex/features/mcpKeys/domain.ts',
           content: mcpKeysTemplate(),
           ownership: 'authored',
         },
@@ -899,22 +1157,30 @@ export async function getAddTemplateSet(options: {
       description: 'Add a canonical upload URL seam and starter page',
       files: [
         {
-          path: 'convex/domain/files.ts',
+          path: 'convex/features/files/domain.ts',
           content: uploadsDomainTemplate(),
           ownership: 'authored',
         },
         {
-          path: 'pages/uploads.vue',
+          path: 'app/features/uploads/components/UploadsStarterPage.vue',
           content: uploadsPageTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'pages/uploads.vue',
+          content: routeShellTemplate({
+            importPath: '~~/app/features/uploads/components/UploadsStarterPage.vue',
+            componentName: 'UploadsStarterPage',
+          }),
           ownership: 'authored',
         },
       ],
     }
   }
 
-  if (options.feature === 'resource') {
+  if (options.feature === 'entity') {
     if (!options.name) {
-      throw new Error('`trellis add resource <name>` requires a resource name.')
+      throw new Error('`trellis add entity <name>` requires an entity name.')
     }
 
     return await buildResourceTemplateSet(options.cwd, options.name)

@@ -76,17 +76,19 @@ describe('observability', () => {
     )
 
     await emitter.emit({
-      name: 'db.raw.used',
+      name: 'db.escape_tenant_isolation.used',
       status: 'success',
       details: {
         token: 'secret',
         table: 'posts',
+        reason: 'seed data',
       },
     })
 
     expect(capture.events).toHaveLength(1)
     expect(capture.events[0]?.correlationId).toBe('corr_test')
     expect(capture.events[0]?.details).toEqual({
+      reason: 'seed data',
       token: '[redacted]',
       table: 'posts',
     })
@@ -106,7 +108,7 @@ describe('observability', () => {
     )
 
     await emitter.emit({
-      name: 'db.raw.used',
+      name: 'db.escape_tenant_isolation.used',
       status: 'success',
     })
     await emitter.child({ transport: 'mcp' }).emit({
@@ -167,7 +169,7 @@ describe('observability', () => {
 
     await expect(
       emitter.emit({
-        name: 'db.raw.used',
+        name: 'db.escape_tenant_isolation.used',
         status: 'success',
       }),
     ).resolves.toBeUndefined()
@@ -186,7 +188,7 @@ describe('observability', () => {
 
     await expect(
       emitter.emit({
-        name: 'db.raw.used',
+        name: 'db.escape_tenant_isolation.used',
         status: 'success',
       }),
     ).resolves.toBeUndefined()

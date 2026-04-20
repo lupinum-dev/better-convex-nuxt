@@ -1,50 +1,5 @@
-import { literals } from 'convex-helpers/validators'
-import { defineSchema, defineTable } from 'convex/server'
-import { v } from 'convex/values'
+import { defineSchema } from 'convex/server'
 
-export const membershipRoleValidator = literals(
-  'owner',
-  'member',
-  'viewer',
-  'agency_admin',
-  'agency_manager',
-)
+import { schema } from './features'
 
-export default defineSchema({
-  workspaces: defineTable({
-    name: v.string(),
-    slug: v.string(),
-    ownerId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index('by_slug', ['slug']),
-
-  users: defineTable({
-    authId: v.string(),
-    email: v.optional(v.string()),
-    displayName: v.optional(v.string()),
-    workspaceId: v.optional(v.id('workspaces')),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index('by_auth_id', ['authId'])
-    .index('by_email', ['email']),
-
-  memberships: defineTable({
-    userId: v.string(),
-    workspaceId: v.id('workspaces'),
-    role: membershipRoleValidator,
-    createdAt: v.number(),
-  })
-    .index('by_user', ['userId'])
-    .index('by_user_workspace', ['userId', 'workspaceId'])
-    .index('by_workspace', ['workspaceId']),
-
-  projects: defineTable({
-    workspaceId: v.id('workspaces'),
-    name: v.string(),
-    status: literals('active', 'paused'),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index('by_workspace', ['workspaceId']),
-})
+export default defineSchema(schema)

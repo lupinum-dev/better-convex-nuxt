@@ -33,11 +33,11 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((cwd) => rm(cwd, { recursive: true, force: true })))
 })
 
-describe('trellis add resource', () => {
+describe('trellis add entity', () => {
   it('scaffolds a personal resource slice and patches the schema + permission context', async () => {
     const cwd = await scaffoldApp('personal')
     const template = await getAddTemplateSet({
-      feature: 'resource',
+      feature: 'entity',
       cwd,
       name: 'project',
       appName: 'demo-app',
@@ -45,30 +45,27 @@ describe('trellis add resource', () => {
 
     await applyInitTemplateSet(cwd, template, false)
 
-    await expect(readFile(resolve(cwd, 'shared/schemas/project.ts'), 'utf8')).resolves.toContain(
-      'export const createProjectInputSchema = z.object',
+    await expect(
+      readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
+    ).resolves.toContain('export const createProject = defineArgs')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain('export const update = mutation({')
+    await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
+      "import { projectsTables } from './features/projects'",
     )
     await expect(
-      readFile(resolve(cwd, 'convex/domain/project.contract.ts'), 'utf8'),
-    ).resolves.toContain('export const createProject = defineArgs')
-    await expect(readFile(resolve(cwd, 'convex/domain/project.ts'), 'utf8')).resolves.toContain(
-      'export const update = mutation({',
-    )
-    await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
-      'projects: defineTable({',
-    )
-    await expect(readFile(resolve(cwd, 'convex/auth/permissions.ts'), 'utf8')).resolves.toContain(
-      '...projectPermissions,',
-    )
-    await expect(readFile(resolve(cwd, 'convex/auth/permissions.ts'), 'utf8')).resolves.toContain(
-      'check: isAuthenticated',
-    )
+      readFile(resolve(cwd, 'convex/features/projects/permissions.ts'), 'utf8'),
+    ).resolves.toContain('export const projectReadPermission = definePermission')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/permissions.ts'), 'utf8'),
+    ).resolves.toContain('check: isAuthenticated')
   })
 
   it('scaffolds a workspace resource slice that follows tenant conventions', async () => {
     const cwd = await scaffoldApp('workspace')
     const template = await getAddTemplateSet({
-      feature: 'resource',
+      feature: 'entity',
       cwd,
       name: 'project',
       appName: 'demo-app',
@@ -77,26 +74,29 @@ describe('trellis add resource', () => {
     await applyInitTemplateSet(cwd, template, false)
 
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
-      "workspaceId: v.id('workspaces')",
-    )
-    await expect(readFile(resolve(cwd, 'convex/domain/project.ts'), 'utf8')).resolves.toContain(
-      ".withIndex('by_workspace'",
-    )
-    await expect(readFile(resolve(cwd, 'convex/auth/permissions.ts'), 'utf8')).resolves.toContain(
-      "check: hasWorkspace.and(hasMinimumRole('member'))",
-    )
-    await expect(readFile(resolve(cwd, 'convex/project.test.ts'), 'utf8')).resolves.toContain(
-      'seedTenant',
+      "import { projectsTables } from './features/projects'",
     )
     await expect(
-      readFile(resolve(cwd, 'convex/domain/project.contract.ts'), 'utf8'),
+      readFile(resolve(cwd, 'convex/features/projects/schema.ts'), 'utf8'),
+    ).resolves.toContain("workspaceId: v.id('workspaces')")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
+    ).resolves.toContain(".withIndex('by_workspace'")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/permissions.ts'), 'utf8'),
+    ).resolves.toContain("check: hasWorkspace.and(hasMinimumRole('member'))")
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
+    ).resolves.toContain('seedTenant')
+    await expect(
+      readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
     ).resolves.toContain("id: v.id('projects')")
   })
 
   it('adds MCP-facing resource files and runtime capabilities when MCP is enabled', async () => {
     const cwd = await scaffoldApp('workspace', true)
     const template = await getAddTemplateSet({
-      feature: 'resource',
+      feature: 'entity',
       cwd,
       name: 'project',
       appName: 'demo-app',
@@ -104,15 +104,15 @@ describe('trellis add resource', () => {
 
     await applyInitTemplateSet(cwd, template, false)
 
-    await expect(readFile(resolve(cwd, 'convex/operations/project.ts'), 'utf8')).resolves.toContain(
-      'removeProjectOp',
-    )
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/operations.ts'), 'utf8'),
+    ).resolves.toContain('removeProjectOp')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).resolves.toContain('permission: projectDeletePermission')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
-    ).resolves.toContain("~/convex/domain/project.contract")
+    ).resolves.toContain('~~/shared/features/projects/contract')
     await expect(readFile(resolve(cwd, 'server/mcp/runtime.ts'), 'utf8')).resolves.toContain(
       'api.permissions.context.getPermissionContext',
     )
@@ -120,8 +120,19 @@ describe('trellis add resource', () => {
 
   it('scaffolds a cms resource slice with the existing author convention', async () => {
     const cwd = await scaffoldApp('cms')
+
+    await expect(
+      readFile(resolve(cwd, 'convex/features/pages/domain.ts'), 'utf8'),
+    ).resolves.toContain('export const listPublished = query({')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/pages/permissions.ts'), 'utf8'),
+    ).resolves.toContain('export const pageCreate = definePermission')
+    await expect(
+      readFile(resolve(cwd, 'app/features/cms/components/CmsStudioPage.vue'), 'utf8'),
+    ).resolves.toContain('api.features.pages.domain.create')
+
     const template = await getAddTemplateSet({
-      feature: 'resource',
+      feature: 'entity',
       cwd,
       name: 'entry',
       appName: 'demo-app',
@@ -130,10 +141,13 @@ describe('trellis add resource', () => {
     await applyInitTemplateSet(cwd, template, false)
 
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
-      'authorId: v.string()',
+      "import { pagesTables } from './features/pages/schema'",
     )
-    await expect(readFile(resolve(cwd, 'convex/domain/entry.ts'), 'utf8')).resolves.toContain(
-      'loaded.authorId === actor.userId',
-    )
+    await expect(
+      readFile(resolve(cwd, 'convex/features/entries/domain.ts'), 'utf8'),
+    ).resolves.toContain('loaded.authorId === actor.userId')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/entries/schema.ts'), 'utf8'),
+    ).resolves.toContain('authorId: v.string()')
   })
 })

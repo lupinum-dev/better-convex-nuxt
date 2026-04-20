@@ -79,7 +79,7 @@ export default defineEventHandler(async (event) => {
   // workspace user so the app can authorize the mutation as that user.
   const runbookId = await serverConvexMutation(
     event,
-    api.domain.runbooks.create,
+    api.features.runbooks.domain.create,
     {
       title: body.title.trim(),
       summary: body.summary?.trim() || 'Created by the verified webhook example.',

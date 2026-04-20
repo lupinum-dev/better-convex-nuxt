@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
   clearTrustedForwardingContext,
@@ -11,10 +11,20 @@ import {
   withTrustedForwarding,
 } from '../../src/runtime/trusted-forwarding'
 
+const originalNodeEnv = process.env.NODE_ENV
+
 describe('trusted forwarding helpers', () => {
   beforeEach(() => {
     delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
     clearTrustedForwardingContext({})
+  })
+
+  afterEach(() => {
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV
+    } else {
+      process.env.NODE_ENV = originalNodeEnv
+    }
   })
 
   it('widens runtime validators while keeping the public arg surface stable', () => {
@@ -112,6 +122,34 @@ describe('trusted forwarding helpers', () => {
         },
       }),
     ).toThrow(/Trusted forwarding auth is not configured/i)
+  })
+
+  it('rejects short trusted forwarding keys in production', () => {
+    process.env.NODE_ENV = 'production'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'short-prod-key'
+
+    expect(() =>
+      getTrustedForwarding({
+        _trustedForwardingKey: 'short-prod-key',
+        _trustedForwarding: {
+          principalSubject: 'user:u_prod',
+        },
+      }),
+    ).toThrow(/at least 32 characters/i)
+  })
+
+  it('rejects placeholder trusted forwarding keys in production', () => {
+    process.env.NODE_ENV = 'production'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'replace-me-with-a-long-random-shared-secret'
+
+    expect(() =>
+      getTrustedForwarding({
+        _trustedForwardingKey: 'replace-me-with-a-long-random-shared-secret',
+        _trustedForwarding: {
+          principalSubject: 'user:u_prod',
+        },
+      }),
+    ).toThrow(/development or placeholder value/i)
   })
 
   it('verifies trusted forwarding keys', () => {

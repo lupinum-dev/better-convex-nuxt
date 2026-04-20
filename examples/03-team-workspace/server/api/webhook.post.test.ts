@@ -20,10 +20,14 @@ vi.mock('#trellis/server', () => ({
 }))
 
 vi.mock('~/convex/_generated/api', () => ({
-  internal: {
-    domain: {
-      webhooks: {
-        processTodoSyncWebhook: { _path: 'internal/domain/webhooks:processTodoSyncWebhook' },
+  api: {
+    features: {
+      todos: {
+        webhooks: {
+          processTodoSyncWebhookMutation: {
+            _path: 'features/todos/webhooks:processTodoSyncWebhookMutation',
+          },
+        },
       },
     },
   },
@@ -47,9 +51,10 @@ describe('example 03 webhook handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.TEAM_WORKSPACE_WEBHOOK_SECRET = 'team-workspace-demo'
+    process.env.TEAM_WORKSPACE_WEBHOOK_AUTH_ID = 'webhook-user'
   })
 
-  it('verifies the route secret and dispatches to the internal webhook mutation', async () => {
+  it('verifies the route secret and dispatches to the protected webhook mutation', async () => {
     readBodyMock.mockResolvedValue({
       workspaceId: 'workspace_123',
       eventId: 'evt_123',
@@ -70,7 +75,7 @@ describe('example 03 webhook handler', () => {
         node: expect.any(Object),
       }),
       expect.objectContaining({
-        _path: 'internal/domain/webhooks:processTodoSyncWebhook',
+        _path: 'features/todos/webhooks:processTodoSyncWebhookMutation',
       }),
       {
         workspaceId: 'workspace_123',
@@ -79,7 +84,18 @@ describe('example 03 webhook handler', () => {
         completed: true,
         externalId: 'ext_123',
       },
-      { auth: 'none' },
+      {
+        auth: 'trusted',
+        principal: {
+          kind: 'service',
+          serviceId: 'team-workspace-webhook',
+          subject: 'service:team-workspace-webhook',
+        },
+        delegation: {
+          subject: 'user:webhook-user',
+          reason: 'verified workspace todo webhook',
+        },
+      },
     )
   })
 
@@ -106,6 +122,20 @@ describe('example 03 webhook handler', () => {
     await expect(handler(createEvent() as never)).rejects.toMatchObject({
       statusCode: 500,
       message: 'TEAM_WORKSPACE_WEBHOOK_SECRET is required for the webhook example.',
+    })
+  })
+
+  it('fails closed when the delegated webhook actor is not configured', async () => {
+    delete process.env.TEAM_WORKSPACE_WEBHOOK_AUTH_ID
+    readBodyMock.mockResolvedValue({
+      workspaceId: 'workspace_123',
+      eventId: 'evt_123',
+      title: 'Webhook todo',
+    })
+
+    await expect(handler(createEvent() as never)).rejects.toMatchObject({
+      statusCode: 500,
+      message: 'TEAM_WORKSPACE_WEBHOOK_AUTH_ID is required for the webhook example.',
     })
   })
 

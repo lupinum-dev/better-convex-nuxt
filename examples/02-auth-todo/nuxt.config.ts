@@ -22,8 +22,6 @@ export default defineNuxtConfig({
 
   trellis: {
     url: process.env.CONVEX_URL,
-    auth: {
-      enabled: true,
-    },
+    auth: {},
   },
 })

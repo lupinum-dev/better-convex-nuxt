@@ -1,4 +1,5 @@
-import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
+import { getAuth, getSubjectValue, type DefaultActor } from '@lupinum/trellis/auth'
+import type { Delegation } from '@lupinum/trellis/functions'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
@@ -36,18 +37,33 @@ async function loadActorByAuthId(ctx: TeamTodoCtx, authId: string): Promise<Acto
   }
 }
 
+function getDelegatedUserId(delegation: Delegation | null): string | null {
+  return getSubjectValue(delegation?.subject, 'user')
+}
+
+function getUserIdFromPrincipal(principal: TeamTodoPrincipal): string | null {
+  if (principal.kind === 'user' || principal.kind === 'agent') {
+    return principal.userId
+  }
+
+  return null
+}
+
 export async function getActorFromPrincipal(
   ctx: TeamTodoCtx,
   _args: Record<string, unknown>,
   principal: TeamTodoPrincipal,
+  delegation: Delegation | null,
 ): Promise<Actor | null> {
-  switch (principal.kind) {
-    case 'anonymous':
-      return null
-    case 'agent':
-    case 'user':
-      return await loadActorByAuthId(ctx, principal.userId)
+  const delegatedUserId = getDelegatedUserId(delegation)
+  if (delegatedUserId) {
+    return await loadActorByAuthId(ctx, delegatedUserId)
   }
+
+  const directUserId = getUserIdFromPrincipal(principal)
+  if (!directUserId) return null
+
+  return await loadActorByAuthId(ctx, directUserId)
 }
 
 export async function getActor(ctx: TeamTodoCtx): Promise<Actor | null> {

@@ -13,6 +13,7 @@ and no tenant model yet.
 - app-owned actor resolution
 - signed-in / signed-out UI states
 - personal ownership checks in handlers
+- RFC v2 feature layout with `shared/features/*`, `convex/features/*`, and `app/features/*`
 - Trellis-backed handlers without workspace or role complexity
 
 ## What this example assumes
@@ -23,9 +24,9 @@ You understand the public data flow from [`01-public-todo`](../01-public-todo/RE
 
 1. `convex/auth.ts`
 2. `convex/auth/actor.ts`
-3. `convex/permissions/resources.ts`
-4. `convex/domain/todos.ts`
-5. `pages/index.vue`
+3. `shared/features/todos/contract.ts`
+4. `convex/features/todos/domain.ts`
+5. `app/features/auth-todo/components/AuthTodoPage.vue`
 
 ## Demo flow
 

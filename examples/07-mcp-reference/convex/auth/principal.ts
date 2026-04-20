@@ -4,14 +4,14 @@ import { getForwardedPrincipal } from '@lupinum/trellis/trusted-forwarding'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
-import type { DataModel, Doc } from '../_generated/dataModel'
+import type { DataModel } from '../_generated/dataModel'
 
 type PrincipalCtx =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
-export type Role = Doc<'users'>['role']
+export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
 export type McpReferencePrincipal =
   | { kind: 'anonymous'; subject: 'system:anonymous' }

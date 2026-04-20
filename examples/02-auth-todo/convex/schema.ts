@@ -1,24 +1,13 @@
 /**
  * Why this file exists:
- * The auth example needs one table for application users and one for user-owned todos.
- * There is still no organization table because this example demonstrates auth only, not tenancy.
+ * Convex requires one root schema file, even though the feature modules own the table definitions.
  */
-import { defineSchema, defineTable } from 'convex/server'
-import { v } from 'convex/values'
+import { defineSchema } from 'convex/server'
+
+import { todosTables } from './features/todos'
+import { userTables } from './features/users'
 
 export default defineSchema({
-  users: defineTable({
-    authId: v.string(),
-    email: v.optional(v.string()),
-    displayName: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index('by_auth_id', ['authId']),
-
-  todos: defineTable({
-    ownerId: v.string(),
-    title: v.string(),
-    completed: v.boolean(),
-    createdAt: v.number(),
-  }).index('by_owner', ['ownerId']),
+  ...userTables,
+  ...todosTables,
 })

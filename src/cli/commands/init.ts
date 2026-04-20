@@ -13,7 +13,7 @@ function assertAppName(value: string | undefined): string {
   const appName = value?.trim()
   if (!appName) {
     throw new Error(
-      'Missing app name. Use `trellis init <name> --template personal|workspace|cms`.',
+      'Missing app name. Use `trellis init <name> --template public|personal|workspace|cms`.',
     )
   }
 
@@ -40,7 +40,7 @@ export const initCommand = defineCommand({
     template: {
       type: 'string',
       required: true,
-      description: 'App template. One of: personal, workspace, cms',
+      description: 'App template. One of: public, personal, workspace, cms',
     },
     mcp: {
       type: 'boolean',
@@ -63,8 +63,13 @@ export const initCommand = defineCommand({
     const template = String(args.template)
     const mcp = Boolean(args.mcp)
 
-    if (template !== 'personal' && template !== 'workspace' && template !== 'cms') {
-      throw new Error('Invalid template. Use one of: personal, workspace, cms.')
+    if (
+      template !== 'public' &&
+      template !== 'personal' &&
+      template !== 'workspace' &&
+      template !== 'cms'
+    ) {
+      throw new Error('Invalid template. Use one of: public, personal, workspace, cms.')
     }
 
     if (mcp && template !== 'workspace') {

@@ -98,7 +98,7 @@ async function resolveDefaultUser<DataModel extends GenericDataModel>(
       code: 'NOT_FOUND' as const,
       message: [
         `Expected a Trellis users row for auth subject "${auth.subject}", but none was found.`,
-        'If the auth wiring is already correct, ensure auth:createUserIfNeeded has run for this user.',
+        'Ensure your Trellis auth bridge exports authComponent.triggersApi() and the built-in auth bootstrap is enabled.',
       ].join(' '),
     })
   }

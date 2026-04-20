@@ -151,10 +151,7 @@ function convexToMcpZodValidator(value: unknown, path: string): ZodTypeAny {
         return withOptional(projected[0]!, cv)
       }
 
-      return withOptional(
-        z.union([projected[0]!, projected[1]!, ...projected.slice(2)]),
-        cv,
-      )
+      return withOptional(z.union([projected[0]!, projected[1]!, ...projected.slice(2)]), cv)
     }
     default:
       unsupported(
@@ -167,6 +164,9 @@ function convexToMcpZodValidator(value: unknown, path: string): ZodTypeAny {
 
 export function convexToMcpZodFields<V extends PropertyValidators>(validators: V): ZodRawShape {
   return Object.fromEntries(
-    Object.entries(validators).map(([key, validator]) => [key, convexToMcpZodValidator(validator, key)]),
+    Object.entries(validators).map(([key, validator]) => [
+      key,
+      convexToMcpZodValidator(validator, key),
+    ]),
   )
 }

@@ -6,11 +6,11 @@
  *
  * - `ctx.db`              — default; RLS + tenantIsolation enforced. Writes
  *                           and reads for other tenants are blocked.
- * - `ctx.db.crossTenant`  — bypasses tenant isolation only. Service rules
+ * - `ctx.db.escapeTenantIsolation({ reason })`
+ *                         — bypasses tenant isolation only. Service rules
  *                           and triggers still apply. Must emit
- *                           `db.cross_tenant.used` on use.
- * - `ctx.db.raw`          — full escape hatch. No RLS, no service scope,
- *                           no triggers. Must emit `db.raw.used` on use.
+ *                           `db.escape_tenant_isolation.used` on use.
+ * - `unsafe.query(...)`   — full escape hatch. No protected handler pipeline.
  *
  * The `posts` table in this harness is configured to participate in
  * tenant isolation via `organizationId` (see ./functions.ts). Tests in
@@ -22,7 +22,7 @@ import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Actor } from './auth/actor'
-import { query } from './functions'
+import { query, unsafe } from './functions'
 
 const authed = defineGuard<Actor>('Authenticated', (actor) => !!actor)
 
@@ -33,7 +33,7 @@ const getPostArgs = defineArgs({
 })
 
 /**
- * Read a post across tenants using the explicit `ctx.db.crossTenant` seam.
+ * Read a post across tenants using the explicit tenant-isolation escape seam.
  *
  * In contrast to `posts.get`, this handler does not manually check
  * `actor.tenantId === post.organizationId`. The runtime's cross-tenant
@@ -43,28 +43,33 @@ export const getAnyPost = query({
   args: getPostArgs.args,
   guard: authed,
   handler: async (ctx, args) => {
-    return await ctx.db.crossTenant.get(args.id)
+    return await ctx.db
+      .escapeTenantIsolation({ reason: 'Harness cross-tenant post lookup.' })
+      .get(args.id)
   },
 })
 
 /**
- * List all posts across all tenants using `ctx.db.crossTenant`.
+ * List all posts across all tenants using `ctx.db.escapeTenantIsolation({ reason })`.
  */
 export const listAllPosts = query({
   args: {},
   guard: authed,
   handler: async (ctx) => {
-    return await ctx.db.crossTenant.query('posts').collect()
+    return await ctx.db
+      .escapeTenantIsolation({ reason: 'Harness cross-tenant post listing.' })
+      .query('posts')
+      .collect()
   },
 })
 
 /**
- * Read a post using the full `ctx.db.raw` escape hatch.
+ * Read a post using the full builder-level `unsafe.query(...)` escape hatch.
  */
-export const getAnyPostRaw = query({
+export const getAnyPostRaw = unsafe.query({
+  bypass: 'Harness full-bypass post lookup.',
   args: getPostArgs.args,
-  guard: authed,
   handler: async (ctx, args) => {
-    return await ctx.db.raw.get(args.id)
+    return await ctx.db.get(args.id)
   },
 })

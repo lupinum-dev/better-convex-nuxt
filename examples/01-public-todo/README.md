@@ -9,9 +9,10 @@ before auth, tenants, permissions, or server integrations show up.
 
 ## What it teaches
 
-- minimal Trellis setup
-- one backend contract plus one edge schema
-- one query + one mutation-driven page flow
+- minimal Trellis setup in the RFC v2 layout
+- runtime-neutral contracts under `shared/features/*`
+- Convex business code under `convex/features/*`
+- one live query plus mutation-driven page flow
 - public data only, with no auth or tenant model
 
 ## What this example assumes
@@ -20,10 +21,10 @@ Nothing. This is the start of the gallery.
 
 ## Files to read first
 
-1. `shared/schemas/todo.ts`
-2. `convex/functions.ts`
-3. `convex/domain/todos.ts`
-4. `pages/index.vue`
+1. `convex/functions.ts`
+2. `shared/features/todos/contract.ts`
+3. `convex/features/todos/domain.ts`
+4. `app/features/public-todo/components/PublicTodoPage.vue`
 
 ## Demo flow
 

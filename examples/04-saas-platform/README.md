@@ -16,6 +16,8 @@ boundary.
 - uploads and attachment authorization
 - nested resource guards in a still-familiar workspace app
 
+Canonical v1 server-to-server identity in Trellis is trusted forwarding plus optional delegation. This example keeps one narrow verified-route-to-internal-mutation boundary so the board and upload flows stay readable; see `examples/07-mcp-reference` for the full trusted-forwarding + delegation shape.
+
 It is no longer the “big month-two SaaS showcase.” Its job is to show how protected server surfaces
 fit into the canonical workspace model.
 
@@ -26,11 +28,12 @@ You already understand the canonical protected app from
 
 ## Files to read first
 
-1. `convex/domain/tasks.ts`
-2. `pages/projects/[id].vue`
-3. `server/api/webhook.post.ts`
-4. `server/api/export.get.ts`
-5. `convex/projectBoard.test.ts`
+1. `convex/features/index.ts`
+2. `convex/features/tasks/domain.ts`
+3. `app/features/project-board/components/ProjectBoardPage.vue`
+4. `server/api/webhook.post.ts`
+5. `server/api/export.get.ts`
+6. `convex/projectBoard.test.ts`
 
 ## Demo flow
 

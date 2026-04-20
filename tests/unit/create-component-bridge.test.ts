@@ -17,9 +17,16 @@ vi.mock('convex-helpers/server/customFunctions', () => ({
   customMutation: customMutationMock,
 }))
 
+const originalNodeEnv = process.env.NODE_ENV
+
 describe('createComponentBridge', () => {
   afterEach(() => {
     delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV
+    } else {
+      process.env.NODE_ENV = originalNodeEnv
+    }
     vi.resetModules()
     vi.clearAllMocks()
   })
@@ -277,6 +284,69 @@ describe('createComponentBridge', () => {
         { slug: 'docs' },
       ),
     ).rejects.toThrow(/CONVEX_TRUSTED_FORWARDING_KEY/)
+  })
+
+  it('rejects weak trusted forwarding keys in production', async () => {
+    process.env.NODE_ENV = 'production'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({
+            kind: v.literal('service'),
+            serviceId: v.string(),
+            subject: v.string(),
+          }),
+          resolve: async (_ctx, args) =>
+            (args as { principal?: { kind: 'service'; serviceId: string; subject: string } })
+              .principal!,
+        }),
+      },
+    )
+
+    const registered = bridge.internalQuery({
+      component: 'component.query' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<unknown> } }>
+      }
+      definition: {
+        handler: (
+          ctx: {
+            principal: () => Promise<unknown>
+            runQuery: (component: string, args: unknown) => Promise<unknown>
+          },
+          args: { slug: string },
+        ) => Promise<unknown>
+      }
+    }
+
+    const customized = await registered.customization.input(
+      { runQuery: vi.fn() },
+      { principal: { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } },
+    )
+
+    await expect(
+      registered.definition.handler(
+        {
+          ...customized.ctx,
+          runQuery: vi.fn(),
+        },
+        { slug: 'docs' },
+      ),
+    ).rejects.toThrow(/at least 32 characters/i)
   })
 
   it('rejects non-canonical forwarded principal subjects on internal bridge paths', async () => {

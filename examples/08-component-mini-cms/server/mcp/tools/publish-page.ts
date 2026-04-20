@@ -1,11 +1,11 @@
-import { previewPublishPage, publishPage, publishPageOp } from '~/convex/components/miniCms/pages'
-import { tool } from '~/server/lib/mcp-runtime'
-
-import { publishPagePermission } from '../../../convex/auth/permissions'
+import { publishPageOp } from '../../../convex/components/miniCms/features/pages/operations'
+import { publish, previewPublish } from '../../../convex/features/pages/domain'
+import { publishPagePermission } from '../../../convex/features/pages/permissions'
+import { tool } from '../../lib/mcp-runtime'
 
 export default tool.fromOperation(publishPageOp, {
-  execute: publishPage,
-  preview: previewPublishPage,
+  execute: publish,
+  preview: previewPublish,
   permission: publishPagePermission,
   group: 'pages',
   meta: {

@@ -8,22 +8,10 @@ import { beforeAll, describe, expect, it } from 'vitest'
 
 const repoRoot = process.cwd()
 const cliEntry = resolve(repoRoot, 'dist/cli.mjs')
-const canonicalPaths = [
-  'convex/auth.ts',
-  'convex/auth.config.ts',
-  'convex/convex.config.ts',
-  'convex/functions.ts',
-  'convex/http.ts',
-  'convex/schema.ts',
-  'convex/auth',
-  'convex/domain',
-  'convex/operations',
-  'convex/permissions',
-  'shared/schemas',
-  'pages',
-  'server/api',
-  'server/mcp',
-] as const
+type CanonicalLayoutOptions = {
+  auth: boolean
+  permissions: boolean
+}
 
 function runCli(args: string[], cwd: string) {
   return spawnSync(process.execPath, [cliEntry, ...args], {
@@ -44,7 +32,28 @@ function read(path: string): string {
   return readFileSync(path, 'utf8')
 }
 
-function expectCanonicalLayout(appRoot: string) {
+function expectCanonicalLayout(appRoot: string, options: CanonicalLayoutOptions) {
+  const canonicalPaths = [
+    'convex/functions.ts',
+    'convex/schema.ts',
+    'convex/features',
+    'shared/features',
+    'app/features',
+    'pages',
+    'server/api',
+    'server/mcp',
+    ...(options.auth
+      ? [
+          'convex/auth.ts',
+          'convex/auth.config.ts',
+          'convex/convex.config.ts',
+          'convex/http.ts',
+          'convex/auth',
+        ]
+      : []),
+    ...(options.permissions ? ['convex/permissions'] : []),
+  ]
+
   for (const relativePath of canonicalPaths) {
     expect(existsSync(resolve(appRoot, relativePath)), relativePath).toBe(true)
   }
@@ -59,6 +68,13 @@ function writeDoctorEnv(appRoot: string) {
       'SITE_URL=http://localhost:3000',
       'BETTER_AUTH_SECRET=test-secret',
     ].join('\n'),
+  )
+}
+
+function appendDoctorEnv(appRoot: string, lines: string[]) {
+  writeFileSync(
+    resolve(appRoot, '.env.local'),
+    `${read(resolve(appRoot, '.env.local'))}\n${lines.join('\n')}\n`,
   )
 }
 
@@ -90,6 +106,21 @@ describe('CLI doctor', () => {
     expect(output).toContain('USAGE')
   })
 
+  it('initializes a public app without auth or permission-context wiring', () => {
+    const cwd = createTempDir('trellis-init-public-')
+    const result = runCli(['init', 'demo-public', '--template', 'public', '--cwd', cwd], repoRoot)
+    const appRoot = resolve(cwd, 'demo-public')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expectCanonicalLayout(appRoot, { auth: false, permissions: false })
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain('auth: false')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).not.toContain('permissions:')
+    expect(existsSync(resolve(appRoot, 'convex/auth.ts'))).toBe(false)
+    expect(existsSync(resolve(appRoot, 'convex/permissions'))).toBe(false)
+    expect(existsSync(resolve(appRoot, 'shared/features/todos/contract.ts'))).toBe(true)
+    expect(existsSync(resolve(appRoot, 'shared/schemas'))).toBe(false)
+  })
+
   it('initializes a personal app in a named target directory with the canonical layout', () => {
     const cwd = createTempDir('trellis-init-personal-')
     const result = runCli(
@@ -99,10 +130,18 @@ describe('CLI doctor', () => {
     const appRoot = resolve(cwd, 'demo-personal')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expectCanonicalLayout(appRoot)
+    expectCanonicalLayout(appRoot, { auth: true, permissions: false })
     expect(read(resolve(appRoot, 'package.json'))).toContain('"name": "demo-personal"')
-    expect(read(resolve(appRoot, 'pages/index.vue'))).toContain('Personal Starter')
+    expect(read(resolve(appRoot, 'pages/index.vue'))).toContain('PersonalStarterPage')
+    expect(
+      read(resolve(appRoot, 'app/features/personal/components/PersonalStarterPage.vue')),
+    ).toContain('Personal Starter')
     expect(read(resolve(appRoot, 'README.md'))).toContain('demo-personal')
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).not.toContain('permissions:')
+    expect(existsSync(resolve(appRoot, 'convex/permissions'))).toBe(false)
+    expect(existsSync(resolve(appRoot, 'convex/auth/permissions.ts'))).toBe(false)
+    expect(existsSync(resolve(appRoot, 'shared/features/todos/contract.ts'))).toBe(true)
+    expect(existsSync(resolve(appRoot, 'shared/schemas'))).toBe(false)
   })
 
   it('initializes a workspace app with MCP via --mcp', () => {
@@ -114,7 +153,7 @@ describe('CLI doctor', () => {
     const appRoot = resolve(cwd, 'demo-workspace')
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
-    expectCanonicalLayout(appRoot)
+    expectCanonicalLayout(appRoot, { auth: true, permissions: true })
     expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
       "mcp: { name: 'demo-workspace', sessions: true }",
     )
@@ -130,7 +169,7 @@ describe('CLI doctor', () => {
     expect(actor).toContain("getSubjectValue(delegation?.subject, 'user')")
     expect(actor).not.toContain("delegation.subject.startsWith('user:')")
     expect(read(resolve(appRoot, 'server/middleware/mcp-auth.ts'))).toContain(
-      "serverConvexQuery(event, api.domain.mcpKeys.validate, { hash }, { auth: 'none' })",
+      "serverConvexQuery(event, api.features.mcpKeys.domain.validate, { hash }, { auth: 'none' })",
     )
   })
 
@@ -165,8 +204,8 @@ describe('CLI doctor', () => {
 
     const uploadsResult = runCli(['add', 'uploads', '--cwd', appRoot], repoRoot)
     expect(uploadsResult.status, `${uploadsResult.stdout}\n${uploadsResult.stderr}`).toBe(0)
-    expect(read(resolve(appRoot, 'convex/domain/files.ts'))).toContain('generateUploadUrl')
-    expect(read(resolve(appRoot, 'pages/uploads.vue'))).toContain('Uploads Starter')
+    expect(read(resolve(appRoot, 'convex/features/files/domain.ts'))).toContain('generateUploadUrl')
+    expect(read(resolve(appRoot, 'pages/uploads.vue'))).toContain('UploadsStarterPage')
 
     const operationResult = runCli(
       ['add', 'operation', 'publish-entry', '--kind', 'destructive', '--cwd', appRoot],
@@ -211,6 +250,67 @@ describe('CLI doctor', () => {
     expect(report.summary.warn).toBe(0)
     expect(report.findings.find((entry) => entry.id === 'canonical-layout')?.status).toBe('pass')
     expect(result.stdout).toBe(stripVTControlCharacters(result.stdout))
+  })
+
+  it('fails doctor when trusted-forwarding surfaces use a placeholder key', () => {
+    const cwd = createTempDir('trellis-doctor-trusted-forwarding-placeholder-')
+    const initResult = runCli(
+      ['init', 'doctor-trusted-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-trusted-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_TRUSTED_FORWARDING_KEY=replace-me-with-a-long-random-shared-secret',
+    ])
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
+    expect(
+      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-strength')?.status,
+    ).toBe('fail')
+    expect(
+      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-strength')?.message,
+    ).toMatch(/placeholder value/i)
+  })
+
+  it('fails doctor when the trusted-forwarding key is exposed through a public env name', () => {
+    const cwd = createTempDir('trellis-doctor-trusted-forwarding-public-exposure-')
+    const initResult = runCli(
+      ['init', 'doctor-trusted-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-trusted-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_TRUSTED_FORWARDING_KEY=this-is-a-long-random-trusted-forwarding-key',
+      'NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY=this-should-not-be-public',
+    ])
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
+    expect(
+      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+        ?.status,
+    ).toBe('fail')
+    expect(
+      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+        ?.message,
+    ).toMatch(/public-facing code or env sources/i)
   })
 
   it('fails doctor when MCP rate-limited tools do not configure an explicit external store', () => {
@@ -270,7 +370,7 @@ describe('CLI doctor', () => {
         )
         .replace(
           'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({',
-          "export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({\n  rateLimitStore: createRedisMcpRateLimitStore({ client: { eval: async () => 1 } as never }),",
+          'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({\n  rateLimitStore: createRedisMcpRateLimitStore({ client: { eval: async () => 1 } as never }),',
         ),
     )
 
@@ -388,7 +488,7 @@ describe('CLI doctor', () => {
     const appRoot = resolve(cwd, 'doctor-app')
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
-    rmSync(resolve(appRoot, 'convex/domain'), { recursive: true, force: true })
+    rmSync(resolve(appRoot, 'convex/features'), { recursive: true, force: true })
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
     const report = JSON.parse(result.stdout) as {
@@ -400,7 +500,108 @@ describe('CLI doctor', () => {
     expect(result.status, result.stderr).toBe(1)
     expect(report.summary.fail).toBeGreaterThan(0)
     expect(finding?.status).toBe('fail')
-    expect(finding?.message).toContain('convex/domain')
+    expect(finding?.message).toContain('convex/features')
+  })
+
+  it('fails doctor when a tenant-shaped schema table is omitted from classification', () => {
+    const cwd = createTempDir('trellis-doctor-tenant-drift-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'convex/schema.ts'),
+      `${read(resolve(appRoot, 'convex/schema.ts'))
+        .trimEnd()
+        .replace(/\}\)\s*$/, '')},
+  comments: defineTable({
+    workspaceId: v.id('workspaces'),
+    body: v.string(),
+  }).index('by_workspace', ['workspaceId']),
+})\n`,
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(
+      report.findings.find((entry) => entry.id === 'tenant-isolation-table-coverage')?.status,
+    ).toBe('fail')
+    expect(
+      report.findings.find((entry) => entry.id === 'tenant-isolation-table-coverage')?.message,
+    ).toContain('comments')
+  })
+
+  it('fails doctor when destructive-safety schema requirements drift', () => {
+    const cwd = createTempDir('trellis-doctor-destructive-drift-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'convex/functions.ts'),
+      read(resolve(appRoot, 'convex/functions.ts')).replace(
+        '    tenantIsolation: {\n      tables: isolatedTables,\n      globalTables: explicitlyGlobalTables,\n    },',
+        [
+          '    tenantIsolation: {',
+          '      tables: isolatedTables,',
+          '      globalTables: explicitlyGlobalTables,',
+          '    },',
+          '    destructiveSafety: {',
+          "      redemptionTable: 'destructiveRedemptions' as never,",
+          "      auditTable: 'destructiveAuditLog' as never,",
+          '    },',
+        ].join('\n'),
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'convex/schema.ts'),
+      `${read(resolve(appRoot, 'convex/schema.ts'))
+        .trimEnd()
+        .replace(/\}\)\s*$/, '')},
+  destructiveRedemptions: defineTable({
+    jti: v.string(),
+    operationId: v.string(),
+    principalKey: v.string(),
+    tenantKey: v.string(),
+    redeemedAt: v.number(),
+  }),
+  destructiveAuditLog: defineTable({
+    operationId: v.string(),
+    jti: v.string(),
+    principalKey: v.string(),
+    tenantKey: v.string(),
+    argsHash: v.string(),
+    previewHash: v.string(),
+    executedAt: v.number(),
+    executePath: v.string(),
+  }),
+})\n`,
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'destructive-safety-schema')?.status).toBe(
+      'fail',
+    )
+    expect(
+      report.findings.find((entry) => entry.id === 'destructive-safety-schema')?.message,
+    ).toContain('by_jti')
   })
 
   it('uses exit code 2 for usage errors', () => {
@@ -468,7 +669,7 @@ import { api } from '~/convex/_generated/api'
 
 export default defineEventHandler(async (event) => {
   const principal = { kind: 'agent', userId: 'agent_1' }
-  return await serverMutation(event, api.domain.todos.create, { title: 'Bad' }, { principal })
+  return await serverMutation(event, api.features.todos.domain.create, { title: 'Bad' }, { principal })
 })
 `.trimStart(),
     )
@@ -498,11 +699,11 @@ export default defineEventHandler(async (event) => {
       resolve(appRoot, 'server/mcp/tools/delete-todo.ts'),
       `
 import { api } from '~/convex/_generated/api'
-import { todoDelete } from '~/convex/auth/permissions'
+import { todoDelete } from '~/convex/features/todos'
 
 export default tool({
   permission: todoDelete,
-  call: api.domain.todos.remove,
+  call: api.features.todos.domain.remove,
   meta: { name: 'delete-todo' },
 })
 `.trimStart(),

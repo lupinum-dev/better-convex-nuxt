@@ -31,7 +31,7 @@ triggers.register('notes', async (ctx, change) => {
   await ctx.db.patch(change.id, { title: 'triggered' })
 })
 
-const { mutation, query, raw } = defineTrellis<
+const { mutation, query, unsafe } = defineTrellis<
   DataModel,
   'public',
   'public',
@@ -97,7 +97,8 @@ const canReadStructuredProbe = defineGuard<Actor>('probe.read', (actor) => !!act
 const canEditStructuredPost = (ownerId: string) =>
   defineGuard<NonNullable<Actor>>('probe.update', (actor) => actor.userId === ownerId)
 
-export const publicWithoutActor = raw.query({
+export const publicWithoutActor = unsafe.query({
+  bypass: 'Harness probe bypass without actor resolution.',
   args: {},
   handler: async () => ({
     actorResolverCalls,
@@ -164,7 +165,8 @@ export const structuredDelegationProbe = query({
   }),
 })
 
-export const resetActorResolverCalls = raw.mutation({
+export const resetActorResolverCalls = unsafe.mutation({
+  bypass: 'Harness probe reset for actor memoization state.',
   args: {},
   handler: async () => {
     actorResolverCalls = 0
@@ -176,7 +178,8 @@ export const resetActorResolverCalls = raw.mutation({
   },
 })
 
-export const actorMemoization = raw.query({
+export const actorMemoization = unsafe.query({
+  bypass: 'Harness probe for actor memoization.',
   args: {},
   handler: async (ctx) => {
     const before = actorResolverCalls
@@ -192,14 +195,16 @@ export const actorMemoization = raw.query({
   },
 })
 
-export const echoedArgs = raw.query({
+export const echoedArgs = unsafe.query({
+  bypass: 'Harness probe for unsafe query arg echo.',
   args: {
     title: v.string(),
   },
   handler: async (_ctx, args) => args,
 })
 
-export const onSuccessEnvelopeProbe = raw.query({
+export const onSuccessEnvelopeProbe = unsafe.query({
+  bypass: 'Harness probe for onSuccess envelope capture.',
   args: {
     marker: v.string(),
   },
@@ -209,7 +214,8 @@ export const onSuccessEnvelopeProbe = raw.query({
   }),
 })
 
-export const getEnvelopeProbeState = raw.query({
+export const getEnvelopeProbeState = unsafe.query({
+  bypass: 'Harness probe for structured envelope state.',
   args: {},
   handler: async () => ({
     structuredLoadArgs,
@@ -228,14 +234,16 @@ export const unsafeForwardedPrincipalProbe = unsafeArgPrincipalRuntime.query({
   }),
 })
 
-export const unsafeListPosts = raw.query({
+export const unsafeListPosts = unsafe.query({
+  bypass: 'Harness probe for unsafe post listing.',
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query('posts').order('desc').collect()
   },
 })
 
-export const unsafeRenamePost = raw.mutation({
+export const unsafeRenamePost = unsafe.mutation({
+  bypass: 'Harness probe for unsafe post rename.',
   args: {
     id: v.id('posts'),
     title: v.string(),
@@ -250,14 +258,16 @@ export const unsafeRenamePost = raw.mutation({
   },
 })
 
-export const unsafeListMcpKeys = raw.query({
+export const unsafeListMcpKeys = unsafe.query({
+  bypass: 'Harness probe for unsafe MCP key listing.',
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query('mcpKeys').order('desc').collect()
   },
 })
 
-export const createTriggeredNote = raw.mutation({
+export const createTriggeredNote = unsafe.mutation({
+  bypass: 'Harness probe for trigger execution under unsafe mutation.',
   args: {
     content: v.string(),
   },
@@ -269,7 +279,8 @@ export const createTriggeredNote = raw.mutation({
   },
 })
 
-export const getNote = raw.query({
+export const getNote = unsafe.query({
+  bypass: 'Harness probe for note lookup.',
   args: {
     id: v.id('notes'),
   },

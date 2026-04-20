@@ -8,6 +8,8 @@ import {
 } from '../../src/runtime/convex/server/convex'
 import { createObservationCapture } from '../../src/runtime/testing'
 
+const originalNodeEnv = process.env.NODE_ENV
+
 const { useRuntimeConfigMock } = vi.hoisted(() => ({
   useRuntimeConfigMock: vi.fn(() => ({
     public: {
@@ -51,6 +53,11 @@ function createEvent(cookie?: string): H3Event {
 describe('server Convex fetch helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV
+    } else {
+      process.env.NODE_ENV = originalNodeEnv
+    }
     useEventMock.mockImplementation(() => {
       throw new Error('Nitro request context is not available')
     })
@@ -462,6 +469,31 @@ describe('server Convex fetch helpers', () => {
         { auth: 'trusted' },
       ),
     ).rejects.toThrow('requires `options.principal`')
+  })
+
+  it('auth:trusted rejects weak trusted forwarding keys in production', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.NODE_ENV = 'production'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-123'
+
+    await expect(
+      serverConvexMutation(
+        createEvent(),
+        { _path: 'tasks:create' } as never,
+        { title: 'From webhook' } as never,
+        {
+          auth: 'trusted',
+          principal: {
+            kind: 'user',
+            userId: 'user_admin',
+            subject: 'user:user_admin',
+          },
+        },
+      ),
+    ).rejects.toThrow(/at least 32 characters/i)
+
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('auth:trusted rejects anonymous or subject-less forwarded principals', async () => {

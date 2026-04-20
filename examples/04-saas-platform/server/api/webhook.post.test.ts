@@ -18,11 +18,15 @@ vi.mock('#trellis/server', () => ({
   serverConvexMutation: serverConvexMutationMock,
 }))
 
-vi.mock('~/convex/_generated/api', () => ({
+vi.mock('../../convex/_generated/api', () => ({
   internal: {
-    domain: {
-      webhooks: {
-        createTaskFromWebhook: { _path: 'domain/webhooks:createTaskFromWebhook' },
+    features: {
+      tasks: {
+        webhooks: {
+          createTaskFromWebhookMutation: {
+            _path: 'internal/features/tasks/webhooks:createTaskFromWebhookMutation',
+          },
+        },
       },
     },
   },
@@ -66,7 +70,7 @@ describe('example 04 webhook handler', () => {
         node: expect.any(Object),
       }),
       expect.objectContaining({
-        _path: 'domain/webhooks:createTaskFromWebhook',
+        _path: 'internal/features/tasks/webhooks:createTaskFromWebhookMutation',
       }),
       {
         projectId: 'project_123',

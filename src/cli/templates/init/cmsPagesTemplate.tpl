@@ -12,9 +12,9 @@ import {
   publishedPageValidator,
   saveDraft as saveDraftSchema,
   studioPageValidator,
-} from './page.contract'
-import { canEditPage, canPublishPage, isAuthenticated } from '../auth/checks'
-import { mutation, query } from '../functions'
+} from '../../../shared/features/pages/contract'
+import { canEditPage, canPublishPage, isAuthenticated } from '../../auth/guards'
+import { mutation, query } from '../../functions'
 
 export const listPublished = query({
   args: listPublishedPagesSchema.args,

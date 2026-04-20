@@ -146,7 +146,8 @@ import { computed, reactive } from 'vue'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import { articleCreate, enrollmentManage } from '~/convex/auth/permissions'
+import { articleCreate } from '~/convex/features/articles/permissions'
+import { enrollmentManage } from '~/convex/features/knowledgeBases/permissions'
 
 const route = useRoute()
 const toast = useToast()
@@ -156,32 +157,34 @@ const { allows } = usePermissions()
 const canManage = allows(enrollmentManage)
 const canCreateArticles = allows(articleCreate)
 
-const { data: kb } = await useConvexQuery(api.domain.knowledgeBases.get, { id: kbId as any })
-const { data: articles } = await useConvexQuery(api.domain.articles.list, {
+const { data: kb } = await useConvexQuery(api.features.knowledgeBases.domain.get, {
+  id: kbId as any,
+})
+const { data: articles } = await useConvexQuery(api.features.articles.domain.list, {
   knowledgeBaseId: kbId as any,
 })
 
-const publishKB = useConvexMutation(api.domain.knowledgeBases.publish, {
+const publishKB = useConvexMutation(api.features.knowledgeBases.domain.publish, {
   onSuccess: () => toast.add({ title: 'Knowledge base published', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),
 })
-const seedArticles = useConvexMutation(api.domain.articles.seedDemoArticles, {
+const seedArticles = useConvexMutation(api.features.articles.domain.seed, {
   onSuccess: () => toast.add({ title: 'Demo articles seeded', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not seed articles', description: error.message, color: 'error' }),
 })
-const enrollUser = useConvexMutation(api.domain.knowledgeBases.enrollByEmail, {
+const enrollUser = useConvexMutation(api.features.knowledgeBases.domain.enrollByEmail, {
   onSuccess: () => toast.add({ title: 'User enrolled', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not enroll user', description: error.message, color: 'error' }),
 })
-const createArticle = useConvexMutation(api.domain.articles.create, {
+const createArticle = useConvexMutation(api.features.articles.domain.create, {
   onSuccess: () => toast.add({ title: 'Article created', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not create article', description: error.message, color: 'error' }),
 })
-const publishArticle = useConvexMutation(api.domain.articles.publish, {
+const publishArticle = useConvexMutation(api.features.articles.domain.publish, {
   onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not publish article', description: error.message, color: 'error' }),

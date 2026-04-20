@@ -1,21 +1,20 @@
 import { defineTrellis } from '@lupinum/trellis/functions'
 
+import type { TableNames } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import { getActor } from './auth/actor'
+import { globalTables, tenantTables } from './features'
 
-export const { mutation, query, raw } = defineTrellis(
+const isolatedTables = [...tenantTables] as TableNames[]
+const explicitlyGlobalTables = [...globalTables] as TableNames[]
+
+export const { mutation, query, unsafe } = defineTrellis(
   { query: generatedQuery, mutation: generatedMutation },
   {
     actor: getActor,
     tenantIsolation: {
-      tables: [
-        'knowledgeBases',
-        'articles',
-        'enrollments',
-        'articleProgress',
-        'articleShares',
-        'shareTokens',
-      ],
+      tables: isolatedTables,
+      globalTables: explicitlyGlobalTables,
     },
     destructiveSafety: {
       redemptionTable: 'destructiveRedemptions' as never,

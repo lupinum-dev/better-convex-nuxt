@@ -303,7 +303,11 @@
 import { computed, reactive } from 'vue'
 
 import { api } from '#trellis/api'
-import { kbCreate, knowledgeBasePermissionMatrix } from '~/convex/auth/permissions'
+import { articlePermissionMatrix } from '~/convex/features/articles/permissions'
+import {
+  kbCreate,
+  knowledgeBasePermissionMatrix,
+} from '~/convex/features/knowledgeBases/permissions'
 
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -315,12 +319,12 @@ const signInForm = reactive({ email: '', password: '' })
 const createWorkspaceForm = reactive({ name: '', slug: '' })
 const kbForm = reactive({ title: '' })
 
-const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace, {
+const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation, {
   onSuccess: () => toast.add({ title: 'Workspace created', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not create workspace', description: error.message, color: 'error' }),
 })
-const createKB = useConvexMutation(api.domain.knowledgeBases.create, {
+const createKB = useConvexMutation(api.features.knowledgeBases.domain.create, {
   onSuccess: () => toast.add({ title: 'Knowledge base created', color: 'success' }),
   onError: (error) =>
     toast.add({
@@ -330,7 +334,10 @@ const createKB = useConvexMutation(api.domain.knowledgeBases.create, {
     }),
 })
 const kbArgs = computed(() => (tenantId.value ? {} : undefined))
-const { data: knowledgeBases } = await useConvexQuery(api.domain.knowledgeBases.list, kbArgs)
+const { data: knowledgeBases } = await useConvexQuery(
+  api.features.knowledgeBases.domain.list,
+  kbArgs,
+)
 
 const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
@@ -342,7 +349,11 @@ const recordRuleRows = [
   { label: 'Update any article', roles: ['owner', 'admin'] },
   { label: 'Update own article', roles: ['owner', 'admin', 'editor', 'contributor'] },
 ]
-const permissionMatrix = [...knowledgeBasePermissionMatrix, ...recordRuleRows]
+const permissionMatrix = [
+  ...knowledgeBasePermissionMatrix,
+  ...articlePermissionMatrix,
+  ...recordRuleRows,
+]
 
 async function handleSignUp() {
   await authAction.execute(() => client!.signUp.email(signUpForm), { redirectTo: '/' })

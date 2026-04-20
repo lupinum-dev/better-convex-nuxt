@@ -31,7 +31,7 @@ describe('example 08 component mini cms', () => {
       }) as {
         mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
       }
-    ).mutation(api.domain.pages.create, {
+    ).mutation(api.features.pages.domain.create, {
       slug: 'welcome',
       title: 'Welcome',
       draftBody: 'Public page body',
@@ -45,9 +45,9 @@ describe('example 08 component mini cms', () => {
       }) as {
         mutation: (fn: unknown, args: Record<string, unknown>) => Promise<unknown>
       }
-    ).mutation(api.domain.pages.publish, { id: pageId })
+    ).mutation(api.features.pages.domain.publish, { id: pageId })
 
-    const published = await ctx.raw.query(api.domain.pages.listPublished, {})
+    const published = await ctx.raw.query(api.features.pages.domain.listPublished, {})
     expect(published).toHaveLength(1)
     expect(published[0]).toMatchObject({
       slug: 'welcome',
@@ -56,13 +56,13 @@ describe('example 08 component mini cms', () => {
       status: 'published',
     })
 
-    const page = await ctx.raw.query(api.domain.pages.getPublished, { slug: 'welcome' })
+    const page = await ctx.raw.query(api.features.pages.domain.getPublished, { slug: 'welcome' })
     expect(page).toMatchObject({
       slug: 'welcome',
       title: 'Welcome',
     })
 
-    await expect(ctx.raw.query(api.domain.pages.listStudio, {})).rejects.toThrow(
+    await expect(ctx.raw.query(api.features.pages.domain.listStudio, {})).rejects.toThrow(
       'Forbidden: Manage pages',
     )
   })
@@ -78,22 +78,22 @@ describe('example 08 component mini cms', () => {
       query: (fn: unknown, args: Record<string, unknown>) => Promise<any>
     }
 
-    const id = await editor.mutation(api.domain.pages.create, {
+    const id = await editor.mutation(api.features.pages.domain.create, {
       slug: 'hello-world',
       title: 'Hello world',
       draftBody: 'Draft v1',
     })
 
-    await editor.mutation(api.domain.pages.save, {
+    await editor.mutation(api.features.pages.domain.save, {
       id,
       slug: 'hello-world',
       title: 'Hello from studio',
       draftBody: 'Draft v2',
     })
 
-    await editor.mutation(api.domain.pages.publish, { id })
+    await editor.mutation(api.features.pages.domain.publish, { id })
 
-    const pages = await editor.query(api.domain.pages.listStudio, {})
+    const pages = await editor.query(api.features.pages.domain.listStudio, {})
     expect(pages).toHaveLength(1)
     expect(pages[0]).toMatchObject({
       _id: id,
@@ -119,7 +119,7 @@ describe('example 08 component mini cms', () => {
         withIdentity as {
           mutation: (fn: unknown, args: Record<string, unknown>) => Promise<string>
         }
-      ).mutation(api.domain.pages.create, {
+      ).mutation(api.features.pages.domain.create, {
         slug: 'forwarded-agent',
         title: 'Forwarded agent page',
         draftBody: 'Created by the forwarded principal',
@@ -144,13 +144,13 @@ describe('example 08 component mini cms', () => {
       provider: 'mcp',
     })
 
-    const id = await agent.mutation(internal.operations.miniCmsBridge.createPage, {
+    const id = await agent.mutation(internal.features.pages.bridge.create, {
       slug: 'bridge-owned',
       title: 'Bridge owned',
       draftBody: 'Bridge draft',
     })
 
-    const drafts = await agent.query(internal.operations.miniCmsBridge.listDraftPages, {})
+    const drafts = await agent.query(internal.features.pages.bridge.listDraft, {})
     expect(drafts.find((page: { _id: string }) => page._id === id)).toMatchObject({
       authorId: 'agent:bridge-key',
       slug: 'bridge-owned',
@@ -166,13 +166,13 @@ describe('example 08 component mini cms', () => {
       provider: 'mcp',
     })
 
-    const id = await agent.mutation(internal.operations.miniCmsBridge.createPage, {
+    const id = await agent.mutation(internal.features.pages.bridge.create, {
       slug: 'launch-notes',
       title: 'Launch notes',
       draftBody: 'Version one',
     })
 
-    const preview = await agent.query(internal.operations.miniCmsBridge.previewPublishPage, { id })
+    const preview = await agent.query(internal.features.pages.bridge.previewPublish, { id })
     expect(preview).toMatchObject({
       display: {
         summary: 'Publish "Launch notes" at /launch-notes',
@@ -186,13 +186,15 @@ describe('example 08 component mini cms', () => {
   })
 
   it('uses a smaller anonymous MCP capability snapshot than the MCP-authenticated snapshot', () => {
-    expect(getCapabilitiesForPrincipal({ kind: 'anonymous' })).toEqual({
-      listPublishedPages: true,
-      listDraftPages: false,
-      createPage: false,
-      saveDraft: false,
-      publishPage: false,
-    })
+    expect(getCapabilitiesForPrincipal({ kind: 'anonymous', subject: 'system:anonymous' })).toEqual(
+      {
+        listPublishedPages: true,
+        listDraftPages: false,
+        createPage: false,
+        saveDraft: false,
+        publishPage: false,
+      },
+    )
 
     expect(
       getCapabilitiesForPrincipal({

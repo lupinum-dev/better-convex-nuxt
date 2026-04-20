@@ -12,9 +12,10 @@ It is the default single-workspace reference for the repo.
 - the canonical `workspaceId` / `by_workspace` tenant model
 - roles, guards, and permission context
 - `_can`-driven frontend capability checks
-- app-owned `convex/auth/*` structure
+- root shell plus `convex/features/*` and `app/features/*`
 - protected handler shape for a normal team app
-- one small server-boundary proof: webhook idempotency with a route-owned signature
+- the canonical `guard -> load -> authorize -> handler` split when a decision depends on a record
+- one small server-boundary proof: webhook idempotency with a route-owned signature plus trusted forwarding delegation
 
 ## What this example assumes
 
@@ -23,16 +24,18 @@ You understand auth + ownership from [`02-auth-todo`](../02-auth-todo/README.md)
 ## Files to read first
 
 1. `convex/auth/actor.ts`
-2. `convex/auth/permissions.ts`
-3. `convex/auth/checks.ts`
+2. `convex/auth/guards.ts`
+3. `convex/features/index.ts`
 4. `convex/permissions/context.ts`
-5. `convex/domain/todos.ts`
+5. `convex/features/todos/domain.ts`
+6. `shared/features/todos/contract.ts`
+7. `app/features/team-workspace/components/TeamWorkspacePage.vue`
 
 Then, if you want the small server-boundary proof:
 
-6. `convex/domain/webhooks.ts`
-7. `server/api/webhook.post.ts`
-8. `convex/todos.test.ts`
+8. `convex/features/todos/webhooks.ts`
+9. `server/api/webhook.post.ts`
+10. `convex/todos.test.ts`
 
 ## Demo flow
 
@@ -52,6 +55,7 @@ App-owned env vars:
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 - `TEAM_WORKSPACE_WEBHOOK_SECRET`: webhook route signature secret
+- `TEAM_WORKSPACE_WEBHOOK_AUTH_ID`: existing workspace user that verified webhook calls act for
 
 ## Test
 

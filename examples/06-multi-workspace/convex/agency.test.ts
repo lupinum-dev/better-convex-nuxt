@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
-import { projectCreate } from './auth/permissions'
+import { projectCreate } from './features/projects'
 import schema from './schema'
 import { modules } from './test.setup'
 type MembershipRole = Doc<'memberships'>['role']
@@ -37,25 +37,25 @@ async function seedWorkspace(
   if (!ownerEntry) throw new Error('seedWorkspace requires at least one user.')
 
   const now = Date.now()
-  const workspaceId = await ctx.seed('workspaces', {
+  const workspaceId = (await ctx.seed('workspaces', {
     name,
     slug,
     ownerId: `${slug}-${ownerEntry[0]}`,
     createdAt: now,
     updatedAt: now,
-  })
+  })) as Id<'workspaces'>
 
   const seededUsers = {} as Record<string, SeededUser>
   for (const [key, user] of Object.entries(users)) {
     const authId = `${slug}-${key}`
-    const userId = await ctx.seed('users', {
+    const userId = (await ctx.seed('users', {
       authId,
       email: `${authId}@example.test`,
       displayName: key,
       workspaceId,
       createdAt: now,
       updatedAt: now,
-    })
+    })) as Id<'users'>
     await ctx.seed('memberships', {
       userId: authId,
       workspaceId,
@@ -88,9 +88,9 @@ describe('agency example', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    await alpha.users.owner.mutation(api.domain.projects.create, { name: 'Alpha project' })
+    await alpha.users.owner.mutation(api.features.projects.domain.create, { name: 'Alpha project' })
 
-    const betaProjects = await beta.users.owner.query(api.domain.projects.list, {})
+    const betaProjects = await beta.users.owner.query(api.features.projects.domain.list, {})
     expect(betaProjects).toHaveLength(0)
   })
 
@@ -164,7 +164,7 @@ describe('agency example', () => {
     })
 
     const agent = ctx.raw.withIdentity({ subject: 'agent-1' })
-    const portfolio = await agent.query(api.domain.dashboard.portfolio, {})
+    const portfolio = await agent.query(api.features.dashboard.domain.portfolio, {})
     expect(portfolio).toHaveLength(2)
     expect(
       portfolio.map((entry: (typeof portfolio)[number]) => entry.workspace.name).sort(),
@@ -197,7 +197,7 @@ describe('agency example', () => {
     await expect(
       ctx.raw.query(api.permissions.context.getPermissionContext, {}),
     ).resolves.toBeNull()
-    await expect(ctx.raw.query(api.domain.dashboard.portfolio, {})).rejects.toThrow(
+    await expect(ctx.raw.query(api.features.dashboard.domain.portfolio, {})).rejects.toThrow(
       'Not authenticated.',
     )
   })
@@ -212,10 +212,13 @@ describe('agency example', () => {
       },
     })
 
-    const workspaceId = await team.users.owner.mutation(api.domain.workspaces.createWorkspace, {
-      name: 'Client Workspace',
-      slug: 'client-workspace',
-    })
+    const workspaceId = await team.users.owner.mutation(
+      api.features.workspaces.domain.createWorkspaceMutation,
+      {
+        name: 'Client Workspace',
+        slug: 'client-workspace',
+      },
+    )
 
     const memberships = await ctx.readAll('memberships')
     const ownerMemberships = memberships.filter((membership: Doc<'memberships'>) => {

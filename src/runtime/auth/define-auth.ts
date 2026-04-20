@@ -46,7 +46,8 @@ export type AuthUserDoc = {
  * Options for defineAuth.
  *
  * Controls how the auth bridge between Better Auth and Convex is set up,
- * including user sync triggers and the bootstrap mutation.
+ * including user sync triggers and the internal bootstrap mutation used by the
+ * Trellis auth runtime.
  *
  * This API is intentionally narrow: it configures authentication plumbing,
  * not app-domain authorization. Use Better Auth for identity/session features
@@ -155,7 +156,7 @@ function buildTrustedOrigins(siteUrl: string): string[] {
 /**
  * Define the auth bridge between Better Auth and Convex.
  *
- * Encapsulates user sync triggers, the bootstrap mutation, and the
+ * Encapsulates user sync triggers, the internal bootstrap mutation, and the
  * Better Auth adapter. You configure what you need on the authentication
  * side; the module handles the plumbing.
  *
@@ -166,10 +167,11 @@ function buildTrustedOrigins(siteUrl: string): string[] {
  * import { mutation } from './_generated/server.js'
  * import authConfig from './auth.config.js'
  *
- * export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
- *   { components, internal, mutation, authConfig },
- *   { emailPassword: true },
- * )
+ * const auth = defineAuth({ components, internal, mutation, authConfig }, { emailPassword: true })
+ * export const authComponent = auth.authComponent
+ * export const createAuth = auth.createAuth
+ * // Internal bootstrap mutation used by the Trellis auth runtime.
+ * export const createUserIfNeeded = auth.createUserIfNeeded
  * ```
  */
 export function defineAuth(deps: DefineAuthDeps, options: DefineAuthOptions = {}) {

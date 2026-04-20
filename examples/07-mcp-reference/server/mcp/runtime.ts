@@ -4,16 +4,16 @@ import type { H3Event } from 'h3'
 import { api } from '#trellis/api'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
+import type { McpReferencePrincipal } from '~/convex/auth/principal'
+import type { McpReferencePermissionKey } from '~/convex/features'
+import { mcpManage as mcpManagePermission } from '~/convex/features/mcpKeys/permissions'
 import {
-  mcpManage,
   runbookBulkDelete,
   runbookCreate,
   runbookDelete,
   runbookPublish,
   runbookRead,
-  type McpReferencePermissionKey,
-} from '~/convex/auth/permissions'
-import type { McpReferencePrincipal } from '~/convex/auth/principal'
+} from '~/convex/features/runbooks/permissions'
 
 type McpAuthContext = {
   keyId?: string
@@ -71,7 +71,7 @@ export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot
         [runbookDelete.key]: false,
         [runbookPublish.key]: false,
         [runbookBulkDelete.key]: false,
-        [mcpManage.key]: false,
+        [mcpManagePermission.key]: false,
       }
     }
 
@@ -85,7 +85,7 @@ export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot
         [runbookDelete.key]: false,
         [runbookPublish.key]: false,
         [runbookBulkDelete.key]: false,
-        [mcpManage.key]: false,
+        [mcpManagePermission.key]: false,
       }
     )
   },

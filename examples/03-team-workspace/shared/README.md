@@ -1,3 +1,5 @@
-This folder exists because both `convex/` and Nuxt `server/` files import from it.
+This folder exists because both `convex/` and Nuxt `app/` / `server/` files import from it.
 
-Keep files here runtime-neutral so they can be bundled by both systems without surprises.
+In the ratified v1 shape, `shared/features/*` is only for runtime-neutral contract artifacts.
+
+Do not put Vue, Nuxt, or Convex server modules here.

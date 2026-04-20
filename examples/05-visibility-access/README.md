@@ -28,10 +28,10 @@ You already understand the canonical protected workspace model from
 
 ## Files to read first
 
-1. `convex/domain/articles.ts`
-2. `convex/domain/knowledgeBases.ts`
-3. `convex/auth/checks.ts`
-4. `convex/operations/shareTokens.ts`
+1. `convex/features/articles/domain.ts`
+2. `convex/features/knowledgeBases/domain.ts`
+3. `convex/features/articles/permissions.ts`
+4. `convex/features/articles/operations.ts`
 5. `convex/knowledgeBase.test.ts`
 
 ## Demo flow

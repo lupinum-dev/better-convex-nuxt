@@ -183,6 +183,83 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBe('Hello')
   })
 
+  it('supports authorize shorthand as a loaded-resource factory', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
+    const guard = defineGuard<Actor>('todo.read', (actor) => !!actor)
+
+    const mutation = handlers.mutation({
+      args: {},
+      guard,
+      load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
+      authorize: ({ todo }) =>
+        defineGuard<NonNullable<Actor>>('todo.update', (actor) => actor.userId === todo.ownerId),
+      handler: async (_ctx, _args, loaded) => loaded.todo.title,
+    }) as BuiltHandler
+
+    await expect(
+      mutation.handler(
+        {
+          principal: async () => ({ kind: 'user', userId: 'bob' }),
+          actor: async () => ({ userId: 'bob', role: 'member' }),
+          marker: 'blocked',
+        },
+        {},
+      ),
+    ).rejects.toThrow(/Forbidden: todo.update/)
+
+    await expect(
+      mutation.handler(
+        {
+          principal: async () => ({ kind: 'user', userId: 'alice' }),
+          actor: async () => ({ userId: 'alice', role: 'member' }),
+          marker: 'allowed',
+        },
+        {},
+      ),
+    ).resolves.toBe('Hello')
+  })
+
+  it('supports authorize shorthand as an actor-and-loaded check', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
+    const guard = defineGuard<Actor>('todo.read', (actor) => !!actor)
+
+    const mutation = handlers.mutation({
+      args: {},
+      guard,
+      load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
+      authorize: (actor, { todo }) => actor.userId === todo.ownerId,
+      handler: async (_ctx, _args, loaded) => loaded.todo.title,
+    }) as BuiltHandler
+
+    await expect(
+      mutation.handler(
+        {
+          principal: async () => ({ kind: 'user', userId: 'bob' }),
+          actor: async () => ({ userId: 'bob', role: 'member' }),
+          marker: 'blocked',
+        },
+        {},
+      ),
+    ).rejects.toThrow(/Forbidden: Access denied/)
+
+    await expect(
+      mutation.handler(
+        {
+          principal: async () => ({ kind: 'user', userId: 'alice' }),
+          actor: async () => ({ userId: 'alice', role: 'member' }),
+          marker: 'allowed',
+        },
+        {},
+      ),
+    ).resolves.toBe('Hello')
+  })
+
   it('requires a resolved actor for authRequired handlers', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
       createBuilder(),

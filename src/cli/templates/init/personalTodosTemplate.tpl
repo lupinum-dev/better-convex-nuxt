@@ -1,8 +1,8 @@
 import { v } from 'convex/values'
 
-import { createTodo } from './todo.contract'
 import { deny } from '@lupinum/trellis/auth'
-import { isAuthenticated } from '../auth/checks'
+import { createTodo } from '../../shared/features/todos/contract'
+import { isAuthenticated } from '../auth/guards'
 import { mutation, query } from '../functions'
 
 export const list = query({

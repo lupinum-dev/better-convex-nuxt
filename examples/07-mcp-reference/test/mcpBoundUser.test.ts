@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { selectMcpBoundUser } from '../shared/mcp-bound-user'
+import { selectMcpBoundUser } from '../shared/features/mcpKeys/bound-user'
 
 const users = [
   {

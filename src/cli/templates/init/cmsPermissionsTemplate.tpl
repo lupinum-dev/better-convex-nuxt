@@ -1,6 +1,6 @@
 import { definePermission } from '@lupinum/trellis/auth'
 
-import { isAuthenticated } from './checks'
+import { isAuthenticated } from '../../auth/guards'
 
 export const studioRead = definePermission({
   key: 'studio.read',
@@ -17,4 +17,4 @@ export const pagePublish = definePermission({
   check: isAuthenticated,
 })
 
-export const cmsPermissions = [studioRead, pageCreate, pagePublish] as const
+export const pagePermissions = [studioRead, pageCreate, pagePublish] as const

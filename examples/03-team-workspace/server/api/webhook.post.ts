@@ -1,12 +1,13 @@
 /**
  * Why this file exists:
- * Nitro route that receives external webhook payloads and forwards them to an internal Convex
+ * Nitro route that receives external webhook payloads and forwards them to a protected Convex
  * mutation after verifying a server-owned signature.
  */
 import { createError, defineEventHandler, readBody } from 'h3'
+import { api } from '~~/convex/_generated/api'
+import type { Id } from '~~/convex/_generated/dataModel'
 
 import { serverConvexMutation } from '#trellis/server'
-import { internal } from '~/convex/_generated/api'
 
 type WebhookBody = {
   workspaceId?: string
@@ -28,6 +29,18 @@ function getWebhookSecret(): string {
   return secret
 }
 
+function getWebhookActorAuthId(): string {
+  const authId = process.env.TEAM_WORKSPACE_WEBHOOK_AUTH_ID?.trim()
+  if (!authId) {
+    throw createError({
+      statusCode: 500,
+      message: 'TEAM_WORKSPACE_WEBHOOK_AUTH_ID is required for the webhook example.',
+    })
+  }
+
+  return authId
+}
+
 export default defineEventHandler(async (event) => {
   const signature = event.node.req.headers['x-example-signature']
   if (signature !== getWebhookSecret()) {
@@ -43,17 +56,30 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const authId = getWebhookActorAuthId()
+
   const todoId = await serverConvexMutation(
     event,
-    internal.domain.webhooks.processTodoSyncWebhook,
+    api.features.todos.webhooks.processTodoSyncWebhookMutation,
     {
-      workspaceId: body.workspaceId,
+      workspaceId: body.workspaceId as Id<'workspaces'>,
       eventId: body.eventId,
       title: body.title,
       completed: body.completed,
       externalId: body.externalId,
     },
-    { auth: 'none' },
+    {
+      auth: 'trusted',
+      principal: {
+        kind: 'service',
+        serviceId: 'team-workspace-webhook',
+        subject: 'service:team-workspace-webhook',
+      },
+      delegation: {
+        subject: `user:${authId}`,
+        reason: 'verified workspace todo webhook',
+      },
+    },
   )
 
   return { ok: true, todoId }

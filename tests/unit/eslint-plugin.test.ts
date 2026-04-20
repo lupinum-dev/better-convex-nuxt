@@ -115,7 +115,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
   it('uses tenant metadata from convex/functions.ts and flags bare collection reads only', async () => {
     const rootDir = createProjectFixture({
       'convex/functions.ts': `
-        export const { query, raw } = defineTrellis({ query, mutation }, {
+        export const { query, unsafe } = defineTrellis({ query, mutation }, {
           tenantIsolation: {
             tables: ['tasks'],
             field: 'workspaceId',
@@ -138,7 +138,8 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [badResult] = await eslint.lintText(
       `
-      export const list = raw.query({
+      export const list = unsafe.query({
+        bypass: 'Fixture-only unsafe query for lint coverage.',
         args: {},
         handler: async (ctx) => {
           return await ctx.db.query('tasks').collect()
@@ -227,7 +228,8 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const getArticle = raw.query({
+      export const getArticle = unsafe.query({
+        bypass: 'Fixture-only public article access for lint coverage.',
         args: { shareToken: v.optional(v.string()), id: v.id('articles') },
         handler: async (ctx, args) => {
           if (args.shareToken) {
@@ -256,7 +258,8 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const updateTodo = raw.mutation({
+      export const updateTodo = unsafe.mutation({
+        bypass: 'Fixture-only mutation for lint coverage.',
         args: { id: v.id('todos') },
         handler: async (ctx, args) => {
           const actor = await ctx.actor()
@@ -274,6 +277,199 @@ describe('@lupinum/trellis ESLint plugin', () => {
     expect(result).toBeDefined()
     expect(result!.messages.map((message) => message.ruleId)).not.toContain(
       '@lupinum/trellis/enforce-required-in-handler',
+    )
+  })
+
+  it('requires explicit reasons on unsafe builders and tenant-isolation escapes', async () => {
+    const rootDir = createProjectFixture({})
+    const eslint = await createEslint(rootDir)
+
+    const [missingUnsafeBypass] = await eslint.lintText(
+      `
+      export const listPublic = unsafe.query({
+        args: {},
+        handler: async (ctx) => {
+          return await ctx.db.query('runbooks').collect()
+        },
+      })
+      `,
+      { filePath: resolve(rootDir, 'convex/runbooks.ts') },
+    )
+
+    const [missingEscapeReason] = await eslint.lintText(
+      `
+      export const listPublic = unsafe.query({
+        bypass: 'Fixture-only unsafe query for lint coverage.',
+        args: {},
+        handler: async (ctx) => {
+          return await ctx.db.escapeTenantIsolation({}).query('runbooks').collect()
+        },
+      })
+      `,
+      { filePath: resolve(rootDir, 'convex/public.ts') },
+    )
+
+    expect(missingUnsafeBypass!.messages.map((message) => message.ruleId)).toContain(
+      '@lupinum/trellis/unsafe-requires-bypass',
+    )
+    expect(missingEscapeReason!.messages.map((message) => message.ruleId)).toContain(
+      '@lupinum/trellis/escape-tenant-isolation-requires-reason',
+    )
+  })
+
+  it('keeps shared feature contracts runtime-neutral', async () => {
+    const rootDir = createProjectFixture({})
+    const eslint = await createEslint(rootDir)
+
+    const [result] = await eslint.lintText(
+      `
+      import { computed } from 'vue'
+      import { defineSchema } from 'convex/server'
+
+      export const contract = { computed, defineSchema }
+      `,
+      { filePath: resolve(rootDir, 'shared/features/tasks/contract.ts') },
+    )
+
+    expect(result!.messages.map((message) => message.ruleId)).toContain(
+      '@lupinum/trellis/shared-features-runtime-neutral',
+    )
+  })
+
+  it('prevents shell code from importing feature internals but allows feature barrels', async () => {
+    const rootDir = createProjectFixture({
+      'convex/features/tasks/index.ts': 'export const tasks = true\n',
+      'convex/features/tasks/permissions.ts': 'export const taskPermissions = true\n',
+    })
+    const eslint = await createEslint(rootDir)
+
+    const [badResult] = await eslint.lintText(
+      `
+      import { taskPermissions } from './features/tasks/permissions'
+
+      export const permissions = taskPermissions
+      `,
+      { filePath: resolve(rootDir, 'convex/functions.ts') },
+    )
+
+    const [goodResult] = await eslint.lintText(
+      `
+      import { tasks } from './features/tasks'
+
+      export const manifest = tasks
+      `,
+      { filePath: resolve(rootDir, 'convex/schema.ts') },
+    )
+
+    expect(badResult!.messages.map((message) => message.ruleId)).toContain(
+      '@lupinum/trellis/feature-boundaries',
+    )
+    expect(goodResult!.messages.map((message) => message.ruleId)).not.toContain(
+      '@lupinum/trellis/feature-boundaries',
+    )
+  })
+
+  it('prevents deep imports between features but allows barrel imports and same-feature tests', async () => {
+    const rootDir = createProjectFixture({
+      'convex/features/tasks/index.ts': 'export const tasks = true\n',
+      'convex/features/tasks/tests.ts': 'export const tests = true\n',
+      'convex/features/projects/index.ts': 'export const projects = true\n',
+      'convex/features/projects/permissions.ts': 'export const projectPermissions = true\n',
+    })
+    const eslint = await createEslint(rootDir)
+
+    const [badResult] = await eslint.lintText(
+      `
+      import { projectPermissions } from '../projects/permissions'
+
+      export const x = projectPermissions
+      `,
+      { filePath: resolve(rootDir, 'convex/features/tasks/domain.ts') },
+    )
+
+    const [goodBarrelResult] = await eslint.lintText(
+      `
+      import { projects } from '../projects'
+
+      export const x = projects
+      `,
+      { filePath: resolve(rootDir, 'convex/features/tasks/domain.ts') },
+    )
+
+    const [goodTestResult] = await eslint.lintText(
+      `
+      import { tasks } from './index'
+
+      export const x = tasks
+      `,
+      { filePath: resolve(rootDir, 'convex/features/tasks/tests.ts') },
+    )
+
+    expect(badResult!.messages.map((message) => message.ruleId)).toContain(
+      '@lupinum/trellis/feature-boundaries',
+    )
+    expect(goodBarrelResult!.messages.map((message) => message.ruleId)).not.toContain(
+      '@lupinum/trellis/feature-boundaries',
+    )
+    expect(goodTestResult!.messages.map((message) => message.ruleId)).not.toContain(
+      '@lupinum/trellis/feature-boundaries',
+    )
+  })
+
+  it('applies the same feature boundary rules inside component roots', async () => {
+    const rootDir = createProjectFixture({
+      'convex/components/miniCms/features/pages/index.ts': 'export const pages = true\n',
+      'convex/components/miniCms/features/pages/domain.ts': 'export const domain = true\n',
+      'convex/components/miniCms/auth/guards.ts': 'export const open = true\n',
+    })
+    const eslint = await createEslint(rootDir)
+
+    const [badShellResult] = await eslint.lintText(
+      `
+      import { domain } from './features/pages/domain'
+
+      export const x = domain
+      `,
+      { filePath: resolve(rootDir, 'convex/components/miniCms/schema.ts') },
+    )
+
+    const [goodFeatureResult] = await eslint.lintText(
+      `
+      import { open } from '../../auth/guards'
+
+      export const x = open
+      `,
+      { filePath: resolve(rootDir, 'convex/components/miniCms/features/pages/query.ts') },
+    )
+
+    expect(badShellResult!.messages.map((message) => message.ruleId)).toContain(
+      '@lupinum/trellis/feature-boundaries',
+    )
+    expect(goodFeatureResult!.messages.map((message) => message.ruleId)).not.toContain(
+      '@lupinum/trellis/feature-boundaries',
+    )
+  })
+
+  it('rejects inline guards that do async or db work', async () => {
+    const rootDir = createProjectFixture({})
+    const eslint = await createEslint(rootDir)
+
+    const [result] = await eslint.lintText(
+      `
+      export const updateTodo = mutation({
+        guard: async (ctx) => {
+          const todo = await ctx.db.get('todo_123')
+          return Boolean(todo)
+        },
+        args: {},
+        handler: async () => true,
+      })
+      `,
+      { filePath: resolve(rootDir, 'convex/todos.ts') },
+    )
+
+    expect(result!.messages.map((message) => message.ruleId)).toContain(
+      '@lupinum/trellis/guard-no-db',
     )
   })
 

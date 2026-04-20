@@ -4,13 +4,13 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import { mcpManage } from '../convex/features/mcpKeys/permissions'
 import {
-  mcpManage,
   runbookBulkDelete,
   runbookCreate,
   runbookDelete,
   runbookRead,
-} from '../convex/auth/permissions'
+} from '../convex/features/runbooks/permissions'
 import schema from '../convex/schema'
 import { modules } from '../convex/test.setup'
 
@@ -46,7 +46,7 @@ describe('mcp reference example', () => {
         email: 'owner@example.com',
         name: 'First Owner',
       })
-      .mutation(api.domain.workspaces.createWorkspace, {
+      .mutation(api.features.workspaces.domain.createWorkspaceMutation, {
         name: 'First Workspace',
         slug: 'first-workspace',
       })
@@ -161,7 +161,7 @@ describe('mcp reference example', () => {
       },
     })
 
-    await team.users.owner.mutation(api.domain.runbooks.create, {
+    await team.users.owner.mutation(api.features.runbooks.domain.create, {
       title: 'Public handoff',
       summary: 'Shared with anyone.',
       content: '# Public handoff\n\n1. Share status',
@@ -169,7 +169,7 @@ describe('mcp reference example', () => {
       tags: ['public'],
     })
 
-    const publicRunbooks = await ctx.raw.query(api.domain.runbooks.listPublic, {})
+    const publicRunbooks = await ctx.raw.query(api.features.runbooks.domain.listPublic, {})
     expect(
       publicRunbooks.some((runbook: { title: string }) => runbook.title === 'Public handoff'),
     ).toBe(true)
@@ -180,7 +180,7 @@ describe('mcp reference example', () => {
     expect('workspaceId' in (publicRunbook ?? {})).toBe(false)
     expect('ownerId' in (publicRunbook ?? {})).toBe(false)
 
-    await expect(ctx.raw.query(api.domain.runbooks.listWorkspace, {})).rejects.toThrow(
+    await expect(ctx.raw.query(api.features.runbooks.domain.listWorkspace, {})).rejects.toThrow(
       'Forbidden: Read runbooks',
     )
   })
@@ -202,7 +202,7 @@ describe('mcp reference example', () => {
           userId: team.users.viewer.authId,
           subject: `user:${team.users.viewer.authId}`,
         })
-        .mutation(api.domain.runbooks.create, {
+        .mutation(api.features.runbooks.domain.create, {
           title: 'Viewer should fail',
           summary: 'No permission',
           content: '# Nope',
@@ -212,7 +212,7 @@ describe('mcp reference example', () => {
     ).rejects.toThrow(/Forbidden: Create runbook/)
 
     await expect(
-      team.users.member.mutation(api.domain.runbooks.create, {
+      team.users.member.mutation(api.features.runbooks.domain.create, {
         title: 'Member may create',
         summary: 'Allowed',
         content: '# Allowed',
@@ -233,7 +233,7 @@ describe('mcp reference example', () => {
     })
 
     await expect(
-      ctx.raw.mutation(api.domain.runbooks.create, {
+      ctx.raw.mutation(api.features.runbooks.domain.create, {
         title: 'Webhook viewer should fail',
         summary: 'No permission',
         content: '# Nope',
@@ -257,7 +257,7 @@ describe('mcp reference example', () => {
     ).rejects.toThrow(/Forbidden: Create runbook/)
 
     await expect(
-      ctx.raw.mutation(api.domain.runbooks.create, {
+      ctx.raw.mutation(api.features.runbooks.domain.create, {
         title: 'Webhook member may create',
         summary: 'Allowed',
         content: '# Allowed',
@@ -291,27 +291,32 @@ describe('mcp reference example', () => {
       },
     })
 
-    const keyId = await team.users.owner.mutation(api.domain.mcpKeys.create, {
+    const keyId = await team.users.owner.mutation(api.features.mcpKeys.domain.create, {
       name: 'Primary key',
       boundAuthId: team.users.member.authId,
       prefix: 'mcp_deadbeef...',
       hash: 'hash_123',
     })
 
-    const validated = await ctx.raw.query(api.domain.mcpKeys.validate, { hash: 'hash_123' })
+    const validated = await ctx.raw.query(api.features.mcpKeys.domain.validate, {
+      hash: 'hash_123',
+    })
     expect(validated?.id).toBe(keyId)
     expect(validated?.userId).toBe(team.users.member.authId)
     expect(validated?.role).toBe('member')
 
-    await ctx.raw.mutation(api.domain.mcpKeys.touch, { id: keyId, seenAt: 100_000 })
-    await ctx.raw.mutation(api.domain.mcpKeys.touch, { id: keyId, seenAt: 120_000 })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { id: keyId, seenAt: 100_000 })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { id: keyId, seenAt: 120_000 })
 
-    const keysAfterFastTouch = await team.users.owner.query(api.domain.mcpKeys.list, {})
+    const keysAfterFastTouch = await team.users.owner.query(api.features.mcpKeys.domain.list, {})
     expect(keysAfterFastTouch[0]?.lastUsedAt).toBe(100_000)
 
-    await ctx.raw.mutation(api.domain.mcpKeys.touch, { id: keyId, seenAt: 170_001 })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { id: keyId, seenAt: 170_001 })
 
-    const keysAfterDebouncedTouch = await team.users.owner.query(api.domain.mcpKeys.list, {})
+    const keysAfterDebouncedTouch = await team.users.owner.query(
+      api.features.mcpKeys.domain.list,
+      {},
+    )
     expect(keysAfterDebouncedTouch[0]?.lastUsedAt).toBe(170_001)
     expect('hash' in (keysAfterDebouncedTouch[0] ?? {})).toBe(false)
     expect(keysAfterDebouncedTouch[0]?.boundUser?.authId).toBe(team.users.member.authId)
@@ -329,19 +334,19 @@ describe('mcp reference example', () => {
       },
     })
 
-    await team.users.owner.mutation(api.domain.mcpKeys.create, {
+    await team.users.owner.mutation(api.features.mcpKeys.domain.create, {
       name: 'Member key',
       boundAuthId: team.users.member.authId,
       prefix: 'mcp_member...',
       hash: 'hash_member',
     })
 
-    expect(await ctx.raw.query(api.domain.mcpKeys.validate, { hash: 'hash_member' })).toMatchObject(
-      {
-        role: 'member',
-        userId: team.users.member.authId,
-      },
-    )
+    expect(
+      await ctx.raw.query(api.features.mcpKeys.domain.validate, { hash: 'hash_member' }),
+    ).toMatchObject({
+      role: 'member',
+      userId: team.users.member.authId,
+    })
 
     await ctx.raw.run(async (innerCtx) => {
       await innerCtx.db.patch(team.users.member.id as never, {
@@ -350,12 +355,12 @@ describe('mcp reference example', () => {
       })
     })
 
-    expect(await ctx.raw.query(api.domain.mcpKeys.validate, { hash: 'hash_member' })).toMatchObject(
-      {
-        role: 'viewer',
-        userId: team.users.member.authId,
-      },
-    )
+    expect(
+      await ctx.raw.query(api.features.mcpKeys.domain.validate, { hash: 'hash_member' }),
+    ).toMatchObject({
+      role: 'viewer',
+      userId: team.users.member.authId,
+    })
   })
 
   it('marks dead bindings in listings and invalidates affected keys', async () => {
@@ -368,7 +373,7 @@ describe('mcp reference example', () => {
       },
     })
 
-    const keyId = await team.users.owner.mutation(api.domain.mcpKeys.create, {
+    const keyId = await team.users.owner.mutation(api.features.mcpKeys.domain.create, {
       name: 'Member key',
       boundAuthId: team.users.member.authId,
       prefix: 'mcp_member...',
@@ -383,10 +388,10 @@ describe('mcp reference example', () => {
     })
 
     expect(
-      await ctx.raw.query(api.domain.mcpKeys.validate, { hash: 'hash_member_dead' }),
+      await ctx.raw.query(api.features.mcpKeys.domain.validate, { hash: 'hash_member_dead' }),
     ).toBeNull()
 
-    const keys = await team.users.owner.query(api.domain.mcpKeys.list, {})
+    const keys = await team.users.owner.query(api.features.mcpKeys.domain.list, {})
     expect(keys.find((key: { _id: string }) => key._id === keyId)?.usability).toBe(
       'bound_user_missing',
     )

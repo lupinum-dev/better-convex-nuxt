@@ -76,7 +76,7 @@
 
 <script setup lang="ts">
 import { api } from '#trellis/api'
-import { articleCreate, shareCreate } from '~/convex/auth/permissions'
+import { articleCreate, shareCreate } from '~/convex/features/articles/permissions'
 
 const route = useRoute()
 const toast = useToast()
@@ -91,20 +91,20 @@ const canShare = allows(shareCreate)
 const canPublish = allows(articleCreate)
 
 const { data: article, error } = await useConvexQuery(
-  api.domain.articles.viewArticle,
+  api.features.articles.domain.view,
   computed(() => ({
     id: articleId as any,
     shareToken: shareToken || undefined,
   })),
 )
 
-const markCompleted = useConvexMutation(api.domain.articles.markCompleted, {
+const markCompleted = useConvexMutation(api.features.articles.domain.markCompleted, {
   onSuccess: () => toast.add({ title: 'Marked as completed', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not mark completed', description: error.message, color: 'error' }),
 })
 
-const publishArticle = useConvexMutation(api.domain.articles.publish, {
+const publishArticle = useConvexMutation(api.features.articles.domain.publish, {
   onSuccess: () => toast.add({ title: 'Article published', color: 'success' }),
   onError: (error) =>
     toast.add({ title: 'Could not publish', description: error.message, color: 'error' }),

@@ -42,4 +42,32 @@ describe('defineTrellis tenant isolation validation', () => {
       ),
     ).toThrow('tenantIsolation.field must be a non-empty string when provided.')
   })
+
+  it('rejects duplicate tenantIsolation global tables', () => {
+    expect(() =>
+      defineTrellis(
+        { query: () => null as never, mutation: () => null as never },
+        {
+          tenantIsolation: {
+            tables: ['todos'] as never[],
+            globalTables: ['users', 'users'] as never[],
+          },
+        },
+      ),
+    ).toThrow('tenantIsolation.globalTables contains a duplicate table: "users".')
+  })
+
+  it('rejects overlapping tenant and global table classification', () => {
+    expect(() =>
+      defineTrellis(
+        { query: () => null as never, mutation: () => null as never },
+        {
+          tenantIsolation: {
+            tables: ['todos'] as never[],
+            globalTables: ['todos'] as never[],
+          },
+        },
+      ),
+    ).toThrow('tenantIsolation cannot classify table "todos" as both tenant-scoped and global.')
+  })
 })

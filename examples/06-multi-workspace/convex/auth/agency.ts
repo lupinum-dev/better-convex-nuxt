@@ -1,9 +1,9 @@
-import { getAuth, deny } from '@lupinum/trellis/auth'
 /**
  * Why this file exists:
  * Agency dashboards are the controlled exception to normal tenant scoping, so they get a
  * distinct actor type and explicit membership helpers.
  */
+import { deny, getAuth } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Doc, Id } from '../_generated/dataModel'
@@ -58,7 +58,9 @@ export async function requireWorkspaceMembership(
 ): Promise<Membership> {
   const membership = await db
     .query('memberships')
-    .withIndex('by_user_workspace', (q) => q.eq('userId', userId).eq('workspaceId', workspaceId))
+    .withIndex('by_user_workspace', (q: any) =>
+      q.eq('userId', userId).eq('workspaceId', workspaceId),
+    )
     .first()
 
   if (!membership) throw deny('No access to this workspace.')

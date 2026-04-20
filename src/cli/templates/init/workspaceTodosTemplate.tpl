@@ -1,5 +1,5 @@
-import { createTodo } from './todo.contract'
-import { hasMinimumRole, hasWorkspace } from '../auth/checks'
+import { createTodo } from '../../shared/features/todos/contract'
+import { hasMinimumRole, hasWorkspace } from '../auth/guards'
 import { mutation, query } from '../functions'
 
 export const list = query({

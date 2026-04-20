@@ -22,7 +22,10 @@ import {
   clearTrustedForwardingContext,
   setTrustedForwardingContext,
 } from '../trusted-forwarding/index.js'
-import { extractSubject } from '../trusted-forwarding/shared.js'
+import {
+  extractSubject,
+  getTrustedForwardingKeyProductionIssue,
+} from '../trusted-forwarding/shared.js'
 import {
   definePrincipal,
   type DefaultPrincipal,
@@ -165,6 +168,10 @@ function getRequiredBridgeTrustedForwardingKey(): string {
   const trustedForwardingKey = process.env.CONVEX_TRUSTED_FORWARDING_KEY?.trim()
   if (!trustedForwardingKey) {
     throw new Error('createComponentBridge() requires CONVEX_TRUSTED_FORWARDING_KEY to be set.')
+  }
+  const trustedForwardingKeyIssue = getTrustedForwardingKeyProductionIssue(trustedForwardingKey)
+  if (trustedForwardingKeyIssue) {
+    throw new Error(trustedForwardingKeyIssue)
   }
 
   return trustedForwardingKey

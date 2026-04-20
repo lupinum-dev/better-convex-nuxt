@@ -1,4 +1,3 @@
-import { literals } from 'convex-helpers/validators'
 /**
  * Why this file exists:
  * The full example needs four tables:
@@ -10,46 +9,14 @@ import { literals } from 'convex-helpers/validators'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-const roleValidator = literals('owner', 'admin', 'member', 'viewer')
+import { todosTables } from './features/todos'
+import { userTables } from './features/users'
+import { workspaceTables } from './features/workspaces'
 
 export default defineSchema({
-  workspaces: defineTable({
-    name: v.string(),
-    slug: v.string(),
-    ownerId: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index('by_slug', ['slug']),
-
-  users: defineTable({
-    authId: v.string(),
-    email: v.optional(v.string()),
-    displayName: v.optional(v.string()),
-    role: roleValidator,
-    workspaceId: v.optional(v.id('workspaces')),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index('by_auth_id', ['authId'])
-    .index('by_email', ['email']),
-
-  todos: defineTable({
-    title: v.string(),
-    completed: v.boolean(),
-    ownerId: v.string(),
-    workspaceId: v.id('workspaces'),
-    source: v.optional(v.string()),
-    externalId: v.optional(v.string()),
-    createdAt: v.number(),
-  })
-    .index('by_workspace', ['workspaceId'])
-    .index('by_owner', ['ownerId']),
-
-  processedEvents: defineTable({
-    eventId: v.string(),
-    source: v.string(),
-    processedAt: v.number(),
-  }).index('by_source_event_id', ['source', 'eventId']),
+  ...workspaceTables,
+  ...userTables,
+  ...todosTables,
 
   destructiveRedemptions: defineTable({
     jti: v.string(),

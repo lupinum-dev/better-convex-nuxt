@@ -8,10 +8,9 @@
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
-import { api, internal } from './_generated/api'
+import { api } from './_generated/api'
 import { ensureNotProcessed, markProcessed } from './auth/idempotency'
-import { todoCreate, todoRead } from './auth/permissions'
-import { ensureWebhookBotUser } from './auth/webhookBot'
+import { todoCreate, todoRead } from './features/todos'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -34,16 +33,16 @@ describe('team todo example', () => {
       },
     })
 
-    const todoId = await team.users.alice.mutation(api.domain.todos.create, {
+    const todoId = await team.users.alice.mutation(api.features.todos.domain.create, {
       title: 'Alice todo',
     })
 
-    await team.users.alice.mutation(api.domain.todos.setCompleted, {
+    await team.users.alice.mutation(api.features.todos.domain.setCompleted, {
       id: todoId,
       completed: true,
     })
 
-    const todos = await team.users.alice.query(api.domain.todos.list, {})
+    const todos = await team.users.alice.query(api.features.todos.domain.list, {})
     expect(todos).toHaveLength(1)
     expect(todos[0]?.completed).toBe(true)
   })
@@ -58,12 +57,12 @@ describe('team todo example', () => {
       },
     })
 
-    const todoId = await team.users.alice.mutation(api.domain.todos.create, {
+    const todoId = await team.users.alice.mutation(api.features.todos.domain.create, {
       title: 'Alice private team todo',
     })
 
     await expect(
-      team.users.bob.mutation(api.domain.todos.setCompleted, {
+      team.users.bob.mutation(api.features.todos.domain.setCompleted, {
         id: todoId,
         completed: true,
       }),
@@ -85,15 +84,15 @@ describe('team todo example', () => {
       },
     })
 
-    await alpha.users.alice.mutation(api.domain.todos.create, {
+    await alpha.users.alice.mutation(api.features.todos.domain.create, {
       title: 'Alpha only',
     })
-    await beta.users.bruno.mutation(api.domain.todos.create, {
+    await beta.users.bruno.mutation(api.features.todos.domain.create, {
       title: 'Beta only',
     })
 
-    const alphaTodos = await alpha.users.alice.query(api.domain.todos.list, {})
-    const betaTodos = await beta.users.bruno.query(api.domain.todos.list, {})
+    const alphaTodos = await alpha.users.alice.query(api.features.todos.domain.list, {})
+    const betaTodos = await beta.users.bruno.query(api.features.todos.domain.list, {})
 
     expect(alphaTodos).toHaveLength(1)
     expect(alphaTodos[0]?.title).toBe('Alpha only')
@@ -128,7 +127,9 @@ describe('team todo example', () => {
     await expect(
       ctx.raw.query(api.permissions.context.getPermissionContext, {}),
     ).resolves.toBeNull()
-    await expect(ctx.raw.query(api.domain.todos.list, {})).rejects.toThrow('Forbidden: Read todos')
+    await expect(ctx.raw.query(api.features.todos.domain.list, {})).rejects.toThrow(
+      'Forbidden: Read todos',
+    )
   })
 
   it('returns onboarding permission context for signed-in users without a workspace', async () => {
@@ -166,12 +167,6 @@ describe('team todo example', () => {
 })
 
 describe('webhook idempotency', () => {
-  async function seedWebhookBot(ctx: ReturnType<typeof createCtx>, workspaceId: string) {
-    await ctx.raw.run(async (innerCtx) => {
-      await ensureWebhookBotUser(innerCtx as never, workspaceId as never)
-    })
-  }
-
   it('denies duplicate webhook events', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
@@ -179,16 +174,14 @@ describe('webhook idempotency', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    await seedWebhookBot(ctx, team.id)
-
-    await ctx.raw.mutation(internal.domain.webhooks.processTodoSyncWebhook, {
+    await team.users.owner.mutation(api.features.todos.webhooks.processTodoSyncWebhookMutation, {
       workspaceId: team.id,
       eventId: 'evt-duplicate',
       title: 'First sync',
     })
 
     await expect(
-      ctx.raw.mutation(internal.domain.webhooks.processTodoSyncWebhook, {
+      team.users.owner.mutation(api.features.todos.webhooks.processTodoSyncWebhookMutation, {
         workspaceId: team.id,
         eventId: 'evt-duplicate',
         title: 'Duplicate sync',
@@ -217,15 +210,13 @@ describe('webhook idempotency', () => {
       users: { member: { role: 'member' } },
     })
 
-    await seedWebhookBot(ctx, team.id)
-
-    await ctx.raw.mutation(internal.domain.webhooks.processTodoSyncWebhook, {
+    await team.users.member.mutation(api.features.todos.webhooks.processTodoSyncWebhookMutation, {
       workspaceId: team.id,
       eventId: 'evt-visible',
       title: 'Webhook todo',
     })
 
-    const todos = await team.users.member.query(api.domain.todos.list, {})
+    const todos = await team.users.member.query(api.features.todos.domain.list, {})
     expect(todos).toHaveLength(1)
     expect(todos[0]?.title).toBe('Webhook todo')
     expect(todos[0]?.source).toBe('webhook')

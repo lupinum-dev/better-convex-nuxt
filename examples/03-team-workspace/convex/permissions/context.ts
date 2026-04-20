@@ -1,13 +1,13 @@
 import { definePermissionContext } from '@lupinum/trellis/auth'
 
 import { getActor } from '../auth/actor'
-import { teamWorkspacePermissions } from '../auth/permissions'
+import { permissions } from '../features'
 import { query } from '../functions'
 
 export const getPermissionContext = query(
   definePermissionContext({
     resolve: getActor,
-    permissions: teamWorkspacePermissions,
+    permissions,
     extend: async (ctx, actor) => {
       const user = await ctx.db
         .query('users')

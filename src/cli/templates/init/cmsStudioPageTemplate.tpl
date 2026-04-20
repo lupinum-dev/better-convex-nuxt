@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { api } from '#trellis/api'
-import { pageCreate, pagePublish } from '~/convex/auth/permissions'
-import { createPageInputSchema, saveDraftInputSchema } from '~/shared/schemas/page'
+import { pageCreate, pagePublish } from '~~/convex/features/pages/permissions'
+import { createPage, saveDraft } from '~~/shared/features/pages/contract'
 
 const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
@@ -18,18 +18,18 @@ const form = reactive({
 const selectedId = ref<string | null>(null)
 
 const studioArgs = computed(() => (ready.value ? {} : undefined))
-const { data: pages } = await useConvexQuery(api.domain.pages.listStudio, studioArgs)
+const { data: pages } = await useConvexQuery(api.features.pages.domain.listStudio, studioArgs)
 const previewArgs = computed(() =>
   selectedId.value ? ({ id: selectedId.value as never }) : undefined,
 )
-const { data: publishPreview } = await useConvexQuery(api.domain.pages.previewPublish, previewArgs, {
+const { data: publishPreview } = await useConvexQuery(api.features.pages.domain.previewPublish, previewArgs, {
   server: false,
   subscribe: false,
 })
 
-const createPage = useConvexMutation(api.domain.pages.create)
-const saveDraft = useConvexMutation(api.domain.pages.save)
-const publishPage = useConvexMutation(api.domain.pages.publish)
+const createPageMutation = useConvexMutation(api.features.pages.domain.create)
+const saveDraftMutation = useConvexMutation(api.features.pages.domain.save)
+const publishPageMutation = useConvexMutation(api.features.pages.domain.publish)
 
 watchEffect(() => {
   const first = pages.value?.[0]
@@ -57,16 +57,16 @@ async function handleSignUp() {
 }
 
 async function handleCreatePage() {
-  const parsed = createPageInputSchema.safeParse(form)
+  const parsed = createPage.zod.safeParse(form)
   if (!parsed.success) return
 
-  const id = await createPage(parsed.data)
+  const id = await createPageMutation(parsed.data)
   selectedId.value = id as string
 }
 
 async function handleSaveDraft() {
   if (!selectedId.value) return
-  const parsed = saveDraftInputSchema.safeParse({
+  const parsed = saveDraft.zod.safeParse({
     id: selectedId.value,
     slug: form.slug,
     title: form.title,
@@ -74,7 +74,7 @@ async function handleSaveDraft() {
   })
   if (!parsed.success) return
 
-  await saveDraft({
+  await saveDraftMutation({
     ...parsed.data,
     id: parsed.data.id as never,
   })
@@ -82,7 +82,7 @@ async function handleSaveDraft() {
 
 async function handlePublish() {
   if (!selectedId.value) return
-  await publishPage({
+  await publishPageMutation({
     id: selectedId.value as never,
   })
 }
@@ -119,13 +119,13 @@ async function handlePublish() {
         <textarea v-model="form.draftBody" rows="10" placeholder="Draft body"></textarea>
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button :disabled="!allows(pageCreate).value || createPage.pending.value" @click="handleCreatePage">
+          <button :disabled="!allows(pageCreate).value || createPageMutation.pending.value" @click="handleCreatePage">
             Create draft
           </button>
-          <button :disabled="!selectedId || saveDraft.pending.value" @click="handleSaveDraft">
+          <button :disabled="!selectedId || saveDraftMutation.pending.value" @click="handleSaveDraft">
             Save draft
           </button>
-          <button :disabled="!allows(pagePublish).value || !selectedId || publishPage.pending.value" @click="handlePublish">
+          <button :disabled="!allows(pagePublish).value || !selectedId || publishPageMutation.pending.value" @click="handlePublish">
             Publish
           </button>
           <button @click="signOut()">Sign out</button>

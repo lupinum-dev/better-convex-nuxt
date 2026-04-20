@@ -1,3 +1,7 @@
 import { defineSchema } from 'convex/server'
 
-export default defineSchema({})
+import { schema } from './features'
+
+export default defineSchema({
+  ...schema,
+})

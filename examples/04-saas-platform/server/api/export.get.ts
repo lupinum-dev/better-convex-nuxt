@@ -7,7 +7,8 @@ import { createError, defineEventHandler, getQuery, setResponseHeader } from 'h3
 
 import { api } from '#trellis/api'
 import { serverConvexQuery } from '#trellis/server'
-import type { Id } from '~/convex/_generated/dataModel'
+
+import type { Id } from '../../convex/_generated/dataModel'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -19,7 +20,7 @@ export default defineEventHandler(async (event) => {
 
   const tasks = await serverConvexQuery(
     event,
-    api.domain.tasks.listForExport,
+    api.features.tasks.domain.listForExport,
     { projectId: projectId as Id<'projects'> },
     { auth: 'required' },
   )

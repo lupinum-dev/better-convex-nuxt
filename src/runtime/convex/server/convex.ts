@@ -12,6 +12,7 @@ import {
 import { createRuntimeObserver } from '../../observability/runtime-observer.js'
 import {
   extractSubject,
+  getTrustedForwardingKeyProductionIssue,
   hasForwardedIdentityFields,
   isAnonymousPrincipalLike,
   stripForwardedIdentityFields,
@@ -256,6 +257,10 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
         `Trusted forwarding auth for ${functionPath} requires \`CONVEX_TRUSTED_FORWARDING_KEY\` or \`options.trustedForwardingKey\`.`,
         errorContext,
       )
+    }
+    const trustedForwardingKeyIssue = getTrustedForwardingKeyProductionIssue(trustedForwardingKey)
+    if (trustedForwardingKeyIssue) {
+      throw createServerConvexError(trustedForwardingKeyIssue, errorContext)
     }
 
     requestArgs = {

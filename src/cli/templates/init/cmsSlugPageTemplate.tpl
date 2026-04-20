@@ -4,7 +4,7 @@ import { api } from '#trellis/api'
 const route = useRoute()
 const slug = computed(() => String(route.params.slug ?? ''))
 const pageArgs = computed(() => (slug.value ? { slug: slug.value } : undefined))
-const { data: page } = await useConvexQuery(api.domain.pages.getPublished, pageArgs)
+const { data: page } = await useConvexQuery(api.features.pages.domain.getPublished, pageArgs)
 </script>
 
 <template>

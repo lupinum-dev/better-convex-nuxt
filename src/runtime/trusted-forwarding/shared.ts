@@ -68,6 +68,45 @@ function nonBlankString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
+export const minimumTrustedForwardingKeyLength = 32
+
+const obviousDevelopmentKeyPatterns = [
+  /replace[-_ ]?me/i,
+  /change[-_ ]?me/i,
+  /placeholder/i,
+  /\bexample\b/i,
+  /\b(?:dev|test|local)(?:[-_ ]?(?:key|secret))?\b/i,
+  /\btrusted[-_ ]?key\b/i,
+  /\bbridge[-_ ]?secret\b/i,
+]
+
+export function isWeakTrustedForwardingKey(value: string): boolean {
+  return value.trim().length < minimumTrustedForwardingKeyLength
+}
+
+export function isObviouslyDevLikeTrustedForwardingKey(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed) return true
+  return obviousDevelopmentKeyPatterns.some((pattern) => pattern.test(trimmed))
+}
+
+export function getTrustedForwardingKeyProductionIssue(
+  value: string,
+  nodeEnv = process.env.NODE_ENV,
+): string | null {
+  if (nodeEnv !== 'production') return null
+
+  if (isWeakTrustedForwardingKey(value)) {
+    return `CONVEX_TRUSTED_FORWARDING_KEY must be at least ${minimumTrustedForwardingKeyLength} characters in production.`
+  }
+
+  if (isObviouslyDevLikeTrustedForwardingKey(value)) {
+    return 'CONVEX_TRUSTED_FORWARDING_KEY looks like a development or placeholder value. Replace it with a long random shared secret in production.'
+  }
+
+  return null
+}
+
 function deriveCanonicalSubject(value: unknown): Subject | undefined {
   if (!isObject(value)) return undefined
 
@@ -204,6 +243,14 @@ export function extractTrustedForwardingFromArgs(
 
   if (!expectedKey) {
     throw deny('Trusted forwarding auth is not configured. Set CONVEX_TRUSTED_FORWARDING_KEY.', {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    })
+  }
+
+  const keyIssue = getTrustedForwardingKeyProductionIssue(expectedKey)
+  if (keyIssue) {
+    throw deny(keyIssue, {
       source: 'trusted-forwarding',
       category: 'auth',
     })

@@ -35,26 +35,10 @@ export interface ProjectSourceLocation {
   line: number
 }
 
-const CANONICAL_LAYOUT_PATHS = [
-  'convex/auth.ts',
-  'convex/auth.config.ts',
-  'convex/convex.config.ts',
-  'convex/functions.ts',
-  'convex/http.ts',
-  'convex/schema.ts',
-  'convex/auth',
-  'convex/domain',
-  'convex/operations',
-  'convex/permissions',
-  'shared/schemas',
-  'pages',
-  'server/api',
-  'server/mcp',
-] as const
-
 export interface EnvKeySource {
   key: string
   source: string
+  value: string
 }
 
 function readTextIfExists(path: string): string | null {
@@ -195,9 +179,30 @@ export function inspectProject(cwd: string): ProjectInspection {
 }
 
 export function findMissingCanonicalLayoutPaths(project: ProjectInspection): string[] {
-  return CANONICAL_LAYOUT_PATHS.filter(
-    (relativePath) => !existsSync(resolve(project.cwd, relativePath)),
-  )
+  const authDisabled = isAuthExplicitlyDisabled(project)
+  const usesPermissions = usesPermissionSurfaces(project)
+  const paths = [
+    'convex/functions.ts',
+    'convex/schema.ts',
+    'convex/features',
+    'shared/features',
+    'app/features',
+    'pages',
+    'server/api',
+    'server/mcp',
+    ...(authDisabled
+      ? []
+      : [
+          'convex/auth.ts',
+          'convex/auth.config.ts',
+          'convex/convex.config.ts',
+          'convex/http.ts',
+          'convex/auth',
+        ]),
+    ...(usesPermissions ? ['convex/permissions'] : []),
+  ]
+
+  return paths.filter((relativePath) => !existsSync(resolve(project.cwd, relativePath)))
 }
 
 export function hasDependency(project: ProjectInspection, dependencyName: string): boolean {
@@ -228,19 +233,31 @@ function hasEnvAssignment(line: string, key: 'CONVEX_URL' | 'NUXT_PUBLIC_CONVEX_
   return remainder.slice(1).trim().length > 0
 }
 
-function hasAnyEnvAssignment(line: string, keys: readonly string[]): string | null {
+function readEnvAssignmentValue(line: string, key: string): string | null {
+  const trimmedLine = line.trim()
+  const withoutExport = trimmedLine.startsWith('export ')
+    ? trimmedLine.slice('export '.length).trimStart()
+    : trimmedLine
+
+  if (!withoutExport.startsWith(key)) return null
+
+  const remainder = withoutExport.slice(key.length).trimStart()
+  if (!remainder.startsWith('=')) return null
+
+  const value = remainder.slice(1).trim()
+  return value.length > 0 ? value : null
+}
+
+function findAnyEnvAssignment(line: string, keys: readonly string[]): EnvKeySource | null {
   for (const key of keys) {
-    const trimmedLine = line.trim()
-    const withoutExport = trimmedLine.startsWith('export ')
-      ? trimmedLine.slice('export '.length).trimStart()
-      : trimmedLine
-
-    if (!withoutExport.startsWith(key)) continue
-
-    const remainder = withoutExport.slice(key.length).trimStart()
-    if (!remainder.startsWith('=')) continue
-    if (remainder.slice(1).trim().length === 0) continue
-    return key
+    const value = readEnvAssignmentValue(line, key)
+    if (value) {
+      return {
+        key,
+        source: '',
+        value,
+      }
+    }
   }
 
   return null
@@ -279,20 +296,81 @@ export function findEnvKeySource(
   for (const key of keys) {
     const value = process.env[key]
     if (typeof value === 'string' && value.trim()) {
-      return { key, source: `process.env.${key}` }
+      return { key, source: `process.env.${key}`, value: value.trim() }
     }
   }
 
   for (const envSource of project.envSources) {
     for (const line of envSource.text.split(/\r?\n/)) {
-      const matchedKey = hasAnyEnvAssignment(line, keys)
+      const matchedKey = findAnyEnvAssignment(line, keys)
       if (matchedKey) {
-        return { key: matchedKey, source: envSource.path }
+        return { ...matchedKey, source: envSource.path }
       }
     }
   }
 
   return null
+}
+
+function isPublicFacingSourcePath(filePath: string): boolean {
+  return /[/\\](?:app|components|composables|layouts|pages|plugins|shared|utils)[/\\]/.test(
+    filePath,
+  )
+}
+
+export function findTrustedForwardingPublicExposure(
+  project: ProjectInspection,
+): ProjectSourceLocation[] {
+  const findings: ProjectSourceLocation[] = []
+
+  if (
+    typeof process.env.NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY === 'string' &&
+    process.env.NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY.trim()
+  ) {
+    findings.push({
+      path: 'process.env.NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY',
+      line: 1,
+    })
+  }
+
+  for (const envSource of project.envSources) {
+    const lines = envSource.text.split(/\r?\n/)
+    for (const [index, line] of lines.entries()) {
+      if (readEnvAssignmentValue(line, 'NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY')) {
+        findings.push({
+          path: envSource.path,
+          line: index + 1,
+        })
+      }
+    }
+  }
+
+  const publicRuntimeConfigMatch = project.nuxtConfigText.match(
+    /runtimeConfig\s*:\s*\{[\s\S]*?\bpublic\s*:\s*\{[\s\S]*?CONVEX_TRUSTED_FORWARDING_KEY/,
+  )
+  if (project.nuxtConfigPath && publicRuntimeConfigMatch?.index !== undefined) {
+    findings.push({
+      path: project.nuxtConfigPath,
+      line: project.nuxtConfigText.slice(0, publicRuntimeConfigMatch.index).split(/\r?\n/).length,
+    })
+  }
+
+  for (const sourceFile of project.sourceFiles) {
+    if (!isPublicFacingSourcePath(sourceFile.path)) continue
+
+    const match =
+      sourceFile.text.match(
+        /\b(?:CONVEX_TRUSTED_FORWARDING_KEY|NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY)\b/,
+      ) ?? null
+    if (!match?.index && match?.index !== 0) continue
+
+    findings.push({
+      path: sourceFile.path,
+      line: sourceFile.text.slice(0, match.index).split(/\r?\n/).length,
+    })
+  }
+
+  return findings
 }
 
 export function isAuthExplicitlyDisabled(project: ProjectInspection): boolean {
@@ -466,7 +544,9 @@ export function findMcpRateLimitStoreSupport(
   let sawExplicitStore = false
 
   for (const sourceFile of analysis.getSourceFiles()) {
-    for (const objectLiteral of sourceFile.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
+    for (const objectLiteral of sourceFile.getDescendantsOfKind(
+      SyntaxKind.ObjectLiteralExpression,
+    )) {
       const property = objectLiteral
         .getProperties()
         .find((candidate) => getPropertyName(candidate) === 'rateLimitStore')

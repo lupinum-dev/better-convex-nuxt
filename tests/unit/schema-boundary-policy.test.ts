@@ -56,9 +56,7 @@ describe('schema boundary policy', () => {
       'src/cli/templates/init/cmsPagesTemplate.tpl',
     ]
 
-    const offenders = targets.filter((path) =>
-      /from ['"][^'"]*shared\/schemas\//.test(read(path)),
-    )
+    const offenders = targets.filter((path) => /from ['"][^'"]*shared\/schemas\//.test(read(path)))
 
     expect(offenders).toEqual([])
   })

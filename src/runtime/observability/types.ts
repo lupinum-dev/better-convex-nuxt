@@ -89,8 +89,8 @@ type ObservationDefinitionMap = {
   'authorize.allowed': { status: 'success'; reasonCode?: never }
   'authorize.denied': { status: 'deny'; reasonCode: 'authorize.denied' }
   'rls.denied': { status: 'deny'; reasonCode: 'rls.denied' | 'service.access.denied' }
-  'db.cross_tenant.used': { status: 'success'; reasonCode?: never }
-  'db.raw.used': { status: 'success'; reasonCode?: never }
+  'unsafe.handler.used': { status: 'success'; reasonCode?: never }
+  'db.escape_tenant_isolation.used': { status: 'success'; reasonCode?: never }
   'service.access.checked': { status: 'success'; reasonCode?: never }
   'service.access.denied': { status: 'deny'; reasonCode: 'service.access.denied' }
   'operation.preview.started': { status: 'success'; reasonCode?: never }
@@ -201,8 +201,8 @@ export const alwaysOnEvents: ReadonlySet<TrellisObservationName> = new Set<Trell
   'guard.denied',
   'authorize.denied',
   'rls.denied',
-  'db.cross_tenant.used',
-  'db.raw.used',
+  'unsafe.handler.used',
+  'db.escape_tenant_isolation.used',
   'service.access.denied',
   'operation.confirm.drifted',
   'operation.execute.failed',
@@ -227,8 +227,8 @@ export const nonVerboseEvents: ReadonlySet<TrellisObservationName> =
     'authorize.allowed',
     'authorize.denied',
     'rls.denied',
-    'db.cross_tenant.used',
-    'db.raw.used',
+    'unsafe.handler.used',
+    'db.escape_tenant_isolation.used',
     'service.access.checked',
     'service.access.denied',
     'operation.preview.started',

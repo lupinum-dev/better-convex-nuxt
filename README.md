@@ -18,9 +18,10 @@ It is not a neutral helper layer. It is the hard-default path when you want the 
 Canonical CLI:
 
 ```bash
+npx trellis init my-app --template public
 npx trellis init my-app --template personal
 npx trellis init my-app --template workspace --mcp
-npx trellis add resource project
+npx trellis add entity project
 npx trellis add uploads
 npx trellis add operation publish-entry --kind destructive
 npx trellis doctor
@@ -28,6 +29,7 @@ npx trellis doctor
 
 Official starters:
 
+- `public`
 - `personal`
 - `workspace`
 - `cms`
@@ -48,18 +50,21 @@ convex/
   http.ts
   schema.ts
   auth/
-  domain/
-  operations/
   permissions/
+  features/
 shared/
-  schemas/
+  features/
+app/
+  features/
 pages/
 server/
   api/
   mcp/
 ```
 
-The rule is simple: keep the generated shape. Add app code into the existing lanes instead of inventing a new structure per project.
+The rule is simple: keep the generated shell and add product code under feature folders instead of inventing a new shape per project.
+
+Treat each top-level feature component as a mini-Trellis boundary: routes stay thin, and the feature component owns the query/mutation/permission seam for that slice.
 
 ## Runtime Contract
 
@@ -78,7 +83,7 @@ The same business model is then projected into browser UI, server callers, and M
 Key invariants:
 
 - Tenant-aware apps use runtime-enforced isolation, not naming convention alone.
-- Forwarded `principal` values are only accepted on verified trusted-forwarding lanes.
+- Forwarded `principal` values are only accepted on verified trusted-forwarding paths.
 - Observability metadata does not participate in client query cache identity.
 - Destructive first-party handlers are allowed.
 - Cross-surface destructive flows, especially MCP, must use operation-backed preview/confirm/execute.

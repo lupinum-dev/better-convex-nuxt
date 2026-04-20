@@ -10,6 +10,7 @@ describe('package subpath exports', () => {
     expect(packageJson.exports).toHaveProperty('./auth')
     expect(packageJson.exports).toHaveProperty('./args')
     expect(packageJson.exports).toHaveProperty('./composables')
+    expect(packageJson.exports).toHaveProperty('./feature')
     expect(packageJson.exports).toHaveProperty('./functions')
     expect(packageJson.exports).toHaveProperty('./mcp')
     expect(packageJson.exports).toHaveProperty('./trusted-forwarding')
@@ -23,6 +24,7 @@ describe('package subpath exports', () => {
     expect(packageJson.typesVersions['*']).toHaveProperty('args')
     expect(packageJson.typesVersions['*']).toHaveProperty('auth')
     expect(packageJson.typesVersions['*']).toHaveProperty('composables')
+    expect(packageJson.typesVersions['*']).toHaveProperty('feature')
     expect(packageJson.typesVersions['*']).toHaveProperty('functions')
     expect(packageJson.typesVersions['*']).toHaveProperty('mcp')
     expect(packageJson.typesVersions['*']).toHaveProperty('trusted-forwarding')
@@ -41,6 +43,7 @@ describe('package subpath exports', () => {
     expect(packageJson.exports['./auth'].import).toBe('./dist/runtime/auth/index.mjs')
     expect(packageJson.exports['./args'].import).toBe('./dist/runtime/args/index.mjs')
     expect(packageJson.exports['./composables'].import).toBe('./dist/runtime/composables/index.mjs')
+    expect(packageJson.exports['./feature'].import).toBe('./dist/runtime/feature/index.mjs')
     expect(packageJson.exports['./functions'].import).toBe('./dist/runtime/functions/index.mjs')
     expect(packageJson.exports['./mcp'].import).toBe('./dist/runtime/mcp/index.mjs')
     expect(packageJson.exports['./trusted-forwarding'].import).toBe(

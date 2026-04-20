@@ -2,13 +2,14 @@ import { requireAuth } from '@lupinum/trellis/auth'
 import type { ActorAccessor } from '@lupinum/trellis/functions'
 import type { GenericMutationCtx } from 'convex/server'
 
-import type { DataModel } from '../_generated/dataModel'
-import type { Actor } from '../auth/actor'
-import { raw } from '../functions'
+import type { DataModel } from '../../_generated/dataModel'
+import type { Actor } from '../../auth/actor'
+import { unsafe } from '../../functions'
 
 type Ctx = GenericMutationCtx<DataModel> & { actor: ActorAccessor<Actor> }
 
-export const generateUploadUrl = raw.mutation({
+export const generateUploadUrl = unsafe.mutation({
+  bypass: 'Generate upload URLs before a specific tenant record exists.',
   args: {},
   handler: async (ctx: Ctx) => {
     requireAuth(await ctx.actor())

@@ -1,7 +1,5 @@
 import { getHeader, type H3Event } from 'h3'
 
-import type { MiniCmsPrincipal } from '~/shared/principal'
-
 import {
   createPagePermission,
   listDraftPagesPermission,
@@ -9,7 +7,8 @@ import {
   publishPagePermission,
   saveDraftPermission,
   type MiniCmsPermissionKey,
-} from '../../convex/auth/permissions'
+} from '../../convex/features/pages/permissions'
+import type { MiniCmsPrincipal } from '../../shared/principal'
 
 export type CapabilitySnapshot = Record<MiniCmsPermissionKey, boolean>
 
@@ -24,12 +23,13 @@ export function getMcpPrincipal(event: H3Event): MiniCmsPrincipal {
   const token = readBearerToken(event)
 
   if (!token || token !== runtimeConfig.demoMcpToken) {
-    return { kind: 'anonymous' }
+    return { kind: 'anonymous', subject: 'system:anonymous' }
   }
 
   return {
     kind: 'agent',
     agentId: 'demo-key',
+    subject: 'agent:demo-key',
     provider: 'mcp',
   }
 }

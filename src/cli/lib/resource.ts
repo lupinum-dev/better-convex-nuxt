@@ -8,9 +8,11 @@ type ResourceAppKind = 'personal' | 'workspace' | 'cms'
 type ResourceGeneratorContext = {
   kind: ResourceAppKind
   hasMcp: boolean
+  hasFeatureManifest: boolean
   ownerField: 'ownerId' | 'authorId'
   tenantField: 'workspaceId' | null
   hasUpdatedAt: boolean
+  guardImportPath: '../../auth/guards'
   name: string
   fileStem: string
   singularPascal: string
@@ -70,19 +72,21 @@ async function inferResourceContext(cwd: string, name: string): Promise<Resource
   const schemaPath = resolve(cwd, 'convex/schema.ts')
   const schemaSource = await readFile(schemaPath, 'utf8')
   const hasWorkspacePrincipal = await exists(resolve(cwd, 'convex/auth/principal.ts'))
-  const hasCmsPages = await exists(resolve(cwd, 'convex/domain/pages.ts'))
+  const hasCmsPages = await exists(resolve(cwd, 'convex/features/pages/domain.ts'))
   const kind: ResourceAppKind = hasWorkspacePrincipal
     ? 'workspace'
     : hasCmsPages
       ? 'cms'
       : 'personal'
+  const hasFeatureManifest = await exists(resolve(cwd, 'convex/features/index.ts'))
+  const guardImportPath = '../../auth/guards'
 
   const singularCamel = camelCase(name)
   const singularPascal = pascalCase(name)
   const pluralCamel = pluralize(singularCamel)
   const pluralPascal = pascalCase(pluralCamel)
-  const ownerField = /authorId\s*:/.test(schemaSource) ? 'authorId' : 'ownerId'
-  const tenantField = /workspaceId\s*:/.test(schemaSource) ? 'workspaceId' : null
+  const ownerField = kind === 'cms' || /authorId\s*:/.test(schemaSource) ? 'authorId' : 'ownerId'
+  const tenantField = kind === 'workspace' ? 'workspaceId' : null
   const hasUpdatedAt = /updatedAt\s*:/.test(schemaSource)
   const hasMcp =
     (await exists(resolve(cwd, 'server/mcp/runtime.ts'))) ||
@@ -91,9 +95,11 @@ async function inferResourceContext(cwd: string, name: string): Promise<Resource
   return {
     kind,
     hasMcp,
+    hasFeatureManifest,
     ownerField,
     tenantField,
     hasUpdatedAt,
+    guardImportPath,
     name,
     fileStem: kebabCase(name),
     singularPascal,
@@ -152,32 +158,6 @@ export const ${listName} = defineArgs({
 `.trimStart()
 }
 
-function resourceEdgeSchemaTemplate(ctx: ResourceGeneratorContext): string {
-  const title = ctx.singularPascal
-
-  return `
-import * as z from 'zod'
-
-const ${ctx.singularCamel}NameSchema = z
-  .string()
-  .trim()
-  .min(1, '${title} name is required')
-  .max(120, 'Keep the name under 120 characters')
-
-export const create${ctx.singularPascal}InputSchema = z.object({
-  name: ${ctx.singularCamel}NameSchema,
-})
-
-export const update${ctx.singularPascal}InputSchema = create${ctx.singularPascal}InputSchema.extend({
-  id: z.string().min(1, '${title} id is required'),
-})
-
-export const delete${ctx.singularPascal}InputSchema = z.object({
-  id: z.string().min(1, '${title} id is required'),
-})
-`.trimStart()
-}
-
 function resourcePermissionsTemplate(ctx: ResourceGeneratorContext): string {
   const createCheck =
     ctx.kind === 'workspace' ? "hasWorkspace.and(hasMinimumRole('member'))" : 'isAuthenticated'
@@ -187,8 +167,8 @@ function resourcePermissionsTemplate(ctx: ResourceGeneratorContext): string {
     ctx.kind === 'workspace' ? "hasWorkspace.and(hasMinimumRole('member'))" : 'isAuthenticated'
   const imports =
     ctx.kind === 'workspace'
-      ? "import { hasMinimumRole, hasWorkspace } from './checks'\n"
-      : "import { isAuthenticated } from './checks'\n"
+      ? `import { hasMinimumRole, hasWorkspace } from '${ctx.guardImportPath}'\n`
+      : `import { isAuthenticated } from '${ctx.guardImportPath}'\n`
 
   return `
 import { definePermission } from '@lupinum/trellis/auth'
@@ -222,9 +202,9 @@ import { requireRecord } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import { delete${ctx.singularPascal} } from '../domain/${ctx.fileStem}.contract'
-import { ${ctx.singularCamel}DeletePermission } from '../auth/permissions'
-import { query } from '../functions'
+import { delete${ctx.singularPascal} } from '../../../shared/features/${ctx.tableName}/contract'
+import { ${ctx.singularCamel}DeletePermission } from './permissions'
+import { query } from '../../functions'
 
 export const remove${ctx.singularPascal}Op = defineOperation({
   id: '${ctx.tableName}.remove',
@@ -277,8 +257,7 @@ export const previewRemove${ctx.singularPascal} = query(previewOf(remove${ctx.si
 }
 
 function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
-  const contractImport = `./${ctx.fileStem}.contract`
-  const permissionImport = `../auth/permissions`
+  const contractImport = `../../../shared/features/${ctx.tableName}/contract`
   const updateOwnerCheck =
     ctx.kind === 'workspace'
       ? "actor.role === 'owner' || actor.role === 'admin' || actor.userId === loaded.ownerId"
@@ -329,9 +308,9 @@ import {
   ${ctx.singularCamel}CreatePermission,
   ${ctx.singularCamel}DeletePermission,
   ${ctx.singularCamel}ReadPermission,
-} from '${permissionImport}'
-import { mutation, query } from '../functions'
-${ctx.hasMcp ? `import { remove${ctx.singularPascal}Op } from '../operations/${ctx.fileStem}'\n` : ''}
+} from './permissions'
+import { mutation, query } from '../../functions'
+${ctx.hasMcp ? `import { remove${ctx.singularPascal}Op } from './operations'\n` : ''}
 
 export const list = query({
   args: list${ctx.pluralPascal}.args,
@@ -400,9 +379,9 @@ import { describe, expect, it } from 'vitest'
 
 import { createTestContext } from '@lupinum/trellis/testing'
 
-import { api } from './_generated/api'
-import schema from './schema'
-import { modules } from './test.setup'
+import { api } from '../../_generated/api'
+import schema from '../../schema'
+import { modules } from '../../test.setup'
 
 function createCtx() {
   return createTestContext({ schema, modules })
@@ -419,8 +398,8 @@ describe('${ctx.tableName}', () => {
       },
     })
 
-    const id = await tenant.users.member.mutation(api.domain.${ctx.fileStem}.create, { name: 'Draft' })
-    await tenant.users.member.mutation(api.domain.${ctx.fileStem}.update, { id, name: 'Renamed' })
+    const id = await tenant.users.member.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Draft' })
+    await tenant.users.member.mutation(api.features.${ctx.tableName}.domain.update, { id, name: 'Renamed' })
 
     const rows = await ctx.readAll('${ctx.tableName}')
     expect(rows.find((row) => row._id === id)?.name).toBe('Renamed')
@@ -437,10 +416,10 @@ describe('${ctx.tableName}', () => {
       },
     })
 
-    const id = await tenant.users.member.mutation(api.domain.${ctx.fileStem}.create, { name: 'Draft' })
+    const id = await tenant.users.member.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Draft' })
 
     await expect(
-      tenant.users.other.mutation(api.domain.${ctx.fileStem}.update, { id, name: 'Denied' }),
+      tenant.users.other.mutation(api.features.${ctx.tableName}.domain.update, { id, name: 'Denied' }),
     ).rejects.toThrow(/Forbidden/)
   })
 })
@@ -452,9 +431,9 @@ import { describe, expect, it } from 'vitest'
 
 import { createTestContext } from '@lupinum/trellis/testing'
 
-import { api } from './_generated/api'
-import schema from './schema'
-import { modules } from './test.setup'
+import { api } from '../../_generated/api'
+import schema from '../../schema'
+import { modules } from '../../test.setup'
 
 function createCtx() {
   return createTestContext({ schema, modules })
@@ -475,9 +454,9 @@ describe('${ctx.tableName}', () => {
     const ctx = createCtx()
     await seedUser(ctx, 'owner-1')
     const owner = ctx.raw.withIdentity({ subject: 'owner-1' })
-    const id = await owner.mutation(api.domain.${ctx.fileStem}.create, { name: 'Draft' })
+    const id = await owner.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Draft' })
 
-    await owner.mutation(api.domain.${ctx.fileStem}.update, { id, name: 'Renamed' })
+    await owner.mutation(api.features.${ctx.tableName}.domain.update, { id, name: 'Renamed' })
 
     const rows = await ctx.readAll('${ctx.tableName}')
     expect(rows.find((row) => row._id === id)?.name).toBe('Renamed')
@@ -489,10 +468,10 @@ describe('${ctx.tableName}', () => {
     await seedUser(ctx, 'other-1')
     const owner = ctx.raw.withIdentity({ subject: 'owner-1' })
     const other = ctx.raw.withIdentity({ subject: 'other-1' })
-    const id = await owner.mutation(api.domain.${ctx.fileStem}.create, { name: 'Draft' })
+    const id = await owner.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Draft' })
 
     await expect(
-      other.mutation(api.domain.${ctx.fileStem}.update, { id, name: 'Denied' }),
+      other.mutation(api.features.${ctx.tableName}.domain.update, { id, name: 'Denied' }),
     ).rejects.toThrow(/Forbidden/)
   })
 })
@@ -502,14 +481,14 @@ describe('${ctx.tableName}', () => {
 function resourceMcpListTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { api } from '#trellis/api'
-import { ${ctx.singularCamel}ReadPermission } from '~/convex/auth/permissions'
-import { list${ctx.pluralPascal} } from '~/convex/domain/${ctx.fileStem}.contract'
+import { ${ctx.singularCamel}ReadPermission } from '~~/convex/features/${ctx.tableName}'
+import { list${ctx.pluralPascal} } from '~~/shared/features/${ctx.tableName}/contract'
 
 import { tool } from '../runtime'
 
 export default tool({
   schema: list${ctx.pluralPascal},
-  call: api.domain.${ctx.fileStem}.list,
+  call: api.features.${ctx.tableName}.domain.list,
   operation: 'query',
   permission: ${ctx.singularCamel}ReadPermission,
   meta: {
@@ -522,14 +501,14 @@ export default tool({
 function resourceMcpCreateTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { api } from '#trellis/api'
-import { ${ctx.singularCamel}CreatePermission } from '~/convex/auth/permissions'
-import { create${ctx.singularPascal} } from '~/convex/domain/${ctx.fileStem}.contract'
+import { ${ctx.singularCamel}CreatePermission } from '~~/convex/features/${ctx.tableName}'
+import { create${ctx.singularPascal} } from '~~/shared/features/${ctx.tableName}/contract'
 
 import { tool } from '../runtime'
 
 export default tool({
   schema: create${ctx.singularPascal},
-  call: api.domain.${ctx.fileStem}.create,
+  call: api.features.${ctx.tableName}.domain.create,
   permission: ${ctx.singularCamel}CreatePermission,
   meta: {
     name: 'create-${ctx.fileStem}',
@@ -540,10 +519,7 @@ export default tool({
 
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
-import { ${ctx.singularCamel}DeletePermission } from '~/convex/auth/permissions'
-import { remove } from '~/convex/domain/${ctx.fileStem}'
-import { remove${ctx.singularPascal}Op } from '~/convex/operations/${ctx.fileStem}'
-import { previewRemove${ctx.singularPascal} } from '~/convex/operations/${ctx.fileStem}'
+import { ${ctx.singularCamel}DeletePermission, previewRemove${ctx.singularPascal}, remove, remove${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}'
 
 import { tool } from '../runtime'
 
@@ -574,15 +550,67 @@ function schemaTableBlock(ctx: ResourceGeneratorContext): string {
   return `${lines.join('\n')},\n`
 }
 
+function resourceSchemaTemplate(ctx: ResourceGeneratorContext): string {
+  return `
+import { defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+export const ${ctx.tableName}Tables = {
+${schemaTableBlock(ctx).trimEnd()}
+}
+`.trimStart()
+}
+
+function resourceFeatureTemplate(ctx: ResourceGeneratorContext): string {
+  const permissionsLine = `  permissions: ${ctx.singularCamel}Permissions,\n`
+
+  return `
+import { defineFeature } from '@lupinum/trellis/feature'
+
+import { ${ctx.singularCamel}Permissions } from './permissions'
+import { ${ctx.tableName}Tables } from './schema'
+
+export const ${ctx.tableName}Feature = defineFeature({
+  name: '${ctx.tableName}',
+  schema: ${ctx.tableName}Tables,
+${permissionsLine}})
+`.trimStart()
+}
+
+function resourceIndexTemplate(ctx: ResourceGeneratorContext): string {
+  return `
+export { create, get, list, remove, update } from './domain'
+export { ${ctx.tableName}Feature } from './feature'
+export {
+  ${ctx.singularCamel}CreatePermission,
+  ${ctx.singularCamel}DeletePermission,
+  ${ctx.singularCamel}Permissions,
+  ${ctx.singularCamel}ReadPermission,
+} from './permissions'
+export { ${ctx.tableName}Tables } from './schema'
+${ctx.hasMcp ? `export { previewRemove${ctx.singularPascal}, remove${ctx.singularPascal}Op } from './operations'\n` : ''}`.trimStart()
+}
+
 async function patchSchema(cwd: string, ctx: ResourceGeneratorContext): Promise<void> {
   const path = resolve(cwd, 'convex/schema.ts')
   const source = await readFile(path, 'utf8')
-  if (source.includes(`${ctx.tableName}: defineTable`)) {
-    throw new Error(`[trellis] Resource "${ctx.tableName}" already exists in convex/schema.ts.`)
+  if (
+    source.includes(`${ctx.tableName}: defineTable`) ||
+    source.includes(`${ctx.tableName}Tables`) ||
+    source.includes(`./features/${ctx.tableName}'`)
+  ) {
+    throw new Error(`[trellis] Entity "${ctx.tableName}" already exists in convex/schema.ts.`)
   }
-
-  const next = source.replace(/\n\}\)\s*$/, `\n${schemaTableBlock(ctx)}})\n`)
-  if (next === source) {
+  const importBlock = `import { ${ctx.tableName}Tables } from './features/${ctx.tableName}'\n`
+  const importAnchor = source.indexOf('export default defineSchema')
+  if (importAnchor === -1) {
+    throw new Error(
+      '[trellis] Could not patch convex/schema.ts. Expected a canonical defineSchema(...) layout.',
+    )
+  }
+  const withImport = `${source.slice(0, importAnchor)}${importBlock}${source.slice(importAnchor)}`
+  const next = withImport.replace(/\n\}\)\s*$/, `\n  ...${ctx.tableName}Tables,\n})\n`)
+  if (next === source || next === withImport) {
     throw new Error(
       '[trellis] Could not patch convex/schema.ts. Expected a canonical defineSchema(...) layout.',
     )
@@ -591,33 +619,32 @@ async function patchSchema(cwd: string, ctx: ResourceGeneratorContext): Promise<
   await writeFile(path, next)
 }
 
-async function patchPermissionAuthoring(cwd: string, ctx: ResourceGeneratorContext): Promise<void> {
-  const authoredPermissionsPath = resolve(cwd, 'convex/auth/permissions.ts')
-  if (!(await exists(authoredPermissionsPath))) {
+async function patchFeatureManifest(cwd: string, ctx: ResourceGeneratorContext): Promise<void> {
+  if (!ctx.hasFeatureManifest) return
+
+  const path = resolve(cwd, 'convex/features/index.ts')
+  const source = await readFile(path, 'utf8')
+  if (source.includes(`./${ctx.tableName}'`)) {
+    return
+  }
+
+  const featureName = `${ctx.tableName}Feature`
+  const withImport = source.replace(
+    /import \{ ([^}]+) \} from '\.\/workspaces\/feature'/,
+    (match) => `${match}\nimport { ${featureName} } from './${ctx.tableName}/feature'`,
+  )
+  const next = withImport.replace(
+    /composeFeatures\(\[([^\]]+)\]\)/,
+    (_match, items) => `composeFeatures([${items.trimEnd()}, ${featureName}])`,
+  )
+
+  if (next === source || next === withImport) {
     throw new Error(
-      '[trellis] Missing convex/auth/permissions.ts. Expected the canonical authored permissions file.',
+      '[trellis] Could not patch convex/features/index.ts. Expected a canonical composed manifest.',
     )
   }
 
-  const source = await readFile(authoredPermissionsPath, 'utf8')
-  const block = resourcePermissionsTemplate(ctx).trimEnd()
-  const withBlock = source.includes(
-    `export const ${ctx.singularCamel}ReadPermission = definePermission(`,
-  )
-    ? source
-    : `${source.trimEnd()}\n\n${block}\n`
-  const next = withBlock.replace(
-    /\]\s+as const/,
-    `,\n  ...${ctx.singularCamel}Permissions,\n] as const`,
-  )
-
-  if (next === withBlock) {
-    throw new Error(
-      '[trellis] Could not patch convex/auth/permissions.ts. Expected a canonical exported permissions array.',
-    )
-  }
-
-  await writeFile(authoredPermissionsPath, next)
+  await writeFile(path, next)
 }
 
 async function patchMcpRuntime(cwd: string, ctx: ResourceGeneratorContext): Promise<void> {
@@ -678,22 +705,37 @@ export async function buildResourceTemplateSet(
   const ctx = await inferResourceContext(cwd, resourceName)
   const files: TemplateFile[] = [
     {
-      path: `shared/schemas/${ctx.fileStem}.ts`,
-      content: resourceEdgeSchemaTemplate(ctx),
-      ownership: 'authored',
-    },
-    {
-      path: `convex/domain/${ctx.fileStem}.contract.ts`,
+      path: `shared/features/${ctx.tableName}/contract.ts`,
       content: resourceContractTemplate(ctx),
       ownership: 'authored',
     },
     {
-      path: `convex/domain/${ctx.fileStem}.ts`,
+      path: `convex/features/${ctx.tableName}/schema.ts`,
+      content: resourceSchemaTemplate(ctx),
+      ownership: 'authored',
+    },
+    {
+      path: `convex/features/${ctx.tableName}/permissions.ts`,
+      content: resourcePermissionsTemplate(ctx),
+      ownership: 'authored',
+    },
+    {
+      path: `convex/features/${ctx.tableName}/domain.ts`,
       content: resourceDomainTemplate(ctx),
       ownership: 'authored',
     },
     {
-      path: `convex/${ctx.fileStem}.test.ts`,
+      path: `convex/features/${ctx.tableName}/feature.ts`,
+      content: resourceFeatureTemplate(ctx),
+      ownership: 'authored',
+    },
+    {
+      path: `convex/features/${ctx.tableName}/index.ts`,
+      content: resourceIndexTemplate(ctx),
+      ownership: 'authored',
+    },
+    {
+      path: `convex/features/${ctx.tableName}/tests.ts`,
       content: resourceTestTemplate(ctx),
       ownership: 'authored',
     },
@@ -702,7 +744,7 @@ export async function buildResourceTemplateSet(
   if (ctx.hasMcp) {
     files.push(
       {
-        path: `convex/operations/${ctx.fileStem}.ts`,
+        path: `convex/features/${ctx.tableName}/operations.ts`,
         content: resourceOperationTemplate(ctx),
         ownership: 'authored',
       },
@@ -725,12 +767,12 @@ export async function buildResourceTemplateSet(
   }
 
   return {
-    label: `add:resource:${ctx.fileStem}`,
-    description: `Add a canonical ${ctx.singularCamel} resource slice`,
+    label: `add:entity:${ctx.fileStem}`,
+    description: `Add a canonical ${ctx.singularCamel} entity slice`,
     files,
     afterWrite: async (targetCwd) => {
       await patchSchema(targetCwd, ctx)
-      await patchPermissionAuthoring(targetCwd, ctx)
+      await patchFeatureManifest(targetCwd, ctx)
       await patchMcpRuntime(targetCwd, ctx)
     },
   }

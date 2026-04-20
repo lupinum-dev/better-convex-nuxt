@@ -10,7 +10,7 @@ import { delegation } from './auth/delegation'
 import type { InternalHarnessPrincipal } from './auth/principal'
 import { principal } from './auth/principal'
 
-export const { mutation, query, raw } = defineTrellis<
+export const { mutation, query, unsafe } = defineTrellis<
   DataModel,
   'public',
   'public',

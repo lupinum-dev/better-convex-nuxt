@@ -22,7 +22,7 @@ export default createConfigForNuxt({
   .prepend(
     // Ignore the standalone docs app - it has its own eslint config.
     {
-      ignores: ['apps/docs/**', '**/convex/_generated/**'],
+      ignores: ['apps/docs/**', '**/_generated/**'],
     },
   )
   .append(

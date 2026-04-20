@@ -6,7 +6,9 @@
 import { createError, defineEventHandler, readBody } from 'h3'
 
 import { serverConvexMutation } from '#trellis/server'
-import { internal } from '~/convex/_generated/api'
+
+import { internal } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 
 type WebhookBody = {
   projectId?: string
@@ -41,9 +43,9 @@ export default defineEventHandler(async (event) => {
 
   const taskId = await serverConvexMutation(
     event,
-    internal.domain.webhooks.createTaskFromWebhook,
+    internal.features.tasks.webhooks.createTaskFromWebhookMutation,
     {
-      projectId: body.projectId,
+      projectId: body.projectId as Id<'projects'>,
       title: body.title,
       priority: body.priority ?? 'medium',
     },

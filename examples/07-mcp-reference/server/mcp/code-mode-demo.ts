@@ -1,9 +1,9 @@
-import searchPublicRunbooks from './tools/public/search-public-runbooks'
-import createRunbook from './tools/workspace/create-runbook'
-import deleteRunbook from './tools/workspace/delete-runbook'
-import listWorkspaceRunbooks from './tools/workspace/list-workspace-runbooks'
-import updateRunbook from './tools/workspace/update-runbook'
-import workspaceOverview from './tools/workspace/workspace-overview'
+import createRunbook from './tools/runbooks/create'
+import deleteRunbook from './tools/runbooks/delete'
+import listWorkspaceRunbooks from './tools/runbooks/list-workspace'
+import searchPublicRunbooks from './tools/runbooks/search-public'
+import updateRunbook from './tools/runbooks/update'
+import workspaceOverview from './tools/runbooks/workspace-overview'
 
 export default defineMcpHandler({
   name: 'runbook-agent',

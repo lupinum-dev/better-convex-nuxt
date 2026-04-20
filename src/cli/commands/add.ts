@@ -18,7 +18,7 @@ export const addCommand = defineCommand({
     feature: {
       type: 'positional',
       required: true,
-      description: 'Feature to add. One of: mcp, uploads, operation, resource',
+      description: 'Feature to add. One of: mcp, uploads, operation, entity',
     },
     kind: {
       type: 'string',
@@ -42,9 +42,9 @@ export const addCommand = defineCommand({
       feature !== 'mcp' &&
       feature !== 'uploads' &&
       feature !== 'operation' &&
-      feature !== 'resource'
+      feature !== 'entity'
     ) {
-      throw new Error('Invalid feature. Use one of: mcp, uploads, operation, resource.')
+      throw new Error('Invalid feature. Use one of: mcp, uploads, operation, entity.')
     }
 
     const kind = String(args.kind)

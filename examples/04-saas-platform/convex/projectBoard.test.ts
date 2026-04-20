@@ -9,8 +9,10 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
 import { api, internal } from './_generated/api'
-import { projectExport, taskCreate } from './auth/permissions'
-import * as filesDomain from './domain/files'
+import { commentCreate } from './features/comments'
+import * as filesDomain from './features/files'
+import { projectExport } from './features/projects'
+import { taskCreate } from './features/tasks'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -30,23 +32,23 @@ describe('server integration workspace example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
+    const projectId = await team.users.owner.mutation(api.features.projects.domain.create, {
       name: 'Board',
       summary: 'Alpha board',
     })
-    const taskId = await team.users.alice.mutation(api.domain.tasks.create, {
+    const taskId = await team.users.alice.mutation(api.features.tasks.domain.create, {
       projectId,
       title: 'Alice task',
       priority: 'medium',
     })
 
-    await team.users.alice.mutation(api.domain.tasks.moveToColumn, {
+    await team.users.alice.mutation(api.features.tasks.domain.moveToColumn, {
       id: taskId,
       status: 'in_progress',
     })
 
     await expect(
-      team.users.bob.mutation(api.domain.tasks.moveToColumn, {
+      team.users.bob.mutation(api.features.tasks.domain.moveToColumn, {
         id: taskId,
         status: 'done',
       }),
@@ -63,23 +65,23 @@ describe('server integration workspace example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
+    const projectId = await team.users.owner.mutation(api.features.projects.domain.create, {
       name: 'Board',
       summary: 'Alpha board',
     })
-    const taskId = await team.users.owner.mutation(api.domain.tasks.create, {
+    const taskId = await team.users.owner.mutation(api.features.tasks.domain.create, {
       projectId,
       title: 'Seed task',
       priority: 'medium',
     })
 
-    await team.users.viewer.mutation(api.domain.comments.create, {
+    await team.users.viewer.mutation(api.features.comments.domain.create, {
       taskId,
       body: 'Viewer feedback',
     })
 
     await expect(
-      team.users.viewer.mutation(api.domain.tasks.create, {
+      team.users.viewer.mutation(api.features.tasks.domain.create, {
         projectId,
         title: 'Nope',
         priority: 'medium',
@@ -96,14 +98,14 @@ describe('server integration workspace example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
+    const projectId = await team.users.owner.mutation(api.features.projects.domain.create, {
       name: 'Archive me',
       summary: 'Soon frozen',
     })
-    await team.users.owner.mutation(api.domain.projects.archive, { id: projectId })
+    await team.users.owner.mutation(api.features.projects.domain.archive, { id: projectId })
 
     await expect(
-      team.users.owner.mutation(api.domain.tasks.create, {
+      team.users.owner.mutation(api.features.tasks.domain.create, {
         projectId,
         title: 'Should fail',
         priority: 'medium',
@@ -122,30 +124,30 @@ describe('server integration workspace example', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    const alphaProject = await alpha.users.owner.mutation(api.domain.projects.create, {
+    const alphaProject = await alpha.users.owner.mutation(api.features.projects.domain.create, {
       name: 'Alpha board',
       summary: 'A',
     })
-    const betaProject = await beta.users.owner.mutation(api.domain.projects.create, {
+    const betaProject = await beta.users.owner.mutation(api.features.projects.domain.create, {
       name: 'Beta board',
       summary: 'B',
     })
 
-    await alpha.users.owner.mutation(api.domain.tasks.create, {
+    await alpha.users.owner.mutation(api.features.tasks.domain.create, {
       projectId: alphaProject,
       title: 'Alpha task',
       priority: 'medium',
     })
-    await beta.users.owner.mutation(api.domain.tasks.create, {
+    await beta.users.owner.mutation(api.features.tasks.domain.create, {
       projectId: betaProject,
       title: 'Beta task',
       priority: 'medium',
     })
 
-    const alphaTasks = await alpha.users.owner.query(api.domain.tasks.listByProject, {
+    const alphaTasks = await alpha.users.owner.query(api.features.tasks.domain.listByProject, {
       projectId: alphaProject,
     })
-    const betaTasks = await beta.users.owner.query(api.domain.tasks.listByProject, {
+    const betaTasks = await beta.users.owner.query(api.features.tasks.domain.listByProject, {
       projectId: betaProject,
     })
 
@@ -166,21 +168,21 @@ describe('server integration workspace example', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    const projectId = await alpha.users.owner.mutation(api.domain.projects.create, {
+    const projectId = await alpha.users.owner.mutation(api.features.projects.domain.create, {
       name: 'Alpha board',
       summary: 'A',
     })
-    const taskId = await alpha.users.owner.mutation(api.domain.tasks.create, {
+    const taskId = await alpha.users.owner.mutation(api.features.tasks.domain.create, {
       projectId,
       title: 'Alpha task',
       priority: 'medium',
     })
 
     await expect(
-      beta.users.owner.query(api.domain.projects.get, { id: projectId }),
+      beta.users.owner.query(api.features.projects.domain.get, { id: projectId }),
     ).rejects.toThrow('Document belongs to a different tenant.')
     await expect(
-      beta.users.owner.mutation(api.domain.comments.create, {
+      beta.users.owner.mutation(api.features.comments.domain.create, {
         taskId,
         body: 'Cross-tenant comment',
       }),
@@ -207,7 +209,7 @@ describe('server integration workspace example', () => {
       updatedAt: Date.now(),
     })
 
-    const members = await team.users.owner.query(api.domain.members.list, {})
+    const members = await team.users.owner.query(api.features.members.domain.list, {})
 
     expect(members).toHaveLength(2)
     expect(
@@ -230,22 +232,22 @@ describe('server integration workspace example', () => {
       },
     })
 
-    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
+    const projectId = await team.users.owner.mutation(api.features.projects.domain.create, {
       name: 'Board',
       summary: 'Bulk demo',
     })
-    const aliceTask = await team.users.alice.mutation(api.domain.tasks.create, {
+    const aliceTask = await team.users.alice.mutation(api.features.tasks.domain.create, {
       projectId,
       title: 'Alice task',
       priority: 'medium',
     })
-    const bobTask = await team.users.bob.mutation(api.domain.tasks.create, {
+    const bobTask = await team.users.bob.mutation(api.features.tasks.domain.create, {
       projectId,
       title: 'Bob task',
       priority: 'medium',
     })
 
-    const result = await team.users.alice.mutation(api.domain.tasks.bulkUpdateStatus, {
+    const result = await team.users.alice.mutation(api.features.tasks.domain.bulkUpdateStatus, {
       ids: [aliceTask, bobTask],
       status: 'done',
     })
@@ -261,22 +263,24 @@ describe('server integration workspace example', () => {
       users: { owner: { role: 'owner' } },
     })
 
-    const projectId = await team.users.owner.mutation(api.domain.projects.create, {
+    const projectId = await team.users.owner.mutation(api.features.projects.domain.create, {
       name: 'Webhook board',
       summary: 'Webhook demo',
     })
 
-    await ctx.raw.mutation(internal.domain.webhooks.createTaskFromWebhook, {
+    await ctx.raw.mutation(internal.features.tasks.webhooks.createTaskFromWebhookMutation, {
       projectId,
       title: 'Created from webhook',
       priority: 'high',
     })
 
-    const tasks = await team.users.owner.query(api.domain.tasks.listByProject, { projectId })
+    const tasks = await team.users.owner.query(api.features.tasks.domain.listByProject, {
+      projectId,
+    })
     expect(tasks).toHaveLength(1)
     expect(tasks[0]?.title).toBe('Created from webhook')
     expect(tasks[0]?.priority).toBe('high')
-    expect(tasks[0]?.ownerId).toContain('webhook-bot:')
+    expect(tasks[0]?.ownerId).toBe(team.users.owner.authId)
   })
 
   it('returns permission context booleans for owners and viewers', async () => {
@@ -299,6 +303,7 @@ describe('server integration workspace example', () => {
     expect(ownerCtx?.can[projectExport.key]).toBe(true)
     expect(viewerCtx?.can[taskCreate.key]).toBe(false)
     expect(viewerCtx?.can[projectExport.key]).toBe(false)
+    expect(ownerCtx?.can[commentCreate.key]).toBe(true)
   })
 
   it('returns null context and rejects protected mutations for anonymous callers', async () => {
@@ -308,7 +313,7 @@ describe('server integration workspace example', () => {
       ctx.raw.query(api.permissions.context.getPermissionContext, {}),
     ).resolves.toBeNull()
     await expect(
-      ctx.raw.mutation(api.domain.projects.create, {
+      ctx.raw.mutation(api.features.projects.domain.create, {
         name: 'Anonymous project',
         summary: 'Should fail',
       }),

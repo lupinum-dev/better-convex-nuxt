@@ -23,6 +23,11 @@ export type TeamTodoPrincipal =
       subject: `agent:${string}`
       provider?: 'mcp'
     }
+  | {
+      kind: 'service'
+      serviceId: string
+      subject: `service:${string}`
+    }
 
 export const teamTodoPrincipalValidator = v.union(
   v.object({
@@ -40,6 +45,11 @@ export const teamTodoPrincipalValidator = v.union(
     agentId: v.optional(v.string()),
     subject: v.string(),
     provider: v.optional(v.literal('mcp')),
+  }),
+  v.object({
+    kind: v.literal('service'),
+    serviceId: v.string(),
+    subject: v.string(),
   }),
 )
 

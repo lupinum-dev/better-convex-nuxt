@@ -44,16 +44,16 @@ describe('auth todo example', () => {
       name: 'Bob',
     })
 
-    const todoId = await alice.mutation(api.domain.todos.create, {
+    const todoId = await alice.mutation(api.features.todos.domain.create, {
       title: 'Alice todo',
     })
 
-    await expect(bob.mutation(api.domain.todos.toggle, { id: todoId })).rejects.toThrow(
+    await expect(bob.mutation(api.features.todos.domain.toggle, { id: todoId })).rejects.toThrow(
       'Todo not found.',
     )
 
-    const aliceTodos = await alice.query(api.domain.todos.list, {})
-    const bobTodos = await bob.query(api.domain.todos.list, {})
+    const aliceTodos = await alice.query(api.features.todos.domain.list, {})
+    const bobTodos = await bob.query(api.features.todos.domain.list, {})
 
     expect(aliceTodos).toHaveLength(1)
     expect(aliceTodos[0]?.title).toBe('Alice todo')

@@ -1,3 +1,5 @@
-This folder exists because the same args definitions can be imported from both `convex/` and Nuxt code.
+This example keeps runtime-neutral feature contracts in `shared/features/*`.
 
-Keep files here free of runtime-specific APIs so the Convex bundle and the Nuxt bundle can both load them safely.
+Default rule: every feature owns `shared/features/<name>/contract.ts`.
+
+Keep shared files free of Vue, Nuxt, browser, and Convex server runtime APIs.

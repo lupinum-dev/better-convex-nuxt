@@ -119,7 +119,7 @@ describe('module validation', () => {
   it('collects Convex exports declared through custom and structured builders', () => {
     const rootDir = createFixture({
       'convex/functions.ts': `
-        export const { query, raw } = defineTrellis({ query, mutation })
+        export const { query, unsafe } = defineTrellis({ query, mutation })
       `,
       'convex/todos.ts': `
         export const list = query({
@@ -128,7 +128,11 @@ describe('module validation', () => {
           handler: async () => []
         })
 
-        export const getPermissionContext = raw.query({ args: {}, handler: async () => null })
+        export const getPermissionContext = unsafe.query({
+          bypass: 'Expose permission context through the low-level builder in this fixture.',
+          args: {},
+          handler: async () => null
+        })
       `,
     })
 

@@ -31,8 +31,8 @@ You already understand the canonical protected workspace model from
 
 ## Files to read first
 
-1. `convex/domain/runbooks.ts`
-2. `convex/domain/mcpKeys.ts`
+1. `convex/features/runbooks/domain.ts`
+2. `convex/features/mcpKeys/domain.ts`
 3. `convex/auth/principal.ts`
 4. `convex/auth/delegation.ts`
 5. `convex/auth/actor.ts`
@@ -41,11 +41,10 @@ You already understand the canonical protected workspace model from
 6. `convex/auth/services.ts`
 7. `server/middleware/mcp-auth.ts`
 8. `server/api/runbook-webhook.post.ts`
-9. `server/mcp/tools/public/*`
-10. `server/mcp/tools/workspace/*`
-11. `server/mcp/tools/session/*`
-12. `server/mcp/resources/mcp-reference-guide.ts`
-13. `server/mcp/prompts/plan-runbook-workflow.ts`
+9. `server/mcp/tools/runbooks/*`
+10. `server/mcp/tools/session/*`
+11. `server/mcp/resources/runbooks/reference-guide.ts`
+12. `server/mcp/prompts/runbooks/plan-workflow.ts`
 
 ## Demo flow
 

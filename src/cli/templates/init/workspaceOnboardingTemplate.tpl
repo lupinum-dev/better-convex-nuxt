@@ -1,9 +1,10 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { raw } from '../functions'
+import { unsafe } from '../functions'
 
-export const createFirstWorkspace = raw.mutation({
+export const createFirstWorkspace = unsafe.mutation({
+  bypass: 'Create the first workspace before a tenant-bound actor exists.',
   args: {
     name: v.string(),
   },
@@ -23,7 +24,7 @@ export const createFirstWorkspace = raw.mutation({
         [
           `Expected a Trellis users row for auth subject "${auth.subject}", but none was found.`,
           'Ensure convex/auth.ts exports onCreate, onUpdate, and onDelete from authComponent.triggersApi().',
-          'If the auth wiring is already correct, ensure auth:createUserIfNeeded has run for this user.',
+          'If those exports are already correct, verify the Trellis auth bootstrap is enabled and healthy.',
         ].join(' '),
       )
     }

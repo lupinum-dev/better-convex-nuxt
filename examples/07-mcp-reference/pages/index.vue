@@ -620,8 +620,9 @@ import * as z from 'zod'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import { mcpManage, runbookCreate } from '~/convex/auth/permissions'
-import { selectMcpBoundUser } from '~/shared/mcp-bound-user'
+import { mcpManage } from '~/convex/features/mcpKeys/permissions'
+import { runbookCreate } from '~/convex/features/runbooks/permissions'
+import { selectMcpBoundUser } from '~/shared/features/mcpKeys/bound-user'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -692,15 +693,15 @@ const verifyVariant = ref<'success' | 'error'>('success')
 const verifyingKey = ref(false)
 const requestUrl = useRequestURL()
 
-const createWorkspace = useConvexMutation(api.domain.workspaces.createWorkspace)
-const createRunbookMutation = useConvexMutation(api.domain.runbooks.create)
-const updateRunbookMutation = useConvexMutation(api.domain.runbooks.update)
-const deleteRunbookMutation = useConvexMutation(api.domain.runbooks.remove)
-const createKey = useConvexMutation(api.domain.mcpKeys.create)
-const revokeKey = useConvexMutation(api.domain.mcpKeys.revoke)
+const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation)
+const createRunbookMutation = useConvexMutation(api.features.runbooks.domain.create)
+const updateRunbookMutation = useConvexMutation(api.features.runbooks.domain.update)
+const deleteRunbookMutation = useConvexMutation(api.features.runbooks.domain.remove)
+const createKey = useConvexMutation(api.features.mcpKeys.domain.create)
+const revokeKey = useConvexMutation(api.features.mcpKeys.domain.revoke)
 
 const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
-  api.domain.runbooks.listPublic,
+  api.features.runbooks.domain.listPublic,
   {},
 )
 
@@ -714,14 +715,14 @@ const {
   data: workspaceRunbooks,
   pending: workspaceRunbooksPending,
   error: workspaceRunbooksError,
-} = await useConvexQuery(api.domain.runbooks.listWorkspace, workspaceArgs)
+} = await useConvexQuery(api.features.runbooks.domain.listWorkspace, workspaceArgs)
 
 const { data: mcpKeys, error: mcpKeysError } = await useConvexQuery(
-  api.domain.mcpKeys.list,
+  api.features.mcpKeys.domain.list,
   mcpKeyArgs,
 )
 const { data: mcpKeyUsers, error: mcpKeyUsersError } = await useConvexQuery(
-  api.domain.users.listWorkspaceUsersForMcpKeys,
+  api.features.users.domain.listWorkspaceUsersForMcpKeys,
   mcpKeyArgs,
 )
 
@@ -881,7 +882,7 @@ async function handleVerifyKey() {
       return
     }
 
-    const result = await useConvex().query(api.domain.mcpKeys.validate, {
+    const result = await useConvex().query(api.features.mcpKeys.domain.validate, {
       hash: await hashToken(token),
     })
 

@@ -25,12 +25,13 @@ You already understand the canonical protected workspace model from
 
 ## Files to read first
 
-1. `convex/domain/workspaces.ts`
-2. `convex/domain/dashboard.ts`
-3. `convex/auth/actor.ts`
-4. `convex/auth/agency.ts`
-5. `pages/index.vue`
-6. `convex/agency.test.ts`
+1. `convex/features/index.ts`
+2. `convex/features/workspaces/domain.ts`
+3. `convex/features/dashboard/domain.ts`
+4. `convex/auth/actor.ts`
+5. `shared/features/workspaces/contract.ts`
+6. `app/features/multi-workspace/components/AgencyPortalPage.vue`
+7. `convex/agency.test.ts`
 
 ## Demo flow
 
@@ -55,6 +56,13 @@ App-owned env vars:
 - `pnpm test`
 - `pnpm typecheck`
 - `pnpm typecheck:tests`
+
+## Layout notes
+
+- runtime-neutral contracts live in `shared/features/*`
+- backend business modules live in `convex/features/*`
+- `convex/schema.ts`, `convex/functions.ts`, `convex/auth.ts`, and other Convex shell files stay at the root
+- `pages/*` stay thin route shells; the UI lives in `app/features/multi-workspace/*`
 
 ## When to stop here / move on
 

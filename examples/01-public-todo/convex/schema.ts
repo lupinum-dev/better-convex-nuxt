@@ -1,15 +1,11 @@
 /**
  * Why this file exists:
- * This is the entire backend data model for the public example.
- * There is just one table because the goal is to show the module API, not business complexity.
+ * Convex requires one root schema file, even though the feature owns the table definition.
  */
-import { defineSchema, defineTable } from 'convex/server'
-import { v } from 'convex/values'
+import { defineSchema } from 'convex/server'
+
+import { todosTables } from './features/todos'
 
 export default defineSchema({
-  todos: defineTable({
-    title: v.string(),
-    completed: v.boolean(),
-    createdAt: v.number(),
-  }),
+  ...todosTables,
 })

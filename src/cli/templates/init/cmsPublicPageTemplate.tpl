@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { api } from '#trellis/api'
 
-const { data: pages } = await useConvexQuery(api.domain.pages.listPublished, {})
+const { data: pages } = await useConvexQuery(api.features.pages.domain.listPublished, {})
 </script>
 
 <template>

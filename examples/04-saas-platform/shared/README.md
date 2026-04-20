@@ -1,10 +1,17 @@
 # Shared folder
 
-This example keeps `shared/schemas/` outside both `convex/` and `server/` on purpose.
+This example keeps runtime-neutral feature contracts in `shared/features/*`.
 
-Use this folder for edge-facing schemas and DTOs that need to stay importable from both runtimes:
+Use this folder only for artifacts that both runtimes import directly:
 
 - `convex/` files run on Convex's infrastructure
 - `server/` files run in Nitro on the Nuxt side
 
-Keep backend-only enforcement in Convex validators and keep HTTP/form validation concerns here. Avoid runtime-specific code in this folder.
+Default rule: every feature owns `shared/features/<name>/contract.ts`.
+
+Do not turn `shared/` into a general dumping ground:
+
+- no Vue imports
+- no Nuxt imports
+- no Convex server imports
+- no browser-only APIs

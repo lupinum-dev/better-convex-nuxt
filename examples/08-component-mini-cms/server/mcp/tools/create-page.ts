@@ -1,12 +1,12 @@
-import { internal } from '#trellis/api'
-import { tool } from '~/server/lib/mcp-runtime'
-import { createPage } from '~/convex/domain/page.contract'
+import { api } from '#trellis/api'
 
-import { createPagePermission } from '../../../convex/auth/permissions'
+import { createPagePermission } from '../../../convex/features/pages/permissions'
+import { createPage } from '../../../shared/features/pages/contract'
+import { tool } from '../../lib/mcp-runtime'
 
 export default tool({
   schema: createPage,
-  call: internal.operations.miniCmsBridge.createPage,
+  call: api.features.pages.domain.create,
   permission: createPagePermission,
   group: 'pages',
   meta: {

@@ -4,11 +4,15 @@
  * composable actor primitive.
  */
 import { defineActor, type DefaultActor } from '@lupinum/trellis/auth'
+import type { Infer } from 'convex/values'
 
-import type { DataModel, Doc, Id } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
+import type { roleValidator } from '../features/users'
+
+type UserRole = Infer<typeof roleValidator>
 
 type KnowledgeBaseActor = DefaultActor & {
-  role: Doc<'users'>['role']
+  role: UserRole
   tenantId: Id<'workspaces'>
   managerId: string | undefined
 }
@@ -17,7 +21,7 @@ const actor = defineActor
   .fromAuth<DataModel>()
   .extend({
     fields: async (_ctx, user) => ({
-      role: user.role as Doc<'users'>['role'],
+      role: user.role as UserRole,
       tenantId: user.workspaceId as Id<'workspaces'> | undefined,
       managerId: user.managerId ?? undefined,
     }),

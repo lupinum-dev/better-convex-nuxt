@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const hash = createHash('sha256').update(token).digest('hex')
-  const key = await serverConvexQuery(event, api.domain.mcpKeys.validate, { hash }, { auth: 'none' })
+  const key = await serverConvexQuery(event, api.features.mcpKeys.domain.validate, { hash }, { auth: 'none' })
   if (!key) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
   }

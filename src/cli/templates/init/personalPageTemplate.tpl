@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { api } from '#trellis/api'
-import { createTodoInputSchema } from '~/shared/schemas/todo'
+import { createTodo } from '~~/shared/features/todos/contract'
 
 const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
@@ -11,9 +11,9 @@ const password = ref('password1234')
 const title = ref('')
 
 const todoArgs = computed(() => (isAuthenticated.value ? {} : undefined))
-const { data: todos } = await useConvexQuery(api.domain.todos.list, todoArgs)
-const createTodo = useConvexMutation(api.domain.todos.create)
-const toggleTodo = useConvexMutation(api.domain.todos.toggle)
+const { data: todos } = await useConvexQuery(api.features.todos.domain.list, todoArgs)
+const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
+const toggleTodo = useConvexMutation(api.features.todos.domain.toggle)
 
 async function handleSignIn() {
   await signIn({
@@ -31,10 +31,10 @@ async function handleSignUp() {
 }
 
 async function handleCreateTodo() {
-  const parsed = createTodoInputSchema.safeParse({ title: title.value })
+  const parsed = createTodo.zod.safeParse({ title: title.value })
   if (!parsed.success) return
 
-  await createTodo(parsed.data)
+  await createTodoMutation(parsed.data)
   title.value = ''
 }
 </script>
@@ -42,7 +42,7 @@ async function handleCreateTodo() {
 <template>
   <main style="max-width: 720px; margin: 0 auto; padding: 40px 16px;">
     <h1>Personal Starter</h1>
-    <p>Trellis app starter: Better Auth + Convex + app-owned permissions.</p>
+    <p>Trellis app starter: Better Auth + Convex + app-owned actor resolution.</p>
 
     <div v-if="isPending">
       Loading auth...
@@ -63,7 +63,7 @@ async function handleCreateTodo() {
       <p>Signed in as {{ user?.email ?? user?.name ?? 'user' }}</p>
       <div style="display: flex; gap: 8px;">
         <input v-model="title" type="text" placeholder="Add a todo" />
-        <button :disabled="createTodo.pending.value" @click="handleCreateTodo">Add</button>
+        <button :disabled="createTodoMutation.pending.value" @click="handleCreateTodo">Add</button>
         <button @click="signOut()">Sign out</button>
       </div>
 

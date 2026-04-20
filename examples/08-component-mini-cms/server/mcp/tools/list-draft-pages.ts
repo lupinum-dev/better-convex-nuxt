@@ -1,12 +1,12 @@
-import { internal } from '#trellis/api'
-import { tool } from '~/server/lib/mcp-runtime'
-import { listDraftPages } from '~/convex/domain/page.contract'
+import { api } from '#trellis/api'
 
-import { listDraftPagesPermission } from '../../../convex/auth/permissions'
+import { listDraftPagesPermission } from '../../../convex/features/pages/permissions'
+import { listDraftPages } from '../../../shared/features/pages/contract'
+import { tool } from '../../lib/mcp-runtime'
 
 export default tool({
   schema: listDraftPages,
-  call: internal.operations.miniCmsBridge.listDraftPages,
+  call: api.features.pages.domain.listDraft,
   operation: 'query',
   permission: listDraftPagesPermission,
   group: 'pages',

@@ -1,12 +1,12 @@
 import { api } from '#trellis/api'
-import { todoCreate } from '~/convex/auth/permissions'
-import { createTodo } from '~/convex/domain/todo.contract'
+import { todoCreate } from '~~/convex/features/todos'
+import { createTodo } from '~~/shared/features/todos/contract'
 
 import { tool } from '../runtime'
 
 export default tool({
   schema: createTodo,
-  call: api.domain.todos.create,
+  call: api.features.todos.domain.create,
   operation: 'mutation',
   permission: todoCreate,
   meta: {

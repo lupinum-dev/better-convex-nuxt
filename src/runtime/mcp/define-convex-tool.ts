@@ -43,7 +43,9 @@ type ConvexToolInputSchema = ConvexMcpInputSchema
 
 type ConvexToolHandlerArgs<S extends AnyConvexSchema> = InferSchemaData<S>
 
-type ConvexToolGeneratedExamples<V extends PropertyValidators> = Partial<Record<keyof V & string, unknown>>[]
+type ConvexToolGeneratedExamples<V extends PropertyValidators> = Partial<
+  Record<keyof V & string, unknown>
+>[]
 
 interface NormalizedToolArgs<S extends AnyConvexSchema> {
   clean: InferSchemaData<S>

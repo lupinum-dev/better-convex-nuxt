@@ -2,7 +2,10 @@
 import {
   createRule,
   getActorDeclaration,
+  getCallName,
   getHandlerFunction,
+  getHandlerOptionsObject,
+  getObjectProperty,
   hasProtectedStructuredGuard,
   hasUnsafeActorCheck,
   isBuilderCall,
@@ -111,7 +114,7 @@ export const authRules = {
     },
     (context) => ({
       CallExpression(node: any) {
-        if (!isBuilderCall(node, 'raw', 'query', 'mutation')) return
+        if (!isBuilderCall(node, 'unsafe', 'query', 'mutation')) return
         const handler = getHandlerFunction(node)
         if (!handler || handler.body?.type !== 'BlockStatement') return
         const actorDeclaration = getActorDeclaration(handler)
@@ -169,6 +172,59 @@ export const authRules = {
           context.report({
             node: firstDbNode,
             messageId: 'gate',
+          })
+        }
+      },
+    }),
+  ),
+  'guard-no-db': createRule(
+    {
+      type: 'problem',
+      schema: [],
+      messages: {
+        pure: 'Structured `guard` must stay synchronous and DB-free. Move record loading into `load` and record-bound checks into `authorize`.',
+      },
+    },
+    (context) => ({
+      CallExpression(node: any) {
+        const bareBuilderName = getCallName(node.callee)
+        const isStructuredBuilder =
+          bareBuilderName === 'query' ||
+          bareBuilderName === 'mutation' ||
+          isBuilderCall(node, 'unsafe', 'query', 'mutation')
+        if (!isStructuredBuilder) return
+        const options = getHandlerOptionsObject(node)
+        const guard = getObjectProperty(options, 'guard')?.value
+        if (
+          !guard ||
+          (guard.type !== 'ArrowFunctionExpression' && guard.type !== 'FunctionExpression')
+        ) {
+          return
+        }
+
+        let violationNode: any | null = null
+        traverse(guard.body, (child) => {
+          if (violationNode) return
+          if (child.type === 'AwaitExpression') {
+            violationNode = child
+            return
+          }
+          if (
+            child.type === 'MemberExpression' &&
+            child.object?.type === 'MemberExpression' &&
+            child.object.object?.type === 'Identifier' &&
+            child.object.object.name === 'ctx' &&
+            child.object.property?.type === 'Identifier' &&
+            child.object.property.name === 'db'
+          ) {
+            violationNode = child
+          }
+        })
+
+        if (violationNode) {
+          context.report({
+            node: violationNode,
+            messageId: 'pure',
           })
         }
       },

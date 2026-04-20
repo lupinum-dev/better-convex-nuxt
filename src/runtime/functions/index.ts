@@ -119,6 +119,10 @@ export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type DelegationAccessor<TDelegation> = () => Promise<TDelegation | null>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
+type UnsafeDefinition = { bypass: string }
+type EscapeTenantIsolationOptions = { reason: string }
+
+const trellisUnsafeDbKey = Symbol('trellisUnsafeDb')
 
 function safeObserve(observe: ObserveFn | undefined, event: Parameters<ObserveFn>[0]): void {
   try {
@@ -140,14 +144,16 @@ export type FunctionsCtxExtension<TPrincipal, TDelegation, TActor> = {
 }
 
 type QueryDbWithRuntime<DataModel extends GenericDataModel> = GenericQueryCtx<DataModel>['db'] & {
-  raw: GenericQueryCtx<DataModel>['db']
-  crossTenant: GenericQueryCtx<DataModel>['db']
+  escapeTenantIsolation: (options: EscapeTenantIsolationOptions) => GenericQueryCtx<DataModel>['db']
+  [trellisUnsafeDbKey]: GenericQueryCtx<DataModel>['db']
 }
 
 type MutationDbWithRuntime<DataModel extends GenericDataModel> =
   GenericMutationCtx<DataModel>['db'] & {
-    raw: GenericMutationCtx<DataModel>['db']
-    crossTenant: GenericMutationCtx<DataModel>['db']
+    escapeTenantIsolation: (
+      options: EscapeTenantIsolationOptions,
+    ) => GenericMutationCtx<DataModel>['db']
+    [trellisUnsafeDbKey]: GenericMutationCtx<DataModel>['db']
   }
 
 type AnyCtxWithRuntime<
@@ -197,6 +203,7 @@ type OnSuccessArgs<Ctx> = {
 
 type TenantIsolationOptions<DataModel extends GenericDataModel> = {
   tables: Array<TableNamesInDataModel<DataModel>>
+  globalTables?: Array<TableNamesInDataModel<DataModel>>
   field?: string
 }
 
@@ -309,9 +316,74 @@ function validateTenantIsolationOptions<DataModel extends GenericDataModel>(
     seen.add(table)
   }
 
+  const seenGlobal = new Set<string>()
+  for (const table of options.globalTables ?? []) {
+    if (typeof table !== 'string' || table.trim().length === 0) {
+      throw new Error('tenantIsolation.globalTables must only contain non-empty table names.')
+    }
+    if (seenGlobal.has(table)) {
+      throw new Error(`tenantIsolation.globalTables contains a duplicate table: "${table}".`)
+    }
+    if (seen.has(table)) {
+      throw new Error(
+        `tenantIsolation cannot classify table "${table}" as both tenant-scoped and global.`,
+      )
+    }
+    seenGlobal.add(table)
+  }
+
   if (options.field !== undefined && options.field.trim().length === 0) {
     throw new Error('tenantIsolation.field must be a non-empty string when provided.')
   }
+}
+
+function requireNonEmptyUnsafeReason(value: unknown, surface: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${surface} requires a non-empty reason string.`)
+  }
+
+  return value.trim()
+}
+
+function requireUnsafeBypass(definition: UnsafeDefinition | undefined, surface: string): string {
+  return requireNonEmptyUnsafeReason(definition?.bypass, `${surface}({ bypass })`)
+}
+
+function getInternalUnsafeDb<TDb extends object>(db: TDb): TDb {
+  return (db as TDb & { [trellisUnsafeDbKey]: TDb })[trellisUnsafeDbKey]
+}
+
+function wrapUnsafeBuilder<TBuilder>(builder: TBuilder, label: string): TBuilder {
+  if (typeof builder !== 'function') return builder
+
+  return ((definition: unknown) => {
+    const bypass = requireUnsafeBypass(definition as UnsafeDefinition | undefined, label)
+    const maybeDefinition =
+      definition && typeof definition === 'object'
+        ? (definition as Record<string, unknown>)
+        : undefined
+    const originalHandler = maybeDefinition?.handler
+
+    const wrappedDefinition =
+      maybeDefinition && typeof originalHandler === 'function'
+        ? {
+            ...maybeDefinition,
+            handler: async (ctx: { observe?: ObserveFn }, ...args: unknown[]) => {
+              safeObserve(ctx.observe, {
+                name: 'unsafe.handler.used',
+                status: 'success',
+                details: {
+                  reason: bypass,
+                  surface: label,
+                },
+              })
+              return await (originalHandler as (...args: unknown[]) => unknown)(ctx, ...args)
+            },
+          }
+        : definition
+
+    return (builder as (definition: unknown) => unknown)(wrappedDefinition)
+  }) as TBuilder
 }
 
 function hasTenantId(value: unknown): value is { tenantId?: unknown } {
@@ -982,11 +1054,18 @@ function createOnSuccessHandler<Ctx>(
 
 function decorateDb<TDb extends object>(
   db: TDb,
-  rawDb: TDb,
+  unsafeDb: TDb,
   crossTenantDb: TDb,
   observe: ObserveFn,
-): TDb & { raw: TDb; crossTenant: TDb } {
-  const instrument = (targetDb: TDb, name: 'db.raw.used' | 'db.cross_tenant.used'): TDb =>
+): TDb & {
+  escapeTenantIsolation: (options: EscapeTenantIsolationOptions) => TDb
+  [trellisUnsafeDbKey]: TDb
+} {
+  const instrument = (
+    targetDb: TDb,
+    name: 'db.escape_tenant_isolation.used',
+    reason: string,
+  ): TDb =>
     new Proxy(targetDb, {
       get(target, prop, receiver) {
         const original = Reflect.get(target, prop, receiver)
@@ -1003,17 +1082,34 @@ function decorateDb<TDb extends object>(
           safeObserve(observe, {
             name,
             status: 'success',
-            details: table ? { table } : undefined,
+            details: {
+              reason,
+              ...(table ? { table } : {}),
+            },
           })
           return original.apply(target, args)
         }
       },
     }) as TDb
 
+  Object.defineProperty(db, trellisUnsafeDbKey, {
+    value: unsafeDb,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  })
+
   return Object.assign(db, {
-    raw: instrument(rawDb, 'db.raw.used'),
-    crossTenant: instrument(crossTenantDb, 'db.cross_tenant.used'),
-  }) as TDb & { raw: TDb; crossTenant: TDb }
+    escapeTenantIsolation: ({ reason }: EscapeTenantIsolationOptions) =>
+      instrument(
+        crossTenantDb,
+        'db.escape_tenant_isolation.used',
+        requireNonEmptyUnsafeReason(reason, 'ctx.db.escapeTenantIsolation'),
+      ),
+  }) as TDb & {
+    escapeTenantIsolation: (options: EscapeTenantIsolationOptions) => TDb
+    [trellisUnsafeDbKey]: TDb
+  }
 }
 
 function stripConfirmationToken(args: Record<string, unknown>): Record<string, unknown> {
@@ -1252,7 +1348,7 @@ function createActionCustomization<
   }
 }
 
-function buildRawFunctions<
+function buildUnsafeFunctions<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
   MutationVisibility extends FunctionVisibility,
@@ -1285,17 +1381,25 @@ function buildRawFunctions<
   const mutationCustomization = createMutationCustomization(options)
   const actionCustomization = createActionCustomization(options)
 
+  const unsafeQuery = customQuery(builders.query, queryCustomization)
+  const unsafeMutation = customMutation(builders.mutation, mutationCustomization)
+  const unsafeAction = builders.action
+    ? customAction(builders.action, actionCustomization)
+    : undefined
+  const unsafeInternalQuery = builders.internalQuery
+    ? customQuery(builders.internalQuery, queryCustomization)
+    : undefined
+  const unsafeInternalMutation = builders.internalMutation
+    ? customMutation(builders.internalMutation, mutationCustomization)
+    : undefined
+
   return {
-    query: customQuery(builders.query, queryCustomization),
-    mutation: customMutation(builders.mutation, mutationCustomization),
-    action: builders.action ? customAction(builders.action, actionCustomization) : undefined,
+    query: unsafeQuery,
+    mutation: unsafeMutation,
+    action: unsafeAction,
     internal: {
-      query: builders.internalQuery
-        ? customQuery(builders.internalQuery, queryCustomization)
-        : undefined,
-      mutation: builders.internalMutation
-        ? customMutation(builders.internalMutation, mutationCustomization)
-        : undefined,
+      query: unsafeInternalQuery,
+      mutation: unsafeInternalMutation,
     },
   }
 }
@@ -1464,7 +1568,7 @@ function buildStructuredMutationRuntime<
           )
         }
 
-        const rawDb = ctx.db.raw as {
+        const unsafeDb = getInternalUnsafeDb(ctx.db) as {
           query: (table: TableNamesInDataModel<DataModel>) => {
             withIndex: (
               indexName: string,
@@ -1474,7 +1578,7 @@ function buildStructuredMutationRuntime<
           insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
         }
 
-        const existingRedemption = await rawDb
+        const existingRedemption = await unsafeDb
           .query(safety.redemptionTable)
           .withIndex('by_jti', (q) => q.eq('jti', payload.jti))
           .unique()
@@ -1557,7 +1661,7 @@ function buildStructuredMutationRuntime<
         })
 
         const now = Date.now()
-        await rawDb.insert(safety.redemptionTable, {
+        await unsafeDb.insert(safety.redemptionTable, {
           jti: payload.jti,
           operationId: payload.operationId,
           principalKey: payload.principalKey,
@@ -1568,7 +1672,7 @@ function buildStructuredMutationRuntime<
         try {
           const result = await originalHandler(ctx, executeArgs, freshLoaded)
 
-          await rawDb.insert(safety.auditTable, {
+          await unsafeDb.insert(safety.auditTable, {
             operationId: payload.operationId,
             jti: payload.jti,
             principalKey: payload.principalKey,
@@ -1639,15 +1743,15 @@ function buildTrellisRuntime<
   >,
   options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor> = {},
 ) {
-  const raw = buildRawFunctions(builders, options)
+  const unsafe = buildUnsafeFunctions(builders, options)
   const structured = {
     query: buildStructuredBuilder<
       QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
       TPrincipal,
       TDelegation,
       TActor,
-      typeof raw.query
-    >(raw.query) as StructuredQueryBuilder<
+      typeof unsafe.query
+    >(unsafe.query) as StructuredQueryBuilder<
       QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
       QueryVisibility,
       TActor
@@ -1658,19 +1762,19 @@ function buildTrellisRuntime<
       TPrincipal,
       TDelegation,
       TActor
-    >(raw.mutation, options),
+    >(unsafe.mutation, options),
   }
 
   const structuredInternal =
-    raw.internal.query && raw.internal.mutation
+    unsafe.internal.query && unsafe.internal.mutation
       ? {
           query: buildStructuredBuilder<
             QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
             TPrincipal,
             TDelegation,
             TActor,
-            NonNullable<typeof raw.internal.query>
-          >(raw.internal.query) as StructuredQueryBuilder<
+            NonNullable<typeof unsafe.internal.query>
+          >(unsafe.internal.query) as StructuredQueryBuilder<
             QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
             InternalQueryVisibility,
             TActor
@@ -1681,23 +1785,35 @@ function buildTrellisRuntime<
             TPrincipal,
             TDelegation,
             TActor
-          >(raw.internal.mutation, options),
+          >(unsafe.internal.mutation, options),
         }
       : undefined
 
-  const action = raw.action
+  const action = unsafe.action
     ? (buildStructuredBuilder<
         ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
         TPrincipal,
         TDelegation,
         TActor,
-        typeof raw.action
-      >(raw.action) as StructuredActionBuilder<
+        typeof unsafe.action
+      >(unsafe.action) as StructuredActionBuilder<
         ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
         ActionVisibility,
         TActor
       >)
     : undefined
+
+  const explicitUnsafe = {
+    query: wrapUnsafeBuilder(unsafe.query, 'unsafe.query'),
+    mutation: wrapUnsafeBuilder(unsafe.mutation, 'unsafe.mutation'),
+    ...(unsafe.action ? { action: wrapUnsafeBuilder(unsafe.action, 'unsafe.action') } : {}),
+    ...(unsafe.internal.query
+      ? { internalQuery: wrapUnsafeBuilder(unsafe.internal.query, 'unsafe.internalQuery') }
+      : {}),
+    ...(unsafe.internal.mutation
+      ? { internalMutation: wrapUnsafeBuilder(unsafe.internal.mutation, 'unsafe.internalMutation') }
+      : {}),
+  }
 
   return {
     query: structured.query,
@@ -1709,13 +1825,7 @@ function buildTrellisRuntime<
           internalMutation: structuredInternal.mutation,
         }
       : {}),
-    raw: {
-      query: raw.query,
-      mutation: raw.mutation,
-      ...(raw.action ? { action: raw.action } : {}),
-      ...(raw.internal.query ? { internalQuery: raw.internal.query } : {}),
-      ...(raw.internal.mutation ? { internalMutation: raw.internal.mutation } : {}),
-    },
+    unsafe: explicitUnsafe,
     createComponentBridge: () =>
       createComponentBridge(
         {
@@ -1735,7 +1845,7 @@ function buildTrellisRuntime<
  * Build the protected Trellis backend runtime for a principal-first app.
  *
  * This is the canonical backend seam for Trellis apps. It exposes the protected
- * builders directly and keeps raw Convex builders as an explicit escape hatch.
+ * builders directly and keeps unsafe builder access as an explicit escape hatch.
  */
 export function defineTrellis<
   DataModel extends GenericDataModel,
@@ -1770,7 +1880,7 @@ export function defineTrellis<
           internalMutation: runtime.internalMutation,
         }
       : {}),
-    raw: runtime.raw,
+    unsafe: runtime.unsafe,
     createComponentBridge: runtime.createComponentBridge,
   }
 }

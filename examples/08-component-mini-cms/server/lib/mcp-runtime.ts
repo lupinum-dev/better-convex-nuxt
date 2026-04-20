@@ -1,8 +1,7 @@
 import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 
-import type { MiniCmsPrincipal } from '~/shared/principal'
-
+import type { MiniCmsPrincipal } from '../../shared/principal'
 import { getCapabilitiesForPrincipal, getMcpPrincipal, type CapabilitySnapshot } from './mcp-auth'
 
 export const mcpRuntime = defineMcpApp<MiniCmsPrincipal, CapabilitySnapshot>({
@@ -32,6 +31,8 @@ export const mcpRuntime = defineMcpApp<MiniCmsPrincipal, CapabilitySnapshot>({
       case 'agent':
         return `agent:${principal.agentId}`
     }
+
+    throw new Error('Unsupported MCP principal.')
   },
 })
 

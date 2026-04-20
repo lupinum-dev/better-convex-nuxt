@@ -4,7 +4,12 @@ import { spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import consola from 'consola'
 
+import { collectModuleValidationFindings } from '../../analysis/validation.js'
 import { resolvePermissionQuerySetup } from '../../module-internals/setup.js'
+import {
+  getTrustedForwardingKeyProductionIssue,
+  minimumTrustedForwardingKeyLength,
+} from '../../runtime/trusted-forwarding/shared.js'
 import type { DoctorFinding, DoctorReport } from '../lib/findings.js'
 import { summarizeFindings } from '../lib/findings.js'
 import { renderDoctorReport } from '../lib/output.js'
@@ -19,6 +24,7 @@ import {
   findForwardedPrincipalWithoutTrustedAuth,
   findMcpRateLimitStoreSupport,
   findMissingCanonicalLayoutPaths,
+  findTrustedForwardingPublicExposure,
   hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
@@ -30,6 +36,21 @@ import {
   usesPermissionSurfaces,
   usesTrustedForwardingSurfaces,
 } from '../lib/project.js'
+
+function toDoctorFindingTitle(id: string): string {
+  switch (id) {
+    case 'tenant-isolation-valid':
+      return 'Tenant classification validity'
+    case 'tenant-isolation-table-coverage':
+      return 'Tenant classification coverage'
+    case 'destructive-safety-schema':
+      return 'Destructive safety schema'
+    case 'auth-enabled-consistency':
+      return 'Auth enabled consistency'
+    default:
+      return id
+  }
+}
 
 function createDoctorFindings(cwd: string): DoctorFinding[] {
   const project = inspectProject(cwd)
@@ -51,6 +72,10 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
   const trustedForwardingExpected = usesTrustedForwardingSurfaces(project)
   const trustedForwardingKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_FORWARDING_KEY'])
+  const trustedForwardingKeyIssue = trustedForwardingKeySource
+    ? getTrustedForwardingKeyProductionIssue(trustedForwardingKeySource.value, 'production')
+    : null
+  const trustedForwardingPublicExposure = findTrustedForwardingPublicExposure(project)
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.fromOperation\s*\(/.test(file.text),
   )
@@ -71,7 +96,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     }
   }
 
-  return [
+  const baseFindings: DoctorFinding[] = [
     {
       id: 'nuxt-app-root',
       category: 'core',
@@ -128,13 +153,13 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       message: !isNuxtApp
         ? 'Skipping canonical layout checks because this is not a Nuxt app root.'
         : missingCanonicalLayoutPaths.length === 0
-          ? 'Found the canonical convex/, shared/, pages/, and server/ lanes.'
+          ? 'Found the canonical convex/, shared/features/, pages/, and server/ layout.'
           : `Missing canonical paths: ${missingCanonicalLayoutPaths.join(', ')}.`,
       fixHint: !isNuxtApp
         ? 'Run doctor inside a generated Trellis app root.'
         : missingCanonicalLayoutPaths.length === 0
           ? 'Keep the generated Trellis layout intact.'
-          : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --template personal|workspace|cms`.',
+          : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --template public|personal|workspace|cms`.',
     },
     {
       id: 'convex-installed',
@@ -285,6 +310,45 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         : 'Set CONVEX_TRUSTED_FORWARDING_KEY in the local environment and the Convex deployment that serves trusted-forwarding traffic.',
     },
     {
+      id: 'trusted-forwarding-key-strength',
+      category: 'advanced',
+      title: 'Trusted forwarding key quality',
+      status: !trustedForwardingExpected
+        ? 'pass'
+        : !trustedForwardingKeySource
+          ? 'warn'
+          : trustedForwardingKeyIssue
+            ? 'fail'
+            : 'pass',
+      message: !trustedForwardingExpected
+        ? 'No trusted-forwarding or MCP surfaces were detected in the app source.'
+        : !trustedForwardingKeySource
+          ? 'Cannot evaluate trusted-forwarding key quality because no key source was found.'
+          : trustedForwardingKeyIssue
+            ? `${trustedForwardingKeyIssue} Source: ${trustedForwardingKeySource.source}.`
+            : `Trusted forwarding key in ${trustedForwardingKeySource.source} clears the production hardening checks.`,
+      fixHint: !trustedForwardingExpected
+        ? 'No action needed unless you add MCP or trusted-forwarding flows later.'
+        : `Use a long random CONVEX_TRUSTED_FORWARDING_KEY (${minimumTrustedForwardingKeyLength}+ characters) and avoid placeholder or development values.`,
+    },
+    {
+      id: 'trusted-forwarding-key-public-exposure',
+      category: 'advanced',
+      title: 'Trusted forwarding public exposure',
+      status: trustedForwardingPublicExposure.length > 0 ? 'fail' : 'pass',
+      message:
+        trustedForwardingPublicExposure.length > 0
+          ? `Found trusted-forwarding key exposure in public-facing code or env sources at ${trustedForwardingPublicExposure
+              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
+              .slice(0, 3)
+              .join(', ')}${trustedForwardingPublicExposure.length > 3 ? ', ...' : ''}.`
+          : 'No obvious trusted-forwarding key exposure paths were found in public-facing code or env sources.',
+      fixHint:
+        trustedForwardingPublicExposure.length > 0
+          ? 'Keep CONVEX_TRUSTED_FORWARDING_KEY server-only. Remove any NUXT_PUBLIC exposure or public runtime-config mapping.'
+          : 'Keep the trusted-forwarding key confined to server-only env and runtime paths.',
+    },
+    {
       id: 'forwarded-principal-trusted-path',
       category: 'advanced',
       title: 'Forwarded principal path',
@@ -323,8 +387,11 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       id: 'mcp-rate-limit-store',
       category: 'advanced',
       title: 'MCP rate-limit store',
-      status:
-        !mcpRateLimitExpected ? 'pass' : mcpRateLimitStoreSupport === 'supported' ? 'pass' : 'fail',
+      status: !mcpRateLimitExpected
+        ? 'pass'
+        : mcpRateLimitStoreSupport === 'supported'
+          ? 'pass'
+          : 'fail',
       message: !mcpRateLimitExpected
         ? 'No MCP rate-limited tools were detected in the app source.'
         : mcpRateLimitStoreSupport === 'supported'
@@ -355,6 +422,26 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     },
     ...collectPermissionMetadataFindings(project),
   ]
+  const moduleValidationFindings = collectModuleValidationFindings({
+    rootDir: cwd,
+    authEnabled: authExpected,
+  }).map(
+    (finding): DoctorFinding => ({
+      id: finding.id,
+      category: 'core' as const,
+      title: toDoctorFindingTitle(finding.id),
+      status: 'fail' as const,
+      message: finding.message,
+      fixHint:
+        finding.id === 'tenant-isolation-table-coverage' || finding.id === 'tenant-isolation-valid'
+          ? 'Align convex/schema.ts, convex/features/*/feature.ts, and convex/functions.ts so the derived manifest tenant classification is complete and non-conflicting.'
+          : finding.id === 'destructive-safety-schema'
+            ? 'Restore the destructive-safety tables in convex/schema.ts, including the redemption `jti` field and `by_jti` index.'
+            : 'Align the project source with the canonical Trellis contract.',
+    }),
+  )
+
+  return [...baseFindings, ...moduleValidationFindings]
 }
 
 export function buildDoctorReport(cwd: string): DoctorReport {

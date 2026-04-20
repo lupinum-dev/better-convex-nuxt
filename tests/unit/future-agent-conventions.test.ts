@@ -72,8 +72,8 @@ describe('future agent conventions', () => {
     ]
 
     for (const example of canonicalExamples) {
-      expect(existsSync(file(`${example}/convex/domain`))).toBe(true)
       expect(existsSync(file(`${example}/convex/permissions/context.ts`))).toBe(true)
+      expect(existsSync(file(`${example}/convex/features`))).toBe(true)
 
       const nuxtConfig = read(`${example}/nuxt.config.ts`)
       if (nuxtConfig.includes('trellis.permissions')) {
@@ -85,11 +85,15 @@ describe('future agent conventions', () => {
       }
     }
 
-    expect(existsSync(file('examples/04-saas-platform/convex/operations/projects.ts'))).toBe(true)
-    expect(existsSync(file('examples/04-saas-platform/convex/operations/tasks.ts'))).toBe(true)
-    expect(existsSync(file('examples/05-visibility-access/convex/operations/shareTokens.ts'))).toBe(
+    expect(
+      existsSync(file('examples/04-saas-platform/convex/features/projects/operations.ts')),
+    ).toBe(true)
+    expect(existsSync(file('examples/04-saas-platform/convex/features/tasks/operations.ts'))).toBe(
       true,
     )
+    expect(
+      existsSync(file('examples/05-visibility-access/convex/features/articles/operations.ts')),
+    ).toBe(true)
   })
 
   it('keeps public canonical example tests free of blanket TypeScript suppression', () => {

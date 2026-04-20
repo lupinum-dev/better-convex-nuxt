@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
  * This is the smallest possible Nuxt config for a public-only Convex app.
- * Auth is explicitly disabled so readers can see the "no auth" baseline first.
+ * The app stays public because it never opts into auth-only features.
  */
 export default defineNuxtConfig({
   modules: ['@lupinum/trellis', '@nuxt/ui'],
@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-03-30',
 
   devtools: {
-    enabled: true,
+    enabled: false,
   },
 
   typescript: {
@@ -19,6 +19,5 @@ export default defineNuxtConfig({
 
   trellis: {
     url: process.env.CONVEX_URL,
-    auth: false,
   },
 })

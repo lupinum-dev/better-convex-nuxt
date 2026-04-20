@@ -1,12 +1,12 @@
-import { internal } from '#trellis/api'
-import { tool } from '~/server/lib/mcp-runtime'
-import { saveDraft } from '~/convex/domain/page.contract'
+import { api } from '#trellis/api'
 
-import { saveDraftPermission } from '../../../convex/auth/permissions'
+import { saveDraftPermission } from '../../../convex/features/pages/permissions'
+import { saveDraft } from '../../../shared/features/pages/contract'
+import { tool } from '../../lib/mcp-runtime'
 
 export default tool({
   schema: saveDraft,
-  call: internal.operations.miniCmsBridge.saveDraft,
+  call: api.features.pages.domain.save,
   permission: saveDraftPermission,
   group: 'pages',
   meta: {

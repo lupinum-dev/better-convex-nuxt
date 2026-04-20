@@ -36,7 +36,7 @@ function missingUserRowMessage(authId: string): string {
   return [
     `Expected a Trellis users row for auth subject "${authId}", but none was found.`,
     'Ensure convex/auth.ts exports onCreate, onUpdate, and onDelete from authComponent.triggersApi().',
-    'If the auth wiring is already correct, ensure auth:createUserIfNeeded has run for this user.',
+    'If those exports are already correct, verify the Trellis auth bootstrap is enabled and healthy.',
   ].join(' ')
 }
 

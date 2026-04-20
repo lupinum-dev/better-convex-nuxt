@@ -9,6 +9,7 @@ import {
   isCtxDbGetCall,
   isCtxDbQueryCall,
   isIdentifier,
+  getObjectProperty,
   statementContainsCallArgument,
   traverse,
   unwindCallChain,
@@ -50,7 +51,7 @@ export const tenantRules = {
       },
     }),
   ),
-  'raw-get-requires-tenant-check': createRule(
+  'unsafe-get-requires-tenant-check': createRule(
     {
       type: 'problem',
       schema: [],
@@ -61,7 +62,7 @@ export const tenantRules = {
     },
     (context) => ({
       CallExpression(node: any) {
-        if (!isBuilderCall(node, 'raw', 'query', 'mutation')) return
+        if (!isBuilderCall(node, 'unsafe', 'query', 'mutation')) return
         const analysis = getProjectAnalysisForContext(context)
         if (!analysis?.tenantIsolation) return
         const handler = getHandlerFunction(node)
@@ -121,6 +122,58 @@ export const tenantRules = {
             }
           }
         }
+      },
+    }),
+  ),
+  'escape-tenant-isolation-requires-reason': createRule(
+    {
+      type: 'problem',
+      schema: [],
+      messages: {
+        reason:
+          '`ctx.db.escapeTenantIsolation(...)` must include a non-empty `reason` so the trust-boundary change is explicit.',
+      },
+    },
+    (context) => ({
+      CallExpression(node: any) {
+        if (
+          node.callee?.type !== 'MemberExpression' ||
+          node.callee.computed ||
+          !isIdentifier(node.callee.property, 'escapeTenantIsolation')
+        ) {
+          return
+        }
+
+        const options = node.arguments?.[0]
+        if (options?.type !== 'ObjectExpression') {
+          context.report({
+            node,
+            messageId: 'reason',
+          })
+          return
+        }
+
+        const reason = getObjectProperty(options, 'reason')?.value
+        if (
+          reason?.type === 'Literal' &&
+          typeof reason.value === 'string' &&
+          reason.value.trim().length > 0
+        ) {
+          return
+        }
+
+        if (
+          isIdentifier(reason) ||
+          reason?.type === 'TemplateLiteral' ||
+          reason?.type === 'BinaryExpression'
+        ) {
+          return
+        }
+
+        context.report({
+          node: reason ?? options,
+          messageId: 'reason',
+        })
       },
     }),
   ),
