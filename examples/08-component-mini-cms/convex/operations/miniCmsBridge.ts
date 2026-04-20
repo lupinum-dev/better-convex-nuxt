@@ -12,7 +12,7 @@ import {
   publishedPageValidator,
   saveDraft,
   studioPageValidator,
-} from '../../shared/schemas/page'
+} from '../domain/page.contract'
 import { components } from '../_generated/api'
 import { internalMutation, internalQuery, mutation, query } from '../_generated/server'
 import { principal } from '../auth/principal'

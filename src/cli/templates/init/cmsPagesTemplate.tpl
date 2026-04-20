@@ -12,7 +12,7 @@ import {
   publishedPageValidator,
   saveDraft as saveDraftSchema,
   studioPageValidator,
-} from '../../shared/schemas/page'
+} from './page.contract'
 import { canEditPage, canPublishPage, isAuthenticated } from '../auth/checks'
 import { mutation, query } from '../functions'
 

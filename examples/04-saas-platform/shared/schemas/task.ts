@@ -1,50 +1,20 @@
-import { defineArgs } from '@lupinum/trellis/args'
-/**
- * Why this file exists:
- * The task board touches the same inputs from the browser, Nitro routes, and tests.
- * Shared args definitions keep that flow small and predictable.
- */
-import { v } from 'convex/values'
+import * as z from 'zod'
 
-export const taskStatusValidator = v.union(
-  v.literal('backlog'),
-  v.literal('in_progress'),
-  v.literal('done'),
-)
+export const taskStatusSchema = z.enum(['backlog', 'in_progress', 'done'])
+export const taskPrioritySchema = z.enum(['low', 'medium', 'high'])
 
-export const taskPriorityValidator = v.union(
-  v.literal('low'),
-  v.literal('medium'),
-  v.literal('high'),
-)
-
-export const createTask = defineArgs({
-  description: 'Create a task inside a project.',
-  args: {
-    projectId: v.id('projects'),
-    title: v.string(),
-    priority: v.optional(taskPriorityValidator),
-  },
-  meta: {
-    title: {
-      label: 'Task title',
-      examples: ['Review billing PR', 'Reply to customer notes'],
-    },
-  },
+export const createTaskInputSchema = z.object({
+  projectId: z.string().min(1, 'Project id is required'),
+  title: z.string().trim().min(1, 'Task title is required').max(160, 'Keep the title under 160 characters'),
+  priority: taskPrioritySchema.optional(),
 })
 
-export const moveTask = defineArgs({
-  description: 'Move a task between board columns.',
-  args: {
-    id: v.id('tasks'),
-    status: taskStatusValidator,
-  },
+export const moveTaskInputSchema = z.object({
+  id: z.string().min(1, 'Task id is required'),
+  status: taskStatusSchema,
 })
 
-export const assignTask = defineArgs({
-  description: 'Assign a task to another workspace member.',
-  args: {
-    id: v.id('tasks'),
-    assigneeId: v.optional(v.string()),
-  },
+export const assignTaskInputSchema = z.object({
+  id: z.string().min(1, 'Task id is required'),
+  assigneeId: z.string().min(1).optional(),
 })

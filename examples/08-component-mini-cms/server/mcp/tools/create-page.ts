@@ -1,6 +1,6 @@
 import { internal } from '#trellis/api'
 import { tool } from '~/server/lib/mcp-runtime'
-import { createPage } from '~/shared/schemas/page'
+import { createPage } from '~/convex/domain/page.contract'
 
 import { createPagePermission } from '../../../convex/auth/permissions'
 

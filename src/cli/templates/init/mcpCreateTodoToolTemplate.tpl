@@ -1,6 +1,6 @@
 import { api } from '#trellis/api'
 import { todoCreate } from '~/convex/auth/permissions'
-import { createTodo } from '~/shared/schemas/todo'
+import { createTodo } from '~/convex/domain/todo.contract'
 
 import { tool } from '../runtime'
 

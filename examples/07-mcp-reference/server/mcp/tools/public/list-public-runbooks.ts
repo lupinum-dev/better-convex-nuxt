@@ -1,5 +1,5 @@
 import { api } from '#trellis/api'
-import { listRunbooks } from '~/shared/schemas/runbook'
+import { listRunbooks } from '~/convex/domain/runbook.contract'
 
 import { tool } from '../../runtime'
 

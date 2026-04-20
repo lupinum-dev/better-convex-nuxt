@@ -290,6 +290,7 @@ import * as z from 'zod'
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
 import { teamWorkspacePermissionMatrix, todoCreate } from '~/convex/auth/permissions'
+import { createTodoInputSchema } from '~/shared/schemas/todo'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -422,9 +423,10 @@ async function handleCreateWorkspace() {
 }
 
 async function handleCreateTodo() {
-  await createTodo({
-    title: title.value,
-  })
+  const parsed = createTodoInputSchema.safeParse({ title: title.value })
+  if (!parsed.success) return
+
+  await createTodo(parsed.data)
 
   title.value = ''
 }

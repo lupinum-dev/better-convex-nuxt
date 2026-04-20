@@ -1,6 +1,6 @@
 import { api } from '#trellis/api'
 import { workspaceRead } from '~/convex/auth/permissions'
-import { listTodos } from '~/shared/schemas/todo'
+import { listTodos } from '~/convex/domain/todo.contract'
 
 import { tool } from '../runtime'
 

@@ -1,7 +1,7 @@
 import { open, requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { createTodo } from '../../shared/schemas/todo'
+import { createTodo } from './todo.contract'
 import { mutation, query } from '../functions'
 
 export const list = query({

@@ -10,7 +10,7 @@ before auth, tenants, permissions, or server integrations show up.
 ## What it teaches
 
 - minimal Trellis setup
-- one shared args/schema object reused by Convex handlers
+- one backend contract plus one edge schema
 - one query + one mutation-driven page flow
 - public data only, with no auth or tenant model
 

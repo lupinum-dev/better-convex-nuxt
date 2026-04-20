@@ -2,7 +2,7 @@ import { deny, requireRecord } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import { archiveProject } from '../../shared/schemas/project'
+import { archiveProject } from '../domain/project.contract'
 import { requireWorkspaceTenant } from '../auth/checks'
 import { projectArchive } from '../auth/permissions'
 import { query } from '../functions'

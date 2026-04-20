@@ -8,7 +8,7 @@ import {
   taskStatusValidator,
   createTask,
   moveTask,
-} from '../../shared/schemas/task'
+} from './task.contract'
 import type { Doc } from '../_generated/dataModel'
 import { taskCapabilities } from '../auth/capabilities'
 import { canUpdateTask, hasRole, hasWorkspace, requireWorkspaceTenant } from '../auth/checks'

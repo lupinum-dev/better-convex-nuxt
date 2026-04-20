@@ -2,7 +2,7 @@ import { deny, open } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
-import { createMcpKey, revokeMcpKey } from '../../shared/schemas/mcp-key'
+import { createMcpKey, revokeMcpKey } from './mcp-key.contract'
 import type { DataModel, Doc } from '../_generated/dataModel'
 import { canIssueKeyRole } from '../auth/checks'
 import { mcpManage } from '../auth/permissions'

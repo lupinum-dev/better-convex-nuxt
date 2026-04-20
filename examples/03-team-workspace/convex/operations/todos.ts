@@ -2,7 +2,7 @@ import { requireRecord } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import { deleteTodo } from '../../shared/schemas/todo'
+import { deleteTodo } from '../domain/todo.contract'
 import { canDeleteTodo } from '../auth/checks'
 import { todoRead } from '../auth/permissions'
 import { query } from '../functions'

@@ -1,21 +1,11 @@
-import { defineArgs } from '@lupinum/trellis/args'
-/**
- * Why this file exists:
- * Even in a tiny example, the shared args definition shows the preferred V2 habit:
- * define the input shape once, then reuse it wherever that input matters.
- */
-import { v } from 'convex/values'
+import * as z from 'zod'
 
-export const createTodo = defineArgs({
-  description: 'Create a personal todo',
-  args: {
-    title: v.string(),
-  },
-  meta: {
-    title: {
-      label: 'Title',
-      description: 'A short description of something only this signed-in user should see',
-      examples: ['Renew passport', 'Review onboarding copy'],
-    },
-  },
+const todoTitleSchema = z
+  .string()
+  .trim()
+  .min(1, 'Title is required')
+  .max(160, 'Keep the title under 160 characters')
+
+export const createTodoInputSchema = z.object({
+  title: todoTitleSchema,
 })

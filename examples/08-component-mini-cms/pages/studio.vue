@@ -283,6 +283,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import * as z from 'zod'
 
 import { api } from '#trellis/api'
+import { createPageInputSchema, saveDraftInputSchema } from '~/shared/schemas/page'
 
 const runtimeConfig = useRuntimeConfig()
 const demoMcpToken = runtimeConfig.public.demoMcpToken
@@ -420,11 +421,14 @@ async function handleSignOut() {
 }
 
 async function handleCreatePage() {
-  const id = await createPage({
+  const parsed = createPageInputSchema.safeParse({
     title: createForm.title,
     slug: createForm.slug,
     draftBody: '',
   })
+  if (!parsed.success) return
+
+  const id = await createPage(parsed.data)
 
   selectedId.value = id
   createForm.title = ''
@@ -433,12 +437,15 @@ async function handleCreatePage() {
 
 async function handleSaveDraft() {
   if (!selectedId.value) return
-  await saveDraft({
+  const parsed = saveDraftInputSchema.safeParse({
     id: selectedId.value,
     title: editorForm.title,
     slug: editorForm.slug,
     draftBody: editorForm.draftBody,
   })
+  if (!parsed.success) return
+
+  await saveDraft(parsed.data)
 }
 
 async function handlePublish() {

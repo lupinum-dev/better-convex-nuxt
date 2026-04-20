@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { api } from '#trellis/api'
+import { createTodoInputSchema } from '~/shared/schemas/todo'
 
 const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
@@ -30,8 +31,10 @@ async function handleSignUp() {
 }
 
 async function handleCreateTodo() {
-  if (!title.value.trim()) return
-  await createTodo({ title: title.value.trim() })
+  const parsed = createTodoInputSchema.safeParse({ title: title.value })
+  if (!parsed.success) return
+
+  await createTodo(parsed.data)
   title.value = ''
 }
 </script>

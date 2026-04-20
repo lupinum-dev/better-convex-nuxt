@@ -1,4 +1,4 @@
-import { createTodo } from '../../shared/schemas/todo'
+import { createTodo } from './todo.contract'
 import { hasMinimumRole, hasWorkspace } from '../auth/checks'
 import { mutation, query } from '../functions'
 

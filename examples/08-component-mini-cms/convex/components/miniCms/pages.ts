@@ -14,7 +14,7 @@ import {
   publishedPageValidator,
   saveDraft as saveDraftSchema,
   studioPageValidator,
-} from '../../../shared/schemas/page'
+} from '../../domain/page.contract'
 import type { Doc, Id } from './_generated/dataModel'
 import { canManagePages, mutation, query, type MiniCmsActor } from './functions'
 

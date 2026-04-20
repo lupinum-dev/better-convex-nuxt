@@ -105,7 +105,7 @@ async function inferResourceContext(cwd: string, name: string): Promise<Resource
   }
 }
 
-function resourceSchemaTemplate(ctx: ResourceGeneratorContext): string {
+function resourceContractTemplate(ctx: ResourceGeneratorContext): string {
   const createName = `create${ctx.singularPascal}`
   const updateName = `update${ctx.singularPascal}`
   const deleteName = `delete${ctx.singularPascal}`
@@ -148,6 +148,32 @@ export const ${getName} = defineArgs({
 export const ${listName} = defineArgs({
   description: 'List ${ctx.pluralCamel}',
   args: {},
+})
+`.trimStart()
+}
+
+function resourceEdgeSchemaTemplate(ctx: ResourceGeneratorContext): string {
+  const title = ctx.singularPascal
+
+  return `
+import * as z from 'zod'
+
+const ${ctx.singularCamel}NameSchema = z
+  .string()
+  .trim()
+  .min(1, '${title} name is required')
+  .max(120, 'Keep the name under 120 characters')
+
+export const create${ctx.singularPascal}InputSchema = z.object({
+  name: ${ctx.singularCamel}NameSchema,
+})
+
+export const update${ctx.singularPascal}InputSchema = create${ctx.singularPascal}InputSchema.extend({
+  id: z.string().min(1, '${title} id is required'),
+})
+
+export const delete${ctx.singularPascal}InputSchema = z.object({
+  id: z.string().min(1, '${title} id is required'),
 })
 `.trimStart()
 }
@@ -196,7 +222,7 @@ import { requireRecord } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import { v } from 'convex/values'
 
-import { delete${ctx.singularPascal} } from '../../shared/schemas/${ctx.fileStem}'
+import { delete${ctx.singularPascal} } from '../domain/${ctx.fileStem}.contract'
 import { ${ctx.singularCamel}DeletePermission } from '../auth/permissions'
 import { query } from '../functions'
 
@@ -251,7 +277,7 @@ export const previewRemove${ctx.singularPascal} = query(previewOf(remove${ctx.si
 }
 
 function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
-  const schemaImport = `../../shared/schemas/${ctx.fileStem}`
+  const contractImport = `./${ctx.fileStem}.contract`
   const permissionImport = `../auth/permissions`
   const updateOwnerCheck =
     ctx.kind === 'workspace'
@@ -298,7 +324,7 @@ import {
   get${ctx.singularPascal},
   list${ctx.pluralPascal},
   update${ctx.singularPascal},
-} from '${schemaImport}'
+} from '${contractImport}'
 import {
   ${ctx.singularCamel}CreatePermission,
   ${ctx.singularCamel}DeletePermission,
@@ -477,7 +503,7 @@ function resourceMcpListTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { api } from '#trellis/api'
 import { ${ctx.singularCamel}ReadPermission } from '~/convex/auth/permissions'
-import { list${ctx.pluralPascal} } from '~/shared/schemas/${ctx.fileStem}'
+import { list${ctx.pluralPascal} } from '~/convex/domain/${ctx.fileStem}.contract'
 
 import { tool } from '../runtime'
 
@@ -497,7 +523,7 @@ function resourceMcpCreateTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { api } from '#trellis/api'
 import { ${ctx.singularCamel}CreatePermission } from '~/convex/auth/permissions'
-import { create${ctx.singularPascal} } from '~/shared/schemas/${ctx.fileStem}'
+import { create${ctx.singularPascal} } from '~/convex/domain/${ctx.fileStem}.contract'
 
 import { tool } from '../runtime'
 
@@ -653,7 +679,12 @@ export async function buildResourceTemplateSet(
   const files: TemplateFile[] = [
     {
       path: `shared/schemas/${ctx.fileStem}.ts`,
-      content: resourceSchemaTemplate(ctx),
+      content: resourceEdgeSchemaTemplate(ctx),
+      ownership: 'authored',
+    },
+    {
+      path: `convex/domain/${ctx.fileStem}.contract.ts`,
+      content: resourceContractTemplate(ctx),
       ownership: 'authored',
     },
     {

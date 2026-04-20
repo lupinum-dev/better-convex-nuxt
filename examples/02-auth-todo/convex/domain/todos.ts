@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { createTodo } from '../../shared/schemas/todo'
+import { createTodo } from './todo.contract'
 import { isAuthenticated } from '../auth/checks'
 import { mutation, query } from '../functions'
 import { loadOwnedResource } from '../permissions/resources'

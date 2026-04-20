@@ -7,7 +7,7 @@ import { literals } from 'convex-helpers/validators'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { taskPriorityValidator, taskStatusValidator } from '../shared/schemas/task'
+import { taskPriorityValidator, taskStatusValidator } from './domain/task.contract'
 
 export const roleValidator = literals('owner', 'admin', 'member', 'viewer')
 

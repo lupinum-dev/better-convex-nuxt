@@ -46,8 +46,11 @@ describe('trellis add resource', () => {
     await applyInitTemplateSet(cwd, template, false)
 
     await expect(readFile(resolve(cwd, 'shared/schemas/project.ts'), 'utf8')).resolves.toContain(
-      'export const createProject = defineArgs',
+      'export const createProjectInputSchema = z.object',
     )
+    await expect(
+      readFile(resolve(cwd, 'convex/domain/project.contract.ts'), 'utf8'),
+    ).resolves.toContain('export const createProject = defineArgs')
     await expect(readFile(resolve(cwd, 'convex/domain/project.ts'), 'utf8')).resolves.toContain(
       'export const update = mutation({',
     )
@@ -85,6 +88,9 @@ describe('trellis add resource', () => {
     await expect(readFile(resolve(cwd, 'convex/project.test.ts'), 'utf8')).resolves.toContain(
       'seedTenant',
     )
+    await expect(
+      readFile(resolve(cwd, 'convex/domain/project.contract.ts'), 'utf8'),
+    ).resolves.toContain("id: v.id('projects')")
   })
 
   it('adds MCP-facing resource files and runtime capabilities when MCP is enabled', async () => {
@@ -104,6 +110,9 @@ describe('trellis add resource', () => {
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).resolves.toContain('permission: projectDeletePermission')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
+    ).resolves.toContain("~/convex/domain/project.contract")
     await expect(readFile(resolve(cwd, 'server/mcp/runtime.ts'), 'utf8')).resolves.toContain(
       'api.permissions.context.getPermissionContext',
     )

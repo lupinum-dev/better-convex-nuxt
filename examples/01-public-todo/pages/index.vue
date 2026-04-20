@@ -97,6 +97,7 @@
 import { computed, ref } from 'vue'
 
 import { api } from '#trellis/api'
+import { createTodoInputSchema } from '~/shared/schemas/todo'
 
 const toast = useToast()
 
@@ -121,8 +122,10 @@ const mutationError = computed(
 )
 
 async function handleCreate() {
-  // The mutation only needs the business arg defined by the shared schema.
-  await createTodo({ title: title.value })
+  const parsed = createTodoInputSchema.safeParse({ title: title.value })
+  if (!parsed.success) return
+
+  await createTodo(parsed.data)
 
   // The query updates automatically after the mutation settles, so the page does not refetch manually.
   title.value = ''

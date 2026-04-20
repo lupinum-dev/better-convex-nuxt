@@ -1,7 +1,7 @@
 import { deny, enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { createComment } from '../../shared/schemas/comment'
+import { createComment } from './comment.contract'
 import type { Doc } from '../_generated/dataModel'
 import { requireWorkspaceTenant } from '../auth/checks'
 import { commentCreate } from '../auth/permissions'

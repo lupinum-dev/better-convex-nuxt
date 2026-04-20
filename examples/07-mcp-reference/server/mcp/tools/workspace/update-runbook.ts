@@ -1,6 +1,6 @@
 import { api } from '#trellis/api'
 import { runbookCreate } from '~/convex/auth/permissions'
-import { updateRunbook } from '~/shared/schemas/runbook'
+import { updateRunbook } from '~/convex/domain/runbook.contract'
 
 import { tool } from '../../runtime'
 

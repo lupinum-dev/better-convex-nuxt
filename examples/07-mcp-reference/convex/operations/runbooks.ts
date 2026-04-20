@@ -3,7 +3,7 @@ import { defineOperation, previewOf } from '@lupinum/trellis/functions'
 import type { GenericMutationCtx } from 'convex/server'
 import { v } from 'convex/values'
 
-import { bulkDeleteRunbooks, deleteRunbook } from '../../shared/schemas/runbook'
+import { bulkDeleteRunbooks, deleteRunbook } from '../domain/runbook.contract'
 import type { DataModel, Doc, Id } from '../_generated/dataModel'
 import type { Actor } from '../auth/actor'
 import { canDeleteRunbook } from '../auth/checks'

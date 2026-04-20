@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { api } from '#trellis/api'
 import { pageCreate, pagePublish } from '~/convex/auth/permissions'
+import { createPageInputSchema, saveDraftInputSchema } from '~/shared/schemas/page'
 
 const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
@@ -56,21 +57,26 @@ async function handleSignUp() {
 }
 
 async function handleCreatePage() {
-  const id = await createPage({
-    slug: form.slug.trim(),
-    title: form.title.trim(),
-    draftBody: form.draftBody,
-  })
+  const parsed = createPageInputSchema.safeParse(form)
+  if (!parsed.success) return
+
+  const id = await createPage(parsed.data)
   selectedId.value = id as string
 }
 
 async function handleSaveDraft() {
   if (!selectedId.value) return
-  await saveDraft({
-    id: selectedId.value as never,
-    slug: form.slug.trim(),
-    title: form.title.trim(),
+  const parsed = saveDraftInputSchema.safeParse({
+    id: selectedId.value,
+    slug: form.slug,
+    title: form.title,
     draftBody: form.draftBody,
+  })
+  if (!parsed.success) return
+
+  await saveDraft({
+    ...parsed.data,
+    id: parsed.data.id as never,
   })
 }
 

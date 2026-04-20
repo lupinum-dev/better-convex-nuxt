@@ -2,7 +2,7 @@ import { loadTenantResource as loadResource } from '@lupinum/trellis/auth'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 
-import { createProject } from '../../shared/schemas/project'
+import { createProject } from './project.contract'
 import { requireWorkspaceTenant } from '../auth/checks'
 import { projectCreate, projectExport, projectRead } from '../auth/permissions'
 import { mutation, query } from '../functions'

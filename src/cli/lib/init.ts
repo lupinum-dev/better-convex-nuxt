@@ -19,6 +19,7 @@ import {
   mcpListTodosToolTemplate,
   mcpMiddlewareTemplate,
   mcpRuntimeTemplate,
+  pageContractTemplate,
   nuxtConfigTemplate,
   personalActorTemplate,
   personalChecksTemplate,
@@ -31,6 +32,7 @@ import {
   sharedPageSchemaTemplate,
   sharedTodoSchemaTemplate,
   testSetupTemplate,
+  todoContractTemplate,
   uploadsDomainTemplate,
   uploadsPageTemplate,
   workspaceActorTemplate,
@@ -215,6 +217,11 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
+          path: 'convex/domain/todo.contract.ts',
+          content: todoContractTemplate('personal'),
+          ownership: 'authored',
+        },
+        {
           path: 'shared/schemas/todo.ts',
           content: sharedTodoSchemaTemplate('personal'),
           ownership: 'authored',
@@ -261,6 +268,11 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         {
           path: 'convex/domain/todos.ts',
           content: workspaceTodosTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'convex/domain/todo.contract.ts',
+          content: todoContractTemplate('workspace'),
           ownership: 'authored',
         },
         {
@@ -325,6 +337,11 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
+          path: 'convex/domain/page.contract.ts',
+          content: pageContractTemplate(),
+          ownership: 'authored',
+        },
+        {
           path: 'shared/schemas/page.ts',
           content: sharedPageSchemaTemplate(),
           ownership: 'authored',
@@ -382,6 +399,11 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
       {
         path: 'convex/domain/todos.ts',
         content: workspaceTodosTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'convex/domain/todo.contract.ts',
+        content: todoContractTemplate('workspace'),
         ownership: 'authored',
       },
       {
@@ -497,6 +519,7 @@ function appPackageTemplate(options: {
     ['better-auth', '^1.5.6'],
     ['convex', '^1.34.1'],
     ['nuxt', '^4.4.2'],
+    ['zod', '^4.3.6'],
   ]
 
   if (options.mcp) {
@@ -568,7 +591,7 @@ pnpm dev
 - \`convex/domain/\` for app modules
 - \`convex/permissions/\` for permission projection
 - \`convex/operations/\` for workflow-style actions
-- \`shared/schemas/\` for runtime-neutral contracts and edge schemas
+- \`shared/schemas/\` for browser/Nitro edge schemas and DTOs
 ${options.mcp ? '- \\`server/mcp/\\` for MCP runtime and tools' : ''}
 `.trimStart()
 }

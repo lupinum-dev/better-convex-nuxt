@@ -1,24 +1,6 @@
-import { defineArgs } from '@lupinum/trellis/args'
-/**
- * Why this file exists:
- * These args definitions are reused by both Convex handlers and server-side callers so the board
- * UI and the export route stay aligned.
- */
-import { v } from 'convex/values'
+import * as z from 'zod'
 
-export const projectStatusValidator = v.union(v.literal('active'), v.literal('archived'))
-
-export const createProject = defineArgs({
-  description: 'Create a new project inside the current workspace.',
-  args: {
-    name: v.string(),
-    summary: v.optional(v.string()),
-  },
-})
-
-export const archiveProject = defineArgs({
-  description: 'Archive a project and freeze new task creation.',
-  args: {
-    id: v.id('projects'),
-  },
+export const createProjectInputSchema = z.object({
+  name: z.string().trim().min(1, 'Project name is required').max(120, 'Keep the name short'),
+  summary: z.string().trim().max(500, 'Keep the summary under 500 characters').optional(),
 })

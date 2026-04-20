@@ -1,6 +1,6 @@
 import { requireRecord } from '@lupinum/trellis/auth'
 
-import { createTodo, listTodos, setTodoCompleted } from '../../shared/schemas/todo'
+import { createTodo, listTodos, setTodoCompleted } from './todo.contract'
 import type { Doc, Id } from '../_generated/dataModel'
 import { todoCapabilities } from '../auth/capabilities'
 import { canUpdateTodo } from '../auth/checks'

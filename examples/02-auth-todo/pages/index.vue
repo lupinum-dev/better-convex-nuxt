@@ -179,6 +179,7 @@ import { computed, ref, watch } from 'vue'
 import * as z from 'zod'
 
 import { api } from '#trellis/api'
+import { createTodoInputSchema } from '~/shared/schemas/todo'
 
 const { client, isAuthenticated, isPending, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
@@ -311,9 +312,10 @@ async function handleSignOut() {
 }
 
 async function handleCreateTodo() {
-  await createTodo({
-    title: title.value,
-  })
+  const parsed = createTodoInputSchema.safeParse({ title: title.value })
+  if (!parsed.success) return
+
+  await createTodo(parsed.data)
 
   title.value = ''
 }

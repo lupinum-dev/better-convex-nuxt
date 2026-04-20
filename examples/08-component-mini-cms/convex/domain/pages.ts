@@ -11,7 +11,7 @@ import {
   publishedPageValidator,
   saveDraft as saveDraftSchema,
   studioPageValidator,
-} from '../../shared/schemas/page'
+} from './page.contract'
 import { internal } from '../_generated/api'
 import { mutation, query } from '../functions'
 

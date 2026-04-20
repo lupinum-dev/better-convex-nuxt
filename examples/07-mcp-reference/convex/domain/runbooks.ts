@@ -6,7 +6,7 @@ import {
   listRunbooks,
   searchRunbooks,
   updateRunbook,
-} from '../../shared/schemas/runbook'
+} from './runbook.contract'
 import type { Doc, Id } from '../_generated/dataModel'
 import { getActor } from '../auth/actor'
 import { publicRunbookCapabilities, workspaceRunbookCapabilities } from '../auth/capabilities'
