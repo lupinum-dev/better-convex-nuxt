@@ -62,6 +62,10 @@ function readTextIfExists(path: string): string | null {
   return readFileSync(path, 'utf8')
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function readJsonIfExists(path: string): PackageJson | null {
   const text = readTextIfExists(path)
   if (!text) return null
@@ -361,8 +365,122 @@ export function usesMcpRateLimit(project: ProjectInspection): boolean {
   return project.sourceFiles.some((file) => /\brateLimit\s*:\s*\{\s*max\s*:/.test(file.text))
 }
 
-export function hasConfiguredMcpRateLimitStore(project: ProjectInspection): boolean {
-  return project.sourceFiles.some((file) => /\brateLimitStore\s*:/.test(file.text))
+function projectHasNamedRedisStoreFactory(project: ProjectInspection, name: string): boolean {
+  const pattern = new RegExp(
+    `\\b(?:export\\s+)?(?:const|let|var)\\s+${escapeRegex(name)}\\s*=\\s*createRedisMcpRateLimitStore\\s*\\(`,
+  )
+
+  return project.sourceFiles.some((sourceFile) => pattern.test(sourceFile.text))
+}
+
+function unwrapExpression(node: Node | undefined): Node | undefined {
+  if (!node) return undefined
+
+  if (
+    Node.isParenthesizedExpression(node) ||
+    Node.isAsExpression(node) ||
+    Node.isTypeAssertion(node) ||
+    Node.isSatisfiesExpression(node)
+  ) {
+    return unwrapExpression(node.getExpression())
+  }
+
+  return node
+}
+
+function isRedisStoreCall(node: Node | undefined): boolean {
+  const expression = unwrapExpression(node)
+  if (!expression || !Node.isCallExpression(expression)) return false
+
+  const callee = expression.getExpression()
+  return Node.isIdentifier(callee) && callee.getText() === 'createRedisMcpRateLimitStore'
+}
+
+function resolveImportedVariableDeclaration(
+  identifier: import('ts-morph').Identifier,
+): import('ts-morph').VariableDeclaration | undefined {
+  const definitions = identifier.getDefinitions()
+
+  for (const definition of definitions) {
+    const declaration = definition.getDeclarationNode()
+    if (!declaration) continue
+
+    if (Node.isVariableDeclaration(declaration)) {
+      return declaration
+    }
+
+    if (!Node.isImportSpecifier(declaration)) continue
+
+    const importDeclaration = declaration.getFirstAncestorByKind(SyntaxKind.ImportDeclaration)
+    const importedSourceFile = importDeclaration?.getModuleSpecifierSourceFile()
+    if (!importedSourceFile) continue
+
+    const bindingName = declaration.getNameNode().getText()
+    const exportedDeclarations = importedSourceFile.getExportedDeclarations().get(bindingName)
+    const exportedVariable = exportedDeclarations?.find((node) => Node.isVariableDeclaration(node))
+
+    if (exportedVariable && Node.isVariableDeclaration(exportedVariable)) {
+      return exportedVariable
+    }
+  }
+
+  return undefined
+}
+
+function propertyUsesSupportedRedisStore(
+  project: ProjectInspection,
+  property: import('ts-morph').ObjectLiteralElementLike,
+): boolean {
+  if (Node.isPropertyAssignment(property)) {
+    const initializer = unwrapExpression(property.getInitializer())
+    if (isRedisStoreCall(initializer)) {
+      return true
+    }
+
+    if (initializer && Node.isIdentifier(initializer)) {
+      const importedVariable = resolveImportedVariableDeclaration(initializer)
+      if (importedVariable && isRedisStoreCall(importedVariable.getInitializer())) {
+        return true
+      }
+
+      return projectHasNamedRedisStoreFactory(project, initializer.getText())
+    }
+  }
+
+  if (Node.isShorthandPropertyAssignment(property)) {
+    const importedVariable = resolveImportedVariableDeclaration(property.getNameNode())
+    if (importedVariable && isRedisStoreCall(importedVariable.getInitializer())) {
+      return true
+    }
+
+    return projectHasNamedRedisStoreFactory(project, property.getName())
+  }
+
+  return false
+}
+
+export function findMcpRateLimitStoreSupport(
+  project: ProjectInspection,
+): 'supported' | 'unverified' | 'none' {
+  const analysis = createAnalysisProject(project)
+  let sawExplicitStore = false
+
+  for (const sourceFile of analysis.getSourceFiles()) {
+    for (const objectLiteral of sourceFile.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
+      const property = objectLiteral
+        .getProperties()
+        .find((candidate) => getPropertyName(candidate) === 'rateLimitStore')
+
+      if (!property) continue
+
+      sawExplicitStore = true
+      if (propertyUsesSupportedRedisStore(project, property)) {
+        return 'supported'
+      }
+    }
+  }
+
+  return sawExplicitStore ? 'unverified' : 'none'
 }
 
 export function usesPermissionSurfaces(project: ProjectInspection): boolean {

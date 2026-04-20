@@ -189,7 +189,7 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
    * Without `rateLimitStore`, enforcement is process-local memory only.
    */
   rateLimit?: { max: number; window: string }
-  /** Optional distributed rate-limit store for this tool. */
+  /** Optional distributed rate-limit store for this tool. Prefer `createRedisMcpRateLimitStore(...)` for a first-party atomic implementation. */
   rateLimitStore?: McpRateLimitStore
   /** Preview function for destructive tools. Unsupported on generic tools; use operation-backed tools instead. */
   preview?: (

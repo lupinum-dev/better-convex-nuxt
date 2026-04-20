@@ -17,8 +17,8 @@ import {
   findConfiguredPermissionQueryPath,
   findDestructiveMcpToolsWithoutOperationBinding,
   findForwardedPrincipalWithoutTrustedAuth,
+  findMcpRateLimitStoreSupport,
   findMissingCanonicalLayoutPaths,
-  hasConfiguredMcpRateLimitStore,
   hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
@@ -55,7 +55,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     /tool\.fromOperation\s*\(/.test(file.text),
   )
   const mcpRateLimitExpected = usesMcpRateLimit(project)
-  const hasExplicitMcpRateLimitStore = hasConfiguredMcpRateLimitStore(project)
+  const mcpRateLimitStoreSupport = findMcpRateLimitStoreSupport(project)
   const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
   const forwardedPrincipalMisuse = findForwardedPrincipalWithoutTrustedAuth(project)
   const destructiveMcpToolMisuse = findDestructiveMcpToolsWithoutOperationBinding(project)
@@ -323,15 +323,18 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       id: 'mcp-rate-limit-store',
       category: 'advanced',
       title: 'MCP rate-limit store',
-      status: !mcpRateLimitExpected ? 'pass' : hasExplicitMcpRateLimitStore ? 'pass' : 'fail',
+      status:
+        !mcpRateLimitExpected ? 'pass' : mcpRateLimitStoreSupport === 'supported' ? 'pass' : 'fail',
       message: !mcpRateLimitExpected
         ? 'No MCP rate-limited tools were detected in the app source.'
-        : hasExplicitMcpRateLimitStore
-          ? 'Found an explicit MCP rate-limit store in app source.'
-          : 'MCP rate-limited tools were detected, but no explicit external rate-limit store was found.',
+        : mcpRateLimitStoreSupport === 'supported'
+          ? 'Found the first-party Redis MCP rate-limit store in app source.'
+          : mcpRateLimitStoreSupport === 'unverified'
+            ? 'Found an explicit MCP rate-limit store, but doctor cannot verify that it is a supported atomic distributed store.'
+            : 'MCP rate-limited tools were detected, but no supported distributed rate-limit store was found.',
       fixHint: !mcpRateLimitExpected
         ? 'No action needed unless you add MCP rate-limited tools later.'
-        : 'Configure an explicit external rate-limit store, for example `rateLimitStore: createRedisMcpRateLimitStore(...)`. The built-in fallback is process-local only.',
+        : 'Use `rateLimitStore: createRedisMcpRateLimitStore(...)` for distributed MCP enforcement. The built-in fallback is process-local memory only, and custom stores remain unverified by doctor.',
     },
     {
       id: 'mcp-destructive-operation-binding',

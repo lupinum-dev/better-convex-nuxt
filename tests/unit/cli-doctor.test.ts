@@ -244,8 +244,105 @@ describe('CLI doctor', () => {
     )
   })
 
-  it('passes doctor when MCP rate-limited tools configure an explicit external store', () => {
+  it('passes doctor when MCP rate-limited tools configure the supported Redis store', () => {
     const cwd = createTempDir('trellis-doctor-mcp-rate-limit-store-')
+    const initResult = runCli(
+      ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-mcp-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/create-todo.ts'),
+      read(resolve(appRoot, 'server/mcp/tools/create-todo.ts')).replace(
+        "meta: {\n    name: 'create-todo',\n  },",
+        "meta: {\n    name: 'create-todo',\n  },\n  rateLimit: { max: 5, window: '1m' },",
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/runtime.ts'),
+      read(resolve(appRoot, 'server/mcp/runtime.ts'))
+        .replace(
+          "import { defineMcpApp } from '@lupinum/trellis/mcp'",
+          "import { createRedisMcpRateLimitStore, defineMcpApp } from '@lupinum/trellis/mcp'",
+        )
+        .replace(
+          'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({',
+          "export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({\n  rateLimitStore: createRedisMcpRateLimitStore({ client: { eval: async () => 1 } as never }),",
+        ),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'mcp-rate-limit-store')?.status).toBe(
+      'pass',
+    )
+  })
+
+  it('passes doctor when the supported Redis store is factored through a local helper', () => {
+    const cwd = createTempDir('trellis-doctor-mcp-rate-limit-helper-store-')
+    const initResult = runCli(
+      ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-mcp-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/create-todo.ts'),
+      read(resolve(appRoot, 'server/mcp/tools/create-todo.ts')).replace(
+        "meta: {\n    name: 'create-todo',\n  },",
+        "meta: {\n    name: 'create-todo',\n  },\n  rateLimit: { max: 5, window: '1m' },",
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/rate-limit-store.ts'),
+      [
+        "import { createRedisMcpRateLimitStore } from '@lupinum/trellis/mcp'",
+        '',
+        'export const rateLimitStore = createRedisMcpRateLimitStore({',
+        '  client: { eval: async () => 1 } as never,',
+        '})',
+        '',
+      ].join('\n'),
+    )
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/runtime.ts'),
+      read(resolve(appRoot, 'server/mcp/runtime.ts'))
+        .replace(
+          "import { defineMcpApp } from '@lupinum/trellis/mcp'",
+          "import { defineMcpApp } from '@lupinum/trellis/mcp'\nimport { rateLimitStore } from './rate-limit-store'",
+        )
+        .replace(
+          'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({',
+          'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({\n  rateLimitStore,',
+        ),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'mcp-rate-limit-store')?.status).toBe(
+      'pass',
+    )
+  })
+
+  it('fails doctor when MCP rate-limited tools use an unverified custom store', () => {
+    const cwd = createTempDir('trellis-doctor-mcp-rate-limit-custom-store-')
     const initResult = runCli(
       ['init', 'doctor-mcp-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
       repoRoot,
@@ -275,10 +372,10 @@ describe('CLI doctor', () => {
       summary: { fail: number }
     }
 
-    expect(result.status, result.stderr).toBe(0)
-    expect(report.summary.fail).toBe(0)
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.summary.fail).toBeGreaterThan(0)
     expect(report.findings.find((entry) => entry.id === 'mcp-rate-limit-store')?.status).toBe(
-      'pass',
+      'fail',
     )
   })
 
