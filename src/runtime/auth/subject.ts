@@ -1,4 +1,6 @@
 export type SubjectKind = 'user' | 'agent' | 'service' | 'webhook' | 'system'
+export type Subject<K extends SubjectKind = SubjectKind> = `${K}:${string}`
+export type CanonicalSubject = Subject
 
 const subjectKinds = new Set<SubjectKind>(['user', 'agent', 'service', 'webhook', 'system'])
 
@@ -33,3 +35,24 @@ export function getSubjectValue(subject: unknown, expectedKind?: SubjectKind): s
 export function isSubjectKind(subject: unknown, kind: SubjectKind): boolean {
   return getSubjectKind(subject) === kind
 }
+
+export function createSubject<K extends SubjectKind>(kind: K, value: string): Subject<K> {
+  const normalizedValue = value.trim()
+  const candidate = `${kind}:${normalizedValue}`
+  const parsed = parseCanonicalSubject(candidate)
+
+  if (!parsed || parsed.kind !== kind) {
+    throw new Error(`Invalid canonical subject for kind "${kind}".`)
+  }
+
+  return candidate as Subject<K>
+}
+
+export const subject = {
+  user: (value: string) => createSubject('user', value),
+  agent: (value: string) => createSubject('agent', value),
+  service: (value: string) => createSubject('service', value),
+  webhook: (value: string) => createSubject('webhook', value),
+  system: (value: string) => createSubject('system', value),
+  anonymous: (): 'system:anonymous' => 'system:anonymous',
+} as const

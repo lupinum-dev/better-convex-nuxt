@@ -1,6 +1,7 @@
 import type { Delegation } from '@lupinum/trellis/functions'
 import type { H3Event } from 'h3'
 
+import { subject } from '#trellis/auth'
 import { api } from '#trellis/api'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller } from '#trellis/server'
@@ -32,7 +33,7 @@ function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   return {
     kind: 'agent',
     agentId: auth.keyId,
-    subject: `agent:${auth.keyId}`,
+    subject: subject.agent(auth.keyId),
     provider: 'mcp',
   }
 }
@@ -42,7 +43,7 @@ function getMcpDelegation(event: H3Event): Delegation | null {
   if (!auth?.userId) return null
 
   return {
-    subject: `user:${auth.userId}`,
+    subject: subject.user(auth.userId),
   }
 }
 
@@ -90,7 +91,7 @@ export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot
     )
   },
   principalKey: (principal) =>
-    principal.kind === 'agent' ? `agent:${principal.agentId}` : principal.kind,
+    principal.kind === 'agent' ? subject.agent(principal.agentId) : principal.kind,
 })
 
 export const tool = mcpRuntime.tool

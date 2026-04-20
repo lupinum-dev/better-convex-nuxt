@@ -7,6 +7,7 @@ import { createError, defineEventHandler, readBody } from 'h3'
 import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
 
+import { subject } from '@lupinum/trellis/auth'
 import { serverConvexMutation } from '#trellis/server'
 
 type WebhookBody = {
@@ -73,10 +74,10 @@ export default defineEventHandler(async (event) => {
       principal: {
         kind: 'service',
         serviceId: 'team-workspace-webhook',
-        subject: 'service:team-workspace-webhook',
+        subject: subject.service('team-workspace-webhook'),
       },
       delegation: {
-        subject: `user:${authId}`,
+        subject: subject.user(authId),
         reason: 'verified workspace todo webhook',
       },
     },

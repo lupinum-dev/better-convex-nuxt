@@ -6,7 +6,9 @@ import type {
 } from 'convex/server'
 import type { GenericValidator } from 'convex/values'
 
-import { getAuth } from '../auth/index.js'
+import { getAuth, subject } from '../auth/index.js'
+
+export type { Subject } from '../auth/index.js'
 
 type MaybePromise<T> = T | Promise<T>
 
@@ -14,13 +16,6 @@ type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
-
-export type Subject =
-  | `user:${string}`
-  | `agent:${string}`
-  | `service:${string}`
-  | `webhook:${string}`
-  | `system:${string}`
 
 export type DefaultPrincipal =
   | { kind: 'anonymous'; subject: 'system:anonymous' }
@@ -74,13 +69,13 @@ definePrincipal.fromAuth = function fromAuth<
     resolve: async (ctx) => {
       const auth = await getAuth(ctx)
       if (!auth) {
-        return { kind: 'anonymous', subject: 'system:anonymous' }
+        return { kind: 'anonymous', subject: subject.anonymous() }
       }
 
       return {
         kind: 'user',
         userId: auth.subject,
-        subject: `user:${auth.subject}`,
+        subject: subject.user(auth.subject),
       }
     },
   })

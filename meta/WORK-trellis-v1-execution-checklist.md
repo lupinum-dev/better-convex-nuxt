@@ -586,6 +586,40 @@ Confirm that the implementation is complete against the RFC and ready to be trea
 - [x] CLI, docs, runtime, examples, and tooling all reflect the same contract.
 - [x] No open blocker remains for calling the Trellis v1 shape complete.
 
+## Workstream 17: Canonical Subject Builders
+
+### Goal
+
+Close the remaining string-literal footgun around canonical subject construction without widening the auth model.
+
+### Implementation Steps
+
+- [x] Add canonical subject builders to the auth surface.
+- [x] Add a lower-level `createSubject(kind, value)` helper.
+- [x] Export the builders from `@lupinum/trellis/auth`.
+- [x] Update runtime call sites that construct canonical subjects programmatically.
+- [x] Update at least the public trusted-forwarding and MCP example call sites to use the builders.
+- [x] Add unit tests for valid and invalid canonical subject construction.
+
+### Acceptance Criteria
+
+- Canonical subject parsing and construction both exist as first-class helpers.
+- Runtime and example code no longer rely only on ad hoc string interpolation for canonical subject construction.
+- The change stays additive and does not reopen the identity model.
+
+### Verification
+
+- [x] `pnpm exec vitest run tests/unit/auth-subject.test.ts tests/unit/trusted-forwarding.test.ts tests/unit/define-convex-tool.test.ts tests/unit/create-component-bridge.test.ts`
+- [x] `pnpm exec tsc -p tsconfig.types.json --noEmit`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run lint`
+- [x] `pnpm run test:contracts`
+- [x] `pnpm run test:examples`
+
+Note:
+
+- This was a post-RFC hardening improvement, not a direction change. It fills the API gap between existing subject parsing helpers and hand-written subject construction at call sites.
+
 ## Deferred Work
 
 These are intentionally out of scope for this checklist unless explicitly promoted later:

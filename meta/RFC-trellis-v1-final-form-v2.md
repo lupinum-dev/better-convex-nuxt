@@ -596,6 +596,49 @@ Instead:
 - It keeps identity resolution predictable.
 - It solves the integration pain without surprising reads.
 
+## 9.1 Canonical Subject Builders
+
+### Problem
+
+Even with the principal / delegation / actor model in place, canonical subjects can still be too stringly if callers keep hand-writing values like `user:${authId}` and `service:${serviceId}` at each call site.
+
+The runtime already validates and parses canonical subjects. Construction should be just as consistent.
+
+### Alternatives Considered
+
+#### A. Keep string interpolation at call sites
+
+Rejected because it leaves a real footgun in exactly the identity model Trellis is trying to make safer.
+
+#### B. Add heavyweight principal factories for every caller shape
+
+Rejected because that adds too much surface for too little gain.
+
+#### C. Add small canonical subject builders
+
+Accepted.
+
+### Decision
+
+Trellis exposes canonical subject builders in the auth surface:
+
+- `subject.user(id)`
+- `subject.agent(id)`
+- `subject.service(id)`
+- `subject.webhook(id)`
+- `subject.system(id)`
+- `subject.anonymous()`
+
+and the lower-level `createSubject(kind, value)`.
+
+The library should use these builders in its own runtime and examples anywhere canonical subjects are constructed programmatically.
+
+### Why This Wins
+
+- It closes a real string-literal footgun without changing the identity model.
+- It complements the existing subject parsing helpers with an equally small construction surface.
+- It keeps the fix additive and low-risk instead of reopening the auth design.
+
 ## 10. Starter Ladder And Teaching Path
 
 ### Problem

@@ -13,6 +13,7 @@ import type {
 } from 'convex/server'
 import type { ViteUserConfig as UserConfig } from 'vitest/config'
 
+import { subject } from '../auth/subject.js'
 import { registerObservationCaptureListener } from '../observability/capture.js'
 import type { TrellisObservationEvent } from '../observability/index.js'
 
@@ -388,22 +389,22 @@ function resolveTrustedForwardingSubject(principal: Record<string, unknown>): st
   }
 
   if (typeof principal.userId === 'string' && principal.userId) {
-    return `user:${principal.userId}`
+    return subject.user(principal.userId)
   }
 
   if (typeof principal.agentId === 'string' && principal.agentId) {
-    return `agent:${principal.agentId}`
+    return subject.agent(principal.agentId)
   }
 
   if (typeof principal.serviceId === 'string' && principal.serviceId) {
-    return `service:${principal.serviceId}`
+    return subject.service(principal.serviceId)
   }
 
   if (typeof principal.kind === 'string' && principal.kind) {
     return `principal:${principal.kind}`
   }
 
-  return 'agent:trusted-forwarding-test'
+  return subject.agent('trusted-forwarding-test')
 }
 
 export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserConfig {

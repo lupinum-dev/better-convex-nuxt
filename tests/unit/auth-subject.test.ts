@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { getSubjectKind, getSubjectValue, isSubjectKind } from '../../src/runtime/auth/subject'
+import {
+  createSubject,
+  getSubjectKind,
+  getSubjectValue,
+  isSubjectKind,
+  subject,
+} from '../../src/runtime/auth/subject'
 
 describe('canonical subject helpers', () => {
   it('parses the canonical subject kind for supported subject shapes', () => {
@@ -32,5 +38,21 @@ describe('canonical subject helpers', () => {
     expect(isSubjectKind('user:u_1', 'user')).toBe(true)
     expect(isSubjectKind('agent:a_1', 'user')).toBe(false)
     expect(isSubjectKind('user:', 'user')).toBe(false)
+  })
+
+  it('builds canonical subjects for each supported kind', () => {
+    expect(subject.user('u_1')).toBe('user:u_1')
+    expect(subject.agent('a_1')).toBe('agent:a_1')
+    expect(subject.service('sync')).toBe('service:sync')
+    expect(subject.webhook('incoming')).toBe('webhook:incoming')
+    expect(subject.system('scheduler')).toBe('system:scheduler')
+    expect(subject.anonymous()).toBe('system:anonymous')
+    expect(createSubject('user', 'u_2')).toBe('user:u_2')
+  })
+
+  it('rejects invalid canonical subject construction', () => {
+    expect(() => subject.user('')).toThrow(/invalid canonical subject/i)
+    expect(() => subject.agent('bad id')).toThrow(/invalid canonical subject/i)
+    expect(() => createSubject('service', '   ')).toThrow(/invalid canonical subject/i)
   })
 })

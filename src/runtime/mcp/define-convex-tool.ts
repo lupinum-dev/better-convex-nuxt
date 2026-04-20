@@ -11,7 +11,7 @@ import type { ZodRawShape, ZodTypeAny } from 'zod'
 
 import type { SchemaFieldMeta } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
-import type { Subject } from '../functions/define-principal.js'
+import { subject, type Subject } from '../auth/index.js'
 import { createServerConvexCaller } from '../server/index.js'
 import { extractSubject } from '../trusted-forwarding/shared.js'
 import { toConvexError } from '../utils/call-result.js'
@@ -269,7 +269,7 @@ async function resolveToolPrincipal<TRole extends string = string>(
     return {
       kind: 'user',
       userId: actor.userId,
-      subject: `user:${actor.userId}`,
+      subject: subject.user(actor.userId),
     }
   }
 

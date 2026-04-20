@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import type { PropertyValidators } from 'convex/values'
 
 import { deny } from '../auth/index.js'
-import { getSubjectKind, getSubjectValue } from '../auth/subject.js'
+import { getSubjectKind, getSubjectValue, subject } from '../auth/subject.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import type { Subject } from '../functions/define-principal.js'
 
@@ -113,19 +113,19 @@ function deriveCanonicalSubject(value: unknown): Subject | undefined {
   const kind = value.kind
   if (kind === 'user') {
     const userId = nonBlankString((value as { userId?: unknown }).userId)
-    return userId ? (`user:${userId}` as Subject) : undefined
+    return userId ? subject.user(userId) : undefined
   }
 
   if (kind === 'agent') {
     const agentId =
       nonBlankString((value as { agentId?: unknown }).agentId) ??
       nonBlankString((value as { userId?: unknown }).userId)
-    return agentId ? (`agent:${agentId}` as Subject) : undefined
+    return agentId ? subject.agent(agentId) : undefined
   }
 
   if (kind === 'service') {
     const serviceId = nonBlankString((value as { serviceId?: unknown }).serviceId)
-    return serviceId ? (`service:${serviceId}` as Subject) : undefined
+    return serviceId ? subject.service(serviceId) : undefined
   }
 
   return undefined

@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, readBody } from 'h3'
 
+import { subject } from '@lupinum/trellis/auth'
 import { api } from '#trellis/api'
 import { serverConvexMutation } from '#trellis/server'
 
@@ -96,10 +97,10 @@ export default defineEventHandler(async (event) => {
       principal: {
         kind: 'service',
         serviceId: 'runbook-webhook',
-        subject: 'service:runbook-webhook',
+        subject: subject.service('runbook-webhook'),
       },
       delegation: {
-        subject: `user:${authId}`,
+        subject: subject.user(authId),
         reason: 'verified runbook webhook',
       },
     },

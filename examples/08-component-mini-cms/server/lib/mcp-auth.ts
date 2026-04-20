@@ -1,5 +1,6 @@
 import { getHeader, type H3Event } from 'h3'
 
+import { subject } from '@lupinum/trellis/auth'
 import {
   createPagePermission,
   listDraftPagesPermission,
@@ -23,13 +24,13 @@ export function getMcpPrincipal(event: H3Event): MiniCmsPrincipal {
   const token = readBearerToken(event)
 
   if (!token || token !== runtimeConfig.demoMcpToken) {
-    return { kind: 'anonymous', subject: 'system:anonymous' }
+    return { kind: 'anonymous', subject: subject.anonymous() }
   }
 
   return {
     kind: 'agent',
     agentId: 'demo-key',
-    subject: 'agent:demo-key',
+    subject: subject.agent('demo-key'),
     provider: 'mcp',
   }
 }
