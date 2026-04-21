@@ -1,12 +1,14 @@
 ---
-title: 'The application layer for Nuxt + Convex.'
+title: 'The Trellis framework for Nuxt + Convex.'
 navigation: false
 description: 'Build Nuxt apps on one app-owned business layer with SSR-aware data, auth, permissions, operations, observability, and agent-safe access.'
 ---
 
-# One app-owned business layer for Nuxt + Convex
+# One framework-owned business layer for Nuxt + Convex
 
 Trellis keeps Nuxt, Convex, auth, permissions, operations, observability, and MCP on one app-owned business layer instead of splitting those rules across transports.
+
+It is an opinionated framework, not a neutral helper layer. The product surface is the canonical app shape plus the starters, generators, examples, lint rules, `doctor`, and maintained runtime contracts that reinforce it.
 
 ::callout{icon="i-lucide-arrow-right" color="neutral" to="/docs/getting-started/start-here"}
 Start with [Start here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First live query](/docs/getting-started/first-live-query) before the protected app path.

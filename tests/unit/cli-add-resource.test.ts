@@ -85,6 +85,12 @@ describe('trellis add entity', () => {
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/permissions.ts'), 'utf8'),
     ).resolves.toContain("check: hasWorkspace.and(hasMinimumRole('member'))")
+    await expect(readFile(resolve(cwd, 'convex/features/index.ts'), 'utf8')).resolves.toContain(
+      "import { projectsFeature } from './projects/feature'",
+    )
+    await expect(readFile(resolve(cwd, 'convex/features/index.ts'), 'utf8')).resolves.toContain(
+      'composeFeatures([workspacesFeature, usersFeature, todosFeature, projectsFeature])',
+    )
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/tests.ts'), 'utf8'),
     ).resolves.toContain('seedTenant')
@@ -146,9 +152,28 @@ describe('trellis add entity', () => {
     await expect(
       readFile(resolve(cwd, 'convex/features/entries/domain.ts'), 'utf8'),
     ).resolves.toContain('loaded.authorId === actor.userId')
+    await expect(readFile(resolve(cwd, 'convex/features/index.ts'), 'utf8')).resolves.toContain(
+      "import { entriesFeature } from './entries/feature'",
+    )
+    await expect(readFile(resolve(cwd, 'convex/features/index.ts'), 'utf8')).resolves.toContain(
+      'composeFeatures([usersFeature, pagesFeature, entriesFeature])',
+    )
     await expect(
       readFile(resolve(cwd, 'convex/features/entries/schema.ts'), 'utf8'),
     ).resolves.toContain('authorId: v.string()')
+  })
+})
+
+describe('trellis init cms', () => {
+  it('describes the cms starter as the simple public+studio baseline, not the component-boundary example', async () => {
+    const cwd = await scaffoldApp('cms')
+
+    await expect(readFile(resolve(cwd, 'README.md'), 'utf8')).resolves.toContain(
+      'This starter is the simple public-site + signed-in studio baseline.',
+    )
+    await expect(readFile(resolve(cwd, 'README.md'), 'utf8')).resolves.toContain(
+      'Use [`08-component-mini-cms`]',
+    )
   })
 })
 

@@ -188,8 +188,8 @@ Make dangerous paths visible, enforced, and release-critical across the framewor
 - [x] Add or tighten checks for destructive operation inventory where useful.
 - [x] Strengthen MCP deployment checks, especially around distributed rate-limit expectations.
 - [x] Strengthen ESLint rules around trust boundaries, unsafe access, and public handler quality.
-- [ ] Promote relevant drift checks from advisory to release-gating where appropriate.
-- [ ] Ensure repo CI fails on framework drift instead of tolerating it.
+- [x] Promote relevant drift checks from advisory to release-gating where appropriate.
+- [x] Ensure repo CI fails on framework drift instead of tolerating it.
 
 Progress note:
 
@@ -198,6 +198,7 @@ Progress note:
 - Added explicit `doctor` inventory findings for `unsafe.query(...)` / `unsafe.mutation(...)` entrypoints and `escapeTenantIsolation(...)` call sites in [src/cli/commands/doctor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/doctor.ts:351) and [src/cli/lib/project.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/project.ts:545), with regression coverage in [tests/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-doctor.test.ts:688).
 - Added `doctor` inventory findings for destructive operations declared with `kind: 'destructive'` in [src/cli/commands/doctor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/doctor.ts:384) and [src/cli/lib/project.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/project.ts:573), with regression coverage in [tests/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-doctor.test.ts:736).
 - Strengthened the ESLint trust-boundary surface by adding indexed-collection enforcement for `unsafe.query(...)` handlers in [src/eslint/rules/boundaries.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/eslint/rules/boundaries.ts:289), wiring it into the recommended config in [src/eslint/rules/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/eslint/rules/index.ts:14), and covering representative good/bad fixtures in [tests/unit/eslint-plugin.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/eslint-plugin.test.ts:320).
+- Added [scripts/check-maintained-examples-doctor.mjs](/Users/matthias/Git/0_libs/WORK/trellis/scripts/check-maintained-examples-doctor.mjs:1), wired it into [package.json](/Users/matthias/Git/0_libs/WORK/trellis/package.json:136) via `check:examples:doctor`, and added it to CI in [.github/workflows/ci.yml](/Users/matthias/Git/0_libs/WORK/trellis/.github/workflows/ci.yml:81) so maintained-example doctor drift now fails both local `pnpm run check` and pull-request validation.
 
 ### Acceptance Criteria
 
@@ -223,8 +224,8 @@ Make the product story simpler by pulling starters and maintained examples towar
 - [x] Audit starter output against `03-team-workspace` and current canonical layout expectations.
 - [x] Improve `workspace` so it is clearly the default serious-app lane.
 - [x] Improve `workspace --mcp` so MCP remains an extension of the workspace model, not a parallel starter family.
-- [ ] Improve `cms` so it feels aligned with the same product conventions.
-- [ ] Improve `trellis add entity` output so generated slices require less manual cleanup.
+- [x] Improve `cms` so it feels aligned with the same product conventions.
+- [x] Improve `trellis add entity` output so generated slices require less manual cleanup.
 - [x] Improve `trellis add uploads` output so it matches the same canonical product story.
 - [x] Improve `trellis add operation` output so generated operations align with current destructive and shared-work expectations.
 - [x] Remove mixed signals in docs and examples about which protected-app path is primary.
@@ -235,6 +236,8 @@ Progress note:
 - Audited generated `workspace` and `workspace --mcp` starter trees against the canonical layout and `03-team-workspace` baseline with temporary CLI scaffolds.
 - Updated starter README generation in [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts:836) so `workspace` points directly at `03-team-workspace`, while `workspace --mcp` points to `03-team-workspace` first and `07-mcp-reference` second.
 - Updated `trellis add uploads` to scaffold the same contract-backed unsafe upload seam taught by the maintained SaaS example via [src/cli/templates/init/uploadsContractTemplate.tpl](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/templates/init/uploadsContractTemplate.tpl:1), [src/cli/templates/init/uploadsDomainTemplate.tpl](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/templates/init/uploadsDomainTemplate.tpl:1), and regression coverage in [tests/unit/cli-add-resource.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-add-resource.test.ts:156).
+- Updated the generated CMS starter README in [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts:836) so it presents `cms` as the simple public-site + studio baseline and points to `08-component-mini-cms` only as the advanced boundary reference, with scaffold regression coverage in [tests/unit/cli-add-resource.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-add-resource.test.ts:156).
+- Fixed `trellis add entity` feature-manifest patching in [src/cli/lib/resource.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/resource.ts:507) so generated workspace and CMS entities import and compose their new feature correctly instead of assuming the workspace manifest shape, with regression coverage in [tests/unit/cli-add-resource.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-add-resource.test.ts:60).
 
 ### Acceptance Criteria
 
@@ -292,7 +295,7 @@ Make Trellis easier to evaluate correctly by tightening the public product story
 
 ### Checklist
 
-- [ ] Tighten docs and website language so Trellis is consistently described as a framework.
+- [x] Tighten docs and website language so Trellis is consistently described as a framework.
 - [x] Make the intended audience explicit.
 - [x] Make the non-ideal audience explicit.
 - [ ] Keep future families in `labs` until they earn promotion into the public product contract.
@@ -302,6 +305,7 @@ Make Trellis easier to evaluate correctly by tightening the public product story
 Progress note:
 
 - Added explicit good-fit and non-ideal-fit framing to the public entry points in [README.md](/Users/matthias/Git/0_libs/WORK/trellis/README.md:1) and [apps/docs/content/docs/01.getting-started/1.start-here.md](/Users/matthias/Git/0_libs/WORK/trellis/apps/docs/content/docs/01.getting-started/1.start-here.md:1).
+- Tightened the docs landing page and examples landing page so they describe Trellis as an opinionated framework with a canonical path, not as a neutral helper layer, in [apps/docs/content/index.md](/Users/matthias/Git/0_libs/WORK/trellis/apps/docs/content/index.md:1) and [examples/README.md](/Users/matthias/Git/0_libs/WORK/trellis/examples/README.md:1).
 
 ### Acceptance Criteria
 

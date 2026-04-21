@@ -625,15 +625,23 @@ async function patchFeatureManifest(cwd: string, ctx: ResourceGeneratorContext):
 
   const path = resolve(cwd, 'convex/features/index.ts')
   const source = await readFile(path, 'utf8')
-  if (source.includes(`./${ctx.tableName}'`)) {
+  const featureName = `${ctx.tableName}Feature`
+  const featureImport = `import { ${featureName} } from './${ctx.tableName}/feature'`
+
+  if (source.includes(featureImport)) {
     return
   }
 
-  const featureName = `${ctx.tableName}Feature`
-  const withImport = source.replace(
-    /import \{ ([^}]+) \} from '\.\/workspaces\/feature'/,
-    (match) => `${match}\nimport { ${featureName} } from './${ctx.tableName}/feature'`,
-  )
+  const importMatches = [...source.matchAll(/^import .*$/gm)]
+  const lastImport = importMatches.at(-1)
+  if (!lastImport || lastImport.index === undefined) {
+    throw new Error(
+      '[trellis] Could not patch convex/features/index.ts. Expected a canonical import block.',
+    )
+  }
+
+  const importInsertionIndex = lastImport.index + lastImport[0].length
+  const withImport = `${source.slice(0, importInsertionIndex)}\n${featureImport}${source.slice(importInsertionIndex)}`
   const next = withImport.replace(
     /composeFeatures\(\[([^\]]+)\]\)/,
     (_match, items) => `composeFeatures([${items.trimEnd()}, ${featureName}])`,

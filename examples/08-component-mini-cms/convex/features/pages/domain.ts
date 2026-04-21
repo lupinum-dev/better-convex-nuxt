@@ -40,7 +40,7 @@ async function bridgePrincipalArgs(ctx: {
   return principal.kind === 'anonymous' ? {} : { principal }
 }
 
-const bridgeApi = internal.features.pages.bridge as any
+const bridgeApi: typeof internal.features.pages.bridge = internal.features.pages.bridge
 
 export const listPublished = query({
   args: listPublishedPagesSchema.args,

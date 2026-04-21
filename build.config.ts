@@ -10,6 +10,11 @@ export default defineBuildConfig({
     { builder: 'mkdist', input: 'src/runtime/auth', outDir: 'dist/runtime/auth' },
     { builder: 'mkdist', input: 'src/runtime/composables', outDir: 'dist/runtime/composables' },
     { builder: 'mkdist', input: 'src/runtime/functions', outDir: 'dist/runtime/functions' },
+    {
+      builder: 'mkdist',
+      input: 'src/runtime/observability',
+      outDir: 'dist/runtime/observability',
+    },
     { builder: 'mkdist', input: 'src/runtime/schema', outDir: 'dist/runtime/schema' },
     {
       builder: 'mkdist',

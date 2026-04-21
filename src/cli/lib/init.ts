@@ -858,7 +858,8 @@ function readmeTemplate(options: {
                 '- Start with the maintained reference: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).',
               ]
             : [
-                '- Start with the maintained reference: [`08-component-mini-cms`](https://github.com/lupinum-dev/trellis/tree/main/examples/08-component-mini-cms).',
+                '- This starter is the simple public-site + signed-in studio baseline.',
+                '- Use [`08-component-mini-cms`](https://github.com/lupinum-dev/trellis/tree/main/examples/08-component-mini-cms) only when you need the advanced component-boundary architecture on top of that baseline.',
               ]
 
   const lines = [

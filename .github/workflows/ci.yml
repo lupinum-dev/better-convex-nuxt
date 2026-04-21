@@ -78,6 +78,9 @@ jobs:
       - name: Type check
         run: npm run test:types
 
+      - name: Maintained example doctor checks
+        run: npm run check:examples:doctor
+
       - name: Publish preview release
         run: npx pkg-pr-new publish --pnpm
 

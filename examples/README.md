@@ -2,7 +2,7 @@
 
 The gallery now has one job: teach Trellis in a clear order first, then branch into advanced patterns.
 
-These are examples, not CLI templates.
+These are maintained framework references, not CLI templates.
 
 If you want the productized starting points, use:
 
@@ -13,6 +13,9 @@ If you want the productized starting points, use:
 
 Use this folder when you want to learn the stack, inspect a real pattern, or pressure-test an
 architecture before it graduates into a template.
+
+Trellis is a framework with a canonical path, not an unopinionated example buffet. Read the ladder
+first, then branch only when the baseline shape is already clear.
 
 ## Start Here: 01-04
 
@@ -33,6 +36,9 @@ The intended ladder is:
 4. `04` shows how server boundaries fit into that protected app model.
 
 If you only read one protected-app example in the repo, read `03-team-workspace`.
+
+If you are evaluating the framework rather than studying advanced branches, stop at `03` first and
+only open `04+` after that baseline feels obvious.
 
 ## Advanced Branches: 05-08
 
