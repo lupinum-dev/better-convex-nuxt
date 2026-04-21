@@ -70,8 +70,13 @@ App-owned env vars:
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 - `CONVEX_TRUSTED_FORWARDING_KEY`: trusted server-to-Convex lane
 - `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
+- `MCP_RATE_LIMIT_REDIS_URL`: Redis connection string for distributed MCP rate limiting
 - `MCP_REFERENCE_WEBHOOK_SECRET`: route secret for the verified webhook example
 - `MCP_REFERENCE_WEBHOOK_AUTH_ID`: user or bot `authId` the verified webhook delegates to
+
+Rate-limited MCP tools in this example use Trellis's Redis-backed store. For local development, run a
+Redis instance such as `docker run --rm -p 6379:6379 redis:7-alpine` and keep
+`MCP_RATE_LIMIT_REDIS_URL` pointed at it.
 
 ## Test
 

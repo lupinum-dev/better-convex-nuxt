@@ -16,6 +16,8 @@ import {
   runbookRead,
 } from '~/convex/features/runbooks/permissions'
 
+import { mcpRateLimitStore } from './rate-limit-store'
+
 type McpAuthContext = {
   keyId?: string
   userId?: string
@@ -49,6 +51,7 @@ async function getMcpDelegation(event: H3Event): Promise<Delegation | null> {
 }
 
 export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot, Delegation>({
+  rateLimitStore: mcpRateLimitStore,
   callConvex: async (event, { principal, delegation }) => {
     if (principal.kind !== 'agent') {
       return createServerConvexCaller(event, { auth: 'none' })

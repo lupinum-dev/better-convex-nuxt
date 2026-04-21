@@ -122,7 +122,7 @@ Progress note:
 
 - Verified maintained examples `03` through `08` against `trellis doctor`, typecheck, and their local test suites.
 - Fixed example/docs drift in [examples/README.md](/Users/matthias/Git/0_libs/WORK/trellis/examples/README.md:1) and corrected CSV escaping in [examples/04-saas-platform/server/api/export.get.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/04-saas-platform/server/api/export.get.ts:1).
-- Example `07-mcp-reference` is now an explicit maintained-reference exception: it intentionally fails `doctor` on missing distributed MCP rate-limit store so the framework keeps that deployment check as a hard gate.
+- Example `07-mcp-reference` now wires a supported Redis-backed MCP rate-limit store and can satisfy the deployment check when `MCP_RATE_LIMIT_REDIS_URL` is configured.
 
 ### Acceptance Criteria
 
@@ -251,7 +251,7 @@ Make the most powerful Trellis paths production-shaped instead of merely impress
 ### Checklist
 
 - [ ] Review MCP examples and docs for production deployment clarity.
-- [ ] Make distributed MCP rate-limit expectations explicit wherever rate-limited MCP tools are taught.
+- [x] Make distributed MCP rate-limit expectations explicit wherever rate-limited MCP tools are taught.
 - [ ] Review public and cross-tenant examples so those surfaces are visibly intentional and bounded.
 - [ ] Review webhook and trusted-forwarding examples for replay-aware, production-grade guidance.
 - [ ] Review component-bridge maintained references for ergonomics and unsafe glue.
@@ -262,6 +262,7 @@ Progress note:
 
 - Restored an explicit per-request size bound on the destructive MCP bulk-delete reference in [examples/07-mcp-reference/server/mcp/tools/runbooks/bulk-delete.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/mcp/tools/runbooks/bulk-delete.ts:1).
 - Fixed the underlying `tool.fromOperation(...).maxItems` typing seam in [src/runtime/mcp/types.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/types.ts:32), [src/runtime/mcp/define-mcp-app.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/define-mcp-app.ts:255), and [src/runtime/mcp/define-convex-tool.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/define-convex-tool.ts:593) so the maintained example no longer needs a cast for `maxItems`.
+- Wired Example `07-mcp-reference` to a supported Redis-backed MCP rate-limit store in [server/mcp/rate-limit-store.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/mcp/rate-limit-store.ts:1) and documented `MCP_RATE_LIMIT_REDIS_URL` in the example README and env table.
 
 ### Acceptance Criteria
 
@@ -319,7 +320,7 @@ Define the final conditions for calling this roadmap cycle complete.
 
 Current release-gate status:
 
-- Maintained examples `03`, `04`, `05`, `06`, and `08` pass `trellis doctor`; `07-mcp-reference` is the current documented exception because it intentionally fails the distributed MCP rate-limit-store check until a supported store is taught there.
+- Maintained examples `03` through `08` pass `trellis doctor` when their documented local environment is configured, including the Redis-backed MCP rate-limit store for `07-mcp-reference`.
 - Verified local typecheck and test passes for maintained examples `04` through `08`.
 - Verified [tests/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-doctor.test.ts:1) passes.
 - Verified repo-level release-gate commands on 2026-04-21:
